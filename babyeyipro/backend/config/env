@@ -1,0 +1,39 @@
+# ================================================================
+# .env  —  Babyeyi Backend
+# ================================================================
+
+# Server
+PORT=5100
+NODE_ENV=development
+
+# Frontend (CORS) — Vite default port
+FRONTEND_URL=http://localhost:5174
+
+# ── Database ─────────────────────────────────────────────────────
+DB_HOST=localhost
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=
+# ⚠️  IMPORTANT: your actual database name is 'smartedusystem'
+#     (that's where your roles table lives, per your MariaDB output)
+#     Change to 'babyeyi' ONLY if you ran setup.sql to create tables there.
+DB_NAME=smartedusystem
+
+# ── Sessions ─────────────────────────────────────────────────────
+# Must NOT be empty — sessions won't persist/verify correctly without this
+SESSION_SECRET=8f3a2b1c9d4e7f6a0b5c3d2e1f4a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4
+
+# ── Babyeyi QR HMAC ──────────────────────────────────────────────
+BABYEYI_HASH_SECRET=1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b
+
+# ── File Upload ───────────────────────────────────────────────────
+UPLOAD_DIR=./uploads
+MAX_FILE_SIZE=5242880
+
+# ── Email ─────────────────────────────────────────────────────────
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=ishimwetheo488@gmail.com
+SMTP_PASS=qeoprzoxwynbiktb
+SMTP_FROM=Smart Education <ishimwetheo488@gmail.com>

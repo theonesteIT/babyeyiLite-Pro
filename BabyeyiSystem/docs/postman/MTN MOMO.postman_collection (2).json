@@ -1,0 +1,633 @@
+{
+  "info": {
+    "_postman_id": "2ae89ac5-54ce-4f88-ad30-2e5005cfabd8",
+    "name": "MTN MOMO",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "28415169"
+  },
+  "item": [
+    {
+      "name": "API USER",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-Reference-Id",
+            "value": "d595fee1-e613-4402-beb3-2e0349a5ad09",
+            "type": "text"
+          },
+          {
+            "key": "Ocp-Apim-Subscription-Key",
+            "value": "86cd25f9eb164682810fd16679b42305",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text",
+            "disabled": true
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"providerCallbackHost\": \"string\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://sandbox.momodeveloper.mtn.com/v1_0/apiuser",
+          "protocol": "https",
+          "host": [
+            "sandbox",
+            "momodeveloper",
+            "mtn",
+            "com"
+          ],
+          "path": [
+            "v1_0",
+            "apiuser"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "API KEY",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Ocp-Apim-Subscription-Key",
+            "value": "86cd25f9eb164682810fd16679b42305",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "https://sandbox.momodeveloper.mtn.com/v1_0/apiuser/d595fee1-e613-4402-beb3-2e0349a5ad09/apikey",
+          "protocol": "https",
+          "host": [
+            "sandbox",
+            "momodeveloper",
+            "mtn",
+            "com"
+          ],
+          "path": [
+            "v1_0",
+            "apiuser",
+            "d595fee1-e613-4402-beb3-2e0349a5ad09",
+            "apikey"
+          ],
+          "query": [
+            {
+              "key": "",
+              "value": null,
+              "type": "text",
+              "disabled": true
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "BALANCE",
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true,
+        "disabledSystemHeaders": {}
+      },
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSMjU2In0.eyJjbGllbnRJZCI6IjEwZjU5ZmI2LTI0Y2YtNGZjMy1hMjYwLTU1MWFjNGRjZjU3NiIsImV4cGlyZXMiOiIyMDI1LTA1LTE2VDE5OjQ0OjU1LjAyMiIsInNlc3Npb25JZCI6ImQwMmMyNmFmLTFiMWMtNDI5ZC04N2FiLTQ4Y2EwZDkwYTg4NCJ9.MHXKHv53bnUrR9mD6xjQQto5v6WPKWwYTYNvs1nKxMIodaLnvDZBjNpsxx3sSE2eHN0fE8Y3H4IkwP1i7NrTOfxytoC2r8HNON-VZmnq9ZD4z24oVlAOJ9l6iYEkhbW42Z8pHHhJ4Dg_VFOY5wubkQetUTqijLLHNKcJ_MusbXOWZU30HE3INUnijk7jE6o_nRyLXo9YC9sqLiaAsksCMJN4iCcaTLtyCLPkSWmdxd-6Z_w3T-MdcoWrnA771_SH7d9pnJ3mBQRAX8TAM9qvJ2cSETDh4x0-fE1iqkNfeHiwzshEjZ3vg51Nu_vKnKJZm-E_H3JMQ_6pUaxNaD9EWg",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [
+          {
+            "key": "Ocp-Apim-Subscription-Key",
+            "value": "8d44cd466d6448b1906705e640997896",
+            "type": "text"
+          },
+          {
+            "key": "X-Target-Environment",
+            "value": "mtnrwanda",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "mtnrwanda",
+            "type": "text",
+            "disabled": true
+          },
+          {
+            "key": "Authorization",
+            "value": "Basic N2MxMGU3MDc0NjQ1NGQ1NTgwODcyY2VjZjZlMTc3MjY6OjEwODdkNDMwLWZkZDItNDgxNC1hMjBhLWRhMjM5ZTA0YzcyNg=",
+            "type": "text",
+            "disabled": true
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://proxy.momoapi.mtn.co.rw/collection/v1_0/account/balance",
+          "protocol": "https",
+          "host": [
+            "proxy",
+            "momoapi",
+            "mtn",
+            "co",
+            "rw"
+          ],
+          "path": [
+            "collection",
+            "v1_0",
+            "account",
+            "balance"
+          ],
+          "query": [
+            {
+              "key": "",
+              "value": "86cd25f9eb164682810fd16679b42305",
+              "type": "text",
+              "disabled": true
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "TOKEN",
+      "protocolProfileBehavior": {
+        "disabledSystemHeaders": {
+          "user-agent": true,
+          "accept": true,
+          "accept-encoding": true,
+          "connection": true
+        }
+      },
+      "request": {
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "10f59fb6-24cf-4fc3-a260-551ac4dcf576",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "6e94f304982142d39a774e217b58937a",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Ocp-Apim-Subscription-Key",
+            "value": "8d44cd466d6448b1906705e640997896",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text",
+            "disabled": true
+          },
+          {
+            "key": "Authorization",
+            "value": "Basic MTBmNTlmYjYtMjRjZi00ZmMzLWEyNjAtNTUxYWM0ZGNmNTc2OjQwYjRkODBhOTI3ZDQ0ZTJhZTAwY2NhOGEzYmI2NGM2",
+            "type": "text",
+            "disabled": true
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://proxy.momoapi.mtn.co.rw/collection/token/",
+          "protocol": "https",
+          "host": [
+            "proxy",
+            "momoapi",
+            "mtn",
+            "co",
+            "rw"
+          ],
+          "path": [
+            "collection",
+            "token",
+            ""
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "TOKEN FROM WEB APP",
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true,
+        "disabledSystemHeaders": {
+          "user-agent": true,
+          "accept-encoding": true,
+          "connection": true,
+          "accept": true,
+          "content-length": true
+        }
+      },
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Ocp-Apim-Subscription-Key",
+            "value": "8d44cd466d6448b1906705e640997896",
+            "type": "text",
+            "disabled": true
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text",
+            "disabled": true
+          },
+          {
+            "key": "Authorization",
+            "value": "Basic MTBmNTlmYjYtMjRjZi00ZmMzLWEyNjAtNTUxYWM0ZGNmNTc2OjQwYjRkODBhOTI3ZDQ0ZTJhZTAwY2NhOGEzYmI2NGM2",
+            "type": "text",
+            "disabled": true
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://hosomobile.rw/payment/momopay/token",
+          "protocol": "https",
+          "host": [
+            "hosomobile",
+            "rw"
+          ],
+          "path": [
+            "payment",
+            "momopay",
+            "token"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "PAYMENT REQUEST",
+      "protocolProfileBehavior": {
+        "disabledSystemHeaders": {}
+      },
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSMjU2In0.eyJjbGllbnRJZCI6IjEwZjU5ZmI2LTI0Y2YtNGZjMy1hMjYwLTU1MWFjNGRjZjU3NiIsImV4cGlyZXMiOiIyMDI1LTA1LTE2VDE4OjI5OjUyLjIxNiIsInNlc3Npb25JZCI6IjUyZWZlMjYyLWYwZWItNGY4Ny04NGQwLTMxMjRkY2E5N2ViNSJ9.KL2y0wneoPqswCA9AdSyEC0XyAfWI__PzkEoQcqlVb2xuvlS89LPhtrgp6QoHtXXpHTOfRnED1V8xcOZEsIul04sqapMSWmBUwEFCuTAUU49SBI0nDJVI7199LYTihGd7LEGc4LFsAcxbX7oYywfYTpXi10In-yu0HRICAYGXBlyhire7fGmX6AhCrsFhMx_teDq-FLvXw1AOSxeewUeoFZqYbWL9ylTJ5RrJKyusJAWXy13J14_jnoGvIWCXKutTw09vAWCwPf1_0WRtNV78QvWZHkJLV6gSeIjMZzppAHN5kAVeR-2OZ-okXH-ygjDVrWr3oaugdwBE3vRp03KQQ",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Ocp-Apim-Subscription-Key",
+            "value": "8d44cd466d6448b1906705e640997896",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "X-Reference-Id",
+            "value": "749dc65a-bceb-43b3-860b-cf13d734d68e",
+            "type": "text"
+          },
+          {
+            "key": "X-Target-Environment",
+            "value": "mtnrwanda",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n \r\n \"externalId\": \"12345\",\r\n \"amount\":\"1000\",\r\n \"currency\": \"RWF\",\r\n \"payer\": {\r\n   \"partyIdType\": \"MSISDN\",\r\n   \"partyId\": \"250795922165\"\r\n },\r\n \"payerMessage\": \"TEST\",\r\n \"payeeNote\": \"TEST\"\r\n \r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://proxy.momoapi.mtn.co.rw/collection/v1_0/requesttopay",
+          "protocol": "https",
+          "host": [
+            "proxy",
+            "momoapi",
+            "mtn",
+            "co",
+            "rw"
+          ],
+          "path": [
+            "collection",
+            "v1_0",
+            "requesttopay"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "PAYMENT REQUEST WEB",
+      "protocolProfileBehavior": {
+        "disabledSystemHeaders": {}
+      },
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSMjU2In0.eyJjbGllbnRJZCI6IjEwZjU5ZmI2LTI0Y2YtNGZjMy1hMjYwLTU1MWFjNGRjZjU3NiIsImV4cGlyZXMiOiIyMDI1LTAyLTEwVDA5OjEyOjAyLjI3OCIsInNlc3Npb25JZCI6IjU0ZTIzOWNkLWU0ZDAtNGJhZS04NjcyLTkwNjk1OTMyZTZjZCJ9.Gpn8Cvzmnmwerr7CUgJwVqQN3D743Jlt98dTAix-v9f9mYTcCa0OepA8xBjuKpK8jELFkWUIjqm5KWLQ9JrBf6b_uwZc_UXHoSxyN22dHIqB0VpajlZ3PuvXKBhDxDzAD1RhlgKuXqCqceozsDTPvoVLn-44IqovuLtdizFJgrETAcqQdcE65rLGJLC88MW294_x_ix3QVIev8gi-WPJIIB1NRX5HjtUhxCudO36-ZkRR3yTuAmIl9mb1pXkf3cg-92aACUy_kYnCAbvKCCnrgWA9cU_JJECkQgjOXyOMBKaMY9YK8PlqH-TKb224jK23cLILAZSKH4jOWFrWXAJQw",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Ocp-Apim-Subscription-Key",
+            "value": "8d44cd466d6448b1906705e640997896",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "X-Reference-Id",
+            "value": "e8403517-4152-4213-9ca8-3c3d8373f072'",
+            "type": "text"
+          },
+          {
+            "key": "X-Target-Environment",
+            "value": "mtnrwanda",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n \"financialTransactionId\": \"1358669503891\",\r\n \"externalId\": \"12345\",\r\n \"amount\": \"1000\",\r\n \"currency\": \"RWF\",\r\n \"payer\": {\r\n   \"partyIdType\": \"MSISDN\",\r\n   \"partyId\": \"250795922165\"\r\n },\r\n \"payerMessage\": \"TEST\",\r\n \"payeeNote\": \"TEST\"\r\n \r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://hosomobile.rw/api/v1/momopay/pay?phoneNumber=250795922165&referenceId=ecaa342f-8691-4b81-b3a7-5ed958eb0b01&token=eyJ0eXAiOiJKV1QiLCJhbGciOiJSMjU2In0.eyJjbGllbnRJZCI6IjEwZjU5ZmI2LTI0Y2YtNGZjMy1hMjYwLTU1MWFjNGRjZjU3NiIsImV4cGlyZXMiOiIyMDI1LTAyLTEwVDEwOjQxOjUzLjE1MCIsInNlc3Npb25JZCI6ImRlNTNjOTFmLWE0MDctNGJjZS04ZWUwLTY0ZGY0YzgzMTI4NSJ9.Yjx3-Z_d1Osm5-vzYtDu7hwVwKokY1F2gTiu-ENKmV7oN6abF4n7_5LshsaTvVHxTU9IuXJZj1PittjLf-djUi3Lfz2xEr3ttK1idyOZG251DlYUKywItLKWMtwsGUYbpmg-BflFXgmhw7QVRx2VUkHzalbkisDlih2Ta5wdrvsHEYHI5ETAiQu7lnCHIh2naG_q5pdEH2KRgflPqsk8G4XNeoV9DFi0leNa40J8L_XivQtFXQhkHnkdsvWiq3YVDfI128dX6LJb5wbEbRrIjUTSt4UqCa3OMmZlObZychhh0eMXUL3XWfh2iefoE2HLP3ayliVdXCOhK8nVWjXV_A",
+          "protocol": "https",
+          "host": [
+            "hosomobile",
+            "rw"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "momopay",
+            "pay"
+          ],
+          "query": [
+            {
+              "key": "phoneNumber",
+              "value": "250795922165",
+              "type": "text"
+            },
+            {
+              "key": "referenceId",
+              "value": "ecaa342f-8691-4b81-b3a7-5ed958eb0b01",
+              "type": "text"
+            },
+            {
+              "key": "token",
+              "value": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSMjU2In0.eyJjbGllbnRJZCI6IjEwZjU5ZmI2LTI0Y2YtNGZjMy1hMjYwLTU1MWFjNGRjZjU3NiIsImV4cGlyZXMiOiIyMDI1LTAyLTEwVDEwOjQxOjUzLjE1MCIsInNlc3Npb25JZCI6ImRlNTNjOTFmLWE0MDctNGJjZS04ZWUwLTY0ZGY0YzgzMTI4NSJ9.Yjx3-Z_d1Osm5-vzYtDu7hwVwKokY1F2gTiu-ENKmV7oN6abF4n7_5LshsaTvVHxTU9IuXJZj1PittjLf-djUi3Lfz2xEr3ttK1idyOZG251DlYUKywItLKWMtwsGUYbpmg-BflFXgmhw7QVRx2VUkHzalbkisDlih2Ta5wdrvsHEYHI5ETAiQu7lnCHIh2naG_q5pdEH2KRgflPqsk8G4XNeoV9DFi0leNa40J8L_XivQtFXQhkHnkdsvWiq3YVDfI128dX6LJb5wbEbRrIjUTSt4UqCa3OMmZlObZychhh0eMXUL3XWfh2iefoE2HLP3ayliVdXCOhK8nVWjXV_A",
+              "type": "text"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "GET PAYMENT REQUEST",
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true,
+        "disabledSystemHeaders": {}
+      },
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSMjU2In0.eyJjbGllbnRJZCI6IjEwZjU5ZmI2LTI0Y2YtNGZjMy1hMjYwLTU1MWFjNGRjZjU3NiIsImV4cGlyZXMiOiIyMDI1LTAxLTMxVDIzOjExOjE5LjMxMSIsInNlc3Npb25JZCI6IjZhOTlmOGNlLTcwNjMtNDNhZC1hZDg4LTIwYzhmOWU0MGY2OSJ9.CJuEwjvFjPCvK9njMHxhcZALNNiuvOWKEhDbMFMlSglK76HGqXmBU1SKSVujkBAePdBF_IdxZ1YF6eITtsVLnmZ6x3vs89QDKoZKYgWATRd1VPAAiNDXoxyoGhHlBJQ0gPZzLAFQOElDdRsyYuB5ukmu7lCHndhcI91iE9BxOj66UOgOgbAxKoR-zhX1KBnKo5dZMB98LoW6V_vSrZmPM71Co01ljHLYx9GcPiJM1GUnGRHFCox_XxMCJJTRGz3l9To2G4TY-sHEoPKhh5WdArMsxvOADUfJcmRmbhlwOVF5ImfqwYrxnxP7vcZhMSVsqfdXvDqXk6pr24THXOHAcw",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [
+          {
+            "key": "Ocp-Apim-Subscription-Key",
+            "value": "8d44cd466d6448b1906705e640997896",
+            "type": "text"
+          },
+          {
+            "key": "X-Target-Environment",
+            "value": "mtnrwanda",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://proxy.momoapi.mtn.co.rw/collection/v1_0/requesttopay/12c4a2fa-e89e-4f17-805a-c4615efe4bab",
+          "protocol": "https",
+          "host": [
+            "proxy",
+            "momoapi",
+            "mtn",
+            "co",
+            "rw"
+          ],
+          "path": [
+            "collection",
+            "v1_0",
+            "requesttopay",
+            "12c4a2fa-e89e-4f17-805a-c4615efe4bab"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "GET PAYMENT REQUEST WEB APP",
+      "protocolProfileBehavior": {
+        "disabledSystemHeaders": {}
+      },
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSMjU2In0.eyJjbGllbnRJZCI6IjEwZjU5ZmI2LTI0Y2YtNGZjMy1hMjYwLTU1MWFjNGRjZjU3NiIsImV4cGlyZXMiOiIyMDI0LTEyLTE3VDEzOjQyOjMwLjU5MSIsInNlc3Npb25JZCI6IjI1NzZlOWViLTIxY2MtNDRlYy1hNDMwLTRjMTBmNDAxNDQzNSJ9.bDCy-UDknAs5ol4gSMweENnwV4gTS8hcIKC4gIqzkC-orpwcor64zgMGO39HWspZJSF2iMdlYmU4NBRoXL2be-qvsX5ZFiFwG8rGzFNQehlqdltnJb6wrJaaEGDL8_8eamXq6_OUIU9O-3bf5E4qiZLEf9BTniOnC1WyrVqYWyAXn9Bi2RdvRaWyFdH4t7n1M8r-VkelMAtBgkGkrIux8N6lLM766eznA-efRozD_gHMTbB93yZeQEab7jWQQ1IScAf7hUL-bDIeKQOoD1GUfh2iGvnMxDNrN3jqqwDSTQx04Bl72dj3MY0Vhu3PTgyRFSLPxiGPHSjvkr3nNYXNEw",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Ocp-Apim-Subscription-Key",
+            "value": "8d44cd466d6448b1906705e640997896",
+            "type": "text"
+          },
+          {
+            "key": "X-Target-Environment",
+            "value": "mtnrwanda",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://proxy.momoapi.mtn.co.rw/collection/v1_0/requesttopay/b7c7a404-fb38-41f6-a569-eb295eedcbbd",
+          "protocol": "https",
+          "host": [
+            "proxy",
+            "momoapi",
+            "mtn",
+            "co",
+            "rw"
+          ],
+          "path": [
+            "collection",
+            "v1_0",
+            "requesttopay",
+            "b7c7a404-fb38-41f6-a569-eb295eedcbbd"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "GET ACCOUNT BALANCE REQUEST",
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true,
+        "disabledSystemHeaders": {}
+      },
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSMjU2In0.eyJjbGllbnRJZCI6IjEwZjU5ZmI2LTI0Y2YtNGZjMy1hMjYwLTU1MWFjNGRjZjU3NiIsImV4cGlyZXMiOiIyMDI1LTAyLTI1VDE0OjM5OjU1LjE2NSIsInNlc3Npb25JZCI6ImI0ZWM2MjE3LTBiZDEtNGY2Zi1iYTYyLTMwYmNhNTI1ZjZjNCJ9.cj7d0-cyimNV1Mu69JCH_ku_xFKO89BSiCliaVNXIKEX1Mhkq24hv1vP65bdxVjOVJHGoPxtEZi-7cYs--UbHTfYijnLKEjDlT5p2ibbRFysdywRDMR5VSs-O3wG6Iazw2fqsLc6X2aeo74azHd5rQyzrqcS84qKXi5JBDu9sYu32aHwDujFj1ihMokNWwt3Qa6VjrK2x3Ll-bfkBkbJctxdt_Se7lQFZmmJzdFG6yCQj3VmXdENskPjh-G3k4Oe3dE_yY7YpTmIIT5xXNVRvdr6HC2xiDTE2xQj9M2CboCLp_qHztU4cwj1xBsRCXclkce5zeA5RkeJE1UkbELNBA",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [
+          {
+            "key": "Ocp-Apim-Subscription-Key",
+            "value": "8d44cd466d6448b1906705e640997896",
+            "type": "text"
+          },
+          {
+            "key": "X-Target-Environment",
+            "value": "mtnrwanda",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://proxy.momoapi.mtn.co.rw/collection/v1_0/account/balance",
+          "protocol": "https",
+          "host": [
+            "proxy",
+            "momoapi",
+            "mtn",
+            "co",
+            "rw"
+          ],
+          "path": [
+            "collection",
+            "v1_0",
+            "account",
+            "balance"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}
