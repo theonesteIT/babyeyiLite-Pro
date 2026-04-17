@@ -55,13 +55,30 @@ function getDistrictCode(districtName) {
 /** Normalize school_code to 3-digit string for coding (from DB value like "001" or "KSS001"). */
 function parseSchoolCodeNumeric(schoolCode) {
   const s = String(schoolCode || '').trim();
+  const slash = s.match(/^[0-9]{2}\/([0-9]{3})$/);
+  if (slash) return slash[1];
   if (/^[0-9]{1,3}$/.test(s)) return s.padStart(3, '0');
   const m = s.match(/([0-9]{1,3})$/);
   if (m) return m[1].padStart(3, '0');
   return '001';
 }
 
-/** Build 9-digit student code: DD + SSS + NNNN */
+/** Build school code: DDSSS (no slash) */
+function formatSchoolCode(districtCode2, seq3) {
+  const dd = String(districtCode2 || '01').padStart(2, '0').slice(-2);
+  const ss = String(Math.min(Math.max(Number(seq3) || 1, 1), 999)).padStart(3, '0');
+  return `${dd}${ss}`;
+}
+
+/** Build 9-digit internal student UID: DD + SSS + NNNN */
+function formatStudentUid(districtCode2, schoolCode3, seq4) {
+  const dd = String(districtCode2 || '01').padStart(2, '0').slice(-2);
+  const ss = parseSchoolCodeNumeric(schoolCode3);
+  const nn = String(Math.min(Math.max(Number(seq4) || 1, 1), 9999)).padStart(4, '0');
+  return `${dd}${ss}${nn}`;
+}
+
+/** Build student code: DDSSSNNNN (no slash) */
 function formatStudentCode(districtCode2, schoolCode3, seq4) {
   const dd = String(districtCode2 || '01').padStart(2, '0').slice(-2);
   const ss = parseSchoolCodeNumeric(schoolCode3);
@@ -73,5 +90,7 @@ module.exports = {
   DISTRICTS_ALPHA,
   getDistrictCode,
   parseSchoolCodeNumeric,
+  formatSchoolCode,
+  formatStudentUid,
   formatStudentCode,
 };

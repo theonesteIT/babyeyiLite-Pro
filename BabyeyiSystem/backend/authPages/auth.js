@@ -70,7 +70,9 @@ if (!promisePool) {
 }
 
 const systemSettings = require('../utils/systemSettings');
+const { ensureShuleAvanceOrgTables } = require('../BabyeyiRoutes/shuleAvanceOrgSchema');
 const { applyRememberMeToSession } = require('../utils/sessionRememberMe');
+const { getDistrictCode, formatSchoolCode } = require('../utils/rwandaDistrictCodes');
 const {
   computeProAccessEffective,
   isSchoolAccessBlocked,
@@ -124,11 +126,42 @@ function redirectForRole(roleCode) {
     DEO:            '/district-babyeyi-dashboard',
     SCHOOL_ADMIN:   '/school-babyeyi-dashboard',
     SCHOOL_MANAGER: '/school-babyeyi-dashboard',
-    ACCOUNTANT:       '/accountant/dashboard',
-    HOD:              '/hod/students',
-    AGENT:            '/agent/dashboard',
+    ACCOUNTANT:     '/accountant/dashboard',
+    DOS:            '/dos/students',
+    HOD:            '/hod/students',
+    TEACHER:        '/teacher/dashboard',
+    GATE_OFFICER:   '/gate/scanner',
+    LIBRARIAN:      '/library/dashboard',
+    STORE_MANAGER:  '/store/dashboard',
+    AGENT:          '/agent/dashboard',
+    SHULE_AVANCE_PARTNER: '/shule-avance/dashboard',
   };
   return map[roleCode] || '/login';
+}
+
+async function getNextDistrictSchoolCode(conn, districtCode) {
+  const dd = String(districtCode || '').padStart(2, '0').slice(-2);
+  if (!/^[0-9]{2}$/.test(dd)) throw new Error('Invalid district code');
+  const [rows] = await conn.query(
+    `SELECT school_code, district_code
+     FROM schools
+     WHERE deleted_at IS NULL
+       AND (district_code = ? OR school_code LIKE ?)`,
+    [dd, `${dd}%`]
+  );
+  let max = 0;
+  for (const r of rows) {
+    const exact = String(r.school_code || '').match(new RegExp(`^${dd}([0-9]{3})$`));
+    let n = exact ? parseInt(exact[1], 10) : NaN;
+    if (Number.isNaN(n)) {
+      const slash = String(r.school_code || '').match(new RegExp(`^${dd}\\/([0-9]{3})$`));
+      if (slash) n = parseInt(slash[1], 10);
+    }
+    if (!Number.isNaN(n) && n > max) max = n;
+  }
+  const next = max + 1;
+  if (next > 999) throw new Error(`Maximum school codes (999) reached for district ${dd}`);
+  return formatSchoolCode(dd, next);
 }
 
 // Guard: session must exist and role must match (case-insensitive)
@@ -187,15 +220,17 @@ router.post('/login', loginLimiter, async (req, res) => {
        FROM users u
        LEFT JOIN roles r ON u.role_id = r.id
        LEFT JOIN staff st ON u.id = st.user_id
+       LEFT JOIN pro_shule_avance_organizations sao ON sao.user_id = u.id
        WHERE u.deleted_at IS NULL
          AND (
            u.email = ?
            OR u.user_uid = ?
            OR st.staff_id = ?
            OR st.username = ?
+           OR LOWER(TRIM(sao.login_username)) = ?
          )
        LIMIT 1`,
-      [id, id, id, id]
+      [id, id, id, id, id]
     );
     const probeRole = String(roleProbe[0]?.role_code || '').toUpperCase();
     if (
@@ -244,6 +279,7 @@ router.post('/login', loginLimiter, async (req, res) => {
       FROM users u
       LEFT JOIN roles   r  ON u.role_id    = r.id
       LEFT JOIN staff   st ON u.id         = st.user_id
+      LEFT JOIN pro_shule_avance_organizations sao ON sao.user_id = u.id
       LEFT JOIN schools sc ON (
         sc.manager_user_id = u.id
         OR st.school_id    = sc.id
@@ -254,12 +290,13 @@ router.post('/login', loginLimiter, async (req, res) => {
         OR u.user_uid = ?
         OR st.staff_id = ?
         OR st.username = ?
+        OR LOWER(TRIM(sao.login_username)) = ?
       )
       AND u.deleted_at IS NULL
       ${scNorm ? 'AND sc.school_code = ?' : ''}
       LIMIT 1
     `;
-    const params = [id, id, id, id];
+    const params = [id, id, id, id, id];
     if (scNorm) params.push(scNorm);
 
     const [users] = await promisePool.query(sql, params);
@@ -480,6 +517,27 @@ router.post('/login', loginLimiter, async (req, res) => {
       }
     }
 
+    let shuleAvanceOrg = null;
+    if (roleCode === 'SHULE_AVANCE_PARTNER') {
+      try {
+        await ensureShuleAvanceOrgTables();
+        const [srows] = await promisePool.query(
+          `SELECT id, org_name, org_type, contact_email, is_active, logo_url
+           FROM pro_shule_avance_organizations WHERE user_id = ? LIMIT 1`,
+          [user.id]
+        );
+        shuleAvanceOrg = srows?.[0] || null;
+      } catch (e) {
+        console.warn('[login] shule avance org:', e.message);
+      }
+      if (!shuleAvanceOrg || !Number(shuleAvanceOrg.is_active)) {
+        return res.status(403).json({
+          success: false,
+          message: 'ShuleAvance partner account is inactive or not linked. Contact Babyeyi support.',
+        });
+      }
+    }
+
     let modules = {};
     let permissionKeys = [];
     try {
@@ -508,6 +566,7 @@ router.post('/login', loginLimiter, async (req, res) => {
       }
       req.session.userId    = user.id;
       req.session.roleCode  = user.role_code;
+      req.session.shuleAvanceOrgId = shuleAvanceOrg ? Number(shuleAvanceOrg.id) : null;
       console.log(`🔐  User authenticated: ${user.email} | Role: ${user.role_code} | Session: ${req.session.id} `);
       console.log(`School context: ${user.school_name || 'N/A'} (${user.school_code || 'N/A'}) | Staff ID: ${user.staff_id || 'N/A'} school id: ${user.school_id ? '| School ID: ' + user.school_id : ''}`);
 
@@ -549,6 +608,7 @@ router.post('/login', loginLimiter, async (req, res) => {
         school_id:  req.session.school_id,  // flat copy for consumers that expect it
         force_password_change: !!user.force_password_change,
         agent:      agentProfile,
+        shule_avance_org: shuleAvanceOrg,
       };
 
       applyRememberMeToSession(req, req.body);
@@ -722,7 +782,7 @@ router.post('/signup-full-system-controller', async (req, res) => {
 // Super Admin creates a school AND its School Admin account.
 //
 // Body:
-//   school_name*, school_code*, province*, district*, sector*,
+//   school_name*, school_code(optional: AUTO), province*, district*, sector*,
 //   cell, school_type (Public|Private|Boarding|TVET),
 //   school_email, school_phone, school_address,
 //   admin_first_name*, admin_last_name*, admin_email*,
@@ -743,11 +803,11 @@ router.post('/create-school', async (req, res) => {
     } = req.body;
 
     // Required fields
-    if (!school_name || !school_code || !province || !district || !sector) {
+    if (!school_name || !province || !district || !sector) {
       await conn.rollback(); conn.release();
       return res.status(400).json({
         success: false,
-        message: 'school_name, school_code, province, district, sector are required',
+        message: 'school_name, province, district, sector are required',
       });
     }
     if (!admin_first_name || !admin_last_name || !admin_email || !admin_password) {
@@ -762,13 +822,29 @@ router.post('/create-school', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Admin password must be at least 8 characters' });
     }
 
+    const districtCode = getDistrictCode(district);
+    if (!districtCode) {
+      await conn.rollback(); conn.release();
+      return res.status(400).json({ success: false, message: 'Invalid district; cannot generate school code' });
+    }
+    let finalSchoolCode = school_code != null ? String(school_code).trim().toUpperCase() : '';
+    if (!finalSchoolCode || finalSchoolCode === 'AUTO') {
+      finalSchoolCode = await getNextDistrictSchoolCode(conn, districtCode);
+    } else if (!new RegExp(`^${districtCode}[0-9]{3}$`).test(finalSchoolCode)) {
+      await conn.rollback(); conn.release();
+      return res.status(400).json({
+        success: false,
+        message: `school_code must match district format ${districtCode}001`,
+      });
+    }
+
     // Duplicate checks
     const [[dupSchool]] = await conn.query(
-      'SELECT id FROM schools WHERE school_code = ? LIMIT 1', [school_code]
+      'SELECT id FROM schools WHERE school_code = ? LIMIT 1', [finalSchoolCode]
     );
     if (dupSchool) {
       await conn.rollback(); conn.release();
-      return res.status(409).json({ success: false, message: `School code '${school_code}' already exists` });
+      return res.status(409).json({ success: false, message: `School code '${finalSchoolCode}' already exists` });
     }
 
     const [[dupAdmin]] = await conn.query(
@@ -812,7 +888,7 @@ router.post('/create-school', async (req, res) => {
           province, district, sector, cell,
           school_type, admin_id, is_active, created_at, updated_at)
        VALUES (?,?,?,?,?,?,?,?,?,?,?,1,NOW(),NOW())`,
-      [school_name, school_code,
+      [school_name, finalSchoolCode,
        school_email || admin_email,
        school_phone || admin_phone || null,
        school_address || null,
@@ -838,7 +914,7 @@ router.post('/create-school', async (req, res) => {
         school: {
           id:   schoolId,
           name: school_name,
-          code: school_code,
+          code: finalSchoolCode,
           province, district, sector,
           type: school_type,
         },
@@ -947,6 +1023,123 @@ router.patch('/schools/:schoolId/subscription', async (req, res) => {
   } catch (err) {
     console.error('❌  PATCH /schools/:id/subscription:', err);
     res.status(500).json({ success: false, message: 'Update failed', error: err.message });
+  }
+});
+
+// ============================================================
+// PATCH /api/auth/schools/:schoolId/manager-credentials
+// Super Admin / FSC — update school manager login email + optional password
+// (users row linked via schools.manager_user_id or schools.admin_id)
+// Body: { login_email: string, new_password?: string }
+// ============================================================
+router.patch('/schools/:schoolId/manager-credentials', async (req, res) => {
+  if (!requireElevatedPlatform(req, res)) return;
+  const schoolId = parseInt(req.params.schoolId, 10);
+  if (!schoolId) {
+    return res.status(400).json({ success: false, message: 'Invalid school id' });
+  }
+
+  const { login_email, new_password } = req.body || {};
+  const emailNorm = login_email != null ? String(login_email).trim().toLowerCase() : '';
+  if (!emailNorm || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailNorm)) {
+    return res.status(400).json({ success: false, message: 'Valid login_email is required' });
+  }
+  const pwdRaw = new_password != null ? String(new_password) : '';
+  if (pwdRaw.length > 0 && pwdRaw.length < 8) {
+    return res.status(400).json({ success: false, message: 'Password must be at least 8 characters' });
+  }
+
+  const conn = await promisePool.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    const [[school]] = await conn.query(
+      `SELECT id, COALESCE(manager_user_id, admin_id) AS manager_id
+       FROM schools WHERE id = ? AND deleted_at IS NULL`,
+      [schoolId]
+    );
+    if (!school) {
+      await conn.rollback();
+      return res.status(404).json({ success: false, message: 'School not found' });
+    }
+    const managerId = school.manager_id;
+    if (!managerId) {
+      await conn.rollback();
+      return res.status(404).json({
+        success: false,
+        message: 'No school manager account is linked to this school',
+      });
+    }
+
+    const [[mgr]] = await conn.query(
+      `SELECT u.id, u.email, r.role_code
+       FROM users u
+       INNER JOIN roles r ON r.id = u.role_id
+       WHERE u.id = ? AND u.deleted_at IS NULL`,
+      [managerId]
+    );
+    if (!mgr) {
+      await conn.rollback();
+      return res.status(404).json({ success: false, message: 'Manager user not found' });
+    }
+    const rc = (mgr.role_code || '').toUpperCase();
+    if (rc !== 'SCHOOL_ADMIN' && rc !== 'SCHOOL_MANAGER') {
+      await conn.rollback();
+      return res.status(400).json({
+        success: false,
+        message: 'Linked user is not a school manager account',
+      });
+    }
+
+    const [[dup]] = await conn.query(
+      'SELECT id FROM users WHERE email = ? AND id != ? AND deleted_at IS NULL LIMIT 1',
+      [emailNorm, managerId]
+    );
+    if (dup) {
+      await conn.rollback();
+      return res.status(409).json({
+        success: false,
+        message: 'That email is already used by another account',
+      });
+    }
+
+    if (pwdRaw.length > 0) {
+      const hash = await hashPassword(pwdRaw);
+      await conn.query(
+        `UPDATE users SET
+           email = ?,
+           password_hash = ?,
+           failed_login_attempts = 0,
+           is_locked = 0,
+           locked_until = NULL,
+           updated_at = NOW()
+         WHERE id = ?`,
+        [emailNorm, hash, managerId]
+      );
+    } else {
+      await conn.query(
+        'UPDATE users SET email = ?, updated_at = NOW() WHERE id = ?',
+        [emailNorm, managerId]
+      );
+    }
+
+    await conn.query(
+      'UPDATE schools SET manager_user_id = COALESCE(manager_user_id, ?) WHERE id = ?',
+      [managerId, schoolId]
+    ).catch(() => {});
+
+    await conn.commit();
+    res.json({
+      success: true,
+      message: 'School manager login updated',
+      data: { manager_id: managerId, login_email: emailNorm, password_changed: pwdRaw.length > 0 },
+    });
+  } catch (err) {
+    await conn.rollback().catch(() => {});
+    console.error('❌  PATCH /schools/:id/manager-credentials:', err);
+    res.status(500).json({ success: false, message: 'Update failed', error: err.message });
+  } finally {
+    conn.release();
   }
 });
 
@@ -1759,6 +1952,320 @@ router.post('/create-full-system-controller', async (req, res) => {
   } catch (err) {
     console.error('❌  create-full-system-controller:', err);
     res.status(500).json({ success: false, message: 'Failed to create account', error: err.message });
+  }
+});
+
+// ============================================================
+// ShuleAvance partner organizations (Super Admin / FSC)
+// ============================================================
+const SHULE_CAT_DEFAULT = ['Parent', 'Teacher', 'Director'];
+
+/** Free-text or array: comma / semicolon / newline separated labels, max 30 entries, 120 chars each. */
+function sanitizeApplicantCategoriesInput(value) {
+  if (value == null) return [...SHULE_CAT_DEFAULT];
+  const arr = Array.isArray(value) ? value : String(value).split(/[,;\n\r]+/);
+  const out = [];
+  const seen = new Set();
+  for (const x of arr) {
+    const t = String(x).trim().replace(/\s+/g, ' ');
+    if (!t || t.length > 120) continue;
+    const k = t.toLowerCase();
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(t);
+    if (out.length >= 30) break;
+  }
+  return out.length ? out : [...SHULE_CAT_DEFAULT];
+}
+
+function parseShuleAvanceApplicantCategories(body) {
+  const raw =
+    body?.applicant_categories ??
+    body?.applicantCategories ??
+    body?.applicant_categories_text;
+  return sanitizeApplicantCategoriesInput(raw);
+}
+
+function normalizeOrgApplicantCategoriesRow(row) {
+  if (!row) return row;
+  let cats = [...SHULE_CAT_DEFAULT];
+  const j = row.applicant_categories_json;
+  if (j != null) {
+    try {
+      const p = typeof j === 'string' ? JSON.parse(j) : j;
+      cats = sanitizeApplicantCategoriesInput(p);
+    } catch (_) {}
+  }
+  const { applicant_categories_json, ...rest } = row;
+  const rateNum = row.rate_percent == null ? null : Number(row.rate_percent);
+  return {
+    ...rest,
+    applicant_categories: cats,
+    rate_percent: Number.isFinite(rateNum) ? rateNum : null,
+    rate_is_monthly: !!Number(row.rate_is_monthly || 0),
+  };
+}
+
+function normalizeRatePercentInput(value) {
+  if (value === undefined) return undefined;
+  if (value === null || value === '') return null;
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0 || n > 100) return NaN;
+  return Math.round(n * 1000) / 1000;
+}
+
+router.post('/create-shule-avance-organization', async (req, res) => {
+  if (!requireElevatedPlatform(req, res)) return;
+  try {
+    await ensureShuleAvanceOrgTables();
+    const b = req.body || {};
+    const org_name = String(b.org_name || '').trim();
+    const org_type = String(b.org_type || 'INTERNAL_PARTNER').trim().slice(0, 32);
+    const contact_person = String(b.contact_person || '').trim().slice(0, 180);
+    const contact_email = String(b.contact_email || '').trim().toLowerCase();
+    const contact_phone = String(b.contact_phone || '').trim().slice(0, 40) || null;
+    const login_username = String(b.login_username || '').trim().toLowerCase();
+    const password = String(b.password || '');
+    const address = String(b.address || '').trim() || null;
+    const description = String(b.description || '').trim().slice(0, 4000) || null;
+    const notes = String(b.notes || '').trim().slice(0, 4000) || null;
+    const is_active = b.is_active !== undefined ? !!b.is_active : true;
+    const rate_is_monthly = !!(b.rate_is_monthly ?? b.is_rate_monthly ?? b.rateMonthly);
+    const applicant_categories = parseShuleAvanceApplicantCategories(b);
+    const rate_percent = normalizeRatePercentInput(
+      b.rate_percent ?? b.income_rate_percent ?? b.income_rate
+    );
+    if (Number.isNaN(rate_percent)) {
+      return res.status(400).json({ success: false, message: 'income rate must be between 0 and 100' });
+    }
+    if (!org_name || !contact_email || !login_username || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'org_name, contact_email, login_username, and password are required',
+      });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 8 characters' });
+    }
+    const [[dupMail]] = await promisePool.query('SELECT id FROM users WHERE email = ? LIMIT 1', [contact_email]);
+    if (dupMail) return res.status(409).json({ success: false, message: 'Email already registered' });
+    const [[dupOrg]] = await promisePool.query(
+      `SELECT id FROM pro_shule_avance_organizations
+       WHERE LOWER(login_username) = ? OR LOWER(contact_email) = ? LIMIT 1`,
+      [login_username, contact_email]
+    );
+    if (dupOrg) {
+      return res.status(409).json({ success: false, message: 'Username or organization email already exists' });
+    }
+
+    const roleId = await getRoleId('SHULE_AVANCE_PARTNER');
+    if (!roleId) return res.status(500).json({ success: false, message: 'SHULE_AVANCE_PARTNER role not found' });
+
+    const hash = await hashPassword(password);
+    const user_uid = generateUserUID('SAV');
+    const fn = (contact_person || org_name).slice(0, 80);
+    const ln = 'Partner';
+    const [ur] = await promisePool.query(
+      `INSERT INTO users (user_uid, email, phone, password_hash, first_name, last_name, role_id, is_active, is_verified, created_at)
+       VALUES (?,?,?,?,?,?,?,1,1,NOW())`,
+      [user_uid, contact_email, contact_phone, hash, fn, ln, roleId]
+    );
+    const newUserId = ur.insertId;
+    const [or] = await promisePool.query(
+      `INSERT INTO pro_shule_avance_organizations
+       (user_id, org_name, org_type, login_username, contact_person, contact_email, contact_phone, address, description, notes, is_active, applicant_categories_json, rate_percent, rate_is_monthly)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      [
+        newUserId,
+        org_name,
+        org_type,
+        login_username,
+        contact_person || null,
+        contact_email,
+        contact_phone,
+        address,
+        description,
+        notes,
+        is_active ? 1 : 0,
+        JSON.stringify(applicant_categories),
+        rate_percent,
+        rate_is_monthly ? 1 : 0,
+      ]
+    );
+
+    res.status(201).json({
+      success: true,
+      message: 'ShuleAvance organization created — partner signs in with email or username on the main login page.',
+      data: { id: or.insertId, user_id: newUserId, login_username, email: contact_email },
+    });
+  } catch (err) {
+    console.error('❌  create-shule-avance-organization:', err);
+    res.status(500).json({ success: false, message: err.message || 'Failed to create organization' });
+  }
+});
+
+router.get('/shule-avance-organizations', async (req, res) => {
+  if (!requireElevatedPlatform(req, res)) return;
+  try {
+    await ensureShuleAvanceOrgTables();
+    const [rows] = await promisePool.query(
+      `SELECT o.id, o.org_name, o.org_type, o.login_username, o.contact_person, o.contact_email, o.contact_phone,
+              o.is_active, o.created_at, o.user_id, o.address, o.description, o.notes, o.applicant_categories_json, o.rate_percent, o.rate_is_monthly,
+              u.is_active AS user_is_active
+       FROM pro_shule_avance_organizations o
+       JOIN users u ON u.id = o.user_id AND u.deleted_at IS NULL
+       ORDER BY o.created_at DESC`
+    );
+    res.json({ success: true, data: (rows || []).map(normalizeOrgApplicantCategoriesRow) });
+  } catch (err) {
+    console.error('❌  shule-avance-organizations:', err);
+    res.status(500).json({ success: false, message: 'Failed to list organizations' });
+  }
+});
+
+router.get('/shule-avance-organization/:id', async (req, res) => {
+  if (!requireElevatedPlatform(req, res)) return;
+  try {
+    await ensureShuleAvanceOrgTables();
+    const id = parseInt(req.params.id, 10);
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid id' });
+    const [rows] = await promisePool.query(
+      `SELECT o.*, u.is_active AS user_is_active
+       FROM pro_shule_avance_organizations o
+       JOIN users u ON u.id = o.user_id
+       WHERE o.id = ? LIMIT 1`,
+      [id]
+    );
+    const row = rows?.[0];
+    if (!row) return res.status(404).json({ success: false, message: 'Not found' });
+    res.json({ success: true, data: normalizeOrgApplicantCategoriesRow(row) });
+  } catch (err) {
+    console.error('❌  shule-avance-organization get:', err);
+    res.status(500).json({ success: false, message: 'Failed to load organization' });
+  }
+});
+
+router.put('/shule-avance-organization/:id', async (req, res) => {
+  if (!requireElevatedPlatform(req, res)) return;
+  try {
+    await ensureShuleAvanceOrgTables();
+    const id = parseInt(req.params.id, 10);
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid id' });
+    const b = req.body || {};
+    const [[org]] = await promisePool.query(
+      'SELECT id, user_id FROM pro_shule_avance_organizations WHERE id = ? LIMIT 1',
+      [id]
+    );
+    if (!org) return res.status(404).json({ success: false, message: 'Not found' });
+
+    const org_name = b.org_name !== undefined ? String(b.org_name).trim() : null;
+    const org_type = b.org_type !== undefined ? String(b.org_type).trim().slice(0, 32) : null;
+    const contact_person = b.contact_person !== undefined ? String(b.contact_person).trim().slice(0, 180) : null;
+    const contact_email = b.contact_email !== undefined ? String(b.contact_email).trim().toLowerCase() : null;
+    const contact_phone = b.contact_phone !== undefined ? String(b.contact_phone).trim().slice(0, 40) : undefined;
+    const login_username = b.login_username !== undefined ? String(b.login_username).trim().toLowerCase() : null;
+    const address = b.address !== undefined ? String(b.address).trim() : undefined;
+    const description = b.description !== undefined ? String(b.description).trim().slice(0, 4000) : undefined;
+    const notes = b.notes !== undefined ? String(b.notes).trim().slice(0, 4000) : undefined;
+    const is_active = b.is_active !== undefined ? (b.is_active ? 1 : 0) : undefined;
+    const rate_is_monthly = b.rate_is_monthly !== undefined || b.is_rate_monthly !== undefined || b.rateMonthly !== undefined
+      ? (!!(b.rate_is_monthly ?? b.is_rate_monthly ?? b.rateMonthly) ? 1 : 0)
+      : undefined;
+    const rate_percent = normalizeRatePercentInput(
+      b.rate_percent ?? b.income_rate_percent ?? b.income_rate
+    );
+    if (Number.isNaN(rate_percent)) {
+      return res.status(400).json({ success: false, message: 'income rate must be between 0 and 100' });
+    }
+    const password = b.password ? String(b.password) : '';
+
+    if (contact_email) {
+      const [[em]] = await promisePool.query(
+        'SELECT id FROM users WHERE email = ? AND id <> ? LIMIT 1',
+        [contact_email, org.user_id]
+      );
+      if (em) return res.status(409).json({ success: false, message: 'Email already in use' });
+    }
+    if (login_username) {
+      const [[un]] = await promisePool.query(
+        `SELECT id FROM pro_shule_avance_organizations WHERE LOWER(login_username) = ? AND id <> ? LIMIT 1`,
+        [login_username, id]
+      );
+      if (un) return res.status(409).json({ success: false, message: 'Username already in use' });
+    }
+
+    const ofields = [];
+    const ovals = [];
+    if (org_name) { ofields.push('org_name=?'); ovals.push(org_name); }
+    if (org_type) { ofields.push('org_type=?'); ovals.push(org_type); }
+    if (contact_person !== null && b.contact_person !== undefined) { ofields.push('contact_person=?'); ovals.push(contact_person); }
+    if (contact_email) { ofields.push('contact_email=?'); ovals.push(contact_email); }
+    if (contact_phone !== undefined) { ofields.push('contact_phone=?'); ovals.push(contact_phone || null); }
+    if (login_username) { ofields.push('login_username=?'); ovals.push(login_username); }
+    if (address !== undefined) { ofields.push('address=?'); ovals.push(address || null); }
+    if (description !== undefined) { ofields.push('description=?'); ovals.push(description || null); }
+    if (notes !== undefined) { ofields.push('notes=?'); ovals.push(notes || null); }
+    if (is_active !== undefined) { ofields.push('is_active=?'); ovals.push(is_active); }
+    if (rate_percent !== undefined) { ofields.push('rate_percent=?'); ovals.push(rate_percent); }
+    if (rate_is_monthly !== undefined) { ofields.push('rate_is_monthly=?'); ovals.push(rate_is_monthly); }
+    if (
+      b.applicant_categories !== undefined ||
+      b.applicantCategories !== undefined ||
+      b.applicant_categories_json !== undefined
+    ) {
+      const ac = parseShuleAvanceApplicantCategories(b);
+      ofields.push('applicant_categories_json=?');
+      ovals.push(JSON.stringify(ac));
+    }
+    if (ofields.length) {
+      ovals.push(id);
+      await promisePool.query(
+        `UPDATE pro_shule_avance_organizations SET ${ofields.join(', ')} WHERE id=?`,
+        ovals
+      );
+    }
+
+    const ufields = [];
+    const uvals = [];
+    if (contact_email) { ufields.push('email=?'); uvals.push(contact_email); }
+    if (contact_phone !== undefined) { ufields.push('phone=?'); uvals.push(contact_phone || null); }
+    if (password && password.length >= 8) {
+      ufields.push('password_hash=?');
+      uvals.push(await hashPassword(password));
+    }
+    if (is_active !== undefined) { ufields.push('is_active=?'); uvals.push(is_active); }
+    if (ufields.length) {
+      uvals.push(org.user_id);
+      await promisePool.query(`UPDATE users SET ${ufields.join(', ')} WHERE id=?`, uvals);
+    }
+
+    res.json({ success: true, message: 'Organization updated' });
+  } catch (err) {
+    console.error('❌  shule-avance-organization put:', err);
+    res.status(500).json({ success: false, message: err.message || 'Update failed' });
+  }
+});
+
+router.delete('/shule-avance-organization/:id', async (req, res) => {
+  if (!requireElevatedPlatform(req, res)) return;
+  try {
+    await ensureShuleAvanceOrgTables();
+    const id = parseInt(req.params.id, 10);
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid id' });
+    const [[org]] = await promisePool.query(
+      'SELECT id, user_id FROM pro_shule_avance_organizations WHERE id = ? LIMIT 1',
+      [id]
+    );
+    if (!org) return res.status(404).json({ success: false, message: 'Not found' });
+    await promisePool.query('UPDATE pro_shule_avance_organizations SET is_active = 0 WHERE id = ?', [id]);
+    await promisePool.query(
+      'UPDATE users SET is_active = 0, deleted_at = COALESCE(deleted_at, NOW()) WHERE id = ?',
+      [org.user_id]
+    );
+    res.json({ success: true, message: 'Organization removed; partner login is disabled.' });
+  } catch (err) {
+    console.error('❌  shule-avance-organization delete:', err);
+    res.status(500).json({ success: false, message: err.message || 'Delete failed' });
   }
 });
 

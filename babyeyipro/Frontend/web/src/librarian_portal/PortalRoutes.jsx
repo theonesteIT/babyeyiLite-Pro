@@ -1,0 +1,56 @@
+import React from 'react'
+import { Routes, Route, Navigate } from 'react-router-dom'
+import { AuthProvider, useAuth } from './frontend/src/context/AuthContext'
+import Layout from './frontend/src/components/Layout'
+import Dashboard from './frontend/src/pages/Dashboard'
+import Books from './frontend/src/pages/Books'
+import Borrowing from './frontend/src/pages/Borrowing'
+import Returns from './frontend/src/pages/Returns'
+import Members from './frontend/src/pages/Members'
+import Reports from './frontend/src/pages/Reports'
+import ShuleAvance from './frontend/src/pages/ShuleAvance'
+import TichaAI from './frontend/src/pages/TichaAI'
+import FeaturePlaceholders from './frontend/src/pages/FeaturePlaceholders'
+
+function LoadingScreen() {
+  return (
+    <div className="min-h-screen bg-re-bg flex flex-col items-center justify-center gap-4 font-sans">
+      <div className="w-12 h-12 rounded-2xl animate-pulse" style={{ background: 'linear-gradient(135deg,#1E3A5F,#3D5A80)' }} />
+      <p className="text-re-text-muted text-sm font-bold uppercase tracking-widest animate-pulse">
+        Loading Librarian Portal...
+      </p>
+    </div>
+  )
+}
+
+function ProtectedRoute({ children, title }) {
+  const { staff, loading } = useAuth()
+  if (loading) return <LoadingScreen />
+  if (!staff) return <LoadingScreen />
+  return <Layout title={title}>{children}</Layout>
+}
+
+function LibrarianRoutesInner() {
+  return (
+    <Routes>
+      <Route path="" element={<ProtectedRoute title="Library Overview"><Dashboard /></ProtectedRoute>} />
+      <Route path="books" element={<ProtectedRoute title="Book Collection"><Books /></ProtectedRoute>} />
+      <Route path="borrowing" element={<ProtectedRoute title="Active Loans"><Borrowing /></ProtectedRoute>} />
+      <Route path="returns" element={<ProtectedRoute title="Returns History"><Returns /></ProtectedRoute>} />
+      <Route path="members" element={<ProtectedRoute title="Library Members"><Members /></ProtectedRoute>} />
+      <Route path="reports" element={<ProtectedRoute title="Library Reports"><Reports /></ProtectedRoute>} />
+      <Route path="shule-avance" element={<ProtectedRoute title="Shule Avance"><ShuleAvance /></ProtectedRoute>} />
+      <Route path="ticha-ai" element={<ProtectedRoute title="TichaAI"><TichaAI /></ProtectedRoute>} />
+      <Route path="settings" element={<ProtectedRoute title="Settings"><FeaturePlaceholders feature="Library Settings" icon="⚙️" /></ProtectedRoute>} />
+      <Route path="*" element={<Navigate to="/librarian" replace />} />
+    </Routes>
+  )
+}
+
+export default function LibrarianPortalRoutes() {
+  return (
+    <AuthProvider>
+      <LibrarianRoutesInner />
+    </AuthProvider>
+  )
+}

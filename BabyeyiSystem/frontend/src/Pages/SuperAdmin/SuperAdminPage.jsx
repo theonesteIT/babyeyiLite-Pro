@@ -230,6 +230,7 @@ const NAV = [
   { id: 'nesa',       icon: Flag,       label: 'NESA Admins' },
   { id: 'deo',        icon: MapPin,     label: 'DEO Officers' },
   { id: 'register-agents', icon: Radio, label: 'Field Agents' },
+  { id: 'shule-avance-orgs', icon: Sparkles, label: 'ShuleAvance Orgs' },
   // { id: 'activity',   icon: Activity,   label: 'Activity Log' },
   { id: 'settings',   icon: Settings,   label: 'Settings' },
 ];
@@ -252,11 +253,11 @@ function Sidebar({ page, onChange, online, user, navigate }) {
     >
       <div className="px-5 py-5 border-b border-white/10">
         <div className="flex items-center gap-2.5 mb-3">
-          <div className="p-1.5 rounded-xl bg-amber-400 flex items-center justify-center border border-amber-300/50 shadow-lg">
+          <div className="px-2 py-1 rounded-xl bg-[#1F2937] flex items-center justify-center border border-amber-300/50 shadow-lg">
             <img
               src="/1BABYEYI LOGO FINAL.png"
-              alt="Babyeyi"
-              className="w-8 h-8 object-contain rounded-lg"
+              alt="Babyeyi logo"
+              className="h-7 w-auto object-contain"
             />
           </div>
           <div className="min-w-0">
@@ -311,6 +312,7 @@ function Sidebar({ page, onChange, online, user, navigate }) {
           const isShopProducts = item.id === 'shop-products';
           const isStandardKitRequests = item.id === 'standard-kit-requests';
           const isStandardShuleKits = item.id === 'standard-shule-kits';
+          const isShuleAvanceOrgs = item.id === 'shule-avance-orgs';
           return (
             <button key={item.id}
               onClick={() => {
@@ -330,6 +332,8 @@ function Sidebar({ page, onChange, online, user, navigate }) {
                   navigate('/superadmin/standard-kit-requests');
                 } else if (isStandardShuleKits) {
                   navigate('/superadmin/standard-shule-kits');
+                } else if (isShuleAvanceOrgs) {
+                  navigate('/superadmin/shule-avance-organizations');
                 } else if (isRequirementsPrices) {
                   navigate('/manage-requirements-prices');
                 } else if (isPricesList) {
@@ -1549,6 +1553,7 @@ function SchoolsPage({ navigate, addToast }) {
   const [subscriptionSchool, setSubscriptionSchool] = useState(null);
   const [subForm, setSubForm] = useState({});
   const [savingSub, setSavingSub] = useState(false);
+  const [showMgrPw, setShowMgrPw] = useState(false);
 
   const totalPages = Math.max(1, Math.ceil((total || 0) / limit));
 
@@ -1734,6 +1739,11 @@ function SchoolsPage({ navigate, addToast }) {
         category:    school.school_category || '',
         ownership:   school.ownership_type || '',
         headName:    school.head_teacher_name || '',
+        managerHasAccount: false,
+        managerLoginEmail: '',
+        originalManagerEmail: '',
+        managerPassword: '',
+        managerPasswordConfirm: '',
       });
       setEditing(school);
       setModal({ type: 'edit' });
@@ -1741,6 +1751,7 @@ function SchoolsPage({ navigate, addToast }) {
       const res = await axios.get(`${API}/schools/${school.id}`, axCfg);
       if (res.data?.success && res.data.data) {
         const s = res.data.data;
+        const mgrEmail = (s.manager_email || '').trim();
         setEditForm(f => ({
           ...f,
           province:   s.province || f.province,
@@ -1751,6 +1762,9 @@ function SchoolsPage({ navigate, addToast }) {
           headName:   s.head_teacher_name || f.headName,
           category:   s.school_category   || f.category,
           ownership:  s.ownership_type    || f.ownership,
+          managerHasAccount: !!(mgrEmail || s.manager_uid),
+          managerLoginEmail: mgrEmail || f.managerLoginEmail,
+          originalManagerEmail: mgrEmail,
         }));
       }
     } catch {
@@ -1764,6 +1778,26 @@ function SchoolsPage({ navigate, addToast }) {
     if (!editForm.schoolName.trim() || !editForm.schoolCode.trim()) {
       addToast('School name and code are required', 'error');
       return;
+    }
+    const mgrEmail = (editForm.managerLoginEmail || '').trim().toLowerCase();
+    const origMgr = (editForm.originalManagerEmail || '').trim().toLowerCase();
+    const pwd = (editForm.managerPassword || '').trim();
+    const pwd2 = (editForm.managerPasswordConfirm || '').trim();
+    if (editForm.managerHasAccount) {
+      if (!mgrEmail) {
+        addToast('School manager login email is required', 'error');
+        return;
+      }
+      if (pwd || pwd2) {
+        if (pwd !== pwd2) {
+          addToast('Manager password fields do not match', 'error');
+          return;
+        }
+        if (pwd.length < 8) {
+          addToast('Manager password must be at least 8 characters', 'error');
+          return;
+        }
+      }
     }
     setSaving(true);
     try {
@@ -1783,12 +1817,23 @@ function SchoolsPage({ navigate, addToast }) {
         ...axCfg,
         headers: { ...axCfg.headers, 'Content-Type': 'application/json' },
       });
+      if (editForm.managerHasAccount && (mgrEmail !== origMgr || pwd.length > 0)) {
+        await axios.patch(
+          `${API}/auth/schools/${editing.id}/manager-credentials`,
+          {
+            login_email: mgrEmail,
+            ...(pwd.length > 0 ? { new_password: pwd } : {}),
+          },
+          axCfg
+        );
+      }
       addToast('School updated successfully', 'success');
       setModal(null);
       setEditing(null);
+      setShowMgrPw(false);
       fetchSchools(page);
     } catch (err) {
-      addToast(err.response?.data?.message || 'Update failed', 'error');
+      addToast(err.response?.data?.message || err.response?.data?.error || 'Update failed', 'error');
     } finally {
       setSaving(false);
     }
@@ -2238,7 +2283,7 @@ function SchoolsPage({ navigate, addToast }) {
 
       {/* Edit school modal */}
       {modal?.type === 'edit' && editing && (
-        <Modal title="Edit School" onClose={() => { setModal(null); setEditing(null); }} size="max-w-2xl">
+        <Modal title="Edit School" onClose={() => { setModal(null); setEditing(null); setShowMgrPw(false); }} size="max-w-2xl">
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <FieldUI label="School Name" required>
@@ -2329,9 +2374,71 @@ function SchoolsPage({ navigate, addToast }) {
                 placeholder="Head teacher full name"
               />
             </FieldUI>
+
+            <div className="rounded-2xl border-2 border-amber-100 bg-amber-50/40 p-4 space-y-3">
+              <div className="flex items-center gap-2 text-amber-900">
+                <Key className="w-4 h-4 shrink-0" style={{ color: ACCENT }} />
+                <span className="text-sm font-black">School manager login</span>
+              </div>
+              <p className="text-[11px] text-amber-800/90 leading-relaxed">
+                This is the <strong>email and password</strong> the school uses on the public login page (not the contact email above).
+              </p>
+              {!editForm.managerHasAccount ? (
+                <p className="text-xs text-amber-700 font-medium">
+                  No manager account is linked to this school yet — add one through school registration, then you can set login here.
+                </p>
+              ) : (
+                <>
+                  <FieldUI label="Manager login email" required>
+                    <input
+                      className={inp}
+                      type="email"
+                      autoComplete="off"
+                      value={editForm.managerLoginEmail || ''}
+                      onChange={e => setEditForm(f => ({ ...f, managerLoginEmail: e.target.value }))}
+                      placeholder="manager@school.rw"
+                    />
+                  </FieldUI>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <FieldUI label="New password (optional)">
+                      <div className="relative">
+                        <input
+                          className={`${inp} pr-10`}
+                          type={showMgrPw ? 'text' : 'password'}
+                          autoComplete="new-password"
+                          value={editForm.managerPassword || ''}
+                          onChange={e => setEditForm(f => ({ ...f, managerPassword: e.target.value }))}
+                          placeholder="Leave blank to keep current"
+                        />
+                        <button
+                          type="button"
+                          tabIndex={-1}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-amber-600 hover:text-amber-900"
+                          onClick={() => setShowMgrPw(v => !v)}
+                          aria-label={showMgrPw ? 'Hide password' : 'Show password'}
+                        >
+                          {showMgrPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </FieldUI>
+                    <FieldUI label="Confirm new password">
+                      <input
+                        className={inp}
+                        type={showMgrPw ? 'text' : 'password'}
+                        autoComplete="new-password"
+                        value={editForm.managerPasswordConfirm || ''}
+                        onChange={e => setEditForm(f => ({ ...f, managerPasswordConfirm: e.target.value }))}
+                        placeholder="Repeat if changing password"
+                      />
+                    </FieldUI>
+                  </div>
+                </>
+              )}
+            </div>
+
             <div className="flex justify-end gap-3 pt-2">
               <button
-                onClick={() => { setModal(null); setEditing(null); }}
+                onClick={() => { setModal(null); setEditing(null); setShowMgrPw(false); }}
                 className="px-4 py-2.5 rounded-xl border-2 border-amber-200 text-amber-700 font-semibold text-sm hover:bg-amber-50"
               >
                 Cancel
@@ -3518,11 +3625,11 @@ export default function SuperAdminDashboard() {
           >
             <div className="flex items-center justify-between px-5 py-5 border-b border-white/10">
             <div className="flex items-center gap-2.5">
-              <div className="p-1.5 rounded-xl bg-amber-400 flex items-center justify-center border border-amber-300/50 shadow">
+              <div className="px-2 py-1 rounded-xl bg-[#1F2937] flex items-center justify-center border border-amber-300/50 shadow">
                 <img
                   src="/1BABYEYI LOGO FINAL.png"
-                  alt="Babyeyi"
-                  className="w-7 h-7 object-contain rounded-lg"
+                  alt="Babyeyi logo"
+                  className="h-6 w-auto object-contain"
                 />
               </div>
               <h1 className="font-black text-white text-sm">Super Admin</h1>
@@ -3566,6 +3673,7 @@ export default function SuperAdminDashboard() {
                 const isShopProducts = item.id === 'shop-products';
                 const isStandardKitRequests = item.id === 'standard-kit-requests';
                 const isStandardShuleKits = item.id === 'standard-shule-kits';
+                const isShuleAvanceOrgs = item.id === 'shule-avance-orgs';
                 return (
                   <button key={item.id}
                     onClick={() => {
@@ -3577,6 +3685,7 @@ export default function SuperAdminDashboard() {
                       else if (isShopProducts) { navigate('/superadmin/shop-products'); }
                       else if (isStandardKitRequests) { navigate('/superadmin/standard-kit-requests'); }
                       else if (isStandardShuleKits) { navigate('/superadmin/standard-shule-kits'); }
+                      else if (isShuleAvanceOrgs) { navigate('/superadmin/shule-avance-organizations'); }
                       else if (isRequirementsPrices) { navigate('/manage-requirements-prices'); }
                       else if (isPricesList) { navigate('/requirement-prices-list'); }
                       else if (isInvoices) { navigate('/invoices'); }

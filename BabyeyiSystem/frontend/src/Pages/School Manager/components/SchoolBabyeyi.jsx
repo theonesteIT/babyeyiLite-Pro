@@ -234,6 +234,9 @@ export default function SchoolBabyeyiDashboard() {
   const isProSchool =
     !!u?.school &&
     (u.school.pro_access_effective === true || u.school.pro_access_effective === 1);
+  const navItems = isProSchool
+    ? NAV
+    : NAV.filter((item) => item.id !== "school_team");
   /** Pro tenant but Lite build has no babyeyipro origin — cannot redirect. */
   const showProEnvMissing = isProSchool && !PRO_APP_BASE;
   const mustChangePassword = !!u?.force_password_change;
@@ -321,8 +324,14 @@ export default function SchoolBabyeyiDashboard() {
   );
 
   const switchTab = id => { setTabState(id); setMobileOpen(false); };
-  const current   = NAV.find(n => n.id === tab);
+  const current   = navItems.find(n => n.id === tab) || navItems[0];
   const t         = TRANSLATIONS[lang] || TRANSLATIONS.en;
+
+  useEffect(() => {
+    if (!isProSchool && tab === "school_team") {
+      setTabState("dashboard");
+    }
+  }, [isProSchool, tab]);
 
   const commonProps = { toast, t, setTab: switchTab, session };
 
@@ -381,7 +390,7 @@ export default function SchoolBabyeyiDashboard() {
       <Sidebar
         tab={tab}
         switchTab={switchTab}
-        NAV={NAV}
+        NAV={navItems}
         notifCount={notifCount}
         transferNotifCount={transferNotifCount}
         online={online}
@@ -443,7 +452,7 @@ export default function SchoolBabyeyiDashboard() {
           {tab === "babyeyi_list"  && <BabyeyiList       {...commonProps} />}
           {tab === "students"      && <StudentsPage      session={session} toast={toast} />}
           {tab === "student_transfer" && <StudentTransferPage {...commonProps} />}
-          {tab === "school_team"   && <SchoolWorkersPage session={session} toast={toast} />}
+          {tab === "school_team" && isProSchool && <SchoolWorkersPage session={session} toast={toast} />}
 
           {tab === "school_mini_website" && (
             <SchoolMiniWebsitePage session={session} toast={toast} />

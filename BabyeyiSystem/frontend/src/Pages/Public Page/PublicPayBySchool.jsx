@@ -1,175 +1,332 @@
-// ================================================================
-// PublicPayBySchool.jsx — Guest pay by school code
-// Design: Amber + Dark Blue only, no gradients
-// Flow: Select requirements → amount → remaining shown → confirm student → checkout
-// ================================================================
+/**
+ * PublicPayBySchool.jsx — Modern Modal Step Wizard
+ * #000435 navy + amber · MTN/Nunito font · Tailwind only
+ * Beautiful step-by-step modal with smooth transitions
+ */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
-  ArrowLeft,
-  Building2,
-  CheckCircle2,
-  ChevronRight,
-  CircleDollarSign,
-  CreditCard,
-  GraduationCap,
-  Loader2,
-  Search,
-  ShieldCheck,
-  UserRound,
-  Wallet,
-  X,
-  ZoomIn,
+  ArrowLeft, Building2, ChevronRight, CircleDollarSign,
+  CreditCard, GraduationCap, Loader2, Search, ShieldCheck,
+  Wallet, X, ArrowRight, School, Banknote, Check,
+  AlertCircle, ChevronDown,
 } from "lucide-react";
 
 const SERVER = import.meta.env.VITE_API_URL || "http://localhost:5100";
 const API = `${SERVER}/api`;
 
-// ── Amber + Dark Blue tokens ──────────────────────────────────────
-const C = {
-  db900: "#042C53",
-  db800: "#0C447C",
-  db600: "#185FA5",
-  db400: "#378ADD",
-  db200: "#85B7EB",
-  db100: "#B5D4F4",
-  db50:  "#E6F1FB",
-  am900: "#412402",
-  am800: "#633806",
-  am600: "#854F0B",
-  am400: "#BA7517",
-  am200: "#EF9F27",
-  am100: "#FAC775",
-  am50:  "#FAEEDA",
-};
+const FONT = `"MTN Brighter Sans","Nunito","Varela Round",sans-serif`;
 
-function normFeeId(id) {
-  const n = Number(id);
-  return Number.isFinite(n) ? n : id;
-}
-function normReqId(id) {
-  const n = parseInt(id, 10);
-  return Number.isFinite(n) && n > 0 ? n : null;
-}
-function payImgUrl(pathOrUrl) {
-  if (!pathOrUrl) return "";
-  if (pathOrUrl.startsWith("http")) return pathOrUrl;
-  return `${SERVER}${pathOrUrl.startsWith("/") ? "" : "/"}${pathOrUrl}`;
-}
-function normalizeRwandaMobile(raw) {
-  let v = String(raw || "").trim().replace(/[\s\-()]/g, "");
-  if (v.startsWith("+250")) v = `0${v.slice(4)}`;
-  else if (v.startsWith("250") && v.length === 12) v = `0${v.slice(3)}`;
-  if (/^[27]\d{8}$/.test(v)) v = `0${v}`;
-  if (/^07[2389]\d{7}$/.test(v)) return v;
-  return null;
-}
+const FontLoader = () => (
+  <style>{`
+    @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Varela+Round&display=swap');
+    *{font-family:"MTN Brighter Sans","Nunito","Varela Round",sans-serif!important}
+    @keyframes stepIn{from{opacity:0;transform:translateX(18px)}to{opacity:1;transform:translateX(0)}}
+    @keyframes stepOut{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(-18px)}}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+    @keyframes pulseAmber{0%,100%{box-shadow:0 0 0 0 rgba(251,191,36,.4)}50%{box-shadow:0 0 0 8px rgba(251,191,36,0)}}
+    .step-in{animation:stepIn .35s cubic-bezier(.22,1,.36,1) both}
+    .fade-in{animation:fadeIn .3s cubic-bezier(.22,1,.36,1) both}
+    .spin-anim{animation:spin 1s linear infinite}
+  `}</style>
+);
+
+/* ── helpers ─────────────────────────────────────────────────── */
+function normFeeId(id) { const n = Number(id); return Number.isFinite(n) ? n : id; }
+function normReqId(id) { const n = parseInt(id, 10); return Number.isFinite(n) && n > 0 ? n : null; }
+function payImgUrl(p) { if (!p) return ""; if (p.startsWith("http")) return p; return `${SERVER}${p.startsWith("/") ? "" : "/"}${p}`; }
 function comboLabel(c) {
   const cls = c.class_name || "—";
-  const te  = c.term        != null && String(c.term).trim()          !== "" ? String(c.term).trim()          : "—";
-  const yr  = c.academic_year != null && String(c.academic_year).trim() !== "" ? String(c.academic_year).trim() : "—";
+  const te = c.term != null && String(c.term).trim() !== "" ? String(c.term).trim() : "—";
+  const yr = c.academic_year != null && String(c.academic_year).trim() !== "" ? String(c.academic_year).trim() : "—";
   return `${cls} · ${te} · ${yr}`;
 }
 
-// ── Shared style helpers ──────────────────────────────────────────
-const card = {
-  background: "#fff",
-  border: `1px solid ${C.db100}`,
-  borderRadius: 12,
-  padding: "20px 22px",
-  marginBottom: 16,
-};
-const stepNum = (active) => ({
-  width: 34, height: 34, borderRadius: 8,
-  background: active ? C.am200 : C.db900,
-  color: active ? C.db900 : C.am100,
-  display: "flex", alignItems: "center", justifyContent: "center",
-  fontWeight: 700, fontSize: 14, flexShrink: 0,
-});
-const inputStyle = (focused) => ({
-  width: "100%", padding: "10px 14px",
-  border: `1.5px solid ${focused ? C.db400 : C.db100}`,
-  borderRadius: 8, fontSize: 14, outline: "none",
-  background: "#fff", color: C.db900,
-  fontFamily: "inherit",
-});
-const btnPrimary = {
-  display: "inline-flex", alignItems: "center", gap: 8,
-  padding: "11px 22px", borderRadius: 8,
-  background: C.db900, color: C.am100,
-  fontSize: 13, fontWeight: 700, border: "none",
-  cursor: "pointer",
-};
-const btnAmber = {
-  display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8,
-  padding: "13px 24px", borderRadius: 8,
-  background: C.am200, color: C.db900,
-  fontSize: 14, fontWeight: 700, border: "none",
-  cursor: "pointer", width: "100%",
-};
-const labelStyle = {
-  display: "block", fontSize: 11, fontWeight: 700,
-  textTransform: "uppercase", letterSpacing: "0.07em",
-  color: C.db600, marginBottom: 5,
-};
-const sectionLabel = {
-  fontSize: 11, fontWeight: 700, textTransform: "uppercase",
-  letterSpacing: "0.1em", color: C.am600,
-  borderBottom: `2px solid ${C.db900}`, paddingBottom: 6,
-  marginBottom: 14, display: "flex", alignItems: "center", gap: 6,
+const SECTION_META = {
+  nursery: { label: "Nursary", chip: "N1-N3" },
+  primary: { label: "Primary", chip: "P1-P6" },
+  o_level: { label: "O-Level", chip: "S1-S3" },
+  a_level: { label: "A-Level", chip: "S4-S6" },
+  tvet: { label: "TVET", chip: "TVET" },
 };
 
+function parseEducationLevels(raw) {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw.map((x) => String(x || "").trim()).filter(Boolean);
+  if (typeof raw === "string") {
+    const s = raw.trim();
+    if (!s) return [];
+    try {
+      const j = JSON.parse(s);
+      return Array.isArray(j) ? j.map((x) => String(x || "").trim()).filter(Boolean) : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+function eduLevelToSectionKey(v) {
+  const s = String(v || "").toLowerCase();
+  if (!s) return null;
+  if (s.includes("nursery") || s.includes("pre-primary") || s.includes("pre_primary")) return "nursery";
+  if (s.includes("primary")) return "primary";
+  if (s.includes("o-level") || s.includes("o level") || s.includes("olevel")) return "o_level";
+  if (s.includes("a-level") || s.includes("a level") || s.includes("alevel")) return "a_level";
+  if (s.includes("tvet")) return "tvet";
+  return null;
+}
+
+function classToSectionKey(className) {
+  const c = String(className || "").trim().toUpperCase();
+  if (/^N[123]\b/.test(c)) return "nursery";
+  if (/^P[1-6]\b/.test(c)) return "primary";
+  if (/^S[123]\b/.test(c)) return "o_level";
+  if (/^S[456]\b/.test(c)) return "a_level";
+  return "tvet";
+}
+
+/* ── Step indicator component ────────────────────────────────── */
+const STEPS = [
+  { id: 1, label: "School", short: "School", icon: Building2 },
+  { id: 2, label: "Select Fees", short: "Fees", icon: Wallet },
+  { id: 3, label: "Amount", short: "Amount", icon: Banknote },
+  { id: 4, label: "Student", short: "Student", icon: GraduationCap },
+  { id: 5, label: "Checkout", short: "Pay", icon: CreditCard },
+];
+
+function StepIndicator({ current }) {
+  return (
+    <div className="flex items-center gap-0 w-full">
+      {STEPS.map((s, i) => {
+        const done = current > s.id;
+        const active = current === s.id;
+        return (
+          <div key={s.id} className="flex items-center flex-1 min-w-0">
+            <div className="flex flex-col items-center gap-1.5 flex-shrink-0">
+              <div className={`relative w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center font-black text-[13px] transition-all duration-300 ${
+                done ? "bg-amber-400 text-[#000435] shadow-md shadow-amber-400/30"
+                : active ? "bg-[#000435] border-2 border-amber-400 text-amber-400 shadow-lg shadow-amber-400/20"
+                : "bg-white/5 border border-white/15 text-white/30"
+              }`} style={active ? { animation: "pulseAmber 2s ease-in-out infinite" } : {}}>
+                {done ? <Check size={15} strokeWidth={3}/> : <s.icon size={14}/>}
+              </div>
+              <span className={`text-[9px] sm:text-[10px] font-black uppercase tracking-[.06em] text-center leading-none hidden xs:block ${
+                done ? "text-amber-400" : active ? "text-white" : "text-white/30"
+              }`}>{s.short}</span>
+            </div>
+            {i < STEPS.length - 1 && (
+              <div className="flex-1 h-0.5 mx-1 sm:mx-2 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.1)" }}>
+                <div className="h-full rounded-full bg-amber-400 transition-all duration-500"
+                  style={{ width: done ? "100%" : active ? "50%" : "0%" }}/>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ── Reusable field wrapper ──────────────────────────────────── */
+function Field({ label, required, error, hint, children }) {
+  return (
+    <div>
+      <label className="block text-[10px] font-black uppercase tracking-[.1em] text-white/40 mb-2">
+        {label}{required && <span className="text-amber-400 ml-0.5">*</span>}
+      </label>
+      {children}
+      {error && <p className="flex items-center gap-1.5 text-[11px] text-red-400 font-semibold mt-1.5"><AlertCircle size={11}/>{error}</p>}
+      {hint && !error && <p className="text-[11px] text-white/35 mt-1.5">{hint}</p>}
+    </div>
+  );
+}
+
+function Input({ value, onChange, placeholder, type="text", icon: Icon, onKeyDown, className="" }) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <div className={`flex items-center gap-2.5 rounded-xl border transition-all ${
+      focused ? "border-amber-400 bg-amber-400/5 shadow-lg shadow-amber-400/10" : "border-white/15 bg-white/5 hover:border-white/25"
+    } px-3.5 h-12`}>
+      {Icon && <Icon size={15} className={focused ? "text-amber-400" : "text-white/35"} />}
+      <input
+        type={type} value={value} onChange={onChange} placeholder={placeholder}
+        onFocus={() => setFocused(true)} onBlur={() => setFocused(false)} onKeyDown={onKeyDown}
+        className={`flex-1 bg-transparent text-white text-[14px] font-semibold placeholder:text-white/25 outline-none ${className}`}
+      />
+    </div>
+  );
+}
+
+function Select({ value, onChange, children, disabled = false }) {
+  return (
+    <div className="relative">
+      <select value={value} onChange={onChange} disabled={disabled}
+        className={`w-full h-12 rounded-xl border border-white/15 bg-white/5 text-white text-[13px] font-bold px-4 outline-none appearance-none transition-all ${
+          disabled ? "opacity-60 cursor-not-allowed" : "hover:border-white/25 focus:border-amber-400 focus:bg-amber-400/5 cursor-pointer"
+        }`}>
+        {children}
+      </select>
+      <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none"/>
+    </div>
+  );
+}
+
+/* ── Summary card ────────────────────────────────────────────── */
+function SummaryCard({ label, value, sub, highlight, green }) {
+  return (
+    <div className={`rounded-xl p-3.5 sm:p-4 border ${
+      highlight ? "bg-amber-400/12 border-amber-400/30"
+      : green ? "bg-emerald-500/10 border-emerald-500/25"
+      : "bg-white/5 border-white/10"
+    }`}>
+      <p className="text-[9px] font-black uppercase tracking-[.1em] text-white/40 mb-1">{label}</p>
+      <p className={`text-[16px] sm:text-[18px] font-black leading-none ${
+        highlight ? "text-amber-400" : green ? "text-emerald-400" : "text-white"
+      }`}>{value}</p>
+      {sub && <p className="text-[10px] text-white/35 mt-1 font-semibold">{sub}</p>}
+    </div>
+  );
+}
+
+/* ── Nav buttons ─────────────────────────────────────────────── */
+function NavBtns({ onBack, onNext, nextLabel = "Continue", nextDisabled = false, nextLoading = false, backLabel = "Back" }) {
+  return (
+    <div className="flex items-center gap-3 pt-5 mt-1 border-t border-white/8">
+      {onBack && (
+        <button type="button" onClick={onBack}
+          className="flex items-center gap-2 px-4 py-3 rounded-xl border border-white/15 text-white/60 font-bold text-[13px] hover:border-white/30 hover:text-white transition-all min-h-[48px]">
+          <ArrowLeft size={15}/> {backLabel}
+        </button>
+      )}
+      <button type="button" onClick={onNext} disabled={nextDisabled || nextLoading}
+        className={`flex-1 sm:flex-none sm:ml-auto flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-black text-[14px] min-h-[48px] transition-all ${
+          nextDisabled || nextLoading
+            ? "bg-white/8 text-white/25 cursor-not-allowed"
+            : "bg-amber-400 text-[#000435] hover:bg-amber-300 shadow-xl shadow-amber-400/20 active:scale-[.98]"
+        }`}>
+        {nextLoading && <Loader2 size={16} className="spin-anim"/>}
+        {nextLabel} {!nextLoading && <ChevronRight size={16}/>}
+      </button>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MAIN COMPONENT
+═══════════════════════════════════════════════════════════════ */
 export default function PublicPayBySchool() {
-  const navigate     = useNavigate();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const classkitIntent =
-    searchParams.get("intent") === "classkit" ||
-    String(searchParams.get("service") || "").toLowerCase() === "shulekit";
-
-  const [schoolCodeInput, setSchoolCodeInput] = useState("");
+  const classkitIntent = searchParams.get("intent") === "classkit" || String(searchParams.get("service") || "").toLowerCase() === "shulekit";
   const urlSchoolLoadDone = useRef(false);
   const autoStudentLookupDone = useRef(false);
-  const [catalogLoading, setCatalogLoading] = useState(false);
-  const [catalogErr, setCatalogErr]         = useState("");
-  const [catalog, setCatalog]               = useState(null);
+  const autoCheckoutTriggered = useRef(false);
 
-  const [comboIndex, setComboIndex]     = useState(0);
+  // Wizard state
+  const [step, setStep] = useState(1);
+  const [stepKey, setStepKey] = useState(0);
+
+  const goStep = useCallback((n) => { setStep(n); setStepKey(k => k + 1); }, []);
+  const next = useCallback(() => goStep(s => s + 1), [goStep]);
+  const back = useCallback(() => goStep(s => s - 1), [goStep]);
+
+  // School
+  const [schoolCodeInput, setSchoolCodeInput] = useState("");
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogErr, setCatalogErr] = useState("");
+  const [catalog, setCatalog] = useState(null);
+  const [sectionKey, setSectionKey] = useState("");
+  const [classPick, setClassPick] = useState("");
+  const [termPick, setTermPick] = useState("");
+  const [yearPick, setYearPick] = useState("");
+
+  // Combo / pricing
+  const [comboIndex, setComboIndex] = useState(0);
   const [pricingLoading, setPricingLoading] = useState(false);
-  const [pricingErr, setPricingErr]         = useState("");
-  const [pricingData, setPricingData]       = useState(null);
-  const [feeSel, setFeeSel]   = useState(() => new Set());
-  const [reqSel, setReqSel]   = useState(() => new Set());
+  const [pricingErr, setPricingErr] = useState("");
+  const [pricingData, setPricingData] = useState(null);
+  const [feeSel, setFeeSel] = useState(() => new Set());
+  const [reqSel, setReqSel] = useState(() => new Set());
   const [imgPreview, setImgPreview] = useState(null);
 
-  // ── Amount entry (new: before student) ───────────────────────
-  const [amountInput, setAmountInput]   = useState("");
-  const [amountFocus, setAmountFocus]   = useState(false);
+  // Amount
+  const [amountInput, setAmountInput] = useState("");
 
-  const [studentCode, setStudentCode]   = useState("");
+  // Student
+  const [studentCode, setStudentCode] = useState("");
   const [lookupLoading, setLookupLoading] = useState(false);
-  const [lookupErr, setLookupErr]         = useState("");
-  const [student, setStudent]             = useState(null);
+  const [lookupErr, setLookupErr] = useState("");
+  const [student, setStudent] = useState(null);
 
-  const [payerName, setPayerName]   = useState("");
-  const [payerPhone, setPayerPhone] = useState("");
-  const [payErr, setPayErr]         = useState("");
+  const [payErr, setPayErr] = useState("");
 
-  const [balanceQuote, setBalanceQuote]     = useState(null);
+  // Balance
+  const [balanceQuote, setBalanceQuote] = useState(null);
   const [balanceLoading, setBalanceLoading] = useState(false);
-  const [balanceErr, setBalanceErr]         = useState("");
+  const [balanceErr, setBalanceErr] = useState("");
 
-  const school        = catalog?.school;
-  const combinations  = catalog?.combinations || [];
+  const school = catalog?.school;
+  const combinations = catalog?.combinations || [];
+  const registeredSectionKeys = useMemo(() => {
+    const levels = parseEducationLevels(school?.education_levels);
+    return [...new Set(levels.map(eduLevelToSectionKey).filter(Boolean))];
+  }, [school?.education_levels]);
+
+  const availableSectionKeys = useMemo(() => {
+    const fromCombos = [...new Set(combinations.map((c) => classToSectionKey(c.class_name)))];
+    if (!registeredSectionKeys.length) return fromCombos;
+    return registeredSectionKeys.filter((k) => fromCombos.includes(k));
+  }, [combinations, registeredSectionKeys]);
+
+  const classesForSection = useMemo(() => {
+    const src = combinations.filter((c) => !sectionKey || classToSectionKey(c.class_name) === sectionKey);
+    return [...new Set(src.map((c) => String(c.class_name || "").trim()).filter(Boolean))]
+      .sort((a, b) => String(a).localeCompare(String(b)));
+  }, [combinations, sectionKey]);
+
+  const termsForSelection = useMemo(() => {
+    const src = combinations.filter((c) => {
+      if (sectionKey && classToSectionKey(c.class_name) !== sectionKey) return false;
+      if (classPick && String(c.class_name || "").trim() !== classPick) return false;
+      return true;
+    });
+    return [...new Set(src.map((c) => String(c.term || "").trim()).filter(Boolean))]
+      .sort((a, b) => String(a).localeCompare(String(b)));
+  }, [combinations, sectionKey, classPick]);
+
+  const yearsForSelection = useMemo(() => {
+    const src = combinations.filter((c) => {
+      if (sectionKey && classToSectionKey(c.class_name) !== sectionKey) return false;
+      if (classPick && String(c.class_name || "").trim() !== classPick) return false;
+      if (termPick && String(c.term || "").trim() !== termPick) return false;
+      return true;
+    });
+    return [...new Set(src.map((c) => String(c.academic_year || "").trim()).filter(Boolean))]
+      .sort((a, b) => String(b).localeCompare(String(a)));
+  }, [combinations, sectionKey, classPick, termPick]);
+
+  const matchingComboIndices = useMemo(() => {
+    return combinations
+      .map((c, i) => ({ c, i }))
+      .filter(({ c }) => {
+        if (sectionKey && classToSectionKey(c.class_name) !== sectionKey) return false;
+        if (classPick && String(c.class_name || "").trim() !== classPick) return false;
+        if (termPick && String(c.term || "").trim() !== termPick) return false;
+        if (yearPick && String(c.academic_year || "").trim() !== yearPick) return false;
+        return true;
+      })
+      .map((x) => x.i);
+  }, [combinations, sectionKey, classPick, termPick, yearPick]);
+
   const selectedCombo = combinations[comboIndex] || null;
+  const sectionLabel = sectionKey ? (SECTION_META[sectionKey]?.label || sectionKey) : "—";
 
-  const studentPrefill = useMemo(
-    () =>
-      (searchParams.get("student_uid") || searchParams.get("student_code") || searchParams.get("uid") || "").trim(),
-    [searchParams]
-  );
+  const studentPrefill = useMemo(() => (searchParams.get("student_uid") || searchParams.get("student_code") || "").trim(), [searchParams]);
 
-  // ── Prefill + auto-load school catalog from URL (e.g. from landing AI learner modal) ──
+  // Auto-load from URL
   useEffect(() => {
     if (urlSchoolLoadDone.current) return;
     const c = (searchParams.get("code") || searchParams.get("school_code") || "").trim();
@@ -177,24 +334,46 @@ export default function PublicPayBySchool() {
     urlSchoolLoadDone.current = true;
     setSchoolCodeInput(c);
     void loadCatalog(c);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once per mount when code in URL
   }, [searchParams]);
 
-  // ── Load school catalog ───────────────────────────────────────
+  useEffect(() => {
+    if (availableSectionKeys.length === 1 && !sectionKey) setSectionKey(availableSectionKeys[0]);
+  }, [availableSectionKeys, sectionKey]);
+
+  useEffect(() => {
+    setClassPick("");
+    setTermPick("");
+    setYearPick("");
+  }, [sectionKey]);
+
+  useEffect(() => {
+    if (classesForSection.length === 1 && !classPick) setClassPick(classesForSection[0]);
+  }, [classesForSection, classPick]);
+
+  useEffect(() => {
+    setTermPick("");
+    setYearPick("");
+  }, [classPick]);
+
+  useEffect(() => {
+    setYearPick("");
+  }, [termPick]);
+
+  useEffect(() => {
+    if (!matchingComboIndices.length) return;
+    if (!matchingComboIndices.includes(comboIndex)) setComboIndex(matchingComboIndices[0]);
+  }, [matchingComboIndices, comboIndex]);
+
+  // Load school catalog
   const loadCatalog = async (codeOverride) => {
     const code = String(codeOverride ?? schoolCodeInput).trim();
     if (!code) { setCatalogErr("Enter the school code printed on your invoice."); return; }
-    setCatalogLoading(true);
-    setCatalogErr("");
-    setCatalog(null);
-    setPricingData(null);
-    setStudent(null);
-    setAmountInput("");
-    setComboIndex(0);
+    setCatalogLoading(true); setCatalogErr(""); setCatalog(null);
+    setPricingData(null); setStudent(null); setAmountInput(""); setComboIndex(0);
+    setSectionKey(""); setClassPick(""); setTermPick(""); setYearPick("");
     try {
-      const res  = await fetch(`${API}/public/public-pay/school-catalog`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const res = await fetch(`${API}/public/public-pay/school-catalog`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ school_code: code }),
       });
       const json = await res.json().catch(() => ({}));
@@ -202,128 +381,83 @@ export default function PublicPayBySchool() {
       setCatalog(json.data);
       if (!(json.data.combinations || []).length)
         setCatalogErr("This school has no published Babyeyi documents yet. Contact the school office.");
-    } catch (e) {
-      setCatalogErr(e.message || "Request failed.");
-    } finally {
-      setCatalogLoading(false);
-    }
+    } catch (e) { setCatalogErr(e.message || "Request failed."); }
+    finally { setCatalogLoading(false); }
   };
 
-  // ── Load pricing when combo changes ──────────────────────────
+  // Load pricing when combo changes
   useEffect(() => {
     if (!school?.id || !selectedCombo?.babyeyi_id) { setPricingData(null); return; }
     let cancelled = false;
-    setPricingLoading(true);
-    setPricingErr("");
-    setPricingData(null);
-    setStudent(null);
-    setAmountInput("");
-    setBalanceQuote(null);
+    setPricingLoading(true); setPricingErr(""); setPricingData(null);
+    setStudent(null); setAmountInput(""); setBalanceQuote(null);
     fetch(`${API}/public/babyeyi-pay/pricing/${selectedCombo.babyeyi_id}?school_id=${encodeURIComponent(school.id)}`)
-      .then(r => r.json())
-      .then(j => {
+      .then(r => r.json()).then(j => {
         if (cancelled) return;
         if (!j.success) throw new Error(j.message || "Could not load pricing");
         setPricingData(j.data);
-        const fees = j.data.school_fees   || [];
-        const reqs = j.data.requirements  || [];
-        setFeeSel(new Set(fees.map(f => normFeeId(f.id)).filter(x => x !== "" && x != null)));
-        setReqSel(new Set(reqs.map(x => normReqId(x.babyeyi_requirement_id)).filter(Boolean)));
+        setFeeSel(new Set(j.data.school_fees?.map(f => normFeeId(f.id)).filter(x => x !== "" && x != null) || []));
+        setReqSel(new Set(j.data.requirements?.map(x => normReqId(x.babyeyi_requirement_id)).filter(Boolean) || []));
       })
       .catch(e => { if (!cancelled) setPricingErr(e.message || "Failed to load fees"); })
       .finally(() => { if (!cancelled) setPricingLoading(false); });
     return () => { cancelled = true; };
   }, [school?.id, selectedCombo?.babyeyi_id]);
 
-  // ── Selected totals ───────────────────────────────────────────
+  // Totals
   const feeTotal = useMemo(() => {
     if (!pricingData?.school_fees) return 0;
-    return pricingData.school_fees
-      .filter(f => feeSel.has(normFeeId(f.id)))
-      .reduce((s, f) => s + Number(f.amount || 0), 0);
+    return pricingData.school_fees.filter(f => feeSel.has(normFeeId(f.id))).reduce((s, f) => s + Number(f.amount || 0), 0);
   }, [pricingData, feeSel]);
-
   const reqTotal = useMemo(() => {
     if (!pricingData?.requirements) return 0;
     return pricingData.requirements
-      .filter(r => { const rid = normReqId(r.babyeyi_requirement_id); return rid != null && reqSel.has(rid); })
+      .filter((r) => reqSel.has(normReqId(r.babyeyi_requirement_id)))
       .reduce((s, r) => s + Number(r.line_total_rwf ?? r.price ?? 0), 0);
   }, [pricingData, reqSel]);
-
   const grand = Math.round((feeTotal + reqTotal) * 100) / 100;
-
-  // ── Amount validation ─────────────────────────────────────────
   const enteredAmount = parseFloat(String(amountInput).replace(/,/g, "")) || 0;
   const amountOverSel = enteredAmount > grand + 1.5;
-  const amountValid   = enteredAmount >= 100 && !amountOverSel;
+  const minPayAmount = useMemo(() => {
+    const g = Math.round(grand * 100) / 100;
+    return g > 0 ? g : 0;
+  }, [grand]);
 
-  // ── Student for balance quote ─────────────────────────────────
+  // Student lookup
   const selectedStudentForQuote = useMemo(() => {
     if (!student?.id) return null;
-    return {
-      student_id:    student.id,
-      student_uid:   student.student_uid   || null,
-      student_code:  student.student_code  || null,
-      sdm_code:      student.sdm_code      || null,
-      student_name:  `${student.first_name || ""} ${student.last_name || ""}`.trim(),
-      first_name:    student.first_name    || null,
-      last_name:     student.last_name     || null,
-      class_name:    student.class_name    || null,
-      academic_year: student.academic_year || null,
-      school_name:   school?.school_name   || null,
-    };
+    return { student_id: student.id, student_uid: student.student_uid || null, student_code: student.student_code || null, sdm_code: student.sdm_code || null, student_name: `${student.first_name || ""} ${student.last_name || ""}`.trim(), first_name: student.first_name || null, last_name: student.last_name || null, class_name: student.class_name || null, academic_year: student.academic_year || null, school_name: school?.school_name || null };
   }, [student, school?.school_name]);
 
-  // ── Balance quote (after student confirmed) ───────────────────
+  // Balance quote
   useEffect(() => {
-    if (!school?.id || !selectedCombo?.babyeyi_id || !selectedStudentForQuote) {
-      setBalanceQuote(null); setBalanceErr(""); return;
-    }
+    if (!school?.id || !selectedCombo?.babyeyi_id || !selectedStudentForQuote) { setBalanceQuote(null); setBalanceErr(""); return; }
     const feeIds = Array.from(feeSel).map(id => normFeeId(id)).filter(n => n !== "" && n != null);
     const reqIds = Array.from(reqSel).map(id => normReqId(id)).filter(Boolean);
     let cancelled = false;
-    setBalanceLoading(true);
-    setBalanceErr("");
+    setBalanceLoading(true); setBalanceErr("");
     fetch(`${API}/public/babyeyi-pay/quote-balance`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        school_id:                school.id,
-        babyeyi_id:               selectedCombo.babyeyi_id,
-        selected_fee_ids:         feeIds,
-        selected_requirement_ids: reqIds,
-        selected_students:        [selectedStudentForQuote],
-      }),
-    })
-      .then(r => r.json())
-      .then(j => {
-        if (cancelled) return;
-        if (!j.success) throw new Error(j.message || "Balance check failed");
-        setBalanceQuote(j.data || null);
-      })
-      .catch(e => {
-        if (!cancelled) { setBalanceQuote(null); setBalanceErr(e.message || "Balance check failed"); }
-      })
-      .finally(() => { if (!cancelled) setBalanceLoading(false); });
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ school_id: school.id, babyeyi_id: selectedCombo.babyeyi_id, selected_fee_ids: feeIds, selected_requirement_ids: reqIds, selected_students: [selectedStudentForQuote] }),
+    }).then(r => r.json()).then(j => {
+      if (cancelled) return;
+      if (!j.success) throw new Error(j.message || "Balance check failed");
+      setBalanceQuote(j.data || null);
+    }).catch(e => { if (!cancelled) { setBalanceQuote(null); setBalanceErr(e.message || "Balance check failed"); } })
+    .finally(() => { if (!cancelled) setBalanceLoading(false); });
     return () => { cancelled = true; };
-  }, [school?.id, selectedCombo?.babyeyi_id, selectedStudentForQuote,
-      JSON.stringify([...feeSel].sort()), JSON.stringify([...reqSel].sort())]);
+  }, [school?.id, selectedCombo?.babyeyi_id, selectedStudentForQuote, JSON.stringify([...feeSel].sort()), JSON.stringify([...reqSel].sort())]);
 
-  // ── Derived balance values ────────────────────────────────────
-  const remainingOwed         = balanceQuote != null ? Number(balanceQuote.remaining_rwf          ?? 0) : null;
-  const remainingFullDocument = balanceQuote != null
-    ? Number(balanceQuote.remaining_full_document_rwf ?? balanceQuote.remaining_rwf ?? 0) : null;
-  const remainingUnselected   = balanceQuote != null
-    ? Number(balanceQuote.remaining_unselected_lines_rwf ??
-        Math.max(0, (remainingFullDocument ?? 0) - (remainingOwed ?? 0))) : null;
-  const selectionListed = balanceQuote != null ? Number(balanceQuote.selection_due_rwf ?? 0) : null;
-  const creditedTracked =
-    selectionListed != null && remainingOwed != null
-      ? Math.max(0, Math.round((selectionListed - remainingOwed) * 100) / 100) : null;
-  const afterPayEstimate =
-    remainingFullDocument != null
-      ? Math.max(0, Math.round((remainingFullDocument - enteredAmount) * 100) / 100) : null;
+  const remainingOwed = balanceQuote != null ? Number(balanceQuote.remaining_rwf ?? 0) : null;
+  const remainingFullDocument = balanceQuote != null ? Number(balanceQuote.remaining_full_document_rwf ?? balanceQuote.remaining_rwf ?? 0) : null;
+  const remainingAfterCurrentPayment = remainingOwed != null
+    ? Math.max(0, Math.round((remainingOwed - enteredAmount) * 100) / 100)
+    : null;
+  const remainingFullDocumentAfterCurrentPayment = remainingFullDocument != null
+    ? Math.max(0, Math.round((remainingFullDocument - enteredAmount) * 100) / 100)
+    : null;
   const overpays = remainingOwed != null && enteredAmount > remainingOwed + 1.5;
+  const amountValid = enteredAmount + 1e-6 >= minPayAmount && !amountOverSel;
 
   const classMismatch = useMemo(() => {
     if (!student?.class_name || !pricingData?.babyeyi?.class_name) return false;
@@ -332,816 +466,651 @@ export default function PublicPayBySchool() {
     return a && b && a !== b;
   }, [student, pricingData]);
 
-  const toggleFee = (id) => {
-    const fid = normFeeId(id);
-    setFeeSel(prev => { const n = new Set(prev); n.has(fid) ? n.delete(fid) : n.add(fid); return n; });
-  };
+  const toggleFee = (id) => { const fid = normFeeId(id); setFeeSel(prev => { const n = new Set(prev); n.has(fid) ? n.delete(fid) : n.add(fid); return n; }); };
   const toggleReq = (id) => {
     const rid = normReqId(id);
-    if (rid == null) return;
-    setReqSel(prev => { const n = new Set(prev); n.has(rid) ? n.delete(rid) : n.add(rid); return n; });
+    if (!rid) return;
+    setReqSel((prev) => {
+      const n = new Set(prev);
+      if (n.has(rid)) n.delete(rid);
+      else n.add(rid);
+      return n;
+    });
   };
 
   const runStudentLookup = async (codeOverride) => {
     const trimmed = String(codeOverride ?? studentCode).trim();
     if (!trimmed) { setLookupErr("Enter student UID, official code, or SDM ID."); return; }
     if (!school?.school_code || !selectedCombo?.babyeyi_id) return;
-    setStudentCode(trimmed);
-    setLookupLoading(true);
-    setLookupErr("");
-    setStudent(null);
+    setStudentCode(trimmed); setLookupLoading(true); setLookupErr(""); setStudent(null);
     try {
-      const res  = await fetch(`${API}/public/public-pay/search-student`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          school_code: school.school_code,
-          code:        trimmed,
-          babyeyi_id:  selectedCombo.babyeyi_id,
-        }),
+      const res = await fetch(`${API}/public/public-pay/search-student`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ school_code: school.school_code, code: trimmed, babyeyi_id: selectedCombo.babyeyi_id }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.success) throw new Error(json.message || "No student matched.");
       setStudent(json.data.student);
-    } catch (e) {
-      setLookupErr(e.message || "Lookup failed.");
-    } finally {
-      setLookupLoading(false);
-    }
+    } catch (e) { setLookupErr(e.message || "Lookup failed."); }
+    finally { setLookupLoading(false); }
   };
 
-  // ── Auto student lookup when opened from AI modal with ?student_uid= ─────────
+  // Auto student lookup from URL
   useEffect(() => {
     if (autoStudentLookupDone.current) return;
-    if (!studentPrefill) return;
-    if (!school?.school_code || !selectedCombo?.babyeyi_id) return;
-    if (!pricingData || pricingLoading) return;
+    if (!studentPrefill || !school?.school_code || !selectedCombo?.babyeyi_id || !pricingData || pricingLoading) return;
     autoStudentLookupDone.current = true;
     void runStudentLookup(studentPrefill);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: one-shot after pricing ready
   }, [studentPrefill, school?.school_code, selectedCombo?.babyeyi_id, pricingData, pricingLoading]);
 
   const continueToPayment = () => {
     setPayErr("");
-    if (!school || !selectedCombo?.babyeyi_id || !pricingData)
-      { setPayErr("Load school and class/term first."); return; }
-    if (!amountValid)
-      { setPayErr("Enter a valid payment amount (min 100 RWF, not exceeding selected total)."); return; }
-    if (!student)
-      { setPayErr("Find and confirm the student before continuing."); return; }
-    if (balanceLoading)
-      { setPayErr("Please wait — confirming balance for this student."); return; }
-    if (overpays)
-      { setPayErr("Amount exceeds remaining balance for this student. Reduce or contact the school."); return; }
-    const name    = String(payerName  || "").trim();
-    const phoneOk = normalizeRwandaMobile(payerPhone);
-    if (!name)    { setPayErr("Enter the payer name (parent or guardian)."); return; }
-    if (!phoneOk) { setPayErr("Enter a valid Rwanda mobile number (07XXXXXXXX)."); return; }
-
-    const selectedStudent = {
-      student_id:    student.id,
-      student_uid:   student.student_uid   || null,
-      student_code:  student.student_code  || null,
-      sdm_code:      student.sdm_code      || null,
-      student_name:  `${student.first_name || ""} ${student.last_name || ""}`.trim(),
-      first_name:    student.first_name    || null,
-      last_name:     student.last_name     || null,
-      class_name:    student.class_name    || null,
-      academic_year: student.academic_year || null,
-      school_name:   school.school_name    || null,
-    };
-
-    const fullDraft = {
-      schoolId:       school.id,
-      babyeyiId:      selectedCombo.babyeyi_id,
-      schoolName:     school.school_name || "",
-      schoolSlug:     "",
-      docLabel:       comboLabel(selectedCombo),
-      grandTotal:     enteredAmount,
-      selectedFeeIds: Array.from(feeSel).map(x => normFeeId(x)).filter(n => n !== "" && n != null),
-      selectedReqIds: Array.from(reqSel).map(x => normReqId(x)).filter(Boolean),
-      pricingSnapshot: pricingData,
-      selectedStudent,
-      payer:           { name, phone: phoneOk, email: null },
-      fromPublicFinder:    true,
-      publicPayNoLogin:    true,
-      fromPublicSchoolPay: true,
-    };
+    if (!school || !selectedCombo?.babyeyi_id || !pricingData) { setPayErr("Load school and class/term first."); return; }
+    if (!amountValid) {
+      if (enteredAmount + 1e-6 < minPayAmount) {
+        setPayErr("The amount entered is less than the total for the selected requirements. Please pay the full required amount.");
+      } else {
+        setPayErr(`Enter at least ${minPayAmount.toLocaleString()} RWF.`);
+      }
+      return;
+    }
+    if (classMismatch) { setPayErr("Student's class does not match the selected Babyeyi. Go back to step 2."); return; }
+    if (!student) { setPayErr("Find and confirm the student before continuing."); return; }
+    if (balanceLoading) { setPayErr("Please wait — confirming balance."); return; }
+    if (overpays) { setPayErr("Amount exceeds remaining balance for this student."); return; }
+    const selectedStudent = { student_id: student.id, student_uid: student.student_uid || null, student_code: student.student_code || null, sdm_code: student.sdm_code || null, student_name: `${student.first_name || ""} ${student.last_name || ""}`.trim(), first_name: student.first_name || null, last_name: student.last_name || null, class_name: student.class_name || null, academic_year: student.academic_year || null, school_name: school.school_name || null };
+    const fullDraft = { schoolId: school.id, babyeyiId: selectedCombo.babyeyi_id, schoolName: school.school_name || "", docLabel: comboLabel(selectedCombo), grandTotal: enteredAmount, selectedFeeIds: Array.from(feeSel).map(x => normFeeId(x)).filter(n => n !== "" && n != null), selectedReqIds: Array.from(reqSel).map(x => normReqId(x)).filter(Boolean), pricingSnapshot: pricingData, selectedStudent, payer: null, fromPublicFinder: true, publicPayNoLogin: true, fromPublicSchoolPay: true };
     try { sessionStorage.setItem("babyeyi_pay_draft", JSON.stringify(fullDraft)); } catch (_) {}
     navigate("/payments", { state: fullDraft });
   };
 
-  // ── Step number badge ─────────────────────────────────────────
-  const Step = ({ n, active }) => (
-    <div style={stepNum(active)}>{n}</div>
-  );
+  useEffect(() => {
+    if (step !== 5) autoCheckoutTriggered.current = false;
+  }, [step]);
 
+  // Auto-open payment page once the checkout form is fully valid.
+  useEffect(() => {
+    if (step !== 5 || autoCheckoutTriggered.current) return;
+    const ready =
+      !!school &&
+      !!selectedCombo?.babyeyi_id &&
+      !!pricingData &&
+      amountValid &&
+      !!student &&
+      !classMismatch &&
+      !balanceLoading &&
+      !overpays;
+    if (!ready) return;
+    autoCheckoutTriggered.current = true;
+    const t = setTimeout(() => continueToPayment(), 180);
+    return () => clearTimeout(t);
+  }, [
+    step,
+    school,
+    selectedCombo,
+    pricingData,
+    amountValid,
+    student,
+    classMismatch,
+    balanceLoading,
+    overpays,
+  ]);
+
+  // ── RENDER ────────────────────────────────────────────────────
   return (
-    <div style={{ minHeight: "100vh", background: C.db900, padding: "0 0 60px" }}>
+    <div className="min-h-screen bg-[#000435]" style={{ fontFamily: FONT }}>
+      <FontLoader/>
 
       {/* Top bar */}
-      <div style={{
-        background: C.db800, borderBottom: `3px solid ${C.am200}`,
-        padding: "14px 24px", display: "flex", alignItems: "center",
-        justifyContent: "space-between",
-      }}>
-        <button onClick={() => navigate(-1)} style={{
-          display: "flex", alignItems: "center", gap: 6,
-          background: "transparent", border: `1px solid ${C.am400}`,
-          color: C.am100, padding: "6px 14px", borderRadius: 6,
-          fontSize: 13, fontWeight: 600, cursor: "pointer",
-        }}>
-          <ArrowLeft size={14} /> Back
-        </button>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, color: C.am200, fontSize: 12, fontWeight: 700 }}>
-          <ShieldCheck size={15} color={C.am200} />
-          SECURE PUBLIC CHECKOUT
+      <div className="sticky top-0 z-20 bg-[#000435]/95 backdrop-blur-xl border-b-[3px] border-amber-400">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center gap-3">
+          <button onClick={() => navigate(-1)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/6 border border-white/12 text-white/60 font-bold text-[12px] hover:bg-white/10 hover:text-white transition-all">
+            <ArrowLeft size={14}/> Back
+          </button>
+          <div className="flex items-center gap-2 ml-1">
+            <div className="w-7 h-7 rounded-lg bg-amber-400 flex items-center justify-center">
+              <School size={14} className="text-[#000435]"/>
+            </div>
+            <span className="font-black text-[14px] sm:text-[15px] text-white hidden xs:block">
+              {classkitIntent ? "Pay ClassKit" : "Pay School Fees"}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 ml-auto text-[11px] font-bold text-emerald-400">
+            <ShieldCheck size={14}/>
+            <span className="hidden sm:inline">Secure Checkout</span>
+          </div>
         </div>
       </div>
 
-      {/* Hero header */}
-      <div style={{ background: C.db900, padding: "28px 24px 20px", maxWidth: 720, margin: "0 auto" }}>
-        <div style={{
-          display: "inline-block", background: C.am200, color: C.db900,
-          fontSize: 10, fontWeight: 800, letterSpacing: "0.15em",
-          textTransform: "uppercase", padding: "3px 10px", borderRadius: 4, marginBottom: 10,
-        }}>
-          {classkitIntent ? "ShuleKit / ClassKit" : "Parents & Guardians"}
-        </div>
-        <h1 style={{ color: "#fff", fontSize: 24, fontWeight: 800, margin: "0 0 8px", lineHeight: 1.2 }}>
-          {classkitIntent ? "Pay ClassKit by school code" : "Pay school fees by school code"}
-        </h1>
-        <p style={{ color: C.db200, fontSize: 14, lineHeight: 1.6, margin: 0, maxWidth: 560 }}>
-          Enter your school code, select what to pay, enter the amount, then confirm your child — no account required.
-        </p>
-      </div>
+      {/* Page */}
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
 
-      {/* Main content */}
-      <div style={{ maxWidth: 720, margin: "0 auto", padding: "0 24px" }}>
-
-        {/* ── STEP 1: School code ────────────────────────────────── */}
-        <div style={card}>
-          <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 16 }}>
-            <Step n="1" active={true} />
-            <div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: C.db900 }}>School code</div>
-              <div style={{ fontSize: 12, color: C.db600, marginTop: 2 }}>
-                The code printed on your Babyeyi invoice or school directory.
-              </div>
-            </div>
+        {/* Hero heading */}
+        <div className="mb-7 sm:mb-8">
+          <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-400/10 border border-amber-400/25 px-3 py-1.5 mb-4">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400"/>
+            <span className="text-[10px] font-black uppercase tracking-[.12em] text-amber-400">
+              {classkitIntent ? "ClassKit & ShuleKit" : "Parents & Guardians"}
+            </span>
           </div>
-          <div style={{ display: "flex", gap: 10 }}>
-            <input
-              value={schoolCodeInput}
-              onChange={e => setSchoolCodeInput(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && loadCatalog()}
-              placeholder="e.g. 003"
-              style={{ ...inputStyle(false), flex: 1 }}
-              autoCapitalize="characters"
-              autoCorrect="off"
-            />
-            <button onClick={loadCatalog} disabled={catalogLoading} style={{
-              ...btnPrimary,
-              opacity: catalogLoading ? 0.6 : 1,
-            }}>
-              {catalogLoading ? <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> : <Search size={15} />}
-              Find school
-            </button>
-          </div>
-          {catalogErr && (
-            <div style={{ marginTop: 10, color: "#c0392b", fontSize: 13, background: "#fdf0ed", border: "1px solid #f5c6c0", borderRadius: 6, padding: "8px 12px" }}>
-              {catalogErr}
-            </div>
-          )}
-          {school && (
-            <div style={{
-              marginTop: 14, display: "flex", alignItems: "center", gap: 10,
-              background: C.am50, border: `1px solid ${C.am200}`, borderRadius: 8, padding: "10px 14px",
-            }}>
-              <Building2 size={18} color={C.am600} />
-              <div>
-                <div style={{ fontWeight: 700, color: C.db900, fontSize: 14 }}>{school.school_name}</div>
-                <div style={{ fontSize: 11, color: C.am800, fontFamily: "monospace", marginTop: 1 }}>Code: {school.school_code}</div>
-              </div>
-              <CheckCircle2 size={18} color={C.am400} style={{ marginLeft: "auto" }} />
-            </div>
-          )}
+          <h1 className="font-black text-white text-[24px] sm:text-[28px] xl:text-[32px] tracking-tight leading-tight mb-2">
+            {classkitIntent ? "Pay for SchoolKit" : "Pay school fees by"}&nbsp;
+            <span className="text-amber-400">school code</span>
+          </h1>
+          <p className="text-white/50 text-[14px] leading-relaxed">
+            No account needed — just your school's code, select your fees, and pay in minutes.
+          </p>
         </div>
 
-        {/* ── STEP 2: Class & Term → Fee/Req selection ──────────── */}
-        {school && combinations.length > 0 && (
-          <div style={card}>
-            <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 16 }}>
-              <Step n="2" active={!!pricingData} />
-              <div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: C.db900 }}>Class, term & what to pay</div>
-                <div style={{ fontSize: 12, color: C.db600, marginTop: 2 }}>Select the Babyeyi document, then check the lines for this payment.</div>
-              </div>
-            </div>
+        {/* Main card */}
+        <div className="rounded-2xl xl:rounded-3xl bg-white/4 border border-amber-400/20 overflow-hidden shadow-2xl shadow-black/30">
 
-            <label style={labelStyle}>Select class / term / year</label>
-            <select
-              value={comboIndex}
-              onChange={e => setComboIndex(Number(e.target.value))}
-              style={{ ...inputStyle(false), marginBottom: 20 }}
-            >
-              {combinations.map((c, i) => (
-                <option key={`${c.babyeyi_id}-${i}`} value={i}>{comboLabel(c)}</option>
-              ))}
-            </select>
+          {/* Step indicator header */}
+          <div className="px-5 sm:px-6 py-5 border-b border-white/8 bg-[#000435]/50">
+            <StepIndicator current={step}/>
+          </div>
 
-            {pricingLoading && (
-              <div style={{ display: "flex", justifyContent: "center", padding: "30px 0" }}>
-                <Loader2 size={32} color={C.am200} style={{ animation: "spin 1s linear infinite" }} />
-              </div>
-            )}
-            {pricingErr && (
-              <div style={{ color: "#c0392b", fontSize: 13, background: "#fdf0ed", border: "1px solid #f5c6c0", borderRadius: 6, padding: "8px 12px" }}>
-                {pricingErr}
-              </div>
-            )}
+          {/* Step content area */}
+          <div className="px-5 sm:px-6 py-6">
 
-            {!pricingLoading && !pricingErr && pricingData && (
-              <>
-                {/* School fees */}
-                {(pricingData.school_fees || []).length > 0 && (
-                  <div style={{ marginBottom: 20 }}>
-                    <div style={sectionLabel}>
-                      <Wallet size={13} color={C.am400} /> Tuition & school fees
+            {/* ── STEP 1: School code ────────────────────────── */}
+            {step === 1 && (
+              <div key={stepKey} className="step-in">
+                <div className="mb-6">
+                  <h2 className="font-black text-white text-[18px] sm:text-[20px] mb-1.5">Enter school code</h2>
+                  <p className="text-white/45 text-[13px]">The code printed on your Babyeyi invoice or found on the school's profile page.</p>
+                </div>
+
+                <Field label="School Code" required error={catalogErr}>
+                  <div className="flex gap-2.5">
+                    <div className="flex-1">
+                      <Input value={schoolCodeInput} onChange={e => { setSchoolCodeInput(e.target.value); setCatalogErr(""); }} placeholder="e.g. 003 or GS-KM-001" icon={Search} onKeyDown={e => e.key === "Enter" && loadCatalog()}/>
                     </div>
-                    <div style={{ fontSize: 11, color: C.db600, marginBottom: 10 }}>
-                      Uncheck lines you are not paying in this transaction.
-                    </div>
-                    {pricingData.school_fees.map(f => (
-                      <div key={f.id} style={{
-                        display: "flex", alignItems: "center", gap: 12,
-                        padding: "10px 14px", marginBottom: 6,
-                        border: `1px solid ${feeSel.has(normFeeId(f.id)) ? C.am200 : C.db100}`,
-                        borderRadius: 8,
-                        background: feeSel.has(normFeeId(f.id)) ? C.am50 : "#fff",
-                        cursor: "pointer",
-                        transition: "all 0.15s",
-                      }} onClick={() => toggleFee(f.id)}>
-                        <input
-                          type="checkbox"
-                          checked={feeSel.has(normFeeId(f.id))}
-                          onChange={() => toggleFee(f.id)}
-                          onClick={e => e.stopPropagation()}
-                          style={{ width: 16, height: 16, accentColor: C.db800, cursor: "pointer" }}
-                        />
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: 600, color: C.db900, fontSize: 13 }}>{f.name || "Fee item"}</div>
-                        </div>
-                        <div style={{ fontWeight: 800, color: C.am800, fontFamily: "monospace", fontSize: 13 }}>
-                          {Number(f.amount || 0).toLocaleString()} RWF
-                        </div>
+                    <button onClick={() => loadCatalog()} disabled={catalogLoading}
+                      className="flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-400 text-[#000435] font-black text-[13px] hover:bg-amber-300 transition-all disabled:opacity-50 shrink-0 min-h-[48px]">
+                      {catalogLoading ? <Loader2 size={15} className="spin-anim"/> : <Search size={15}/>}
+                      <span className="hidden sm:inline">Find</span>
+                    </button>
+                  </div>
+                </Field>
+
+                {school && (
+                  <div className="mt-5 fade-in">
+                    <div className="flex items-center gap-3 p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/8">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center shrink-0">
+                        <Building2 size={18} className="text-emerald-400"/>
                       </div>
-                    ))}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-black text-white text-[15px] truncate">{school.school_name}</p>
+                        <p className="text-[11px] font-mono text-emerald-400/70 mt-0.5">Code: {school.school_code}</p>
+                      </div>
+                      <div className="w-8 h-8 rounded-xl bg-emerald-500/20 flex items-center justify-center shrink-0">
+                        <Check size={16} className="text-emerald-400" strokeWidth={2.5}/>
+                      </div>
+                    </div>
+
+                    {combinations.length > 0 && (
+                      <div className="mt-4 space-y-4">
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-[.1em] text-white/35 mb-2">Choose section</p>
+                          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                            {availableSectionKeys.map((k) => {
+                              const m = SECTION_META[k] || { label: k, chip: "" };
+                              const active = sectionKey === k;
+                              return (
+                                <button
+                                  key={k}
+                                  type="button"
+                                  onClick={() => setSectionKey(k)}
+                                  className={`rounded-xl border px-2.5 py-2.5 text-left transition-all ${
+                                    active
+                                      ? "border-amber-400 bg-amber-400/12"
+                                      : "border-white/10 bg-white/4 hover:border-white/25"
+                                  }`}
+                                >
+                                  <p className={`text-[12px] font-black ${active ? "text-amber-300" : "text-white"}`}>{m.label}</p>
+                                  <p className="text-[10px] text-white/35 font-semibold mt-0.5">{m.chip}</p>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        <Field label="Class" required hint="Show only classes in this section for this school.">
+                          <Select value={classPick} onChange={(e) => setClassPick(e.target.value)}>
+                            <option value="">Choose class…</option>
+                            {classesForSection.map((c) => (
+                              <option key={c} value={c}>{c}</option>
+                            ))}
+                          </Select>
+                        </Field>
+
+                        <div className="grid sm:grid-cols-2 gap-3">
+                          <Field label="Term">
+                            <Select value={termPick} onChange={(e) => setTermPick(e.target.value)} disabled={!classPick}>
+                              <option value="">Any term</option>
+                              {termsForSelection.map((t) => <option key={t} value={t}>{t}</option>)}
+                            </Select>
+                          </Field>
+                          <Field label="Academic Year">
+                            <Select value={yearPick} onChange={(e) => setYearPick(e.target.value)} disabled={!classPick}>
+                              <option value="">Any year</option>
+                              {yearsForSelection.map((y) => <option key={y} value={y}>{y}</option>)}
+                            </Select>
+                          </Field>
+                        </div>
+
+                        {matchingComboIndices.length > 1 && (
+                          <Field label="Available Babyeyi documents" hint="Choose exact document for this section/class filters.">
+                            <Select value={comboIndex} onChange={(e) => setComboIndex(Number(e.target.value))}>
+                              {matchingComboIndices.map((i) => (
+                                <option key={`${combinations[i].babyeyi_id}-${i}`} value={i}>{comboLabel(combinations[i])}</option>
+                              ))}
+                            </Select>
+                          </Field>
+                        )}
+
+                        {classPick && matchingComboIndices.length === 0 && (
+                          <div className="rounded-xl border border-red-400/25 bg-red-400/8 px-3.5 py-3 text-[12px] text-red-300 font-semibold">
+                            No Babyeyi found for this section/class with the selected term/year. Try another term or academic year.
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 
-                {/* Requirements */}
-                {(pricingData.requirements || []).length > 0 && (
-                  <div style={{ marginBottom: 20 }}>
-                    <div style={sectionLabel}>
-                      <GraduationCap size={13} color={C.am400} /> Student requirements
+                <NavBtns
+                  onNext={() => {
+                    const needsSectionPick = availableSectionKeys.length > 1 && !sectionKey;
+                    if (school && !needsSectionPick && classPick && matchingComboIndices.length > 0) goStep(2);
+                    else if (!school) loadCatalog();
+                  }}
+                  nextLabel={school ? "Continue to Fees" : "Find School"}
+                  nextDisabled={!!(
+                    !school
+                      ? !schoolCodeInput.trim()
+                      : ((availableSectionKeys.length > 1 && !sectionKey) || !classPick || matchingComboIndices.length === 0)
+                  )}
+                  nextLoading={catalogLoading}
+                />
+              </div>
+            )}
+
+            {/* ── STEP 2: Fees & Requirements ─────────────────── */}
+            {step === 2 && school && (
+              <div key={stepKey} className="step-in">
+                <div className="mb-5">
+                  <h2 className="font-black text-white text-[18px] sm:text-[20px] mb-1">Select what to pay</h2>
+                  <p className="text-white/45 text-[13px]">Choose one or more fee and requirement items. Total updates instantly.</p>
+                </div>
+
+                {/* Combo selector */}
+                <div className="mb-5 p-3.5 rounded-xl border border-amber-400/20 bg-amber-400/5 flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-amber-400 flex items-center justify-center shrink-0">
+                    <GraduationCap size={15} className="text-[#000435]"/>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-black text-white text-[13px]">{school.school_name}</p>
+                    <p className="text-[11px] text-amber-400/70 font-semibold">{selectedCombo ? comboLabel(selectedCombo) : "—"}</p>
+                  </div>
+                  <button onClick={() => goStep(1)} className="text-[11px] text-amber-400/60 hover:text-amber-400 font-bold transition-colors shrink-0">Change</button>
+                </div>
+
+                {pricingLoading && (
+                  <div className="flex flex-col items-center justify-center py-12 gap-3">
+                    <div className="w-10 h-10 rounded-xl border border-amber-400/25 flex items-center justify-center">
+                      <Loader2 size={20} className="text-amber-400 spin-anim"/>
                     </div>
-                    <div style={{ fontSize: 11, color: C.db600, marginBottom: 10 }}>
-                      Unit price × quantity from the school's Babyeyi list.
-                    </div>
-                    <div style={{ overflowX: "auto", borderRadius: 8, border: `1px solid ${C.db100}` }}>
-                      <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 500 }}>
-                        <thead>
-                          <tr style={{ background: C.db900 }}>
-                            <th style={{ width: 36, padding: "8px 10px" }}></th>
-                            <th style={{ width: 48, padding: "8px 6px" }}></th>
-                            <th style={{ textAlign: "left", padding: "8px 10px", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: C.am100 }}>Item</th>
-                            <th style={{ textAlign: "right", padding: "8px 10px", fontSize: 10, fontWeight: 700, textTransform: "uppercase", color: C.am100 }}>Qty</th>
-                            <th style={{ textAlign: "right", padding: "8px 10px", fontSize: 10, fontWeight: 700, textTransform: "uppercase", color: C.am100 }}>Unit</th>
-                            <th style={{ textAlign: "right", padding: "8px 10px", fontSize: 10, fontWeight: 700, textTransform: "uppercase", color: C.am100 }}>Total</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {pricingData.requirements.map((r, idx) => {
-                            const rid     = normReqId(r.babyeyi_requirement_id);
-                            const checked = rid != null && reqSel.has(rid);
+                    <p className="text-white/40 text-[13px] font-semibold">Loading fees…</p>
+                  </div>
+                )}
+
+                {pricingErr && (
+                  <div className="flex items-start gap-2.5 p-4 rounded-xl border border-red-500/25 bg-red-500/8 text-red-400 text-[13px] font-semibold">
+                    <AlertCircle size={15} className="mt-0.5 shrink-0"/>{pricingErr}
+                  </div>
+                )}
+
+                {!pricingLoading && !pricingErr && pricingData && (
+                  <>
+                    {/* School fees */}
+                    {(pricingData.school_fees || []).length > 0 && (
+                      <div className="mb-4">
+                        <p className="text-[10px] font-black uppercase tracking-[.1em] text-white/35 mb-3 flex items-center gap-2">
+                          <Wallet size={12}/> Tuition &amp; school fees
+                        </p>
+                        <div className="space-y-2">
+                          {pricingData.school_fees.map(f => {
+                            const selected = feeSel.has(normFeeId(f.id));
                             return (
-                              <tr key={r.babyeyi_requirement_id}
-                                style={{
-                                  background: checked ? C.am50 : idx % 2 === 0 ? "#fff" : C.db50,
-                                  cursor: "pointer", borderBottom: `1px solid ${C.db100}`,
-                                }}
-                                onClick={() => toggleReq(r.babyeyi_requirement_id)}
-                              >
-                                <td style={{ padding: "9px 10px", textAlign: "center" }}>
-                                  <input type="checkbox" checked={checked}
-                                    onChange={() => toggleReq(r.babyeyi_requirement_id)}
-                                    onClick={e => e.stopPropagation()}
-                                    style={{ width: 15, height: 15, accentColor: C.db800, cursor: "pointer" }}
-                                  />
-                                </td>
-                                <td style={{ padding: "9px 6px", textAlign: "center" }}>
-                                  {r.catalog_image_url ? (
-                                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                                      <img src={payImgUrl(r.catalog_image_url)} alt=""
-                                        style={{ width: 34, height: 34, objectFit: "contain", borderRadius: 4, border: `1px solid ${C.am100}` }} />
-                                      <button type="button"
-                                        style={{ padding: 3, border: `1px solid ${C.db200}`, borderRadius: 4, background: "#fff", cursor: "pointer" }}
-                                        onClick={e => { e.stopPropagation(); setImgPreview(payImgUrl(r.catalog_image_url)); }}>
-                                        <ZoomIn size={12} color={C.db600} />
-                                      </button>
-                                    </div>
-                                  ) : <span style={{ color: C.db200, fontSize: 12 }}>—</span>}
-                                </td>
-                                <td style={{ padding: "9px 10px" }}>
-                                  <div style={{ fontWeight: 600, color: C.db900, fontSize: 13 }}>{r.requirement_name}</div>
-                                  {r.description && <div style={{ fontSize: 11, color: C.db600, marginTop: 2 }}>{r.description}</div>}
-                                </td>
-                                <td style={{ padding: "9px 10px", textAlign: "right", color: C.db600, fontSize: 13 }}>
-                                  {r.quantity != null && String(r.quantity).trim() !== "" ? String(r.quantity) : "1"}
-                                </td>
-                                <td style={{ padding: "9px 10px", textAlign: "right", fontFamily: "monospace", color: C.db600, fontSize: 13 }}>
-                                  {Number(r.unit_price_rwf ?? 0).toLocaleString()}
-                                </td>
-                                <td style={{ padding: "9px 10px", textAlign: "right", fontWeight: 800, color: C.am800, fontFamily: "monospace", fontSize: 13 }}>
-                                  {Number(r.line_total_rwf ?? r.price ?? 0).toLocaleString()}
-                                </td>
-                              </tr>
+                              <div key={f.id} onClick={() => toggleFee(f.id)}
+                                className={`flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
+                                  selected ? "border-amber-400/40 bg-amber-400/8" : "border-white/10 bg-white/3 hover:border-white/20"
+                                }`}>
+                                <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 border-2 transition-all ${
+                                  selected ? "bg-amber-400 border-amber-400" : "border-white/25 bg-transparent"
+                                }`}>
+                                  {selected && <Check size={11} className="text-[#000435]" strokeWidth={3}/>}
+                                </div>
+                                <span className="flex-1 font-semibold text-white text-[13px]">{f.name || "Fee item"}</span>
+                                <span className="font-black text-[13px] font-mono text-amber-400">{Number(f.amount || 0).toLocaleString()} RWF</span>
+                              </div>
                             );
                           })}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-
-                {/* Selected total banner */}
-                <div style={{
-                  display: "flex", alignItems: "center", justifyContent: "space-between",
-                  background: C.db900, borderRadius: 10, padding: "16px 20px",
-                  border: `2px solid ${C.am200}`,
-                }}>
-                  <span style={{ fontWeight: 700, color: C.am100, fontSize: 14 }}>Selected total</span>
-                  <span style={{ fontWeight: 900, color: C.am200, fontSize: 22, fontFamily: "monospace" }}>
-                    {grand.toLocaleString()} <span style={{ fontSize: 14, fontWeight: 700 }}>RWF</span>
-                  </span>
-                </div>
-              </>
-            )}
-          </div>
-        )}
-
-        {/* ── STEP 3: Amount to pay ──────────────────────────────── */}
-        {pricingData && !pricingLoading && (
-          <div style={card}>
-            <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 16 }}>
-              <Step n="3" active={amountValid} />
-              <div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: C.db900 }}>Amount to pay now</div>
-                <div style={{ fontSize: 12, color: C.db600, marginTop: 2 }}>
-                  Enter how much you are paying. Max is the selected total above.
-                </div>
-              </div>
-            </div>
-
-            <div style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 12 }}>
-              <div style={{ flex: 1 }}>
-                <label style={labelStyle}>Payment amount (RWF)</label>
-                <div style={{ position: "relative" }}>
-                  <span style={{
-                    position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)",
-                    fontSize: 12, fontWeight: 700, color: C.db600, pointerEvents: "none",
-                  }}>RWF</span>
-                  <input
-                    type="number"
-                    value={amountInput}
-                    onChange={e => setAmountInput(e.target.value)}
-                    onFocus={() => setAmountFocus(true)}
-                    onBlur={() => setAmountFocus(false)}
-                    placeholder="0"
-                    min="0"
-                    style={{
-                      ...inputStyle(amountFocus),
-                      paddingLeft: 48,
-                      borderColor: amountOverSel ? "#e74c3c" : amountValid ? C.am200 : amountFocus ? C.db400 : C.db100,
-                      fontWeight: 700, fontSize: 16, fontFamily: "monospace",
-                    }}
-                  />
-                </div>
-                {amountOverSel && (
-                  <div style={{ fontSize: 12, color: "#c0392b", marginTop: 5, fontWeight: 600 }}>
-                    Amount exceeds selected total ({grand.toLocaleString()} RWF)
-                  </div>
-                )}
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 22 }}>
-                <button onClick={() => setAmountInput(String(grand))} style={{
-                  padding: "8px 14px", borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: "pointer",
-                  background: C.db50, border: `1px solid ${C.db200}`, color: C.db800,
-                }}>
-                  Full amount
-                </button>
-                <button onClick={() => setAmountInput(String(Math.round(grand / 2)))} style={{
-                  padding: "8px 14px", borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: "pointer",
-                  background: C.am50, border: `1px solid ${C.am200}`, color: C.am800,
-                }}>
-                  Half
-                </button>
-              </div>
-            </div>
-
-            {/* Amount summary */}
-            {enteredAmount >= 100 && (
-              <div style={{
-                display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 4,
-              }}>
-                <div style={{
-                  background: C.db900, borderRadius: 8, padding: "12px 16px",
-                }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: C.am100, marginBottom: 4 }}>You pay now</div>
-                  <div style={{ fontSize: 20, fontWeight: 900, color: C.am200, fontFamily: "monospace" }}>
-                    {enteredAmount.toLocaleString()} <span style={{ fontSize: 12, fontWeight: 700, color: C.am100 }}>RWF</span>
-                  </div>
-                </div>
-                <div style={{
-                  background: C.am50, border: `1px solid ${C.am200}`, borderRadius: 8, padding: "12px 16px",
-                }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: C.am800, marginBottom: 4 }}>Balance after payment</div>
-                  <div style={{ fontSize: 20, fontWeight: 900, color: C.db900, fontFamily: "monospace" }}>
-                    {Math.max(0, grand - enteredAmount).toLocaleString()} <span style={{ fontSize: 12, fontWeight: 700, color: C.db600 }}>RWF</span>
-                  </div>
-                  <div style={{ fontSize: 11, color: C.am800, marginTop: 3 }}>on selected items</div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ── STEP 4: Confirm student ────────────────────────────── */}
-        {pricingData && !pricingLoading && amountValid && (
-          <div style={card}>
-            <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 16 }}>
-              <Step n="4" active={!!student} />
-              <div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: C.db900 }}>Confirm student</div>
-                <div style={{ fontSize: 12, color: C.db600, marginTop: 2 }}>
-                  Search by UID, student code, or SDM ID — only learners at this school shown.
-                </div>
-              </div>
-            </div>
-
-            <div style={{ display: "flex", gap: 10 }}>
-              <div style={{ flex: 1, position: "relative" }}>
-                <Search size={14} color={C.db400} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)" }} />
-                <input
-                  value={studentCode}
-                  onChange={e => setStudentCode(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && runStudentLookup()}
-                  placeholder="Student code or SDM ID"
-                  style={{ ...inputStyle(false), paddingLeft: 34 }}
-                />
-              </div>
-              <button onClick={runStudentLookup} disabled={lookupLoading} style={{
-                ...btnPrimary, opacity: lookupLoading ? 0.6 : 1,
-              }}>
-                {lookupLoading ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : "Search"}
-              </button>
-            </div>
-            {lookupErr && (
-              <div style={{ marginTop: 8, color: "#c0392b", fontSize: 13 }}>{lookupErr}</div>
-            )}
-
-            {student && (
-              <div style={{
-                marginTop: 14, background: C.db50,
-                border: `1px solid ${C.db200}`, borderRadius: 10, padding: "14px 16px",
-              }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                  <UserRound size={16} color={C.db600} />
-                  <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: C.db600 }}>Matched learner</span>
-                </div>
-                <div style={{ fontWeight: 800, fontSize: 16, color: C.db900, marginBottom: 4 }}>
-                  {student.first_name} {student.last_name}
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: C.db600 }}>
-                  <GraduationCap size={13} />
-                  Class {student.class_name || "—"} · Year {student.academic_year || "—"}
-                </div>
-                <div style={{ fontSize: 11, fontFamily: "monospace", color: C.db400, marginTop: 4 }}>
-                  UID: {student.student_uid || "—"}
-                </div>
-
-                {classMismatch && (
-                  <div style={{
-                    marginTop: 10, padding: "8px 12px", borderRadius: 6,
-                    background: C.am50, border: `1px solid ${C.am200}`,
-                    fontSize: 12, color: C.am800, fontWeight: 600,
-                  }}>
-                    Class mismatch — continue only if this is the correct child and term.
-                  </div>
-                )}
-
-                {/* ── Balance quote panel ──── */}
-                {(balanceLoading || balanceQuote || balanceErr) && (
-                  <div style={{
-                    marginTop: 14, background: "#fff", border: `1px solid ${C.db200}`,
-                    borderRadius: 10, padding: "14px 16px",
-                  }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                      <CircleDollarSign size={15} color={C.am400} />
-                      <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: C.db800 }}>
-                        Balance for this student &amp; Babyeyi
-                      </span>
-                    </div>
-
-                    {balanceErr && <div style={{ fontSize: 13, color: "#c0392b" }}>{balanceErr}</div>}
-
-                    {balanceLoading && (
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: C.db600, padding: "6px 0" }}>
-                        <Loader2 size={16} color={C.am400} style={{ animation: "spin 1s linear infinite" }} />
-                        Calculating outstanding balance…
+                        </div>
                       </div>
                     )}
 
-                    {!balanceLoading && balanceQuote && (
-                      <>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
-                          {/* Paying now */}
-                          <div style={{ background: C.db900, borderRadius: 8, padding: "10px 14px" }}>
-                            <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", color: C.am100, marginBottom: 3 }}>Paying now</div>
-                            <div style={{ fontSize: 18, fontWeight: 900, color: C.am200, fontFamily: "monospace" }}>
-                              {enteredAmount.toLocaleString()} <span style={{ fontSize: 11 }}>RWF</span>
-                            </div>
-                          </div>
-                          {/* Still owed on checked lines */}
-                          <div style={{
-                            background: remainingOwed === 0 ? "#f0fdf4" : C.am50,
-                            border: `1px solid ${remainingOwed === 0 ? "#bbf7d0" : C.am200}`,
-                            borderRadius: 8, padding: "10px 14px",
-                          }}>
-                            <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", color: remainingOwed === 0 ? "#166534" : C.am800, marginBottom: 3 }}>
-                              Still owed (checked lines)
-                            </div>
-                            <div style={{ fontSize: 18, fontWeight: 900, color: remainingOwed === 0 ? "#15803d" : C.db900, fontFamily: "monospace" }}>
-                              {(remainingOwed ?? 0).toLocaleString()} <span style={{ fontSize: 11 }}>RWF</span>
-                            </div>
-                            {balanceQuote.term_label && (
-                              <div style={{ fontSize: 10, color: C.am800, marginTop: 3 }}>{balanceQuote.term_label}</div>
-                            )}
-                          </div>
+                    {/* Requirements (selectable) */}
+                    {(pricingData.requirements || []).length > 0 && (
+                      <div className="mb-5">
+                        <p className="text-[10px] font-black uppercase tracking-[.1em] text-white/35 mb-3 flex items-center gap-2">
+                          <GraduationCap size={12}/> Other school requirements
+                        </p>
+                        <div className="space-y-2">
+                          {pricingData.requirements.map((r) => {
+                            const rid = normReqId(r.babyeyi_requirement_id);
+                            const selected = rid != null && reqSel.has(rid);
+                            const line = Number(r.line_total_rwf ?? r.price ?? 0);
+                            return (
+                              <div
+                                key={r.babyeyi_requirement_id}
+                                onClick={() => rid != null && toggleReq(rid)}
+                                className={`flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
+                                  selected ? "border-amber-400/40 bg-amber-400/8" : "border-white/10 bg-white/3 hover:border-white/20"
+                                }`}
+                              >
+                                <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 border-2 transition-all ${
+                                  selected ? "bg-amber-400 border-amber-400" : "border-white/25 bg-transparent"
+                                }`}>
+                                  {selected && <Check size={11} className="text-[#000435]" strokeWidth={3}/>}
+                                </div>
+                                {r.catalog_image_url ? (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); setImgPreview(payImgUrl(r.catalog_image_url)); }}
+                                    className="w-9 h-9 rounded-lg border border-white/10 overflow-hidden shrink-0"
+                                  >
+                                    <img src={payImgUrl(r.catalog_image_url)} alt="" className="w-full h-full object-contain"/>
+                                  </button>
+                                ) : null}
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-semibold text-white text-[13px]">{r.requirement_name}</p>
+                                  <p className="text-[10px] text-white/35 mt-0.5">Qty: {r.quantity != null && String(r.quantity).trim() !== "" ? String(r.quantity) : "1"}</p>
+                                </div>
+                                <span className="font-black text-[13px] font-mono text-amber-400 shrink-0">{line.toLocaleString()} RWF</span>
+                              </div>
+                            );
+                          })}
                         </div>
+                      </div>
+                    )}
 
-                        {/* Whole document remaining */}
-                        {remainingFullDocument != null && (
-                          <div style={{
-                            background: C.db50, border: `1px solid ${C.db200}`,
-                            borderRadius: 8, padding: "10px 14px", marginBottom: 10,
-                          }}>
-                            <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", color: C.db800, marginBottom: 3 }}>
-                              Whole Babyeyi document — still owed
-                            </div>
-                            <div style={{ fontSize: 18, fontWeight: 900, color: C.db900, fontFamily: "monospace" }}>
-                              {remainingFullDocument.toLocaleString()} RWF
-                            </div>
-                            <div style={{ fontSize: 11, color: C.db600, marginTop: 4, lineHeight: 1.5 }}>
-                              All tuition fees and requirements on this class/term, including unchecked lines.
-                            </div>
+                    {/* Grand total */}
+                    <div className="p-4 rounded-xl border-2 border-amber-400/40 bg-amber-400/6">
+                      <div className="flex items-center justify-between">
+                        <p className="font-black text-white text-[15px]">Total</p>
+                        <p className="font-black text-amber-400 text-[22px] font-mono">{grand.toLocaleString()} <span className="text-[14px]">RWF</span></p>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                <NavBtns
+                  onBack={() => goStep(1)}
+                  onNext={() => { if (pricingData && grand > 0) goStep(3); }}
+                  nextLabel="Set Amount"
+                  nextDisabled={!pricingData || pricingLoading || !!pricingErr || grand === 0}
+                />
+              </div>
+            )}
+
+            {/* ── STEP 3: Amount ───────────────────────────────── */}
+            {step === 3 && pricingData && (
+              <div key={stepKey} className="step-in">
+                <div className="mb-6">
+                  <h2 className="font-black text-white text-[18px] sm:text-[20px] mb-1.5">How much to pay?</h2>
+                  <p className="text-white/45 text-[13px]">
+                    Minimum required: <span className="text-amber-400 font-bold">{minPayAmount.toLocaleString()} RWF</span>
+                    {" "}· Amount cannot be less than selected items total.
+                  </p>
+                </div>
+
+                {/* Quick-fill buttons */}
+                <div className="flex gap-2 flex-wrap mb-4">
+                  {[grand].filter(Boolean).map((v) => (
+                    <button key={v} type="button" onClick={() => setAmountInput(String(v))}
+                      className={`px-3.5 py-2 rounded-lg border text-[12px] font-bold transition-all ${
+                        enteredAmount === v ? "bg-amber-400 text-[#000435] border-amber-400" : "border-white/15 text-white/60 hover:border-amber-400/40 hover:text-amber-400"
+                      }`}>
+                      Use selected total
+                      <span className="ml-1.5 font-mono text-[11px] opacity-70">{v.toLocaleString()}</span>
+                    </button>
+                  ))}
+                </div>
+
+                <Field label="Amount (RWF)" required error={amountOverSel ? `Cannot exceed ${grand.toLocaleString()} RWF` : enteredAmount > 0 && enteredAmount + 1e-6 < minPayAmount ? "The amount entered is less than the total for the selected requirements. Please pay the full required amount." : ""}>
+                  <div className={`flex items-center gap-2.5 rounded-xl border transition-all h-14 px-4 ${
+                    amountOverSel ? "border-red-400/50 bg-red-400/5"
+                    : amountValid && enteredAmount > 0 ? "border-emerald-400/50 bg-emerald-400/5"
+                    : "border-white/15 bg-white/5"
+                  }`}>
+                    <span className="text-white/35 font-bold text-[12px] shrink-0">RWF</span>
+                    <input
+                      type="number" value={amountInput} onChange={e => setAmountInput(e.target.value)}
+                      placeholder="0" min="0"
+                      className="flex-1 bg-transparent text-white text-[20px] font-black font-mono placeholder:text-white/20 outline-none"
+                    />
+                    {amountValid && enteredAmount > 0 && <Check size={18} className="text-emerald-400 shrink-0" strokeWidth={2.5}/>}
+                  </div>
+                </Field>
+
+                {enteredAmount >= 100 && (
+                  <div className="mt-4 grid grid-cols-1 gap-3 fade-in">
+                    <SummaryCard label="You pay now" value={`${enteredAmount.toLocaleString()} RWF`} highlight />
+                  </div>
+                )}
+
+                <NavBtns
+                  onBack={() => goStep(2)}
+                  onNext={() => { if (amountValid) goStep(4); }}
+                  nextLabel="Find Student"
+                  nextDisabled={!amountValid}
+                />
+              </div>
+            )}
+
+            {/* ── STEP 4: Student ──────────────────────────────── */}
+            {step === 4 && pricingData && amountValid && (
+              <div key={stepKey} className="step-in">
+                <div className="mb-6">
+                  <h2 className="font-black text-white text-[18px] sm:text-[20px] mb-1.5">Find your student</h2>
+                  <p className="text-white/45 text-[13px]">Search by student UID, code, or SDMS ID — only learners at this school.</p>
+                </div>
+
+                <Field label="Student Code / UID / SDMS ID" required error={lookupErr}>
+                  <div className="flex gap-2.5">
+                    <div className="flex-1">
+                      <Input value={studentCode} onChange={e => { setStudentCode(e.target.value); setLookupErr(""); }} placeholder="Student UID or official code" icon={Search} onKeyDown={e => e.key === "Enter" && runStudentLookup()}/>
+                    </div>
+                    <button onClick={() => runStudentLookup()} disabled={lookupLoading}
+                      className="flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-400 text-[#000435] font-black text-[13px] hover:bg-amber-300 transition-all disabled:opacity-50 shrink-0 min-h-[48px]">
+                      {lookupLoading ? <Loader2 size={15} className="spin-anim"/> : "Search"}
+                    </button>
+                  </div>
+                </Field>
+
+                {student && (
+                  <div className="mt-4 fade-in space-y-3">
+                    {/* Student card */}
+                    <div className={`p-4 rounded-xl border ${classMismatch ? "border-red-400/40 bg-red-400/5" : "border-emerald-400/30 bg-emerald-400/6"}`}>
+                      <div className="flex items-start gap-3">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-[14px] shrink-0 ${classMismatch ? "bg-red-400/20 text-red-400" : "bg-emerald-500/20 text-emerald-400"}`}>
+                          {`${student.first_name || " "}`[0]}{`${student.last_name || " "}`[0]}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-black text-white text-[15px]">{student.first_name} {student.last_name}</p>
+                          <div className="flex items-center gap-3 mt-1 flex-wrap">
+                            <span className="text-[11px] text-white/50 font-semibold flex items-center gap-1"><GraduationCap size={11}/> Class {student.class_name || "—"}</span>
+                            <span className="text-[11px] text-white/50 font-semibold">Year {student.academic_year || "—"}</span>
                           </div>
-                        )}
+                          <p className="text-[10px] text-white/30 font-mono mt-1">UID: {student.student_uid || "—"}</p>
+                        </div>
+                        {!classMismatch && <Check size={18} className="text-emerald-400 mt-0.5 shrink-0" strokeWidth={2.5}/>}
+                      </div>
+                      {classMismatch && (
+                        <div className="mt-3 pt-3 border-t border-red-400/20 flex items-start gap-2 text-[12px] text-red-400 font-semibold">
+                          <AlertCircle size={13} className="mt-0.5 shrink-0"/>
+                          Class mismatch: student is in <strong>{student.class_name}</strong> but Babyeyi is for <strong>{pricingData?.babyeyi?.class_name}</strong>. Go back to step 2 and pick the correct class.
+                        </div>
+                      )}
+                    </div>
 
-                        {/* Unchecked lines */}
-                        {remainingUnselected != null && remainingUnselected > 0.5 && (
-                          <div style={{
-                            background: C.am50, border: `1px solid ${C.am200}`,
-                            borderRadius: 8, padding: "8px 12px", marginBottom: 10,
-                            fontSize: 12, color: C.am800, fontWeight: 600,
-                          }}>
-                            Not in this payment: {remainingUnselected.toLocaleString()} RWF still owed on unchecked lines
-                          </div>
+                    {/* Balance panel */}
+                    {!classMismatch && (
+                      <div className="rounded-xl border border-white/10 bg-white/3 overflow-hidden">
+                        <div className="px-4 py-3 border-b border-white/8 flex items-center gap-2">
+                          <CircleDollarSign size={15} className="text-amber-400"/>
+                          <span className="text-[11px] font-black uppercase tracking-[.1em] text-white/50">Payment Summary for this Student</span>
+                          {balanceLoading && <Loader2 size={13} className="text-amber-400 spin-anim ml-auto"/>}
+                        </div>
+                        {balanceErr && (
+                          <div className="px-4 py-3 text-[12px] text-red-400 font-semibold">{balanceErr}</div>
                         )}
-
-                        {/* Stats row */}
-                        {selectionListed != null && selectionListed > 0 && (
-                          <div style={{
-                            display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8,
-                            background: C.db50, borderRadius: 8, padding: "10px 12px",
-                          }}>
-                            <div style={{ textAlign: "center" }}>
-                              <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", color: C.db600, marginBottom: 3 }}>Listed (checked)</div>
-                              <div style={{ fontSize: 13, fontWeight: 800, color: C.db900, fontFamily: "monospace" }}>{selectionListed.toLocaleString()}</div>
+                        {!balanceLoading && balanceQuote && (
+                          <div className="p-4 space-y-3">
+                            <div className="grid grid-cols-2 gap-3">
+                              <SummaryCard label="Paying Now" value={`${enteredAmount.toLocaleString()} RWF`} highlight />
+                              <SummaryCard label="Remaining After This Payment" value={`${(remainingAfterCurrentPayment ?? 0).toLocaleString()} RWF`} sub={balanceQuote.term_label} green={remainingAfterCurrentPayment === 0} />
                             </div>
-                            {creditedTracked != null && (
-                              <div style={{ textAlign: "center" }}>
-                                <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", color: C.db600, marginBottom: 3 }}>Paid (tracked)</div>
-                                <div style={{ fontSize: 13, fontWeight: 800, color: C.am800, fontFamily: "monospace" }}>{creditedTracked.toLocaleString()}</div>
+                            {remainingFullDocumentAfterCurrentPayment != null && (
+                              <div className="p-3 rounded-xl bg-white/4 border border-white/8 text-[12px]">
+                                <span className="text-white/40 font-bold">Outstanding after this payment for this term: </span>
+                                <span className="text-white font-black font-mono">{remainingFullDocumentAfterCurrentPayment.toLocaleString()} RWF</span>
                               </div>
                             )}
-                            {afterPayEstimate != null && (
-                              <div style={{ textAlign: "center" }}>
-                                <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", color: C.db600, marginBottom: 3 }}>Est. left on doc</div>
-                                <div style={{ fontSize: 13, fontWeight: 800, color: C.db800, fontFamily: "monospace" }}>{afterPayEstimate.toLocaleString()}</div>
+                            {overpays && (
+                              <div className="flex items-start gap-2 p-3 rounded-xl border border-red-400/30 bg-red-400/8 text-[12px] text-red-400 font-semibold">
+                                <AlertCircle size={12} className="mt-0.5 shrink-0"/>
+                                Amount exceeds remaining balance. Reduce payment amount in step 3.
                               </div>
                             )}
                           </div>
                         )}
-
-                        {/* Per-student line breakdown */}
-                        {balanceQuote.per_student?.length > 0 && (
-                          <details style={{ marginTop: 10 }}>
-                            <summary style={{ fontSize: 12, fontWeight: 700, color: C.db800, cursor: "pointer", padding: "4px 0" }}>
-                              Per line breakdown
-                            </summary>
-                            {balanceQuote.per_student.map((row, idx) => (
-                              <div key={row.student_key || idx} style={{
-                                marginTop: 8, background: "#fff", border: `1px solid ${C.db100}`,
-                                borderRadius: 8, padding: "10px 12px",
-                              }}>
-                                <div style={{ fontWeight: 700, color: C.db900, marginBottom: 6, fontSize: 13 }}>{row.student_name}</div>
-                                {(row.lines || []).map(ln => (
-                                  <div key={`${ln.kind}-${ln.id}`} style={{
-                                    display: "flex", justifyContent: "space-between", alignItems: "center",
-                                    padding: "4px 0", borderBottom: `1px solid ${C.db50}`,
-                                  }}>
-                                    <span style={{ fontSize: 12, color: C.db700 }}>{ln.label}</span>
-                                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                      <span style={{ fontSize: 11, color: C.db600, fontFamily: "monospace" }}>
-                                        {Number(ln.paid_rwf ?? 0).toLocaleString()} paid
-                                      </span>
-                                      <span style={{
-                                        fontSize: 11, fontWeight: 700, fontFamily: "monospace",
-                                        color: ln.remaining_rwf <= 0 ? "#15803d" : C.am800,
-                                        background: ln.remaining_rwf <= 0 ? "#f0fdf4" : C.am50,
-                                        border: `1px solid ${ln.remaining_rwf <= 0 ? "#bbf7d0" : C.am200}`,
-                                        borderRadius: 4, padding: "1px 6px",
-                                      }}>
-                                        {ln.remaining_rwf <= 0 ? "✓ Paid" : `${Number(ln.remaining_rwf).toLocaleString()} due`}
-                                      </span>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            ))}
-                          </details>
-                        )}
-
-                        {overpays && (
-                          <div style={{
-                            marginTop: 10, padding: "8px 12px", borderRadius: 6,
-                            background: "#fdf0ed", border: "1px solid #f5c6c0",
-                            fontSize: 12, color: "#c0392b", fontWeight: 600,
-                          }}>
-                            Amount exceeds remaining balance. Reduce your payment amount or uncheck some items.
-                          </div>
-                        )}
-                      </>
+                      </div>
                     )}
                   </div>
                 )}
-              </div>
-            )}
-          </div>
-        )}
 
-        {/* ── STEP 5: Payer & checkout ───────────────────────────── */}
-        {pricingData && amountValid && student && (
-          <div style={card}>
-            <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 16 }}>
-              <Step n="5" active={false} />
-              <div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: C.db900 }}>Payer & checkout</div>
-                <div style={{ fontSize: 12, color: C.db600, marginTop: 2 }}>Used for mobile money prompts and receipts.</div>
-              </div>
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 16 }}>
-              <div>
-                <label style={labelStyle}>Full name</label>
-                <input
-                  value={payerName}
-                  onChange={e => setPayerName(e.target.value)}
-                  placeholder="Parent or guardian"
-                  style={inputStyle(false)}
+                <NavBtns
+                  onBack={() => goStep(3)}
+                  onNext={() => { if (student && !classMismatch && !lookupLoading) goStep(5); }}
+                  nextLabel="Proceed to Checkout"
+                  nextDisabled={!student || !!classMismatch || lookupLoading}
                 />
               </div>
-              <div>
-                <label style={labelStyle}>Telephone number</label>
-                <input
-                  value={payerPhone}
-                  onChange={e => setPayerPhone(e.target.value)}
-                  placeholder="07XXXXXXXX"
-                  inputMode="tel"
-                  style={inputStyle(false)}
-                />
-              </div>
-            </div>
+            )}
 
-            {payErr && (
-              <div style={{
-                marginBottom: 14, padding: "10px 14px", borderRadius: 6,
-                background: "#fdf0ed", border: "1px solid #f5c6c0", fontSize: 13, color: "#c0392b", fontWeight: 600,
-              }}>
-                {payErr}
+            {/* ── STEP 5: Payer & Checkout ──────────────────────── */}
+            {step === 5 && pricingData && amountValid && student && !classMismatch && (
+              <div key={stepKey} className="step-in">
+                <div className="mb-6">
+                  <h2 className="font-black text-white text-[18px] sm:text-[20px] mb-1.5">Confirm and continue</h2>
+                  <p className="text-white/45 text-[13px]">Review this payment and continue to choose your payment method.</p>
+                </div>
+
+                {/* Payment summary */}
+                <div className="p-4 rounded-xl border border-amber-400/25 bg-amber-400/6 mb-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-[11px] font-black uppercase tracking-[.1em] text-amber-400/60">Payment Summary</p>
+                    <button onClick={() => goStep(2)} className="text-[11px] text-amber-400/50 hover:text-amber-400 font-bold transition-colors">Edit</button>
+                  </div>
+                  <div className="space-y-1.5 text-[13px]">
+                    <div className="flex items-center justify-between">
+                      <span className="text-white/50 font-semibold">School</span>
+                      <span className="text-white font-bold truncate max-w-[60%] text-right">{school?.school_name}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-white/50 font-semibold">Class / Term</span>
+                      <span className="text-white font-bold">{comboLabel(selectedCombo)}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-white/50 font-semibold">Student</span>
+                      <span className="text-white font-bold">{student.first_name} {student.last_name}</span>
+                    </div>
+                    {remainingOwed != null && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-white/50 font-semibold">Outstanding before payment</span>
+                        <span className="text-white font-bold">{remainingOwed.toLocaleString()} RWF</span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between pt-2 mt-1 border-t border-amber-400/15">
+                      <span className="text-white font-black">Total to pay</span>
+                      <span className="text-amber-400 font-black text-[18px] font-mono">{enteredAmount.toLocaleString()} RWF</span>
+                    </div>
+                    {remainingAfterCurrentPayment != null && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-white/50 font-semibold">Outstanding after payment</span>
+                        <span className={`font-bold ${remainingAfterCurrentPayment === 0 ? "text-emerald-400" : "text-white"}`}>
+                          {remainingAfterCurrentPayment.toLocaleString()} RWF
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {payErr && (
+                  <div className="flex items-start gap-2.5 p-4 rounded-xl border border-red-400/30 bg-red-400/8 text-red-400 text-[13px] font-semibold mb-4 fade-in">
+                    <AlertCircle size={15} className="mt-0.5 shrink-0"/>{payErr}
+                  </div>
+                )}
+
+                <button type="button" onClick={continueToPayment} disabled={overpays || balanceLoading || classMismatch}
+                  className={`w-full flex items-center justify-center gap-2.5 py-4 rounded-xl font-black text-[15px] transition-all min-h-[56px] ${
+                    overpays || balanceLoading || classMismatch
+                      ? "bg-white/8 text-white/25 cursor-not-allowed"
+                      : "bg-amber-400 text-[#000435] hover:bg-amber-300 shadow-2xl shadow-amber-400/25 active:scale-[.98]"
+                  }`}>
+                  {balanceLoading ? <Loader2 size={18} className="spin-anim"/> : <CreditCard size={18} strokeWidth={2.5}/>}
+                  Continue to Payment
+                  {!balanceLoading && <ArrowRight size={16}/>}
+                </button>
+
+                <div className="flex items-center justify-center gap-2 mt-3 text-[11px] text-white/25 font-semibold">
+                  <ShieldCheck size={12}/> Choose MTN MoMo, bank transfer, or card on the next screen
+                </div>
+
+                <div className="mt-4 pt-4 border-t border-white/8">
+                  <button onClick={() => goStep(4)} className="text-[12px] text-white/35 hover:text-white/60 font-bold transition-colors flex items-center gap-1.5">
+                    <ArrowLeft size={13}/> Back to student
+                  </button>
+                </div>
               </div>
             )}
 
-            {!balanceLoading && balanceQuote && overpays && (
-              <div style={{
-                marginBottom: 14, padding: "10px 14px", borderRadius: 6,
-                background: C.am50, border: `1px solid ${C.am200}`,
-                fontSize: 12, color: C.am800, fontWeight: 600,
-              }}>
-                Adjust your selection so the total is not above the remaining balance, or contact the school office.
-              </div>
-            )}
-
-            {/* Payment summary before CTA */}
-            <div style={{
-              background: C.db50, border: `1px solid ${C.db200}`, borderRadius: 10,
-              padding: "12px 16px", marginBottom: 16,
-              display: "grid", gridTemplateColumns: "1fr auto",
-              alignItems: "center", gap: 12,
-            }}>
-              <div>
-                <div style={{ fontSize: 12, color: C.db600 }}>
-                  {comboLabel(selectedCombo)} · {student.first_name} {student.last_name}
-                </div>
-                <div style={{ fontSize: 11, color: C.db400, marginTop: 2 }}>
-                  {Array.from(feeSel).length + Array.from(reqSel).length} items selected
-                </div>
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", color: C.db600 }}>Total</div>
-                <div style={{ fontSize: 18, fontWeight: 900, color: C.db900, fontFamily: "monospace" }}>
-                  {enteredAmount.toLocaleString()} RWF
-                </div>
-              </div>
-            </div>
-
-            <button
-              onClick={continueToPayment}
-              disabled={overpays || balanceLoading}
-              style={{
-                ...btnAmber,
-                opacity: (overpays || balanceLoading) ? 0.45 : 1,
-                cursor: (overpays || balanceLoading) ? "not-allowed" : "pointer",
-                fontSize: 15,
-              }}
-            >
-              Continue to payment
-              <ChevronRight size={18} />
-            </button>
-
-            <div style={{
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-              marginTop: 12, fontSize: 11, color: C.db400,
-            }}>
-              <CreditCard size={13} />
-              Choose bank transfer, MTN MoMo, or other methods on the next screen.
-            </div>
           </div>
-        )}
+        </div>
 
-        <div style={{ textAlign: "center", marginTop: 24, fontSize: 12, color: C.db200 }}>
+        {/* Footer link */}
+        <div className="text-center mt-6 text-[12px] text-white/30 font-semibold">
           Wrong school?{" "}
-          <Link to="/schools" style={{ color: C.am200, fontWeight: 700, textDecoration: "none" }}>
-            Browse all schools →
-          </Link>
+          <Link to="/schools" className="text-amber-400/70 hover:text-amber-400 transition-colors font-bold">Browse all schools →</Link>
         </div>
       </div>
 
       {/* Image preview overlay */}
       {imgPreview && (
-        <div
-          style={{
-            position: "fixed", inset: 0, zIndex: 400, background: "rgba(4,44,83,0.95)",
-            display: "flex", alignItems: "center", justifyContent: "center", padding: 16,
-          }}
-          onClick={() => setImgPreview(null)}
-        >
-          <button
-            style={{
-              position: "absolute", top: 16, right: 16, background: "transparent",
-              border: `1px solid ${C.am200}`, color: C.am200, padding: 6, borderRadius: 6, cursor: "pointer",
-            }}
-            onClick={() => setImgPreview(null)}
-          >
-            <X size={22} />
+        <div className="fixed inset-0 z-[400] bg-[#000435]/95 backdrop-blur-xl flex items-center justify-center p-4"
+          onClick={() => setImgPreview(null)}>
+          <button onClick={() => setImgPreview(null)}
+            className="absolute top-5 right-5 w-10 h-10 rounded-xl bg-white/8 border border-white/15 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/14 transition-all">
+            <X size={18}/>
           </button>
-          <img
-            src={imgPreview} alt=""
-            style={{ maxWidth: "100%", maxHeight: "90vh", objectFit: "contain", borderRadius: 8 }}
-            onClick={e => e.stopPropagation()}
-          />
+          <img src={imgPreview} alt="" className="max-w-full max-h-[90vh] object-contain rounded-2xl shadow-2xl" onClick={e => e.stopPropagation()}/>
         </div>
       )}
-
-      <style>{`
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        * { box-sizing: border-box; }
-        input[type=number]::-webkit-inner-spin-button,
-        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-        input[type=number] { -moz-appearance: textfield; }
-      `}</style>
     </div>
   );
 }

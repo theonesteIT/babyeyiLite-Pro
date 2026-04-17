@@ -46,11 +46,12 @@ const DASHBOARD = {
   LIBRARIAN:     '/library/dashboard',
   STORE_MANAGER: '/store/dashboard',
   ACCOUNTANT:    '/accountant/dashboard',
-  STUDENT:       '/student/dashboard',
-  PARENT:        '/parent/dashboard',
+  STUDENT:       '/parents',
+  PARENT:        '/parents',
   NESA_ADMIN:    '/nesa-babyeyi-dashboard',
   DEO:           '/district-babyeyi-dashboard',
   AGENT:         '/agent/dashboard',
+  SHULE_AVANCE_PARTNER: '/shule-avance/dashboard',
 };
 
 const Login = () => {
@@ -435,7 +436,7 @@ const Login = () => {
 
                 <div className="fg">
                   <label className="fl" htmlFor="schoolCode">
-                    School code <span style={{color:'rgba(100,116,139,.45)',fontWeight:400,textTransform:'none',letterSpacing:0}}>— required for school managers, accountant, and head of discipline; leave blank for Super Admin / NESA / DEO</span>
+                    School code <span style={{color:'rgba(100,116,139,.45)',fontWeight:400,textTransform:'none',letterSpacing:0}}>— required for school staff (manager, teacher, accountant, DOS, discipline, librarian, store/stock manager, gate); leave blank for Super Admin / NESA / DEO</span>
                   </label>
                   <div className="iw">
                     <span className="ii"><Building size={16}/></span>
@@ -447,7 +448,7 @@ const Login = () => {
                       value={form.schoolCode}
                       disabled={ui.loading}
                       onChange={e=>setForm(p=>({...p,schoolCode:e.target.value.toUpperCase()}))}
-                      placeholder="SCH001"/>
+                      placeholder="04001"/>
                   </div>
                 </div>
 

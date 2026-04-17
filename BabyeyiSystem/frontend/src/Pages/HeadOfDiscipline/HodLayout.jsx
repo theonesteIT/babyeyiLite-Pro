@@ -109,7 +109,7 @@ export default function HodLayout() {
             <img
               src={BRAND_LOGO}
               alt="Babyeyi"
-              className="h-10 w-10 rounded-xl border border-[#FDEAA0] bg-[#1F2937] object-contain p-1 shadow-md"
+              className="h-10 w-auto rounded-xl border border-[#FDEAA0] bg-[#1F2937] object-contain px-2 py-1 shadow-md"
             />
             <span
               className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white"

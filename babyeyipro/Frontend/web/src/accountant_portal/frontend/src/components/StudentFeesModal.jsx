@@ -1,0 +1,591 @@
+import { useMemo, useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { 
+    X, CreditCard, User, Calendar, Receipt, Loader2, FileText, 
+    ChevronRight, AlertTriangle, ShieldCheck, TrendingUp,
+    Phone, Printer, Users, Home, Banknote, Send, Settings2
+} from 'lucide-react';
+import { jsPDF } from 'jspdf';
+
+export default function StudentFeesModal({ isOpen, onClose, student, academicYear, term, paymentHistory = [] }) {
+    const [loading, setLoading] = useState(true);
+    const [history, setHistory] = useState([]);
+    const [invoiceMenuOpen, setInvoiceMenuOpen] = useState(false);
+    const [invoiceSettingsOpen, setInvoiceSettingsOpen] = useState(false);
+
+    const storageKeys = useMemo(() => {
+        const uid = student?.id || 'student';
+        const keyBase = `acct:fees:invoice`;
+        return {
+            config: `${keyBase}:config`,
+            sent: `${keyBase}:sent:${uid}:${academicYear || 'year'}:${term || 'term'}`,
+        };
+    }, [student?.id, academicYear, term]);
+
+    const [invoiceConfig, setInvoiceConfig] = useState(() => {
+        try {
+            const raw = localStorage.getItem('acct:fees:invoice:config');
+            const parsed = raw ? JSON.parse(raw) : null;
+            return parsed && typeof parsed === 'object'
+                ? parsed
+                : {
+                    schoolName: 'Babyeyi School',
+                    contactLine: 'Finance Office',
+                    currency: 'RWF',
+                    bankAccount: 'ACC-__________',
+                    momoNumber: '07__ ___ ___',
+                    footerNote: 'Thank you for supporting the school.',
+                };
+        } catch {
+            return {
+                schoolName: 'Babyeyi School',
+                contactLine: 'Finance Office',
+                currency: 'RWF',
+                bankAccount: 'ACC-__________',
+                momoNumber: '07__ ___ ___',
+                footerNote: 'Thank you for supporting the school.',
+            };
+        }
+    });
+
+    useEffect(() => {
+        try {
+            localStorage.setItem('acct:fees:invoice:config', JSON.stringify(invoiceConfig));
+        } catch {
+            // ignore
+        }
+    }, [invoiceConfig]);
+
+    useEffect(() => {
+        if (!isOpen || !student) return;
+        setInvoiceMenuOpen(false);
+        setInvoiceSettingsOpen(false);
+        setLoading(true);
+        const rows = (paymentHistory || []).map((p, idx) => ({
+            id: p.id || idx + 1,
+            date: p.created_at ? new Date(p.created_at).toISOString().slice(0, 10) : '—',
+            amount: Number(p.amount_paid || 0),
+            channel: p.notes || 'Recorded',
+            category: p.term || term || 'Fees',
+            ref: p.id ? `PAY-${p.id}` : '—',
+            status: 'verified',
+        }));
+        setHistory(rows);
+        setLoading(false);
+    }, [isOpen, student, paymentHistory, term]);
+
+    if (!isOpen || !student) return null;
+
+    const format = (val) => new Intl.NumberFormat('en-RW', { style: 'currency', currency: 'RWF', maximumFractionDigits: 0 }).format(val);
+
+    const openPrintWindow = (doc) => {
+        doc.autoPrint();
+        const blob = doc.output('blob');
+        window.open(URL.createObjectURL(blob), '_blank');
+    };
+
+    const printInvoicePdf = () => {
+        const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+        const W = doc.internal.pageSize.getWidth();
+        const H = doc.internal.pageSize.getHeight();
+        const margin = 40;
+        const NAVY = [30, 58, 95];
+        const YELLOW = [254, 191, 16];
+
+        const title = 'Fees Invoice';
+        const studentName = student.name || 'Student';
+        const uid = student.id || '—';
+        const cls = student.class || '—';
+        const amountToPay = Number(student.amountToPay ?? student.amountOwed ?? 0) || 0;
+        const paidThisTerm = Number(student.paidThisTerm ?? student.paid ?? 0) || 0;
+        const remaining = Number(student.remaining ?? Math.max(0, amountToPay - paidThisTerm)) || 0;
+        const invoiceNo = `INV-${String(uid).replace(/\s+/g, '')}-${String(academicYear || '').replace(/\s+/g, '')}-${String(term || '').replace(/\s+/g, '')}`.replace(/-+$/,'');
+
+        doc.setFillColor(...NAVY);
+        doc.rect(0, 0, W, 64, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(16);
+        doc.text(invoiceConfig.schoolName || 'School', margin, 28);
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'normal');
+        doc.text(title, margin, 48);
+
+        doc.setDrawColor(...YELLOW);
+        doc.setLineWidth(3);
+        doc.line(margin, 76, W - margin, 76);
+
+        let y = 100;
+
+        const labelValue = (label, value, boldValue = true) => {
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(100, 116, 139);
+            doc.text(label, margin, y);
+            doc.setDrawColor(210, 210, 210);
+            doc.setLineDashPattern([1, 2], 0);
+            const labelW = doc.getTextWidth(label);
+            const valW = doc.getTextWidth(String(value));
+            doc.line(margin + labelW + 8, y - 2, W - margin - valW - 4, y - 2);
+            doc.setLineDashPattern([], 0);
+            doc.setFont('helvetica', boldValue ? 'bold' : 'normal');
+            doc.setTextColor(15, 23, 42);
+            doc.text(String(value), W - margin, y, { align: 'right' });
+            y += 16;
+        };
+
+        labelValue('Invoice No.', invoiceNo);
+        labelValue('Generated', new Date().toLocaleString());
+        labelValue('Academic year', academicYear || '—');
+        labelValue('Term', term || '—');
+        y += 4;
+
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...NAVY);
+        doc.setFontSize(11);
+        doc.text('Student', margin, y);
+        y += 14;
+        labelValue('Name', studentName);
+        labelValue('UID', uid);
+        labelValue('Class', cls);
+        y += 4;
+
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...NAVY);
+        doc.setFontSize(11);
+        doc.text('Invoice Summary', margin, y);
+        y += 14;
+        labelValue('Amount to pay', format(amountToPay));
+        labelValue('Paid (term)', format(paidThisTerm));
+        labelValue('Remaining', format(remaining));
+        y += 4;
+
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...NAVY);
+        doc.setFontSize(11);
+        doc.text('Payment Details', margin, y);
+        y += 14;
+
+        const recent = (history || []).slice().sort((a,b) => String(b.date||'').localeCompare(String(a.date||''))).slice(0, 6);
+        if (recent.length === 0) {
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(10);
+            doc.setTextColor(100, 116, 139);
+            doc.text('No payments recorded for this student yet.', margin, y);
+            y += 14;
+        } else {
+            const col = [margin, margin + 140, margin + 280, W - margin];
+            doc.setFillColor(...YELLOW);
+            doc.rect(margin, y - 10, W - margin * 2, 18, 'F');
+            doc.setTextColor(...NAVY);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(9);
+            doc.text('DATE', col[0] + 6, y + 2);
+            doc.text('MODE', col[1] + 6, y + 2);
+            doc.text('REF', col[2] + 6, y + 2);
+            doc.text('AMOUNT', col[3] - 6, y + 2, { align: 'right' });
+            y += 22;
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(9);
+            doc.setTextColor(15, 23, 42);
+            recent.forEach((p, i) => {
+                if (y > H - 90) return;
+                if (i % 2 === 1) {
+                    doc.setFillColor(248, 250, 252);
+                    doc.rect(margin, y - 10, W - margin * 2, 18, 'F');
+                }
+                doc.text(String(p.date || '—'), col[0] + 6, y + 2);
+                doc.text(String(p.channel || '—'), col[1] + 6, y + 2);
+                doc.text(String(p.ref || '—'), col[2] + 6, y + 2);
+                doc.text(format(Number(p.amount) || 0).replace('RWF', '').trim(), col[3] - 6, y + 2, { align: 'right' });
+                y += 18;
+            });
+            y += 6;
+        }
+
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...NAVY);
+        doc.setFontSize(11);
+        doc.text('Payment Options', margin, y);
+        y += 14;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.setTextColor(15, 23, 42);
+        labelValue('Bank account', invoiceConfig.bankAccount || '—', false);
+        labelValue('Mobile money', invoiceConfig.momoNumber || '—', false);
+
+        doc.setTextColor(100, 116, 139);
+        doc.setFontSize(9);
+        doc.text(invoiceConfig.footerNote || '', margin, H - 48);
+
+        openPrintWindow(doc);
+    };
+
+    const printReceiptPdf = (log) => {
+        const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+        const W = doc.internal.pageSize.getWidth();
+        const margin = 40;
+        const NAVY = [30, 58, 95];
+        const YELLOW = [254, 191, 16];
+
+        doc.setFillColor(...NAVY);
+        doc.rect(0, 0, W, 64, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(16);
+        doc.text('Payment Receipt', margin, 40);
+
+        doc.setDrawColor(...YELLOW);
+        doc.setLineWidth(3);
+        doc.line(margin, 76, W - margin, 76);
+
+        doc.setTextColor(30, 41, 59);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+
+        doc.text(`Student: ${student.name || '—'}`, margin, 110);
+        doc.text(`UID: ${student.id || '—'}   Class: ${student.class || '—'}`, margin, 126);
+        doc.text(`Academic year: ${academicYear || '—'}   Term: ${term || '—'}`, margin, 142);
+
+        doc.setFont('helvetica', 'bold');
+        doc.text('Receipt details', margin, 172);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Date: ${log?.date || '—'}`, margin, 194);
+        doc.text(`Mode: ${log?.channel || '—'}`, margin, 210);
+        doc.text(`Reference: ${log?.ref || '—'}`, margin, 226);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`Amount: ${format(Number(log?.amount) || 0)}`, margin, 250);
+
+        openPrintWindow(doc);
+    };
+
+    const sendInvoiceToParent = () => {
+        // No backend yet — use email client as a lightweight "send" placeholder
+        const subject = encodeURIComponent(`Fees invoice · ${student.name || 'Student'} · ${academicYear || ''} ${term || ''}`.trim());
+        const body = encodeURIComponent(
+            [
+                `Student: ${student.name || '—'}`,
+                `UID: ${student.id || '—'}`,
+                `Class: ${student.class || '—'}`,
+                `Academic year: ${academicYear || '—'}`,
+                `Term: ${term || '—'}`,
+                '',
+                `Amount to pay: ${format(Number(student.amountToPay ?? 0) || 0)}`,
+                `Paid (term): ${format(Number(student.paidThisTerm ?? 0) || 0)}`,
+                `Remaining: ${format(Number(student.remaining ?? 0) || 0)}`,
+                '',
+                'Note: This invoice was generated from the school portal.',
+            ].join('\n')
+        );
+        try {
+            localStorage.setItem(storageKeys.sent, JSON.stringify({ sentAt: new Date().toISOString() }));
+        } catch {
+            // ignore
+        }
+        window.open(`mailto:?subject=${subject}&body=${body}`);
+    };
+
+    const sentMeta = (() => {
+        try {
+            const raw = localStorage.getItem(storageKeys.sent);
+            const parsed = raw ? JSON.parse(raw) : null;
+            return parsed?.sentAt ? parsed.sentAt : null;
+        } catch {
+            return null;
+        }
+    })();
+
+    return createPortal(
+        <>
+            {/* Backdrop Blur */}
+            <div
+                className="fixed inset-0 bg-black/40 backdrop-blur-md z-[100] animate-in fade-in duration-300"
+                onClick={() => onClose()}
+            />
+
+            {/* Right Side Drawer */}
+            <div className="fixed inset-y-0 right-0 z-[110] w-full md:w-[420px] bg-white shadow-[-20px_0_60px_-15px_rgba(0,0,0,0.1)] flex flex-col animate-in slide-in-from-right duration-500 ease-out">
+
+                {/* Drawer Header */}
+                <div className="flex items-center justify-between px-8 py-6 border-b border-black/5 bg-white shrink-0">
+                    <div className="flex items-center gap-4">
+                        <div className="w-14 h-14 rounded-full border border-black/5 bg-slate-50 flex items-center justify-center font-black text-lg shadow-inner relative overflow-hidden shrink-0 text-[#1E3A5F]">
+                            <span>{student.name?.charAt(0) || <User size={20} />}</span>
+                        </div>
+                        <div className="min-w-0">
+                            <h3 className="font-black text-[#1E3A5F] text-base leading-tight uppercase tracking-tight truncate">{student.name}</h3>
+                            <div className="flex flex-col gap-0.5 mt-0.5">
+                                <p className="text-[9px] text-slate-400 font-bold flex items-center gap-1 uppercase tracking-widest opacity-60 truncate">
+                                    <span className="w-1 h-1 rounded-full shrink-0 bg-amber-400"></span>
+                                    UID: {student.id}
+                                </p>
+                                <p className="text-[8px] text-[#1E3A5F] font-black flex items-center gap-1 uppercase tracking-[0.2em] truncate">
+                                    {student.class} Class
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <button
+                        onClick={() => onClose()}
+                        className="p-2.5 hover:bg-slate-50 rounded-xl transition-all text-slate-400 hover:text-[#1E3A5F] group"
+                    >
+                        <X size={18} className="group-hover:rotate-90 transition-transform duration-300" />
+                    </button>
+                </div>
+
+                {/* Drawer Body (Scrollable) */}
+                <div className="flex-1 overflow-y-auto px-8 py-8 space-y-8 custom-scrollbar bg-white">
+
+                    {/* Financial Breakdown Section */}
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-2 mb-2">
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] opacity-40">Financial Breakdown</span>
+                            <div className="flex-1 h-px bg-black/5" />
+                        </div>
+                        {[
+                            { label: 'Amount to pay (Total)', value: format(student.amountToPay ?? student.amountOwed ?? 0), icon: AlertTriangle, color: 'text-[#1E3A5F]' },
+                            { label: 'Guardian', value: 'Parent Name', icon: Users, color: 'text-[#1E3A5F]' },
+                            { label: 'Parent Phone', value: '+250 7XX XXX XXX', icon: Phone, color: 'text-[#1E3A5F]' },
+                        ].map((item, i) => (
+                            <div key={i} className="flex items-center justify-between group">
+                                <div className="flex items-center gap-2">
+                                    <item.icon size={11} className="opacity-30 text-amber-500" />
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{item.label}</span>
+                                </div>
+                                <div className="flex-1 mx-3 border-b border-dashed border-black/10 group-hover:border-amber-200 transition-colors" />
+                                <span className={`text-[10px] font-black uppercase tracking-tight ${item.color}`}>{item.value}</span>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Financial Summary Section */}
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-slate-50 rounded-3xl p-5 border border-black/5 shadow-inner relative overflow-hidden group">
+                            <div className="absolute top-0 right-0 w-16 h-16 bg-blue-500 opacity-5 rounded-full -mr-6 -mt-6 group-hover:scale-125 transition-transform duration-700" />
+                            <p className="text-[8px] text-slate-400 uppercase tracking-[0.2em] font-black mb-1 relative z-10 opacity-60">Amount Paid</p>
+                            <div className="flex items-baseline gap-1 relative z-10">
+                                <span className="text-xl font-black tracking-tighter text-emerald-600">
+                                    {format(student.paidThisTerm ?? student.paid ?? 0).replace('RWF', '')}
+                                </span>
+                                <span className="text-[9px] font-black uppercase tracking-widest text-[#1E3A5F]">RWF</span>
+                            </div>
+                        </div>
+                        <div className="bg-slate-50 rounded-3xl p-5 border border-black/5 shadow-inner relative overflow-hidden group text-right">
+                            <div className="absolute top-0 left-0 w-16 h-16 bg-amber-500 opacity-5 rounded-full -ml-6 -mt-6 group-hover:scale-125 transition-transform duration-700" />
+                            <p className="text-[8px] text-slate-400 uppercase tracking-[0.2em] font-black mb-1 relative z-10 opacity-60">Remaining</p>
+                            <div className="flex items-baseline gap-1 justify-end relative z-10">
+                                <span className="text-xl font-black text-red-500 tracking-tighter">
+                                    {format(student.remaining).replace('RWF', '')}
+                                </span>
+                                <span className="text-[9px] font-black uppercase tracking-widest ml-1 opacity-60">RWF</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Transaction Log */}
+                    <div className="flex-1 overflow-y-auto">
+                        <div className="flex items-center gap-2 mb-4">
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] opacity-40">Payment History</span>
+                            <div className="flex-1 h-px bg-black/5" />
+                        </div>
+
+                        {loading ? (
+                            <div className="flex flex-col items-center justify-center py-10 gap-3">
+                                <Loader2 size={24} className="animate-spin text-[#1E3A5F]/30" />
+                                <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] opacity-40">Fetching logs...</p>
+                            </div>
+                        ) : history.length === 0 ? (
+                            <div className="text-center py-8">
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest italic opacity-40">No transaction records found.</p>
+                            </div>
+                        ) : (
+                            <div className="overflow-hidden rounded-2xl border border-black/5">
+                                <table className="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr className="bg-re-bg/20 border-b border-black/5">
+                                            <th className="px-3 py-2 text-[6.5px] font-black text-re-text-muted uppercase tracking-[0.24em] opacity-40 border-r border-black/5">Paid at</th>
+                                            <th className="px-3 py-2 text-[6.5px] font-black text-re-text-muted uppercase tracking-[0.24em] opacity-40 border-r border-black/5">Mode</th>
+                                            <th className="px-3 py-2 text-right text-[6.5px] font-black text-re-text-muted uppercase tracking-[0.24em] opacity-40 border-r border-black/5">Amount</th>
+                                            <th className="px-3 py-2 text-right text-[6.5px] font-black text-re-text-muted uppercase tracking-[0.24em] opacity-40">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-black/5">
+                                        {history.map((log) => (
+                                            <tr key={log.id} className="hover:bg-re-bg/30 transition-colors">
+                                                <td className="px-3 py-2 border-r border-black/5">
+                                                    <p className="text-[8px] font-black text-[#1E3A5F] uppercase tracking-widest leading-none whitespace-nowrap">{log.date}</p>
+                                                    <p className="text-[6.5px] font-bold text-re-text-muted uppercase tracking-widest opacity-40 mt-1 leading-none truncate">{log.ref}</p>
+                                                </td>
+                                                <td className="px-3 py-2 border-r border-black/5">
+                                                    <p className="text-[8px] font-black text-[#1E3A5F] uppercase tracking-widest leading-none">{log.channel}</p>
+                                                    <p className="text-[6.5px] font-bold text-re-text-muted uppercase tracking-widest opacity-40 mt-1 leading-none truncate">{log.category}</p>
+                                                </td>
+                                                <td className="px-3 py-2 border-r border-black/5 text-right">
+                                                    <p className="text-[9px] font-black text-emerald-600 leading-none">
+                                                        {format(log.amount).replace('RWF', '').trim()}
+                                                        <span className="ml-1 text-[7px] font-black text-[#1E3A5F]/60 uppercase tracking-widest">RWF</span>
+                                                    </p>
+                                                </td>
+                                                <td className="px-3 py-2 text-right">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => printReceiptPdf(log)}
+                                                        className="h-6 px-2.5 rounded-lg flex items-center justify-center gap-1.5 bg-white border border-black/5 text-re-text font-black text-[7.5px] uppercase tracking-widest shadow-sm hover:bg-re-bg hover:text-[#1E3A5F] transition-all ml-auto"
+                                                        title="Print receipt"
+                                                    >
+                                                        <Printer size={12} className="text-amber-500" />
+                                                        <span>Print</span>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Drawer Footer (Actions) */}
+                <div className="px-8 py-5 border-t border-black/5 bg-slate-50/20 flex flex-col gap-2">
+                    <button
+                        onClick={() => onClose({ recordPayment: true })}
+                        className="h-10 w-full flex items-center justify-center gap-2 text-white rounded-xl font-black text-[9px] uppercase tracking-widest shadow-lg hover:scale-[1.02] active:scale-95 transition-all"
+                        style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)" }}
+                    >
+                        <CreditCard size={14} /> Record Payment
+                    </button>
+                    <div className="grid grid-cols-2 gap-2">
+                        <button className="h-9 flex items-center justify-center gap-2 bg-white border border-black/5 text-[#1E3A5F] font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-slate-50 transition-all">
+                            <Phone size={14} className="text-amber-500" /> Call Parent
+                        </button>
+                        <div className="relative">
+                            <button
+                                onClick={() => setInvoiceMenuOpen((v) => !v)}
+                                className="h-9 w-full flex items-center justify-center gap-2 bg-white border border-black/5 text-[#1E3A5F] font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-slate-50 transition-all"
+                                type="button"
+                            >
+                                <Printer size={14} className="text-amber-500" />
+                                Invoice actions
+                                <ChevronRight size={14} className={`opacity-50 transition-transform ${invoiceMenuOpen ? 'rotate-90' : ''}`} />
+                            </button>
+
+                            {invoiceMenuOpen && (
+                                <>
+                                    <div className="fixed inset-0 z-[120]" onClick={() => setInvoiceMenuOpen(false)} />
+                                    <div className="absolute right-0 bottom-11 z-[130] w-56 rounded-2xl border border-black/10 bg-white shadow-2xl overflow-hidden">
+                                        <button
+                                            type="button"
+                                            onClick={() => { setInvoiceMenuOpen(false); printInvoicePdf(); }}
+                                            className="w-full px-4 py-3 flex items-center gap-2 text-left hover:bg-re-bg/30 transition-all"
+                                        >
+                                            <Printer size={14} className="text-[#1E3A5F]" />
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-[#1E3A5F]">Print invoice</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => { setInvoiceMenuOpen(false); sendInvoiceToParent(); }}
+                                            className="w-full px-4 py-3 flex items-center gap-2 text-left hover:bg-re-bg/30 transition-all border-t border-black/5"
+                                        >
+                                            <Send size={14} className="text-[#1E3A5F]" />
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-[#1E3A5F]">Send invoice</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => { setInvoiceMenuOpen(false); printInvoicePdf(); sendInvoiceToParent(); }}
+                                            className="w-full px-4 py-3 flex items-center gap-2 text-left hover:bg-re-bg/30 transition-all border-t border-black/5"
+                                        >
+                                            <Receipt size={14} className="text-[#1E3A5F]" />
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-[#1E3A5F]">Print & send</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => { setInvoiceMenuOpen(false); setInvoiceSettingsOpen(true); }}
+                                            className="w-full px-4 py-3 flex items-center gap-2 text-left hover:bg-re-bg/30 transition-all border-t border-black/5"
+                                        >
+                                            <Settings2 size={14} className="text-[#1E3A5F]" />
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-[#1E3A5F]">Invoice settings</span>
+                                        </button>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <InvoiceSettingsModal
+                open={invoiceSettingsOpen}
+                onClose={() => setInvoiceSettingsOpen(false)}
+                config={invoiceConfig}
+                setConfig={setInvoiceConfig}
+                sentAt={sentMeta}
+            />
+        </>,
+        document.body
+    );
+}
+
+// Invoice settings modal (local-only)
+export function InvoiceSettingsModal({ open, onClose, config, setConfig, sentAt }) {
+    if (!open) return null;
+
+    return createPortal(
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 sm:p-6 overflow-hidden">
+            <div className="absolute inset-0 bg-[#0A192F]/60 backdrop-blur-xl animate-in fade-in duration-500" onClick={onClose} />
+            <div className="relative w-full max-w-2xl max-h-[92vh] bg-re-bg rounded-3xl shadow-[0_32px_128px_-15px_rgba(30,58,95,0.35)] border border-white/20 flex flex-col overflow-hidden animate-in zoom-in-95 fade-in duration-500">
+                <div
+                    className="relative z-10 px-5 py-3 shrink-0"
+                    style={{ background: 'linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)' }}
+                >
+                    <div className="flex items-center justify-between mb-2.5">
+                        <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20 text-re-gold shadow-md shadow-re-gold/10">
+                                <Settings2 size={16} />
+                            </div>
+                            <div>
+                                <h1 className="text-[11px] font-black text-white uppercase tracking-widest leading-none">Invoice Settings</h1>
+                                <p className="text-[7px] font-bold text-white/40 uppercase tracking-tight mt-1">
+                                    Last sent: {sentAt ? new Date(sentAt).toLocaleString() : 'Not yet'}
+                                </p>
+                            </div>
+                        </div>
+                        <button onClick={onClose} className="p-1.5 bg-white/5 hover:bg-white/10 rounded-xl transition-all text-white/40 hover:text-re-gold group">
+                            <X size={14} className="group-hover:rotate-90 transition-all duration-300" />
+                        </button>
+                    </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar bg-re-bg/50 p-5 md:p-6 space-y-3">
+                    {[
+                        { key: 'schoolName', label: 'School name' },
+                        { key: 'contactLine', label: 'Contact line' },
+                        { key: 'bankAccount', label: 'Bank account' },
+                        { key: 'momoNumber', label: 'Mobile money' },
+                        { key: 'footerNote', label: 'Footer note' },
+                    ].map((f) => (
+                        <div key={f.key}>
+                            <p className="text-[9px] font-black text-[#1E3A5F] uppercase tracking-[0.2em] mb-1.5 opacity-80">{f.label}</p>
+                            <input
+                                value={config?.[f.key] || ''}
+                                onChange={(e) => setConfig((prev) => ({ ...(prev || {}), [f.key]: e.target.value }))}
+                                className="w-full h-9 rounded-lg bg-re-bg px-3 outline-none border border-black/5 focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[9px] sm:text-[10px] font-black tracking-tight shadow-inner placeholder:text-re-text-muted/40"
+                            />
+                        </div>
+                    ))}
+                </div>
+
+                <div className="bg-white border-t border-black/5 px-5 sm:px-6 py-2 flex items-center justify-end shrink-0 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="h-9 px-4 rounded-lg border border-black/5 text-re-navy font-black text-[9px] uppercase tracking-widest hover:bg-re-bg transition-all active:scale-95"
+                    >
+                        Done
+                    </button>
+                </div>
+            </div>
+        </div>,
+        document.body
+    );
+}

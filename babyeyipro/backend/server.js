@@ -629,8 +629,10 @@ const dosAcademicRoutes = require('./BabyeyiRoutes/dosAcademic');
 console.log('  ✅  dosAcademic.js');
 const studentTransferRoutes = require('./BabyeyiRoutes/studentTransfer');
 const notificationsHubRoutes = require('./BabyeyiRoutes/notificationsHub');
+const shuleAvanceRoutes = require('./BabyeyiRoutes/shuleAvance');
 console.log('  ✅  studentTransfer.js');
 console.log('  ✅  notificationsHub.js');
+console.log('  ✅  shuleAvance.js');
 const parentPortalRoutes     = require('./BabyeyiRoutes/parentPortal');
 const schoolClassesRouter    = require('./BabyeyiRoutes/schoolClasses');
 const studentPermissionsRoutes = require('./BabyeyiRoutes/studentPermissions');
@@ -735,6 +737,8 @@ console.log('  ✅  /api/iot/*');
 app.use('/api', studentPermissionsRoutes);
 console.log('  ✅  /api/permissions/*');
 app.use('/api', studentTransferRoutes);
+app.use('/api/services/shule-avance', shuleAvanceRoutes);
+console.log('  ✅  /api/services/shule-avance/*');
 // parentPortalRoutes mounted earlier (before /api/parent-portal/public/babyeyi-finder alias)
 // ─────────────────────────────────────────────────────────────
 

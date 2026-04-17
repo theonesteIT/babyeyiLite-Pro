@@ -42,28 +42,41 @@ const nodemailer = require('nodemailer');
 
 // ── DB ────────────────────────────────────────────────────────
 const { promisePool: db } = require('../config/database');
-const { getDistrictCode, DISTRICTS_ALPHA } = require('../utils/rwandaDistrictCodes');
+const { getDistrictCode, DISTRICTS_ALPHA, formatSchoolCode } = require('../utils/rwandaDistrictCodes');
 
 async function ensureSchoolsExtraColumns(conn) {
   await conn.query('ALTER TABLE schools ADD COLUMN district_code VARCHAR(2) NULL').catch(() => {});
   await conn.query('ALTER TABLE schools ADD COLUMN a_level_combinations JSON NULL').catch(() => {});
   await conn.query('ALTER TABLE schools ADD COLUMN tvet_trades JSON NULL').catch(() => {});
   await conn.query('ALTER TABLE schools ADD COLUMN is_skeleton TINYINT(1) NOT NULL DEFAULT 0').catch(() => {});
+  await conn.query('ALTER TABLE schools MODIFY year_established INT NULL').catch(() => {});
+  await conn.query('ALTER TABLE schools MODIFY head_teacher_email VARCHAR(255) NULL').catch(() => {});
 }
 
-/** Next 3-digit numeric school code (001–999), based on existing numeric codes only. */
-async function getNextNumericSchoolCode(conn) {
+/** Next school sequence inside district (001-999), then format as DDSSS. */
+async function getNextDistrictSchoolCode(conn, districtCode) {
+  const dd = String(districtCode || '').padStart(2, '0').slice(-2);
+  if (!/^[0-9]{2}$/.test(dd)) throw new Error('Invalid district code');
   const [rows] = await conn.query(
-    `SELECT school_code FROM schools WHERE deleted_at IS NULL AND school_code REGEXP '^[0-9]{1,3}$'`
+    `SELECT school_code, district_code
+     FROM schools
+     WHERE deleted_at IS NULL
+       AND (district_code = ? OR school_code LIKE ?)`,
+    [dd, `${dd}%`]
   );
   let max = 0;
   for (const r of rows) {
-    const n = parseInt(r.school_code, 10);
+    const exact = String(r.school_code || '').match(new RegExp(`^${dd}([0-9]{3})$`));
+    let n = exact ? parseInt(exact[1], 10) : NaN;
+    if (Number.isNaN(n)) {
+      const slash = String(r.school_code || '').match(new RegExp(`^${dd}\\/([0-9]{3})$`));
+      if (slash) n = parseInt(slash[1], 10);
+    }
     if (!Number.isNaN(n) && n > max) max = n;
   }
   const next = max + 1;
-  if (next > 999) throw new Error('Maximum school codes (999) reached');
-  return String(next).padStart(3, '0');
+  if (next > 999) throw new Error(`Maximum school codes (999) reached for district ${dd}`);
+  return formatSchoolCode(dd, next);
 }
 
 // ── Email transporter ─────────────────────────────────────────
@@ -348,14 +361,17 @@ router.get('/schools/check-email', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
-// Next 3-digit school code (for Super Admin / forms). Optional ?district=Name → include districtCode 01–30
+// Next district school code (DDSSS). Requires ?district=DistrictName
 router.get('/schools/next-school-code', async (req, res) => {
   const conn = await db.getConnection();
   try {
     await ensureSchoolsExtraColumns(conn);
-    const next = await getNextNumericSchoolCode(conn);
     const district = req.query.district;
     const districtCode = district ? getDistrictCode(String(district)) : null;
+    if (!districtCode) {
+      return res.status(400).json({ success: false, message: 'district is required and must be valid' });
+    }
+    const next = await getNextDistrictSchoolCode(conn, districtCode);
     res.json({ success: true, data: { schoolCode: next, districtCode } });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -540,8 +556,12 @@ router.post('/schools/skeleton', async (req, res) => {
     }
     if (!levels.includes('tvet')) tvetTrades = [];
 
-    const finalSchoolCode = await getNextNumericSchoolCode(conn);
     const districtCode = getDistrictCode(district) || null;
+    if (!districtCode) {
+      await conn.rollback();
+      return res.status(400).json({ success: false, message: 'Invalid district; cannot generate district school code.' });
+    }
+    const finalSchoolCode = await getNextDistrictSchoolCode(conn, districtCode);
     const cellVal = cell && String(cell).trim() ? String(cell).trim() : String(sector).trim();
     const villageVal = village && String(village).trim() ? String(village).trim() : String(sector).trim();
     const fullAddress = `${sector}, ${district}, ${province}`;
@@ -708,14 +728,21 @@ router.post(
         return res.status(400).json({ success: false, message: 'Username may only contain lowercase letters, numbers, and underscores' });
       }
 
-      let finalSchoolCode = schoolCode != null ? String(schoolCode).trim() : '';
-      if (!finalSchoolCode || finalSchoolCode.toUpperCase() === 'AUTO') {
-        finalSchoolCode = await getNextNumericSchoolCode(conn);
-      } else {
-        finalSchoolCode = finalSchoolCode.toUpperCase();
-      }
-
       const districtCode = getDistrictCode(district) || null;
+      if (!districtCode) {
+        await conn.rollback();
+        return res.status(400).json({ success: false, message: 'Invalid district; cannot generate school code.' });
+      }
+      let finalSchoolCode = schoolCode != null ? String(schoolCode).trim().toUpperCase() : '';
+      if (!finalSchoolCode || finalSchoolCode === 'AUTO') {
+        finalSchoolCode = await getNextDistrictSchoolCode(conn, districtCode);
+      } else if (!new RegExp(`^${districtCode}[0-9]{3}$`).test(finalSchoolCode)) {
+        await conn.rollback();
+        return res.status(400).json({
+          success: false,
+          message: `School code must match district format ${districtCode}001`,
+        });
+      }
 
       // ── Uniqueness checks ─────────────────────────────────
       const [codeCheck] = await conn.query(

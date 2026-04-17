@@ -851,13 +851,13 @@ function Sidebar({ tab, switchTab, deo, online, mobileOpen, setMobileOpen, onOpe
       <div style={{ padding: "20px 16px", borderBottom: `1px solid ${C.goldBorder}` }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
           <div style={{
-            width: 40, height: 40, borderRadius: 12, flexShrink: 0,
+            width: 96, height: 36, borderRadius: 12, flexShrink: 0,
             background: "#1F2937",
             display: "flex", alignItems: "center", justifyContent: "center",
             boxShadow: "0 4px 12px rgba(26,18,0,0.25)",
-            padding: 4,
+            padding: "4px 10px",
           }}>
-            <img src="/1BABYEYI LOGO FINAL.png" alt="Babyeyi" style={{ width: 32, height: 32, objectFit: "contain" }}/>
+            <img src="/1BABYEYI LOGO FINAL.png" alt="Babyeyi logo" style={{ width: "100%", height: "100%", objectFit: "contain" }}/>
           </div>
           <div style={{ minWidth: 0 }}>
             <h1 style={{ fontSize: 14, fontWeight: 900, color: C.dark, margin: 0, lineHeight: 1.2 }}>DEO Portal</h1>
@@ -983,12 +983,12 @@ function Sidebar({ tab, switchTab, deo, online, mobileOpen, setMobileOpen, onOpe
             }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div style={{
-                  width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+                  width: 90, height: 34, borderRadius: 10, flexShrink: 0,
                   background: "#1F2937",
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  padding: 4,
+                  padding: "4px 9px",
                 }}>
-                  <img src="/1BABYEYI LOGO FINAL.png" alt="Babyeyi" style={{ width: 28, height: 28, objectFit: "contain" }}/>
+                  <img src="/1BABYEYI LOGO FINAL.png" alt="Babyeyi logo" style={{ width: "100%", height: "100%", objectFit: "contain" }}/>
                 </div>
                 <span style={{ fontWeight: 900, color: C.dark, fontSize: 14, fontFamily: font }}>DEO Portal</span>
               </div>

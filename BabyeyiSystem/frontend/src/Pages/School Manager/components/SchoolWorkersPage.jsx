@@ -8,10 +8,10 @@ const API = import.meta.env.VITE_API_URL || "http://localhost:5100";
 const ROLE_OPTIONS = [
   { code: "ACCOUNTANT", label: "Accountant" },
   { code: "TEACHER", label: "Teacher" },
-  { code: "HOD", label: "Head of Discipline" },
+  { code: "HOD", label: "Head of Discipline (Discipline)" },
   { code: "DOS", label: "Head of Study (DOS)" },
   { code: "LIBRARIAN", label: "Librarian" },
-  { code: "STORE_MANAGER", label: "Store manager" },
+  { code: "STORE_MANAGER", label: "Store / Stock manager" },
   { code: "GATE_OFFICER", label: "Gate officer" },
 ];
 
@@ -106,9 +106,9 @@ export default function SchoolWorkersPage({ session, toast }) {
           <div>
             <h2 className="text-lg font-black text-gray-900 tracking-tight">School team</h2>
             <p className="text-xs text-gray-600 font-medium">
-              Create logins for teachers, accountant, <strong>Head of Discipline (HOD)</strong>, and other staff. They
-              sign in at <span className="font-mono text-amber-800">/login</span> with email, password, and your school
-              code.
+              Create logins for teachers, accountant, <strong>Head of Discipline (HOD)</strong>, DOS, librarian, gate
+              officer, and store/stock manager. They sign in at{" "}
+              <span className="font-mono text-amber-800">/login</span> with email, password, and your school code.
             </p>
           </div>
         </div>

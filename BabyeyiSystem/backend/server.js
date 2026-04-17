@@ -22,6 +22,8 @@ const { testConnection, promisePool } = require('./config/database');
 const { computeProAccessEffective, loadSchoolModules } = require('./utils/schoolSubscription');
 const systemSettings = require('./utils/systemSettings');
 const { ensureFullSystemControllerRole } = require('./utils/ensureRoles');
+const { ensureShuleAvanceOrgTables } = require('./BabyeyiRoutes/shuleAvanceOrgSchema');
+const shuleAvanceOrgPortalRoutes = require('./BabyeyiRoutes/shuleAvanceOrgPortal');
 const { getAgentSessionPayload } = require('./BabyeyiRoutes/fieldAgentsRoutes');
 
 /** SUPER_ADMIN and FULL_SYSTEM_CONTROLLER — exempt from maintenance session kill & write lock */
@@ -601,6 +603,10 @@ const dosAcademicRoutes = require('./BabyeyiRoutes/dosAcademic');
 console.log('  ✅  dosAcademic.js');
 const teacherPortalRoutes = require('./BabyeyiRoutes/teacherPortal');
 console.log('  ✅  teacherPortal.js');
+const schoolRoleOperationsRoutes = require('./BabyeyiRoutes/schoolRoleOperations');
+console.log('  ✅  schoolRoleOperations.js');
+const portalOperationsRoutes = require('./BabyeyiRoutes/portalOperations');
+console.log('  ✅  portalOperations.js');
 const schoolClassesRouter = require('./BabyeyiRoutes/schoolClasses');
 console.log('  ✅  schoolClasses.js');
 const studentPermissionsRoutes = require('./BabyeyiRoutes/studentPermissions');
@@ -628,6 +634,8 @@ console.log('\n✅  All imports done\n');
 console.log('🔗  Mounting routes…\n');
 
 app.use('/api/auth',        authRoute);
+app.use('/api/shule-avance-partner', shuleAvanceOrgPortalRoutes);
+console.log('  ✅  /api/shule-avance-partner/*');
 app.use('/api/babyeyi',     babyeyiDeoRoute);
 app.use('/api/babyeyi',     babyeyiRoute);
 app.use('/api/babyeyi',     babyeyiHashPatch);
@@ -690,6 +698,10 @@ app.use('/api', schoolClassesRouter);
 console.log('  ✅  /api/schools/:id/classes');
 app.use('/api/teacher-portal', teacherPortalRoutes);
 console.log('  ✅  /api/teacher-portal/*');
+app.use('/api', schoolRoleOperationsRoutes);
+console.log('  ✅  /api/library/*  /api/stock/*  /api/gate/*');
+app.use('/api', portalOperationsRoutes);
+console.log('  ✅  /api/store/*  /api/accountant/requisitions|expenses|payroll/*  /api/teacher-portal/requisitions  /api/tools/ticha-ai/*');
 app.use('/api', studentPermissionsRoutes);
 console.log('  ✅  /api/permissions/*');
 app.use('/api/services', shuleAvanceServicesRoutes);
@@ -745,6 +757,7 @@ const startServer = async () => {
     console.log('✅  Database connected\n');
 
     await ensureFullSystemControllerRole();
+    await ensureShuleAvanceOrgTables().catch((e) => console.warn('ensureShuleAvanceOrgTables:', e.message));
 
     app.listen(PORT, () => {
       console.log(`

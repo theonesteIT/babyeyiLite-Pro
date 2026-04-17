@@ -102,8 +102,8 @@ export default function AgentLayout() {
     >
       <div className="px-5 py-5 border-b border-white/10">
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-11 h-11 rounded-xl shadow-lg bg-amber-400 flex items-center justify-center overflow-hidden border border-amber-300/50">
-            <img src={BRAND} alt="" className="w-8 h-8 object-contain" />
+          <div className="rounded-xl shadow-lg bg-[#1F2937] flex items-center justify-center overflow-hidden border border-amber-300/50 px-2 py-1">
+            <img src={BRAND} alt="Babyeyi logo" className="h-8 w-auto object-contain" />
           </div>
           <div className="min-w-0">
             <p className="text-[10px] font-black uppercase tracking-widest text-amber-400/90">Field agent</p>
@@ -170,9 +170,9 @@ export default function AgentLayout() {
           >
             <Menu className="w-5 h-5" />
           </button>
-          <h1 className="text-base sm:text-lg font-black text-white truncate flex-1 text-center lg:text-left">
-            <span className="text-amber-400">Babyeyi</span>
-            <span className="text-white/35 font-bold mx-1.5">·</span>
+          <h1 className="text-base sm:text-lg font-black text-white truncate flex-1 text-center lg:text-left flex items-center justify-center lg:justify-start gap-2">
+            <img src={BRAND} alt="Babyeyi logo" className="h-7 w-auto object-contain shrink-0" />
+            <span className="text-white/35 font-bold">·</span>
             <span>Agent workspace</span>
           </h1>
           <div className="w-10 lg:w-0" />

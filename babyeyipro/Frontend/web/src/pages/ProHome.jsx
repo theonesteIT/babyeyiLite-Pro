@@ -32,6 +32,10 @@ export default function ProHome() {
   const cards = [
     { to: '/dos', label: 'DOS (Directorate of Studies)', desc: 'Academic oversight, timetables, marks' },
     { to: '/manager', label: 'School Manager', desc: 'Registry, finance, HR, reports' },
+    { to: '/accountant', label: 'Accountant', desc: 'Fees, invoices, expenses, requisitions, payroll' },
+    { to: '/storekeeper', label: 'Storekeeper', desc: 'Inventory, suppliers, stock movements, requisitions' },
+    { to: '/librarian', label: 'Librarian', desc: 'Books, members, borrowing, returns, reports' },
+    { to: '/discipline-staff', label: 'Discipline Staff', desc: 'Conduct, discipline reports, student permissions' },
     { to: '/teacher', label: 'Teacher', desc: 'Classes, attendance, gradebook' },
     { to: '/discipline', label: 'Discipline / Conduct', desc: 'Behaviour and conduct overview' },
   ]

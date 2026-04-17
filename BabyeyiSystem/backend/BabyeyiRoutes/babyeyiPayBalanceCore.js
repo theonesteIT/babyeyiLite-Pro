@@ -447,7 +447,7 @@ const OVERPAY_EPSILON = 1.5;
 async function validateBabyeyiPaymentAgainstBalance(body) {
   const payMode = String(body?.payment_plan?.payMode || '').trim().toLowerCase();
   const payMethod = String(body?.payment_plan?.method || '').trim().toLowerCase();
-  if (payMode === 'loan' || payMethod === 'loan') {
+  if (payMode === 'loan' || payMethod === 'loan' || payMethod === 'shule_avance') {
     return { ok: true };
   }
 

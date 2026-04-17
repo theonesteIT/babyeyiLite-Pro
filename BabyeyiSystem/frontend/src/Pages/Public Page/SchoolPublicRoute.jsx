@@ -172,17 +172,17 @@ function NavBar({ school, theme, active, onNav, menuOpen, setMenuOpen, onApply, 
         }}
       >
         {/* Logo + name */}
-        <div className="flex items-center gap-3 mr-6 flex-shrink-0">
+        <div className="flex items-center gap-3 mr-6 flex-shrink-0 w-full max-w-max">
           <div
-            className="w-9 h-9 rounded-xl overflow-hidden flex-shrink-0 ring-2 flex items-center justify-center bg-white/10"
+            className="w-9  h-9 rounded-xl overflow-hidden flex-shrink-0 ring-2 flex items-center justify-center bg-white/10"
             style={{ ringColor: minimal ? `${p}33` : `${a}44` }}
           >
             {logoSrc
               ? <img src={logoSrc} alt="logo" className="w-full h-full object-contain p-0.5" />
               : (
-                <div
-                  className="w-full h-full flex items-center justify-center font-black text-sm"
-                  style={{ background: `${a}33`, color: minimal ? p : a, ...syne }}
+                <div 
+                  className="w-full h-full flex items-center justify-center font-black"
+                  style={{ background: `${a}33`, color: minimal ? p : a, ...syne, fontSize: 12 }}
                 >
                   {(school.name || 'S')[0]}
                 </div>
@@ -540,7 +540,7 @@ function HeroSection({ school, theme, onApply, onBabyeyi, template, onStudentLoo
                 </div>
               )}
               <h1
-                className="text-xl sm:text-3xl lg:text-4xl font-black text-white leading-[1.08]"
+                className="text-2xl sm:text-3xl lg:text-4xl font-black text-white leading-[1.08]"
                 style={{ ...serif, letterSpacing: '-0.02em' }}
               >
                 {school.name}

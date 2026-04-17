@@ -7,7 +7,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import {
   GraduationCap, Globe, Users, BookOpen, Bell, Search, Star,
-  ArrowRight, MapPin, BarChart3, Shield, Smartphone, Zap,
+  ArrowRight, MapPin, BarChart3, Shield, Smartphone,
   Menu, X, Building2, Layers, Heart, Sparkles,
   LogIn, Facebook, Twitter, Instagram, Mail, Phone,
   Youtube, ChevronDown, CreditCard, Send, Bot, Loader2, Package,
@@ -51,9 +51,10 @@ function useVisible(ref) {
 }
 
 /* ── Navbar ────────────────────────────────────────────────────── */
-function Navbar() {
+function Navbar({ onHowItWorksClick }) {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const BABYEYI_LOGO_URL = "/1BABYEYI LOGO FINAL.png";
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 40);
     window.addEventListener("scroll", fn, { passive: true });
@@ -61,28 +62,40 @@ function Navbar() {
   }, []);
 
   const links = [
-    { label: "Features", href: "#features" },
-    { label: "Schools",  href: "/schools",       i: true },
     { label: "Pay Fees", href: "/pay-by-school", i: true },
     { label: "Services", href: "/services",      i: true },
+    { label: "How It Works", href: "#how", isHow: true },
+    { label: "Features", href: "#features" },
+    { label: "Schools",  href: "/schools",       i: true },
   ];
 
   return (
     <nav className={`fixed inset-x-0 top-0 z-50 border-b-[3px] border-amber-400 transition-all duration-300 ${scrolled ? "bg-[#000435] shadow-xl shadow-black/30" : "bg-[#000435]/88 backdrop-blur-md"}`}>
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 xl:px-10 2xl:px-16 flex items-center justify-between h-14 sm:h-16 xl:h-[68px]">
-        <Link to="/" className="flex items-center gap-2 shrink-0">
-          <div className="w-8 h-8 xl:w-9 xl:h-9 rounded-lg bg-amber-400 flex items-center justify-center">
-            <GraduationCap size={18} className="text-[#000435]" />
-          </div>
-          <span className="font-black text-[17px] xl:text-xl text-white tracking-tight">
-            baby<span className="text-amber-400">eyi</span>
-          </span>
+        <Link to="/" className="flex items-center shrink-0">
+          <img
+            src={BABYEYI_LOGO_URL}
+            alt="Babyeyi logo"
+            className="h-9 sm:h-10 xl:h-11 w-auto object-contain"
+          />
         </Link>
 
         <div className="hidden lg:flex items-center gap-0.5 xl:gap-1">
           {links.map((l) => l.i
             ? <Link key={l.label} to={l.href} className="px-3 xl:px-4 py-2 rounded-lg text-sm xl:text-[15px] font-semibold text-white/70 hover:text-white hover:bg-white/8 transition-all">{l.label}</Link>
-            : <a key={l.label} href={l.href} className="px-3 xl:px-4 py-2 rounded-lg text-sm xl:text-[15px] font-semibold text-white/70 hover:text-white hover:bg-white/8 transition-all">{l.label}</a>
+            : <a
+                key={l.label}
+                href={l.href}
+                onClick={(e) => {
+                  if (l.isHow) {
+                    e.preventDefault();
+                    onHowItWorksClick?.();
+                  }
+                }}
+                className="px-3 xl:px-4 py-2 rounded-lg text-sm xl:text-[15px] font-semibold text-white/70 hover:text-white hover:bg-white/8 transition-all"
+              >
+                {l.label}
+              </a>
           )}
         </div>
 
@@ -107,7 +120,20 @@ function Navbar() {
         <div className="lg:hidden bg-[#000435] border-t border-white/8 px-4 pb-4 space-y-1">
           {links.map((l) => l.i
             ? <Link key={l.label} to={l.href} onClick={() => setOpen(false)} className="flex px-4 py-3 rounded-xl text-[14px] font-bold text-white/75 hover:bg-white/8 hover:text-white">{l.label}</Link>
-            : <a key={l.label} href={l.href} onClick={() => setOpen(false)} className="flex px-4 py-3 rounded-xl text-[14px] font-bold text-white/75 hover:bg-white/8 hover:text-white">{l.label}</a>
+            : <a
+                key={l.label}
+                href={l.href}
+                onClick={(e) => {
+                  if (l.isHow) {
+                    e.preventDefault();
+                    onHowItWorksClick?.();
+                  }
+                  setOpen(false);
+                }}
+                className="flex px-4 py-3 rounded-xl text-[14px] font-bold text-white/75 hover:bg-white/8 hover:text-white"
+              >
+                {l.label}
+              </a>
           )}
           <Link to="/register" onClick={() => setOpen(false)} className="flex items-center justify-center gap-2 w-full mt-1 px-4 py-3 rounded-xl border border-amber-400/40 text-amber-400 text-[14px] font-bold">Register School</Link>
           <a href="/login" onClick={() => setOpen(false)} className="flex items-center justify-center gap-2 w-full mt-1 px-4 py-3.5 rounded-xl bg-amber-400 text-[#000435] text-[14px] font-black">
@@ -162,7 +188,7 @@ function AISearchBox() {
     <div className="w-full max-w-xl 2xl:max-w-2xl mt-6">
       <div className="flex items-center gap-2 mb-2 pl-1">
         {[0,200,400].map(d=><span key={d} className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" style={{animationDelay:`${d}ms`}}/>)}
-        <span className="text-[11px] font-black uppercase tracking-[0.16em] text-amber-400">Babyeyi AI</span>
+        <span className="text-[11px] font-black uppercase tracking-[0.16em] text-amber-400">Enter SDMS CODE/ SHULECARD ID</span>
       </div>
       <div className="flex items-center gap-2 p-2.5 rounded-2xl border border-amber-400/30 bg-black/50 backdrop-blur-md">
         <div className="w-9 h-9 rounded-xl bg-amber-400/15 flex items-center justify-center shrink-0"><Bot size={16} className="text-amber-400"/></div>
@@ -231,7 +257,7 @@ function AISearchBox() {
           </div>
         </div>
       )}
-      <p className="text-[11px] text-white/28 mt-2 pl-1 leading-relaxed">Enter your child's <span className="text-white/45">student UID</span> or school's <span className="text-white/45">directory code</span>. General search → <Link to="/schools" className="text-amber-400/80 font-semibold hover:underline">Explore Schools</Link>.</p>
+      
     </div>
   );
 }
@@ -248,10 +274,6 @@ function HeroSection() {
 
       <div className="relative z-10 max-w-[1400px] mx-auto px-4 sm:px-6 xl:px-10 2xl:px-16 flex flex-col justify-center py-12 sm:py-16 xl:py-20" style={{minHeight:"calc(100svh - 60px)"}}>
         <div className="max-w-lg sm:max-w-xl xl:max-w-2xl 2xl:max-w-3xl">
-          <div className="inline-flex items-center gap-2 rounded-lg border border-amber-400/40 bg-amber-400/12 px-3 py-1.5 mb-5 xl:mb-6">
-            <Zap size={13} className="text-amber-400"/>
-            <span className="text-[10px] xl:text-[11px] font-black uppercase tracking-[0.14em] text-amber-400">Rwanda's School Platform</span>
-          </div>
           <h1 className="font-black text-white leading-[1.04] tracking-tight mb-4 xl:mb-5" style={{fontSize:"clamp(1.9rem,4.5vw,4.25rem)"}}>
             An Integrated <span className="text-amber-400">Digital Platform</span> for Equitable School Readiness
           </h1>
@@ -264,28 +286,28 @@ function HeroSection() {
           {/* CTA grid */}
           <div className="flex flex-col gap-3 w-full max-w-md xl:max-w-lg">
             <div className="grid grid-cols-2 gap-3">
-              <button type="button" onClick={()=>navigate("/schools")} className="inline-flex items-center justify-center gap-2 min-h-[50px] xl:min-h-[54px] rounded-xl bg-amber-400 text-[#000435] font-black text-[13px] xl:text-[15px] hover:bg-amber-300 transition-all active:scale-[.98]">
-                <Search size={16} strokeWidth={2.5}/> Explore Schools
-              </button>
-              <Link to="/register" className="inline-flex items-center justify-center gap-2 min-h-[50px] xl:min-h-[54px] rounded-xl border-2 border-white/20 text-white font-black text-[13px] xl:text-[15px] hover:border-amber-400/60 hover:bg-white/5 transition-all">
-                <Building2 size={16} className="text-amber-300"/> Register School
+              <Link to="/pay-by-school" className="inline-flex items-center justify-center gap-2 min-h-[50px] xl:min-h-[54px] rounded-xl bg-amber-400 text-[#000435] font-black text-[13px] xl:text-[15px] hover:bg-amber-300 transition-all active:scale-[.98]">
+                <CreditCard size={16} strokeWidth={2.5}/> Pay Fees
               </Link>
+              <a href="/login" className="inline-flex items-center justify-center gap-2 min-h-[50px] xl:min-h-[54px] rounded-xl border-2 border-white/20 text-white font-black text-[13px] xl:text-[15px] hover:border-amber-400/60 hover:bg-white/5 transition-all">
+                <LogIn size={16} className="text-amber-300"/> Login
+              </a>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <Link to="/school-manager/login" className="inline-flex items-center justify-center gap-2 min-h-[48px] xl:min-h-[52px] rounded-xl border border-amber-400/40 bg-amber-400/8 text-white font-bold text-[13px] xl:text-[14px] hover:bg-amber-400/14 transition-all">
-                <GraduationCap size={16} className="text-amber-400"/> School Manager
+              <Link to="/register" className="inline-flex items-center justify-center gap-2 min-h-[48px] xl:min-h-[52px] rounded-xl border border-amber-400/40 bg-amber-400/8 text-white font-bold text-[13px] xl:text-[14px] hover:bg-amber-400/14 transition-all">
+                <Building2 size={16} className="text-amber-400"/> Register School
               </Link>
-              <Link to="/parents/login" className="inline-flex items-center justify-center gap-2 min-h-[48px] xl:min-h-[52px] rounded-xl border border-white/15 bg-white/5 text-white font-bold text-[13px] xl:text-[14px] hover:bg-white/10 transition-all">
-                <Users size={16} className="text-amber-200/80"/> Parent Login
+              <Link to="/services" className="inline-flex items-center justify-center gap-2 min-h-[48px] xl:min-h-[52px] rounded-xl border border-white/15 bg-white/5 text-white font-bold text-[13px] xl:text-[14px] hover:bg-white/10 transition-all">
+                <Sparkles size={16} className="text-amber-200/80"/> Services
               </Link>
             </div>
-            <Link to="/services" className="inline-flex items-center justify-center gap-2 min-h-[48px] rounded-xl border border-amber-400/30 bg-[#000435]/40 text-white font-bold text-[13px] xl:text-[14px] hover:border-amber-400 hover:bg-amber-400/10 transition-all w-full">
-              <Sparkles size={16} className="text-amber-400"/> Services &amp; Tools <ArrowRight size={14} className="text-amber-400 ml-auto"/>
-            </Link>
+            <button type="button" onClick={()=>navigate("/schools")} className="inline-flex items-center justify-center gap-2 min-h-[46px] rounded-xl border border-amber-400/30 bg-[#000435]/40 text-white font-bold text-[13px] xl:text-[14px] hover:border-amber-400 hover:bg-amber-400/10 transition-all w-full">
+              <Search size={16} className="text-amber-400"/> Explore Schools <ArrowRight size={14} className="text-amber-400 ml-auto"/>
+            </button>
           </div>
 
           {/* Stat badges */}
-          <div className="flex flex-wrap gap-2 mt-6">
+          <div className="hidden sm:flex flex-wrap gap-2 mt-6">
             {[["500+","Schools"],["50K+","Teachers"],["2M+","Students"],["Free","To Access"]].map(([v,l])=>(
               <div key={l} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/6 border border-white/10">
                 <span className="font-bold text-[14px] xl:text-[15px] text-amber-400">{v}</span>
@@ -300,22 +322,6 @@ function HeroSection() {
         <ChevronDown size={20} className="text-amber-400"/>
       </div>
     </section>
-  );
-}
-
-/* ── Stats Bar ─────────────────────────────────────────────────── */
-function StatsBar() {
-  return (
-    <div className="bg-amber-400 border-b-2 border-amber-500">
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 xl:px-10 flex overflow-x-auto">
-        {[["500+","Schools"],["200K+","Students"],["10K+","Teachers"],["30","Districts"]].map(([v,l],i,a)=>(
-          <div key={l} className={`flex flex-col items-center py-3 xl:py-4 px-6 sm:px-10 xl:px-14 shrink-0 ${i<a.length-1?"border-r border-amber-500":""}`}>
-            <span className="font-black text-xl sm:text-2xl xl:text-3xl text-[#000435]">{v}</span>
-            <span className="font-bold text-[10px] xl:text-[11px] uppercase tracking-[0.1em] text-[#000435]/70 mt-0.5">{l}</span>
-          </div>
-        ))}
-      </div>
-    </div>
   );
 }
 
@@ -379,7 +385,7 @@ function HowItWorksSection() {
     {step:"04",title:"Parents Connect",desc:"Families find your school, view all details, and apply for admission online.",Icon:Heart},
   ];
   return (
-    <section className="py-16 sm:py-24 xl:py-32 bg-white">
+    <section id="how" className="py-16 sm:py-24 xl:py-32 bg-white">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 xl:px-10 2xl:px-16">
         <SH eyebrow="How It Works" title="Simple. Fast. Powerful." sub="Get your school online in minutes, not months."/>
         <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4 xl:gap-6">
@@ -394,6 +400,27 @@ function HowItWorksSection() {
               {i<ss.length-1&&<ArrowRight size={18} className="absolute top-1/2 -right-3 -translate-y-1/2 text-amber-300 hidden xl:block"/>}
             </div>
           ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ── Demo Video ────────────────────────────────────────────────── */
+function DemoSection() {
+  return (
+    <section className="py-16 sm:py-24 xl:py-32 bg-[#1F2937]">
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 xl:px-10 2xl:px-16">
+        <SH eyebrow="Platform Demo" title="See Babyeyi in Action" light sub="Demo video is coming soon." />
+        <div className="relative rounded-2xl overflow-hidden bg-gray-900 border border-white/10 shadow-2xl" style={{ paddingBottom: "56.25%" }}>
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-slate-800 to-slate-700">
+            <div className="px-5 py-2 rounded-full text-xs font-black uppercase tracking-widest border border-amber-400/40 bg-amber-400/15 text-amber-400">
+              Coming Soon
+            </div>
+            <p className="text-sm font-semibold text-white/55 mt-4">
+              Demo video will be available here.
+            </p>
+          </div>
         </div>
       </div>
     </section>
@@ -494,11 +521,8 @@ function PartnersSection() {
     {name:"NESA",full:"National Exam & School Inspection",abbr:"NE",color:"#DC2626",bg:"#FEF2F2"},
     {name:"HOSO",full:"Higher Education Council",abbr:"HO",color:"#7C3AED",bg:"#F5F3FF"},
     {name:"RPSA",full:"Rwanda Private Sector Association",abbr:"RP",color:"#B45309",bg:"#FFFBEB"},
-    {name:"WDA",full:"Workforce Development Authority",abbr:"WD",color:"#0369A1",bg:"#F0F9FF"},
-    {name:"RDB",full:"Rwanda Development Board",abbr:"RD",color:"#15803D",bg:"#F0FDF4"},
-    {name:"MIGEPROF",full:"Ministry of Gender & Family",abbr:"MG",color:"#BE185D",bg:"#FDF2F8"},
     {name:"MTN RW",full:"MTN Rwanda — Mobile Payments",abbr:"MT",color:"#F59E0B",bg:"#FFFBEB"},
-    {name:"BNR",full:"National Bank of Rwanda",abbr:"BN",color:"#374151",bg:"#F9FAFB"},
+    
   ];
   const loop=[...pp,...pp];
   return (
@@ -516,21 +540,6 @@ function PartnersSection() {
               <div className="min-w-0"><p className="font-black text-white text-[14px] leading-none">{p.name}</p><p className="text-white/40 text-[11px] mt-0.5 truncate">{p.full}</p></div>
             </div>
           ))}
-        </div>
-      </div>
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 xl:px-10 2xl:px-16 mt-12 xl:mt-16">
-        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3 xl:gap-4">
-          {pp.map((p,i)=>(
-            <div key={i} className="group flex flex-col items-center gap-3 rounded-2xl border border-amber-400/15 bg-white/4 p-5 xl:p-6 hover:border-amber-400/50 hover:bg-white/8 transition-all duration-200 text-center">
-              <div className="w-12 h-12 xl:w-14 xl:h-14 rounded-xl flex items-center justify-center font-black text-[14px] group-hover:scale-105 transition-transform" style={{background:p.bg,color:p.color}}>{p.abbr}</div>
-              <div><p className="font-black text-white text-[13px] leading-none">{p.name}</p><p className="text-white/40 text-[11px] mt-1 leading-tight">{p.full}</p></div>
-            </div>
-          ))}
-        </div>
-        <div className="mt-8 xl:mt-10 rounded-2xl border border-amber-400/20 bg-white/4 px-6 py-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
-          <div className="w-10 h-10 rounded-xl bg-amber-400/15 flex items-center justify-center shrink-0"><Shield size={20} className="text-amber-400"/></div>
-          <div className="flex-1"><p className="font-black text-white text-[15px]">Aligned with national standards</p><p className="text-white/50 text-[13px] mt-0.5 leading-relaxed">Babyeyi complements Rwanda's educational framework — school data and programs follow REB and NESA guidelines.</p></div>
-          <Link to="/register" className="shrink-0 inline-flex items-center gap-2 rounded-xl bg-amber-400 px-5 py-3 text-[13px] font-black text-[#000435] hover:bg-amber-300 transition-all whitespace-nowrap">Join Platform <ArrowRight size={13}/></Link>
         </div>
       </div>
       <style>{`@keyframes marquee{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}`}</style>
@@ -614,19 +623,36 @@ function Footer() {
 }
 
 export default function PublicPage() {
+  const [showHowItWorks, setShowHowItWorks] = useState(false);
+
+  const handleHowItWorksClick = () => {
+    setShowHowItWorks(true);
+    if (window.location.hash !== "#how") {
+      window.history.replaceState(null, "", "#how");
+    }
+    window.setTimeout(() => {
+      document.getElementById("how")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 80);
+  };
+
   useEffect(()=>{ document.title="Babyeyi.rw — Connecting Schools & Communities in Rwanda"; },[]);
+  useEffect(() => {
+    if (window.location.hash === "#how") {
+      handleHowItWorksClick();
+    }
+  }, []);
+
   return (
     <div>
       <FontLoader/>
-      <Navbar/>
+      <Navbar onHowItWorksClick={handleHowItWorksClick}/>
       <HeroSection/>
-      <StatsBar/>
       <FeaturesSection/>
-      <HowItWorksSection/>
-      <StatsSection/>
+      <DemoSection/>
       <TestimonialsSection/>
       <QuickActionsSection/>
       <PartnersSection/>
+      {showHowItWorks && <HowItWorksSection/>}
       <CTASection/>
       <Footer/>
     </div>

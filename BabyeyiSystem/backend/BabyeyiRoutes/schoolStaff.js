@@ -12,6 +12,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const { promisePool } = require('../config/database');
 const { requireRole } = require('../middleware/deoAuth');
+const { computeProAccessEffective } = require('../utils/schoolSubscription');
 
 const router = express.Router();
 
@@ -41,15 +42,36 @@ function trimStr(v) {
   return String(v).trim();
 }
 
+async function ensureProSchoolForStaffFeature(req, res) {
+  const schoolId = resolveSchoolId(req);
+  if (!schoolId) {
+    res.status(400).json({ success: false, message: 'School not found in session.' });
+    return null;
+  }
+  const [[schoolRow]] = await promisePool.query(
+    `SELECT subscription_plan, pro_enabled, pro_end_date
+     FROM schools WHERE id = ? AND deleted_at IS NULL LIMIT 1`,
+    [schoolId]
+  );
+  const isPro = computeProAccessEffective(schoolRow || null);
+  if (!isPro) {
+    res.status(403).json({
+      success: false,
+      code: 'PRO_REQUIRED',
+      message: 'School Team and staff management are available for Pro schools only.',
+    });
+    return null;
+  }
+  return schoolId;
+}
+
 // ════════════════════════════════════════════════════════════════
 // GET /api/school/staff
 // ════════════════════════════════════════════════════════════════
 router.get('/school/staff', requireRole(CREATOR_ROLES), async (req, res) => {
   try {
-    const schoolId = resolveSchoolId(req);
-    if (!schoolId) {
-      return res.status(400).json({ success: false, message: 'School not found in session.' });
-    }
+    const schoolId = await ensureProSchoolForStaffFeature(req, res);
+    if (!schoolId) return;
 
     const [rows] = await promisePool.query(
       `SELECT
@@ -89,10 +111,8 @@ router.get('/school/staff', requireRole(CREATOR_ROLES), async (req, res) => {
 router.post('/school/staff', requireRole(CREATOR_ROLES), async (req, res) => {
   const conn = await promisePool.getConnection();
   try {
-    const schoolId = resolveSchoolId(req);
-    if (!schoolId) {
-      return res.status(400).json({ success: false, message: 'School not found in session.' });
-    }
+    const schoolId = await ensureProSchoolForStaffFeature(req, res);
+    if (!schoolId) return;
 
     const body = req.body || {};
     const firstName = trimStr(body.first_name);

@@ -84,7 +84,7 @@ export default function SchoolManagerLogin() {
       return;
     }
     if (!schoolCodeTrim) {
-      notify('Enter your school code (e.g. 001 — same as in the directory).');
+      notify('Enter your school code (e.g. 04001 — same as in the directory).');
       return;
     }
     if (!form.password.trim()) {
@@ -314,7 +314,7 @@ export default function SchoolManagerLogin() {
                     onChange={(e) => setForm((p) => ({ ...p, schoolCode: e.target.value.toUpperCase() }))}
                     className="w-full pl-10 pr-3 py-3 rounded-xl text-white text-sm font-mono tracking-wider outline-none border transition-colors"
                     style={{ background: 'rgba(248,248,248,0.04)', borderColor: 'rgba(255,255,255,0.1)' }}
-                    placeholder="e.g. 001"
+                    placeholder="e.g. 04001"
                   />
                 </div>
               </div>

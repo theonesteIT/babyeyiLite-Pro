@@ -1,1 +1,8 @@
-@import 'tailwindcss'
+@import 'tailwindcss';
+
+/* Keep native select dropdown options readable across browsers/pages. */
+select option,
+select optgroup {
+  color: #0b153f;
+  background-color: #f8fafc;
+}

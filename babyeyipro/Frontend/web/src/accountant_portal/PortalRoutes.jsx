@@ -1,0 +1,62 @@
+import React from 'react'
+import { Routes, Route, Navigate } from 'react-router-dom'
+import { AuthProvider, useAuth } from './frontend/src/context/AuthContext'
+import Layout from './frontend/src/components/Layout'
+import Dashboard from './frontend/src/pages/Dashboard'
+import Fees from './frontend/src/pages/Fees'
+import Invoices from './frontend/src/pages/Invoices'
+import InvoiceSettings from './frontend/src/pages/InvoiceSettings'
+import Expenses from './frontend/src/pages/Expenses'
+import Requisitions from './frontend/src/pages/Requisitions'
+import PayrollHistory from './frontend/src/pages/PayrollHistory'
+import PayrollConfig from './frontend/src/pages/PayrollConfig'
+import ShuleAvance from './frontend/src/pages/ShuleAvance'
+import FeaturePlaceholders from './frontend/src/pages/FeaturePlaceholders'
+
+function LoadingScreen() {
+  return (
+    <div className="min-h-screen bg-re-bg flex flex-col items-center justify-center gap-4 font-sans">
+      <div className="w-12 h-12 rounded-2xl animate-pulse" style={{ background: 'linear-gradient(135deg,#FF8C00,#FF5E00)' }} />
+      <p className="text-re-text-muted text-sm font-bold uppercase tracking-widest animate-pulse">
+        Loading Accountant Portal...
+      </p>
+    </div>
+  )
+}
+
+function ProtectedRoute({ children, title }) {
+  const { staff, loading } = useAuth()
+  if (loading) return <LoadingScreen />
+  if (!staff) return <LoadingScreen />
+  return <Layout title={title}>{children}</Layout>
+}
+
+function AccountantRoutesInner() {
+  return (
+    <Routes>
+      <Route path="" element={<ProtectedRoute title="Dashboard"><Dashboard /></ProtectedRoute>} />
+      <Route path="shule-avance" element={<ProtectedRoute title="Shule Avance"><ShuleAvance /></ProtectedRoute>} />
+
+      <Route path="fees" element={<ProtectedRoute title="Student Fees"><Fees /></ProtectedRoute>} />
+      <Route path="invoices" element={<ProtectedRoute title="Invoices"><Invoices /></ProtectedRoute>} />
+      <Route path="invoices/settings" element={<ProtectedRoute title="Configure Invoices"><InvoiceSettings /></ProtectedRoute>} />
+      <Route path="expenses" element={<ProtectedRoute title="School Expenses"><Expenses /></ProtectedRoute>} />
+      <Route path="requisitions" element={<ProtectedRoute title="Requisitions"><Requisitions /></ProtectedRoute>} />
+      <Route path="payroll" element={<Navigate to="payroll/history" replace />} />
+      <Route path="payroll/history" element={<ProtectedRoute title="Payroll History"><PayrollHistory /></ProtectedRoute>} />
+      <Route path="payroll/config" element={<ProtectedRoute title="Configure Payroll"><PayrollConfig /></ProtectedRoute>} />
+
+      <Route path="settings" element={<ProtectedRoute title="Settings"><FeaturePlaceholders feature="Settings" icon="⚙️" /></ProtectedRoute>} />
+
+      <Route path="*" element={<Navigate to="/accountant" replace />} />
+    </Routes>
+  )
+}
+
+export default function AccountantPortalRoutes() {
+  return (
+    <AuthProvider>
+      <AccountantRoutesInner />
+    </AuthProvider>
+  )
+}

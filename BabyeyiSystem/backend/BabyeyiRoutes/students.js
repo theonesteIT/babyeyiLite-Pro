@@ -41,7 +41,7 @@ const { promisePool } = require('../config/database');
 const { requireRole } = require('../middleware/deoAuth');
 const {
   getDistrictCode,
-  formatStudentCode,
+  formatStudentUid,
   parseSchoolCodeNumeric,
 } = require('../utils/rwandaDistrictCodes');
 
@@ -250,6 +250,12 @@ function shouldTrustImportedStudentUid(uidStr, districtName, schoolCodeRaw) {
   if (!isOfficialNineDigitCodeForSchool(uidStr, districtName, schoolCodeRaw)) return false;
   if (digitStringLooksLikeRwandaPhone(uidStr)) return false;
   return true;
+}
+
+function formattedStudentCodeFromUid(uid) {
+  const s = String(uid || '').trim();
+  if (!/^\d{9}$/.test(s)) return null;
+  return s;
 }
 
 const PROVINCE_MAP = {
@@ -590,7 +596,7 @@ function parsePagination(req) {
   return { page, limit, offset };
 }
 
-// ── Official 9-digit student code: DD (district) + SSS (school) + NNNN (seq) ──
+// ── Official internal UID: DD + SSS + NNNN (9 digits) ──
 async function generateStudentUID(schoolId) {
   await ensureStudentsTable();
   await ensureStudentsExtraColumns();
@@ -602,13 +608,21 @@ async function generateStudentUID(schoolId) {
   const dCode = getDistrictCode(school.district) || '01';
   const sNum = parseSchoolCodeNumeric(school.school_code);
   const [[row]] = await promisePool.query(
-    `SELECT COALESCE(MAX(CAST(RIGHT(student_code, 4) AS UNSIGNED)), 0) AS m
-     FROM students WHERE school_id = ? AND student_code REGEXP '^[0-9]{9}$'`,
+    `SELECT COALESCE(MAX(
+      CASE
+        WHEN student_code REGEXP '^[0-9]{2}/[0-9]{3}/[0-9]{4}$'
+          THEN CAST(SUBSTRING_INDEX(student_code, '/', -1) AS UNSIGNED)
+        WHEN student_code REGEXP '^[0-9]{9}$'
+          THEN CAST(RIGHT(student_code, 4) AS UNSIGNED)
+        ELSE 0
+      END
+    ), 0) AS m
+     FROM students WHERE school_id = ?`,
     [schoolId]
   );
   const seq = (Number(row?.m) || 0) + 1;
   if (seq > 9999) throw new Error('Student sequence limit (9999) reached for this school');
-  return formatStudentCode(dCode, sNum, seq);
+  return formatStudentUid(dCode, sNum, seq);
 }
 
 async function createImportUidAllocator(schoolId) {
@@ -621,15 +635,23 @@ async function createImportUidAllocator(schoolId) {
   const dCode = getDistrictCode(school?.district) || '01';
   const sNum = parseSchoolCodeNumeric(school?.school_code);
   const [[row]] = await promisePool.query(
-    `SELECT COALESCE(MAX(CAST(RIGHT(student_code, 4) AS UNSIGNED)), 0) AS m
-     FROM students WHERE school_id = ? AND student_code REGEXP '^[0-9]{9}$'`,
+    `SELECT COALESCE(MAX(
+      CASE
+        WHEN student_code REGEXP '^[0-9]{2}/[0-9]{3}/[0-9]{4}$'
+          THEN CAST(SUBSTRING_INDEX(student_code, '/', -1) AS UNSIGNED)
+        WHEN student_code REGEXP '^[0-9]{9}$'
+          THEN CAST(RIGHT(student_code, 4) AS UNSIGNED)
+        ELSE 0
+      END
+    ), 0) AS m
+     FROM students WHERE school_id = ?`,
     [schoolId]
   );
   let seq = Number(row?.m || 0);
   return () => {
     seq += 1;
     if (seq > 9999) throw new Error('Student sequence limit exceeded');
-    return formatStudentCode(dCode, sNum, seq);
+    return formatStudentUid(dCode, sNum, seq);
   };
 }
 
@@ -844,7 +866,7 @@ router.put('/students/:id', requireRole(SCHOOL_ROLES), async (req, res) => {
       'SELECT student_code, class_name, academic_year, sdm_code FROM students WHERE id = ? AND school_id = ? LIMIT 1',
       [studentId, schoolId]
     );
-    const studentCodeVal = cur?.student_code || (/^\d{9}$/.test(studentUid) ? studentUid : null);
+    const studentCodeVal = cur?.student_code || formattedStudentCodeFromUid(studentUid);
 
     const cls = 'class_name' in body || 'className' in body
       ? trimStr(body.class_name || body.className) || null
@@ -1242,7 +1264,7 @@ router.post('/students', requireRole(SCHOOL_ROLES), async (req, res) => {
       });
     }
 
-    const officialCode = /^\d{9}$/.test(uid) ? uid : null;
+    const officialCode = formattedStudentCodeFromUid(uid);
 
     const [[dup]] = await promisePool.query(
       'SELECT id FROM students WHERE student_uid = ? AND school_id = ? LIMIT 1',
@@ -1840,7 +1862,7 @@ router.post(
             const officialNew = shouldTrustImportedStudentUid(uidStr, schoolMeta?.district, schoolMeta?.school_code)
               ? uidStr
               : nextUid();
-            const officialCode = officialNew;
+            const officialCode = formattedStudentCodeFromUid(officialNew);
 
             const nat = trimStr(s.nationality)
               ? normalizeNationalityLabel(s.nationality)

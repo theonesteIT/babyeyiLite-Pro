@@ -26,6 +26,7 @@ import {
 import { useAuth } from "../../context/AuthContext";
 import { useParentShell } from "../../context/ParentShellContext";
 import NotificationDrawer from "../../components/Parents/NotificationDrawer";
+import babyeyiLogo from "../../assets/1BABYEYI LOGO FINAL.png";
 
 const navItemsDesktop = [
   { to: "/parents/home", end: true, label: "Home", Icon: Home },
@@ -143,8 +144,8 @@ export default function ParentDashboardLayout() {
         <aside className="hidden lg:flex lg:flex-col lg:w-60 xl:w-64 shrink-0 bg-white border-r border-slate-200/80 z-20 dark:bg-slate-900 dark:border-slate-700">
           <div className="p-6 border-b border-slate-100 dark:border-slate-700">
             <div className="flex items-center gap-2">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-md shadow-orange-500/20">
-                <span className="text-sm font-extrabold text-white">B</span>
+              <div className="rounded-xl bg-slate-900 px-2 py-1.5 border border-slate-700 shadow-md">
+                <img src={babyeyiLogo} alt="Babyeyi logo" className="h-7 w-auto object-contain" />
               </div>
               <div>
                 <p className="text-sm font-extrabold text-slate-900 leading-tight dark:text-slate-100">Babyeyi</p>
@@ -186,8 +187,8 @@ export default function ParentDashboardLayout() {
               />
               <div className="relative max-w-5xl mx-auto flex items-start justify-between gap-4">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center border border-white/30 shrink-0">
-                    <span className="text-lg font-extrabold text-white">B</span>
+                  <div className="rounded-2xl bg-[#1F2937]/70 backdrop-blur-sm flex items-center justify-center border border-white/30 shrink-0 px-2 py-1">
+                    <img src={babyeyiLogo} alt="Babyeyi logo" className="h-8 w-auto object-contain" />
                   </div>
                   <div className="min-w-0">
                     <p className="text-white font-extrabold text-lg sm:text-xl tracking-tight truncate">Babyeyi</p>

@@ -3,9 +3,10 @@
  * #000435 navy + amber-400 · MTN font · Tailwind only
  */
 
-import { BookOpen, Wifi, WifiOff, X, ArrowLeft, GraduationCap, Sparkles } from "lucide-react";
+import { BookOpen, Wifi, WifiOff, X, ArrowLeft, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 import LogoutButton from "../../Auth/LogoutButton";
+import babyeyiLogo from "../../../assets/1BABYEYI LOGO FINAL.png";
 
 const FONT = `"MTN Brighter Sans","Nunito","Varela Round",sans-serif`;
 
@@ -65,8 +66,8 @@ export default function Sidebar({
       <div className="px-4 pt-4 pb-4 border-b border-white/10">
         <div className="flex items-center gap-3 mb-3">
           <div className="relative shrink-0">
-            <div className="w-10 h-10 rounded-xl bg-amber-400 flex items-center justify-center shadow-lg shadow-amber-900/20">
-              <GraduationCap size={20} className="text-[#000435]" />
+            <div className="rounded-xl bg-[#1F2937] border border-amber-400/30 px-2 py-1 shadow-lg shadow-amber-900/20">
+              <img src={babyeyiLogo} alt="Babyeyi logo" className="h-8 w-auto object-contain" />
             </div>
             <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#000435] ${
               online ? "bg-emerald-400" : "bg-amber-400"

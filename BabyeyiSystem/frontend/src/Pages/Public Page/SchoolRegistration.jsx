@@ -29,6 +29,18 @@ const SCHOOL_CATEGORY_OPTIONS = [
   { value: "Boarding", label: "Boarding" },
   { value: "Day & Boarding", label: "Mixed (Day & Boarding)" },
 ];
+const OWNERSHIP_OPTIONS = [
+  { value: "Government", label: "Government (Public)" },
+  { value: "Private", label: "Private" },
+  { value: "Government-Aided", label: "Government-Aided" },
+];
+const EDUCATION_LEVEL_OPTIONS = [
+  { value: "nursery", label: "Nursery" },
+  { value: "primary", label: "Primary" },
+  { value: "o_level", label: "O-Level" },
+  { value: "a_level", label: "A-Level" },
+  { value: "tvet", label: "TVET" },
+];
 
 /* ── Shared atoms ─────────────────────────────────────────────── */
 function FieldWrap({ label, error, hint, required, optional, children }) {
@@ -90,7 +102,7 @@ function FileUpload({ label, accept, preview, onFileSelect, error, required, opt
 
 const STEPS = [
   { label:"Location",  short:"Loc",  Icon:MapPin,  desc:"Where is your school?" },
-  { label:"School",    short:"Sch",  Icon:School,  desc:"Find & select your school" },
+  { label:"School",    short:"Sch",  Icon:School,  desc:"Enter your school details" },
   { label:"Contact",   short:"Con",  Icon:Phone,   desc:"How to reach you" },
   { label:"Leadership",short:"Lead", Icon:User,    desc:"Head teacher details" },
   { label:"Access",    short:"Acc",  Icon:Lock,    desc:"Manager email & password" },
@@ -131,11 +143,9 @@ export default function SchoolRegistration() {
 
   const [managerEmail, setManagerEmail] = useState("");
 
-  const [schools, setSchools] = useState([]);
-  const [schoolsLoading, setSchoolsLoading] = useState(false);
-  const [schoolSearch, setSchoolSearch] = useState("");
-  const [selectedSchoolRow, setSelectedSchoolRow] = useState(null);
   const [schoolCategory, setSchoolCategory] = useState("");
+  const [ownershipType, setOwnershipType] = useState("");
+  const [educationLevels, setEducationLevels] = useState(["primary"]);
   const [aLevelComboPick, setALevelComboPick] = useState([]);
   const [customCombo, setCustomCombo] = useState("");
   const [tvetTradePick, setTvetTradePick] = useState([]);
@@ -149,8 +159,10 @@ export default function SchoolRegistration() {
   const showToast = (msg, type="info") => { setToast({msg,type}); setTimeout(()=>setToast(null),4500); };
 
   useEffect(() => {
-    setSelectedSchoolRow(null); setSchoolName(""); setSchoolCode("");
+    setSchoolName(""); setSchoolCode("");
     setSchoolCategory("");
+    setOwnershipType("");
+    setEducationLevels(["primary"]);
     setALevelComboPick([]); setCustomCombo(""); setTvetTradePick([]); setCustomTVETTrade("");
     setLogoFile(null); setLogoPreview("");
   }, [province, district, sector]);
@@ -166,6 +178,11 @@ export default function SchoolRegistration() {
   const addCustomALevelCombo = () => { const u=customCombo.trim().toUpperCase(); if(!u)return; setALevelComboPick(prev=>prev.includes(u)?prev:[...prev,u]); setCustomCombo(""); };
   const addCustomTVETTrade = () => { const t=customTVETTrade.trim(); if(!t)return; setTvetTradePick(prev=>prev.includes(t)?prev:[...prev,t]); setCustomTVETTrade(""); };
   const removeTVETTrade = (t) => setTvetTradePick(prev=>prev.filter(x=>x!==t));
+  const toggleEducationLevel = (level) => {
+    setEducationLevels((prev) =>
+      prev.includes(level) ? prev.filter((x) => x !== level) : [...prev, level]
+    );
+  };
 
   const handleFileSelect = (file,setFile,setPreview) => {
     if(!file)return; setFile(file);
@@ -176,8 +193,10 @@ export default function SchoolRegistration() {
     const e={};
     if(step===0){if(!province)e.province="Required";if(!district)e.district="Required";if(!sector)e.sector="Required";}
     if(step===1){
-      if(!schoolName.trim())e.schoolName="Select your school from the list.";
+      if(!schoolName.trim())e.schoolName="Enter your school name.";
       if(!schoolCategory)e.schoolCategory="Choose day, boarding, or mixed.";
+      if(!ownershipType)e.ownershipType="Choose school category.";
+      if(!educationLevels.length)e.educationLevels="Select at least one education level.";
     }
     if(step===2){if(!phone.trim())e.phone="Required";if(!email.trim())e.email="Required";else if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()))e.email="Invalid email";}
     if(step===3){if(!headTeacher.trim())e.headTeacher="Required";if(!headPhone.trim())e.headPhone="Required";if(!signatureFile)e.signature="Required";if(!stampFile)e.stamp="Required";}
@@ -188,28 +207,12 @@ export default function SchoolRegistration() {
   const next = () => { if(validateStep()) setStep(s=>s+1); };
   const prev = () => setStep(s=>s-1);
 
-  useEffect(()=>{
-    const load=async()=>{
-      if(step!==1||!province||!district||!sector)return;
-      try{
-        setSchoolsLoading(true);
-        const qs=new URLSearchParams({province,district,sector}).toString();
-        const res=await fetch(`${API_PUBLIC}?${qs}`);
-        const json=await res.json();
-        setSchools(json?.success&&Array.isArray(json.data)?json.data:[]);
-      }catch{setSchools([]);}finally{setSchoolsLoading(false);}
-    };
-    load();
-  },[step,province,district,sector]);
-
   const handleSubmit = async () => {
     if(!validateStep()) return;
-    const code = schoolCode.trim().toUpperCase();
-    if(!code){showToast("Please select your school from the list (step 2).","error");return;}
     setLoading(true);
     try {
       const fd=new FormData();
-      fd.append("schoolName",schoolName.trim()); fd.append("schoolCode",code);
+      fd.append("schoolName",schoolName.trim()); fd.append("schoolCode","AUTO");
       fd.append("province",province); fd.append("district",district); fd.append("sector",sector);
       fd.append("cell",cell||sector); fd.append("village",village||sector);
       fd.append("fullAddress",`${sector}, ${district}, ${province}`);
@@ -223,12 +226,15 @@ export default function SchoolRegistration() {
       fd.append("headSignature",signatureFile); fd.append("stamp",stampFile);
       fd.append("managerEmail",managerEmail.trim());
       fd.append("category",schoolCategory.trim());
-      if(selectedSchoolRow){
-        const lv=Array.isArray(selectedSchoolRow.education_levels)?selectedSchoolRow.education_levels:[];
-        if(lv.includes("a_level")){const fromRow=Array.isArray(selectedSchoolRow.a_level_combinations)?selectedSchoolRow.a_level_combinations:[];const toSend=aLevelComboPick&&aLevelComboPick.length?aLevelComboPick:fromRow;fd.append("aLevelCombinations",JSON.stringify(Array.isArray(toSend)?toSend:[]));}
-        if(lv.includes("tvet")){const fromRowTrades=Array.isArray(selectedSchoolRow.tvet_trades)?selectedSchoolRow.tvet_trades:[];const tradesToSend=tvetTradePick&&tvetTradePick.length?tvetTradePick:fromRowTrades;fd.append("tvetTrades",JSON.stringify(Array.isArray(tradesToSend)?tradesToSend:[]));}
+      fd.append("ownership",ownershipType);
+      fd.append("levels",JSON.stringify(educationLevels));
+      if(educationLevels.includes("a_level")){
+        fd.append("aLevelCombinations",JSON.stringify(Array.isArray(aLevelComboPick)?aLevelComboPick:[]));
       }
-      const res=await axios.post(`${API_PUBLIC}/claim`,fd,axCfg);
+      if(educationLevels.includes("tvet")){
+        fd.append("tvetTrades",JSON.stringify(Array.isArray(tvetTradePick)?tvetTradePick:[]));
+      }
+      const res=await axios.post(`${API_PUBLIC}/register`,fd,axCfg);
       if(res.data.success){
         const pw=res.data?.data?.manager_password; const em=managerEmail.trim();
         setPostSubmitRedirect({message:pw?`Registration submitted. Your password: ${pw}. Sent to ${em}. After Super Admin approval, sign in at the login page.`:`Registration submitted. Check ${em} for your login password after approval.`,secondsLeft:POST_SUBMIT_REDIRECT_SEC});
@@ -293,7 +299,7 @@ export default function SchoolRegistration() {
           <div>
             <h2 className="font-black text-[#000435] tracking-tight" style={{fontSize:"clamp(1.2rem,3vw,1.65rem)"}}>
               {step===0&&<>School <span className="text-amber-500">Location</span></>}
-              {step===1&&<>Select Your <span className="text-amber-500">School</span></>}
+              {step===1&&<>School <span className="text-amber-500">Details</span></>}
               {step===2&&<>Contact <span className="text-amber-500">Information</span></>}
               {step===3&&<>School <span className="text-amber-500">Leadership</span></>}
               {step===4&&<>System <span className="text-amber-500">Access</span></>}
@@ -342,74 +348,57 @@ export default function SchoolRegistration() {
             {!province||!district||!sector?(
               <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-[13px] text-amber-800">Complete Step 1 location first.</div>
             ):(<>
-              <FieldWrap label="Search School" required error={errors.schoolName}>
+              <FieldWrap label="School Name" required error={errors.schoolName}>
                 <div className="relative">
                   <School size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-amber-500"/>
-                  <FInput value={schoolSearch} onChange={e=>setSchoolSearch(e.target.value)} placeholder="Type school name…" className="pl-10" error={errors.schoolName}/>
+                  <FInput value={schoolName} onChange={e=>{setSchoolName(e.target.value);setErrors(v=>({...v,schoolName:null}));}} placeholder="Type your school name…" className="pl-10" error={errors.schoolName}/>
                 </div>
               </FieldWrap>
-              <div className="rounded-xl border-2 border-slate-200 overflow-hidden overflow-y-auto max-h-52 bg-slate-50">
-                {schoolsLoading?(
-                  <div className="p-4 flex items-center gap-2 text-[13px] text-slate-400"><Loader2 size={14} className="animate-spin text-amber-500"/>Loading schools…</div>
-                ):schools.length===0?(
-                  <div className="p-4 text-[13px] text-slate-400">No schools found for this location.</div>
-                ):(
-                  schools.filter(s=>!schoolSearch||s.school_name.toLowerCase().includes(schoolSearch.toLowerCase())).map(s=>{
-                    const sel=schoolCode===s.school_code;
-                    return (
-                      <button key={s.id} type="button" onClick={()=>{setSelectedSchoolRow(s);setSchoolName(s.school_name);setSchoolCode(s.school_code);const cat=String(s.school_category||"").trim();setSchoolCategory(SCHOOL_CATEGORY_OPTIONS.some(o=>o.value===cat)?cat:"");setALevelComboPick(Array.isArray(s.a_level_combinations)?[...s.a_level_combinations]:[]);setTvetTradePick(Array.isArray(s.tvet_trades)?[...s.tvet_trades]:[]);setErrors(v=>({...v,schoolName:null,schoolCategory:null}));}}
-                        className={`w-full text-left px-4 py-3 flex items-center justify-between gap-2 border-b border-slate-100 last:border-0 transition-colors ${sel?"bg-amber-50":"hover:bg-amber-50/50"}`}>
-                        <div className="min-w-0">
-                          <div className={`text-[13px] truncate ${sel?"font-bold text-[#000435]":"font-medium text-slate-600"}`}>{s.school_name}</div>
-                          <div className="text-[11px] text-slate-400 mt-0.5">{s.sector}, {s.district}</div>
-                        </div>
-                        {sel&&<Check size={14} className="text-amber-500 shrink-0"/>}
-                      </button>
-                    );
-                  })
-                )}
-              </div>
-              {schoolName&&(
-                <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-[#000435] border border-amber-400/30">
-                  <CheckCircle size={16} className="text-amber-400 shrink-0"/>
-                  <div className="min-w-0"><div className="text-[13px] font-bold text-white truncate">{schoolName}</div><div className="text-[11px] text-amber-400/80">Selected from school directory</div></div>
+              <FieldWrap label="School category" required error={errors.ownershipType} hint="Government (Public), Private, or Government-Aided.">
+                <FSelect value={ownershipType} error={!!errors.ownershipType} onChange={e=>{setOwnershipType(e.target.value);setErrors(v=>({...v,ownershipType:null}));}}>
+                  <option value="">Select category…</option>
+                  {OWNERSHIP_OPTIONS.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
+                </FSelect>
+              </FieldWrap>
+              <FieldWrap label="School program type" required error={errors.schoolCategory} hint="Day school, boarding, or mixed.">
+                <FSelect value={schoolCategory} error={!!errors.schoolCategory} onChange={e=>{setSchoolCategory(e.target.value);setErrors(v=>({...v,schoolCategory:null}));}}>
+                  <option value="">Select program type…</option>
+                  {SCHOOL_CATEGORY_OPTIONS.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
+                </FSelect>
+              </FieldWrap>
+              <FieldWrap label="Education Levels" required error={errors.educationLevels}>
+                <div className={`rounded-xl border-2 p-3 flex flex-wrap gap-2 ${errors.educationLevels?"border-red-300 bg-red-50":"border-slate-200 bg-slate-50"}`}>
+                  {EDUCATION_LEVEL_OPTIONS.map((lvl)=>(
+                    <button
+                      key={lvl.value}
+                      type="button"
+                      onClick={()=>{toggleEducationLevel(lvl.value);setErrors(v=>({...v,educationLevels:null}));}}
+                      className={`px-3 py-1.5 rounded-lg text-[12px] font-black border-2 transition-all ${educationLevels.includes(lvl.value)?"bg-[#000435] text-amber-400 border-[#000435]":"bg-white border-slate-200 text-slate-600 hover:border-amber-300"}`}
+                    >
+                      {lvl.label}
+                    </button>
+                  ))}
                 </div>
-              )}
-              {schoolName&&(
-                <FieldWrap label="School category" required error={errors.schoolCategory} hint="Day school, boarding, or both.">
-                  <FSelect value={schoolCategory} error={!!errors.schoolCategory} onChange={e=>{setSchoolCategory(e.target.value);setErrors(v=>({...v,schoolCategory:null}));}}>
-                    <option value="">Select category…</option>
-                    {SCHOOL_CATEGORY_OPTIONS.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
-                  </FSelect>
-                </FieldWrap>
-              )}
-              {schoolName&&(
-                <FileUpload label="School Logo" optional accept="image/png,image/jpeg,image/webp" preview={logoPreview}
-                  onFileSelect={f=>{handleFileSelect(f,setLogoFile,setLogoPreview);setErrors(v=>({...v,logo:null}));}}
-                  hint="Optional. PNG or JPG. Used on your school profile after approval."
-                  icon={<School size={14} className="text-amber-500"/>}/>
-              )}
-              {selectedSchoolRow&&Array.isArray(selectedSchoolRow.education_levels)&&selectedSchoolRow.education_levels.includes("a_level")&&(
+              </FieldWrap>
+              <FileUpload label="School Logo" optional accept="image/png,image/jpeg,image/webp" preview={logoPreview}
+                onFileSelect={f=>{handleFileSelect(f,setLogoFile,setLogoPreview);setErrors(v=>({...v,logo:null}));}}
+                hint="Optional. PNG or JPG. Used on your school profile after approval."
+                icon={<School size={14} className="text-amber-500"/>}/>
+              {educationLevels.includes("a_level")&&(
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
                   <p className="text-[11px] font-black uppercase tracking-[0.1em] text-[#000435]/60">A-Level Combinations</p>
-                  {Array.isArray(selectedSchoolRow.a_level_combinations)&&selectedSchoolRow.a_level_combinations.length>0?(
-                    <div className="flex flex-wrap gap-1.5">{selectedSchoolRow.a_level_combinations.map(c=><span key={c} className="text-[11px] font-mono font-black px-2 py-1 rounded-lg bg-amber-100 text-amber-800">{c}</span>)}</div>
-                  ):(
-                    <>
-                      <div className="flex flex-wrap gap-1.5">
-                        {A_LEVEL_PRESETS.map(c=>(
-                          <button key={c} type="button" onClick={()=>toggleALevelCombo(c)} className={`px-2.5 py-1 rounded-lg text-[11px] font-mono font-black border-2 transition-all ${aLevelComboPick.includes(c)?"bg-[#000435] text-amber-400 border-[#000435]":"bg-white border-slate-200 text-slate-600 hover:border-amber-300"}`}>{c}</button>
-                        ))}
-                      </div>
-                      <div className="flex gap-2">
-                        <FInput value={customCombo} onChange={e=>setCustomCombo(e.target.value.toUpperCase())} placeholder="Other combo" className="text-xs font-mono py-2"/>
-                        <button type="button" onClick={addCustomALevelCombo} className="px-3 py-2 rounded-xl bg-amber-400 text-[#000435] text-[12px] font-black shrink-0 hover:bg-amber-300 transition-all">Add</button>
-                      </div>
-                    </>
-                  )}
+                  <div className="flex flex-wrap gap-1.5">
+                    {A_LEVEL_PRESETS.map(c=>(
+                      <button key={c} type="button" onClick={()=>toggleALevelCombo(c)} className={`px-2.5 py-1 rounded-lg text-[11px] font-mono font-black border-2 transition-all ${aLevelComboPick.includes(c)?"bg-[#000435] text-amber-400 border-[#000435]":"bg-white border-slate-200 text-slate-600 hover:border-amber-300"}`}>{c}</button>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <FInput value={customCombo} onChange={e=>setCustomCombo(e.target.value.toUpperCase())} placeholder="Other combo" className="text-xs font-mono py-2"/>
+                    <button type="button" onClick={addCustomALevelCombo} className="px-3 py-2 rounded-xl bg-amber-400 text-[#000435] text-[12px] font-black shrink-0 hover:bg-amber-300 transition-all">Add</button>
+                  </div>
                 </div>
               )}
-              {selectedSchoolRow&&Array.isArray(selectedSchoolRow.education_levels)&&selectedSchoolRow.education_levels.includes("tvet")&&(
+              {educationLevels.includes("tvet")&&(
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
                   <p className="text-[11px] font-black uppercase tracking-[0.1em] text-[#000435]/60">TVET Trades</p>
                   <div className="flex gap-2">

@@ -92,6 +92,10 @@ import DosStudentsPage        from './Pages/Dos/DosStudentsPage';
 import DosAcademicProgressPage from './Pages/Dos/DosAcademicProgressPage';
 import DosSettingsPage        from './Pages/Dos/DosSettingsPage';
 import DosReportsPage         from './Pages/Dos/DosReportsPage';
+import StaffRoleDashboard     from './Pages/StaffPortal/StaffRoleDashboard';
+import LibrarianPortalPage    from './Pages/StaffPortal/LibrarianPortalPage';
+import StoreManagerPortalPage from './Pages/StaffPortal/StoreManagerPortalPage';
+import GateOfficerPortalPage  from './Pages/StaffPortal/GateOfficerPortalPage';
 import AddSchool                from './Pages/SuperAdmin/AddSchool';
 import AddAllSchools            from './Pages/SuperAdmin/AddAllSchools';
 import ManageRequirementsPrices from './Pages/SuperAdmin/manage_requirements_prices';
@@ -114,6 +118,8 @@ import AgentShopOrdersPage      from './Pages/Agent/AgentShopOrdersPage';
 import AgentStandardKitRequestsPage from './Pages/Agent/AgentStandardKitRequestsPage';
 import AgentUniformVoucherOrdersPage from './Pages/Agent/AgentUniformVoucherOrdersPage';
 import SuperAdminStandardKitRequestsPage from './Pages/SuperAdmin/SuperAdminStandardKitRequestsPage';
+import SuperAdminShuleAvanceOrgs from './Pages/SuperAdmin/SuperAdminShuleAvanceOrgs';
+import ShuleAvancePartnerDashboard from './Pages/ShuleAvance/ShuleAvancePartnerDashboard';
 import BabyeyiVerifyPage        from './Pages/School Manager/components/BabyeyiVerifyPage';
 import ParentLogin              from './Pages/Parents/ParentLogin';
 import ParentRegister           from './Pages/Parents/ParentRegister';
@@ -279,6 +285,18 @@ export default function App() {
             </ProtectedRoute>
           } />
 
+          <Route path="/superadmin/shule-avance-organizations" element={
+            <ProtectedRoute role={['SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER']}>
+              <SuperAdminShuleAvanceOrgs />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/shule-avance/dashboard" element={
+            <ProtectedRoute role="SHULE_AVANCE_PARTNER">
+              <ShuleAvancePartnerDashboard />
+            </ProtectedRoute>
+          } />
+
           <Route path="/agent" element={
             <ProtectedRoute role="AGENT">
               <AgentLayout />
@@ -356,6 +374,30 @@ export default function App() {
             <Route path="settings" element={<DosSettingsPage />} />
             <Route path="reports" element={<DosReportsPage />} />
           </Route>
+
+          <Route path="/teacher/dashboard" element={
+            <ProtectedRoute role="TEACHER">
+              <StaffRoleDashboard roleCode="TEACHER" />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/library/dashboard" element={
+            <ProtectedRoute role="LIBRARIAN">
+              <LibrarianPortalPage />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/store/dashboard" element={
+            <ProtectedRoute role="STORE_MANAGER">
+              <StoreManagerPortalPage />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/gate/scanner" element={
+            <ProtectedRoute role="GATE_OFFICER">
+              <GateOfficerPortalPage />
+            </ProtectedRoute>
+          } />
 
           {/* ── Document verification (public) ────────────────── */}
           <Route path="/babyeyi/verify/:docId" element={<BabyeyiVerifyPage />} />

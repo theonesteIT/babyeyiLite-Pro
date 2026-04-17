@@ -22,7 +22,7 @@ const nodemailer = require('nodemailer');
 
 // ── DB ────────────────────────────────────────────────────────
 const { promisePool: db } = require('../config/database');
-const { getDistrictCode } = require('../utils/rwandaDistrictCodes');
+const { getDistrictCode, formatSchoolCode } = require('../utils/rwandaDistrictCodes');
 
 async function ensureSchoolsExtraColumns(conn) {
   await conn.query('ALTER TABLE schools ADD COLUMN district_code VARCHAR(2) NULL').catch(() => {});
@@ -30,6 +30,8 @@ async function ensureSchoolsExtraColumns(conn) {
   await conn.query('ALTER TABLE schools ADD COLUMN tvet_trades JSON NULL').catch(() => {});
   await conn.query('ALTER TABLE schools ADD COLUMN is_skeleton TINYINT(1) NOT NULL DEFAULT 0').catch(() => {});
   await conn.query('ALTER TABLE schools MODIFY postal_address VARCHAR(255) NULL').catch(() => {});
+  await conn.query('ALTER TABLE schools MODIFY year_established INT NULL').catch(() => {});
+  await conn.query('ALTER TABLE schools MODIFY head_teacher_email VARCHAR(255) NULL').catch(() => {});
 }
 
 /** Short, easy-to-copy password for school managers (8 chars, unambiguous). */
@@ -65,18 +67,29 @@ async function generateUniqueManagerUsername(conn, managerEmail, schoolId) {
   }
 }
 
-async function getNextNumericSchoolCode(conn) {
+async function getNextDistrictSchoolCode(conn, districtCode) {
+  const dd = String(districtCode || '').padStart(2, '0').slice(-2);
+  if (!/^[0-9]{2}$/.test(dd)) throw new Error('Invalid district code');
   const [rows] = await conn.query(
-    `SELECT school_code FROM schools WHERE deleted_at IS NULL AND school_code REGEXP '^[0-9]{1,3}$'`
+    `SELECT school_code, district_code
+     FROM schools
+     WHERE deleted_at IS NULL
+       AND (district_code = ? OR school_code LIKE ?)`,
+    [dd, `${dd}%`]
   );
   let max = 0;
   for (const r of rows) {
-    const n = parseInt(r.school_code, 10);
+    const exact = String(r.school_code || '').match(new RegExp(`^${dd}([0-9]{3})$`));
+    let n = exact ? parseInt(exact[1], 10) : NaN;
+    if (Number.isNaN(n)) {
+      const slash = String(r.school_code || '').match(new RegExp(`^${dd}\\/([0-9]{3})$`));
+      if (slash) n = parseInt(slash[1], 10);
+    }
     if (!Number.isNaN(n) && n > max) max = n;
   }
   const next = max + 1;
-  if (next > 999) throw new Error('Maximum school codes (999) reached');
-  return String(next).padStart(3, '0');
+  if (next > 999) throw new Error(`Maximum school codes (999) reached for district ${dd}`);
+  return formatSchoolCode(dd, next);
 }
 
 // ── Upload directories ────────────────────────────────────────
@@ -173,13 +186,16 @@ const VALID_OWNERSHIP  = ['Government', 'Government-Aided', 'Private'];
 
 const SCHOOL_MANAGER_ROLE_CODE = 'SCHOOL_ADMIN';
 
-// GET /api/public/schools/next-school-code — no auth (next 3-digit code + optional ?district= for code 01–30)
+// GET /api/public/schools/next-school-code — no auth (next district school code DDSSS)
 router.get('/next-school-code', async (req, res) => {
   const conn = await db.getConnection();
   try {
     await ensureSchoolsExtraColumns(conn);
-    const next = await getNextNumericSchoolCode(conn);
     const districtCode = req.query.district ? getDistrictCode(String(req.query.district)) : null;
+    if (!districtCode) {
+      return res.status(400).json({ success: false, message: 'district is required and must be valid' });
+    }
+    const next = await getNextDistrictSchoolCode(conn, districtCode);
     res.json({ success: true, data: { schoolCode: next, districtCode } });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -293,14 +309,21 @@ router.post(
         return res.status(400).json({ success: false, message: 'School stamp / seal image is required' });
       }
 
-      let finalSchoolCode = schoolCode != null ? String(schoolCode).trim() : '';
-      if (!finalSchoolCode || finalSchoolCode.toUpperCase() === 'AUTO') {
-        finalSchoolCode = await getNextNumericSchoolCode(conn);
-      } else {
-        finalSchoolCode = finalSchoolCode.toUpperCase();
-      }
-
       const districtCode = getDistrictCode(district) || null;
+      if (!districtCode) {
+        await conn.rollback();
+        return res.status(400).json({ success: false, message: 'Invalid district; cannot generate school code.' });
+      }
+      let finalSchoolCode = schoolCode != null ? String(schoolCode).trim().toUpperCase() : '';
+      if (!finalSchoolCode || finalSchoolCode === 'AUTO') {
+        finalSchoolCode = await getNextDistrictSchoolCode(conn, districtCode);
+      } else if (!new RegExp(`^${districtCode}[0-9]{3}$`).test(finalSchoolCode)) {
+        await conn.rollback();
+        return res.status(400).json({
+          success: false,
+          message: `School code must match district format ${districtCode}001`,
+        });
+      }
 
       const [codeCheck] = await conn.query(
         'SELECT id FROM schools WHERE school_code = ? AND deleted_at IS NULL',

@@ -1,5 +1,5 @@
 import React from 'react'
-import { useLocation } from 'react-router-dom'
+import { Navigate, useLocation } from 'react-router-dom'
 import { useMasterAuth } from '../context/MasterAuthContext'
 
 const LOGIN_FALLBACK = 'http://localhost:5173/login'
@@ -7,9 +7,26 @@ const LOGIN_FALLBACK = 'http://localhost:5173/login'
 /** Roles allowed per Pro portal — keep in sync with BabyeyiSystem `proAppEntry.js` */
 export const PORTAL_ROLES = {
   dos: ['DOS'],
-  manager: ['SCHOOL_ADMIN', 'SCHOOL_MANAGER', 'ACCOUNTANT'],
+  manager: ['SCHOOL_ADMIN', 'SCHOOL_MANAGER'],
+  accountant: ['ACCOUNTANT'],
+  storekeeper: ['STOREKEEPER', 'STORE_MANAGER'],
+  librarian: ['LIBRARIAN'],
+  'discipline-staff': ['DISCIPLINE_STAFF'],
   teacher: ['TEACHER', 'HOD'],
   discipline: ['TEACHER', 'HOD'],
+}
+
+const ROLE_HOME_PORTAL = {
+  DOS: 'dos',
+  SCHOOL_ADMIN: 'manager',
+  SCHOOL_MANAGER: 'manager',
+  ACCOUNTANT: 'accountant',
+  STOREKEEPER: 'storekeeper',
+  STORE_MANAGER: 'storekeeper',
+  LIBRARIAN: 'librarian',
+  DISCIPLINE_STAFF: 'discipline-staff',
+  TEACHER: 'teacher',
+  HOD: 'teacher',
 }
 
 export function NotSubscribedToPro() {
@@ -79,6 +96,10 @@ export default function ProGate({ portal, children }) {
 
   const allowed = PORTAL_ROLES[portal] || []
   if (!allowed.includes(roleCode)) {
+    const homePortal = ROLE_HOME_PORTAL[roleCode]
+    if (homePortal && homePortal !== portal) {
+      return <Navigate to={`/${homePortal}`} replace />
+    }
     return <PortalWrongRole portal={portal} />
   }
 

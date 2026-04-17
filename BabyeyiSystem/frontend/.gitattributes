@@ -1,0 +1,10 @@
+# Keep text as UTF-8 with LF so builds (Vite/Rolldown) never see invalid encoding on Linux.
+* text=auto
+*.jsx text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.ts text eol=lf
+*.json text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+*.md text eol=lf

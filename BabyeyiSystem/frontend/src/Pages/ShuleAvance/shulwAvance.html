@@ -1,0 +1,918 @@
+
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&display=swap');
+    *{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --navy:#000435;--navy2:#000c6b;--navy3:#00094d;
+      --amber:#FBBF24;--amber2:#F59E0B;--amber3:#FDE68A;
+      --bg:#000435;--surface:rgba(255,255,255,0.05);--surface2:rgba(255,255,255,0.08);
+      --border:rgba(251,191,36,0.15);--border2:rgba(251,191,36,0.3);
+      --text:#fff;--text2:rgba(255,255,255,0.65);--text3:rgba(255,255,255,0.35);
+      --font:'Nunito',sans-serif;
+      --r:12px;--r2:16px;
+    }
+    body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+    
+    /* LAYOUT */
+    .layout{display:flex;min-height:100vh}
+    .sidebar{width:240px;flex-shrink:0;background:rgba(0,4,53,0.98);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;transition:all .3s}
+    .main{flex:1;min-width:0;display:flex;flex-direction:column}
+    .topbar{height:60px;border-bottom:3px solid var(--amber);background:rgba(0,4,53,0.97);display:flex;align-items:center;padding:0 24px;gap:16px;position:sticky;top:0;z-index:100;backdrop-filter:blur(12px)}
+    .content{flex:1;padding:24px;overflow-y:auto}
+    
+    /* SIDEBAR */
+    .brand{padding:20px 16px 16px;border-bottom:1px solid var(--border)}
+    .brand-logo{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+    .brand-icon{width:38px;height:38px;background:var(--amber);border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:15px;color:var(--navy);flex-shrink:0}
+    .brand-name{font-size:15px;font-weight:900;color:#fff;line-height:1.2}
+    .brand-sub{font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.1em}
+    .org-chip{display:flex;align-items:center;gap:8px;padding:8px 10px;background:rgba(251,191,36,0.1);border:1px solid var(--border2);border-radius:var(--r);font-size:11px;font-weight:700;color:var(--amber)}
+    .org-dot{width:7px;height:7px;background:#10b981;border-radius:50%}
+    
+    .nav-section{padding:12px 10px 0;flex:1;overflow-y:auto}
+    .nav-label{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.14em;color:var(--text3);padding:0 8px;margin-bottom:4px;margin-top:12px}
+    .nav-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;cursor:pointer;transition:all .15s;font-size:13px;font-weight:700;color:var(--text2);border:1px solid transparent;margin-bottom:2px;position:relative}
+    .nav-item:hover{background:var(--surface2);color:#fff}
+    .nav-item.active{background:var(--amber);color:var(--navy);border-color:transparent}
+    .nav-item.active .nav-icon{color:var(--navy)}
+    .nav-icon{width:16px;height:16px;flex-shrink:0;opacity:.75}
+    .nav-item.active .nav-icon{opacity:1}
+    .nav-badge{margin-left:auto;background:rgba(239,68,68,0.9);color:#fff;font-size:10px;font-weight:900;min-width:18px;height:18px;border-radius:9px;display:flex;align-items:center;justify-content:center;padding:0 4px}
+    .nav-item.active .nav-badge{background:rgba(0,4,53,0.3)}
+    
+    .sidebar-footer{padding:12px;border-top:1px solid var(--border)}
+    .user-chip{display:flex;align-items:center;gap:10px;padding:10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);cursor:pointer}
+    .avatar{width:34px;height:34px;background:var(--amber);border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;color:var(--navy);flex-shrink:0}
+    .user-info{min-width:0;flex:1}
+    .user-name{font-size:12px;font-weight:800;color:#fff;truncate:ellipsis}
+    .user-role{font-size:10px;color:var(--text3);font-weight:600}
+    
+    /* TOPBAR */
+    .page-title{font-size:15px;font-weight:900;color:#fff}
+    .page-sub{font-size:11px;color:var(--text3);font-weight:600;margin-left:4px}
+    .topbar-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+    .topbar-btn{height:36px;padding:0 14px;border-radius:9px;border:1.5px solid var(--border2);background:transparent;color:var(--text2);font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font);display:flex;align-items:center;gap:6px;transition:all .15s}
+    .topbar-btn:hover{background:var(--surface2);color:#fff;border-color:var(--amber)}
+    .topbar-btn.primary{background:var(--amber);color:var(--navy);border-color:var(--amber)}
+    .topbar-btn.primary:hover{background:var(--amber2)}
+    .notif-btn{width:36px;height:36px;border-radius:9px;border:1.5px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;color:var(--text2)}
+    .notif-btn:hover{border-color:var(--amber);color:var(--amber)}
+    .notif-dot{position:absolute;top:5px;right:5px;width:7px;height:7px;background:#ef4444;border-radius:50%;border:1.5px solid var(--navy)}
+    
+    /* CARDS GRID */
+    .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
+    @media(max-width:900px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
+    @media(max-width:500px){.kpi-grid{grid-template-columns:1fr 1fr}}
+    
+    .kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:18px;position:relative;overflow:hidden;transition:all .2s;cursor:default}
+    .kpi:hover{border-color:var(--amber);transform:translateY(-2px)}
+    .kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+    .kpi.amber::before{background:var(--amber)}
+    .kpi.green::before{background:#10b981}
+    .kpi.blue::before{background:#3b82f6}
+    .kpi.red::before{background:#ef4444}
+    .kpi.purple::before{background:#8b5cf6}
+    .kpi.teal::before{background:#14b8a6}
+    .kpi-label{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:var(--text3);margin-bottom:10px}
+    .kpi-value{font-size:26px;font-weight:900;color:#fff;line-height:1;margin-bottom:6px}
+    .kpi-value.amber{color:var(--amber)}
+    .kpi-sub{font-size:11px;font-weight:600;color:var(--text3);display:flex;align-items:center;gap:4px}
+    .kpi-trend{font-size:10px;font-weight:800;padding:2px 7px;border-radius:6px}
+    .kpi-trend.up{background:rgba(16,185,129,0.15);color:#10b981}
+    .kpi-trend.down{background:rgba(239,68,68,0.15);color:#ef4444}
+    .kpi-icon{position:absolute;right:16px;top:18px;width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;opacity:.4}
+    .kpi.amber .kpi-icon{background:rgba(251,191,36,0.2)}
+    .kpi.green .kpi-icon{background:rgba(16,185,129,0.2)}
+    .kpi.blue .kpi-icon{background:rgba(59,130,246,0.2)}
+    .kpi.red .kpi-icon{background:rgba(239,68,68,0.2)}
+    .kpi.purple .kpi-icon{background:rgba(139,92,246,0.2)}
+    .kpi.teal .kpi-icon{background:rgba(20,184,166,0.2)}
+    
+    /* SECTION PANELS */
+    .row2{display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:24px}
+    @media(max-width:900px){.row2{grid-template-columns:1fr}}
+    .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:20px}
+    .panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;gap:12px}
+    .panel-title{font-size:14px;font-weight:900;color:#fff}
+    .panel-sub{font-size:11px;color:var(--text3);font-weight:600;margin-top:2px}
+    .pill{display:inline-flex;align-items:center;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;gap:5px}
+    .pill.amber{background:rgba(251,191,36,0.15);color:var(--amber);border:1px solid rgba(251,191,36,0.25)}
+    .pill.green{background:rgba(16,185,129,0.12);color:#10b981;border:1px solid rgba(16,185,129,0.25)}
+    .pill.red{background:rgba(239,68,68,0.12);color:#ef4444;border:1px solid rgba(239,68,68,0.25)}
+    .pill.blue{background:rgba(59,130,246,0.12);color:#93c5fd;border:1px solid rgba(59,130,246,0.2)}
+    .pill.purple{background:rgba(139,92,246,0.12);color:#c4b5fd;border:1px solid rgba(139,92,246,0.2)}
+    .pill.gray{background:rgba(255,255,255,0.07);color:var(--text2);border:1px solid rgba(255,255,255,0.12)}
+    
+    /* TABLE */
+    .table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);overflow:hidden}
+    .table-toolbar{display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+    .search-box{flex:1;min-width:200px;max-width:320px;height:36px;background:rgba(255,255,255,0.05);border:1.5px solid var(--border2);border-radius:9px;padding:0 12px;color:#fff;font-size:13px;font-weight:600;font-family:var(--font);outline:none}
+    .search-box::placeholder{color:var(--text3)}
+    .search-box:focus{border-color:var(--amber)}
+    .filter-select{height:36px;background:rgba(255,255,255,0.05);border:1.5px solid var(--border);border-radius:9px;padding:0 10px;color:var(--text2);font-size:12px;font-weight:700;font-family:var(--font);outline:none;cursor:pointer}
+    .filter-select:focus{border-color:var(--amber)}
+    .filter-select option{background:#000c6b;color:#fff}
+    .table-count{margin-left:auto;font-size:12px;font-weight:700;color:var(--text3)}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    thead tr{border-bottom:1px solid var(--border2);background:rgba(251,191,36,0.04)}
+    th{padding:11px 14px;text-align:left;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);white-space:nowrap}
+    td{padding:13px 14px;border-bottom:1px solid rgba(255,255,255,0.05);color:var(--text2);font-weight:600;vertical-align:middle}
+    tr:last-child td{border-bottom:none}
+    tr:hover td{background:rgba(251,191,36,0.04);color:#fff}
+    .id-cell{font-family:monospace;font-size:12px;color:var(--amber);font-weight:700}
+    .name-cell{display:flex;align-items:center;gap:9px}
+    .mini-avatar{width:28px;height:28px;border-radius:7px;background:rgba(251,191,36,0.2);border:1px solid rgba(251,191,36,0.3);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;color:var(--amber);flex-shrink:0}
+    .name-label{font-weight:700;color:#fff;font-size:13px;line-height:1.2}
+    .type-label{font-size:10px;color:var(--text3);font-weight:600}
+    .amount-cell{font-family:monospace;font-weight:800;color:#fff}
+    .actions-cell{display:flex;gap:6px;align-items:center}
+    .act-btn{padding:5px 10px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font);border:none;transition:all .15s}
+    .act-btn.view{background:rgba(251,191,36,0.15);color:var(--amber);border:1px solid rgba(251,191,36,0.25)}
+    .act-btn.view:hover{background:var(--amber);color:var(--navy)}
+    .act-btn.approve{background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.25)}
+    .act-btn.approve:hover{background:#10b981;color:#fff}
+    .act-btn.reject{background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.2)}
+    .act-btn.reject:hover{background:#ef4444;color:#fff}
+    .act-btn.disburse{background:rgba(139,92,246,0.15);color:#c4b5fd;border:1px solid rgba(139,92,246,0.25)}
+    
+    /* CHARTS */
+    .chart-box{position:relative;width:100%;height:220px;margin-top:8px}
+    .chart-box.tall{height:200px}
+    
+    /* DONUT LEGEND */
+    .donut-wrap{display:flex;align-items:center;gap:20px}
+    .donut-box{position:relative;width:120px;height:120px;flex-shrink:0}
+    .donut-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+    .donut-big{font-size:20px;font-weight:900;color:#fff}
+    .donut-small{font-size:10px;color:var(--text3);font-weight:700}
+    .legend-list{flex:1;display:flex;flex-direction:column;gap:8px}
+    .legend-item{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:var(--text2)}
+    .legend-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+    
+    /* SCHOOL RANKING */
+    .school-rank{display:flex;flex-direction:column;gap:10px}
+    .school-row{display:flex;align-items:center;gap:10px}
+    .school-num{font-size:11px;font-weight:900;color:var(--text3);width:16px;text-align:right}
+    .school-name{flex:1;font-size:12px;font-weight:700;color:#fff;truncate:ellipsis}
+    .school-bar-wrap{width:100px;height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden}
+    .school-bar{height:100%;background:var(--amber);border-radius:3px;transition:width .4s}
+    .school-val{font-size:11px;font-weight:800;color:var(--amber);min-width:32px;text-align:right;font-family:monospace}
+    
+    /* STATUS strip */
+    .status-row{display:flex;gap:6px;flex-wrap:wrap}
+    
+    /* TABS */
+    .tabs{display:flex;gap:2px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:10px;padding:3px}
+    .tab{padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;color:var(--text3);transition:all .15s;border:none;background:none;font-family:var(--font)}
+    .tab:hover{color:var(--text2)}
+    .tab.active{background:var(--amber);color:var(--navy)}
+    
+    /* DETAIL DRAWER */
+    .drawer-overlay{position:fixed;inset:0;background:rgba(0,4,53,0.7);backdrop-filter:blur(4px);z-index:200;display:none;align-items:flex-start;justify-content:flex-end}
+    .drawer-overlay.open{display:flex}
+    .drawer{width:520px;max-width:100vw;height:100vh;background:#000c6b;border-left:2px solid var(--amber);overflow-y:auto;padding:0}
+    .drawer-head{padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;position:sticky;top:0;background:#000c6b;z-index:10}
+    .drawer-close{margin-left:auto;width:32px;height:32px;border-radius:8px;background:var(--surface);border:1px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text2);font-size:16px}
+    .drawer-close:hover{border-color:var(--amber);color:var(--amber)}
+    .drawer-body{padding:20px 24px;display:flex;flex-direction:column;gap:20px}
+    .detail-section{background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:var(--r);padding:16px}
+    .detail-section-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:12px}
+    .detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .detail-field label{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:4px}
+    .detail-field span{font-size:13px;font-weight:700;color:#fff}
+    .repay-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:12px}
+    .repay-row:last-child{border-bottom:none}
+    .drawer-actions{display:flex;flex-wrap:wrap;gap:8px}
+    .da-btn{flex:1;min-width:120px;padding:11px 0;border-radius:10px;font-size:12px;font-weight:800;cursor:pointer;font-family:var(--font);text-align:center;border:none;transition:all .15s}
+    .da-btn.approve{background:#10b981;color:#fff}
+    .da-btn.approve:hover{background:#059669}
+    .da-btn.reject{background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3)}
+    .da-btn.reject:hover{background:#ef4444;color:#fff}
+    .da-btn.info{background:rgba(59,130,246,0.15);color:#93c5fd;border:1px solid rgba(59,130,246,0.25)}
+    .da-btn.disburse{background:var(--amber);color:var(--navy)}
+    .da-btn.disburse:hover{background:var(--amber2)}
+    .da-btn.download{background:rgba(255,255,255,0.07);color:var(--text2);border:1px solid var(--border)}
+    .comment-box{width:100%;background:rgba(255,255,255,0.05);border:1.5px solid var(--border2);border-radius:9px;padding:10px 12px;color:#fff;font-size:12px;font-weight:600;font-family:var(--font);resize:none;outline:none;min-height:72px}
+    .comment-box:focus{border-color:var(--amber)}
+    .comment-box::placeholder{color:var(--text3)}
+    
+    /* Timeline */
+    .timeline{display:flex;flex-direction:column;gap:0}
+    .tl-item{display:flex;gap:12px;padding-bottom:16px;position:relative}
+    .tl-item:last-child{padding-bottom:0}
+    .tl-item:not(:last-child)::after{content:'';position:absolute;left:13px;top:28px;bottom:0;width:1px;background:var(--border)}
+    .tl-dot{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;z-index:1}
+    .tl-dot.amber{background:rgba(251,191,36,0.2);border:2px solid var(--amber)}
+    .tl-dot.green{background:rgba(16,185,129,0.2);border:2px solid #10b981}
+    .tl-dot.blue{background:rgba(59,130,246,0.2);border:2px solid #3b82f6}
+    .tl-dot.gray{background:rgba(255,255,255,0.08);border:2px solid rgba(255,255,255,0.2)}
+    .tl-content{flex:1;min-width:0}
+    .tl-title{font-size:12px;font-weight:800;color:#fff;margin-bottom:2px}
+    .tl-meta{font-size:10px;color:var(--text3);font-weight:600}
+    
+    /* HAMBURGER */
+    .ham{display:none;width:36px;height:36px;border:1.5px solid var(--border);border-radius:9px;background:var(--surface);align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
+    @media(max-width:720px){
+      .ham{display:flex}
+      .sidebar{position:fixed;left:-260px;top:0;z-index:300;height:100vh;transition:left .3s}
+      .sidebar.open{left:0}
+      .kpi-grid{grid-template-columns:1fr 1fr}
+      .row2{grid-template-columns:1fr}
+      .drawer{width:100vw}
+    }
+    
+    /* ANIMATE */
+    @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+    .kpi{animation:fadeUp .3s ease-out both}
+    .kpi:nth-child(1){animation-delay:.05s}
+    .kpi:nth-child(2){animation-delay:.10s}
+    .kpi:nth-child(3){animation-delay:.15s}
+    .kpi:nth-child(4){animation-delay:.20s}
+    .kpi:nth-child(5){animation-delay:.25s}
+    .kpi:nth-child(6){animation-delay:.30s}
+    .kpi:nth-child(7){animation-delay:.35s}
+    .kpi:nth-child(8){animation-delay:.40s}
+    
+    /* MINI PROGRESS */
+    .mini-prog{height:4px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden;margin-top:8px}
+    .mini-prog-bar{height:100%;border-radius:2px;transition:width .6s ease}
+    </style>
+    
+    <h2 class="sr-only">ShuleAvance Financing Dashboard — organization overview of financing requests, approvals, disbursements, and analytics.</h2>
+    
+    <div class="layout">
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-logo">
+          <div class="brand-icon">SA</div>
+          <div>
+            <div class="brand-name">ShuleAvance</div>
+            <div class="brand-sub">Finance Platform</div>
+          </div>
+        </div>
+        <div class="org-chip">
+          <div class="org-dot"></div>
+          <span>Equity Bank Rwanda</span>
+        </div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">Main</div>
+        <div class="nav-item active" onclick="nav(this,'overview')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+          Dashboard
+        </div>
+        <div class="nav-item" onclick="nav(this,'requests')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          Requests
+          <span class="nav-badge">12</span>
+        </div>
+        <div class="nav-label">Insights</div>
+        <div class="nav-item" onclick="nav(this,'analytics')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          Analytics
+        </div>
+        <div class="nav-item" onclick="nav(this,'schools')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg>
+          Schools
+        </div>
+        <div class="nav-label">Account</div>
+        <div class="nav-item" onclick="nav(this,'settings')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          Settings
+        </div>
+      </div>
+      <div class="sidebar-footer">
+        <div class="user-chip">
+          <div class="avatar">EM</div>
+          <div class="user-info">
+            <div class="user-name">Eric Mutimura</div>
+            <div class="user-role">Credit Analyst</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+    
+    <!-- MAIN -->
+    <div class="main">
+      <!-- TOPBAR -->
+      <div class="topbar">
+        <div class="ham" id="ham" onclick="toggleSidebar()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </div>
+        <span class="page-title" id="page-title">Dashboard</span>
+        <span class="page-sub" id="page-sub">/ Overview</span>
+        <div class="topbar-right">
+          <button class="topbar-btn" onclick="sendPrompt('Show me all pending ShuleAvance financing requests that need review today')">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="14" y2="12"/><line x1="4" y1="18" x2="10" y2="18"/></svg>
+            Filter ↗
+          </button>
+          <button class="topbar-btn primary" onclick="showDrawer()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            New Request
+          </button>
+          <div class="notif-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            <div class="notif-dot"></div>
+          </div>
+        </div>
+      </div>
+    
+      <!-- CONTENT -->
+      <div class="content" id="content">
+    
+        <!-- OVERVIEW PAGE -->
+        <div id="page-overview">
+    
+          <!-- KPI CARDS -->
+          <div class="kpi-grid">
+            <div class="kpi amber">
+              <div class="kpi-icon" style="background:rgba(251,191,36,.15)">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FBBF24" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+              </div>
+              <div class="kpi-label">Total Requests</div>
+              <div class="kpi-value amber">148</div>
+              <div class="kpi-sub"><span class="kpi-trend up">+18%</span>&nbsp;vs last quarter</div>
+              <div class="mini-prog"><div class="mini-prog-bar" style="width:74%;background:#FBBF24"></div></div>
+            </div>
+            <div class="kpi blue">
+              <div class="kpi-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
+              </div>
+              <div class="kpi-label">Pending Review</div>
+              <div class="kpi-value">12</div>
+              <div class="kpi-sub"><span class="kpi-trend down">+4</span>&nbsp;since yesterday</div>
+              <div class="mini-prog"><div class="mini-prog-bar" style="width:32%;background:#3b82f6"></div></div>
+            </div>
+            <div class="kpi green">
+              <div class="kpi-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><polyline points="20,6 9,17 4,12"/></svg>
+              </div>
+              <div class="kpi-label">Approved</div>
+              <div class="kpi-value">94</div>
+              <div class="kpi-sub"><span class="kpi-trend up">63.5%</span>&nbsp;approval rate</div>
+              <div class="mini-prog"><div class="mini-prog-bar" style="width:63%;background:#10b981"></div></div>
+            </div>
+            <div class="kpi red">
+              <div class="kpi-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </div>
+              <div class="kpi-label">Rejected</div>
+              <div class="kpi-value">42</div>
+              <div class="kpi-sub"><span class="kpi-trend down">28.4%</span>&nbsp;rejection rate</div>
+              <div class="mini-prog"><div class="mini-prog-bar" style="width:28%;background:#ef4444"></div></div>
+            </div>
+            <div class="kpi teal">
+              <div class="kpi-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#14b8a6" stroke-width="2.5"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              </div>
+              <div class="kpi-label">Total Disbursed</div>
+              <div class="kpi-value">RWF 847M</div>
+              <div class="kpi-sub"><span class="kpi-trend up">+22%</span>&nbsp;this year</div>
+              <div class="mini-prog"><div class="mini-prog-bar" style="width:81%;background:#14b8a6"></div></div>
+            </div>
+            <div class="kpi amber">
+              <div class="kpi-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FBBF24" stroke-width="2.5"><polyline points="23,6 13.5,15.5 8.5,10.5 1,18"/><polyline points="17,6 23,6 23,12"/></svg>
+              </div>
+              <div class="kpi-label">Total Repaid</div>
+              <div class="kpi-value amber">RWF 312M</div>
+              <div class="kpi-sub">36.8% repayment ratio</div>
+              <div class="mini-prog"><div class="mini-prog-bar" style="width:37%;background:#FBBF24"></div></div>
+            </div>
+            <div class="kpi purple">
+              <div class="kpi-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+              </div>
+              <div class="kpi-label">Active Schools</div>
+              <div class="kpi-value">38</div>
+              <div class="kpi-sub"><span class="kpi-trend up">+5</span>&nbsp;new onboarded</div>
+              <div class="mini-prog"><div class="mini-prog-bar" style="width:55%;background:#8b5cf6"></div></div>
+            </div>
+            <div class="kpi blue">
+              <div class="kpi-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              </div>
+              <div class="kpi-label">Active Borrowers</div>
+              <div class="kpi-value">213</div>
+              <div class="kpi-sub"><span class="kpi-trend up">+31</span>&nbsp;this month</div>
+              <div class="mini-prog"><div class="mini-prog-bar" style="width:68%;background:#3b82f6"></div></div>
+            </div>
+          </div>
+    
+          <!-- CHARTS ROW -->
+          <div class="row2">
+            <div class="panel">
+              <div class="panel-head">
+                <div>
+                  <div class="panel-title">Monthly Disbursement Trend</div>
+                  <div class="panel-sub">RWF millions · 2024–2025</div>
+                </div>
+                <div class="tabs">
+                  <button class="tab active">6M</button>
+                  <button class="tab" onclick="this.parentNode.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));this.classList.add('active')">1Y</button>
+                  <button class="tab" onclick="this.parentNode.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));this.classList.add('active')">All</button>
+                </div>
+              </div>
+              <div class="chart-box">
+                <canvas id="trendChart" role="img" aria-label="Monthly disbursement trend bar chart showing amounts in RWF millions from July 2024 to December 2024">Monthly disbursements: Jul 48M, Aug 65M, Sep 72M, Oct 91M, Nov 85M, Dec 103M.</canvas>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-head">
+                <div>
+                  <div class="panel-title">By Applicant Type</div>
+                  <div class="panel-sub">Current portfolio</div>
+                </div>
+              </div>
+              <div class="donut-wrap" style="margin-top:12px">
+                <div class="donut-box">
+                  <canvas id="donutChart" role="img" aria-label="Donut chart of applicants by type: Teachers 42%, Parents 31%, Schools 18%, Staff 9%">Teachers 42%, Parents 31%, Schools 18%, Staff 9%.</canvas>
+                  <div class="donut-center">
+                    <div class="donut-big">148</div>
+                    <div class="donut-small">total</div>
+                  </div>
+                </div>
+                <div class="legend-list">
+                  <div class="legend-item"><div class="legend-dot" style="background:#FBBF24"></div>Teachers — 42%</div>
+                  <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div>Parents — 31%</div>
+                  <div class="legend-item"><div class="legend-dot" style="background:#10b981"></div>Schools — 18%</div>
+                  <div class="legend-item"><div class="legend-dot" style="background:#8b5cf6"></div>Staff — 9%</div>
+                </div>
+              </div>
+            </div>
+          </div>
+    
+          <!-- TABLE + SCHOOL RANK -->
+          <div class="row2">
+            <div>
+              <div class="panel" style="margin-bottom:14px">
+                <div class="panel-head" style="margin-bottom:12px">
+                  <div>
+                    <div class="panel-title">Approval Rate by Product</div>
+                    <div class="panel-sub">School term · School kit · Tuition</div>
+                  </div>
+                </div>
+                <div class="chart-box tall">
+                  <canvas id="approvalChart" role="img" aria-label="Horizontal bar chart showing approval rates by product type">School Term Loan 78%, School Kit Financing 65%, Tuition Bridge 54%, Supplier Credit 48%.</canvas>
+                </div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-head" style="margin-bottom:14px">
+                <div>
+                  <div class="panel-title">Top Schools</div>
+                  <div class="panel-sub">By request volume</div>
+                </div>
+                <span class="pill amber">This term</span>
+              </div>
+              <div class="school-rank" id="schoolRank">
+                <div class="school-row"><div class="school-num">1</div><div class="school-name">GS Kimironko</div><div class="school-bar-wrap"><div class="school-bar" style="width:100%"></div></div><div class="school-val">34</div></div>
+                <div class="school-row"><div class="school-num">2</div><div class="school-name">GS Remera</div><div class="school-bar-wrap"><div class="school-bar" style="width:82%"></div></div><div class="school-val">28</div></div>
+                <div class="school-row"><div class="school-num">3</div><div class="school-name">EP Nyamirambo</div><div class="school-bar-wrap"><div class="school-bar" style="width:68%"></div></div><div class="school-val">23</div></div>
+                <div class="school-row"><div class="school-num">4</div><div class="school-name">GS Kacyiru</div><div class="school-bar-wrap"><div class="school-bar" style="width:56%"></div></div><div class="school-val">19</div></div>
+                <div class="school-row"><div class="school-num">5</div><div class="school-name">EP Gikondo</div><div class="school-bar-wrap"><div class="school-bar" style="width:44%"></div></div><div class="school-val">15</div></div>
+                <div class="school-row"><div class="school-num">6</div><div class="school-name">GS Muhima</div><div class="school-bar-wrap"><div class="school-bar" style="width:35%"></div></div><div class="school-val">12</div></div>
+              </div>
+            </div>
+          </div>
+    
+        </div><!-- /overview -->
+    
+        <!-- REQUESTS PAGE -->
+        <div id="page-requests" style="display:none">
+          <div class="table-wrap">
+            <div class="table-toolbar">
+              <input class="search-box" placeholder="Search by name, ID, school…" id="tableSearch" oninput="filterTable()">
+              <select class="filter-select" id="statusFilter" onchange="filterTable()">
+                <option value="">All Statuses</option>
+                <option value="Pending">Pending</option>
+                <option value="Approved">Approved</option>
+                <option value="Rejected">Rejected</option>
+                <option value="Disbursed">Disbursed</option>
+              </select>
+              <select class="filter-select" id="typeFilter" onchange="filterTable()">
+                <option value="">All Types</option>
+                <option value="Teacher">Teacher</option>
+                <option value="Parent">Parent</option>
+                <option value="School">School</option>
+              </select>
+              <span class="table-count" id="tableCount">Showing 8 of 148</span>
+            </div>
+            <div style="overflow-x:auto">
+              <table id="reqTable">
+                <thead>
+                  <tr>
+                    <th>Request ID</th><th>Applicant</th><th>Type</th><th>School</th>
+                    <th>Amount</th><th>Product</th><th>Term</th><th>Submitted</th>
+                    <th>Status</th><th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+    
+        <!-- ANALYTICS PAGE -->
+        <div id="page-analytics" style="display:none">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+            <div class="panel">
+              <div class="panel-head"><div class="panel-title">Requests by School</div></div>
+              <div class="chart-box"><canvas id="schoolChart" role="img" aria-label="Bar chart of financing requests by school">Top 5 schools by request count.</canvas></div>
+            </div>
+            <div class="panel">
+              <div class="panel-head"><div class="panel-title">Monthly Repayment Rate</div></div>
+              <div class="chart-box"><canvas id="repayChart" role="img" aria-label="Line chart of monthly repayment rates">Repayment rate trend over 6 months.</canvas></div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
+            <div class="panel">
+              <div class="panel-head"><div class="panel-title">Default Risk</div></div>
+              <div class="donut-wrap" style="margin-top:10px">
+                <div class="donut-box"><canvas id="riskChart" role="img" aria-label="Risk distribution donut chart">Low 55%, Medium 32%, High 13%.</canvas><div class="donut-center"><div class="donut-big" style="font-size:16px">Risk</div><div class="donut-small">score</div></div></div>
+                <div class="legend-list">
+                  <div class="legend-item"><div class="legend-dot" style="background:#10b981"></div>Low — 55%</div>
+                  <div class="legend-item"><div class="legend-dot" style="background:#FBBF24"></div>Medium — 32%</div>
+                  <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div>High — 13%</div>
+                </div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-head"><div class="panel-title">Product Mix</div></div>
+              <div class="chart-box"><canvas id="productChart" role="img" aria-label="Product type distribution pie chart">Product distribution among request types.</canvas></div>
+            </div>
+            <div class="panel">
+              <div class="panel-head"><div class="panel-title">Outstanding Balance</div></div>
+              <div style="display:flex;flex-direction:column;gap:12px;margin-top:8px">
+                <div>
+                  <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px"><span style="color:var(--text3);font-weight:700">Current</span><span style="font-weight:800;color:#FBBF24;font-family:monospace">RWF 535M</span></div>
+                  <div class="mini-prog"><div class="mini-prog-bar" style="width:63%;background:#FBBF24;height:6px"></div></div>
+                </div>
+                <div>
+                  <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px"><span style="color:var(--text3);font-weight:700">Overdue 1–30d</span><span style="font-weight:800;color:#3b82f6;font-family:monospace">RWF 42M</span></div>
+                  <div class="mini-prog"><div class="mini-prog-bar" style="width:23%;background:#3b82f6;height:6px"></div></div>
+                </div>
+                <div>
+                  <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px"><span style="color:var(--text3);font-weight:700">Overdue 30–90d</span><span style="font-weight:800;color:#FBBF24;font-family:monospace">RWF 18M</span></div>
+                  <div class="mini-prog"><div class="mini-prog-bar" style="width:11%;background:#FBBF24;height:6px"></div></div>
+                </div>
+                <div>
+                  <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px"><span style="color:var(--text3);font-weight:700">NPL &gt;90d</span><span style="font-weight:800;color:#ef4444;font-family:monospace">RWF 7M</span></div>
+                  <div class="mini-prog"><div class="mini-prog-bar" style="width:5%;background:#ef4444;height:6px"></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+    
+        <!-- SCHOOLS PAGE -->
+        <div id="page-schools" style="display:none">
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px">
+            <script>
+              const schoolsData = [
+                {name:'GS Kimironko',dist:'Gasabo',requests:34,disbursed:'RWF 87M',status:'Active',rate:'91%'},
+                {name:'GS Remera',dist:'Gasabo',requests:28,disbursed:'RWF 62M',status:'Active',rate:'85%'},
+                {name:'EP Nyamirambo',dist:'Nyarugenge',requests:23,disbursed:'RWF 51M',status:'Active',rate:'78%'},
+                {name:'GS Kacyiru',dist:'Gasabo',requests:19,disbursed:'RWF 43M',status:'Active',rate:'82%'},
+                {name:'EP Gikondo',dist:'Kicukiro',requests:15,disbursed:'RWF 34M',status:'Active',rate:'73%'},
+                {name:'GS Muhima',dist:'Nyarugenge',requests:12,disbursed:'RWF 28M',status:'Review',rate:'65%'},
+              ];
+            </script>
+          </div>
+        </div>
+    
+        <!-- SETTINGS PAGE -->
+        <div id="page-settings" style="display:none">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:900px">
+            <div class="panel">
+              <div class="panel-head"><div class="panel-title">Organization Profile</div></div>
+              <div style="display:flex;flex-direction:column;gap:14px;margin-top:4px">
+                <div><label style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);display:block;margin-bottom:6px">Organization Name</label><input style="width:100%;padding:9px 12px;background:rgba(255,255,255,0.05);border:1.5px solid var(--border2);border-radius:9px;color:#fff;font-size:13px;font-family:var(--font);outline:none" value="Equity Bank Rwanda"></div>
+                <div><label style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);display:block;margin-bottom:6px">Contact Email</label><input style="width:100%;padding:9px 12px;background:rgba(255,255,255,0.05);border:1.5px solid var(--border2);border-radius:9px;color:#fff;font-size:13px;font-family:var(--font);outline:none" value="shule@equitybank.rw"></div>
+                <div><label style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);display:block;margin-bottom:6px">Phone</label><input style="width:100%;padding:9px 12px;background:rgba(255,255,255,0.05);border:1.5px solid var(--border2);border-radius:9px;color:#fff;font-size:13px;font-family:var(--font);outline:none" value="+250 788 000 000"></div>
+                <button style="padding:10px;background:var(--amber);border:none;border-radius:9px;font-size:13px;font-weight:800;color:var(--navy);cursor:pointer;font-family:var(--font)">Save Changes</button>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:14px">
+              <div class="panel">
+                <div class="panel-head" style="margin-bottom:12px"><div class="panel-title">Password</div></div>
+                <div style="display:flex;flex-direction:column;gap:10px">
+                  <input type="password" placeholder="Current password" style="width:100%;padding:9px 12px;background:rgba(255,255,255,0.05);border:1.5px solid var(--border2);border-radius:9px;color:#fff;font-size:13px;font-family:var(--font);outline:none">
+                  <input type="password" placeholder="New password" style="width:100%;padding:9px 12px;background:rgba(255,255,255,0.05);border:1.5px solid var(--border2);border-radius:9px;color:#fff;font-size:13px;font-family:var(--font);outline:none">
+                  <button style="padding:9px;background:rgba(251,191,36,.15);border:1px solid rgba(251,191,36,.3);border-radius:9px;font-size:12px;font-weight:800;color:var(--amber);cursor:pointer;font-family:var(--font)">Update Password</button>
+                </div>
+              </div>
+              <div class="panel">
+                <div class="panel-head" style="margin-bottom:12px"><div class="panel-title">Email Notifications</div></div>
+                <div style="display:flex;flex-direction:column;gap:12px">
+                  <div style="display:flex;align-items:center;justify-content:space-between"><span style="font-size:13px;font-weight:700;color:var(--text2)">New requests</span><div style="width:42px;height:24px;background:var(--amber);border-radius:12px;position:relative;cursor:pointer"><div style="position:absolute;right:3px;top:3px;width:18px;height:18px;background:white;border-radius:50%"></div></div></div>
+                  <div style="display:flex;align-items:center;justify-content:space-between"><span style="font-size:13px;font-weight:700;color:var(--text2)">Disbursements</span><div style="width:42px;height:24px;background:var(--amber);border-radius:12px;position:relative;cursor:pointer"><div style="position:absolute;right:3px;top:3px;width:18px;height:18px;background:white;border-radius:50%"></div></div></div>
+                  <div style="display:flex;align-items:center;justify-content:space-between"><span style="font-size:13px;font-weight:700;color:var(--text2)">Repayments</span><div style="width:42px;height:24px;background:rgba(255,255,255,0.15);border-radius:12px;position:relative;cursor:pointer"><div style="position:absolute;left:3px;top:3px;width:18px;height:18px;background:rgba(255,255,255,.6);border-radius:50%"></div></div></div>
+                  <div style="display:flex;align-items:center;justify-content:space-between"><span style="font-size:13px;font-weight:700;color:var(--text2)">Weekly report</span><div style="width:42px;height:24px;background:var(--amber);border-radius:12px;position:relative;cursor:pointer"><div style="position:absolute;right:3px;top:3px;width:18px;height:18px;background:white;border-radius:50%"></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+    
+      </div><!-- /content -->
+    </div><!-- /main -->
+    </div><!-- /layout -->
+    
+    <!-- REQUEST DETAIL DRAWER -->
+    <div class="drawer-overlay" id="drawerOverlay">
+      <div class="drawer">
+        <div class="drawer-head">
+          <div>
+            <div style="font-size:15px;font-weight:900;color:#fff">Request #SA-2025-0089</div>
+            <div style="margin-top:4px"><span class="pill amber">Under Review</span></div>
+          </div>
+          <button class="drawer-close" onclick="hideDrawer()">✕</button>
+        </div>
+        <div class="drawer-body">
+          <!-- Applicant -->
+          <div class="detail-section">
+            <div class="detail-section-title">Applicant Details</div>
+            <div class="detail-grid">
+              <div class="detail-field"><label>Full Name</label><span>Uwimana Jean Pierre</span></div>
+              <div class="detail-field"><label>Type</label><span>Teacher</span></div>
+              <div class="detail-field"><label>National ID</label><span>1199780012345678</span></div>
+              <div class="detail-field"><label>Phone</label><span>+250 781 234 567</span></div>
+              <div class="detail-field"><label>Email</label><span style="font-size:12px">j.uwimana@school.rw</span></div>
+              <div class="detail-field"><label>Employment</label><span>Permanent Staff</span></div>
+            </div>
+          </div>
+          <!-- School -->
+          <div class="detail-section">
+            <div class="detail-section-title">School Details</div>
+            <div class="detail-grid">
+              <div class="detail-field"><label>School Name</label><span>GS Kimironko</span></div>
+              <div class="detail-field"><label>District</label><span>Gasabo, Kigali</span></div>
+              <div class="detail-field"><label>School Code</label><span style="font-family:monospace">GS-KM-001</span></div>
+              <div class="detail-field"><label>Category</label><span>Government</span></div>
+            </div>
+          </div>
+          <!-- Financing -->
+          <div class="detail-section">
+            <div class="detail-section-title">Financing Details</div>
+            <div class="detail-grid">
+              <div class="detail-field"><label>Requested Amount</label><span style="color:#FBBF24;font-family:monospace;font-size:16px;font-weight:900">RWF 450,000</span></div>
+              <div class="detail-field"><label>Product Type</label><span>School Term Loan</span></div>
+              <div class="detail-field"><label>Repayment Term</label><span>6 months</span></div>
+              <div class="detail-field"><label>Purpose</label><span>School fees — Term 2</span></div>
+              <div class="detail-field"><label>Date Submitted</label><span>Jan 15, 2025</span></div>
+              <div class="detail-field"><label>Risk Score</label><span style="color:#10b981;font-weight:900">Low (72/100)</span></div>
+            </div>
+          </div>
+          <!-- Repayment simulation -->
+          <div class="detail-section">
+            <div class="detail-section-title">Repayment Simulation</div>
+            <div class="repay-row"><span style="color:var(--text3);font-size:12px">Principal</span><span style="font-family:monospace;font-weight:800">RWF 450,000</span></div>
+            <div class="repay-row"><span style="color:var(--text3);font-size:12px">Interest (8% p.a.)</span><span style="font-family:monospace;font-weight:800">RWF 18,000</span></div>
+            <div class="repay-row"><span style="color:var(--text3);font-size:12px">Processing Fee (1%)</span><span style="font-family:monospace;font-weight:800">RWF 4,500</span></div>
+            <div class="repay-row" style="border-top:1px solid var(--border2);margin-top:4px;padding-top:12px"><span style="color:#fff;font-weight:900">Total Repayment</span><span style="font-family:monospace;font-weight:900;color:#FBBF24;font-size:15px">RWF 472,500</span></div>
+            <div class="repay-row"><span style="color:var(--text3);font-size:12px">Monthly Installment</span><span style="font-family:monospace;font-weight:800;color:#10b981">RWF 78,750</span></div>
+          </div>
+          <!-- Timeline -->
+          <div class="detail-section">
+            <div class="detail-section-title">Approval History</div>
+            <div class="timeline">
+              <div class="tl-item"><div class="tl-dot amber">→</div><div class="tl-content"><div class="tl-title">Submitted</div><div class="tl-meta">Jan 15, 2025 · Applicant</div></div></div>
+              <div class="tl-item"><div class="tl-dot blue">✓</div><div class="tl-content"><div class="tl-title">Documents Verified</div><div class="tl-meta">Jan 16, 2025 · System Auto-check</div></div></div>
+              <div class="tl-item"><div class="tl-dot amber">⋯</div><div class="tl-content"><div class="tl-title">Under Credit Review</div><div class="tl-meta">Jan 17, 2025 · Eric Mutimura</div></div></div>
+              <div class="tl-item"><div class="tl-dot gray">○</div><div class="tl-content"><div class="tl-title">Final Decision — Pending</div><div class="tl-meta">Awaiting analyst sign-off</div></div></div>
+            </div>
+          </div>
+          <!-- Internal comment -->
+          <div class="detail-section">
+            <div class="detail-section-title">Add Internal Comment</div>
+            <textarea class="comment-box" placeholder="Add a note visible only to your team…"></textarea>
+            <button style="margin-top:8px;padding:9px 18px;background:rgba(255,255,255,0.07);border:1px solid var(--border2);border-radius:9px;color:var(--text2);font-size:12px;font-weight:800;cursor:pointer;font-family:var(--font)">Post Comment</button>
+          </div>
+          <!-- Actions -->
+          <div>
+            <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:10px">Actions</div>
+            <div class="drawer-actions">
+              <button class="da-btn approve">✓ Approve</button>
+              <button class="da-btn reject">✕ Reject</button>
+              <button class="da-btn info">? Request Info</button>
+              <button class="da-btn disburse">⬆ Mark Disbursed</button>
+              <button class="da-btn download">↓ Invoice</button>
+              <button class="da-btn download">↓ Summary PDF</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+    <script>
+    const NAV_PAGES = {
+      overview: {title:'Dashboard', sub:'/ Overview'},
+      requests: {title:'Requests', sub:'/ Manage Financing Requests'},
+      analytics: {title:'Analytics', sub:'/ Performance & Insights'},
+      schools: {title:'Schools', sub:'/ Active School Partners'},
+      settings: {title:'Settings', sub:'/ Organization Settings'}
+    };
+    
+    function nav(el, page) {
+      document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+      el.classList.add('active');
+      document.querySelectorAll('[id^="page-"]').forEach(p=>p.style.display='none');
+      const pg = document.getElementById('page-'+page);
+      if(pg) pg.style.display='block';
+      const info = NAV_PAGES[page]||{title:page,sub:''};
+      document.getElementById('page-title').textContent = info.title;
+      document.getElementById('page-sub').textContent = info.sub;
+      if(page==='analytics') setTimeout(initAnalyticsCharts, 50);
+      if(page==='schools') renderSchoolCards();
+      if(page==='requests') renderTable(allRequests);
+    }
+    
+    function toggleSidebar() {
+      document.getElementById('sidebar').classList.toggle('open');
+    }
+    
+    function showDrawer() {
+      document.getElementById('drawerOverlay').classList.add('open');
+    }
+    function hideDrawer() {
+      document.getElementById('drawerOverlay').classList.remove('open');
+    }
+    document.getElementById('drawerOverlay').addEventListener('click', function(e) {
+      if(e.target === this) hideDrawer();
+    });
+    
+    // TABLE DATA
+    const allRequests = [
+      {id:'SA-2025-0089',name:'Uwimana Jean Pierre',initials:'UJ',type:'Teacher',school:'GS Kimironko',amount:'450,000',product:'Term Loan',term:'6 months',date:'Jan 15, 2025',status:'Pending'},
+      {id:'SA-2025-0088',name:'Mukamana Alice',initials:'MA',type:'Parent',school:'EP Remera',amount:'280,000',product:'School Kit',term:'3 months',date:'Jan 14, 2025',status:'Approved'},
+      {id:'SA-2025-0087',name:'Habimana Paul',initials:'HP',type:'Teacher',school:'GS Kacyiru',amount:'600,000',product:'Term Loan',term:'6 months',date:'Jan 14, 2025',status:'Disbursed'},
+      {id:'SA-2025-0086',name:'Niyonsaba Grace',initials:'NG',type:'School',school:'EP Gikondo',amount:'2,400,000',product:'Supplier Credit',term:'12 months',date:'Jan 13, 2025',status:'Pending'},
+      {id:'SA-2025-0085',name:'Ndayizeye Joseph',initials:'NJ',type:'Parent',school:'GS Nyamirambo',amount:'195,000',product:'School Kit',term:'3 months',date:'Jan 12, 2025',status:'Rejected'},
+      {id:'SA-2025-0084',name:'Ingabire Marie',initials:'IM',type:'Teacher',school:'GS Remera',amount:'520,000',product:'Term Loan',term:'6 months',date:'Jan 11, 2025',status:'Approved'},
+      {id:'SA-2025-0083',name:'Bizimana Eric',initials:'BE',type:'School',school:'GS Kimironko',amount:'1,800,000',product:'Tuition Bridge',term:'9 months',date:'Jan 10, 2025',status:'Disbursed'},
+      {id:'SA-2025-0082',name:'Uwera Patricia',initials:'UP',type:'Parent',school:'EP Muhima',amount:'165,000',product:'School Kit',term:'3 months',date:'Jan 09, 2025',status:'Pending'},
+    ];
+    
+    const statusCls = {Pending:'amber',Approved:'green',Rejected:'red',Disbursed:'blue'};
+    
+    function renderTable(rows) {
+      const tb = document.getElementById('tableBody');
+      if(!tb) return;
+      tb.innerHTML = rows.map(r=>`
+        <tr>
+          <td><span class="id-cell">#${r.id}</span></td>
+          <td><div class="name-cell"><div class="mini-avatar">${r.initials}</div><div><div class="name-label">${r.name}</div></div></div></td>
+          <td><span class="pill ${r.type==='Teacher'?'amber':r.type==='Parent'?'blue':'purple'}" style="font-size:10px">${r.type}</span></td>
+          <td style="font-size:12px">${r.school}</td>
+          <td><span class="amount-cell">RWF ${r.amount}</span></td>
+          <td style="font-size:12px;color:var(--text2)">${r.product}</td>
+          <td style="font-size:12px;color:var(--text3)">${r.term}</td>
+          <td style="font-size:11px;color:var(--text3)">${r.date}</td>
+          <td><span class="pill ${statusCls[r.status]||'gray'}">${r.status}</span></td>
+          <td><div class="actions-cell">
+            <button class="act-btn view" onclick="showDrawer()">View</button>
+            ${r.status==='Pending'?'<button class="act-btn approve">✓</button><button class="act-btn reject">✕</button>':''}
+            ${r.status==='Approved'?'<button class="act-btn disburse">Disburse</button>':''}
+          </div></td>
+        </tr>`).join('');
+      const c = document.getElementById('tableCount');
+      if(c) c.textContent = `Showing ${rows.length} of 148`;
+    }
+    
+    function filterTable() {
+      const q = (document.getElementById('tableSearch')||{value:''}).value.toLowerCase();
+      const st = (document.getElementById('statusFilter')||{value:''}).value;
+      const ty = (document.getElementById('typeFilter')||{value:''}).value;
+      const filtered = allRequests.filter(r=>{
+        const matchQ = !q || r.name.toLowerCase().includes(q)||r.id.toLowerCase().includes(q)||r.school.toLowerCase().includes(q);
+        const matchS = !st || r.status===st;
+        const matchT = !ty || r.type===ty;
+        return matchQ&&matchS&&matchT;
+      });
+      renderTable(filtered);
+    }
+    
+    function renderSchoolCards() {
+      const c = document.getElementById('page-schools').querySelector('div');
+      c.innerHTML = schoolsData.map(s=>`
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:18px;transition:all .2s;cursor:pointer" onmouseover="this.style.borderColor='var(--amber)'" onmouseout="this.style.borderColor='var(--border)'">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+            <div style="width:40px;height:40px;background:rgba(251,191,36,.15);border:1px solid rgba(251,191,36,.3);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:var(--amber)">${s.name.substring(0,2).toUpperCase()}</div>
+            <div><div style="font-size:14px;font-weight:900;color:#fff">${s.name}</div><div style="font-size:11px;color:var(--text3)">${s.dist}</div></div>
+            <span class="pill ${s.status==='Active'?'green':'amber'}" style="margin-left:auto">${s.status}</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div><div style="font-size:10px;color:var(--text3);font-weight:700;margin-bottom:3px">Requests</div><div style="font-size:18px;font-weight:900;color:var(--amber)">${s.requests}</div></div>
+            <div><div style="font-size:10px;color:var(--text3);font-weight:700;margin-bottom:3px">Disbursed</div><div style="font-size:13px;font-weight:800;color:#fff;font-family:monospace">${s.disbursed}</div></div>
+            <div><div style="font-size:10px;color:var(--text3);font-weight:700;margin-bottom:3px">Approval Rate</div><div style="font-size:15px;font-weight:900;color:#10b981">${s.rate}</div></div>
+          </div>
+        </div>`).join('');
+    }
+    
+    // CHARTS
+    const chartDefaults = {
+      font:{family:"'Nunito', sans-serif"},
+      color:'rgba(255,255,255,0.4)',
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{ticks:{color:'rgba(255,255,255,0.4)',font:{family:"'Nunito',sans-serif",size:11}},grid:{color:'rgba(255,255,255,0.05)'},border:{color:'rgba(255,255,255,0.1)'}},
+        y:{ticks:{color:'rgba(255,255,255,0.4)',font:{family:"'Nunito',sans-serif",size:11}},grid:{color:'rgba(255,255,255,0.05)'},border:{color:'rgba(255,255,255,0.1)'}}
+      }
+    };
+    
+    Chart.defaults.font.family = "'Nunito', sans-serif";
+    Chart.defaults.color = 'rgba(255,255,255,0.4)';
+    
+    new Chart(document.getElementById('trendChart'), {
+      type:'bar',
+      data:{
+        labels:['Jul','Aug','Sep','Oct','Nov','Dec'],
+        datasets:[{
+          label:'Disbursed (M RWF)',
+          data:[48,65,72,91,85,103],
+          backgroundColor:'rgba(251,191,36,0.85)',
+          borderColor:'#FBBF24',
+          borderWidth:0,
+          borderRadius:6,
+          borderSkipped:false
+        },{
+          label:'Repaid (M RWF)',
+          data:[12,22,31,38,42,51],
+          backgroundColor:'rgba(16,185,129,0.5)',
+          borderColor:'#10b981',
+          borderWidth:0,
+          borderRadius:6,
+          borderSkipped:false
+        }]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:true,position:'top',labels:{color:'rgba(255,255,255,0.5)',boxWidth:10,font:{size:11,family:"'Nunito',sans-serif"}}}},
+        scales:{
+          x:{ticks:{color:'rgba(255,255,255,0.4)',font:{family:"'Nunito',sans-serif",size:11}},grid:{color:'rgba(255,255,255,0.04)'},border:{color:'rgba(255,255,255,0.1)'}},
+          y:{ticks:{color:'rgba(255,255,255,0.4)',font:{family:"'Nunito',sans-serif",size:11},callback:v=>v+'M'},grid:{color:'rgba(255,255,255,0.05)'},border:{color:'rgba(255,255,255,0.1)'}}
+        }
+      }
+    });
+    
+    new Chart(document.getElementById('donutChart'), {
+      type:'doughnut',
+      data:{
+        labels:['Teachers','Parents','Schools','Staff'],
+        datasets:[{data:[42,31,18,9],backgroundColor:['#FBBF24','#3b82f6','#10b981','#8b5cf6'],borderWidth:0,hoverOffset:4}]
+      },
+      options:{responsive:true,maintainAspectRatio:false,cutout:'72%',plugins:{legend:{display:false}}}
+    });
+    
+    new Chart(document.getElementById('approvalChart'), {
+      type:'bar',
+      data:{
+        labels:['School Term','School Kit','Tuition Bridge','Supplier Credit'],
+        datasets:[{
+          data:[78,65,54,48],
+          backgroundColor:['rgba(251,191,36,0.85)','rgba(59,130,246,0.8)','rgba(16,185,129,0.8)','rgba(139,92,246,0.8)'],
+          borderRadius:5,
+          borderSkipped:false
+        }]
+      },
+      options:{
+        indexAxis:'y',
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false}},
+        scales:{
+          x:{ticks:{color:'rgba(255,255,255,0.4)',font:{family:"'Nunito',sans-serif",size:11},callback:v=>v+'%',max:100},grid:{color:'rgba(255,255,255,0.05)'},border:{color:'rgba(255,255,255,0.1)'}},
+          y:{ticks:{color:'rgba(255,255,255,0.5)',font:{family:"'Nunito',sans-serif",size:11}},grid:{display:false},border:{display:false}}
+        }
+      }
+    });
+    
+    let analyticsInited = false;
+    function initAnalyticsCharts() {
+      if(analyticsInited) return;
+      analyticsInited = true;
+      new Chart(document.getElementById('schoolChart'), {
+        type:'bar',
+        data:{labels:['GS Kimironko','GS Remera','EP Nyamirambo','GS Kacyiru','EP Gikondo'],datasets:[{data:[34,28,23,19,15],backgroundColor:'rgba(251,191,36,0.8)',borderRadius:5,borderSkipped:false}]},
+        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'rgba(255,255,255,0.4)',font:{family:"'Nunito',sans-serif",size:10}},grid:{color:'rgba(255,255,255,0.04)'},border:{color:'rgba(255,255,255,0.1)'}},y:{ticks:{color:'rgba(255,255,255,0.4)',font:{family:"'Nunito',sans-serif",size:11}},grid:{color:'rgba(255,255,255,0.05)'},border:{color:'rgba(255,255,255,0.1)'}}}}
+      });
+      new Chart(document.getElementById('repayChart'), {
+        type:'line',
+        data:{labels:['Jul','Aug','Sep','Oct','Nov','Dec'],datasets:[{data:[25,31,38,42,47,54],borderColor:'#10b981',backgroundColor:'rgba(16,185,129,0.1)',fill:true,tension:.4,borderWidth:2,pointBackgroundColor:'#10b981',pointRadius:4}]},
+        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'rgba(255,255,255,0.4)',font:{family:"'Nunito',sans-serif",size:11}},grid:{color:'rgba(255,255,255,0.04)'},border:{color:'rgba(255,255,255,0.1)'}},y:{ticks:{color:'rgba(255,255,255,0.4)',font:{family:"'Nunito',sans-serif",size:11},callback:v=>v+'%'},grid:{color:'rgba(255,255,255,0.05)'},border:{color:'rgba(255,255,255,0.1)'}}}}
+      });
+      new Chart(document.getElementById('riskChart'), {
+        type:'doughnut',
+        data:{labels:['Low','Medium','High'],datasets:[{data:[55,32,13],backgroundColor:['#10b981','#FBBF24','#ef4444'],borderWidth:0,hoverOffset:4}]},
+        options:{responsive:true,maintainAspectRatio:false,cutout:'68%',plugins:{legend:{display:false}}}
+      });
+      new Chart(document.getElementById('productChart'), {
+        type:'doughnut',
+        data:{labels:['Term Loan','School Kit','Tuition Bridge','Supplier Credit'],datasets:[{data:[44,28,18,10],backgroundColor:['#FBBF24','#3b82f6','#10b981','#8b5cf6'],borderWidth:0,hoverOffset:4}]},
+        options:{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{display:true,position:'bottom',labels:{color:'rgba(255,255,255,0.45)',boxWidth:8,font:{size:10,family:"'Nunito',sans-serif"},padding:10}}}}
+      });
+    }
+    </script>
+    

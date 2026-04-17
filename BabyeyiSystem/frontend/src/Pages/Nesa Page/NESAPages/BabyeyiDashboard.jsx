@@ -598,8 +598,8 @@ function Sidebar({ tab, switchTab, notifCount, online, user, onOpenProfile }) {
       {/* Header */}
       <div style={{ padding:"20px 16px", borderBottom:`1px solid ${C.goldBorder}` }}>
         <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12 }}>
-          <div style={{ width:40, height:40, borderRadius:12, flexShrink:0, background:"#1F2937", display:"flex", alignItems:"center", justifyContent:"center", boxShadow:"0 4px 12px rgba(26,18,0,0.25)", overflow:"hidden", padding:4 }}>
-            <img src={BRAND_LOGO} alt="Babyeyi" style={{ width:32, height:32, objectFit:"contain" }}/>
+          <div style={{ width:96, height:36, borderRadius:12, flexShrink:0, background:"#1F2937", display:"flex", alignItems:"center", justifyContent:"center", boxShadow:"0 4px 12px rgba(26,18,0,0.25)", overflow:"hidden", padding:"4px 10px" }}>
+            <img src={BRAND_LOGO} alt="Babyeyi logo" style={{ width:"100%", height:"100%", objectFit:"contain" }}/>
           </div>
           <div style={{ minWidth:0 }}>
             <h1 style={{ fontSize:14, fontWeight:900, color:C.dark, margin:0, lineHeight:1.2 }}>Authority Portal</h1>

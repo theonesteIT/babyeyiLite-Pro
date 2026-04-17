@@ -28,6 +28,7 @@ const {
   quoteBabyeyiPayBalance,
   validateBabyeyiPaymentAgainstBalance,
 } = require('./babyeyiPayBalanceCore');
+const { ensureShuleAvanceOrgTables } = require('./shuleAvanceOrgSchema');
 const { requireRole } = require('../middleware/deoAuth');
 const {
   mtnMomoEnabled,
@@ -52,9 +53,36 @@ function normalizeEmail(raw) {
   return v;
 }
 
-function computeInvoiceStatusFromIntentStatus(intentStatus) {
+const SHULE_APPLICANT_CAT_DEFAULT = ['Parent', 'Teacher', 'Director'];
+
+function parseShuleOrgApplicantCategoriesJson(j) {
+  try {
+    const p = j == null ? null : typeof j === 'string' ? JSON.parse(j) : j;
+    if (!Array.isArray(p) || !p.length) return [...SHULE_APPLICANT_CAT_DEFAULT];
+    const out = [];
+    const seen = new Set();
+    for (const x of p) {
+      const t = String(x).trim().replace(/\s+/g, ' ');
+      if (!t || t.length > 120) continue;
+      const k = t.toLowerCase();
+      if (seen.has(k)) continue;
+      seen.add(k);
+      out.push(t);
+      if (out.length >= 30) break;
+    }
+    return out.length ? out : [...SHULE_APPLICANT_CAT_DEFAULT];
+  } catch (_) {
+    return [...SHULE_APPLICANT_CAT_DEFAULT];
+  }
+}
+
+function computeInvoiceStatusFromIntentStatus(intentStatus, paymentPlan = null) {
   const s = String(intentStatus || '').trim().toLowerCase();
-  return s === 'paid' ? 'PAID' : 'NOT_PAID';
+  if (s === 'paid') return 'PAID';
+  if (s === 'draft') return 'DRAFT';
+  const method = String(paymentPlan?.method || '').trim().toLowerCase();
+  if (s === 'submitted' && (method === 'loan' || method === 'shule_avance')) return 'PENDING_APPROVAL';
+  return 'NOT_PAID';
 }
 
 function makeInvoiceNo(intentId) {
@@ -437,6 +465,107 @@ ${reason ? `\nReference: ${reason}` : ''}`;
     );
   }
   return { sent: true, status, to: email, sms: smsResult.sent };
+}
+
+async function markShuleAvanceNotificationSent(intentId, which /* 'submitted_at' | 'approved_at' */) {
+  const id = Number(intentId || 0);
+  if (!id) return;
+  const [[row]] = await db.promisePool.execute(
+    `SELECT payload_json FROM babyeyi_payment_intents WHERE id = ? LIMIT 1`,
+    [id]
+  );
+  let payload = {};
+  try {
+    payload = JSON.parse(row?.payload_json || '{}');
+  } catch (_) {}
+  if (!payload.payment_plan) payload.payment_plan = {};
+  if (!payload.payment_plan.shule_avance) payload.payment_plan.shule_avance = {};
+  const sa = payload.payment_plan.shule_avance;
+  if (!sa.email_notifications) sa.email_notifications = {};
+  sa.email_notifications[which] = new Date().toISOString();
+  await db.promisePool.execute(
+    `UPDATE babyeyi_payment_intents SET payload_json = ? WHERE id = ?`,
+    [JSON.stringify(payload), id]
+  );
+}
+
+/** ShuleAvance: email applicant when request is submitted or when partner approves (PDF attached when SMTP is configured). */
+async function sendShuleAvanceFinancingApplicantEmail(intentId, phase) {
+  const id = Number(intentId || 0);
+  if (!id || (phase !== 'submitted' && phase !== 'approved')) {
+    return { sent: false, skipped: 'invalid_args' };
+  }
+  const which = phase === 'submitted' ? 'submitted_at' : 'approved_at';
+  const [rows] = await db.promisePool.execute(
+    `SELECT id, invoice_no, invoice_status, total_rwf, payer_name, payer_email, payer_phone, payload_json
+     FROM babyeyi_payment_intents WHERE id = ? LIMIT 1`,
+    [id]
+  );
+  const row = rows?.[0];
+  if (!row) return { sent: false, skipped: 'intent_not_found' };
+  let payload = {};
+  try {
+    payload = JSON.parse(row.payload_json || '{}');
+  } catch (_) {}
+  if (String(payload?.payment_plan?.method || '').toLowerCase() !== 'shule_avance') {
+    return { sent: false, skipped: 'not_shule' };
+  }
+  const sa = payload.payment_plan.shule_avance || {};
+  const en = sa.email_notifications || {};
+  if (en[which]) return { sent: false, skipped: 'already_sent' };
+
+  const to =
+    normalizeEmail(sa.applicant_notification_email) ||
+    normalizeEmail(row.payer_email);
+  if (!to) return { sent: false, skipped: 'no_email' };
+
+  const payerName = row.payer_name || 'Hello';
+  const invoiceNo = row.invoice_no || `INV-${id}`;
+  const amount = Number(row.total_rwf || 0).toLocaleString();
+  const invStatus = String(row.invoice_status || 'NOT_PAID').toUpperCase();
+  const orgName = sa.organization_name || 'ShuleAvance partner';
+  const apiBase = String(
+    process.env.API_PUBLIC_BASE_URL || process.env.BACKEND_PUBLIC_URL || ''
+  ).replace(/\/+$/, '');
+  const pdfLink = apiBase
+    ? `${apiBase}/api/public/babyeyi-pay/invoice/${id}.pdf?invoice_no=${encodeURIComponent(invoiceNo)}`
+    : '';
+
+  const subject =
+    phase === 'approved'
+      ? `ShuleAvance approved — ${invoiceNo}`
+      : `ShuleAvance request received — ${invoiceNo}`;
+
+  const bodyHtml =
+    phase === 'approved'
+      ? `<p>Hello ${payerName},</p>
+<p><strong>${orgName}</strong> has <strong>approved</strong> your ShuleAvance financing request.</p>
+<p>Invoice <strong>${invoiceNo}</strong> is now <strong>${invStatus}</strong>. Amount: <strong>${amount} RWF</strong>.</p>
+${pdfLink ? `<p><a href="${pdfLink}">Download invoice PDF</a></p>` : ''}`
+      : `<p>Hello ${payerName},</p>
+<p>Your ShuleAvance financing request has been sent to <strong>${orgName}</strong> for review.</p>
+<p>Invoice <strong>${invoiceNo}</strong> · status <strong>${invStatus}</strong> · amount <strong>${amount} RWF</strong>.</p>
+<p>You will receive another email when the partner updates your request (for example, if it is approved).</p>
+${pdfLink ? `<p><a href="${pdfLink}">Download invoice PDF</a></p>` : ''}`;
+
+  let attachments = [];
+  try {
+    const bundle = await getInvoiceDetailBundleById(id);
+    const pdfBuffer = await generateInvoicePdfBuffer(bundle);
+    attachments = [{
+      filename: `${safeFilenamePart(invoiceNo)}.pdf`,
+      content: pdfBuffer,
+      contentType: 'application/pdf',
+    }];
+  } catch (e) {
+    console.warn('[shule-avance/email] pdf skip:', e.message);
+  }
+
+  const text = bodyHtml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  const html = `<div style="font-family:system-ui,Segoe UI,sans-serif;font-size:15px;color:#0f172a;max-width:640px;line-height:1.5">${bodyHtml}</div>`;
+  const ok = await sendInvoiceEmail({ to, subject, text, html, attachments });
+  if (ok) await markShuleAvanceNotificationSent(id, which);
+  return { sent: ok, to };
 }
 
 async function sendUnpaidReminderForIntent(row, stage) {
@@ -844,10 +973,25 @@ async function generateInvoicePdfBuffer(bundle) {
       }
       doc.fillColor('#1A1200').fontSize(20).font('Helvetica-Bold').text('Babyeyi Invoice', 100, 34);
       doc.fillColor(amberDark).fontSize(10).font('Helvetica').text('Professional School Payment Statement', 100, 58);
-      const chipW = 88;
-      doc.roundedRect(doc.page.width - chipW - 38, 36, chipW, 26, 8).fill(bundle.invoice.invoice_status === 'PAID' ? '#DBEAFE' : '#FEF3C7');
-      doc.fillColor(bundle.invoice.invoice_status === 'PAID' ? navy : '#92400E').font('Helvetica-Bold').fontSize(10)
-        .text(String(bundle.invoice.invoice_status || 'NOT_PAID').toUpperCase(), doc.page.width - chipW - 32, 44, { width: chipW - 12, align: 'center' });
+      const chipW = 100;
+      const invSt = String(bundle.invoice.invoice_status || 'NOT_PAID').toUpperCase();
+      const chipBg =
+        invSt === 'PAID' ? '#DBEAFE'
+        : invSt === 'PENDING_APPROVAL' ? '#E0E7FF'
+        : invSt === 'DRAFT' ? '#F1F5F9'
+        : invSt === 'APPROVED' ? '#DCFCE7'
+        : invSt === 'REJECTED' ? '#FEE2E2'
+        : '#FEF3C7';
+      const chipFg =
+        invSt === 'PAID' ? navy
+        : invSt === 'PENDING_APPROVAL' ? '#312E81'
+        : invSt === 'DRAFT' ? '#475569'
+        : invSt === 'APPROVED' ? '#14532D'
+        : invSt === 'REJECTED' ? '#991B1B'
+        : '#92400E';
+      doc.roundedRect(doc.page.width - chipW - 38, 36, chipW, 26, 8).fill(chipBg);
+      doc.fillColor(chipFg).font('Helvetica-Bold').fontSize(9)
+        .text(invSt.replace(/_/g, ' '), doc.page.width - chipW - 32, 44, { width: chipW - 12, align: 'center' });
 
       let y = 128;
       doc.fillColor(slate).fontSize(10).font('Helvetica');
@@ -1286,6 +1430,28 @@ router.post('/quote-balance', async (req, res) => {
   }
 });
 
+// GET /api/public/babyeyi-pay/shule-avance-organizations — active partners for public picker
+router.get('/shule-avance-organizations', async (_req, res) => {
+  try {
+    await ensureShuleAvanceOrgTables();
+    const [rows] = await db.promisePool.execute(
+      `SELECT id, org_name, org_type, description, logo_url, applicant_categories_json, rate_percent, rate_is_monthly
+       FROM pro_shule_avance_organizations
+       WHERE is_active = 1
+       ORDER BY org_name ASC`
+    );
+    const data = (rows || []).map((r) => {
+      const cats = parseShuleOrgApplicantCategoriesJson(r.applicant_categories_json);
+      const { applicant_categories_json, ...rest } = r;
+      return { ...rest, applicant_categories: cats };
+    });
+    return res.json({ success: true, data });
+  } catch (e) {
+    console.error('[public/babyeyi-pay/shule-avance-organizations]', e);
+    return res.status(500).json({ success: false, message: 'Failed to load organizations' });
+  }
+});
+
 // POST /api/public/babyeyi-pay/intent
 router.post('/intent', async (req, res) => {
   try {
@@ -1324,9 +1490,61 @@ router.post('/intent', async (req, res) => {
       from_public_finder: !!body.from_public_finder,
       from_school_mini_site: !!body.from_school_mini_site,
     };
+
+    if (String(payload?.payment_plan?.method || '').toLowerCase() === 'shule_avance') {
+      await ensureShuleAvanceOrgTables();
+      const sa0 = payload.payment_plan.shule_avance || {};
+      const orgId = Number(sa0.organization_id || 0);
+      const intentSt0 = String(body?.status || 'draft').trim().toLowerCase() || 'draft';
+
+      if (!orgId) {
+        if (intentSt0 !== 'draft') {
+          return res.status(400).json({ success: false, message: 'Select a ShuleAvance organization' });
+        }
+      } else {
+        const [[orgRow]] = await db.promisePool.execute(
+          `SELECT id, org_name, is_active, applicant_categories_json FROM pro_shule_avance_organizations WHERE id = ? LIMIT 1`,
+          [orgId]
+        );
+        if (!orgRow || !Number(orgRow.is_active)) {
+          return res.status(400).json({
+            success: false,
+            message: 'That ShuleAvance organization is not accepting requests',
+          });
+        }
+        const allowedCats = parseShuleOrgApplicantCategoriesJson(orgRow.applicant_categories_json);
+        const rawCat = String(sa0.applicant_category ?? sa0.applicantCategory ?? '').trim();
+        const idx = allowedCats.findIndex((a) => a.toLowerCase() === rawCat.toLowerCase());
+        const catNorm = idx >= 0 ? allowedCats[idx] : '';
+        if (intentSt0 !== 'draft') {
+          if (!catNorm) {
+            return res.status(400).json({
+              success: false,
+              message: 'Applicant category is not accepted by this ShuleAvance organization',
+            });
+          }
+        }
+        const nextSa = {
+          ...sa0,
+          organization_name: orgRow.org_name,
+          financing_request_status: String(
+            sa0.financing_request_status || (intentSt0 === 'draft' ? 'DRAFT' : 'SUBMITTED')
+          ),
+        };
+        if (catNorm) nextSa.applicant_category = catNorm;
+        payload.payment_plan.shule_avance = nextSa;
+      }
+    }
+
     const payerName = String(body?.payer?.name || '').trim() || null;
     const payerPhone = String(body?.payer?.phone || '').trim() || null;
-    const payerEmailInput = String(body?.payer?.email || '').trim() || null;
+    const shuleNotifyEmailRaw = String(
+      body?.payment_plan?.shule_avance?.applicant_notification_email || ''
+    ).trim();
+    const payerEmailInput =
+      String(payload?.payment_plan?.method || '').toLowerCase() === 'shule_avance' && shuleNotifyEmailRaw
+        ? shuleNotifyEmailRaw
+        : String(body?.payer?.email || '').trim() || null;
     const payerEmail = await resolvePayerEmailFromStudent(schoolId, payload.selected_student, payerEmailInput);
     let status = String(body?.status || 'draft').trim().toLowerCase() || 'draft';
     const payMode = String(body?.payment_plan?.payMode || '').trim().toLowerCase();
@@ -1344,15 +1562,82 @@ router.post('/intent', async (req, res) => {
     let providerAuthkey = null;
     let providerPayload = null;
 
-    
+    let reuseUpgradeId = null;
+    const reuseIntentId = parseInt(body.reuse_intent_id, 10);
+    if (reuseIntentId) {
+      const [[ex]] = await db.promisePool.execute(
+        `SELECT id, school_id, babyeyi_id, status, invoice_no FROM babyeyi_payment_intents WHERE id = ? LIMIT 1`,
+        [reuseIntentId]
+      );
+      const exSt = String(ex?.status || '').toLowerCase();
+      if (
+        ex
+        && Number(ex.school_id) === schoolId
+        && Number(ex.babyeyi_id) === babyeyiId
+        && exSt === 'draft'
+      ) {
+        if (status === 'draft') {
+          const invoiceStatus = computeInvoiceStatusFromIntentStatus(status, payload.payment_plan);
+          const dueDays = Math.max(1, Number(process.env.INVOICE_DUE_DAYS || 14));
+          const invoiceDueAt = new Date(Date.now() + dueDays * 24 * 60 * 60 * 1000);
+          await db.promisePool.execute(
+            `UPDATE babyeyi_payment_intents
+             SET payload_json = ?, total_rwf = ?, payer_name = ?, payer_phone = ?, payer_email = ?, status = ?,
+                 invoice_status = ?, invoice_due_at = ?
+             WHERE id = ?`,
+            [
+              JSON.stringify(payload),
+              total_rwf,
+              payerName,
+              payerPhone,
+              payerEmail,
+              status,
+              invoiceStatus,
+              invoiceDueAt,
+              reuseIntentId,
+            ]
+          );
+          const invoiceNo = ex.invoice_no || makeInvoiceNo(reuseIntentId);
+          if (!ex.invoice_no) {
+            await db.promisePool.execute(
+              `UPDATE babyeyi_payment_intents SET invoice_no = ? WHERE id = ?`,
+              [invoiceNo, reuseIntentId]
+            );
+          }
+          notifyInvoiceStatusByIntentId(reuseIntentId, 'intent_draft_updated').catch(() => {});
+          return res.status(200).json({
+            success: true,
+            intent_id: reuseIntentId,
+            status,
+            provider: null,
+            provider_status: null,
+            provider_reference: null,
+            provider_tid: null,
+            invoice: {
+              invoice_id: reuseIntentId,
+              invoice_no: invoiceNo,
+              invoice_status: invoiceStatus,
+              payer_email: payerEmail,
+            },
+            gateway_failed: false,
+            message: 'Invoice preview updated',
+            gateway_error: null,
+          });
+        }
+        reuseUpgradeId = reuseIntentId;
+      }
+    }
+
   const shouldInitMtnMomo =
       payMode !== 'loan'
       && payMethod === 'momo'
+      && status !== 'draft'
       && mtnMomoEnabled();
 
     const shouldInitXentriPay =
       payMode !== 'loan'
       && payMethod === 'momo'
+      && status !== 'draft'
       && !shouldInitMtnMomo
       && xentripayEnabled();
 
@@ -1466,29 +1751,82 @@ router.post('/intent', async (req, res) => {
       }
     }
 
-    const invoiceStatus = computeInvoiceStatusFromIntentStatus(status);
+    const invoiceStatus = computeInvoiceStatusFromIntentStatus(status, payload.payment_plan);
     const dueDays = Math.max(1, Number(process.env.INVOICE_DUE_DAYS || 14));
     const invoiceDueAt = new Date(Date.now() + dueDays * 24 * 60 * 60 * 1000);
-    const [r] = await db.promisePool.execute(
-      `INSERT INTO babyeyi_payment_intents
-       (school_id, babyeyi_id, payload_json, total_rwf, payer_name, payer_phone, payer_email, status,
-        provider, provider_status, provider_reference, provider_tid, provider_authkey, provider_payload_json,
-        invoice_status, invoice_paid_at, invoice_due_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-      [
-        schoolId, babyeyiId, JSON.stringify(payload), total_rwf, payerName, payerPhone, payerEmail, status,
-        provider, providerStatus, providerReference, providerTid, providerAuthkey, providerPayload ? JSON.stringify(providerPayload) : null,
-        invoiceStatus, invoiceStatus === 'PAID' ? new Date() : null, invoiceDueAt,
-      ]
-    );
-    const invoiceNo = makeInvoiceNo(r.insertId);
-    await db.promisePool.execute(
-      `UPDATE babyeyi_payment_intents SET invoice_no = ? WHERE id = ?`,
-      [invoiceNo, r.insertId]
-    );
-    notifyInvoiceStatusByIntentId(r.insertId, 'intent_created').catch((e) => {
-      console.warn('[invoice/email] create notify failed:', e.message);
-    });
+    const paidAt = invoiceStatus === 'PAID' ? new Date() : null;
+    let finalIntentId;
+    let invoiceNo;
+    if (reuseUpgradeId) {
+      await db.promisePool.execute(
+        `UPDATE babyeyi_payment_intents
+         SET payload_json = ?, total_rwf = ?, payer_name = ?, payer_phone = ?, payer_email = ?, status = ?,
+             provider = ?, provider_status = ?, provider_reference = ?, provider_tid = ?, provider_authkey = ?, provider_payload_json = ?,
+             invoice_status = ?, invoice_paid_at = ?, invoice_due_at = ?
+         WHERE id = ?`,
+        [
+          JSON.stringify(payload),
+          total_rwf,
+          payerName,
+          payerPhone,
+          payerEmail,
+          status,
+          provider,
+          providerStatus,
+          providerReference,
+          providerTid,
+          providerAuthkey,
+          providerPayload ? JSON.stringify(providerPayload) : null,
+          invoiceStatus,
+          paidAt,
+          invoiceDueAt,
+          reuseUpgradeId,
+        ]
+      );
+      const [[ex2]] = await db.promisePool.execute(
+        `SELECT invoice_no FROM babyeyi_payment_intents WHERE id = ? LIMIT 1`,
+        [reuseUpgradeId]
+      );
+      invoiceNo = ex2?.invoice_no || makeInvoiceNo(reuseUpgradeId);
+      if (!ex2?.invoice_no) {
+        await db.promisePool.execute(
+          `UPDATE babyeyi_payment_intents SET invoice_no = ? WHERE id = ?`,
+          [invoiceNo, reuseUpgradeId]
+        );
+      }
+      finalIntentId = reuseUpgradeId;
+    } else {
+      const [r] = await db.promisePool.execute(
+        `INSERT INTO babyeyi_payment_intents
+         (school_id, babyeyi_id, payload_json, total_rwf, payer_name, payer_phone, payer_email, status,
+          provider, provider_status, provider_reference, provider_tid, provider_authkey, provider_payload_json,
+          invoice_status, invoice_paid_at, invoice_due_at)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        [
+          schoolId, babyeyiId, JSON.stringify(payload), total_rwf, payerName, payerPhone, payerEmail, status,
+          provider, providerStatus, providerReference, providerTid, providerAuthkey, providerPayload ? JSON.stringify(providerPayload) : null,
+          invoiceStatus, paidAt, invoiceDueAt,
+        ]
+      );
+      finalIntentId = r.insertId;
+      invoiceNo = makeInvoiceNo(r.insertId);
+      await db.promisePool.execute(
+        `UPDATE babyeyi_payment_intents SET invoice_no = ? WHERE id = ?`,
+        [invoiceNo, r.insertId]
+      );
+    }
+    const isShuleFinancingSubmit =
+      String(payload?.payment_plan?.method || '').toLowerCase() === 'shule_avance' &&
+      String(status || '').toLowerCase() === 'submitted';
+    if (isShuleFinancingSubmit) {
+      sendShuleAvanceFinancingApplicantEmail(finalIntentId, 'submitted').catch((e) => {
+        console.warn('[shule-avance/email] submitted notify failed:', e.message);
+      });
+    } else {
+      notifyInvoiceStatusByIntentId(finalIntentId, 'intent_created').catch((e) => {
+        console.warn('[invoice/email] create notify failed:', e.message);
+      });
+    }
 
     const shouldInitRealtimeCollection = shouldInitMtnMomo || shouldInitXentriPay;
     const realtimeFailure = shouldInitRealtimeCollection && providerStatus === 'FAILED';
@@ -1504,14 +1842,14 @@ router.post('/intent', async (req, res) => {
     }
     return res.status(200).json({
       success: true,
-      intent_id: r.insertId,
+      intent_id: finalIntentId,
       status,
       provider,
       provider_status: providerStatus,
       provider_reference: providerReference,
       provider_tid: providerTid,
       invoice: {
-        invoice_id: r.insertId,
+        invoice_id: finalIntentId,
         invoice_no: invoiceNo,
         invoice_status: invoiceStatus,
         payer_email: payerEmail,
@@ -1533,7 +1871,7 @@ router.post('/intent/:id/check-provider-status', async (req, res) => {
     const id = Number(req.params.id || 0);
     if (!id) return res.status(400).json({ success: false, message: 'Invalid intent id' });
     const [rows] = await db.promisePool.execute(
-      `SELECT id, status, provider, provider_status, provider_reference, provider_tid, provider_payload_json
+      `SELECT id, status, provider, provider_status, provider_reference, provider_tid, provider_payload_json, payload_json
        FROM babyeyi_payment_intents
        WHERE id = ?
        LIMIT 1`,
@@ -1620,7 +1958,11 @@ router.post('/intent/:id/check-provider-status', async (req, res) => {
         nextStatus = 'submitted';
       }
       const financialId = String(gatewayResp?.financialTransactionId || '').trim() || null;
-      const invoiceStatusNow = computeInvoiceStatusFromIntentStatus(nextStatus);
+      let payPlanPoll = null;
+      try {
+        payPlanPoll = JSON.parse(row.payload_json || '{}')?.payment_plan || null;
+      } catch (_) {}
+      const invoiceStatusNow = computeInvoiceStatusFromIntentStatus(nextStatus, payPlanPoll);
       await db.promisePool.execute(
         `UPDATE babyeyi_payment_intents
          SET status = ?, provider_status = ?, provider_tid = COALESCE(NULLIF(?, ''), provider_tid),
@@ -1678,7 +2020,11 @@ router.post('/intent/:id/check-provider-status', async (req, res) => {
     if (providerStatus === 'COMPLETED' || providerStatus === 'SUCCESS') nextStatus = 'paid';
     else if (providerStatus === 'FAILED' || providerStatus === 'REJECTED' || providerStatus === 'CANCELLED') nextStatus = 'failed';
     else if (!['paid', 'failed'].includes(nextStatus)) nextStatus = 'submitted';
-    const invoiceStatusNow = computeInvoiceStatusFromIntentStatus(nextStatus);
+    let payPlanX = null;
+    try {
+      payPlanX = JSON.parse(row.payload_json || '{}')?.payment_plan || null;
+    } catch (_) {}
+    const invoiceStatusNow = computeInvoiceStatusFromIntentStatus(nextStatus, payPlanX);
     await db.promisePool.execute(
       `UPDATE babyeyi_payment_intents
        SET status = ?, provider_status = ?, provider_payload_json = ?,
@@ -1749,7 +2095,16 @@ router.post('/webhook/xentripay', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Missing transaction reference in webhook payload' });
     }
     const nextStatus = mapProviderToLocalStatus(evt.providerStatus);
-    const invoiceStatusNow = computeInvoiceStatusFromIntentStatus(nextStatus);
+    const [preWh] = await db.promisePool.execute(
+      `SELECT payload_json FROM babyeyi_payment_intents
+       WHERE provider_reference = ? OR provider_tid = ? LIMIT 1`,
+      [evt.reference, evt.reference]
+    );
+    let payPlanWh = null;
+    try {
+      payPlanWh = JSON.parse(preWh?.[0]?.payload_json || '{}')?.payment_plan || null;
+    } catch (_) {}
+    const invoiceStatusNow = computeInvoiceStatusFromIntentStatus(nextStatus, payPlanWh);
     const [update] = await db.promisePool.execute(
       `UPDATE babyeyi_payment_intents
        SET
@@ -2030,7 +2385,17 @@ router.post('/admin-webhook-logs/:id/reconcile', requireRole('SUPER_ADMIN', 'FUL
     const raw = String(gatewayResp?.data?.status || gatewayResp?.status || '').trim().toUpperCase();
     const providerStatus = raw || 'PENDING';
     const nextStatus = mapProviderToLocalStatus(providerStatus);
-    const invoiceStatusNow = computeInvoiceStatusFromIntentStatus(nextStatus);
+    const [preRec] = await db.promisePool.execute(
+      `SELECT payload_json FROM babyeyi_payment_intents
+       WHERE id = ? OR provider_reference = ? OR provider_tid = ?
+       ORDER BY id DESC LIMIT 1`,
+      [row.intent_id || 0, ref, ref]
+    );
+    let payPlanRec = null;
+    try {
+      payPlanRec = JSON.parse(preRec?.[0]?.payload_json || '{}')?.payment_plan || null;
+    } catch (_) {}
+    const invoiceStatusNow = computeInvoiceStatusFromIntentStatus(nextStatus, payPlanRec);
 
     const [intentUpdate] = await db.promisePool.execute(
       `UPDATE babyeyi_payment_intents
@@ -2146,7 +2511,7 @@ router.post('/admin-intents/:id/reconcile-provider', requireRole('SUPER_ADMIN', 
       return res.status(503).json({ success: false, message: 'XentriPay is not configured on server' });
     }
     const [rows] = await db.promisePool.execute(
-      `SELECT id, provider, provider_reference, provider_tid, provider_payload_json, status
+      `SELECT id, provider, provider_reference, provider_tid, provider_payload_json, status, payload_json
        FROM babyeyi_payment_intents
        WHERE id = ?
        LIMIT 1`,
@@ -2174,7 +2539,11 @@ router.post('/admin-intents/:id/reconcile-provider', requireRole('SUPER_ADMIN', 
     const raw = String(gatewayResp?.data?.status || gatewayResp?.status || '').trim().toUpperCase();
     const providerStatus = raw || 'PENDING';
     const nextStatus = mapProviderToLocalStatus(providerStatus);
-    const invoiceStatusNow = computeInvoiceStatusFromIntentStatus(nextStatus);
+    let payPlanAd = null;
+    try {
+      payPlanAd = JSON.parse(row.payload_json || '{}')?.payment_plan || null;
+    } catch (_) {}
+    const invoiceStatusNow = computeInvoiceStatusFromIntentStatus(nextStatus, payPlanAd);
     await db.promisePool.execute(
       `UPDATE babyeyi_payment_intents
        SET status = ?, provider_status = ?, provider_payload_json = ?,
@@ -2574,13 +2943,22 @@ router.put('/admin-intents/:id/status', requireRole('SUPER_ADMIN', 'FULL_SYSTEM_
     if (!VALID_INTENT_STATUSES.has(status)) {
       return res.status(400).json({ success: false, message: 'Invalid status. Use submitted, paid, failed.' });
     }
+    const [[prevIntent]] = await db.promisePool.execute(
+      `SELECT payload_json FROM babyeyi_payment_intents WHERE id = ? LIMIT 1`,
+      [id]
+    );
+    let payPlanAdm = null;
+    try {
+      payPlanAdm = JSON.parse(prevIntent?.payload_json || '{}')?.payment_plan || null;
+    } catch (_) {}
+    const invStAdm = computeInvoiceStatusFromIntentStatus(status, payPlanAdm);
     const [result] = await db.promisePool.execute(
       `UPDATE babyeyi_payment_intents
        SET status = ?,
            invoice_status = ?,
            invoice_paid_at = CASE WHEN ? = 'PAID' THEN NOW() ELSE invoice_paid_at END
        WHERE id = ?`,
-      [status, computeInvoiceStatusFromIntentStatus(status), computeInvoiceStatusFromIntentStatus(status), id]
+      [status, invStAdm, invStAdm, id]
     );
     if (!result?.affectedRows) {
       return res.status(404).json({ success: false, message: 'Payment intent not found' });
@@ -2642,7 +3020,7 @@ router.put('/admin-loan-repayments/:id/review', requireRole('SUPER_ADMIN', 'FULL
     const paid = Number(sumRows?.[0]?.paid || 0);
     const remaining = Math.max(0, Math.round((Number(plan.total_due_rwf || 0) - paid) * 100) / 100);
     const nextIntentStatus = remaining <= 0 ? 'paid' : 'submitted';
-    const invoiceStatusNow = computeInvoiceStatusFromIntentStatus(nextIntentStatus);
+    const invoiceStatusNow = computeInvoiceStatusFromIntentStatus(nextIntentStatus, payload.payment_plan);
     await db.promisePool.execute(
       `UPDATE babyeyi_payment_intents
        SET status = ?, invoice_status = ?, invoice_paid_at = CASE WHEN ? = 'PAID' THEN NOW() ELSE invoice_paid_at END
@@ -3093,4 +3471,5 @@ router.get('/invoices/export.pdf', requireRole('SUPER_ADMIN', 'FULL_SYSTEM_CONTR
   }
 });
 
+router.__sendShuleAvanceFinancingApplicantEmail = sendShuleAvanceFinancingApplicantEmail;
 module.exports = router;

@@ -50,6 +50,8 @@ const DASHBOARD = {
   PARENT: '/parent/dashboard',
   NESA_ADMIN: '/nesa-babyeyi-dashboard',
   DEO: '/district-babyeyi-dashboard',
+  AGENT: '/agent/dashboard',
+  SHULE_AVANCE_PARTNER: '/shule-avance/dashboard',
 };
 
 const Login = () => {
