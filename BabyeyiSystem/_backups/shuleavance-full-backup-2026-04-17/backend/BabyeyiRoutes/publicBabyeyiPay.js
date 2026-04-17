@@ -1419,7 +1419,6 @@ router.post('/quote-balance', async (req, res) => {
       selectedFeeIds: body.selected_fee_ids,
       selectedReqIds: body.selected_requirement_ids,
       selectedStudents: body.selected_students,
-      school_counter_credits_rwf: body.school_counter_credits_rwf ?? body.schoolCounterCreditsRwf ?? null,
     });
     if (!result.ok) {
       return res.status(result.status).json({ success: false, message: result.message });
@@ -1485,7 +1484,6 @@ router.post('/intent', async (req, res) => {
       selected_requirement_ids: body.selected_requirement_ids || [],
       selected_student: body.selected_student || null,
       selected_students: Array.isArray(body.selected_students) ? body.selected_students : (body.selected_student ? [body.selected_student] : []),
-      school_counter_credits_rwf: body.school_counter_credits_rwf || body.schoolCounterCreditsRwf || null,
       payment_plan: body.payment_plan || null,
       payer: body.payer || null,
       public_pay_no_login: !!body.public_pay_no_login,

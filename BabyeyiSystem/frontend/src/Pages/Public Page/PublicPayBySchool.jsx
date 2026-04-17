@@ -10,7 +10,7 @@ import {
   ArrowLeft, Building2, ChevronRight, CircleDollarSign,
   CreditCard, GraduationCap, Loader2, Search, ShieldCheck,
   Wallet, X, ArrowRight, School, Banknote, Check,
-  AlertCircle, ChevronDown,
+  AlertCircle, ChevronDown, Calendar,
 } from "lucide-react";
 
 const SERVER = import.meta.env.VITE_API_URL || "http://localhost:5100";
@@ -34,7 +34,11 @@ const FontLoader = () => (
 );
 
 /* ── helpers ─────────────────────────────────────────────────── */
-function normFeeId(id) { const n = Number(id); return Number.isFinite(n) ? n : id; }
+function normFeeId(id) {
+  if (id != null && String(id).startsWith("pasreq:")) return String(id);
+  const n = Number(id);
+  return Number.isFinite(n) ? n : id;
+}
 function normReqId(id) { const n = parseInt(id, 10); return Number.isFinite(n) && n > 0 ? n : null; }
 function payImgUrl(p) { if (!p) return ""; if (p.startsWith("http")) return p; return `${SERVER}${p.startsWith("/") ? "" : "/"}${p}`; }
 function comboLabel(c) {
@@ -44,56 +48,12 @@ function comboLabel(c) {
   return `${cls} · ${te} · ${yr}`;
 }
 
-const SECTION_META = {
-  nursery: { label: "Nursary", chip: "N1-N3" },
-  primary: { label: "Primary", chip: "P1-P6" },
-  o_level: { label: "O-Level", chip: "S1-S3" },
-  a_level: { label: "A-Level", chip: "S4-S6" },
-  tvet: { label: "TVET", chip: "TVET" },
-};
-
-function parseEducationLevels(raw) {
-  if (!raw) return [];
-  if (Array.isArray(raw)) return raw.map((x) => String(x || "").trim()).filter(Boolean);
-  if (typeof raw === "string") {
-    const s = raw.trim();
-    if (!s) return [];
-    try {
-      const j = JSON.parse(s);
-      return Array.isArray(j) ? j.map((x) => String(x || "").trim()).filter(Boolean) : [];
-    } catch {
-      return [];
-    }
-  }
-  return [];
-}
-
-function eduLevelToSectionKey(v) {
-  const s = String(v || "").toLowerCase();
-  if (!s) return null;
-  if (s.includes("nursery") || s.includes("pre-primary") || s.includes("pre_primary")) return "nursery";
-  if (s.includes("primary")) return "primary";
-  if (s.includes("o-level") || s.includes("o level") || s.includes("olevel")) return "o_level";
-  if (s.includes("a-level") || s.includes("a level") || s.includes("alevel")) return "a_level";
-  if (s.includes("tvet")) return "tvet";
-  return null;
-}
-
-function classToSectionKey(className) {
-  const c = String(className || "").trim().toUpperCase();
-  if (/^N[123]\b/.test(c)) return "nursery";
-  if (/^P[1-6]\b/.test(c)) return "primary";
-  if (/^S[123]\b/.test(c)) return "o_level";
-  if (/^S[456]\b/.test(c)) return "a_level";
-  return "tvet";
-}
-
 /* ── Step indicator component ────────────────────────────────── */
 const STEPS = [
-  { id: 1, label: "School", short: "School", icon: Building2 },
-  { id: 2, label: "Select Fees", short: "Fees", icon: Wallet },
-  { id: 3, label: "Amount", short: "Amount", icon: Banknote },
-  { id: 4, label: "Student", short: "Student", icon: GraduationCap },
+  { id: 1, label: "Student", short: "Code", icon: GraduationCap },
+  { id: 2, label: "Term & Year", short: "Period", icon: Calendar },
+  { id: 3, label: "Select Fees", short: "Fees", icon: Wallet },
+  { id: 4, label: "Amount", short: "Amount", icon: Banknote },
   { id: 5, label: "Checkout", short: "Pay", icon: CreditCard },
 ];
 
@@ -221,8 +181,7 @@ export default function PublicPayBySchool() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const classkitIntent = searchParams.get("intent") === "classkit" || String(searchParams.get("service") || "").toLowerCase() === "shulekit";
-  const urlSchoolLoadDone = useRef(false);
-  const autoStudentLookupDone = useRef(false);
+  const urlStudentLoadDone = useRef(false);
   const autoCheckoutTriggered = useRef(false);
 
   // Wizard state
@@ -230,16 +189,12 @@ export default function PublicPayBySchool() {
   const [stepKey, setStepKey] = useState(0);
 
   const goStep = useCallback((n) => { setStep(n); setStepKey(k => k + 1); }, []);
-  const next = useCallback(() => goStep(s => s + 1), [goStep]);
-  const back = useCallback(() => goStep(s => s - 1), [goStep]);
 
-  // School
-  const [schoolCodeInput, setSchoolCodeInput] = useState("");
+  // Student code → school + class (from API)
+  const [studentCodeInput, setStudentCodeInput] = useState("");
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [catalogErr, setCatalogErr] = useState("");
   const [catalog, setCatalog] = useState(null);
-  const [sectionKey, setSectionKey] = useState("");
-  const [classPick, setClassPick] = useState("");
   const [termPick, setTermPick] = useState("");
   const [yearPick, setYearPick] = useState("");
 
@@ -250,15 +205,15 @@ export default function PublicPayBySchool() {
   const [pricingData, setPricingData] = useState(null);
   const [feeSel, setFeeSel] = useState(() => new Set());
   const [reqSel, setReqSel] = useState(() => new Set());
+  /** RWF already paid at school counter — only for selected "School counter" (pasreq) lines; keys are String(fee id) e.g. pasreq:12 */
+  const [schoolCounterPaidByFeeId, setSchoolCounterPaidByFeeId] = useState({});
   const [imgPreview, setImgPreview] = useState(null);
 
   // Amount
   const [amountInput, setAmountInput] = useState("");
+  /** What this payment is covering: tuition & school-counter lines | online requirements only | full selection */
+  const [payScope, setPayScope] = useState("combined");
 
-  // Student
-  const [studentCode, setStudentCode] = useState("");
-  const [lookupLoading, setLookupLoading] = useState(false);
-  const [lookupErr, setLookupErr] = useState("");
   const [student, setStudent] = useState(null);
 
   const [payErr, setPayErr] = useState("");
@@ -270,132 +225,98 @@ export default function PublicPayBySchool() {
 
   const school = catalog?.school;
   const combinations = catalog?.combinations || [];
-  const registeredSectionKeys = useMemo(() => {
-    const levels = parseEducationLevels(school?.education_levels);
-    return [...new Set(levels.map(eduLevelToSectionKey).filter(Boolean))];
-  }, [school?.education_levels]);
 
-  const availableSectionKeys = useMemo(() => {
-    const fromCombos = [...new Set(combinations.map((c) => classToSectionKey(c.class_name)))];
-    if (!registeredSectionKeys.length) return fromCombos;
-    return registeredSectionKeys.filter((k) => fromCombos.includes(k));
-  }, [combinations, registeredSectionKeys]);
-
-  const classesForSection = useMemo(() => {
-    const src = combinations.filter((c) => !sectionKey || classToSectionKey(c.class_name) === sectionKey);
-    return [...new Set(src.map((c) => String(c.class_name || "").trim()).filter(Boolean))]
-      .sort((a, b) => String(a).localeCompare(String(b)));
-  }, [combinations, sectionKey]);
+  const yearsForSelection = useMemo(() => {
+    return [...new Set(combinations.map((c) => String(c.academic_year || "").trim()).filter(Boolean))]
+      .sort((a, b) => String(b).localeCompare(String(a)));
+  }, [combinations]);
 
   const termsForSelection = useMemo(() => {
     const src = combinations.filter((c) => {
-      if (sectionKey && classToSectionKey(c.class_name) !== sectionKey) return false;
-      if (classPick && String(c.class_name || "").trim() !== classPick) return false;
+      if (yearPick && String(c.academic_year || "").trim() !== yearPick) return false;
       return true;
     });
     return [...new Set(src.map((c) => String(c.term || "").trim()).filter(Boolean))]
       .sort((a, b) => String(a).localeCompare(String(b)));
-  }, [combinations, sectionKey, classPick]);
-
-  const yearsForSelection = useMemo(() => {
-    const src = combinations.filter((c) => {
-      if (sectionKey && classToSectionKey(c.class_name) !== sectionKey) return false;
-      if (classPick && String(c.class_name || "").trim() !== classPick) return false;
-      if (termPick && String(c.term || "").trim() !== termPick) return false;
-      return true;
-    });
-    return [...new Set(src.map((c) => String(c.academic_year || "").trim()).filter(Boolean))]
-      .sort((a, b) => String(b).localeCompare(String(a)));
-  }, [combinations, sectionKey, classPick, termPick]);
+  }, [combinations, yearPick]);
 
   const matchingComboIndices = useMemo(() => {
     return combinations
       .map((c, i) => ({ c, i }))
       .filter(({ c }) => {
-        if (sectionKey && classToSectionKey(c.class_name) !== sectionKey) return false;
-        if (classPick && String(c.class_name || "").trim() !== classPick) return false;
         if (termPick && String(c.term || "").trim() !== termPick) return false;
         if (yearPick && String(c.academic_year || "").trim() !== yearPick) return false;
         return true;
       })
       .map((x) => x.i);
-  }, [combinations, sectionKey, classPick, termPick, yearPick]);
+  }, [combinations, termPick, yearPick]);
 
   const selectedCombo = combinations[comboIndex] || null;
-  const sectionLabel = sectionKey ? (SECTION_META[sectionKey]?.label || sectionKey) : "—";
 
-  const studentPrefill = useMemo(() => (searchParams.get("student_uid") || searchParams.get("student_code") || "").trim(), [searchParams]);
-
-  // Auto-load from URL
-  useEffect(() => {
-    if (urlSchoolLoadDone.current) return;
-    const c = (searchParams.get("code") || searchParams.get("school_code") || "").trim();
-    if (!c) return;
-    urlSchoolLoadDone.current = true;
-    setSchoolCodeInput(c);
-    void loadCatalog(c);
-  }, [searchParams]);
-
-  useEffect(() => {
-    if (availableSectionKeys.length === 1 && !sectionKey) setSectionKey(availableSectionKeys[0]);
-  }, [availableSectionKeys, sectionKey]);
-
-  useEffect(() => {
-    setClassPick("");
-    setTermPick("");
-    setYearPick("");
-  }, [sectionKey]);
-
-  useEffect(() => {
-    if (classesForSection.length === 1 && !classPick) setClassPick(classesForSection[0]);
-  }, [classesForSection, classPick]);
-
-  useEffect(() => {
-    setTermPick("");
-    setYearPick("");
-  }, [classPick]);
-
-  useEffect(() => {
-    setYearPick("");
-  }, [termPick]);
+  const studentPrefill = useMemo(() => (
+    (searchParams.get("student_uid") || searchParams.get("student_code") || searchParams.get("code") || "").trim()
+  ), [searchParams]);
 
   useEffect(() => {
     if (!matchingComboIndices.length) return;
     if (!matchingComboIndices.includes(comboIndex)) setComboIndex(matchingComboIndices[0]);
   }, [matchingComboIndices, comboIndex]);
 
-  // Load school catalog
-  const loadCatalog = async (codeOverride) => {
-    const code = String(codeOverride ?? schoolCodeInput).trim();
-    if (!code) { setCatalogErr("Enter the school code printed on your invoice."); return; }
+  useEffect(() => {
+    if (yearsForSelection.length === 1 && !yearPick) setYearPick(yearsForSelection[0]);
+  }, [yearsForSelection, yearPick]);
+
+  useEffect(() => {
+    if (termsForSelection.length === 1 && !termPick) setTermPick(termsForSelection[0]);
+  }, [termsForSelection, termPick]);
+
+  // Load school + student class + Babyeyi rows for that class (global student code)
+  const loadStudentCatalog = async (codeOverride) => {
+    const code = String(codeOverride ?? studentCodeInput).trim();
+    if (!code) { setCatalogErr("Enter the student UID, official code, or SDM ID."); return; }
     setCatalogLoading(true); setCatalogErr(""); setCatalog(null);
     setPricingData(null); setStudent(null); setAmountInput(""); setComboIndex(0);
-    setSectionKey(""); setClassPick(""); setTermPick(""); setYearPick("");
+    setSchoolCounterPaidByFeeId({});
+    setTermPick(""); setYearPick("");
     try {
-      const res = await fetch(`${API}/public/public-pay/school-catalog`, {
+      const res = await fetch(`${API}/public/public-pay/student-catalog`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ school_code: code }),
+        body: JSON.stringify({ code }),
       });
       const json = await res.json().catch(() => ({}));
-      if (!res.ok || !json.success) throw new Error(json.message || "Could not load school.");
+      if (!res.ok || !json.success) throw new Error(json.message || "Could not load student.");
       setCatalog(json.data);
-      if (!(json.data.combinations || []).length)
-        setCatalogErr("This school has no published Babyeyi documents yet. Contact the school office.");
+      setStudent(json.data.student);
+      const defY = json.data.default_academic_year;
+      const defT = json.data.default_term;
+      if (defY) setYearPick(String(defY));
+      if (defT) setTermPick(String(defT));
     } catch (e) { setCatalogErr(e.message || "Request failed."); }
     finally { setCatalogLoading(false); }
   };
+
+  // Auto-load student from URL (?code= or ?student_code=)
+  useEffect(() => {
+    if (urlStudentLoadDone.current) return;
+    const c = studentPrefill;
+    if (!c) return;
+    urlStudentLoadDone.current = true;
+    setStudentCodeInput(c);
+    void loadStudentCatalog(c);
+  }, [studentPrefill]);
 
   // Load pricing when combo changes
   useEffect(() => {
     if (!school?.id || !selectedCombo?.babyeyi_id) { setPricingData(null); return; }
     let cancelled = false;
     setPricingLoading(true); setPricingErr(""); setPricingData(null);
-    setStudent(null); setAmountInput(""); setBalanceQuote(null);
+    setAmountInput(""); setBalanceQuote(null);
     fetch(`${API}/public/babyeyi-pay/pricing/${selectedCombo.babyeyi_id}?school_id=${encodeURIComponent(school.id)}`)
       .then(r => r.json()).then(j => {
         if (cancelled) return;
         if (!j.success) throw new Error(j.message || "Could not load pricing");
         setPricingData(j.data);
+        setSchoolCounterPaidByFeeId({});
         setFeeSel(new Set(j.data.school_fees?.map(f => normFeeId(f.id)).filter(x => x !== "" && x != null) || []));
         setReqSel(new Set(j.data.requirements?.map(x => normReqId(x.babyeyi_requirement_id)).filter(Boolean) || []));
       })
@@ -404,11 +325,42 @@ export default function PublicPayBySchool() {
     return () => { cancelled = true; };
   }, [school?.id, selectedCombo?.babyeyi_id]);
 
-  // Totals
+  useEffect(() => {
+    setPayScope("combined");
+  }, [selectedCombo?.babyeyi_id]);
+
+  const schoolCounterCreditsRwf = useMemo(() => {
+    const out = {};
+    if (!pricingData?.school_fees) return out;
+    for (const f of pricingData.school_fees) {
+      if (f.pay_source !== "requirement_paid_at_school") continue;
+      const fid = normFeeId(f.id);
+      if (!feeSel.has(fid)) continue;
+      const key = String(fid);
+      const raw = schoolCounterPaidByFeeId[key] ?? "";
+      const n = Math.round((parseFloat(String(raw).replace(/,/g, "")) || 0) * 100) / 100;
+      if (n <= 0) continue;
+      const cap = Math.round(Number(f.amount || 0) * 100) / 100;
+      out[key] = Math.min(n, cap);
+    }
+    return out;
+  }, [pricingData, feeSel, schoolCounterPaidByFeeId]);
+
+  const schoolCounterCreditSum = useMemo(
+    () => Math.round(Object.values(schoolCounterCreditsRwf).reduce((a, v) => a + Number(v || 0), 0) * 100) / 100,
+    [schoolCounterCreditsRwf]
+  );
+
+  // Totals (school-counter lines: subtract "already paid at school" toward online remainder)
   const feeTotal = useMemo(() => {
     if (!pricingData?.school_fees) return 0;
-    return pricingData.school_fees.filter(f => feeSel.has(normFeeId(f.id))).reduce((s, f) => s + Number(f.amount || 0), 0);
-  }, [pricingData, feeSel]);
+    return pricingData.school_fees.filter(f => feeSel.has(normFeeId(f.id))).reduce((s, f) => {
+      const owed = Math.round(Number(f.amount || 0) * 100) / 100;
+      const key = String(normFeeId(f.id));
+      const cred = f.pay_source === "requirement_paid_at_school" ? (schoolCounterCreditsRwf[key] || 0) : 0;
+      return s + Math.max(0, owed - cred);
+    }, 0);
+  }, [pricingData, feeSel, schoolCounterCreditsRwf]);
   const reqTotal = useMemo(() => {
     if (!pricingData?.requirements) return 0;
     return pricingData.requirements
@@ -416,12 +368,45 @@ export default function PublicPayBySchool() {
       .reduce((s, r) => s + Number(r.line_total_rwf ?? r.price ?? 0), 0);
   }, [pricingData, reqSel]);
   const grand = Math.round((feeTotal + reqTotal) * 100) / 100;
+
+  const effectiveFeeIds = useMemo(() => {
+    if (payScope === "requirements_online") return [];
+    return Array.from(feeSel).map((x) => normFeeId(x)).filter((x) => x !== "" && x != null);
+  }, [payScope, feeSel]);
+
+  const effectiveReqIds = useMemo(() => {
+    if (payScope === "tuition_school") return [];
+    return Array.from(reqSel).map((x) => normReqId(x)).filter(Boolean);
+  }, [payScope, reqSel]);
+
   const enteredAmount = parseFloat(String(amountInput).replace(/,/g, "")) || 0;
   const amountOverSel = enteredAmount > grand + 1.5;
   const minPayAmount = useMemo(() => {
-    const g = Math.round(grand * 100) / 100;
-    return g > 0 ? g : 0;
-  }, [grand]);
+    if (payScope === "tuition_school") return Math.round(feeTotal * 100) / 100;
+    if (payScope === "requirements_online") return Math.round(reqTotal * 100) / 100;
+    return Math.round(grand * 100) / 100;
+  }, [payScope, feeTotal, reqTotal, grand]);
+
+  const allocationNote = useMemo(() => {
+    if (!pricingData || enteredAmount <= 0) return null;
+    const toReqFirst = Math.min(enteredAmount, reqTotal);
+    const afterReq = Math.max(0, enteredAmount - toReqFirst);
+    const toFeeAfter = Math.min(afterReq, feeTotal);
+    if (payScope === "requirements_online" && reqTotal > 0 && enteredAmount > reqTotal + 0.01 && feeTotal > 0) {
+      return `Your selected online requirements total ${Math.round(reqTotal * 100) / 100} RWF. Any amount above that (up to your full selection) is recorded toward tuition & school-counter items.`;
+    }
+    if (payScope === "tuition_school" && feeTotal > 0 && enteredAmount > feeTotal + 0.01 && reqTotal > 0) {
+      const toFee = Math.min(enteredAmount, feeTotal);
+      const toReq = Math.min(Math.max(0, enteredAmount - toFee), reqTotal);
+      return `Tuition & school items use ${Math.round(toFee * 100) / 100} RWF; ${Math.round(toReq * 100) / 100} RWF is applied to online requirements.`;
+    }
+    if (payScope === "combined" && grand > 0 && reqTotal > 0 && feeTotal > 0 && enteredAmount + 1e-6 >= minPayAmount && enteredAmount <= grand + 1e-6) {
+      return `This payment applies ${Math.round(toReqFirst * 100) / 100} RWF to online requirements first, then ${Math.round(toFeeAfter * 100) / 100} RWF to tuition & school-counter lines.`;
+    }
+    return null;
+  }, [pricingData, enteredAmount, reqTotal, feeTotal, payScope, minPayAmount, grand]);
+
+  const amountValid = enteredAmount + 1e-6 >= minPayAmount && !amountOverSel && enteredAmount <= grand + 1.5;
 
   // Student lookup
   const selectedStudentForQuote = useMemo(() => {
@@ -429,16 +414,23 @@ export default function PublicPayBySchool() {
     return { student_id: student.id, student_uid: student.student_uid || null, student_code: student.student_code || null, sdm_code: student.sdm_code || null, student_name: `${student.first_name || ""} ${student.last_name || ""}`.trim(), first_name: student.first_name || null, last_name: student.last_name || null, class_name: student.class_name || null, academic_year: student.academic_year || null, school_name: school?.school_name || null };
   }, [student, school?.school_name]);
 
-  // Balance quote
+  // Balance quote (matches intended payment scope on step 4+)
   useEffect(() => {
     if (!school?.id || !selectedCombo?.babyeyi_id || !selectedStudentForQuote) { setBalanceQuote(null); setBalanceErr(""); return; }
-    const feeIds = Array.from(feeSel).map(id => normFeeId(id)).filter(n => n !== "" && n != null);
-    const reqIds = Array.from(reqSel).map(id => normReqId(id)).filter(Boolean);
+    const feeIds = effectiveFeeIds;
+    const reqIds = effectiveReqIds;
     let cancelled = false;
     setBalanceLoading(true); setBalanceErr("");
     fetch(`${API}/public/babyeyi-pay/quote-balance`, {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ school_id: school.id, babyeyi_id: selectedCombo.babyeyi_id, selected_fee_ids: feeIds, selected_requirement_ids: reqIds, selected_students: [selectedStudentForQuote] }),
+      body: JSON.stringify({
+        school_id: school.id,
+        babyeyi_id: selectedCombo.babyeyi_id,
+        selected_fee_ids: feeIds,
+        selected_requirement_ids: reqIds,
+        selected_students: [selectedStudentForQuote],
+        school_counter_credits_rwf: schoolCounterCreditsRwf,
+      }),
     }).then(r => r.json()).then(j => {
       if (cancelled) return;
       if (!j.success) throw new Error(j.message || "Balance check failed");
@@ -446,7 +438,7 @@ export default function PublicPayBySchool() {
     }).catch(e => { if (!cancelled) { setBalanceQuote(null); setBalanceErr(e.message || "Balance check failed"); } })
     .finally(() => { if (!cancelled) setBalanceLoading(false); });
     return () => { cancelled = true; };
-  }, [school?.id, selectedCombo?.babyeyi_id, selectedStudentForQuote, JSON.stringify([...feeSel].sort()), JSON.stringify([...reqSel].sort())]);
+  }, [school?.id, selectedCombo?.babyeyi_id, selectedStudentForQuote, payScope, JSON.stringify(effectiveFeeIds), JSON.stringify(effectiveReqIds), JSON.stringify(schoolCounterCreditsRwf)]);
 
   const remainingOwed = balanceQuote != null ? Number(balanceQuote.remaining_rwf ?? 0) : null;
   const remainingFullDocument = balanceQuote != null ? Number(balanceQuote.remaining_full_document_rwf ?? balanceQuote.remaining_rwf ?? 0) : null;
@@ -457,7 +449,6 @@ export default function PublicPayBySchool() {
     ? Math.max(0, Math.round((remainingFullDocument - enteredAmount) * 100) / 100)
     : null;
   const overpays = remainingOwed != null && enteredAmount > remainingOwed + 1.5;
-  const amountValid = enteredAmount + 1e-6 >= minPayAmount && !amountOverSel;
 
   const classMismatch = useMemo(() => {
     if (!student?.class_name || !pricingData?.babyeyi?.class_name) return false;
@@ -478,34 +469,9 @@ export default function PublicPayBySchool() {
     });
   };
 
-  const runStudentLookup = async (codeOverride) => {
-    const trimmed = String(codeOverride ?? studentCode).trim();
-    if (!trimmed) { setLookupErr("Enter student UID, official code, or SDM ID."); return; }
-    if (!school?.school_code || !selectedCombo?.babyeyi_id) return;
-    setStudentCode(trimmed); setLookupLoading(true); setLookupErr(""); setStudent(null);
-    try {
-      const res = await fetch(`${API}/public/public-pay/search-student`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ school_code: school.school_code, code: trimmed, babyeyi_id: selectedCombo.babyeyi_id }),
-      });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok || !json.success) throw new Error(json.message || "No student matched.");
-      setStudent(json.data.student);
-    } catch (e) { setLookupErr(e.message || "Lookup failed."); }
-    finally { setLookupLoading(false); }
-  };
-
-  // Auto student lookup from URL
-  useEffect(() => {
-    if (autoStudentLookupDone.current) return;
-    if (!studentPrefill || !school?.school_code || !selectedCombo?.babyeyi_id || !pricingData || pricingLoading) return;
-    autoStudentLookupDone.current = true;
-    void runStudentLookup(studentPrefill);
-  }, [studentPrefill, school?.school_code, selectedCombo?.babyeyi_id, pricingData, pricingLoading]);
-
   const continueToPayment = () => {
     setPayErr("");
-    if (!school || !selectedCombo?.babyeyi_id || !pricingData) { setPayErr("Load school and class/term first."); return; }
+    if (!school || !selectedCombo?.babyeyi_id || !pricingData) { setPayErr("Load term, year, and fees first."); return; }
     if (!amountValid) {
       if (enteredAmount + 1e-6 < minPayAmount) {
         setPayErr("The amount entered is less than the total for the selected requirements. Please pay the full required amount.");
@@ -514,12 +480,28 @@ export default function PublicPayBySchool() {
       }
       return;
     }
-    if (classMismatch) { setPayErr("Student's class does not match the selected Babyeyi. Go back to step 2."); return; }
-    if (!student) { setPayErr("Find and confirm the student before continuing."); return; }
+    if (classMismatch) { setPayErr("Student's class does not match the selected Babyeyi. Go back and pick another term or year."); return; }
+    if (!student) { setPayErr("Student could not be confirmed. Go back to step 1."); return; }
     if (balanceLoading) { setPayErr("Please wait — confirming balance."); return; }
     if (overpays) { setPayErr("Amount exceeds remaining balance for this student."); return; }
     const selectedStudent = { student_id: student.id, student_uid: student.student_uid || null, student_code: student.student_code || null, sdm_code: student.sdm_code || null, student_name: `${student.first_name || ""} ${student.last_name || ""}`.trim(), first_name: student.first_name || null, last_name: student.last_name || null, class_name: student.class_name || null, academic_year: student.academic_year || null, school_name: school.school_name || null };
-    const fullDraft = { schoolId: school.id, babyeyiId: selectedCombo.babyeyi_id, schoolName: school.school_name || "", docLabel: comboLabel(selectedCombo), grandTotal: enteredAmount, selectedFeeIds: Array.from(feeSel).map(x => normFeeId(x)).filter(n => n !== "" && n != null), selectedReqIds: Array.from(reqSel).map(x => normReqId(x)).filter(Boolean), pricingSnapshot: pricingData, selectedStudent, payer: null, fromPublicFinder: true, publicPayNoLogin: true, fromPublicSchoolPay: true };
+    const fullDraft = {
+      schoolId: school.id,
+      babyeyiId: selectedCombo.babyeyi_id,
+      schoolName: school.school_name || "",
+      docLabel: comboLabel(selectedCombo),
+      grandTotal: enteredAmount,
+      selectedFeeIds: effectiveFeeIds,
+      selectedReqIds: effectiveReqIds,
+      payScope,
+      schoolCounterCreditsRwf,
+      pricingSnapshot: pricingData,
+      selectedStudent,
+      payer: null,
+      fromPublicFinder: true,
+      publicPayNoLogin: true,
+      fromPublicSchoolPay: true,
+    };
     try { sessionStorage.setItem("babyeyi_pay_draft", JSON.stringify(fullDraft)); } catch (_) {}
     navigate("/payments", { state: fullDraft });
   };
@@ -596,11 +578,9 @@ export default function PublicPayBySchool() {
           </div>
           <h1 className="font-black text-white text-[24px] sm:text-[28px] xl:text-[32px] tracking-tight leading-tight mb-2">
             {classkitIntent ? "Pay for SchoolKit" : "Pay school fees by"}&nbsp;
-            <span className="text-amber-400">school code</span>
+            <span className="text-amber-400">Student code</span>
           </h1>
-          <p className="text-white/50 text-[14px] leading-relaxed">
-            No account needed — just your school's code, select your fees, and pay in minutes.
-          </p>
+        
         </div>
 
         {/* Main card */}
@@ -614,20 +594,20 @@ export default function PublicPayBySchool() {
           {/* Step content area */}
           <div className="px-5 sm:px-6 py-6">
 
-            {/* ── STEP 1: School code ────────────────────────── */}
+            {/* ── STEP 1: Student code → school + class ──────── */}
             {step === 1 && (
               <div key={stepKey} className="step-in">
                 <div className="mb-6">
-                  <h2 className="font-black text-white text-[18px] sm:text-[20px] mb-1.5">Enter school code</h2>
-                  <p className="text-white/45 text-[13px]">The code printed on your Babyeyi invoice or found on the school's profile page.</p>
+                  <h2 className="font-black text-white text-[18px] sm:text-[20px] mb-1.5">Enter student code</h2>
+                  <p className="text-white/45 text-[13px]">We use your learner&apos;s official code (or UID / SDM ID) to find their school and class — no school code needed.</p>
                 </div>
 
-                <Field label="School Code" required error={catalogErr}>
+                <Field label="Student Code / UID / SDMS ID" required error={catalogErr}>
                   <div className="flex gap-2.5">
                     <div className="flex-1">
-                      <Input value={schoolCodeInput} onChange={e => { setSchoolCodeInput(e.target.value); setCatalogErr(""); }} placeholder="e.g. 003 or GS-KM-001" icon={Search} onKeyDown={e => e.key === "Enter" && loadCatalog()}/>
+                      <Input value={studentCodeInput} onChange={e => { setStudentCodeInput(e.target.value); setCatalogErr(""); }} placeholder="Official student code or UID" icon={Search} onKeyDown={e => e.key === "Enter" && loadStudentCatalog()}/>
                     </div>
-                    <button onClick={() => loadCatalog()} disabled={catalogLoading}
+                    <button type="button" onClick={() => loadStudentCatalog()} disabled={catalogLoading}
                       className="flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-400 text-[#000435] font-black text-[13px] hover:bg-amber-300 transition-all disabled:opacity-50 shrink-0 min-h-[48px]">
                       {catalogLoading ? <Loader2 size={15} className="spin-anim"/> : <Search size={15}/>}
                       <span className="hidden sm:inline">Find</span>
@@ -635,111 +615,102 @@ export default function PublicPayBySchool() {
                   </div>
                 </Field>
 
-                {school && (
-                  <div className="mt-5 fade-in">
+                {school && student && (
+                  <div className="mt-5 fade-in space-y-3">
                     <div className="flex items-center gap-3 p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/8">
                       <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center shrink-0">
                         <Building2 size={18} className="text-emerald-400"/>
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-black text-white text-[15px] truncate">{school.school_name}</p>
-                        <p className="text-[11px] font-mono text-emerald-400/70 mt-0.5">Code: {school.school_code}</p>
+                        <p className="text-[11px] font-mono text-emerald-400/70 mt-0.5">School code: {school.school_code}</p>
                       </div>
-                      <div className="w-8 h-8 rounded-xl bg-emerald-500/20 flex items-center justify-center shrink-0">
-                        <Check size={16} className="text-emerald-400" strokeWidth={2.5}/>
+                      <Check size={16} className="text-emerald-400 shrink-0" strokeWidth={2.5}/>
+                    </div>
+                    <div className="flex items-start gap-3 p-4 rounded-xl border border-white/10 bg-white/4">
+                      <div className="w-10 h-10 rounded-xl bg-amber-400/15 border border-amber-400/25 flex items-center justify-center font-black text-[13px] text-amber-400 shrink-0">
+                        {`${student.first_name || " "}`[0]}{`${student.last_name || " "}`[0]}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-black text-white text-[15px]">{student.first_name} {student.last_name}</p>
+                        <p className="text-[12px] text-white/45 font-semibold mt-1">
+                          Class <span className="text-white/80">{student.class_name || "—"}</span>
+                          {student.academic_year ? <span className="text-white/35"> · Record year {student.academic_year}</span> : null}
+                        </p>
                       </div>
                     </div>
-
-                    {combinations.length > 0 && (
-                      <div className="mt-4 space-y-4">
-                        <div>
-                          <p className="text-[10px] font-black uppercase tracking-[.1em] text-white/35 mb-2">Choose section</p>
-                          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                            {availableSectionKeys.map((k) => {
-                              const m = SECTION_META[k] || { label: k, chip: "" };
-                              const active = sectionKey === k;
-                              return (
-                                <button
-                                  key={k}
-                                  type="button"
-                                  onClick={() => setSectionKey(k)}
-                                  className={`rounded-xl border px-2.5 py-2.5 text-left transition-all ${
-                                    active
-                                      ? "border-amber-400 bg-amber-400/12"
-                                      : "border-white/10 bg-white/4 hover:border-white/25"
-                                  }`}
-                                >
-                                  <p className={`text-[12px] font-black ${active ? "text-amber-300" : "text-white"}`}>{m.label}</p>
-                                  <p className="text-[10px] text-white/35 font-semibold mt-0.5">{m.chip}</p>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-
-                        <Field label="Class" required hint="Show only classes in this section for this school.">
-                          <Select value={classPick} onChange={(e) => setClassPick(e.target.value)}>
-                            <option value="">Choose class…</option>
-                            {classesForSection.map((c) => (
-                              <option key={c} value={c}>{c}</option>
-                            ))}
-                          </Select>
-                        </Field>
-
-                        <div className="grid sm:grid-cols-2 gap-3">
-                          <Field label="Term">
-                            <Select value={termPick} onChange={(e) => setTermPick(e.target.value)} disabled={!classPick}>
-                              <option value="">Any term</option>
-                              {termsForSelection.map((t) => <option key={t} value={t}>{t}</option>)}
-                            </Select>
-                          </Field>
-                          <Field label="Academic Year">
-                            <Select value={yearPick} onChange={(e) => setYearPick(e.target.value)} disabled={!classPick}>
-                              <option value="">Any year</option>
-                              {yearsForSelection.map((y) => <option key={y} value={y}>{y}</option>)}
-                            </Select>
-                          </Field>
-                        </div>
-
-                        {matchingComboIndices.length > 1 && (
-                          <Field label="Available Babyeyi documents" hint="Choose exact document for this section/class filters.">
-                            <Select value={comboIndex} onChange={(e) => setComboIndex(Number(e.target.value))}>
-                              {matchingComboIndices.map((i) => (
-                                <option key={`${combinations[i].babyeyi_id}-${i}`} value={i}>{comboLabel(combinations[i])}</option>
-                              ))}
-                            </Select>
-                          </Field>
-                        )}
-
-                        {classPick && matchingComboIndices.length === 0 && (
-                          <div className="rounded-xl border border-red-400/25 bg-red-400/8 px-3.5 py-3 text-[12px] text-red-300 font-semibold">
-                            No Babyeyi found for this section/class with the selected term/year. Try another term or academic year.
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </div>
                 )}
 
                 <NavBtns
                   onNext={() => {
-                    const needsSectionPick = availableSectionKeys.length > 1 && !sectionKey;
-                    if (school && !needsSectionPick && classPick && matchingComboIndices.length > 0) goStep(2);
-                    else if (!school) loadCatalog();
+                    if (school && student && combinations.length > 0) goStep(2);
+                    else if (!school) loadStudentCatalog();
                   }}
-                  nextLabel={school ? "Continue to Fees" : "Find School"}
-                  nextDisabled={!!(
-                    !school
-                      ? !schoolCodeInput.trim()
-                      : ((availableSectionKeys.length > 1 && !sectionKey) || !classPick || matchingComboIndices.length === 0)
-                  )}
+                  nextLabel={school ? "Continue" : "Find Student"}
+                  nextDisabled={!school || !student || !combinations.length}
                   nextLoading={catalogLoading}
                 />
               </div>
             )}
 
-            {/* ── STEP 2: Fees & Requirements ─────────────────── */}
-            {step === 2 && school && (
+            {/* ── STEP 2: Term & academic year (class fixed) ─── */}
+            {step === 2 && school && student && (
+              <div key={stepKey} className="step-in">
+                <div className="mb-6">
+                  <h2 className="font-black text-white text-[18px] sm:text-[20px] mb-1.5">Term and academic year</h2>
+                  <p className="text-white/45 text-[13px]">
+                    Fees are for <span className="text-amber-400 font-bold">{student.class_name || "your class"}</span> at {school.school_name}.
+                    The academic year defaults to the latest or the one on your record when available.
+                  </p>
+                </div>
+
+                <div className="grid sm:grid-cols-2 gap-3 mb-4">
+                  <Field label="Academic Year" required>
+                    <Select
+                      value={yearPick}
+                      onChange={(e) => { setYearPick(e.target.value); setTermPick(""); }}
+                      disabled={!yearsForSelection.length}
+                    >
+                      <option value="">Choose year…</option>
+                      {yearsForSelection.map((y) => <option key={y} value={y}>{y}</option>)}
+                    </Select>
+                  </Field>
+                  <Field label="Term" required>
+                    <Select value={termPick} onChange={(e) => setTermPick(e.target.value)} disabled={!yearPick}>
+                      <option value="">Choose term…</option>
+                      {termsForSelection.map((t) => <option key={t} value={t}>{t}</option>)}
+                    </Select>
+                  </Field>
+                </div>
+
+                {matchingComboIndices.length > 1 && (
+                  <Field label="Babyeyi document" hint="Multiple fee documents match; pick the one that matches your invoice.">
+                    <Select value={comboIndex} onChange={(e) => setComboIndex(Number(e.target.value))}>
+                      {matchingComboIndices.map((i) => (
+                        <option key={`${combinations[i].babyeyi_id}-${i}`} value={i}>{comboLabel(combinations[i])}</option>
+                      ))}
+                    </Select>
+                  </Field>
+                )}
+
+                {yearPick && termPick && matchingComboIndices.length === 0 && (
+                  <div className="rounded-xl border border-red-400/25 bg-red-400/8 px-3.5 py-3 text-[12px] text-red-300 font-semibold">
+                    No Babyeyi for this class with the selected term and year. Try another combination.
+                  </div>
+                )}
+
+                <NavBtns
+                  onBack={() => goStep(1)}
+                  onNext={() => { if (termPick && yearPick && matchingComboIndices.length > 0) goStep(3); }}
+                  nextLabel="Continue to Fees"
+                  nextDisabled={!termPick || !yearPick || matchingComboIndices.length === 0}
+                />
+              </div>
+            )}
+
+            {/* ── STEP 3: Fees & Requirements ─────────────────── */}
+            {step === 3 && school && (
               <div key={stepKey} className="step-in">
                 <div className="mb-5">
                   <h2 className="font-black text-white text-[18px] sm:text-[20px] mb-1">Select what to pay</h2>
@@ -755,7 +726,7 @@ export default function PublicPayBySchool() {
                     <p className="font-black text-white text-[13px]">{school.school_name}</p>
                     <p className="text-[11px] text-amber-400/70 font-semibold">{selectedCombo ? comboLabel(selectedCombo) : "—"}</p>
                   </div>
-                  <button onClick={() => goStep(1)} className="text-[11px] text-amber-400/60 hover:text-amber-400 font-bold transition-colors shrink-0">Change</button>
+                  <button type="button" onClick={() => goStep(2)} className="text-[11px] text-amber-400/60 hover:text-amber-400 font-bold transition-colors shrink-0">Change</button>
                 </div>
 
                 {pricingLoading && (
@@ -779,23 +750,84 @@ export default function PublicPayBySchool() {
                     {(pricingData.school_fees || []).length > 0 && (
                       <div className="mb-4">
                         <p className="text-[10px] font-black uppercase tracking-[.1em] text-white/35 mb-3 flex items-center gap-2">
-                          <Wallet size={12}/> Tuition &amp; school fees
+                          <Wallet size={12}/> Tuition &amp; Paid at School Items
                         </p>
                         <div className="space-y-2">
                           {pricingData.school_fees.map(f => {
-                            const selected = feeSel.has(normFeeId(f.id));
+                            const fid = normFeeId(f.id);
+                            const selected = feeSel.has(fid);
+                            const isPas = f.pay_source === "requirement_paid_at_school";
+                            const keyStr = String(fid);
+                            const owedLine = Math.round(Number(f.amount || 0) * 100) / 100;
+                            const appliedCred = isPas ? (schoolCounterCreditsRwf[keyStr] || 0) : 0;
+                            const dueLine = Math.max(0, owedLine - appliedCred);
                             return (
-                              <div key={f.id} onClick={() => toggleFee(f.id)}
-                                className={`flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
+                              <div
+                                key={String(f.id)}
+                                className={`rounded-xl border transition-all ${
                                   selected ? "border-amber-400/40 bg-amber-400/8" : "border-white/10 bg-white/3 hover:border-white/20"
-                                }`}>
-                                <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 border-2 transition-all ${
-                                  selected ? "bg-amber-400 border-amber-400" : "border-white/25 bg-transparent"
-                                }`}>
-                                  {selected && <Check size={11} className="text-[#000435]" strokeWidth={3}/>}
+                                }`}
+                              >
+                                <div
+                                  role="button"
+                                  tabIndex={0}
+                                  onClick={() => toggleFee(f.id)}
+                                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleFee(f.id); } }}
+                                  className="flex items-center gap-3 p-3.5 cursor-pointer"
+                                >
+                                  <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 border-2 transition-all ${
+                                    selected ? "bg-amber-400 border-amber-400" : "border-white/25 bg-transparent"
+                                  }`}>
+                                    {selected && <Check size={11} className="text-[#000435]" strokeWidth={3}/>}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="font-semibold text-white text-[13px]">{f.name || "Fee item"}</span>
+                                      {isPas ? (
+                                        <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-white/10 text-amber-300/90 border border-white/10">Paid at school</span>
+                                      ) : null}
+                                    </div>
+                                    {isPas && f.unit_price_rwf != null ? (
+                                      <p className="text-[10px] text-white/35 mt-1">
+                                        {Number(f.unit_price_rwf || 0).toLocaleString()} RWF × {Number(f.quantity_value ?? 1)} = {owedLine.toLocaleString()} RWF
+                                      </p>
+                                    ) : null}
+                                  </div>
+                                  <div className="text-right shrink-0">
+                                    {isPas && appliedCred > 0 ? (
+                                      <>
+                                        <p className="text-[10px] font-semibold text-white/40 line-through">{owedLine.toLocaleString()} RWF</p>
+                                        <p className="font-black text-[13px] font-mono text-amber-400">{dueLine.toLocaleString()} RWF <span className="text-[9px] font-bold text-emerald-400/90">due online</span></p>
+                                      </>
+                                    ) : (
+                                      <span className="font-black text-[13px] font-mono text-amber-400">{owedLine.toLocaleString()} RWF</span>
+                                    )}
+                                  </div>
                                 </div>
-                                <span className="flex-1 font-semibold text-white text-[13px]">{f.name || "Fee item"}</span>
-                                <span className="font-black text-[13px] font-mono text-amber-400">{Number(f.amount || 0).toLocaleString()} RWF</span>
+                                {isPas && selected && (
+                                  <div className="px-3.5 pb-3.5 pt-0 border-t border-white/6" onClick={(e) => e.stopPropagation()}>
+                                    <label className="block text-[9px] font-black uppercase tracking-wider text-white/35 mb-1.5 mt-2">
+                                      Cash already paid at school (RWF)
+                                    </label>
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      max={owedLine}
+                                      step={1}
+                                      value={schoolCounterPaidByFeeId[keyStr] ?? ""}
+                                      onChange={(e) => {
+                                        const v = e.target.value;
+                                        setSchoolCounterPaidByFeeId((prev) => ({ ...prev, [keyStr]: v }));
+                                      }}
+                                      onClick={(e) => e.stopPropagation()}
+                                      placeholder="0"
+                                      className="w-full h-10 rounded-lg border border-white/12 bg-[#000435]/80 text-white text-[14px] font-bold font-mono px-3 outline-none focus:border-amber-400/50 placeholder:text-white/25"
+                                    />
+                                    <p className="text-[10px] text-white/30 mt-1.5 leading-snug">
+                                      Enter what you already paid at the school office. The amount due online for this line updates above and carries through to <strong className="text-white/50">Amount</strong> and checkout.
+                                    </p>
+                                  </div>
+                                )}
                               </div>
                             );
                           })}
@@ -807,7 +839,7 @@ export default function PublicPayBySchool() {
                     {(pricingData.requirements || []).length > 0 && (
                       <div className="mb-5">
                         <p className="text-[10px] font-black uppercase tracking-[.1em] text-white/35 mb-3 flex items-center gap-2">
-                          <GraduationCap size={12}/> Other school requirements
+                          <GraduationCap size={12}/> Pay via Babyeyi — other requirements
                         </p>
                         <div className="space-y-2">
                           {pricingData.requirements.map((r) => {
@@ -838,7 +870,10 @@ export default function PublicPayBySchool() {
                                 ) : null}
                                 <div className="flex-1 min-w-0">
                                   <p className="font-semibold text-white text-[13px]">{r.requirement_name}</p>
-                                  <p className="text-[10px] text-white/35 mt-0.5">Qty: {r.quantity != null && String(r.quantity).trim() !== "" ? String(r.quantity) : "1"}</p>
+                                  <p className="text-[10px] text-white/35 mt-0.5">
+                                    {Number(r.unit_price_rwf ?? 0).toLocaleString()} RWF × {Number(r.quantity_value ?? 1)} = {line.toLocaleString()} RWF
+                                    {r.quantity != null && String(r.quantity).trim() !== "" ? ` · ${String(r.quantity)}` : ""}
+                                  </p>
                                 </div>
                                 <span className="font-black text-[13px] font-mono text-amber-400 shrink-0">{line.toLocaleString()} RWF</span>
                               </div>
@@ -851,47 +886,91 @@ export default function PublicPayBySchool() {
                     {/* Grand total */}
                     <div className="p-4 rounded-xl border-2 border-amber-400/40 bg-amber-400/6">
                       <div className="flex items-center justify-between">
-                        <p className="font-black text-white text-[15px]">Total</p>
+                        <p className="font-black text-white text-[15px]">Total due online</p>
                         <p className="font-black text-amber-400 text-[22px] font-mono">{grand.toLocaleString()} <span className="text-[14px]">RWF</span></p>
                       </div>
+                      {schoolCounterCreditSum > 0 && (
+                        <p className="text-[11px] text-emerald-300/90 font-semibold mt-2 pt-2 border-t border-amber-400/15">
+                          Including −{schoolCounterCreditSum.toLocaleString()} RWF declared as already paid at school (school-counter items only).
+                        </p>
+                      )}
                     </div>
                   </>
                 )}
 
                 <NavBtns
-                  onBack={() => goStep(1)}
-                  onNext={() => { if (pricingData && grand > 0) goStep(3); }}
+                  onBack={() => goStep(2)}
+                  onNext={() => { if (pricingData && grand > 0) goStep(4); }}
                   nextLabel="Set Amount"
                   nextDisabled={!pricingData || pricingLoading || !!pricingErr || grand === 0}
                 />
               </div>
             )}
 
-            {/* ── STEP 3: Amount ───────────────────────────────── */}
-            {step === 3 && pricingData && (
+            {/* ── STEP 4: Amount ───────────────────────────────── */}
+            {step === 4 && pricingData && (
               <div key={stepKey} className="step-in">
-                <div className="mb-6">
-                  <h2 className="font-black text-white text-[18px] sm:text-[20px] mb-1.5">How much to pay?</h2>
+                <div className="mb-5">
+                  <h2 className="font-black text-white text-[18px] sm:text-[20px] mb-1.5">Payment amount</h2>
                   <p className="text-white/45 text-[13px]">
-                    Minimum required: <span className="text-amber-400 font-bold">{minPayAmount.toLocaleString()} RWF</span>
-                    {" "}· Amount cannot be less than selected items total.
+                    Choose what this transfer should cover, then enter an amount between your minimum for that choice and{" "}
+                    <span className="text-amber-400 font-bold">{grand.toLocaleString()} RWF</span> (your full selection). You cannot pay more than the combined total of selected items.
                   </p>
                 </div>
 
-                {/* Quick-fill buttons */}
-                <div className="flex gap-2 flex-wrap mb-4">
-                  {[grand].filter(Boolean).map((v) => (
-                    <button key={v} type="button" onClick={() => setAmountInput(String(v))}
-                      className={`px-3.5 py-2 rounded-lg border text-[12px] font-bold transition-all ${
-                        enteredAmount === v ? "bg-amber-400 text-[#000435] border-amber-400" : "border-white/15 text-white/60 hover:border-amber-400/40 hover:text-amber-400"
-                      }`}>
-                      Use selected total
-                      <span className="ml-1.5 font-mono text-[11px] opacity-70">{v.toLocaleString()}</span>
+                <div className="grid gap-2.5 mb-5">
+                  {feeTotal > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => { setPayScope("tuition_school"); setAmountInput(String(Math.round(feeTotal * 100) / 100)); }}
+                      className={`text-left rounded-xl border px-4 py-3 transition-all ${
+                        payScope === "tuition_school" ? "border-amber-400 bg-amber-400/10" : "border-white/12 bg-white/4 hover:border-white/25"
+                      }`}
+                    >
+                      <p className="text-[11px] font-black uppercase tracking-[.08em] text-white/40">Pay tuition &amp; school-counter items</p>
+                      <p className="text-[15px] font-black text-amber-400 font-mono mt-0.5">{Math.round(feeTotal * 100) / 100} RWF</p>
+                      <p className="text-[11px] text-white/35 mt-1">Minimum for this option · excess can apply to online requirements if you pay above this</p>
                     </button>
-                  ))}
+                  )}
+                  {reqTotal > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => { setPayScope("requirements_online"); setAmountInput(String(Math.round(reqTotal * 100) / 100)); }}
+                      className={`text-left rounded-xl border px-4 py-3 transition-all ${
+                        payScope === "requirements_online" ? "border-amber-400 bg-amber-400/10" : "border-white/12 bg-white/4 hover:border-white/25"
+                      }`}
+                    >
+                      <p className="text-[11px] font-black uppercase tracking-[.08em] text-white/40">Pay online requirements (Babyeyi)</p>
+                      <p className="text-[15px] font-black text-amber-400 font-mono mt-0.5">{Math.round(reqTotal * 100) / 100} RWF</p>
+                      <p className="text-[11px] text-white/35 mt-1">Minimum for this option · amounts above this are recorded toward tuition &amp; school items</p>
+                    </button>
+                  )}
+                  {grand > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => { setPayScope("combined"); setAmountInput(String(Math.round(grand * 100) / 100)); }}
+                      className={`text-left rounded-xl border px-4 py-3 transition-all ${
+                        payScope === "combined" ? "border-amber-400 bg-amber-400/10" : "border-white/12 bg-white/4 hover:border-white/25"
+                      }`}
+                    >
+                      <p className="text-[11px] font-black uppercase tracking-[.08em] text-white/40">Pay everything selected</p>
+                      <p className="text-[15px] font-black text-amber-400 font-mono mt-0.5">{Math.round(grand * 100) / 100} RWF</p>
+                      <p className="text-[11px] text-white/35 mt-1">Tuition &amp; school lines + online requirements</p>
+                    </button>
+                  )}
                 </div>
 
-                <Field label="Amount (RWF)" required error={amountOverSel ? `Cannot exceed ${grand.toLocaleString()} RWF` : enteredAmount > 0 && enteredAmount + 1e-6 < minPayAmount ? "The amount entered is less than the total for the selected requirements. Please pay the full required amount." : ""}>
+                <div className="rounded-xl border border-white/10 bg-white/4 px-3.5 py-3 mb-4 text-[12px] text-white/50">
+                  <span className="font-bold text-white/70">Subtotals (due online): </span>
+                  Tuition &amp; school-counter {feeTotal.toLocaleString()} RWF · Online requirements {reqTotal.toLocaleString()} RWF · Combined {grand.toLocaleString()} RWF
+                  {schoolCounterCreditSum > 0 && (
+                    <span className="block mt-1.5 text-emerald-300/90">
+                      School counter: −{schoolCounterCreditSum.toLocaleString()} RWF already paid at office (from step 3) is included in the tuition &amp; school subtotal.
+                    </span>
+                  )}
+                </div>
+
+                <Field label="Amount (RWF)" required error={amountOverSel ? `Cannot exceed ${grand.toLocaleString()} RWF (selected items total).` : enteredAmount > 0 && enteredAmount + 1e-6 < minPayAmount ? `Enter at least ${minPayAmount.toLocaleString()} RWF for the payment option you chose.` : ""}>
                   <div className={`flex items-center gap-2.5 rounded-xl border transition-all h-14 px-4 ${
                     amountOverSel ? "border-red-400/50 bg-red-400/5"
                     : amountValid && enteredAmount > 0 ? "border-emerald-400/50 bg-emerald-400/5"
@@ -907,6 +986,12 @@ export default function PublicPayBySchool() {
                   </div>
                 </Field>
 
+                {allocationNote && enteredAmount >= 100 && (
+                  <div className="mt-3 rounded-xl border border-amber-400/25 bg-amber-400/8 px-3.5 py-3 text-[12px] text-amber-100/90 font-semibold leading-snug">
+                    {allocationNote}
+                  </div>
+                )}
+
                 {enteredAmount >= 100 && (
                   <div className="mt-4 grid grid-cols-1 gap-3 fade-in">
                     <SummaryCard label="You pay now" value={`${enteredAmount.toLocaleString()} RWF`} highlight />
@@ -914,101 +999,10 @@ export default function PublicPayBySchool() {
                 )}
 
                 <NavBtns
-                  onBack={() => goStep(2)}
-                  onNext={() => { if (amountValid) goStep(4); }}
-                  nextLabel="Find Student"
-                  nextDisabled={!amountValid}
-                />
-              </div>
-            )}
-
-            {/* ── STEP 4: Student ──────────────────────────────── */}
-            {step === 4 && pricingData && amountValid && (
-              <div key={stepKey} className="step-in">
-                <div className="mb-6">
-                  <h2 className="font-black text-white text-[18px] sm:text-[20px] mb-1.5">Find your student</h2>
-                  <p className="text-white/45 text-[13px]">Search by student UID, code, or SDMS ID — only learners at this school.</p>
-                </div>
-
-                <Field label="Student Code / UID / SDMS ID" required error={lookupErr}>
-                  <div className="flex gap-2.5">
-                    <div className="flex-1">
-                      <Input value={studentCode} onChange={e => { setStudentCode(e.target.value); setLookupErr(""); }} placeholder="Student UID or official code" icon={Search} onKeyDown={e => e.key === "Enter" && runStudentLookup()}/>
-                    </div>
-                    <button onClick={() => runStudentLookup()} disabled={lookupLoading}
-                      className="flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-400 text-[#000435] font-black text-[13px] hover:bg-amber-300 transition-all disabled:opacity-50 shrink-0 min-h-[48px]">
-                      {lookupLoading ? <Loader2 size={15} className="spin-anim"/> : "Search"}
-                    </button>
-                  </div>
-                </Field>
-
-                {student && (
-                  <div className="mt-4 fade-in space-y-3">
-                    {/* Student card */}
-                    <div className={`p-4 rounded-xl border ${classMismatch ? "border-red-400/40 bg-red-400/5" : "border-emerald-400/30 bg-emerald-400/6"}`}>
-                      <div className="flex items-start gap-3">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-[14px] shrink-0 ${classMismatch ? "bg-red-400/20 text-red-400" : "bg-emerald-500/20 text-emerald-400"}`}>
-                          {`${student.first_name || " "}`[0]}{`${student.last_name || " "}`[0]}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-black text-white text-[15px]">{student.first_name} {student.last_name}</p>
-                          <div className="flex items-center gap-3 mt-1 flex-wrap">
-                            <span className="text-[11px] text-white/50 font-semibold flex items-center gap-1"><GraduationCap size={11}/> Class {student.class_name || "—"}</span>
-                            <span className="text-[11px] text-white/50 font-semibold">Year {student.academic_year || "—"}</span>
-                          </div>
-                          <p className="text-[10px] text-white/30 font-mono mt-1">UID: {student.student_uid || "—"}</p>
-                        </div>
-                        {!classMismatch && <Check size={18} className="text-emerald-400 mt-0.5 shrink-0" strokeWidth={2.5}/>}
-                      </div>
-                      {classMismatch && (
-                        <div className="mt-3 pt-3 border-t border-red-400/20 flex items-start gap-2 text-[12px] text-red-400 font-semibold">
-                          <AlertCircle size={13} className="mt-0.5 shrink-0"/>
-                          Class mismatch: student is in <strong>{student.class_name}</strong> but Babyeyi is for <strong>{pricingData?.babyeyi?.class_name}</strong>. Go back to step 2 and pick the correct class.
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Balance panel */}
-                    {!classMismatch && (
-                      <div className="rounded-xl border border-white/10 bg-white/3 overflow-hidden">
-                        <div className="px-4 py-3 border-b border-white/8 flex items-center gap-2">
-                          <CircleDollarSign size={15} className="text-amber-400"/>
-                          <span className="text-[11px] font-black uppercase tracking-[.1em] text-white/50">Payment Summary for this Student</span>
-                          {balanceLoading && <Loader2 size={13} className="text-amber-400 spin-anim ml-auto"/>}
-                        </div>
-                        {balanceErr && (
-                          <div className="px-4 py-3 text-[12px] text-red-400 font-semibold">{balanceErr}</div>
-                        )}
-                        {!balanceLoading && balanceQuote && (
-                          <div className="p-4 space-y-3">
-                            <div className="grid grid-cols-2 gap-3">
-                              <SummaryCard label="Paying Now" value={`${enteredAmount.toLocaleString()} RWF`} highlight />
-                              <SummaryCard label="Remaining After This Payment" value={`${(remainingAfterCurrentPayment ?? 0).toLocaleString()} RWF`} sub={balanceQuote.term_label} green={remainingAfterCurrentPayment === 0} />
-                            </div>
-                            {remainingFullDocumentAfterCurrentPayment != null && (
-                              <div className="p-3 rounded-xl bg-white/4 border border-white/8 text-[12px]">
-                                <span className="text-white/40 font-bold">Outstanding after this payment for this term: </span>
-                                <span className="text-white font-black font-mono">{remainingFullDocumentAfterCurrentPayment.toLocaleString()} RWF</span>
-                              </div>
-                            )}
-                            {overpays && (
-                              <div className="flex items-start gap-2 p-3 rounded-xl border border-red-400/30 bg-red-400/8 text-[12px] text-red-400 font-semibold">
-                                <AlertCircle size={12} className="mt-0.5 shrink-0"/>
-                                Amount exceeds remaining balance. Reduce payment amount in step 3.
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <NavBtns
                   onBack={() => goStep(3)}
-                  onNext={() => { if (student && !classMismatch && !lookupLoading) goStep(5); }}
-                  nextLabel="Proceed to Checkout"
-                  nextDisabled={!student || !!classMismatch || lookupLoading}
+                  onNext={() => { if (amountValid) goStep(5); }}
+                  nextLabel="Review & Pay"
+                  nextDisabled={!amountValid}
                 />
               </div>
             )}
@@ -1025,7 +1019,7 @@ export default function PublicPayBySchool() {
                 <div className="p-4 rounded-xl border border-amber-400/25 bg-amber-400/6 mb-6">
                   <div className="flex items-center justify-between mb-3">
                     <p className="text-[11px] font-black uppercase tracking-[.1em] text-amber-400/60">Payment Summary</p>
-                    <button onClick={() => goStep(2)} className="text-[11px] text-amber-400/50 hover:text-amber-400 font-bold transition-colors">Edit</button>
+                    <button type="button" onClick={() => goStep(3)} className="text-[11px] text-amber-400/50 hover:text-amber-400 font-bold transition-colors">Edit</button>
                   </div>
                   <div className="space-y-1.5 text-[13px]">
                     <div className="flex items-center justify-between">
@@ -1061,6 +1055,39 @@ export default function PublicPayBySchool() {
                   </div>
                 </div>
 
+                {!classMismatch && (balanceLoading || balanceErr || balanceQuote) && (
+                  <div className="rounded-xl border border-white/10 bg-white/3 overflow-hidden mb-4">
+                    <div className="px-4 py-3 border-b border-white/8 flex items-center gap-2">
+                      <CircleDollarSign size={15} className="text-amber-400"/>
+                      <span className="text-[11px] font-black uppercase tracking-[.1em] text-white/50">Balance check</span>
+                      {balanceLoading && <Loader2 size={13} className="text-amber-400 spin-anim ml-auto"/>}
+                    </div>
+                    {balanceErr && (
+                      <div className="px-4 py-3 text-[12px] text-red-400 font-semibold">{balanceErr}</div>
+                    )}
+                    {!balanceLoading && balanceQuote && (
+                      <div className="p-4 space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <SummaryCard label="Paying Now" value={`${enteredAmount.toLocaleString()} RWF`} highlight />
+                          <SummaryCard label="Remaining After This Payment" value={`${(remainingAfterCurrentPayment ?? 0).toLocaleString()} RWF`} sub={balanceQuote.term_label} green={remainingAfterCurrentPayment === 0} />
+                        </div>
+                        {remainingFullDocumentAfterCurrentPayment != null && (
+                          <div className="p-3 rounded-xl bg-white/4 border border-white/8 text-[12px]">
+                            <span className="text-white/40 font-bold">Outstanding after this payment for this term: </span>
+                            <span className="text-white font-black font-mono">{remainingFullDocumentAfterCurrentPayment.toLocaleString()} RWF</span>
+                          </div>
+                        )}
+                        {overpays && (
+                          <div className="flex items-start gap-2 p-3 rounded-xl border border-red-400/30 bg-red-400/8 text-[12px] text-red-400 font-semibold">
+                            <AlertCircle size={12} className="mt-0.5 shrink-0"/>
+                            Amount exceeds remaining balance. Go back and lower the amount.
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {payErr && (
                   <div className="flex items-start gap-2.5 p-4 rounded-xl border border-red-400/30 bg-red-400/8 text-red-400 text-[13px] font-semibold mb-4 fade-in">
                     <AlertCircle size={15} className="mt-0.5 shrink-0"/>{payErr}
@@ -1083,8 +1110,8 @@ export default function PublicPayBySchool() {
                 </div>
 
                 <div className="mt-4 pt-4 border-t border-white/8">
-                  <button onClick={() => goStep(4)} className="text-[12px] text-white/35 hover:text-white/60 font-bold transition-colors flex items-center gap-1.5">
-                    <ArrowLeft size={13}/> Back to student
+                  <button type="button" onClick={() => goStep(4)} className="text-[12px] text-white/35 hover:text-white/60 font-bold transition-colors flex items-center gap-1.5">
+                    <ArrowLeft size={13}/> Back to amount
                   </button>
                 </div>
               </div>
@@ -1095,8 +1122,13 @@ export default function PublicPayBySchool() {
 
         {/* Footer link */}
         <div className="text-center mt-6 text-[12px] text-white/30 font-semibold">
-          Wrong school?{" "}
-          <Link to="/schools" className="text-amber-400/70 hover:text-amber-400 transition-colors font-bold">Browse all schools →</Link>
+          Need a different learner?{" "}
+          <button type="button" onClick={() => {
+            setCatalog(null); setStudent(null); setTermPick(""); setYearPick(""); setPricingData(null);
+            setAmountInput(""); setCatalogErr(""); setComboIndex(0); goStep(1);
+          }} className="text-amber-400/70 hover:text-amber-400 transition-colors font-bold">Start over</button>
+          {" · "}
+          <Link to="/schools" className="text-amber-400/70 hover:text-amber-400 transition-colors font-bold">Browse schools</Link>
         </div>
       </div>
 

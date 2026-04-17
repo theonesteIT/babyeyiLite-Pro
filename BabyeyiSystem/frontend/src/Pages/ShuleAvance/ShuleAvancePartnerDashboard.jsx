@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
@@ -12,6 +12,7 @@ import {
   LogOut,
   Menu,
   PieChart,
+  Bell,
   RefreshCw,
   School,
   Search,
@@ -54,13 +55,27 @@ function statusChipClass(st) {
   return 'bg-white/10 text-white/70 border-white/12';
 }
 
-function formatRwfCompact(n) {
+function formatRwf(n) {
   const v = Number(n || 0);
   if (!Number.isFinite(v)) return '0';
-  if (v >= 1_000_000_000) return `${(v / 1_000_000_000).toFixed(1)}B`;
-  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
-  if (v >= 1_000) return `${(v / 1_000).toFixed(1)}K`;
   return v.toLocaleString();
+}
+
+function notifyDesktop(title, body) {
+  if (typeof window === 'undefined') return;
+  if (!('Notification' in window)) return;
+  if (window.Notification.permission !== 'granted') return;
+  try {
+    const n = new window.Notification(title, {
+      body,
+      tag: 'shule-avance-new-request',
+      icon: '/1BABYEYI LOGO FINAL.png',
+    });
+    n.onclick = () => {
+      try { window.focus(); } catch (_) {}
+      n.close();
+    };
+  } catch (_) {}
 }
 
 function initialsFromOrg(name) {
@@ -161,29 +176,120 @@ export default function ShuleAvancePartnerDashboard() {
   const [search, setSearch] = useState('');
   const [filterInvoice, setFilterInvoice] = useState('');
   const [filterApplicant, setFilterApplicant] = useState('');
+  const [notifToast, setNotifToast] = useState('');
+  const [unreadPendingIds, setUnreadPendingIds] = useState([]);
+  const prevPendingIdsRef = useRef(null);
+  const notifStorageKey = useMemo(
+    () => `shule_avance_unread_pending_${String(me?.id || auth?.user?.shule_avance_org?.id || 'partner')}`,
+    [me?.id, auth?.user?.shule_avance_org?.id]
+  );
 
-  const load = useCallback(async () => {
+  const load = useCallback(async ({ silent = false, detectNew = false, skipMe = false } = {}) => {
     setErr('');
-    setLoading(true);
+    if (!silent) setLoading(true);
     try {
       const [a, b, c] = await Promise.all([
-        axios.get(`${API}/shule-avance-partner/me`, ax),
+        skipMe ? Promise.resolve(null) : axios.get(`${API}/shule-avance-partner/me`, ax),
         axios.get(`${API}/shule-avance-partner/stats`, ax),
         axios.get(`${API}/shule-avance-partner/requests`, ax),
       ]);
-      if (a.data.success) setMe(a.data.data);
+      if (!skipMe && a?.data?.success) setMe(a.data.data);
       if (b.data.success) setStats(b.data.data);
-      if (c.data.success) setRows(c.data.data || []);
+      if (c.data.success) {
+        const nextRows = c.data.data || [];
+        const nextPendingIds = new Set(
+          nextRows
+            .filter((r) => String(r.invoice_status || '').toUpperCase() === 'PENDING_APPROVAL')
+            .map((r) => Number(r.id || 0))
+            .filter((n) => Number.isFinite(n) && n > 0)
+        );
+
+        if (detectNew && prevPendingIdsRef.current && prevPendingIdsRef.current.size > 0) {
+          let fresh = 0;
+          const freshIds = [];
+          nextPendingIds.forEach((id) => {
+            if (!prevPendingIdsRef.current.has(id)) {
+              fresh += 1;
+              freshIds.push(id);
+            }
+          });
+          if (fresh > 0) {
+            setNotifToast(`${fresh} new request${fresh > 1 ? 's' : ''} received. Open Notifications to review.`);
+            if (typeof document === 'undefined' || document.hidden || !document.hasFocus()) {
+              notifyDesktop(
+                fresh === 1 ? 'New ShuleAvance request' : `${fresh} new ShuleAvance requests`,
+                'Open Notifications to review pending requests.'
+              );
+            }
+            setUnreadPendingIds((prev) => {
+              const base = new Set((prev || []).filter((x) => nextPendingIds.has(x)));
+              freshIds.forEach((id) => base.add(id));
+              return [...base];
+            });
+          }
+        }
+
+        prevPendingIdsRef.current = nextPendingIds;
+        setUnreadPendingIds((prev) => (prev || []).filter((id) => nextPendingIds.has(id)));
+        setRows(nextRows);
+      }
     } catch (e) {
-      setErr(e.response?.data?.message || e.message || 'Failed to load');
+      if (!silent) setErr(e.response?.data?.message || e.message || 'Failed to load');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load({ detectNew: false }); }, [load]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      load({ silent: true, detectNew: true, skipMe: true });
+    }, 15000);
+    return () => clearInterval(timer);
+  }, [load]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = window.localStorage.getItem(notifStorageKey);
+      if (!raw) return;
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) {
+        setUnreadPendingIds(arr.map((x) => Number(x)).filter((x) => Number.isFinite(x) && x > 0));
+      }
+    } catch (_) {}
+  }, [notifStorageKey]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem(notifStorageKey, JSON.stringify(unreadPendingIds));
+    } catch (_) {}
+  }, [notifStorageKey, unreadPendingIds]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!('Notification' in window)) return;
+    if (window.Notification.permission === 'default') {
+      window.Notification.requestPermission().catch(() => {});
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!notifToast) return undefined;
+    const timer = setTimeout(() => setNotifToast(''), 6000);
+    return () => clearTimeout(timer);
+  }, [notifToast]);
+
+  const markRequestSeen = useCallback((id) => {
+    const n = Number(id || 0);
+    if (!n) return;
+    setUnreadPendingIds((prev) => (prev || []).filter((x) => x !== n));
+  }, []);
 
   const openDetail = async (id) => {
+    markRequestSeen(id);
     setDetailId(id);
     setDetail(null);
     setDetailErr('');
@@ -217,7 +323,8 @@ export default function ShuleAvancePartnerDashboard() {
     try {
       const { data } = await axios.patch(`${API}/shule-avance-partner/requests/${id}`, { action }, ax);
       if (!data.success) throw new Error(data.message || 'Failed');
-      await load();
+      await load({ silent: true, detectNew: false, skipMe: true });
+      if (action !== 'request_info') markRequestSeen(id);
       if (detailId === id) await openDetail(id);
     } catch (e) {
       setErr(e.response?.data?.message || e.message || 'Action failed');
@@ -228,6 +335,11 @@ export default function ShuleAvancePartnerDashboard() {
 
   const orgName = me?.org_name || 'ShuleAvance Partner';
   const pendingCount = Number(stats?.pending ?? 0);
+  const unreadCount = unreadPendingIds.length;
+  const pendingRows = useMemo(
+    () => (rows || []).filter((r) => String(r.invoice_status || '').toUpperCase() === 'PENDING_APPROVAL'),
+    [rows]
+  );
 
   const analytics = useMemo(() => {
     const list = rows || [];
@@ -350,6 +462,19 @@ export default function ShuleAvancePartnerDashboard() {
 
   const p = detail?.payload || {};
   const sa = p?.payment_plan?.shule_avance || {};
+  const applicantProfile = useMemo(() => {
+    const fullName = String(sa?.applicant_full_name || detail?.payer_name || '').trim();
+    const nationalId = String(sa?.applicant_national_id || '').trim();
+    const email = String(sa?.applicant_email || detail?.payer_email || '').trim();
+    const phone = String(sa?.applicant_notification_phone || detail?.payer_phone || '').trim();
+    const occupation = String(sa?.applicant_occupation || '').trim();
+    const district = String(sa?.applicant_district || '').trim();
+    return { fullName, nationalId, email, phone, occupation, district };
+  }, [sa, detail?.payer_name, detail?.payer_email, detail?.payer_phone]);
+  const hasApplicantProfile = useMemo(
+    () => Object.values(applicantProfile).some((v) => String(v || '').trim()),
+    [applicantProfile]
+  );
   const students = Array.isArray(p.selected_students) && p.selected_students.length
     ? p.selected_students
     : (p.selected_student ? [p.selected_student] : []);
@@ -371,6 +496,7 @@ export default function ShuleAvancePartnerDashboard() {
   const navTitle = {
     overview: 'Dashboard',
     requests: 'Requests',
+    notifications: 'Notifications',
     analytics: 'Analytics',
     settings: 'Settings',
   };
@@ -378,6 +504,7 @@ export default function ShuleAvancePartnerDashboard() {
   const navSub = {
     overview: '/ Overview',
     requests: '/ All financing requests',
+    notifications: '/ Pending request alerts',
     analytics: '/ Insights from your data',
     settings: '/ Organization',
   };
@@ -393,6 +520,20 @@ export default function ShuleAvancePartnerDashboard() {
         <div className="fixed top-16 left-1/2 z-[500] max-w-lg -translate-x-1/2 px-4 w-full">
           <div className="rounded-xl border border-red-400/40 bg-red-950/90 px-4 py-3 text-sm text-red-100 shadow-xl backdrop-blur">
             {err}
+          </div>
+        </div>
+      )}
+      {notifToast && (
+        <div className="fixed top-32 left-1/2 z-[500] max-w-lg -translate-x-1/2 px-4 w-full">
+          <div className="rounded-xl border border-amber-300/35 bg-amber-500/15 px-4 py-3 text-sm font-bold text-amber-100 shadow-xl backdrop-blur flex items-center justify-between gap-3">
+            <span>{notifToast}</span>
+            <button
+              type="button"
+              onClick={() => setNotifToast('')}
+              className="rounded-md border border-amber-300/30 px-2 py-0.5 text-[11px] font-black hover:bg-amber-500/20"
+            >
+              Dismiss
+            </button>
           </div>
         </div>
       )}
@@ -447,10 +588,18 @@ export default function ShuleAvancePartnerDashboard() {
               className={`mb-0.5 flex w-full items-center gap-2.5 rounded-[10px] border border-transparent px-2.5 py-2 text-left text-[13px] font-bold transition ${activeNav === 'requests' ? 'bg-amber-400 text-[#000435]' : 'text-white/60 hover:bg-white/[0.08] hover:text-white'}`}
             >
               <FileText size={16} className="shrink-0 opacity-80" />
-              <span className="flex-1 truncate">Requests</span>
-              {pendingCount > 0 && (
-                <span className={`min-w-[18px] rounded-full px-1.5 py-0.5 text-center text-[10px] font-black ${activeNav === 'requests' ? 'bg-[#000435]/25 text-[#000435]' : 'bg-red-500 text-white'}`}>
-                  {pendingCount > 99 ? '99+' : pendingCount}
+              <span className="truncate">Requests</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => { setActiveNav('notifications'); setSidebarOpen(false); }}
+              className={`mb-0.5 flex w-full items-center gap-2.5 rounded-[10px] border border-transparent px-2.5 py-2 text-left text-[13px] font-bold transition ${activeNav === 'notifications' ? 'bg-amber-400 text-[#000435]' : 'text-white/60 hover:bg-white/[0.08] hover:text-white'}`}
+            >
+              <Bell size={16} className="shrink-0 opacity-80" />
+              <span className="flex-1 truncate">Notifications</span>
+              {unreadCount > 0 && (
+                <span className={`min-w-[18px] rounded-full px-1.5 py-0.5 text-center text-[10px] font-black ${activeNav === 'notifications' ? 'bg-[#000435]/25 text-[#000435]' : 'bg-red-500 text-white'}`}>
+                  {unreadCount > 99 ? '99+' : unreadCount}
                 </span>
               )}
             </button>
@@ -507,7 +656,7 @@ export default function ShuleAvancePartnerDashboard() {
             <div className="flex shrink-0 items-center gap-2">
               <button
                 type="button"
-                onClick={() => load()}
+                onClick={() => load({ detectNew: false })}
                 disabled={loading}
                 className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-amber-400/35 px-3 text-xs font-bold text-white/85 hover:bg-white/[0.06] disabled:opacity-50"
               >
@@ -533,10 +682,10 @@ export default function ShuleAvancePartnerDashboard() {
                   <KpiCard accent="blue" label="Pending review" value={loading ? null : Number(stats?.pending ?? 0).toLocaleString()} sub="Awaiting partner action" icon={Clock} loading={loading} />
                   <KpiCard accent="green" label="Approved" value={loading ? null : Number(stats?.approved ?? 0).toLocaleString()} sub={total ? `${approvalPct}% of total` : '—'} icon={CheckCircle2} loading={loading} />
                   <KpiCard accent="red" label="Rejected" value={loading ? null : Number(stats?.rejected ?? 0).toLocaleString()} icon={XCircle} loading={loading} />
-                  <KpiCard accent="teal" label="Paid / disbursed" value={loading ? null : Number(stats?.paid ?? 0).toLocaleString()} icon={Banknote} loading={loading} />
-                  <KpiCard accent="amber" label="Volume (RWF)" value={loading ? null : formatRwfCompact(analytics.totalRwf)} sub="Sum of request amounts" icon={Wallet} loading={loading} />
-                  <KpiCard accent="purple" label="Schools (IDs)" value={loading ? null : String(analytics.uniqueSchools)} sub="Distinct school_id in feed" icon={School} loading={loading} />
-                  <KpiCard accent="blue" label="Paid volume" value={loading ? null : formatRwfCompact(analytics.paidRwf)} sub="Invoice status PAID" icon={Banknote} loading={loading} />
+                  <KpiCard accent="teal" label="Paid" value={loading ? null : Number(stats?.paid ?? 0).toLocaleString()} icon={Banknote} loading={loading} />
+                  <KpiCard accent="amber" label="Amount (RWF)" value={loading ? null : formatRwf(analytics.totalRwf)} sub="Sum of request amounts" icon={Wallet} loading={loading} />
+                  <KpiCard accent="purple" label="Schools" value={loading ? null : String(analytics.uniqueSchools)} sub="Distinct school_id in feed" icon={School} loading={loading} />
+                  <KpiCard accent="blue" label="Paid Amount" value={loading ? null : formatRwf(analytics.paidRwf)} sub="Invoice status PAID" icon={Banknote} loading={loading} />
                 </div>
 
                 <div className="grid gap-3.5 lg:grid-cols-[2fr_1fr]">
@@ -603,7 +752,7 @@ export default function ShuleAvancePartnerDashboard() {
                           <div key={st}>
                             <div className="mb-1 flex justify-between text-[11px] font-bold">
                               <span className="text-white/50">{st}</span>
-                              <span className="font-mono text-amber-200/90">{formatRwfCompact(rwf)} RWF</span>
+                              <span className="font-mono text-amber-200/90">{formatRwf(rwf)} RWF</span>
                             </div>
                             <div className="h-2 overflow-hidden rounded-full bg-white/[0.08]">
                               <div
@@ -705,7 +854,7 @@ export default function ShuleAvancePartnerDashboard() {
                         {filteredRows.map((r) => (
                           <tr key={r.id} className="border-b border-white/[0.06] hover:bg-amber-400/[0.04]">
                             <td className="px-3 py-3 font-mono text-xs text-amber-200/90">#{r.id}</td>
-                            <td className="px-3 py-3 font-bold tabular-nums text-white">{formatRwfCompact(r.total_rwf)}</td>
+                            <td className="px-3 py-3 font-bold tabular-nums text-white">{formatRwf(r.total_rwf)} RWF</td>
                             <td className="px-3 py-3 text-xs capitalize text-white/75">{r.applicant_category || '—'}</td>
                             <td className="px-3 py-3 text-xs text-white/55 max-w-[160px] truncate">{r.purpose || '—'}</td>
                             <td className="px-3 py-3 font-mono text-xs text-amber-200/80">{r.invoice_no || '—'}</td>
@@ -749,7 +898,7 @@ export default function ShuleAvancePartnerDashboard() {
                       <div key={r.id} className="p-4 space-y-3">
                         <div className="flex justify-between gap-2">
                           <span className="font-mono text-xs text-amber-200">#{r.id}</span>
-                          <span className="font-mono text-sm font-black text-white">{formatRwfCompact(r.total_rwf)} RWF</span>
+                          <span className="font-mono text-sm font-black text-white">{formatRwf(r.total_rwf)} RWF</span>
                         </div>
                         <p className="text-xs text-white/60 capitalize">{r.applicant_category || '—'}</p>
                         <p className="text-xs text-white/45 line-clamp-2">{r.purpose || '—'}</p>
@@ -826,6 +975,57 @@ export default function ShuleAvancePartnerDashboard() {
                     </div>
                   </Panel>
                 </div>
+              </div>
+            )}
+
+            {activeNav === 'notifications' && (
+              <div className="mx-auto max-w-5xl space-y-4">
+                <Panel
+                  title="Request notifications"
+                  subtitle="Pending requests that need partner action"
+                  right={<span className="text-xs font-black text-amber-200">{pendingRows.length} pending · {unreadCount} unread</span>}
+                >
+                  {pendingRows.length === 0 ? (
+                    <p className="py-8 text-center text-sm text-white/45">No pending request notifications right now.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {pendingRows.map((r) => (
+                        <div
+                          key={`notif-${r.id}`}
+                          className={`rounded-xl border px-3 py-3 flex flex-wrap items-center gap-2 ${
+                            unreadPendingIds.includes(Number(r.id))
+                              ? 'border-red-300/35 bg-red-500/10'
+                              : 'border-amber-400/20 bg-amber-400/[0.06]'
+                          }`}
+                        >
+                          <span className="font-mono text-xs text-amber-200">#{r.id}</span>
+                          <span className="font-mono text-xs text-white/80">{r.invoice_no || 'No invoice number'}</span>
+                          <span className="text-xs text-white/70">{r.purpose || 'School financing request'}</span>
+                          <span className="ml-auto font-mono text-sm font-black text-white">{formatRwf(r.total_rwf)} RWF</span>
+                          {unreadPendingIds.includes(Number(r.id)) && (
+                            <span className="rounded-full border border-red-300/35 bg-red-500/20 px-2 py-0.5 text-[10px] font-black text-red-100">NEW</span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => openDetail(r.id)}
+                            className="rounded-lg border border-amber-400/40 bg-amber-400/15 px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wide text-amber-100 hover:bg-amber-400/25"
+                          >
+                            View request
+                          </button>
+                          {unreadPendingIds.includes(Number(r.id)) && (
+                            <button
+                              type="button"
+                              onClick={() => markRequestSeen(r.id)}
+                              className="rounded-lg border border-white/20 px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wide text-white/90 hover:bg-white/10"
+                            >
+                              Mark seen
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </Panel>
               </div>
             )}
 
@@ -940,15 +1140,34 @@ export default function ShuleAvancePartnerDashboard() {
                     </SectionCard>
                   )}
 
+                  {(detail?.deposit_bank_name || detail?.deposit_account_number || detail?.deposit_account_name || detail?.deposit_bank_branch) && (
+                    <SectionCard icon={Wallet} title="School deposit account">
+                      <DetailRow label="Bank" value={detail.deposit_bank_name} />
+                      <DetailRow label="Account number" value={detail.deposit_account_number} mono />
+                      <DetailRow label="Account name" value={detail.deposit_account_name} />
+                      <DetailRow label="Branch" value={detail.deposit_bank_branch} />
+                    </SectionCard>
+                  )}
+
                   <SectionCard icon={User} title="Payer / contact">
                     <DetailRow label="Name" value={detail.payer_name} />
                     <DetailRow label="Phone" value={detail.payer_phone} />
                     <DetailRow label="Email" value={detail.payer_email} />
                   </SectionCard>
 
+                  {hasApplicantProfile && (
+                    <SectionCard icon={User} title="Applicant profile">
+                      <DetailRow label="Full name" value={applicantProfile.fullName} />
+                      <DetailRow label="National ID" value={applicantProfile.nationalId} mono />
+                      <DetailRow label="Email" value={applicantProfile.email} />
+                      <DetailRow label="Phone (SMS updates)" value={applicantProfile.phone} />
+                      <DetailRow label="Occupation" value={applicantProfile.occupation} />
+                      <DetailRow label="District / residence" value={applicantProfile.district} />
+                    </SectionCard>
+                  )}
+
                   <SectionCard icon={Wallet} title="ShuleAvance application">
                     <DetailRow label="Organization" value={sa.organization_name} />
-                    <DetailRow label="Applicant category" value={sa.applicant_category} />
                     <DetailRow label="Notification email" value={sa.applicant_notification_email} />
                     <DetailRow label="Purpose" value={sa.purpose} />
                     <DetailRow label="Repayment (months)" value={sa.repayment_period_months} />

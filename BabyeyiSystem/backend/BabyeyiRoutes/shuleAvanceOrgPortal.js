@@ -9,6 +9,22 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/database');
 
+function pickDepositAccountFromBabyeyiRow(row) {
+  let banks = [];
+  try {
+    const parsed = typeof row?.banks_json === 'string' ? JSON.parse(row.banks_json) : row?.banks_json;
+    banks = Array.isArray(parsed) ? parsed : [];
+  } catch (_) {
+    banks = [];
+  }
+  const first = banks[0] || {};
+  const bank_name = first.bankName || first.bank_name || row?.bank_name || null;
+  const account_number = first.accountNumber || first.bank_account_no || row?.bank_account_no || null;
+  const account_name = first.accountName || first.bank_account_name || null;
+  const bank_branch = first.bankBranch || first.bank_branch || row?.bank_branch || null;
+  return { bank_name, account_number, account_name, bank_branch };
+}
+
 function requirePartner(req, res, next) {
   if (!req.session?.userId) {
     return res.status(401).json({ success: false, message: 'Not authenticated' });
@@ -47,11 +63,13 @@ router.get('/requests', async (req, res) => {
   try {
     const orgId = req.shuleAvanceOrgId;
     const [rows] = await db.promisePool.execute(
-      `SELECT id, school_id, babyeyi_id, total_rwf, status, invoice_no, invoice_status,
-              payer_name, payer_phone, payer_email, created_at, payload_json
-       FROM babyeyi_payment_intents
-       WHERE JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.payment_plan.shule_avance.organization_id')) = ?
-       ORDER BY created_at DESC
+      `SELECT i.id, i.school_id, i.babyeyi_id, i.total_rwf, i.status, i.invoice_no, i.invoice_status,
+              i.payer_name, i.payer_phone, i.payer_email, i.created_at, i.payload_json,
+              b.bank_name, b.bank_account_no, b.bank_branch, b.banks_json
+       FROM babyeyi_payment_intents i
+       LEFT JOIN school_babyeyi b ON b.id = i.babyeyi_id AND b.school_id = i.school_id
+       WHERE JSON_UNQUOTE(JSON_EXTRACT(i.payload_json, '$.payment_plan.shule_avance.organization_id')) = ?
+       ORDER BY i.created_at DESC
        LIMIT 200`,
       [String(orgId)]
     );
@@ -61,6 +79,7 @@ router.get('/requests', async (req, res) => {
         payload = JSON.parse(r.payload_json || '{}');
       } catch (_) {}
       const sa = payload?.payment_plan?.shule_avance || {};
+      const deposit = pickDepositAccountFromBabyeyiRow(r);
       return {
         id: r.id,
         school_id: r.school_id,
@@ -76,6 +95,10 @@ router.get('/requests', async (req, res) => {
         purpose: sa.purpose || null,
         repayment_months: sa.repayment_period_months || null,
         financing_request_status: sa.financing_request_status || 'SUBMITTED',
+        deposit_bank_name: deposit.bank_name,
+        deposit_account_number: deposit.account_number,
+        deposit_account_name: deposit.account_name,
+        deposit_bank_branch: deposit.bank_branch,
       };
     });
     return res.json({ success: true, data: list });
@@ -91,9 +114,11 @@ router.get('/requests/:id', async (req, res) => {
     if (!id) return res.status(400).json({ success: false, message: 'Invalid id' });
     const orgId = String(req.shuleAvanceOrgId);
     const [rows] = await db.promisePool.execute(
-      `SELECT i.*, s.school_name, s.district, s.sector, s.province
+      `SELECT i.*, s.school_name, s.district, s.sector, s.province,
+              b.bank_name, b.bank_account_no, b.bank_branch, b.banks_json
        FROM babyeyi_payment_intents i
        LEFT JOIN schools s ON s.id = i.school_id
+       LEFT JOIN school_babyeyi b ON b.id = i.babyeyi_id AND b.school_id = i.school_id
        WHERE i.id = ?
          AND JSON_UNQUOTE(JSON_EXTRACT(i.payload_json, '$.payment_plan.shule_avance.organization_id')) = ?
        LIMIT 1`,
@@ -105,7 +130,19 @@ router.get('/requests/:id', async (req, res) => {
     try {
       payload = JSON.parse(row.payload_json || '{}');
     } catch (_) {}
-    return res.json({ success: true, data: { ...row, payload_json: undefined, payload } });
+    const deposit = pickDepositAccountFromBabyeyiRow(row);
+    return res.json({
+      success: true,
+      data: {
+        ...row,
+        payload_json: undefined,
+        payload,
+        deposit_bank_name: deposit.bank_name,
+        deposit_account_number: deposit.account_number,
+        deposit_account_name: deposit.account_name,
+        deposit_bank_branch: deposit.bank_branch,
+      },
+    });
   } catch (e) {
     console.error('[shule-avance-partner/requests/:id]', e);
     return res.status(500).json({ success: false, message: 'Failed' });

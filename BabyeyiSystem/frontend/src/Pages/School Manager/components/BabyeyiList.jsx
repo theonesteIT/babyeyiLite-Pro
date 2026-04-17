@@ -765,7 +765,13 @@ async function loadFullRecord(sumRec, docLang = "en") {
   else { try { const lRes = await fetch(`${API_BASE}/babyeyi/${sumRec.id}/leaders`, { credentials: "include" }); const lJson = await lRes.json(); if (lJson.success && Array.isArray(lJson.data)) leaders = lJson.data; } catch {} }
   return {
     ...sumRec, payments,
-    requirements: (d.student_requirements || []).map(r => ({ item: r.item, description: r.description || "", quantity: r.quantity || "" })),
+    requirements: (d.student_requirements || []).map(r => ({
+      item: r.item,
+      description: r.description || "",
+      quantity: r.quantity || "",
+      pay_channel: String(r.pay_channel || r.payChannel || "").toLowerCase() === "school" ? "school" : "babyeyi",
+      cost: r.cost != null && r.cost !== "" ? String(r.cost) : "",
+    })),
     classNotes, otherInfos, leaders, leadersCount: leaders.length,
     increaseRequest: d.increase_request ? { requestTitle: d.increase_request.request_title || d.increase_request.reason, nesaStatus: d.increase_request.nesa_status } : null,
     signaturePath: norm(sig.director_sig_path) || null, stampPath: norm(sig.stamp_path) || null,

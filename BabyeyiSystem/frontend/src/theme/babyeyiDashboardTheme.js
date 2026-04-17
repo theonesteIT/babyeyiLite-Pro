@@ -1,5 +1,5 @@
 /**
- * Babyeyi dashboard shell — dark navy + amber only (aligned with School Manager).
+ * Babyeyi school manager shell — nav can stay navy; main page uses white + gold accents.
  * Font stack: MTN Brighter Sans when installed; Nunito / Varela Round as web fallbacks.
  */
 export const BABYEYI_NAVY = "#000435";
@@ -13,6 +13,5 @@ export const BABYEYI_FONT_STACK =
 
 export const babyeyiDashFontStyle = { fontFamily: BABYEYI_FONT_STACK };
 
-/** Main content background (subtle warm tint) */
-export const BABYEYI_PAGE_BG =
-  "linear-gradient(165deg, #fffbeb 0%, #fef3c7 35%, #fff7ed 100%)";
+/** Main content background — clean white for Babyeyi school manager pages */
+export const BABYEYI_PAGE_BG = "#ffffff";

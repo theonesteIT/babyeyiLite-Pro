@@ -395,9 +395,10 @@ function BabyeyiAIBox() {
                       q.set("schoolSlug", d.school_slug || d.slug || d.schoolSlug);
                     }
                     const href = `/babyeyi-finder?${q.toString()}`;
-                    const payFeesHref = `/pay-by-school?code=${encodeURIComponent(
-                      String(d.school_code || "").trim()
-                    )}`;
+                    const paySt = String(d.student_uid || d.student_code || d.sdm_code || "").trim();
+                    const payFeesHref = paySt
+                      ? `/pay-by-school?code=${encodeURIComponent(paySt)}`
+                      : "/pay-by-school";
                     return (
                       <div className="sticky top-0 z-10 -mx-1 px-1 pt-0.5 pb-2 bg-gradient-to-b from-slate-900/98 via-slate-900/86 to-transparent space-y-2">
                         <Link
@@ -497,7 +498,7 @@ function BabyeyiAIBox() {
               {lookupResult.schoolCatalog && (() => {
                 const sch = lookupResult.schoolCatalog.school;
                 const combos = lookupResult.schoolCatalog.combinations || [];
-                const payHref = `/pay-by-school?code=${encodeURIComponent(String(sch?.school_code || "").trim())}`;
+                const payHref = "/pay-by-school";
                 return (
                   <div className="space-y-2.5 min-[360px]:space-y-3 sm:space-y-4">
                     <div className="sticky top-0 z-10 -mx-1 px-1 pt-0.5 pb-2 bg-gradient-to-b from-slate-900/98 via-slate-900/86 to-transparent">

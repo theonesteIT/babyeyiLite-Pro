@@ -1,7 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { ArrowLeft, Building2, Loader2, Save, Shield } from 'lucide-react';
+import {
+  ArrowLeft,
+  Building2,
+  Edit3,
+  KeyRound,
+  Loader2,
+  Save,
+  Shield,
+  Trash2,
+  X,
+} from 'lucide-react';
 
 const API = `${import.meta.env.VITE_API_URL || 'http://localhost:5100'}/api`;
 const ax = { withCredentials: true, headers: { 'Content-Type': 'application/json' } };
@@ -14,7 +24,15 @@ export default function SuperAdminShuleAvanceOrgs() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
+  const [ok, setOk] = useState('');
   const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
+  const [editingId, setEditingId] = useState(null);
+  const [passwordOrg, setPasswordOrg] = useState(null);
+  const [passwordDraft, setPasswordDraft] = useState('');
+  const [passwordConfirm, setPasswordConfirm] = useState('');
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [lastCredentials, setLastCredentials] = useState(null);
   const [form, setForm] = useState({
     org_name: '',
     org_type: 'INTERNAL_PARTNER',
@@ -26,8 +44,31 @@ export default function SuperAdminShuleAvanceOrgs() {
     address: '',
     description: '',
     notes: '',
+    rate_percent: '',
+    rate_is_monthly: false,
     is_active: true,
   });
+
+  const emptyForm = () => ({
+    org_name: '',
+    org_type: 'INTERNAL_PARTNER',
+    contact_person: '',
+    contact_email: '',
+    contact_phone: '',
+    login_username: '',
+    password: '',
+    address: '',
+    description: '',
+    notes: '',
+    rate_percent: '',
+    rate_is_monthly: false,
+    is_active: true,
+  });
+
+  const resetForm = () => {
+    setForm(emptyForm());
+    setEditingId(null);
+  };
 
   const load = async () => {
     setErr('');
@@ -49,26 +90,25 @@ export default function SuperAdminShuleAvanceOrgs() {
     e.preventDefault();
     setSaving(true);
     setErr('');
+    setOk('');
     try {
-      const { data } = await axios.post(`${API}/auth/create-shule-avance-organization`, {
+      const payload = {
         ...form,
-        rate_percent: '12',
-        applicant_categories_text: 'Parent, Teacher, Director',
-      }, ax);
+      };
+      if (editingId && !String(form.password || '').trim()) {
+        delete payload.password;
+      }
+      const { data } = editingId
+        ? await axios.put(`${API}/auth/shule-avance-organization/${editingId}`, payload, ax)
+        : await axios.post(`${API}/auth/create-shule-avance-organization`, payload, ax);
       if (!data.success) throw new Error(data.message || 'Failed');
-      setForm({
-        org_name: '',
-        org_type: 'INTERNAL_PARTNER',
-        contact_person: '',
-        contact_email: '',
-        contact_phone: '',
-        login_username: '',
-        password: '',
-        address: '',
-        description: '',
-        notes: '',
-        is_active: true,
+      setLastCredentials({
+        email: form.contact_email,
+        username: form.login_username,
+        password: form.password || null,
       });
+      setOk(editingId ? 'Organization updated successfully.' : 'Organization created successfully.');
+      resetForm();
       await load();
     } catch (e2) {
       setErr(e2.response?.data?.message || e2.message || 'Save failed');
@@ -76,6 +116,112 @@ export default function SuperAdminShuleAvanceOrgs() {
       setSaving(false);
     }
   };
+
+  const startEdit = async (row) => {
+    setErr('');
+    setOk('');
+    try {
+      const { data } = await axios.get(`${API}/auth/shule-avance-organization/${row.id}`, ax);
+      if (!data.success) throw new Error(data.message || 'Failed to load organization');
+      const r = data.data || row;
+      setEditingId(r.id);
+      setForm({
+        org_name: r.org_name || '',
+        org_type: r.org_type || 'INTERNAL_PARTNER',
+        contact_person: r.contact_person || '',
+        contact_email: r.contact_email || '',
+        contact_phone: r.contact_phone || '',
+        login_username: r.login_username || '',
+        password: '',
+        address: r.address || '',
+        description: r.description || '',
+        notes: r.notes || '',
+        rate_percent: r.rate_percent != null ? String(r.rate_percent) : '',
+        rate_is_monthly: !!r.rate_is_monthly,
+        is_active: !!r.is_active,
+      });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (e) {
+      setErr(e.response?.data?.message || e.message || 'Could not load organization details');
+    }
+  };
+
+  const removeOrg = async (row) => {
+    const yes = window.confirm(
+      `Delete "${row.org_name}"?\n\nThis disables partner login immediately.`
+    );
+    if (!yes) return;
+    setErr('');
+    setOk('');
+    setDeletingId(row.id);
+    try {
+      const { data } = await axios.delete(`${API}/auth/shule-avance-organization/${row.id}`, ax);
+      if (!data.success) throw new Error(data.message || 'Delete failed');
+      setOk('Organization deleted and partner login disabled.');
+      await load();
+      if (editingId === row.id) resetForm();
+    } catch (e) {
+      setErr(e.response?.data?.message || e.message || 'Delete failed');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const openPasswordModal = (row) => {
+    setErr('');
+    setOk('');
+    setPasswordOrg(row);
+    setPasswordDraft('');
+    setPasswordConfirm('');
+  };
+
+  const closePasswordModal = (force = false) => {
+    if (passwordSaving && !force) return;
+    setPasswordOrg(null);
+    setPasswordDraft('');
+    setPasswordConfirm('');
+  };
+
+  const saveOrganizationPassword = async () => {
+    if (!passwordOrg?.id) return;
+    const pwd = String(passwordDraft || '');
+    const confirm = String(passwordConfirm || '');
+    if (pwd.length < 8) {
+      setErr('New password must be at least 8 characters.');
+      return;
+    }
+    if (pwd !== confirm) {
+      setErr('Password confirmation does not match.');
+      return;
+    }
+    setErr('');
+    setOk('');
+    setPasswordSaving(true);
+    try {
+      const { data } = await axios.put(`${API}/auth/shule-avance-organization/${passwordOrg.id}`, { password: pwd }, ax);
+      if (!data.success) throw new Error(data.message || 'Could not update password');
+      setLastCredentials({
+        email: passwordOrg.contact_email,
+        username: passwordOrg.login_username,
+        password: pwd,
+      });
+      setOk(`Password updated for "${passwordOrg.org_name}".`);
+      closePasswordModal(true);
+    } catch (e) {
+      setErr(e.response?.data?.message || e.message || 'Failed to update password');
+    } finally {
+      setPasswordSaving(false);
+    }
+  };
+
+  const cardTitle = editingId ? 'Update organization' : 'Create organization';
+  const submitLabel = editingId ? 'Update organization' : 'Create organization';
+  const credentialsHint = useMemo(() => {
+    if (editingId) {
+      return 'Leave password blank to keep current password. Set a new password only when rotating credentials.';
+    }
+    return 'Password is hashed on the server. You can use either email or username to log in.';
+  }, [editingId]);
 
   const inp = 'w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:ring-2 focus:ring-amber-400/60';
 
@@ -104,13 +250,33 @@ export default function SuperAdminShuleAvanceOrgs() {
             {err}
           </div>
         )}
+        {ok && (
+          <div className="rounded-lg border border-emerald-400/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+            {ok}
+          </div>
+        )}
+        {lastCredentials && (
+          <div className="rounded-xl border border-amber-300/35 bg-amber-500/10 px-4 py-3 text-xs text-amber-100 space-y-1">
+            <div className="font-bold uppercase tracking-wide text-[10px]">Latest login credentials set</div>
+            <div>Email: <span className="font-mono">{lastCredentials.email}</span></div>
+            <div>Username: <span className="font-mono">{lastCredentials.username}</span></div>
+            {lastCredentials.password ? (
+              <div>Password: <span className="font-mono">{lastCredentials.password}</span></div>
+            ) : (
+              <div>Password: <span className="font-semibold">Not changed</span></div>
+            )}
+            <div className="pt-1 text-amber-100/80">
+              Partner sign-in page: <span className="font-mono">/login</span> → redirects to <span className="font-mono">/shule-avance/dashboard</span>.
+            </div>
+          </div>
+        )}
 
         <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-6 shadow-xl">
           <h2 className="text-lg font-bold text-amber-300 mb-1 flex items-center gap-2">
-            <Building2 size={20} /> Create organization
+            <Building2 size={20} /> {cardTitle}
           </h2>
           <p className="text-xs text-white/60 mb-5">
-            Creates a platform login (email + username) and partner dashboard access. Password is hashed on the server.
+            Creates and manages partner login for the ShuleAvance dashboard.
           </p>
           <form onSubmit={submit} className="grid gap-4 md:grid-cols-2">
             <div>
@@ -144,7 +310,16 @@ export default function SuperAdminShuleAvanceOrgs() {
             </div>
             <div>
               <label className="block text-[10px] font-bold uppercase tracking-wider text-amber-200/80 mb-1">Password (min 8)</label>
-              <input type="password" className={inp} value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} required minLength={8} />
+              <input
+                type="password"
+                className={inp}
+                value={form.password}
+                onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                required={!editingId}
+                minLength={editingId && !form.password ? undefined : 8}
+                placeholder={editingId ? 'Leave blank to keep current password' : ''}
+              />
+              <div className="mt-1 text-[10px] text-white/50">{credentialsHint}</div>
             </div>
             <div className="md:col-span-2">
               <label className="block text-[10px] font-bold uppercase tracking-wider text-amber-200/80 mb-1">Address</label>
@@ -154,6 +329,30 @@ export default function SuperAdminShuleAvanceOrgs() {
               <label className="block text-[10px] font-bold uppercase tracking-wider text-amber-200/80 mb-1">Description</label>
               <textarea className={`${inp} min-h-[72px]`} value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
             </div>
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-amber-200/80 mb-1">
+                Organization rate (%)
+              </label>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="0.001"
+                className={inp}
+                value={form.rate_percent}
+                onChange={(e) => setForm((f) => ({ ...f, rate_percent: e.target.value }))}
+                required
+              />
+              <div className="mt-1 text-[10px] text-white/50">Used by ShuleAvance payment schedule calculations.</div>
+            </div>
+            <label className="flex items-center gap-2 text-sm text-white/80 mt-5">
+              <input
+                type="checkbox"
+                checked={form.rate_is_monthly}
+                onChange={(e) => setForm((f) => ({ ...f, rate_is_monthly: e.target.checked }))}
+              />
+              Rate entered above is monthly (will be converted to annual in payments)
+            </label>
             <div className="md:col-span-2">
               <label className="block text-[10px] font-bold uppercase tracking-wider text-amber-200/80 mb-1">Internal notes</label>
               <textarea className={`${inp} min-h-[56px]`} value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} />
@@ -163,15 +362,26 @@ export default function SuperAdminShuleAvanceOrgs() {
               Active (inactive partners do not appear in public school pay picker)
             </label>
             <div className="md:col-span-2">
-              <button
-                type="submit"
-                disabled={saving}
-                className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold text-slate-900 disabled:opacity-50"
-                style={{ background: AMBER }}
-              >
-                {saving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
-                Create organization
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold text-slate-900 disabled:opacity-50"
+                  style={{ background: AMBER }}
+                >
+                  {saving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
+                  {submitLabel}
+                </button>
+                {editingId && (
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    className="inline-flex items-center gap-2 rounded-xl border border-white/20 px-4 py-2.5 text-sm font-bold text-white/90 hover:bg-white/5"
+                  >
+                    <X size={16} /> Cancel edit
+                  </button>
+                )}
+              </div>
             </div>
           </form>
         </section>
@@ -192,7 +402,9 @@ export default function SuperAdminShuleAvanceOrgs() {
                     <th className="px-4 py-3">Type</th>
                     <th className="px-4 py-3">Username</th>
                     <th className="px-4 py-3">Email</th>
+                    <th className="px-4 py-3">Rate</th>
                     <th className="px-4 py-3">Active</th>
+                    <th className="px-4 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -202,7 +414,39 @@ export default function SuperAdminShuleAvanceOrgs() {
                       <td className="px-4 py-3 text-white/70">{r.org_type}</td>
                       <td className="px-4 py-3 font-mono text-xs">{r.login_username}</td>
                       <td className="px-4 py-3 text-xs">{r.contact_email}</td>
+                      <td className="px-4 py-3 text-xs">
+                        {r.rate_percent != null ? `${Number(r.rate_percent).toFixed(3)}%` : '—'}
+                        {Number(r.rate_is_monthly || 0) ? ' / month' : ' / year'}
+                      </td>
                       <td className="px-4 py-3">{r.is_active ? 'Yes' : 'No'}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => startEdit(r)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-white/20 px-2 py-1 text-[11px] font-semibold text-white/85 hover:bg-white/10"
+                          >
+                            <Edit3 size={12} /> Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openPasswordModal(r)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-amber-300/35 px-2 py-1 text-[11px] font-semibold text-amber-200 hover:bg-amber-300/10"
+                            title="Edit and set a new password"
+                          >
+                            <KeyRound size={12} /> Password
+                          </button>
+                          <button
+                            type="button"
+                            disabled={deletingId === r.id}
+                            onClick={() => removeOrg(r)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-red-300/35 px-2 py-1 text-[11px] font-semibold text-red-200 hover:bg-red-300/10 disabled:opacity-60"
+                          >
+                            {deletingId === r.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                            Delete
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -212,6 +456,77 @@ export default function SuperAdminShuleAvanceOrgs() {
           )}
         </section>
       </main>
+
+      {passwordOrg && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[1px] flex items-center justify-center px-4">
+          <div className="w-full max-w-md rounded-2xl border border-white/15 bg-[#061a3a] p-5 shadow-2xl">
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div>
+                <h3 className="text-base font-bold text-amber-300 flex items-center gap-2">
+                  <KeyRound size={16} /> Set new password
+                </h3>
+                <p className="text-xs text-white/70 mt-1">
+                  {passwordOrg.org_name}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closePasswordModal}
+                className="rounded-lg border border-white/20 p-1.5 text-white/80 hover:bg-white/10"
+                disabled={passwordSaving}
+              >
+                <X size={14} />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-amber-200/80 mb-1">
+                  New password (min 8)
+                </label>
+                <input
+                  type="password"
+                  className={inp}
+                  value={passwordDraft}
+                  onChange={(e) => setPasswordDraft(e.target.value)}
+                  placeholder="Enter new password"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-amber-200/80 mb-1">
+                  Confirm password
+                </label>
+                <input
+                  type="password"
+                  className={inp}
+                  value={passwordConfirm}
+                  onChange={(e) => setPasswordConfirm(e.target.value)}
+                  placeholder="Re-enter password"
+                />
+              </div>
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={saveOrganizationPassword}
+                  disabled={passwordSaving}
+                  className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold text-slate-900 disabled:opacity-50"
+                  style={{ background: AMBER }}
+                >
+                  {passwordSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                  Save password
+                </button>
+                <button
+                  type="button"
+                  onClick={closePasswordModal}
+                  disabled={passwordSaving}
+                  className="inline-flex items-center gap-2 rounded-xl border border-white/20 px-4 py-2 text-sm font-semibold text-white/90 hover:bg-white/5 disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

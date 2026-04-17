@@ -30,7 +30,7 @@
 //   /school-babyeyi-dashboard  → SchoolBabyeyiDashboard (SCHOOL_ADMIN | SCHOOL_MANAGER)
 //   /accountant/*                → AccountantLayout (ACCOUNTANT) — dashboard, payment, reports
 //   /hod/*                       → HodLayout (HOD) — students, discipline marks settings, reports
-//   /pay-by-school             → PublicPayBySchool (guest: school code → class/term → pay)
+//   /pay-by-school             → PublicPayBySchool (guest: student code → term/year → fees → pay)
 //   /babyeyi/verify/:docId     → BabyeyiVerifyPage
 //   /unauthorized              → 403 page
 // ================================================================
@@ -42,6 +42,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 
 // ── Public pages ────────────────────────────────────────────────
 import PublicPage        from './Pages/Public Page/PublicPage';
+import FeaturesPage      from './Pages/Public Page/FeaturesPage';
 import AllSchools        from './Pages/Public Page/AllSchools';
 import SchoolPublicRoute from './Pages/Public Page/SchoolPublicRoute';
 import PublicBabyeyiFinder from './Pages/Public Page/PublicBabyeyiFinder';
@@ -147,6 +148,7 @@ export default function App() {
           {/* ── Landing / Home ────────────────────────────────── */}
           <Route path="/"       element={<PublicPage />} />
           <Route path="/home"   element={<PublicPage />} />
+          <Route path="/features" element={<FeaturesPage />} />
           {/* Legacy redirect — kept for backward-compat */}
           <Route path="/public" element={<Navigate to="/" replace />} />
 

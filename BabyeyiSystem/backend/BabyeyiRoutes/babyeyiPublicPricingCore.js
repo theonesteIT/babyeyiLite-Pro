@@ -18,6 +18,10 @@ function parseRequirementQuantity(raw) {
   return 1;
 }
 
+function roundMoney(x) {
+  return Math.round(Number(x || 0) * 100) / 100;
+}
+
 /**
  * @returns {Promise<{ ok: true, data: object } | { ok: false, status: number, message: string }>}
  */
@@ -60,9 +64,12 @@ async function loadApprovedBabyeyiPricing(babyeyiId, schoolId) {
   }
 
   let reqLines;
+  let hasPayChannelCol = true;
   try {
     reqLines = await db.query(
       `SELECT bsr.id AS babyeyi_requirement_id, bsr.item AS requirement_name, bsr.description, bsr.quantity,
+              COALESCE(bsr.pay_channel, 'babyeyi') AS pay_channel,
+              bsr.cost AS school_line_rwf,
               rp.price AS stored_price,
               sr.default_price AS catalog_default_price,
               sr.image_url AS catalog_image_url,
@@ -76,12 +83,13 @@ async function loadApprovedBabyeyiPricing(babyeyiId, schoolId) {
     );
   } catch (e) {
     if (e.code !== 'ER_BAD_FIELD_ERROR') throw e;
+    hasPayChannelCol = false;
     reqLines = await db.query(
       `SELECT bsr.id AS babyeyi_requirement_id, bsr.item AS requirement_name, bsr.description, bsr.quantity,
               rp.price AS stored_price,
               sr.default_price AS catalog_default_price,
               sr.image_url AS catalog_image_url,
-              COALESCE(rp.price, sr.default_price, 0) AS unit_price
+              COALESCE(rp.price, sr.default_price, bsr.cost, 0) AS unit_price
        FROM babyeyi_student_requirements bsr
        LEFT JOIN requirement_prices rp ON rp.babyeyi_id = bsr.babyeyi_id AND rp.babyeyi_requirement_id = bsr.id
        ${SQL_JOIN_STUDENT_REQ_BY_ITEM}
@@ -91,12 +99,23 @@ async function loadApprovedBabyeyiPricing(babyeyiId, schoolId) {
     );
   }
 
-  const requirements = (reqLines || []).map((l) => {
-    const unit = Number(l.unit_price ?? 0);
+  const mappedLines = (reqLines || []).map((l) => {
+    const ch = hasPayChannelCol ? String(l.pay_channel || 'babyeyi').toLowerCase() : 'babyeyi';
     const qty = parseRequirementQuantity(l.quantity);
-    const lineTotal = Math.round(unit * qty * 100) / 100;
+    const storedSchoolLine =
+      hasPayChannelCol && ch === 'school' ? Number(l.school_line_rwf ?? l.cost ?? 0) : 0;
+    let unit;
+    let lineTotal;
+    if (storedSchoolLine > 0) {
+      lineTotal = roundMoney(storedSchoolLine);
+      unit = qty > 1 ? roundMoney(lineTotal / qty) : lineTotal;
+    } else {
+      unit = Number(l.unit_price ?? 0);
+      lineTotal = roundMoney(unit * qty);
+    }
     return {
       ...l,
+      pay_channel: ch,
       babyeyi_requirement_id: Number(l.babyeyi_requirement_id),
       unit_price_rwf: unit,
       quantity_value: qty,
@@ -105,14 +124,34 @@ async function loadApprovedBabyeyiPricing(babyeyiId, schoolId) {
     };
   });
 
-  const requirementsTotal = requirements.reduce((s, l) => s + l.line_total_rwf, 0);
-  const schoolFeesTotal = (feeRows || []).reduce((s, f) => s + Number(f.amount || 0), 0);
-  const schoolFeesNormalized = (feeRows || []).map((f) => ({
-    id: Number(f.id),
-    name: f.name,
-    amount: Number(f.amount || 0),
-    sort_order: f.sort_order != null ? Number(f.sort_order) : undefined,
+  const pasAtSchool = mappedLines.filter((l) => l.pay_channel === 'school');
+  const requirements = mappedLines.filter((l) => l.pay_channel !== 'school');
+
+  const pasFeeRows = pasAtSchool.map((l) => ({
+    id: `pasreq:${l.babyeyi_requirement_id}`,
+    name: l.requirement_name || 'Requirement',
+    amount: l.line_total_rwf,
+    unit_price_rwf: l.unit_price_rwf,
+    quantity_value: l.quantity_value,
+    pay_source: 'requirement_paid_at_school',
+    babyeyi_requirement_id: l.babyeyi_requirement_id,
+    sort_order: 900000 + l.babyeyi_requirement_id,
   }));
+
+  const requirementsTotal = requirements.reduce((s, l) => s + l.line_total_rwf, 0);
+  const baseSchoolFeesTotal = (feeRows || []).reduce((s, f) => s + Number(f.amount || 0), 0);
+  const pasSchoolTotal = pasFeeRows.reduce((s, f) => s + Number(f.amount || 0), 0);
+  const schoolFeesTotal = baseSchoolFeesTotal + pasSchoolTotal;
+
+  const schoolFeesNormalized = [
+    ...(feeRows || []).map((f) => ({
+      id: Number(f.id),
+      name: f.name,
+      amount: Number(f.amount || 0),
+      sort_order: f.sort_order != null ? Number(f.sort_order) : undefined,
+    })),
+    ...pasFeeRows,
+  ];
 
   return {
     ok: true,

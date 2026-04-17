@@ -51,6 +51,11 @@ function getBabyeyiFinderDiscoveryPayload() {
         path: '/api/public/public-pay/search-student',
         body: { school_code: '003', code: 'UID / student_code / SDM id', babyeyi_id: 'optional' },
       },
+      student_catalog: {
+        method: 'POST',
+        path: '/api/public/public-pay/student-catalog',
+        body: { code: 'UID / student_code / SDM id — resolves school + class; Babyeyi rows for that class' },
+      },
     },
     check_provider_status: {
       method: 'POST',

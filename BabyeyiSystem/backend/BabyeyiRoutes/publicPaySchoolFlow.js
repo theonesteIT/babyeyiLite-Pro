@@ -61,6 +61,45 @@ function classMatchesBabyeyi(row, className) {
   return false;
 }
 
+async function resolveSchoolById(schoolId) {
+  const id = parseInt(schoolId, 10);
+  if (!Number.isFinite(id) || id <= 0) return null;
+  const [rows] = await db.promisePool.query(
+    `SELECT s.id, s.school_name, s.school_code, s.status,
+            s.province, s.district, s.sector, s.phone, s.email,
+            s.education_levels, s.school_category,
+            (SELECT m.slug FROM school_mini_websites m
+             WHERE m.school_id = s.id AND m.status = 'published'
+             ORDER BY m.id DESC LIMIT 1) AS mini_website_slug
+     FROM schools s
+     WHERE s.deleted_at IS NULL AND s.id = ?
+     LIMIT 1`,
+    [id]
+  );
+  return rows[0] || null;
+}
+
+/** Global learner lookup (same rules as parent portal / student-code-lookup). */
+async function findStudentByCodeGlobal(raw) {
+  const code = String(raw || '').trim();
+  if (!code || code.length < 2) return null;
+  const upper = code.toUpperCase();
+  const [rows] = await db.promisePool.query(
+    `SELECT s.id, s.school_id, s.student_uid, s.student_code, s.sdm_code,
+            s.first_name, s.last_name, s.class_name, s.academic_year
+     FROM students s
+     INNER JOIN schools sc ON sc.id = s.school_id AND sc.deleted_at IS NULL
+     WHERE TRIM(UPPER(s.student_uid)) = ?
+        OR TRIM(s.student_uid) = ?
+        OR (s.student_code IS NOT NULL AND TRIM(s.student_code) = ?)
+        OR (s.sdm_code IS NOT NULL AND TRIM(UPPER(s.sdm_code)) = ?)
+     ORDER BY s.id ASC
+     LIMIT 1`,
+    [upper, code, code, upper]
+  );
+  return rows[0] || null;
+}
+
 async function resolveSchoolByCode(raw) {
   const code = trimStr(raw).toUpperCase();
   if (!code) return null;
@@ -161,8 +200,15 @@ async function findStudentInSchool(schoolId, raw) {
 function discoveryPayload() {
   return {
     service: 'public_pay_by_school',
-    description: 'Guest pay: school code + class pricing, or student search within a school, then POST babyeyi-pay/intent.',
+    description: 'Guest pay: student code resolves school + class; term/year; fees; or legacy school-catalog.',
     steps: [
+      {
+        name: 'student_catalog',
+        method: 'POST',
+        path: '/api/public/public-pay/student-catalog',
+        body: { code: 'student UID, official student_code, or sdm_code' },
+        returns: 'school, student (with class_name), combinations filtered to that class, default_academic_year, default_term',
+      },
       {
         name: 'school_catalog',
         method: 'POST',
@@ -208,6 +254,128 @@ function discoveryPayload() {
 
 router.get('/', (_req, res) => {
   res.json(discoveryPayload());
+});
+
+// POST /api/public/public-pay/student-catalog
+// Resolves school + learner class from a global student code; Babyeyi rows only for that class.
+router.post('/student-catalog', flowLimiter, async (req, res) => {
+  try {
+    const raw =
+      trimStr(req.body?.code ?? req.body?.student_code ?? req.body?.student_uid ?? req.body?.sdm_code);
+    if (!raw) {
+      return res.status(400).json({
+        success: false,
+        message: 'code is required (student UID, official student_code, or SDM ID)',
+      });
+    }
+
+    const st = await findStudentByCodeGlobal(raw);
+    if (!st) {
+      return res.status(404).json({ success: false, message: 'No student found for that code' });
+    }
+
+    const className = trimStr(st.class_name);
+    if (!className) {
+      return res.status(422).json({
+        success: false,
+        message:
+          'This student has no class on file. Ask the school office to update the class, then try again.',
+      });
+    }
+
+    const school = await resolveSchoolById(st.school_id);
+    if (!school) {
+      return res.status(404).json({ success: false, message: 'School for this student was not found' });
+    }
+
+    const [rows] = await db.promisePool.query(
+      `SELECT id, class_name, classes_json, term, academic_year
+       FROM school_babyeyi
+       WHERE school_id = ? AND is_active = 1 AND status = 'approved'
+       ORDER BY academic_year DESC, term, class_name, id DESC`,
+      [school.id]
+    );
+
+    const combinations = [];
+    const yearSet = new Set();
+    const termSet = new Set();
+
+    for (const r of rows || []) {
+      if (!classMatchesBabyeyi(r, className)) continue;
+      const year = r.academic_year != null && String(r.academic_year).trim() !== '' ? String(r.academic_year).trim() : '';
+      const term = r.term != null && String(r.term).trim() !== '' ? String(r.term).trim() : '';
+      if (year) yearSet.add(year);
+      if (term) termSet.add(term);
+      const names = expandClassNamesFromRow(r);
+      const cn = names.find((x) => trimStr(x).toLowerCase() === className.toLowerCase()) || className;
+      combinations.push({
+        babyeyi_id: r.id,
+        class_name: cn,
+        term: term || null,
+        academic_year: year || null,
+      });
+    }
+
+    if (!combinations.length) {
+      return res.status(404).json({
+        success: false,
+        message: `No published Babyeyi for class "${className}" at this school yet. Contact the school office.`,
+        data: {
+          school: schoolPublicPayload(school),
+          student: {
+            id: st.id,
+            student_uid: st.student_uid,
+            student_code: st.student_code,
+            sdm_code: st.sdm_code,
+            first_name: st.first_name,
+            last_name: st.last_name,
+            class_name: st.class_name,
+            academic_year: st.academic_year,
+          },
+        },
+      });
+    }
+
+    const academicYears = [...yearSet].sort((a, b) => String(b).localeCompare(String(a)));
+    const termsAll = [...termSet].sort((a, b) => String(a).localeCompare(String(b)));
+
+    const stYear = trimStr(st.academic_year);
+    let defaultAcademicYear = academicYears[0] || '';
+    if (stYear && academicYears.includes(stYear)) defaultAcademicYear = stYear;
+
+    let defaultTerm = '';
+    const combosForYear = combinations.filter((c) => !defaultAcademicYear || trimStr(c.academic_year) === defaultAcademicYear);
+    const termsForDefaultYear = [...new Set(combosForYear.map((c) => trimStr(c.term)).filter(Boolean))].sort((a, b) =>
+      String(a).localeCompare(String(b))
+    );
+    if (termsForDefaultYear.length === 1) defaultTerm = termsForDefaultYear[0];
+    else if (termsForDefaultYear.length > 1) defaultTerm = termsForDefaultYear[0];
+
+    return res.json({
+      success: true,
+      data: {
+        school: schoolPublicPayload(school),
+        student: {
+          id: st.id,
+          student_uid: st.student_uid,
+          student_code: st.student_code,
+          sdm_code: st.sdm_code,
+          first_name: st.first_name,
+          last_name: st.last_name,
+          class_name: st.class_name,
+          academic_year: st.academic_year,
+        },
+        academic_years: academicYears,
+        terms: termsAll,
+        default_academic_year: defaultAcademicYear || null,
+        default_term: defaultTerm || null,
+        combinations,
+      },
+    });
+  } catch (err) {
+    console.error('[public-pay/student-catalog]', err);
+    return res.status(500).json({ success: false, message: err.message || 'Server error' });
+  }
 });
 
 // POST /api/public/public-pay/school-catalog

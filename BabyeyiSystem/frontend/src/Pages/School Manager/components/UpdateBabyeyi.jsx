@@ -39,29 +39,40 @@ async function uploadSchoolAsset(assetType, file, showToast) {
   }
 }
 
-// ── Color Palette ─────────────────────────────────────────────
+// ── Color Palette (aligned with Babyeyi.jsx wizard) ───────────
 const C = {
-  gold:        "#FEBF10",
-  goldLight:   "#FED44A",
-  goldDark:    "#B88A00",
-  goldDeep:    "#7A5C00",
-  goldBg:      "#FFFBE8",
-  goldBgMid:   "#FFF3CC",
-  goldBorder:  "#FDEAA0",
-  dark:        "#1A1200",
-  darkMid:     "#3D2C00",
-  emerald:     "#10b981",
+  gold:        "#F5B800",
+  goldLight:   "#FFD84D",
+  goldDark:    "#D99A00",
+  goldDeep:    "#8A6500",
+  goldBg:      "#FFFDF3",
+  goldBgMid:   "#FFF6CC",
+  goldBorder:  "#FFE58A",
+  dark:        "#1F2937",
+  darkMid:     "#4B5563",
+  emerald:     "#10B981",
   emeraldDark: "#047857",
-  emeraldBg:   "#ecfdf5",
-  emeraldBord: "#a7f3d0",
-  red:         "#dc2626",
-  redBorder:   "#fecaca",
-  slate:       "#64748b",
-  blue:        "#3b82f6",
-  blueBg:      "#eff6ff",
-  blueBord:    "#bfdbfe",
-  blue700:     "#1d4ed8",
-  white:       "#ffffff",
+  emeraldBg:   "#ECFDF5",
+  emeraldBord: "#A7F3D0",
+  red:         "#EF4444",
+  red50:       "#FEF2F2",
+  red700:      "#B91C1C",
+  red800:      "#991B1B",
+  redBorder:   "#FECACA",
+  amber:       "#F59E0B",
+  amberBg:     "#FFFBEB",
+  amberBord:   "#FDE68A",
+  blue:        "#3B82F6",
+  blueBg:      "#EFF6FF",
+  blueBord:    "#BFDBFE",
+  blue700:     "#1D4ED8",
+  violet:      "#8B5CF6",
+  violetBg:    "#F5F3FF",
+  violetBord:  "#DDD6FE",
+  slate100:    "#F8FAFC",
+  slate200:    "#E2E8F0",
+  slate400:    "#94A3B8",
+  slate500:    "#64748B",
 };
 
 // ── Inline SVG Icons ──────────────────────────────────────────
@@ -202,31 +213,6 @@ const REQUEST_REASON_OPTIONS = [
   "Other",
 ];
 
-const PACKAGE_REQUIREMENTS = [
-  "Ream of paper (2 per term)",
-  "Files (2 per term)",
-  "Bottle for drinking water (1)",
-  "School ID card (1)",
-  "Communication book (1 · 48 pages)",
-  "Colour pencils (2 boxes)",
-  "Mathematical set (1 set)",
-  "Pens (3 blue and 2 black)",
-  "Ruler 30cm (1)",
-  "Sharpener, pencils and rubber (3)",
-  "Paper glue (1)",
-  "Calligraphie 48 pages (2)",
-  "Cahier ligné 96 pages (4)",
-  "Cahier quadrillé 200 pages (2)",
-  "Cahier quadrillé 120 pages (1)",
-  "Cahier ligné 200 pages (2)",
-  "Cahier ligné 120 pages (5)",
-  "Drawing book 48 pages (1)",
-  "Cahier ligné ou quadrillé 48 pages (2)",
-  "School bag",
-  "Uniform + sport wear + warm sweater (2)",
-  "Shoes and socks (2 pairs)",
-];
-
 // ── Leader role presets ───────────────────────────────────────
 const LEADER_ROLE_PRESETS = [
   "Head Teacher / Director",
@@ -295,7 +281,7 @@ const buildBlankForm = (school = {}) => ({
   requestDescription:   "",
   parentApprovalDoc:    null,
   schoolBudgetDoc:      null,
-  requirements:         [{ item:"", description:"", quantity:"" }],
+  requirements:         [{ item: "", description: "", quantity: "", pay_channel: "babyeyi", cost: "" }],
   bankName:             "",
   accountNumber:        "",
   accountName:          school.name || "",
@@ -365,7 +351,7 @@ function FileZone({ label, sublabel, required, file, onFile, accept = "image/*,a
             <button type="button" onClick={e => { e.stopPropagation(); onFile(null); }}
               className="absolute -top-1 -right-1 w-4 h-4 text-white rounded-full text-[10px] flex items-center justify-center font-bold shadow"
               style={{ background: C.red }}>×</button>
-            <p className="text-[9px] mt-1 font-semibold" style={{ color: C.slate }}>
+            <p className="text-[9px] mt-1 font-semibold" style={{ color: C.slate500 }}>
               {file ? file.name : "Click to replace"}
             </p>
           </div>
@@ -588,20 +574,66 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null }
   const [schoolFeeScope, setSchoolFeeScope] = useState("pending");
   const [schoolKind, setSchoolKind] = useState("unknown");
   const [categoryLockedBySchool, setCategoryLockedBySchool] = useState(false);
+  const [studentReqCatalog, setStudentReqCatalog] = useState([]);
+  const [studentReqCatalogLoading, setStudentReqCatalogLoading] = useState(true);
+  const [studentReqCatalogError, setStudentReqCatalogError] = useState(null);
 
   const [editId, setEditId] = useState(editRecord?.id ?? null);
 
   useEffect(() => {
+    if (!schoolId) {
+      setStudentReqCatalogLoading(false);
+      setStudentReqCatalogError(null);
+      setStudentReqCatalog([]);
+      return;
+    }
+    let cancelled = false;
+    setStudentReqCatalogLoading(true);
+    setStudentReqCatalogError(null);
+    fetch(`${API_BASE}/babyeyi/student-requirements-catalog`, { credentials: "include" })
+      .then(r => r.json().catch(() => ({})))
+      .then(json => {
+        if (cancelled) return;
+        if (!json.success || !Array.isArray(json.data)) {
+          setStudentReqCatalogError(json.message || "Could not load requirements catalog");
+          setStudentReqCatalog([]);
+          return;
+        }
+        setStudentReqCatalog(json.data);
+      })
+      .catch(e => {
+        if (!cancelled) {
+          setStudentReqCatalogError(e.message || "Network error");
+          setStudentReqCatalog([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setStudentReqCatalogLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [schoolId]);
+
+  useEffect(() => {
     if (editRecord) {
       const rec = editRecord;
+      const normalizeReqRow = (r) => ({
+        item:         r?.item ?? "",
+        description:  r?.description ?? "",
+        quantity:     r?.quantity ?? "",
+        pay_channel:  String(r?.pay_channel || r?.payChannel || "").toLowerCase() === "school" ? "school" : "babyeyi",
+        cost:         r?.cost != null && r?.cost !== "" ? String(r.cost) : "",
+      });
       const parsedPayments = (() => {
         try { return typeof rec.payments === "string" ? JSON.parse(rec.payments) : (rec.payments || []); }
         catch { return []; }
       })();
-      const parsedReqs = (() => {
+      const parsedReqsRaw = (() => {
         try { return typeof rec.requirements === "string" ? JSON.parse(rec.requirements) : (rec.requirements || []); }
         catch { return []; }
       })();
+      const parsedReqs = Array.isArray(parsedReqsRaw) && parsedReqsRaw.length
+        ? parsedReqsRaw.map(normalizeReqRow)
+        : [normalizeReqRow({ item: "", description: "", quantity: "" })];
       const parsedOtherInfos = (() => {
         try { return typeof rec.otherInfos === "string" ? JSON.parse(rec.otherInfos) : (rec.otherInfos || []); }
         catch { return []; }
@@ -636,18 +668,25 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null }
         level:         rec.level         || "Primary",
         category:      rec.category      || "Public",
         language:      rec.language      || "en",
-        classes:       rec.className ? [rec.className] : ["P1"],
+        classes:       Array.isArray(rec.classes) && rec.classes.length
+          ? rec.classes
+          : (rec.class ? [rec.class] : (rec.className ? [rec.className] : ["P1"])),
         parentMessage: rec.parentMessage || "",
         payments:      parsedPayments.length ? parsedPayments : [{ name: "Tuition Fee", amount: "" }],
         requirements:  parsedReqs,
-        otherInfos:    parsedOtherInfos,
+        otherInfos:    parsedOtherInfos.length ? parsedOtherInfos : [{ item: "" }],
         bankName:      primaryBank.bankName      || rec.bankName      || "",
         accountNumber: primaryBank.accountNumber || rec.bankAccountNo || "",
         accountName:   primaryBank.accountName   || rec.bankAccountName || "",
         extraBankAccounts: extraBanks,
         schoolLogo: null, otherLogo: null, directorSignature: null, stamp: null,
         requestIncrease: false, requestTitle: "", requestReasons: [], requestDescription: "",
-        classReqs: [], dateSigned: "",
+        classReqs: (Array.isArray(rec.classNotes) && rec.classNotes.length
+          ? rec.classNotes.map((n) => ({ item: n.item || "", details: n.details || "" }))
+          : (Array.isArray(rec.classReqs) && rec.classReqs.length
+            ? rec.classReqs
+            : [{ item: "", details: "" }])),
+        dateSigned: "",
         leaders: parsedLeaders,
         feeTargetStudents: "public",
       });
@@ -847,7 +886,10 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null }
     if (step === 8 && !validateStep2()) { showToast("Validation errors in Step 2.", "error"); return; }
     if (!schoolId) { showToast("School ID missing from session.", "error"); return; }
 
-    const classesToCreate = form.classes?.length ? form.classes : ["P1"];
+    const allClasses =
+      form.classes?.length ? form.classes : ["P1"];
+    // Edit mode updates a single school_babyeyi row — never loop multiple classes against the same editId.
+    const classesToCreate = editId ? [allClasses[0] || "P1"] : allClasses;
     setSaving(true);
     const createdIds = [];
 
@@ -922,7 +964,8 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null }
         const res  = await fetch(url, { method, body: fd, credentials: "include" });
         const json = await res.json().catch(() => ({}));
         if (!res.ok || json.success === false) throw new Error(json.message || `Failed for class ${cls}`);
-        if (json.data?.id) createdIds.push({ id: json.data.id, cls });
+        const savedId = json.data?.id ?? json.data?.ID ?? editId;
+        if (savedId) createdIds.push({ id: savedId, cls });
       }
 
       showToast("Babyeyi saved successfully!", "success");
@@ -1519,103 +1562,212 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null }
       );
 
       case 3: {
-        const selectedNames = (form.requirements||[]).map(r=>r.item).filter(Boolean);
-        const toggleReq = name => {
+        const selectedNames = (form.requirements || []).map(r => r.item).filter(Boolean);
+        const rowFromCatalog = (row) => ({
+          item: row.name,
+          description: row.description != null && String(row.description).trim() !== "" ? String(row.description) : "",
+          quantity: row.quantity != null && String(row.quantity).trim() !== "" ? String(row.quantity) : "",
+          pay_channel: "babyeyi",
+          cost: "",
+        });
+        const toggleReq = (row) => {
+          const name = row.name;
           const has = selectedNames.includes(name);
-          const nextNames = has ? selectedNames.filter(n=>n!==name) : [...selectedNames, name];
-          up("requirements", nextNames.map(n => ({ item:n, description:"", quantity:"" })));
+          const next = has
+            ? (form.requirements || []).filter(r => r.item !== name)
+            : [...(form.requirements || []), rowFromCatalog(row)];
+          up("requirements", next);
         };
         return (
           <div className="space-y-4">
-            <div className="rounded-xl p-3 flex gap-2 border" style={{ background: C.goldBg, borderColor: C.goldBorder }}>
+            <div className="rounded-xl p-3 flex gap-2 border"
+              style={{ background: C.goldBg, borderColor: C.goldBorder }}>
               <I n="info" size={13} color={C.goldDark} />
-              <p className="text-xs" style={{ color: C.goldDark }}>Select standard package items and add any custom requirements.</p>
+              <p className="text-xs" style={{ color: C.goldDark }}>
+                Select items from the master list (<span className="font-mono">student_requirements</span>) and add any custom requirements below.
+              </p>
             </div>
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="text-[10px] font-black uppercase tracking-widest" style={{ color: C.darkMid }}>Standard Package</label>
                 <button
                   type="button"
+                  disabled={studentReqCatalogLoading || !studentReqCatalog.length}
                   onClick={() => {
                     const current = form.requirements || [];
                     const names   = current.map(r => r.item);
                     const merged  = [
                       ...current,
-                      ...PACKAGE_REQUIREMENTS
-                        .filter(item => !names.includes(item))
-                        .map(item => ({ item, description:"", quantity:"" })),
+                      ...studentReqCatalog
+                        .filter(row => row.name && !names.includes(row.name))
+                        .map(row => rowFromCatalog(row)),
                     ];
                     up("requirements", merged);
                   }}
-                  className="flex items-center gap-1 text-[10px] font-bold hover:opacity-80 px-2 py-1 rounded-lg"
-                  style={{ color: C.goldDark, background: C.goldBg }}>
+                  className="flex items-center gap-1 text-[10px] font-bold hover:opacity-80 px-2 py-1 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
+                  style={{ color: C.goldDark, background: C.goldBg }}
+                >
                   <I n="plus" size={11} /> Select all
                 </button>
               </div>
+              {studentReqCatalogLoading && (
+                <div className="text-center py-6 text-[11px] font-semibold" style={{ color: C.goldDark }}>Loading requirements…</div>
+              )}
+              {studentReqCatalogError && !studentReqCatalogLoading && (
+                <div className="rounded-xl border px-3 py-2 text-[11px] font-semibold mb-2" style={{ borderColor: C.redBorder, color: C.red700, background: C.red50 }}>
+                  {studentReqCatalogError}
+                </div>
+              )}
+              {!studentReqCatalogLoading && !studentReqCatalog.length && !studentReqCatalogError && (
+                <div className="text-center py-4 text-[11px] rounded-xl border bg-white" style={{ borderColor: C.goldBorder, color: C.slate500 }}>
+                  No rows in <span className="font-mono">student_requirements</span>. Add them in the database (or Super Admin → requirement prices) to show the checklist here.
+                </div>
+              )}
+              {!studentReqCatalogLoading && !!studentReqCatalog.length && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-48 overflow-y-auto border rounded-xl p-2 bg-white"
                 style={{ borderColor: C.goldBorder }}>
-                {PACKAGE_REQUIREMENTS.map(name => (
-                  <label key={name} className="flex items-start gap-2 text-[10px] text-slate-700 cursor-pointer">
-                    <input type="checkbox" className="mt-0.5 w-3 h-3" checked={selectedNames.includes(name)} onChange={() => toggleReq(name)} />
-                    <span>{name}</span>
+                {studentReqCatalog.map(row => (
+                  <label key={row.id ?? row.name} className="flex items-start gap-2 text-[10px] text-slate-700 cursor-pointer">
+                    <input type="checkbox" className="mt-0.5 w-3 h-3 shrink-0" checked={selectedNames.includes(row.name)} onChange={() => toggleReq(row)} />
+                    <span className="min-w-0">
+                      <span className="block font-semibold">{row.name}</span>
+                      {(row.description || (row.quantity != null && String(row.quantity) !== "")) && (
+                        <span className="block text-[9px] text-slate-500 mt-0.5 leading-snug">
+                          {[row.description, row.quantity != null && String(row.quantity) !== "" ? `Qty: ${row.quantity}` : null].filter(Boolean).join(" · ")}
+                        </span>
+                      )}
+                    </span>
                   </label>
                 ))}
               </div>
+              )}
             </div>
             <div className="flex items-center justify-between">
               <label className="text-[10px] font-black uppercase tracking-widest" style={{ color: C.darkMid }}>Custom Requirements</label>
-              <button
-                type="button"
-                onClick={() => up("requirements", [...(form.requirements||[]), { item:"", description:"", quantity:"" }])}
+              <button type="button" onClick={() => up("requirements", [...(form.requirements||[]), { item: "", pay_channel: "babyeyi", cost: "" }])}
                 className="flex items-center gap-1 text-xs font-bold hover:opacity-80 px-2 py-1 rounded-lg"
                 style={{ color: C.goldDark, background: C.goldBg }}>
                 <I n="plus" size={12} /> Add
               </button>
             </div>
-            <div className="space-y-2">
-              {(form.requirements||[]).map((r,i) => (
-                <div key={i} className="flex flex-col gap-2 border border-amber-100 rounded-xl p-2 bg-white">
-                  <div className="flex gap-2 items-center">
-                    <span
-                      className="w-5 h-5 rounded-lg flex items-center justify-center text-[9px] font-black shrink-0"
-                      style={{ background: C.goldBgMid, color: C.goldDark }}
-                    >
-                      {i+1}
-                    </span>
-                    <input
-                      value={r.item}
-                      onChange={e=>{const rs=[...(form.requirements||[])]; rs[i] = { ...rs[i], item:e.target.value }; up("requirements",rs);}}
-                      placeholder="Item (e.g. Exercise books)"
-                      className={`${inp} flex-1`}
-                      style={{ borderColor: C.goldBorder }}
-                    />
-                  {(form.requirements||[]).length > 1 && (
-                    <button type="button" onClick={() => up("requirements",(form.requirements||[]).filter((_,j)=>j!==i))}
-                      className="p-1.5 hover:bg-red-50 rounded-xl" style={{ color: C.red }}><I n="x" size={13} /></button>
-                  )}
+              <div className="space-y-2">
+                {(form.requirements||[]).map((r,i) => (
+                  <div key={i} className="flex flex-col gap-1.5 border border-amber-100 rounded-xl p-2 bg-white">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="w-5 h-5 rounded-lg flex items-center justify-center text-[9px] font-black shrink-0"
+                        style={{ background: C.goldBgMid, color: C.goldDark }}
+                      >
+                        {i+1}
+                      </span>
+                      <input
+                        value={r.item}
+                        onChange={e=>{
+                          const rs=[...(form.requirements||[])];
+                          rs[i] = { ...rs[i], item:e.target.value };
+                          up("requirements",rs);
+                        }}
+                        placeholder="Item (e.g. Exercise books)"
+                        className={`${inp} flex-1`}
+                        style={{ borderColor: C.goldBorder }}
+                      />
+                      {(form.requirements||[]).length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => up("requirements",(form.requirements||[]).filter((_,j)=>j!==i))}
+                          className="p-1.5 hover:bg-red-50 rounded-xl"
+                          style={{ color: C.red }}
+                        >
+                          <I n="x" size={13} />
+                        </button>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-[2fr,1fr] gap-2 pl-7">
+                      <input
+                        value={r.description || ""}
+                        onChange={e=>{
+                          const rs=[...(form.requirements||[])];
+                          rs[i] = { ...rs[i], description:e.target.value };
+                          up("requirements",rs);
+                        }}
+                        placeholder="Description (e.g. A4, 80gsm)"
+                        className={inp}
+                        style={{ borderColor: "#E5E7EB" }}
+                      />
+                      <input
+                        value={r.quantity || ""}
+                        onChange={e=>{
+                          const rs=[...(form.requirements||[])];
+                          rs[i] = { ...rs[i], quantity:e.target.value };
+                          up("requirements",rs);
+                        }}
+                        placeholder="Qty (e.g. 2 per term)"
+                        className={inp}
+                        style={{ borderColor: "#E5E7EB" }}
+                      />
+                    </div>
+                    <div className="pl-7">
+                      <label className="text-[9px] font-black uppercase tracking-wider mb-1 block" style={{ color: C.slate500 }}>Where parents pay</label>
+                      <select
+                        value={r.pay_channel === "school" ? "school" : "babyeyi"}
+                        onChange={(e) => {
+                          const rs = [...(form.requirements || [])];
+                          const school = e.target.value === "school";
+                          rs[i] = {
+                            ...rs[i],
+                            pay_channel: school ? "school" : "babyeyi",
+                            ...(school ? {} : { cost: "" }),
+                          };
+                          up("requirements", rs);
+                        }}
+                        className={`${inp} text-[13px] font-semibold`}
+                        style={{ borderColor: C.goldBorder }}
+                      >
+                        <option value="babyeyi">Pay via Babyeyi (online / MoMo)</option>
+                        <option value="school">Paid at school (counter / cash at office)</option>
+                      </select>
+                      <p className="text-[10px] mt-1 leading-snug" style={{ color: C.slate500 }}>
+                        Online items appear under &quot;Other requirements&quot; on the public pay page. Counter items are grouped with tuition &amp; school fees.
+                      </p>
+                      {r.pay_channel === "school" && (
+                        <div className="mt-2.5">
+                          <label className="text-[9px] font-black uppercase tracking-wider mb-1 block" style={{ color: C.slate500 }}>
+                            Amount at school (RWF)
+                          </label>
+                          <input
+                            type="number"
+                            min={0}
+                            step={1}
+                            value={r.cost ?? ""}
+                            onChange={(e) => {
+                              const rs = [...(form.requirements || [])];
+                              rs[i] = { ...rs[i], cost: e.target.value };
+                              up("requirements", rs);
+                            }}
+                            placeholder="Total parents pay at the office for this line"
+                            className={`${inp} text-[13px] font-semibold font-mono`}
+                            style={{ borderColor: C.goldBorder }}
+                          />
+                          <p className="text-[10px] mt-1 leading-snug" style={{ color: C.slate500 }}>
+                            Stored on this Babyeyi as the school-counter line total (used on the public pay page with tuition).
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <input
-                      value={r.description || ""}
-                      onChange={e=>{const rs=[...(form.requirements||[])]; rs[i] = { ...rs[i], description:e.target.value }; up("requirements",rs);}}
-                      placeholder="Description (e.g. A4, 80gsm)"
-                      className={inp}
-                      style={{ borderColor: "#E5E7EB" }}
-                    />
-                    <input
-                      value={r.quantity || ""}
-                      onChange={e=>{const rs=[...(form.requirements||[])]; rs[i] = { ...rs[i], quantity:e.target.value }; up("requirements",rs);}}
-                      placeholder="Qty (e.g. 2 per term)"
-                      className={inp}
-                      style={{ borderColor: "#E5E7EB" }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+
             <div className="border-t pt-4" style={{ borderColor: C.goldBorder }}>
               <div className="flex items-center justify-between mb-1">
-                <label className="text-[10px] font-black uppercase tracking-widest" style={{ color: C.darkMid }}>Other School Information</label>
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest" style={{ color: C.darkMid }}>
+                    Other School Information
+                  </label>
+                  <p className="text-[10px] mt-0.5" style={{ color: C.slate500 }}>
+                    Rules, schedules, notices — stored in <span className="font-mono bg-slate-100 px-1 rounded">babyeyi_class_requirements</span>
+                  </p>
+                </div>
                 <button type="button" onClick={() => up("otherInfos",[...(form.otherInfos||[]),{item:""}])}
                   className="flex items-center gap-1 text-xs font-bold hover:opacity-80 px-2 py-1 rounded-lg shrink-0"
                   style={{ color: C.goldDark, background: C.goldBg }}>
@@ -1750,7 +1902,7 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null }
                   </div>
                   <div>
                     <p className="text-xs font-black" style={{ color: C.dark }}>{item.label}</p>
-                    <p className="text-[9px] font-semibold" style={{ color: dbAssets[item.dbKey] ? C.emerald : C.slate }}>
+                    <p className="text-[9px] font-semibold" style={{ color: dbAssets[item.dbKey] ? C.emerald : C.slate500 }}>
                       {dbAssets[item.dbKey] ? "✓ Loaded from school profile" : "Not set in database"}
                     </p>
                   </div>
@@ -2064,6 +2216,13 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null }
 
   const isLast = step === STEPS.length;
 
+  /** Jump to any step (create or edit). Step 2 is still validated on Next and on final Save. */
+  const goToStep = (targetId) => {
+    if (targetId < 1 || targetId > STEPS.length || targetId === step) return;
+    setErrors({});
+    setStep(targetId);
+  };
+
   return (
     <div className="flex flex-col h-full">
       {/* Toast */}
@@ -2084,13 +2243,13 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null }
         <div className="flex items-center gap-0.5 sm:gap-1 overflow-x-auto">
           {STEPS.map((s,i) => (
             <div key={s.id} className="flex items-center shrink-0">
-              <button onClick={() => step > s.id && setStep(s.id)}
+              <button type="button" onClick={() => goToStep(s.id)}
                 className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl text-[10px] sm:text-xs font-bold transition-all whitespace-nowrap"
                 style={step===s.id
                   ? { background: C.gold, color: C.dark, boxShadow: "0 2px 8px rgba(254,191,16,0.4)" }
                   : step>s.id
                   ? { background: "#d1fae5", color: "#065f46", cursor: "pointer" }
-                  : { background: "#e2e8f0", color: "#94a3b8" }}>
+                  : { background: "#fef3c7", color: "#92400e", cursor: "pointer" }}>
                 {step > s.id ? <Svg d={ic.check} size={10} color="currentColor" sw={3} /> : <I n={s.icon} size={11} />}
                 <span className="hidden sm:inline">{s.label}</span>
                 <span className="sm:hidden">{s.id}</span>

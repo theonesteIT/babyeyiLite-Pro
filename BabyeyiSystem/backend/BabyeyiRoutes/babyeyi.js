@@ -182,11 +182,17 @@ Reference: ${reason}`;
 /** After school saves Babyeyi requirements, insert requirement_prices from student_requirements.default_price when missing. */
 async function seedRequirementPricesFromDefaults(babyeyiId, schoolId, academicYear, term, className) {
   try {
-    const rows = await query(
-      `SELECT id, item FROM babyeyi_student_requirements WHERE babyeyi_id = ?`,
-      [babyeyiId]
-    );
+    let rows;
+    try {
+      rows = await query(
+        `SELECT id, item, COALESCE(pay_channel,'babyeyi') AS pay_channel, cost FROM babyeyi_student_requirements WHERE babyeyi_id = ?`,
+        [babyeyiId]
+      );
+    } catch (_) {
+      rows = await query(`SELECT id, item FROM babyeyi_student_requirements WHERE babyeyi_id = ?`, [babyeyiId]);
+    }
     for (const row of rows) {
+      if (String(row.pay_channel || "").toLowerCase() === "school" && Number(row.cost) > 0) continue;
       const m = await query(
         `SELECT default_price FROM student_requirements WHERE TRIM(LOWER(name)) = TRIM(LOWER(?)) LIMIT 1`,
         [row.item]
@@ -461,6 +467,8 @@ const runMigrations = async () => {
     `ALTER TABLE babyeyi_signatures ADD COLUMN IF NOT EXISTS qr_code_path VARCHAR(500) NULL`,
     `ALTER TABLE babyeyi_signatures ADD COLUMN IF NOT EXISTS qr_code_name VARCHAR(255) NULL`,
     // ── v12: leaders table ────────────────────────────────────
+    `ALTER TABLE babyeyi_student_requirements ADD COLUMN IF NOT EXISTS pay_channel VARCHAR(24) NOT NULL DEFAULT 'babyeyi'`,
+    `ALTER TABLE babyeyi_student_requirements ADD COLUMN IF NOT EXISTS cost DECIMAL(14,2) NULL COMMENT 'Line total RWF when pay_channel=school'`,
     `CREATE TABLE IF NOT EXISTS babyeyi_leaders (
        id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        babyeyi_id    INT UNSIGNED NOT NULL,
@@ -2070,16 +2078,31 @@ router.post("/", (req, res) => {
       for (let i = 0; i < studentReqs.length; i++) {
         const r = studentReqs[i] || {};
         if (r.item) {
+          const payCh =
+            String(r.pay_channel || r.payChannel || "").toLowerCase() === "school" ? "school" : "babyeyi";
+          const lineCost =
+            payCh === "school"
+              ? Math.round((Number(r.cost ?? r.school_line_rwf ?? r.schoolLineRwf) || 0) * 100) / 100
+              : null;
+          const costVal = lineCost && lineCost > 0 ? lineCost : null;
           await query(
-            "INSERT INTO babyeyi_student_requirements (babyeyi_id, item, description, quantity, sort_order) VALUES (?,?,?,?,?)",
-            [bid, r.item, r.description || null, r.quantity || null, i]
+            "INSERT INTO babyeyi_student_requirements (babyeyi_id, item, description, quantity, sort_order, pay_channel, cost) VALUES (?,?,?,?,?,?,?)",
+            [bid, r.item, r.description || null, r.quantity || null, i, payCh, costVal]
           ).catch(async (e) => {
-            // Backward-compat: fall back to old schema (item,cost,sort_order) if new columns do not exist
             if (e.code === "ER_BAD_FIELD_ERROR") {
-              await query(
-                "INSERT INTO babyeyi_student_requirements (babyeyi_id, item, cost, sort_order) VALUES (?,?,?,?)",
-                [bid, r.item, r.cost ? Number(r.cost) : null, i]
-              );
+              try {
+                await query(
+                  "INSERT INTO babyeyi_student_requirements (babyeyi_id, item, description, quantity, sort_order, pay_channel) VALUES (?,?,?,?,?,?)",
+                  [bid, r.item, r.description || null, r.quantity || null, i, payCh]
+                );
+              } catch (e2) {
+                if (e2.code === "ER_BAD_FIELD_ERROR") {
+                  await query(
+                    "INSERT INTO babyeyi_student_requirements (babyeyi_id, item, cost, sort_order) VALUES (?,?,?,?)",
+                    [bid, r.item, r.cost ? Number(r.cost) : null, i]
+                  );
+                } else throw e2;
+              }
             } else {
               throw e;
             }
@@ -2412,7 +2435,8 @@ router.put("/:id", (req, res) => {
       const schoolDistrict = fv(body.district, old.district || null);
       const schoolSector   = fv(body.sector,   old.sector   || null);
 
-      const newClass = body.class         || old.class;
+      const newClass =
+        String(body.class || body.class_name || old.class || old.class_name || "").trim() || old.class_name;
       const newTerm  = body.term          || old.term;
       const newYear  = body.academic_year || old.academic_year;
       const level    = body.level || classToLevel(newClass);
@@ -2478,9 +2502,37 @@ router.put("/:id", (req, res) => {
       if (studentReqs.length) {
         await query("DELETE FROM babyeyi_student_requirements WHERE babyeyi_id=?", [id]);
         for (let i = 0; i < studentReqs.length; i++) {
-          if (studentReqs[i].item) {
-            await query("INSERT INTO babyeyi_student_requirements (babyeyi_id, item, cost, sort_order) VALUES (?,?,?,?)",
-                        [id, studentReqs[i].item, studentReqs[i].cost ? Number(studentReqs[i].cost) : null, i]);
+          const r = studentReqs[i] || {};
+          if (r.item) {
+            const payCh =
+              String(r.pay_channel || r.payChannel || "").toLowerCase() === "school" ? "school" : "babyeyi";
+            const lineCost =
+              payCh === "school"
+                ? Math.round((Number(r.cost ?? r.school_line_rwf ?? r.schoolLineRwf) || 0) * 100) / 100
+                : null;
+            const costVal = lineCost && lineCost > 0 ? lineCost : null;
+            await query(
+              "INSERT INTO babyeyi_student_requirements (babyeyi_id, item, description, quantity, sort_order, pay_channel, cost) VALUES (?,?,?,?,?,?,?)",
+              [id, r.item, r.description || null, r.quantity || null, i, payCh, costVal]
+            ).catch(async (e) => {
+              if (e.code === "ER_BAD_FIELD_ERROR") {
+                try {
+                  await query(
+                    "INSERT INTO babyeyi_student_requirements (babyeyi_id, item, description, quantity, sort_order, pay_channel) VALUES (?,?,?,?,?,?)",
+                    [id, r.item, r.description || null, r.quantity || null, i, payCh]
+                  );
+                } catch (e2) {
+                  if (e2.code === "ER_BAD_FIELD_ERROR") {
+                    await query("INSERT INTO babyeyi_student_requirements (babyeyi_id, item, cost, sort_order) VALUES (?,?,?,?)", [
+                      id,
+                      r.item,
+                      r.cost ? Number(r.cost) : null,
+                      i,
+                    ]);
+                  } else throw e2;
+                }
+              } else throw e;
+            });
           }
         }
         await seedRequirementPricesFromDefaults(id, schoolId, newYear, newTerm, newClass);

@@ -281,7 +281,7 @@ const buildBlankForm = (school = {}, categoryOverride) => ({
   requestDescription:   "",
   parentApprovalDoc:    null,
   schoolBudgetDoc:      null,
-  requirements:         [{ item:"" }],
+  requirements:         [{ item: "", pay_channel: "babyeyi", cost: "" }],
   bankName:             "",
   accountNumber:        "",
   accountName:          school.name || "",
@@ -1550,6 +1550,8 @@ export default function App({ session }) {
           item: row.name,
           description: row.description != null && String(row.description).trim() !== "" ? String(row.description) : "",
           quantity: row.quantity != null && String(row.quantity).trim() !== "" ? String(row.quantity) : "",
+          pay_channel: "babyeyi",
+          cost: "",
         });
         const toggleReq = (row) => {
           const name = row.name;
@@ -1625,7 +1627,7 @@ export default function App({ session }) {
             </div>
             <div className="flex items-center justify-between">
               <label className="text-[10px] font-black uppercase tracking-widest" style={{ color: C.darkMid }}>Custom Requirements</label>
-              <button type="button" onClick={() => up("requirements", [...(form.requirements||[]),{item:""}])}
+              <button type="button" onClick={() => up("requirements", [...(form.requirements||[]),{ item: "", pay_channel: "babyeyi", cost: "" }])}
                 className="flex items-center gap-1 text-xs font-bold hover:opacity-80 px-2 py-1 rounded-lg"
                 style={{ color: C.goldDark, background: C.goldBg }}>
                 <I n="plus" size={12} /> Add
@@ -1686,6 +1688,54 @@ export default function App({ session }) {
                         className={inp}
                         style={{ borderColor: "#E5E7EB" }}
                       />
+                    </div>
+                    <div className="pl-7">
+                      <label className="text-[9px] font-black uppercase tracking-wider mb-1 block" style={{ color: C.slate500 }}>Where parents pay</label>
+                      <select
+                        value={r.pay_channel === "school" ? "school" : "babyeyi"}
+                        onChange={(e) => {
+                          const rs = [...(form.requirements || [])];
+                          const school = e.target.value === "school";
+                          rs[i] = {
+                            ...rs[i],
+                            pay_channel: school ? "school" : "babyeyi",
+                            ...(school ? {} : { cost: "" }),
+                          };
+                          up("requirements", rs);
+                        }}
+                        className={`${inp} text-[13px] font-semibold`}
+                        style={{ borderColor: C.goldBorder }}
+                      >
+                        <option value="babyeyi">Pay via Babyeyi (online / MoMo)</option>
+                        <option value="school">Paid at school (counter / cash at office)</option>
+                      </select>
+                      <p className="text-[10px] mt-1 leading-snug" style={{ color: C.slate500 }}>
+                        Online items appear under &quot;Other requirements&quot; on the public pay page. Counter items are grouped with tuition &amp; school fees.
+                      </p>
+                      {r.pay_channel === "school" && (
+                        <div className="mt-2.5">
+                          <label className="text-[9px] font-black uppercase tracking-wider mb-1 block" style={{ color: C.slate500 }}>
+                            Amount at school (RWF)
+                          </label>
+                          <input
+                            type="number"
+                            min={0}
+                            step={1}
+                            value={r.cost ?? ""}
+                            onChange={(e) => {
+                              const rs = [...(form.requirements || [])];
+                              rs[i] = { ...rs[i], cost: e.target.value };
+                              up("requirements", rs);
+                            }}
+                            placeholder="Total parents pay at the office for this line"
+                            className={`${inp} text-[13px] font-semibold font-mono`}
+                            style={{ borderColor: C.goldBorder }}
+                          />
+                          <p className="text-[10px] mt-1 leading-snug" style={{ color: C.slate500 }}>
+                            Stored on this Babyeyi as the school-counter line total (used on the public pay page with tuition).
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
