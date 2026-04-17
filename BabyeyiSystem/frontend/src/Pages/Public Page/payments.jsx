@@ -93,7 +93,8 @@ function sanitizeRwandaPhone(raw) {
   return p;
 }
 function isValidMomoPhone(raw) {
-  return /^2507[0-9]{8}$/.test(sanitizeRwandaPhone(raw));
+  // RegExp() avoids regex-literal parsing edge cases in some bundlers
+  return new RegExp('^2507[0-9]{8}$').test(sanitizeRwandaPhone(raw));
 }
 function loanSchedule(principal, months, annualRate, frequency) {
   const p  = Math.max(0, Number(principal) || 0);
@@ -107,32 +108,6 @@ function loanSchedule(principal, months, annualRate, frequency) {
   n = Math.max(1, n);
   const each = Math.round((totalDue / n) * 100) / 100;
   return { totalDue: Math.round(totalDue * 100) / 100, interest: Math.round(interest * 100) / 100, installments: n, each };
-}
-function toRateFraction(value) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return null;
-  if (n > 1) return n / 100;
-  if (n >= 0) return n;
-  return null;
-}
-function getShuleOrgAnnualRate(org) {
-  const monthlyFlag = !!Number(org?.rate_is_monthly || 0);
-  const candidates = [
-    org?.annual_rate,
-    org?.income_rate,
-    org?.interest_rate,
-    org?.rate,
-    org?.rate_percent,
-    org?.apr,
-  ];
-  for (const c of candidates) {
-    const asFrac = toRateFraction(c);
-    if (asFrac != null) {
-      const annualFrac = monthlyFlag ? asFrac * 12 : asFrac;
-      return Math.max(0, Math.min(0.8, annualFrac));
-    }
-  }
-  return 0.12;
 }
 
 const RW_BANKS = [
@@ -157,71 +132,6 @@ const INCOME_BRACKETS = [
 ];
 const MOMO_POLL_INTERVAL_MS = 4_000;
 const MOMO_MAX_POLLS        = 30;
-const SESSION_INTENTS_KEY   = 'babyeyi_pay_session_intents_v1';
-const NAVY_BRAND            = '#000435';
-
-const MFI_OPTIONS = [
-  { code: 'urwego', name: 'Urwego Opportunity Bank (MFI)', accountNo: '—' },
-  { code: 'vision', name: 'Vision Fund MFI', accountNo: '—' },
-];
-const SACCO_OPTIONS = [
-  { code: 'umwalimu', name: 'Umwalimu SACCO', accountNo: '0000-000000-00' },
-  { code: 'copabu',   name: 'COPABU SACCO', accountNo: '—' },
-];
-function banksForLoanCategory(cat) {
-  if (cat === 'MFI') return MFI_OPTIONS;
-  if (cat === 'SACCO') return SACCO_OPTIONS;
-  return RW_BANKS;
-}
-function shuleRoutingSummary(cat) {
-  const c = String(cat || '').trim().toLowerCase();
-  if (c === 'parent') return 'Routing: school fees / materials — disbursement to the school account.';
-  if (c === 'teacher') return 'Routing: teacher advance — disbursement to teacher MoMo or bank as agreed.';
-  if (c === 'director') return 'Routing: school owner / director — disbursement to school operating account.';
-  if (String(cat || '').trim()) {
-    return `Applicant type “${String(cat).trim()}” — disbursement follows the agreement between your school and the financing partner.`;
-  }
-  return '';
-}
-
-function shuleApplicantLabel(cat) {
-  const raw = String(cat || '').trim();
-  const c = raw.toLowerCase();
-  if (c === 'parent') return 'Parent / Guardian';
-  if (c === 'teacher') return 'Teacher';
-  if (c === 'director') return 'Director / School owner';
-  return raw || '—';
-}
-
-const SHULE_DEFAULT_APPLICANT_CATS = ['Parent', 'Teacher', 'Director'];
-
-/** Read applicant_categories from a ShuleAvance org row (API / DB): array or JSON string. */
-function parseOrgApplicantCategories(org) {
-  if (!org) return [...SHULE_DEFAULT_APPLICANT_CATS];
-  let raw = org.applicant_categories ?? org.applicant_categories_json;
-  if (raw == null) return [...SHULE_DEFAULT_APPLICANT_CATS];
-  if (typeof raw === 'string') {
-    const s = raw.trim();
-    if (!s) return [...SHULE_DEFAULT_APPLICANT_CATS];
-    try {
-      raw = JSON.parse(s);
-    } catch {
-      raw = s.split(/[,;\n\r]+/).map((x) => x.trim()).filter(Boolean);
-    }
-  }
-  if (!Array.isArray(raw) || raw.length === 0) return [...SHULE_DEFAULT_APPLICANT_CATS];
-  const out = [];
-  const seen = new Set();
-  for (const c of raw) {
-    const t = String(c).trim().replace(/\s+/g, ' ');
-    if (!t) continue;
-    const k = t.toLowerCase();
-    if (seen.has(k)) continue;
-    seen.add(k);
-    out.push(t);
-  }
-  return out.length ? out : [...SHULE_DEFAULT_APPLICANT_CATS];
-}
 
 // ── Subcomponents ────────────────────────────────────────────────
 
@@ -329,33 +239,16 @@ export default function PaymentsPage() {
   const [visaExpiry,     setVisaExpiry]     = useState('');
   const [visaCvv,        setVisaCvv]        = useState('');
 
-  // Loan / ShuleAvance / tabs (school Babyeyi checkout only)
-  const [pageTab, setPageTab] = useState('direct');
-  const [draftIntentId, setDraftIntentId] = useState(null);
+  // Loan
   const [loanMonths,        setLoanMonths]        = useState(3);
   const [incomeId,          setIncomeId]          = useState('mid');
   const [loanFreq,          setLoanFreq]          = useState('monthly');
-  const [loanStep,          setLoanStep]          = useState('provider');
-  const [loanProviderCategory, setLoanProviderCategory] = useState('BANK');
+  const [loanStep,          setLoanStep]          = useState('bank');
   const [loanBankCode,      setLoanBankCode]      = useState('bk');
-  const [loanPurpose,       setLoanPurpose]       = useState('');
-  const [loanDisburseMethod, setLoanDisburseMethod] = useState('bank_account');
-  const [loanBranchNote,    setLoanBranchNote]    = useState('');
   const [loanApplicantName, setLoanApplicantName] = useState('');
   const [loanAccountNumber, setLoanAccountNumber] = useState('');
   const [loanNationalId,    setLoanNationalId]    = useState('');
   const [loanError,         setLoanError]         = useState('');
-  const [shuleStep, setShuleStep] = useState('org');
-  const [shuleOrgs, setShuleOrgs] = useState([]);
-  const [shuleOrgsLoading, setShuleOrgsLoading] = useState(false);
-  const [shuleOrgId, setShuleOrgId] = useState('');
-  const [shuleApplicantCat, setShuleApplicantCat] = useState('Parent');
-  const [shuleRepayMo, setShuleRepayMo] = useState(1);
-  const [shuleDisbursePref, setShuleDisbursePref] = useState('school_account');
-  const [shuleNotifyPhone, setShuleNotifyPhone] = useState('');
-  const [shuleSupportNote, setShuleSupportNote] = useState('');
-  const [localInvoices, setLocalInvoices] = useState([]);
-  const draftTimerRef = useRef(null);
 
   // MoMo
   const [momoPhoneRaw,    setMomoPhoneRaw]    = useState('');
@@ -546,105 +439,42 @@ export default function PaymentsPage() {
     return g;
   }, [draft]);
 
-  const schoolFeesCheckout = Boolean(
-    draft?.schoolId && draft?.babyeyiId
-    && !draft?.studentServiceCheckout && !draft?.agentShopCheckout
-    && !draft?.standardKitCheckout && !draft?.uniformVoucherCheckout
-  );
-
-  const refreshShuleOrgs = useCallback(() => {
-    if (!schoolFeesCheckout) return Promise.resolve([]);
-    setShuleOrgsLoading(true);
-    return fetch(`${API}/public/babyeyi-pay/shule-avance-organizations`)
-      .then((r) => r.json())
-      .then((j) => {
-        const list = j.success && Array.isArray(j.data) ? j.data : [];
-        setShuleOrgs(list);
-        return list;
-      })
-      .catch(() => {
-        setShuleOrgs([]);
-        return [];
-      })
-      .finally(() => setShuleOrgsLoading(false));
-  }, [schoolFeesCheckout]);
-
-  useEffect(() => {
-    if (!schoolFeesCheckout) return;
-    refreshShuleOrgs();
-  }, [schoolFeesCheckout, refreshShuleOrgs]);
-
-  useEffect(() => {
-    try {
-      const raw = sessionStorage.getItem(SESSION_INTENTS_KEY);
-      if (raw) setLocalInvoices(JSON.parse(raw));
-    } catch {
-      setLocalInvoices([]);
-    }
-  }, [schoolFeesCheckout, draft?.schoolId, draft?.babyeyiId]);
-
-  useEffect(() => {
-    if (!schoolFeesCheckout) return;
-    if (pageTab === 'loan') setPayMethod('loan');
-    else if (pageTab === 'shuleavance') setPayMethod('shule_avance');
-    else setPayMethod((m) => ((m === 'loan' || m === 'shule_avance') ? 'momo' : m));
-  }, [pageTab, schoolFeesCheckout]);
-
-  useEffect(() => {
-    const first = banksForLoanCategory(loanProviderCategory)[0]?.code || 'bk';
-    setLoanBankCode(first);
-  }, [loanProviderCategory]);
-
   const remainingBalanceRwf     = balanceQuote != null ? Number(balanceQuote.remaining_rwf          ?? 0) : null;
-  const exceedsRemaining = payMethod !== 'loan' && payMethod !== 'shule_avance' && remainingBalanceRwf != null && principal > remainingBalanceRwf + 1.5;
+  const selectionListedRwf      = balanceQuote != null ? Number(balanceQuote.selection_due_rwf       ?? 0) : null;
+  const creditedTowardSelection = selectionListedRwf != null && remainingBalanceRwf != null
+    ? Math.max(0, Math.round((selectionListedRwf - remainingBalanceRwf) * 100) / 100) : null;
+  const afterThisPaymentRwf     = remainingBalanceRwf != null
+    ? Math.max(0, Math.round((remainingBalanceRwf - principal) * 100) / 100) : null;
+  const remainingFullDocumentRwf = balanceQuote != null
+    ? Number(balanceQuote.remaining_full_document_rwf ?? balanceQuote.remaining_rwf ?? 0) : null;
+  const afterThisPaymentOnDocumentRwf = remainingFullDocumentRwf != null
+    ? Math.max(0, Math.round((remainingFullDocumentRwf - principal) * 100) / 100) : null;
+  const remainingUnselectedLinesRwf = balanceQuote != null && remainingFullDocumentRwf != null && remainingBalanceRwf != null
+    ? Number(balanceQuote.remaining_unselected_lines_rwf ??
+        Math.max(0, Math.round((remainingFullDocumentRwf - remainingBalanceRwf) * 100) / 100)) : null;
+  const exceedsRemaining = payMethod !== 'loan' && remainingBalanceRwf != null && principal > remainingBalanceRwf + 1.5;
 
   /** School-fees Babyeyi payment intents only — PDFs use intent id + invoice_no */
-  const activeSchoolIntentId = doneId ?? draftIntentId;
   const isSchoolFeesIntent = Boolean(
     draft?.schoolId
     && draft?.babyeyiId
     && invoiceNo
-    && Number.isFinite(Number(activeSchoolIntentId))
+    && Number.isFinite(Number(doneId))
     && !draft?.studentServiceCheckout
     && !draft?.agentShopCheckout
     && !draft?.standardKitCheckout
     && !draft?.uniformVoucherCheckout
   );
   const invoicePdfHref = isSchoolFeesIntent
-    ? `${API}/public/babyeyi-pay/invoice/${Number(activeSchoolIntentId)}.pdf?invoice_no=${encodeURIComponent(invoiceNo)}`
+    ? `${API}/public/babyeyi-pay/invoice/${Number(doneId)}.pdf?invoice_no=${encodeURIComponent(invoiceNo)}`
     : '';
   const receiptPdfHref = isSchoolFeesIntent && String(invoiceStatus || '').toUpperCase() === 'PAID'
-    ? `${API}/public/babyeyi-pay/receipt/${Number(activeSchoolIntentId)}.pdf?invoice_no=${encodeURIComponent(invoiceNo)}`
+    ? `${API}/public/babyeyi-pay/receipt/${Number(doneId)}.pdf?invoice_no=${encodeURIComponent(invoiceNo)}`
     : '';
 
   const income    = INCOME_BRACKETS.find(x => x.id === incomeId) || INCOME_BRACKETS[1];
   const sched     = useMemo(() => loanSchedule(principal, loanMonths, income.annualRate, loanFreq), [principal, loanMonths, income.annualRate, loanFreq]);
-  const loanBanks = useMemo(() => banksForLoanCategory(loanProviderCategory), [loanProviderCategory]);
-  const loanBank  = useMemo(() => loanBanks.find(b => b.code === loanBankCode) || loanBanks[0], [loanBanks, loanBankCode]);
-  const selectedShuleOrg = useMemo(
-    () => (shuleOrgs || []).find((x) => String(x.id) === String(shuleOrgId)) || null,
-    [shuleOrgs, shuleOrgId]
-  );
-  const shuleAllowedCats = useMemo(() => {
-    return parseOrgApplicantCategories(selectedShuleOrg);
-  }, [selectedShuleOrg]);
-  const shuleAnnualRate = useMemo(() => getShuleOrgAnnualRate(selectedShuleOrg), [selectedShuleOrg]);
-  const shuleSchedules = useMemo(() => ({
-    daily: loanSchedule(principal, shuleRepayMo, shuleAnnualRate, 'daily'),
-    weekly: loanSchedule(principal, shuleRepayMo, shuleAnnualRate, 'weekly'),
-    monthly: loanSchedule(principal, shuleRepayMo, shuleAnnualRate, 'monthly'),
-  }), [principal, shuleRepayMo, shuleAnnualRate]);
-  const shuleNotifyPhoneValid = isValidMomoPhone(shuleNotifyPhone);
-  const shuleNotifyPhoneClean = sanitizeRwandaPhone(shuleNotifyPhone);
-  const shuleRoutingText = useMemo(() => shuleRoutingSummary(shuleApplicantCat), [shuleApplicantCat]);
-
-  useEffect(() => {
-    if (!shuleAllowedCats.length) return;
-    if (!shuleAllowedCats.includes(shuleApplicantCat)) {
-      setShuleApplicantCat(shuleAllowedCats[0]);
-    }
-  }, [shuleOrgId, shuleAllowedCats, shuleApplicantCat]);
-
+  const loanBank  = RW_BANKS.find(b => b.code === loanBankCode) || RW_BANKS[0];
   const publicGuestPay = !!(draft?.fromPublicFinder && draft?.publicPayNoLogin);
 
   const afterSuccessPath = useMemo(() => {
@@ -676,14 +506,13 @@ export default function PaymentsPage() {
   // ── Record intent ─────────────────────────────────────────────
   const recordIntent = useCallback(async (extra = {}) => {
     if (!draft?.schoolId || !draft?.babyeyiId) return null;
-    const totalForIntent = payMethod === 'loan' ? sched.totalDue : principal;
     const res = await fetch(`${API}/public/babyeyi-pay/intent`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         school_id:                draft.schoolId,
         babyeyi_id:               draft.babyeyiId,
-        total_rwf:                totalForIntent,
+        total_rwf:                payMethod === 'loan' ? sched.totalDue : principal,
         status:                   extra.status || 'submitted',
         selected_fee_ids:         draft.selectedFeeIds         || [],
         selected_requirement_ids: draft.selectedReqIds         || [],
@@ -703,24 +532,6 @@ export default function PaymentsPage() {
           incomeId:    payMethod === 'loan' ? incomeId    : null,
           loanFreq:    payMethod === 'loan' ? loanFreq    : null,
           loanSummary: payMethod === 'loan' ? sched       : null,
-          loan_provider_category: payMethod === 'loan' ? loanProviderCategory : null,
-          loan_purpose: payMethod === 'loan' ? loanPurpose.trim() : null,
-          loan_disbursement_method: payMethod === 'loan' ? loanDisburseMethod : null,
-          loan_branch_note: payMethod === 'loan' ? loanBranchNote.trim() : null,
-          shule_avance: payMethod === 'shule_avance' ? {
-            organization_id: Number(shuleOrgId) || null,
-            organization_name: (shuleOrgs.find(o => String(o.id) === String(shuleOrgId)) || {}).org_name || null,
-            applicant_category: shuleApplicantCat,
-            applicant_notification_phone: shuleNotifyPhoneClean || null,
-            applicant_notification_email: null,
-            purpose: 'School fees / shulekits',
-            repayment_period_months: Math.min(3, Math.max(1, Number(shuleRepayMo) || 1)),
-            disbursement_preference: shuleDisbursePref,
-            supporting_note: shuleSupportNote.trim(),
-            routing_summary: shuleRoutingText,
-            organization_rate_annual: shuleAnnualRate,
-            repayment_preview: shuleSchedules,
-          } : null,
           bank_transfer: payMethod === 'bank' ? {
             bankCode, bankName: BANK_TRANSFER_OPTIONS.find(b => b.code === bankCode)?.name || 'Bank',
             accountHolder: bankAccountHolder.trim(), accountNumber: bankAccountNumber.trim(),
@@ -746,43 +557,15 @@ export default function PaymentsPage() {
           } : null,
         },
         ...extra,
-        ...((extra.reuse_intent_id != null || draftIntentId)
-          ? { reuse_intent_id: extra.reuse_intent_id != null ? extra.reuse_intent_id : draftIntentId }
-          : {}),
       }),
     });
     const json = await res.json().catch(() => ({}));
     if (json.success) return json;
     const err = new Error(json.message || 'Failed to record intent');
     err.code = json.code; err.details = json.details; throw err;
-  }, [draft, draftIntentId, payMethod, principal, sched, bankCode, loanBankCode, loanMonths, incomeId, loanFreq,
-      loanProviderCategory, loanPurpose, loanDisburseMethod, loanBranchNote,
-      shuleOrgId, shuleOrgs, shuleApplicantCat, shuleRepayMo, shuleDisbursePref, shuleNotifyPhoneClean, shuleSupportNote,
-      shuleRoutingText, shuleAnnualRate, shuleSchedules,
+  }, [draft, payMethod, principal, sched, bankCode, loanBankCode, loanMonths, incomeId, loanFreq,
       momoPhoneRaw, loanBank, loanApplicantName, loanAccountNumber, loanNationalId,
       bankAccountHolder, bankAccountNumber, bankPaymentRef, visaCardHolder, visaCardNumber, visaExpiry]);
-
-  useEffect(() => {
-    if (!schoolFeesCheckout) return;
-    if (pageTab === 'history' || pageTab === 'invoices') return;
-    if (!principal || principal < 100) return;
-    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
-    draftTimerRef.current = setTimeout(() => {
-      recordIntent({ status: 'draft' })
-        .then((j) => {
-          if (j?.intent_id) setDraftIntentId(j.intent_id);
-          if (j?.invoice?.invoice_no) setInvoiceNo(j.invoice.invoice_no);
-          if (j?.invoice?.invoice_status) setInvoiceStatus(String(j.invoice.invoice_status).toUpperCase());
-        })
-        .catch(() => {});
-    }, 900);
-    return () => { if (draftTimerRef.current) clearTimeout(draftTimerRef.current); };
-  }, [
-    schoolFeesCheckout, pageTab, principal, payMethod, loanProviderCategory, loanBankCode,
-    loanMonths, incomeId, loanFreq, loanPurpose, loanDisburseMethod, loanBranchNote,
-    shuleOrgId, shuleApplicantCat, shuleRepayMo, shuleDisbursePref,
-    shuleNotifyPhone, shuleSupportNote, draft?.schoolId, draft?.babyeyiId, recordIntent,
-  ]);
 
   // ── MoMo polling ──────────────────────────────────────────────
   const pollMomoStatus = useCallback(async (intentId, count) => {
@@ -1090,7 +873,7 @@ export default function PaymentsPage() {
     if (!draft?.schoolId || !draft?.babyeyiId) return;
     setSubmitError('');
     if (!principal || principal < 100) { setSubmitError(`Invalid amount: ${principal} RWF. Minimum is 100 RWF.`); return; }
-    if (exceedsRemaining && payMethod !== 'loan' && payMethod !== 'shule_avance') {
+    if (exceedsRemaining && payMethod !== 'loan') {
       setSubmitError(`The amount (${Number(principal).toLocaleString()} RWF) is above the remaining balance (${Number(remainingBalanceRwf).toLocaleString()} RWF).`); return;
     }
 
@@ -1106,7 +889,6 @@ export default function PaymentsPage() {
         setInvoiceNo(intent?.invoice?.invoice_no || '');
         setInvoiceStatus(String(intent?.invoice?.invoice_status || 'NOT_PAID').toUpperCase());
         if (!intent.intent_id) throw new Error('Intent ID not returned.');
-        setDraftIntentId(intent.intent_id);
         if (intent.gateway_failed) {
           setMomoStatus('FAILED'); setMomoErrorDetail(intent.gateway_error || '');
           setSubmitError(intent.message || 'MoMo request failed.'); setSubmitting(false); return;
@@ -1129,7 +911,6 @@ export default function PaymentsPage() {
       try {
         const intent = await recordIntent({ status: 'submitted' });
         setDoneId(intent.intent_id || null);
-        setDraftIntentId(intent.intent_id || null);
         setInvoiceNo(intent?.invoice?.invoice_no || '');
         setInvoiceStatus(String(intent?.invoice?.invoice_status || 'NOT_PAID').toUpperCase());
         setDoneMode('bank'); setShowDoneModal(true);
@@ -1145,48 +926,11 @@ export default function PaymentsPage() {
       try {
         const intent = await recordIntent({ status: 'submitted' });
         setDoneId(intent.intent_id || null);
-        setDraftIntentId(intent.intent_id || null);
         setInvoiceNo(intent?.invoice?.invoice_no || '');
         setInvoiceStatus(String(intent?.invoice?.invoice_status || 'NOT_PAID').toUpperCase());
         setDoneMode('visa'); setShowDoneModal(true);
       } catch (err) { setSubmitError(`Could not process card intent: ${err.message}`); }
       finally { setSubmitting(false); }
-      return;
-    }
-
-    if (payMethod === 'shule_avance') {
-      if (shuleStep !== 'review') { setSubmitError('Complete all ShuleAvance steps before submitting.'); return; }
-      if (!shuleOrgId) { setSubmitError('Select a ShuleAvance organization.'); return; }
-      if (!shuleNotifyPhoneValid) { setSubmitError('Enter a valid phone number for SMS updates.'); return; }
-      setSubmitting(true);
-      try {
-        const intent = await recordIntent({ status: 'submitted' });
-        setDoneId(intent.intent_id || null);
-        setDraftIntentId(intent.intent_id || null);
-        setInvoiceNo(intent?.invoice?.invoice_no || '');
-        setInvoiceStatus(String(intent?.invoice?.invoice_status || 'PENDING_APPROVAL').toUpperCase());
-        setDoneMode('shule');
-        setShowDoneModal(true);
-        try {
-          const row = {
-            id: intent.intent_id,
-            invoice_no: intent?.invoice?.invoice_no,
-            invoice_status: intent?.invoice?.invoice_status,
-            amount: principal,
-            at: new Date().toISOString(),
-            kind: 'ShuleAvance',
-          };
-          const raw = sessionStorage.getItem(SESSION_INTENTS_KEY);
-          const prev = raw ? JSON.parse(raw) : [];
-          const next = [row, ...(Array.isArray(prev) ? prev : [])].slice(0, 40);
-          sessionStorage.setItem(SESSION_INTENTS_KEY, JSON.stringify(next));
-          setLocalInvoices(next);
-        } catch (_) {}
-      } catch (err) {
-        setSubmitError(`Could not submit ShuleAvance request: ${err.message}`);
-      } finally {
-        setSubmitting(false);
-      }
       return;
     }
 
@@ -1197,25 +941,9 @@ export default function PaymentsPage() {
       try {
         const intent = await recordIntent({ status: 'submitted' });
         setDoneId(intent.intent_id || null);
-        setDraftIntentId(intent.intent_id || null);
         setInvoiceNo(intent?.invoice?.invoice_no || '');
-        setInvoiceStatus(String(intent?.invoice?.invoice_status || 'PENDING_APPROVAL').toUpperCase());
+        setInvoiceStatus(String(intent?.invoice?.invoice_status || 'NOT_PAID').toUpperCase());
         setDoneMode('loan'); setShowDoneModal(true);
-        try {
-          const row = {
-            id: intent.intent_id,
-            invoice_no: intent?.invoice?.invoice_no,
-            invoice_status: intent?.invoice?.invoice_status,
-            amount: sched.totalDue,
-            at: new Date().toISOString(),
-            kind: 'Loan',
-          };
-          const raw = sessionStorage.getItem(SESSION_INTENTS_KEY);
-          const prev = raw ? JSON.parse(raw) : [];
-          const next = [row, ...(Array.isArray(prev) ? prev : [])].slice(0, 40);
-          sessionStorage.setItem(SESSION_INTENTS_KEY, JSON.stringify(next));
-          setLocalInvoices(next);
-        } catch (_) {}
       } catch (err) { setSubmitError(`Could not submit loan request: ${err.message}`); }
       finally { setSubmitting(false); }
     }
@@ -1223,7 +951,7 @@ export default function PaymentsPage() {
 
   const studsForBalance = Array.isArray(draft?.selectedStudents) && draft.selectedStudents.length
     ? draft.selectedStudents : (draft?.selectedStudent ? [draft.selectedStudent] : []);
-  const awaitingBalance = payMethod !== 'loan' && payMethod !== 'shule_avance' && studsForBalance.length > 0 && balanceLoading;
+  const awaitingBalance = payMethod !== 'loan' && studsForBalance.length > 0 && balanceLoading;
   const visaDigits      = visaCardNumber.replace(/\D/g, '');
   const isVisaPrefix    = visaDigits.startsWith('4');
 
@@ -1238,10 +966,6 @@ export default function PaymentsPage() {
           ? visaCardHolder.trim() && visaDigits.length === 16 && /^((0[1-9])|(1[0-2]))\/\d{2}$/.test(visaExpiry.trim()) && /^\d{3,4}$/.test(visaCvv.trim())
           : payMethod === 'loan'
             ? loanStep === 'review' && loanApplicantName.trim() && loanAccountNumber.trim() && loanNationalId.trim()
-            : payMethod === 'shule_avance'
-              ? shuleStep === 'review' && shuleOrgId
-                && shuleAllowedCats.includes(shuleApplicantCat)
-                && shuleNotifyPhoneValid
             : payMethod === 'bank'
               ? bankAccountHolder.trim() && bankAccountNumber.trim() && bankPaymentRef.trim()
               : true);
@@ -1290,9 +1014,9 @@ export default function PaymentsPage() {
   );
 
   return (
-    <div style={{ minHeight: "100vh", background: NAVY_BRAND, paddingBottom: 60 }}>
+    <div style={{ minHeight: "100vh", background: C.db900, paddingBottom: 60 }}>
       {/* Top bar */}
-      <div style={{ background: '#061a3a', borderBottom: `3px solid ${C.am200}`, padding: "14px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <div style={{ background: C.db800, borderBottom: `3px solid ${C.am200}`, padding: "14px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <button onClick={() => navigate(-1)} style={{
           display: "flex", alignItems: "center", gap: 6, background: "transparent",
           border: `1px solid ${C.am400}`, color: C.am100, padding: "6px 14px",
@@ -1319,90 +1043,13 @@ export default function PaymentsPage() {
           )}
         </div>
 
-        {schoolFeesCheckout && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
-            {[
-              { id: 'direct', label: 'Pay Now' },
-              { id: 'shuleavance', label: 'Access ShuleAvance' },
-              { id: 'loan', label: 'Get Loan' },
-              { id: 'history', label: 'Payment History' },
-              { id: 'invoices', label: 'Invoices' },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => { setPageTab(tab.id); setSubmitError(''); }}
-                style={{
-                  padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12,
-                  border: `1.5px solid ${pageTab === tab.id ? C.am200 : C.db100}`,
-                  background: pageTab === tab.id ? C.am50 : "#fff",
-                  color: pageTab === tab.id ? C.am900 : C.db600,
-                  cursor: "pointer",
-                }}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {schoolFeesCheckout && pageTab === 'history' && (
-          <div style={card}>
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: C.am600, marginBottom: 10 }}>Recent activity (this device)</div>
-            {!localInvoices.length ? (
-              <div style={{ fontSize: 13, color: C.db600 }}>No saved payment attempts yet.</div>
-            ) : (
-              localInvoices.map((row) => (
-                <div key={`${row.id}-${row.at}`} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${C.db100}`, fontSize: 13 }}>
-                  <span style={{ color: C.db800 }}>{row.kind || 'Pay'} · #{row.id}</span>
-                  <span style={{ fontFamily: "monospace", fontWeight: 700 }}>{Number(row.amount || 0).toLocaleString()} RWF</span>
-                </div>
-              ))
-            )}
-          </div>
-        )}
-
-        {schoolFeesCheckout && pageTab === 'invoices' && (
-          <div style={card}>
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: C.am600, marginBottom: 10 }}>Invoices (this device)</div>
-            {(() => {
-              const cur = (draftIntentId && invoiceNo)
-                ? [{ id: draftIntentId, invoice_no: invoiceNo, invoice_status: invoiceStatus, amount: principal }]
-                : [];
-              const merged = [...cur, ...localInvoices.filter((x) => !cur[0] || Number(x.id) !== Number(cur[0].id))].slice(0, 24);
-              if (!merged.length) {
-                return <div style={{ fontSize: 13, color: C.db600 }}>Open Direct, Loan, or ShuleAvance to generate an invoice — drafts sync here automatically.</div>;
-              }
-              return merged.map((row, idx) => (
-                <div key={`${row.id}-${idx}`} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, padding: "10px 0", borderBottom: `1px solid ${C.db100}` }}>
-                  <div style={{ flex: 1, minWidth: 140 }}>
-                    <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 800, color: C.db900 }}>{row.invoice_no}</div>
-                    <div style={{ fontSize: 11, color: C.db600 }}>{String(row.invoice_status || '').toUpperCase()}</div>
-                  </div>
-                  <div style={{ fontWeight: 800, fontSize: 13 }}>{Number(row.amount || 0).toLocaleString()} RWF</div>
-                  {row.id && row.invoice_no && (
-                    <a
-                      href={`${API}/public/babyeyi-pay/invoice/${Number(row.id)}.pdf?invoice_no=${encodeURIComponent(row.invoice_no)}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      style={{ fontSize: 12, fontWeight: 700, color: C.am800 }}
-                    >
-                      PDF
-                    </a>
-                  )}
-                </div>
-              ));
-            })()}
-          </div>
-        )}
-
         {/* ── Payment summary card ────────────────────────────── */}
         <div style={card}>
           <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: C.am600, marginBottom: 14, display: "flex", alignItems: "center", gap: 6 }}>
             <Wallet size={13} color={C.am400} /> Payment summary
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12, marginBottom: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
             {/* You pay now */}
             <div style={{ background: C.db900, borderRadius: 8, padding: "14px 16px" }}>
               <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: C.am100, marginBottom: 4 }}>You pay now</div>
@@ -1410,7 +1057,123 @@ export default function PaymentsPage() {
                 {Number(principal).toLocaleString()} <span style={{ fontSize: 13, color: C.am100 }}>RWF</span>
               </div>
             </div>
+
+            {/* Remaining on checked lines */}
+            {!draft?.studentServiceCheckout && payMethod !== 'loan' && (balanceLoading || balanceQuote) ? (
+              <div style={{ background: C.am50, border: `1px solid ${C.am200}`, borderRadius: 8, padding: "14px 16px" }}>
+                <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", color: C.am800, marginBottom: 4 }}>Still owed (checked lines)</div>
+                {balanceLoading ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: C.am800, marginTop: 4 }}>
+                    <Loader2 size={14} color={C.am400} style={{ animation: "spin 1s linear infinite" }} />
+                    Checking school records…
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ fontSize: 20, fontWeight: 900, color: C.db900, fontFamily: "monospace", lineHeight: 1 }}>
+                      {Number(balanceQuote.remaining_rwf ?? 0).toLocaleString()} <span style={{ fontSize: 12 }}>RWF</span>
+                    </div>
+                    {balanceQuote?.term_label && (
+                      <div style={{ fontSize: 10, color: C.am800, marginTop: 4 }}>{balanceQuote.term_label}</div>
+                    )}
+                  </>
+                )}
+              </div>
+            ) : (
+              <div style={{ background: C.db50, border: `1px solid ${C.db100}`, borderRadius: 8, padding: "14px 16px", display: "flex", alignItems: "center" }}>
+                <div style={{ fontSize: 12, color: C.db600, lineHeight: 1.5 }}>
+                  {draft?.studentServiceCheckout ? 'Fixed quote for this student service.'
+                    : payMethod === 'loan' ? 'Loan flow — balance check skipped.'
+                    : 'Balance shown after student is confirmed.'}
+                </div>
+              </div>
+            )}
           </div>
+
+          {/* Whole document remaining */}
+          {!draft?.studentServiceCheckout && !balanceLoading && balanceQuote && payMethod !== 'loan' && remainingFullDocumentRwf != null && (
+            <div style={{ background: C.db50, border: `1px solid ${C.db200}`, borderRadius: 8, padding: "12px 16px", marginBottom: 12 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", color: C.db800, marginBottom: 4 }}>Whole Babyeyi document — still owed</div>
+              <div style={{ fontSize: 18, fontWeight: 900, color: C.db900, fontFamily: "monospace" }}>
+                {remainingFullDocumentRwf.toLocaleString()} <span style={{ fontSize: 12 }}>RWF</span>
+              </div>
+              <div style={{ fontSize: 11, color: C.db600, marginTop: 4, lineHeight: 1.5 }}>
+                All tuition fees and requirements on this class/term, including unchecked lines.
+              </div>
+              {remainingUnselectedLinesRwf != null && remainingUnselectedLinesRwf > 0.5 && (
+                <div style={{ borderTop: `1px solid ${C.db100}`, marginTop: 8, paddingTop: 8, fontSize: 11, fontWeight: 700, color: C.am800 }}>
+                  Not in this payment: {remainingUnselectedLinesRwf.toLocaleString()} RWF still owed on unchecked lines
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Mini stats row */}
+          {!draft?.studentServiceCheckout && !balanceLoading && balanceQuote && payMethod !== 'loan' && (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: 8 }}>
+              {selectionListedRwf != null && selectionListedRwf > 0 && (
+                <div style={{ background: C.db50, border: `1px solid ${C.db100}`, borderRadius: 6, padding: "8px 10px", textAlign: "center" }}>
+                  <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", color: C.db600, marginBottom: 3 }}>Listed (checked)</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: C.db900, fontFamily: "monospace" }}>{selectionListedRwf.toLocaleString()} RWF</div>
+                </div>
+              )}
+              {creditedTowardSelection != null && selectionListedRwf != null && selectionListedRwf > 0 && (
+                <div style={{ background: C.db50, border: `1px solid ${C.db100}`, borderRadius: 6, padding: "8px 10px", textAlign: "center" }}>
+                  <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", color: C.db600, marginBottom: 3 }}>Paid (tracked)</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: C.am800, fontFamily: "monospace" }}>{creditedTowardSelection.toLocaleString()} RWF</div>
+                </div>
+              )}
+              {afterThisPaymentRwf != null && (
+                <div style={{ background: C.db50, border: `1px solid ${C.db100}`, borderRadius: 6, padding: "8px 10px", textAlign: "center" }}>
+                  <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", color: C.db600, marginBottom: 3 }}>Left on checked</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: C.db900, fontFamily: "monospace" }}>{afterThisPaymentRwf.toLocaleString()} RWF</div>
+                </div>
+              )}
+              {afterThisPaymentOnDocumentRwf != null && remainingFullDocumentRwf != null && (
+                <div style={{ background: C.am50, border: `1px solid ${C.am200}`, borderRadius: 6, padding: "8px 10px", textAlign: "center" }}>
+                  <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", color: C.am800, marginBottom: 3 }}>Left on whole doc</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: C.am900, fontFamily: "monospace" }}>{afterThisPaymentOnDocumentRwf.toLocaleString()} RWF</div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Per-student line breakdown */}
+          {!draft?.studentServiceCheckout && !balanceLoading && balanceQuote?.per_student?.length > 0 && payMethod !== 'loan' && (
+            <details style={{ marginTop: 12 }}>
+              <summary style={{ fontSize: 12, fontWeight: 700, color: C.db800, cursor: "pointer", padding: "4px 0", borderTop: `1px solid ${C.db100}`, paddingTop: 10 }}>
+                Per line &amp; student breakdown
+              </summary>
+              {balanceQuote.per_student.map((row, idx) => (
+                <div key={row.student_key || idx} style={{ marginTop: 8, background: C.db50, border: `1px solid ${C.db100}`, borderRadius: 8, padding: "10px 12px" }}>
+                  <div style={{ fontWeight: 700, color: C.db900, marginBottom: 8, fontSize: 13 }}>{row.student_name}</div>
+                  {(row.lines || []).map(ln => (
+                    <div key={`${ln.kind}-${ln.id}`} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0", borderBottom: `1px solid ${C.db100}` }}>
+                      <span style={{ fontSize: 12, color: C.db700 }}>{ln.label}</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 11, color: C.db600, fontFamily: "monospace" }}>
+                          {Number(ln.paid_rwf ?? 0).toLocaleString()} paid
+                        </span>
+                        <span style={{
+                          fontSize: 11, fontWeight: 700, fontFamily: "monospace", borderRadius: 4, padding: "2px 7px",
+                          color: ln.remaining_rwf <= 0 ? "#15803d" : C.am800,
+                          background: ln.remaining_rwf <= 0 ? "#f0fdf4" : C.am50,
+                          border: `1px solid ${ln.remaining_rwf <= 0 ? "#bbf7d0" : C.am200}`,
+                        }}>
+                          {ln.remaining_rwf <= 0 ? "✓ Paid" : `${Number(ln.remaining_rwf).toLocaleString()} due`}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </details>
+          )}
+
+          {!draft?.studentServiceCheckout && !balanceLoading && balanceQuote && payMethod !== 'loan' && (
+            <div style={{ fontSize: 11, color: C.db400, marginTop: 12, lineHeight: 1.5 }}>
+              Confirmed payments recorded for this learner on this Babyeyi are included. Pay at or below the remaining balance.
+            </div>
+          )}
           {exceedsRemaining && (
             <div style={{ marginTop: 8, background: "#fdf0ed", border: "1px solid #f5c6c0", borderRadius: 6, padding: "8px 12px", fontSize: 12, fontWeight: 700, color: "#c0392b" }}>
               Your total exceeds what is still owed — reduce selected items or contact the school.
@@ -1425,27 +1188,18 @@ export default function PaymentsPage() {
         </div>
 
         {/* ── Payment method card ─────────────────────────────── */}
-        {(!schoolFeesCheckout || !['history', 'invoices'].includes(pageTab)) && (
         <div style={card}>
           <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: C.am600, marginBottom: 14 }}>
-            {schoolFeesCheckout && pageTab === 'direct' ? 'Direct payment methods'
-              : schoolFeesCheckout && pageTab === 'loan' ? 'Loan provider & application'
-                : schoolFeesCheckout && pageTab === 'shuleavance' ? 'ShuleAvance request'
-                  : 'Choose payment method'}
+            Choose payment method
           </div>
 
-          {(!schoolFeesCheckout || pageTab === 'direct') && (
-          <div style={{ display: "grid", gridTemplateColumns: schoolFeesCheckout ? "repeat(3, 1fr)" : "repeat(4, 1fr)", gap: 8, marginBottom: 18 }}>
-            {(schoolFeesCheckout ? [
-              { id: 'momo', label: 'MTN / Airtel', Icon: Smartphone },
-              { id: 'bank', label: 'Bank Transfer', Icon: Building2 },
-              { id: 'visa', label: 'Visa Card',     Icon: CreditCard },
-            ] : [
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 18 }}>
+            {[
               { id: 'momo', label: 'MTN / Airtel', Icon: Smartphone },
               { id: 'bank', label: 'Bank Transfer', Icon: Building2 },
               { id: 'visa', label: 'Visa Card',     Icon: CreditCard },
               { id: 'loan', label: 'Get Loan',      Icon: Wallet    },
-            ]).map(({ id, label: l, Icon }) => {
+            ].map(({ id, label: l, Icon }) => {
               const svcOnly = !!(draft?.studentServiceCheckout && id !== 'momo');
               const shopOnly = !!(draft?.agentShopCheckout && id !== 'momo');
               const kitOnly = !!(draft?.standardKitCheckout && id !== 'momo');
@@ -1465,7 +1219,6 @@ export default function PaymentsPage() {
               );
             })}
           </div>
-          )}
 
           <div style={{ borderTop: `1px solid ${C.db100}`, paddingTop: 16 }}>
 
@@ -1492,7 +1245,14 @@ export default function PaymentsPage() {
                 </div>
                 {momoPhoneError && <div style={{ fontSize: 12, color: "#c0392b", fontWeight: 600, marginTop: -8, marginBottom: 10 }}>{momoPhoneError}</div>}
                 <div style={{ background: C.db50, border: `1px solid ${C.db100}`, borderRadius: 8, padding: "10px 14px", marginBottom: 12 }}>
-                 
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 4 }}>
+                    <span style={{ color: C.db600 }}>Amount to deduct</span>
+                    <span style={{ fontWeight: 800, color: C.db900, fontFamily: "monospace" }}>{Number(principal).toLocaleString()} RWF</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                    <span style={{ color: C.db600 }}>Network</span>
+                    <span style={{ fontWeight: 700, color: C.am800 }}>MTN or Airtel Rwanda</span>
+                  </div>
                 </div>
                 <MomoStatusBanner
                   status={momoStatus} referenceId={momoReferenceId}
@@ -1640,174 +1400,13 @@ export default function PaymentsPage() {
               </div>
             )}
 
-            {/* ── ShuleAvance ─────────────────────────────────── */}
-            {payMethod === 'shule_avance' && (
-              <div>
-                <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
-                  {[{ id: 'org', label: 'Organization' }, { id: 'details', label: 'Request details' }, { id: 'review', label: 'Review' }].map((s, i) => {
-                    const stepOrder = ['org', 'details', 'review'];
-                    const isDone = stepOrder.indexOf(shuleStep) > i;
-                    const isCurrent = shuleStep === s.id;
-                    return (
-                      <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <span style={{
-                          padding: "5px 12px", borderRadius: 20, fontSize: 11, fontWeight: 700,
-                          background: isCurrent ? C.db900 : isDone ? C.am50 : "#f1f5f9",
-                          color: isCurrent ? C.am200 : isDone ? C.am800 : "#94a3b8",
-                          border: `1px solid ${isCurrent ? C.db900 : isDone ? C.am200 : "#e2e8f0"}`,
-                        }}>
-                          {i + 1}. {s.label}
-                        </span>
-                        {i < 2 && <ChevronRight size={13} color="#cbd5e1" />}
-                      </div>
-                    );
-                  })}
-                </div>
-                {shuleStep === 'org' && (
-                  <div style={{ marginBottom: 14 }}>
-                    <label style={labelStyle}>Select ShuleAvance organization</label>
-                    <select
-                      value={shuleOrgId}
-                      onChange={(e) => {
-                        const id = e.target.value;
-                        setShuleOrgId(id);
-                        setSubmitError('');
-                        const o = (shuleOrgs || []).find((x) => String(x.id) === String(id));
-                        const cats = parseOrgApplicantCategories(o);
-                        setShuleApplicantCat(cats[0] || SHULE_DEFAULT_APPLICANT_CATS[0]);
-                      }}
-                      style={{ ...inputStyle, marginBottom: 10 }}
-                    >
-                      <option value="">— Choose —</option>
-                      {(shuleOrgs || []).map((o) => (
-                        <option key={o.id} value={String(o.id)}>{o.org_name} ({o.org_type})</option>
-                      ))}
-                    </select>
-                    {shuleOrgsLoading && <div style={{ fontSize: 12, color: C.db600 }}><Loader2 size={14} className="inline animate-spin" /> Loading partners…</div>}
-                  </div>
-                )}
-                {shuleStep === 'details' && (
-                  <div style={{ marginBottom: 14 }}>
-                    <label style={labelStyle}>Repayment period (months)</label>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 12 }}>
-                      {[1, 2, 3].map((m) => (
-                        <button
-                          key={m}
-                          type="button"
-                          onClick={() => setShuleRepayMo(m)}
-                          style={{
-                            padding: "10px 8px",
-                            borderRadius: 10,
-                            border: `1.5px solid ${shuleRepayMo === m ? C.db900 : C.db100}`,
-                            background: shuleRepayMo === m ? C.db900 : "#fff",
-                            color: shuleRepayMo === m ? C.am200 : C.db600,
-                            fontWeight: 800,
-                            fontSize: 13,
-                            cursor: "pointer",
-                          }}
-                        >
-                          {m} month{m > 1 ? "s" : ""}
-                        </button>
-                      ))}
-                    </div>
-
-                    <div style={{ background: C.db50, border: `1px solid ${C.db100}`, borderRadius: 10, padding: "12px 14px", marginBottom: 12 }}>
-                      <div style={{ fontSize: 11, fontWeight: 800, color: C.db600, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                        Organization rate and installments
-                      </div>
-                      <div style={{ fontSize: 12, color: C.db600, marginBottom: 10 }}>
-                        Annual rate: <strong style={{ color: C.db900 }}>{(shuleAnnualRate * 100).toFixed(1)}%</strong>
-                      </div>
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-                        {['daily', 'weekly', 'monthly'].map((freq) => {
-                          const row = shuleSchedules[freq];
-                          return (
-                            <div key={freq} style={{ background: "#fff", border: `1px solid ${C.db100}`, borderRadius: 8, padding: "8px 10px" }}>
-                              <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em", color: C.db400, fontWeight: 700 }}>{freq}</div>
-                              <div style={{ fontWeight: 800, color: C.db900, fontFamily: "monospace", marginTop: 3, fontSize: 12 }}>
-                                {row.each.toLocaleString()} RWF
-                              </div>
-                              <div style={{ fontSize: 10, color: C.db400 }}>{row.installments} payments</div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    <label style={labelStyle}>Preferred disbursement</label>
-                    <input value="School account" readOnly style={{ ...inputStyle, marginBottom: 12, background: C.db50, fontWeight: 700 }} />
-
-                    <label style={labelStyle}>Phone number for SMS updates</label>
-                    <input
-                      type="tel"
-                      inputMode="tel"
-                      value={shuleNotifyPhone}
-                      onChange={(e) => {
-                        const v = e.target.value.replace(/(?!^\+)[^\d]/g, '').slice(0, 13);
-                        setShuleNotifyPhone(v);
-                      }}
-                      placeholder="+2507XXXXXXXX or 07XXXXXXXX"
-                      style={{ ...inputStyle, marginBottom: 8, borderColor: (!shuleNotifyPhone || shuleNotifyPhoneValid) ? C.db100 : "#e74c3c" }}
-                    />
-                    <div style={{ fontSize: 11, color: C.db600, marginBottom: 12, lineHeight: 1.45 }}>
-                      Use either format: +2507XXXXXXXX or 07XXXXXXXX.
-                    </div>
-                    <label style={labelStyle}>Supporting note (optional)</label>
-                    <textarea value={shuleSupportNote} onChange={(e) => setShuleSupportNote(e.target.value)} style={{ ...inputStyle, minHeight: 48 }} />
-                  </div>
-                )}
-                {shuleStep === 'review' && (
-                  <div style={{ background: C.am50, border: `1px solid ${C.am200}`, borderRadius: 8, padding: "14px 16px", marginBottom: 14 }}>
-                    <div style={{ fontWeight: 800, color: C.am900, marginBottom: 10, fontSize: 14 }}>Review ShuleAvance request</div>
-                    <div style={{ fontSize: 13, color: C.am800, marginBottom: 6 }}>Organization: {(shuleOrgs.find(o => String(o.id) === String(shuleOrgId)) || {}).org_name || '—'}</div>
-                    <div style={{ fontSize: 13, color: C.am800, marginBottom: 6 }}>Repayment period: {shuleRepayMo} month{shuleRepayMo > 1 ? 's' : ''}</div>
-                    <div style={{ fontSize: 13, color: C.am800, marginBottom: 6 }}>Disbursement: School account</div>
-                    <div style={{ fontSize: 13, color: C.am800, marginBottom: 6 }}>SMS updates: {shuleNotifyPhoneClean ? `+${shuleNotifyPhoneClean}` : '—'}</div>
-                    <div style={{ fontSize: 13, color: C.am800, marginBottom: 6 }}>Amount: {Number(principal).toLocaleString()} RWF</div>
-                    <div style={{ fontSize: 12, color: C.am900 }}>Purpose: School fees / shulekits</div>
-                  </div>
-                )}
-                <div style={{ display: "flex", gap: 10 }}>
-                  <button type="button" disabled={shuleStep === 'org'}
-                    onClick={() => setShuleStep((s) => (s === 'review' ? 'details' : 'org'))}
-                    style={{
-                      flex: 1, padding: "10px", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: "pointer",
-                      background: "#fff", border: `1.5px solid ${C.db200}`, color: C.db600,
-                      opacity: shuleStep === 'org' ? 0.4 : 1,
-                    }}>Back</button>
-                  <button type="button" disabled={shuleStep === 'review'}
-                    onClick={() => {
-                      if (shuleStep === 'org') {
-                        if (!shuleOrgId) { setSubmitError('Select an organization.'); return; }
-                        refreshShuleOrgs().then((list) => {
-                          const o = (list || []).find((x) => String(x.id) === String(shuleOrgId));
-                          const cats = parseOrgApplicantCategories(o);
-                          setShuleApplicantCat(cats[0] || SHULE_DEFAULT_APPLICANT_CATS[0]);
-                          setShuleStep('details');
-                        });
-                      } else if (shuleStep === 'details') {
-                        if (!shuleNotifyPhoneValid) { setSubmitError('Enter a valid phone number for SMS updates.'); return; }
-                        setShuleStep('review');
-                      }
-                    }}
-                    style={{
-                      flex: 1, padding: "10px", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: "pointer",
-                      background: C.db900, color: C.am200, border: `1.5px solid ${C.db900}`,
-                      opacity: shuleStep === 'review' ? 0.4 : 1,
-                    }}>
-                    {shuleStep === 'org' ? 'Continue →' : shuleStep === 'details' ? 'Review →' : 'Ready ✓'}
-                  </button>
-                </div>
-              </div>
-            )}
-
             {/* ── Loan ────────────────────────────────────────── */}
             {payMethod === 'loan' && (
               <div>
                 {/* Step indicator */}
                 <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
-                  {[{id:'provider',label:'Choose provider'},{id:'details',label:'Account details'},{id:'review',label:'Review'}].map((s, i) => {
-                    const stepOrder = ['provider','details','review'];
+                  {[{id:'bank',label:'Choose bank'},{id:'details',label:'Account details'},{id:'review',label:'Review'}].map((s, i) => {
+                    const stepOrder = ['bank','details','review'];
                     const isDone    = stepOrder.indexOf(loanStep) > i;
                     const isCurrent = loanStep === s.id;
                     return (
@@ -1826,32 +1425,16 @@ export default function PaymentsPage() {
                   })}
                 </div>
 
-                {loanStep === 'provider' && (
+                {loanStep === 'bank' && (
                   <div style={{ marginBottom: 14 }}>
-                    <label style={labelStyle}>Loan provider type</label>
-                    <select value={loanProviderCategory} onChange={(e) => setLoanProviderCategory(e.target.value)} style={{ ...inputStyle, marginBottom: 12 }}>
-                      <option value="BANK">Bank</option>
-                      <option value="MFI">Microfinance (MFI)</option>
-                      <option value="SACCO">SACCO</option>
-                    </select>
-                    <label style={labelStyle}>Select institution</label>
+                    <label style={labelStyle}>Choose bank for loan</label>
                     <select value={loanBankCode} onChange={e => setLoanBankCode(e.target.value)} style={{ ...inputStyle, marginBottom: 12 }}>
-                      {loanBanks.map(b => <option key={b.code} value={b.code}>{b.name}</option>)}
+                      {RW_BANKS.map(b => <option key={b.code} value={b.code}>{b.name}</option>)}
                     </select>
                     <div style={{ background: C.db50, border: `1px solid ${C.db100}`, borderRadius: 8, padding: "10px 14px", fontSize: 13 }}>
-                      <div style={{ marginBottom: 4 }}><span style={{ color: C.db600 }}>Institution: </span><span style={{ fontWeight: 700, color: C.db900 }}>{loanBank.name}</span></div>
+                      <div style={{ marginBottom: 4 }}><span style={{ color: C.db600 }}>Bank: </span><span style={{ fontWeight: 700, color: C.db900 }}>{loanBank.name}</span></div>
                       
                     </div>
-                    <label style={{ ...labelStyle, marginTop: 12 }}>Purpose of loan</label>
-                    <input value={loanPurpose} onChange={(e) => setLoanPurpose(e.target.value)} placeholder="e.g. school fees balance" style={{ ...inputStyle, marginBottom: 10 }} />
-                    <label style={labelStyle}>Preferred disbursement method</label>
-                    <select value={loanDisburseMethod} onChange={(e) => setLoanDisburseMethod(e.target.value)} style={{ ...inputStyle, marginBottom: 10 }}>
-                      <option value="bank_account">Bank account</option>
-                      <option value="momo">MTN MoMo</option>
-                      <option value="school">School account</option>
-                    </select>
-                    <label style={labelStyle}>Branch / provider note (optional)</label>
-                    <input value={loanBranchNote} onChange={(e) => setLoanBranchNote(e.target.value)} style={inputStyle} />
                   </div>
                 )}
 
@@ -1928,29 +1511,17 @@ export default function PaymentsPage() {
                 {loanStep === 'review' && (
                   <div style={{ background: C.am50, border: `1px solid ${C.am200}`, borderRadius: 8, padding: "14px 16px", marginBottom: 14 }}>
                     <div style={{ fontWeight: 800, color: C.am900, marginBottom: 10, fontSize: 14 }}>Review loan request</div>
-                    {(() => {
-                      const providerLbl = loanProviderCategory === 'BANK' ? 'Bank' : loanProviderCategory === 'MFI' ? 'Microfinance (MFI)' : loanProviderCategory === 'SACCO' ? 'SACCO' : loanProviderCategory;
-                      const disbLbl = loanDisburseMethod === 'momo' ? 'MTN MoMo' : loanDisburseMethod === 'school' ? 'School account' : 'Bank account';
-                      const rows = [
-                        ['Provider type', providerLbl, false],
-                        ['Institution', loanBank?.name || '—', false],
-                        ['Reference account', loanBank?.accountNo || '—', true],
-                        ['Purpose', loanPurpose.trim() || '—', false],
-                        ['Disbursement preference', disbLbl, false],
-                        ['Branch / provider note', loanBranchNote.trim() || '—', false],
-                        ['Duration', `${loanMonths} months`, false],
-                        ['Repayment', `${loanFreq} · ${income.label || income.id}`, false],
-                        ['Applicant name', loanApplicantName || '—', false],
-                        ['Account number', loanAccountNumber || '—', true],
-                        ['National ID', loanNationalId || '—', true],
-                      ];
-                      return rows.map(([k, v, mono]) => (
-                        <div key={k} style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 13, padding: "4px 0", borderBottom: `1px solid ${C.am100}` }}>
-                          <span style={{ color: C.am800, fontWeight: 600, flexShrink: 0 }}>{k}:</span>
-                          <span style={{ fontFamily: mono ? "monospace" : "inherit", color: C.am900, fontWeight: 700, textAlign: "right" }}>{v}</span>
-                        </div>
-                      ));
-                    })()}
+                    {[
+                      ['Bank', loanBank.name],
+                      ['Name', loanApplicantName || '—'],
+                      ['Account No', loanAccountNumber || '—'],
+                      ['National ID', loanNationalId || '—'],
+                    ].map(([k, v]) => (
+                      <div key={k} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "4px 0", borderBottom: `1px solid ${C.am100}` }}>
+                        <span style={{ color: C.am800, fontWeight: 600 }}>{k}:</span>
+                        <span style={{ fontFamily: k !== 'Bank' && k !== 'Name' ? "monospace" : "inherit", color: C.am900, fontWeight: 700 }}>{v}</span>
+                      </div>
+                    ))}
                     <div style={{ marginTop: 10, fontWeight: 800, color: C.am900, fontSize: 14 }}>
                       Total to repay: {sched.totalDue.toLocaleString()} RWF
                     </div>
@@ -1964,17 +1535,17 @@ export default function PaymentsPage() {
                 )}
 
                 <div style={{ display: "flex", gap: 10 }}>
-                  <button type="button" disabled={loanStep === 'provider'}
-                    onClick={() => { setLoanError(''); setLoanStep(s => s === 'review' ? 'details' : 'provider'); }}
+                  <button type="button" disabled={loanStep === 'bank'}
+                    onClick={() => { setLoanError(''); setLoanStep(s => s === 'review' ? 'details' : 'bank'); }}
                     style={{
                       flex: 1, padding: "10px", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: "pointer",
                       background: "#fff", border: `1.5px solid ${C.db200}`, color: C.db600,
-                      opacity: loanStep === 'provider' ? 0.4 : 1,
+                      opacity: loanStep === 'bank' ? 0.4 : 1,
                     }}>Back</button>
                   <button type="button" disabled={loanStep === 'review'}
                     onClick={() => {
                       setLoanError('');
-                      if (loanStep === 'provider') { setLoanStep('details'); }
+                      if (loanStep === 'bank')    { setLoanStep('details'); }
                       if (loanStep === 'details') { if (validateLoanDetails()) setLoanStep('review'); }
                     }}
                     style={{
@@ -1982,14 +1553,13 @@ export default function PaymentsPage() {
                       background: C.db900, color: C.am200, border: `1.5px solid ${C.db900}`,
                       opacity: loanStep === 'review' ? 0.4 : 1,
                     }}>
-                    {loanStep === 'provider' ? 'Continue →' : loanStep === 'details' ? 'Review →' : 'Ready ✓'}
+                    {loanStep === 'bank' ? 'Continue →' : loanStep === 'details' ? 'Review →' : 'Ready ✓'}
                   </button>
                 </div>
               </div>
             )}
           </div>
         </div>
-        )}
 
         {/* ── Submit button ───────────────────────────────────── */}
         <button type="button" disabled={!canSubmit} onClick={handleConfirm} style={{
@@ -2011,10 +1581,7 @@ export default function PaymentsPage() {
             ? <><Smartphone size={16} /> Pay Now</>
             : payMethod === 'visa'
             ? <><CreditCard size={16} /> Confirm Visa Payment</>
-            : payMethod === 'loan'
-            ? 'Send Loan Request'
-            : payMethod === 'shule_avance'
-            ? 'Submit ShuleAvance Request'
+            : payMethod === 'loan' ? 'Send Loan Request'
             : 'Confirm & Record Intent'}
         </button>
 
@@ -2046,10 +1613,6 @@ export default function PaymentsPage() {
               ? ''
               : payMethod === 'visa'
               ? 'Use only your own Visa card. Card details are used for this payment flow and should not be shared.'
-              : payMethod === 'loan'
-              ? 'Your loan request is sent to the institution you chose. Download your invoice for your records.'
-              : payMethod === 'shule_avance'
-              ? 'ShuleAvance requests are reviewed by the partner organization you selected. Download the invoice while you wait.'
               : 'Complete your bank transfer using the details shown above. Keep your receipt for confirmation.'}
           </div>
         </div>
@@ -2095,14 +1658,6 @@ export default function PaymentsPage() {
                 <h3 style={{ fontSize: 18, fontWeight: 800, color: C.db900, margin: "0 0 8px" }}>Loan request submitted</h3>
                 <p style={{ fontSize: 13, color: C.db600, lineHeight: 1.6, margin: "0 0 8px" }}>Your request is recorded. Complete each instalment on time when approved.</p>
                 {invoiceNo && <div style={{ fontSize: 11, fontFamily: "monospace", color: C.db400, marginBottom: 12 }}>Invoice: {invoiceNo} · {invoiceStatus || 'NOT_PAID'}</div>}
-              </>
-            ) : doneMode === 'shule' ? (
-              <>
-                <h3 style={{ fontSize: 18, fontWeight: 800, color: C.db900, margin: "0 0 8px" }}>ShuleAvance request submitted</h3>
-                <p style={{ fontSize: 13, color: C.db600, lineHeight: 1.6, margin: "0 0 8px" }}>
-                  Your financing request and invoice have been sent to the organization you selected. You will be notified when they review it.
-                </p>
-                {invoiceNo && <div style={{ fontSize: 11, fontFamily: "monospace", color: C.db400, marginBottom: 12 }}>Invoice: {invoiceNo} · {invoiceStatus || 'PENDING_APPROVAL'}</div>}
               </>
             ) : doneMode === 'visa' ? (
               <>
