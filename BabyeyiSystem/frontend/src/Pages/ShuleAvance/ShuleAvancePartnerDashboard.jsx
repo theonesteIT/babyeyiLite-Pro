@@ -35,24 +35,33 @@ const PUBLIC_API = `${import.meta.env.VITE_API_URL || 'http://localhost:5100'}/a
 const ax = { withCredentials: true, headers: { 'Content-Type': 'application/json' } };
 
 const NAVY = '#000435';
+/** Matches Service.jsx; add local MTN font files + @font-face in index.css if you host the files. */
+const FONT_FAMILY = "'MTN Brighter Sans', 'Segoe UI', system-ui, sans-serif";
 
 function disburseLabel(v) {
+  const key = String(v || '')
+    .trim()
+    .toLowerCase()
+    .replace(/-/g, '_');
   const m = {
-    school_account: 'School account (fees / materials)',
+    school_account: 'School bank account (fees / materials at school)',
+    personal_account: 'Personal MoMo or bank account',
+    other: 'Other (see disbursement details)',
     teacher_momo: 'Teacher MoMo / bank',
     school_operating: 'School operating account',
   };
-  return m[v] || v || '—';
+  return m[key] || (v ? String(v) : '—');
 }
 
 function statusChipClass(st) {
   const u = String(st || '').toUpperCase();
-  if (u === 'PAID' || u === 'DISBURSED') return 'bg-emerald-500/15 text-emerald-200 border-emerald-400/35';
-  if (u === 'APPROVED') return 'bg-amber-400/15 text-amber-100 border-amber-400/35';
-  if (u === 'REJECTED') return 'bg-red-500/15 text-red-200 border-red-400/30';
-  if (u === 'PENDING_APPROVAL') return 'bg-sky-500/15 text-sky-100 border-sky-400/35';
-  if (u === 'DRAFT') return 'bg-white/10 text-white/75 border-white/15';
-  return 'bg-white/10 text-white/70 border-white/12';
+  const base = 'border text-[#000435]';
+  if (u === 'PAID' || u === 'DISBURSED') return `${base} border-amber-200 bg-amber-50`;
+  if (u === 'APPROVED') return `${base} border-amber-300/80 bg-amber-100/50`;
+  if (u === 'REJECTED') return `${base} border-slate-300 bg-slate-100`;
+  if (u === 'PENDING_APPROVAL') return `${base} border-amber-400 bg-white`;
+  if (u === 'DRAFT') return `${base} border-slate-200 bg-amber-50/40 text-slate-700`;
+  return `${base} border-slate-200 bg-white text-slate-600`;
 }
 
 function formatRwf(n) {
@@ -92,12 +101,12 @@ function monthKey(d) {
 
 function SectionCard({ icon: Icon, title, children }) {
   return (
-    <section className="rounded-xl border border-amber-400/15 bg-white/[0.04] p-4 sm:p-5">
+    <section className="rounded-xl border border-amber-100 bg-gradient-to-br from-white to-amber-50/35 p-4 sm:p-5 shadow-sm">
       <div className="flex items-center gap-2 mb-3">
-        {Icon && <Icon size={16} className="text-amber-300 shrink-0" />}
-        <h3 className="text-[11px] font-extrabold uppercase tracking-wider text-amber-200/90">{title}</h3>
+        {Icon && <Icon size={16} className="text-amber-600 shrink-0" />}
+        <h3 className="text-[11px] font-extrabold uppercase tracking-wider text-[#000435]">{title}</h3>
       </div>
-      <div className="space-y-2 text-sm text-white/90">{children}</div>
+      <div className="space-y-2 text-sm text-slate-800">{children}</div>
     </section>
   );
 }
@@ -105,39 +114,32 @@ function SectionCard({ icon: Icon, title, children }) {
 function DetailRow({ label, value, mono }) {
   if (value === undefined || value === null || value === '') return null;
   return (
-    <div className="flex flex-col sm:flex-row sm:items-start gap-0.5 sm:gap-3 py-2 border-b border-white/5 last:border-0">
-      <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wide text-white/40 sm:w-36 shrink-0">{label}</span>
-      <span className={`flex-1 text-sm break-words ${mono ? 'font-mono text-xs text-amber-100/95' : ''}`}>{String(value)}</span>
+    <div className="flex flex-col sm:flex-row sm:items-start gap-0.5 sm:gap-3 py-2 border-b border-slate-200 last:border-0">
+      <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wide text-slate-500 sm:w-36 shrink-0">{label}</span>
+      <span className={`flex-1 text-sm break-words ${mono ? 'font-mono text-xs text-[#000435]' : 'text-slate-800'}`}>{String(value)}</span>
     </div>
   );
 }
 
-function KpiCard({ accent, label, value, sub, icon: Icon, loading }) {
-  const top = {
-    amber: 'before:bg-amber-400',
-    blue: 'before:bg-blue-500',
-    green: 'before:bg-emerald-500',
-    red: 'before:bg-red-500',
-    teal: 'before:bg-teal-500',
-    purple: 'before:bg-violet-500',
-  }[accent] || 'before:bg-amber-400';
-
+function KpiCard({ label, value, sub, icon: Icon, loading }) {
   return (
-    <div
-      className={`relative overflow-hidden rounded-2xl border border-amber-400/15 bg-white/[0.05] p-4 sm:p-5 transition hover:border-amber-400/40 hover:-translate-y-0.5 before:absolute before:inset-x-0 before:top-0 before:h-[3px] ${top}`}
-    >
+    <div className="relative min-w-0 overflow-hidden rounded-2xl border border-amber-100/90 bg-white p-3 sm:p-5 shadow-sm transition hover:border-amber-200/90">
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 h-[4px] bg-gradient-to-r from-amber-400 via-amber-500 to-[#000435]"
+        aria-hidden
+      />
       {Icon && (
-        <div className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-lg bg-white/5 text-white/40">
+        <div className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50 text-amber-700/90">
           <Icon size={18} />
         </div>
       )}
-      <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-white/35 mb-2 pr-10">{label}</p>
-      <p className={`text-2xl sm:text-[26px] font-black tabular-nums leading-none text-white ${accent === 'amber' ? 'text-amber-300' : ''}`}>
+      <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-slate-500 mb-2 pr-10">{label}</p>
+      <p className="text-2xl sm:text-[26px] font-black tabular-nums leading-none text-[#000435]">
         {loading ? '—' : value}
       </p>
-      {sub && <p className="mt-2 text-[11px] font-semibold text-white/40">{sub}</p>}
-      <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-white/[0.08]">
-        <div className="h-full w-3/5 rounded-full bg-amber-400/40" />
+      {sub && <p className="mt-2 text-[11px] font-semibold text-slate-500">{sub}</p>}
+      <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-amber-100/80">
+        <div className="h-full w-3/5 rounded-full bg-gradient-to-r from-amber-400/70 to-[#000435]/40" />
       </div>
     </div>
   );
@@ -145,13 +147,13 @@ function KpiCard({ accent, label, value, sub, icon: Icon, loading }) {
 
 function Panel({ title, subtitle, right, children, className = '' }) {
   return (
-    <div className={`rounded-2xl border border-amber-400/15 bg-white/[0.05] p-4 sm:p-5 ${className}`}>
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-sm font-black text-white">{title}</h2>
-          {subtitle && <p className="mt-0.5 text-[11px] font-semibold text-white/40">{subtitle}</p>}
+    <div className={`rounded-2xl border border-amber-100/90 bg-white p-4 sm:p-5 shadow-sm ring-1 ring-amber-50 ${className}`}>
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-3">
+        <div className="min-w-0">
+          <h2 className="text-sm font-black text-[#000435]">{title}</h2>
+          {subtitle && <p className="mt-0.5 text-[11px] font-semibold text-slate-500">{subtitle}</p>}
         </div>
-        {right}
+        {right && <div className="shrink-0 sm:ml-auto">{right}</div>}
       </div>
       {children}
     </div>
@@ -398,11 +400,12 @@ export default function ShuleAvancePartnerDashboard() {
     const maxStatusRwf = Math.max(1, ...statusBars.map(([, v]) => v));
 
     const total = list.length || 1;
+    const donutPalette = ['#000435', '#F59E0B', '#475569', '#94A3B8', '#CBD5E1', '#E2E8F0'];
     const donut = applicantSorted.map(([label, count], i) => ({
       label,
       count,
       pct: Math.round((count / total) * 1000) / 10,
-      color: ['#FBBF24', '#3b82f6', '#10b981', '#8b5cf6', '#14b8a6', '#f472b6'][i % 6],
+      color: donutPalette[i % donutPalette.length],
     }));
 
     const financingByStatus = {};
@@ -452,6 +455,9 @@ export default function ShuleAvancePartnerDashboard() {
         r.applicant_category,
         r.school_id,
         r.babyeyi_id,
+        r.preferred_disbursement,
+        r.disbursement_target_value,
+        r.deposit_account_number,
       ]
         .filter(Boolean)
         .join(' ')
@@ -462,6 +468,18 @@ export default function ShuleAvancePartnerDashboard() {
 
   const p = detail?.payload || {};
   const sa = p?.payment_plan?.shule_avance || {};
+  const prefRaw = sa?.preferred_disbursement ?? sa?.disbursement_preference;
+  const prefNorm = String(prefRaw || 'school_account')
+    .toLowerCase()
+    .replace(/-/g, '_');
+  const disburseTarget = String(sa?.disbursement_target_value || '').trim();
+  const hasSchoolDepositFields = Boolean(
+    detail?.deposit_bank_name
+    || detail?.deposit_account_number
+    || detail?.deposit_account_name
+    || detail?.deposit_bank_branch
+  );
+  const showSchoolDepositCard = hasSchoolDepositFields || prefNorm === 'school_account';
   const applicantProfile = useMemo(() => {
     const fullName = String(sa?.applicant_full_name || detail?.payer_name || '').trim();
     const nationalId = String(sa?.applicant_national_id || '').trim();
@@ -511,26 +529,26 @@ export default function ShuleAvancePartnerDashboard() {
 
   return (
     <div
-      className="min-h-screen text-white antialiased [font-family:Nunito,system-ui,sans-serif]"
-      style={{ background: NAVY }}
+      className="min-h-screen bg-gradient-to-b from-white via-amber-50/25 to-white text-slate-900 antialiased"
+      style={{ fontFamily: FONT_FAMILY }}
     >
       <h1 className="sr-only">ShuleAvance partner financing dashboard for {orgName}</h1>
 
       {err && (
-        <div className="fixed top-16 left-1/2 z-[500] max-w-lg -translate-x-1/2 px-4 w-full">
-          <div className="rounded-xl border border-red-400/40 bg-red-950/90 px-4 py-3 text-sm text-red-100 shadow-xl backdrop-blur">
+        <div className="fixed top-[max(4rem,env(safe-area-inset-top))] left-1/2 z-[500] max-w-lg -translate-x-1/2 px-4 w-full">
+          <div className="rounded-xl border border-red-200 bg-white px-4 py-3 text-sm text-red-800 shadow-lg">
             {err}
           </div>
         </div>
       )}
       {notifToast && (
-        <div className="fixed top-32 left-1/2 z-[500] max-w-lg -translate-x-1/2 px-4 w-full">
-          <div className="rounded-xl border border-amber-300/35 bg-amber-500/15 px-4 py-3 text-sm font-bold text-amber-100 shadow-xl backdrop-blur flex items-center justify-between gap-3">
+        <div className="fixed top-[max(8rem,env(safe-area-inset-top))] left-1/2 z-[500] max-w-lg -translate-x-1/2 px-4 w-full">
+          <div className="rounded-xl border border-amber-200/90 bg-amber-50/95 px-4 py-3 text-sm font-bold text-[#000435] shadow-lg flex items-center justify-between gap-3">
             <span>{notifToast}</span>
             <button
               type="button"
               onClick={() => setNotifToast('')}
-              className="rounded-md border border-amber-300/30 px-2 py-0.5 text-[11px] font-black hover:bg-amber-500/20"
+              className="rounded-md border border-amber-300/80 bg-white px-2 py-0.5 text-[11px] font-bold text-[#000435] hover:bg-amber-50"
             >
               Dismiss
             </button>
@@ -544,121 +562,127 @@ export default function ShuleAvancePartnerDashboard() {
           <button
             type="button"
             aria-label="Close menu"
-            className="fixed inset-0 z-[250] bg-[#000435]/70 backdrop-blur-sm lg:hidden"
+            className="fixed inset-0 z-[250] bg-black/40 backdrop-blur-sm lg:hidden"
             onClick={() => setSidebarOpen(false)}
           />
         )}
 
-        {/* Sidebar */}
+        {/* Sidebar — brand color only */}
         <aside
+          style={{ background: NAVY }}
           className={[
-            'fixed lg:sticky top-0 z-[260] flex h-screen w-[min(260px,88vw)] shrink-0 flex-col border-r border-amber-400/15 bg-[#000435]/98 transition-[transform] duration-300 lg:translate-x-0',
+            'fixed lg:sticky top-0 z-[260] flex h-screen w-[min(260px,88vw)] shrink-0 flex-col border-r border-amber-400/20 text-white transition-[transform] duration-300 lg:translate-x-0',
             sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
           ].join(' ')}
         >
-          <div className="border-b border-amber-400/15 p-4">
+          <div className="border-b border-amber-400/25 p-4 pt-[max(1rem,env(safe-area-inset-top))]">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-10 shrink-0 items-center justify-center rounded-[10px] bg-[#1F2937] border border-amber-300/40 px-2">
-                <img src={babyeyiLogo} alt="Babyeyi logo" className="h-7 w-auto object-contain" />
-              </div>
+              <img
+                src={babyeyiLogo}
+                alt="Babyeyi"
+                className="h-9 w-auto max-h-10 max-w-[min(9rem,42vw)] shrink-0 object-contain object-left drop-shadow-[0_2px_10px_rgba(0,0,0,0.35)]"
+              />
               <div className="min-w-0">
                 <p className="text-[15px] font-black leading-tight truncate">ShuleAvance</p>
-                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-white/35">Finance platform</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-white/50">Finance platform</p>
               </div>
             </div>
-            <div className="mt-3 flex items-center gap-2 rounded-lg border border-amber-400/30 bg-amber-400/10 px-2.5 py-2">
-              <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" aria-hidden />
-              <span className="text-[11px] font-bold text-amber-200 truncate">{orgName}</span>
+            <div className="mt-3 flex items-center gap-2 rounded-lg border border-amber-400/30 bg-amber-400/15 px-2.5 py-2">
+              <span className="h-2 w-2 shrink-0 rounded-full bg-amber-300" aria-hidden />
+              <span className="text-[11px] font-bold text-amber-50 truncate">{orgName}</span>
             </div>
           </div>
 
           <nav className="flex-1 overflow-y-auto px-2.5 py-2">
-            <p className="px-2 pb-1 pt-3 text-[9px] font-extrabold uppercase tracking-[0.14em] text-white/35">Main</p>
+            <p className="px-2 pb-1 pt-3 text-[9px] font-extrabold uppercase tracking-[0.14em] text-white/45">Main</p>
             <button
               type="button"
               onClick={() => { setActiveNav('overview'); setSidebarOpen(false); }}
-              className={`mb-0.5 flex w-full items-center gap-2.5 rounded-[10px] border border-transparent px-2.5 py-2 text-left text-[13px] font-bold transition ${activeNav === 'overview' ? 'bg-amber-400 text-[#000435]' : 'text-white/60 hover:bg-white/[0.08] hover:text-white'}`}
+              className={`mb-0.5 flex w-full items-center gap-2.5 rounded-[10px] border border-transparent px-2.5 py-2 text-left text-[13px] font-bold transition ${activeNav === 'overview' ? 'bg-amber-400 text-[#000435] shadow-sm' : 'text-white/75 hover:bg-white/10 hover:text-white'}`}
             >
-              <LayoutDashboard size={16} className="shrink-0 opacity-80" />
+              <LayoutDashboard size={16} className="shrink-0 opacity-90" />
               Dashboard
             </button>
             <button
               type="button"
               onClick={() => { setActiveNav('requests'); setSidebarOpen(false); }}
-              className={`mb-0.5 flex w-full items-center gap-2.5 rounded-[10px] border border-transparent px-2.5 py-2 text-left text-[13px] font-bold transition ${activeNav === 'requests' ? 'bg-amber-400 text-[#000435]' : 'text-white/60 hover:bg-white/[0.08] hover:text-white'}`}
+              className={`mb-0.5 flex w-full items-center gap-2.5 rounded-[10px] border border-transparent px-2.5 py-2 text-left text-[13px] font-bold transition ${activeNav === 'requests' ? 'bg-amber-400 text-[#000435] shadow-sm' : 'text-white/75 hover:bg-white/10 hover:text-white'}`}
             >
-              <FileText size={16} className="shrink-0 opacity-80" />
+              <FileText size={16} className="shrink-0 opacity-90" />
               <span className="truncate">Requests</span>
             </button>
             <button
               type="button"
               onClick={() => { setActiveNav('notifications'); setSidebarOpen(false); }}
-              className={`mb-0.5 flex w-full items-center gap-2.5 rounded-[10px] border border-transparent px-2.5 py-2 text-left text-[13px] font-bold transition ${activeNav === 'notifications' ? 'bg-amber-400 text-[#000435]' : 'text-white/60 hover:bg-white/[0.08] hover:text-white'}`}
+              className={`mb-0.5 flex w-full items-center gap-2.5 rounded-[10px] border border-transparent px-2.5 py-2 text-left text-[13px] font-bold transition ${activeNav === 'notifications' ? 'bg-amber-400 text-[#000435] shadow-sm' : 'text-white/75 hover:bg-white/10 hover:text-white'}`}
             >
-              <Bell size={16} className="shrink-0 opacity-80" />
+              <Bell size={16} className="shrink-0 opacity-90" />
               <span className="flex-1 truncate">Notifications</span>
               {unreadCount > 0 && (
-                <span className={`min-w-[18px] rounded-full px-1.5 py-0.5 text-center text-[10px] font-black ${activeNav === 'notifications' ? 'bg-[#000435]/25 text-[#000435]' : 'bg-red-500 text-white'}`}>
+                <span className={`min-w-[18px] rounded-full px-1.5 py-0.5 text-center text-[10px] font-black ${activeNav === 'notifications' ? 'bg-[#000435]/15 text-[#000435]' : 'bg-white text-[#000435] ring-1 ring-amber-300/50'}`}>
                   {unreadCount > 99 ? '99+' : unreadCount}
                 </span>
               )}
             </button>
 
-            <p className="px-2 pb-1 pt-4 text-[9px] font-extrabold uppercase tracking-[0.14em] text-white/35">Insights</p>
+            <p className="px-2 pb-1 pt-4 text-[9px] font-extrabold uppercase tracking-[0.14em] text-white/45">Insights</p>
             <button
               type="button"
               onClick={() => { setActiveNav('analytics'); setSidebarOpen(false); }}
-              className={`mb-0.5 flex w-full items-center gap-2.5 rounded-[10px] border border-transparent px-2.5 py-2 text-left text-[13px] font-bold transition ${activeNav === 'analytics' ? 'bg-amber-400 text-[#000435]' : 'text-white/60 hover:bg-white/[0.08] hover:text-white'}`}
+              className={`mb-0.5 flex w-full items-center gap-2.5 rounded-[10px] border border-transparent px-2.5 py-2 text-left text-[13px] font-bold transition ${activeNav === 'analytics' ? 'bg-amber-400 text-[#000435] shadow-sm' : 'text-white/75 hover:bg-white/10 hover:text-white'}`}
             >
-              <PieChart size={16} className="shrink-0 opacity-80" />
+              <PieChart size={16} className="shrink-0 opacity-90" />
               Analytics
             </button>
 
-            <p className="px-2 pb-1 pt-4 text-[9px] font-extrabold uppercase tracking-[0.14em] text-white/35">Account</p>
+            <p className="px-2 pb-1 pt-4 text-[9px] font-extrabold uppercase tracking-[0.14em] text-white/45">Account</p>
             <button
               type="button"
               onClick={() => { setActiveNav('settings'); setSidebarOpen(false); }}
-              className={`flex w-full items-center gap-2.5 rounded-[10px] border border-transparent px-2.5 py-2 text-left text-[13px] font-bold transition ${activeNav === 'settings' ? 'bg-amber-400 text-[#000435]' : 'text-white/60 hover:bg-white/[0.08] hover:text-white'}`}
+              className={`flex w-full items-center gap-2.5 rounded-[10px] border border-transparent px-2.5 py-2 text-left text-[13px] font-bold transition ${activeNav === 'settings' ? 'bg-amber-400 text-[#000435] shadow-sm' : 'text-white/75 hover:bg-white/10 hover:text-white'}`}
             >
-              <Settings size={16} className="shrink-0 opacity-80" />
+              <Settings size={16} className="shrink-0 opacity-90" />
               Settings
             </button>
           </nav>
 
-          <div className="border-t border-amber-400/15 p-3">
-            <div className="flex items-center gap-2.5 rounded-lg border border-amber-400/15 bg-white/[0.05] px-2.5 py-2">
+          <div className="border-t border-amber-400/20 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+            <div className="flex items-center gap-2.5 rounded-lg border border-amber-400/25 bg-white/10 px-2.5 py-2">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-400 text-xs font-black text-[#000435]">
                 {initialsFromOrg(orgName)}
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-xs font-extrabold text-white">{orgName}</p>
-                <p className="truncate text-[10px] font-semibold text-white/35">Financing partner</p>
+                <p className="truncate text-[10px] font-semibold text-white/50">Financing partner</p>
               </div>
             </div>
           </div>
         </aside>
 
         {/* Main column */}
-        <div className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-[200] flex h-[60px] shrink-0 items-center gap-3 border-b-[3px] border-amber-400 bg-[#000435]/95 px-4 backdrop-blur-md sm:px-6">
+        <div className="flex min-w-0 flex-1 flex-col bg-white/80">
+          <header
+            style={{ background: NAVY }}
+            className="sticky top-0 z-[200] flex min-h-[52px] shrink-0 items-center gap-2 border-b-[3px] border-amber-400 px-3 pt-[max(0.5rem,env(safe-area-inset-top))] pb-2 sm:min-h-[60px] sm:gap-3 sm:px-4 sm:py-0 md:px-6 text-white shadow-sm"
+          >
             <button
               type="button"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-400/25 bg-white/[0.06] text-white/80 lg:hidden"
+              className="flex h-10 w-10 shrink-0 touch-manipulation items-center justify-center rounded-lg border border-white/20 bg-white/10 text-white lg:hidden"
               aria-label="Open menu"
               onClick={() => setSidebarOpen(true)}
             >
               <Menu size={18} />
             </button>
-            <div className="min-w-0 flex-1">
-              <span className="text-[15px] font-black">{navTitle[activeNav]}</span>
-              <span className="ml-1 text-[11px] font-semibold text-white/35">{navSub[activeNav]}</span>
+            <div className="min-w-0 flex-1 overflow-hidden">
+              <span className="block truncate text-sm font-black leading-tight sm:inline sm:text-[15px]">{navTitle[activeNav]}</span>
+              <span className="mt-0.5 block truncate text-[10px] font-semibold leading-tight text-white/50 sm:mt-0 sm:ml-1 sm:inline sm:text-[11px]">{navSub[activeNav]}</span>
             </div>
-            <div className="flex shrink-0 items-center gap-2">
+            <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
               <button
                 type="button"
                 onClick={() => load({ detectNew: false })}
                 disabled={loading}
-                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-amber-400/35 px-3 text-xs font-bold text-white/85 hover:bg-white/[0.06] disabled:opacity-50"
+                className="inline-flex h-10 min-w-[2.5rem] touch-manipulation items-center justify-center gap-1.5 rounded-lg border border-white/25 px-2.5 text-xs font-bold text-white/90 hover:bg-white/10 disabled:opacity-50 sm:px-3"
               >
                 <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
                 <span className="hidden sm:inline">Refresh</span>
@@ -666,7 +690,7 @@ export default function ShuleAvancePartnerDashboard() {
               <button
                 type="button"
                 onClick={logout}
-                className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-amber-400 px-3 text-xs font-black text-[#000435] hover:bg-amber-300"
+                className="inline-flex h-10 touch-manipulation items-center gap-1.5 rounded-lg bg-amber-400 px-2.5 text-xs font-black text-[#000435] hover:bg-amber-300 sm:px-3"
               >
                 <LogOut size={14} />
                 <span className="hidden sm:inline">Log out</span>
@@ -674,46 +698,48 @@ export default function ShuleAvancePartnerDashboard() {
             </div>
           </header>
 
-          <main className="flex-1 overflow-y-auto p-4 sm:p-6 pb-24">
+          <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 pb-[max(5.5rem,env(safe-area-inset-bottom))] sm:p-5 md:p-6 md:pb-24 bg-gradient-to-b from-white via-amber-50/20 to-white">
             {activeNav === 'overview' && (
-              <div className="mx-auto max-w-7xl space-y-5 sm:space-y-6">
-                <div className="grid grid-cols-2 gap-3 sm:gap-3.5 lg:grid-cols-4">
-                  <KpiCard accent="amber" label="Total requests" value={loading ? null : Number(stats?.total ?? 0).toLocaleString()} sub={`${analytics.totalRows} loaded in view`} icon={FileText} loading={loading} />
-                  <KpiCard accent="blue" label="Pending review" value={loading ? null : Number(stats?.pending ?? 0).toLocaleString()} sub="Awaiting partner action" icon={Clock} loading={loading} />
-                  <KpiCard accent="green" label="Approved" value={loading ? null : Number(stats?.approved ?? 0).toLocaleString()} sub={total ? `${approvalPct}% of total` : '—'} icon={CheckCircle2} loading={loading} />
-                  <KpiCard accent="red" label="Rejected" value={loading ? null : Number(stats?.rejected ?? 0).toLocaleString()} icon={XCircle} loading={loading} />
-                  <KpiCard accent="teal" label="Paid" value={loading ? null : Number(stats?.paid ?? 0).toLocaleString()} icon={Banknote} loading={loading} />
-                  <KpiCard accent="amber" label="Amount (RWF)" value={loading ? null : formatRwf(analytics.totalRwf)} sub="Sum of request amounts" icon={Wallet} loading={loading} />
-                  <KpiCard accent="purple" label="Schools" value={loading ? null : String(analytics.uniqueSchools)} sub="Distinct school_id in feed" icon={School} loading={loading} />
-                  <KpiCard accent="blue" label="Paid Amount" value={loading ? null : formatRwf(analytics.paidRwf)} sub="Invoice status PAID" icon={Banknote} loading={loading} />
+              <div className="mx-auto max-w-7xl space-y-4 sm:space-y-6">
+                <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 sm:gap-3.5 lg:grid-cols-4">
+                  <KpiCard label="Total requests" value={loading ? null : Number(stats?.total ?? 0).toLocaleString()} sub={`${analytics.totalRows} loaded in view`} icon={FileText} loading={loading} />
+                  <KpiCard label="Pending review" value={loading ? null : Number(stats?.pending ?? 0).toLocaleString()} sub="Awaiting partner action" icon={Clock} loading={loading} />
+                  <KpiCard label="Approved" value={loading ? null : Number(stats?.approved ?? 0).toLocaleString()} sub={total ? `${approvalPct}% of total` : '—'} icon={CheckCircle2} loading={loading} />
+                  <KpiCard label="Rejected" value={loading ? null : Number(stats?.rejected ?? 0).toLocaleString()} icon={XCircle} loading={loading} />
+                  <KpiCard label="Paid" value={loading ? null : Number(stats?.paid ?? 0).toLocaleString()} icon={Banknote} loading={loading} />
+                  <KpiCard label="Amount (RWF)" value={loading ? null : formatRwf(analytics.totalRwf)} sub="Sum of request amounts" icon={Wallet} loading={loading} />
+                  <KpiCard label="Schools" value={loading ? null : String(analytics.uniqueSchools)} sub="Distinct school_id in feed" icon={School} loading={loading} />
+                  <KpiCard label="Paid Amount" value={loading ? null : formatRwf(analytics.paidRwf)} sub="Invoice status PAID" icon={Banknote} loading={loading} />
                 </div>
 
-                <div className="grid gap-3.5 lg:grid-cols-[2fr_1fr]">
+                <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[2fr_1fr]">
                   <Panel title="Requests over time" subtitle="Last 6 months · count per month">
-                    <div className="flex h-[200px] items-end gap-2 sm:gap-3">
-                      {analytics.monthBars.map((m) => (
-                        <div key={m.key} className="flex flex-1 flex-col items-center gap-2">
-                          <div className="flex w-full flex-1 items-end justify-center">
-                            <div
-                              className="w-full max-w-[48px] rounded-t-md bg-amber-400/80 transition-all hover:bg-amber-400"
-                              style={{ height: `${Math.max(8, (m.count / analytics.maxMonth) * 100)}%` }}
-                              title={`${m.count} requests`}
-                            />
+                    <div className="w-full overflow-x-auto overscroll-x-contain -mx-1 px-1 pb-1">
+                      <div className="flex h-[min(200px,42vh)] min-h-[160px] min-w-[300px] items-end gap-1.5 sm:min-w-0 sm:gap-2 md:gap-3">
+                        {analytics.monthBars.map((m, mi) => (
+                          <div key={m.key} className="flex min-w-[36px] flex-1 flex-col items-center gap-1.5 sm:min-w-0 sm:gap-2">
+                            <div className="flex w-full flex-1 items-end justify-center">
+                              <div
+                                className={`w-full max-w-[48px] rounded-t-md transition-all ${mi % 2 === 0 ? 'bg-[#000435]/90 hover:bg-[#000435]' : 'bg-amber-500/90 hover:bg-amber-500'}`}
+                                style={{ height: `${Math.max(8, (m.count / analytics.maxMonth) * 100)}%` }}
+                                title={`${m.count} requests`}
+                              />
+                            </div>
+                            <span className="max-w-full truncate text-center text-[9px] font-bold text-slate-500 sm:text-[10px]">{m.label}</span>
+                            <span className="text-[10px] font-black text-[#000435] sm:text-[11px]">{m.count}</span>
                           </div>
-                          <span className="text-[10px] font-bold text-white/45">{m.label}</span>
-                          <span className="text-[11px] font-black text-amber-200/90">{m.count}</span>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
                   </Panel>
 
                   <Panel title="By applicant category" subtitle="Share of routed requests">
                     {analytics.donut.length === 0 ? (
-                      <p className="py-8 text-center text-sm text-white/45">No category data yet.</p>
+                      <p className="py-8 text-center text-sm text-slate-500">No category data yet.</p>
                     ) : (
                       <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
                         <div className="mx-auto flex w-full max-w-[200px] shrink-0 flex-col items-center gap-3">
-                          <div className="flex h-4 w-full overflow-hidden rounded-full border border-white/10">
+                          <div className="flex h-4 w-full overflow-hidden rounded-full border border-amber-100">
                             {analytics.donut.map((d) => (
                               <div
                                 key={d.label}
@@ -724,16 +750,16 @@ export default function ShuleAvancePartnerDashboard() {
                             ))}
                           </div>
                           <div className="text-center">
-                            <span className="block text-2xl font-black leading-none">{analytics.totalRows}</span>
-                            <span className="text-[10px] font-bold uppercase text-white/40">requests</span>
+                            <span className="block text-2xl font-black leading-none text-[#000435]">{analytics.totalRows}</span>
+                            <span className="text-[10px] font-bold uppercase text-slate-500">requests</span>
                           </div>
                         </div>
                         <ul className="min-w-0 flex-1 space-y-2">
                           {analytics.donut.map((d) => (
-                            <li key={d.label} className="flex items-center gap-2 text-xs font-bold text-white/70">
+                            <li key={d.label} className="flex items-center gap-2 text-xs font-bold text-slate-700">
                               <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: d.color }} />
                               <span className="flex-1 truncate">{d.label}</span>
-                              <span className="shrink-0 font-mono text-amber-200/90">{d.pct}%</span>
+                              <span className="shrink-0 font-mono text-[#000435]">{d.pct}%</span>
                             </li>
                           ))}
                         </ul>
@@ -742,21 +768,21 @@ export default function ShuleAvancePartnerDashboard() {
                   </Panel>
                 </div>
 
-                <div className="grid gap-3.5 lg:grid-cols-[2fr_1fr]">
+                <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[2fr_1fr]">
                   <Panel title="Amount by invoice status" subtitle="RWF in current feed (max 200 rows)">
                     <div className="space-y-3">
                       {analytics.statusBars.length === 0 ? (
-                        <p className="text-sm text-white/45">No data.</p>
+                        <p className="text-sm text-slate-500">No data.</p>
                       ) : (
                         analytics.statusBars.map(([st, rwf]) => (
                           <div key={st}>
                             <div className="mb-1 flex justify-between text-[11px] font-bold">
-                              <span className="text-white/50">{st}</span>
-                              <span className="font-mono text-amber-200/90">{formatRwf(rwf)} RWF</span>
+                              <span className="text-slate-600">{st}</span>
+                              <span className="font-mono text-[#000435]">{formatRwf(rwf)} RWF</span>
                             </div>
-                            <div className="h-2 overflow-hidden rounded-full bg-white/[0.08]">
+                            <div className="h-2 overflow-hidden rounded-full bg-amber-50">
                               <div
-                                className="h-full rounded-full bg-amber-400/70"
+                                className="h-full rounded-full bg-gradient-to-r from-amber-400 to-[#000435]/80"
                                 style={{ width: `${Math.min(100, (rwf / analytics.maxStatusRwf) * 100)}%` }}
                               />
                             </div>
@@ -769,16 +795,16 @@ export default function ShuleAvancePartnerDashboard() {
                   <Panel title="Top school IDs" subtitle="By request count">
                     <div className="flex flex-col gap-2.5">
                       {analytics.topSchools.length === 0 ? (
-                        <p className="text-sm text-white/45">No schools in feed.</p>
+                        <p className="text-sm text-slate-500">No schools in feed.</p>
                       ) : (
                         analytics.topSchools.map(([sid, cnt], idx) => (
                           <div key={sid} className="flex items-center gap-2">
-                            <span className="w-4 text-right text-[11px] font-black text-white/35">{idx + 1}</span>
-                            <span className="min-w-0 flex-1 truncate font-mono text-xs font-bold text-white/85" title={sid}>{sid}</span>
-                            <div className="h-1.5 w-20 overflow-hidden rounded-full bg-white/[0.08] sm:w-24">
-                              <div className="h-full rounded-full bg-amber-400" style={{ width: `${(cnt / analytics.maxSchool) * 100}%` }} />
+                            <span className="w-4 text-right text-[11px] font-black text-slate-400">{idx + 1}</span>
+                            <span className="min-w-0 flex-1 truncate font-mono text-xs font-bold text-slate-800" title={sid}>{sid}</span>
+                            <div className="h-1.5 w-20 overflow-hidden rounded-full bg-amber-50 sm:w-24">
+                              <div className="h-full rounded-full bg-[#000435]/75" style={{ width: `${(cnt / analytics.maxSchool) * 100}%` }} />
                             </div>
-                            <span className="w-8 text-right font-mono text-[11px] font-black text-amber-300">{cnt}</span>
+                            <span className="w-8 text-right font-mono text-[11px] font-black text-[#000435]">{cnt}</span>
                           </div>
                         ))
                       )}
@@ -790,7 +816,7 @@ export default function ShuleAvancePartnerDashboard() {
                   <button
                     type="button"
                     onClick={() => navigate('/')}
-                    className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-300/90 hover:underline"
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-700 hover:text-amber-800 hover:underline"
                   >
                     <ArrowLeft size={14} /> Babyeyi home
                   </button>
@@ -800,64 +826,67 @@ export default function ShuleAvancePartnerDashboard() {
 
             {activeNav === 'requests' && (
               <div className="mx-auto max-w-7xl">
-                <div className="overflow-hidden rounded-2xl border border-amber-400/15 bg-white/[0.04]">
-                  <div className="flex flex-wrap items-center gap-2 border-b border-amber-400/15 p-3 sm:p-4">
-                    <div className="relative min-w-[200px] max-w-md flex-1">
-                      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
+                <div className="overflow-hidden rounded-2xl border border-amber-100 bg-white shadow-sm ring-1 ring-amber-50">
+                  <div className="flex flex-col gap-2 border-b border-amber-100 bg-gradient-to-r from-amber-50/90 to-white p-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2 sm:p-4">
+                    <div className="relative min-w-0 w-full sm:min-w-[200px] sm:max-w-md sm:flex-1">
+                      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                       <input
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Search ID, invoice, payer, purpose…"
-                        className="h-9 w-full rounded-lg border border-amber-400/25 bg-white/[0.06] pl-9 pr-3 text-sm font-semibold text-white placeholder:text-white/30 outline-none focus:border-amber-400"
+                        placeholder="Search ID, invoice, payer…"
+                        className="h-10 w-full rounded-lg border border-amber-100 bg-white pl-9 pr-3 text-base font-semibold text-[#000435] placeholder:text-slate-400 outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/30 sm:h-9 sm:text-sm"
+                        autoComplete="off"
                       />
                     </div>
-                    <select
-                      value={filterInvoice}
-                      onChange={(e) => setFilterInvoice(e.target.value)}
-                      className="h-9 rounded-lg border border-amber-400/20 bg-white/[0.06] px-2 text-xs font-bold text-white/80 outline-none focus:border-amber-400"
-                    >
-                      <option value="">All invoice statuses</option>
-                      {['PENDING_APPROVAL', 'APPROVED', 'REJECTED', 'PAID', 'DRAFT'].map((s) => (
-                        <option key={s} value={s} className="bg-[#000c6b]">{s.replace(/_/g, ' ')}</option>
-                      ))}
-                    </select>
-                    <select
-                      value={filterApplicant}
-                      onChange={(e) => setFilterApplicant(e.target.value)}
-                      className="h-9 rounded-lg border border-amber-400/20 bg-white/[0.06] px-2 text-xs font-bold text-white/80 outline-none focus:border-amber-400"
-                    >
-                      <option value="">All applicant types</option>
-                      {applicantOptions.map((a) => (
-                        <option key={a} value={a} className="bg-[#000c6b]">{a}</option>
-                      ))}
-                    </select>
-                    <span className="ml-auto text-xs font-bold text-white/40">
-                      {filteredRows.length} / {rows.length}
-                    </span>
+                    <div className="flex flex-wrap items-center gap-2 sm:contents">
+                      <select
+                        value={filterInvoice}
+                        onChange={(e) => setFilterInvoice(e.target.value)}
+                        className="h-10 min-w-0 flex-1 rounded-lg border border-amber-100 bg-white px-2 text-xs font-bold text-[#000435] outline-none focus:border-amber-400 sm:h-9 sm:min-w-[148px] sm:flex-initial"
+                      >
+                        <option value="">All invoice statuses</option>
+                        {['PENDING_APPROVAL', 'APPROVED', 'REJECTED', 'PAID', 'DRAFT'].map((s) => (
+                          <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
+                        ))}
+                      </select>
+                      <select
+                        value={filterApplicant}
+                        onChange={(e) => setFilterApplicant(e.target.value)}
+                        className="h-10 min-w-0 flex-1 rounded-lg border border-amber-100 bg-white px-2 text-xs font-bold text-[#000435] outline-none focus:border-amber-400 sm:h-9 sm:min-w-[140px] sm:flex-initial"
+                      >
+                        <option value="">All applicant types</option>
+                        {applicantOptions.map((a) => (
+                          <option key={a} value={a}>{a}</option>
+                        ))}
+                      </select>
+                      <span className="w-full text-center text-xs font-bold text-slate-500 sm:ml-auto sm:w-auto sm:text-left">
+                        {filteredRows.length} / {rows.length}
+                      </span>
+                    </div>
                   </div>
 
                   <div className="hidden md:block overflow-x-auto">
-                    <table className="w-full min-w-[860px] text-left text-[13px]">
+                    <table className="w-full min-w-[860px] text-left text-[13px] text-slate-800">
                       <thead>
-                        <tr className="border-b border-amber-400/25 bg-amber-400/[0.06]">
-                          <th className="px-3 py-3 text-[10px] font-extrabold uppercase tracking-wide text-white/45">ID</th>
-                          <th className="px-3 py-3 text-[10px] font-extrabold uppercase tracking-wide text-white/45">Amount</th>
-                          <th className="px-3 py-3 text-[10px] font-extrabold uppercase tracking-wide text-white/45">Applicant</th>
-                          <th className="px-3 py-3 text-[10px] font-extrabold uppercase tracking-wide text-white/45">Purpose</th>
-                          <th className="px-3 py-3 text-[10px] font-extrabold uppercase tracking-wide text-white/45">Invoice</th>
-                          <th className="px-3 py-3 text-[10px] font-extrabold uppercase tracking-wide text-white/45">Status</th>
-                          <th className="px-3 py-3 text-[10px] font-extrabold uppercase tracking-wide text-white/45">View</th>
-                          <th className="px-3 py-3 text-right text-[10px] font-extrabold uppercase tracking-wide text-white/45">Actions</th>
+                        <tr className="border-b border-amber-100 bg-gradient-to-r from-amber-50/70 to-white">
+                          <th className="px-3 py-3 text-[10px] font-extrabold uppercase tracking-wide text-slate-500">ID</th>
+                          <th className="px-3 py-3 text-[10px] font-extrabold uppercase tracking-wide text-slate-500">Amount</th>
+                          <th className="px-3 py-3 text-[10px] font-extrabold uppercase tracking-wide text-slate-500">Applicant</th>
+                          <th className="px-3 py-3 text-[10px] font-extrabold uppercase tracking-wide text-slate-500">Purpose</th>
+                          <th className="px-3 py-3 text-[10px] font-extrabold uppercase tracking-wide text-slate-500">Invoice</th>
+                          <th className="px-3 py-3 text-[10px] font-extrabold uppercase tracking-wide text-slate-500">Status</th>
+                          <th className="px-3 py-3 text-[10px] font-extrabold uppercase tracking-wide text-slate-500">View</th>
+                          <th className="px-3 py-3 text-right text-[10px] font-extrabold uppercase tracking-wide text-slate-500">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
                         {filteredRows.map((r) => (
-                          <tr key={r.id} className="border-b border-white/[0.06] hover:bg-amber-400/[0.04]">
-                            <td className="px-3 py-3 font-mono text-xs text-amber-200/90">#{r.id}</td>
-                            <td className="px-3 py-3 font-bold tabular-nums text-white">{formatRwf(r.total_rwf)} RWF</td>
-                            <td className="px-3 py-3 text-xs capitalize text-white/75">{r.applicant_category || '—'}</td>
-                            <td className="px-3 py-3 text-xs text-white/55 max-w-[160px] truncate">{r.purpose || '—'}</td>
-                            <td className="px-3 py-3 font-mono text-xs text-amber-200/80">{r.invoice_no || '—'}</td>
+                          <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50/80">
+                            <td className="px-3 py-3 font-mono text-xs text-[#000435]">#{r.id}</td>
+                            <td className="px-3 py-3 font-bold tabular-nums text-slate-900">{formatRwf(r.total_rwf)} RWF</td>
+                            <td className="px-3 py-3 text-xs capitalize text-slate-700">{r.applicant_category || '—'}</td>
+                            <td className="px-3 py-3 text-xs text-slate-600 max-w-[160px] truncate">{r.purpose || '—'}</td>
+                            <td className="px-3 py-3 font-mono text-xs text-slate-700">{r.invoice_no || '—'}</td>
                             <td className="px-3 py-3">
                               <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide ${statusChipClass(r.invoice_status)}`}>
                                 {r.invoice_status || '—'}
@@ -867,7 +896,7 @@ export default function ShuleAvancePartnerDashboard() {
                               <button
                                 type="button"
                                 onClick={() => openDetail(r.id)}
-                                className="inline-flex items-center gap-1 rounded-lg border border-amber-400/40 bg-amber-400/10 px-2.5 py-1.5 text-[10px] font-extrabold uppercase tracking-wide text-amber-100 hover:bg-amber-400/20"
+                                className="inline-flex items-center gap-1 rounded-lg border border-amber-300/90 bg-amber-50 px-2.5 py-1.5 text-[10px] font-extrabold uppercase tracking-wide text-[#000435] hover:bg-amber-100"
                               >
                                 <Eye size={12} /> View
                               </button>
@@ -880,7 +909,7 @@ export default function ShuleAvancePartnerDashboard() {
                                     type="button"
                                     disabled={busyId === r.id}
                                     onClick={() => act(r.id, a)}
-                                    className="rounded-md border border-white/15 px-2 py-1 text-[9px] font-extrabold uppercase tracking-wide text-white/85 hover:bg-amber-400/15 disabled:opacity-40"
+                                    className="rounded-md border border-amber-100 bg-white px-2 py-1 text-[9px] font-extrabold uppercase tracking-wide text-[#000435] hover:bg-amber-50 disabled:opacity-40"
                                   >
                                     {a.replace(/_/g, ' ')}
                                   </button>
@@ -893,21 +922,21 @@ export default function ShuleAvancePartnerDashboard() {
                     </table>
                   </div>
 
-                  <div className="md:hidden divide-y divide-white/10">
+                  <div className="md:hidden divide-y divide-slate-100">
                     {filteredRows.map((r) => (
                       <div key={r.id} className="p-4 space-y-3">
                         <div className="flex justify-between gap-2">
-                          <span className="font-mono text-xs text-amber-200">#{r.id}</span>
-                          <span className="font-mono text-sm font-black text-white">{formatRwf(r.total_rwf)} RWF</span>
+                          <span className="font-mono text-xs text-[#000435]">#{r.id}</span>
+                          <span className="font-mono text-sm font-black text-slate-900">{formatRwf(r.total_rwf)} RWF</span>
                         </div>
-                        <p className="text-xs text-white/60 capitalize">{r.applicant_category || '—'}</p>
-                        <p className="text-xs text-white/45 line-clamp-2">{r.purpose || '—'}</p>
+                        <p className="text-xs text-slate-600 capitalize">{r.applicant_category || '—'}</p>
+                        <p className="text-xs text-slate-500 line-clamp-2">{r.purpose || '—'}</p>
                         <div className="flex flex-wrap items-center gap-2">
                           <span className={`rounded-full border px-2 py-0.5 text-[10px] font-extrabold uppercase ${statusChipClass(r.invoice_status)}`}>{r.invoice_status || '—'}</span>
-                          <span className="font-mono text-[10px] text-white/40">{r.invoice_no || '—'}</span>
+                          <span className="font-mono text-[10px] text-slate-400">{r.invoice_no || '—'}</span>
                         </div>
-                        <div className="flex flex-wrap gap-2">
-                          <button type="button" onClick={() => openDetail(r.id)} className="flex-1 rounded-lg border border-amber-400/40 bg-amber-400/15 py-2 text-xs font-black text-amber-100">
+                        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+                          <button type="button" onClick={() => openDetail(r.id)} className="col-span-2 min-h-[44px] touch-manipulation rounded-lg border border-amber-300 bg-amber-50 py-2.5 text-xs font-black text-[#000435] hover:bg-amber-100 sm:col-span-1 sm:flex-1">
                             View
                           </button>
                           {['approve', 'reject', 'request_info', 'mark_disbursed'].map((a) => (
@@ -916,7 +945,7 @@ export default function ShuleAvancePartnerDashboard() {
                               type="button"
                               disabled={busyId === r.id}
                               onClick={() => act(r.id, a)}
-                              className="rounded-lg border border-white/15 px-2 py-1.5 text-[10px] font-bold uppercase text-white/80 disabled:opacity-40"
+                              className="min-h-[40px] touch-manipulation rounded-lg border border-slate-200 px-2 py-2 text-[10px] font-bold uppercase text-slate-700 disabled:opacity-40 sm:min-h-0 sm:py-1.5"
                             >
                               {a.split('_')[0]}
                             </button>
@@ -927,12 +956,12 @@ export default function ShuleAvancePartnerDashboard() {
                   </div>
 
                   {loading && (
-                    <div className="flex justify-center py-16 text-amber-200">
+                    <div className="flex justify-center py-16 text-[#000435]">
                       <Loader2 className="h-8 w-8 animate-spin" />
                     </div>
                   )}
                   {!loading && !filteredRows.length && (
-                    <div className="py-16 text-center text-sm text-white/45">No requests match your filters.</div>
+                    <div className="py-16 text-center text-sm text-slate-500">No requests match your filters.</div>
                   )}
                 </div>
               </div>
@@ -941,20 +970,20 @@ export default function ShuleAvancePartnerDashboard() {
             {activeNav === 'analytics' && (
               <div className="mx-auto max-w-7xl space-y-5">
                 <Panel title="Analytics workspace" subtitle="Built live from your organization’s request feed (same data as Dashboard)">
-                  <p className="text-sm text-white/60 leading-relaxed">
+                  <p className="text-sm text-slate-600 leading-relaxed">
                     Charts and rankings update when you press Refresh. For deeper reporting, export from your core banking or ask Babyeyi for extended APIs.
                   </p>
                 </Panel>
-                <div className="grid gap-3.5 lg:grid-cols-2">
+                <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2">
                   <Panel title="Applicant mix" subtitle="Counts">
                     <div className="space-y-2">
                       {analytics.applicantSorted.length === 0 ? (
-                        <p className="text-sm text-white/45">No data.</p>
+                        <p className="text-sm text-slate-500">No data.</p>
                       ) : (
                         analytics.applicantSorted.map(([label, count]) => (
                           <div key={label} className="flex items-center justify-between text-sm font-bold">
-                            <span className="text-white/70">{label}</span>
-                            <span className="font-mono text-amber-200">{count}</span>
+                            <span className="text-slate-700">{label}</span>
+                            <span className="font-mono text-[#000435]">{count}</span>
                           </div>
                         ))
                       )}
@@ -963,12 +992,12 @@ export default function ShuleAvancePartnerDashboard() {
                   <Panel title="Financing status (payload)" subtitle="Latest snapshot per row">
                     <div className="space-y-2">
                       {analytics.financingSorted.length === 0 ? (
-                        <p className="text-sm text-white/45">No data.</p>
+                        <p className="text-sm text-slate-500">No data.</p>
                       ) : (
                         analytics.financingSorted.map(([k, v]) => (
                           <div key={k} className="flex justify-between text-sm font-bold">
-                            <span className="text-white/65">{k}</span>
-                            <span className="font-mono text-amber-200">{v}</span>
+                            <span className="text-slate-700">{k}</span>
+                            <span className="font-mono text-[#000435]">{v}</span>
                           </div>
                         ))
                       )}
@@ -983,10 +1012,10 @@ export default function ShuleAvancePartnerDashboard() {
                 <Panel
                   title="Request notifications"
                   subtitle="Pending requests that need partner action"
-                  right={<span className="text-xs font-black text-amber-200">{pendingRows.length} pending · {unreadCount} unread</span>}
+                  right={<span className="max-w-full text-right text-xs font-black leading-snug text-amber-700">{pendingRows.length} pending · {unreadCount} unread</span>}
                 >
                   {pendingRows.length === 0 ? (
-                    <p className="py-8 text-center text-sm text-white/45">No pending request notifications right now.</p>
+                    <p className="py-8 text-center text-sm text-slate-500">No pending request notifications right now.</p>
                   ) : (
                     <div className="space-y-2">
                       {pendingRows.map((r) => (
@@ -994,21 +1023,21 @@ export default function ShuleAvancePartnerDashboard() {
                           key={`notif-${r.id}`}
                           className={`rounded-xl border px-3 py-3 flex flex-wrap items-center gap-2 ${
                             unreadPendingIds.includes(Number(r.id))
-                              ? 'border-red-300/35 bg-red-500/10'
-                              : 'border-amber-400/20 bg-amber-400/[0.06]'
+                              ? 'border-amber-300 bg-amber-50/90'
+                              : 'border-amber-100 bg-white'
                           }`}
                         >
-                          <span className="font-mono text-xs text-amber-200">#{r.id}</span>
-                          <span className="font-mono text-xs text-white/80">{r.invoice_no || 'No invoice number'}</span>
-                          <span className="text-xs text-white/70">{r.purpose || 'School financing request'}</span>
-                          <span className="ml-auto font-mono text-sm font-black text-white">{formatRwf(r.total_rwf)} RWF</span>
+                          <span className="font-mono text-xs text-[#000435]">#{r.id}</span>
+                          <span className="font-mono text-xs text-slate-700">{r.invoice_no || 'No invoice number'}</span>
+                          <span className="text-xs text-slate-600">{r.purpose || 'School financing request'}</span>
+                          <span className="ml-auto font-mono text-sm font-black text-slate-900">{formatRwf(r.total_rwf)} RWF</span>
                           {unreadPendingIds.includes(Number(r.id)) && (
-                            <span className="rounded-full border border-red-300/35 bg-red-500/20 px-2 py-0.5 text-[10px] font-black text-red-100">NEW</span>
+                            <span className="rounded-full border border-[#000435]/30 bg-white px-2 py-0.5 text-[10px] font-black text-[#000435]">NEW</span>
                           )}
                           <button
                             type="button"
                             onClick={() => openDetail(r.id)}
-                            className="rounded-lg border border-amber-400/40 bg-amber-400/15 px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wide text-amber-100 hover:bg-amber-400/25"
+                            className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wide text-[#000435] hover:bg-amber-100"
                           >
                             View request
                           </button>
@@ -1016,7 +1045,7 @@ export default function ShuleAvancePartnerDashboard() {
                             <button
                               type="button"
                               onClick={() => markRequestSeen(r.id)}
-                              className="rounded-lg border border-white/20 px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wide text-white/90 hover:bg-white/10"
+                              className="rounded-lg border border-slate-300 px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wide text-slate-700 hover:bg-slate-50"
                             >
                               Mark seen
                             </button>
@@ -1034,22 +1063,22 @@ export default function ShuleAvancePartnerDashboard() {
                 <Panel title="Organization profile" subtitle="From partner session /me">
                   <dl className="space-y-4 text-sm">
                     <div>
-                      <dt className="text-[10px] font-extrabold uppercase tracking-wide text-white/40">Name</dt>
-                      <dd className="mt-1 font-bold text-white">{me?.org_name || '—'}</dd>
+                      <dt className="text-[10px] font-extrabold uppercase tracking-wide text-slate-500">Name</dt>
+                      <dd className="mt-1 font-bold text-slate-900">{me?.org_name || '—'}</dd>
                     </div>
                     <div>
-                      <dt className="text-[10px] font-extrabold uppercase tracking-wide text-white/40">Type</dt>
-                      <dd className="mt-1 font-bold text-white/85">{me?.org_type || '—'}</dd>
+                      <dt className="text-[10px] font-extrabold uppercase tracking-wide text-slate-500">Type</dt>
+                      <dd className="mt-1 font-bold text-slate-800">{me?.org_type || '—'}</dd>
                     </div>
                     <div>
-                      <dt className="text-[10px] font-extrabold uppercase tracking-wide text-white/40">Contact</dt>
-                      <dd className="mt-1 font-bold text-white/85">{me?.contact_email || '—'}</dd>
-                      <dd className="mt-0.5 font-bold text-white/85">{me?.contact_phone || '—'}</dd>
+                      <dt className="text-[10px] font-extrabold uppercase tracking-wide text-slate-500">Contact</dt>
+                      <dd className="mt-1 font-bold text-slate-800">{me?.contact_email || '—'}</dd>
+                      <dd className="mt-0.5 font-bold text-slate-800">{me?.contact_phone || '—'}</dd>
                     </div>
                     <div>
-                      <dt className="text-[10px] font-extrabold uppercase tracking-wide text-white/40">Status</dt>
+                      <dt className="text-[10px] font-extrabold uppercase tracking-wide text-slate-500">Status</dt>
                       <dd className="mt-1">
-                        <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-extrabold uppercase ${me?.is_active ? 'border-emerald-400/40 bg-emerald-500/15 text-emerald-200' : 'border-white/20 bg-white/10 text-white/60'}`}>
+                        <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-extrabold uppercase ${me?.is_active ? 'border-amber-300 bg-amber-50 text-[#000435]' : 'border-slate-200 bg-slate-50 text-slate-500'}`}>
                           {me?.is_active ? 'Active' : 'Inactive'}
                         </span>
                       </dd>
@@ -1062,18 +1091,21 @@ export default function ShuleAvancePartnerDashboard() {
         </div>
       </div>
 
-      {/* Detail drawer */}
+      {/* Detail drawer — full-width on small screens, safe areas for notched devices */}
       {detailId != null && (
-        <div className="fixed inset-0 z-[400] flex justify-end bg-[#000435]/75 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="sa-detail-title">
+        <div className="fixed inset-0 z-[400] flex justify-end bg-black/40 backdrop-blur-sm p-0 sm:p-0" role="dialog" aria-modal="true" aria-labelledby="sa-detail-title">
           <button type="button" className="absolute inset-0 h-full w-full cursor-default" aria-label="Close panel" onClick={closeDetail} />
           <div
-            className="relative z-[410] flex h-full w-full max-w-lg flex-col border-l-2 border-amber-400 bg-[#000c6b] shadow-2xl"
+            className="relative z-[410] flex h-[100dvh] max-h-[100dvh] w-full max-w-lg flex-col border-l border-slate-200 bg-white shadow-2xl sm:h-full sm:max-h-none"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex shrink-0 items-start gap-3 border-b border-amber-400/20 bg-[#000c6b] px-4 py-4 sm:px-5">
+            <div
+              style={{ background: NAVY }}
+              className="flex shrink-0 items-start gap-3 border-b-[3px] border-amber-400 px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top))] sm:px-5 text-white"
+            >
               <div className="min-w-0 flex-1">
-                <p id="sa-detail-title" className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-amber-300/90">Request & invoice</p>
-                <p className="truncate text-lg font-black text-white">
+                <p id="sa-detail-title" className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-white/70">Request & invoice</p>
+                <p className="truncate text-lg font-black">
                   {detail?.invoice_no ? detail.invoice_no : detailLoading ? 'Loading…' : `Request #${detailId}`}
                 </p>
                 {detail?.invoice_status && (
@@ -1085,29 +1117,29 @@ export default function ShuleAvancePartnerDashboard() {
               <button
                 type="button"
                 onClick={closeDetail}
-                className="shrink-0 rounded-lg border border-white/20 p-2 text-white/80 hover:bg-white/10"
+                className="shrink-0 rounded-lg border border-white/25 p-2 text-white/90 hover:bg-white/10"
                 aria-label="Close"
               >
                 <X size={20} />
               </button>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5 space-y-4">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 sm:px-5 sm:py-4 space-y-4 bg-gradient-to-b from-white to-amber-50/30 pb-[max(1rem,env(safe-area-inset-bottom))]">
               {detailLoading && (
-                <div className="flex justify-center py-16 text-amber-200">
+                <div className="flex justify-center py-16 text-[#000435]">
                   <Loader2 className="h-8 w-8 animate-spin" />
                 </div>
               )}
               {detailErr && (
-                <div className="rounded-xl border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm text-red-100">{detailErr}</div>
+                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{detailErr}</div>
               )}
               {!detailLoading && detail && !detailErr && (
                 <>
-                  <div className="rounded-xl border border-amber-400/30 bg-amber-400/[0.08] p-4">
+                  <div className="rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50/80 to-white p-4 shadow-sm">
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                       <div>
-                        <p className="text-[10px] font-extrabold uppercase tracking-wide text-amber-200/80">Amount (RWF)</p>
-                        <p className="text-3xl font-black tabular-nums text-amber-100">{Number(detail.total_rwf || 0).toLocaleString()}</p>
+                        <p className="text-[10px] font-extrabold uppercase tracking-wide text-amber-800/80">Amount (RWF)</p>
+                        <p className="text-3xl font-black tabular-nums text-[#000435]">{Number(detail.total_rwf || 0).toLocaleString()}</p>
                       </div>
                       {invoicePdfHref && (
                         <a
@@ -1140,12 +1172,20 @@ export default function ShuleAvancePartnerDashboard() {
                     </SectionCard>
                   )}
 
-                  {(detail?.deposit_bank_name || detail?.deposit_account_number || detail?.deposit_account_name || detail?.deposit_bank_branch) && (
-                    <SectionCard icon={Wallet} title="School deposit account">
-                      <DetailRow label="Bank" value={detail.deposit_bank_name} />
-                      <DetailRow label="Account number" value={detail.deposit_account_number} mono />
-                      <DetailRow label="Account name" value={detail.deposit_account_name} />
-                      <DetailRow label="Branch" value={detail.deposit_bank_branch} />
+                  {showSchoolDepositCard && (
+                    <SectionCard icon={Wallet} title="School deposit / collection account">
+                      {hasSchoolDepositFields ? (
+                        <>
+                          <DetailRow label="Bank" value={detail.deposit_bank_name} />
+                          <DetailRow label="Account number" value={detail.deposit_account_number} mono />
+                          <DetailRow label="Account name" value={detail.deposit_account_name} />
+                          <DetailRow label="Branch" value={detail.deposit_bank_branch} />
+                        </>
+                      ) : (
+                        <p className="text-xs text-slate-600 leading-relaxed">
+                          Applicant chose disbursement to the school’s account, but no bank details are stored on this school’s Babyeyi document. Confirm the correct deposit account with the school before transferring funds.
+                        </p>
+                      )}
                     </SectionCard>
                   )}
 
@@ -1171,7 +1211,14 @@ export default function ShuleAvancePartnerDashboard() {
                     <DetailRow label="Notification email" value={sa.applicant_notification_email} />
                     <DetailRow label="Purpose" value={sa.purpose} />
                     <DetailRow label="Repayment (months)" value={sa.repayment_period_months} />
-                    <DetailRow label="Disbursement preference" value={disburseLabel(sa.disbursement_preference)} />
+                    <DetailRow label="Disbursement preference" value={disburseLabel(prefRaw || 'school_account')} />
+                    {disburseTarget && (prefNorm === 'personal_account' || prefNorm === 'other') ? (
+                      <DetailRow
+                        label={prefNorm === 'personal_account' ? 'Personal account / MoMo (disbursement)' : 'Disbursement instructions'}
+                        value={disburseTarget}
+                        mono={prefNorm === 'personal_account'}
+                      />
+                    ) : null}
                     <DetailRow label="Supporting note" value={sa.supporting_note} />
                     <DetailRow label="Routing summary" value={sa.routing_summary} />
                     <DetailRow label="Financing status" value={sa.financing_request_status} />
@@ -1182,10 +1229,10 @@ export default function ShuleAvancePartnerDashboard() {
                     <SectionCard icon={Calendar} title="Approval history">
                       <ul className="space-y-2">
                         {sa.approval_history.map((h, i) => (
-                          <li key={i} className="rounded-lg border border-white/10 bg-black/25 px-3 py-2 text-xs">
-                            <span className="font-extrabold uppercase text-amber-200/90">{h.action || '—'}</span>
-                            {h.at && <span className="ml-2 text-white/40">{new Date(h.at).toLocaleString()}</span>}
-                            {h.note && <p className="mt-1 text-white/75">{h.note}</p>}
+                          <li key={i} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs">
+                            <span className="font-extrabold uppercase text-[#000435]">{h.action || '—'}</span>
+                            {h.at && <span className="ml-2 text-slate-500">{new Date(h.at).toLocaleString()}</span>}
+                            {h.note && <p className="mt-1 text-slate-700">{h.note}</p>}
                           </li>
                         ))}
                       </ul>
@@ -1195,7 +1242,7 @@ export default function ShuleAvancePartnerDashboard() {
                   {students.length > 0 && (
                     <SectionCard icon={School} title="Students in this payment">
                       {students.map((st, i) => (
-                        <div key={i} className="mb-2 rounded-lg border border-white/10 bg-black/20 p-3 text-xs last:mb-0 space-y-1">
+                        <div key={i} className="mb-2 rounded-lg border border-amber-100 bg-white p-3 text-xs last:mb-0 space-y-1">
                           <DetailRow label="Name" value={st.student_name || st.name} />
                           <DetailRow
                             label="School"
@@ -1208,11 +1255,11 @@ export default function ShuleAvancePartnerDashboard() {
                     </SectionCard>
                   )}
 
-                  <div className="flex flex-col gap-2 border-t border-white/10 pt-4 sm:flex-row">
+                  <div className="flex flex-col gap-2 border-t border-amber-100 pt-4 sm:flex-row">
                     <button
                       type="button"
                       onClick={closeDetail}
-                      className="flex-1 rounded-xl border border-white/20 py-3 text-sm font-black text-white/90 hover:bg-white/5"
+                      className="flex-1 rounded-xl border border-slate-200 py-3 text-sm font-black text-slate-800 hover:bg-amber-50/50"
                     >
                       Close
                     </button>
@@ -1221,21 +1268,21 @@ export default function ShuleAvancePartnerDashboard() {
                         href={invoicePdfHref}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex flex-1 items-center justify-center gap-1 rounded-xl border border-amber-400/50 py-3 text-sm font-black text-amber-100 hover:bg-amber-400/10"
+                        className="flex flex-1 items-center justify-center gap-1 rounded-xl border border-amber-400 bg-amber-50 py-3 text-sm font-black text-[#000435] hover:bg-amber-100"
                       >
                         Open PDF <ChevronRight size={16} />
                       </a>
                     )}
                   </div>
 
-                  <div className="flex flex-wrap gap-2 pb-6">
+                  <div className="grid grid-cols-2 gap-2 pb-6 sm:flex sm:flex-wrap">
                     {['approve', 'reject', 'request_info', 'mark_disbursed'].map((a) => (
                       <button
                         key={a}
                         type="button"
                         disabled={busyId === detailId}
                         onClick={() => act(detailId, a)}
-                        className="flex-1 min-w-[120px] rounded-xl border border-white/15 py-2.5 text-[11px] font-extrabold uppercase tracking-wide text-white/90 hover:bg-amber-400/15 disabled:opacity-40"
+                        className="min-h-[44px] touch-manipulation rounded-xl border border-amber-200 bg-white py-2.5 text-[10px] font-extrabold uppercase tracking-wide text-[#000435] hover:bg-amber-50 hover:border-amber-300 disabled:opacity-40 sm:min-w-[120px] sm:flex-1 sm:text-[11px]"
                       >
                         {a.replace(/_/g, ' ')}
                       </button>

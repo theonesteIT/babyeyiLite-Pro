@@ -16,9 +16,10 @@ import {
 } from "lucide-react";
 
 import Heroimage from "../../assets/logo-bg2.png";
+import HeroImageMobile from "../../assets/logo-bg-left.png";
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5100";
 
-/** Logos in `src/assets/partner/` — filename becomes the label (e.g. `bank-of-kigali.png` → "Bank Of Kigali"). */
+/** Logos in `src/assets/partner/` */
 function partnersFromAssetsFolder() {
   const mods = import.meta.glob("../../assets/partner/*.{png,jpg,jpeg,svg,webp}", { eager: true });
   return Object.keys(mods)
@@ -43,7 +44,6 @@ const FontLoader = () => (
   <style>{`
     @import url('https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700;800;900&family=Barlow+Condensed:wght@700;800;900&display=swap');
 
-    /* MTN Brighter Sans — proprietary; Barlow used as geometric sans fallback */
     @font-face {
       font-family: 'MTN Brighter Sans';
       src: local('MTN Brighter Sans'), local('MTNBrighterSans-Regular');
@@ -55,11 +55,9 @@ const FontLoader = () => (
       font-weight: 700 900; font-display: swap;
     }
 
-    /* Apply MTN Brighter Sans everywhere EXCEPT .hero-h1 */
     *, *::before, *::after {
       font-family: 'MTN Brighter Sans', 'Barlow', 'Trebuchet MS', sans-serif !important;
     }
-    /* H1 hero headline stays Barlow Black as requested */
     h1.hero-h1 {
       font-family: 'Barlow', 'Trebuchet MS', sans-serif !important;
       font-weight: 900 !important;
@@ -74,11 +72,6 @@ const FontLoader = () => (
       --amber-dk: #F59E0B;
     }
 
-    /* ── Keyframes ── */
-    @keyframes marquee {
-      0%   { transform: translateX(0); }
-      100% { transform: translateX(-50%); }
-    }
     @keyframes shimmer-sweep {
       0%   { background-position: -200% center; }
       100% { background-position:  200% center; }
@@ -104,7 +97,6 @@ const FontLoader = () => (
     .anim-su4 { animation: slide-up .7s .35s cubic-bezier(.22,1,.36,1) both; }
     .anim-fi  { animation: fade-in 1s .5s both; }
 
-    /* Shimmer gradient text — no glow/shadow so hero stays clean on photography */
     .shimmer {
       background: linear-gradient(90deg,#FBBF24 0%,#FDE68A 42%,#FBBF24 58%,#F59E0B 100%);
       background-size: 200% auto;
@@ -116,18 +108,18 @@ const FontLoader = () => (
       filter: none;
     }
 
-    /* Noise grain overlay */
+    /* Noise grain — z-index:-1 so it never masks image layers */
     .noise::after {
       content:'';
       position:absolute;
       inset:0;
-      opacity:.022;
+      z-index:0;
+      opacity:.018;
       background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
       pointer-events:none;
       animation: grain 9s steps(10) infinite;
     }
 
-    /* Gradient stat text */
     .stat-num {
       background: linear-gradient(135deg,#FBBF24,#FDE68A);
       -webkit-background-clip: text;
@@ -135,21 +127,12 @@ const FontLoader = () => (
       background-clip: text;
     }
 
-    /* Fine grid overlay */
-    .hero-grid {
-      background-image:
-        linear-gradient(rgba(251,191,36,.032) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(251,191,36,.032) 1px, transparent 1px);
-      background-size: 64px 64px;
-    }
-
-    /* Dot grid */
+    /* Dot grid — used in demo/cta sections only, NOT hero */
     .dot-grid {
       background-image: radial-gradient(circle, rgba(251,191,36,.1) 1px, transparent 1px);
       background-size: 28px 28px;
     }
 
-    /* Gradient border */
     .gb { position: relative; }
     .gb::before {
       content:'';
@@ -164,10 +147,8 @@ const FontLoader = () => (
       pointer-events:none;
     }
 
-    /* Separator line */
     .sep { height:1px; background:linear-gradient(90deg,transparent,rgba(251,191,36,.22),transparent); }
 
-    /* Button shine sweep */
     .btn-shine { position:relative; overflow:hidden; }
     .btn-shine::after {
       content:'';
@@ -180,26 +161,16 @@ const FontLoader = () => (
     }
     .btn-shine:hover::after { left:130%; }
 
-    /* Partner logos — greyscale to colour on hover */
-    .partner-logo {
-      transition: filter .3s, opacity .3s, transform .35s cubic-bezier(.22,1,.36,1);
-      filter: grayscale(1) brightness(.65);
-      opacity: .5;
+    /* Partner logos on WHITE background — full colour, just slight dim + lift on hover */
+    .partner-logo-light {
+      transition: opacity .28s ease, transform .32s cubic-bezier(.22,1,.36,1), filter .28s ease;
+      opacity: .82;
+      filter: grayscale(0.15) brightness(0.95);
     }
-    .partner-logo:hover {
+    .partner-logo-light:hover {
+      opacity: 1;
       filter: grayscale(0) brightness(1.05);
-      opacity: 1;
       transform: translateY(-4px);
-    }
-
-    /* Light partner strip — full-color logos, minimal */
-    .partner-logo-modern {
-      transition: opacity .28s ease, transform .28s cubic-bezier(.22,1,.36,1);
-      opacity: .94;
-    }
-    .partner-logo-modern:hover {
-      opacity: 1;
-      transform: translateY(-3px);
     }
 
     ::-webkit-scrollbar       { width:5px; }
@@ -252,10 +223,10 @@ function Navbar() {
 
   const links = [
     { label: "Home page", href: "/" },
-    { label: "Pay Fees", href: "/pay-by-school" },
-    { label: "Services", href: "/services" },
-    { label: "Features", href: "/features" },
-    { label: "Schools", href: "/schools" },
+    { label: "Pay Fees",  href: "/pay-by-school" },
+    { label: "Services",  href: "/services" },
+    { label: "Features",  href: "/features" },
+    { label: "Schools",   href: "/schools" },
   ];
 
   return (
@@ -266,13 +237,9 @@ function Navbar() {
       style={{ borderBottom: "1px solid rgba(251,191,36,0.18)" }}
     >
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 xl:px-10 2xl:px-16 flex items-center justify-between h-14 sm:h-[62px] xl:h-[70px]">
-
         <Link to="/" className="flex items-center shrink-0 group">
-          <img
-            src={BABYEYI_LOGO_URL}
-            alt="Babyeyi logo"
-            className="h-9 sm:h-10 xl:h-[42px] w-auto object-contain transition-all duration-300 group-hover:brightness-110"
-          />
+          <img src={BABYEYI_LOGO_URL} alt="Babyeyi logo"
+            className="h-9 sm:h-10 xl:h-[42px] w-auto object-contain transition-all duration-300 group-hover:brightness-110" />
         </Link>
 
         <div className="hidden lg:flex items-center">
@@ -393,7 +360,7 @@ function AISearchBox() {
   };
 
   return (
-    <div className="w-full max-w-xl 2xl:max-w-2xl mt-7">
+    <div className="w-full max-w-xl 2xl:max-w-2xl mt-0">
       <div className="flex items-center gap-2 mb-2.5 pl-1">
         {[0, 200, 400].map((d) => (
           <span key={d} className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" style={{ animationDelay: `${d}ms` }} />
@@ -401,8 +368,8 @@ function AISearchBox() {
         <span className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-400/80">SDMS Code / ShuleCard ID</span>
       </div>
 
-      <div className="flex items-center gap-2 p-2 rounded-2xl shadow-none"
-        style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(16px)", border: "1px solid rgba(251,191,36,0.25)", boxShadow: "none" }}>
+      <div className="flex items-center gap-2 p-2 rounded-2xl"
+        style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(16px)", border: "1px solid rgba(251,191,36,0.25)" }}>
         <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
           style={{ background: "rgba(251,191,36,0.1)" }}>
           <Bot size={17} className="text-amber-400" />
@@ -429,8 +396,8 @@ function AISearchBox() {
       {result && (
         <div className="fixed inset-0 z-[300] flex items-end sm:items-center justify-center p-0 sm:p-6">
           <button type="button" aria-label="Close" className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setResult(null)} />
-          <div className="relative z-10 w-full sm:max-w-lg max-h-[88dvh] flex flex-col rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-none"
-            style={{ background: "#000435", border: "2px solid rgba(251,191,36,0.3)", boxShadow: "none" }}>
+          <div className="relative z-10 w-full sm:max-w-lg max-h-[88dvh] flex flex-col rounded-t-3xl sm:rounded-3xl overflow-hidden"
+            style={{ background: "#000435", border: "2px solid rgba(251,191,36,0.3)", boxShadow: "0 32px 80px rgba(0,0,0,.8)" }}>
             <div className="flex items-center justify-between gap-2 px-5 py-4 shrink-0"
               style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
               <div className="flex items-center gap-2">
@@ -476,9 +443,7 @@ function AISearchBox() {
             <div className="px-5 py-4 shrink-0 space-y-2.5" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
               {result.data && (() => {
                 const st = String(result.data.student_uid || result.data.student_code || result.data.sdm_code || "").trim();
-                const payHref = st
-                  ? `/pay-by-school?code=${encodeURIComponent(st)}`
-                  : "/pay-by-school";
+                const payHref = st ? `/pay-by-school?code=${encodeURIComponent(st)}` : "/pay-by-school";
                 const slug = String(result.data.mini_website_slug || "").trim();
                 return (
                   <div className="flex flex-col sm:flex-row gap-2">
@@ -517,35 +482,70 @@ function AISearchBox() {
 
 /* ── Hero ──────────────────────────────────────────────────────── */
 function HeroSection() {
-  const navigate = useNavigate();
   return (
-    <section className="relative w-full overflow-hidden pt-14 sm:pt-[62px] xl:pt-[70px] noise" style={{ minHeight: "100svh" }}>
+    <section className="relative w-full overflow-hidden pt-14 sm:pt-[62px] xl:pt-[70px]" style={{ minHeight: "100svh" }}>
 
-      {/* BG image */}
-      <div className="absolute inset-0 pointer-events-none"
-        style={{ backgroundImage: `url(${Heroimage})`, backgroundSize: "cover", backgroundPosition: "center top" }} />
+      {/* ── Desktop BG image (sm+) ── */}
+      <div className="absolute inset-0 z-0 pointer-events-none hidden sm:block"
+        style={{
+          backgroundImage: `url(${Heroimage})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center top",
+        }} />
 
-      {/* Overlay */}
-      <div className="absolute inset-0 pointer-events-none"
+      {/* ── Mobile BG image ──
+           The mother & child figures sit in the LEFT ~28% of the wide landscape source.
+           Using background-position "22% center" pulls them rightward into the viewport
+           so they are clearly centred on a 320–640px screen without cropping their faces.
+      ── */}
+      <div
+        className="absolute inset-0 z-0 pointer-events-none sm:hidden"
+        style={{
+          backgroundImage: `url(${HeroImageMobile})`,
+          backgroundSize: "cover",
+          backgroundPosition: "22% center",
+          backgroundRepeat: "no-repeat",
+          transform: "translateZ(0)",
+          WebkitTransform: "translateZ(0)",
+        }}
+      />
+
+      {/* Desktop overlay */}
+      <div className="absolute inset-0 z-[1] pointer-events-none hidden sm:block"
         style={{ background: "linear-gradient(135deg, rgba(0,4,53,0.75) 0%, rgba(0,4,53,0.48) 55%, rgba(0,4,53,0.22) 100%)" }} />
-      <div className="absolute inset-0 pointer-events-none hero-grid" />
 
-      {/* Amber radial bloom */}
-      <div className="absolute -top-40 -right-40 w-[600px] h-[600px] rounded-full pointer-events-none hidden lg:block"
+      {/* Mobile overlay — lighter so the amber BG + figures remain vivid */}
+      <div className="absolute inset-0 z-[1] pointer-events-none sm:hidden"
+        style={{ background: "linear-gradient(180deg, rgba(0,4,53,0.30) 0%, rgba(0,4,53,0.18) 40%, rgba(0,4,53,0.52) 100%)" }} />
+
+      {/* NO grid lines on hero — removed as requested */}
+
+      {/* Amber radial bloom top-right (desktop only) */}
+      <div className="absolute -top-40 -right-40 w-[600px] h-[600px] rounded-full pointer-events-none z-[2] hidden lg:block"
         style={{ background: "radial-gradient(circle, rgba(251,191,36,0.07) 0%, transparent 68%)" }} />
 
-      <div className="relative z-10 max-w-[1400px] mx-auto px-4 sm:px-6 xl:px-10 2xl:px-16 flex flex-col justify-center py-14 sm:py-20 xl:py-24"
+      {/* Content — on mobile, block starts lower (not vertically centered) */}
+      <div className="relative z-[11] max-w-[1400px] mx-auto px-4 sm:px-6 xl:px-10 2xl:px-16 flex flex-col justify-start sm:justify-center py-8 sm:py-20 xl:py-24"
         style={{ minHeight: "calc(100svh - 70px)" }}>
-        <div className="max-w-[540px] sm:max-w-[600px] xl:max-w-[700px] 2xl:max-w-[780px]">
+        {/*
+          MOBILE ONLY — push hero (h1 + buttons + search) further DOWN the screen:
+          Edit the clamp() in the class on the next line:
+            clamp(MIN_REM, VIEWPORT_PART, MAX_REM)
+            • Raise MIN_REM  → never less than this inset from the top
+            • Raise middle   → more push on taller phones (try 18svh … 28svh)
+            • Raise MAX_REM  → cap how far down it can go
+          sm:mt-0 resets this on tablet/desktop so layout there stays unchanged.
+        */}
+        <div className="w-full max-w-[min(100%,540px)] sm:max-w-[600px] xl:max-w-[700px] 2xl:max-w-[780px] mt-[clamp(8rem,65svh,14rem)] sm:mt-0">
 
-          {/* H1 — Barlow Black, exempted from MTN Brighter Sans */}
+          {/* H1 — hidden on mobile as requested */}
           <h1
-            className="hero-h1 anim-su2 leading-[1.05] mb-5 sm:mb-6"
+            className="hero-h1 anim-su2 leading-[1.08] mb-4 sm:mb-6"
             style={{
-              fontSize: "clamp(2rem, 5vw, 4.5rem)",
+              fontSize: "clamp(1.55rem, 5vw, 4.5rem)",
               color: "#ffffff",
               letterSpacing: "-0.02em",
-              textShadow: "0 2px 32px rgba(0,4,53,0.55)",
+              textShadow: "0 2px 28px rgba(0,4,53,0.65)",
             }}
           >
             An Integrated{" "}
@@ -555,53 +555,40 @@ function HeroSection() {
             <span style={{ color: "#FBBF24" }}>School Readiness</span>
           </h1>
 
-          {/* Accent rule */}
-          <div className="anim-su3 w-12 h-[3px] rounded-full bg-amber-400 mb-5 sm:mb-6" />
-
-          {/* Subheadline */}
-          <p className="anim-su3 text-white/58 leading-relaxed mb-8 sm:mb-10"
-            style={{ fontSize: "clamp(14px, 1.6vw, 17px)", maxWidth: "480px" }}>
-            Connecting schools, parents, and communities across Rwanda — payments, admissions, services, and more.
-          </p>
-
-          {/* CTA grid */}
-          <div className="anim-su4 flex flex-col gap-3 w-full" style={{ maxWidth: "clamp(300px, 90vw, 490px)" }}>
-            <div className="grid grid-cols-2 gap-3">
+          {/* Hero cards (4 only) */}
+          <div className="anim-su4 flex flex-col gap-2.5 sm:gap-3 w-full sm:max-w-[clamp(300px,90vw,490px)]">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
               <Link to="/pay-by-school"
-                className="btn-shine inline-flex items-center justify-center gap-2 rounded-2xl font-black text-[#000435] transition-all active:scale-[.97] hover:shadow-[0_8px_28px_rgba(251,191,36,.4)]"
-                style={{ minHeight: "clamp(48px,5.5vw,56px)", fontSize: "clamp(12px,1.2vw,15px)", background: "linear-gradient(135deg,#FBBF24 0%,#F59E0B 100%)" }}>
-                <CreditCard size={15} strokeWidth={2.5} /> Pay Fees
+                className="btn-shine inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-2xl font-black text-[#000435] transition-all active:scale-[.97] hover:shadow-[0_8px_28px_rgba(251,191,36,.4)]"
+                style={{ minHeight: "clamp(44px,5.5vw,56px)", fontSize: "clamp(11px,2.8vw,15px)", background: "linear-gradient(135deg,#FBBF24 0%,#F59E0B 100%)" }}>
+                <CreditCard size={14} strokeWidth={2.5} className="shrink-0" /> Pay Fees
               </Link>
               <a href="/parents/login"
-                className="inline-flex items-center justify-center gap-2 rounded-2xl font-black text-white transition-all hover:bg-white/8"
-                style={{ minHeight: "clamp(48px,5.5vw,56px)", fontSize: "clamp(12px,1.2vw,15px)", border: "1.5px solid rgba(255,255,255,0.2)" }}>
-                <LogIn size={15} className="text-amber-300" /> Parent Login
+                className="inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-2xl font-black text-white transition-all hover:bg-white/8"
+                style={{ minHeight: "clamp(44px,5.5vw,56px)", fontSize: "clamp(11px,2.8vw,15px)", border: "1.5px solid rgba(255,255,255,0.2)" }}>
+                <LogIn size={14} className="text-amber-300 shrink-0" /> Parent Login
               </a>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
               <Link to="/register"
-                className="inline-flex items-center justify-center gap-2 rounded-2xl font-semibold text-white transition-all hover:bg-amber-400/14"
-                style={{ minHeight: "clamp(44px,5vw,52px)", fontSize: "clamp(12px,1.1vw,14px)", border: "1px solid rgba(251,191,36,0.35)", background: "rgba(251,191,36,0.07)" }}>
-                <Building2 size={15} className="text-amber-400" /> Register School
+                className="inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-2xl font-semibold text-white transition-all hover:bg-amber-400/14"
+                style={{ minHeight: "clamp(42px,5vw,52px)", fontSize: "clamp(10.5px,2.6vw,14px)", border: "1px solid rgba(251,191,36,0.35)", background: "rgba(251,191,36,0.07)" }}>
+                <Building2 size={14} className="text-amber-400 shrink-0" /> Register School
               </Link>
               <Link to="/services"
-                className="inline-flex items-center justify-center gap-2 rounded-2xl font-semibold text-white transition-all hover:bg-white/10"
-                style={{ minHeight: "clamp(44px,5vw,52px)", fontSize: "clamp(12px,1.1vw,14px)", border: "1px solid rgba(255,255,255,0.13)", background: "rgba(255,255,255,0.05)" }}>
-                <Sparkles size={15} className="text-amber-200/80" /> Tools & Services
+                className="inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-2xl font-semibold text-white transition-all hover:bg-white/10"
+                style={{ minHeight: "clamp(42px,5vw,52px)", fontSize: "clamp(10.5px,2.6vw,14px)", border: "1px solid rgba(255,255,255,0.13)", background: "rgba(255,255,255,0.05)" }}>
+                <Sparkles size={14} className="text-amber-200/80 shrink-0" /> Tools & Services
               </Link>
             </div>
-            <button type="button" onClick={() => navigate("/schools")}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl font-semibold text-white transition-all hover:border-amber-400 hover:bg-amber-400/10 w-full"
-              style={{ minHeight: "clamp(42px,4.5vw,50px)", fontSize: "clamp(12px,1.1vw,14px)", border: "1px solid rgba(251,191,36,0.25)", background: "rgba(0,4,53,0.35)" }}>
-              <Search size={15} className="text-amber-400" />
-              Explore Schools
-              <ArrowRight size={13} className="text-amber-400 ml-auto" />
-            </button>
           </div>
 
-          <AISearchBox />
+          <div className="mt-6 sm:mt-7 w-full">
+            <AISearchBox />
+          </div>
         </div>
       </div>
+
     </section>
   );
 }
@@ -818,14 +805,14 @@ function GetStartedSection() {
   );
 }
 
-/* ── Partners (logos from src/assets/partner; fallback if folder empty) ─ */
+/* ── Partners ──────────────────────────────────────────────────── */
 const PARTNER_FALLBACK = [
-  { name: "MINEDUC", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/17/Rwanda-Coat_of_arms.svg/120px-Rwanda-Coat_of_arms.svg.png" },
-  { name: "REB", logo: "https://reb.rw/wp-content/uploads/2023/01/REB-Logo.png" },
-  { name: "NESA", logo: "https://nesa.rw/wp-content/uploads/2021/03/nesa_logo.png" },
-  { name: "HEC", logo: "https://www.hec.gov.rw/fileadmin/templates/images/logo.png" },
-  { name: "PSF", logo: "https://www.psf.org.rw/wp-content/themes/psf/img/logo.png" },
-  { name: "MTN Rwanda", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/93/New-mtn-logo.jpg/320px-New-mtn-logo.jpg" },
+  { name: "MINEDUC", full: "Ministry of Education", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/17/Rwanda-Coat_of_arms.svg/120px-Rwanda-Coat_of_arms.svg.png" },
+  { name: "REB", full: "Rwanda Education Board", logo: "https://reb.rw/wp-content/uploads/2023/01/REB-Logo.png" },
+  { name: "NESA", full: "Nat. Exam & School Inspection", logo: "https://nesa.rw/wp-content/uploads/2021/03/nesa_logo.png" },
+  { name: "HEC", full: "Higher Education Council", logo: "https://www.hec.gov.rw/fileadmin/templates/images/logo.png" },
+  { name: "PSF", full: "Private Sector Federation", logo: "https://www.psf.org.rw/wp-content/themes/psf/img/logo.png" },
+  { name: "MTN Rwanda", full: "Mobile Money Payments", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/93/New-mtn-logo.jpg/320px-New-mtn-logo.jpg" },
 ];
 
 function PartnersSection() {
@@ -833,70 +820,98 @@ function PartnersSection() {
   const pp = fromAssets.length ? fromAssets : PARTNER_FALLBACK;
 
   return (
-    <section className="relative py-16 sm:py-20 xl:py-28 bg-white border-t border-b border-slate-100/90 overflow-hidden">
-      <div
-        className="pointer-events-none absolute inset-0 opacity-[0.35]"
+    <section className="relative py-16 sm:py-20 xl:py-28 bg-white overflow-hidden"
+      style={{ borderTop: "1px solid #f1f5f9", borderBottom: "1px solid #f1f5f9" }}>
+
+      {/* Subtle dot pattern background */}
+      <div className="pointer-events-none absolute inset-0"
         style={{
-          backgroundImage: "linear-gradient(rgba(0,4,53,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0,4,53,0.04) 1px, transparent 1px)",
-          backgroundSize: "56px 56px",
-        }}
-      />
+          backgroundImage: "radial-gradient(circle, rgba(0,4,53,0.045) 1px, transparent 1px)",
+          backgroundSize: "32px 32px",
+        }} />
+
       <div className="relative max-w-[1200px] mx-auto px-4 sm:px-6 xl:px-10 2xl:px-16">
-        <p
-          className="text-center font-semibold text-[#000435] max-w-2xl mx-auto leading-snug mb-12 sm:mb-14 xl:mb-16"
-          style={{ fontSize: "clamp(15px, 1.75vw, 19px)" }}
-        >
-          <span className="text-[#FBBF24]">Trusted</span>
+
+        {/* Headline */}
+        <p className="text-center font-semibold text-[#000435] max-w-2xl mx-auto leading-snug mb-12 sm:mb-14 xl:mb-16"
+          style={{ fontSize: "clamp(15px, 1.75vw, 19px)" }}>
+          <span style={{ color: "#F59E0B" }}>Trusted</span>
           {" "}by schools, families, and partners across Rwanda — aligned with national education institutions and industry leaders.
         </p>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-x-8 gap-y-11 sm:gap-x-10 sm:gap-y-12 xl:gap-x-14 xl:gap-y-14 justify-items-center items-center">
+        {/* ── Logo grid ──
+             fromAssets = images from src/assets/partner/ (your actual logos).
+             PARTNER_FALLBACK = CDN URLs used only if the folder is empty.
+             Both render using <img> tags with object-fit:contain so logos
+             never distort regardless of their original proportions.
+        ── */}
+        <div className={`grid gap-x-6 gap-y-10 sm:gap-x-10 sm:gap-y-12 xl:gap-x-14 xl:gap-y-14 justify-items-center items-center ${
+          pp.length <= 3  ? "grid-cols-3" :
+          pp.length === 4 ? "grid-cols-2 sm:grid-cols-4" :
+          pp.length === 5 ? "grid-cols-3 sm:grid-cols-5" :
+                            "grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
+        }`}>
           {pp.map((p, i) => (
-            <div key={`${p.name}-${i}`} className="flex flex-col items-center gap-3 w-full max-w-[148px] sm:max-w-[168px] group">
+            <div key={`${p.name}-${i}`}
+              className="flex flex-col items-center gap-3 w-full group"
+              style={{ maxWidth: "clamp(80px, 14vw, 148px)" }}>
+
               <img
                 src={p.logo}
                 alt={p.name}
-                className={fromAssets.length ? "partner-logo-modern" : "partner-logo"}
+                className="partner-logo-light"
                 style={{
-                  height: "clamp(36px, 5vw, 52px)",
+                  height: "clamp(32px, 4.5vw, 52px)",
                   width: "auto",
-                  maxWidth: "min(100%, 140px)",
+                  maxWidth: "100%",
                   objectFit: "contain",
                   display: "block",
                 }}
                 onError={(e) => {
                   e.target.style.display = "none";
-                  const el = e.target.nextElementSibling;
-                  if (el) el.style.display = "flex";
+                  const fb = e.target.nextElementSibling;
+                  if (fb) fb.style.display = "flex";
                 }}
               />
-              <div
-                className="hidden items-center justify-center rounded-xl font-black text-[#FBBF24] tracking-wide"
-                style={{
-                  width: "clamp(48px, 6vw, 58px)",
-                  height: "clamp(48px, 6vw, 58px)",
-                  background: "rgba(0,4,53,0.04)",
-                  border: "1px solid rgba(0,4,53,0.08)",
-                  fontSize: "clamp(10px, 1vw, 12px)",
-                }}
-              >
-                {p.name.slice(0, 3)}
+
+              {/* Initials fallback — shown only when image fails */}
+              <div style={{
+                display: "none",
+                width: "clamp(44px,5.5vw,56px)",
+                height: "clamp(44px,5.5vw,56px)",
+                background: "rgba(0,4,53,0.05)",
+                border: "1px solid rgba(0,4,53,0.1)",
+                borderRadius: "12px",
+                alignItems: "center",
+                justifyContent: "center",
+                fontWeight: 900,
+                fontSize: "clamp(10px,1vw,12px)",
+                color: "#F59E0B",
+                letterSpacing: "0.04em",
+              }}>
+                {p.name.slice(0, 3).toUpperCase()}
               </div>
-              <p
-                className="text-center font-semibold leading-tight transition-colors duration-200 group-hover:text-[#F59E0B]"
+
+              {/* Name label */}
+              <p className="text-center font-semibold leading-tight transition-colors duration-200 group-hover:text-amber-500"
                 style={{
-                  fontSize: "clamp(9.5px, 0.95vw, 11.5px)",
-                  letterSpacing: "0.06em",
+                  fontSize: "clamp(9px, 0.9vw, 11px)",
+                  letterSpacing: "0.07em",
                   textTransform: "uppercase",
-                  color: "rgba(0,4,53,0.45)",
+                  color: "rgba(0,4,53,0.4)",
                   maxWidth: "100%",
-                }}
-              >
+                }}>
                 {p.name}
               </p>
             </div>
           ))}
         </div>
+
+        {/* Bottom rule */}
+        <div className="mt-12 sm:mt-16" style={{ height: "1px", background: "linear-gradient(90deg,transparent,rgba(0,4,53,0.1),transparent)" }} />
+        <p className="text-center mt-5" style={{ fontSize: "clamp(10px,0.85vw,11.5px)", color: "rgba(0,4,53,0.28)", letterSpacing: "0.04em" }}>
+          Babyeyi operates in alignment with Rwanda's national education regulatory framework
+        </p>
       </div>
     </section>
   );

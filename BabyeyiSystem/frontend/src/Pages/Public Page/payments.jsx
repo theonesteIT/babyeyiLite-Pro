@@ -344,9 +344,8 @@ export default function PaymentsPage() {
   const [shuleNotifyPhone, setShuleNotifyPhone] = useState('');
   const [shuleApplicantName, setShuleApplicantName] = useState('');
   const [shuleApplicantNationalId, setShuleApplicantNationalId] = useState('');
-  const [shuleApplicantEmail, setShuleApplicantEmail] = useState('');
-  const [shuleApplicantOccupation, setShuleApplicantOccupation] = useState('');
-  const [shuleApplicantDistrict, setShuleApplicantDistrict] = useState('');
+  const [shulePersonalAccount, setShulePersonalAccount] = useState('');
+  const [shuleOtherDisbursement, setShuleOtherDisbursement] = useState('');
   const [shuleError, setShuleError] = useState('');
 
   // MoMo
@@ -623,14 +622,11 @@ export default function PaymentsPage() {
     () => loanSchedule(principal, shuleRepayMo, shuleAnnualRate, 'monthly'),
     [principal, shuleRepayMo, shuleAnnualRate]
   );
-  const shuleSchedWeekly = useMemo(
-    () => loanSchedule(principal, shuleRepayMo, shuleAnnualRate, 'weekly'),
-    [principal, shuleRepayMo, shuleAnnualRate]
-  );
-  const shuleSchedDaily = useMemo(
-    () => loanSchedule(principal, shuleRepayMo, shuleAnnualRate, 'daily'),
-    [principal, shuleRepayMo, shuleAnnualRate]
-  );
+  const shuleOrgDisbursementType = useMemo(() => {
+    const t = String(shuleOrg?.disbursement_account_type || 'SCHOOL_ACCOUNT').trim().toUpperCase();
+    if (t === 'PERSONAL_ACCOUNT' || t === 'OTHER') return t;
+    return 'SCHOOL_ACCOUNT';
+  }, [shuleOrg]);
   const shuleApplicantCategory = useMemo(() => {
     const cats = Array.isArray(shuleOrg?.applicant_categories) ? shuleOrg.applicant_categories : [];
     return cats.length ? String(cats[0] || '').trim() : '';
@@ -726,11 +722,19 @@ export default function PaymentsPage() {
             applicant_category: shuleApplicantCategory || '',
             applicant_full_name: String(shuleApplicantName || '').trim(),
             applicant_national_id: String(shuleApplicantNationalId || '').trim(),
-            applicant_email: String(shuleApplicantEmail || '').trim().toLowerCase(),
-            applicant_occupation: String(shuleApplicantOccupation || '').trim(),
-            applicant_district: String(shuleApplicantDistrict || '').trim(),
             purpose: 'School fees / shulekits',
-            preferred_disbursement: 'school_account',
+            preferred_disbursement:
+              shuleOrgDisbursementType === 'PERSONAL_ACCOUNT'
+                ? 'personal_account'
+                : shuleOrgDisbursementType === 'OTHER'
+                  ? 'other'
+                  : 'school_account',
+            disbursement_target_value:
+              shuleOrgDisbursementType === 'PERSONAL_ACCOUNT'
+                ? String(shulePersonalAccount || '').trim()
+                : shuleOrgDisbursementType === 'OTHER'
+                  ? String(shuleOtherDisbursement || '').trim()
+                  : '',
             repayment_period_months: Number(shuleRepayMo || 1),
             applicant_notification_phone: sanitizeRwandaPhone(shuleNotifyPhone),
             organization_rate_annual: Math.round(shuleAnnualRate * 1000000) / 1000000,
@@ -740,8 +744,6 @@ export default function PaymentsPage() {
               total_due: Number(shuleSchedMonthly.totalDue || 0),
               interest: Number(shuleSchedMonthly.interest || 0),
               monthly_each: Number(shuleSchedMonthly.each || 0),
-              weekly_each: Number(shuleSchedWeekly.each || 0),
-              daily_each: Number(shuleSchedDaily.each || 0),
             },
           } : null,
         },
@@ -779,8 +781,8 @@ export default function PaymentsPage() {
       momoPhoneRaw, loanBank, loanApplicantName, loanAccountNumber, loanNationalId,
       bankAccountHolder, bankAccountNumber, bankPaymentRef, visaCardHolder, visaCardNumber, visaExpiry,
       pageTab, shuleOrgId, shuleOrg, shuleApplicantCategory, shuleApplicantName, shuleApplicantNationalId,
-      shuleApplicantEmail, shuleApplicantOccupation, shuleApplicantDistrict, shuleRepayMo, shuleNotifyPhone,
-      shuleAnnualRate, shuleSchedMonthly, shuleSchedWeekly, shuleSchedDaily]);
+      shulePersonalAccount, shuleOtherDisbursement, shuleRepayMo, shuleNotifyPhone,
+      shuleAnnualRate, shuleSchedMonthly, shuleOrgDisbursementType]);
 
   // ── MoMo polling ──────────────────────────────────────────────
   const pollMomoStatus = useCallback(async (intentId, count) => {
@@ -958,14 +960,17 @@ export default function PaymentsPage() {
       setShuleError('Please enter your national ID.');
       return false;
     }
-    const email = String(shuleApplicantEmail || '').trim();
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setShuleError('Please enter a valid email address.');
+    if (shuleOrgDisbursementType === 'PERSONAL_ACCOUNT' && !String(shulePersonalAccount || '').trim()) {
+      setShuleError('Please enter the personal account where money should be put.');
+      return false;
+    }
+    if (shuleOrgDisbursementType === 'OTHER' && !String(shuleOtherDisbursement || '').trim()) {
+      setShuleError('Please enter where the money should be put.');
       return false;
     }
     setShuleError('');
     return true;
-  }, [shuleApplicantName, shuleApplicantNationalId, shuleApplicantEmail]);
+  }, [shuleApplicantName, shuleApplicantNationalId, shulePersonalAccount, shuleOtherDisbursement, shuleOrgDisbursementType]);
   const validateShuleDetails = useCallback(() => {
     if (!shuleOrg) { setShuleError('Please choose a ShuleAvance organization.'); return false; }
     if (!Number.isFinite(Number(shuleAnnualRate)) || Number(shuleAnnualRate) <= 0) {
@@ -1214,14 +1219,10 @@ export default function PaymentsPage() {
   const awaitingBalance = payMethod !== 'loan' && studsForBalance.length > 0 && balanceLoading;
   const visaDigits      = visaCardNumber.replace(/\D/g, '');
   const isVisaPrefix    = visaDigits.startsWith('4');
-  const shuleApplicantEmailOk = (() => {
-    const email = String(shuleApplicantEmail || '').trim();
-    if (!email) return true;
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  })();
   const shulePersonalInfoReady = !!String(shuleApplicantName || '').trim()
     && !!String(shuleApplicantNationalId || '').trim()
-    && shuleApplicantEmailOk;
+    && (shuleOrgDisbursementType !== 'PERSONAL_ACCOUNT' || !!String(shulePersonalAccount || '').trim())
+    && (shuleOrgDisbursementType !== 'OTHER' || !!String(shuleOtherDisbursement || '').trim());
 
   const canSubmit = draft?.studentServiceCheckout
     ? !submitting && !doneId && payMethod === 'momo' && (!momoStatus || momoStatus === 'FAILED' || momoStatus === 'TIMEOUT') && principal >= 100
@@ -1841,38 +1842,33 @@ export default function PaymentsPage() {
                             />
                           </div>
                         </div>
-
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+                        {shuleOrgDisbursementType === 'PERSONAL_ACCOUNT' && (
                           <div>
-                            <label style={labelStyle}>Email address</label>
+                            <label style={labelStyle}>Personal account (money destination)</label>
                             <input
-                              type="email"
-                              value={shuleApplicantEmail}
-                              onChange={(e) => { setShuleApplicantEmail(e.target.value); setShuleError(''); }}
-                              placeholder="name@example.com"
+                              value={shulePersonalAccount}
+                              onChange={(e) => { setShulePersonalAccount(e.target.value); setShuleError(''); }}
+                              placeholder="Enter personal account number / identifier"
+                              style={{ ...inputStyle, fontFamily: "monospace" }}
+                            />
+                          </div>
+                        )}
+                        {shuleOrgDisbursementType === 'OTHER' && (
+                          <div>
+                            <label style={labelStyle}>Where should the money be put?</label>
+                            <input
+                              value={shuleOtherDisbursement}
+                              onChange={(e) => { setShuleOtherDisbursement(e.target.value); setShuleError(''); }}
+                              placeholder="Enter preferred destination"
                               style={inputStyle}
                             />
                           </div>
-                          <div>
-                            <label style={labelStyle}>Occupation (optional)</label>
-                            <input
-                              value={shuleApplicantOccupation}
-                              onChange={(e) => { setShuleApplicantOccupation(e.target.value); setShuleError(''); }}
-                              placeholder="Teacher, business owner, etc."
-                              style={inputStyle}
-                            />
+                        )}
+                        {shuleOrgDisbursementType === 'SCHOOL_ACCOUNT' && (
+                          <div style={{ background: C.db50, border: `1px solid ${C.db100}`, borderRadius: 8, padding: "10px 12px", color: C.db700, fontSize: 12, fontWeight: 700 }}>
+                            This organization sends funds to the school account.
                           </div>
-                        </div>
-
-                        <div>
-                          <label style={labelStyle}>District / residence (optional)</label>
-                          <input
-                            value={shuleApplicantDistrict}
-                            onChange={(e) => { setShuleApplicantDistrict(e.target.value); setShuleError(''); }}
-                            placeholder="Where applicant lives"
-                            style={inputStyle}
-                          />
-                        </div>
+                        )}
                       </div>
                     )}
 
@@ -1885,7 +1881,17 @@ export default function PaymentsPage() {
                           </div>
                           <div>
                             <label style={labelStyle}>Preferred disbursement</label>
-                            <input value="School account" readOnly style={{ ...inputStyle, background: C.db50, fontWeight: 700 }} />
+                            <input
+                              value={
+                                shuleOrgDisbursementType === 'PERSONAL_ACCOUNT'
+                                  ? 'Personal account'
+                                  : shuleOrgDisbursementType === 'OTHER'
+                                    ? 'Other destination'
+                                    : 'School account'
+                              }
+                              readOnly
+                              style={{ ...inputStyle, background: C.db50, fontWeight: 700 }}
+                            />
                           </div>
                         </div>
 
@@ -1901,41 +1907,27 @@ export default function PaymentsPage() {
                         </div>
 
                         <label style={labelStyle}>Repayment period</label>
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 12 }}>
-                          {[1, 2, 3].map((m) => (
-                            <button
-                              key={m}
-                              type="button"
-                              onClick={() => setShuleRepayMo(m)}
-                              style={{
-                                padding: "10px", borderRadius: 8, fontWeight: 800, cursor: "pointer",
-                                border: `1.5px solid ${shuleRepayMo === m ? C.am200 : C.db100}`,
-                                background: shuleRepayMo === m ? C.am50 : "#fff",
-                                color: shuleRepayMo === m ? C.am900 : C.db700,
-                              }}
-                            >
+                        <select
+                          value={String(shuleRepayMo)}
+                          onChange={(e) => setShuleRepayMo(Number(e.target.value || 1))}
+                          style={{ ...inputStyle, marginBottom: 12 }}
+                        >
+                          {[1, 2, 3, 4, 5, 6, 9, 12].map((m) => (
+                            <option key={m} value={String(m)}>
                               {m} month{m > 1 ? 's' : ''}
-                            </button>
+                            </option>
                           ))}
-                        </div>
+                        </select>
 
                         <div style={{ background: C.db900, borderRadius: 8, padding: "12px 14px", color: "#fff" }}>
                           <div style={{ fontWeight: 800, marginBottom: 6 }}>Installment preview</div>
                           <div style={{ fontSize: 12, color: C.am100, marginBottom: 8 }}>
                             Principal {Number(principal).toLocaleString()} RWF · Interest {Number(shuleSchedMonthly.interest).toLocaleString()} RWF
                           </div>
-                          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-                            <div style={{ background: "rgba(255,255,255,0.1)", borderRadius: 6, padding: 8 }}>
-                              <div style={{ fontSize: 10, color: C.am100 }}>Daily</div>
-                              <div style={{ fontFamily: "monospace", fontWeight: 800 }}>{Number(shuleSchedDaily.each).toLocaleString()} RWF</div>
-                            </div>
-                            <div style={{ background: "rgba(255,255,255,0.1)", borderRadius: 6, padding: 8 }}>
-                              <div style={{ fontSize: 10, color: C.am100 }}>Weekly</div>
-                              <div style={{ fontFamily: "monospace", fontWeight: 800 }}>{Number(shuleSchedWeekly.each).toLocaleString()} RWF</div>
-                            </div>
-                            <div style={{ background: "rgba(255,255,255,0.1)", borderRadius: 6, padding: 8 }}>
-                              <div style={{ fontSize: 10, color: C.am100 }}>Monthly</div>
-                              <div style={{ fontFamily: "monospace", fontWeight: 800 }}>{Number(shuleSchedMonthly.each).toLocaleString()} RWF</div>
+                          <div style={{ background: "rgba(255,255,255,0.1)", borderRadius: 6, padding: 10 }}>
+                            <div style={{ fontSize: 10, color: C.am100 }}>Monthly installment</div>
+                            <div style={{ fontFamily: "monospace", fontWeight: 800, fontSize: 15 }}>
+                              {Number(shuleSchedMonthly.each).toLocaleString()} RWF
                             </div>
                           </div>
                         </div>
@@ -1948,12 +1940,20 @@ export default function PaymentsPage() {
                         {[
                           ['Organization', shuleOrg?.org_name || '—'],
                           ['Purpose', 'School fees / shulekits'],
-                          ['Disbursement', 'School account'],
+                          ['Disbursement',
+                            shuleOrgDisbursementType === 'PERSONAL_ACCOUNT'
+                              ? 'Personal account'
+                              : shuleOrgDisbursementType === 'OTHER'
+                                ? 'Other destination'
+                                : 'School account'
+                          ],
                           ['Applicant full name', shuleApplicantName.trim() || '—'],
                           ['National ID', shuleApplicantNationalId.trim() || '—'],
-                          ['Email', shuleApplicantEmail.trim() || '—'],
-                          ['Occupation', shuleApplicantOccupation.trim() || '—'],
-                          ['District / residence', shuleApplicantDistrict.trim() || '—'],
+                          ...(shuleOrgDisbursementType === 'PERSONAL_ACCOUNT'
+                            ? [['Personal account', shulePersonalAccount.trim() || '—']]
+                            : shuleOrgDisbursementType === 'OTHER'
+                              ? [['Requested destination', shuleOtherDisbursement.trim() || '—']]
+                              : []),
                           ['SMS phone', sanitizeRwandaPhone(shuleNotifyPhone) || '—'],
                           ['Repayment period', `${shuleRepayMo} month${shuleRepayMo > 1 ? 's' : ''}`],
                           ['Rate', `${(shuleAnnualRate * 100).toFixed(2)}% per year`],

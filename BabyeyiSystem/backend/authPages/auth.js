@@ -2003,6 +2003,7 @@ function normalizeOrgApplicantCategoriesRow(row) {
     applicant_categories: cats,
     rate_percent: Number.isFinite(rateNum) ? rateNum : null,
     rate_is_monthly: !!Number(row.rate_is_monthly || 0),
+    disbursement_account_type: normalizeDisbursementAccountTypeInput(row.disbursement_account_type, 'SCHOOL_ACCOUNT'),
   };
 }
 
@@ -2012,6 +2013,13 @@ function normalizeRatePercentInput(value) {
   const n = Number(value);
   if (!Number.isFinite(n) || n < 0 || n > 100) return NaN;
   return Math.round(n * 1000) / 1000;
+}
+
+function normalizeDisbursementAccountTypeInput(value, fallback = 'SCHOOL_ACCOUNT') {
+  if (value === undefined || value === null || value === '') return fallback;
+  const v = String(value).trim().toUpperCase();
+  if (v === 'PERSONAL_ACCOUNT' || v === 'SCHOOL_ACCOUNT' || v === 'OTHER') return v;
+  return fallback;
 }
 
 router.post('/create-shule-avance-organization', async (req, res) => {
@@ -2031,6 +2039,10 @@ router.post('/create-shule-avance-organization', async (req, res) => {
     const notes = String(b.notes || '').trim().slice(0, 4000) || null;
     const is_active = b.is_active !== undefined ? !!b.is_active : true;
     const rate_is_monthly = !!(b.rate_is_monthly ?? b.is_rate_monthly ?? b.rateMonthly);
+    const disbursement_account_type = normalizeDisbursementAccountTypeInput(
+      b.disbursement_account_type ?? b.disbursementAccountType,
+      'SCHOOL_ACCOUNT'
+    );
     const applicant_categories = parseShuleAvanceApplicantCategories(b);
     const rate_percent = normalizeRatePercentInput(
       b.rate_percent ?? b.income_rate_percent ?? b.income_rate
@@ -2073,8 +2085,8 @@ router.post('/create-shule-avance-organization', async (req, res) => {
     const newUserId = ur.insertId;
     const [or] = await promisePool.query(
       `INSERT INTO pro_shule_avance_organizations
-       (user_id, org_name, org_type, login_username, contact_person, contact_email, contact_phone, address, description, notes, is_active, applicant_categories_json, rate_percent, rate_is_monthly)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+       (user_id, org_name, org_type, login_username, contact_person, contact_email, contact_phone, address, description, notes, is_active, applicant_categories_json, rate_percent, rate_is_monthly, disbursement_account_type)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [
         newUserId,
         org_name,
@@ -2090,6 +2102,7 @@ router.post('/create-shule-avance-organization', async (req, res) => {
         JSON.stringify(applicant_categories),
         rate_percent,
         rate_is_monthly ? 1 : 0,
+        disbursement_account_type,
       ]
     );
 
@@ -2110,7 +2123,7 @@ router.get('/shule-avance-organizations', async (req, res) => {
     await ensureShuleAvanceOrgTables();
     const [rows] = await promisePool.query(
       `SELECT o.id, o.org_name, o.org_type, o.login_username, o.contact_person, o.contact_email, o.contact_phone,
-              o.is_active, o.created_at, o.user_id, o.address, o.description, o.notes, o.applicant_categories_json, o.rate_percent, o.rate_is_monthly,
+              o.is_active, o.created_at, o.user_id, o.address, o.description, o.notes, o.applicant_categories_json, o.rate_percent, o.rate_is_monthly, o.disbursement_account_type,
               u.is_active AS user_is_active
        FROM pro_shule_avance_organizations o
        JOIN users u ON u.id = o.user_id AND u.deleted_at IS NULL
@@ -2171,6 +2184,13 @@ router.put('/shule-avance-organization/:id', async (req, res) => {
     const rate_is_monthly = b.rate_is_monthly !== undefined || b.is_rate_monthly !== undefined || b.rateMonthly !== undefined
       ? (!!(b.rate_is_monthly ?? b.is_rate_monthly ?? b.rateMonthly) ? 1 : 0)
       : undefined;
+    const disbursement_account_type =
+      b.disbursement_account_type !== undefined || b.disbursementAccountType !== undefined
+        ? normalizeDisbursementAccountTypeInput(
+            b.disbursement_account_type ?? b.disbursementAccountType,
+            'SCHOOL_ACCOUNT'
+          )
+        : undefined;
     const rate_percent = normalizeRatePercentInput(
       b.rate_percent ?? b.income_rate_percent ?? b.income_rate
     );
@@ -2208,6 +2228,7 @@ router.put('/shule-avance-organization/:id', async (req, res) => {
     if (is_active !== undefined) { ofields.push('is_active=?'); ovals.push(is_active); }
     if (rate_percent !== undefined) { ofields.push('rate_percent=?'); ovals.push(rate_percent); }
     if (rate_is_monthly !== undefined) { ofields.push('rate_is_monthly=?'); ovals.push(rate_is_monthly); }
+    if (disbursement_account_type !== undefined) { ofields.push('disbursement_account_type=?'); ovals.push(disbursement_account_type); }
     if (
       b.applicant_categories !== undefined ||
       b.applicantCategories !== undefined ||

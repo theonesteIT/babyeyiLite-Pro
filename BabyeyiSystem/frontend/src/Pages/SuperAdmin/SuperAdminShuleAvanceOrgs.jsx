@@ -46,6 +46,7 @@ export default function SuperAdminShuleAvanceOrgs() {
     notes: '',
     rate_percent: '',
     rate_is_monthly: false,
+    disbursement_account_type: 'SCHOOL_ACCOUNT',
     is_active: true,
   });
 
@@ -62,6 +63,7 @@ export default function SuperAdminShuleAvanceOrgs() {
     notes: '',
     rate_percent: '',
     rate_is_monthly: false,
+    disbursement_account_type: 'SCHOOL_ACCOUNT',
     is_active: true,
   });
 
@@ -138,6 +140,7 @@ export default function SuperAdminShuleAvanceOrgs() {
         notes: r.notes || '',
         rate_percent: r.rate_percent != null ? String(r.rate_percent) : '',
         rate_is_monthly: !!r.rate_is_monthly,
+        disbursement_account_type: r.disbursement_account_type || 'SCHOOL_ACCOUNT',
         is_active: !!r.is_active,
       });
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -345,6 +348,23 @@ export default function SuperAdminShuleAvanceOrgs() {
               />
               <div className="mt-1 text-[10px] text-white/50">Used by ShuleAvance payment schedule calculations.</div>
             </div>
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-amber-200/80 mb-1">
+                Money destination type
+              </label>
+              <select
+                className={inp}
+                value={form.disbursement_account_type}
+                onChange={(e) => setForm((f) => ({ ...f, disbursement_account_type: e.target.value }))}
+              >
+                <option value="SCHOOL_ACCOUNT">School accounts</option>
+                <option value="PERSONAL_ACCOUNT">Personal accounts</option>
+                <option value="OTHER">Others</option>
+              </select>
+              <div className="mt-1 text-[10px] text-white/50">
+                Controls what applicants see in ShuleAvance step 2.
+              </div>
+            </div>
             <label className="flex items-center gap-2 text-sm text-white/80 mt-5">
               <input
                 type="checkbox"
@@ -403,6 +423,7 @@ export default function SuperAdminShuleAvanceOrgs() {
                     <th className="px-4 py-3">Username</th>
                     <th className="px-4 py-3">Email</th>
                     <th className="px-4 py-3">Rate</th>
+                    <th className="px-4 py-3">Destination</th>
                     <th className="px-4 py-3">Active</th>
                     <th className="px-4 py-3 text-right">Actions</th>
                   </tr>
@@ -418,6 +439,7 @@ export default function SuperAdminShuleAvanceOrgs() {
                         {r.rate_percent != null ? `${Number(r.rate_percent).toFixed(3)}%` : '—'}
                         {Number(r.rate_is_monthly || 0) ? ' / month' : ' / year'}
                       </td>
+                      <td className="px-4 py-3 text-xs">{r.disbursement_account_type || 'SCHOOL_ACCOUNT'}</td>
                       <td className="px-4 py-3">{r.is_active ? 'Yes' : 'No'}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-2">

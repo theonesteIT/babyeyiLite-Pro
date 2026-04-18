@@ -938,154 +938,231 @@ async function getInvoiceDetailBundleById(id) {
 
 async function generateInvoicePdfBuffer(bundle) {
   const frontendBase = String(process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/+$/, '');
-  const apiBase = String(process.env.API_PUBLIC_BASE_URL || process.env.BACKEND_PUBLIC_URL || '').replace(/\/+$/, '');
-  const verifyUrl = apiBase
-    ? `${apiBase}/api/public/babyeyi-pay/invoices/verify/${bundle.invoice.id}?invoice_no=${encodeURIComponent(bundle.invoice.invoice_no)}`
-    : `${frontendBase}/invoice-verify/${encodeURIComponent(bundle.invoice.id)}?invoice_no=${encodeURIComponent(bundle.invoice.invoice_no)}`;
   const qrPayloadUrl = `${frontendBase}/invoice-verify/${encodeURIComponent(bundle.invoice.id)}?invoice_no=${encodeURIComponent(bundle.invoice.invoice_no)}`;
   const qrPng = await QRCode.toBuffer(qrPayloadUrl, {
     type: 'png',
-    width: 180,
+    width: 220,
     margin: 1,
-    color: { dark: '#1A1200', light: '#FFFFFF' },
+    color: { dark: '#0F172A', light: '#FFFFFF' },
   });
 
   return new Promise((resolve, reject) => {
     try {
-      const doc = new PDFDocument({ margin: 36, size: 'A4' });
+      const M = 48;
+      const TABLE_W = 515;
+      const doc = new PDFDocument({ margin: M, size: 'A4' });
       const chunks = [];
       doc.on('data', (c) => chunks.push(c));
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
-      const amberDark = '#7A5C00';
-      const navy = '#1E3A8A';
-      const slate = '#334155';
+      const ink = '#0F172A';
+      const muted = '#64748B';
+      const border = '#E2E8F0';
       const logoPath = resolveBabyeyiLogoPath();
 
-      doc.rect(0, 0, doc.page.width, 96).fill('#FFFBE8');
-      doc.rect(0, 96, doc.page.width, 16).fill('#EAF2FF');
+      const invSt = String(bundle.invoice.invoice_status || 'NOT_PAID').toUpperCase();
+      const statusLabel = invSt.replace(/_/g, ' ');
+      const statusStyle = (() => {
+        switch (invSt) {
+          case 'PAID':
+            return { bg: '#DCFCE7', fg: '#166534' };
+          case 'PENDING_APPROVAL':
+            return { bg: '#EEF2FF', fg: '#3730A3' };
+          case 'APPROVED':
+            return { bg: '#D1FAE5', fg: '#065F46' };
+          case 'REJECTED':
+            return { bg: '#FEE2E2', fg: '#991B1B' };
+          case 'DRAFT':
+            return { bg: '#F1F5F9', fg: '#475569' };
+          case 'NOT_PAID':
+            return { bg: '#FFFBEB', fg: '#B45309' };
+          default:
+            return { bg: '#F8FAFC', fg: ink };
+        }
+      })();
+
+      const hr = (yy) => {
+        doc.save();
+        doc.strokeColor(border).lineWidth(0.5);
+        doc.moveTo(M, yy).lineTo(doc.page.width - M, yy).stroke();
+        doc.restore();
+      };
+
+      let y = M;
+      doc.save();
+      doc.strokeColor(ink).lineWidth(2);
+      doc.moveTo(M, y).lineTo(doc.page.width - M, y).stroke();
+      doc.restore();
+      y += 14;
+
+      const headerTop = y;
+      const logoBox = 68;
+      const logoPad = 7;
+      const qrSize = 76;
+      const rightColW = Math.max(108, qrSize + 8);
+      const pageW = doc.page.width;
+      const rightColLeft = pageW - M - rightColW;
+
+      doc.save();
+      doc.roundedRect(M, headerTop, logoBox, logoBox, 11).fill('#0F172A');
       if (logoPath) {
         try {
-          doc.roundedRect(36, 24, 62, 62, 12).fill('#1F2937');
-          doc.image(logoPath, 41, 29, { fit: [52, 52] });
+          doc.image(logoPath, M + logoPad, headerTop + logoPad, { fit: [logoBox - logoPad * 2, logoBox - logoPad * 2] });
         } catch (_) {}
+      } else {
+        doc.fillColor('#FBBF24').font('Helvetica-Bold').fontSize(14).text('B', M + 26, headerTop + 24);
       }
-      doc.fillColor('#1A1200').fontSize(20).font('Helvetica-Bold').text('Babyeyi Invoice', 100, 34);
-      doc.fillColor(amberDark).fontSize(10).font('Helvetica').text('Professional School Payment Statement', 100, 58);
-      const chipW = 100;
-      const invSt = String(bundle.invoice.invoice_status || 'NOT_PAID').toUpperCase();
-      const chipBg =
-        invSt === 'PAID' ? '#DBEAFE'
-        : invSt === 'PENDING_APPROVAL' ? '#E0E7FF'
-        : invSt === 'DRAFT' ? '#F1F5F9'
-        : invSt === 'APPROVED' ? '#DCFCE7'
-        : invSt === 'REJECTED' ? '#FEE2E2'
-        : '#FEF3C7';
-      const chipFg =
-        invSt === 'PAID' ? navy
-        : invSt === 'PENDING_APPROVAL' ? '#312E81'
-        : invSt === 'DRAFT' ? '#475569'
-        : invSt === 'APPROVED' ? '#14532D'
-        : invSt === 'REJECTED' ? '#991B1B'
-        : '#92400E';
-      doc.roundedRect(doc.page.width - chipW - 38, 36, chipW, 26, 8).fill(chipBg);
-      doc.fillColor(chipFg).font('Helvetica-Bold').fontSize(9)
-        .text(invSt.replace(/_/g, ' '), doc.page.width - chipW - 32, 44, { width: chipW - 12, align: 'center' });
+      doc.restore();
 
-      let y = 128;
-      doc.fillColor(slate).fontSize(10).font('Helvetica');
-      doc.text(`Invoice No: ${bundle.invoice.invoice_no}`, 38, y);
-      doc.text(`Date: ${new Date(bundle.invoice.created_at).toLocaleDateString()}`, 320, y);
-      y += 16;
-      doc.text(`School: ${bundle.intent.school_name || 'School'}`, 38, y);
-      doc.text(`Students: ${Number(bundle.totals?.students_count || 1)}`, 320, y);
-      y += 16;
-      doc.text(`Payer: ${bundle.intent.payer_name || 'Parent/Guardian'}`, 38, y);
-      doc.text(`Email: ${bundle.intent.payer_email || '—'}`, 320, y);
+      const titleX = M + logoBox + 14;
+      const titleMaxW = rightColLeft - titleX - 12;
+      doc.fillColor(ink).font('Helvetica-Bold').fontSize(20).text('Invoice', titleX, headerTop + 4, { width: titleMaxW });
+      doc.fillColor(muted).font('Helvetica').fontSize(9).text('Babyeyi · school payment statement', titleX, headerTop + 28, { width: titleMaxW });
 
+      const pillW = Math.min(118, rightColW);
+      const pillH = 24;
+      const pillX = pageW - M - pillW;
+      const pillY = headerTop;
+      doc.save();
+      doc.roundedRect(pillX, pillY, pillW, pillH, 6).fill(statusStyle.bg);
+      doc.fillColor(statusStyle.fg).font('Helvetica-Bold').fontSize(8)
+        .text(statusLabel.toUpperCase(), pillX + 6, pillY + 8, { width: pillW - 12, align: 'center' });
+      doc.restore();
+
+      const qrX = pageW - M - qrSize;
+      const qrY = pillY + pillH + 8;
+      doc.image(qrPng, qrX, qrY, { fit: [qrSize, qrSize] });
+      doc.strokeColor(border).lineWidth(0.75);
+      doc.roundedRect(qrX - 1, qrY - 1, qrSize + 2, qrSize + 2, 4).stroke();
+      doc.fillColor(muted).font('Helvetica').fontSize(6.5)
+        .text('Verify', qrX, qrY + qrSize + 3, { width: qrSize, align: 'center' });
+
+      y = Math.max(headerTop + logoBox, qrY + qrSize + 18);
+      hr(y);
       y += 14;
+
+      const kv = (label, leftVal, rightLabel, rightVal) => {
+        doc.fillColor(muted).font('Helvetica').fontSize(8).text(label, M, y);
+        doc.fillColor(ink).font('Helvetica-Bold').fontSize(10).text(String(leftVal), M, y + 11, { width: 240 });
+        if (rightLabel != null) {
+          doc.fillColor(muted).font('Helvetica').fontSize(8).text(rightLabel, 300, y);
+          doc.fillColor(ink).font('Helvetica').fontSize(10).text(String(rightVal), 300, y + 11, { width: TABLE_W - 252 });
+        }
+        y += 34;
+      };
+
+      kv('Invoice number', bundle.invoice.invoice_no, 'Date', new Date(bundle.invoice.created_at).toLocaleDateString());
+      kv('School', bundle.intent.school_name || 'School', 'Students', Number(bundle.totals?.students_count || 1));
+      kv('Payer', bundle.intent.payer_name || 'Parent/Guardian', 'Email', bundle.intent.payer_email || '—');
+
       const studentsLine = (bundle.students || [])
         .map((s) => `${s.student_name || 'Student'} (${s.class_name || '—'})`)
-        .join(' | ');
-      doc.fillColor('#475569').font('Helvetica').fontSize(9)
-        .text(`Student list: ${studentsLine || '—'}`, 38, y, { width: 520 });
+        .join(' · ');
+      doc.fillColor(muted).font('Helvetica').fontSize(8).text('Learners', M, y);
+      doc.fillColor(ink).font('Helvetica').fontSize(9).text(studentsLine || '—', M, y + 11, { width: TABLE_W });
+      y += 28;
+      hr(y);
+      y += 12;
 
-      y += 24;
+      const sectionTitle = (t) => {
+        doc.fillColor(ink).font('Helvetica-Bold').fontSize(10).text(t.toUpperCase(), M, y);
+        y += 14;
+        doc.strokeColor(border).lineWidth(0.75);
+        doc.moveTo(M, y).lineTo(M + 160, y).stroke();
+        y += 10;
+      };
+
       if ((bundle.students || []).length > 0) {
-        doc.fillColor('#1A1200').font('Helvetica-Bold').fontSize(11).text('Per-Student Breakdown', 38, y);
-        y += 12;
-        doc.rect(38, y, 520, 20).fill('#F8FAFC');
-        doc.fillColor('#334155').fontSize(9).font('Helvetica-Bold')
-          .text('Student', 46, y + 6)
-          .text('Class', 320, y + 6)
-          .text('Share (RWF)', 430, y + 6);
-        y += 24;
+        sectionTitle('Per-student breakdown');
+        doc.fillColor(muted).font('Helvetica-Bold').fontSize(8);
+        doc.text('Student', M, y);
+        doc.text('Class', 300, y);
+        doc.text('Share (RWF)', 420, y, { width: M + TABLE_W - 420, align: 'right' });
+        y += 14;
+        hr(y);
+        y += 6;
         const share = Number(bundle.totals?.per_student_total_rwf || 0);
         (bundle.students || []).forEach((s) => {
-          if (y > 700) { doc.addPage(); y = 48; }
-          doc.fillColor('#111827').font('Helvetica').fontSize(9)
-            .text(String(s.student_name || 'Student'), 46, y, { width: 260 })
-            .text(String(s.class_name || '—'), 320, y, { width: 90 })
-            .text(`${share.toLocaleString()}`, 430, y, { width: 110, align: 'right' });
+          if (y > 700) {
+            doc.addPage();
+            y = M;
+          }
+          doc.fillColor(ink).font('Helvetica').fontSize(9).text(String(s.student_name || 'Student'), M, y, { width: 250 });
+          doc.text(String(s.class_name || '—'), 300, y, { width: 100 });
+          doc.font('Helvetica-Bold').text(share.toLocaleString(), 420, y, { width: M + TABLE_W - 420, align: 'right' });
           y += 16;
         });
-        y += 10;
+        y += 12;
       }
 
-      doc.fillColor('#1A1200').font('Helvetica-Bold').fontSize(11).text('Selected Fee Items', 38, y);
-      y += 12;
-      doc.rect(38, y, 520, 20).fill('#FFFBE8');
-      doc.fillColor(amberDark).fontSize(9).font('Helvetica-Bold').text('Item', 46, y + 6).text('Amount (RWF)', 430, y + 6);
-      y += 24;
-      (bundle.selected_fees || []).forEach((f) => {
-        doc.fillColor('#111827').font('Helvetica').fontSize(9).text(String(f.name || 'Fee item'), 46, y, { width: 360 });
-        doc.font('Helvetica-Bold').text(Number(f.amount || 0).toLocaleString(), 430, y, { width: 110, align: 'right' });
-        y += 16;
-      });
+      sectionTitle('Fee items');
+      doc.fillColor(muted).font('Helvetica-Bold').fontSize(8);
+      doc.text('Item', M, y);
+      doc.text('Amount (RWF)', 420, y, { width: M + TABLE_W - 420, align: 'right' });
+      y += 14;
+      hr(y);
+      y += 6;
       if ((bundle.selected_fees || []).length === 0) {
-        doc.fillColor('#6B7280').font('Helvetica-Oblique').text('No fee items selected.', 46, y);
-        y += 16;
+        doc.fillColor(muted).font('Helvetica-Oblique').fontSize(9).text('No fee items on this invoice.', M, y);
+        y += 18;
+      } else {
+        (bundle.selected_fees || []).forEach((f) => {
+          if (y > 720) {
+            doc.addPage();
+            y = M;
+          }
+          doc.fillColor(ink).font('Helvetica').fontSize(9).text(String(f.name || 'Fee item'), M, y, { width: 360 });
+          doc.font('Helvetica-Bold').text(Number(f.amount || 0).toLocaleString(), 420, y, { width: M + TABLE_W - 420, align: 'right' });
+          y += 16;
+        });
       }
-
       y += 10;
-      doc.fillColor('#1A1200').font('Helvetica-Bold').fontSize(11).text('Selected Requirement Items', 38, y);
-      y += 12;
-      doc.rect(38, y, 520, 20).fill('#EAF2FF');
-      doc.fillColor('#1F4B99').fontSize(9).font('Helvetica-Bold')
-        .text('Item', 46, y + 6)
-        .text('Qty', 308, y + 6)
-        .text('Unit', 360, y + 6)
-        .text('Line', 456, y + 6);
-      y += 24;
-      (bundle.selected_requirements || []).forEach((r) => {
-        if (y > 730) { doc.addPage(); y = 48; }
-        doc.fillColor('#111827').font('Helvetica').fontSize(9).text(String(r.requirement_name || 'Requirement'), 46, y, { width: 250 });
-        doc.text(Number(r.quantity_value || 1).toLocaleString(), 308, y, { width: 40, align: 'right' });
-        doc.text(Number(r.unit_price_rwf || 0).toLocaleString(), 360, y, { width: 80, align: 'right' });
-        doc.font('Helvetica-Bold').text(Number(r.line_total_rwf || 0).toLocaleString(), 456, y, { width: 84, align: 'right' });
-        y += 16;
-      });
+
+      sectionTitle('Requirement items');
+      doc.fillColor(muted).font('Helvetica-Bold').fontSize(8);
+      doc.text('Item', M, y);
+      doc.text('Qty', 300, y, { width: 44, align: 'right' });
+      doc.text('Unit', 352, y, { width: 60, align: 'right' });
+      doc.text('Line (RWF)', 420, y, { width: M + TABLE_W - 420, align: 'right' });
+      y += 14;
+      hr(y);
+      y += 6;
       if ((bundle.selected_requirements || []).length === 0) {
-        doc.fillColor('#6B7280').font('Helvetica-Oblique').text('No requirement items selected.', 46, y);
-        y += 16;
+        doc.fillColor(muted).font('Helvetica-Oblique').fontSize(9).text('No requirement items on this invoice.', M, y);
+        y += 18;
+      } else {
+        (bundle.selected_requirements || []).forEach((r) => {
+          if (y > 720) {
+            doc.addPage();
+            y = M;
+          }
+          doc.fillColor(ink).font('Helvetica').fontSize(9).text(String(r.requirement_name || 'Requirement'), M, y, { width: 240 });
+          doc.text(Number(r.quantity_value || 1).toLocaleString(), 300, y, { width: 44, align: 'right' });
+          doc.text(Number(r.unit_price_rwf || 0).toLocaleString(), 352, y, { width: 60, align: 'right' });
+          doc.font('Helvetica-Bold').text(Number(r.line_total_rwf || 0).toLocaleString(), 420, y, { width: M + TABLE_W - 420, align: 'right' });
+          y += 16;
+        });
       }
 
       y += 16;
-      doc.roundedRect(328, y, 230, 74, 10).fill('#F8FAFC');
-      doc.fillColor('#64748B').font('Helvetica').fontSize(9).text('Fees Total (all students)', 340, y + 12);
-      doc.text('Requirements Total (all students)', 340, y + 30);
-      doc.font('Helvetica-Bold').fillColor('#1A1200').text('Invoice Total', 340, y + 50);
-      doc.font('Helvetica').fillColor('#111827').text(`${Number(bundle.totals.selected_fees_rwf || 0).toLocaleString()} RWF`, 460, y + 12, { width: 86, align: 'right' });
-      doc.text(`${Number(bundle.totals.selected_requirements_rwf || 0).toLocaleString()} RWF`, 460, y + 30, { width: 86, align: 'right' });
-      doc.font('Helvetica-Bold').fillColor(amberDark).text(`${Number(bundle.invoice.amount_rwf || 0).toLocaleString()} RWF`, 460, y + 50, { width: 86, align: 'right' });
+      hr(y);
+      y += 14;
+      const sumX = 300;
+      doc.fillColor(muted).font('Helvetica').fontSize(9).text('Fees total (all students)', sumX, y);
+      doc.fillColor(ink).font('Helvetica').fontSize(10).text(`${Number(bundle.totals.selected_fees_rwf || 0).toLocaleString()} RWF`, sumX + 120, y, { width: 155, align: 'right' });
+      y += 18;
+      doc.fillColor(muted).font('Helvetica').fontSize(9).text('Requirements total (all students)', sumX, y);
+      doc.fillColor(ink).font('Helvetica').fontSize(10).text(`${Number(bundle.totals.selected_requirements_rwf || 0).toLocaleString()} RWF`, sumX + 120, y, { width: 155, align: 'right' });
+      y += 22;
+      doc.strokeColor(ink).lineWidth(0.75);
+      doc.moveTo(sumX, y).lineTo(M + TABLE_W, y).stroke();
+      y += 10;
+      doc.fillColor(ink).font('Helvetica-Bold').fontSize(11).text('Amount due', sumX, y);
+      doc.font('Helvetica-Bold').fontSize(12).text(`${Number(bundle.invoice.amount_rwf || 0).toLocaleString()} RWF`, sumX + 120, y, { width: 155, align: 'right' });
 
-      const qrY = Math.min(doc.page.height - 150, y + 6);
-      doc.image(qrPng, 40, qrY, { fit: [88, 88] });
-      doc.fillColor('#64748B').font('Helvetica').fontSize(8).text('Scan to verify authenticity', 136, qrY + 8);
-      doc.fillColor('#1F4B99').font('Helvetica').fontSize(7).text(qrPayloadUrl, 136, qrY + 20, { width: 390 });
-      doc.fillColor('#94A3B8').font('Helvetica').fontSize(8)
-        .text(`Generated ${new Date().toLocaleString()} by Babyeyi System`, 38, doc.page.height - 20, { align: 'left' });
+      doc.fillColor('#94A3B8').font('Helvetica').fontSize(7)
+        .text(`Generated ${new Date().toLocaleString()} · Babyeyi`, M, doc.page.height - 36, { width: TABLE_W, align: 'center' });
       doc.end();
     } catch (e) {
       reject(e);
@@ -1099,116 +1176,168 @@ async function generatePaymentReceiptPdfBuffer(bundle) {
   const qrPayloadUrl = `${frontendBase}/invoice-verify/${encodeURIComponent(bundle.invoice.id)}?invoice_no=${encodeURIComponent(bundle.invoice.invoice_no)}`;
   const qrPng = await QRCode.toBuffer(qrPayloadUrl, {
     type: 'png',
-    width: 200,
+    width: 220,
     margin: 1,
-    color: { dark: '#064E3B', light: '#FFFFFF' },
+    color: { dark: '#0F172A', light: '#FFFFFF' },
   });
 
   return new Promise((resolve, reject) => {
     try {
-      const doc = new PDFDocument({ margin: 40, size: 'A4' });
+      const M = 48;
+      const TABLE_W = 515;
+      const doc = new PDFDocument({ margin: M, size: 'A4' });
       const chunks = [];
       doc.on('data', (c) => chunks.push(c));
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
-      const emerald = '#047857';
-      const emeraldDark = '#065F46';
-      const slate = '#334155';
+      const ink = '#0F172A';
+      const muted = '#64748B';
+      const border = '#E2E8F0';
       const logoPath = resolveBabyeyiLogoPath();
+      const paidPill = { bg: '#DCFCE7', fg: '#166534' };
 
-      doc.rect(0, 0, doc.page.width, 108).fill('#ECFDF5');
-      doc.rect(0, 108, doc.page.width, 6).fill('#A7F3D0');
+      const hr = (yy) => {
+        doc.save();
+        doc.strokeColor(border).lineWidth(0.5);
+        doc.moveTo(M, yy).lineTo(doc.page.width - M, yy).stroke();
+        doc.restore();
+      };
+
+      let y = M;
+      doc.save();
+      doc.strokeColor(ink).lineWidth(2);
+      doc.moveTo(M, y).lineTo(doc.page.width - M, y).stroke();
+      doc.restore();
+      y += 14;
+
+      const headerTop = y;
+      const logoBox = 68;
+      const logoPad = 7;
+      const qrSize = 76;
+      const rightColW = Math.max(108, qrSize + 8);
+      const pageW = doc.page.width;
+      const rightColLeft = pageW - M - rightColW;
+
+      doc.save();
+      doc.roundedRect(M, headerTop, logoBox, logoBox, 11).fill('#0F172A');
       if (logoPath) {
         try {
-          doc.roundedRect(40, 28, 56, 56, 10).fill('#064E3B');
-          doc.image(logoPath, 44, 32, { fit: [48, 48] });
+          doc.image(logoPath, M + logoPad, headerTop + logoPad, { fit: [logoBox - logoPad * 2, logoBox - logoPad * 2] });
         } catch (_) {}
+      } else {
+        doc.fillColor('#FBBF24').font('Helvetica-Bold').fontSize(14).text('B', M + 26, headerTop + 24);
       }
-      doc.fillColor(emeraldDark).fontSize(22).font('Helvetica-Bold').text('Payment receipt', 104, 36);
-      doc.fillColor(emerald).fontSize(10).font('Helvetica')
-        .text('Official confirmation of payment — keep for your records', 104, 62);
-      doc.roundedRect(doc.page.width - 120, 38, 100, 30, 10).fill('#D1FAE5');
-      doc.fillColor(emeraldDark).font('Helvetica-Bold').fontSize(11)
-        .text('PAID', doc.page.width - 114, 46, { width: 88, align: 'center' });
+      doc.restore();
 
-      let y = 132;
-      doc.fillColor(slate).fontSize(10).font('Helvetica');
-      doc.text(`Receipt / Invoice No: ${bundle.invoice.invoice_no}`, 40, y);
-      doc.text(`Issued: ${new Date(bundle.invoice.created_at).toLocaleDateString()}`, 320, y);
-      y += 18;
-      if (bundle.invoice.invoice_paid_at) {
-        doc.fillColor(emeraldDark).font('Helvetica-Bold').text(
-          `Payment confirmed: ${new Date(bundle.invoice.invoice_paid_at).toLocaleString()}`,
-          40,
-          y
-        );
-        y += 18;
-      }
-      doc.fillColor(slate).font('Helvetica');
-      doc.text(`School: ${bundle.intent.school_name || 'School'}`, 40, y);
-      doc.text(`Students: ${Number(bundle.totals?.students_count || 1)}`, 320, y);
-      y += 16;
-      doc.text(`Payer: ${bundle.intent.payer_name || 'Parent/Guardian'}`, 40, y);
+      const titleX = M + logoBox + 14;
+      const titleMaxW = rightColLeft - titleX - 12;
+      doc.fillColor(ink).font('Helvetica-Bold').fontSize(20).text('Payment receipt', titleX, headerTop + 4, { width: titleMaxW });
+      doc.fillColor(muted).font('Helvetica').fontSize(9).text('Paid · keep for your records', titleX, headerTop + 28, { width: titleMaxW });
+
+      const pillW = Math.min(118, rightColW);
+      const pillH = 24;
+      const pillX = pageW - M - pillW;
+      const pillY = headerTop;
+      doc.save();
+      doc.roundedRect(pillX, pillY, pillW, pillH, 6).fill(paidPill.bg);
+      doc.fillColor(paidPill.fg).font('Helvetica-Bold').fontSize(8)
+        .text('PAID', pillX + 6, pillY + 8, { width: pillW - 12, align: 'center' });
+      doc.restore();
+
+      const qrX = pageW - M - qrSize;
+      const qrY = pillY + pillH + 8;
+      doc.image(qrPng, qrX, qrY, { fit: [qrSize, qrSize] });
+      doc.strokeColor(border).lineWidth(0.75);
+      doc.roundedRect(qrX - 1, qrY - 1, qrSize + 2, qrSize + 2, 4).stroke();
+      doc.fillColor(muted).font('Helvetica').fontSize(6.5)
+        .text('Verify', qrX, qrY + qrSize + 3, { width: qrSize, align: 'center' });
+
+      y = Math.max(headerTop + logoBox, qrY + qrSize + 18);
+      hr(y);
       y += 14;
+
+      const kv = (a, av, b, bv) => {
+        doc.fillColor(muted).font('Helvetica').fontSize(8).text(a, M, y);
+        doc.fillColor(ink).font('Helvetica-Bold').fontSize(10).text(String(av), M, y + 11, { width: 240 });
+        if (b != null) {
+          doc.fillColor(muted).font('Helvetica').fontSize(8).text(b, 300, y);
+          doc.fillColor(ink).font('Helvetica').fontSize(10).text(String(bv), 300, y + 11, { width: TABLE_W - 252 });
+        }
+        y += 34;
+      };
+
+      kv('Receipt / invoice no.', bundle.invoice.invoice_no, 'Issued', new Date(bundle.invoice.created_at).toLocaleDateString());
+      if (bundle.invoice.invoice_paid_at) {
+        doc.fillColor(muted).font('Helvetica').fontSize(8).text('Payment confirmed', M, y);
+        doc.fillColor(ink).font('Helvetica-Bold').fontSize(10).text(new Date(bundle.invoice.invoice_paid_at).toLocaleString(), M, y + 11);
+        y += 28;
+      }
+      kv('School', bundle.intent.school_name || 'School', 'Students', Number(bundle.totals?.students_count || 1));
+      doc.fillColor(muted).font('Helvetica').fontSize(8).text('Payer', M, y);
+      doc.fillColor(ink).font('Helvetica').fontSize(10).text(bundle.intent.payer_name || 'Parent/Guardian', M, y + 11);
+      y += 28;
+
       const studentsLine = (bundle.students || [])
         .map((s) => `${s.student_name || 'Student'} (${s.class_name || '—'})`)
         .join(' · ');
-      doc.fillColor('#475569').fontSize(9)
-        .text(`Learners: ${studentsLine || '—'}`, 40, y, { width: 515 });
+      doc.fillColor(muted).font('Helvetica').fontSize(8).text('Learners', M, y);
+      doc.fillColor(ink).font('Helvetica').fontSize(9).text(studentsLine || '—', M, y + 11, { width: TABLE_W });
       y += 28;
+      hr(y);
+      y += 14;
 
-      doc.fillColor(emeraldDark).font('Helvetica-Bold').fontSize(12).text('Amount received', 40, y);
-      y += 22;
-      doc.roundedRect(40, y, 515, 52, 12).fill('#F0FDF4');
-      doc.fillColor('#064E3B').font('Helvetica-Bold').fontSize(20)
-        .text(`${Number(bundle.invoice.amount_rwf || 0).toLocaleString()} RWF`, 52, y + 14);
+      doc.fillColor(muted).font('Helvetica-Bold').fontSize(10).text('AMOUNT RECEIVED', M, y);
+      y += 16;
+      doc.fillColor(ink).font('Helvetica-Bold').fontSize(22).text(`${Number(bundle.invoice.amount_rwf || 0).toLocaleString()} RWF`, M, y);
+      y += 36;
 
-      y += 70;
-      doc.fillColor(emeraldDark).font('Helvetica-Bold').fontSize(11).text('Fee items', 40, y);
+      const section = (label) => {
+        doc.fillColor(ink).font('Helvetica-Bold').fontSize(10).text(label.toUpperCase(), M, y);
+        y += 12;
+        doc.strokeColor(border).lineWidth(0.75);
+        doc.moveTo(M, y).lineTo(M + 140, y).stroke();
+        y += 10;
+      };
+
+      section('Fee items');
+      doc.fillColor(muted).font('Helvetica-Bold').fontSize(8);
+      doc.text('Item', M, y);
+      doc.text('RWF', 420, y, { width: M + TABLE_W - 420, align: 'right' });
       y += 12;
-      doc.rect(40, y, 515, 18).fill('#ECFDF5');
-      doc.fillColor(emeraldDark).fontSize(8).font('Helvetica-Bold').text('Item', 48, y + 5).text('RWF', 460, y + 5);
-      y += 22;
-      (bundle.selected_fees || []).forEach((f) => {
-        doc.fillColor('#111827').font('Helvetica').fontSize(9).text(String(f.name || 'Fee'), 48, y, { width: 380 });
-        doc.font('Helvetica-Bold').text(Number(f.amount || 0).toLocaleString(), 420, y, { width: 120, align: 'right' });
-        y += 14;
-      });
+      hr(y);
+      y += 6;
       if (!(bundle.selected_fees || []).length) {
-        doc.fillColor('#6B7280').font('Helvetica-Oblique').fontSize(9).text('No fee lines on this receipt.', 48, y);
-        y += 14;
+        doc.fillColor(muted).font('Helvetica-Oblique').fontSize(9).text('No fee lines on this receipt.', M, y);
+        y += 16;
+      } else {
+        (bundle.selected_fees || []).forEach((f) => {
+          doc.fillColor(ink).font('Helvetica').fontSize(9).text(String(f.name || 'Fee'), M, y, { width: 360 });
+          doc.font('Helvetica-Bold').text(Number(f.amount || 0).toLocaleString(), 420, y, { width: M + TABLE_W - 420, align: 'right' });
+          y += 14;
+        });
       }
+      y += 12;
 
+      section('Requirements');
+      doc.fillColor(muted).font('Helvetica-Bold').fontSize(8);
+      doc.text('Item', M, y);
+      doc.text('Line (RWF)', 420, y, { width: M + TABLE_W - 420, align: 'right' });
       y += 12;
-      doc.fillColor(emeraldDark).font('Helvetica-Bold').fontSize(11).text('Requirements', 40, y);
-      y += 12;
-      doc.rect(40, y, 515, 18).fill('#E0F2FE');
-      doc.fillColor('#0C4A6E').fontSize(8).font('Helvetica-Bold')
-        .text('Item', 48, y + 5).text('Line RWF', 440, y + 5);
-      y += 22;
+      hr(y);
+      y += 6;
       (bundle.selected_requirements || []).forEach((r) => {
         if (y > 720) {
           doc.addPage();
-          y = 48;
+          y = M;
         }
-        doc.fillColor('#111827').font('Helvetica').fontSize(9).text(String(r.requirement_name || '—'), 48, y, { width: 360 });
-        doc.font('Helvetica-Bold').text(Number(r.line_total_rwf || 0).toLocaleString(), 420, y, { width: 120, align: 'right' });
+        doc.fillColor(ink).font('Helvetica').fontSize(9).text(String(r.requirement_name || '—'), M, y, { width: 360 });
+        doc.font('Helvetica-Bold').text(Number(r.line_total_rwf || 0).toLocaleString(), 420, y, { width: M + TABLE_W - 420, align: 'right' });
         y += 14;
       });
 
-      y += 16;
-      const qrY = Math.min(doc.page.height - 130, y);
-      doc.image(qrPng, 40, qrY, { fit: [92, 92] });
-      doc.fillColor('#64748B').font('Helvetica').fontSize(8)
-        .text('Verify this receipt anytime:', 140, qrY + 6);
-      doc.fillColor(emeraldDark).font('Helvetica').fontSize(7).text(qrPayloadUrl, 140, qrY + 22, { width: 400 });
-
-      doc.fillColor('#94A3B8').font('Helvetica').fontSize(8)
-        .text('Babyeyi System · This document was generated electronically and is valid without a signature.', 40, doc.page.height - 28, {
-          width: 515,
-          align: 'center',
-        });
+      doc.fillColor('#94A3B8').font('Helvetica').fontSize(7)
+        .text('Babyeyi · Generated electronically · Valid without signature', M, doc.page.height - 32, { width: TABLE_W, align: 'center' });
       doc.end();
     } catch (e) {
       reject(e);
@@ -1436,7 +1565,7 @@ router.get('/shule-avance-organizations', async (_req, res) => {
   try {
     await ensureShuleAvanceOrgTables();
     const [rows] = await db.promisePool.execute(
-      `SELECT id, org_name, org_type, description, logo_url, applicant_categories_json, rate_percent, rate_is_monthly
+      `SELECT id, org_name, org_type, description, logo_url, applicant_categories_json, rate_percent, rate_is_monthly, disbursement_account_type
        FROM pro_shule_avance_organizations
        WHERE is_active = 1
        ORDER BY org_name ASC`
@@ -1444,7 +1573,13 @@ router.get('/shule-avance-organizations', async (_req, res) => {
     const data = (rows || []).map((r) => {
       const cats = parseShuleOrgApplicantCategoriesJson(r.applicant_categories_json);
       const { applicant_categories_json, ...rest } = r;
-      return { ...rest, applicant_categories: cats };
+      const disbursement = String(r?.disbursement_account_type || 'SCHOOL_ACCOUNT').trim().toUpperCase();
+      return {
+        ...rest,
+        applicant_categories: cats,
+        disbursement_account_type:
+          disbursement === 'PERSONAL_ACCOUNT' || disbursement === 'OTHER' ? disbursement : 'SCHOOL_ACCOUNT',
+      };
     });
     return res.json({ success: true, data });
   } catch (e) {

@@ -95,6 +95,8 @@ router.get('/requests', async (req, res) => {
         purpose: sa.purpose || null,
         repayment_months: sa.repayment_period_months || null,
         financing_request_status: sa.financing_request_status || 'SUBMITTED',
+        preferred_disbursement: sa.preferred_disbursement || sa.disbursement_preference || null,
+        disbursement_target_value: sa.disbursement_target_value || null,
         deposit_bank_name: deposit.bank_name,
         deposit_account_number: deposit.account_number,
         deposit_account_name: deposit.account_name,

@@ -382,13 +382,18 @@ export default function PublicPayBySchool() {
   const enteredAmount = parseFloat(String(amountInput).replace(/,/g, "")) || 0;
   const amountOverSel = enteredAmount > grand + 1.5;
   const minPayAmount = useMemo(() => {
-    if (payScope === "tuition_school") return Math.round(feeTotal * 100) / 100;
-    if (payScope === "requirements_online") return Math.round(reqTotal * 100) / 100;
+    // Step 4 rule: minimum should follow selected requirements/items first,
+    // not force full combined (tuition + requirements) payment.
+    if (reqTotal > 0) return Math.round(reqTotal * 100) / 100;
+    if (feeTotal > 0) return Math.round(feeTotal * 100) / 100;
     return Math.round(grand * 100) / 100;
-  }, [payScope, feeTotal, reqTotal, grand]);
+  }, [feeTotal, reqTotal, grand]);
 
   const allocationNote = useMemo(() => {
     if (!pricingData || enteredAmount <= 0) return null;
+    if (reqTotal > 0 && enteredAmount > reqTotal + 0.01 && feeTotal > 0) {
+      return "You pay selected requirements/items first. Additional money is deposited to Tuition Fees & Paid at school.";
+    }
     const toReqFirst = Math.min(enteredAmount, reqTotal);
     const afterReq = Math.max(0, enteredAmount - toReqFirst);
     const toFeeAfter = Math.min(afterReq, feeTotal);
@@ -558,7 +563,7 @@ export default function PublicPayBySchool() {
               {classkitIntent ? "Pay ClassKit" : "Pay School Fees"}
             </span>
           </div>
-          <div className="flex items-center gap-1.5 ml-auto text-[11px] font-bold text-emerald-400">
+          <div className="flex items-center gap-1.5 ml-auto text-[11px] font-bold text-amber-400">
             <ShieldCheck size={14}/>
             <span className="hidden sm:inline">Secure Checkout</span>
           </div>
@@ -599,7 +604,7 @@ export default function PublicPayBySchool() {
               <div key={stepKey} className="step-in">
                 <div className="mb-6">
                   <h2 className="font-black text-white text-[18px] sm:text-[20px] mb-1.5">Enter student code</h2>
-                  <p className="text-white/45 text-[13px]">We use your learner&apos;s official code (or UID / SDM ID) to find their school and class — no school code needed.</p>
+                  
                 </div>
 
                 <Field label="Student Code / UID / SDMS ID" required error={catalogErr}>
@@ -617,15 +622,15 @@ export default function PublicPayBySchool() {
 
                 {school && student && (
                   <div className="mt-5 fade-in space-y-3">
-                    <div className="flex items-center gap-3 p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/8">
-                      <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center shrink-0">
-                        <Building2 size={18} className="text-emerald-400"/>
+                    <div className="flex items-center gap-3 p-4 rounded-xl border border-amber-400/30 bg-amber-400/8">
+                      <div className="w-10 h-10 rounded-xl bg-amber-400/20 border border-amber-400/30 flex items-center justify-center shrink-0">
+                        <Building2 size={18} className="text-amber-400"/>
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-black text-white text-[15px] truncate">{school.school_name}</p>
-                        <p className="text-[11px] font-mono text-emerald-400/70 mt-0.5">School code: {school.school_code}</p>
+                        <p className="text-[11px] font-mono text-amber-400/70 mt-0.5">School code: {school.school_code}</p>
                       </div>
-                      <Check size={16} className="text-emerald-400 shrink-0" strokeWidth={2.5}/>
+                      <Check size={16} className="text-amber-400 shrink-0" strokeWidth={2.5}/>
                     </div>
                     <div className="flex items-start gap-3 p-4 rounded-xl border border-white/10 bg-white/4">
                       <div className="w-10 h-10 rounded-xl bg-amber-400/15 border border-amber-400/25 flex items-center justify-center font-black text-[13px] text-amber-400 shrink-0">
@@ -661,7 +666,7 @@ export default function PublicPayBySchool() {
                   <h2 className="font-black text-white text-[18px] sm:text-[20px] mb-1.5">Term and academic year</h2>
                   <p className="text-white/45 text-[13px]">
                     Fees are for <span className="text-amber-400 font-bold">{student.class_name || "your class"}</span> at {school.school_name}.
-                    The academic year defaults to the latest or the one on your record when available.
+                  
                   </p>
                 </div>
 
@@ -757,10 +762,7 @@ export default function PublicPayBySchool() {
                             const fid = normFeeId(f.id);
                             const selected = feeSel.has(fid);
                             const isPas = f.pay_source === "requirement_paid_at_school";
-                            const keyStr = String(fid);
                             const owedLine = Math.round(Number(f.amount || 0) * 100) / 100;
-                            const appliedCred = isPas ? (schoolCounterCreditsRwf[keyStr] || 0) : 0;
-                            const dueLine = Math.max(0, owedLine - appliedCred);
                             return (
                               <div
                                 key={String(f.id)}
@@ -794,43 +796,16 @@ export default function PublicPayBySchool() {
                                     ) : null}
                                   </div>
                                   <div className="text-right shrink-0">
-                                    {isPas && appliedCred > 0 ? (
-                                      <>
-                                        <p className="text-[10px] font-semibold text-white/40 line-through">{owedLine.toLocaleString()} RWF</p>
-                                        <p className="font-black text-[13px] font-mono text-amber-400">{dueLine.toLocaleString()} RWF <span className="text-[9px] font-bold text-emerald-400/90">due online</span></p>
-                                      </>
-                                    ) : (
-                                      <span className="font-black text-[13px] font-mono text-amber-400">{owedLine.toLocaleString()} RWF</span>
-                                    )}
+                                    <span className="font-black text-[13px] font-mono text-amber-400">{owedLine.toLocaleString()} RWF</span>
                                   </div>
                                 </div>
-                                {isPas && selected && (
-                                  <div className="px-3.5 pb-3.5 pt-0 border-t border-white/6" onClick={(e) => e.stopPropagation()}>
-                                    <label className="block text-[9px] font-black uppercase tracking-wider text-white/35 mb-1.5 mt-2">
-                                      Cash already paid at school (RWF)
-                                    </label>
-                                    <input
-                                      type="number"
-                                      min={0}
-                                      max={owedLine}
-                                      step={1}
-                                      value={schoolCounterPaidByFeeId[keyStr] ?? ""}
-                                      onChange={(e) => {
-                                        const v = e.target.value;
-                                        setSchoolCounterPaidByFeeId((prev) => ({ ...prev, [keyStr]: v }));
-                                      }}
-                                      onClick={(e) => e.stopPropagation()}
-                                      placeholder="0"
-                                      className="w-full h-10 rounded-lg border border-white/12 bg-[#000435]/80 text-white text-[14px] font-bold font-mono px-3 outline-none focus:border-amber-400/50 placeholder:text-white/25"
-                                    />
-                                    <p className="text-[10px] text-white/30 mt-1.5 leading-snug">
-                                      Enter what you already paid at the school office. The amount due online for this line updates above and carries through to <strong className="text-white/50">Amount</strong> and checkout.
-                                    </p>
-                                  </div>
-                                )}
                               </div>
                             );
                           })}
+                        </div>
+                        <div className="mt-3 p-3.5 rounded-xl border border-amber-400/30 bg-amber-400/7 flex items-center justify-between">
+                          <p className="text-[12px] font-black text-white">Total Tuition Fee &amp; Paid At School</p>
+                          <p className="font-black text-[16px] font-mono text-amber-400">{feeTotal.toLocaleString()} RWF</p>
                         </div>
                       </div>
                     )}
@@ -912,10 +887,7 @@ export default function PublicPayBySchool() {
               <div key={stepKey} className="step-in">
                 <div className="mb-5">
                   <h2 className="font-black text-white text-[18px] sm:text-[20px] mb-1.5">Payment amount</h2>
-                  <p className="text-white/45 text-[13px]">
-                    Choose what this transfer should cover, then enter an amount between your minimum for that choice and{" "}
-                    <span className="text-amber-400 font-bold">{grand.toLocaleString()} RWF</span> (your full selection). You cannot pay more than the combined total of selected items.
-                  </p>
+                  
                 </div>
 
                 <div className="grid gap-2.5 mb-5">
@@ -927,9 +899,9 @@ export default function PublicPayBySchool() {
                         payScope === "tuition_school" ? "border-amber-400 bg-amber-400/10" : "border-white/12 bg-white/4 hover:border-white/25"
                       }`}
                     >
-                      <p className="text-[11px] font-black uppercase tracking-[.08em] text-white/40">Pay tuition &amp; school-counter items</p>
+                      <p className="text-[11px] font-black uppercase tracking-[.08em] text-white/40">Pay tuition Fee &amp; Paid at school items</p>
                       <p className="text-[15px] font-black text-amber-400 font-mono mt-0.5">{Math.round(feeTotal * 100) / 100} RWF</p>
-                      <p className="text-[11px] text-white/35 mt-1">Minimum for this option · excess can apply to online requirements if you pay above this</p>
+                     
                     </button>
                   )}
                   {reqTotal > 0 && (
@@ -940,9 +912,9 @@ export default function PublicPayBySchool() {
                         payScope === "requirements_online" ? "border-amber-400 bg-amber-400/10" : "border-white/12 bg-white/4 hover:border-white/25"
                       }`}
                     >
-                      <p className="text-[11px] font-black uppercase tracking-[.08em] text-white/40">Pay online requirements (Babyeyi)</p>
+                      <p className="text-[11px] font-black uppercase tracking-[.08em] text-white/40">Pay Requirements Selected</p>
                       <p className="text-[15px] font-black text-amber-400 font-mono mt-0.5">{Math.round(reqTotal * 100) / 100} RWF</p>
-                      <p className="text-[11px] text-white/35 mt-1">Minimum for this option · amounts above this are recorded toward tuition &amp; school items</p>
+                      
                     </button>
                   )}
                   {grand > 0 && (
@@ -953,24 +925,16 @@ export default function PublicPayBySchool() {
                         payScope === "combined" ? "border-amber-400 bg-amber-400/10" : "border-white/12 bg-white/4 hover:border-white/25"
                       }`}
                     >
-                      <p className="text-[11px] font-black uppercase tracking-[.08em] text-white/40">Pay everything selected</p>
+                      <p className="text-[11px] font-black uppercase tracking-[.08em] text-white/40">Total of Tuition &amp; School Requirements</p>
                       <p className="text-[15px] font-black text-amber-400 font-mono mt-0.5">{Math.round(grand * 100) / 100} RWF</p>
-                      <p className="text-[11px] text-white/35 mt-1">Tuition &amp; school lines + online requirements</p>
+                      
                     </button>
                   )}
                 </div>
 
-                <div className="rounded-xl border border-white/10 bg-white/4 px-3.5 py-3 mb-4 text-[12px] text-white/50">
-                  <span className="font-bold text-white/70">Subtotals (due online): </span>
-                  Tuition &amp; school-counter {feeTotal.toLocaleString()} RWF · Online requirements {reqTotal.toLocaleString()} RWF · Combined {grand.toLocaleString()} RWF
-                  {schoolCounterCreditSum > 0 && (
-                    <span className="block mt-1.5 text-emerald-300/90">
-                      School counter: −{schoolCounterCreditSum.toLocaleString()} RWF already paid at office (from step 3) is included in the tuition &amp; school subtotal.
-                    </span>
-                  )}
-                </div>
+              
 
-                <Field label="Amount (RWF)" required error={amountOverSel ? `Cannot exceed ${grand.toLocaleString()} RWF (selected items total).` : enteredAmount > 0 && enteredAmount + 1e-6 < minPayAmount ? `Enter at least ${minPayAmount.toLocaleString()} RWF for the payment option you chose.` : ""}>
+                <Field label="Amount (RWF)" required error={amountOverSel ? `Cannot exceed ${grand.toLocaleString()} RWF (selected items total).` : enteredAmount > 0 && enteredAmount + 1e-6 < minPayAmount ? `Enter at least ${minPayAmount.toLocaleString()} RWF for selected requirements/items.` : ""}>
                   <div className={`flex items-center gap-2.5 rounded-xl border transition-all h-14 px-4 ${
                     amountOverSel ? "border-red-400/50 bg-red-400/5"
                     : amountValid && enteredAmount > 0 ? "border-emerald-400/50 bg-emerald-400/5"

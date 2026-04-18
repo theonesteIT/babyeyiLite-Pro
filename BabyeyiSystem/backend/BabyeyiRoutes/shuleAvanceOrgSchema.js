@@ -83,6 +83,17 @@ async function ensureShuleAvanceOrgTables() {
         console.warn('[shuleAvanceOrgSchema] rate_is_monthly:', e.message);
       }
     });
+  await db.promisePool
+    .execute(
+      `ALTER TABLE pro_shule_avance_organizations
+       ADD COLUMN disbursement_account_type VARCHAR(24) NOT NULL DEFAULT 'SCHOOL_ACCOUNT'
+       COMMENT 'Where financed money is put: PERSONAL_ACCOUNT | SCHOOL_ACCOUNT | OTHER'`
+    )
+    .catch((e) => {
+      if (!String(e.message || '').includes('Duplicate column')) {
+        console.warn('[shuleAvanceOrgSchema] disbursement_account_type:', e.message);
+      }
+    });
   ready = true;
 }
 

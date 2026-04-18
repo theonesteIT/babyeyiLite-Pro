@@ -1,5 +1,14 @@
 @import 'tailwindcss';
 
+/* MTN Brighter Sans — uses locally installed family if present; otherwise Segoe UI / system. */
+@font-face {
+  font-family: 'MTN Brighter Sans';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: local('MTN Brighter Sans'), local('MTNBrighterSans-Regular'), local('MTNBrighterSans');
+}
+
 /* Keep native select dropdown options readable across browsers/pages. */
 select option,
 select optgroup {
