@@ -109,9 +109,9 @@ export default function PublicUniformVoucherTrack() {
             gap: 12,
           }}
         >
-          <Link to="/services/uniform-voucher" style={{ color: AMBER, fontWeight: 800, fontSize: 14, textDecoration: "none" }}>
+          <Link to="/services/uniform-voucher/request" style={{ color: AMBER, fontWeight: 800, fontSize: 14, textDecoration: "none" }}>
             <ArrowLeft size={16} style={{ verticalAlign: "middle", marginRight: 4 }} />
-            Uniform voucher
+            Uniform request
           </Link>
           <ClipboardList size={18} color={AMBER} aria-hidden />
         </div>

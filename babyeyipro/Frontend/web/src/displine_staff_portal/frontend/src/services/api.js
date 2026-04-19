@@ -15,9 +15,8 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      const loginUrl = import.meta.env.VITE_BABYEYI_LOGIN_URL || 'http://localhost:5173/login';
-      if (!window.location.pathname.includes('/login')) {
-        window.location.href = loginUrl;
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
       }
     }
     return Promise.reject(error);

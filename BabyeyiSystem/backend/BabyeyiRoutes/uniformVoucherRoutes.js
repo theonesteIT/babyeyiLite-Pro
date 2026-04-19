@@ -491,7 +491,24 @@ router.post('/public/orders', async (req, res) => {
 
     const districtForAgent = student.school_district || student.district || '';
     const sectorForAgent = student.school_sector || student.sector || '';
-    const agentUserId = await pickAgentUserIdForSchool(districtForAgent, sectorForAgent);
+    let agentUserId = await pickAgentUserIdForSchool(districtForAgent, sectorForAgent);
+    const explicitAgent = parseInt(String(b.agent_user_id ?? b.selected_agent_user_id ?? ''), 10);
+    if (Number.isFinite(explicitAgent) && explicitAgent > 0) {
+      const [[agentRow]] = await conn.query(
+        `SELECT u.id
+         FROM users u
+         INNER JOIN roles r ON r.id = u.role_id
+         INNER JOIN field_agent_profiles p ON p.user_id = u.id
+         WHERE u.id = ?
+           AND u.deleted_at IS NULL
+           AND (u.is_active IS NULL OR u.is_active = 1)
+           AND UPPER(TRIM(r.role_code)) = 'AGENT'`,
+        [explicitAgent]
+      );
+      if (agentRow) {
+        agentUserId = explicitAgent;
+      }
+    }
 
     const studentDetail = {
       id: student.id,
@@ -615,6 +632,93 @@ router.get('/public/track/:voucherNumber', async (req, res) => {
   } catch (e) {
     console.error('[uniform-vouchers/public/track]', e);
     res.status(500).json({ success: false, message: e.message || 'Failed' });
+  }
+});
+
+/**
+ * Record bank / Visa / loan / ShuleAvance intent for an unpaid uniform order (no gateway charge).
+ */
+router.post('/public/payment-intent', async (req, res) => {
+  try {
+    const b = req.body || {};
+    const orderId = parseInt(b.order_id, 10);
+    let plan = String(b.plan || '')
+      .toLowerCase()
+      .replace(/-/g, '_');
+    if (plan === 'shuleavance') plan = 'shule_avance';
+    const amount = Math.round(Number(b.amount_rwf) || 0);
+    if (!orderId) {
+      return res.status(400).json({ success: false, message: 'order_id is required' });
+    }
+    const allowed = ['bank', 'visa', 'loan', 'shule_avance'];
+    if (!allowed.includes(plan)) {
+      return res.status(400).json({ success: false, message: 'Invalid payment plan' });
+    }
+
+    const [rows] = await promisePool.query(
+      'SELECT id, order_number, voucher_number, total_rwf, payment_status FROM uniform_voucher_orders WHERE id = ? LIMIT 1',
+      [orderId]
+    );
+    const o = rows && rows[0];
+    if (!o) return res.status(404).json({ success: false, message: 'Order not found' });
+    if (!['Unpaid', 'Pending'].includes(String(o.payment_status))) {
+      return res.status(400).json({ success: false, message: 'Order is not awaiting payment' });
+    }
+    const expected = Math.round(Number(o.total_rwf) || 0);
+    if (amount > 0 && Math.abs(amount - expected) > 2) {
+      return res.status(400).json({ success: false, message: 'Amount does not match order total' });
+    }
+
+    const ref = `UV-INT-${orderId}-${Date.now()}`.slice(0, 160);
+    const visaIn = b.visa_card && typeof b.visa_card === 'object' ? b.visa_card : null;
+    const meta = {
+      plan,
+      submitted_at: new Date().toISOString(),
+      payer_name: String(b.payer_name || '').trim(),
+      payer_phone: String(b.payer_phone || '').trim(),
+      bank_transfer: b.bank_transfer && typeof b.bank_transfer === 'object' ? b.bank_transfer : null,
+      visa_card: visaIn
+        ? {
+            cardHolder: String(visaIn.cardHolder || '').trim(),
+            cardLast4: String(visaIn.cardLast4 || '').replace(/\D/g, '').slice(-4),
+            expiry: String(visaIn.expiry || '').trim(),
+          }
+        : null,
+      loan_request: b.loan_request && typeof b.loan_request === 'object' ? b.loan_request : null,
+      shule_avance: b.shule_avance && typeof b.shule_avance === 'object' ? b.shule_avance : null,
+    };
+
+    await promisePool.query(
+      `UPDATE uniform_voucher_orders SET
+        payment_method = ?,
+        payment_status = 'Pending',
+        payer_name = COALESCE(NULLIF(?, ''), payer_name),
+        payer_phone = COALESCE(NULLIF(?, ''), payer_phone),
+        payment_reference = ?,
+        payment_provider_json = ?
+       WHERE id = ? AND payment_status IN ('Unpaid','Pending')`,
+      [
+        plan,
+        String(b.payer_name || '').trim(),
+        String(b.payer_phone || '').trim(),
+        ref,
+        JSON.stringify(meta),
+        orderId,
+      ]
+    );
+
+    res.json({
+      success: true,
+      data: {
+        order_id: orderId,
+        order_number: o.order_number,
+        voucher_number: o.voucher_number,
+        reference_display: ref,
+      },
+    });
+  } catch (e) {
+    console.error('[uniform-vouchers/public/payment-intent]', e);
+    res.status(500).json({ success: false, message: e.message || 'Could not save payment request' });
   }
 });
 

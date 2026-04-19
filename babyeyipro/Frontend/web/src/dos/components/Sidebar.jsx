@@ -6,6 +6,7 @@ import {
   Wallet, MessageSquare, ClipboardList, Eye, PenLine,
   User, LogOut, Wifi, WifiOff, RefreshCw, ChevronDown,
   School,
+  Radio,
 } from 'lucide-react';
 import { PORTAL } from '../config/portal';
 import { h } from '../utils/href';
@@ -107,7 +108,7 @@ const SectionLabel = ({ label }) => (
 
 // ── Sidebar ───────────────────────────────────────────────────
 const Sidebar = ({ onClose }) => {
-  const { teacher, logout } = useAuth();
+  const { teacher, logout, canAccessSchoolConsole } = useAuth();
 
   return (
     <div className="flex flex-col h-full bg-white border-r border-black/5 shadow-sm">
@@ -140,6 +141,9 @@ const Sidebar = ({ onClose }) => {
 
         <SectionLabel label="Academic oversight" />
         <NavItem icon={Users} name="Students" path="/students" onClose={onClose} />
+        {canAccessSchoolConsole && (
+          <NavItem icon={Radio} name="Smart School Access" path="/smart-access" onClose={onClose} />
+        )}
         <NavItem icon={Calendar} name="Timetable" path="/timetable" onClose={onClose} />
         <NavItem icon={ClipboardCheck} name="Attendance" path="/attendance" onClose={onClose} />
         <ExpandableNavItem

@@ -1,6 +1,7 @@
 import React from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
+import SmartSchoolHardwarePage from '../manager/pages/SmartSchoolHardwarePage'
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import ShuleAvance from './pages/ShuleAvance'
@@ -12,6 +13,7 @@ import Attendance from './pages/Attendance'
 import RecordMarks from './pages/RecordMarks'
 import ViewMarks from './pages/ViewMarks'
 import { PORTAL } from './config/portal'
+import { h } from './utils/href'
 
 const LoadingScreen = () => (
   <div className="min-h-screen bg-re-bg flex flex-col items-center justify-center gap-4 font-sans">
@@ -32,6 +34,12 @@ const ProtectedRoute = ({ children, title }) => {
   return <Layout title={title}>{children}</Layout>
 }
 
+function ProSchoolGate({ children }) {
+  const { canAccessSchoolConsole } = useAuth()
+  if (!canAccessSchoolConsole) return <Navigate to={h('/')} replace />
+  return children
+}
+
 function DosRoutesInner() {
   return (
     <Routes>
@@ -45,6 +53,17 @@ function DosRoutesInner() {
       <Route path="attendance" element={<ProtectedRoute title="Attendance"><Attendance /></ProtectedRoute>} />
       <Route path="marks/view" element={<ProtectedRoute title="View Student Marks"><ViewMarks /></ProtectedRoute>} />
       <Route path="marks/record" element={<ProtectedRoute title="Record Marks"><RecordMarks /></ProtectedRoute>} />
+
+      <Route
+        path="smart-access"
+        element={
+          <ProtectedRoute title="Smart School Access">
+            <ProSchoolGate>
+              <SmartSchoolHardwarePage portalBase={PORTAL.basePath} accent="dos" />
+            </ProSchoolGate>
+          </ProtectedRoute>
+        }
+      />
 
       <Route path="*" element={<Navigate to={PORTAL.basePath} replace />} />
     </Routes>

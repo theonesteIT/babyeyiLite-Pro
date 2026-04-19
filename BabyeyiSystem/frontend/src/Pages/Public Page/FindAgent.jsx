@@ -101,14 +101,17 @@ export default function FindAgent() {
   }, [province, district]);
 
   useEffect(() => {
-    if (!province || !district || !sector) {
+    if (!province || !district) {
       setAgents([]);
       return;
     }
     let off = false;
     setLoadingAgents(true);
     setError("");
-    getJson(`${API}/public/agents/find?province=${encodeURIComponent(province)}&district=${encodeURIComponent(district)}&sector=${encodeURIComponent(sector)}`)
+    const q = sector
+      ? `province=${encodeURIComponent(province)}&district=${encodeURIComponent(district)}&sector=${encodeURIComponent(sector)}`
+      : `province=${encodeURIComponent(province)}&district=${encodeURIComponent(district)}`;
+    getJson(`${API}/public/agents/find?${q}`)
       .then((j) => !off && setAgents(Array.isArray(j.data) ? j.data : []))
       .catch((e) => !off && setError(e.message || "Failed to load agents"))
       .finally(() => !off && setLoadingAgents(false));

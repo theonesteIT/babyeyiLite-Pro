@@ -73,7 +73,7 @@ export default function PublicStandardShuleKit() {
 
           <div className="mt-6">
             <Link
-              to="/pay-by-school?intent=classkit"
+              to="/services/shulekit-pay"
               className="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-amber-400/40 bg-amber-400/10 px-5 py-3 text-sm font-black text-amber-400 hover:border-amber-400 hover:bg-amber-400/20 min-h-[48px] transition"
             >
               Custom ShuleKit (school code) →
@@ -96,7 +96,7 @@ export default function PublicStandardShuleKit() {
             <p className="text-base font-black text-[#000435]">Standard kits are not published yet</p>
             <p className="text-sm text-slate-500 mt-2 max-w-sm mx-auto">
               When Super Admin sets kits to <strong>active</strong>, they will appear here. You can still use{' '}
-              <Link to="/pay-by-school?intent=classkit" className="font-bold text-amber-600 underline">Custom ShuleKit</Link>{' '}
+              <Link to="/services/shulekit-pay" className="font-bold text-amber-600 underline">Custom ShuleKit</Link>{' '}
               with your school code.
             </p>
           </div>
@@ -203,7 +203,7 @@ export default function PublicStandardShuleKit() {
 
                       <p className="mt-3 text-xs text-slate-400 leading-relaxed">
                         For school-specific class kits, use{' '}
-                        <Link to="/pay-by-school?intent=classkit" className="font-bold text-amber-600 underline">Custom ShuleKit</Link>{' '}
+                        <Link to="/services/shulekit-pay" className="font-bold text-amber-600 underline">Custom ShuleKit</Link>{' '}
                         with your school code.
                       </p>
                     </div>

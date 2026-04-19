@@ -712,6 +712,7 @@ agentRouter.get('/school-fees', requireRole('AGENT'), async (req, res) => {
 });
 
 // ── Public lookup: find allocated agent(s) by location ──────────
+/** province + district required; sector optional — if omitted, all agents in that district are returned. */
 publicRouter.get('/find', async (req, res) => {
   try {
     await ensureProfileTable();
@@ -719,16 +720,16 @@ publicRouter.get('/find', async (req, res) => {
     const district = String(req.query.district || '').trim();
     const sector = String(req.query.sector || '').trim();
 
-    if (!province || !district || !sector) {
+    if (!province || !district) {
       return res.status(400).json({
         success: false,
-        message: 'province, district and sector are required.',
+        message: 'province and district are required.',
       });
     }
 
     const rows = await query(
       `SELECT u.id, u.first_name, u.last_name, u.phone, u.email, u.user_uid,
-              p.province, p.district, p.sectors_json
+              p.province, p.district, p.all_sectors, p.sectors_json
        FROM field_agent_profiles p
        INNER JOIN users u ON u.id = p.user_id
        INNER JOIN roles r ON r.id = u.role_id
@@ -748,7 +749,11 @@ publicRouter.get('/find', async (req, res) => {
         } catch {
           sectors = [];
         }
-        if (!Array.isArray(sectors) || !sectors.includes(sector)) return null;
+        if (!Array.isArray(sectors)) sectors = [];
+        const allSectors = Number(r.all_sectors) === 1;
+        if (sector) {
+          if (!allSectors && !sectors.map((x) => String(x).trim()).includes(sector)) return null;
+        }
         return {
           id: r.id,
           user_uid: r.user_uid,
@@ -759,7 +764,9 @@ publicRouter.get('/find', async (req, res) => {
           email: r.email || '',
           province: r.province,
           district: r.district,
-          sector,
+          all_sectors: allSectors,
+          sectors,
+          sector_filter: sector || null,
         };
       })
       .filter(Boolean);

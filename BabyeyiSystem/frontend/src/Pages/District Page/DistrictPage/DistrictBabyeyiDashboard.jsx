@@ -17,6 +17,7 @@ import {
   PenLine, Stamp, Download, User, Lock
 } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
+import { BABYEYI_PAGE_BG } from "../../../theme/babyeyiDashboardTheme";
 
 // ── API ───────────────────────────────────────────────────────────
 const API     = import.meta.env?.VITE_API_BASE    || "http://localhost:5100/api";
@@ -2042,7 +2043,7 @@ export default function DistrictBabyeyiDashboard() {
     return (
       <div style={{
         minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
-        background: `linear-gradient(160deg, ${C.goldBg} 0%, ${C.goldBgMid} 40%, ${C.goldBorder} 100%)`,
+        background: BABYEYI_PAGE_BG,
         fontFamily: font,
       }}>
         <div style={{ textAlign: "center" }}>
@@ -2057,7 +2058,7 @@ export default function DistrictBabyeyiDashboard() {
     return (
       <div style={{
         minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
-        padding: 24, background: `linear-gradient(160deg, ${C.goldBg} 0%, ${C.goldBgMid} 40%, ${C.goldBorder} 100%)`,
+        padding: 24, background: BABYEYI_PAGE_BG,
         fontFamily: font,
       }}>
         <div style={{
@@ -2087,7 +2088,7 @@ export default function DistrictBabyeyiDashboard() {
   return (
     <div style={{
       minHeight: "100vh", display: "flex",
-      background: `linear-gradient(160deg, ${C.goldBg} 0%, #fff 40%, ${C.goldBgMid} 100%)`,
+      background: BABYEYI_PAGE_BG,
       fontFamily: font, color: C.dark,
     }}>
       <style>{globalStyles}</style>

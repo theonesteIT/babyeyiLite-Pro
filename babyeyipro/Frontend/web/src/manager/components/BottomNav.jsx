@@ -3,7 +3,6 @@ import {
     LayoutDashboard, Building2, Landmark,
     UserCog, Users
 } from 'lucide-react';
-import { h } from '../utils/href';
 
 const BottomNav = () => {
     const navItems = [
@@ -20,7 +19,7 @@ const BottomNav = () => {
                 {navItems.map((item) => (
                     <NavLink
                         key={item.path}
-                        to={h(item.path)}
+                        to={item.path}
                         end={item.exact}
                         className={({ isActive }) => `
               flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors

@@ -17,6 +17,13 @@ import {
 
 import Heroimage from "../../assets/logo-bg2.png";
 import HeroImageMobile from "../../assets/logo-bg-left.png";
+import MineduLogo from "../../assets/PartnersLogo/mineduc.png";
+import NESLogo from "../../assets/PartnersLogo/Nesa.png";
+import MTNLogo from "../../assets/PartnersLogo/mtn.png";
+import UmwarimuLogo from "../../assets/PartnersLogo/umwarimu sacco.jpg";
+import XentriLogo from "../../assets/PartnersLogo/xentriPay.png";
+import AitelLogo from "../../assets/PartnersLogo/Aitel.png";
+
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5100";
 
 /** Logos in `src/assets/partner/` */
@@ -161,7 +168,7 @@ const FontLoader = () => (
     }
     .btn-shine:hover::after { left:130%; }
 
-    /* Partner logos on WHITE background — full colour, just slight dim + lift on hover */
+    /* Partner logos on WHITE background — slight dim + lift on hover */
     .partner-logo-light {
       transition: opacity .28s ease, transform .32s cubic-bezier(.22,1,.36,1), filter .28s ease;
       opacity: .82;
@@ -171,6 +178,15 @@ const FontLoader = () => (
       opacity: 1;
       filter: grayscale(0) brightness(1.05);
       transform: translateY(-4px);
+    }
+    /* MINEDUC / NESA — full colour, larger, always crisp */
+    .partner-logo-light.partner-logo-emphasis {
+      opacity: 1;
+      filter: none;
+    }
+    .partner-logo-light.partner-logo-emphasis:hover {
+      filter: brightness(1.02);
+      transform: translateY(-3px);
     }
 
     ::-webkit-scrollbar       { width:5px; }
@@ -782,8 +798,6 @@ function GetStartedSection() {
               style={{ border: "1px solid #f1f5f9" }}
               onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#FBBF24"; e.currentTarget.style.boxShadow = "0 16px 48px rgba(251,191,36,0.1)"; }}
               onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#f1f5f9"; e.currentTarget.style.boxShadow = "none"; }}>
-              <div className="h-[3px] w-0 group-hover:w-full transition-all duration-500"
-                style={{ background: "linear-gradient(90deg,#FBBF24,#F59E0B)" }} />
               <div className="p-5 xl:p-6">
                 <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-5 transition-transform duration-300 group-hover:scale-105"
                   style={{ background: "rgba(0,4,53,0.06)", border: "1.5px solid rgba(0,4,53,0.1)" }}>
@@ -805,19 +819,21 @@ function GetStartedSection() {
   );
 }
 
-/* ── Partners ──────────────────────────────────────────────────── */
-const PARTNER_FALLBACK = [
-  { name: "MINEDUC", full: "Ministry of Education", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/17/Rwanda-Coat_of_arms.svg/120px-Rwanda-Coat_of_arms.svg.png" },
-  { name: "REB", full: "Rwanda Education Board", logo: "https://reb.rw/wp-content/uploads/2023/01/REB-Logo.png" },
-  { name: "NESA", full: "Nat. Exam & School Inspection", logo: "https://nesa.rw/wp-content/uploads/2021/03/nesa_logo.png" },
-  { name: "HEC", full: "Higher Education Council", logo: "https://www.hec.gov.rw/fileadmin/templates/images/logo.png" },
-  { name: "PSF", full: "Private Sector Federation", logo: "https://www.psf.org.rw/wp-content/themes/psf/img/logo.png" },
-  { name: "MTN Rwanda", full: "Mobile Money Payments", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/93/New-mtn-logo.jpg/320px-New-mtn-logo.jpg" },
+/* ── Partners — bundled logos from `src/assets/PartnersLogo/` + CDN where no local file ── */
+const TRUSTED_PARTNERS = [
+   { name: "MTN RWANDA", full: "Mobile Money Payments", logo: MTNLogo },
+  { name: "Umwarimu Sacco", full: "Teachers' Sacco", logo: UmwarimuLogo },
+  { name: "MINEDUC", full: "Ministry of Education", logo: MineduLogo, emphasize: true },
+  { name: "NESA", full: "Nat. Exam & School Inspection", logo: NESLogo, emphasize: true },
+  { name: "XentriPay", full: "Payments partner", logo: XentriLogo },
+  { name: "Airtel", full: "Airtel Rwanda", logo: AitelLogo },
 ];
 
 function PartnersSection() {
-  const fromAssets = partnersFromAssetsFolder();
-  const pp = fromAssets.length ? fromAssets : PARTNER_FALLBACK;
+  const fromPartnerDir = partnersFromAssetsFolder();
+  const seen = new Set(TRUSTED_PARTNERS.map((p) => p.name.toLowerCase()));
+  const extra = fromPartnerDir.filter((p) => p?.name && !seen.has(String(p.name).toLowerCase()));
+  const pp = [...TRUSTED_PARTNERS, ...extra];
 
   return (
     <section className="relative py-16 sm:py-20 xl:py-28 bg-white overflow-hidden"
@@ -839,68 +855,70 @@ function PartnersSection() {
           {" "}by schools, families, and partners across Rwanda — aligned with national education institutions and industry leaders.
         </p>
 
-        {/* ── Logo grid ──
-             fromAssets = images from src/assets/partner/ (your actual logos).
-             PARTNER_FALLBACK = CDN URLs used only if the folder is empty.
-             Both render using <img> tags with object-fit:contain so logos
-             never distort regardless of their original proportions.
-        ── */}
-        <div className={`grid gap-x-6 gap-y-10 sm:gap-x-10 sm:gap-y-12 xl:gap-x-14 xl:gap-y-14 justify-items-center items-center ${
-          pp.length <= 3  ? "grid-cols-3" :
-          pp.length === 4 ? "grid-cols-2 sm:grid-cols-4" :
-          pp.length === 5 ? "grid-cols-3 sm:grid-cols-5" :
-                            "grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
-        }`}>
+        {/* ── Partner cards: 3 per row (sm+), 2 per row on narrow phones — modern cards, mobile-first ── */}
+        <div
+          className="grid w-full max-w-4xl mx-auto grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 md:gap-5 lg:gap-6 auto-rows-fr items-stretch [contain:layout]"
+        >
           {pp.map((p, i) => (
-            <div key={`${p.name}-${i}`}
-              className="flex flex-col items-center gap-3 w-full group"
-              style={{ maxWidth: "clamp(80px, 14vw, 148px)" }}>
+            <div
+              key={`${p.name}-${i}`}
+              className={`
+                group relative flex min-h-[132px] flex-col items-center justify-between gap-3
+                w-full rounded-2xl bg-gradient-to-b from-white to-slate-50/90
+                px-3 py-4 sm:min-h-[152px] sm:px-4 sm:py-5 md:min-h-[168px] md:py-6
+                shadow-[0_2px_16px_-4px_rgba(0,4,53,0.07)]
+                transition-all duration-300 ease-out
+                hover:shadow-[0_16px_40px_-12px_rgba(245,158,11,0.18)] hover:-translate-y-0.5
+                active:scale-[0.99] motion-reduce:transition-none motion-reduce:hover:translate-y-0
+              `}
+            >
+              <div
+                className="flex min-h-[56px] flex-1 w-full flex-col items-center justify-center sm:min-h-[64px]"
+              >
+                <img
+                  src={p.logo}
+                  alt={p.name}
+                  className={`partner-logo-light max-h-full w-auto${p.emphasize ? " partner-logo-emphasis" : ""}`}
+                  style={{
+                    height: p.emphasize ? "clamp(44px, 11vw, 76px)" : "clamp(30px, 8vw, 48px)",
+                    maxHeight: p.emphasize ? "76px" : "48px",
+                    width: "auto",
+                    maxWidth: "min(100%, 200px)",
+                    objectFit: "contain",
+                    objectPosition: "center",
+                    display: "block",
+                  }}
+                  onError={(e) => {
+                    e.target.style.display = "none";
+                    const fb = e.target.nextElementSibling;
+                    if (fb) fb.style.display = "flex";
+                  }}
+                />
 
-              <img
-                src={p.logo}
-                alt={p.name}
-                className="partner-logo-light"
-                style={{
-                  height: "clamp(32px, 4.5vw, 52px)",
-                  width: "auto",
-                  maxWidth: "100%",
-                  objectFit: "contain",
-                  display: "block",
-                }}
-                onError={(e) => {
-                  e.target.style.display = "none";
-                  const fb = e.target.nextElementSibling;
-                  if (fb) fb.style.display = "flex";
-                }}
-              />
-
-              {/* Initials fallback — shown only when image fails */}
-              <div style={{
-                display: "none",
-                width: "clamp(44px,5.5vw,56px)",
-                height: "clamp(44px,5.5vw,56px)",
-                background: "rgba(0,4,53,0.05)",
-                border: "1px solid rgba(0,4,53,0.1)",
-                borderRadius: "12px",
-                alignItems: "center",
-                justifyContent: "center",
-                fontWeight: 900,
-                fontSize: "clamp(10px,1vw,12px)",
-                color: "#F59E0B",
-                letterSpacing: "0.04em",
-              }}>
-                {p.name.slice(0, 3).toUpperCase()}
+                {/* Initials fallback — shown only when image fails */}
+                <div
+                  className="flex h-14 w-14 items-center justify-center rounded-xl sm:h-16 sm:w-16 shrink-0"
+                  style={{
+                    display: "none",
+                    background: "rgba(0,4,53,0.05)",
+                    fontWeight: 900,
+                    fontSize: "clamp(10px,2.8vw,12px)",
+                    color: "#F59E0B",
+                    letterSpacing: "0.04em",
+                  }}
+                >
+                  {p.name.slice(0, 3).toUpperCase()}
+                </div>
               </div>
 
-              {/* Name label */}
-              <p className="text-center font-semibold leading-tight transition-colors duration-200 group-hover:text-amber-500"
+              <p
+                className="w-full text-center font-bold leading-snug text-[#000435]/55 transition-colors duration-200 group-hover:text-amber-600 px-0.5"
                 style={{
-                  fontSize: "clamp(9px, 0.9vw, 11px)",
-                  letterSpacing: "0.07em",
+                  fontSize: "clamp(8.5px, 2.4vw, 11px)",
+                  letterSpacing: "0.06em",
                   textTransform: "uppercase",
-                  color: "rgba(0,4,53,0.4)",
-                  maxWidth: "100%",
-                }}>
+                }}
+              >
                 {p.name}
               </p>
             </div>
@@ -909,9 +927,7 @@ function PartnersSection() {
 
         {/* Bottom rule */}
         <div className="mt-12 sm:mt-16" style={{ height: "1px", background: "linear-gradient(90deg,transparent,rgba(0,4,53,0.1),transparent)" }} />
-        <p className="text-center mt-5" style={{ fontSize: "clamp(10px,0.85vw,11.5px)", color: "rgba(0,4,53,0.28)", letterSpacing: "0.04em" }}>
-          Babyeyi operates in alignment with Rwanda's national education regulatory framework
-        </p>
+       
       </div>
     </section>
   );
@@ -946,19 +962,19 @@ function CTASection() {
             </button>
             <Link to="/register"
               className="inline-flex items-center justify-center gap-2 rounded-2xl font-black text-white transition-all hover:bg-white/8"
-              style={{ minHeight: "clamp(48px,5.5vw,56px)", fontSize: "clamp(12px,1.2vw,15px)", border: "1.5px solid rgba(255,255,255,0.18)" }}>
+              style={{ minHeight: "clamp(48px,5.5vw,56px)", fontSize: "clamp(12px,1.2vw,15px)" }}>
               <Building2 size={16} className="text-amber-300" /> Register School
             </Link>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Link to="/school-manager/login"
               className="inline-flex items-center justify-center gap-2 rounded-2xl font-semibold text-white transition-all hover:bg-amber-400/14"
-              style={{ minHeight: "clamp(44px,5vw,52px)", fontSize: "clamp(12px,1.1vw,14px)", border: "1px solid rgba(251,191,36,0.3)", background: "rgba(251,191,36,0.07)" }}>
+              style={{ minHeight: "clamp(44px,5vw,52px)", fontSize: "clamp(12px,1.1vw,14px)", background: "rgba(251,191,36,0.07)" }}>
               <GraduationCap size={16} className="text-amber-400" /> School Manager
             </Link>
             <Link to="/parents/login"
               className="inline-flex items-center justify-center gap-2 rounded-2xl font-semibold text-white transition-all hover:bg-white/10"
-              style={{ minHeight: "clamp(44px,5vw,52px)", fontSize: "clamp(12px,1.1vw,14px)", border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.05)" }}>
+              style={{ minHeight: "clamp(44px,5vw,52px)", fontSize: "clamp(12px,1.1vw,14px)", background: "rgba(255,255,255,0.05)" }}>
               <Users size={16} className="text-amber-200/80" /> Parent Login
             </Link>
           </div>

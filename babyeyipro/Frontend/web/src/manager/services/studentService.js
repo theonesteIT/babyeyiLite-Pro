@@ -34,13 +34,24 @@ const studentService = {
         }
     },
 
-    // Update student
+    // Update student (full profile — requires name, location, etc.)
     updateStudent: async (id, data) => {
         try {
             const res = await api.put(`/students/${id}`, data);
             return res.data;
         } catch (err) {
             console.error(`studentService.updateStudent(${id}) error:`, err);
+            throw err;
+        }
+    },
+
+    /** RFID / fingerprint / identity remarks only (partial update). */
+    updateStudentIdentity: async (id, data) => {
+        try {
+            const res = await api.put(`/students/${id}/identity`, data);
+            return res.data;
+        } catch (err) {
+            console.error(`studentService.updateStudentIdentity(${id}) error:`, err);
             throw err;
         }
     },

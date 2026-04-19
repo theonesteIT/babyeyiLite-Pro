@@ -8,6 +8,7 @@ import {
   User, LogOut, Wifi, WifiOff, RefreshCw, GraduationCap, ChevronDown,
   Building2, School, Landmark, UserCog, UserCheck, PieChart, Activity, Settings, ShieldCheck, Table2,
   LayoutGrid,
+  Radio,
 } from 'lucide-react';
 import { h } from '../utils/href';
 
@@ -185,6 +186,9 @@ const Sidebar = ({ onClose }) => {
 
         <SectionLabel label="Operational Tools" />
         <NavItem icon={MessageSquare} name="TichaAI" path="/manager-ai" onClose={onClose} />
+        {canAccessSchoolConsole && (
+          <NavItem icon={Radio} name="Smart School Access" path="/smart-access" onClose={onClose} />
+        )}
         <NavItem icon={ShieldCheck} name="Student Permissions" path="/permissions" onClose={onClose} />
         <ExpandableNavItem
           icon={ClipboardList}

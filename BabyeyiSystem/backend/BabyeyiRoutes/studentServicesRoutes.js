@@ -88,6 +88,28 @@ async function ensureTables() {
       await promisePool.query(`ALTER TABLE services ADD COLUMN IF NOT EXISTS available_sizes JSON NULL`);
       await promisePool.query(`ALTER TABLE services ADD COLUMN IF NOT EXISTS shoe_categories JSON NULL`);
       await promisePool.query(`ALTER TABLE services ADD COLUMN IF NOT EXISTS delivery_fee DECIMAL(12,2) NOT NULL DEFAULT 0`);
+      await promisePool.query(`ALTER TABLE services ADD COLUMN IF NOT EXISTS shoe_models JSON NULL`);
+
+      await promisePool.query(`
+        CREATE TABLE IF NOT EXISTS shoe_brand_models (
+          id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+          slug VARCHAR(64) NOT NULL,
+          name VARCHAR(255) NOT NULL,
+          image_url VARCHAR(512) NULL,
+          sort_order INT NOT NULL DEFAULT 0,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          PRIMARY KEY (id),
+          UNIQUE KEY uq_shoe_brand_models_slug (slug)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`);
+      await promisePool.query(
+        `ALTER TABLE services ADD COLUMN IF NOT EXISTS shoe_brand_model_id INT UNSIGNED NULL COMMENT 'Groups catalog packages under one parent model for parents'`
+      );
+      try {
+        await promisePool.query(`ALTER TABLE services ADD KEY idx_services_shoe_brand_model (shoe_brand_model_id)`);
+      } catch (_) {
+        /* index may already exist */
+      }
 
       await promisePool.query(`
     CREATE TABLE IF NOT EXISTS service_prices (
@@ -138,6 +160,7 @@ async function ensureTables() {
   await promisePool.query(`ALTER TABLE service_orders ADD COLUMN IF NOT EXISTS agent_user_id INT UNSIGNED NULL`);
   await promisePool.query(`ALTER TABLE service_orders ADD COLUMN IF NOT EXISTS source_channel VARCHAR(50) NOT NULL DEFAULT 'PUBLIC'`);
   await promisePool.query(`ALTER TABLE service_orders ADD COLUMN IF NOT EXISTS fulfillment_status VARCHAR(40) NOT NULL DEFAULT 'Pending'`);
+  await promisePool.query(`ALTER TABLE service_orders ADD COLUMN IF NOT EXISTS order_meta_json LONGTEXT NULL`);
 
   await promisePool.query(`
     CREATE TABLE IF NOT EXISTS service_payments (
@@ -236,6 +259,70 @@ const upload = multer({
   },
 });
 
+/** Preset shoe model ids (matches Super Admin / public wizard) */
+const ALLOWED_SHOE_MODEL_IDS = ['mentor', 'bata-toughes', 'crabkids'];
+const SHOE_MODEL_UPLOAD_FIELD = {
+  mentor: 'model_image_mentor',
+  'bata-toughes': 'model_image_bata_toughes',
+  crabkids: 'model_image_crabkids',
+};
+
+const serviceFormUpload = upload.fields([
+  { name: 'icon', maxCount: 1 },
+  { name: 'model_image_mentor', maxCount: 1 },
+  { name: 'model_image_bata_toughes', maxCount: 1 },
+  { name: 'model_image_crabkids', maxCount: 1 },
+]);
+
+function mapUploadedFiles(req) {
+  const out = {};
+  if (!req.files) return out;
+  if (Array.isArray(req.files)) {
+    for (const f of req.files) out[f.fieldname] = f;
+    return out;
+  }
+  for (const k of Object.keys(req.files)) {
+    const arr = req.files[k];
+    if (arr && arr[0]) out[k] = arr[0];
+  }
+  return out;
+}
+
+/**
+ * @param {string|Array|null|undefined} rawPayload - JSON string or array of { model_id }
+ * @param {object} fileMap - fieldname -> multer file
+ * @param {Array|null} existingDecoded - previous shoe_models array from DB
+ */
+function buildShoeModelsJson(rawPayload, fileMap, existingDecoded) {
+  let parsed = [];
+  try {
+    if (typeof rawPayload === 'string' && rawPayload.trim()) parsed = JSON.parse(rawPayload);
+    else if (Array.isArray(rawPayload)) parsed = rawPayload;
+  } catch {
+    parsed = [];
+  }
+  const existing = Array.isArray(existingDecoded) ? existingDecoded : [];
+  const exById = {};
+  for (const x of existing) {
+    const id = x.model_id || x.id;
+    if (id) exById[id] = x;
+  }
+  const out = [];
+  const seen = new Set();
+  for (const item of parsed) {
+    const mid = String(item.model_id || item.id || '').trim();
+    if (!ALLOWED_SHOE_MODEL_IDS.includes(mid) || seen.has(mid)) continue;
+    seen.add(mid);
+    const field = SHOE_MODEL_UPLOAD_FIELD[mid];
+    let image_url = exById[mid]?.image_url != null ? exById[mid].image_url : null;
+    if (field && fileMap[field]) {
+      image_url = `/${UPLOAD_REL}/${fileMap[field].filename}`.replace(/\\/g, '/');
+    }
+    out.push({ model_id: mid, image_url });
+  }
+  return JSON.stringify(out);
+}
+
 function parseEligibility(val) {
   if (val == null || val === '') return null;
   if (Array.isArray(val)) return JSON.stringify(val);
@@ -267,7 +354,7 @@ function decodeRow(service) {
   } catch {
     service.eligibility_levels = [];
   }
-  for (const key of ['available_sizes', 'shoe_categories']) {
+  for (const key of ['available_sizes', 'shoe_categories', 'shoe_models']) {
     let v = service[key];
     if (Buffer.isBuffer(v)) v = v.toString('utf8');
     try {
@@ -279,7 +366,58 @@ function decodeRow(service) {
     }
   }
   if (service.delivery_fee != null) service.delivery_fee = Number(service.delivery_fee);
+  if (service.shoe_brand_model_id != null && service.shoe_brand_model_id !== '') {
+    const n = Number(service.shoe_brand_model_id);
+    service.shoe_brand_model_id = Number.isFinite(n) ? n : null;
+  } else {
+    service.shoe_brand_model_id = null;
+  }
   return service;
+}
+
+function slugifyShoeBrandName(s) {
+  const base = String(s || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 52);
+  return base || `model-${Date.now().toString(36)}`;
+}
+
+/** Attach { id, slug, name, image_url } for parents + admin UI */
+async function attachShoeBrandModels(services) {
+  if (!Array.isArray(services) || !services.length) return;
+  const ids = [...new Set(services.map((s) => s.shoe_brand_model_id).filter((x) => x != null && x !== ''))];
+  if (!ids.length) {
+    for (const s of services) s.shoe_brand_model = null;
+    return;
+  }
+  const [rows] = await promisePool.query(
+    `SELECT id, slug, name, image_url, sort_order FROM shoe_brand_models WHERE id IN (${ids.map(() => '?').join(',')})`,
+    ids
+  );
+  const byId = {};
+  for (const r of rows) byId[r.id] = r;
+  for (const s of services) {
+    const bid = s.shoe_brand_model_id;
+    const bm = bid != null ? byId[bid] : null;
+    s.shoe_brand_model = bm
+      ? {
+          id: bm.id,
+          slug: bm.slug,
+          name: bm.name,
+          image_url: bm.image_url,
+          sort_order: bm.sort_order,
+        }
+      : null;
+  }
+}
+
+async function buildShoeModelsJsonFromBrandId(conn, brandId) {
+  const [[bm]] = await conn.query(`SELECT slug, image_url FROM shoe_brand_models WHERE id = ? LIMIT 1`, [brandId]);
+  if (!bm) throw new Error('Invalid shoe model id');
+  const slug = String(bm.slug || '').trim();
+  return JSON.stringify([{ model_id: slug, image_url: bm.image_url || null }]);
 }
 
 function eligibilityToDb(existingRaw, incomingField) {
@@ -325,13 +463,15 @@ router.get('/public/services', async (req, res) => {
       `SELECT id, service_code, name, category, description, short_tagline, icon_url,
               academic_year, eligibility_levels, default_pricing_type,
               validity_start, validity_end, redemption_method, delivery_method,
-              stock_quantity, terms_conditions, status, available_sizes, shoe_categories, delivery_fee
+              stock_quantity, terms_conditions, status, available_sizes, shoe_categories, shoe_models, delivery_fee,
+              shoe_brand_model_id
        FROM services
        WHERE ${where.join(' AND ')}
        ORDER BY name ASC`,
       params
     );
     const list = rows.map(decodeRow);
+    await attachShoeBrandModels(list);
     const ids = list.map((s) => s.id);
     const prices = await attachPriceSummary(ids);
     for (const s of list) {
@@ -360,6 +500,7 @@ router.get('/public/services/:idOrCode', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Service not found' });
     }
     const service = decodeRow(rows[0]);
+    await attachShoeBrandModels([service]);
     const [prices] = await promisePool.query(
       `SELECT * FROM service_prices WHERE service_id = ? AND is_active = 1 ORDER BY pricing_type, level, school_id`,
       [service.id]
@@ -400,6 +541,7 @@ router.get('/admin/services', requireSuper, async (req, res) => {
       params
     );
     const list = rows.map(decodeRow);
+    await attachShoeBrandModels(list);
     const ids = list.map((s) => s.id);
     const prices = await attachPriceSummary(ids);
     for (const s of list) {
@@ -422,6 +564,7 @@ router.get('/admin/services/:id', requireSuper, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Not found' });
     }
     const service = decodeRow(rows[0]);
+    await attachShoeBrandModels([service]);
     const [prices] = await promisePool.query(
       `SELECT * FROM service_prices WHERE service_id = ? ORDER BY id ASC`,
       [id]
@@ -537,6 +680,8 @@ function bodyFromMultipart(req) {
     terms_conditions: b.terms_conditions,
     available_sizes: b.available_sizes,
     shoe_categories: b.shoe_categories,
+    shoe_models: b.shoe_models,
+    shoe_brand_model_id: b.shoe_brand_model_id,
     delivery_fee: b.delivery_fee,
     status: b.status,
     prices: b.prices,
@@ -566,10 +711,116 @@ function resolveUserId(req) {
   return req.session?.userId || req.session?.user?.id || req.user?.id || null;
 }
 
-router.post('/admin/services', requireSuper, upload.single('icon'), async (req, res) => {
+const brandModelImageUpload = upload.single('image');
+
+router.get('/admin/shoe-brand-models', requireSuper, async (req, res) => {
+  try {
+    const [rows] = await promisePool.query(
+      `SELECT id, slug, name, image_url, sort_order, created_at, updated_at FROM shoe_brand_models ORDER BY sort_order ASC, name ASC`
+    );
+    res.json({ success: true, data: rows });
+  } catch (e) {
+    console.error('[student-services] shoe-brand-models list', e);
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+router.post('/admin/shoe-brand-models', requireSuper, brandModelImageUpload, async (req, res) => {
+  try {
+    const name = String(req.body.name || '').trim();
+    if (!name) return res.status(400).json({ success: false, message: 'Name is required' });
+    let slug = slugifyShoeBrandName(req.body.slug || name);
+    const [dup] = await promisePool.query(`SELECT id FROM shoe_brand_models WHERE slug = ? LIMIT 1`, [slug]);
+    if (dup.length) slug = `${slug}-${Date.now().toString(36)}`;
+    let image_url = null;
+    if (req.file) image_url = `/${UPLOAD_REL}/${req.file.filename}`.replace(/\\/g, '/');
+    const sort_order = parseInt(req.body.sort_order, 10);
+    const so = Number.isFinite(sort_order) ? sort_order : 0;
+    const [ins] = await promisePool.query(
+      `INSERT INTO shoe_brand_models (slug, name, image_url, sort_order) VALUES (?,?,?,?)`,
+      [slug, name, image_url, so]
+    );
+    const [[row]] = await promisePool.query(`SELECT * FROM shoe_brand_models WHERE id = ?`, [ins.insertId]);
+    res.status(201).json({ success: true, data: row });
+  } catch (e) {
+    console.error('[student-services] shoe-brand-models create', e);
+    res.status(400).json({ success: false, message: e.message || 'Create failed' });
+  }
+});
+
+router.put('/admin/shoe-brand-models/:id', requireSuper, brandModelImageUpload, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id)) return res.status(400).json({ success: false, message: 'Invalid id' });
+    const [[existing]] = await promisePool.query(`SELECT * FROM shoe_brand_models WHERE id = ? LIMIT 1`, [id]);
+    if (!existing) return res.status(404).json({ success: false, message: 'Not found' });
+    const name = req.body.name !== undefined ? String(req.body.name || '').trim() : existing.name;
+    if (!name) return res.status(400).json({ success: false, message: 'Name is required' });
+    let slug = existing.slug;
+    if (req.body.slug !== undefined && String(req.body.slug).trim()) {
+      slug = slugifyShoeBrandName(req.body.slug);
+      const [dup] = await promisePool.query(`SELECT id FROM shoe_brand_models WHERE slug = ? AND id != ? LIMIT 1`, [slug, id]);
+      if (dup.length) slug = `${slug}-${Date.now().toString(36)}`;
+    }
+    let image_url = existing.image_url;
+    if (req.file) image_url = `/${UPLOAD_REL}/${req.file.filename}`.replace(/\\/g, '/');
+    let sort_order = existing.sort_order;
+    if (req.body.sort_order !== undefined) {
+      const so = parseInt(req.body.sort_order, 10);
+      if (Number.isFinite(so)) sort_order = so;
+    }
+    await promisePool.query(`UPDATE shoe_brand_models SET slug = ?, name = ?, image_url = ?, sort_order = ? WHERE id = ?`, [
+      slug,
+      name,
+      image_url,
+      sort_order,
+      id,
+    ]);
+    const [[bm]] = await promisePool.query(`SELECT * FROM shoe_brand_models WHERE id = ?`, [id]);
+    const [svcRows] = await promisePool.query(
+      `SELECT id FROM services WHERE shoe_brand_model_id = ? AND deleted_at IS NULL`,
+      [id]
+    );
+    const shoeModelsPayload = JSON.stringify([{ model_id: bm.slug, image_url: bm.image_url || null }]);
+    for (const row of svcRows) {
+      await promisePool.query(`UPDATE services SET shoe_models = ? WHERE id = ?`, [shoeModelsPayload, row.id]);
+    }
+    res.json({ success: true, data: bm });
+  } catch (e) {
+    console.error('[student-services] shoe-brand-models update', e);
+    res.status(400).json({ success: false, message: e.message || 'Update failed' });
+  }
+});
+
+router.delete('/admin/shoe-brand-models/:id', requireSuper, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id)) return res.status(400).json({ success: false, message: 'Invalid id' });
+    const [c] = await promisePool.query(
+      `SELECT COUNT(*) AS n FROM services WHERE shoe_brand_model_id = ? AND deleted_at IS NULL`,
+      [id]
+    );
+    const n = Number(c[0]?.n || 0);
+    if (n > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'This model is linked to shoe packages. Reassign or remove those packages first.',
+      });
+    }
+    await promisePool.query(`DELETE FROM shoe_brand_models WHERE id = ?`, [id]);
+    res.json({ success: true });
+  } catch (e) {
+    console.error('[student-services] shoe-brand-models delete', e);
+    res.status(400).json({ success: false, message: e.message || 'Delete failed' });
+  }
+});
+
+router.post('/admin/services', requireSuper, serviceFormUpload, async (req, res) => {
   const conn = await promisePool.getConnection();
   try {
-    const b = req.file ? bodyFromMultipart(req) : req.body;
+    const fileMap = mapUploadedFiles(req);
+    const hasMultipart = req.file || (req.files && Object.keys(req.files).length);
+    const b = hasMultipart ? bodyFromMultipart(req) : req.body;
     const {
       service_code,
       name,
@@ -588,6 +839,8 @@ router.post('/admin/services', requireSuper, upload.single('icon'), async (req, 
       terms_conditions,
       available_sizes,
       shoe_categories,
+      shoe_models,
+      shoe_brand_model_id: shoe_brand_model_id_raw,
       delivery_fee,
       status = 'draft',
       prices,
@@ -597,23 +850,36 @@ router.post('/admin/services', requireSuper, upload.single('icon'), async (req, 
       return res.status(400).json({ success: false, message: 'service_code, name, and academic_year are required' });
     }
 
+    const sbmid =
+      shoe_brand_model_id_raw !== undefined && shoe_brand_model_id_raw !== null && shoe_brand_model_id_raw !== ''
+        ? parseInt(String(shoe_brand_model_id_raw).trim(), 10)
+        : null;
+
     const elig = parseEligibility(eligibility_levels);
     const pricesNorm = normalizePricesPayload(prices, academic_year, default_pricing_type);
 
     let icon_url = null;
-    if (req.file) {
-      icon_url = `/${UPLOAD_REL}/${req.file.filename}`.replace(/\\/g, '/');
+    if (fileMap.icon) {
+      icon_url = `/${UPLOAD_REL}/${fileMap.icon.filename}`.replace(/\\/g, '/');
     }
 
     await conn.beginTransaction();
+
+    let shoeModelsJson;
+    if (sbmid != null && Number.isFinite(sbmid)) {
+      shoeModelsJson = await buildShoeModelsJsonFromBrandId(conn, sbmid);
+    } else {
+      shoeModelsJson = buildShoeModelsJson(shoe_models, fileMap, []);
+    }
 
     const [ins] = await conn.query(
       `INSERT INTO services (
         service_code, name, category, description, short_tagline, icon_url, academic_year,
         eligibility_levels, default_pricing_type, validity_start, validity_end,
-        redemption_method, delivery_method, stock_quantity, payment_rules, terms_conditions, available_sizes, shoe_categories, delivery_fee, status,
+        redemption_method, delivery_method, stock_quantity, payment_rules, terms_conditions, available_sizes, shoe_categories, shoe_models, delivery_fee, status,
+        shoe_brand_model_id,
         created_by_role, created_by_user_id, is_shop_product
-      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [
         String(service_code).trim(),
         String(name).trim(),
@@ -633,8 +899,10 @@ router.post('/admin/services', requireSuper, upload.single('icon'), async (req, 
         terms_conditions || null,
         parseJsonArray(available_sizes),
         parseJsonArray(shoe_categories),
+        shoeModelsJson,
         delivery_fee != null && delivery_fee !== '' ? Number(delivery_fee) : 0,
         status,
+        sbmid != null && Number.isFinite(sbmid) ? sbmid : null,
         'SUPER_ADMIN',
         resolveUserId(req),
         category === 'Agent Shop' ? 1 : 0,
@@ -645,7 +913,9 @@ router.post('/admin/services', requireSuper, upload.single('icon'), async (req, 
     await conn.commit();
 
     const [[row]] = await promisePool.query(`SELECT * FROM services WHERE id = ?`, [serviceId]);
-    res.status(201).json({ success: true, data: decodeRow(row) });
+    const dec = decodeRow(row);
+    await attachShoeBrandModels([dec]);
+    res.status(201).json({ success: true, data: dec });
   } catch (e) {
     await conn.rollback();
     if (e.code === 'ER_DUP_ENTRY') {
@@ -658,7 +928,7 @@ router.post('/admin/services', requireSuper, upload.single('icon'), async (req, 
   }
 });
 
-router.put('/admin/services/:id', requireSuper, upload.single('icon'), async (req, res) => {
+router.put('/admin/services/:id', requireSuper, serviceFormUpload, async (req, res) => {
   const conn = await promisePool.getConnection();
   try {
     const id = parseInt(req.params.id, 10);
@@ -667,7 +937,9 @@ router.put('/admin/services/:id', requireSuper, upload.single('icon'), async (re
       return res.status(404).json({ success: false, message: 'Not found' });
     }
 
-    const b = req.file ? bodyFromMultipart(req) : req.body;
+    const fileMap = mapUploadedFiles(req);
+    const hasMultipart = req.file || (req.files && Object.keys(req.files).length);
+    const b = hasMultipart ? bodyFromMultipart(req) : req.body;
     const {
       service_code,
       name,
@@ -686,6 +958,8 @@ router.put('/admin/services/:id', requireSuper, upload.single('icon'), async (re
       terms_conditions,
       available_sizes,
       shoe_categories,
+      shoe_models,
+      shoe_brand_model_id: shoe_brand_model_id_in,
       delivery_fee,
       status,
       prices,
@@ -701,11 +975,31 @@ router.put('/admin/services/:id', requireSuper, upload.single('icon'), async (re
     }
 
     let icon_url = existing.icon_url;
-    if (req.file) {
-      icon_url = `/${UPLOAD_REL}/${req.file.filename}`.replace(/\\/g, '/');
+    if (fileMap.icon) {
+      icon_url = `/${UPLOAD_REL}/${fileMap.icon.filename}`.replace(/\\/g, '/');
+    }
+
+    const existingDecoded = decodeRow({ ...existing });
+    let nextSbmId = existingDecoded.shoe_brand_model_id;
+    if (shoe_brand_model_id_in !== undefined) {
+      const raw = shoe_brand_model_id_in;
+      if (raw === '' || raw == null) nextSbmId = null;
+      else {
+        const p = parseInt(String(raw).trim(), 10);
+        nextSbmId = Number.isFinite(p) ? p : null;
+      }
     }
 
     await conn.beginTransaction();
+
+    let finalShoeModelsJson;
+    if (nextSbmId) {
+      finalShoeModelsJson = await buildShoeModelsJsonFromBrandId(conn, nextSbmId);
+    } else if (shoe_models !== undefined) {
+      finalShoeModelsJson = buildShoeModelsJson(shoe_models, fileMap, existingDecoded.shoe_models || []);
+    } else {
+      finalShoeModelsJson = JSON.stringify(Array.isArray(existingDecoded.shoe_models) ? existingDecoded.shoe_models : []);
+    }
 
     await conn.query(
       `UPDATE services SET
@@ -727,6 +1021,8 @@ router.put('/admin/services/:id', requireSuper, upload.single('icon'), async (re
         terms_conditions = ?,
         available_sizes = ?,
         shoe_categories = ?,
+        shoe_models = ?,
+        shoe_brand_model_id = ?,
         delivery_fee = ?,
         is_shop_product = ?,
         status = COALESCE(?, status)
@@ -750,6 +1046,8 @@ router.put('/admin/services/:id', requireSuper, upload.single('icon'), async (re
         terms_conditions !== undefined ? terms_conditions : existing.terms_conditions,
         available_sizes !== undefined ? parseJsonArray(available_sizes) : (existing.available_sizes || JSON.stringify([])),
         shoe_categories !== undefined ? parseJsonArray(shoe_categories) : (existing.shoe_categories || JSON.stringify([])),
+        finalShoeModelsJson,
+        nextSbmId,
         delivery_fee !== undefined ? (delivery_fee === '' || delivery_fee == null ? 0 : Number(delivery_fee)) : (existing.delivery_fee || 0),
         (category !== undefined ? category : existing.category) === 'Agent Shop' ? 1 : 0,
         status || null,
@@ -764,6 +1062,7 @@ router.put('/admin/services/:id', requireSuper, upload.single('icon'), async (re
     const [prRows] = await promisePool.query(`SELECT * FROM service_prices WHERE service_id = ?`, [id]);
     const service = decodeRow(row);
     service.prices = prRows;
+    await attachShoeBrandModels([service]);
     res.json({ success: true, data: service });
   } catch (e) {
     await conn.rollback();
@@ -1252,20 +1551,93 @@ router.delete('/admin/services/:id', requireSuper, async (req, res) => {
 
 const SHOES_SERVICE_WHERE = `(LOWER(s.name) LIKE '%shoe%' OR LOWER(s.service_code) LIKE '%shoe%' OR JSON_LENGTH(s.available_sizes) > 0)`;
 
-async function queryShoesOrdersExportRows(search) {
+/** Payer + agent + delivery columns for MoMo student-service orders (shoes voucher meta). */
+function deriveOrderColumnsFromShoesMeta(metaObj, payerName, payerPhone) {
+  const buyer_name = String(payerName || '').trim() || null;
+  const buyer_contact = String(payerPhone || '').trim() || null;
+  let agent_user_id = null;
+  const agent = metaObj && metaObj.agent;
+  if (agent && agent.id != null) {
+    const n = parseInt(String(agent.id), 10);
+    if (Number.isFinite(n) && n > 0) agent_user_id = n;
+  }
+  const delivery = (metaObj && metaObj.delivery) || {};
+  const method = String(delivery.method || '').toLowerCase();
+  let delivery_mode = null;
+  if (method.includes('home')) delivery_mode = 'AT_HOME';
+  else if (method.includes('school') || method.includes('branch') || method) delivery_mode = 'AT_SCHOOL';
+  const parts = [
+    delivery.district,
+    delivery.sector,
+    delivery.cell,
+    delivery.village,
+    delivery.phone,
+    delivery.exactAddress,
+  ]
+    .map((x) => (x != null ? String(x).trim() : ''))
+    .filter(Boolean);
+  const delivery_address = parts.length ? parts.join(', ').slice(0, 500) : null;
+  return { buyer_name, buyer_contact, agent_user_id, delivery_mode, delivery_address };
+}
+
+function parseOrderMetaJson(raw) {
+  if (raw == null || raw === '') return null;
+  try {
+    return typeof raw === 'object' ? raw : JSON.parse(String(raw));
+  } catch {
+    return null;
+  }
+}
+
+/** Lines for Super Admin: resolved cart from server, or legacy client shoes_cart. */
+function buildShoesRequestedList(meta) {
+  if (!meta || typeof meta !== 'object') return [];
+  const lines = meta.shoes_cart;
+  if (!Array.isArray(lines)) return [];
+  const qFallback = meta.shoe && meta.shoe.quantity != null ? Math.max(1, parseInt(String(meta.shoe.quantity), 10) || 1) : 1;
+  return lines.map((line) => {
+    const qty = line.quantity != null ? Math.max(1, parseInt(String(line.quantity), 10) || 1) : qFallback;
+    const name = line.service_name || line.name || (line.service_id != null ? `Package #${line.service_id}` : 'Shoe line');
+    return {
+      service_id: line.service_id,
+      name,
+      quantity: qty,
+      line_total_rwf: line.line_total_rwf != null ? Number(line.line_total_rwf) : null,
+      unit_amount_rwf: line.unit_amount_rwf != null ? Number(line.unit_amount_rwf) : null,
+      preferred_model: line.preferred_model,
+    };
+  });
+}
+
+async function queryShoesOrdersExportRows(filters = {}) {
+  const search = String(filters.search || '').trim();
+  const paymentQuick = String(filters.payment || '').trim().toLowerCase();
+  const fulfillmentStatus = String(filters.fulfillment_status || '').trim();
   let sql = `
       SELECT o.order_number, s.name AS service_name, st.student_code,
              CONCAT(COALESCE(st.first_name,''),' ',COALESCE(st.last_name,'')) AS student_name,
-             sc.school_name, o.amount, o.payment_status, o.fulfillment_status, o.buyer_name, o.buyer_contact, o.created_at
+             sc.school_name, o.amount, o.payment_status, o.fulfillment_status, o.buyer_name, o.buyer_contact, o.created_at,
+             o.order_meta_json,
+             TRIM(CONCAT(COALESCE(ag.first_name,''),' ',COALESCE(ag.last_name,''))) AS agent_name
       FROM service_orders o
       INNER JOIN services s ON s.id = o.service_id
       LEFT JOIN students st ON st.id = o.student_id
       LEFT JOIN schools sc ON sc.id = o.school_id
+      LEFT JOIN users ag ON ag.id = o.agent_user_id
       WHERE ${SHOES_SERVICE_WHERE}
     `;
   const params = [];
-  if (String(search || '').trim()) {
-    const like = `%${String(search).trim()}%`;
+  if (paymentQuick === 'paid') {
+    sql += ` AND o.payment_status = 'paid'`;
+  } else if (paymentQuick === 'unpaid') {
+    sql += ` AND o.payment_status <> 'paid'`;
+  }
+  if (fulfillmentStatus) {
+    sql += ` AND o.fulfillment_status = ?`;
+    params.push(fulfillmentStatus);
+  }
+  if (search) {
+    const like = `%${search}%`;
     sql += ` AND (o.order_number LIKE ? OR o.buyer_name LIKE ? OR o.buyer_contact LIKE ? OR st.student_code LIKE ? OR sc.school_name LIKE ?)`;
     params.push(like, like, like, like, like);
   }
@@ -1304,22 +1676,30 @@ router.get('/admin/shoes/agents', requireSuper, async (req, res) => {
 router.get('/admin/shoes/orders', requireSuper, async (req, res) => {
   try {
     const paymentStatus = String(req.query.payment_status || '').trim().toLowerCase();
+    const paymentQuick = String(req.query.payment || '').trim().toLowerCase();
     const fulfillmentStatus = String(req.query.fulfillment_status || '').trim();
     const search = String(req.query.search || '').trim();
     let sql = `
       SELECT o.id, o.order_number, o.amount, o.currency, o.payment_status, o.order_status, o.fulfillment_status,
              o.delivery_mode, o.delivery_address, o.buyer_name, o.buyer_contact, o.agent_user_id, o.created_at,
+             o.order_meta_json,
              s.id AS service_id, s.name AS service_name, s.service_code,
              st.student_code, st.first_name, st.last_name, st.class_name,
-             sc.school_name
+             sc.school_name,
+             ag.first_name AS agent_first_name, ag.last_name AS agent_last_name, ag.phone AS agent_phone, ag.email AS agent_email
       FROM service_orders o
       INNER JOIN services s ON s.id = o.service_id
       LEFT JOIN students st ON st.id = o.student_id
       LEFT JOIN schools sc ON sc.id = o.school_id
+      LEFT JOIN users ag ON ag.id = o.agent_user_id
       WHERE ${SHOES_SERVICE_WHERE}
     `;
     const params = [];
-    if (paymentStatus) {
+    if (paymentQuick === 'paid') {
+      sql += ` AND o.payment_status = 'paid'`;
+    } else if (paymentQuick === 'unpaid') {
+      sql += ` AND o.payment_status <> 'paid'`;
+    } else if (paymentStatus) {
       sql += ` AND o.payment_status = ?`;
       params.push(paymentStatus);
     }
@@ -1329,12 +1709,32 @@ router.get('/admin/shoes/orders', requireSuper, async (req, res) => {
     }
     if (search) {
       const like = `%${search}%`;
-      sql += ` AND (o.order_number LIKE ? OR o.buyer_name LIKE ? OR o.buyer_contact LIKE ? OR st.student_code LIKE ? OR sc.school_name LIKE ?)`;
-      params.push(like, like, like, like, like);
+      sql += ` AND (o.order_number LIKE ? OR o.buyer_name LIKE ? OR o.buyer_contact LIKE ? OR st.student_code LIKE ? OR sc.school_name LIKE ?
+        OR o.order_meta_json LIKE ? OR CONCAT(COALESCE(ag.first_name,''),' ',COALESCE(ag.last_name,'')) LIKE ?)`;
+      params.push(like, like, like, like, like, like, like);
     }
     sql += ` ORDER BY o.created_at DESC LIMIT 1200`;
     const [rows] = await promisePool.query(sql, params);
-    res.json({ success: true, data: rows });
+    const data = rows.map((row) => {
+      const order_meta = parseOrderMetaJson(row.order_meta_json);
+      const shoes_requested = buildShoesRequestedList(order_meta);
+      const agent_from_join = [row.agent_first_name, row.agent_last_name].filter(Boolean).join(' ').trim();
+      const agent_from_meta =
+        order_meta &&
+        order_meta.agent &&
+        (order_meta.agent.full_name ||
+          [order_meta.agent.first_name, order_meta.agent.last_name].filter(Boolean).join(' ').trim());
+      const agent_display = agent_from_join || agent_from_meta || null;
+      const { order_meta_json, agent_first_name, agent_last_name, ...rest } = row;
+      return {
+        ...rest,
+        order_meta,
+        shoes_requested,
+        agent_display,
+        payment_is_paid: row.payment_status === 'paid',
+      };
+    });
+    res.json({ success: true, data });
   } catch (e) {
     res.status(500).json({ success: false, message: e.message || 'Failed to load shoes orders' });
   }
@@ -1344,15 +1744,37 @@ router.patch('/admin/shoes/orders/:id/status', requireSuper, async (req, res) =>
   try {
     const id = parseInt(req.params.id, 10);
     const fulfillmentStatus = String(req.body?.fulfillment_status || '').trim();
-    const agentUserId = req.body?.agent_user_id != null ? parseInt(req.body.agent_user_id, 10) : null;
-    const allowed = ['Pending', 'Paid', 'Approved', 'Processing', 'Ready for delivery', 'Delivered', 'Completed', 'Rejected'];
+    const hasAgentField = Object.prototype.hasOwnProperty.call(req.body || {}, 'agent_user_id');
+    const agentUserIdRaw = req.body?.agent_user_id;
+    const agentUserId =
+      agentUserIdRaw != null && String(agentUserIdRaw).trim() !== '' ? parseInt(String(agentUserIdRaw), 10) : null;
+    const allowed = [
+      'Pending',
+      'Processing',
+      'Delivered',
+      'Not delivered',
+      'Out of stock',
+      'Paid',
+      'Approved',
+      'Ready for delivery',
+      'Completed',
+      'Rejected',
+    ];
     if (!allowed.includes(fulfillmentStatus)) {
       return res.status(400).json({ success: false, message: 'Invalid fulfillment_status' });
     }
-    await promisePool.query(
-      `UPDATE service_orders SET fulfillment_status = ?, agent_user_id = COALESCE(?, agent_user_id), updated_at = NOW() WHERE id = ?`,
-      [fulfillmentStatus, Number.isFinite(agentUserId) ? agentUserId : null, id]
-    );
+    const useAgent = Number.isFinite(agentUserId) ? agentUserId : null;
+    if (hasAgentField) {
+      await promisePool.query(
+        `UPDATE service_orders SET fulfillment_status = ?, agent_user_id = ?, updated_at = NOW() WHERE id = ?`,
+        [fulfillmentStatus, useAgent, id]
+      );
+    } else {
+      await promisePool.query(
+        `UPDATE service_orders SET fulfillment_status = ?, updated_at = NOW() WHERE id = ?`,
+        [fulfillmentStatus, id]
+      );
+    }
     res.json({ success: true });
   } catch (e) {
     res.status(500).json({ success: false, message: e.message || 'Failed to update order status' });
@@ -1363,21 +1785,47 @@ router.get('/admin/shoes/orders/export', requireSuper, async (req, res) => {
   try {
     const format = String(req.query.format || 'csv').toLowerCase().trim();
     const search = String(req.query.search || '').trim();
-    const rows = await queryShoesOrdersExportRows(search);
-    const header = ['Order Number', 'Service', 'Student Code', 'Student Name', 'School', 'Amount', 'Payment Status', 'Fulfillment Status', 'Buyer Name', 'Buyer Contact', 'Created At'];
-    const rowArr = (r) => [
-      r.order_number,
-      r.service_name,
-      r.student_code,
-      r.student_name,
-      r.school_name,
-      r.amount,
-      r.payment_status,
-      r.fulfillment_status,
-      r.buyer_name,
-      r.buyer_contact,
-      r.created_at,
+    const payment = String(req.query.payment || '').trim().toLowerCase();
+    const fulfillment_status = String(req.query.fulfillment_status || '').trim();
+    const rows = await queryShoesOrdersExportRows({ search, payment, fulfillment_status });
+    const header = [
+      'Order Number',
+      'Service',
+      'Student Code',
+      'Student Name',
+      'School',
+      'Amount',
+      'Payment Status',
+      'Fulfillment Status',
+      'Shoes requested',
+      'Field agent',
+      'Buyer Name',
+      'Buyer Contact',
+      'Created At',
     ];
+    const rowArr = (r) => {
+      const meta = parseOrderMetaJson(r.order_meta_json);
+      const shoesStr = buildShoesRequestedList(meta)
+        .map((x) => `${x.name} ×${x.quantity}`)
+        .join('; ');
+      const agentFromMeta = meta && meta.agent && (meta.agent.full_name || `${meta.agent.first_name || ''} ${meta.agent.last_name || ''}`.trim());
+      const agentDisp = (r.agent_name && String(r.agent_name).trim()) || agentFromMeta || '';
+      return [
+        r.order_number,
+        r.service_name,
+        r.student_code,
+        r.student_name,
+        r.school_name,
+        r.amount,
+        r.payment_status,
+        r.fulfillment_status,
+        shoesStr,
+        agentDisp,
+        r.buyer_name,
+        r.buyer_contact,
+        r.created_at,
+      ];
+    };
 
     if (format === 'xlsx') {
       const wb = xlsx.utils.book_new();
@@ -1397,28 +1845,34 @@ router.get('/admin/shoes/orders/export', requireSuper, async (req, res) => {
       doc.pipe(res);
       doc.fontSize(13).fillColor('#111').text('Shoes voucher orders', { align: 'left' });
       doc.moveDown(0.25);
-      doc.fontSize(8).fillColor('#444').text(`Generated: ${new Date().toLocaleString()}${search ? ` · Search: ${search}` : ''}`);
+      doc.fontSize(8).fillColor('#444').text(
+        `Generated: ${new Date().toLocaleString()}${search ? ` · Search: ${search}` : ''}${payment ? ` · Pay: ${payment}` : ''}${
+          fulfillment_status ? ` · Status: ${fulfillment_status}` : ''
+        }`
+      );
       doc.moveDown(0.5);
       if (!rows.length) {
         doc.fontSize(11).text('No orders in this filter.');
         doc.end();
         return;
       }
-      const pdfHeader = ['Order', 'Service', 'Student', 'School', 'Amount', 'Pay', 'Fulfillment', 'Created'];
-      const pdfRow = (r) => [
-        r.order_number,
-        r.service_name,
-        `${r.student_code || ''} ${r.student_name || ''}`.trim(),
-        r.school_name,
-        r.amount,
-        r.payment_status,
-        r.fulfillment_status,
-        r.created_at,
-      ];
+      const pdfHeader = ['Order', 'Student', 'Amt', 'Pay', 'Fulfill', 'Agent', 'Shoes'];
+      const pdfRow = (r) => {
+        const cells = rowArr(r);
+        return [
+          cells[0],
+          `${cells[2] || ''} ${cells[3] || ''}`.trim().slice(0, 42),
+          cells[5],
+          cells[6],
+          cells[7],
+          String(cells[9] || '').slice(0, 28),
+          String(cells[8] || '').slice(0, 36),
+        ];
+      };
       const lineH = 10;
       let y = doc.y;
       const left = 28;
-      const colW = [78, 108, 118, 100, 52, 48, 88, 118];
+      const colW = [72, 120, 44, 40, 72, 72, 140];
       doc.fontSize(6.5).fillColor('#333').font('Helvetica-Bold');
       let x = left;
       pdfHeader.forEach((lab, i) => {
@@ -1788,11 +2242,28 @@ router.post('/public/pay-momo', async (req, res) => {
     }
     const body = req.body || {};
     const codeRaw = body.student_code ?? body.code ?? '';
-    const serviceId = parseInt(body.service_id, 10);
+    const linesRaw = Array.isArray(body.lines) && body.lines.length ? body.lines : null;
+    let serviceId = parseInt(body.service_id, 10);
+    if (linesRaw) {
+      serviceId = parseInt(linesRaw[0].service_id, 10);
+    }
     const payerName = String(body.payer_name || '').trim();
     const payerPhone = String(body.payer_phone || '').trim();
-    if (!serviceId || !String(codeRaw).trim()) {
-      return res.status(400).json({ success: false, message: 'service_id and student_code are required' });
+    let metaObj = {};
+    if (body.order_meta != null && typeof body.order_meta === 'object') {
+      metaObj = { ...body.order_meta };
+    } else if (body.order_meta_json != null) {
+      try {
+        metaObj = JSON.parse(String(body.order_meta_json));
+      } catch {
+        metaObj = {};
+      }
+    }
+    if (!String(codeRaw).trim()) {
+      return res.status(400).json({ success: false, message: 'student_code is required' });
+    }
+    if (!serviceId || Number.isNaN(serviceId)) {
+      return res.status(400).json({ success: false, message: 'service_id (or lines[0].service_id) is required' });
     }
     if (!payerName || !payerPhone) {
       return res.status(400).json({ success: false, message: 'Payer name and phone are required' });
@@ -1807,23 +2278,87 @@ router.post('/public/pay-momo', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Student not found' });
     }
 
-    const [[service]] = await promisePool.query(
-      `SELECT * FROM services WHERE id = ? AND status = 'active' AND deleted_at IS NULL LIMIT 1`,
-      [serviceId]
-    );
-    if (!service) {
-      return res.status(404).json({ success: false, message: 'Service not found' });
+    let service;
+    let amount;
+
+    if (linesRaw && linesRaw.length > 0) {
+      const resolvedCart = [];
+      let total = 0;
+      for (const line of linesRaw) {
+        const sid = parseInt(line.service_id, 10);
+        const qty = Math.max(1, parseInt(line.quantity, 10) || 1);
+        if (!sid || Number.isNaN(sid)) {
+          return res.status(400).json({ success: false, message: 'Each cart line needs a valid service_id' });
+        }
+        const [[svc]] = await promisePool.query(
+          `SELECT * FROM services WHERE id = ? AND status = 'active' AND deleted_at IS NULL LIMIT 1`,
+          [sid]
+        );
+        if (!svc) {
+          return res.status(404).json({ success: false, message: `Service ${sid} not found` });
+        }
+        const [priceRows] = await promisePool.query(
+          `SELECT * FROM service_prices WHERE service_id = ? AND is_active = 1`,
+          [sid]
+        );
+        const quote = resolveAmountFromQuote(svc, priceRows, student);
+        const unit = Math.round(Number(quote.amount));
+        if (!unit || Number.isNaN(unit)) {
+          return res.status(400).json({ success: false, message: quote.message || `Invalid price for ${svc.name || sid}` });
+        }
+        const lineTotal = unit * qty;
+        total += lineTotal;
+        resolvedCart.push({
+          service_id: sid,
+          quantity: qty,
+          unit_amount_rwf: unit,
+          line_total_rwf: lineTotal,
+          service_name: svc.name,
+        });
+      }
+      amount = Math.round(total);
+      if (!amount || amount < 1 || Number.isNaN(amount)) {
+        return res.status(400).json({ success: false, message: 'Invalid cart total' });
+      }
+      const [[svcFirst]] = await promisePool.query(
+        `SELECT * FROM services WHERE id = ? AND status = 'active' AND deleted_at IS NULL LIMIT 1`,
+        [serviceId]
+      );
+      if (!svcFirst) {
+        return res.status(404).json({ success: false, message: 'Service not found' });
+      }
+      service = svcFirst;
+      metaObj.shoes_cart = resolvedCart;
+      metaObj.multi_line = true;
+      metaObj.shoes_cart_total_rwf = amount;
+    } else {
+      const [[svc]] = await promisePool.query(
+        `SELECT * FROM services WHERE id = ? AND status = 'active' AND deleted_at IS NULL LIMIT 1`,
+        [serviceId]
+      );
+      if (!svc) {
+        return res.status(404).json({ success: false, message: 'Service not found' });
+      }
+      service = svc;
+      const [priceRows] = await promisePool.query(
+        `SELECT * FROM service_prices WHERE service_id = ? AND is_active = 1`,
+        [serviceId]
+      );
+      const quote = resolveAmountFromQuote(service, priceRows, student);
+      amount = Math.round(Number(quote.amount));
+      if (!amount || amount < 1 || Number.isNaN(amount)) {
+        return res.status(400).json({ success: false, message: quote.message || 'Invalid amount' });
+      }
     }
 
-    const [priceRows] = await promisePool.query(
-      `SELECT * FROM service_prices WHERE service_id = ? AND is_active = 1`,
-      [serviceId]
-    );
-    const quote = resolveAmountFromQuote(service, priceRows, student);
-    const amount = Math.round(Number(quote.amount));
-    if (!amount || amount < 1 || Number.isNaN(amount)) {
-      return res.status(400).json({ success: false, message: quote.message || 'Invalid amount' });
-    }
+    metaObj.payer_name = payerName;
+    metaObj.payer_phone = payerPhone;
+    const orderMeta = JSON.stringify(metaObj);
+    const derived = deriveOrderColumnsFromShoesMeta(metaObj, payerName, payerPhone);
+    const isShoesVoucherFlow =
+      metaObj.flow === 'shoes-voucher' ||
+      (linesRaw && linesRaw.length > 0) ||
+      (Array.isArray(metaObj.shoes_cart) && metaObj.shoes_cart.length > 0);
 
     const orderNo = `SVC-${new Date().getFullYear()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
     const conn = await promisePool.getConnection();
@@ -1833,8 +2368,11 @@ router.post('/public/pay-momo', async (req, res) => {
       const [ins] = await conn.query(
         `INSERT INTO service_orders (
           order_number, service_id, student_id, school_id, academic_year,
-          amount, currency, payment_status, order_status
-        ) VALUES (?,?,?,?,?,?, 'FRW', 'awaiting_payment', 'awaiting_payment')`,
+          amount, currency, payment_status, order_status,
+          buyer_name, buyer_contact, agent_user_id, delivery_mode, delivery_address,
+          fulfillment_status, order_meta_json, source_channel
+        ) VALUES (?,?,?,?,?,?, 'FRW', 'awaiting_payment', 'awaiting_payment',
+          ?,?,?,?,?, 'Pending', ?, ?)`,
         [
           orderNo,
           serviceId,
@@ -1842,6 +2380,13 @@ router.post('/public/pay-momo', async (req, res) => {
           student.school_id,
           service.academic_year || student.academic_year || '',
           amount,
+          derived.buyer_name,
+          derived.buyer_contact,
+          derived.agent_user_id,
+          derived.delivery_mode,
+          derived.delivery_address,
+          orderMeta,
+          isShoesVoucherFlow ? 'PUBLIC_SHOES_VOUCHER' : 'PUBLIC',
         ]
       );
       orderId = ins.insertId;
@@ -1895,10 +2440,19 @@ router.post('/public/pay-momo', async (req, res) => {
     );
 
     if (statusUpper === 'SUCCESSFUL') {
-      await promisePool.query(
-        `UPDATE service_orders SET payment_status = 'paid', order_status = 'paid', updated_at = NOW() WHERE id = ?`,
-        [orderId]
-      );
+      if (isShoesVoucherFlow) {
+        await promisePool.query(
+          `UPDATE service_orders SET payment_status = 'paid', order_status = 'paid',
+            fulfillment_status = CASE WHEN fulfillment_status = 'Pending' THEN 'Processing' ELSE fulfillment_status END,
+            updated_at = NOW() WHERE id = ?`,
+          [orderId]
+        );
+      } else {
+        await promisePool.query(
+          `UPDATE service_orders SET payment_status = 'paid', order_status = 'paid', updated_at = NOW() WHERE id = ?`,
+          [orderId]
+        );
+      }
     }
 
     return res.json({
@@ -1917,6 +2471,93 @@ router.post('/public/pay-momo', async (req, res) => {
   } catch (e) {
     console.error('[student-services/public/pay-momo]', e);
     res.status(500).json({ success: false, message: e.message || 'Payment failed' });
+  }
+});
+
+/**
+ * POST /public/payment-plan-intent
+ * Bank / Visa / loan / ShuleAvance-style intent for student services (pending until verified).
+ */
+router.post('/public/payment-plan-intent', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const codeRaw = body.student_code ?? body.code ?? '';
+    const serviceId = parseInt(body.service_id, 10);
+    const amountRaw = Math.round(Number(body.amount_rwf ?? body.amount ?? 0));
+    const plan = String(body.plan || 'bank').toLowerCase().replace(/\s+/g, '_');
+    const payerName = String(body.payer_name || '').trim();
+    const payerPhone = String(body.payer_phone || '').trim();
+    const meta = body.order_meta && typeof body.order_meta === 'object' ? body.order_meta : {};
+    if (!serviceId || !String(codeRaw).trim()) {
+      return res.status(400).json({ success: false, message: 'service_id and student_code are required' });
+    }
+    if (!amountRaw || amountRaw < 100) {
+      return res.status(400).json({ success: false, message: 'Invalid amount' });
+    }
+    const student = await findStudentRowByCode(codeRaw);
+    if (!student) {
+      return res.status(404).json({ success: false, message: 'Student not found' });
+    }
+    const [[service]] = await promisePool.query(
+      `SELECT * FROM services WHERE id = ? AND status = 'active' AND deleted_at IS NULL LIMIT 1`,
+      [serviceId]
+    );
+    if (!service) {
+      return res.status(404).json({ success: false, message: 'Service not found' });
+    }
+    const orderNo = `SVC-${new Date().getFullYear()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
+    const metaJson = JSON.stringify({
+      ...meta,
+      plan,
+      payer_name: payerName,
+      payer_phone: payerPhone,
+      submitted_at: new Date().toISOString(),
+    });
+    const [ins] = await promisePool.query(
+      `INSERT INTO service_orders (
+        order_number, service_id, student_id, school_id, academic_year,
+        amount, currency, payment_status, order_status, buyer_name, buyer_contact, order_meta_json, source_channel
+      ) VALUES (?,?,?,?,?,?, 'FRW', 'pending', 'pending', ?, ?, ?, 'PUBLIC_SHOE_INTENT')`,
+      [
+        orderNo,
+        serviceId,
+        student.id,
+        student.school_id,
+        service.academic_year || student.academic_year || '',
+        amountRaw,
+        payerName,
+        payerPhone,
+        metaJson,
+      ]
+    );
+    const orderId = ins.insertId;
+    await promisePool.query(
+      `INSERT INTO service_payments (
+        order_id, payment_ref, payment_method, amount_paid, transaction_fee, total_amount,
+        payment_date, payment_status, provider_response
+      ) VALUES (?,?,?,?,?,?, NOW(), 'pending', ?)`,
+      [
+        orderId,
+        `INTENT-${plan}-${orderId}`,
+        plan,
+        amountRaw,
+        0,
+        amountRaw,
+        JSON.stringify({ plan }),
+      ]
+    );
+    return res.json({
+      success: true,
+      data: {
+        order_id: orderId,
+        order_number: orderNo,
+        invoice_no: orderNo,
+        plan,
+      },
+    });
+  } catch (e) {
+    console.error('[student-services/public/payment-plan-intent]', e);
+    res.status(500).json({ success: false, message: e.message || 'Failed' });
   }
 });
 

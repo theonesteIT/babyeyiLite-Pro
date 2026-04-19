@@ -13,6 +13,27 @@ function resolveSchoolId(req) {
 }
 
 // ── DB Setup ──────────────────────────────────────────────────
+/** Same rules as babyeyipro SmartSchoolHardwarePage / Student wizard display labels. */
+function formatCombinationBackend(combo) {
+    if (combo == null || combo === '') return '';
+    if (Array.isArray(combo)) return combo.map((x) => String(x).trim()).filter(Boolean).join(' ');
+    if (typeof combo === 'object') {
+        const vals = Object.values(combo).filter((v) => v != null && String(v).trim() !== '');
+        if (vals.length) return vals.map((v) => String(v).trim()).join(' ');
+        return '';
+    }
+    return String(combo).trim();
+}
+
+function formatSchoolClassRowLabel(r) {
+    if (!r) return '';
+    if (r._from_students) return String(r.group_name || '').trim();
+    const stream = r.stream_name && String(r.stream_name).trim() !== '' ? r.stream_name : '';
+    const combo = formatCombinationBackend(r.combination);
+    const parts = [r.group_name, stream, combo].filter((p) => p != null && String(p).trim() !== '');
+    return parts.join(' ').replace(/\s+/g, ' ').trim();
+}
+
 async function ensureClassesTable() {
     await db.query(`
         CREATE TABLE IF NOT EXISTS school_classes (
@@ -39,7 +60,7 @@ router.get('/schools/:id/classes', async (req, res) => {
         );
 
         // Robust JSON parsing for combination field
-        const parsedRows = rows.map(r => {
+        let parsedRows = rows.map(r => {
             let finalCombo = r.combination;
             if (typeof finalCombo === 'string' && finalCombo.trim().startsWith('[')) {
                 try { finalCombo = JSON.parse(finalCombo); } catch (_) {}
@@ -47,7 +68,54 @@ router.get('/schools/:id/classes', async (req, res) => {
             return { ...r, combination: finalCombo };
         });
 
-        res.json({ success: true, data: parsedRows });
+        // If the school has not configured class rows yet, derive options from enrolled students
+        // (distinct class_name) so portals still show real classes from the database.
+        if (!parsedRows.length) {
+            const [fromStudents] = await db.query(
+                `SELECT TRIM(class_name) AS class_name
+                 FROM students
+                 WHERE school_id = ?
+                   AND class_name IS NOT NULL
+                   AND TRIM(class_name) != ''
+                 GROUP BY TRIM(class_name)
+                 ORDER BY TRIM(class_name) ASC`,
+                [schoolId]
+            );
+            parsedRows = (fromStudents || []).map((r) => ({
+                id: null,
+                school_id: Number(schoolId),
+                group_name: r.class_name,
+                stream_name: null,
+                category: null,
+                combination: null,
+                _from_students: true,
+            }));
+        }
+
+        // Merged list for class filters (Smart Access, etc.): structure labels + every distinct
+        // students.class_name (matches school-console import / free-text registration).
+        let distinctStudentClasses = [];
+        try {
+            const [stuRows] = await db.query(
+                `SELECT TRIM(class_name) AS c
+                 FROM students
+                 WHERE school_id = ?
+                   AND class_name IS NOT NULL
+                   AND TRIM(class_name) != ''
+                 GROUP BY TRIM(class_name)`,
+                [schoolId]
+            );
+            distinctStudentClasses = (stuRows || []).map((x) => x.c).filter(Boolean);
+        } catch (_) {
+            distinctStudentClasses = [];
+        }
+
+        const fromStructure = parsedRows.map(formatSchoolClassRowLabel).filter(Boolean);
+        const classNameOptions = [...new Set([...fromStructure, ...distinctStudentClasses])].sort((a, b) =>
+            a.localeCompare(b, undefined, { numeric: true })
+        );
+
+        res.json({ success: true, data: parsedRows, class_name_options: classNameOptions });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
     }

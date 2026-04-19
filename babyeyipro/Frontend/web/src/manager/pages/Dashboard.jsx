@@ -1,25 +1,33 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { createPortal } from 'react-dom';
 import { useAuth } from "../context/AuthContext";
 import {
     FileText, CheckCircle, Clock, XCircle, AlertTriangle, TrendingUp,
     Activity, BarChart3, ArrowUpRight, ChevronRight, ChevronDown, Building2,
-    DollarSign, BookOpen, Award, Zap, Loader2, Info, X, RefreshCw
+    DollarSign, BookOpen, Award, Zap, Loader2, Info, X, RefreshCw,
+    ShieldAlert, Users, Phone, Printer, UserCheck
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { h } from "../utils/href";
+import api from '../services/api';
 
 // ================================================================
-// LEGACY ANALYTICAL ENGINES (copied exactly from babyeyilite)
+// ANALYTICAL COMPONENTS
 // ================================================================
 const Badge = ({ status }) => {
-    const map = {
-        approved: "bg-emerald-100 text-emerald-700 border-emerald-200",
-        rejected: "bg-red-100 text-red-700 border-red-200",
-        pending: "bg-amber-100 text-amber-700 border-amber-200",
+    const tone = {
+      critical: 'bg-red-100 text-red-700 border-red-200',
+      warning: 'bg-amber-100 text-amber-700 border-amber-200',
+      good: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+      approved: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+      pending: 'bg-amber-100 text-amber-700 border-amber-200',
+      rejected: 'bg-red-100 text-red-700 border-red-200',
     };
-    const cls = map[status?.toLowerCase()?.replace(/ /g, "_")] || "bg-slate-100 text-slate-600 border-slate-200";
-    const label = status?.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) || "—";
-    return <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-semibold border ${cls}`}>{label}</span>;
+    const cls = tone[status?.toLowerCase()] || 'bg-slate-100 text-slate-600 border-slate-200';
+    return (
+      <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider border ${cls}`}>
+        {status}
+      </span>
+    );
 };
 
 const LineAreaChart = ({ data = [], labelKey = "label", valueKey = "value", color = "#6366f1", height = 140, showGrid = true }) => {
@@ -159,7 +167,7 @@ const DashboardFilter = ({ value, onChange }) => {
                     <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
                     <div className="absolute right-0 top-full mt-1 bg-white border border-slate-100 shadow-2xl rounded-xl p-1.5 z-50 w-36 flex flex-col">
                         {["Today", "This Term", "Last Term", "This Year"].map(opt => (
-                            <button key={opt} onClick={() => { onChange(opt); setOpen(false); }} className="text-[9px] font-black text-slate-600 uppercase tracking-widest text-left px-3 py-2 hover:bg-slate-50 hover:text-[#FEBF10] rounded-lg transition-colors">
+                            <button key={opt} onClick={() => { onChange(opt); setOpen(false); }} className="text-[7px] font-black text-slate-600 uppercase tracking-widest text-left px-2 py-1 hover:bg-slate-50 hover:text-[#FEBF10] rounded-lg transition-colors">
                                 {opt}
                             </button>
                         ))}
@@ -175,7 +183,7 @@ const OverviewCard = ({ title, icon: Icon, iconColor, dataPie, demographicStats,
         <div className="flex items-center justify-between gap-2 mb-6 w-full">
             <div className="flex items-center gap-2">
                 <Icon size={16} className={iconColor} />
-                <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-[0.2em]">{title}</h3>
+                <h3 className="text-[8px] font-black text-slate-800 uppercase tracking-[0.2em]">{title}</h3>
             </div>
             <DashboardFilter value={filterValue} onChange={setFilterValue} />
         </div>
@@ -209,105 +217,316 @@ const OverviewCard = ({ title, icon: Icon, iconColor, dataPie, demographicStats,
 );
 
 // ================================================================
-// HYBRID COMMAND CENTER
+// DATES & UTILS
+// ================================================================
+function getCurrentAcademicYear() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    return month >= 7 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
+}
+  
+function getCurrentTerm() {
+    const month = new Date().getMonth() + 1;
+    if (month <= 4) return 'Term 2';
+    if (month <= 8) return 'Term 3';
+    return 'Term 1';
+}
+
+function formatDateTime(value) {
+    if (!value) return 'No time';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return 'No time';
+    return d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+function toNumber(value, fallback = 0) {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : fallback;
+}
+
+const DEFAULT_TOTAL_MARKS = 100;
+function getMarksPct(student, totalMarks) {
+    const raw = toNumber(student?.marks_remaining, 0);
+    if (raw <= 100 && totalMarks > 100) return raw;
+    if (!totalMarks) return raw;
+    return Math.max(0, Math.min(100, (raw / totalMarks) * 100));
+}
+
+// ================================================================
+// DASHBOARD COMPONENT
 // ================================================================
 const Dashboard = () => {
     const { manager } = useAuth();
     const [loading, setLoading] = useState(true);
+    const [lastUpdated, setLastUpdated] = useState(null);
+
+    // Filter states for discipline data
+    const [filters, setFilters] = useState({
+        academic_year: getCurrentAcademicYear(),
+        term: getCurrentTerm(),
+    });
+
+    // Integrated State
     const [stats, setStats] = useState({
         core: [
-            { label: "Total Students", value: "1,245" },
-            { label: "Teaching Staff", value: "84" },
-            { label: "Global Attendance", value: "94.8%" },
-            { label: "Institutional GPA", value: "71.4%" },
+            { label: "Total Students", value: "0" },
+            { label: "Teaching Staff", value: "0" },
+            { label: "Global Attendance", value: "0%" },
+            { label: "Institutional GPA", value: "0%" },
         ],
-        complianceRate: 0,
-        termTrend: [
-            { label: "Term 1", value: 92, approved: 89 },
-            { label: "Term 2", value: 94, approved: 91 },
-            { label: "Term 3", value: 91, approved: 88 },
-        ],
-        feeByClass: [
-            { label: "S1", value: 7.5, limit: 10 },
-            { label: "S2", value: 8.0, limit: 10 },
-            { label: "S3", value: 8.5, limit: 10 },
-            { label: "S4", value: 9.0, limit: 12 },
-        ],
-        recentActivity: [
-            { id: "LOG-01", type: "Discipline", detail: "Behavioral alert in Senior 3", time: "10 min ago", status: "pending" },
-            { id: "LOG-02", type: "Academic", detail: "Mid-Term Marks published", time: "2 hrs ago", status: "approved" },
-            { id: "LOG-03", type: "Finance", detail: "Fee collection milestone", time: "5 hrs ago", status: "approved" },
-            { id: "LOG-04", type: "Attendance", detail: "Staff absenteeism flag", time: "1 day ago", status: "rejected" }
-        ],
-        academicFilter: "This Term",
+        recentActivity: [],
         attendanceOverview: {
-            present: 1000, absent: 50,
+            present: 0, absent: 0,
             boys: { count: 0, percentage: 0 },
             girls: { count: 0, percentage: 0 },
             sparkline: [{ value: 0 }]
         },
+        revenue30d: 0,
+        termFinance: { expected: 0, collected: 0, outstanding: 0 },
         academicOverview: {
-            exceptional: 10, expected: 10, needsReview: 10,
+            exceptional: 0, expected: 0, needsReview: 0,
             boys: { count: "0", percentage: 0 },
             girls: { count: "0", percentage: 0 },
             sparkline: [{ value: 0 }]
-        }
+        },
+        termTrend: [],
+        feeByClass: []
     });
 
+    const [disData, setDisData] = useState({
+        totalMarks: DEFAULT_TOTAL_MARKS,
+        reportSummary: null,
+        permissions: [],
+        students: [],
+    });
+
+    // Modals
+    const [attendanceModal, setAttendanceModal] = useState(null);
+    const [attendanceRows, setAttendanceRows] = useState([]);
+    const [attendanceLoading, setAttendanceLoading] = useState(false);
+    const [attendanceError, setAttendanceError] = useState(null);
+    const [insightModal, setInsightModal] = useState(null);
+    const [casesRows, setCasesRows] = useState([]);
+    const [casesLoading, setCasesLoading] = useState(false);
+    const [casesError, setCasesError] = useState(null);
+
+    const loadDashboard = useCallback(async () => {
+        setLoading(true);
+        const { academic_year, term } = filters;
+
+        try {
+            const [managerRes, reportRes, permissionsRes, settingsRes, studentsRes, financeRes, termFinanceRes] = await Promise.allSettled([
+                api.get('/dos/dashboard/stats'),
+                api.get('/discipline/report-summary', { params: { academic_year, term } }),
+                api.get('/permissions'),
+                api.get('/discipline/settings'),
+                api.get('/discipline/students-summary', { params: { academic_year, term } }),
+                api.get('/accountant/overview'),
+                api.get('/accountant/reports/payments', { params: { academic_year, term } }),
+            ]);
+
+            // Process Manager Stats
+            if (managerRes.status === 'fulfilled' && managerRes.value.data?.success) {
+                const dynamicStats = managerRes.value.data.data;
+                const totalStudents = dynamicStats.totalStudents || 0;
+                setStats(prev => ({
+                    ...prev,
+                    core: [
+                        { label: "Total Students", value: totalStudents.toLocaleString() },
+                        { label: "Teaching Staff", value: dynamicStats.totalTeachingStaff.toLocaleString() },
+                        { label: "Global Attendance", value: `${dynamicStats.globalAttendance}%` },
+                        { label: "Institutional GPA", value: `${dynamicStats.institutionalGPA}%` },
+                    ],
+                    recentActivity: dynamicStats.activityLog || [],
+                    attendanceOverview: dynamicStats.attendanceOverview || prev.attendanceOverview,
+                    academicOverview: dynamicStats.academicOverview || prev.academicOverview,
+                    termTrend: dynamicStats.termTrend || [],
+                    feeByClass: dynamicStats.feeByClass || []
+                }));
+            }
+
+            // Process Finance Stats
+            if (financeRes.status === 'fulfilled' && financeRes.value.data?.success) {
+                const fin = financeRes.value.data.data;
+                setStats(p => ({ ...p, revenue30d: fin.last_30_days_total_paid || 0 }));
+            }
+
+            // Process Term Finance
+            if (termFinanceRes.status === 'fulfilled' && termFinanceRes.value.data?.success) {
+                const rows = termFinanceRes.value.data.data.rows || [];
+                const summary = rows.reduce((acc, r) => ({
+                    expected: acc.expected + (Number(r.total_due) || 0),
+                    collected: acc.collected + (Number(r.total_paid) || 0),
+                    outstanding: acc.outstanding + (Number(r.remaining) || 0)
+                }), { expected: 0, collected: 0, outstanding: 0 });
+                setStats(p => ({ ...p, termFinance: summary }));
+            }
+
+            // Process Discipline Stats
+            const reportSummary = reportRes.status === 'fulfilled' && reportRes.value.data?.success ? reportRes.value.data.data : null;
+            const permissions = permissionsRes.status === 'fulfilled' && permissionsRes.value.data?.success ? permissionsRes.value.data.data : [];
+            const studentsRaw = studentsRes.status === 'fulfilled' && studentsRes.value.data?.success ? studentsRes.value.data.data : [];
+            const students = studentsRaw.map(s => ({ ...s, marks_remaining: s.discipline_remaining }));
+            const totalMarks = settingsRes.status === 'fulfilled' && settingsRes.value.data?.success
+                ? toNumber(settingsRes.value.data.data?.total_marks, DEFAULT_TOTAL_MARKS)
+                : DEFAULT_TOTAL_MARKS;
+
+            setDisData({ totalMarks, reportSummary, permissions, students });
+            setLastUpdated(new Date());
+        } catch (error) {
+            console.error("Dashboard multi-fetch error:", error);
+        } finally {
+            setLoading(false);
+        }
+    }, [filters]);
 
     useEffect(() => {
-        const fetchDashboardData = async () => {
-            if (!manager?.school_id) return;
-            try {
-                // Fetch dynamic stats from our new backend endpoint
-                const { default: api } = await import('../services/api');
-                const response = await api.get('/dos/dashboard/stats');
+        loadDashboard();
+    }, [loadDashboard]);
 
-                if (response.data && response.data.success) {
-                    const dynamicStats = response.data.data;
-                    setStats(prev => ({
-                        ...prev,
-                        core: [
-                            { label: "Total Students", value: dynamicStats.totalStudents.toLocaleString() },
-                            { label: "Teaching Staff", value: dynamicStats.totalTeachingStaff.toLocaleString() },
-                            { label: "Global Attendance", value: `${dynamicStats.globalAttendance}%` },
-                            { label: "Institutional GPA", value: `${dynamicStats.institutionalGPA}%` },
-                        ],
-                        recentActivity: dynamicStats.activityLog || prev.recentActivity,
-                        attendanceOverview: dynamicStats.attendanceOverview || prev.attendanceOverview,
-                        academicOverview: dynamicStats.academicOverview || prev.academicOverview
-                    }));
-                }
-            } catch (error) {
-                console.error("Dashboard data fetch error:", error);
-            } finally {
-                setLoading(false);
-            }
+    // Discipline-Specific Derived Stats (for the top cards)
+    const disDerived = useMemo(() => {
+        const totalMarks = disData.totalMarks || DEFAULT_TOTAL_MARKS;
+        const students = disData.students || [];
+        const permissions = disData.permissions || [];
+        const reportSummary = disData.reportSummary;
+
+        const criticalStudents = students.filter((student) => getMarksPct(student, totalMarks) < 50);
+        const warningStudents = students.filter((student) => {
+            const pct = getMarksPct(student, totalMarks);
+            return pct >= 50 && pct < 75;
+        });
+        const atRiskStudents = criticalStudents.concat(warningStudents);
+        const now = lastUpdated ? new Date(lastUpdated).getTime() : 0;
+        const activePermsCount = permissions.filter((p) => {
+            const ends = new Date(p.ends_at || p.end_date || p.updated_at).getTime();
+            return p.status !== 'REJECTED' && (!Number.isFinite(ends) || ends >= now);
+        }).length;
+
+        const classTrend = (reportSummary?.by_class || [])
+            .map((row) => ({ label: row.class_name || 'Class', value: toNumber(row.case_count, 0) }))
+            .sort((a, b) => b.value - a.value).slice(0, 6);
+
+        return {
+            studentCount: students.length,
+            casesToday: toNumber(reportSummary?.case_count, 0),
+            atRiskCount: atRiskStudents.length,
+            activePermissions: activePermsCount,
+            demographics: reportSummary?.demographics || { boys: 0, girls: 0 },
+            attendanceToday: reportSummary?.attendance_today || { absent: 0, missed_courses: 0 },
+            atRiskRows: atRiskStudents.map(s => ({
+                id: s.id, name: `${s.first_name} ${s.last_name}`, uid: s.student_uid,
+                pct: Math.round(getMarksPct(s, totalMarks)), tone: getMarksPct(s, totalMarks) < 50 ? 'critical' : 'warning'
+            })),
+            classTrend
         };
+    }, [disData, lastUpdated]);
 
-        fetchDashboardData();
-    }, [manager]);
+    // Modals
+    const openAttendanceModal = useCallback(async (kind) => {
+        setAttendanceModal(kind);
+        setAttendanceRows([]); setAttendanceError(null); setAttendanceLoading(true);
+        try {
+            const res = await api.get('/discipline/attendance-today-details', { params: { kind } });
+            if (res.data?.success) setAttendanceRows(res.data.data || []);
+            else setAttendanceError(res.data?.message || 'Failed to load details.');
+        } catch (e) { setAttendanceError('Failed to load attendance details.'); }
+        finally { setAttendanceLoading(false); }
+    }, []);
 
-    if (loading) return (
+    const openCasesModal = useCallback(async () => {
+        setInsightModal('cases');
+        setCasesRows([]); setCasesError(null); setCasesLoading(true);
+        try {
+            const res = await api.get('/discipline/cases', { params: { academic_year: filters.academic_year, term: filters.term, limit: 80 } });
+            if (res.data?.success) setCasesRows(res.data.data || []);
+            else setCasesError(res.data?.message || 'Failed to load cases.');
+        } catch (e) { setCasesError('Failed to load cases.'); }
+        finally { setCasesLoading(false); }
+    }, [filters]);
+
+    // JSX Components for Modals
+    const AttendanceModal = attendanceModal ? createPortal(
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <div className="bg-white w-full max-w-2xl max-h-[90vh] rounded-[28px] shadow-2xl border border-black/5 overflow-hidden flex flex-col">
+                <div className="px-6 py-5 bg-gradient-to-br from-[#1E3A5F] to-[#0D2644] text-white shrink-0">
+                    <div className="flex items-center justify-between gap-4">
+                        <div className="min-w-0">
+                            <p className="text-[9px] font-black uppercase tracking-[0.3em]" style={{ color: "#FEBF10" }}>Attendance Today</p>
+                            <h3 className="text-base font-black uppercase tracking-widest mt-1 truncate">{attendanceModal === 'absent' ? 'Absent Learners' : 'Missed Courses'}</h3>
+                        </div>
+                        <button onClick={() => setAttendanceModal(null)} className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-all"><X size={18} /></button>
+                    </div>
+                </div>
+                <div className="px-6 py-5 overflow-y-auto">
+                    {attendanceError && <div className="p-3 bg-red-50 text-red-700 text-[10px] font-black uppercase tracking-widest rounded-xl mb-4">{attendanceError}</div>}
+                    {attendanceLoading ? <Loader2 className="animate-spin mx-auto my-10" /> : attendanceRows.map(r => (
+                        <div key={r.id} className="p-4 border border-black/5 rounded-2xl mb-3 flex items-center justify-between">
+                            <div>
+                                <p className="text-[11px] font-black text-slate-800 uppercase">{r.first_name} {r.last_name}</p>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{r.class_name}</p>
+                            </div>
+                            <a href={`tel:${r.father_phone || r.mother_phone}`} className="h-8 rounded-xl px-3 bg-re-bg border border-black/5 flex items-center gap-2 text-[9px] font-black uppercase"><Phone size={12} className="text-re-gold" />Call</a>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>, document.body
+    ) : null;
+
+    const InsightModal = insightModal ? createPortal(
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <div className="bg-white w-full max-w-2xl max-h-[90vh] rounded-[28px] shadow-2xl border border-black/5 overflow-hidden flex flex-col">
+                <div className="px-6 py-5 bg-gradient-to-br from-[#1E3A5F] to-[#0D2644] text-white shrink-0">
+                    <div className="flex items-center justify-between gap-4">
+                        <div className="min-w-0">
+                            <p className="text-[9px] font-black uppercase tracking-[0.3em]" style={{ color: "#FEBF10" }}>Intelligence Insight</p>
+                            <h3 className="text-base font-black uppercase tracking-widest mt-1 truncate">{insightModal === 'cases' ? 'Discipline Cases' : 'At-Risk Learners'}</h3>
+                        </div>
+                        <button onClick={() => setInsightModal(null)} className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-all"><X size={18} /></button>
+                    </div>
+                </div>
+                <div className="px-6 py-5 overflow-y-auto">
+                    {insightModal === 'cases' ? (
+                        casesLoading ? <Loader2 className="animate-spin mx-auto my-10" /> : casesRows.map(c => (
+                            <div key={c.id} className="p-4 border border-black/5 rounded-2xl mb-3 flex justify-between">
+                                <div><p className="text-[11px] font-black uppercase">{c.first_name} {c.last_name}</p><p className="text-[9px] font-bold text-slate-400 uppercase mt-1">{c.class_name} · {formatDateTime(c.created_at)}</p></div>
+                                <span className="text-red-600 font-black text-xs">-{c.marks_deducted}</span>
+                            </div>
+                        ))
+                    ) : disDerived.atRiskRows.map(r => (
+                        <div key={r.id} className="p-4 border border-black/5 rounded-2xl mb-3 flex justify-between items-center">
+                            <p className="text-[11px] font-black uppercase">{r.name}</p>
+                            <span className={`text-sm font-black ${r.tone === 'critical' ? 'text-red-600' : 'text-amber-600'}`}>{r.pct}%</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>, document.body
+    ) : null;
+
+    if (loading && !stats.core[0].value) return (
         <div className="min-h-screen flex items-center justify-center bg-re-bg">
-            <RefreshCw className="animate-spin text-re-orange" />
+            <RefreshCw className="animate-spin text-re-navy" />
         </div>
     );
 
     return (
-        <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen">
+        <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen pb-20">
+            {AttendanceModal}
+            {InsightModal}
             <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
 
-            {/* HERO (Inherited from Teacher Portal) */}
+            {/* HERO */}
             <section className="relative p-7 md:p-10 text-white overflow-hidden min-h-[230px] flex items-center" style={{ fontFamily: "'Montserrat', sans-serif" }}>
                 <div className="absolute inset-0 z-0">
-                    <img src="/teacher.jpg" className="w-full h-full object-cover shadow-2xl" />
+                    <img src="/teacher.jpg" className="w-full h-full object-cover shadow-2xl" alt="School hero" />
                     <div className="absolute inset-0 bg-black/50 backdrop-blur-[1px]"></div>
                 </div>
-
                 <div className="relative z-10 max-w-4xl">
                     <h1 className="text-2xl md:text-3xl font-black tracking-tight mb-2">
-                        Welcome back, <span style={{ color: "#FEBF10" }}>{manager?.name || manager?.first_name || 'Executive Officer'}</span> 👋
+                        Welcome back, <span style={{ color: "#FEBF10" }}>{manager?.name || 'Executive Officer'}</span> 
                     </h1>
                     <p className="text-sm md:text-base font-bold opacity-90 max-w-2xl italic tracking-tight">
                         Institutional status: <span className="text-emerald-400">Optimal</span>. Strategic systems verified and synchronized for executive oversight.
@@ -316,52 +535,74 @@ const Dashboard = () => {
             </section>
 
             {/* MAIN CONTENT */}
-            <div className="max-w-[1400px] mx-auto px-5 md:px-8 -mt-10 relative z-20 pb-14" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+            <div className="max-w-[1400px] mx-auto px-5 md:px-8 -mt-10 relative z-20" style={{ fontFamily: "'Montserrat', sans-serif" }}>
                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
 
                     {/* LEFT SECTION */}
                     <div className="lg:col-span-3 space-y-5">
 
-                        {/* STATS GRID (Inherited from Teacher Portal) */}
+                        {/* DISCIPLINARY STATS GRID (NEW 3+1 Hybrid) */}
                         <div className="bg-white rounded-[24px] shadow-2xl border border-black/5 overflow-hidden grid grid-cols-2">
-                            {stats.core.map((stat, i) => (
-                                <div
-                                    key={i}
-                                    className={`p-5 flex flex-col items-center justify-center text-center border-gray-100 
-                                    ${i % 2 === 0 ? 'border-r' : ''} 
-                                    ${i < 2 ? 'border-b' : ''}`}
+                            {[
+                                { label: 'Total Students', value: stats.core[0].value, onClick: () => window.location.assign('/students') },
+                                { 
+                                    label: `EXPECTANCY: ${stats.termFinance.expected > 1000000 ? (stats.termFinance.expected / 1000000).toFixed(1) + 'M' : stats.termFinance.expected.toLocaleString()} RWF`, 
+                                    value: `${stats.termFinance.collected > 1000000 ? (stats.termFinance.collected / 1000000).toFixed(1) + 'M' : stats.termFinance.collected.toLocaleString()} RWF`, 
+                                    onClick: () => window.location.assign('/finance/payments'), 
+                                    sub: `COLLECTED: ${stats.termFinance.collected > 1000000 ? (stats.termFinance.collected/1000000).toFixed(1)+'M' : stats.termFinance.collected.toLocaleString()} | DEBITS: ${stats.termFinance.outstanding > 1000000 ? (stats.termFinance.outstanding/1000000).toFixed(1)+'M' : stats.termFinance.outstanding.toLocaleString()}`,
+                                    smallText: true
+                                },
+                                { label: 'Active permissions', value: disDerived.activePermissions, onClick: () => {} },
+                            ].map((stat, i) => (
+                                <button
+                                    key={stat.label}
+                                    type="button"
+                                    onClick={stat.onClick}
+                                    className={`p-5 flex flex-col items-center justify-center text-center border-gray-100 ${i % 2 === 0 ? 'border-r' : ''} ${i < 2 ? 'border-b' : ''} hover:bg-slate-50/60 transition-all active:scale-[0.99]`}
                                 >
-                                    <span className="text-xl md:text-2xl font-black tracking-tighter" style={{ color: "#1E3A5F" }}>
-                                        {stat.value}
-                                    </span>
-                                    <p className="text-[10px] font-black text-re-text-muted uppercase tracking-widest mt-1 opacity-60">
-                                        {stat.label}
-                                    </p>
-                                </div>
+                                    <span className={`${stat.smallText ? 'text-base md:text-lg' : 'text-xl md:text-2xl'} font-black tracking-tighter text-[#1E3A5F]`}>{stat.value}</span>
+                                    <p className={`${stat.smallText ? 'text-[8.5px]' : 'text-[10px]'} font-black text-slate-400 uppercase tracking-widest mt-1 opacity-70`}>{stat.label}</p>
+                                    {stat.sub && <p className="text-[7px] font-black text-slate-400 uppercase mt-1.5 leading-tight whitespace-nowrap">{stat.sub}</p>}
+                                </button>
                             ))}
+                            <div className="p-3.5 flex flex-col justify-center items-center text-center border-gray-100">
+                                <span className="text-lg md:text-xl font-black tracking-tighter text-[#1E3A5F] leading-none">{disDerived.studentCount}</span>
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1 opacity-70">Actual Students</p>
+                                <div className="w-full h-px bg-slate-100 my-2" />
+                                <div className="flex items-center justify-center gap-3 text-[8.5px] font-black uppercase tracking-widest text-[#1E3A5F] mb-1.5">
+                                    <span>Boys : {disDerived.demographics.boys}</span>
+                                    <span className="text-slate-200">|</span>
+                                    <span>Girls : {disDerived.demographics.girls}</span>
+                                </div>
+                                <div className="flex flex-col gap-1 w-full bg-slate-50 rounded-lg p-1.5 border border-slate-100">
+                                    <button onClick={() => openAttendanceModal('absent')} className="flex justify-between text-[8px] font-black uppercase hover:text-amber-600 transition-colors px-1">
+                                        <span>Absent Today</span>
+                                        <span className="text-amber-600">{disDerived.attendanceToday.absent}</span>
+                                    </button>
+                                    <button onClick={() => openAttendanceModal('missed')} className="flex justify-between text-[8px] font-black uppercase hover:text-red-500 transition-colors px-1">
+                                        <span>Missed Courses</span>
+                                        <span className="text-red-500">{disDerived.attendanceToday.missed_courses}</span>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
-                        {/* ANALYTICAL TRENDS (Redesigned) */}
+                        {/* EXECUTIVE CHARTS (RESTORED) */}
                         <div className="bg-white border border-slate-200 rounded-[24px] shadow-sm p-5">
                             <div className="flex items-center justify-between mb-4">
                                 <h3 className="font-black text-slate-800 flex items-center gap-2 text-[11px] uppercase tracking-[0.2em]">
-                                    <TrendingUp className="w-4 h-4" style={{ color: "#FEBF10" }} /> Core Metrics Progress
+                                    <TrendingUp className="w-4 h-4" style={{ color: "#FEBF10" }} /> School Development Trends
                                 </h3>
-                                <div className="flex items-center gap-3 text-[9px] font-black uppercase tracking-widest text-slate-400">
-                                    <span className="flex items-center gap-1.5"><span className="w-3 h-1.5 rounded" style={{ background: "#FEBF10" }} /> Enrollment</span>
-                                    <span className="flex items-center gap-1.5"><span className="w-3 h-1.5 rounded" style={{ background: "#1E3A5F" }} /> Avg. Score</span>
-                                </div>
                             </div>
                             <LineAreaChart data={stats.termTrend} labelKey="label" valueKey="value" color="#FEBF10" height={130} />
-                            <div className="mt-2">
-                                <LineAreaChart data={stats.termTrend} labelKey="label" valueKey="approved" color="#1E3A5F" height={70} showGrid={false} />
+                            <div className="mt-2 text-center text-[10px] font-black text-slate-300 uppercase tracking-widest">
+                                Institutional Enrollment & Avg. GPA Trends
                             </div>
                         </div>
 
-                        {/* FEE VS LIMIT (Redesigned) */}
                         <div className="bg-white border border-slate-200 rounded-[24px] shadow-sm p-6 text-center">
                             <h3 className="font-black text-slate-800 flex items-center gap-3 justify-center mb-6 text-[11px] uppercase tracking-[0.2em]">
-                                <BarChart3 className="w-4 h-4 text-emerald-500" /> Section Performance Summary
+                                <BarChart3 className="w-4 h-4 text-emerald-500" /> Section Achievement Overview
                             </h3>
                             <ModernBarChart
                                 data={stats.feeByClass} labelKey="label" valueKey="value"
@@ -379,104 +620,48 @@ const Dashboard = () => {
 
                     </div>
 
-                    {/* RIGHT SECTION (Sidebar) */}
+                    {/* SIDEBAR (RESTORED) */}
                     <div className="space-y-6 lg:col-span-2">
-
-                        {/* OVERVIEW CARDS (Redesigned) */}
                         <OverviewCard
-                            title="Attendance"
-                            icon={CheckCircle}
-                            iconColor="text-emerald-500"
-                            filterValue={stats.attendanceFilter}
-                            setFilterValue={(v) => setStats(prev => ({ ...prev, attendanceFilter: v }))}
-                            dataPie={[
-                                { label: "Present", value: stats.attendanceOverview.present, color: "#10b981" },
-                                { label: "Absent", value: stats.attendanceOverview.absent, color: "#f43f5e" }
-                            ]}
-                            demographicStats={{
-                                left: {
-                                    count: stats.attendanceOverview.boys.count,
-                                    label: "Boys",
-                                    subtext: `${stats.attendanceOverview.boys.percentage}%`
-                                },
-                                right: {
-                                    count: stats.attendanceOverview.girls.count,
-                                    label: "Girls",
-                                    subtext: `${stats.attendanceOverview.girls.percentage}%`
-                                }
-                            }}
-                            sparklineData={stats.attendanceOverview.sparkline}
-                            detailLabel="Active Trend vs Absences"
-                            detailValue="+2.4% Optimal"
-                            trendColor="#10b981"
-                        />
-
-                        <OverviewCard
-                            title="Academic Overview"
+                            title="Academic Performance"
                             icon={BookOpen}
                             iconColor="text-[#FEBF10]"
-                            filterValue={stats.academicFilter}
-                            setFilterValue={(v) => setStats(prev => ({ ...prev, academicFilter: v }))}
+                            filterValue={stats.academicFilter || "This Term"}
+                            setFilterValue={(v) => setStats(p => ({ ...p, academicFilter: v }))}
                             dataPie={[
                                 { label: "Exceptional", value: stats.academicOverview.exceptional, color: "#FEBF10" },
                                 { label: "Expected", value: stats.academicOverview.expected, color: "#FED44A" },
                                 { label: "Needs Rev", value: stats.academicOverview.needsReview, color: "#ef4444" }
                             ]}
                             demographicStats={{
-                                left: {
-                                    count: `${stats.academicOverview.boys.count}%`,
-                                    label: "Avg. Boys",
-                                    subtext: "GPA Score"
-                                },
-                                right: {
-                                    count: `${stats.academicOverview.girls.count}%`,
-                                    label: "Avg. Girls",
-                                    subtext: "GPA Score"
-                                }
+                                left: { count: `${stats.academicOverview.boys.count}%`, label: "Avg. Boys", subtext: "GPA Score" },
+                                right: { count: `${stats.academicOverview.girls.count}%`, label: "Avg. Girls", subtext: "GPA Score" }
                             }}
                             sparklineData={stats.academicOverview.sparkline}
-                            detailLabel="Institutional Performance"
-                            detailValue="avg. 71.4% (GPA)"
+                            detailLabel="GPA Performance"
+                            detailValue={stats.core[3].value}
                             trendColor="#FEBF10"
                         />
 
-                        {/* SYSTEM LOGS */}
-                        <div className="bg-white border border-slate-200 rounded-[24px] shadow-2xl overflow-hidden flex flex-col">
-                            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                                <h3 className="font-black text-slate-800 flex items-center gap-2 text-[11px] uppercase tracking-widest">
-                                    <Award className="w-4 h-4 text-amber-500" /> System Notifications Log
-                                </h3>
-                                <Link to={h("/settings")} className="text-[9px] font-black text-amber-600 uppercase hover:underline">
-                                    View All →
-                                </Link>
-                            </div>
-                            <div className="divide-y divide-slate-50">
-                                {stats.recentActivity.map((log) => (
-                                    <div key={log.id} className="flex items-center gap-4 px-6 py-4 hover:bg-slate-50 transition-all cursor-pointer group">
-                                        <div className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0 group-hover:bg-amber-100 transition-colors">
-                                            {log.type === "Discipline" && <AlertTriangle className="w-4 h-4 text-slate-400 group-hover:text-amber-500" />}
-                                            {log.type === "Academic" && <BookOpen className="w-4 h-4 text-slate-400 group-hover:text-emerald-500" />}
-                                            {log.type === "Finance" && <DollarSign className="w-4 h-4 text-slate-400 group-hover:text-blue-500" />}
-                                            {log.type === "Attendance" && <Activity className="w-4 h-4 text-slate-400 group-hover:text-red-500" />}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="font-black text-slate-800 text-xs tracking-tight">{log.detail}</p>
-                                            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-1">{log.time} • {log.type}</p>
-                                        </div>
-                                        <div className="text-right shrink-0">
-                                            <Badge status={log.status} />
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                            <div className="p-6 border-t border-slate-50">
-                                <button
-                                    className="w-full flex items-center justify-center gap-2 py-3 text-white rounded-[20px] font-black text-[10px] uppercase tracking-widest shadow-xl active:scale-95 transition-all"
-                                    style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)" }}>
-                                    <Zap className="w-4 h-4" style={{ color: "#FEBF10" }} /> Manage Global Alerts
-                                </button>
-                            </div>
-                        </div>
+                        <OverviewCard
+                            title="Attendance Overview"
+                            icon={CheckCircle}
+                            iconColor="text-emerald-500"
+                            filterValue={stats.attendanceFilter || "This Term"}
+                            setFilterValue={(v) => setStats(p => ({ ...p, attendanceFilter: v }))}
+                            dataPie={[
+                                { label: "Present", value: stats.attendanceOverview.present, color: "#10b981" },
+                                { label: "Absent", value: stats.attendanceOverview.absent, color: "#f43f5e" }
+                            ]}
+                            demographicStats={{
+                                left: { count: stats.attendanceOverview.boys.count, label: "Boys", subtext: `${stats.attendanceOverview.boys.percentage}%` },
+                                right: { count: stats.attendanceOverview.girls.count, label: "Girls", subtext: `${stats.attendanceOverview.girls.percentage}%` }
+                            }}
+                            sparklineData={stats.attendanceOverview.sparkline}
+                            detailLabel="Institutional Attendance"
+                            detailValue={`${stats.core[2].value} Optimal`}
+                            trendColor="#10b981"
+                        />
 
                     </div>
                 </div>

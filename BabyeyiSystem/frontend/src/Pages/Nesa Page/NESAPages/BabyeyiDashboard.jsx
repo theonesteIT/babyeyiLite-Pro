@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 const BRAND_LOGO = "/1BABYEYI LOGO FINAL.png";
 import { useAuth } from "../../../context/AuthContext";
+import { BABYEYI_PAGE_BG } from "../../../theme/babyeyiDashboardTheme";
 import FeeLimitsView from "./FeeLimitsView";
 
 // ── CONFIG ──────────────────────────────────────────────────────
@@ -739,14 +740,14 @@ export default function NESABABYEYIDashboard() {
 
   if (authLoading) {
     return (
-      <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", background:`linear-gradient(160deg, ${C.goldBg} 0%, ${C.goldBgMid} 40%, ${C.goldBorder} 100%)`, fontFamily:font }}>
+      <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", background:BABYEYI_PAGE_BG, fontFamily:font }}>
         <Loader2 style={{ width:40, height:40, color:C.gold, animation:"spin 0.8s linear infinite" }}/>
       </div>
     );
   }
 
   return (
-    <div style={{ minHeight:"100vh", display:"flex", background:`linear-gradient(160deg, ${C.goldBg} 0%, #fff 40%, ${C.goldBgMid} 100%)`, fontFamily:font, color:C.dark }}>
+    <div style={{ minHeight:"100vh", display:"flex", background:BABYEYI_PAGE_BG, fontFamily:font, color:C.dark }}>
       <style>{globalStyles}</style>
 
       {profileOpen && (

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import BabyeyiList from "./BabyeyiList";
 import { mapSchoolOwnershipToFeeScope, categoryOptionsForWizard } from "./babyeyiWizardSchoolScope";
+import { BABYEYI_PAGE_BG } from "../../../theme/babyeyiDashboardTheme";
 
 // ── API CONFIG ────────────────────────────────────────────────
 const API_BASE   = "http://localhost:5100/api";
@@ -918,7 +919,7 @@ export default function App({ session }) {
   if (submitted) {
     return (
       <div className="min-h-screen flex items-start justify-center p-6 overflow-y-auto"
-        style={{ background: `linear-gradient(135deg, ${C.goldBg}, #fff, ${C.goldBgMid})`, fontFamily: "'Montserrat', sans-serif" }}>
+        style={{ background: BABYEYI_PAGE_BG, fontFamily: "'Montserrat', sans-serif" }}>
         <div className="text-center max-w-lg w-full py-6">
           <div className="w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-5 shadow-2xl"
             style={{ background: `linear-gradient(135deg, ${C.gold}, ${C.goldDark})`, boxShadow: "0 8px 30px rgba(254,191,16,0.45)" }}>
@@ -1029,7 +1030,7 @@ export default function App({ session }) {
 
   if (view === "list") {
     return (
-      <div className="min-h-screen" style={{ background: C.goldBg, fontFamily: "'Montserrat', sans-serif" }}>
+      <div className="min-h-screen" style={{ background: BABYEYI_PAGE_BG, fontFamily: "'Montserrat', sans-serif" }}>
         <div className="fixed top-3 left-3 z-50">
           <button onClick={() => setView("wizard")}
             className="flex items-center gap-2 px-3 py-2 bg-white border text-slate-700 rounded-xl text-xs font-bold shadow-sm hover:bg-slate-100"

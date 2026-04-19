@@ -49,6 +49,7 @@ import PublicBabyeyiFinder from './Pages/Public Page/PublicBabyeyiFinder';
 import SearchStudent from './Pages/Public Page/SearchStudent';
 import PaymentsPage from './Pages/Public Page/payments';
 import PublicPayBySchool from './Pages/Public Page/PublicPayBySchool';
+import ShuleKitPay from './Pages/Public Page/ShuleKitPay';
 import InvoiceVerify from './Pages/Public Page/InvoiceVerify';
 import ApplicationStatusTracker from "./Pages/Public Page/ApplicationStatusTracker";
 import SchoolRegistration from './Pages/Public Page/SchoolRegistration';
@@ -63,7 +64,6 @@ import StandardKitRequestFlow from './Pages/Public Page/StandardKitRequestFlow';
 import PublicServiceDetail from './Pages/Public Page/PublicServiceDetail';
 import StudentServiceCheckout from './Pages/Public Page/StudentServiceCheckout';
 import PublicShoesVoucherFlow from './Pages/Public Page/PublicShoesVoucherFlow';
-import PublicUniformVoucherLanding from './Pages/Public Page/PublicUniformVoucherLanding';
 import PublicUniformVoucherRequestFlow from './Pages/Public Page/PublicUniformVoucherRequestFlow';
 import PublicUniformVoucherTrack from './Pages/Public Page/PublicUniformVoucherTrack';
 
@@ -169,9 +169,10 @@ export default function App() {
           <Route path="/agent-shop" element={<AgentShop />} />
           <Route path="/agent-shop/checkout" element={<AgentShopCheckout />} />
           <Route path="/services/standard-shulekit" element={<PublicStandardShuleKit />} />
+          <Route path="/services/shulekit-pay" element={<ShuleKitPay />} />
           <Route path="/services/shule-papeterie" element={<PublicShulePapeterie />} />
           <Route path="/services/shoes-voucher" element={<PublicShoesVoucherFlow />} />
-          <Route path="/services/uniform-voucher" element={<PublicUniformVoucherLanding />} />
+          <Route path="/services/uniform-voucher" element={<Navigate to="/services/uniform-voucher/request" replace />} />
           <Route path="/services/uniform-voucher/request" element={<PublicUniformVoucherRequestFlow />} />
           <Route path="/services/uniform-voucher/track" element={<PublicUniformVoucherTrack />} />
           <Route path="/standard-kit/request/:kitId" element={<StandardKitRequestFlow />} />

@@ -959,8 +959,19 @@ router.put(
 );
 
 // ════════════════════════════════════════════════════════════════
-// PUT /api/students/:id/identity  { rfid_uid, fingerprint_id, identity_remarks }
+// PUT /api/students/:id/identity  — partial RFID / fingerprint / remarks (Smart Access, HR, etc.)
+// Any omitted field keeps its current DB value; explicit null clears a credential.
 // ════════════════════════════════════════════════════════════════
+function coalesceIdentityToken(body, currentVal, snake, camel) {
+  const hasSnake = Object.prototype.hasOwnProperty.call(body, snake);
+  const hasCamel = Object.prototype.hasOwnProperty.call(body, camel);
+  if (!hasSnake && !hasCamel) return currentVal;
+  const raw = hasSnake ? body[snake] : body[camel];
+  if (raw === null || raw === undefined) return null;
+  const t = trimStr(raw);
+  return t === '' ? null : t;
+}
+
 router.put('/students/:id/identity', requireRole(SCHOOL_ROLES), async (req, res) => {
   try {
     await ensureStudentsTable();
@@ -971,38 +982,47 @@ router.put('/students/:id/identity', requireRole(SCHOOL_ROLES), async (req, res)
     }
 
     const body = req.body || {};
-    const rfidUid = trimStr(body.rfid_uid || body.rfidUid || '');
-    const fingerprintId = trimStr(body.fingerprint_id || body.fingerprintId || '');
-    const remarks = trimStr(body.identity_remarks || body.identityRemarks || '');
 
-    if (!rfidUid) return res.status(400).json({ success: false, message: 'RFID UID Code is required' });
-    if (!fingerprintId) return res.status(400).json({ success: false, message: 'Fingerprint ID is required' });
-
-    const [[existing]] = await promisePool.query(
-      'SELECT id FROM students WHERE id = ? AND school_id = ? LIMIT 1',
+    const [[current]] = await promisePool.query(
+      'SELECT id, rfid_uid, fingerprint_id, identity_remarks, student_photo FROM students WHERE id = ? AND school_id = ? LIMIT 1',
       [studentId, schoolId]
     );
-    if (!existing) return res.status(404).json({ success: false, message: 'Student not found' });
+    if (!current) return res.status(404).json({ success: false, message: 'Student not found' });
 
-    const [[dupRfid]] = await promisePool.query(
-      'SELECT id FROM students WHERE school_id = ? AND rfid_uid = ? AND id != ? LIMIT 1',
-      [schoolId, rfidUid, studentId]
-    );
-    if (dupRfid) {
-      return res.status(409).json({ success: false, message: `RFID UID "${rfidUid}" is already assigned to another student` });
+    const nextRfid = coalesceIdentityToken(body, current.rfid_uid, 'rfid_uid', 'rfidUid');
+    const nextFp = coalesceIdentityToken(body, current.fingerprint_id, 'fingerprint_id', 'fingerprintId');
+    const nextRemarks = coalesceIdentityToken(body, current.identity_remarks, 'identity_remarks', 'identityRemarks');
+
+    if (nextRfid) {
+      const [[dupRfid]] = await promisePool.query(
+        'SELECT id FROM students WHERE school_id = ? AND rfid_uid = ? AND id != ? LIMIT 1',
+        [schoolId, nextRfid, studentId]
+      );
+      if (dupRfid) {
+        return res.status(409).json({
+          success: false,
+          code: 'RFID_DUPLICATE',
+          message: `This card (${nextRfid}) is already assigned to another learner. Open that student and clear the card, or use a different card.`,
+        });
+      }
     }
-
-    const [[dupFp]] = await promisePool.query(
-      'SELECT id FROM students WHERE school_id = ? AND fingerprint_id = ? AND id != ? LIMIT 1',
-      [schoolId, fingerprintId, studentId]
-    );
-    if (dupFp) {
-      return res.status(409).json({ success: false, message: `Fingerprint ID "${fingerprintId}" is already assigned to another student` });
+    if (nextFp) {
+      const [[dupFp]] = await promisePool.query(
+        'SELECT id FROM students WHERE school_id = ? AND fingerprint_id = ? AND id != ? LIMIT 1',
+        [schoolId, nextFp, studentId]
+      );
+      if (dupFp) {
+        return res.status(409).json({
+          success: false,
+          code: 'FINGERPRINT_DUPLICATE',
+          message: `This fingerprint ID (${nextFp}) is already assigned to another learner. Clear it on that student first, or use a new ID.`,
+        });
+      }
     }
 
     await promisePool.query(
       'UPDATE students SET rfid_uid = ?, fingerprint_id = ?, identity_remarks = ?, updated_at = NOW() WHERE id = ? AND school_id = ?',
-      [rfidUid, fingerprintId, remarks || null, studentId, schoolId]
+      [nextRfid, nextFp, nextRemarks, studentId, schoolId]
     );
 
     const [[row]] = await promisePool.query(
