@@ -13,7 +13,7 @@ export default defineConfig(({ mode }) => {
     return Number.isFinite(x) && x > 0 ? x : null
   }
   const port = n(env.VITE_DEV_PORT) ?? n(process.env.PORT) ?? 5174
-  const base = env.VITE_APP_BASE || '/'
+  const base = env.VITE_APP_BASE || (mode === 'production' ? '/pro/' : '/')
 
   return {
     base,
