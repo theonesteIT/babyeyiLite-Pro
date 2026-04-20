@@ -84,7 +84,7 @@ export default function ProGate({ portal, children }) {
 
   if (!user) {
     const next = `${window.location.origin}${location.pathname}${location.search || ''}`
-    const loginPage = import.meta.env.VITE_BABYEYI_LOGIN_URL || `${loginBase}/login`
+    const loginPage = import.meta.env.VITE_BABYEYI_LOGIN_URL || LOGIN_FALLBACK
     const sep = loginPage.includes('?') ? '&' : '?'
     window.location.replace(`${loginPage}${sep}next=${encodeURIComponent(next)}`)
     return <Loading />

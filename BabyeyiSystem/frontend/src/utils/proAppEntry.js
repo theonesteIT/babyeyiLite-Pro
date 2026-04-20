@@ -9,8 +9,12 @@ const PRO_BASE = (import.meta.env.VITE_PRO_APP_URL || '').replace(/\/$/, '');
 const ROLE_TO_PRO_PATH = {
   SCHOOL_ADMIN: '/manager',
   SCHOOL_MANAGER: '/manager',
-  ACCOUNTANT: '/manager',
+  ACCOUNTANT: '/accountant',
   DOS: '/dos',
+  LIBRARIAN: '/librarian',
+  STOREKEEPER: '/storekeeper',
+  STORE_MANAGER: '/storekeeper',
+  DISCIPLINE_STAFF: '/discipline-staff',
   TEACHER: '/teacher',
   HOD: '/teacher',
 };

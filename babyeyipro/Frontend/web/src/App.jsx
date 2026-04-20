@@ -13,6 +13,19 @@ import DisciplineStaffPortalRoutes from './displine_staff_portal/PortalRoutes'
 import TeacherPortalRoutes from './teacher/PortalRoutes'
 import DisciplinePortalRoutes from './discipline/PortalRoutes'
 
+const PRO_BASENAME = (() => {
+  const raw = String(import.meta.env.VITE_APP_BASENAME || '').trim()
+  if (raw) {
+    const normalized = raw.startsWith('/') ? raw : `/${raw}`
+    return normalized.endsWith('/') && normalized !== '/' ? normalized.slice(0, -1) : normalized
+  }
+  if (typeof window !== 'undefined') {
+    const p = window.location.pathname || ''
+    if (p === '/pro' || p.startsWith('/pro/')) return '/pro'
+  }
+  return ''
+})()
+
 const ROLE_HOME_PORTAL = {
   DOS: 'dos',
   SCHOOL_ADMIN: 'manager',
@@ -54,7 +67,7 @@ function RoleAwareFallback() {
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={PRO_BASENAME || undefined}>
       <MasterAuthProvider>
         <Routes>
           <Route path="/" element={<ProHome />} />
