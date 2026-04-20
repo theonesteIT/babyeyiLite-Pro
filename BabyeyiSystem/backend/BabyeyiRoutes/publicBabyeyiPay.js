@@ -1971,7 +1971,7 @@ router.post('/intent', async (req, res) => {
     if (realtimeFailure) {
       userMessage = shouldInitMtnMomo
         ? 'Payment intent saved. MTN MoMo could not be started — please try again or contact support.'
-        : 'Payment intent saved. XentriPay initiation failed, please retry or use Reconcile.';
+        : 'Payment intent saved. initiation failed, please retry or use Reconcile.';
     } else if (shouldInitRealtimeCollection) {
       userMessage = shouldInitMtnMomo
         ? 'Check your phone for the MTN MoMo prompt and approve the payment.'

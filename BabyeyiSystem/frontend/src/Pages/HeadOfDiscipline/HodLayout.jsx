@@ -10,6 +10,7 @@ import {
   BookOpen,
   Wifi,
   WifiOff,
+  Wallet,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import LogoutButton from "../Auth/LogoutButton";
@@ -93,10 +94,13 @@ export default function HodLayout() {
     ? "Reports"
     : location.pathname.includes("/settings")
       ? "Discipline marks"
-      : "Students";
+      : location.pathname.includes("/shule-avance")
+        ? "Shule Avance"
+        : "Students";
 
   const NAV = [
     { to: "/hod/students", label: "Students", icon: Users },
+    { to: "/hod/shule-avance", label: "Shule Avance", icon: Wallet },
     { to: "/hod/settings", label: "Discipline marks", icon: SlidersHorizontal },
     { to: "/hod/reports", label: "Reports", icon: FileBarChart },
   ];

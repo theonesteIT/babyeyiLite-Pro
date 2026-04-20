@@ -22,6 +22,7 @@ import {
   Building2, Home, FileText, BarChart3, Wifi, WifiOff,
   ShieldCheck,   Star, Plus, Filter, Loader2, Info, PlusCircle, DollarSign, Radio, ShoppingBag, Package, Shirt,
   Sparkles,
+  Percent,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import LogoutButton from '../Auth/LogoutButton';
@@ -231,6 +232,7 @@ const NAV = [
   { id: 'deo',        icon: MapPin,     label: 'DEO Officers' },
   { id: 'register-agents', icon: Radio, label: 'Field Agents' },
   { id: 'shule-avance-orgs', icon: Sparkles, label: 'ShuleAvance Orgs' },
+  { id: 'shule-avance-teacher', icon: Percent, label: 'ShuleAvance Teacher' },
   // { id: 'activity',   icon: Activity,   label: 'Activity Log' },
   { id: 'settings',   icon: Settings,   label: 'Settings' },
 ];
@@ -313,6 +315,7 @@ function Sidebar({ page, onChange, online, user, navigate }) {
           const isStandardKitRequests = item.id === 'standard-kit-requests';
           const isStandardShuleKits = item.id === 'standard-shule-kits';
           const isShuleAvanceOrgs = item.id === 'shule-avance-orgs';
+          const isShuleAvanceTeacher = item.id === 'shule-avance-teacher';
           return (
             <button key={item.id}
               onClick={() => {
@@ -334,6 +337,8 @@ function Sidebar({ page, onChange, online, user, navigate }) {
                   navigate('/superadmin/standard-shule-kits');
                 } else if (isShuleAvanceOrgs) {
                   navigate('/superadmin/shule-avance-organizations');
+                } else if (isShuleAvanceTeacher) {
+                  navigate('/superadmin/shule-avance-teacher');
                 } else if (isRequirementsPrices) {
                   navigate('/manage-requirements-prices');
                 } else if (isPricesList) {
@@ -3674,6 +3679,7 @@ export default function SuperAdminDashboard() {
                 const isStandardKitRequests = item.id === 'standard-kit-requests';
                 const isStandardShuleKits = item.id === 'standard-shule-kits';
                 const isShuleAvanceOrgs = item.id === 'shule-avance-orgs';
+                const isShuleAvanceTeacher = item.id === 'shule-avance-teacher';
                 return (
                   <button key={item.id}
                     onClick={() => {
@@ -3686,6 +3692,7 @@ export default function SuperAdminDashboard() {
                       else if (isStandardKitRequests) { navigate('/superadmin/standard-kit-requests'); }
                       else if (isStandardShuleKits) { navigate('/superadmin/standard-shule-kits'); }
                       else if (isShuleAvanceOrgs) { navigate('/superadmin/shule-avance-organizations'); }
+                      else if (isShuleAvanceTeacher) { navigate('/superadmin/shule-avance-teacher'); }
                       else if (isRequirementsPrices) { navigate('/manage-requirements-prices'); }
                       else if (isPricesList) { navigate('/requirement-prices-list'); }
                       else if (isInvoices) { navigate('/invoices'); }

@@ -26,6 +26,7 @@ import SystemConfiguration from './pages/SystemConfiguration'
 import PermissionsManager from './pages/PermissionsManager'
 import SchoolLiteSuite from './pages/SchoolLiteSuite'
 import SmartSchoolHardwarePage from './pages/SmartSchoolHardwarePage'
+import StaffSmartAccessPage from './pages/StaffSmartAccessPage'
 import { PORTAL } from './config/portal'
 import { h } from './utils/href'
 
@@ -75,6 +76,16 @@ function ManagerRoutesInner() {
           <ProtectedRoute title="Smart School Access">
             <SchoolConsoleGate>
               <SmartSchoolHardwarePage portalBase={PORTAL.basePath} accent="manager" />
+            </SchoolConsoleGate>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="staff-smart-access"
+        element={
+          <ProtectedRoute title="Staff smart access">
+            <SchoolConsoleGate>
+              <StaffSmartAccessPage portalBase={PORTAL.basePath} accent="manager" />
             </SchoolConsoleGate>
           </ProtectedRoute>
         }

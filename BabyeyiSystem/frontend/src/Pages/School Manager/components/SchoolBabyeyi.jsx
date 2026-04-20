@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Home, FileText, Send, FolderOpen, BarChart3, Bell,
   AlertCircle, Globe, Lock, Eye, EyeOff, Loader2, CheckCircle2, Users,
-  UserCog, Receipt,
+  UserCog, Receipt, Wallet,
 } from "lucide-react";
 
 import { useAuth } from "../../../context/AuthContext";
@@ -24,6 +24,7 @@ import { BABYEYI_FONT_STACK, BABYEYI_PAGE_BG } from "../../../theme/babyeyiDashb
 
 import SchoolMiniWebsitePage from "./SchoolMiniWebsitePage";
 import StudentTransferPage from "./StudentTransferPage";
+import SchoolManagerShuleAvance from "./SchoolManagerShuleAvance";
 
 import {
   RequestsPage, DocumentsPage, AnalyticsPage,
@@ -48,6 +49,7 @@ const NAV = [
   { id: "requests",            label: "Increase Requests", icon: Send },
   { id: "documents",           label: "Documents",         icon: FolderOpen },
   { id: "invoices",            label: "Invoices",          icon: Receipt },
+  { id: "shule_avance",        label: "Shule Avance",      icon: Wallet },
   { id: "analytics",           label: "Analytics",         icon: BarChart3 },
   { id: "notifications",       label: "Notifications",     icon: Bell },
 ];
@@ -460,6 +462,7 @@ export default function SchoolBabyeyiDashboard() {
 
           {tab === "requests"      && <RequestsPage      {...commonProps} />}
           {tab === "documents"     && <DocumentsPage     {...commonProps} />}
+          {tab === "shule_avance"  && <SchoolManagerShuleAvance toast={toast} />}
           {tab === "analytics"     && <AnalyticsPage     {...commonProps} />}
           {tab === "notifications" && <NotificationsPage {...commonProps} setNotifCount={setNotifCount} />}
           {tab === "settings"      && (

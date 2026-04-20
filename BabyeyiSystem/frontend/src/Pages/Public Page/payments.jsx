@@ -742,6 +742,31 @@ export default function PaymentsPage() {
     return '/parents/home';
   }, [draft]);
 
+  /** Return to the wizard’s last step (school pay, uniform voucher, or shoes voucher). */
+  const wizardBackTarget = useMemo(() => {
+    if (!draft || doneId || showDoneModal) return null;
+    if (draft.fromPublicSchoolPay) {
+      const code = String(draft.selectedStudent?.student_code || draft.selectedStudent?.student_uid || '').trim();
+      const q = new URLSearchParams();
+      if (code) q.set('code', code);
+      q.set('resumeStep', '5');
+      return { to: `/pay-by-school?${q.toString()}`, label: 'Back to school checkout' };
+    }
+    if (draft.uniformVoucherCheckout) {
+      return { to: '/services/uniform-voucher/request?resumeStep=6', label: 'Back to uniform voucher' };
+    }
+    if (draft.studentServiceCheckout && draft.extendedPaymentTabs) {
+      return { to: '/services/shoes-voucher?resumeStep=6', label: 'Back to shoes voucher' };
+    }
+    return null;
+  }, [draft, doneId, showDoneModal]);
+
+  const showLoanFamilySubmit =
+    !(feeLikeTabs && payMethod === 'loan' && (
+      (pageTab === 'shuleavance' && shuleStep !== 'review')
+      || (pageTab === 'loan' && loanStep !== 'review')
+    ));
+
   const resetMomo = useCallback(() => {
     if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
     setMomoStatus(null); setMomoReferenceId(null);
@@ -1687,14 +1712,34 @@ export default function PaymentsPage() {
   return (
     <div style={{ minHeight: "100vh", background: C.db900, paddingBottom: 60 }}>
       {/* Top bar */}
-      <div style={{ background: C.db800, borderBottom: `3px solid ${C.am200}`, padding: "14px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <button onClick={() => navigate(-1)} style={{
-          display: "flex", alignItems: "center", gap: 6, background: "transparent",
-          border: `1px solid ${C.am400}`, color: C.am100, padding: "6px 14px",
-          borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: "pointer",
-        }}>
-          <ArrowLeft size={14} /> Back
-        </button>
+      <div style={{ background: C.db800, borderBottom: `3px solid ${C.am200}`, padding: "14px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <button type="button" onClick={() => navigate(-1)} style={{
+            display: "flex", alignItems: "center", gap: 6, background: "transparent",
+            border: `1px solid ${C.am400}`, color: C.am100, padding: "6px 14px",
+            borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: "pointer",
+          }}>
+            <ArrowLeft size={14} /> Back
+          </button>
+          {wizardBackTarget && (
+            <button
+              type="button"
+              onClick={() => navigate(wizardBackTarget.to)}
+              style={{
+                display: "flex", alignItems: "center", gap: 8,
+                background: "#fff",
+                color: C.db900,
+                border: `2px solid ${C.am200}`,
+                padding: "8px 18px",
+                borderRadius: 999,
+                fontSize: 13, fontWeight: 700, cursor: "pointer",
+                boxShadow: "0 1px 0 rgba(0,0,0,0.06)",
+              }}
+            >
+              <ArrowLeft size={16} strokeWidth={2.5} /> {wizardBackTarget.label}
+            </button>
+          )}
+        </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, color: C.am200, textTransform: "uppercase", letterSpacing: "0.1em" }}>
           <Shield size={13} color={C.am200} /> Secure Payment
         </div>
@@ -1750,16 +1795,16 @@ export default function PaymentsPage() {
 
         {/* ── Payment summary card ────────────────────────────── */}
         <div style={card}>
-          <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: C.am600, marginBottom: 14, display: "flex", alignItems: "center", gap: 6 }}>
-            <Wallet size={13} color={C.am400} /> Payment summary
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#000435", marginBottom: 14, display: "flex", alignItems: "center", gap: 6 }}>
+            <Wallet size={13} color="#000435" /> Payment summary
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12, marginBottom: 14 }}>
             {/* You pay now */}
-            <div style={{ background: C.db900, borderRadius: 8, padding: "14px 16px" }}>
-              <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: C.am100, marginBottom: 4 }}>You pay now</div>
-              <div style={{ fontSize: 24, fontWeight: 900, color: C.am200, fontFamily: "monospace", lineHeight: 1 }}>
-                {Number(principal).toLocaleString()} <span style={{ fontSize: 13, color: C.am100 }}>RWF</span>
+            <div style={{ border: `1px solid #000435`, borderRadius: 8, padding: "14px 16px",width:"100%" }}>
+              <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#000435", marginBottom: 4,textAlign:"center" }}>You pay now</div>
+              <div style={{ fontSize: 35, fontWeight: 500, color: "#000435", fontFamily: "montserrat", lineHeight: 1 ,textAlign:"center"}}>
+                {Number(principal).toLocaleString()} <span style={{ fontSize: 13, color: "#000435" }}>RWF</span>
               </div>
             </div>
 
@@ -1933,7 +1978,7 @@ export default function PaymentsPage() {
                 <InfoBox variant="amber">
                   <div style={{ display: "flex", gap: 8 }}>
                     <Info size={14} color={C.am600} style={{ flexShrink: 0, marginTop: 1 }} />
-                    <span>Enter the Phone Number to charge. The customer will receive a USSD prompt and must approve by entering their PIN.</span>
+                    <span>Enter the Phone Number to charge. The customer will receive a USSD prompt to approve by entering your PIN.</span>
                   </div>
                 </InfoBox>
                 <label style={labelStyle}>MTN or Airtel phone number</label>
@@ -2161,32 +2206,15 @@ export default function PaymentsPage() {
                     {shuleStep === 'personal' && (
                       <div style={{ marginBottom: 14 }}>
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
-                          <div>
-                            <label style={labelStyle}>Full name</label>
-                            <input
-                              value={shuleApplicantName}
-                              onChange={(e) => { setShuleApplicantName(e.target.value); setShuleError(''); }}
-                              placeholder="Enter applicant full name"
-                              style={inputStyle}
-                            />
-                          </div>
-                          <div>
-                            <label style={labelStyle}>National ID</label>
-                            <input
-                              value={shuleApplicantNationalId}
-                              onChange={(e) => { setShuleApplicantNationalId(e.target.value); setShuleError(''); }}
-                              placeholder="Enter national ID"
-                              style={{ ...inputStyle, fontFamily: "monospace" }}
-                            />
-                          </div>
+                         
                         </div>
                         {shuleOrgDisbursementType === 'PERSONAL_ACCOUNT' && (
                           <div>
-                            <label style={labelStyle}>Personal account</label>
+                            <label style={labelStyle}>Enter your account number</label>
                             <input
                               value={shulePersonalAccount}
                               onChange={(e) => { setShulePersonalAccount(e.target.value); setShuleError(''); }}
-                              placeholder="Enter personal account number / identifier"
+                              placeholder="00000000"
                               style={{ ...inputStyle, fontFamily: "monospace" }}
                             />
                           </div>
@@ -2207,6 +2235,25 @@ export default function PaymentsPage() {
                             This organization sends funds to the school account.
                           </div>
                         )}
+
+                         <div>
+                            <label style={labelStyle}>Full name</label>
+                            <input
+                              value={shuleApplicantName}
+                              onChange={(e) => { setShuleApplicantName(e.target.value); setShuleError(''); }}
+                              placeholder="Enter applicant full name"
+                              style={inputStyle}
+                            />
+                          </div>
+                          <div>
+                            <label style={labelStyle}>National ID</label>
+                            <input
+                              value={shuleApplicantNationalId}
+                              onChange={(e) => { setShuleApplicantNationalId(e.target.value); setShuleError(''); }}
+                              placeholder="Enter national ID"
+                              style={{ ...inputStyle, fontFamily: "monospace" }}
+                            />
+                          </div>
                       </div>
                     )}
 
@@ -2250,7 +2297,7 @@ export default function PaymentsPage() {
                           onChange={(e) => setShuleRepayMo(Number(e.target.value || 1))}
                           style={{ ...inputStyle, marginBottom: 12 }}
                         >
-                          {[1, 2, 3, 4, 5, 6, 9, 12].map((m) => (
+                          {[1, 2, 3, 4, 5, 6,7,8, 9,10,11, 12].map((m) => (
                             <option key={m} value={String(m)}>
                               {m} month{m > 1 ? 's' : ''}
                             </option>
@@ -2369,7 +2416,7 @@ export default function PaymentsPage() {
                         {shuleStep === 'organization'
                           ? 'Continue →'
                           : shuleStep === 'personal'
-                            ? 'Loan details →'
+                            ? 'Continue →'
                             : shuleStep === 'details'
                               ? 'Review →'
                               : 'Ready ✓'}
@@ -2429,11 +2476,11 @@ export default function PaymentsPage() {
                       </div>
                     )}
 
-                    <div style={{ background: C.db50, border: `1px solid ${C.db100}`, borderRadius: 8, padding: "14px 16px", marginBottom: 14 }}>
+                    <div style={{ background: "#fff", border: `1px solid ${C.db100}`, borderRadius: 8, padding: "14px 16px", marginBottom: 14 }}>
                       <div style={{ marginBottom: 12 }}>
-                        <label style={labelStyle}>Loan duration</label>
+                        <label style={labelStyle}>Repayment Period</label>
                         <div style={{ display: "flex", gap: 8 }}>
-                          {[1, 3, 6].map(m => (
+                          {[1, 2, 3].map(m => (
                             <button key={m} type="button" onClick={() => setLoanMonths(m)} style={{
                               flex: 1, padding: "8px", borderRadius: 6, fontWeight: 700, fontSize: 13,
                               cursor: "pointer", transition: "all 0.15s",
@@ -2466,14 +2513,14 @@ export default function PaymentsPage() {
                           ))}
                         </div>
                       </div>
-                      <div style={{ background: C.db900, borderRadius: 8, padding: "12px 14px", display: "flex", gap: 10 }}>
-                        <Calculator size={18} color={C.am200} style={{ flexShrink: 0, marginTop: 2 }} />
+                      <div style={{ border: `1px solid #000435`, borderRadius: 8, padding: "12px 14px", display: "flex", gap: 10 }}>
+                        <Calculator size={18} color="#000435" style={{ flexShrink: 0, marginTop: 2 }} />
                         <div>
-                          <div style={{ fontWeight: 800, color: "#fff", fontSize: 13, marginBottom: 4 }}>Indicative schedule</div>
-                          <div style={{ fontSize: 12, color: C.am100, marginBottom: 3 }}>
+                          <div style={{ fontWeight: 600, color: "#000435", fontSize: 13, marginBottom: 4,fontFamily: "Montserrat" }}>Indicative schedule</div>
+                          <div style={{ fontWeight: 600,fontSize: 13,fontFamily: "Montserrat", color: "#000435", marginBottom: 3 }}>
                             Principal: {principal.toLocaleString()} RWF · Interest: {sched.interest.toLocaleString()} RWF
                           </div>
-                          <div style={{ fontFamily: "monospace", fontWeight: 800, color: C.am200, fontSize: 14 }}>
+                          <div style={{ fontFamily: "Montserrat", fontWeight: 800, color: C.am200, fontSize: 20 }}>
                             {sched.installments} × ~{sched.each.toLocaleString()} RWF
                           </div>
                           <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", marginTop: 6 }}>Estimate only — real rates depend on the lender.</div>
@@ -2538,6 +2585,7 @@ export default function PaymentsPage() {
 
         {/* ── Submit button ───────────────────────────────────── */}
         <>
+        {showLoanFamilySubmit && (
         <button type="button" disabled={!canSubmit} onClick={handleConfirm} style={{
           width: "100%", padding: "14px",
           borderRadius: 10, fontWeight: 800, fontSize: 15,
@@ -2549,7 +2597,7 @@ export default function PaymentsPage() {
           marginBottom: 12, transition: "all 0.15s",
         }}>
           {submitting && momoStatus === 'PENDING'
-            ? <><Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> Waiting for MoMo approval…</>
+            ? <><Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} />Initiating Payment…</>
             : submitting
             ? <><Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> Saving…</>
             : doneId ? 'Recorded ✓'
@@ -2560,6 +2608,7 @@ export default function PaymentsPage() {
             : payMethod === 'loan' ? (pageTab === 'shuleavance' ? 'Send ShuleAvance Request' : 'Send Loan Request')
             : 'Confirm & Record Intent'}
         </button>
+        )}
 
         {submitError && (
           <div style={{ background: "#fff", border: `1px solid ${C.am200}`, borderRadius: 8, padding: "10px 14px", display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 12 }}>

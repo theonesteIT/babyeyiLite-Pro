@@ -2,6 +2,7 @@ import React from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import SmartSchoolHardwarePage from '../manager/pages/SmartSchoolHardwarePage'
+import StaffSmartAccessPage from '../manager/pages/StaffSmartAccessPage'
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import ShuleAvance from './pages/ShuleAvance'
@@ -12,6 +13,11 @@ import Timetable from './pages/Timetable'
 import Attendance from './pages/Attendance'
 import RecordMarks from './pages/RecordMarks'
 import ViewMarks from './pages/ViewMarks'
+import AcademicPlanning from './pages/AcademicPlanning'
+import DosAcademicProgressPage from './pages/DosAcademicProgressPage'
+import DosSettingsPage from './pages/DosSettingsPage'
+import DosReportsPage from './pages/DosReportsPage'
+import DosStudentRecordsPage from './pages/DosStudentRecordsPage'
 import { PORTAL } from './config/portal'
 import { h } from './utils/href'
 
@@ -40,6 +46,15 @@ function ProSchoolGate({ children }) {
   return children
 }
 
+/** Babyeyi Lite–style DOS tools: require an active Pro school subscription. */
+function ProDosGate({ children }) {
+  const { proAccessEffective, teacher, loading } = useAuth()
+  if (loading) return <LoadingScreen />
+  if (!teacher) return <Navigate to="/" replace />
+  if (!proAccessEffective) return <Navigate to={h('/')} replace />
+  return children
+}
+
 function DosRoutesInner() {
   return (
     <Routes>
@@ -49,6 +64,14 @@ function DosRoutesInner() {
       <Route path="english-club" element={<ProtectedRoute title="English Club"><EnglishClub /></ProtectedRoute>} />
 
       <Route path="students" element={<ProtectedRoute title="Students"><Students /></ProtectedRoute>} />
+      <Route
+        path="academic-setup"
+        element={
+          <ProtectedRoute title="Staff & timetable">
+            <AcademicPlanning />
+          </ProtectedRoute>
+        }
+      />
       <Route path="timetable" element={<ProtectedRoute title="Timetable"><Timetable /></ProtectedRoute>} />
       <Route path="attendance" element={<ProtectedRoute title="Attendance"><Attendance /></ProtectedRoute>} />
       <Route path="marks/view" element={<ProtectedRoute title="View Student Marks"><ViewMarks /></ProtectedRoute>} />
@@ -61,6 +84,58 @@ function DosRoutesInner() {
             <ProSchoolGate>
               <SmartSchoolHardwarePage portalBase={PORTAL.basePath} accent="dos" />
             </ProSchoolGate>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="staff-smart-access"
+        element={
+          <ProtectedRoute title="Staff smart access">
+            <ProSchoolGate>
+              <StaffSmartAccessPage portalBase={PORTAL.basePath} accent="dos" teachersOnly />
+            </ProSchoolGate>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="student-records"
+        element={
+          <ProtectedRoute title="Student registry">
+            <ProDosGate>
+              <DosStudentRecordsPage />
+            </ProDosGate>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="progress"
+        element={
+          <ProtectedRoute title="Academic progress">
+            <ProDosGate>
+              <DosAcademicProgressPage />
+            </ProDosGate>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="dos-settings"
+        element={
+          <ProtectedRoute title="DOS settings">
+            <ProDosGate>
+              <DosSettingsPage />
+            </ProDosGate>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="reports"
+        element={
+          <ProtectedRoute title="DOS reports">
+            <ProDosGate>
+              <DosReportsPage />
+            </ProDosGate>
           </ProtectedRoute>
         }
       />

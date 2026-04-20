@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
-import { Users, SlidersHorizontal, FileBarChart, Menu, X, Shield, Wifi, WifiOff, BookOpen } from "lucide-react";
+import { Users, SlidersHorizontal, FileBarChart, Menu, X, Shield, Wifi, WifiOff, BookOpen, Wallet } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import LogoutButton from "../Auth/LogoutButton";
 
@@ -81,13 +81,16 @@ export default function DosLayout() {
     ? "Reports"
     : location.pathname.includes("/settings")
       ? "Settings"
-      : location.pathname.includes("/progress")
-        ? "Academic progress"
-        : "Students";
+      : location.pathname.includes("/shule-avance")
+        ? "Shule Avance"
+        : location.pathname.includes("/progress")
+          ? "Academic progress"
+          : "Students";
 
   const NAV = [
     { to: "/dos/students", label: "Students", icon: Users },
     { to: "/dos/progress", label: "Academic progress", icon: BookOpen },
+    { to: "/dos/shule-avance", label: "Shule Avance", icon: Wallet },
     { to: "/dos/settings", label: "Settings", icon: SlidersHorizontal },
     { to: "/dos/reports", label: "Reports", icon: FileBarChart },
   ];

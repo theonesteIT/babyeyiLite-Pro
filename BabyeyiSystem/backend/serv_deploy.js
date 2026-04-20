@@ -52,6 +52,7 @@ const PORT = process.env.PORT || 8080;
   'uploads/mini-websites',
   'uploads/admission-files',
   'uploads/profile-photos',
+  'uploads/staff-identity-photos',
   'uploads/temp',
 ].forEach(dir => {
   if (!fs.existsSync(dir)) {
@@ -135,8 +136,18 @@ app.use(session({
   },
 }));
 
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+const jsonParser = express.json({ limit: '10mb' });
+const urlencodedParser = express.urlencoded({ extended: true, limit: '10mb' });
+app.use((req, res, next) => {
+  const ct = String(req.headers['content-type'] || '').toLowerCase();
+  if (ct.includes('multipart/form-data')) return next();
+  return jsonParser(req, res, next);
+});
+app.use((req, res, next) => {
+  const ct = String(req.headers['content-type'] || '').toLowerCase();
+  if (ct.includes('multipart/form-data')) return next();
+  return urlencodedParser(req, res, next);
+});
 
 app.get('/uploads/profile-photos/:filename', (req, res) => {
   const filename = req.params.filename;

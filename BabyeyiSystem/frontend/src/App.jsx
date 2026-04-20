@@ -84,10 +84,12 @@ import AccountantLayout       from './Pages/Accountant/AccountantLayout';
 import AccountantDashboard    from './Pages/Accountant/AccountantDashboard';
 import AccountantPaymentPage  from './Pages/Accountant/AccountantPaymentPage';
 import AccountantReports      from './Pages/Accountant/AccountantReports';
+import AccountantShuleAvance  from './Pages/Accountant/AccountantShuleAvance';
 import HodLayout              from './Pages/HeadOfDiscipline/HodLayout';
 import HodStudentsPage        from './Pages/HeadOfDiscipline/HodStudentsPage';
 import HodSettingsPage        from './Pages/HeadOfDiscipline/HodSettingsPage';
 import HodReportsPage         from './Pages/HeadOfDiscipline/HodReportsPage';
+import StaffShuleAvancePage   from './Pages/Shared/StaffShuleAvancePage';
 import DosLayout              from './Pages/Dos/DosLayout';
 import DosStudentsPage        from './Pages/Dos/DosStudentsPage';
 import DosAcademicProgressPage from './Pages/Dos/DosAcademicProgressPage';
@@ -120,6 +122,7 @@ import AgentStandardKitRequestsPage from './Pages/Agent/AgentStandardKitRequests
 import AgentUniformVoucherOrdersPage from './Pages/Agent/AgentUniformVoucherOrdersPage';
 import SuperAdminStandardKitRequestsPage from './Pages/SuperAdmin/SuperAdminStandardKitRequestsPage';
 import SuperAdminShuleAvanceOrgs from './Pages/SuperAdmin/SuperAdminShuleAvanceOrgs';
+import ShuleAvanceTeacher from './Pages/SuperAdmin/ShuleAvanceTeacher';
 import ShuleAvancePartnerDashboard from './Pages/ShuleAvance/ShuleAvancePartnerDashboard';
 import BabyeyiVerifyPage        from './Pages/School Manager/components/BabyeyiVerifyPage';
 import ParentLogin              from './Pages/Parents/ParentLogin';
@@ -294,6 +297,12 @@ export default function App() {
             </ProtectedRoute>
           } />
 
+          <Route path="/superadmin/shule-avance-teacher" element={
+            <ProtectedRoute role={['SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER']}>
+              <ShuleAvanceTeacher />
+            </ProtectedRoute>
+          } />
+
           <Route path="/shule-avance/dashboard" element={
             <ProtectedRoute role="SHULE_AVANCE_PARTNER">
               <ShuleAvancePartnerDashboard />
@@ -353,6 +362,7 @@ export default function App() {
             <Route path="dashboard" element={<AccountantDashboard />} />
             <Route path="payment" element={<AccountantPaymentPage />} />
             <Route path="reports" element={<AccountantReports />} />
+            <Route path="shule-avance" element={<AccountantShuleAvance />} />
           </Route>
 
           <Route path="/hod" element={
@@ -362,6 +372,7 @@ export default function App() {
           }>
             <Route index element={<Navigate to="students" replace />} />
             <Route path="students" element={<HodStudentsPage />} />
+            <Route path="shule-avance" element={<StaffShuleAvancePage />} />
             <Route path="settings" element={<HodSettingsPage />} />
             <Route path="reports" element={<HodReportsPage />} />
           </Route>
@@ -374,6 +385,7 @@ export default function App() {
             <Route index element={<Navigate to="students" replace />} />
             <Route path="students" element={<DosStudentsPage />} />
             <Route path="progress" element={<DosAcademicProgressPage />} />
+            <Route path="shule-avance" element={<StaffShuleAvancePage />} />
             <Route path="settings" element={<DosSettingsPage />} />
             <Route path="reports" element={<DosReportsPage />} />
           </Route>

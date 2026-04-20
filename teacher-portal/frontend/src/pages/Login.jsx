@@ -1,11 +1,31 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Mail, Lock, Eye, EyeOff, AlertCircle, RefreshCw, ChevronRight, ArrowLeft } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, AlertCircle, RefreshCw, ChevronRight, ArrowLeft, Building } from 'lucide-react';
+
+const STAFF_LOGIN_PREFS_KEY = 'babyeyi_staff_login_prefs';
+
+function loadStaffLoginPrefs() {
+   try {
+      const raw = localStorage.getItem(STAFF_LOGIN_PREFS_KEY);
+      if (!raw) return { remember: false, identifier: '', schoolCode: '' };
+      const p = JSON.parse(raw);
+      return {
+         remember: !!p.remember,
+         identifier: typeof p.identifier === 'string' ? p.identifier : '',
+         schoolCode: typeof p.schoolCode === 'string' ? p.schoolCode : '',
+      };
+   } catch {
+      return { remember: false, identifier: '', schoolCode: '' };
+   }
+}
 
 const Login = () => {
-   const [email, setEmail] = useState('');
+   const [prefs] = useState(() => loadStaffLoginPrefs());
+   const [identifier, setIdentifier] = useState(prefs.identifier);
+   const [schoolCode, setSchoolCode] = useState(prefs.schoolCode);
    const [password, setPassword] = useState('');
+   const [rememberMe, setRememberMe] = useState(!!prefs.remember);
    const [showPassword, setShowPassword] = useState(false);
    const [error, setError] = useState(null);
    const [loading, setLoading] = useState(false);
@@ -24,7 +44,7 @@ const Login = () => {
       setError(null);
       setLoading(true);
 
-      const result = await login(email, password);
+      const result = await login(identifier, password, { schoolCode, rememberMe });
       if (result.success) {
          navigate('/');
       } else {
@@ -102,22 +122,43 @@ const Login = () => {
 
                   {/* Form */}
                   <form onSubmit={handleSubmit} className="space-y-3">
-                     {/* Email */}
+                     {/* Identifier — same as main Babyeyi login */}
                      <div>
                         <label className="text-[11px] font-black text-re-text-muted uppercase tracking-widest ml-1 opacity-70">
-                           Teacher Email
+                           Email or username
                         </label>
                         <div className="flex items-center bg-re-bg border border-black/5 rounded-xl overflow-hidden mt-1 shadow-inner focus-within:ring-2 transition-all" style={{ '--tw-ring-color': 'rgba(255,140,0,0.35)' }}>
                            <Mail className="text-re-text-muted/40 w-4 h-4 ml-3 mr-2 shrink-0" />
                            <input
-                              type="email"
-                              value={email}
-                              onChange={e => setEmail(e.target.value)}
+                              type="text"
+                              autoComplete="username"
+                              value={identifier}
+                              onChange={e => setIdentifier(e.target.value)}
                               placeholder="teacher@school.rw"
                               className="w-full p-2.5 bg-transparent outline-none text-xs font-bold text-re-text"
                               required
                            />
                         </div>
+                     </div>
+
+                     {/* School code — same payload as BabyeyiSystem/frontend */}
+                     <div>
+                        <label className="text-[11px] font-black text-re-text-muted uppercase tracking-widest ml-1 opacity-70">
+                           School code
+                        </label>
+                        <div className="flex items-center bg-re-bg border border-black/5 rounded-xl overflow-hidden mt-1 shadow-inner focus-within:ring-2 transition-all" style={{ '--tw-ring-color': 'rgba(255,140,0,0.35)' }}>
+                           <Building className="text-re-text-muted/40 w-4 h-4 ml-3 mr-2 shrink-0" />
+                           <input
+                              type="text"
+                              value={schoolCode}
+                              onChange={e => setSchoolCode(e.target.value)}
+                              placeholder="e.g. 04001 (directory code)"
+                              className="w-full p-2.5 bg-transparent outline-none text-xs font-bold text-re-text uppercase"
+                           />
+                        </div>
+                        <p className="text-[9px] font-bold text-re-text-muted/70 mt-1 ml-1">
+                           Enter your school&apos;s code if you have one — it helps match your account to the right school.
+                        </p>
                      </div>
 
                      {/* Password */}
@@ -145,9 +186,18 @@ const Login = () => {
                         </div>
                      </div>
 
-                     {/* Forgot */}
-                     <div className="flex justify-end">
-                        <button type="button" className="text-[10px] font-black hover:underline uppercase tracking-wider" style={{ color: '#FF8C00' }}>
+                     {/* Remember + forgot */}
+                     <div className="flex items-center justify-between gap-2">
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                           <input
+                              type="checkbox"
+                              checked={rememberMe}
+                              onChange={e => setRememberMe(e.target.checked)}
+                              className="rounded border-black/20 text-re-orange focus:ring-re-orange"
+                           />
+                           <span className="text-[10px] font-black text-re-text-muted uppercase tracking-wider">Remember me</span>
+                        </label>
+                        <button type="button" className="text-[10px] font-black hover:underline uppercase tracking-wider shrink-0" style={{ color: '#FF8C00' }}>
                            Forgot Password?
                         </button>
                      </div>

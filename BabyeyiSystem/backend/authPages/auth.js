@@ -71,6 +71,13 @@ if (!promisePool) {
 
 const systemSettings = require('../utils/systemSettings');
 const { ensureShuleAvanceOrgTables } = require('../BabyeyiRoutes/shuleAvanceOrgSchema');
+const {
+  ensureShuleAvanceTeacherCatalogTable,
+  listTeacherCatalogAdmin,
+  createTeacherCatalogItem,
+  updateTeacherCatalogItem,
+  deleteTeacherCatalogItem,
+} = require('../BabyeyiRoutes/shuleAvanceCatalogStore');
 const { applyRememberMeToSession } = require('../utils/sessionRememberMe');
 const { getDistrictCode, formatSchoolCode } = require('../utils/rwandaDistrictCodes');
 const {
@@ -2286,6 +2293,60 @@ router.delete('/shule-avance-organization/:id', async (req, res) => {
     res.json({ success: true, message: 'Organization removed; partner login is disabled.' });
   } catch (err) {
     console.error('❌  shule-avance-organization delete:', err);
+    res.status(500).json({ success: false, message: err.message || 'Delete failed' });
+  }
+});
+
+// ── ShuleAvance teacher catalog (Super Admin — global rates for all schools) ──
+router.get('/shule-avance-teacher-catalog', async (req, res) => {
+  if (!requireElevatedPlatform(req, res)) return;
+  try {
+    await ensureShuleAvanceTeacherCatalogTable();
+    const includeInactive = String(req.query?.include_inactive || '') === '1';
+    const rows = await listTeacherCatalogAdmin(includeInactive);
+    res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('❌  shule-avance-teacher-catalog GET:', err);
+    res.status(500).json({ success: false, message: err.message || 'Failed to load catalog' });
+  }
+});
+
+router.post('/shule-avance-teacher-catalog', async (req, res) => {
+  if (!requireElevatedPlatform(req, res)) return;
+  try {
+    await ensureShuleAvanceTeacherCatalogTable();
+    const id = await createTeacherCatalogItem(req.body || {});
+    res.status(201).json({ success: true, message: 'Catalog item created', id });
+  } catch (err) {
+    const code = err.code === 'ER_DUP_ENTRY' ? 409 : 400;
+    res.status(code).json({ success: false, message: err.message || 'Create failed' });
+  }
+});
+
+router.patch('/shule-avance-teacher-catalog/:id', async (req, res) => {
+  if (!requireElevatedPlatform(req, res)) return;
+  try {
+    await ensureShuleAvanceTeacherCatalogTable();
+    const id = parseInt(req.params.id, 10);
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid id' });
+    await updateTeacherCatalogItem(id, req.body || {});
+    res.json({ success: true, message: 'Updated' });
+  } catch (err) {
+    const code = err.message === 'Not found' ? 404 : 400;
+    res.status(code).json({ success: false, message: err.message || 'Update failed' });
+  }
+});
+
+router.delete('/shule-avance-teacher-catalog/:id', async (req, res) => {
+  if (!requireElevatedPlatform(req, res)) return;
+  try {
+    await ensureShuleAvanceTeacherCatalogTable();
+    const id = parseInt(req.params.id, 10);
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid id' });
+    const ok = await deleteTeacherCatalogItem(id);
+    if (!ok) return res.status(404).json({ success: false, message: 'Not found' });
+    res.json({ success: true, message: 'Deleted' });
+  } catch (err) {
     res.status(500).json({ success: false, message: err.message || 'Delete failed' });
   }
 });

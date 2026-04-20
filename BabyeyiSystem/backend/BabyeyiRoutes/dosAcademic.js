@@ -19,11 +19,14 @@ const { requireRole } = require('../middleware/deoAuth');
 const xlsx = require('xlsx');
 const PDFDocument = require('pdfkit');
 const ensureAcademicTables = require('./teacherPortal').ensureAcademicTables;
+const { normalizeGradebookLabel } = require('../utils/gradebookLabels');
 
 const router = express.Router();
 const DOS_ONLY = ['DOS'];
 const DOS_DASHBOARD_ROLES = ['DOS', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER', 'ACCOUNTANT'];
 const REGISTRY_READ_ROLES = ['DOS', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER', 'TEACHER', 'HOD', 'ACCOUNTANT'];
+/** Timetables, subjects catalogue, teaching staff — school academic leads */
+const DOS_ACADEMIC_ADMIN = ['DOS', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER'];
 
 function resolveSchoolId(req) {
   return (
@@ -36,6 +39,10 @@ function resolveSchoolId(req) {
 
 function resolveUserId(req) {
   return req.session?.userId || req.session?.user?.id || null;
+}
+
+function getRoleCode(req) {
+  return String(req.session?.user?.role?.code || req.session?.user?.role_code || '').toUpperCase();
 }
 
 function trimStr(v) {
@@ -281,8 +288,11 @@ router.get('/dos/subjects', requireRole(REGISTRY_READ_ROLES), async (req, res) =
     await ensureAcademicTables();
     const schoolId = resolveSchoolId(req);
     if (!schoolId) return res.status(400).json({ success: false, message: 'School not found in session.' });
+    const includeInactive = trimStr(req.query.include_inactive) === '1' && DOS_ACADEMIC_ADMIN.includes(getRoleCode(req));
     const [rows] = await promisePool.query(
-      'SELECT id, school_id, name, category, subject_code, is_active FROM school_subjects WHERE school_id = ? AND is_active = 1 ORDER BY name ASC',
+      `SELECT id, school_id, name, category, subject_code, is_active FROM school_subjects WHERE school_id = ?
+       ${includeInactive ? '' : 'AND is_active = 1'}
+       ORDER BY name ASC`,
       [schoolId]
     );
     res.json({ success: true, data: rows });
@@ -923,6 +933,256 @@ router.get('/dos/reports/summary/export.pdf', requireRole(DOS_ONLY), async (req,
   } catch (err) {
     console.error('GET export.pdf dos report:', err);
     return res.status(500).json({ success: false, message: 'Failed to export PDF' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+// GET /api/dos/teaching-staff — users who can be assigned on the timetable
+// ════════════════════════════════════════════════════════════════
+router.get('/dos/teaching-staff', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureAcademicTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School not found in session.' });
+
+    const [rows] = await promisePool.query(
+      `SELECT u.id, u.first_name, u.last_name, u.email, UPPER(r.role_code) AS role_code
+       FROM users u
+       INNER JOIN roles r ON r.id = u.role_id
+       WHERE u.school_id = ? AND u.deleted_at IS NULL
+         AND UPPER(r.role_code) IN ('TEACHER','HOD','DOS')
+       ORDER BY u.last_name ASC, u.first_name ASC`,
+      [schoolId]
+    );
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('GET /dos/teaching-staff:', err);
+    return res.status(500).json({ success: false, message: 'Failed to list teaching staff' });
+  }
+});
+
+async function assertTeachingStaffForSchool(schoolId, staffUserId) {
+  const [rows] = await promisePool.query(
+    `SELECT u.id FROM users u
+     INNER JOIN roles r ON r.id = u.role_id
+     WHERE u.id = ? AND u.school_id = ? AND u.deleted_at IS NULL
+       AND UPPER(r.role_code) IN ('TEACHER','HOD','DOS')`,
+    [staffUserId, schoolId]
+  );
+  return rows.length > 0;
+}
+
+// ════════════════════════════════════════════════════════════════
+// POST /api/dos/subjects — add a subject (“course”) for the school catalogue
+// ════════════════════════════════════════════════════════════════
+router.post('/dos/subjects', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureAcademicTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School not found in session.' });
+
+    const name = normalizeGradebookLabel(req.body?.name);
+    const category = trimStr(req.body?.category) || null;
+    const subject_code = trimStr(req.body?.subject_code) || null;
+    if (!name) {
+      return res.status(400).json({ success: false, message: 'Subject name is required.' });
+    }
+
+    const [r] = await promisePool.query(
+      `INSERT INTO school_subjects (school_id, name, category, subject_code, is_active)
+       VALUES (?,?,?,?,1)`,
+      [schoolId, name, category, subject_code]
+    );
+    return res.status(201).json({
+      success: true,
+      message: 'Subject added.',
+      data: { id: r.insertId, name, category, subject_code, is_active: 1 },
+    });
+  } catch (err) {
+    if (err && err.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ success: false, message: 'A subject with this name already exists for your school.' });
+    }
+    console.error('POST /dos/subjects:', err);
+    return res.status(500).json({ success: false, message: 'Failed to add subject' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+// PATCH /api/dos/subjects/:id — deactivate or reactivate a catalogue subject
+// ════════════════════════════════════════════════════════════════
+router.patch('/dos/subjects/:id', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureAcademicTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School not found in session.' });
+    const id = Number(req.params.id);
+    if (!id || Number.isNaN(id)) return res.status(400).json({ success: false, message: 'Invalid id.' });
+    const isActive = req.body?.is_active === false || req.body?.is_active === 0 ? 0 : 1;
+
+    const [upd] = await promisePool.query(
+      'UPDATE school_subjects SET is_active = ? WHERE id = ? AND school_id = ?',
+      [isActive, id, schoolId]
+    );
+    if (!upd.affectedRows) {
+      return res.status(404).json({ success: false, message: 'Subject not found.' });
+    }
+    return res.json({ success: true, message: 'Subject updated.' });
+  } catch (err) {
+    console.error('PATCH /dos/subjects/:id:', err);
+    return res.status(500).json({ success: false, message: 'Failed to update subject' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+// POST /api/dos/timetable — add a period (assigns class + subject to a teacher)
+// ════════════════════════════════════════════════════════════════
+router.post('/dos/timetable', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureAcademicTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School not found in session.' });
+
+    const class_name = normalizeGradebookLabel(req.body?.class_name);
+    const subject_name = normalizeGradebookLabel(req.body?.subject_name);
+    const staff_id = Number(req.body?.staff_id);
+    const day_of_week = trimStr(req.body?.day_of_week);
+    const start_time = trimStr(req.body?.start_time);
+    const end_time = trimStr(req.body?.end_time);
+    const room = trimStr(req.body?.room) || null;
+
+    if (!class_name || !subject_name) {
+      return res.status(400).json({ success: false, message: 'class_name and subject_name are required.' });
+    }
+    if (!staff_id || Number.isNaN(staff_id)) {
+      return res.status(400).json({ success: false, message: 'staff_id (teacher user id) is required.' });
+    }
+    if (!day_of_week || !start_time || !end_time) {
+      return res.status(400).json({ success: false, message: 'day_of_week, start_time, and end_time are required.' });
+    }
+
+    const okStaff = await assertTeachingStaffForSchool(schoolId, staff_id);
+    if (!okStaff) {
+      return res.status(400).json({ success: false, message: 'Selected user is not a teaching role at this school.' });
+    }
+
+    const [ins] = await promisePool.query(
+      `INSERT INTO academic_timetables
+        (school_id, class_name, subject_name, staff_id, day_of_week, start_time, end_time, room)
+       VALUES (?,?,?,?,?,?,?,?)`,
+      [schoolId, class_name, subject_name, staff_id, day_of_week, start_time, end_time, room]
+    );
+    return res.status(201).json({
+      success: true,
+      message: 'Timetable period added.',
+      data: { id: ins.insertId },
+    });
+  } catch (err) {
+    console.error('POST /dos/timetable:', err);
+    return res.status(500).json({ success: false, message: 'Failed to add timetable period' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+// PUT /api/dos/timetable/:id — update a period
+// ════════════════════════════════════════════════════════════════
+router.put('/dos/timetable/:id', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureAcademicTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School not found in session.' });
+    const id = Number(req.params.id);
+    if (!id || Number.isNaN(id)) return res.status(400).json({ success: false, message: 'Invalid id.' });
+
+    const [[existing]] = await promisePool.query(
+      'SELECT id FROM academic_timetables WHERE id = ? AND school_id = ? LIMIT 1',
+      [id, schoolId]
+    );
+    if (!existing) return res.status(404).json({ success: false, message: 'Period not found.' });
+
+    const class_name = req.body?.class_name != null ? normalizeGradebookLabel(req.body.class_name) : null;
+    const subject_name = req.body?.subject_name != null ? normalizeGradebookLabel(req.body.subject_name) : null;
+    const staff_id = req.body?.staff_id != null ? Number(req.body.staff_id) : null;
+    const day_of_week = req.body?.day_of_week != null ? trimStr(req.body.day_of_week) : null;
+    const start_time = req.body?.start_time != null ? trimStr(req.body.start_time) : null;
+    const end_time = req.body?.end_time != null ? trimStr(req.body.end_time) : null;
+    const room = req.body?.room !== undefined ? (trimStr(req.body.room) || null) : undefined;
+
+    if (staff_id != null && !Number.isNaN(staff_id)) {
+      const okStaff = await assertTeachingStaffForSchool(schoolId, staff_id);
+      if (!okStaff) {
+        return res.status(400).json({ success: false, message: 'Selected user is not a teaching role at this school.' });
+      }
+    }
+
+    const fields = [];
+    const vals = [];
+    if (class_name) {
+      fields.push('class_name = ?');
+      vals.push(class_name);
+    }
+    if (subject_name) {
+      fields.push('subject_name = ?');
+      vals.push(subject_name);
+    }
+    if (staff_id != null && !Number.isNaN(staff_id)) {
+      fields.push('staff_id = ?');
+      vals.push(staff_id);
+    }
+    if (day_of_week) {
+      fields.push('day_of_week = ?');
+      vals.push(day_of_week);
+    }
+    if (start_time) {
+      fields.push('start_time = ?');
+      vals.push(start_time);
+    }
+    if (end_time) {
+      fields.push('end_time = ?');
+      vals.push(end_time);
+    }
+    if (room !== undefined) {
+      fields.push('room = ?');
+      vals.push(room);
+    }
+
+    if (!fields.length) {
+      return res.status(400).json({ success: false, message: 'No fields to update.' });
+    }
+
+    vals.push(id, schoolId);
+    await promisePool.query(
+      `UPDATE academic_timetables SET ${fields.join(', ')} WHERE id = ? AND school_id = ?`,
+      vals
+    );
+    return res.json({ success: true, message: 'Timetable period updated.' });
+  } catch (err) {
+    console.error('PUT /dos/timetable/:id:', err);
+    return res.status(500).json({ success: false, message: 'Failed to update timetable period' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+// DELETE /api/dos/timetable/:id
+// ════════════════════════════════════════════════════════════════
+router.delete('/dos/timetable/:id', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureAcademicTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School not found in session.' });
+    const id = Number(req.params.id);
+    if (!id || Number.isNaN(id)) return res.status(400).json({ success: false, message: 'Invalid id.' });
+
+    const [del] = await promisePool.query(
+      'DELETE FROM academic_timetables WHERE id = ? AND school_id = ?',
+      [id, schoolId]
+    );
+    if (!del.affectedRows) {
+      return res.status(404).json({ success: false, message: 'Period not found.' });
+    }
+    return res.json({ success: true, message: 'Timetable period removed.' });
+  } catch (err) {
+    console.error('DELETE /dos/timetable/:id:', err);
+    return res.status(500).json({ success: false, message: 'Failed to delete timetable period' });
   }
 });
 

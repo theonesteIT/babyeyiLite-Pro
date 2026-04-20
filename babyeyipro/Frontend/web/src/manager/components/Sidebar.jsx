@@ -189,6 +189,9 @@ const Sidebar = ({ onClose }) => {
         {canAccessSchoolConsole && (
           <NavItem icon={Radio} name="Smart School Access" path="/smart-access" onClose={onClose} />
         )}
+        {canAccessSchoolConsole && (
+          <NavItem icon={UserCheck} name="Staff smart access" path="/staff-smart-access" onClose={onClose} />
+        )}
         <NavItem icon={ShieldCheck} name="Student Permissions" path="/permissions" onClose={onClose} />
         <ExpandableNavItem
           icon={ClipboardList}

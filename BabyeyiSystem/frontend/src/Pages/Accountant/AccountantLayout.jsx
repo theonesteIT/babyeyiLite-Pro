@@ -6,6 +6,7 @@ import {
   Menu,
   X,
   Wallet,
+  Coins,
   BookOpen,
   Wifi,
   WifiOff,
@@ -101,11 +102,14 @@ export default function AccountantLayout() {
     ? "Reports"
     : location.pathname.includes("/payment")
       ? "Payment"
-      : "Dashboard";
+      : location.pathname.includes("/shule-avance")
+        ? "Shule Avance"
+        : "Dashboard";
 
   const NAV = [
     { to: "/accountant/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { to: "/accountant/payment", label: "Payment", icon: Wallet },
+    { to: "/accountant/shule-avance", label: "Shule Avance", icon: Coins },
     { to: "/accountant/reports", label: "Reports", icon: FileBarChart },
     { to: "/invoices", label: "Invoices", icon: Receipt },
   ];

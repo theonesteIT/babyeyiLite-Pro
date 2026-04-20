@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import api from '../services/api';
 import {
    Wallet,
@@ -12,6 +12,7 @@ import {
    CreditCard,
    Users
 } from 'lucide-react';
+import ShuleAvanceRepaymentCalculator from '../components/ShuleAvanceRepaymentCalculator';
 
 const ShuleAvance = () => {
    const [loanStatus, setLoanStatus] = useState(null);
@@ -19,11 +20,20 @@ const ShuleAvance = () => {
    const [error, setError] = useState(null);
    const [showApply, setShowApply] = useState(false);
 
+   const [catalog, setCatalog] = useState({ services: [], cashouts: [] });
+   const [cashoutCategory, setCashoutCategory] = useState('');
+
    // Form State
    const [amount, setAmount] = useState('');
    const [purpose, setPurpose] = useState('');
    const [term, setTerm] = useState(6);
    const [submitting, setSubmitting] = useState(false);
+
+   const selectedRate = useMemo(() => {
+      const slug = cashoutCategory || catalog.cashouts?.[0]?.slug;
+      const row = catalog.cashouts?.find((c) => c.slug === slug);
+      return row?.income_rate_percent ?? null;
+   }, [catalog, cashoutCategory]);
 
    const fetchLoanStatus = async () => {
       try {
@@ -33,27 +43,57 @@ const ShuleAvance = () => {
          }
       } catch (err) {
          setError('Could not load loan information.');
-      } finally {
-         setLoading(false);
+      }
+   };
+
+   const loadCatalog = async () => {
+      try {
+         const res = await api.get('/services/shule-avance/catalog');
+         if (res.data?.success && res.data.data) {
+            const cashouts = Array.isArray(res.data.data.cashouts) ? res.data.data.cashouts : [];
+            setCatalog({
+               services: Array.isArray(res.data.data.services) ? res.data.data.services : [],
+               cashouts,
+            });
+            setCashoutCategory((prev) => prev || (cashouts[0]?.slug ?? ''));
+         }
+      } catch {
+         /* optional */
       }
    };
 
    useEffect(() => {
-      fetchLoanStatus();
+      (async () => {
+         setLoading(true);
+         try {
+            await Promise.all([fetchLoanStatus(), loadCatalog()]);
+         } finally {
+            setLoading(false);
+         }
+      })();
    }, []);
 
    const handleApply = async (e) => {
       e.preventDefault();
       setSubmitting(true);
+      setError(null);
       try {
-         const res = await api.post('/services/shule-avance/apply', {
-            amount_requested: amount,
-            purpose,
-            repayment_term_months: term
+         const slug = cashoutCategory || catalog.cashouts?.[0]?.slug;
+         if (!slug) {
+            setError('Cashout programs are not configured yet.');
+            setSubmitting(false);
+            return;
+         }
+         const res = await api.post('/services/shule-avance/applicant/requests', {
+            request_type: 'cashout',
+            cashout_category: slug,
+            reason: purpose,
+            amount_requested: Number(String(amount).replace(/[^\d.]/g, '')),
+            repayment_term_months: Math.min(12, Math.max(1, Number(term))),
          });
          if (res.data.success) {
             setShowApply(false);
-            fetchLoanStatus();
+            await fetchLoanStatus();
          }
       } catch (err) {
          setError(err.response?.data?.message || 'Application failed.');
@@ -136,10 +176,21 @@ const ShuleAvance = () => {
                                     value={term}
                                     onChange={(e) => setTerm(Number(e.target.value))}
                                  >
-                                    <option value={3}>3 Months Plan</option>
-                                    <option value={6}>6 Months Plan</option>
-                                    <option value={12}>12 Months Plan</option>
-                                    <option value={18}>18 Months Plan</option>
+                                    {[1,2,3,4,5,6,7,8,9,10,11,12].map((m) => (
+                                       <option key={m} value={m}>{m} months</option>
+                                    ))}
+                                 </select>
+                              </div>
+                              <div className="space-y-1.5 md:col-span-2">
+                                 <label className="text-[9px] font-black text-re-text-muted uppercase tracking-widest opacity-40">Cashout program</label>
+                                 <select
+                                    className="w-full h-11 bg-re-bg rounded-lg px-4 font-bold outline-none border border-transparent focus:border-re-orange/20 focus:bg-white transition-all text-xs appearance-none"
+                                    value={cashoutCategory}
+                                    onChange={(e) => setCashoutCategory(e.target.value)}
+                                 >
+                                    {(catalog.cashouts || []).map((c) => (
+                                       <option key={c.slug} value={c.slug}>{c.label}</option>
+                                    ))}
                                  </select>
                               </div>
                               <div className="space-y-1.5 md:col-span-2">
@@ -152,8 +203,18 @@ const ShuleAvance = () => {
                                     required
                                  ></textarea>
                               </div>
+                              <div className="md:col-span-2">
+                                 <ShuleAvanceRepaymentCalculator
+                                    principal={amount}
+                                    monthlyRatePercent={selectedRate}
+                                    months={term}
+                                    title="Repayment estimate"
+                                 />
+                              </div>
                               <div className="md:col-span-2 flex justify-between items-center bg-re-bg/50 p-4 rounded-lg border border-dashed border-gray-200">
-                                 <p className="text-[9px] text-re-text-muted font-bold italic">Est. Deduction: <span className="text-re-text font-black text-xs">{(Number(amount) / term || 0).toLocaleString()} RWF/mo</span></p>
+                                 <p className="text-[9px] text-re-text-muted font-bold italic max-w-[55%] leading-snug">
+                                    Uses platform monthly rate for the selected program. Not a binding offer.
+                                 </p>
                                  <button
                                     type="submit"
                                     disabled={submitting}
@@ -230,7 +291,7 @@ const ShuleAvance = () => {
                                        </div>
                                        <h4 className="text-2xl font-black text-re-text tracking-tight uppercase leading-tight">Empowering Your Academic Ambitions</h4>
                                        <p className="text-[11px] text-re-text-muted font-bold opacity-70 leading-relaxed uppercase tracking-widest">
-                                          Unlock bridge financing for your academic or personal goals. Quick approval (48hrs) for verified educators.
+                                          Unlock bridge financing for your personal goals. Quick approval (48hrs) for verified educators.
                                        </p>
                                     </div>
                                     <button

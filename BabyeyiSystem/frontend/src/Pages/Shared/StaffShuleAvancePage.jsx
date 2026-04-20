@@ -1,7 +1,23 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import api from '../services/api';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
+
+const API = import.meta.env.VITE_API_URL || 'http://localhost:5100';
+const SA_BASE = `${API}/api/services`;
+
+async function saFetch(method, path, body) {
+  const opts = {
+    method,
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+  };
+  if (body !== undefined && method !== 'GET' && method !== 'HEAD') {
+    opts.body = JSON.stringify(body);
+  }
+  const res = await fetch(`${SA_BASE}${path}`, opts);
+  const data = await res.json().catch(() => ({}));
+  return { data, ok: res.ok, status: res.status };
+}
 import {
   Wallet,
   Zap,
@@ -21,7 +37,7 @@ import {
   Send,
   XCircle,
 } from 'lucide-react';
-import ShuleAvanceRepaymentCalculator from '../components/ShuleAvanceRepaymentCalculator';
+import ShuleAvanceRepaymentCalculator from '../../components/ShuleAvanceRepaymentCalculator';
 
 function pickServiceIcon(slug) {
   const s = String(slug || '').toLowerCase();
@@ -117,11 +133,11 @@ function Modal({ open, onClose, title, children, wide }) {
         }`}
       >
         <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-black/5 bg-white/95 backdrop-blur px-4 py-3">
-          <h2 className="text-sm font-black text-re-text uppercase tracking-tight">{title}</h2>
+          <h2 className="text-sm font-black text-slate-900 uppercase tracking-tight">{title}</h2>
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-xl hover:bg-re-bg text-re-text-muted transition-colors"
+            className="p-2 rounded-xl hover:bg-amber-50/70 text-slate-600 transition-colors"
             aria-label="Close dialog"
           >
             <X size={18} />
@@ -134,8 +150,10 @@ function Modal({ open, onClose, title, children, wide }) {
   );
 }
 
-export default function ShuleAvance() {
-  const { teacher } = useAuth();
+/** HOD / DOS — same Shule Avance flow as the teacher portal (session cookie auth). */
+export default function StaffShuleAvancePage() {
+  const auth = useAuth();
+  const user = auth.user && auth.user !== false ? auth.user : null;
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -160,11 +178,11 @@ export default function ShuleAvance() {
 
   const loadCatalog = useCallback(async () => {
     try {
-      const res = await api.get('/services/shule-avance/catalog');
-      if (res.data?.success && res.data.data) {
+      const { data, ok } = await saFetch('GET', '/shule-avance/catalog');
+      if (ok && data?.success && data.data) {
         setCatalog({
-          services: Array.isArray(res.data.data.services) ? res.data.data.services : [],
-          cashouts: Array.isArray(res.data.data.cashouts) ? res.data.data.cashouts : [],
+          services: Array.isArray(data.data.services) ? data.data.services : [],
+          cashouts: Array.isArray(data.data.cashouts) ? data.data.cashouts : [],
         });
       }
     } catch {
@@ -177,14 +195,14 @@ export default function ShuleAvance() {
     else setRefreshing(true);
     setError(null);
     try {
-      const [reqRes] = await Promise.all([
-        api.get('/services/shule-avance/applicant/my-requests'),
+      const [{ data, ok }] = await Promise.all([
+        saFetch('GET', '/shule-avance/applicant/my-requests'),
         loadCatalog(),
       ]);
-      if (reqRes.data?.success) setRows(Array.isArray(reqRes.data.data) ? reqRes.data.data : []);
+      if (ok && data?.success) setRows(Array.isArray(data.data) ? data.data : []);
       else setRows([]);
     } catch (e) {
-      setError(e.response?.data?.message || 'Could not load ShuleAvance requests.');
+      setError(e?.message || 'Could not load ShuleAvance requests.');
       setRows([]);
     } finally {
       setLoading(false);
@@ -284,15 +302,15 @@ export default function ShuleAvance() {
         return;
       }
 
-      const res = await api.post('/services/shule-avance/applicant/requests', body);
-      if (res.data?.success) {
+      const { data, ok } = await saFetch('POST', '/shule-avance/applicant/requests', body);
+      if (ok && data?.success) {
         closeFlow();
         await load(true);
       } else {
-        setError(res.data?.message || 'Submit failed.');
+        setError(data?.message || 'Submit failed.');
       }
     } catch (e) {
-      setError(e.response?.data?.message || 'Submit failed.');
+      setError(e?.message || 'Submit failed.');
     } finally {
       setSubmitting(false);
     }
@@ -344,16 +362,16 @@ export default function ShuleAvance() {
         return;
       }
 
-      const res = await api.put(`/services/shule-avance/applicant/requests/${editRow.id}`, body);
-      if (res.data?.success) {
+      const { data, ok } = await saFetch('PUT', `/shule-avance/applicant/requests/${editRow.id}`, body);
+      if (ok && data?.success) {
         setEditRow(null);
         resetForm();
         await load(true);
       } else {
-        setError(res.data?.message || 'Update failed.');
+        setError(data?.message || 'Update failed.');
       }
     } catch (e) {
-      setError(e.response?.data?.message || 'Update failed.');
+      setError(e?.message || 'Update failed.');
     } finally {
       setSubmitting(false);
     }
@@ -362,11 +380,15 @@ export default function ShuleAvance() {
   const deleteRow = async (id) => {
     if (!window.confirm('Delete this request? You can only delete items still pending with finance.')) return;
     try {
-      await api.delete(`/services/shule-avance/applicant/requests/${id}`);
+      const { data, ok } = await saFetch('DELETE', `/shule-avance/applicant/requests/${id}`);
+      if (!ok || !data?.success) {
+        alert(data?.message || 'Could not delete.');
+        return;
+      }
       await load(true);
       setDetailRow(null);
     } catch (e) {
-      alert(e.response?.data?.message || 'Could not delete.');
+      alert(e?.message || 'Could not delete.');
     }
   };
 
@@ -385,29 +407,37 @@ export default function ShuleAvance() {
     }
   };
 
+  if (auth.loading) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center bg-[#FFFBF0]">
+        <Loader2 className="h-10 w-10 animate-spin text-amber-600" />
+      </div>
+    );
+  }
+
   if (loading && !rows.length) {
     return (
-      <div className="flex min-h-[50vh] items-center justify-center bg-re-bg">
-        <Loader2 className="h-10 w-10 animate-spin text-re-orange" />
+      <div className="flex min-h-[50vh] items-center justify-center bg-[#FFFBF0]">
+        <Loader2 className="h-10 w-10 animate-spin text-amber-600" />
       </div>
     );
   }
 
   return (
-    <div className="animate-in fade-in duration-500 bg-re-bg min-h-screen pb-16">
+    <div className="animate-in fade-in duration-500 bg-[#FFFBF0] min-h-screen pb-16">
       <div className="relative w-full overflow-hidden border-b border-black/5 bg-[linear-gradient(135deg,#0E1F35,#1B3354)]">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,140,0,0.18),transparent_40%)]" />
         <div className="relative z-10 mx-auto max-w-[1200px] px-5 py-10 md:py-12">
           <p className="text-[10px] font-black uppercase tracking-[0.35em] text-white/50">Staff benefit</p>
           <h1 className="mt-2 text-3xl font-black tracking-tight text-white md:text-4xl">
-            Shule <span className="text-re-orange">Avance</span>
+            Shule <span className="text-amber-600">Avance</span>
           </h1>
           <p className="mt-2 max-w-xl text-sm font-bold text-white/70">
             Request a service advance or a cashout, track every step, and see school decisions in one place.
           </p>
-          {teacher?.first_name ? (
+          {user?.first_name ? (
             <p className="mt-4 text-xs font-bold text-white/50">
-              Signed in as <span className="text-white/90">{teacher.first_name}</span>
+              Signed in as <span className="text-white/90">{user.first_name}</span>
             </p>
           ) : null}
         </div>
@@ -428,17 +458,17 @@ export default function ShuleAvance() {
             onClick={openService}
             className="group flex items-center gap-4 rounded-[24px] border border-black/5 bg-white p-5 text-left shadow-xl transition hover:-translate-y-0.5 hover:shadow-2xl"
           >
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-re-orange/10 text-re-orange">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 text-amber-600">
               <Wallet className="h-7 w-7" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-black uppercase tracking-widest text-re-text-muted">Option A</p>
-              <p className="text-lg font-black text-re-text">Service request</p>
-              <p className="mt-1 text-[11px] font-bold text-re-text-muted">
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-600">Option A</p>
+              <p className="text-lg font-black text-slate-900">Service request</p>
+              <p className="mt-1 text-[11px] font-bold text-slate-600">
                 Cash Power, Airtime &amp; Data, or Teacher Deals
               </p>
             </div>
-            <ChevronRight className="h-5 w-5 shrink-0 text-re-text-muted opacity-40 transition group-hover:translate-x-0.5 group-hover:opacity-100" />
+            <ChevronRight className="h-5 w-5 shrink-0 text-slate-600 opacity-40 transition group-hover:translate-x-0.5 group-hover:opacity-100" />
           </button>
 
           <button
@@ -450,25 +480,25 @@ export default function ShuleAvance() {
               <Banknote className="h-7 w-7" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-black uppercase tracking-widest text-re-text-muted">Option B</p>
-              <p className="text-lg font-black text-re-text">Cashout request</p>
-              <p className="mt-1 text-[11px] font-bold text-re-text-muted">
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-600">Option B</p>
+              <p className="text-lg font-black text-slate-900">Cashout request</p>
+              <p className="mt-1 text-[11px] font-bold text-slate-600">
                 Cash advance with reason and repayment plan
               </p>
             </div>
-            <ChevronRight className="h-5 w-5 shrink-0 text-re-text-muted opacity-40 transition group-hover:translate-x-0.5 group-hover:opacity-100" />
+            <ChevronRight className="h-5 w-5 shrink-0 text-slate-600 opacity-40 transition group-hover:translate-x-0.5 group-hover:opacity-100" />
           </button>
         </div>
 
         {/* Filters + refresh */}
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2 text-re-text">
-            <Filter className="h-4 w-4 text-re-text-muted" />
-            <span className="text-[10px] font-black uppercase tracking-widest text-re-text-muted">Status</span>
+          <div className="flex items-center gap-2 text-slate-900">
+            <Filter className="h-4 w-4 text-slate-600" />
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">Status</span>
             <select
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              className="rounded-xl border border-black/10 bg-white px-3 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-re-orange/30"
+              className="rounded-xl border border-black/10 bg-white px-3 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-amber-400/30"
             >
               <option value="all">All</option>
               <option value="pending_accountant">Pending</option>
@@ -481,7 +511,7 @@ export default function ShuleAvance() {
             type="button"
             onClick={() => load(true)}
             disabled={refreshing}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-black/10 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-re-text shadow-sm"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-black/10 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-slate-900 shadow-sm"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
             Refresh
@@ -490,7 +520,7 @@ export default function ShuleAvance() {
 
         {/* List */}
         <div className="overflow-hidden rounded-[24px] border border-black/5 bg-white shadow-xl">
-          <div className="hidden grid-cols-12 gap-2 border-b border-black/5 bg-re-bg/80 px-4 py-3 text-[9px] font-black uppercase tracking-widest text-re-text-muted md:grid">
+          <div className="hidden grid-cols-12 gap-2 border-b border-black/5 bg-amber-50/90 px-4 py-3 text-[9px] font-black uppercase tracking-widest text-slate-600 md:grid">
             <div className="col-span-1">ID</div>
             <div className="col-span-2">Type</div>
             <div className="col-span-2">Category</div>
@@ -501,36 +531,36 @@ export default function ShuleAvance() {
           </div>
 
           {filtered.length === 0 ? (
-            <div className="px-4 py-12 text-center text-sm font-bold text-re-text-muted">
+            <div className="px-4 py-12 text-center text-sm font-bold text-slate-600">
               No requests match this filter yet.
             </div>
           ) : (
             <ul className="divide-y divide-black/5">
               {filtered.map((r) => (
-                <li key={r.id} className="px-4 py-4 transition hover:bg-re-bg/40">
+                <li key={r.id} className="px-4 py-4 transition hover:bg-amber-50/50">
                   <div className="flex flex-col gap-3 md:grid md:grid-cols-12 md:items-center md:gap-2">
                     <div className="flex items-center justify-between md:col-span-1">
-                      <span className="text-[10px] font-black text-re-text-muted md:hidden">ID</span>
-                      <span className="font-mono text-xs font-black text-re-text">#{r.id}</span>
+                      <span className="text-[10px] font-black text-slate-600 md:hidden">ID</span>
+                      <span className="font-mono text-xs font-black text-slate-900">#{r.id}</span>
                     </div>
                     <div className="flex items-center justify-between md:col-span-2">
-                      <span className="text-[10px] font-black text-re-text-muted md:hidden">Type</span>
+                      <span className="text-[10px] font-black text-slate-600 md:hidden">Type</span>
                       <span className="text-xs font-bold">{requestTypeLabel(r)}</span>
                     </div>
                     <div className="flex items-center justify-between md:col-span-2">
-                      <span className="text-[10px] font-black text-re-text-muted md:hidden">Category</span>
+                      <span className="text-[10px] font-black text-slate-600 md:hidden">Category</span>
                       <span className="text-xs font-bold">{categoryLabel(r, catalog)}</span>
                     </div>
                     <div className="flex items-center justify-between md:col-span-2">
-                      <span className="text-[10px] font-black text-re-text-muted md:hidden">Amount</span>
+                      <span className="text-[10px] font-black text-slate-600 md:hidden">Amount</span>
                       <span className="text-xs font-black">{formatMoney(r.amount_rwf)}</span>
                     </div>
                     <div className="flex items-center justify-between md:col-span-2">
-                      <span className="text-[10px] font-black text-re-text-muted md:hidden">Repayment</span>
+                      <span className="text-[10px] font-black text-slate-600 md:hidden">Repayment</span>
                       <span className="text-xs font-bold">{r.repayment_term_months} mo</span>
                     </div>
                     <div className="flex items-center justify-between md:col-span-2">
-                      <span className="text-[10px] font-black text-re-text-muted md:hidden">Status</span>
+                      <span className="text-[10px] font-black text-slate-600 md:hidden">Status</span>
                       <span
                         className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wide ${
                           STATUS_MAP[r.status]?.className || 'bg-slate-100 text-slate-700 border-slate-200'
@@ -543,7 +573,7 @@ export default function ShuleAvance() {
                       <button
                         type="button"
                         onClick={() => setDetailRow(r)}
-                        className="inline-flex items-center gap-1 rounded-lg border border-black/10 bg-white px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wider text-re-text hover:border-re-orange/40"
+                        className="inline-flex items-center gap-1 rounded-lg border border-black/10 bg-white px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wider text-slate-900 hover:border-amber-400/50"
                       >
                         <Eye className="h-3.5 w-3.5" /> View
                       </button>
@@ -552,7 +582,7 @@ export default function ShuleAvance() {
                           <button
                             type="button"
                             onClick={() => openEdit(r)}
-                            className="inline-flex items-center gap-1 rounded-lg border border-black/10 bg-white px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wider text-re-text hover:border-re-orange/40"
+                            className="inline-flex items-center gap-1 rounded-lg border border-black/10 bg-white px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wider text-slate-900 hover:border-amber-400/50"
                           >
                             <Pencil className="h-3.5 w-3.5" /> Edit
                           </button>
@@ -567,7 +597,7 @@ export default function ShuleAvance() {
                       )}
                     </div>
                   </div>
-                  <p className="mt-2 text-[10px] font-bold text-re-text-muted md:pl-0">
+                  <p className="mt-2 text-[10px] font-bold text-slate-600 md:pl-0">
                     Submitted {r.submitted_at ? new Date(r.submitted_at).toLocaleString() : '—'}
                   </p>
                 </li>
@@ -586,7 +616,7 @@ export default function ShuleAvance() {
       >
         {flowKind === 'service' && !stepCategory && (
           <div className="space-y-3">
-            <p className="text-xs font-bold text-re-text-muted">Choose a service category</p>
+            <p className="text-xs font-bold text-slate-600">Choose a service category</p>
             <div className="grid gap-3 sm:grid-cols-1">
               {(catalog.services || []).map(({ slug, label, description, income_rate_percent }) => {
                 const Icon = pickServiceIcon(slug);
@@ -595,19 +625,19 @@ export default function ShuleAvance() {
                     key={slug}
                     type="button"
                     onClick={() => setStepCategory(slug)}
-                    className="flex items-center gap-3 rounded-2xl border border-black/10 bg-re-bg/80 p-4 text-left transition hover:border-re-orange/40 hover:bg-white"
+                    className="flex items-center gap-3 rounded-2xl border border-black/10 bg-amber-50/90 p-4 text-left transition hover:border-amber-400/50 hover:bg-white"
                   >
                     <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white shadow-inner">
-                      <Icon className="h-5 w-5 text-re-orange" />
+                      <Icon className="h-5 w-5 text-amber-600" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-black text-re-text">{label}</p>
-                      <p className="text-[11px] font-bold text-re-text-muted">{description || '—'}</p>
-                      <p className="text-[10px] font-black text-re-orange/90 mt-1">
+                      <p className="text-sm font-black text-slate-900">{label}</p>
+                      <p className="text-[11px] font-bold text-slate-600">{description || '—'}</p>
+                      <p className="text-[10px] font-black text-amber-800 mt-1">
                         {Number(income_rate_percent).toFixed(2)}% / month est.
                       </p>
                     </div>
-                    <ChevronRight className="ml-auto h-4 w-4 text-re-text-muted shrink-0" />
+                    <ChevronRight className="ml-auto h-4 w-4 text-slate-600 shrink-0" />
                   </button>
                 );
               })}
@@ -617,18 +647,18 @@ export default function ShuleAvance() {
 
         {flowKind === 'service' && stepCategory && (
           <div className="space-y-4">
-            <div className="rounded-xl border border-re-orange/30 bg-re-orange/5 px-3 py-2 text-[11px] font-bold text-re-text">
+            <div className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-[11px] font-bold text-slate-900">
               Service type:{' '}
               <span className="font-black">
                 {catalog.services?.find((c) => c.slug === stepCategory)?.label || stepCategory}
               </span>
             </div>
             <div>
-              <label className="text-[10px] font-black uppercase tracking-widest text-re-text-muted">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-600">
                 Amount (RWF)
               </label>
               <input
-                className="mt-1 w-full rounded-xl border border-black/10 bg-re-bg px-3 py-2.5 text-sm font-bold outline-none focus:ring-2 focus:ring-re-orange/30"
+                className="mt-1 w-full rounded-xl border border-black/10 bg-[#FFFBF0] px-3 py-2.5 text-sm font-bold outline-none focus:ring-2 focus:ring-amber-400/30"
                 inputMode="numeric"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
@@ -636,11 +666,11 @@ export default function ShuleAvance() {
               />
             </div>
             <div>
-              <label className="text-[10px] font-black uppercase tracking-widest text-re-text-muted">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-600">
                 Repayment period
               </label>
               <select
-                className="mt-1 w-full rounded-xl border border-black/10 bg-re-bg px-3 py-2.5 text-sm font-bold outline-none focus:ring-2 focus:ring-re-orange/30"
+                className="mt-1 w-full rounded-xl border border-black/10 bg-[#FFFBF0] px-3 py-2.5 text-sm font-bold outline-none focus:ring-2 focus:ring-amber-400/30"
                 value={repayment}
                 onChange={(e) => setRepayment(Number(e.target.value))}
               >
@@ -659,11 +689,11 @@ export default function ShuleAvance() {
               className="mt-1"
             />
             <div>
-              <label className="text-[10px] font-black uppercase tracking-widest text-re-text-muted">
-                Description <span className="font-bold normal-case text-re-text-muted/70">(optional)</span>
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-600">
+                Description <span className="font-bold normal-case text-slate-500">(optional)</span>
               </label>
               <textarea
-                className="mt-1 min-h-[88px] w-full resize-none rounded-xl border border-black/10 bg-re-bg px-3 py-2.5 text-sm font-bold outline-none focus:ring-2 focus:ring-re-orange/30"
+                className="mt-1 min-h-[88px] w-full resize-none rounded-xl border border-black/10 bg-[#FFFBF0] px-3 py-2.5 text-sm font-bold outline-none focus:ring-2 focus:ring-amber-400/30"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Extra context for finance (optional)"
@@ -692,7 +722,7 @@ export default function ShuleAvance() {
 
         {flowKind === 'cashout' && !stepCashoutCategory && (
           <div className="space-y-3">
-            <p className="text-xs font-bold text-re-text-muted">Choose a cashout type</p>
+            <p className="text-xs font-bold text-slate-600">Choose a cashout type</p>
             <div className="grid gap-3">
               {(catalog.cashouts || []).map(({ slug, label, description, income_rate_percent }) => {
                 const Icon = pickCashoutIcon(slug);
@@ -701,19 +731,19 @@ export default function ShuleAvance() {
                     key={slug}
                     type="button"
                     onClick={() => setStepCashoutCategory(slug)}
-                    className="flex items-center gap-3 rounded-2xl border border-black/10 bg-re-bg/80 p-4 text-left transition hover:border-sky-400/50 hover:bg-white"
+                    className="flex items-center gap-3 rounded-2xl border border-black/10 bg-amber-50/90 p-4 text-left transition hover:border-sky-400/50 hover:bg-white"
                   >
                     <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-50 text-sky-800">
                       <Icon className="h-5 w-5" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-black text-re-text">{label}</p>
-                      <p className="text-[11px] font-bold text-re-text-muted">{description || '—'}</p>
-                      <p className="text-[10px] font-black text-sky-800/90 mt-1">
+                      <p className="text-sm font-black text-slate-900">{label}</p>
+                      <p className="text-[11px] font-bold text-slate-600">{description || '—'}</p>
+                      <p className="text-[10px] font-black text-sky-800 mt-1">
                         {Number(income_rate_percent).toFixed(2)}% / month est.
                       </p>
                     </div>
-                    <ChevronRight className="ml-auto h-4 w-4 text-re-text-muted shrink-0" />
+                    <ChevronRight className="ml-auto h-4 w-4 text-slate-600 shrink-0" />
                   </button>
                 );
               })}
@@ -723,38 +753,38 @@ export default function ShuleAvance() {
 
         {flowKind === 'cashout' && stepCashoutCategory && (
           <div className="space-y-4">
-            <div className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-[11px] font-bold text-slate-800">
+            <div className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-[11px] font-bold text-slate-900">
               Cashout type:{' '}
               <span className="font-black">
                 {catalog.cashouts?.find((c) => c.slug === stepCashoutCategory)?.label || stepCashoutCategory}
               </span>
             </div>
             <div>
-              <label className="text-[10px] font-black uppercase tracking-widest text-re-text-muted">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-600">
                 Amount (RWF)
               </label>
               <input
-                className="mt-1 w-full rounded-xl border border-black/10 bg-re-bg px-3 py-2.5 text-sm font-bold outline-none focus:ring-2 focus:ring-re-orange/30"
+                className="mt-1 w-full rounded-xl border border-black/10 bg-[#FFFBF0] px-3 py-2.5 text-sm font-bold outline-none focus:ring-2 focus:ring-amber-400/30"
                 inputMode="numeric"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
               />
             </div>
             <div>
-              <label className="text-[10px] font-black uppercase tracking-widest text-re-text-muted">Reason</label>
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-600">Reason</label>
               <textarea
-                className="mt-1 min-h-[72px] w-full resize-none rounded-xl border border-black/10 bg-re-bg px-3 py-2.5 text-sm font-bold outline-none focus:ring-2 focus:ring-re-orange/30"
+                className="mt-1 min-h-[72px] w-full resize-none rounded-xl border border-black/10 bg-[#FFFBF0] px-3 py-2.5 text-sm font-bold outline-none focus:ring-2 focus:ring-amber-400/30"
                 value={cashoutReason}
                 onChange={(e) => setCashoutReason(e.target.value)}
                 placeholder="Why do you need this cashout?"
               />
             </div>
             <div>
-              <label className="text-[10px] font-black uppercase tracking-widest text-re-text-muted">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-600">
                 Repayment period
               </label>
               <select
-                className="mt-1 w-full rounded-xl border border-black/10 bg-re-bg px-3 py-2.5 text-sm font-bold outline-none focus:ring-2 focus:ring-re-orange/30"
+                className="mt-1 w-full rounded-xl border border-black/10 bg-[#FFFBF0] px-3 py-2.5 text-sm font-bold outline-none focus:ring-2 focus:ring-amber-400/30"
                 value={repayment}
                 onChange={(e) => setRepayment(Number(e.target.value))}
               >
@@ -772,11 +802,11 @@ export default function ShuleAvance() {
               title="Live estimate"
             />
             <div>
-              <label className="text-[10px] font-black uppercase tracking-widest text-re-text-muted">
-                Description <span className="font-bold normal-case text-re-text-muted/70">(optional)</span>
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-600">
+                Description <span className="font-bold normal-case text-slate-500">(optional)</span>
               </label>
               <textarea
-                className="mt-1 min-h-[64px] w-full resize-none rounded-xl border border-black/10 bg-re-bg px-3 py-2.5 text-sm font-bold outline-none focus:ring-2 focus:ring-re-orange/30"
+                className="mt-1 min-h-[64px] w-full resize-none rounded-xl border border-black/10 bg-[#FFFBF0] px-3 py-2.5 text-sm font-bold outline-none focus:ring-2 focus:ring-amber-400/30"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
               />
@@ -809,27 +839,27 @@ export default function ShuleAvance() {
           <div className="space-y-4 text-sm">
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
-                <p className="text-[9px] font-black uppercase tracking-widest text-re-text-muted">Type</p>
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-600">Type</p>
                 <p className="font-bold">{requestTypeLabel(detailRow)}</p>
               </div>
               <div>
-                <p className="text-[9px] font-black uppercase tracking-widest text-re-text-muted">Category</p>
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-600">Category</p>
                 <p className="font-bold">{categoryLabel(detailRow, catalog)}</p>
               </div>
               <div>
-                <p className="text-[9px] font-black uppercase tracking-widest text-re-text-muted">Amount</p>
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-600">Amount</p>
                 <p className="font-black">{formatMoney(detailRow.amount_rwf)}</p>
               </div>
               <div>
-                <p className="text-[9px] font-black uppercase tracking-widest text-re-text-muted">Repayment</p>
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-600">Repayment</p>
                 <p className="font-bold">{detailRow.repayment_term_months} months</p>
               </div>
             </div>
             <div>
-              <p className="text-[9px] font-black uppercase tracking-widest text-re-text-muted">
+              <p className="text-[9px] font-black uppercase tracking-widest text-slate-600">
                 {String(detailRow.request_type).toLowerCase() === 'cashout' ? 'Reason' : 'Description'}
               </p>
-              <p className="font-bold text-re-text">
+              <p className="font-bold text-slate-900">
                 {String(detailRow.request_type).toLowerCase() === 'cashout'
                   ? detailRow.cashout_reason || detailRow.purpose || '—'
                   : detailRow.purpose || '—'}
@@ -844,12 +874,12 @@ export default function ShuleAvance() {
             />
             {detailRow.details ? (
               <div>
-                <p className="text-[9px] font-black uppercase tracking-widest text-re-text-muted">Extra detail</p>
-                <p className="font-bold text-re-text">{detailRow.details}</p>
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-600">Extra detail</p>
+                <p className="font-bold text-slate-900">{detailRow.details}</p>
               </div>
             ) : null}
-            <div className="rounded-2xl border border-black/10 bg-re-bg/60 p-4">
-              <p className="text-[9px] font-black uppercase tracking-widest text-re-text-muted">Status</p>
+            <div className="rounded-2xl border border-black/10 bg-amber-50/80 p-4">
+              <p className="text-[9px] font-black uppercase tracking-widest text-slate-600">Status</p>
               <div className="mt-2 flex items-center gap-2">
                 <span
                   className={`inline-flex items-center rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-wide ${
@@ -892,7 +922,7 @@ export default function ShuleAvance() {
                       setDetailRow(null);
                       openEdit(detailRow);
                     }}
-                    className="rounded-xl border border-re-orange/40 bg-re-orange/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-re-text"
+                    className="rounded-xl border border-amber-400 bg-amber-100 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-slate-900"
                   >
                     Edit request
                   </button>
@@ -916,7 +946,7 @@ export default function ShuleAvance() {
           <div className="space-y-4">
             {String(editRow.request_type).toLowerCase() === 'service' && (
               <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-re-text-muted">Service category</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-600">Service category</p>
                 <div className="mt-2 grid gap-2">
                   {(catalog.services || []).map(({ slug, label }) => {
                     const Icon = pickServiceIcon(slug);
@@ -927,11 +957,11 @@ export default function ShuleAvance() {
                         onClick={() => setStepCategory(slug)}
                         className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-left text-xs font-bold transition ${
                           (stepCategory || editRow.service_category) === slug
-                            ? 'border-re-orange bg-re-orange/10'
+                            ? 'border-amber-500 bg-amber-100'
                             : 'border-black/10 bg-white'
                         }`}
                       >
-                        <Icon className="h-4 w-4 text-re-orange" />
+                        <Icon className="h-4 w-4 text-amber-600" />
                         {label}
                       </button>
                     );
@@ -941,7 +971,7 @@ export default function ShuleAvance() {
             )}
             {String(editRow.request_type).toLowerCase() === 'cashout' && (
               <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-re-text-muted">Cashout type</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-600">Cashout type</p>
                 <div className="mt-2 grid gap-2">
                   {(catalog.cashouts || []).map(({ slug, label }) => {
                     const Icon = pickCashoutIcon(slug);
@@ -965,18 +995,18 @@ export default function ShuleAvance() {
               </div>
             )}
             <div>
-              <label className="text-[10px] font-black uppercase tracking-widest text-re-text-muted">Amount (RWF)</label>
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-600">Amount (RWF)</label>
               <input
-                className="mt-1 w-full rounded-xl border border-black/10 bg-re-bg px-3 py-2.5 text-sm font-bold"
+                className="mt-1 w-full rounded-xl border border-black/10 bg-[#FFFBF0] px-3 py-2.5 text-sm font-bold"
                 inputMode="numeric"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
               />
             </div>
             <div>
-              <label className="text-[10px] font-black uppercase tracking-widest text-re-text-muted">Repayment</label>
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-600">Repayment</label>
               <select
-                className="mt-1 w-full rounded-xl border border-black/10 bg-re-bg px-3 py-2.5 text-sm font-bold"
+                className="mt-1 w-full rounded-xl border border-black/10 bg-[#FFFBF0] px-3 py-2.5 text-sm font-bold"
                 value={repayment}
                 onChange={(e) => setRepayment(Number(e.target.value))}
               >
@@ -1001,11 +1031,11 @@ export default function ShuleAvance() {
             />
             {String(editRow.request_type).toLowerCase() === 'service' ? (
               <div>
-                <label className="text-[10px] font-black uppercase tracking-widest text-re-text-muted">
-                  Description <span className="font-bold normal-case text-re-text-muted/70">(optional)</span>
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-600">
+                  Description <span className="font-bold normal-case text-slate-500">(optional)</span>
                 </label>
                 <textarea
-                  className="mt-1 min-h-[80px] w-full rounded-xl border border-black/10 bg-re-bg px-3 py-2.5 text-sm font-bold"
+                  className="mt-1 min-h-[80px] w-full rounded-xl border border-black/10 bg-[#FFFBF0] px-3 py-2.5 text-sm font-bold"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                 />
@@ -1013,19 +1043,19 @@ export default function ShuleAvance() {
             ) : (
               <>
                 <div>
-                  <label className="text-[10px] font-black uppercase tracking-widest text-re-text-muted">Reason</label>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-600">Reason</label>
                   <textarea
-                    className="mt-1 min-h-[72px] w-full rounded-xl border border-black/10 bg-re-bg px-3 py-2.5 text-sm font-bold"
+                    className="mt-1 min-h-[72px] w-full rounded-xl border border-black/10 bg-[#FFFBF0] px-3 py-2.5 text-sm font-bold"
                     value={cashoutReason}
                     onChange={(e) => setCashoutReason(e.target.value)}
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-black uppercase tracking-widest text-re-text-muted">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-600">
                     Description (optional)
                   </label>
                   <textarea
-                    className="mt-1 min-h-[64px] w-full rounded-xl border border-black/10 bg-re-bg px-3 py-2.5 text-sm font-bold"
+                    className="mt-1 min-h-[64px] w-full rounded-xl border border-black/10 bg-[#FFFBF0] px-3 py-2.5 text-sm font-bold"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                   />

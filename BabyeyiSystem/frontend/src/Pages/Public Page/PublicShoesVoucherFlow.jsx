@@ -2,8 +2,8 @@
  * Shoes Voucher — wizard aligned with PublicPayBySchool (#000435 + amber)
  * Steps: Student → Shoe details → Package & price → Agent → Delivery → Review → /payments
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   AlertCircle, ArrowLeft, Building2, Check, ChevronRight, Footprints,
   GraduationCap, Home, Loader2, MapPin, Search, ShieldCheck, Truck,
@@ -21,6 +21,9 @@ const FONT = `"MTN Brighter Sans","Nunito","Varela Round",sans-serif`;
 /** Shown as a top-right toast when the chosen size is not allowed for the package / catalog. */
 const SIZE_UNAVAILABLE_FOR_PACKAGE_MSG = "This size is not available for this package.";
 const SIZE_TOAST_MS = 5200;
+
+/** Saved when navigating to /payments so “Back to shoes voucher” can reopen the review step. */
+const SHOES_VOUCHER_WIZARD_RESUME_KEY = "babyeyi_shoes_voucher_wizard_resume_v1";
 
 const FontLoader = () => (
   <style>{`
@@ -435,6 +438,9 @@ function normalizeMethod(m) {
 
 export default function PublicShoesVoucherFlow() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const shoesResumeAgentPickRef = useRef(null);
+  const shoesResumeAppliedRef = useRef(false);
   const [step, setStep] = useState(1);
   const [stepKey, setStepKey] = useState(0);
   const goStep = useCallback((n) => {
@@ -628,6 +634,85 @@ export default function PublicShoesVoucherFlow() {
       off = true;
     };
   }, [locProvince, locDistrict, locSector]);
+
+  useEffect(() => {
+    if (!shoesResumeAgentPickRef.current || !agents.length) return;
+    const want = shoesResumeAgentPickRef.current;
+    const wantId = Number(want?.id ?? want?.user_id);
+    if (!Number.isFinite(wantId)) return;
+    const m = agents.find((a) => Number(a?.id ?? a?.user_id) === wantId);
+    if (m) {
+      setSelectedAgent(m);
+      shoesResumeAgentPickRef.current = null;
+    }
+  }, [agents]);
+
+  useEffect(() => {
+    if (shoesResumeAppliedRef.current) return;
+    if (searchParams.get("resumeStep") !== "6") return;
+    if (!vouchers.length) return;
+    let raw;
+    try {
+      raw = sessionStorage.getItem(SHOES_VOUCHER_WIZARD_RESUME_KEY);
+    } catch {
+      return;
+    }
+    if (!raw) return;
+    let blob;
+    try {
+      blob = JSON.parse(raw);
+    } catch {
+      return;
+    }
+    if (!blob?.quote) return;
+    shoesResumeAppliedRef.current = true;
+    setStudentCode(String(blob.studentCode || "").trim());
+    setShoe(
+      blob.shoe && typeof blob.shoe === "object"
+        ? { size: "", genderType: "", category: "", preferredModel: "", quantity: 1, ...blob.shoe }
+        : { size: "", genderType: "", category: "", preferredModel: "", quantity: 1 }
+    );
+    setDelivery(
+      blob.delivery && typeof blob.delivery === "object"
+        ? {
+            method: "school_collection",
+            district: "",
+            sector: "",
+            cell: "",
+            village: "",
+            phone: "",
+            exactAddress: "",
+            ...blob.delivery,
+          }
+        : {
+            method: "school_collection",
+            district: "",
+            sector: "",
+            cell: "",
+            village: "",
+            phone: "",
+            exactAddress: "",
+          }
+    );
+    setSelectedPackageIds(Array.isArray(blob.selectedPackageIds) ? blob.selectedPackageIds : []);
+    setSelectedShoesModelSlug(blob.selectedShoesModelSlug || null);
+    setLocProvince(String(blob.locProvince || ""));
+    setLocDistrict(String(blob.locDistrict || ""));
+    window.setTimeout(() => {
+      setLocSector(blob.locSector != null ? String(blob.locSector) : "");
+    }, 120);
+    setQuote(blob.quote);
+    if (blob.selectedAgent) shoesResumeAgentPickRef.current = blob.selectedAgent;
+    goStep(6);
+    setSearchParams(
+      (prev) => {
+        const n = new URLSearchParams(prev);
+        n.delete("resumeStep");
+        return n;
+      },
+      { replace: true }
+    );
+  }, [searchParams, vouchers, goStep, setSearchParams]);
 
   const packagesForStep3 = useMemo(() => {
     if (!selectedShoesModelSlug) return [];
@@ -838,6 +923,26 @@ export default function PublicShoesVoucherFlow() {
       );
     } catch {
       return;
+    }
+    try {
+      sessionStorage.setItem(
+        SHOES_VOUCHER_WIZARD_RESUME_KEY,
+        JSON.stringify({
+          studentCode,
+          shoe,
+          delivery,
+          selectedPackageIds,
+          selectedShoesModelSlug,
+          selectedPackages,
+          selectedAgent,
+          locProvince,
+          locDistrict,
+          locSector,
+          quote,
+        })
+      );
+    } catch {
+      /* non-fatal */
     }
     navigate("/payments", {
       state: {

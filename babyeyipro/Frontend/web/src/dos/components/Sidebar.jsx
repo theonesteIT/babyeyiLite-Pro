@@ -7,6 +7,12 @@ import {
   User, LogOut, Wifi, WifiOff, RefreshCw, ChevronDown,
   School,
   Radio,
+  UserCheck,
+  GraduationCap,
+  SlidersHorizontal,
+  FileBarChart,
+  LineChart,
+  IdCard,
 } from 'lucide-react';
 import { PORTAL } from '../config/portal';
 import { h } from '../utils/href';
@@ -108,7 +114,7 @@ const SectionLabel = ({ label }) => (
 
 // ── Sidebar ───────────────────────────────────────────────────
 const Sidebar = ({ onClose }) => {
-  const { teacher, logout, canAccessSchoolConsole } = useAuth();
+  const { teacher, logout, canAccessSchoolConsole, proAccessEffective } = useAuth();
 
   return (
     <div className="flex flex-col h-full bg-white border-r border-black/5 shadow-sm">
@@ -140,9 +146,13 @@ const Sidebar = ({ onClose }) => {
         <NavItem icon={LayoutDashboard} name="Dashboard" path="/" exact onClose={onClose} />
 
         <SectionLabel label="Academic oversight" />
+        <NavItem icon={GraduationCap} name="Staff & courses" path="/academic-setup" onClose={onClose} />
         <NavItem icon={Users} name="Students" path="/students" onClose={onClose} />
         {canAccessSchoolConsole && (
           <NavItem icon={Radio} name="Smart School Access" path="/smart-access" onClose={onClose} />
+        )}
+        {canAccessSchoolConsole && (
+          <NavItem icon={UserCheck} name="Staff smart access" path="/staff-smart-access" onClose={onClose} />
         )}
         <NavItem icon={Calendar} name="Timetable" path="/timetable" onClose={onClose} />
         <NavItem icon={ClipboardCheck} name="Attendance" path="/attendance" onClose={onClose} />
@@ -155,6 +165,16 @@ const Sidebar = ({ onClose }) => {
             { name: 'Record marks', path: '/marks/record', icon: PenLine },
           ]}
         />
+
+        {proAccessEffective && (
+          <>
+            <SectionLabel label="Pro academic suite" />
+            <NavItem icon={IdCard} name="Student registry" path="/student-records" onClose={onClose} />
+            <NavItem icon={LineChart} name="Academic progress" path="/progress" onClose={onClose} />
+            <NavItem icon={SlidersHorizontal} name="DOS settings" path="/dos-settings" onClose={onClose} />
+            <NavItem icon={FileBarChart} name="Reports" path="/reports" onClose={onClose} />
+          </>
+        )}
 
         <SectionLabel label="Professional resources" />
         <NavItem icon={Wallet} name="Shule Avance" path="/shule-avance" onClose={onClose} />

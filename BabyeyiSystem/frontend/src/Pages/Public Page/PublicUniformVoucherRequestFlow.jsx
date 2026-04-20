@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
   Building2,
@@ -170,6 +170,9 @@ const headerBtnBase =
 
 export default function PublicUniformVoucherRequestFlow() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const resumeAgentPickRef = useRef(null);
+  const uniformResumeAppliedRef = useRef(false);
   const [step, setStep] = useState(0);
   const [studentCode, setStudentCode] = useState("");
   const [lookupErr, setLookupErr] = useState("");
@@ -320,6 +323,95 @@ export default function PublicUniformVoucherRequestFlow() {
     };
   }, [locProvince, locDistrict, locSector]);
 
+  useEffect(() => {
+    if (!resumeAgentPickRef.current || !agents.length) return;
+    const want = resumeAgentPickRef.current;
+    const wantId = Number(want?.id ?? want?.user_id);
+    if (!Number.isFinite(wantId)) return;
+    const m = agents.find((a) => Number(a?.id ?? a?.user_id) === wantId);
+    if (m) {
+      setSelectedAgent(m);
+      resumeAgentPickRef.current = null;
+    }
+  }, [agents]);
+
+  useEffect(() => {
+    if (uniformResumeAppliedRef.current) return;
+    if (searchParams.get("resumeStep") !== "6") return;
+    let raw;
+    try {
+      raw = sessionStorage.getItem(UNIFORM_VOUCHER_CHECKOUT_KEY);
+    } catch {
+      return;
+    }
+    if (!raw) return;
+    let p;
+    try {
+      p = JSON.parse(raw);
+    } catch {
+      return;
+    }
+    if (!p?.orderId || !p.prepared?.student || !p.prepared?.uniform_type) return;
+    uniformResumeAppliedRef.current = true;
+    const prep = p.prepared;
+    let cancelled = false;
+    (async () => {
+      setStudentCode(String(prep.student.student_code || prep.student.student_uid || "").trim());
+      setStudent(prep.student);
+      setUniformType(prep.uniform_type);
+      await loadItems(prep.uniform_type);
+      if (cancelled) return;
+      const nextCart = {};
+      for (const ln of prep.lines || []) {
+        if (ln?.item_id == null) continue;
+        nextCart[ln.item_id] = {
+          sel: true,
+          size: String(ln.size || ""),
+          color: ln.color != null ? String(ln.color) : "",
+          qty: Math.max(1, Number(ln.qty) || 1),
+        };
+      }
+      setCart(nextCart);
+      setDeliveryMethod(prep.delivery_method === "home" ? "home" : "school");
+      if (prep.delivery_method === "home" && prep.delivery_detail) {
+        const dd = prep.delivery_detail;
+        setDeliveryDetail({
+          district: String(dd.district || ""),
+          sector: String(dd.sector || ""),
+          cell: String(dd.cell || ""),
+          village: String(dd.village || ""),
+          phone: String(dd.phone || ""),
+          full_address: String(dd.full_address || ""),
+          instructions: String(dd.instructions || ""),
+        });
+      }
+      if (prep.schoolLocation) {
+        setLocProvince(String(prep.schoolLocation.province || ""));
+        setLocDistrict(String(prep.schoolLocation.district || ""));
+        const sec = prep.schoolLocation.sector != null ? String(prep.schoolLocation.sector) : "";
+        window.setTimeout(() => {
+          if (cancelled) return;
+          setLocSector(sec);
+        }, 120);
+      }
+      if (prep.agent) resumeAgentPickRef.current = prep.agent;
+      if (p.payerName) setPayerName(String(p.payerName));
+      if (p.payerPhone) setPayerPhone(String(p.payerPhone));
+      setStep(6);
+      setSearchParams(
+        (prev) => {
+          const n = new URLSearchParams(prev);
+          n.delete("resumeStep");
+          return n;
+        },
+        { replace: true }
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams, loadItems, setSearchParams]);
+
   const onLookup = async (e) => {
     e.preventDefault();
     setLookupErr("");
@@ -397,13 +489,39 @@ export default function PublicUniformVoucherRequestFlow() {
 
   const goPay = async () => {
     setSubmitErr("");
+    if (!payerName.trim() || !payerPhone.trim()) {
+      setSubmitErr("Enter payer full name and MTN phone for MoMo (next step).");
+      return;
+    }
+    let existingCheckout = null;
+    try {
+      const raw = sessionStorage.getItem(UNIFORM_VOUCHER_CHECKOUT_KEY);
+      if (raw) existingCheckout = JSON.parse(raw);
+    } catch {
+      existingCheckout = null;
+    }
+    if (existingCheckout?.orderId) {
+      const nextPayload = {
+        ...existingCheckout,
+        payerName: payerName.trim(),
+        payerPhone: payerPhone.trim(),
+      };
+      try {
+        sessionStorage.setItem(UNIFORM_VOUCHER_CHECKOUT_KEY, JSON.stringify(nextPayload));
+      } catch {
+        setSubmitErr("Could not save checkout session.");
+        return;
+      }
+      navigate("/payments", {
+        state: {
+          uniformVoucherPay: { payerName: payerName.trim(), payerPhone: payerPhone.trim() },
+        },
+      });
+      return;
+    }
     if (!student || !uniformType || !selectedLines.length) return;
     if (!selectedAgent?.id) {
       setSubmitErr("Choose a field agent before paying.");
-      return;
-    }
-    if (!payerName.trim() || !payerPhone.trim()) {
-      setSubmitErr("Enter payer full name and MTN phone for MoMo (next step).");
       return;
     }
     setOrderBusy(true);
@@ -466,6 +584,8 @@ export default function PublicUniformVoucherRequestFlow() {
             total_rwf: grandTotal,
           },
         },
+        payerName: payerName.trim(),
+        payerPhone: payerPhone.trim(),
       };
       try {
         sessionStorage.setItem(UNIFORM_VOUCHER_CHECKOUT_KEY, JSON.stringify(payload));

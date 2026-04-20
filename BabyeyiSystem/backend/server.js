@@ -150,8 +150,19 @@ app.use(session({
   },
 }));
 
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+// Do not run body parsers on multipart — they can interfere with multer/busboy ("Unexpected end of form").
+const jsonParser = express.json({ limit: '50mb' });
+const urlencodedParser = express.urlencoded({ extended: true, limit: '50mb' });
+app.use((req, res, next) => {
+  const ct = String(req.headers['content-type'] || '').toLowerCase();
+  if (ct.includes('multipart/form-data')) return next();
+  return jsonParser(req, res, next);
+});
+app.use((req, res, next) => {
+  const ct = String(req.headers['content-type'] || '').toLowerCase();
+  if (ct.includes('multipart/form-data')) return next();
+  return urlencodedParser(req, res, next);
+});
 
 app.get('/uploads/profile-photos/:filename', (req, res) => {
   const filename = req.params.filename;

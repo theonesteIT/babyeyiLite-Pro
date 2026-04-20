@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
   Wallet,
@@ -10,6 +10,11 @@ import {
   ClipboardList,
   Eye,
   Calendar,
+  GraduationCap,
+  IdCard,
+  LineChart,
+  SlidersHorizontal,
+  FileBarChart,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
@@ -17,7 +22,7 @@ import { PORTAL } from '../config/portal';
 import { h } from '../utils/href';
 
 const Dashboard = () => {
-  const { teacher } = useAuth();
+  const { teacher, proAccessEffective } = useAuth();
   
   const [stats, setStats] = useState([]);
   const [schedule, setSchedule] = useState([]);
@@ -40,7 +45,48 @@ const Dashboard = () => {
     fetchDashboard();
   }, []);
 
-  const quickTools = [
+  const quickTools = useMemo(() => {
+    const proSuite = proAccessEffective
+      ? [
+          {
+            title: 'Full student registry',
+            desc: 'School enrollment toolkit and student identity registration.',
+            icon: <IdCard size={20} />,
+            color: 'text-re-orange',
+            path: '/student-records',
+          },
+          {
+            title: 'Academic progress',
+            desc: 'Set learner status and marks by year and term.',
+            icon: <LineChart size={20} />,
+            color: 'text-emerald-600',
+            path: '/progress',
+          },
+          {
+            title: 'DOS settings',
+            desc: 'Default total marks for academic progress calculations.',
+            icon: <SlidersHorizontal size={20} />,
+            color: 'text-re-purple',
+            path: '/dos-settings',
+          },
+          {
+            title: 'DOS reports',
+            desc: 'Summaries by status and class; Excel and PDF exports.',
+            icon: <FileBarChart size={20} />,
+            color: 'text-re-blue',
+            path: '/reports',
+          },
+        ]
+      : []
+
+    const base = [
+    {
+      title: 'Staff & courses',
+      desc: 'Add teachers, subjects, and build the school timetable.',
+      icon: <GraduationCap size={20} />,
+      color: 'text-re-orange',
+      path: '/academic-setup',
+    },
     {
       title: 'View marks',
       desc: 'Inspect performance by class and subject across the school.',
@@ -90,7 +136,9 @@ const Dashboard = () => {
       color: 'text-re-blue',
       path: '/english-club',
     },
-  ];
+    ]
+    return [...proSuite, ...base]
+  }, [proAccessEffective])
 
   if (loading) {
      return <div className="min-h-screen flex items-center justify-center bg-re-bg"><RefreshCw className="animate-spin text-re-orange" /></div>;
@@ -108,7 +156,7 @@ const Dashboard = () => {
 
         <div className="relative z-10 max-w-4xl">
           <h1 className="text-2xl md:text-3xl font-black tracking-tight mb-2">
-            Welcome, {teacher?.first_name || 'Director'} 👋
+            Welcome, {teacher?.first_name || 'Director'} 
           </h1>
           <p className="text-sm md:text-base font-bold opacity-90 max-w-2xl">
             {PORTAL.brandLine} — monitor today&apos;s timetable, attendance context, and gradebooks school-wide.

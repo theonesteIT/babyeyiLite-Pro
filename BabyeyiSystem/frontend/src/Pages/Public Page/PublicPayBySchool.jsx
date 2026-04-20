@@ -179,10 +179,11 @@ function NavBtns({ onBack, onNext, nextLabel = "Continue", nextDisabled = false,
 ═══════════════════════════════════════════════════════════════ */
 export default function PublicPayBySchool() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const classkitIntent = searchParams.get("intent") === "classkit" || String(searchParams.get("service") || "").toLowerCase() === "shulekit";
   const urlStudentLoadDone = useRef(false);
   const autoCheckoutTriggered = useRef(false);
+  const resumeHandledRef = useRef(false);
 
   // Wizard state
   const [step, setStep] = useState(1);
@@ -514,6 +515,58 @@ export default function PublicPayBySchool() {
   useEffect(() => {
     if (step !== 5) autoCheckoutTriggered.current = false;
   }, [step]);
+
+  // Restore checkout step from /payments “Back to school checkout” (session draft).
+  useEffect(() => {
+    if (resumeHandledRef.current) return;
+    if (searchParams.get("resumeStep") !== "5") return;
+    let d = null;
+    try {
+      d = JSON.parse(sessionStorage.getItem("babyeyi_pay_draft") || "null");
+    } catch {
+      return;
+    }
+    if (!d?.fromPublicSchoolPay || !d.babyeyiId || !combinations.length || !student) return;
+    if (Number(d.schoolId) !== Number(school?.id)) return;
+    const idx = combinations.findIndex((c) => Number(c.babyeyi_id) === Number(d.babyeyi_id));
+    if (idx < 0) return;
+    setComboIndex(idx);
+    const combo = combinations[idx];
+    setTermPick(String(combo.term || "").trim());
+    setYearPick(String(combo.academic_year || "").trim());
+  }, [combinations, student, school?.id, searchParams]);
+
+  useEffect(() => {
+    if (resumeHandledRef.current) return;
+    if (searchParams.get("resumeStep") !== "5") return;
+    let d = null;
+    try {
+      d = JSON.parse(sessionStorage.getItem("babyeyi_pay_draft") || "null");
+    } catch {
+      return;
+    }
+    if (!d?.fromPublicSchoolPay || !pricingData || !selectedCombo) return;
+    if (Number(d.babyeyiId) !== Number(selectedCombo.babyeyi_id)) return;
+    if (Number(d.schoolId) !== Number(school?.id)) return;
+    setFeeSel(new Set((d.selectedFeeIds || []).map(normFeeId).filter((x) => x != null && x !== "")));
+    setReqSel(new Set((d.selectedReqIds || []).map(normReqId).filter(Boolean)));
+    setPayScope(d.payScope || "combined");
+    setAmountInput(String(d.grandTotal ?? ""));
+    if (d.schoolCounterCreditsRwf && typeof d.schoolCounterCreditsRwf === "object") {
+      setSchoolCounterPaidByFeeId({ ...d.schoolCounterCreditsRwf });
+    }
+    autoCheckoutTriggered.current = true;
+    setStep(5);
+    resumeHandledRef.current = true;
+    setSearchParams(
+      (prev) => {
+        const n = new URLSearchParams(prev);
+        n.delete("resumeStep");
+        return n;
+      },
+      { replace: true }
+    );
+  }, [pricingData, selectedCombo, school?.id, searchParams, setSearchParams]);
 
   // Auto-open payment page once the checkout form is fully valid.
   useEffect(() => {
@@ -876,7 +929,7 @@ export default function PublicPayBySchool() {
                 <NavBtns
                   onBack={() => goStep(2)}
                   onNext={() => { if (pricingData && grand > 0) goStep(4); }}
-                  nextLabel="Set Amount"
+                  nextLabel="Continue"
                   nextDisabled={!pricingData || pricingLoading || !!pricingErr || grand === 0}
                 />
               </div>
@@ -899,7 +952,7 @@ export default function PublicPayBySchool() {
                         payScope === "tuition_school" ? "border-amber-400 bg-amber-400/10" : "border-white/12 bg-white/4 hover:border-white/25"
                       }`}
                     >
-                      <p className="text-[11px] font-black uppercase tracking-[.08em] text-white/40">Pay tuition Fee &amp; Paid at school items</p>
+                      <p className="text-[11px] font-black uppercase tracking-[.08em] text-white/40">Paid at school items</p>
                       <p className="text-[15px] font-black text-amber-400 font-mono mt-0.5">{Math.round(feeTotal * 100) / 100} RWF</p>
                      
                     </button>
@@ -912,7 +965,7 @@ export default function PublicPayBySchool() {
                         payScope === "requirements_online" ? "border-amber-400 bg-amber-400/10" : "border-white/12 bg-white/4 hover:border-white/25"
                       }`}
                     >
-                      <p className="text-[11px] font-black uppercase tracking-[.08em] text-white/40">Pay Requirements Selected</p>
+                      <p className="text-[11px] font-black uppercase tracking-[.08em] text-white/40">Selected Requirements </p>
                       <p className="text-[15px] font-black text-amber-400 font-mono mt-0.5">{Math.round(reqTotal * 100) / 100} RWF</p>
                       
                     </button>
@@ -925,7 +978,7 @@ export default function PublicPayBySchool() {
                         payScope === "combined" ? "border-amber-400 bg-amber-400/10" : "border-white/12 bg-white/4 hover:border-white/25"
                       }`}
                     >
-                      <p className="text-[11px] font-black uppercase tracking-[.08em] text-white/40">Total of Tuition &amp; School Requirements</p>
+                      <p className="text-[11px] font-black uppercase tracking-[.08em] text-white/40">Total of Paid at school items &amp; Selected Requirements</p>
                       <p className="text-[15px] font-black text-amber-400 font-mono mt-0.5">{Math.round(grand * 100) / 100} RWF</p>
                       
                     </button>

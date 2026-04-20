@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { CalendarClock, CheckCircle2, Loader2, School, Shield, UserCircle2 } from "lucide-react";
+import { CalendarClock, CheckCircle2, Loader2, Lock, School, Shield, UserCircle2 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import LogoutButton from "../Auth/LogoutButton";
 
@@ -46,6 +46,9 @@ const ROLE_META = {
 
 export default function StaffRoleDashboard({ roleCode }) {
   const auth = useAuth();
+  const [pwdForm, setPwdForm] = useState({ current: "", next: "", confirm: "" });
+  const [pwdBusy, setPwdBusy] = useState(false);
+  const [pwdMsg, setPwdMsg] = useState(null);
   const normalizedRole = String(roleCode || auth.role || "").toUpperCase();
   const roleMeta = ROLE_META[normalizedRole] || {
     title: "Staff Dashboard",
@@ -89,6 +92,49 @@ export default function StaffRoleDashboard({ roleCode }) {
     return `${first} ${last}`.trim() || auth.user?.email || "Staff user";
   }, [auth.user]);
 
+  const mustChange = !!auth.user?.force_password_change;
+
+  const submitPassword = async (e) => {
+    e.preventDefault();
+    if (pwdBusy) return;
+    setPwdMsg(null);
+    if (pwdForm.next.length < 8) {
+      setPwdMsg({ type: "err", text: "New password must be at least 8 characters." });
+      return;
+    }
+    if (pwdForm.next !== pwdForm.confirm) {
+      setPwdMsg({ type: "err", text: "New passwords do not match." });
+      return;
+    }
+    if (!mustChange && !pwdForm.current.trim()) {
+      setPwdMsg({ type: "err", text: "Enter your current password." });
+      return;
+    }
+    setPwdBusy(true);
+    try {
+      const body = { newPassword: pwdForm.next };
+      if (!mustChange) body.currentPassword = pwdForm.current;
+      const res = await fetch(`${API}/api/auth/change-password`, {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) {
+        setPwdMsg({ type: "err", text: json.message || "Could not update password." });
+        return;
+      }
+      setPwdForm({ current: "", next: "", confirm: "" });
+      setPwdMsg({ type: "ok", text: "Password updated." });
+      await auth.refresh();
+    } catch {
+      setPwdMsg({ type: "err", text: "Network error." });
+    } finally {
+      setPwdBusy(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
@@ -124,6 +170,67 @@ export default function StaffRoleDashboard({ roleCode }) {
                 Code: <span className="font-mono">{auth.school?.code || "N/A"}</span>
               </p>
             </div>
+          </div>
+
+          <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-center gap-2 mb-1">
+              <Lock size={16} className="text-slate-700" />
+              <h2 className="text-sm font-black text-slate-900 uppercase tracking-wide">Profile · Password</h2>
+            </div>
+            <p className="text-xs text-slate-500 mb-4">
+              {mustChange
+                ? "Set a new password to continue (your manager sent a temporary password by email)."
+                : "Change the password you use to sign in at Staff login."}
+            </p>
+            <form onSubmit={submitPassword} className="grid gap-3 sm:grid-cols-2">
+              {!mustChange && (
+                <div className="sm:col-span-2">
+                  <label className="text-[0.65rem] font-bold uppercase text-slate-500">Current password</label>
+                  <input
+                    type="password"
+                    autoComplete="current-password"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                    value={pwdForm.current}
+                    onChange={(e) => setPwdForm((p) => ({ ...p, current: e.target.value }))}
+                  />
+                </div>
+              )}
+              <div>
+                <label className="text-[0.65rem] font-bold uppercase text-slate-500">New password</label>
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  value={pwdForm.next}
+                  onChange={(e) => setPwdForm((p) => ({ ...p, next: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="text-[0.65rem] font-bold uppercase text-slate-500">Confirm new</label>
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  value={pwdForm.confirm}
+                  onChange={(e) => setPwdForm((p) => ({ ...p, confirm: e.target.value }))}
+                />
+              </div>
+              {pwdMsg && (
+                <div className="sm:col-span-2 text-sm font-semibold">
+                  <span className={pwdMsg.type === "ok" ? "text-emerald-600" : "text-red-600"}>{pwdMsg.text}</span>
+                </div>
+              )}
+              <div className="sm:col-span-2">
+                <button
+                  type="submit"
+                  disabled={pwdBusy}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 text-amber-300 text-sm font-black disabled:opacity-60"
+                >
+                  {pwdBusy ? <Loader2 size={16} className="animate-spin" /> : <Lock size={16} />}
+                  Update password
+                </button>
+              </div>
+            </form>
           </div>
 
           <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4">
