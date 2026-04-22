@@ -50,6 +50,20 @@ function requireAgent(req, res, next) {
 let tablesReady = false;
 let ensureLock = null;
 
+async function addColumnIfMissing(tableName, columnName, definitionSql) {
+  const [rows] = await promisePool.query(`SHOW COLUMNS FROM ${tableName} LIKE ?`, [columnName]);
+  if (!rows.length) {
+    await promisePool.query(`ALTER TABLE ${tableName} ADD COLUMN ${definitionSql}`);
+  }
+}
+
+async function addIndexIfMissing(tableName, indexName, definitionSql) {
+  const [rows] = await promisePool.query(`SHOW INDEX FROM ${tableName} WHERE Key_name = ?`, [indexName]);
+  if (!rows.length) {
+    await promisePool.query(`ALTER TABLE ${tableName} ADD ${definitionSql}`);
+  }
+}
+
 async function ensureTables() {
   if (tablesReady) return;
   if (!ensureLock) {
@@ -81,14 +95,14 @@ async function ensureTables() {
           KEY idx_services_status_year (status, academic_year)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`);
 
-      await promisePool.query(`ALTER TABLE services ADD COLUMN IF NOT EXISTS created_by_role VARCHAR(40) NOT NULL DEFAULT 'SUPER_ADMIN'`);
-      await promisePool.query(`ALTER TABLE services ADD COLUMN IF NOT EXISTS created_by_user_id INT UNSIGNED NULL`);
-      await promisePool.query(`ALTER TABLE services ADD COLUMN IF NOT EXISTS is_shop_product TINYINT(1) NOT NULL DEFAULT 0`);
-      await promisePool.query(`ALTER TABLE services ADD COLUMN IF NOT EXISTS deleted_at DATETIME NULL`);
-      await promisePool.query(`ALTER TABLE services ADD COLUMN IF NOT EXISTS available_sizes JSON NULL`);
-      await promisePool.query(`ALTER TABLE services ADD COLUMN IF NOT EXISTS shoe_categories JSON NULL`);
-      await promisePool.query(`ALTER TABLE services ADD COLUMN IF NOT EXISTS delivery_fee DECIMAL(12,2) NOT NULL DEFAULT 0`);
-      await promisePool.query(`ALTER TABLE services ADD COLUMN IF NOT EXISTS shoe_models JSON NULL`);
+      await addColumnIfMissing('services', 'created_by_role', `created_by_role VARCHAR(40) NOT NULL DEFAULT 'SUPER_ADMIN'`);
+      await addColumnIfMissing('services', 'created_by_user_id', `created_by_user_id INT UNSIGNED NULL`);
+      await addColumnIfMissing('services', 'is_shop_product', `is_shop_product TINYINT(1) NOT NULL DEFAULT 0`);
+      await addColumnIfMissing('services', 'deleted_at', `deleted_at DATETIME NULL`);
+      await addColumnIfMissing('services', 'available_sizes', `available_sizes JSON NULL`);
+      await addColumnIfMissing('services', 'shoe_categories', `shoe_categories JSON NULL`);
+      await addColumnIfMissing('services', 'delivery_fee', `delivery_fee DECIMAL(12,2) NOT NULL DEFAULT 0`);
+      await addColumnIfMissing('services', 'shoe_models', `shoe_models JSON NULL`);
 
       await promisePool.query(`
         CREATE TABLE IF NOT EXISTS shoe_brand_models (
@@ -102,14 +116,12 @@ async function ensureTables() {
           PRIMARY KEY (id),
           UNIQUE KEY uq_shoe_brand_models_slug (slug)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`);
-      await promisePool.query(
-        `ALTER TABLE services ADD COLUMN IF NOT EXISTS shoe_brand_model_id INT UNSIGNED NULL COMMENT 'Groups catalog packages under one parent model for parents'`
+      await addColumnIfMissing(
+        'services',
+        'shoe_brand_model_id',
+        `shoe_brand_model_id INT UNSIGNED NULL COMMENT 'Groups catalog packages under one parent model for parents'`
       );
-      try {
-        await promisePool.query(`ALTER TABLE services ADD KEY idx_services_shoe_brand_model (shoe_brand_model_id)`);
-      } catch (_) {
-        /* index may already exist */
-      }
+      await addIndexIfMissing('services', 'idx_services_shoe_brand_model', `KEY idx_services_shoe_brand_model (shoe_brand_model_id)`);
 
       await promisePool.query(`
     CREATE TABLE IF NOT EXISTS service_prices (
@@ -150,17 +162,17 @@ async function ensureTables() {
       KEY idx_so_service (service_id),
       CONSTRAINT fk_so_service FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE RESTRICT
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`);
-  await promisePool.query(`ALTER TABLE service_orders ADD COLUMN IF NOT EXISTS quantity INT UNSIGNED NOT NULL DEFAULT 1`);
-  await promisePool.query(`ALTER TABLE service_orders ADD COLUMN IF NOT EXISTS unit_amount DECIMAL(12,2) NOT NULL DEFAULT 0`);
-  await promisePool.query(`ALTER TABLE service_orders ADD COLUMN IF NOT EXISTS batch_ref VARCHAR(64) NULL`);
-  await promisePool.query(`ALTER TABLE service_orders ADD COLUMN IF NOT EXISTS delivery_mode ENUM('AT_SCHOOL','AT_HOME') NULL`);
-  await promisePool.query(`ALTER TABLE service_orders ADD COLUMN IF NOT EXISTS delivery_address VARCHAR(500) NULL`);
-  await promisePool.query(`ALTER TABLE service_orders ADD COLUMN IF NOT EXISTS buyer_name VARCHAR(160) NULL`);
-  await promisePool.query(`ALTER TABLE service_orders ADD COLUMN IF NOT EXISTS buyer_contact VARCHAR(120) NULL`);
-  await promisePool.query(`ALTER TABLE service_orders ADD COLUMN IF NOT EXISTS agent_user_id INT UNSIGNED NULL`);
-  await promisePool.query(`ALTER TABLE service_orders ADD COLUMN IF NOT EXISTS source_channel VARCHAR(50) NOT NULL DEFAULT 'PUBLIC'`);
-  await promisePool.query(`ALTER TABLE service_orders ADD COLUMN IF NOT EXISTS fulfillment_status VARCHAR(40) NOT NULL DEFAULT 'Pending'`);
-  await promisePool.query(`ALTER TABLE service_orders ADD COLUMN IF NOT EXISTS order_meta_json LONGTEXT NULL`);
+  await addColumnIfMissing('service_orders', 'quantity', `quantity INT UNSIGNED NOT NULL DEFAULT 1`);
+  await addColumnIfMissing('service_orders', 'unit_amount', `unit_amount DECIMAL(12,2) NOT NULL DEFAULT 0`);
+  await addColumnIfMissing('service_orders', 'batch_ref', `batch_ref VARCHAR(64) NULL`);
+  await addColumnIfMissing('service_orders', 'delivery_mode', `delivery_mode ENUM('AT_SCHOOL','AT_HOME') NULL`);
+  await addColumnIfMissing('service_orders', 'delivery_address', `delivery_address VARCHAR(500) NULL`);
+  await addColumnIfMissing('service_orders', 'buyer_name', `buyer_name VARCHAR(160) NULL`);
+  await addColumnIfMissing('service_orders', 'buyer_contact', `buyer_contact VARCHAR(120) NULL`);
+  await addColumnIfMissing('service_orders', 'agent_user_id', `agent_user_id INT UNSIGNED NULL`);
+  await addColumnIfMissing('service_orders', 'source_channel', `source_channel VARCHAR(50) NOT NULL DEFAULT 'PUBLIC'`);
+  await addColumnIfMissing('service_orders', 'fulfillment_status', `fulfillment_status VARCHAR(40) NOT NULL DEFAULT 'Pending'`);
+  await addColumnIfMissing('service_orders', 'order_meta_json', `order_meta_json LONGTEXT NULL`);
 
   await promisePool.query(`
     CREATE TABLE IF NOT EXISTS service_payments (

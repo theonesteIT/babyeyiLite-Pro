@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import babyeyiLogo from "../../assets/1BABYEYI LOGO FINAL.png";
-import shuleKitHero from "../../assets/services/shulekit.png";
+import shuleKitHero from "../../assets/image2.png";
 import {
   ArrowRight, CreditCard, Footprints,
   Shirt, PenLine, Store, Smartphone, Layers,
@@ -134,42 +134,67 @@ function ShuleKitCard() {
         }
         .sk-hero-media {
           flex: 1 1 100%;
-          min-height: 132px;
-          max-height: 200px;
+          min-height: 160px;
+          max-height: 210px;
           position: relative;
           overflow: hidden;
           border-bottom: 1px solid rgba(251, 191, 36, 0.35);
           background: rgba(0, 4, 53, 0.5);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0.45rem 0.6rem 0.2rem;
+          isolation: isolate;
         }
         .sk-hero-media img {
-          width: 100%;
-          height: 100%;
-          min-height: 132px;
-          object-fit: cover;
-          object-position: center;
+          width: min(100%, 300px);
+          height: min(100%, 200px);
+          min-height: 140px;
+          object-fit: contain;
+          object-position: center bottom;
           display: block;
+          mix-blend-mode: multiply;
+          filter: contrast(1.02) saturate(0.98);
+        }
+        .sk-hero-content {
+          padding: 1.35rem 1.2rem 1.25rem;
+          flex: 1;
+          min-width: min(100%, 280px);
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
         }
         @media (min-width: 640px) {
           .sk-hero-media {
-            flex: 0 0 36%;
-            max-width: 42%;
-            min-height: 200px;
+            flex: 0 0 30%;
+            max-width: 34%;
+            min-height: 210px;
             max-height: none;
             border-bottom: none;
             border-right: 1px solid rgba(251, 191, 36, 0.35);
+            padding: 0.75rem 0.7rem 0.3rem;
           }
           .sk-hero-media img {
-            min-height: 200px;
+            width: min(100%, 270px);
+            height: min(100%, 200px);
+            min-height: 170px;
+          }
+          .sk-hero-content {
+            padding: 1.5rem 1.45rem 1.35rem;
           }
         }
         @media (min-width: 900px) {
           .sk-hero-media {
-            flex: 0 0 34%;
-            max-width: 38%;
+            flex: 0 0 28%;
+            max-width: 31%;
             min-height: 220px;
           }
           .sk-hero-media img {
-            min-height: 220px;
+            width: min(100%, 250px);
+            height: min(100%, 210px);
+          }
+          .sk-hero-content {
+            padding: 1.75rem 1.6rem 1.55rem;
           }
         }
       `}</style>
@@ -177,7 +202,7 @@ function ShuleKitCard() {
         <div className="sk-hero-media">
           <img src={shuleKitHero} alt="ShuleKit — standard and custom school kits" decoding="async" loading="lazy" />
         </div>
-        <div style={{ padding:"1.25rem 1.35rem", flex:1, minWidth:"min(100%, 280px)" }}>
+        <div className="sk-hero-content">
           <div style={{ display:"flex", alignItems:"center", gap:9, marginBottom:6, flexWrap:"wrap" }}>
             <h2 style={{ fontFamily:MTN, fontWeight:900, fontSize:"clamp(16px, 3.5vw, 18px)", color:"#fff", margin:0 }}>ShuleKit (Classkit)</h2>
             <span style={{ background:AMB, color:NAVY, fontFamily:MTN, fontWeight:900, fontSize:10, borderRadius:5, padding:"3px 8px", textTransform:"uppercase" }}>Featured</span>

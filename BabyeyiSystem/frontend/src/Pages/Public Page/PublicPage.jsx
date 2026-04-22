@@ -363,18 +363,29 @@ function AISearchBox() {
   };
 
   return (
-    <div className="w-full max-w-xl 2xl:max-w-2xl mt-0">
+    <div className="w-full max-w-[760px] xl:max-w-[860px] mt-0">
       <div className="flex items-center gap-2 mb-2.5 pl-1">
         {[0, 200, 400].map((d) => (
-          <span key={d} className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" style={{ animationDelay: `${d}ms` }} />
+          <span key={d} className="w-1.5 h-1.5 rounded-full bg-[#000435] animate-pulse" style={{ animationDelay: `${d}ms` }} />
         ))}
-        <span className="text-[10px] font-black uppercase tracking-[0.18em] text-white">SDMS Code / ShuleCard ID</span>
+        <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.14em] sm:tracking-[0.18em] text-[#000435]">
+          SDMS Code / ShuleCard ID
+        </span>
       </div>
 
-      <div className="flex items-center gap-2 p-2 rounded-2xl"
-        style={{ border: "1px solid #000435", backdropFilter: "blur(16px)"   }}>
-        <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-          style={{ background: "#000435" }}>
+      <div
+        className="flex items-center gap-2 sm:gap-2.5 p-2 sm:p-2.5 rounded-2xl sm:rounded-3xl"
+        style={{
+          border: "2px solid #000435",
+          background: "rgba(251,191,36,0.35)",
+          boxShadow: "0 8px 24px rgba(0,4,53,0.15)",
+          backdropFilter: "blur(10px)",
+        }}
+      >
+        <div
+          className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center shrink-0"
+          style={{ background: "#000435" }}
+        >
           <Bot size={17} className="text-amber-400" />
         </div>
         <input
@@ -382,15 +393,25 @@ function AISearchBox() {
           onChange={(e) => { setVal(e.target.value); setErr(null); setResult(null); }}
           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); lookup(); } }}
           placeholder={ph || "Student code or question…"}
-          className="flex-1 min-w-0 rounded-xl px-3 py-2.5 text-[13px] text-white/90 outline-none caret-amber-400"
-          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}
+          className="flex-1 min-w-0 rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-[13px] sm:text-[14px] text-[#000435] placeholder:text-slate-400 outline-none"
+          style={{
+            background: "rgba(255,255,255,0.95)",
+            border: "1px solid rgba(0,4,53,0.15)",
+            caretColor: "#F59E0B",
+          }}
         />
-        <button type="button" onClick={lookup} disabled={loading}
-          className="shrink-0 w-10 h-10 rounded-xl flex items-center justify-center transition-all disabled:opacity-60"
-          style={{ background: val ? "linear-gradient(135deg,#FBBF24,#F59E0B)" : "rgba(251,191,36,0.1)" }}>
+        <button
+          type="button"
+          onClick={lookup}
+          disabled={loading}
+          className="shrink-0 w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center transition-all disabled:opacity-70"
+          style={{
+            background: "linear-gradient(135deg,#FBBF24,#F59E0B)",
+            border: "1px solid rgba(0,4,53,0.25)",
+          }}>
           {loading
-            ? <Loader2 size={15} className={`animate-spin ${val ? "text-[#000435]" : "text-amber-400/50"}`} />
-            : <Send size={13} className={val ? "text-[#000435]" : "text-amber-400/50"} strokeWidth={2.5} />}
+            ? <Loader2 size={16} className="animate-spin text-[#000435]" />
+            : <Send size={15} className="text-[#000435]" strokeWidth={2.8} />}
         </button>
       </div>
 

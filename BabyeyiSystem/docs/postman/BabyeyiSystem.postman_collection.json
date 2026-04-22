@@ -897,6 +897,362 @@
           "request": { "method": "GET", "url": "{{baseUrl}}/api/agent/reports/summary" }
         }
       ]
+    },
+    {
+      "name": "16 - BabyeyiPro portals API map",
+      "description": "API endpoints actively consumed by babyeyipro frontend portals (manager, teacher, DOS, accountant, discipline, librarian, storekeeper). These resolve against `{{baseUrl}}/api`.",
+      "item": [
+        {
+          "name": "Auth, session, and permissions",
+          "item": [
+            { "name": "GET /api/session/me", "request": { "method": "GET", "url": "{{baseUrl}}/api/session/me" } },
+            { "name": "POST /api/session/logout", "request": { "method": "POST", "url": "{{baseUrl}}/api/session/logout" } },
+            { "name": "POST /api/auth/login", "request": { "method": "POST", "url": "{{baseUrl}}/api/auth/login" } },
+            { "name": "POST /api/auth/sso-verify", "request": { "method": "POST", "url": "{{baseUrl}}/api/auth/sso-verify" } },
+            { "name": "GET /api/permissions", "request": { "method": "GET", "url": "{{baseUrl}}/api/permissions" } },
+            { "name": "POST /api/permissions", "request": { "method": "POST", "url": "{{baseUrl}}/api/permissions" } },
+            { "name": "PATCH /api/permissions/:id/status", "request": { "method": "PATCH", "url": "{{baseUrl}}/api/permissions/1/status" } }
+          ]
+        },
+        {
+          "name": "Teacher portal and academics",
+          "item": [
+            { "name": "GET /api/teacher-portal/dashboard", "request": { "method": "GET", "url": "{{baseUrl}}/api/teacher-portal/dashboard" } },
+            { "name": "GET /api/teacher-portal/timetable", "request": { "method": "GET", "url": "{{baseUrl}}/api/teacher-portal/timetable" } },
+            { "name": "GET /api/teacher-portal/students", "request": { "method": "GET", "url": "{{baseUrl}}/api/teacher-portal/students" } },
+            { "name": "GET /api/teacher-portal/classes", "request": { "method": "GET", "url": "{{baseUrl}}/api/teacher-portal/classes" } },
+            { "name": "GET /api/teacher-portal/attendance", "request": { "method": "GET", "url": "{{baseUrl}}/api/teacher-portal/attendance" } },
+            { "name": "POST /api/teacher-portal/attendance", "request": { "method": "POST", "url": "{{baseUrl}}/api/teacher-portal/attendance" } },
+            { "name": "POST /api/teacher-portal/assessments", "request": { "method": "POST", "url": "{{baseUrl}}/api/teacher-portal/assessments" } },
+            { "name": "POST /api/teacher-portal/marks", "request": { "method": "POST", "url": "{{baseUrl}}/api/teacher-portal/marks" } },
+            { "name": "GET /api/teacher-portal/gradebook-filters", "request": { "method": "GET", "url": "{{baseUrl}}/api/teacher-portal/gradebook-filters" } },
+            { "name": "GET /api/teacher-portal/gradebook-matrix", "request": { "method": "GET", "url": "{{baseUrl}}/api/teacher-portal/gradebook-matrix" } }
+          ]
+        },
+        {
+          "name": "DOS and discipline",
+          "item": [
+            { "name": "GET /api/dos/settings", "request": { "method": "GET", "url": "{{baseUrl}}/api/dos/settings" } },
+            { "name": "PUT /api/dos/settings", "request": { "method": "PUT", "url": "{{baseUrl}}/api/dos/settings" } },
+            { "name": "GET /api/dos/reports/summary", "request": { "method": "GET", "url": "{{baseUrl}}/api/dos/reports/summary" } },
+            { "name": "GET /api/dos/reports/attendance/by-class", "request": { "method": "GET", "url": "{{baseUrl}}/api/dos/reports/attendance/by-class" } },
+            { "name": "GET /api/dos/reports/attendance/by-teacher", "request": { "method": "GET", "url": "{{baseUrl}}/api/dos/reports/attendance/by-teacher" } },
+            { "name": "GET /api/dos/reports/requisitions/teacher", "request": { "method": "GET", "url": "{{baseUrl}}/api/dos/reports/requisitions/teacher" } },
+            { "name": "GET /api/dos/subjects", "request": { "method": "GET", "url": "{{baseUrl}}/api/dos/subjects" } },
+            { "name": "POST /api/dos/subjects", "request": { "method": "POST", "url": "{{baseUrl}}/api/dos/subjects" } },
+            { "name": "PATCH /api/dos/subjects/:id", "request": { "method": "PATCH", "url": "{{baseUrl}}/api/dos/subjects/1" } },
+            { "name": "POST /api/dos/timetable", "request": { "method": "POST", "url": "{{baseUrl}}/api/dos/timetable" } },
+            { "name": "DELETE /api/dos/timetable/:id", "request": { "method": "DELETE", "url": "{{baseUrl}}/api/dos/timetable/1" } },
+            { "name": "GET /api/discipline/settings", "request": { "method": "GET", "url": "{{baseUrl}}/api/discipline/settings" } },
+            { "name": "PUT /api/discipline/settings", "request": { "method": "PUT", "url": "{{baseUrl}}/api/discipline/settings" } },
+            { "name": "POST /api/discipline/cases", "request": { "method": "POST", "url": "{{baseUrl}}/api/discipline/cases" } },
+            { "name": "GET /api/discipline/report-summary", "request": { "method": "GET", "url": "{{baseUrl}}/api/discipline/report-summary" } }
+          ]
+        },
+        {
+          "name": "Finance, payroll, and store",
+          "item": [
+            { "name": "GET /api/accountant/overview", "request": { "method": "GET", "url": "{{baseUrl}}/api/accountant/overview" } },
+            { "name": "GET /api/accountant/payments", "request": { "method": "GET", "url": "{{baseUrl}}/api/accountant/payments" } },
+            { "name": "GET /api/accountant/reports/payments", "request": { "method": "GET", "url": "{{baseUrl}}/api/accountant/reports/payments" } },
+            { "name": "GET /api/accountant/expenses", "request": { "method": "GET", "url": "{{baseUrl}}/api/accountant/expenses" } },
+            { "name": "POST /api/accountant/expenses", "request": { "method": "POST", "url": "{{baseUrl}}/api/accountant/expenses" } },
+            { "name": "PATCH /api/accountant/expenses/:id/request-approval", "request": { "method": "PATCH", "url": "{{baseUrl}}/api/accountant/expenses/1/request-approval" } },
+            { "name": "PATCH /api/accountant/expenses/:id/status", "request": { "method": "PATCH", "url": "{{baseUrl}}/api/accountant/expenses/1/status" } },
+            { "name": "POST /api/accountant/expenses/:id/payments", "request": { "method": "POST", "url": "{{baseUrl}}/api/accountant/expenses/1/payments" } },
+            { "name": "GET /api/accountant/requisitions", "request": { "method": "GET", "url": "{{baseUrl}}/api/accountant/requisitions" } },
+            { "name": "PATCH /api/accountant/requisitions/:id/status", "request": { "method": "PATCH", "url": "{{baseUrl}}/api/accountant/requisitions/1/status" } },
+            { "name": "GET /api/accountant/payroll", "request": { "method": "GET", "url": "{{baseUrl}}/api/accountant/payroll" } },
+            { "name": "GET /api/accountant/payroll/config", "request": { "method": "GET", "url": "{{baseUrl}}/api/accountant/payroll/config" } },
+            { "name": "GET /api/accountant/payroll/runs", "request": { "method": "GET", "url": "{{baseUrl}}/api/accountant/payroll/runs" } },
+            { "name": "GET /api/store/inventory", "request": { "method": "GET", "url": "{{baseUrl}}/api/store/inventory" } },
+            { "name": "GET /api/store/movements", "request": { "method": "GET", "url": "{{baseUrl}}/api/store/movements" } },
+            { "name": "POST /api/store/movements", "request": { "method": "POST", "url": "{{baseUrl}}/api/store/movements" } },
+            { "name": "GET /api/store/suppliers", "request": { "method": "GET", "url": "{{baseUrl}}/api/store/suppliers" } },
+            { "name": "POST /api/store/suppliers", "request": { "method": "POST", "url": "{{baseUrl}}/api/store/suppliers" } },
+            { "name": "PATCH /api/store/suppliers/:id", "request": { "method": "PATCH", "url": "{{baseUrl}}/api/store/suppliers/1" } },
+            { "name": "DELETE /api/store/suppliers/:id", "request": { "method": "DELETE", "url": "{{baseUrl}}/api/store/suppliers/1" } }
+          ]
+        },
+        {
+          "name": "Tools, services, and manager workflow",
+          "item": [
+            { "name": "GET /api/services/shule-avance/status", "request": { "method": "GET", "url": "{{baseUrl}}/api/services/shule-avance/status" } },
+            { "name": "GET /api/services/shule-avance/catalog", "request": { "method": "GET", "url": "{{baseUrl}}/api/services/shule-avance/catalog" } },
+            { "name": "GET /api/services/shule-avance/teacher-deal-products", "request": { "method": "GET", "url": "{{baseUrl}}/api/services/shule-avance/teacher-deal-products" } },
+            { "name": "POST /api/services/shule-avance/apply", "request": { "method": "POST", "url": "{{baseUrl}}/api/services/shule-avance/apply" } },
+            { "name": "POST /api/services/shule-avance/applicant/requests", "request": { "method": "POST", "url": "{{baseUrl}}/api/services/shule-avance/applicant/requests" } },
+            { "name": "DELETE /api/services/shule-avance/cancel/:id", "request": { "method": "DELETE", "url": "{{baseUrl}}/api/services/shule-avance/cancel/1" } },
+            { "name": "GET /api/tools/ticha-ai/history", "request": { "method": "GET", "url": "{{baseUrl}}/api/tools/ticha-ai/history" } },
+            { "name": "POST /api/tools/ticha-ai/assist", "request": { "method": "POST", "url": "{{baseUrl}}/api/tools/ticha-ai/assist" } },
+            { "name": "PATCH /api/manager/expenses/:id/decision", "request": { "method": "PATCH", "url": "{{baseUrl}}/api/manager/expenses/1/decision" } },
+            { "name": "PATCH /api/manager/requisitions/:id/decision", "request": { "method": "PATCH", "url": "{{baseUrl}}/api/manager/requisitions/1/decision" } },
+            { "name": "GET /api/iot/devices", "request": { "method": "GET", "url": "{{baseUrl}}/api/iot/devices" } }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "17 - Extra backend modules (BabyeyiSystem)",
+      "description": "Additional backend API groups mounted in `server.js` that were not fully represented in the earlier folders.",
+      "item": [
+        {
+          "name": "Standard shule kits",
+          "item": [
+            { "name": "GET /api/standard-shule-kits/public/kits", "request": { "method": "GET", "url": "{{baseUrl}}/api/standard-shule-kits/public/kits" } },
+            { "name": "GET /api/standard-shule-kits/public/kits/:id", "request": { "method": "GET", "url": "{{baseUrl}}/api/standard-shule-kits/public/kits/1" } },
+            { "name": "POST /api/standard-shule-kits/public/requests/prepare", "request": { "method": "POST", "url": "{{baseUrl}}/api/standard-shule-kits/public/requests/prepare" } },
+            { "name": "POST /api/standard-shule-kits/public/requests/pay-momo", "request": { "method": "POST", "url": "{{baseUrl}}/api/standard-shule-kits/public/requests/pay-momo" } },
+            { "name": "GET /api/standard-shule-kits/public/requests/pay-status/:requestId", "request": { "method": "GET", "url": "{{baseUrl}}/api/standard-shule-kits/public/requests/pay-status/1" } },
+            { "name": "GET /api/standard-shule-kits/admin/requests", "request": { "method": "GET", "url": "{{baseUrl}}/api/standard-shule-kits/admin/requests" } },
+            { "name": "GET /api/standard-shule-kits/agent/requests", "request": { "method": "GET", "url": "{{baseUrl}}/api/standard-shule-kits/agent/requests" } },
+            { "name": "GET /api/standard-shule-kits/admin/kits", "request": { "method": "GET", "url": "{{baseUrl}}/api/standard-shule-kits/admin/kits" } },
+            { "name": "GET /api/standard-shule-kits/admin/kits/:id", "request": { "method": "GET", "url": "{{baseUrl}}/api/standard-shule-kits/admin/kits/1" } },
+            { "name": "POST /api/standard-shule-kits/admin/kits", "request": { "method": "POST", "url": "{{baseUrl}}/api/standard-shule-kits/admin/kits" } },
+            { "name": "PUT /api/standard-shule-kits/admin/kits/:id", "request": { "method": "PUT", "url": "{{baseUrl}}/api/standard-shule-kits/admin/kits/1" } },
+            { "name": "DELETE /api/standard-shule-kits/admin/kits/:id", "request": { "method": "DELETE", "url": "{{baseUrl}}/api/standard-shule-kits/admin/kits/1" } }
+          ]
+        },
+        {
+          "name": "Uniform vouchers",
+          "item": [
+            { "name": "GET /api/uniform-vouchers/public/items", "request": { "method": "GET", "url": "{{baseUrl}}/api/uniform-vouchers/public/items" } },
+            { "name": "POST /api/uniform-vouchers/public/lookup-student", "request": { "method": "POST", "url": "{{baseUrl}}/api/uniform-vouchers/public/lookup-student" } },
+            { "name": "POST /api/uniform-vouchers/public/orders", "request": { "method": "POST", "url": "{{baseUrl}}/api/uniform-vouchers/public/orders" } },
+            { "name": "GET /api/uniform-vouchers/public/track/:voucherNumber", "request": { "method": "GET", "url": "{{baseUrl}}/api/uniform-vouchers/public/track/VCH-0001" } },
+            { "name": "POST /api/uniform-vouchers/public/payment-intent", "request": { "method": "POST", "url": "{{baseUrl}}/api/uniform-vouchers/public/payment-intent" } },
+            { "name": "POST /api/uniform-vouchers/public/pay-momo", "request": { "method": "POST", "url": "{{baseUrl}}/api/uniform-vouchers/public/pay-momo" } },
+            { "name": "GET /api/uniform-vouchers/public/pay-status/:orderId", "request": { "method": "GET", "url": "{{baseUrl}}/api/uniform-vouchers/public/pay-status/1" } },
+            { "name": "GET /api/uniform-vouchers/admin/items", "request": { "method": "GET", "url": "{{baseUrl}}/api/uniform-vouchers/admin/items" } },
+            { "name": "POST /api/uniform-vouchers/admin/items", "request": { "method": "POST", "url": "{{baseUrl}}/api/uniform-vouchers/admin/items" } },
+            { "name": "PUT /api/uniform-vouchers/admin/items/:id", "request": { "method": "PUT", "url": "{{baseUrl}}/api/uniform-vouchers/admin/items/1" } },
+            { "name": "DELETE /api/uniform-vouchers/admin/items/:id", "request": { "method": "DELETE", "url": "{{baseUrl}}/api/uniform-vouchers/admin/items/1" } },
+            { "name": "GET /api/uniform-vouchers/admin/orders", "request": { "method": "GET", "url": "{{baseUrl}}/api/uniform-vouchers/admin/orders" } },
+            { "name": "PATCH /api/uniform-vouchers/admin/orders/:id", "request": { "method": "PATCH", "url": "{{baseUrl}}/api/uniform-vouchers/admin/orders/1" } },
+            { "name": "GET /api/uniform-vouchers/agent/orders", "request": { "method": "GET", "url": "{{baseUrl}}/api/uniform-vouchers/agent/orders" } },
+            { "name": "PATCH /api/uniform-vouchers/agent/orders/:id", "request": { "method": "PATCH", "url": "{{baseUrl}}/api/uniform-vouchers/agent/orders/1" } },
+            { "name": "GET /api/uniform-vouchers/admin/summary", "request": { "method": "GET", "url": "{{baseUrl}}/api/uniform-vouchers/admin/summary" } }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "18 - Exhaustive route-file index (remaining)",
+      "description": "Second-pass full backend route-file coverage. Endpoints here are grouped by source module to make auditing easier.",
+      "item": [
+        {
+          "name": "authPages/auth.js (advanced admin + Shule Avance org)",
+          "item": [
+            { "name": "PATCH /api/auth/schools/:schoolId/subscription", "request": { "method": "PATCH", "url": "{{baseUrl}}/api/auth/schools/{{schoolId}}/subscription" } },
+            { "name": "PATCH /api/auth/schools/:schoolId/manager-credentials", "request": { "method": "PATCH", "url": "{{baseUrl}}/api/auth/schools/{{schoolId}}/manager-credentials" } },
+            { "name": "GET /api/auth/schools/:schoolId/modules", "request": { "method": "GET", "url": "{{baseUrl}}/api/auth/schools/{{schoolId}}/modules" } },
+            { "name": "PUT /api/auth/schools/:schoolId/modules", "request": { "method": "PUT", "url": "{{baseUrl}}/api/auth/schools/{{schoolId}}/modules" } },
+            { "name": "POST /api/auth/create-shule-avance-organization", "request": { "method": "POST", "url": "{{baseUrl}}/api/auth/create-shule-avance-organization" } },
+            { "name": "GET /api/auth/shule-avance-organizations", "request": { "method": "GET", "url": "{{baseUrl}}/api/auth/shule-avance-organizations" } },
+            { "name": "GET /api/auth/shule-avance-organization/:id", "request": { "method": "GET", "url": "{{baseUrl}}/api/auth/shule-avance-organization/1" } },
+            { "name": "PUT /api/auth/shule-avance-organization/:id", "request": { "method": "PUT", "url": "{{baseUrl}}/api/auth/shule-avance-organization/1" } },
+            { "name": "DELETE /api/auth/shule-avance-organization/:id", "request": { "method": "DELETE", "url": "{{baseUrl}}/api/auth/shule-avance-organization/1" } },
+            { "name": "GET /api/auth/shule-avance-teacher-catalog", "request": { "method": "GET", "url": "{{baseUrl}}/api/auth/shule-avance-teacher-catalog" } },
+            { "name": "POST /api/auth/shule-avance-teacher-catalog", "request": { "method": "POST", "url": "{{baseUrl}}/api/auth/shule-avance-teacher-catalog" } },
+            { "name": "PATCH /api/auth/shule-avance-teacher-catalog/:id", "request": { "method": "PATCH", "url": "{{baseUrl}}/api/auth/shule-avance-teacher-catalog/1" } },
+            { "name": "DELETE /api/auth/shule-avance-teacher-catalog/:id", "request": { "method": "DELETE", "url": "{{baseUrl}}/api/auth/shule-avance-teacher-catalog/1" } }
+          ]
+        },
+        {
+          "name": "shuleAvanceOrgPortal.js",
+          "item": [
+            { "name": "GET /api/shule-avance-partner/me", "request": { "method": "GET", "url": "{{baseUrl}}/api/shule-avance-partner/me" } },
+            { "name": "GET /api/shule-avance-partner/requests", "request": { "method": "GET", "url": "{{baseUrl}}/api/shule-avance-partner/requests" } },
+            { "name": "GET /api/shule-avance-partner/requests/:id", "request": { "method": "GET", "url": "{{baseUrl}}/api/shule-avance-partner/requests/1" } },
+            { "name": "PATCH /api/shule-avance-partner/requests/:id", "request": { "method": "PATCH", "url": "{{baseUrl}}/api/shule-avance-partner/requests/1" } },
+            { "name": "GET /api/shule-avance-partner/stats", "request": { "method": "GET", "url": "{{baseUrl}}/api/shule-avance-partner/stats" } }
+          ]
+        },
+        {
+          "name": "teacherPortal.js (remaining)",
+          "item": [
+            { "name": "GET /api/teacher-portal/english-club/resources", "request": { "method": "GET", "url": "{{baseUrl}}/api/teacher-portal/english-club/resources" } },
+            { "name": "GET /api/teacher-portal/gradebook-assessments", "request": { "method": "GET", "url": "{{baseUrl}}/api/teacher-portal/gradebook-assessments" } }
+          ]
+        },
+        {
+          "name": "dosAcademic.js (remaining)",
+          "item": [
+            { "name": "GET /api/dos/dashboard/stats", "request": { "method": "GET", "url": "{{baseUrl}}/api/dos/dashboard/stats" } },
+            { "name": "GET /api/dos/registry/classes", "request": { "method": "GET", "url": "{{baseUrl}}/api/dos/registry/classes" } },
+            { "name": "GET /api/dos/subjects/config", "request": { "method": "GET", "url": "{{baseUrl}}/api/dos/subjects/config" } },
+            { "name": "GET /api/dos/teaching-staff", "request": { "method": "GET", "url": "{{baseUrl}}/api/dos/teaching-staff" } },
+            { "name": "PUT /api/dos/timetable/:id", "request": { "method": "PUT", "url": "{{baseUrl}}/api/dos/timetable/1" } }
+          ]
+        },
+        {
+          "name": "schoolStaff.js + students.js (remaining)",
+          "item": [
+            { "name": "PATCH /api/school/staff/:userId", "request": { "method": "PATCH", "url": "{{baseUrl}}/api/school/staff/1" } },
+            { "name": "DELETE /api/school/staff/:userId", "request": { "method": "DELETE", "url": "{{baseUrl}}/api/school/staff/1" } },
+            { "name": "PUT /api/school/staff/:userId/identity", "request": { "method": "PUT", "url": "{{baseUrl}}/api/school/staff/1/identity" } },
+            { "name": "PUT /api/students/:id/identity", "request": { "method": "PUT", "url": "{{baseUrl}}/api/students/{{studentId}}/identity" } }
+          ]
+        },
+        {
+          "name": "fieldAgentsRoutes.js (complete index)",
+          "item": [
+            { "name": "GET /api/field-agents/rwanda-geo", "request": { "method": "GET", "url": "{{baseUrl}}/api/field-agents/rwanda-geo" } },
+            { "name": "GET /api/field-agents/meta/districts", "request": { "method": "GET", "url": "{{baseUrl}}/api/field-agents/meta/districts" } },
+            { "name": "GET /api/field-agents/meta/sectors", "request": { "method": "GET", "url": "{{baseUrl}}/api/field-agents/meta/sectors?district=Gasabo" } },
+            { "name": "POST /api/field-agents/agents", "request": { "method": "POST", "url": "{{baseUrl}}/api/field-agents/agents" } },
+            { "name": "PATCH /api/field-agents/agents/:id", "request": { "method": "PATCH", "url": "{{baseUrl}}/api/field-agents/agents/1" } },
+            { "name": "DELETE /api/field-agents/agents/:id", "request": { "method": "DELETE", "url": "{{baseUrl}}/api/field-agents/agents/1" } },
+            { "name": "GET /api/agent/rwanda-geo", "request": { "method": "GET", "url": "{{baseUrl}}/api/agent/rwanda-geo" } },
+            { "name": "GET /api/agent/my-coverage", "request": { "method": "GET", "url": "{{baseUrl}}/api/agent/my-coverage" } },
+            { "name": "GET /api/agent/schools/filters", "request": { "method": "GET", "url": "{{baseUrl}}/api/agent/schools/filters" } },
+            { "name": "GET /api/agent/services/revenue", "request": { "method": "GET", "url": "{{baseUrl}}/api/agent/services/revenue" } },
+            { "name": "GET /api/agent/school-fees", "request": { "method": "GET", "url": "{{baseUrl}}/api/agent/school-fees" } },
+            { "name": "GET /api/agent/support-requests", "request": { "method": "GET", "url": "{{baseUrl}}/api/agent/support-requests" } },
+            { "name": "PATCH /api/agent/support-requests/:id/status", "request": { "method": "PATCH", "url": "{{baseUrl}}/api/agent/support-requests/1/status" } },
+            { "name": "GET /api/public/agents/find", "request": { "method": "GET", "url": "{{baseUrl}}/api/public/agents/find?q=school" } },
+            { "name": "POST /api/public/agents/support-requests", "request": { "method": "POST", "url": "{{baseUrl}}/api/public/agents/support-requests" } }
+          ]
+        },
+        {
+          "name": "publicPaySchoolFlow.js (remaining)",
+          "item": [
+            { "name": "POST /api/public/public-pay/student-catalog", "request": { "method": "POST", "url": "{{baseUrl}}/api/public/public-pay/student-catalog" } }
+          ]
+        },
+        {
+          "name": "publicBabyeyiPay.js (remaining invoice/payment ops)",
+          "item": [
+            { "name": "POST /api/public/babyeyi-pay/invoices", "request": { "method": "POST", "url": "{{baseUrl}}/api/public/babyeyi-pay/invoices" } },
+            { "name": "PATCH /api/public/babyeyi-pay/invoices/:id", "request": { "method": "PATCH", "url": "{{baseUrl}}/api/public/babyeyi-pay/invoices/1" } },
+            { "name": "DELETE /api/public/babyeyi-pay/invoices/:id", "request": { "method": "DELETE", "url": "{{baseUrl}}/api/public/babyeyi-pay/invoices/1" } },
+            { "name": "GET /api/public/babyeyi-pay/invoice/:id.pdf", "request": { "method": "GET", "url": "{{baseUrl}}/api/public/babyeyi-pay/invoice/1.pdf" } },
+            { "name": "GET /api/public/babyeyi-pay/shule-avance-organizations", "request": { "method": "GET", "url": "{{baseUrl}}/api/public/babyeyi-pay/shule-avance-organizations" } },
+            { "name": "GET /api/public/babyeyi-pay/admin-webhook-logs/export.csv", "request": { "method": "GET", "url": "{{baseUrl}}/api/public/babyeyi-pay/admin-webhook-logs/export.csv" } },
+            { "name": "GET /api/public/babyeyi-pay/admin-webhook-logs/:id", "request": { "method": "GET", "url": "{{baseUrl}}/api/public/babyeyi-pay/admin-webhook-logs/1" } },
+            { "name": "POST /api/public/babyeyi-pay/admin-webhook-logs/:id/reconcile", "request": { "method": "POST", "url": "{{baseUrl}}/api/public/babyeyi-pay/admin-webhook-logs/1/reconcile" } }
+          ]
+        },
+        {
+          "name": "accountantFees.js + portalOperations.js (detailed)",
+          "item": [
+            { "name": "GET /api/accountant/payments/:id", "request": { "method": "GET", "url": "{{baseUrl}}/api/accountant/payments/1" } },
+            { "name": "PATCH /api/accountant/payments/:id", "request": { "method": "PATCH", "url": "{{baseUrl}}/api/accountant/payments/1" } },
+            { "name": "DELETE /api/accountant/payments/:id", "request": { "method": "DELETE", "url": "{{baseUrl}}/api/accountant/payments/1" } },
+            { "name": "GET /api/manager/finance/payments/report", "request": { "method": "GET", "url": "{{baseUrl}}/api/manager/finance/payments/report" } },
+            { "name": "GET /api/accountant/babyeyi-fees", "request": { "method": "GET", "url": "{{baseUrl}}/api/accountant/babyeyi-fees" } },
+            { "name": "GET /api/accountant/babyeyi-fees/:id", "request": { "method": "GET", "url": "{{baseUrl}}/api/accountant/babyeyi-fees/1" } },
+            { "name": "PUT /api/accountant/babyeyi-fees/:id", "request": { "method": "PUT", "url": "{{baseUrl}}/api/accountant/babyeyi-fees/1" } },
+            { "name": "DELETE /api/accountant/babyeyi-fees/:id", "request": { "method": "DELETE", "url": "{{baseUrl}}/api/accountant/babyeyi-fees/1" } },
+            { "name": "GET /api/teacher-portal/inventory-equipment", "request": { "method": "GET", "url": "{{baseUrl}}/api/teacher-portal/inventory-equipment" } },
+            { "name": "GET /api/teacher-portal/requisitions", "request": { "method": "GET", "url": "{{baseUrl}}/api/teacher-portal/requisitions" } },
+            { "name": "POST /api/teacher-portal/requisitions", "request": { "method": "POST", "url": "{{baseUrl}}/api/teacher-portal/requisitions" } },
+            { "name": "PATCH /api/teacher-portal/requisitions/:id", "request": { "method": "PATCH", "url": "{{baseUrl}}/api/teacher-portal/requisitions/1" } },
+            { "name": "DELETE /api/teacher-portal/requisitions/:id", "request": { "method": "DELETE", "url": "{{baseUrl}}/api/teacher-portal/requisitions/1" } },
+            { "name": "GET /api/reports/requisitions/teacher", "request": { "method": "GET", "url": "{{baseUrl}}/api/reports/requisitions/teacher" } },
+            { "name": "POST /api/accountant/requisitions", "request": { "method": "POST", "url": "{{baseUrl}}/api/accountant/requisitions" } },
+            { "name": "PATCH /api/accountant/requisitions/:id", "request": { "method": "PATCH", "url": "{{baseUrl}}/api/accountant/requisitions/1" } },
+            { "name": "PATCH /api/manager/requisitions/:id/decision", "request": { "method": "PATCH", "url": "{{baseUrl}}/api/manager/requisitions/1/decision" } },
+            { "name": "DELETE /api/accountant/requisitions/:id", "request": { "method": "DELETE", "url": "{{baseUrl}}/api/accountant/requisitions/1" } },
+            { "name": "GET /api/store/requisitions", "request": { "method": "GET", "url": "{{baseUrl}}/api/store/requisitions" } },
+            { "name": "PATCH /api/store/requisitions/:id/status", "request": { "method": "PATCH", "url": "{{baseUrl}}/api/store/requisitions/1/status" } },
+            { "name": "DELETE /api/accountant/expenses/:id", "request": { "method": "DELETE", "url": "{{baseUrl}}/api/accountant/expenses/1" } },
+            { "name": "DELETE /api/accountant/expenses/:expenseId/payments/:paymentId", "request": { "method": "DELETE", "url": "{{baseUrl}}/api/accountant/expenses/1/payments/1" } },
+            { "name": "GET /api/accountant/payroll/staff/search", "request": { "method": "GET", "url": "{{baseUrl}}/api/accountant/payroll/staff/search?q=john" } },
+            { "name": "GET /api/accountant/payroll/record/:id", "request": { "method": "GET", "url": "{{baseUrl}}/api/accountant/payroll/record/1" } },
+            { "name": "POST /api/accountant/payroll", "request": { "method": "POST", "url": "{{baseUrl}}/api/accountant/payroll" } },
+            { "name": "PUT /api/accountant/payroll/record/:id", "request": { "method": "PUT", "url": "{{baseUrl}}/api/accountant/payroll/record/1" } },
+            { "name": "DELETE /api/accountant/payroll/record/:id", "request": { "method": "DELETE", "url": "{{baseUrl}}/api/accountant/payroll/record/1" } },
+            { "name": "PUT /api/accountant/payroll/rates", "request": { "method": "PUT", "url": "{{baseUrl}}/api/accountant/payroll/rates" } },
+            { "name": "PATCH /api/accountant/payroll/staff/:userId", "request": { "method": "PATCH", "url": "{{baseUrl}}/api/accountant/payroll/staff/1" } },
+            { "name": "GET /api/accountant/payroll/runs/:id", "request": { "method": "GET", "url": "{{baseUrl}}/api/accountant/payroll/runs/1" } },
+            { "name": "POST /api/accountant/payroll/runs/trigger", "request": { "method": "POST", "url": "{{baseUrl}}/api/accountant/payroll/runs/trigger" } },
+            { "name": "POST /api/store/inventory", "request": { "method": "POST", "url": "{{baseUrl}}/api/store/inventory" } },
+            { "name": "PATCH /api/store/inventory/:id", "request": { "method": "PATCH", "url": "{{baseUrl}}/api/store/inventory/1" } },
+            { "name": "DELETE /api/store/inventory/:id", "request": { "method": "DELETE", "url": "{{baseUrl}}/api/store/inventory/1" } }
+          ]
+        },
+        {
+          "name": "schoolRoleOperations.js (library / stock / gate)",
+          "item": [
+            { "name": "GET /api/library/books", "request": { "method": "GET", "url": "{{baseUrl}}/api/library/books" } },
+            { "name": "POST /api/library/books", "request": { "method": "POST", "url": "{{baseUrl}}/api/library/books" } },
+            { "name": "PUT /api/library/books/:id", "request": { "method": "PUT", "url": "{{baseUrl}}/api/library/books/1" } },
+            { "name": "DELETE /api/library/books/:id", "request": { "method": "DELETE", "url": "{{baseUrl}}/api/library/books/1" } },
+            { "name": "GET /api/library/checkouts", "request": { "method": "GET", "url": "{{baseUrl}}/api/library/checkouts" } },
+            { "name": "POST /api/library/checkouts", "request": { "method": "POST", "url": "{{baseUrl}}/api/library/checkouts" } },
+            { "name": "PUT /api/library/checkouts/:id", "request": { "method": "PUT", "url": "{{baseUrl}}/api/library/checkouts/1" } },
+            { "name": "PATCH /api/library/checkouts/:id/return", "request": { "method": "PATCH", "url": "{{baseUrl}}/api/library/checkouts/1/return" } },
+            { "name": "DELETE /api/library/checkouts/:id", "request": { "method": "DELETE", "url": "{{baseUrl}}/api/library/checkouts/1" } },
+            { "name": "GET /api/stock/items", "request": { "method": "GET", "url": "{{baseUrl}}/api/stock/items" } },
+            { "name": "POST /api/stock/items", "request": { "method": "POST", "url": "{{baseUrl}}/api/stock/items" } },
+            { "name": "PUT /api/stock/items/:id", "request": { "method": "PUT", "url": "{{baseUrl}}/api/stock/items/1" } },
+            { "name": "DELETE /api/stock/items/:id", "request": { "method": "DELETE", "url": "{{baseUrl}}/api/stock/items/1" } },
+            { "name": "GET /api/stock/movements", "request": { "method": "GET", "url": "{{baseUrl}}/api/stock/movements" } },
+            { "name": "POST /api/stock/movements", "request": { "method": "POST", "url": "{{baseUrl}}/api/stock/movements" } },
+            { "name": "PUT /api/stock/movements/:id", "request": { "method": "PUT", "url": "{{baseUrl}}/api/stock/movements/1" } },
+            { "name": "DELETE /api/stock/movements/:id", "request": { "method": "DELETE", "url": "{{baseUrl}}/api/stock/movements/1" } },
+            { "name": "GET /api/gate/logs", "request": { "method": "GET", "url": "{{baseUrl}}/api/gate/logs" } },
+            { "name": "POST /api/gate/logs", "request": { "method": "POST", "url": "{{baseUrl}}/api/gate/logs" } },
+            { "name": "PUT /api/gate/logs/:id", "request": { "method": "PUT", "url": "{{baseUrl}}/api/gate/logs/1" } },
+            { "name": "DELETE /api/gate/logs/:id", "request": { "method": "DELETE", "url": "{{baseUrl}}/api/gate/logs/1" } }
+          ]
+        },
+        {
+          "name": "studentServicesRoutes.js (full public/admin/agent/shop)",
+          "item": [
+            { "name": "GET /api/student-services/admin/services", "request": { "method": "GET", "url": "{{baseUrl}}/api/student-services/admin/services" } },
+            { "name": "GET /api/student-services/admin/services/:id", "request": { "method": "GET", "url": "{{baseUrl}}/api/student-services/admin/services/1" } },
+            { "name": "POST /api/student-services/admin/services", "request": { "method": "POST", "url": "{{baseUrl}}/api/student-services/admin/services" } },
+            { "name": "PUT /api/student-services/admin/services/:id", "request": { "method": "PUT", "url": "{{baseUrl}}/api/student-services/admin/services/1" } },
+            { "name": "PATCH /api/student-services/admin/services/:id/status", "request": { "method": "PATCH", "url": "{{baseUrl}}/api/student-services/admin/services/1/status" } },
+            { "name": "DELETE /api/student-services/admin/services/:id", "request": { "method": "DELETE", "url": "{{baseUrl}}/api/student-services/admin/services/1" } },
+            { "name": "GET /api/student-services/admin/shoe-brand-models", "request": { "method": "GET", "url": "{{baseUrl}}/api/student-services/admin/shoe-brand-models" } },
+            { "name": "POST /api/student-services/admin/shoe-brand-models", "request": { "method": "POST", "url": "{{baseUrl}}/api/student-services/admin/shoe-brand-models" } },
+            { "name": "PUT /api/student-services/admin/shoe-brand-models/:id", "request": { "method": "PUT", "url": "{{baseUrl}}/api/student-services/admin/shoe-brand-models/1" } },
+            { "name": "DELETE /api/student-services/admin/shoe-brand-models/:id", "request": { "method": "DELETE", "url": "{{baseUrl}}/api/student-services/admin/shoe-brand-models/1" } },
+            { "name": "GET /api/student-services/admin/shop-products", "request": { "method": "GET", "url": "{{baseUrl}}/api/student-services/admin/shop-products" } },
+            { "name": "GET /api/student-services/admin/shoes/agents", "request": { "method": "GET", "url": "{{baseUrl}}/api/student-services/admin/shoes/agents" } },
+            { "name": "GET /api/student-services/admin/shoes/orders", "request": { "method": "GET", "url": "{{baseUrl}}/api/student-services/admin/shoes/orders" } },
+            { "name": "PATCH /api/student-services/admin/shoes/orders/:id/status", "request": { "method": "PATCH", "url": "{{baseUrl}}/api/student-services/admin/shoes/orders/1/status" } },
+            { "name": "GET /api/student-services/admin/shoes/orders/export", "request": { "method": "GET", "url": "{{baseUrl}}/api/student-services/admin/shoes/orders/export" } },
+            { "name": "GET /api/student-services/agent/shop-products", "request": { "method": "GET", "url": "{{baseUrl}}/api/student-services/agent/shop-products" } },
+            { "name": "POST /api/student-services/agent/shop-products", "request": { "method": "POST", "url": "{{baseUrl}}/api/student-services/agent/shop-products" } },
+            { "name": "PUT /api/student-services/agent/shop-products/:id", "request": { "method": "PUT", "url": "{{baseUrl}}/api/student-services/agent/shop-products/1" } },
+            { "name": "DELETE /api/student-services/agent/shop-products/:id", "request": { "method": "DELETE", "url": "{{baseUrl}}/api/student-services/agent/shop-products/1" } },
+            { "name": "GET /api/student-services/agent/shop-orders", "request": { "method": "GET", "url": "{{baseUrl}}/api/student-services/agent/shop-orders" } },
+            { "name": "GET /api/student-services/public/shop/products", "request": { "method": "GET", "url": "{{baseUrl}}/api/student-services/public/shop/products" } },
+            { "name": "POST /api/student-services/public/shop/quote", "request": { "method": "POST", "url": "{{baseUrl}}/api/student-services/public/shop/quote" } },
+            { "name": "POST /api/student-services/public/shop/checkout", "request": { "method": "POST", "url": "{{baseUrl}}/api/student-services/public/shop/checkout" } },
+            { "name": "POST /api/student-services/public/shop/pay-momo", "request": { "method": "POST", "url": "{{baseUrl}}/api/student-services/public/shop/pay-momo" } },
+            { "name": "GET /api/student-services/public/shop/pay-status/:batchRef", "request": { "method": "GET", "url": "{{baseUrl}}/api/student-services/public/shop/pay-status/BATCH-REF" } },
+            { "name": "POST /api/student-services/public/payment-plan-intent", "request": { "method": "POST", "url": "{{baseUrl}}/api/student-services/public/payment-plan-intent" } }
+          ]
+        },
+        {
+          "name": "shuleAvanceServices.js (full role ops)",
+          "item": [
+            { "name": "GET /api/services/shule-avance/admin/teacher-deal-products", "request": { "method": "GET", "url": "{{baseUrl}}/api/services/shule-avance/admin/teacher-deal-products" } },
+            { "name": "POST /api/services/shule-avance/admin/teacher-deal-products", "request": { "method": "POST", "url": "{{baseUrl}}/api/services/shule-avance/admin/teacher-deal-products" } },
+            { "name": "PUT /api/services/shule-avance/admin/teacher-deal-products/:id", "request": { "method": "PUT", "url": "{{baseUrl}}/api/services/shule-avance/admin/teacher-deal-products/1" } },
+            { "name": "DELETE /api/services/shule-avance/admin/teacher-deal-products/:id", "request": { "method": "DELETE", "url": "{{baseUrl}}/api/services/shule-avance/admin/teacher-deal-products/1" } },
+            { "name": "GET /api/services/shule-avance/applicant/my-requests", "request": { "method": "GET", "url": "{{baseUrl}}/api/services/shule-avance/applicant/my-requests" } },
+            { "name": "PUT /api/services/shule-avance/applicant/requests/:id", "request": { "method": "PUT", "url": "{{baseUrl}}/api/services/shule-avance/applicant/requests/1" } },
+            { "name": "DELETE /api/services/shule-avance/applicant/requests/:id", "request": { "method": "DELETE", "url": "{{baseUrl}}/api/services/shule-avance/applicant/requests/1" } },
+            { "name": "GET /api/services/shule-avance/teacher/my-requests", "request": { "method": "GET", "url": "{{baseUrl}}/api/services/shule-avance/teacher/my-requests" } },
+            { "name": "POST /api/services/shule-avance/teacher/requests", "request": { "method": "POST", "url": "{{baseUrl}}/api/services/shule-avance/teacher/requests" } },
+            { "name": "PUT /api/services/shule-avance/teacher/requests/:id", "request": { "method": "PUT", "url": "{{baseUrl}}/api/services/shule-avance/teacher/requests/1" } },
+            { "name": "DELETE /api/services/shule-avance/teacher/requests/:id", "request": { "method": "DELETE", "url": "{{baseUrl}}/api/services/shule-avance/teacher/requests/1" } },
+            { "name": "GET /api/services/shule-avance/finance/requests", "request": { "method": "GET", "url": "{{baseUrl}}/api/services/shule-avance/finance/requests" } },
+            { "name": "GET /api/services/shule-avance/finance/pending-invoices", "request": { "method": "GET", "url": "{{baseUrl}}/api/services/shule-avance/finance/pending-invoices" } },
+            { "name": "PATCH /api/services/shule-avance/finance/invoice-requests/:id/send-to-manager", "request": { "method": "PATCH", "url": "{{baseUrl}}/api/services/shule-avance/finance/invoice-requests/1/send-to-manager" } },
+            { "name": "PATCH /api/services/shule-avance/finance/invoice-requests/:id/reject", "request": { "method": "PATCH", "url": "{{baseUrl}}/api/services/shule-avance/finance/invoice-requests/1/reject" } },
+            { "name": "GET /api/services/shule-avance/manager/requests", "request": { "method": "GET", "url": "{{baseUrl}}/api/services/shule-avance/manager/requests" } },
+            { "name": "GET /api/services/shule-avance/manager/pending-requests", "request": { "method": "GET", "url": "{{baseUrl}}/api/services/shule-avance/manager/pending-requests" } },
+            { "name": "PATCH /api/services/shule-avance/manager/invoice-requests/:id/decision", "request": { "method": "PATCH", "url": "{{baseUrl}}/api/services/shule-avance/manager/invoice-requests/1/decision" } }
+          ]
+        }
+      ]
     }
   ]
 }
