@@ -624,8 +624,18 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null }
         cost:         r?.cost != null && r?.cost !== "" ? String(r.cost) : "",
       });
       const parsedPayments = (() => {
-        try { return typeof rec.payments === "string" ? JSON.parse(rec.payments) : (rec.payments || []); }
-        catch { return []; }
+        try {
+          const raw = typeof rec.payments === "string" ? JSON.parse(rec.payments) : (rec.payments || []);
+          if (!Array.isArray(raw)) return [];
+          return raw.map((p) => ({
+            name: p?.name ?? "",
+            amount: p?.amount != null && p?.amount !== "" ? String(p.amount) : "",
+            pay_channel:
+              String(p?.pay_channel || p?.payChannel || "babyeyi").toLowerCase() === "school" ? "school" : "babyeyi",
+          }));
+        } catch {
+          return [];
+        }
       })();
       const parsedReqsRaw = (() => {
         try { return typeof rec.requirements === "string" ? JSON.parse(rec.requirements) : (rec.requirements || []); }
@@ -672,7 +682,7 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null }
           ? rec.classes
           : (rec.class ? [rec.class] : (rec.className ? [rec.className] : ["P1"])),
         parentMessage: rec.parentMessage || "",
-        payments:      parsedPayments.length ? parsedPayments : [{ name: "Tuition Fee", amount: "" }],
+        payments:      parsedPayments.length ? parsedPayments : [{ name: "Tuition Fee", amount: "", pay_channel: "babyeyi" }],
         requirements:  parsedReqs,
         otherInfos:    parsedOtherInfos.length ? parsedOtherInfos : [{ item: "" }],
         bankName:      primaryBank.bankName      || rec.bankName      || "",

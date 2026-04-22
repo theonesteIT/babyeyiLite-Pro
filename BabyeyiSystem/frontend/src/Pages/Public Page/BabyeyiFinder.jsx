@@ -937,7 +937,14 @@ function ViewAndPayModal({ open, onClose, rec, schoolId, schoolName, theme, onCo
                           className="mt-1 w-4 h-4 rounded border-gray-300"
                         />
                         <div className="flex-1 min-w-0">
-                          <p className="font-bold text-gray-900 text-sm">{f.name || 'Fee item'}</p>
+                          <p className="font-bold text-gray-900 text-sm flex flex-wrap items-center gap-1.5">
+                            {f.name || 'Fee item'}
+                            {(f.pay_source === 'requirement_paid_at_school' || f.pay_source === 'payment_paid_at_school') && (
+                              <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-200">
+                                Paid at school
+                              </span>
+                            )}
+                          </p>
                           <p className="font-mono font-black text-amber-700">{Number(f.amount || 0).toLocaleString()} RWF</p>
                         </div>
                       </li>

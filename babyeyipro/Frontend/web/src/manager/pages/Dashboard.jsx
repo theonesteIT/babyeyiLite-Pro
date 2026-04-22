@@ -258,6 +258,26 @@ function getMarksPct(student, totalMarks) {
 // ================================================================
 const Dashboard = () => {
     const { manager } = useAuth();
+    const roleTokens = useMemo(() => {
+        const set = new Set();
+        const add = (v) => {
+            const s = String(v || '').trim().toUpperCase();
+            if (s) set.add(s);
+        };
+        add(manager?.role);
+        add(manager?.user_type);
+        add(manager?.staff_role);
+        add(manager?.account_type);
+        const roles = Array.isArray(manager?.roles) ? manager.roles : [];
+        roles.forEach(add);
+        return set;
+    }, [manager]);
+    const canUseDiscipline = useMemo(
+        () =>
+            ['HOD', 'HEAD_OF_DISCIPLINE', 'DISCIPLINE', 'DISCIPLINE_STAFF'].some((r) => roleTokens.has(r)),
+        [roleTokens]
+    );
+    const canUseAccountant = useMemo(() => roleTokens.has('ACCOUNTANT'), [roleTokens]);
     const [loading, setLoading] = useState(true);
     const [lastUpdated, setLastUpdated] = useState(null);
 
@@ -318,12 +338,22 @@ const Dashboard = () => {
         try {
             const [managerRes, reportRes, permissionsRes, settingsRes, studentsRes, financeRes, termFinanceRes] = await Promise.allSettled([
                 api.get('/dos/dashboard/stats'),
-                api.get('/discipline/report-summary', { params: { academic_year, term } }),
+                canUseDiscipline
+                    ? api.get('/discipline/report-summary', { params: { academic_year, term } })
+                    : Promise.resolve({ data: { success: false, skipped: true } }),
                 api.get('/permissions'),
-                api.get('/discipline/settings'),
-                api.get('/discipline/students-summary', { params: { academic_year, term } }),
-                api.get('/accountant/overview'),
-                api.get('/accountant/reports/payments', { params: { academic_year, term } }),
+                canUseDiscipline
+                    ? api.get('/discipline/settings')
+                    : Promise.resolve({ data: { success: false, skipped: true } }),
+                canUseDiscipline
+                    ? api.get('/discipline/students-summary', { params: { academic_year, term } })
+                    : Promise.resolve({ data: { success: false, skipped: true } }),
+                canUseAccountant
+                    ? api.get('/accountant/overview')
+                    : Promise.resolve({ data: { success: false, skipped: true } }),
+                canUseAccountant
+                    ? api.get('/accountant/reports/payments', { params: { academic_year, term } })
+                    : Promise.resolve({ data: { success: false, skipped: true } }),
             ]);
 
             // Process Manager Stats
@@ -379,7 +409,7 @@ const Dashboard = () => {
         } finally {
             setLoading(false);
         }
-    }, [filters]);
+    }, [filters, canUseDiscipline, canUseAccountant]);
 
     useEffect(() => {
         loadDashboard();
@@ -427,24 +457,34 @@ const Dashboard = () => {
     const openAttendanceModal = useCallback(async (kind) => {
         setAttendanceModal(kind);
         setAttendanceRows([]); setAttendanceError(null); setAttendanceLoading(true);
+        if (!canUseDiscipline) {
+            setAttendanceError('Attendance details are not available for your account role.');
+            setAttendanceLoading(false);
+            return;
+        }
         try {
             const res = await api.get('/discipline/attendance-today-details', { params: { kind } });
             if (res.data?.success) setAttendanceRows(res.data.data || []);
             else setAttendanceError(res.data?.message || 'Failed to load details.');
         } catch (e) { setAttendanceError('Failed to load attendance details.'); }
         finally { setAttendanceLoading(false); }
-    }, []);
+    }, [canUseDiscipline]);
 
     const openCasesModal = useCallback(async () => {
         setInsightModal('cases');
         setCasesRows([]); setCasesError(null); setCasesLoading(true);
+        if (!canUseDiscipline) {
+            setCasesError('Discipline case details are not available for your account role.');
+            setCasesLoading(false);
+            return;
+        }
         try {
             const res = await api.get('/discipline/cases', { params: { academic_year: filters.academic_year, term: filters.term, limit: 80 } });
             if (res.data?.success) setCasesRows(res.data.data || []);
             else setCasesError(res.data?.message || 'Failed to load cases.');
         } catch (e) { setCasesError('Failed to load cases.'); }
         finally { setCasesLoading(false); }
-    }, [filters]);
+    }, [filters, canUseDiscipline]);
 
     // JSX Components for Modals
     const AttendanceModal = attendanceModal ? createPortal(

@@ -14,10 +14,6 @@ import { getDistrictCode } from "../../utils/rwandaDistrictCodes";
 import { PROVINCES } from "../../data/rwandaSchoolProvinces";
 
 
-const FontLoader = () => (
-  <style>{`@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800;900&display=swap');*{font-family:'Barlow','Trebuchet MS',sans-serif!important}`}</style>
-);
-
 const API_PUBLIC = `${import.meta.env.VITE_API_URL || "http://localhost:5100"}/api/public/schools`;
 const axCfg = { withCredentials: false };
 const POST_SUBMIT_REDIRECT_SEC = 20;
@@ -247,8 +243,6 @@ export default function SchoolRegistration() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <FontLoader/>
-
       {/* Top bar */}
       <header className="sticky top-0 z-30 bg-[#000435] border-b-[3px] border-amber-400 h-14 sm:h-16 flex items-center px-4 sm:px-6">
         <div className="max-w-2xl mx-auto w-full flex items-center justify-between">

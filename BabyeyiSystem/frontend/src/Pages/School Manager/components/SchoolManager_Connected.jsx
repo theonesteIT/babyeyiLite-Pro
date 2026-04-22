@@ -28,14 +28,6 @@ function imgUrl(p) {
   return `${SERVER}${p.startsWith("/") ? p : "/" + p}`;
 }
 
-// ─── FONTS ───────────────────────────────────────────────────────────────────
-const FontLoader = () => (
-  <link
-    href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap"
-    rel="stylesheet"
-  />
-);
-
 const syneFont  = { fontFamily: "'Montserrat', sans-serif" };
 const serifFont = { fontFamily: "'Montserrat', sans-serif" };
 
@@ -1566,7 +1558,6 @@ function SchoolsList({ onSelect }) {
 
   return (
     <div className="min-h-screen p-4 sm:p-6" style={{ background: "#0f172a" }}>
-      <FontLoader />
       <div className="max-w-5xl mx-auto">
         <div className="mb-8 flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-amber-400 flex items-center justify-center text-2xl flex-shrink-0">🎓</div>
@@ -1736,7 +1727,6 @@ export default function App({ initialSchoolId, initialSchoolName, initialStep = 
   // ── Loading screen ──
   if (view === "loading") return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: "linear-gradient(135deg,#0f172a,#1e293b)" }}>
-      <FontLoader />
       <div className="text-center">
         <Loader2 size={40} className="text-amber-400 animate-spin mx-auto mb-4" />
         <p className="text-gray-400 font-semibold text-sm" style={syneFont}>Loading {initialSchoolName || "school"} data…</p>
@@ -1750,7 +1740,6 @@ export default function App({ initialSchoolId, initialSchoolName, initialStep = 
   // ── Published screen ──
   if (published) return (
     <div className="min-h-screen flex items-center justify-center p-6" style={{ background: "linear-gradient(135deg,#0f172a,#1e293b)" }}>
-      <FontLoader />
       <div className="max-w-sm w-full text-center">
         <div className="relative mb-8">
           <div className="w-28 h-28 rounded-3xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center mx-auto text-5xl shadow-2xl shadow-amber-400/30">🎓</div>
@@ -1775,8 +1764,7 @@ export default function App({ initialSchoolId, initialSchoolName, initialStep = 
 
   // ── Wizard ──
   return (
-    <div className="min-h-screen bg-gray-50 flex" style={{ fontFamily: "'Montserrat', system-ui, sans-serif" }}>
-      <FontLoader />
+    <div className="min-h-screen bg-gray-50 flex">
 
       {/* ── DESKTOP SIDEBAR ── */}
       <div className="w-48 bg-gray-900 min-h-screen flex-shrink-0 hidden lg:flex flex-col sticky top-0 h-screen overflow-y-auto">

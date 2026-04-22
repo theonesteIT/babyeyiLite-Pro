@@ -27,6 +27,7 @@ const { loadApprovedBabyeyiPricing } = require('./babyeyiPublicPricingCore');
 const {
   quoteBabyeyiPayBalance,
   validateBabyeyiPaymentAgainstBalance,
+  loadFeesForSelection,
 } = require('./babyeyiPayBalanceCore');
 const { ensureShuleAvanceOrgTables } = require('./shuleAvanceOrgSchema');
 const { requireRole } = require('../middleware/deoAuth');
@@ -861,12 +862,20 @@ async function getInvoiceDetailBundleById(id) {
 
   let fees = [];
   if (feeIds.length > 0) {
-    const ph = feeIds.map(() => '?').join(',');
-    const [feeRows] = await db.promisePool.execute(
-      `SELECT id, name, amount FROM babyeyi_payments WHERE babyeyi_id = ? AND id IN (${ph}) ORDER BY sort_order, id`,
-      [intent.babyeyi_id, ...feeIds]
-    );
-    fees = feeRows || [];
+    let metaRow = null;
+    try {
+      const [metaRows] = await db.promisePool.execute(
+        `SELECT id, school_id, academic_year, term, class_name, status, total_fee
+         FROM school_babyeyi WHERE id = ? LIMIT 1`,
+        [intent.babyeyi_id]
+      );
+      metaRow = metaRows?.[0] || null;
+    } catch (_) {
+      metaRow = null;
+    }
+    if (metaRow) {
+      fees = await loadFeesForSelection(intent.babyeyi_id, feeIds, metaRow);
+    }
   }
   let requirements = [];
   if (reqIds.length > 0) {
@@ -2943,12 +2952,20 @@ router.get('/admin-intents/:id/detail', requireRole('SUPER_ADMIN', 'FULL_SYSTEM_
 
     let fees = [];
     if (feeIds.length > 0) {
-      const ph = feeIds.map(() => '?').join(',');
-      const [feeRows] = await db.promisePool.execute(
-        `SELECT id, name, amount FROM babyeyi_payments WHERE babyeyi_id = ? AND id IN (${ph}) ORDER BY sort_order, id`,
-        [intent.babyeyi_id, ...feeIds]
-      );
-      fees = feeRows || [];
+      let metaRow = null;
+      try {
+        const [metaRows] = await db.promisePool.execute(
+          `SELECT id, school_id, academic_year, term, class_name, status, total_fee
+           FROM school_babyeyi WHERE id = ? LIMIT 1`,
+          [intent.babyeyi_id]
+        );
+        metaRow = metaRows?.[0] || null;
+      } catch (_) {
+        metaRow = null;
+      }
+      if (metaRow) {
+        fees = await loadFeesForSelection(intent.babyeyi_id, feeIds, metaRow);
+      }
     }
     let requirements = [];
     if (reqIds.length > 0) {
@@ -3282,6 +3299,82 @@ router.post('/admin-invoices/reminders/run', requireRole('SUPER_ADMIN', 'FULL_SY
 
 // GET /api/public/babyeyi-pay/invoices
 // Roles: SUPER_ADMIN, FULL_SYSTEM_CONTROLLER, SCHOOL_ADMIN, SCHOOL_MANAGER, ACCOUNTANT
+router.post('/invoices', requireRole('SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER', 'ACCOUNTANT'), async (req, res) => {
+  try {
+    await ensureIntentTable();
+    const role = String(req.user?.role_code || '').toUpperCase();
+    const userSchoolId = Number(req.user?.school_id || 0);
+    const scopedSchoolId = ['SCHOOL_ADMIN', 'SCHOOL_MANAGER', 'ACCOUNTANT'].includes(role)
+      ? userSchoolId
+      : Number(req.body?.school_id || 0);
+    if (!scopedSchoolId) return res.status(400).json({ success: false, message: 'school_id is required' });
+
+    const body = req.body || {};
+    const billTo = body.bill_to || {};
+    const dueDateRaw = String(body.due_date || '').trim();
+    const dueDate = dueDateRaw ? new Date(dueDateRaw) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    if (Number.isNaN(dueDate.getTime())) {
+      return res.status(400).json({ success: false, message: 'due_date is invalid' });
+    }
+
+    const inputItems = Array.isArray(body.items) ? body.items : [];
+    const items = inputItems
+      .map((it) => ({
+        id: String(it.id || ''),
+        name: String(it.name || '').trim(),
+        qty: Math.max(0, Number(it.qty || 0)),
+        unitPrice: Math.max(0, Number(it.unitPrice ?? it.unit_price ?? 0)),
+      }))
+      .filter((it) => it.name && it.qty > 0);
+    if (!items.length) {
+      return res.status(400).json({ success: false, message: 'At least one invoice item is required' });
+    }
+    const subTotal = items.reduce((s, it) => s + (Number(it.qty) * Number(it.unitPrice)), 0);
+    const taxRate = Math.max(0, Number(body.tax_rate || 0));
+    const total = Math.round(subTotal + (subTotal * taxRate));
+
+    const payloadJson = {
+      selected_student: {
+        student_name: String(billTo.name || '').trim() || 'Student',
+        student_uid: String(billTo.uid || '').trim() || '',
+        student_code: String(billTo.uid || '').trim() || '',
+      },
+      accountant_portal_invoice: {
+        bill_to_class: String(billTo.class || '').trim() || '',
+        items,
+        taxRate,
+        notes: String(body.notes || '').trim() || '',
+      },
+      payment_plan: {
+        method: 'invoice',
+      },
+    };
+
+    const payerName = String(billTo.name || '').trim() || 'Parent';
+    const payerEmail = String(body.payer_email || '').trim() || null;
+    const payerPhone = String(body.payer_phone || '').trim() || null;
+    const babyeyiId = Number(body.babyeyi_id || 0);
+    const [insertRes] = await db.promisePool.execute(
+      `INSERT INTO babyeyi_payment_intents
+       (school_id, babyeyi_id, payload_json, total_rwf, payer_name, payer_phone, payer_email, status, invoice_status, invoice_due_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'draft', 'NOT_PAID', ?)`,
+      [scopedSchoolId, babyeyiId, JSON.stringify(payloadJson), total, payerName, payerPhone, payerEmail, dueDate]
+    );
+    const id = Number(insertRes?.insertId || 0);
+    const invoiceNo = makeInvoiceNo(id);
+    await db.promisePool.execute(`UPDATE babyeyi_payment_intents SET invoice_no = ? WHERE id = ?`, [invoiceNo, id]);
+
+    return res.status(201).json({
+      success: true,
+      message: 'Invoice created',
+      data: { id, invoice_no: invoiceNo },
+    });
+  } catch (err) {
+    console.error('[public/babyeyi-pay/invoices POST]', err);
+    return res.status(500).json({ success: false, message: err.message || 'Failed to create invoice' });
+  }
+});
+
 router.get('/invoices', requireRole('SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER', 'ACCOUNTANT'), async (req, res) => {
   try {
     await ensureIntentTable();
@@ -3339,6 +3432,151 @@ router.get('/invoices', requireRole('SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER', 'SC
   } catch (err) {
     console.error('[public/babyeyi-pay/invoices]', err);
     return res.status(500).json({ success: false, message: err.message || 'Failed to load invoices' });
+  }
+});
+
+router.patch('/invoices/:id', requireRole('SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER', 'ACCOUNTANT'), async (req, res) => {
+  try {
+    await ensureIntentTable();
+    const id = Number(req.params.id || 0);
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid invoice id' });
+    const role = String(req.user?.role_code || '').toUpperCase();
+    const userSchoolId = Number(req.user?.school_id || 0);
+    const scopeForSchoolRoles = ['SCHOOL_ADMIN', 'SCHOOL_MANAGER', 'ACCOUNTANT'].includes(role);
+
+    const [[row]] = await db.promisePool.execute(
+      `SELECT id, school_id, invoice_status, invoice_due_at, payload_json, total_rwf, status
+       FROM babyeyi_payment_intents
+       WHERE id = ?
+       LIMIT 1`,
+      [id]
+    );
+    if (!row) return res.status(404).json({ success: false, message: 'Invoice not found' });
+    if (scopeForSchoolRoles && Number(row.school_id || 0) !== userSchoolId) {
+      return res.status(403).json({ success: false, message: 'Access denied for this school invoice' });
+    }
+
+    const action = String(req.body?.action || '').trim().toLowerCase();
+    if (action === 'mark_paid') {
+      await db.promisePool.execute(
+        `UPDATE babyeyi_payment_intents
+         SET status = 'paid',
+             invoice_status = 'PAID',
+             invoice_paid_at = NOW(),
+             provider_status = COALESCE(provider_status, 'SUCCESS')
+         WHERE id = ?`,
+        [id]
+      );
+      notifyInvoiceStatusByIntentId(id, 'intent_updated').catch(() => {});
+      return res.json({ success: true, message: 'Invoice marked as paid' });
+    }
+    if (action === 'mark_sent') {
+      await db.promisePool.execute(
+        `UPDATE babyeyi_payment_intents
+         SET status = CASE WHEN status = 'draft' THEN 'sent' ELSE status END,
+             invoice_sent_at = NOW()
+         WHERE id = ?`,
+        [id]
+      );
+      notifyInvoiceStatusByIntentId(id, 'intent_updated').catch(() => {});
+      return res.json({ success: true, message: 'Invoice marked as sent' });
+    }
+
+    const dueDateRaw = String(req.body?.due_date || '').trim();
+    const notesRaw = req.body?.notes;
+    const body = req.body || {};
+    const billTo = body.bill_to || {};
+    const canEdit = String(row.invoice_status || 'NOT_PAID').toUpperCase() !== 'PAID';
+    if (!canEdit) {
+      return res.status(409).json({ success: false, message: 'Paid invoice cannot be edited' });
+    }
+
+    let payload = {};
+    try {
+      payload = row.payload_json ? JSON.parse(row.payload_json) : {};
+    } catch {
+      payload = {};
+    }
+    const ap = payload.accountant_portal_invoice || {};
+    const nextItemsInput = Array.isArray(body.items) ? body.items : (Array.isArray(ap.items) ? ap.items : []);
+    const nextItems = nextItemsInput
+      .map((it) => ({
+        id: String(it.id || ''),
+        name: String(it.name || '').trim(),
+        qty: Math.max(0, Number(it.qty || 0)),
+        unitPrice: Math.max(0, Number(it.unitPrice ?? it.unit_price ?? 0)),
+      }))
+      .filter((it) => it.name && it.qty > 0);
+    if (!nextItems.length) return res.status(400).json({ success: false, message: 'At least one invoice item is required' });
+
+    const taxRate = Math.max(0, Number(body.tax_rate ?? ap.taxRate ?? ap.tax_rate ?? 0));
+    const subTotal = nextItems.reduce((s, it) => s + (Number(it.qty) * Number(it.unitPrice)), 0);
+    const total = Math.round(subTotal + (subTotal * taxRate));
+    const dueDate = dueDateRaw ? new Date(dueDateRaw) : (row.invoice_due_at ? new Date(row.invoice_due_at) : new Date());
+    if (Number.isNaN(dueDate.getTime())) return res.status(400).json({ success: false, message: 'due_date is invalid' });
+
+    const studentName = String(billTo.name || payload?.selected_student?.student_name || '').trim() || 'Student';
+    const studentUid = String(billTo.uid || payload?.selected_student?.student_uid || '').trim();
+    const studentClass = String(billTo.class || ap.bill_to_class || '').trim();
+    const notes = notesRaw == null ? String(ap.notes || '') : String(notesRaw || '');
+    payload.selected_student = {
+      ...(payload.selected_student || {}),
+      student_name: studentName,
+      student_uid: studentUid,
+      student_code: studentUid,
+    };
+    payload.accountant_portal_invoice = {
+      ...(payload.accountant_portal_invoice || {}),
+      bill_to_class: studentClass,
+      items: nextItems,
+      taxRate,
+      notes,
+    };
+
+    await db.promisePool.execute(
+      `UPDATE babyeyi_payment_intents
+       SET payload_json = ?, total_rwf = ?, payer_name = ?, invoice_due_at = ?
+       WHERE id = ?`,
+      [JSON.stringify(payload), total, studentName, dueDate, id]
+    );
+    return res.json({ success: true, message: 'Invoice updated' });
+  } catch (err) {
+    console.error('[public/babyeyi-pay/invoices/:id PATCH]', err);
+    return res.status(500).json({ success: false, message: err.message || 'Failed to update invoice' });
+  }
+});
+
+router.delete('/invoices/:id', requireRole('SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER', 'ACCOUNTANT'), async (req, res) => {
+  try {
+    await ensureIntentTable();
+    const id = Number(req.params.id || 0);
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid invoice id' });
+    const role = String(req.user?.role_code || '').toUpperCase();
+    const userSchoolId = Number(req.user?.school_id || 0);
+    const scopeForSchoolRoles = ['SCHOOL_ADMIN', 'SCHOOL_MANAGER', 'ACCOUNTANT'].includes(role);
+
+    const [[row]] = await db.promisePool.execute(
+      `SELECT id, school_id, invoice_status
+       FROM babyeyi_payment_intents
+       WHERE id = ?
+       LIMIT 1`,
+      [id]
+    );
+    if (!row) return res.status(404).json({ success: false, message: 'Invoice not found' });
+    if (scopeForSchoolRoles && Number(row.school_id || 0) !== userSchoolId) {
+      return res.status(403).json({ success: false, message: 'Access denied for this school invoice' });
+    }
+    if (String(row.invoice_status || '').toUpperCase() === 'PAID') {
+      return res.status(409).json({ success: false, message: 'Paid invoice cannot be deleted' });
+    }
+
+    await db.promisePool.execute(`DELETE FROM babyeyi_loan_repayments WHERE intent_id = ?`, [id]).catch(() => {});
+    await db.promisePool.execute(`DELETE FROM babyeyi_invoice_reminder_logs WHERE intent_id = ?`, [id]).catch(() => {});
+    await db.promisePool.execute(`DELETE FROM babyeyi_payment_intents WHERE id = ?`, [id]);
+    return res.json({ success: true, message: 'Invoice deleted' });
+  } catch (err) {
+    console.error('[public/babyeyi-pay/invoices/:id DELETE]', err);
+    return res.status(500).json({ success: false, message: err.message || 'Failed to delete invoice' });
   }
 });
 

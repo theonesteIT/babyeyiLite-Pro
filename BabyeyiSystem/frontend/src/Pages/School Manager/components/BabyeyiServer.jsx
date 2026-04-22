@@ -2075,10 +2075,8 @@ export default function App({ session }) {
 
   return (
     <>
-    <div className="min-h-screen flex items-center justify-center p-2 sm:p-4"
-      style={{ fontFamily: "'Montserrat', sans-serif" }}>
+    <div className="min-h-screen flex items-center justify-center p-2 sm:p-4">
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap');
         @keyframes slideIn { from { transform: translateX(100px); opacity:0; } to { transform: translateX(0); opacity:1; } }
         @keyframes fadeUp  { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
         .step-anim { animation: fadeUp 0.2s ease-out; }

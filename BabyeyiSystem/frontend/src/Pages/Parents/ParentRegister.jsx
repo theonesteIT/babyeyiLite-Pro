@@ -153,13 +153,7 @@ export default function ParentRegister() {
   return (
     <div
       className="min-h-[100dvh] flex flex-col bg-[#FAFAF8]"
-      style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}
     >
-      <link
-        href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap"
-        rel="stylesheet"
-      />
-
       <header className="px-4 pt-4 pb-2 flex items-center justify-between max-w-md mx-auto w-full">
         <Link
           to="/parents/login"

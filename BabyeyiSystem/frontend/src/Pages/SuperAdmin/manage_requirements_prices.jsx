@@ -247,10 +247,7 @@ export default function ManageRequirementsPrices() {
   return (
     <div
       className="min-h-screen bg-gradient-to-br from-amber-50 via-white to-amber-50/50 flex min-w-0 overflow-x-hidden"
-      style={{ fontFamily: 'Montserrat, sans-serif' }}
     >
-      <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-
       <aside className="hidden lg:flex flex-col w-56 border-r-2 border-amber-100 fixed left-0 top-0 h-full z-20 bg-white/98 shadow-lg">
         <div className="px-4 py-5 border-b-2 border-amber-100">
           <div className="flex items-center gap-2">

@@ -2,6 +2,8 @@
 
 const express = require('express');
 const { promisePool } = require('../config/database');
+const fs = require('fs');
+const path = require('path');
 const {
   ensureShuleAvanceTeacherCatalogTable,
   fetchActiveCatalogMaps,
@@ -11,6 +13,7 @@ const router = express.Router();
 
 const ROLE_ACCOUNTANT = 'ACCOUNTANT';
 const MANAGER_ROLES = ['SCHOOL_ADMIN', 'SCHOOL_MANAGER'];
+const DEAL_PRODUCT_ADMIN_ROLES = ['SUPER_ADMIN'];
 /** Teachers, school staff (HOD/DOS), and accountants can submit requests */
 const APPLICANT_ROLES = ['TEACHER', 'HOD', 'DOS', 'ACCOUNTANT'];
 const LEGACY_APPLICANT_ROLES = ['TEACHER', 'HOD', 'DOS', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER', 'ACCOUNTANT'];
@@ -24,6 +27,7 @@ const STATUS = {
 };
 
 let tableReady = false;
+let teacherDealProductsReady = false;
 
 function toRoleCode(req) {
   return String(req.user?.role_code || req.session?.user?.role?.code || '').toUpperCase();
@@ -79,6 +83,14 @@ function requireLoggedIn(req, res, next) {
   next();
 }
 
+function requireDealProductAdmin(req, res, next) {
+  const roleCode = toRoleCode(req);
+  if (!DEAL_PRODUCT_ADMIN_ROLES.includes(roleCode)) {
+    return res.status(403).json({ success: false, message: 'Only Super Admin can manage deal products' });
+  }
+  return next();
+}
+
 async function ensureTable() {
   if (tableReady) return;
   await promisePool.query(`
@@ -114,6 +126,9 @@ async function ensureTable() {
     ['service_category', 'VARCHAR(64) NULL'],
     ['cashout_reason', 'TEXT NULL'],
     ['cashout_category_slug', 'VARCHAR(64) NULL'],
+    ['deal_product_ids_json', 'TEXT NULL'],
+    ['deal_products_snapshot_json', 'LONGTEXT NULL'],
+    ['deal_products_total_rwf', 'DECIMAL(14,2) NULL'],
   ];
   for (const [name, def] of cols) {
     try {
@@ -126,15 +141,111 @@ async function ensureTable() {
   }
 
   await ensureShuleAvanceTeacherCatalogTable();
+  await ensureTeacherDealProductsTable();
   tableReady = true;
+}
+
+async function ensureTeacherDealProductsTable() {
+  if (teacherDealProductsReady) return;
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS shule_avance_teacher_deal_products (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(180) NOT NULL,
+      price_rwf DECIMAL(14,2) NOT NULL DEFAULT 0,
+      image_url VARCHAR(500) NULL,
+      description TEXT NULL,
+      is_active TINYINT(1) NOT NULL DEFAULT 1,
+      created_by_user_id INT UNSIGNED NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      deleted_at DATETIME NULL,
+      KEY idx_sadp_active (is_active),
+      KEY idx_sadp_deleted (deleted_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+  teacherDealProductsReady = true;
+}
+
+function toDealProductDto(r) {
+  return {
+    id: Number(r.id),
+    name: r.name || '',
+    price_rwf: Number(r.price_rwf || 0),
+    image_url: r.image_url || '',
+    description: r.description || '',
+    is_active: Number(r.is_active || 0) === 1,
+  };
+}
+
+async function listTeacherDealProducts({ includeInactive = false } = {}) {
+  await ensureTeacherDealProductsTable();
+  const where = ['deleted_at IS NULL'];
+  if (!includeInactive) where.push('is_active = 1');
+  const [rows] = await promisePool.query(
+    `SELECT id, name, price_rwf, image_url, description, is_active
+     FROM shule_avance_teacher_deal_products
+     WHERE ${where.join(' AND ')}
+     ORDER BY id DESC`
+  );
+  return (rows || []).map(toDealProductDto);
+}
+
+function normalizeProductIdList(raw) {
+  if (Array.isArray(raw)) {
+    return [...new Set(raw.map((x) => Number(x)).filter((n) => Number.isFinite(n) && n > 0))];
+  }
+  if (typeof raw === 'string') {
+    const t = raw.trim();
+    if (!t) return [];
+    try {
+      const parsed = JSON.parse(t);
+      if (Array.isArray(parsed)) return normalizeProductIdList(parsed);
+    } catch (_) {
+      // ignore parse error and fallback to CSV parsing
+    }
+    return normalizeProductIdList(t.split(',').map((x) => x.trim()));
+  }
+  return [];
+}
+
+async function fetchTeacherDealProductsByIds(ids) {
+  const cleanIds = normalizeProductIdList(ids);
+  if (!cleanIds.length) return [];
+  await ensureTeacherDealProductsTable();
+  const [rows] = await promisePool.query(
+    `SELECT id, name, price_rwf, image_url, description, is_active
+     FROM shule_avance_teacher_deal_products
+     WHERE deleted_at IS NULL AND is_active = 1 AND id IN (?)`,
+    [cleanIds]
+  );
+  return (rows || []).map(toDealProductDto);
+}
+
+function pickUploadedImage(req) {
+  const files = Array.isArray(req.files) ? req.files : [];
+  return files.find((f) => String(f.mimetype || '').toLowerCase().startsWith('image/')) || null;
+}
+
+async function persistProductImage(file) {
+  if (!file?.path) return null;
+  const ext = (path.extname(file.originalname || '') || '.jpg').toLowerCase();
+  const safeExt = /^[.](jpg|jpeg|png|webp|gif)$/i.test(ext) ? ext : '.jpg';
+  const relDir = path.join('uploads', 'shule-avance-deals');
+  const absDir = path.join(__dirname, '..', relDir);
+  fs.mkdirSync(absDir, { recursive: true });
+  const name = `deal-${Date.now()}-${Math.round(Math.random() * 1e9)}${safeExt}`;
+  const absPath = path.join(absDir, name);
+  await fs.promises.rename(file.path, absPath);
+  return `/${relDir.replace(/\\/g, '/')}/${name}`;
 }
 
 const ROW_SELECT = `r.id, r.school_id, r.teacher_user_id, r.amount_rwf, r.purpose, r.repayment_term_months,
               r.vendor_label, r.details, r.invoice_file_name, r.status, r.accountant_note, r.manager_feedback,
               r.submitted_at, r.accountant_reviewed_at, r.manager_reviewed_at, r.created_at, r.updated_at,
-              r.request_type, r.service_category, r.cashout_reason, r.cashout_category_slug`;
+              r.request_type, r.service_category, r.cashout_reason, r.cashout_category_slug,
+              r.deal_product_ids_json, r.deal_products_snapshot_json, r.deal_products_total_rwf`;
 
-function parseCreateBody(req, maps) {
+async function parseCreateBody(req, maps) {
   const { servicesBySlug, cashoutsBySlug } = maps;
   if (!servicesBySlug.size && !cashoutsBySlug.size) {
     return { error: 'ShuleAvance catalog is empty. Ask your platform administrator to configure services and cashout types.' };
@@ -144,7 +255,7 @@ function parseCreateBody(req, maps) {
   if (!['service', 'cashout'].includes(requestType)) {
     return { error: 'request_type must be service or cashout' };
   }
-  const amount = Number(req.body?.amount_requested ?? req.body?.amount_rwf);
+  let amount = Number(req.body?.amount_requested ?? req.body?.amount_rwf);
   const repayment = Number(req.body?.repayment_term_months ?? req.body?.repayment_term ?? 6);
 
   if (!amount || amount <= 0) {
@@ -160,6 +271,9 @@ function parseCreateBody(req, maps) {
   let serviceCategory = null;
   let cashoutReason = null;
   let cashoutCategorySlug = null;
+  let dealProductIdsJson = null;
+  let dealProductsSnapshotJson = null;
+  let dealProductsTotalRwf = null;
   const invoiceFileName = String(req.body?.invoice_file_name || '').trim() || null;
 
   if (requestType === 'service') {
@@ -171,9 +285,37 @@ function parseCreateBody(req, maps) {
       return { error: 'Select a valid service category' };
     }
     const cat = servicesBySlug.get(serviceCategory);
-    const userDesc = String(req.body?.description || req.body?.purpose || '').trim();
-    purpose = userDesc || `Service — ${cat.label}`;
-    vendorLabel = cat.label;
+    if (serviceCategory === 'teacher_deals') {
+      const selectedIds = normalizeProductIdList(
+        req.body?.selected_deal_product_ids || req.body?.deal_product_ids || req.body?.product_ids
+      );
+      if (!selectedIds.length) {
+        return { error: 'Select at least one Teacher Deal product' };
+      }
+      const selectedProducts = await fetchTeacherDealProductsByIds(selectedIds);
+      if (!selectedProducts.length || selectedProducts.length !== selectedIds.length) {
+        return { error: 'One or more selected Teacher Deal products are not available' };
+      }
+      const total = Number(
+        selectedProducts.reduce((sum, p) => sum + Number(p.price_rwf || 0), 0).toFixed(2)
+      );
+      if (total <= 0) {
+        return { error: 'Selected Teacher Deal products have invalid pricing' };
+      }
+      amount = total;
+      dealProductsTotalRwf = total;
+      const userDesc = String(req.body?.description || req.body?.purpose || '').trim();
+      const lineItems = selectedProducts.map((p) => `${p.name} (${Number(p.price_rwf).toLocaleString()} RWF)`).join(', ');
+      purpose = userDesc || `Teacher Deals purchase (${selectedProducts.length} item${selectedProducts.length > 1 ? 's' : ''})`;
+      details = lineItems;
+      vendorLabel = 'Teacher Deals Catalog';
+      dealProductIdsJson = JSON.stringify(selectedProducts.map((p) => p.id));
+      dealProductsSnapshotJson = JSON.stringify(selectedProducts);
+    } else {
+      const userDesc = String(req.body?.description || req.body?.purpose || '').trim();
+      purpose = userDesc || `Service — ${cat.label}`;
+      vendorLabel = cat.label;
+    }
   } else {
     if (!cashoutsBySlug.size) {
       return { error: 'No cashout types are configured' };
@@ -205,6 +347,9 @@ function parseCreateBody(req, maps) {
       cashoutReason,
       cashoutCategorySlug,
       invoiceFileName,
+      dealProductIdsJson,
+      dealProductsSnapshotJson,
+      dealProductsTotalRwf,
     },
   };
 }
@@ -214,7 +359,7 @@ async function handleApplicantCreate(req, res) {
     const { schoolId, userId } = req.ctx;
     await ensureShuleAvanceTeacherCatalogTable();
     const maps = await fetchActiveCatalogMaps();
-    const parsed = parseCreateBody(req, maps);
+    const parsed = await parseCreateBody(req, maps);
     if (parsed.error) {
       return res.status(400).json({ success: false, message: parsed.error });
     }
@@ -223,8 +368,9 @@ async function handleApplicantCreate(req, res) {
     const [result] = await promisePool.query(
       `INSERT INTO shule_avance_requests
        (school_id, teacher_user_id, amount_rwf, purpose, repayment_term_months, vendor_label, details,
-        invoice_file_name, status, request_type, service_category, cashout_reason, cashout_category_slug)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        invoice_file_name, status, request_type, service_category, cashout_reason, cashout_category_slug,
+        deal_product_ids_json, deal_products_snapshot_json, deal_products_total_rwf)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         schoolId,
         userId,
@@ -239,6 +385,9 @@ async function handleApplicantCreate(req, res) {
         v.requestType === 'service' ? v.serviceCategory : null,
         v.requestType === 'cashout' ? v.cashoutReason : null,
         v.requestType === 'cashout' ? v.cashoutCategorySlug : null,
+        v.requestType === 'service' ? v.dealProductIdsJson : null,
+        v.requestType === 'service' ? v.dealProductsSnapshotJson : null,
+        v.requestType === 'service' ? v.dealProductsTotalRwf : null,
       ]
     );
 
@@ -299,7 +448,7 @@ async function handleApplicantUpdate(req, res) {
 
     await ensureShuleAvanceTeacherCatalogTable();
     const maps = await fetchActiveCatalogMaps();
-    const parsed = parseCreateBody(req, maps);
+    const parsed = await parseCreateBody(req, maps);
     if (parsed.error) {
       return res.status(400).json({ success: false, message: parsed.error });
     }
@@ -308,7 +457,8 @@ async function handleApplicantUpdate(req, res) {
     await promisePool.query(
       `UPDATE shule_avance_requests
        SET amount_rwf = ?, purpose = ?, repayment_term_months = ?, vendor_label = ?, details = ?,
-           invoice_file_name = ?, request_type = ?, service_category = ?, cashout_reason = ?, cashout_category_slug = ?
+           invoice_file_name = ?, request_type = ?, service_category = ?, cashout_reason = ?, cashout_category_slug = ?,
+           deal_product_ids_json = ?, deal_products_snapshot_json = ?, deal_products_total_rwf = ?
        WHERE id = ? AND school_id = ? AND teacher_user_id = ?`,
       [
         v.amount,
@@ -321,6 +471,9 @@ async function handleApplicantUpdate(req, res) {
         v.requestType === 'service' ? v.serviceCategory : null,
         v.requestType === 'cashout' ? v.cashoutReason : null,
         v.requestType === 'cashout' ? v.cashoutCategorySlug : null,
+        v.requestType === 'service' ? v.dealProductIdsJson : null,
+        v.requestType === 'service' ? v.dealProductsSnapshotJson : null,
+        v.requestType === 'service' ? v.dealProductsTotalRwf : null,
         id,
         schoolId,
         userId,
@@ -385,6 +538,134 @@ router.get('/shule-avance/catalog', requireLoggedIn, async (req, res) => {
   } catch (error) {
     console.error('[shule-avance] catalog:', error.message);
     res.status(500).json({ success: false, message: 'Failed to load catalog' });
+  }
+});
+
+router.get('/shule-avance/teacher-deal-products', requireLoggedIn, async (_req, res) => {
+  try {
+    const data = await listTeacherDealProducts();
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('[shule-avance] teacher deal products:', error.message);
+    res.status(500).json({ success: false, message: 'Failed to load Teacher Deal products' });
+  }
+});
+
+router.get('/shule-avance/admin/teacher-deal-products', requireLoggedIn, requireDealProductAdmin, async (req, res) => {
+  try {
+    const includeInactive = String(req.query?.include_inactive || '').trim() === '1';
+    const data = await listTeacherDealProducts({ includeInactive });
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('[shule-avance] admin list teacher deal products:', error.message);
+    res.status(500).json({ success: false, message: 'Failed to load Teacher Deal products' });
+  }
+});
+
+router.post('/shule-avance/admin/teacher-deal-products', requireLoggedIn, requireDealProductAdmin, async (req, res) => {
+  try {
+    await ensureTeacherDealProductsTable();
+    const userId = resolveUserId(req);
+    const name = String(req.body?.name || '').trim();
+    const description = String(req.body?.description || '').trim() || null;
+    const price = Number(req.body?.price_rwf);
+    const isActive = req.body?.is_active === undefined ? true : !!req.body.is_active;
+    if (!name) return res.status(400).json({ success: false, message: 'name is required' });
+    if (!Number.isFinite(price) || price <= 0) {
+      return res.status(400).json({ success: false, message: 'price_rwf must be greater than zero' });
+    }
+    const imageFile = pickUploadedImage(req);
+    const imageUrl = imageFile ? await persistProductImage(imageFile) : null;
+    const [r] = await promisePool.query(
+      `INSERT INTO shule_avance_teacher_deal_products
+       (name, price_rwf, image_url, description, is_active, created_by_user_id)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [name, Number(price.toFixed(2)), imageUrl, description, isActive ? 1 : 0, userId]
+    );
+    res.status(201).json({ success: true, id: r.insertId, message: 'Teacher Deal product created' });
+  } catch (error) {
+    console.error('[shule-avance] admin create teacher deal product:', error.message);
+    res.status(500).json({ success: false, message: 'Failed to create Teacher Deal product' });
+  }
+});
+
+router.put('/shule-avance/admin/teacher-deal-products/:id', requireLoggedIn, requireDealProductAdmin, async (req, res) => {
+  try {
+    await ensureTeacherDealProductsTable();
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid product id' });
+    const [[existing]] = await promisePool.query(
+      `SELECT id, image_url
+       FROM shule_avance_teacher_deal_products
+       WHERE id = ? AND deleted_at IS NULL
+       LIMIT 1`,
+      [id]
+    );
+    if (!existing) return res.status(404).json({ success: false, message: 'Product not found' });
+
+    const fields = [];
+    const vals = [];
+    if (req.body?.name !== undefined) {
+      const name = String(req.body.name || '').trim();
+      if (!name) return res.status(400).json({ success: false, message: 'name cannot be empty' });
+      fields.push('name = ?');
+      vals.push(name);
+    }
+    if (req.body?.price_rwf !== undefined) {
+      const price = Number(req.body.price_rwf);
+      if (!Number.isFinite(price) || price <= 0) {
+        return res.status(400).json({ success: false, message: 'price_rwf must be greater than zero' });
+      }
+      fields.push('price_rwf = ?');
+      vals.push(Number(price.toFixed(2)));
+    }
+    if (req.body?.description !== undefined) {
+      fields.push('description = ?');
+      vals.push(String(req.body.description || '').trim() || null);
+    }
+    if (req.body?.is_active !== undefined) {
+      fields.push('is_active = ?');
+      vals.push(req.body.is_active ? 1 : 0);
+    }
+    const imageFile = pickUploadedImage(req);
+    if (imageFile) {
+      const imageUrl = await persistProductImage(imageFile);
+      fields.push('image_url = ?');
+      vals.push(imageUrl);
+    }
+    if (!fields.length) {
+      return res.status(400).json({ success: false, message: 'No changes provided' });
+    }
+    vals.push(id);
+    await promisePool.query(
+      `UPDATE shule_avance_teacher_deal_products
+       SET ${fields.join(', ')}
+       WHERE id = ? AND deleted_at IS NULL`,
+      vals
+    );
+    res.json({ success: true, message: 'Teacher Deal product updated' });
+  } catch (error) {
+    console.error('[shule-avance] admin update teacher deal product:', error.message);
+    res.status(500).json({ success: false, message: 'Failed to update Teacher Deal product' });
+  }
+});
+
+router.delete('/shule-avance/admin/teacher-deal-products/:id', requireLoggedIn, requireDealProductAdmin, async (req, res) => {
+  try {
+    await ensureTeacherDealProductsTable();
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid product id' });
+    const [r] = await promisePool.query(
+      `UPDATE shule_avance_teacher_deal_products
+       SET deleted_at = NOW(), is_active = 0
+       WHERE id = ? AND deleted_at IS NULL`,
+      [id]
+    );
+    if (!r.affectedRows) return res.status(404).json({ success: false, message: 'Product not found' });
+    res.json({ success: true, message: 'Teacher Deal product deleted' });
+  } catch (error) {
+    console.error('[shule-avance] admin delete teacher deal product:', error.message);
+    res.status(500).json({ success: false, message: 'Failed to delete Teacher Deal product' });
   }
 });
 
@@ -629,7 +910,7 @@ router.get('/shule-avance/status', async (req, res) => {
     const [rows] = await promisePool.query(
       `SELECT id, amount_rwf AS amount_requested, repayment_term_months, purpose, status, submitted_at AS created_at,
               request_type, service_category, details, vendor_label, cashout_reason, cashout_category_slug,
-              accountant_note, manager_feedback
+              accountant_note, manager_feedback, deal_product_ids_json, deal_products_snapshot_json, deal_products_total_rwf
        FROM shule_avance_requests
        WHERE school_id = ? AND teacher_user_id = ?
        ORDER BY id DESC`,

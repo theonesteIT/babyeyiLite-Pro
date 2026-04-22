@@ -12,10 +12,6 @@ import {
   ArrowLeft, Sparkles, LayoutGrid, List, Check, Filter,
 } from "lucide-react";
 
-const FontLoader = () => (
-  <style>{`@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800;900&display=swap');*{font-family:'Barlow','Trebuchet MS',sans-serif!important}`}</style>
-);
-
 const SERVER = import.meta.env.VITE_API_URL || "http://localhost:5100";
 const API = `${SERVER}/api/mini-websites`;
 
@@ -281,8 +277,6 @@ export default function AllSchools() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <FontLoader/>
-
       {/* Top bar */}
       <header className="sticky top-0 z-30 bg-[#000435] border-b-[3px] border-amber-400 h-14 sm:h-16">
         <div className="max-w-[1400px] mx-auto h-full px-4 sm:px-6 xl:px-10 flex items-center gap-3">

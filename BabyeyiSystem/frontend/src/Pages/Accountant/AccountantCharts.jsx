@@ -32,7 +32,7 @@ export function StudentsByClassBarChart({ rows, className = "" }) {
   return (
     <div className={className}>
       <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-auto max-h-[220px]" role="img" aria-label="Students per class">
-        <text x={padL} y={14} className="fill-[#7A5C00] text-[9px] font-bold" style={{ fontFamily: "Montserrat, sans-serif" }}>
+        <text x={padL} y={14} className="fill-[#7A5C00] text-[9px] font-bold">
           Students by class
         </text>
         {slice.map((r, i) => {
@@ -50,7 +50,6 @@ export function StudentsByClassBarChart({ rows, className = "" }) {
                 y={padT + innerH + 12}
                 textAnchor="middle"
                 className="fill-[#3D2C00] text-[7px] font-semibold"
-                style={{ fontFamily: "Montserrat, sans-serif" }}
               >
                 {label}
               </text>
@@ -104,7 +103,7 @@ export function CollectionsTrendChart({ days }) {
   return (
     <div>
       <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-auto max-h-[220px]" role="img" aria-label="Collections last 14 days">
-        <text x={padL} y={14} className="fill-[#7A5C00] text-[9px] font-bold" style={{ fontFamily: "Montserrat, sans-serif" }}>
+        <text x={padL} y={14} className="fill-[#7A5C00] text-[9px] font-bold">
           Fee collections (14 days)
         </text>
         <rect x={padL} y={padT} width={innerW} height={innerH} rx={8} fill={TRACK} opacity={0.25} />
@@ -140,7 +139,6 @@ export function CollectionsTrendChart({ days }) {
                 y={h - 10}
                 textAnchor="middle"
                 className="fill-[#7A5C00] text-[7px] font-semibold"
-                style={{ fontFamily: "Montserrat, sans-serif" }}
               >
                 {formatShortDate(c.date)}
               </text>

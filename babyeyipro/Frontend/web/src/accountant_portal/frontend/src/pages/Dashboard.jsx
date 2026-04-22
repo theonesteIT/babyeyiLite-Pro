@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
   Banknote,
@@ -238,6 +239,7 @@ function reminderLabelFromFeeStatus(status) {
 }
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [modal, setModal] = useState(null); // 'debtors' | 'requisitions' | 'bills' | 'reminders' | 'expenses' | 'payroll' | 'collections'
   const [liveData, setLiveData] = useState(null);
   const [liveOk, setLiveOk] = useState(false);
@@ -678,7 +680,7 @@ export default function Dashboard() {
                   <div className="flex flex-col gap-1 text-[8.5px] font-bold text-slate-500 w-full bg-slate-50 rounded-lg py-1.5 px-2 border border-slate-100">
                     <button
                       type="button"
-                      onClick={() => setModal('payroll')}
+                      onClick={() => navigate('/payroll/history')}
                       className="flex justify-between items-center text-left w-full bg-slate-50 hover:bg-slate-100 px-2.5 py-2 rounded-xl border border-black/5 transition-all group"
                     >
                       <span className="uppercase tracking-widest text-slate-500 group-hover:text-[#1E3A5F]">Processed</span>
@@ -689,7 +691,7 @@ export default function Dashboard() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setModal('requisitions')}
+                      onClick={() => navigate('/requisitions')}
                       className="flex justify-between items-center text-left w-full bg-slate-50 hover:bg-slate-100 px-2.5 py-2 rounded-xl border border-black/5 transition-all group"
                     >
                       <span className="uppercase tracking-widest text-slate-500 group-hover:text-[#1E3A5F]">Requisitions</span>
@@ -700,7 +702,7 @@ export default function Dashboard() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setModal('bills')}
+                      onClick={() => navigate('/expenses')}
                       className="flex justify-between items-center text-left w-full bg-slate-50 hover:bg-slate-100 px-2.5 py-2 rounded-xl border border-black/5 transition-all group"
                     >
                       <span className="uppercase tracking-widest text-slate-500 group-hover:text-[#1E3A5F]">Bills Due</span>

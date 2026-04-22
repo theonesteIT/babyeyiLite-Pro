@@ -274,7 +274,7 @@ const buildBlankForm = (school = {}, categoryOverride) => ({
   /** Public = NESA smart fee checker applies (when school allows); Private = no national limit checker. */
   feeTargetStudents:    "public",
   language:             "en",
-  payments:             [{ name:"Tuition Fee", amount:"" },{ name:"Activity Fee", amount:"" }],
+  payments:             [{ name:"Tuition Fee", amount:"", pay_channel: "babyeyi" },{ name:"Activity Fee", amount:"", pay_channel: "babyeyi" }],
   requestIncrease:      false,
   requestTitle:         "",
   requestReasons:       [],
@@ -1439,7 +1439,7 @@ export default function App({ session }) {
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="text-[10px] font-black uppercase tracking-widest" style={{ color: C.darkMid }}>Payment Items</label>
-              <button type="button" onClick={() => up("payments", [...form.payments, {name:"",amount:""}])}
+              <button type="button" onClick={() => up("payments", [...form.payments, { name:"", amount:"", pay_channel: "babyeyi" }])}
                 className="flex items-center gap-1 text-xs font-bold hover:opacity-80 px-2 py-1 rounded-lg"
                 style={{ color: C.goldDark, background: C.goldBg }}>
                 <I n="plus" size={12} /> Add Row
@@ -1452,11 +1452,20 @@ export default function App({ session }) {
             )}
             <div className="space-y-2">
               {form.payments.map((p, i) => (
-                <div key={i} className="flex gap-2 items-center">
+                <div key={i} className="flex flex-wrap gap-2 items-center">
                   <span className="w-5 h-5 rounded-lg flex items-center justify-center text-[9px] font-black shrink-0"
                     style={{ background: C.goldBgMid, color: C.goldDark }}>{i+1}</span>
                   <input value={p.name} onChange={e => { const ps=[...form.payments]; ps[i].name=e.target.value; up("payments",ps); }}
-                    placeholder="Payment name" className={`${inp} flex-1`} style={{ borderColor: C.goldBorder }} />
+                    placeholder="Payment name" className={`${inp} flex-1 min-w-[120px]`} style={{ borderColor: C.goldBorder }} />
+                  <select
+                    value={p.pay_channel === "school" ? "school" : "babyeyi"}
+                    onChange={(e) => { const ps=[...form.payments]; ps[i].pay_channel = e.target.value; up("payments", ps); }}
+                    className={`${inp} w-full sm:w-[158px] shrink-0 text-[11px] font-semibold`}
+                    style={{ borderColor: C.goldBorder }}
+                  >
+                    <option value="babyeyi">Pay via Babyeyi</option>
+                    <option value="school">Paid at school</option>
+                  </select>
                   <div className="relative w-28 sm:w-36">
                     <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold" style={{ color: C.goldDark }}>RWF</span>
                     <input type="number" value={p.amount} onChange={e => { const ps=[...form.payments]; ps[i].amount=e.target.value; up("payments",ps); }}
@@ -2308,10 +2317,8 @@ export default function App({ session }) {
 
   return (
     <>
-    <div className="min-h-screen flex items-center justify-center p-2 sm:p-4"
-      style={{ fontFamily: "'Montserrat', sans-serif" }}>
+    <div className="min-h-screen flex items-center justify-center p-2 sm:p-4">
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap');
         @keyframes slideIn { from { transform: translateX(100px); opacity:0; } to { transform: translateX(0); opacity:1; } }
         @keyframes fadeUp  { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
         .step-anim { animation: fadeUp 0.2s ease-out; }

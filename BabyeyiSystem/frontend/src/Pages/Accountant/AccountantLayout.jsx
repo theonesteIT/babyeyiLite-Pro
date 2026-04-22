@@ -244,7 +244,6 @@ export default function AccountantLayout() {
       }}
     >
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap');
         .acc-scroll::-webkit-scrollbar { width: 4px; height: 4px; }
         .acc-scroll::-webkit-scrollbar-thumb { background: #FEBF10; border-radius: 99px; }
       `}</style>

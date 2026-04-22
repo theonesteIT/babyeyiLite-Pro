@@ -9,7 +9,7 @@ import {
 
 const BottomNav = () => {
     const navItems = [
-        { icon: LayoutDashboard, name: 'Home', path: '/', exact: true },
+        { icon: LayoutDashboard, name: 'Home', path: '/accountant', exact: true },
         { icon: Receipt, name: 'Fees', path: '/fees' },
         { icon: Banknote, name: 'Expenses', path: '/expenses' },
         { icon: ClipboardCheck, name: 'Payroll', path: '/payroll/history' },

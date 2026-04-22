@@ -299,7 +299,7 @@ export default function SuperAdministratorControl() {
     return (
       <div
         className="min-h-screen flex items-center justify-center"
-        style={{ background: '#0B1D3A', fontFamily: 'Sora, system-ui, sans-serif' }}
+        style={{ background: '#0B1D3A' }}
       >
         <Loader2 className="w-10 h-10 animate-spin text-amber-400" />
       </div>
@@ -314,7 +314,6 @@ export default function SuperAdministratorControl() {
       className="min-h-screen text-slate-100"
       style={{
         background: 'linear-gradient(165deg, #0B1D3A 0%, #0f2744 45%, #0B1D3A 100%)',
-        fontFamily: 'Sora, system-ui, sans-serif',
       }}
     >
       <header className="border-b border-white/10 bg-black/20 backdrop-blur-sm">

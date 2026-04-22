@@ -271,7 +271,7 @@ const buildBlankForm = (school = {}, categoryOverride) => ({
   /** Public = NESA smart fee checker applies (when school allows); Private = no national limit checker. */
   feeTargetStudents:    "public",
   language:             "en",
-  payments:             [{ name:"Tuition Fee", amount:"" },{ name:"Activity Fee", amount:"" }],
+  payments:             [{ name:"Tuition Fee", amount:"", pay_channel: "babyeyi" },{ name:"Activity Fee", amount:"", pay_channel: "babyeyi" }],
   requestIncrease:      false,
   requestTitle:         "",
   requestReasons:       [],
@@ -279,7 +279,7 @@ const buildBlankForm = (school = {}, categoryOverride) => ({
   requestDescription:   "",
   parentApprovalDoc:    null,
   schoolBudgetDoc:      null,
-  requirements:         [{ item:"" }],
+  requirements:         [{ item: "", description: "", quantity: "", pay_channel: "babyeyi", cost: "" }],
   bankName:             "",
   accountNumber:        "",
   accountName:          school.name || "",
@@ -1436,7 +1436,7 @@ export default function App({ session }) {
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="text-[10px] font-black uppercase tracking-widest" style={{ color: C.darkMid }}>Payment Items</label>
-              <button type="button" onClick={() => up("payments", [...form.payments, {name:"",amount:""}])}
+              <button type="button" onClick={() => up("payments", [...form.payments, { name:"", amount:"", pay_channel: "babyeyi" }])}
                 className="flex items-center gap-1 text-xs font-bold hover:opacity-80 px-2 py-1 rounded-lg"
                 style={{ color: C.goldDark, background: C.goldBg }}>
                 <I n="plus" size={12} /> Add Row
@@ -1449,11 +1449,20 @@ export default function App({ session }) {
             )}
             <div className="space-y-2">
               {form.payments.map((p, i) => (
-                <div key={i} className="flex gap-2 items-center">
+                <div key={i} className="flex flex-wrap gap-2 items-center">
                   <span className="w-5 h-5 rounded-lg flex items-center justify-center text-[9px] font-black shrink-0"
                     style={{ background: C.goldBgMid, color: C.goldDark }}>{i+1}</span>
                   <input value={p.name} onChange={e => { const ps=[...form.payments]; ps[i].name=e.target.value; up("payments",ps); }}
-                    placeholder="Payment name" className={`${inp} flex-1`} style={{ borderColor: C.goldBorder }} />
+                    placeholder="Payment name" className={`${inp} flex-1 min-w-[120px]`} style={{ borderColor: C.goldBorder }} />
+                  <select
+                    value={p.pay_channel === "school" ? "school" : "babyeyi"}
+                    onChange={(e) => { const ps=[...form.payments]; ps[i].pay_channel = e.target.value; up("payments", ps); }}
+                    className={`${inp} w-full sm:w-[158px] shrink-0 text-[11px] font-semibold`}
+                    style={{ borderColor: C.goldBorder }}
+                  >
+                    <option value="babyeyi">Pay via Babyeyi</option>
+                    <option value="school">Paid at school</option>
+                  </select>
                   <div className="relative w-28 sm:w-36">
                     <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold" style={{ color: C.goldDark }}>RWF</span>
                     <input type="number" value={p.amount} onChange={e => { const ps=[...form.payments]; ps[i].amount=e.target.value; up("payments",ps); }}
@@ -1548,6 +1557,8 @@ export default function App({ session }) {
           item: row.name,
           description: row.description != null && String(row.description).trim() !== "" ? String(row.description) : "",
           quantity: row.quantity != null && String(row.quantity).trim() !== "" ? String(row.quantity) : "",
+          pay_channel: "babyeyi",
+          cost: "",
         });
         const toggleReq = (row) => {
           const name = row.name;
@@ -1623,7 +1634,7 @@ export default function App({ session }) {
             </div>
             <div className="flex items-center justify-between">
               <label className="text-[10px] font-black uppercase tracking-widest" style={{ color: C.darkMid }}>Custom Requirements</label>
-              <button type="button" onClick={() => up("requirements", [...(form.requirements||[]),{item:""}])}
+              <button type="button" onClick={() => up("requirements", [...(form.requirements||[]), { item: "", description: "", quantity: "", pay_channel: "babyeyi", cost: "" }])}
                 className="flex items-center gap-1 text-xs font-bold hover:opacity-80 px-2 py-1 rounded-lg"
                 style={{ color: C.goldDark, background: C.goldBg }}>
                 <I n="plus" size={12} /> Add
@@ -1684,6 +1695,51 @@ export default function App({ session }) {
                         className={inp}
                         style={{ borderColor: "#E5E7EB" }}
                       />
+                    </div>
+                    <div className="pl-7">
+                      <label className="text-[9px] font-black uppercase tracking-wider mb-1 block" style={{ color: C.slate500 }}>Where parents pay</label>
+                      <select
+                        value={r.pay_channel === "school" ? "school" : "babyeyi"}
+                        onChange={(e) => {
+                          const rs = [...(form.requirements || [])];
+                          const school = e.target.value === "school";
+                          rs[i] = {
+                            ...rs[i],
+                            pay_channel: school ? "school" : "babyeyi",
+                            ...(school ? {} : { cost: "" }),
+                          };
+                          up("requirements", rs);
+                        }}
+                        className={`${inp} text-[13px] font-semibold`}
+                        style={{ borderColor: C.goldBorder }}
+                      >
+                        <option value="babyeyi">Pay via Babyeyi (online / MoMo)</option>
+                        <option value="school">Paid at school (counter / cash at office)</option>
+                      </select>
+                      <p className="text-[10px] mt-1 leading-snug" style={{ color: C.slate500 }}>
+                        Counter lines are grouped with tuition on the public pay page. Online items appear under other requirements.
+                      </p>
+                      {r.pay_channel === "school" && (
+                        <div className="mt-2.5">
+                          <label className="text-[9px] font-black uppercase tracking-wider mb-1 block" style={{ color: C.slate500 }}>
+                            Amount at school (RWF)
+                          </label>
+                          <input
+                            type="number"
+                            min={0}
+                            step={1}
+                            value={r.cost ?? ""}
+                            onChange={(e) => {
+                              const rs = [...(form.requirements || [])];
+                              rs[i] = { ...rs[i], cost: e.target.value };
+                              up("requirements", rs);
+                            }}
+                            placeholder="Total paid at the office for this line"
+                            className={`${inp} text-[13px] font-semibold font-mono`}
+                            style={{ borderColor: C.goldBorder }}
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}

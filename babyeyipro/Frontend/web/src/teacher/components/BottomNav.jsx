@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import {
     LayoutDashboard, Users, Calendar,
-    ClipboardCheck, ClipboardList
+    ClipboardCheck, ClipboardList, Package
 } from 'lucide-react';
 import { h } from '../utils/href';
 
@@ -11,6 +11,7 @@ const BottomNav = () => {
         { icon: Users, name: 'Students', path: '/students' },
         { icon: Calendar, name: 'Timetable', path: '/timetable' },
         { icon: ClipboardCheck, name: 'Attendance', path: '/attendance' },
+        { icon: Package, name: 'Requests', path: '/equipment-requests' },
         { icon: ClipboardList, name: 'Marks', path: '/marks/record' },
     ];
 

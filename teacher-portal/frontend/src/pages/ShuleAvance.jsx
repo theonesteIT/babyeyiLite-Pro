@@ -7,6 +7,7 @@ import {
   Zap,
   Smartphone,
   Gift,
+  Package,
   Banknote,
   Loader2,
   X,
@@ -22,6 +23,15 @@ import {
   XCircle,
 } from 'lucide-react';
 import ShuleAvanceRepaymentCalculator from '../components/ShuleAvanceRepaymentCalculator';
+
+const UPLOADS_BASE = (import.meta.env.VITE_UPLOADS_BASE || import.meta.env.VITE_API_URL || 'http://localhost:5100').replace(/\/$/, '');
+
+function toAssetUrl(pathLike) {
+  if (!pathLike || typeof pathLike !== 'string') return null;
+  if (pathLike.startsWith('http://') || pathLike.startsWith('https://')) return pathLike;
+  const clean = pathLike.replace(/\\/g, '/');
+  return `${UPLOADS_BASE}${clean.startsWith('/') ? clean : `/${clean}`}`;
+}
 
 function pickServiceIcon(slug) {
   const s = String(slug || '').toLowerCase();
@@ -101,6 +111,13 @@ function resolveRateForRow(row, catalog) {
   return c?.income_rate_percent ?? null;
 }
 
+function isTeacherDealRequestRow(row) {
+  return (
+    String(row?.request_type || '').toLowerCase() === 'service' &&
+    String(row?.service_category || '').toLowerCase() === 'teacher_deals'
+  );
+}
+
 function Modal({ open, onClose, title, children, wide }) {
   if (!open) return null;
   return createPortal(
@@ -148,6 +165,10 @@ export default function ShuleAvance() {
   const [stepCashoutCategory, setStepCashoutCategory] = useState(null);
 
   const [catalog, setCatalog] = useState({ services: [], cashouts: [] });
+  const [dealProducts, setDealProducts] = useState([]);
+  const [selectedDealProductIds, setSelectedDealProductIds] = useState([]);
+  const [dealPreview, setDealPreview] = useState(null);
+  const [teacherDealsStep, setTeacherDealsStep] = useState('products');
 
   const [amount, setAmount] = useState('');
   const [repayment, setRepayment] = useState(6);
@@ -157,6 +178,15 @@ export default function ShuleAvance() {
 
   const [detailRow, setDetailRow] = useState(null);
   const [editRow, setEditRow] = useState(null);
+
+  const selectedDealProducts = useMemo(
+    () => dealProducts.filter((p) => selectedDealProductIds.includes(Number(p.id))),
+    [dealProducts, selectedDealProductIds]
+  );
+  const teacherDealsTotal = useMemo(
+    () => selectedDealProducts.reduce((sum, p) => sum + Number(p.price_rwf || 0), 0),
+    [selectedDealProducts]
+  );
 
   const loadCatalog = useCallback(async () => {
     try {
@@ -172,6 +202,19 @@ export default function ShuleAvance() {
     }
   }, []);
 
+  const loadTeacherDealProducts = useCallback(async () => {
+    try {
+      const res = await api.get('/services/shule-avance/teacher-deal-products');
+      if (res.data?.success) {
+        setDealProducts(Array.isArray(res.data.data) ? res.data.data : []);
+      } else {
+        setDealProducts([]);
+      }
+    } catch {
+      setDealProducts([]);
+    }
+  }, []);
+
   const load = useCallback(async (silent) => {
     if (!silent) setLoading(true);
     else setRefreshing(true);
@@ -180,6 +223,7 @@ export default function ShuleAvance() {
       const [reqRes] = await Promise.all([
         api.get('/services/shule-avance/applicant/my-requests'),
         loadCatalog(),
+        loadTeacherDealProducts(),
       ]);
       if (reqRes.data?.success) setRows(Array.isArray(reqRes.data.data) ? reqRes.data.data : []);
       else setRows([]);
@@ -190,7 +234,7 @@ export default function ShuleAvance() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [loadCatalog]);
+  }, [loadCatalog, loadTeacherDealProducts]);
 
   useEffect(() => {
     load(false);
@@ -218,6 +262,9 @@ export default function ShuleAvance() {
     setCashoutReason('');
     setStepCategory(null);
     setStepCashoutCategory(null);
+    setSelectedDealProductIds([]);
+    setDealPreview(null);
+    setTeacherDealsStep('products');
   };
 
   const openService = () => {
@@ -244,7 +291,8 @@ export default function ShuleAvance() {
     setSubmitting(true);
     setError(null);
     try {
-      const amt = Number(String(amount).replace(/[^\d.]/g, ''));
+      const isTeacherDeals = flowKind === 'service' && stepCategory === 'teacher_deals';
+      const amt = isTeacherDeals ? Number(teacherDealsTotal) : Number(String(amount).replace(/[^\d.]/g, ''));
       if (!amt || amt <= 0) {
         setError('Enter a valid amount.');
         setSubmitting(false);
@@ -258,6 +306,7 @@ export default function ShuleAvance() {
               description: String(description || '').trim(),
               amount_requested: amt,
               repayment_term_months: Number(repayment),
+              selected_deal_product_ids: isTeacherDeals ? selectedDealProductIds : undefined,
             }
           : {
               request_type: 'cashout',
@@ -275,6 +324,11 @@ export default function ShuleAvance() {
       }
       if (flowKind === 'cashout' && !stepCashoutCategory) {
         setError('Select a cashout type.');
+        setSubmitting(false);
+        return;
+      }
+      if (isTeacherDeals && !selectedDealProductIds.length) {
+        setError('Select at least one Teacher Deal product.');
         setSubmitting(false);
         return;
       }
@@ -549,13 +603,15 @@ export default function ShuleAvance() {
                       </button>
                       {r.status === 'pending_accountant' && (
                         <>
-                          <button
-                            type="button"
-                            onClick={() => openEdit(r)}
-                            className="inline-flex items-center gap-1 rounded-lg border border-black/10 bg-white px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wider text-re-text hover:border-re-orange/40"
-                          >
-                            <Pencil className="h-3.5 w-3.5" /> Edit
-                          </button>
+                          {!isTeacherDealRequestRow(r) ? (
+                            <button
+                              type="button"
+                              onClick={() => openEdit(r)}
+                              className="inline-flex items-center gap-1 rounded-lg border border-black/10 bg-white px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wider text-re-text hover:border-re-orange/40"
+                            >
+                              <Pencil className="h-3.5 w-3.5" /> Edit
+                            </button>
+                          ) : null}
                           <button
                             type="button"
                             onClick={() => deleteRow(r.id)}
@@ -594,7 +650,12 @@ export default function ShuleAvance() {
                   <button
                     key={slug}
                     type="button"
-                    onClick={() => setStepCategory(slug)}
+                    onClick={() => {
+                      setStepCategory(slug);
+                      if (slug === 'teacher_deals') {
+                        setTeacherDealsStep('products');
+                      }
+                    }}
                     className="flex items-center gap-3 rounded-2xl border border-black/10 bg-re-bg/80 p-4 text-left transition hover:border-re-orange/40 hover:bg-white"
                   >
                     <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white shadow-inner">
@@ -623,70 +684,255 @@ export default function ShuleAvance() {
                 {catalog.services?.find((c) => c.slug === stepCategory)?.label || stepCategory}
               </span>
             </div>
-            <div>
-              <label className="text-[10px] font-black uppercase tracking-widest text-re-text-muted">
-                Amount (RWF)
-              </label>
-              <input
-                className="mt-1 w-full rounded-xl border border-black/10 bg-re-bg px-3 py-2.5 text-sm font-bold outline-none focus:ring-2 focus:ring-re-orange/30"
-                inputMode="numeric"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="e.g. 150000"
-              />
-            </div>
-            <div>
-              <label className="text-[10px] font-black uppercase tracking-widest text-re-text-muted">
-                Repayment period
-              </label>
-              <select
-                className="mt-1 w-full rounded-xl border border-black/10 bg-re-bg px-3 py-2.5 text-sm font-bold outline-none focus:ring-2 focus:ring-re-orange/30"
-                value={repayment}
-                onChange={(e) => setRepayment(Number(e.target.value))}
-              >
-                {REPAYMENT_OPTIONS.map((m) => (
-                  <option key={m} value={m}>
-                    {m} months
-                  </option>
-                ))}
-              </select>
-            </div>
-            <ShuleAvanceRepaymentCalculator
-              principal={amount}
-              monthlyRatePercent={catalog.services?.find((c) => c.slug === stepCategory)?.income_rate_percent}
-              months={repayment}
-              title="Live estimate"
-              className="mt-1"
-            />
-            <div>
-              <label className="text-[10px] font-black uppercase tracking-widest text-re-text-muted">
-                Description <span className="font-bold normal-case text-re-text-muted/70">(optional)</span>
-              </label>
-              <textarea
-                className="mt-1 min-h-[88px] w-full resize-none rounded-xl border border-black/10 bg-re-bg px-3 py-2.5 text-sm font-bold outline-none focus:ring-2 focus:ring-re-orange/30"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Extra context for finance (optional)"
-              />
-            </div>
-            <div className="flex flex-wrap gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setStepCategory(null)}
-                className="rounded-xl border border-black/10 bg-white px-4 py-2.5 text-[10px] font-black uppercase tracking-widest"
-              >
-                Back
-              </button>
-              <button
-                type="button"
-                disabled={submitting}
-                onClick={submitRequest}
-                className="ml-auto inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#FF8C00] to-[#FF5E00] px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-white shadow-lg disabled:opacity-50"
-              >
-                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                Submit
-              </button>
-            </div>
+
+            {stepCategory === 'teacher_deals' ? (
+              <>
+                <div className="space-y-2">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-re-text-muted">
+                    {teacherDealsStep === 'products' ? 'Step 1: Products' : 'Step 2: Repayment'}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border ${
+                        teacherDealsStep === 'products'
+                          ? 'bg-re-orange text-white border-re-orange'
+                          : 'bg-white text-slate-500 border-slate-200'
+                      }`}
+                    >
+                      Step 1: Products
+                    </span>
+                    <span
+                      className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border ${
+                        teacherDealsStep === 'repayment'
+                          ? 'bg-re-orange text-white border-re-orange'
+                          : 'bg-white text-slate-500 border-slate-200'
+                      }`}
+                    >
+                      Step 2: Repayment
+                    </span>
+                  </div>
+                </div>
+
+                {teacherDealsStep === 'products' ? (
+                  <div className="space-y-3">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-re-text-muted">
+                      Select one or many products
+                    </p>
+                    <div className="grid gap-3 sm:grid-cols-2 max-h-[360px] overflow-y-auto pr-1">
+                      {dealProducts.map((p) => {
+                        const isChecked = selectedDealProductIds.includes(Number(p.id));
+                        return (
+                          <div
+                            key={p.id}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => {
+                              const id = Number(p.id);
+                              setSelectedDealProductIds((prev) =>
+                                prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+                              );
+                            }}
+                            onKeyDown={(ev) => {
+                              if (ev.key === 'Enter' || ev.key === ' ') {
+                                ev.preventDefault();
+                                const id = Number(p.id);
+                                setSelectedDealProductIds((prev) =>
+                                  prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+                                );
+                              }
+                            }}
+                            className={`rounded-xl border p-3 flex gap-3 items-start cursor-pointer transition-all ${
+                              isChecked ? 'border-re-orange bg-orange-50/40 shadow-sm' : 'border-black/10 bg-white'
+                            }`}
+                          >
+                            <div className="relative w-16 h-16 rounded-lg border border-black/10 bg-re-bg overflow-hidden shrink-0 flex items-center justify-center">
+                              {p.image_url ? (
+                                <img src={toAssetUrl(p.image_url)} alt={p.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <Package className="h-4 w-4 text-slate-400" />
+                              )}
+                              <button
+                                type="button"
+                                onClick={(ev) => {
+                                  ev.stopPropagation();
+                                  setDealPreview(p);
+                                }}
+                                className="absolute right-1 top-1 h-6 w-6 rounded-full bg-black/60 text-white inline-flex items-center justify-center hover:bg-black/75"
+                              >
+                                <Eye className="h-3 w-3" />
+                              </button>
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[11px] font-black text-re-text truncate">{p.name}</p>
+                              <p className="text-[10px] font-black text-re-orange">{formatMoney(p.price_rwf)}</p>
+                              <p className="mt-1 text-[9px] font-black uppercase tracking-widest text-slate-500">
+                                {isChecked ? 'Selected' : 'Tap to select'}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {!dealProducts.length ? (
+                        <div className="sm:col-span-2 rounded-xl border border-dashed border-black/10 bg-white p-4 text-xs font-bold text-re-text-muted">
+                          No Teacher Deal products available yet.
+                        </div>
+                      ) : null}
+                    </div>
+
+                    <div className="rounded-xl border border-amber-200 bg-amber-50/80 px-3 py-3 flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-amber-800">
+                          Selected: {selectedDealProductIds.length} product(s)
+                        </p>
+                        <p className="text-sm font-black text-re-text mt-0.5">
+                          Total products: {formatMoney(teacherDealsTotal)}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={!selectedDealProductIds.length}
+                        onClick={() => setTeacherDealsStep('repayment')}
+                        className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#FF8C00] to-[#FF5E00] px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-white shadow-lg disabled:opacity-50"
+                      >
+                        Continue
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-re-text-muted">
+                        Products total (RWF)
+                      </label>
+                      <input
+                        className="mt-1 w-full rounded-xl border border-black/10 bg-re-bg px-3 py-2.5 text-sm font-bold outline-none"
+                        value={teacherDealsTotal}
+                        readOnly
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-re-text-muted">
+                        Repayment period
+                      </label>
+                      <select
+                        className="mt-1 w-full rounded-xl border border-black/10 bg-re-bg px-3 py-2.5 text-sm font-bold outline-none focus:ring-2 focus:ring-re-orange/30"
+                        value={repayment}
+                        onChange={(e) => setRepayment(Number(e.target.value))}
+                      >
+                        {REPAYMENT_OPTIONS.map((m) => (
+                          <option key={m} value={m}>
+                            {m} months
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <ShuleAvanceRepaymentCalculator
+                      principal={teacherDealsTotal}
+                      monthlyRatePercent={catalog.services?.find((c) => c.slug === stepCategory)?.income_rate_percent}
+                      months={repayment}
+                      title="Live estimate"
+                      className="mt-1"
+                    />
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-re-text-muted">
+                        Description <span className="font-bold normal-case text-re-text-muted/70">(optional)</span>
+                      </label>
+                      <textarea
+                        className="mt-1 min-h-[88px] w-full resize-none rounded-xl border border-black/10 bg-re-bg px-3 py-2.5 text-sm font-bold outline-none focus:ring-2 focus:ring-re-orange/30"
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        placeholder="Extra context for finance (optional)"
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-2 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setTeacherDealsStep('products')}
+                        className="rounded-xl border border-black/10 bg-white px-4 py-2.5 text-[10px] font-black uppercase tracking-widest"
+                      >
+                        Back
+                      </button>
+                      <button
+                        type="button"
+                        disabled={submitting}
+                        onClick={submitRequest}
+                        className="ml-auto inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#FF8C00] to-[#FF5E00] px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-white shadow-lg disabled:opacity-50"
+                      >
+                        {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                        Submit
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-re-text-muted">
+                    Amount (RWF)
+                  </label>
+                  <input
+                    className="mt-1 w-full rounded-xl border border-black/10 bg-re-bg px-3 py-2.5 text-sm font-bold outline-none focus:ring-2 focus:ring-re-orange/30"
+                    inputMode="numeric"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    placeholder="e.g. 150000"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-re-text-muted">
+                    Repayment period
+                  </label>
+                  <select
+                    className="mt-1 w-full rounded-xl border border-black/10 bg-re-bg px-3 py-2.5 text-sm font-bold outline-none focus:ring-2 focus:ring-re-orange/30"
+                    value={repayment}
+                    onChange={(e) => setRepayment(Number(e.target.value))}
+                  >
+                    {REPAYMENT_OPTIONS.map((m) => (
+                      <option key={m} value={m}>
+                        {m} months
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <ShuleAvanceRepaymentCalculator
+                  principal={amount}
+                  monthlyRatePercent={catalog.services?.find((c) => c.slug === stepCategory)?.income_rate_percent}
+                  months={repayment}
+                  title="Live estimate"
+                  className="mt-1"
+                />
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-re-text-muted">
+                    Description <span className="font-bold normal-case text-re-text-muted/70">(optional)</span>
+                  </label>
+                  <textarea
+                    className="mt-1 min-h-[88px] w-full resize-none rounded-xl border border-black/10 bg-re-bg px-3 py-2.5 text-sm font-bold outline-none focus:ring-2 focus:ring-re-orange/30"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Extra context for finance (optional)"
+                  />
+                </div>
+                <div className="flex flex-wrap gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setStepCategory(null)}
+                    className="rounded-xl border border-black/10 bg-white px-4 py-2.5 text-[10px] font-black uppercase tracking-widest"
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="button"
+                    disabled={submitting}
+                    onClick={submitRequest}
+                    className="ml-auto inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#FF8C00] to-[#FF5E00] px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-white shadow-lg disabled:opacity-50"
+                  >
+                    {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                    Submit
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         )}
 
@@ -803,6 +1049,25 @@ export default function ShuleAvance() {
         )}
       </Modal>
 
+      <Modal open={!!dealPreview} onClose={() => setDealPreview(null)} title="Product preview">
+        {dealPreview ? (
+          <div className="space-y-3">
+            <div className="h-56 rounded-2xl border border-black/10 bg-re-bg overflow-hidden flex items-center justify-center">
+              {dealPreview.image_url ? (
+                <img src={toAssetUrl(dealPreview.image_url)} alt={dealPreview.name} className="w-full h-full object-cover" />
+              ) : (
+                <Package className="h-5 w-5 text-slate-400" />
+              )}
+            </div>
+            <div>
+              <p className="text-lg font-black text-re-text">{dealPreview.name}</p>
+              <p className="text-sm font-black text-re-orange mt-1">{formatMoney(dealPreview.price_rwf)}</p>
+              <p className="text-sm font-bold text-re-text-muted mt-2">{dealPreview.description || 'No description.'}</p>
+            </div>
+          </div>
+        ) : null}
+      </Modal>
+
       {/* Detail */}
       <Modal open={!!detailRow} onClose={() => setDetailRow(null)} wide title={`Request #${detailRow?.id || ''}`}>
         {detailRow && (
@@ -886,16 +1151,18 @@ export default function ShuleAvance() {
               </button>
               {detailRow.status === 'pending_accountant' && (
                 <>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setDetailRow(null);
-                      openEdit(detailRow);
-                    }}
-                    className="rounded-xl border border-re-orange/40 bg-re-orange/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-re-text"
-                  >
-                    Edit request
-                  </button>
+                  {!isTeacherDealRequestRow(detailRow) ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDetailRow(null);
+                        openEdit(detailRow);
+                      }}
+                      className="rounded-xl border border-re-orange/40 bg-re-orange/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-re-text"
+                    >
+                      Edit request
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     onClick={() => deleteRow(detailRow.id)}

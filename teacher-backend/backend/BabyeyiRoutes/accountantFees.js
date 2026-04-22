@@ -1076,6 +1076,7 @@ router.get('/accountant/requisitions', requireRole(ACCOUNTANT_ONLY), async (req,
       status: r.status,
       attachmentName: r.attachment_name || '',
       note: r.note || '',
+      description: r.note || '',
     }));
     return res.json({ success: true, data });
   } catch (err) {
@@ -1105,7 +1106,7 @@ router.post('/accountant/requisitions', requireRole(ACCOUNTANT_ONLY), async (req
       `INSERT INTO school_requisitions
          (school_id, req_code, dept, requester, items, amount, submitted_date, status, attachment_name, note, created_by_user_id)
        VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)`,
-      [schoolId, reqCode, dept, requester, items, amount, submitted, trimStr(body.attachmentName) || null, trimStr(body.note) || null, userId]
+      [schoolId, reqCode, dept, requester, items, amount, submitted, trimStr(body.attachmentName) || null, trimStr(body.description) || trimStr(body.note) || null, userId]
     );
     return res.status(201).json({ success: true, data: { id: ins.insertId, req_code: reqCode } });
   } catch (err) {

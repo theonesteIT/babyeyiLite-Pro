@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { CheckCircle2, Download, Filter, RefreshCw, Search, Users, X } from 'lucide-react';
-import { jsPDF } from 'jspdf';
+import { Calendar, Download, Eye, Pencil, Plus, Printer, RefreshCw, Search, Trash2, Users, X } from 'lucide-react';
 import api from '../services/api';
 
 function formatMoneyRWF(value) {
@@ -9,367 +7,519 @@ function formatMoneyRWF(value) {
   return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'RWF', maximumFractionDigits: 0 }).format(n);
 }
 
-const PayrollRunDrawer = ({ isOpen, run, onClose }) => {
-  if (!isOpen || !run) return null;
+function monthLabel(month) {
+  const m = Number(month || 0);
+  if (m < 1 || m > 12) return '—';
+  return new Date(2026, m - 1, 1).toLocaleString(undefined, { month: 'long' });
+}
 
-  return createPortal(
-    <>
-      <div className="fixed inset-0 bg-black/40 backdrop-blur-md z-[210] animate-in fade-in duration-300" onClick={onClose} />
-      <div className="fixed inset-y-0 right-0 z-[220] w-full md:w-[420px] bg-white shadow-[-20px_0_60px_-15px_rgba(0,0,0,0.1)] flex flex-col animate-in slide-in-from-right duration-500 ease-out">
-        <div className="flex items-center justify-between px-8 py-6 border-b border-black/5 bg-white shrink-0">
-          <div className="flex items-center gap-4 min-w-0">
-            <div className="w-14 h-14 rounded-full border border-black/5 bg-slate-50 flex items-center justify-center font-black text-lg shadow-inner shrink-0 text-[#1E3A5F]">
-              <span>{run.period?.charAt(0) || 'P'}</span>
-            </div>
-            <div className="min-w-0">
-              <h3 className="font-black text-[#1E3A5F] text-base leading-tight uppercase tracking-tight truncate">{run.period}</h3>
-              <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest opacity-60 truncate">
-                {run.id} · {run.status}
-              </p>
-              <p className="text-[8px] text-[#1E3A5F] font-black uppercase tracking-[0.2em] truncate">
-                Staff {run.staffCount} · Gross {formatMoneyRWF(run.grossTotal).replace('RWF', '')} RWF
-              </p>
-            </div>
-          </div>
-          <button onClick={onClose} className="p-2.5 hover:bg-slate-50 rounded-xl transition-all text-slate-400 hover:text-[#1E3A5F] group">
-            <X size={18} className="group-hover:rotate-90 transition-transform duration-300" />
-          </button>
-        </div>
+const PAYMENT_STATUSES = ['pending', 'paid', 'cancelled'];
+const PAYMENT_METHODS = ['Cash', 'Bank Transfer', 'Mobile Money', 'Card', 'Other'];
 
-        <div className="flex-1 overflow-y-auto px-8 py-8 space-y-8 custom-scrollbar bg-white">
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] opacity-40">Run Summary</span>
-              <div className="flex-1 h-px bg-black/5" />
-            </div>
-            {[
-              { k: 'Period', v: run.period },
-              { k: 'Status', v: run.status },
-              { k: 'Staff count', v: String(run.staffCount) },
-              { k: 'Gross total', v: formatMoneyRWF(run.grossTotal) },
-            ].map((x) => (
-              <div key={x.k} className="flex items-center justify-between group">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{x.k}</span>
-                <div className="flex-1 mx-3 border-b border-dashed border-black/10 group-hover:border-amber-200 transition-colors" />
-                <span className="text-[10px] font-black uppercase tracking-tight text-[#1E3A5F]">{x.v}</span>
-              </div>
-            ))}
-          </div>
-
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] opacity-40">Staff payouts</span>
-              <div className="flex-1 h-px bg-black/5" />
-            </div>
-            {(run.lines || []).map((l) => (
-              <div key={l.id} className="flex items-start gap-3 p-4 rounded-2xl bg-slate-50/50 border border-black/[0.02] hover:bg-white hover:border-black/5 transition-all">
-                <div className="p-2 rounded-xl shrink-0 bg-emerald-50 text-emerald-500">
-                  <Users size={14} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between">
-                    <p className="text-[11px] font-black text-[#1E3A5F] truncate">{l.staff}</p>
-                    <p className="text-[11px] font-black text-[#1E3A5F]">{formatMoneyRWF(l.gross).replace('RWF', '')} RWF</p>
-                  </div>
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest opacity-40 mt-1">
-                    {l.dept} · {l.role}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </>,
-    document.body
-  );
-};
-
-export default function PayrollHistory() {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [status, setStatus] = useState('All');
-  const [details, setDetails] = useState(null);
-
-  const [runs, setRuns] = useState([]);
-
-  const fetchRuns = async () => {
-    try {
-      const res = await api.get('/accountant/payroll/runs');
-      if (res.data?.success) setRuns(Array.isArray(res.data.data) ? res.data.data : []);
-    } catch (e) {
-      console.warn('[PayrollHistory] Failed to load runs:', e.message);
-    }
-  };
+function PayrollFormModal({ open, mode, initialRecord, onClose, onSaved }) {
+  const [step, setStep] = useState(1);
+  const [staffQuery, setStaffQuery] = useState('');
+  const [searching, setSearching] = useState(false);
+  const [staffResults, setStaffResults] = useState([]);
+  const [selectedStaff, setSelectedStaff] = useState(null);
+  const [form, setForm] = useState({
+    basicSalary: '',
+    bonus: '',
+    deduction: '',
+    month: String(new Date().getMonth() + 1),
+    year: String(new Date().getFullYear()),
+    paymentDate: new Date().toISOString().slice(0, 10),
+    paymentStatus: 'paid',
+    paymentMethod: 'Bank Transfer',
+    note: '',
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    fetchRuns();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const openRunDetails = async (run) => {
-    try {
-      const key = run?.db_id != null ? String(run.db_id) : run?.id;
-      const res = await api.get(`/accountant/payroll/runs/${encodeURIComponent(key)}`);
-      if (res.data?.success && res.data.data) {
-        setDetails(res.data.data);
-        return;
-      }
-    } catch (e) {
-      console.warn('[PayrollHistory] Failed to load run details:', e.message);
-    }
-    setDetails(run);
-  };
-
-  const derived = useMemo(() => {
-    const processed = runs.filter((r) => r.status === 'processed').length;
-    const pending = runs.filter((r) => r.status === 'pending').length;
-    const totalGross = runs.reduce((s, r) => s + (Number(r.grossTotal) || 0), 0);
-    return { processed, pending, totalGross };
-  }, [runs]);
-
-  const filtered = useMemo(() => {
-    const q = searchTerm.trim().toLowerCase();
-    return runs.filter((r) => {
-      const stOk = status === 'All' || r.status === status;
-      const qOk = !q || r.id.toLowerCase().includes(q) || r.period.toLowerCase().includes(q);
-      return stOk && qOk;
-    });
-  }, [runs, searchTerm, status]);
-
-  const exportPdf = () => {
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
-    const W = doc.internal.pageSize.getWidth();
-    const H = doc.internal.pageSize.getHeight();
-    const NAVY = [30, 58, 95];
-    const YELLOW = [254, 191, 16];
-    const margin = 40;
-
-    doc.setFillColor(...NAVY);
-    doc.rect(0, 0, W, 64, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(16);
-    doc.text('Payroll Runs Report', margin, 40);
-    doc.setDrawColor(...YELLOW);
-    doc.setLineWidth(3);
-    doc.line(margin, 76, W - margin, 76);
-    doc.setTextColor(30, 41, 59);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.text(`Generated: ${new Date().toLocaleString()}`, margin, 98);
-    doc.text(`Status: ${status}`, margin, 114);
-
-    const cols = [
-      { k: 'period', label: 'Period', w: 140 },
-      { k: 'id', label: 'Run ID', w: 140 },
-      { k: 'staffCount', label: 'Staff', w: 60 },
-      { k: 'grossTotal', label: 'Gross', w: 110 },
-      { k: 'status', label: 'Status', w: 70 },
-    ];
-    const headerY = 140;
-    doc.setFillColor(241, 245, 249);
-    doc.rect(margin, headerY - 14, W - margin * 2, 22, 'F');
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
-    let x = margin;
-    cols.forEach((c) => { doc.text(c.label, x, headerY); x += c.w; });
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    let y = headerY + 22;
-    filtered.forEach((r) => {
-      if (y > H - 60) { doc.addPage(); y = 60; }
-      let cx = margin;
-      const cells = {
-        period: r.period,
-        id: r.id,
-        staffCount: String(r.staffCount),
-        grossTotal: formatMoneyRWF(r.grossTotal).replace('RWF', '').trim(),
-        status: r.status,
-      };
-      cols.forEach((c) => {
-        const t = String(cells[c.k] ?? '');
-        doc.text(t.length > 26 ? `${t.slice(0, 25)}…` : t, cx, y);
-        cx += c.w;
+    if (!open) return;
+    if (initialRecord) {
+      setSelectedStaff({
+        staffUserId: initialRecord.staffUserId,
+        staffId: initialRecord.staffId,
+        staffCode: initialRecord.staffCode,
+        fullName: initialRecord.staffName,
+        role: initialRecord.role,
+        department: initialRecord.department,
       });
-      y += 18;
-    });
-    doc.save(`payroll-runs-${new Date().toISOString().slice(0, 10)}.pdf`);
+      setForm({
+        basicSalary: String(initialRecord.basicSalary ?? ''),
+        bonus: String(initialRecord.bonus ?? 0),
+        deduction: String(initialRecord.deduction ?? 0),
+        month: String(initialRecord.month ?? ''),
+        year: String(initialRecord.year ?? ''),
+        paymentDate: String(initialRecord.paymentDate || '').slice(0, 10),
+        paymentStatus: initialRecord.paymentStatus || 'paid',
+        paymentMethod: initialRecord.paymentMethod || 'Bank Transfer',
+        note: initialRecord.note || '',
+      });
+      setStep(2);
+    } else {
+      setStep(1);
+      setSelectedStaff(null);
+      setStaffQuery('');
+      setStaffResults([]);
+      setForm({
+        basicSalary: '',
+        bonus: '',
+        deduction: '',
+        month: String(new Date().getMonth() + 1),
+        year: String(new Date().getFullYear()),
+        paymentDate: new Date().toISOString().slice(0, 10),
+        paymentStatus: 'paid',
+        paymentMethod: 'Bank Transfer',
+        note: '',
+      });
+    }
+    setError('');
+  }, [open, initialRecord]);
+
+  const netSalary = useMemo(() => {
+    const basic = Number(form.basicSalary || 0);
+    const bonus = Number(form.bonus || 0);
+    const deduction = Number(form.deduction || 0);
+    return basic + bonus - deduction;
+  }, [form.basicSalary, form.bonus, form.deduction]);
+
+  if (!open) return null;
+
+  const runStaffSearch = async () => {
+    try {
+      setSearching(true);
+      setError('');
+      const { data } = await api.get('/accountant/payroll/staff/search', {
+        params: { query: staffQuery.trim() },
+      });
+      setStaffResults(Array.isArray(data?.data) ? data.data : []);
+    } catch (e) {
+      setError(e?.response?.data?.message || e.message || 'Failed to search staff');
+      setStaffResults([]);
+    } finally {
+      setSearching(false);
+    }
   };
 
-  const triggerPayroll = async () => {
+  const selectStaff = (s) => {
+    setSelectedStaff(s);
+    setForm((prev) => ({
+      ...prev,
+      basicSalary: String(Number(s?.salary?.basic || 0)),
+    }));
+    setStep(2);
+  };
+
+  const validateStep2 = () => {
+    if (!selectedStaff?.staffUserId) return 'Staff is required';
+    if (!(Number(form.basicSalary) > 0)) return 'Salary amount must be greater than 0';
+    if (!(Number(form.month) >= 1 && Number(form.month) <= 12)) return 'Month is required';
+    if (!(Number(form.year) >= 2000)) return 'Year is required';
+    if (!form.paymentDate) return 'Payment date is required';
+    if (!(netSalary >= 0)) return 'Net salary must be 0 or greater';
+    return '';
+  };
+
+  const saveRecord = async () => {
+    const validationError = validateStep2();
+    if (validationError) {
+      setError(validationError);
+      setStep(2);
+      return;
+    }
+
     try {
-      const res = await api.post('/accountant/payroll/runs/trigger', {});
-      if (res.data?.success) {
-        await fetchRuns();
-        return;
+      setSaving(true);
+      setError('');
+      const payload = {
+        staffUserId: selectedStaff.staffUserId,
+        basicSalary: Number(form.basicSalary || 0),
+        bonus: Number(form.bonus || 0),
+        deduction: Number(form.deduction || 0),
+        month: Number(form.month),
+        year: Number(form.year),
+        paymentDate: form.paymentDate,
+        paymentStatus: form.paymentStatus,
+        paymentMethod: form.paymentMethod,
+        note: form.note?.trim() || '',
+      };
+      if (mode === 'edit' && initialRecord?.payrollId) {
+        await api.put(`/accountant/payroll/record/${encodeURIComponent(initialRecord.payrollId)}`, payload);
+      } else {
+        await api.post('/accountant/payroll', payload);
       }
-      window.alert(res.data?.message || 'Could not trigger payroll.');
+      onSaved?.();
+      onClose?.();
     } catch (e) {
-      const msg = e?.response?.data?.message || e.message || 'Could not trigger payroll.';
-      window.alert(msg);
+      setError(e?.response?.data?.message || e.message || 'Failed to save payroll record');
+    } finally {
+      setSaving(false);
     }
   };
 
   return (
-    <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-      <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-
-      <div className="relative w-full min-h-[280px] overflow-hidden">
-        <div className="absolute inset-0 bg-[#0a192f]/85 z-10 backdrop-blur-[2px]"></div>
-        <img src="/teacher.jpg" alt="Hero Background" className="absolute inset-0 w-full h-full object-cover scale-105" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#1E3A5F]/40 via-transparent to-transparent z-10 max-w-[1600px] mx-auto"></div>
-
-        <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-12 pt-16 pb-24 flex items-center gap-8">
-          <div className="hidden md:flex shrink-0 w-24 h-24 rounded-[32px] border border-white/10 bg-white/5 items-center justify-center backdrop-blur-xl shadow-2xl relative overflow-hidden group">
-            <div className="absolute inset-0 bg-gradient-to-br from-[#FEBF10]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
-            <Users size={40} style={{ color: '#FEBF10' }} className="group-hover:scale-110 transition-transform duration-500" />
+    <div className="fixed inset-0 z-[230]">
+      <div className="absolute inset-0 bg-black/45" onClick={onClose} />
+      <div className="absolute inset-0 flex items-center justify-center p-3 sm:p-6">
+      <div className="w-full max-w-3xl max-h-[92vh] bg-white rounded-3xl shadow-2xl border border-black/5 overflow-hidden flex flex-col">
+        <div className="px-4 sm:px-6 py-4 border-b border-black/5 flex items-center justify-between shrink-0 bg-white">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Payroll Wizard</p>
+            <h2 className="text-lg font-black text-[#1E3A5F]">{mode === 'edit' ? 'Edit Payroll Record' : 'Create Payroll Record'}</h2>
           </div>
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="w-6 h-1 rounded-full animate-pulse" style={{ background: '#FEBF10' }}></span>
-              <p className="text-[10px] font-black uppercase tracking-[0.3em]" style={{ color: '#FEBF10' }}>Payroll Runs</p>
+          <button onClick={onClose} className="p-2 rounded-xl hover:bg-slate-100">
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="px-4 sm:px-6 pt-3 shrink-0 bg-white">
+          <div className="flex gap-2 text-[10px] font-black uppercase tracking-widest">
+            <span className={step === 1 ? 'text-[#1E3A5F]' : 'text-slate-300'}>1. Staff</span>
+            <span className={step === 2 ? 'text-[#1E3A5F]' : 'text-slate-300'}>2. Payment Info</span>
+            <span className={step === 3 ? 'text-[#1E3A5F]' : 'text-slate-300'}>3. Confirm</span>
+          </div>
+        </div>
+
+        <div className="px-4 sm:px-6 py-4 overflow-y-auto flex-1 min-h-0 space-y-4">
+          {error ? <div className="text-[12px] font-bold text-red-600">{error}</div> : null}
+
+          {step === 1 && (
+            <div className="space-y-3">
+              <p className="text-[11px] font-black uppercase tracking-widest text-slate-500">Search by staff name or ID</p>
+              <div className="flex gap-2">
+                <input
+                  value={staffQuery}
+                  onChange={(e) => setStaffQuery(e.target.value)}
+                  placeholder="e.g. John or STF-12"
+                  className="flex-1 h-10 rounded-xl border border-black/10 px-3 outline-none focus:border-[#1E3A5F]/30"
+                />
+                <button onClick={runStaffSearch} disabled={searching} className="h-10 px-4 rounded-xl bg-[#1E3A5F] text-white text-[10px] font-black uppercase tracking-widest">
+                  {searching ? 'Searching…' : 'Search'}
+                </button>
+              </div>
+              <div className="space-y-2">
+                {staffResults.map((s) => (
+                  <button
+                    key={`${s.staffUserId}-${s.staffId}`}
+                    onClick={() => selectStaff(s)}
+                    className="w-full text-left p-3 rounded-xl border border-black/10 hover:bg-slate-50 transition"
+                  >
+                    <p className="text-[12px] font-black text-[#1E3A5F]">{s.fullName}</p>
+                    <p className="text-[10px] font-bold text-slate-500">{s.staffId} · {s.role} · {formatMoneyRWF(s?.salary?.basic || 0)}</p>
+                  </button>
+                ))}
+                {!staffResults.length && <p className="text-[11px] text-slate-400">No staff results yet.</p>}
+              </div>
             </div>
-            <h1 className="text-2xl sm:text-4xl md:text-5xl font-black text-white tracking-tighter leading-none mb-2 mt-2 uppercase">
-              Payroll <span style={{ color: '#FEBF10' }}>History</span>
-            </h1>
-            <p className="text-[8px] sm:text-[10px] md:text-xs font-bold text-white/40 max-w-lg leading-relaxed uppercase tracking-widest italic opacity-60">
-              View runs, export reports, and trigger payroll
-            </p>
+          )}
+
+          {step === 2 && (
+            <div className="space-y-3">
+              {selectedStaff && (
+                <div className="p-3 rounded-xl bg-slate-50 border border-black/5">
+                  <p className="text-[12px] font-black text-[#1E3A5F]">{selectedStaff.fullName}</p>
+                  <p className="text-[10px] font-bold text-slate-500">{selectedStaff.staffId} · {selectedStaff.role} · {selectedStaff.department}</p>
+                </div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <input value={form.basicSalary} onChange={(e) => setForm((p) => ({ ...p, basicSalary: e.target.value.replace(/[^\d]/g, '') }))} placeholder="Basic salary" className="h-10 rounded-xl border border-black/10 px-3 outline-none" />
+                <input value={form.bonus} onChange={(e) => setForm((p) => ({ ...p, bonus: e.target.value.replace(/[^\d]/g, '') }))} placeholder="Bonus" className="h-10 rounded-xl border border-black/10 px-3 outline-none" />
+                <input value={form.deduction} onChange={(e) => setForm((p) => ({ ...p, deduction: e.target.value.replace(/[^\d]/g, '') }))} placeholder="Deduction" className="h-10 rounded-xl border border-black/10 px-3 outline-none" />
+                <input value={formatMoneyRWF(netSalary)} readOnly className="h-10 rounded-xl border border-black/10 px-3 bg-slate-50 outline-none" />
+                <select value={form.month} onChange={(e) => setForm((p) => ({ ...p, month: e.target.value }))} className="h-10 rounded-xl border border-black/10 px-3 outline-none">
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                    <option key={m} value={String(m)}>{m}</option>
+                  ))}
+                </select>
+                <input value={form.year} onChange={(e) => setForm((p) => ({ ...p, year: e.target.value.replace(/[^\d]/g, '') }))} placeholder="Payment year" className="h-10 rounded-xl border border-black/10 px-3 outline-none" />
+                <input type="date" value={form.paymentDate} onChange={(e) => setForm((p) => ({ ...p, paymentDate: e.target.value }))} className="h-10 rounded-xl border border-black/10 px-3 outline-none" />
+                <select value={form.paymentMethod} onChange={(e) => setForm((p) => ({ ...p, paymentMethod: e.target.value }))} className="h-10 rounded-xl border border-black/10 px-3 outline-none">
+                  {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+                </select>
+                <select value={form.paymentStatus} onChange={(e) => setForm((p) => ({ ...p, paymentStatus: e.target.value }))} className="h-10 rounded-xl border border-black/10 px-3 outline-none md:col-span-2">
+                  {PAYMENT_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+                <textarea value={form.note} onChange={(e) => setForm((p) => ({ ...p, note: e.target.value }))} placeholder="Notes" className="min-h-[88px] rounded-xl border border-black/10 px-3 py-2 outline-none md:col-span-2" />
+              </div>
+            </div>
+          )}
+
+          {step === 3 && (
+            <div className="space-y-2 text-[12px]">
+              <p><strong>Staff:</strong> {selectedStaff?.fullName} ({selectedStaff?.staffId})</p>
+              <p><strong>Role:</strong> {selectedStaff?.role}</p>
+              <p><strong>Basic Salary:</strong> {formatMoneyRWF(form.basicSalary)}</p>
+              <p><strong>Bonus:</strong> {formatMoneyRWF(form.bonus)}</p>
+              <p><strong>Deduction:</strong> {formatMoneyRWF(form.deduction)}</p>
+              <p><strong>Net Salary:</strong> {formatMoneyRWF(netSalary)}</p>
+              <p><strong>Period:</strong> {monthLabel(form.month)} {form.year}</p>
+              <p><strong>Payment Date:</strong> {form.paymentDate}</p>
+              <p><strong>Status:</strong> {form.paymentStatus}</p>
+              <p><strong>Method:</strong> {form.paymentMethod}</p>
+              <p><strong>Notes:</strong> {form.note || '—'}</p>
+            </div>
+          )}
+        </div>
+
+        <div className="px-4 sm:px-6 py-4 border-t border-black/5 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2 shrink-0 bg-white">
+          <button onClick={() => setStep((s) => Math.max(1, s - 1))} disabled={step === 1} className="h-10 px-4 rounded-xl border border-black/10 text-[10px] font-black uppercase tracking-widest disabled:opacity-40">
+            Back
+          </button>
+          <div className="flex gap-2">
+            {step < 3 ? (
+              <button
+                onClick={() => {
+                  if (step === 2) {
+                    const v = validateStep2();
+                    if (v) return setError(v);
+                  }
+                  setError('');
+                  setStep((s) => Math.min(3, s + 1));
+                }}
+                className="h-10 px-4 rounded-xl bg-[#1E3A5F] text-white text-[10px] font-black uppercase tracking-widest w-full sm:w-auto"
+              >
+                Next
+              </button>
+            ) : (
+              <button onClick={saveRecord} disabled={saving} className="h-10 px-4 rounded-xl bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest disabled:opacity-50 w-full sm:w-auto">
+                {saving ? 'Saving…' : 'Save Payroll'}
+              </button>
+            )}
           </div>
         </div>
       </div>
+      </div>
+    </div>
+  );
+}
 
-      <div className="max-w-[1600px] mx-auto px-6 md:px-12 -mt-24 relative z-20 pb-20">
-        <div className="bg-white rounded-t-[32px] shadow-2xl border border-black/5 overflow-hidden flex flex-col min-h-[520px]">
-          <div className="grid grid-cols-1 lg:grid-cols-4 border-b border-black/5">
-            <div className="lg:col-span-3 grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-black/5">
-              {[
-                { label: 'Total gross', value: formatMoneyRWF(derived.totalGross).replace('RWF', ''), tone: 'text-[#1E3A5F]' },
-                { label: 'Processed', value: String(derived.processed), tone: 'text-emerald-600' },
-                { label: 'Pending', value: String(derived.pending), tone: 'text-amber-600' },
-                { label: 'Runs', value: String(runs.length), tone: 'text-slate-600' },
-              ].map((s, i) => (
-                <div key={i} className="p-4 sm:p-8 flex flex-col items-center justify-center text-center group hover:bg-re-bg/20 transition-all cursor-default">
-                  <span className={`text-sm sm:text-2xl font-black tracking-tighter ${s.tone}`}>{s.value}</span>
-                  <p className="text-[6px] sm:text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] mt-0.5 sm:mt-1 opacity-60">{s.label}</p>
-                </div>
-              ))}
-            </div>
-            <div className="hidden lg:flex flex-col border-l border-black/5 bg-re-bg/30 p-6 justify-center gap-3 relative">
-              <button
-                type="button"
-                onClick={triggerPayroll}
-                className="w-full h-11 flex items-center justify-center gap-2 text-white rounded-xl font-black text-[9px] uppercase tracking-widest shadow-xl hover:scale-[1.02] active:scale-95 transition-all"
-                style={{ background: 'linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)' }}
-              >
-                <CheckCircle2 size={14} />
-                <span>Trigger payroll</span>
-              </button>
-              <button
-                type="button"
-                onClick={exportPdf}
-                className="w-full h-11 flex items-center justify-center gap-2 bg-white border border-black/5 text-re-text font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg hover:border-[#1E3A5F]/20 hover:shadow-re-soft transition-all group"
-              >
-                <Download size={14} className="opacity-60 group-hover:opacity-100 transition-opacity" style={{ color: '#1E3A5F' }} />
-                <span className="group-hover:text-[#1E3A5F]">Export PDF</span>
-              </button>
-            </div>
+export default function PayrollHistory() {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [query, setQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [monthFilter, setMonthFilter] = useState('');
+  const [yearFilter, setYearFilter] = useState('');
+  const [modalMode, setModalMode] = useState(null);
+  const [activeRecord, setActiveRecord] = useState(null);
+  const [details, setDetails] = useState(null);
+
+  const fetchRecords = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      const params = {};
+      if (query.trim()) params.query = query.trim();
+      if (statusFilter !== 'all') params.status = statusFilter;
+      if (monthFilter) params.month = monthFilter;
+      if (yearFilter) params.year = yearFilter;
+      const { data } = await api.get('/accountant/payroll', { params });
+      setRows(Array.isArray(data?.data) ? data.data : []);
+    } catch (e) {
+      setError(e?.response?.data?.message || e.message || 'Failed to load payroll records');
+      setRows([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRecords();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const totals = useMemo(() => {
+    const total = rows.reduce((s, r) => s + Number(r.netSalaryPaid || 0), 0);
+    return {
+      total,
+      pending: rows.filter((r) => r.paymentStatus === 'pending').length,
+      paid: rows.filter((r) => r.paymentStatus === 'paid').length,
+      cancelled: rows.filter((r) => r.paymentStatus === 'cancelled').length,
+    };
+  }, [rows]);
+
+  const exportCsv = () => {
+    const header = ['Payroll ID', 'Staff ID', 'Staff Name', 'Role', 'Basic Salary', 'Bonus', 'Deduction', 'Net Salary', 'Month', 'Year', 'Payment Date', 'Status', 'Method'];
+    const lines = rows.map((r) => [r.payrollId, r.staffId, r.staffName, r.role, r.basicSalary, r.bonus, r.deduction, r.netSalaryPaid, r.month, r.year, r.paymentDate, r.paymentStatus, r.paymentMethod]);
+    const csv = [header, ...lines].map((line) => line.map((x) => `"${String(x ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `payroll-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const openDetails = async (row) => {
+    try {
+      const { data } = await api.get(`/accountant/payroll/record/${encodeURIComponent(row.payrollId)}`);
+      setDetails(data?.data || row);
+    } catch {
+      setDetails(row);
+    }
+  };
+
+  const deleteRecord = async (row) => {
+    const ok = window.confirm(`Delete payroll record ${row.payrollId}?`);
+    if (!ok) return;
+    try {
+      await api.delete(`/accountant/payroll/record/${encodeURIComponent(row.payrollId)}`);
+      await fetchRecords();
+    } catch (e) {
+      setError(e?.response?.data?.message || e.message || 'Failed to delete payroll record');
+    }
+  };
+
+  const printSlip = (row) => {
+    const html = `
+      <html><head><title>${row.payrollId}</title></head><body>
+      <h2>Payroll Slip</h2>
+      <p><strong>Payroll ID:</strong> ${row.payrollId}</p>
+      <p><strong>Staff:</strong> ${row.staffName} (${row.staffId})</p>
+      <p><strong>Role:</strong> ${row.role}</p>
+      <p><strong>Basic:</strong> ${formatMoneyRWF(row.basicSalary)}</p>
+      <p><strong>Bonus:</strong> ${formatMoneyRWF(row.bonus)}</p>
+      <p><strong>Deduction:</strong> ${formatMoneyRWF(row.deduction)}</p>
+      <p><strong>Net:</strong> ${formatMoneyRWF(row.netSalaryPaid)}</p>
+      <p><strong>Period:</strong> ${monthLabel(row.month)} ${row.year}</p>
+      <p><strong>Date:</strong> ${String(row.paymentDate || '').slice(0, 10)}</p>
+      <p><strong>Status:</strong> ${row.paymentStatus}</p>
+      </body></html>`;
+    const w = window.open('', '_blank');
+    if (!w) return;
+    w.document.write(html);
+    w.document.close();
+    w.print();
+  };
+
+  return (
+    <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+      <div className="max-w-[1600px] mx-auto px-6 md:px-12 py-8">
+        <div className="bg-white rounded-[28px] border border-black/5 shadow-2xl overflow-hidden">
+          <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-y lg:divide-y-0 divide-black/5">
+            {[
+              { label: 'Total Net Paid', value: formatMoneyRWF(totals.total).replace('RWF', ''), icon: <Calendar size={14} /> },
+              { label: 'Paid', value: String(totals.paid), icon: <Users size={14} /> },
+              { label: 'Pending', value: String(totals.pending), icon: <Users size={14} /> },
+              { label: 'Cancelled', value: String(totals.cancelled), icon: <Users size={14} /> },
+            ].map((s) => (
+              <div key={s.label} className="p-5 text-center">
+                <div className="mb-1 opacity-40 flex justify-center">{s.icon}</div>
+                <p className="text-[20px] font-black text-[#1E3A5F]">{s.value}</p>
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{s.label}</p>
+              </div>
+            ))}
           </div>
 
-          <div className="hidden lg:flex px-4 py-4 lg:px-3 lg:py-2 border-b border-black/5 flex-nowrap items-center justify-start gap-2 bg-re-bg/20 transition-all">
-            <div className="flex flex-nowrap items-center gap-2">
-              <div className="relative w-[10.5rem] shrink-0 group">
-                <Filter size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#FEBF10] z-[1] pointer-events-none" />
-                <span className="absolute left-7 top-1/2 -translate-y-1/2 text-[8px] font-black uppercase text-re-text-muted tracking-[0.2em] pointer-events-none z-[1]">Status</span>
-                <select
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value)}
-                  className="w-full h-8 bg-white/80 rounded-lg outline-none border border-black/5 focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[9px] font-black uppercase tracking-widest shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.5)] cursor-pointer appearance-none !pl-[4.6rem] pr-8"
-                >
-                  {['All', 'processed', 'pending'].map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="relative w-[14rem] group">
-                <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-re-text-muted/50 group-focus-within:text-[#1E3A5F] transition-colors z-[1] pointer-events-none" />
-                <input
-                  type="text"
-                  placeholder="Search run ID or period..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full h-8 bg-white/80 rounded-lg outline-none border border-black/5 focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[9px] font-black uppercase tracking-tight shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.5)] placeholder:text-[#1E3A5F]/30 !pl-8"
-                />
-              </div>
+          <div className="p-4 border-t border-black/5 border-b border-black/5 bg-slate-50 flex flex-wrap gap-2 items-center">
+            <div className="relative">
+              <Search size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search payroll ID / staff" className="h-9 pl-8 pr-3 rounded-xl border border-black/10 outline-none text-[11px] font-bold" />
             </div>
-
-            <button
-              type="button"
-              onClick={() => fetchRuns()}
-              className="h-8 w-8 flex items-center justify-center bg-white border border-black/5 rounded-lg hover:bg-re-bg transition-all shadow-sm disabled:opacity-40 shrink-0 ml-auto"
-            >
-              <RefreshCw size={12} className="text-[#1E3A5F]" />
-            </button>
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-9 px-3 rounded-xl border border-black/10 text-[11px] font-bold">
+              <option value="all">All status</option>
+              {PAYMENT_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+            <input value={monthFilter} onChange={(e) => setMonthFilter(e.target.value.replace(/[^\d]/g, ''))} placeholder="Month" className="h-9 w-24 px-3 rounded-xl border border-black/10 text-[11px] font-bold" />
+            <input value={yearFilter} onChange={(e) => setYearFilter(e.target.value.replace(/[^\d]/g, ''))} placeholder="Year" className="h-9 w-28 px-3 rounded-xl border border-black/10 text-[11px] font-bold" />
+            <button onClick={fetchRecords} className="h-9 w-9 rounded-xl border border-black/10 flex items-center justify-center bg-white"><RefreshCw size={13} /></button>
+            <button onClick={() => { setModalMode('create'); setActiveRecord(null); }} className="h-9 px-3 rounded-xl bg-[#1E3A5F] text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-1"><Plus size={12} /> Add Payroll</button>
+            <button onClick={exportCsv} className="h-9 px-3 rounded-xl border border-black/10 bg-white text-[10px] font-black uppercase tracking-widest flex items-center gap-1"><Download size={12} /> Export</button>
           </div>
 
-          <div className="overflow-x-auto bg-white flex-1">
+          {error ? <div className="px-4 py-3 text-red-600 text-[11px] font-bold border-b border-black/5">{error}</div> : null}
+
+          <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-re-bg/20 border-b border-black/5">
-                  <th className="px-4 sm:px-6 py-2.5 sm:py-3 text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Run</th>
-                  <th className="hidden md:table-cell px-6 py-3 text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Period</th>
-                  <th className="hidden md:table-cell px-6 py-3 text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5 text-right">Staff</th>
-                  <th className="px-4 sm:px-6 py-2.5 sm:py-3 text-right text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Gross</th>
-                  <th className="px-4 sm:px-6 py-2.5 sm:py-3 text-right text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40">Status</th>
+                <tr className="bg-slate-50 border-b border-black/5">
+                  <th className="px-4 py-3 text-[8px] font-black uppercase tracking-[0.2em] text-slate-400">Payroll</th>
+                  <th className="px-4 py-3 text-[8px] font-black uppercase tracking-[0.2em] text-slate-400">Staff</th>
+                  <th className="px-4 py-3 text-[8px] font-black uppercase tracking-[0.2em] text-slate-400">Period</th>
+                  <th className="px-4 py-3 text-[8px] font-black uppercase tracking-[0.2em] text-slate-400 text-right">Net Salary</th>
+                  <th className="px-4 py-3 text-[8px] font-black uppercase tracking-[0.2em] text-slate-400">Status</th>
+                  <th className="px-4 py-3 text-[8px] font-black uppercase tracking-[0.2em] text-slate-400 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/5">
-                {filtered.map((r) => (
-                  <tr key={r.id} onClick={() => openRunDetails(r)} className="hover:bg-re-bg/60 even:bg-re-bg/20 transition-colors cursor-pointer">
-                    <td className="px-4 sm:px-6 py-2.5 sm:py-3 border-r border-black/5">
-                      <p className="text-[13px] font-black text-[#1E3A5F] tracking-tight truncate">{r.id}</p>
-                      <p className="text-[8px] font-bold text-re-text-muted uppercase tracking-widest leading-none mt-1 opacity-50">{r.period}</p>
+                {!loading && !rows.length && (
+                  <tr><td colSpan={6} className="px-4 py-8 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">No payroll records found.</td></tr>
+                )}
+                {rows.map((r) => (
+                  <tr key={r.payrollId} className="hover:bg-slate-50/70">
+                    <td className="px-4 py-3">
+                      <p className="text-[12px] font-black text-[#1E3A5F]">{r.payrollId}</p>
+                      <p className="text-[9px] font-bold text-slate-400">{String(r.paymentDate || '').slice(0, 10)}</p>
                     </td>
-                    <td className="hidden md:table-cell px-6 py-3 border-r border-black/5 text-[11px] font-black text-[#1E3A5F]">{r.period}</td>
-                    <td className="hidden md:table-cell px-6 py-3 border-r border-black/5 text-right text-[11px] font-black text-[#1E3A5F]">{r.staffCount}</td>
-                    <td className="px-4 sm:px-6 py-2.5 sm:py-3 border-r border-black/5 text-right text-[12px] font-black text-[#1E3A5F]">
-                      {formatMoneyRWF(r.grossTotal).replace('RWF', '')}
+                    <td className="px-4 py-3">
+                      <p className="text-[12px] font-black text-[#1E3A5F]">{r.staffName}</p>
+                      <p className="text-[9px] font-bold text-slate-400">{r.staffId} · {r.role}</p>
                     </td>
-                    <td className="px-4 sm:px-6 py-2.5 sm:py-3 text-right">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest border ${r.status === 'processed' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-amber-50 text-amber-800 border-amber-100'}`}>
-                        {r.status}
+                    <td className="px-4 py-3 text-[11px] font-black text-[#1E3A5F]">{monthLabel(r.month)} {r.year}</td>
+                    <td className="px-4 py-3 text-right text-[12px] font-black text-[#1E3A5F]">{formatMoneyRWF(r.netSalaryPaid).replace('RWF', '')}</td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex px-2 py-1 rounded-lg border text-[9px] font-black uppercase tracking-wider ${
+                        r.paymentStatus === 'paid' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : r.paymentStatus === 'cancelled' ? 'bg-red-50 text-red-700 border-red-100' : 'bg-amber-50 text-amber-700 border-amber-100'
+                      }`}>
+                        {r.paymentStatus}
                       </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-2">
+                        <button onClick={() => openDetails(r)} className="h-7 w-7 rounded-lg border border-black/10 flex items-center justify-center"><Eye size={13} /></button>
+                        <button onClick={() => { setActiveRecord(r); setModalMode('edit'); }} className="h-7 w-7 rounded-lg border border-black/10 flex items-center justify-center"><Pencil size={13} /></button>
+                        <button onClick={() => printSlip(r)} className="h-7 w-7 rounded-lg border border-black/10 flex items-center justify-center"><Printer size={13} /></button>
+                        <button onClick={() => deleteRecord(r)} className="h-7 w-7 rounded-lg border border-red-200 text-red-600 flex items-center justify-center"><Trash2 size={13} /></button>
+                      </div>
                     </td>
                   </tr>
                 ))}
-                {filtered.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="px-6 py-10 text-center">
-                      <p className="text-[9px] font-black text-re-text-muted uppercase tracking-widest opacity-40">No payroll runs found.</p>
-                    </td>
-                  </tr>
-                )}
               </tbody>
             </table>
-          </div>
-
-          <div className="flex px-4 sm:px-8 py-5 bg-re-bg/20 border-t border-black/5 items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-              <p className="text-[8px] font-black text-re-text-muted uppercase tracking-widest italic opacity-60">
-                {filtered.length} runs
-              </p>
-            </div>
-            <p className="text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 italic">
-              RWF
-            </p>
           </div>
         </div>
       </div>
 
-      <PayrollRunDrawer isOpen={!!details} run={details} onClose={() => setDetails(null)} />
+      <PayrollFormModal
+        open={modalMode === 'create' || modalMode === 'edit'}
+        mode={modalMode === 'edit' ? 'edit' : 'create'}
+        initialRecord={activeRecord}
+        onClose={() => { setModalMode(null); setActiveRecord(null); }}
+        onSaved={fetchRecords}
+      />
+
+      {details && (
+        <div className="fixed inset-0 z-[220]">
+          <div className="absolute inset-0 bg-black/45" onClick={() => setDetails(null)} />
+          <div className="absolute inset-y-0 right-0 w-full md:w-[430px] bg-white shadow-2xl p-5 overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-black text-[#1E3A5F]">Payroll Details</h3>
+              <button onClick={() => setDetails(null)} className="p-2 rounded-xl hover:bg-slate-100"><X size={16} /></button>
+            </div>
+            <div className="space-y-2 text-[12px]">
+              <p><strong>ID:</strong> {details.payrollId}</p>
+              <p><strong>Staff:</strong> {details.staffName} ({details.staffId})</p>
+              <p><strong>Role:</strong> {details.role}</p>
+              <p><strong>Department:</strong> {details.department || '—'}</p>
+              <p><strong>Basic Salary:</strong> {formatMoneyRWF(details.basicSalary)}</p>
+              <p><strong>Bonus:</strong> {formatMoneyRWF(details.bonus)}</p>
+              <p><strong>Deduction:</strong> {formatMoneyRWF(details.deduction)}</p>
+              <p><strong>Net Salary Paid:</strong> {formatMoneyRWF(details.netSalaryPaid)}</p>
+              <p><strong>Month / Year:</strong> {monthLabel(details.month)} {details.year}</p>
+              <p><strong>Payment Date:</strong> {String(details.paymentDate || '').slice(0, 10)}</p>
+              <p><strong>Status:</strong> {details.paymentStatus}</p>
+              <p><strong>Method:</strong> {details.paymentMethod || '—'}</p>
+              <p><strong>Created By:</strong> {details.createdBy?.name || 'Accountant'}</p>
+              <p><strong>Notes:</strong> {details.note || '—'}</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

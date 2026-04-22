@@ -18,6 +18,7 @@ const { requireRole } = require('../middleware/deoAuth');
 
 const router = express.Router();
 const ACCOUNTANT_ONLY = ['ACCOUNTANT'];
+const FINANCE_REPORT_READ_ROLES = ['ACCOUNTANT', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER'];
 
 function resolveSchoolId(req) {
   return (
@@ -102,6 +103,24 @@ function collectionYearMatchesFilter(storedLabel, filterYear) {
   return false;
 }
 
+/** Match term label across UI vs DB (e.g. "Term 1" vs "TERM 1" vs "term 1"). */
+function termKeyLabel(s) {
+  const t = trimStr(s).toLowerCase();
+  if (!t) return '';
+  if (/annual/.test(t)) return 'annual_review';
+  const m = t.match(/(\d+)/);
+  return m ? `t${Number(m[1])}` : t;
+}
+
+function termMatchesRow(rowTerm, inputTerm) {
+  const a = trimStr(rowTerm);
+  const b = trimStr(inputTerm);
+  if (!b) return true;
+  if (!a) return false;
+  if (a.toLowerCase() === b.toLowerCase()) return true;
+  return termKeyLabel(a) === termKeyLabel(b);
+}
+
 function statusLabelForExport(status) {
   const m = {
     full_pay: 'Full pay',
@@ -118,11 +137,23 @@ function safeFilenamePart(s) {
   return String(s || 'report').replace(/[^a-zA-Z0-9._-]+/g, '_').slice(0, 80);
 }
 
+function normalizeReportStatusFilter(v) {
+  const raw = trimStr(v).toLowerCase();
+  if (!raw) return '';
+  if (['all', 'any', '*'].includes(raw)) return '';
+  if (['full', 'full_pay', 'fully_paid', 'paid_full'].includes(raw)) return 'full_pay';
+  if (['partial', 'partially_paid', 'remain_pay', 'remaining'].includes(raw)) return 'remain_pay';
+  if (['not_paid', 'unpaid', 'none'].includes(raw)) return 'not_paid';
+  if (['no_fee_card', 'no_babyeyi'].includes(raw)) return 'no_fee_card';
+  return '';
+}
+
 /**
  * Shared report body for JSON + Excel + PDF exports.
  */
-async function buildAccountantPaymentReport(schoolId, academicYear, term, classFilter) {
+async function buildAccountantPaymentReport(schoolId, academicYear, term, classFilter, statusFilterRaw) {
   await ensureCollectionsTable();
+  await ensureAccountantFeeTotalsTableAcct();
 
   const [studentRows] = await promisePool.query(
     `SELECT id, student_uid, student_code, first_name, last_name, class_name
@@ -140,43 +171,116 @@ async function buildAccountantPaymentReport(schoolId, academicYear, term, classF
   if (classFilter) {
     students = students.filter((s) => trimStr(s.class_name) === classFilter);
   }
+  const studentIdByIdentity = new Map();
+  for (const st of students) {
+    const uid = trimStr(st.student_uid).toUpperCase();
+    const code = trimStr(st.student_code).toUpperCase();
+    if (uid) studentIdByIdentity.set(uid, Number(st.id));
+    if (code) studentIdByIdentity.set(code, Number(st.id));
+  }
 
-  const [babyeyiRows] = await promisePool.query(
-    `SELECT id, class_name, classes_json, term, academic_year,
-            COALESCE(total_fee, total_amount, 0) AS total_fee
-     FROM school_babyeyi
-     WHERE school_id = ? AND is_active = 1 AND term = ?
+  const [feeCardRows] = await promisePool.query(
+    `SELECT id, babyeyi_id, class_name, classes_json, term, academic_year, total_due
+     FROM accountant_babyeyi_fees
+     WHERE school_id = ?
      ORDER BY updated_at DESC`,
-    [schoolId, term]
+    [schoolId]
   );
 
   function totalDueForClass(className) {
     const cn = trimStr(className);
     if (!cn) return null;
-    const b = babyeyiRows.find(
-      (r) => classMatchesBabyeyi(r, cn) && yearMatchesRow(r.academic_year, academicYear)
+    const b = feeCardRows.find(
+      (r) =>
+        classMatchesBabyeyi(r, cn)
+        && yearMatchesRow(r.academic_year, academicYear)
+        && termMatchesRow(r.term, term)
     );
     if (!b) return null;
-    return Number(b.total_fee || 0);
+    return Number(b.total_due || 0);
   }
 
   const [collRows] = await promisePool.query(
-    `SELECT student_id, academic_year_label, amount_paid
+    `SELECT student_id, academic_year_label, amount_paid, term
      FROM school_fee_collections
-     WHERE school_id = ? AND term = ?`,
-    [schoolId, term]
+     WHERE school_id = ?`,
+    [schoolId]
   );
 
   const paidByStudent = new Map();
   for (const row of collRows) {
+    if (!termMatchesRow(row.term, term)) continue;
     if (!collectionYearMatchesFilter(row.academic_year_label, academicYear)) continue;
     const sid = Number(row.student_id);
     const add = Number(row.amount_paid || 0);
     paidByStudent.set(sid, (paidByStudent.get(sid) || 0) + add);
   }
 
+  // Include public/online payments (PublicPayBySchool, parent pay links, etc.) that are marked PAID.
+  let publicPaidRows = [];
+  try {
+    const [rows] = await promisePool.query(
+      `SELECT i.id, i.total_rwf, i.payload_json, t.class_name, t.classes_json, t.term, t.academic_year
+       FROM babyeyi_payment_intents i
+       LEFT JOIN accountant_babyeyi_fees t ON t.babyeyi_id = i.babyeyi_id AND t.school_id = i.school_id
+       WHERE i.school_id = ?
+         AND UPPER(COALESCE(i.invoice_status, 'NOT_PAID')) = 'PAID'
+         AND i.babyeyi_id IS NOT NULL`,
+      [schoolId]
+    );
+    publicPaidRows = rows || [];
+  } catch (e) {
+    // Keep accountant report available even if public payment intents table is not present in this environment.
+    publicPaidRows = [];
+  }
+  for (const row of publicPaidRows) {
+    let payload = {};
+    try {
+      payload = row.payload_json ? JSON.parse(row.payload_json) : {};
+    } catch (_) {
+      payload = {};
+    }
+    const intentTerm = trimStr(
+      row.term || payload?.term || payload?.babyeyi_term || payload?.babyeyi?.term || ''
+    );
+    const intentYear = trimStr(
+      row.academic_year
+      || payload?.academic_year
+      || payload?.year
+      || payload?.babyeyi_academic_year
+      || payload?.babyeyi?.academic_year
+      || ''
+    );
+    if (!termMatchesRow(intentTerm, term)) continue;
+    if (!yearMatchesRow(intentYear, academicYear)) continue;
+    const classProbe = {
+      class_name: row.class_name || payload?.class_name || payload?.class || '',
+      classes_json: row.classes_json || payload?.classes_json || [],
+    };
+    if (classFilter && !classMatchesBabyeyi(classProbe, classFilter)) continue;
+    const selectedStudents = Array.isArray(payload?.selected_students)
+      ? payload.selected_students
+      : (payload?.selected_student ? [payload.selected_student] : []);
+    const ids = selectedStudents
+      .map((s) => {
+        const direct = Number(s?.student_id || 0);
+        if (Number.isFinite(direct) && direct > 0) return direct;
+        const uid = trimStr(s?.student_uid).toUpperCase();
+        const code = trimStr(s?.student_code).toUpperCase();
+        return studentIdByIdentity.get(uid) || studentIdByIdentity.get(code) || 0;
+      })
+      .filter((x) => Number.isFinite(x) && x > 0);
+    if (!ids.length) continue;
+    const amount = Number(row.total_rwf || 0);
+    if (amount <= 0) continue;
+    const splitAmount = amount / ids.length;
+    ids.forEach((sid) => {
+      paidByStudent.set(sid, (paidByStudent.get(sid) || 0) + splitAmount);
+    });
+  }
+
   const EPS = 0.005;
-  const rows = students.map((st) => {
+  const rowsUnfiltered = students.map((st) => {
     const totalDue = totalDueForClass(st.class_name);
     const totalPaid = paidByStudent.get(Number(st.id)) || 0;
     let remaining = null;
@@ -213,6 +317,9 @@ async function buildAccountantPaymentReport(schoolId, academicYear, term, classF
     };
   });
 
+  const statusFilter = normalizeReportStatusFilter(statusFilterRaw);
+  const rows = statusFilter ? rowsUnfiltered.filter((r) => r.status === statusFilter) : rowsUnfiltered;
+
   const summary = {
     total_students: rows.length,
     full_pay: rows.filter((r) => r.status === 'full_pay' || r.status === 'full').length,
@@ -223,6 +330,7 @@ async function buildAccountantPaymentReport(schoolId, academicYear, term, classF
 
   return {
     filters: { academic_year: academicYear, term, class_name: classFilter || null },
+    status_filter: statusFilter || null,
     class_names: classNamesAll,
     summary,
     rows,
@@ -336,21 +444,22 @@ router.get('/accountant/babyeyi-fee', requireRole(ACCOUNTANT_ONLY), async (req, 
       });
     }
 
+    await ensureAccountantFeeTotalsTableAcct();
     const [rows] = await promisePool.query(
-      `SELECT id, doc_id, class_name, classes_json, term, academic_year,
-              COALESCE(total_fee, total_amount, 0) AS total_fee,
-              payments, status, is_active, updated_at
-       FROM school_babyeyi
+      `SELECT id, babyeyi_id, class_name, classes_json, term, academic_year,
+              tuition_total, paid_at_school_total, total_due, babyeyi_status, babyeyi_is_active, updated_at
+       FROM accountant_babyeyi_fees
        WHERE school_id = ?
-         AND is_active = 1
-         AND term = ?
        ORDER BY updated_at DESC
-       LIMIT 80`,
-      [schoolId, term]
+       LIMIT 400`,
+      [schoolId]
     );
 
     const match = rows.find(
-      (r) => classMatchesBabyeyi(r, className) && yearMatchesRow(r.academic_year, academicYear)
+      (r) =>
+        classMatchesBabyeyi(r, className)
+        && yearMatchesRow(r.academic_year, academicYear)
+        && termMatchesRow(r.term, term)
     );
 
     if (!match) {
@@ -361,24 +470,18 @@ router.get('/accountant/babyeyi-fee', requireRole(ACCOUNTANT_ONLY), async (req, 
       });
     }
 
-    let payments = [];
-    try {
-      payments = typeof match.payments === 'string' ? JSON.parse(match.payments) : match.payments || [];
-    } catch (_) {
-      payments = [];
-    }
-
     return res.json({
       success: true,
       data: {
-        babyeyi_id: match.id,
-        doc_id: match.doc_id,
-        total_fee: Number(match.total_fee || 0),
+        babyeyi_id: Number(match.babyeyi_id || 0),
+        total_fee: Number(match.total_due || 0),
+        tuition_total: Number(match.tuition_total || 0),
+        paid_at_school_total: Number(match.paid_at_school_total || 0),
         class_name: match.class_name,
         term: match.term,
         academic_year: match.academic_year,
-        payments,
-        status: match.status,
+        status: match.babyeyi_status,
+        is_active: Number(match.babyeyi_is_active) === 1,
       },
     });
   } catch (err) {
@@ -409,11 +512,40 @@ router.get('/accountant/reports/payments', requireRole(ACCOUNTANT_ONLY), async (
       });
     }
 
-    const data = await buildAccountantPaymentReport(schoolId, academicYear, term, classFilter);
+    const statusFilter = trimStr(req.query.status || '');
+    const data = await buildAccountantPaymentReport(schoolId, academicYear, term, classFilter, statusFilter);
     return res.json({ success: true, data });
   } catch (err) {
     console.error('GET /accountant/reports/payments:', err);
     return res.status(500).json({ success: false, message: 'Failed to build report' });
+  }
+});
+
+// Manager/Accountant shared read endpoint for finance registry page.
+router.get('/manager/finance/payments/report', requireRole(FINANCE_REPORT_READ_ROLES), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) {
+      return res.status(400).json({ success: false, message: 'School not found in session.' });
+    }
+
+    const academicYear = trimStr(req.query.academic_year || req.query.year || '');
+    const term = trimStr(req.query.term || '');
+    const classFilter = trimStr(req.query.class_name || req.query.class || '');
+    const statusFilter = trimStr(req.query.status || '');
+
+    if (!academicYear || !term) {
+      return res.status(400).json({
+        success: false,
+        message: 'academic_year and term are required.',
+      });
+    }
+
+    const data = await buildAccountantPaymentReport(schoolId, academicYear, term, classFilter, statusFilter);
+    return res.json({ success: true, data });
+  } catch (err) {
+    console.error('GET /manager/finance/payments/report:', err);
+    return res.status(500).json({ success: false, message: 'Failed to build manager finance payments report' });
   }
 });
 
@@ -444,7 +576,8 @@ router.get('/accountant/reports/payments/export.xlsx', requireRole(ACCOUNTANT_ON
     );
     const schoolName = schoolRow?.school_name || `School ${schoolId}`;
 
-    const report = await buildAccountantPaymentReport(schoolId, academicYear, term, classFilter);
+    const statusFilter = trimStr(req.query.status || '');
+    const report = await buildAccountantPaymentReport(schoolId, academicYear, term, classFilter, statusFilter);
     const { summary, rows, filters } = report;
 
     const metaRows = [
@@ -452,6 +585,7 @@ router.get('/accountant/reports/payments/export.xlsx', requireRole(ACCOUNTANT_ON
       { Field: 'Academic year', Value: filters.academic_year },
       { Field: 'Term', Value: filters.term },
       { Field: 'Class filter', Value: filters.class_name || 'All classes' },
+      { Field: 'Status filter', Value: report.status_filter || 'All statuses' },
       { Field: 'Generated', Value: new Date().toISOString() },
       { Field: '', Value: '' },
       { Field: 'Total students', Value: summary.total_students },
@@ -515,7 +649,8 @@ router.get('/accountant/reports/payments/export.pdf', requireRole(ACCOUNTANT_ONL
     );
     const schoolName = schoolRow?.school_name || `School ${schoolId}`;
 
-    const report = await buildAccountantPaymentReport(schoolId, academicYear, term, classFilter);
+    const statusFilter = trimStr(req.query.status || '');
+    const report = await buildAccountantPaymentReport(schoolId, academicYear, term, classFilter, statusFilter);
     const { summary, rows, filters } = report;
 
     const fname = safeFilenamePart(`fee-report-${schoolRow?.school_code || schoolId}-${academicYear}-${term}`);
@@ -530,6 +665,7 @@ router.get('/accountant/reports/payments/export.pdf', requireRole(ACCOUNTANT_ONL
     doc.fontSize(10).fillColor('#444').text(schoolName);
     doc.text(`Code: ${schoolRow?.school_code || '—'}  ·  Academic year: ${filters.academic_year}  ·  Term: ${filters.term}`);
     if (filters.class_name) doc.text(`Class filter: ${filters.class_name}`);
+    if (report.status_filter) doc.text(`Status filter: ${report.status_filter}`);
     doc.text(`Generated: ${new Date().toLocaleString()}`);
     doc.moveDown(0.6);
     doc.fillColor('#111').fontSize(9).text(
@@ -639,6 +775,136 @@ router.get('/accountant/payments', requireRole(ACCOUNTANT_ONLY), async (req, res
 });
 
 // ════════════════════════════════════════════════════════════════
+// GET /api/accountant/payments/:id
+// ════════════════════════════════════════════════════════════════
+router.get('/accountant/payments/:id', requireRole(ACCOUNTANT_ONLY), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) {
+      return res.status(400).json({ success: false, message: 'School not found in session.' });
+    }
+    await ensureCollectionsTable();
+    const id = Number(req.params.id || 0);
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid payment id.' });
+
+    const [[row]] = await promisePool.query(
+      `SELECT
+         fc.id,
+         fc.student_id,
+         fc.academic_year_label,
+         fc.term,
+         fc.class_name,
+         fc.total_due,
+         fc.amount_paid,
+         fc.balance_remaining,
+         fc.notes,
+         fc.created_at,
+         s.first_name,
+         s.last_name,
+         s.student_uid,
+         s.student_code
+       FROM school_fee_collections fc
+       INNER JOIN students s ON s.id = fc.student_id AND s.school_id = fc.school_id
+       WHERE fc.school_id = ? AND fc.id = ?
+       LIMIT 1`,
+      [schoolId, id]
+    );
+    if (!row) return res.status(404).json({ success: false, message: 'Payment not found' });
+    return res.json({ success: true, data: row });
+  } catch (err) {
+    console.error('GET /accountant/payments/:id:', err);
+    return res.status(500).json({ success: false, message: 'Failed to load payment detail' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+// PATCH /api/accountant/payments/:id
+// Body (optional fields): total_due, amount_paid, notes, term, academic_year, class_name
+// ════════════════════════════════════════════════════════════════
+router.patch('/accountant/payments/:id', requireRole(ACCOUNTANT_ONLY), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) {
+      return res.status(400).json({ success: false, message: 'School not found in session.' });
+    }
+    await ensureCollectionsTable();
+    const id = Number(req.params.id || 0);
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid payment id.' });
+
+    const [[current]] = await promisePool.query(
+      `SELECT id, total_due, amount_paid, balance_remaining, notes, term, academic_year_label, class_name
+       FROM school_fee_collections
+       WHERE school_id = ? AND id = ?
+       LIMIT 1`,
+      [schoolId, id]
+    );
+    if (!current) return res.status(404).json({ success: false, message: 'Payment not found' });
+
+    const body = req.body || {};
+    const totalDue = body.total_due != null ? Number(body.total_due) : Number(current.total_due || 0);
+    const amountPaid = body.amount_paid != null ? Number(body.amount_paid) : Number(current.amount_paid || 0);
+    const notes = body.notes != null ? trimStr(body.notes) : current.notes;
+    const term = body.term != null ? trimStr(body.term) : trimStr(current.term);
+    const academicYear = body.academic_year != null ? trimStr(body.academic_year) : trimStr(current.academic_year_label);
+    const className = body.class_name != null ? trimStr(body.class_name) : trimStr(current.class_name);
+
+    if (Number.isNaN(totalDue) || totalDue < 0) {
+      return res.status(400).json({ success: false, message: 'total_due must be a non-negative number.' });
+    }
+    if (Number.isNaN(amountPaid) || amountPaid < 0) {
+      return res.status(400).json({ success: false, message: 'amount_paid must be a non-negative number.' });
+    }
+    if (!term || !academicYear) {
+      return res.status(400).json({ success: false, message: 'term and academic_year are required.' });
+    }
+    const balance = Math.max(0, totalDue - amountPaid);
+
+    await promisePool.query(
+      `UPDATE school_fee_collections
+       SET total_due = ?, amount_paid = ?, balance_remaining = ?, notes = ?, term = ?, academic_year_label = ?, class_name = ?
+       WHERE school_id = ? AND id = ?`,
+      [totalDue, amountPaid, balance, notes || null, term, academicYear, className || null, schoolId, id]
+    );
+    return res.json({
+      success: true,
+      message: 'Payment updated.',
+      data: { id, balance_remaining: balance },
+    });
+  } catch (err) {
+    console.error('PATCH /accountant/payments/:id:', err);
+    return res.status(500).json({ success: false, message: 'Failed to update payment' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+// DELETE /api/accountant/payments/:id
+// ════════════════════════════════════════════════════════════════
+router.delete('/accountant/payments/:id', requireRole(ACCOUNTANT_ONLY), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) {
+      return res.status(400).json({ success: false, message: 'School not found in session.' });
+    }
+    await ensureCollectionsTable();
+    const id = Number(req.params.id || 0);
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid payment id.' });
+
+    const [result] = await promisePool.query(
+      `DELETE FROM school_fee_collections
+       WHERE school_id = ? AND id = ?`,
+      [schoolId, id]
+    );
+    if (!result.affectedRows) {
+      return res.status(404).json({ success: false, message: 'Payment not found' });
+    }
+    return res.json({ success: true, message: 'Payment deleted.' });
+  } catch (err) {
+    console.error('DELETE /accountant/payments/:id:', err);
+    return res.status(500).json({ success: false, message: 'Failed to delete payment' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
 // POST /api/accountant/payments
 // Body: student_id, academic_year, term, class_name (optional override),
 //       amount_paid, notes?
@@ -683,31 +949,33 @@ router.post('/accountant/payments', requireRole(ACCOUNTANT_ONLY), async (req, re
 
     if (!className) className = trimStr(stu.class_name);
 
+    await ensureAccountantFeeTotalsTableAcct();
     let babyeyiId = null;
     const [fullRows] = await promisePool.query(
-      `SELECT id, class_name, classes_json, academic_year,
-              COALESCE(total_fee, total_amount, 0) AS total_fee
-       FROM school_babyeyi
-       WHERE school_id = ? AND is_active = 1 AND term = ?
+      `SELECT babyeyi_id, class_name, classes_json, academic_year, term, total_due
+       FROM accountant_babyeyi_fees
+       WHERE school_id = ?
        ORDER BY updated_at DESC
-       LIMIT 80`,
-      [schoolId, term]
+       LIMIT 400`,
+      [schoolId]
     );
     const bMatch = fullRows.find(
-      (r) => classMatchesBabyeyi(r, className) && yearMatchesRow(r.academic_year, academicYear)
+      (r) =>
+        classMatchesBabyeyi(r, className)
+        && yearMatchesRow(r.academic_year, academicYear)
+        && termMatchesRow(r.term, term)
     );
 
     if (totalDueIn == null || Number.isNaN(totalDueIn)) {
-      if (!bMatch) {
-        return res.status(400).json({
-          success: false,
-          message: 'Could not find Babyeyi total for this class and term. Set total_due manually or create a Babyeyi card.',
-        });
+      if (bMatch) {
+        totalDueIn = Number(bMatch.total_due || 0);
+        babyeyiId = Number(bMatch.babyeyi_id || 0) || null;
+      } else {
+        // Fallback for legacy/manual classes without a Babyeyi card yet.
+        totalDueIn = Math.max(0, amountPaid);
       }
-      totalDueIn = Number(bMatch.total_fee || 0);
-      babyeyiId = bMatch.id;
     } else if (bMatch) {
-      babyeyiId = bMatch.id;
+      babyeyiId = Number(bMatch.babyeyi_id || 0) || null;
     }
 
     const totalDue = Number(totalDueIn);
@@ -741,6 +1009,208 @@ router.post('/accountant/payments', requireRole(ACCOUNTANT_ONLY), async (req, re
   } catch (err) {
     console.error('POST /accountant/payments:', err);
     return res.status(500).json({ success: false, message: 'Failed to record payment' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+// Accountant Babyeyi fee cards (totals-only table)
+// GET /api/accountant/babyeyi-fees
+// GET /api/accountant/babyeyi-fees/:id
+// PUT /api/accountant/babyeyi-fees/:id
+// DELETE /api/accountant/babyeyi-fees/:id
+// ════════════════════════════════════════════════════════════════
+
+let accountantFeeTotalsTableReady = false;
+async function ensureAccountantFeeTotalsTableAcct() {
+  if (accountantFeeTotalsTableReady) return;
+  await promisePool
+    .query(
+      `
+    CREATE TABLE IF NOT EXISTS accountant_babyeyi_fees (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      school_id INT UNSIGNED NOT NULL,
+      babyeyi_id INT UNSIGNED NOT NULL,
+      academic_year VARCHAR(64) NOT NULL DEFAULT '',
+      term VARCHAR(64) NOT NULL DEFAULT '',
+      class_name VARCHAR(255) NULL,
+      classes_json LONGTEXT NULL,
+      tuition_total DECIMAL(14,2) NOT NULL DEFAULT 0,
+      paid_at_school_total DECIMAL(14,2) NOT NULL DEFAULT 0,
+      total_due DECIMAL(14,2) NOT NULL DEFAULT 0,
+      babyeyi_is_active TINYINT(1) NOT NULL DEFAULT 1,
+      babyeyi_status VARCHAR(32) NULL,
+      source_updated_at DATETIME NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_totals_babyeyi (babyeyi_id),
+      KEY idx_totals_school_term (school_id, academic_year, term)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `
+    )
+    .catch(() => {});
+  await promisePool
+    .query(
+      `INSERT INTO accountant_babyeyi_fees
+         (school_id, babyeyi_id, academic_year, term, class_name, classes_json,
+          tuition_total, paid_at_school_total, total_due, babyeyi_is_active, babyeyi_status,
+          source_updated_at, created_at, updated_at)
+       SELECT school_id, babyeyi_id, academic_year, term, class_name, classes_json,
+              tuition_total, paid_at_school_total, total_due, babyeyi_is_active, babyeyi_status,
+              source_updated_at, created_at, updated_at
+       FROM accountant_babyeyi_fee_totals
+       ON DUPLICATE KEY UPDATE
+         school_id = VALUES(school_id),
+         academic_year = VALUES(academic_year),
+         term = VALUES(term),
+         class_name = VALUES(class_name),
+         classes_json = VALUES(classes_json),
+         tuition_total = VALUES(tuition_total),
+         paid_at_school_total = VALUES(paid_at_school_total),
+         total_due = VALUES(total_due),
+         babyeyi_is_active = VALUES(babyeyi_is_active),
+         babyeyi_status = VALUES(babyeyi_status),
+         source_updated_at = VALUES(source_updated_at),
+         updated_at = VALUES(updated_at)`
+    )
+    .catch(() => {});
+  accountantFeeTotalsTableReady = true;
+}
+
+function normalizeClassesJsonInput(v) {
+  if (Array.isArray(v)) {
+    return JSON.stringify(v.map((x) => String(x || '').trim()).filter(Boolean));
+  }
+  if (typeof v === 'string') {
+    try {
+      const arr = JSON.parse(v);
+      if (Array.isArray(arr)) {
+        return JSON.stringify(arr.map((x) => String(x || '').trim()).filter(Boolean));
+      }
+    } catch (_) {
+      // keep fallback
+    }
+  }
+  return JSON.stringify([]);
+}
+
+router.get('/accountant/babyeyi-fees', requireRole(ACCOUNTANT_ONLY), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) {
+      return res.status(400).json({ success: false, message: 'School not found in session.' });
+    }
+    await ensureAccountantFeeTotalsTableAcct();
+    const term = trimStr(req.query.term || '');
+    const year = trimStr(req.query.academic_year || req.query.year || '');
+    const where = ['school_id = ?'];
+    const args = [schoolId];
+    if (term) {
+      where.push('term = ?');
+      args.push(term);
+    }
+    if (year) {
+      where.push('academic_year = ?');
+      args.push(year);
+    }
+    const [rows] = await promisePool.query(
+      `SELECT id, babyeyi_id, academic_year, term, class_name, classes_json,
+              tuition_total, paid_at_school_total, total_due, babyeyi_is_active, babyeyi_status,
+              source_updated_at, updated_at, created_at
+       FROM accountant_babyeyi_fees
+       WHERE ${where.join(' AND ')}
+       ORDER BY updated_at DESC`,
+      args
+    );
+    return res.json({ success: true, data: rows || [] });
+  } catch (err) {
+    console.error('GET /accountant/babyeyi-fees:', err);
+    return res.status(500).json({ success: false, message: 'Failed to load Babyeyi fee cards' });
+  }
+});
+
+router.get('/accountant/babyeyi-fees/:id', requireRole(ACCOUNTANT_ONLY), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) {
+      return res.status(400).json({ success: false, message: 'School not found in session.' });
+    }
+    await ensureAccountantFeeTotalsTableAcct();
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid id' });
+    const [rows] = await promisePool.query(
+      `SELECT * FROM accountant_babyeyi_fees WHERE id = ? AND school_id = ? LIMIT 1`,
+      [id, schoolId]
+    );
+    const row = rows?.[0];
+    if (!row) return res.status(404).json({ success: false, message: 'Not found' });
+    return res.json({ success: true, data: row });
+  } catch (err) {
+    console.error('GET /accountant/babyeyi-fees/:id:', err);
+    return res.status(500).json({ success: false, message: 'Failed to load fee card' });
+  }
+});
+
+router.put('/accountant/babyeyi-fees/:id', requireRole(ACCOUNTANT_ONLY), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) {
+      return res.status(400).json({ success: false, message: 'School not found in session.' });
+    }
+    await ensureAccountantFeeTotalsTableAcct();
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid id' });
+    const [rows] = await promisePool.query(
+      `SELECT id FROM accountant_babyeyi_fees WHERE id = ? AND school_id = ? LIMIT 1`,
+      [id, schoolId]
+    );
+    if (!rows?.length) return res.status(404).json({ success: false, message: 'Not found' });
+
+    const b = req.body || {};
+    const tuition = Number(b.tuition_total || 0);
+    const paidAtSchool = Number(b.paid_at_school_total || 0);
+    if (Number.isNaN(tuition) || tuition < 0 || Number.isNaN(paidAtSchool) || paidAtSchool < 0) {
+      return res.status(400).json({ success: false, message: 'Totals must be non-negative numbers' });
+    }
+    const className = trimStr(b.class_name) || null;
+    const term = trimStr(b.term || '');
+    const academicYear = trimStr(b.academic_year || '');
+    if (!term || !academicYear) {
+      return res.status(400).json({ success: false, message: 'term and academic_year are required' });
+    }
+    const classesJson = normalizeClassesJsonInput(b.classes_json);
+    const totalDue = Math.round((tuition + paidAtSchool) * 100) / 100;
+    await promisePool.query(
+      `UPDATE accountant_babyeyi_fees
+       SET class_name = ?, classes_json = ?, term = ?, academic_year = ?,
+           tuition_total = ?, paid_at_school_total = ?, total_due = ?, updated_at = CURRENT_TIMESTAMP
+       WHERE id = ? AND school_id = ?`,
+      [className, classesJson, term, academicYear, tuition, paidAtSchool, totalDue, id, schoolId]
+    );
+    return res.json({ success: true, message: 'Fee card updated.' });
+  } catch (err) {
+    console.error('PUT /accountant/babyeyi-fees/:id:', err);
+    return res.status(500).json({ success: false, message: 'Failed to update fee card' });
+  }
+});
+
+router.delete('/accountant/babyeyi-fees/:id', requireRole(ACCOUNTANT_ONLY), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) {
+      return res.status(400).json({ success: false, message: 'School not found in session.' });
+    }
+    await ensureAccountantFeeTotalsTableAcct();
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid id' });
+    const [del] = await promisePool.query(
+      `DELETE FROM accountant_babyeyi_fees WHERE id = ? AND school_id = ?`,
+      [id, schoolId]
+    );
+    if (!del.affectedRows) return res.status(404).json({ success: false, message: 'Not found' });
+    return res.json({ success: true, message: 'Fee card deleted.' });
+  } catch (err) {
+    console.error('DELETE /accountant/babyeyi-fees/:id:', err);
+    return res.status(500).json({ success: false, message: 'Failed to delete fee card' });
   }
 });
 

@@ -263,7 +263,7 @@ export default function RegisterAgents() {
     platformRole === "FULL_SYSTEM_CONTROLLER" ? "System control" : "Super Admin dashboard";
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#FFFBF0] via-white to-[#FFF8E8]" style={{ fontFamily: "Montserrat, sans-serif" }}>
+    <div className="min-h-screen bg-gradient-to-b from-[#FFFBF0] via-white to-[#FFF8E8]">
       <header className="sticky top-0 z-30 border-b border-amber-200/80 bg-white/95 backdrop-blur-md px-4 py-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <button

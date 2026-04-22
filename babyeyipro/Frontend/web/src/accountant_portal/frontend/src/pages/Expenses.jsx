@@ -9,7 +9,7 @@ function formatMoneyRWF(value) {
   return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'RWF', maximumFractionDigits: 0 }).format(n);
 }
 
-const ExpenseDetailsDrawer = ({ isOpen, expense, onClose, onMarkPaid, onRecordPayment }) => {
+const ExpenseDetailsDrawer = ({ isOpen, expense, onClose, onMarkPaid, onRecordPayment, onRequestApproval }) => {
   if (!isOpen || !expense) return null;
 
   const payments = Array.isArray(expense.payments) ? expense.payments : [];
@@ -80,7 +80,15 @@ const ExpenseDetailsDrawer = ({ isOpen, expense, onClose, onMarkPaid, onRecordPa
               <div className="absolute top-0 right-0 w-16 h-16 bg-blue-500 opacity-5 rounded-full -mr-6 -mt-6 group-hover:scale-125 transition-transform duration-700" />
               <p className="text-[8px] text-slate-400 uppercase tracking-[0.2em] font-black mb-1 relative z-10 opacity-60">Status</p>
               <div className="flex items-baseline gap-1 relative z-10">
-                <span className={`text-xl font-black tracking-tighter ${expense.status === 'paid' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                <span className={`text-xl font-black tracking-tighter ${
+                  expense.status === 'paid'
+                    ? 'text-emerald-600'
+                    : expense.status === 'approved'
+                      ? 'text-blue-600'
+                      : expense.status === 'pending_approval'
+                        ? 'text-indigo-600'
+                        : 'text-amber-600'
+                }`}>
                   {expense.status}
                 </span>
               </div>
@@ -144,18 +152,22 @@ const ExpenseDetailsDrawer = ({ isOpen, expense, onClose, onMarkPaid, onRecordPa
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={() => onRecordPayment?.(expense)}
+              disabled={!['approved', 'paid'].includes(String(expense.status || '').toLowerCase())}
               className="h-10 w-full flex items-center justify-center gap-2 bg-white border border-black/5 text-[#1E3A5F] font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-slate-50 transition-all"
             >
               <CreditCard size={14} className="text-amber-500" />
               Record payment
             </button>
             <button
-              onClick={() => onMarkPaid?.(expense)}
-              disabled={expense.status === 'paid'}
+              onClick={() => {
+                if (expense.status === 'approved') return onMarkPaid?.(expense);
+                if (expense.status === 'pending' || expense.status === 'rejected') return onRequestApproval?.(expense);
+              }}
+              disabled={expense.status === 'paid' || expense.status === 'pending_approval'}
               className="h-10 w-full flex items-center justify-center gap-2 text-white rounded-xl font-black text-[9px] uppercase tracking-widest shadow-lg hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-40 disabled:hover:scale-100"
               style={{ background: 'linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)' }}
             >
-              Mark as paid
+              {expense.status === 'approved' ? 'Mark as paid' : 'Request approval'}
             </button>
           </div>
         </div>
@@ -338,16 +350,14 @@ const RecordExpensePaymentModal = ({ isOpen, onClose, expense, onSave }) => {
   );
 };
 
-const AddExpenseModal = ({ isOpen, onClose, categories, onCreate }) => {
+const AddExpenseModal = ({ isOpen, onClose, onCreate }) => {
   const [vendor, setVendor] = useState('');
-  const [category, setCategory] = useState('Utilities');
+  const [category, setCategory] = useState('');
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [amount, setAmount] = useState('');
   const [invoiceNo, setInvoiceNo] = useState('');
   const [invoiceFile, setInvoiceFile] = useState(null);
   const [note, setNote] = useState('');
-
-  const safeCategories = useMemo(() => (categories?.length ? categories : ['Utilities', 'Supplies', 'Maintenance', 'Transport', 'Services']), [categories]);
 
   if (!isOpen) return null;
 
@@ -395,22 +405,12 @@ const AddExpenseModal = ({ isOpen, onClose, categories, onCreate }) => {
                 className="w-full h-9 rounded-lg bg-re-bg px-3 outline-none border border-black/5 focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[9px] sm:text-[10px] font-black uppercase tracking-widest shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.55)] placeholder:text-re-text-muted/40"
               />
 
-              <select
+              <input
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
+                placeholder="Expense category (e.g. Utilities)"
                 className="w-full h-9 rounded-lg bg-re-bg px-3 outline-none border border-black/5 focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[9px] sm:text-[10px] font-black uppercase tracking-widest shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.55)] cursor-pointer appearance-none pr-9"
-                style={{
-                  backgroundImage:
-                    "url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236b7280%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')",
-                  backgroundRepeat: 'no-repeat',
-                  backgroundPosition: 'right 0.75rem center',
-                  backgroundSize: '10px',
-                }}
-              >
-                {safeCategories.filter((c) => c !== 'All').map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
+              />
 
               <input
                 type="date"
@@ -719,7 +719,11 @@ export default function Expenses() {
                 />
               </div>
             </div>
-            <button className="h-8 w-8 flex items-center justify-center bg-white border border-black/5 rounded-lg hover:bg-re-bg transition-all shadow-sm disabled:opacity-40 shrink-0 ml-auto">
+            <button
+              type="button"
+              onClick={() => fetchExpenses()}
+              className="h-8 w-8 flex items-center justify-center bg-white border border-black/5 rounded-lg hover:bg-re-bg transition-all shadow-sm disabled:opacity-40 shrink-0 ml-auto"
+            >
               <RefreshCw size={12} className="text-[#1E3A5F]" />
             </button>
           </div>
@@ -760,23 +764,50 @@ export default function Expenses() {
                       {formatMoneyRWF(r.amount).replace('RWF', '')}
                     </td>
                     <td className="px-4 sm:px-6 py-2.5 sm:py-3 border-r border-black/5 text-right">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest border ${r.status === 'paid' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-amber-50 text-amber-800 border-amber-100'}`}>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest border ${
+                        r.status === 'paid'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                          : r.status === 'approved'
+                            ? 'bg-blue-50 text-blue-700 border-blue-100'
+                            : r.status === 'pending_approval'
+                              ? 'bg-indigo-50 text-indigo-700 border-indigo-100'
+                              : r.status === 'rejected'
+                                ? 'bg-red-50 text-red-700 border-red-100'
+                                : 'bg-amber-50 text-amber-800 border-amber-100'
+                      }`}>
                         {r.status}
                       </span>
                     </td>
                     <td className="px-4 sm:px-6 py-2.5 sm:py-3 text-right">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setPayingExpense(r);
-                        }}
-                        className="h-7 px-3 rounded-xl flex items-center justify-center gap-1.5 bg-white border border-black/5 text-re-text font-black text-[9px] uppercase tracking-widest shadow-sm hover:bg-re-bg hover:text-[#1E3A5F] transition-all ml-auto"
-                        title="Record payment"
-                      >
-                        <CreditCard size={12} className="text-amber-500" />
-                        <span>Pay</span>
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const dbId = Number(r?.db_id);
+                            if (!dbId) return;
+                            api.patch(`/accountant/expenses/${dbId}/request-approval`).then(() => fetchExpenses());
+                          }}
+                          disabled={r.status === 'pending_approval' || r.status === 'approved' || r.status === 'paid'}
+                          className="h-7 px-3 rounded-xl flex items-center justify-center gap-1.5 bg-white border border-black/5 text-re-text font-black text-[8px] uppercase tracking-widest shadow-sm hover:bg-re-bg hover:text-[#1E3A5F] transition-all disabled:opacity-40"
+                          title="Request manager approval"
+                        >
+                          <span>Request</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPayingExpense(r);
+                          }}
+                          disabled={!['approved', 'paid'].includes(String(r.status || '').toLowerCase())}
+                          className="h-7 px-3 rounded-xl flex items-center justify-center gap-1.5 bg-white border border-black/5 text-re-text font-black text-[9px] uppercase tracking-widest shadow-sm hover:bg-re-bg hover:text-[#1E3A5F] transition-all disabled:opacity-40"
+                          title="Record payment"
+                        >
+                          <CreditCard size={12} className="text-amber-500" />
+                          <span>Pay</span>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -816,6 +847,12 @@ export default function Expenses() {
           setRows((prev) => prev.map((r) => (r.id === exp.id ? { ...r, status: 'paid' } : r)));
           setDetails((prev) => (prev && prev.id === exp.id ? { ...prev, status: 'paid' } : prev));
         }}
+        onRequestApproval={(exp) => {
+          const dbId = Number(exp?.db_id);
+          api.patch(`/accountant/expenses/${dbId}/request-approval`).then(() => fetchExpenses());
+          setRows((prev) => prev.map((r) => (r.id === exp.id ? { ...r, status: 'pending_approval' } : r)));
+          setDetails((prev) => (prev && prev.id === exp.id ? { ...prev, status: 'pending_approval' } : prev));
+        }}
         onRecordPayment={(exp) => setPayingExpense(exp)}
       />
 
@@ -835,7 +872,7 @@ export default function Expenses() {
                 ...payment,
               });
               const paidTotal = nextPayments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
-              const nextStatus = paidTotal >= (Number(r.amount) || 0) ? 'paid' : 'pending';
+              const nextStatus = paidTotal >= (Number(r.amount) || 0) ? 'paid' : 'approved';
               return { ...r, payments: nextPayments, status: nextStatus };
             });
           });
@@ -846,7 +883,7 @@ export default function Expenses() {
             const nextPayments = [...(Array.isArray(prev.payments) ? prev.payments : [])];
             nextPayments.unshift({ id: `PAY-${Date.now()}`, ...payment });
             const paidTotal = nextPayments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
-            const nextStatus = paidTotal >= (Number(prev.amount) || 0) ? 'paid' : 'pending';
+            const nextStatus = paidTotal >= (Number(prev.amount) || 0) ? 'paid' : 'approved';
             return { ...prev, payments: nextPayments, status: nextStatus };
           });
         }}
@@ -855,7 +892,6 @@ export default function Expenses() {
       <AddExpenseModal
         isOpen={isAddOpen}
         onClose={() => setIsAddOpen(false)}
-        categories={derived.categories}
         onCreate={(payload) => {
           api.post('/accountant/expenses', payload).then(() => fetchExpenses());
           setRows((prev) => {

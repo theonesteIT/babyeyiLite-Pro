@@ -13,12 +13,22 @@ const TERM_DAYS = {
     'Annual Review': 365,
 };
 
+function getTermRange(selectedYear, selectedTerm) {
+    const [a, b] = String(selectedYear || '').split('-').map((v) => Number(v));
+    if (!a || !b) return { from: '', to: '' };
+    if (selectedTerm.includes('Term 1')) return { from: `${a}-09-01`, to: `${a}-12-31` };
+    if (selectedTerm === 'Term 2') return { from: `${b}-01-01`, to: `${b}-04-30` };
+    if (selectedTerm === 'Term 3') return { from: `${b}-05-01`, to: `${b}-08-31` };
+    return { from: `${a}-09-01`, to: `${b}-08-31` };
+}
+
 /** Presence attributed to the teacher on the timetable row for each roll-call mark. */
 const StaffAttendanceReports = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [activeDropdown, setActiveDropdown] = useState(null);
     const [selectedTerm, setSelectedTerm] = useState('Term 1 (Current)');
     const [selectedYear, setSelectedYear] = useState('2024-2025');
+    const [specificDate, setSpecificDate] = useState('');
 
     const [stats, setStats] = useState({
         globalPresence: '—',
@@ -34,14 +44,15 @@ const StaffAttendanceReports = () => {
     const terms = ['Term 1 (Current)', 'Term 2', 'Term 3', 'Annual Review'];
     const years = ['2024-2025', '2023-2024', '2022-2023'];
 
-    const days = TERM_DAYS[selectedTerm] || 90;
-
     const load = async () => {
         setLoading(true);
         setError(null);
         try {
+            const termRange = getTermRange(selectedYear, selectedTerm);
+            const from = specificDate || termRange.from;
+            const to = specificDate || termRange.to;
             const res = await api.get('/dos/reports/attendance/by-teacher', {
-                params: { days },
+                params: { from, to, days: TERM_DAYS[selectedTerm] || 90 },
             });
             if (!res.data.success) {
                 setError(res.data.message || 'Failed to load');
@@ -69,7 +80,7 @@ const StaffAttendanceReports = () => {
 
     useEffect(() => {
         load();
-    }, [days]);
+    }, [selectedTerm, selectedYear, specificDate]);
 
     const filteredAnalytics = useMemo(
         () =>
@@ -227,6 +238,12 @@ const StaffAttendanceReports = () => {
                                     </button>
                                 ))}
                             </div>
+                            <input
+                                type="date"
+                                value={specificDate}
+                                onChange={(e) => setSpecificDate(e.target.value)}
+                                className="h-10 sm:h-11 px-3 bg-white border border-black/5 rounded-xl text-re-text font-black text-[9px] uppercase tracking-widest outline-none hover:bg-re-bg transition-colors"
+                            />
                         </div>
                     </div>
 

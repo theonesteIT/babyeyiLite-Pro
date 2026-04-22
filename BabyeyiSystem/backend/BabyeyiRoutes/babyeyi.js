@@ -215,6 +215,309 @@ async function seedRequirementPricesFromDefaults(babyeyiId, schoolId, academicYe
   }
 }
 
+let babyeyiPaymentsPayChannelReady = false;
+async function ensureBabyeyiPaymentsPayChannelColumn() {
+  if (babyeyiPaymentsPayChannelReady) return;
+  try {
+    await query(
+      "ALTER TABLE babyeyi_payments ADD COLUMN pay_channel VARCHAR(16) NOT NULL DEFAULT 'babyeyi'"
+    );
+  } catch (e) {
+    if (e.code !== "ER_DUP_FIELDNAME") {
+      console.warn("[babyeyi] ensureBabyeyiPaymentsPayChannelColumn:", e.message);
+    }
+  }
+  babyeyiPaymentsPayChannelReady = true;
+}
+
+let accountantFeeArchiveTableReady = false;
+async function ensureAccountantFeeArchiveTable() {
+  if (accountantFeeArchiveTableReady) return;
+  await query(`
+    CREATE TABLE IF NOT EXISTS accountant_babyeyi_fee_archive (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      school_id INT UNSIGNED NOT NULL,
+      babyeyi_id INT UNSIGNED NOT NULL,
+      academic_year VARCHAR(64) NOT NULL DEFAULT '',
+      term VARCHAR(64) NOT NULL DEFAULT '',
+      class_name VARCHAR(255) NULL,
+      classes_json LONGTEXT NULL,
+      snapshot_json LONGTEXT NOT NULL,
+      babyeyi_is_active TINYINT(1) NOT NULL DEFAULT 1,
+      source_updated_at DATETIME NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_archive_babyeyi (babyeyi_id),
+      KEY idx_archive_school_term (school_id, academic_year, term)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `).catch((e) => console.warn("[babyeyi] ensureAccountantFeeArchiveTable:", e.message));
+  accountantFeeArchiveTableReady = true;
+}
+
+let accountantFeeTotalsTableReady = false;
+async function ensureAccountantFeeTotalsTable() {
+  if (accountantFeeTotalsTableReady) return;
+  await query(`
+    CREATE TABLE IF NOT EXISTS accountant_babyeyi_fees (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      school_id INT UNSIGNED NOT NULL,
+      babyeyi_id INT UNSIGNED NOT NULL,
+      academic_year VARCHAR(64) NOT NULL DEFAULT '',
+      term VARCHAR(64) NOT NULL DEFAULT '',
+      class_name VARCHAR(255) NULL,
+      classes_json LONGTEXT NULL,
+      tuition_total DECIMAL(14,2) NOT NULL DEFAULT 0,
+      paid_at_school_total DECIMAL(14,2) NOT NULL DEFAULT 0,
+      total_due DECIMAL(14,2) NOT NULL DEFAULT 0,
+      babyeyi_is_active TINYINT(1) NOT NULL DEFAULT 1,
+      babyeyi_status VARCHAR(32) NULL,
+      source_updated_at DATETIME NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_totals_babyeyi (babyeyi_id),
+      KEY idx_totals_school_term (school_id, academic_year, term)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `).catch((e) => console.warn("[babyeyi] ensureAccountantFeeTotalsTable:", e.message));
+  await query(`
+    INSERT INTO accountant_babyeyi_fees
+      (school_id, babyeyi_id, academic_year, term, class_name, classes_json,
+       tuition_total, paid_at_school_total, total_due, babyeyi_is_active, babyeyi_status,
+       source_updated_at, created_at, updated_at)
+    SELECT school_id, babyeyi_id, academic_year, term, class_name, classes_json,
+           tuition_total, paid_at_school_total, total_due, babyeyi_is_active, babyeyi_status,
+           source_updated_at, created_at, updated_at
+    FROM accountant_babyeyi_fee_totals
+    ON DUPLICATE KEY UPDATE
+      school_id = VALUES(school_id),
+      academic_year = VALUES(academic_year),
+      term = VALUES(term),
+      class_name = VALUES(class_name),
+      classes_json = VALUES(classes_json),
+      tuition_total = VALUES(tuition_total),
+      paid_at_school_total = VALUES(paid_at_school_total),
+      total_due = VALUES(total_due),
+      babyeyi_is_active = VALUES(babyeyi_is_active),
+      babyeyi_status = VALUES(babyeyi_status),
+      source_updated_at = VALUES(source_updated_at),
+      updated_at = VALUES(updated_at)
+  `).catch(() => {});
+  accountantFeeTotalsTableReady = true;
+}
+
+function paymentPayChannelFromPayload(p) {
+  return String(p?.pay_channel || p?.payChannel || "").toLowerCase() === "school" ? "school" : "babyeyi";
+}
+
+/** Snapshot tuition/requirement lines for accountants (survives manager soft-delete). */
+async function syncAccountantFeeArchive(babyeyiId) {
+  const bid = Number(babyeyiId);
+  if (!bid) return;
+  try {
+    await ensureAccountantFeeArchiveTable();
+    await ensureBabyeyiPaymentsPayChannelColumn();
+    const rows = await query("SELECT * FROM school_babyeyi WHERE id=?", [bid]).catch(() => []);
+    if (!rows?.length) return;
+    const b = rows[0];
+    let pays;
+    try {
+      pays = await query(
+        `SELECT id, name, amount, sort_order, COALESCE(pay_channel,'babyeyi') AS pay_channel
+         FROM babyeyi_payments WHERE babyeyi_id=? ORDER BY sort_order, id`,
+        [bid]
+      );
+    } catch (_) {
+      pays = await query(
+        `SELECT id, name, amount, sort_order, 'babyeyi' AS pay_channel
+         FROM babyeyi_payments WHERE babyeyi_id=? ORDER BY sort_order, id`,
+        [bid]
+      );
+    }
+    let reqs;
+    try {
+      reqs = await query(
+        `SELECT id, item, description, quantity, sort_order, COALESCE(pay_channel,'babyeyi') AS pay_channel, cost
+         FROM babyeyi_student_requirements WHERE babyeyi_id=? ORDER BY sort_order, id`,
+        [bid]
+      );
+    } catch (_) {
+      reqs = await query(
+        `SELECT id, item, description, quantity, sort_order FROM babyeyi_student_requirements WHERE babyeyi_id=? ORDER BY sort_order, id`,
+        [bid]
+      );
+    }
+    const snapshot = {
+      payments: (pays || []).map((x) => ({
+        id: x.id,
+        name: x.name,
+        amount: Number(x.amount || 0),
+        pay_channel:
+          String(x.pay_channel || "babyeyi").toLowerCase() === "school" ? "school" : "babyeyi",
+        sort_order: x.sort_order,
+      })),
+      requirements: (reqs || []).map((x) => ({
+        id: x.id,
+        item: x.item,
+        description: x.description || null,
+        quantity: x.quantity || null,
+        pay_channel: x.pay_channel
+          ? String(x.pay_channel).toLowerCase() === "school"
+            ? "school"
+            : "babyeyi"
+          : "babyeyi",
+        cost: x.cost != null ? Number(x.cost) : null,
+        sort_order: x.sort_order,
+      })),
+    };
+    try {
+      if (b.is_active && String(b.status || "").toLowerCase() === "approved") {
+        const { loadApprovedBabyeyiPricing } = require("./babyeyiPublicPricingCore");
+        const pr = await loadApprovedBabyeyiPricing(bid, b.school_id);
+        if (pr.ok && Array.isArray(pr.data.requirements) && pr.data.requirements.length) {
+          const m = new Map(pr.data.requirements.map((r) => [Number(r.babyeyi_requirement_id), r.line_total_rwf]));
+          snapshot.requirements = snapshot.requirements.map((x) => ({
+            ...x,
+            line_total_rwf: m.get(Number(x.id)) ?? x.line_total_rwf,
+          }));
+        }
+      }
+    } catch (en) {
+      /* ignore enrichment failures */
+    }
+    const classesJsonVal =
+      typeof b.classes_json === "string" ? b.classes_json : JSON.stringify(b.classes_json || []);
+    await query(
+      `INSERT INTO accountant_babyeyi_fee_archive
+         (school_id, babyeyi_id, academic_year, term, class_name, classes_json, snapshot_json, babyeyi_is_active, source_updated_at)
+       VALUES (?,?,?,?,?,?,?,?,NOW())
+       ON DUPLICATE KEY UPDATE
+         school_id=VALUES(school_id),
+         academic_year=VALUES(academic_year),
+         term=VALUES(term),
+         class_name=VALUES(class_name),
+         classes_json=VALUES(classes_json),
+         snapshot_json=VALUES(snapshot_json),
+         babyeyi_is_active=VALUES(babyeyi_is_active),
+         source_updated_at=VALUES(source_updated_at),
+         updated_at=CURRENT_TIMESTAMP`,
+      [
+        b.school_id,
+        bid,
+        String(b.academic_year || ""),
+        String(b.term || ""),
+        b.class_name || null,
+        classesJsonVal,
+        JSON.stringify(snapshot),
+        b.is_active ? 1 : 0,
+      ]
+    );
+  } catch (e) {
+    console.warn("[babyeyi] syncAccountantFeeArchive:", e.message);
+  }
+}
+
+function moneyRound2(v) {
+  return Math.round((Number(v || 0) + Number.EPSILON) * 100) / 100;
+}
+
+/** Keep accountant totals table in sync with Babyeyi create/update/delete. */
+async function syncAccountantFeeTotals(babyeyiId) {
+  const bid = Number(babyeyiId);
+  if (!bid) return;
+  try {
+    await ensureAccountantFeeTotalsTable();
+    await ensureBabyeyiPaymentsPayChannelColumn();
+
+    const rows = await query("SELECT * FROM school_babyeyi WHERE id=?", [bid]).catch(() => []);
+    if (!rows?.length) return;
+    const b = rows[0];
+
+    let pays;
+    try {
+      pays = await query(
+        `SELECT amount, COALESCE(pay_channel,'babyeyi') AS pay_channel
+         FROM babyeyi_payments WHERE babyeyi_id=?`,
+        [bid]
+      );
+    } catch (_) {
+      pays = await query(`SELECT amount, 'babyeyi' AS pay_channel FROM babyeyi_payments WHERE babyeyi_id=?`, [bid]);
+    }
+
+    let reqs;
+    try {
+      reqs = await query(
+        `SELECT COALESCE(pay_channel,'babyeyi') AS pay_channel, cost
+         FROM babyeyi_student_requirements
+         WHERE babyeyi_id=?`,
+        [bid]
+      );
+    } catch (_) {
+      reqs = [];
+    }
+
+    let tuitionTotal = 0;
+    let paidAtSchoolTotal = 0;
+    for (const p of pays || []) {
+      const amt = Number(p?.amount || 0);
+      if (amt <= 0) continue;
+      const ch = String(p?.pay_channel || "babyeyi").toLowerCase() === "school" ? "school" : "babyeyi";
+      if (ch === "school") paidAtSchoolTotal += amt;
+      else tuitionTotal += amt;
+    }
+    for (const r of reqs || []) {
+      const ch = String(r?.pay_channel || "babyeyi").toLowerCase() === "school" ? "school" : "babyeyi";
+      if (ch !== "school") continue;
+      const line = Number(r?.cost || 0);
+      if (line > 0) paidAtSchoolTotal += line;
+    }
+
+    tuitionTotal = moneyRound2(tuitionTotal);
+    paidAtSchoolTotal = moneyRound2(paidAtSchoolTotal);
+    const totalDue = moneyRound2(tuitionTotal + paidAtSchoolTotal);
+    const classesJsonVal =
+      typeof b.classes_json === "string" ? b.classes_json : JSON.stringify(b.classes_json || []);
+
+    await query(
+      `INSERT INTO accountant_babyeyi_fees
+         (school_id, babyeyi_id, academic_year, term, class_name, classes_json,
+          tuition_total, paid_at_school_total, total_due, babyeyi_is_active, babyeyi_status, source_updated_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,NOW())
+       ON DUPLICATE KEY UPDATE
+         school_id=VALUES(school_id),
+         academic_year=VALUES(academic_year),
+         term=VALUES(term),
+         class_name=VALUES(class_name),
+         classes_json=VALUES(classes_json),
+         tuition_total=VALUES(tuition_total),
+         paid_at_school_total=VALUES(paid_at_school_total),
+         total_due=VALUES(total_due),
+         babyeyi_is_active=VALUES(babyeyi_is_active),
+         babyeyi_status=VALUES(babyeyi_status),
+         source_updated_at=VALUES(source_updated_at),
+         updated_at=CURRENT_TIMESTAMP`,
+      [
+        b.school_id,
+        bid,
+        String(b.academic_year || ""),
+        String(b.term || ""),
+        b.class_name || null,
+        classesJsonVal,
+        tuitionTotal,
+        paidAtSchoolTotal,
+        totalDue,
+        b.is_active ? 1 : 0,
+        String(b.status || ""),
+      ]
+    );
+  } catch (e) {
+    console.warn("[babyeyi] syncAccountantFeeTotals:", e.message);
+  }
+}
+
+async function syncAccountantFeeData(babyeyiId) {
+  await syncAccountantFeeArchive(babyeyiId);
+  await syncAccountantFeeTotals(babyeyiId);
+}
+
 const getIp = req =>
   req.headers["x-forwarded-for"]?.split(",")[0].trim() ||
   req.socket?.remoteAddress || "unknown";
@@ -1900,7 +2203,11 @@ router.get("/:id", async (req, res) => {
     const data = {
       ...babyeyi,
       parent_message: mergedDoc.parentMessage,
-      payments: mergedDoc.payments,
+      payments: mergedDoc.payments.map((p, i) => ({
+        ...p,
+        id: payments[i]?.id,
+        pay_channel: paymentPayChannelFromPayload(payments[i] || p),
+      })),
       student_requirements: studentReqs.map((r, i) => ({
         ...r,
         item: mergedDoc.requirements[i]?.item ?? r.item,
@@ -2067,11 +2374,24 @@ router.post("/", (req, res) => {
       ).catch(e => console.warn("[POST] babyeyi_doc_ids:", e.message));
 
       const allNamedPayments = payments.filter(p => p.name && String(p.name).trim());
+      await ensureBabyeyiPaymentsPayChannelColumn();
       for (let i = 0; i < allNamedPayments.length; i++) {
-        await query(
-          "INSERT INTO babyeyi_payments (babyeyi_id, name, amount, sort_order) VALUES (?,?,?,?)",
-          [bid, allNamedPayments[i].name, Number(allNamedPayments[i].amount) || 0, i]
-        );
+        const pch = paymentPayChannelFromPayload(allNamedPayments[i]);
+        try {
+          await query(
+            "INSERT INTO babyeyi_payments (babyeyi_id, name, amount, sort_order, pay_channel) VALUES (?,?,?,?,?)",
+            [bid, allNamedPayments[i].name, Number(allNamedPayments[i].amount) || 0, i, pch]
+          );
+        } catch (e) {
+          if (e.code === "ER_BAD_FIELD_ERROR") {
+            await query(
+              "INSERT INTO babyeyi_payments (babyeyi_id, name, amount, sort_order) VALUES (?,?,?,?)",
+              [bid, allNamedPayments[i].name, Number(allNamedPayments[i].amount) || 0, i]
+            );
+          } else {
+            throw e;
+          }
+        }
       }
 
       const studentReqs = parseJSONField(body.requirements);
@@ -2223,6 +2543,8 @@ router.post("/", (req, res) => {
           console.warn("[babyeyi] notifyParentsBabyeyiReady(create):", e.message);
         });
       }
+
+      await syncAccountantFeeData(bid);
 
       res.status(201).json({
         success: true,
@@ -2492,9 +2814,24 @@ router.put("/:id", (req, res) => {
       if (payments.length) {
         await query("DELETE FROM babyeyi_payments WHERE babyeyi_id=?", [id]);
         const allNamedPay = payments.filter(p => p.name && String(p.name).trim());
+        await ensureBabyeyiPaymentsPayChannelColumn();
         for (let i = 0; i < allNamedPay.length; i++) {
-          await query("INSERT INTO babyeyi_payments (babyeyi_id, name, amount, sort_order) VALUES (?,?,?,?)",
-                      [id, allNamedPay[i].name, Number(allNamedPay[i].amount) || 0, i]);
+          const pch = paymentPayChannelFromPayload(allNamedPay[i]);
+          try {
+            await query(
+              "INSERT INTO babyeyi_payments (babyeyi_id, name, amount, sort_order, pay_channel) VALUES (?,?,?,?,?)",
+              [id, allNamedPay[i].name, Number(allNamedPay[i].amount) || 0, i, pch]
+            );
+          } catch (e) {
+            if (e.code === "ER_BAD_FIELD_ERROR") {
+              await query(
+                "INSERT INTO babyeyi_payments (babyeyi_id, name, amount, sort_order) VALUES (?,?,?,?)",
+                [id, allNamedPay[i].name, Number(allNamedPay[i].amount) || 0, i]
+              );
+            } else {
+              throw e;
+            }
+          }
         }
       }
 
@@ -2690,6 +3027,8 @@ router.put("/:id", (req, res) => {
         console.warn("[babyeyi] translations_json (update):", tErr.message);
       }
 
+      await syncAccountantFeeData(id);
+
       res.json({
         success: true,
         message: "Babyeyi updated",
@@ -2713,6 +3052,7 @@ router.delete("/:id", async (req, res) => {
     if (!rows.length) return res.status(404).json({ success: false, message: "Not found" });
     await query("UPDATE school_babyeyi SET is_active=0 WHERE id=?", [req.params.id]);
     await audit(req.params.id, "deleted", normalise(rows[0]), null, req);
+    await syncAccountantFeeData(req.params.id);
     res.json({ success: true, message: "Babyeyi deleted" });
   } catch (err) {
     res.status(500).json({ success: false, message: "Failed to delete" });

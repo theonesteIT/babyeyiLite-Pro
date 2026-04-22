@@ -3,7 +3,7 @@ import { LayoutDashboard, Package, ArrowDownUp, ClipboardList, Building2 } from 
 
 const BottomNav = () => {
   const navItems = [
-    { icon: LayoutDashboard, name: 'Home',        path: '/',             exact: true },
+    { icon: LayoutDashboard, name: 'Home',        path: '/storekeeper',  exact: true },
     { icon: Package,         name: 'Inventory',   path: '/inventory'                },
     { icon: ArrowDownUp,     name: 'Movements',   path: '/movements'                },
     { icon: ClipboardList,   name: 'Requests',    path: '/requisitions'             },

@@ -68,7 +68,7 @@ const Sidebar = ({ onClose }) => {
       </div>
 
       <nav className="flex-1 px-2 py-1 overflow-y-auto space-y-0.5" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-        <NavItem icon={LayoutDashboard} name="Dashboard"       path="/"             exact onClose={onClose} />
+        <NavItem icon={LayoutDashboard} name="Dashboard"       path="/storekeeper"   exact onClose={onClose} />
 
         <SectionLabel label="Store" />
         <NavItem icon={Package}        name="Inventory"        path="/inventory"         onClose={onClose} />

@@ -26,6 +26,11 @@ const STATUS_LABEL = {
   rejected_by_accountant: { label: 'Rejected (finance)', cls: 'bg-red-50 text-red-700 border-red-200' },
 };
 
+function isTeacherDealRequest(row) {
+  return String(row?.request_type || '').toLowerCase() === 'service'
+    && String(row?.service_category || '').toLowerCase() === 'teacher_deals';
+}
+
 function Modal({ open, title, subtitle, children, onClose }) {
   if (!open) return null;
   return createPortal(
@@ -143,8 +148,8 @@ export default function ShuleAvance() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-re-orange">School Manager Portal</p>
-          <h1 className="text-2xl md:text-3xl font-black text-re-text tracking-tight">
-            Shule<span className="text-re-orange">Avance</span> — decisions & history
+          <h1 className="text-2xl md:text-3xl font-black  text-re-text tracking-tight">
+            Shule<span className="text-re-orange">Avance</span> — Decisions & History
           </h1>
           <p className="text-xs font-bold text-slate-500 mt-1 max-w-xl">
             Review forwarded requests, approve or reject with optional comments. All records stay here for filtering.
@@ -265,6 +270,7 @@ export default function ShuleAvance() {
                   <tr>
                     <th className="px-4 py-3">ID</th>
                     <th className="px-4 py-3">Staff</th>
+                    <th className="px-4 py-3">Teacher Deals</th>
                     <th className="px-4 py-3">Amount</th>
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3 text-right">Actions</th>
@@ -279,6 +285,15 @@ export default function ShuleAvance() {
                         <p className="text-[10px] text-slate-500">{r.submitter_role_code}</p>
                       </td>
                       <td className="px-4 py-3 font-black">{fmtMoney(r.amount_rwf)}</td>
+                      <td className="px-4 py-3">
+                        {isTeacherDealRequest(r) ? (
+                          <span className="inline-flex rounded-full border px-2 py-0.5 text-[9px] font-black uppercase bg-fuchsia-50 text-fuchsia-800 border-fuchsia-200">
+                            Teacher Deals
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold text-slate-300">—</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3">
                         <span
                           className={`inline-flex rounded-full border px-2 py-0.5 text-[9px] font-black uppercase ${
@@ -341,6 +356,11 @@ export default function ShuleAvance() {
                     {r.staff_name || `User #${r.teacher_user_id}`} · #{r.id}
                   </p>
                   <p className="text-xs text-slate-600 line-clamp-2">{r.purpose}</p>
+                  {isTeacherDealRequest(r) ? (
+                    <p className="inline-flex rounded-full border px-2 py-0.5 text-[9px] font-black uppercase bg-fuchsia-50 text-fuchsia-800 border-fuchsia-200">
+                      Teacher Deals
+                    </p>
+                  ) : null}
                   {r.accountant_note ? (
                     <p className="text-[10px] text-sky-800 bg-sky-50 rounded-lg p-2">
                       <span className="font-black">Finance:</span> {r.accountant_note}

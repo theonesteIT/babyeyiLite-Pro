@@ -27,8 +27,6 @@ const SHOES_VOUCHER_WIZARD_RESUME_KEY = "babyeyi_shoes_voucher_wizard_resume_v1"
 
 const FontLoader = () => (
   <style>{`
-    @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Varela+Round&display=swap');
-    *{font-family:"MTN Brighter Sans","Nunito","Varela Round",sans-serif!important}
     @keyframes stepIn{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:translateX(0)}}
     @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
     @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}

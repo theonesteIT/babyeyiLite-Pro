@@ -83,7 +83,6 @@ const SubTitle = ({ children }) => (
 );
 
 const globalStyles = `
-  @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap');
   @keyframes spin { to { transform: rotate(360deg); } }
   @keyframes anim { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
   .anim { animation: anim 280ms ease-out both; }

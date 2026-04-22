@@ -12,6 +12,7 @@ import PayrollHistory from './frontend/src/pages/PayrollHistory'
 import PayrollConfig from './frontend/src/pages/PayrollConfig'
 import ShuleAvance from './frontend/src/pages/ShuleAvance'
 import FeaturePlaceholders from './frontend/src/pages/FeaturePlaceholders'
+import BabyeyiFees from './frontend/src/pages/BabyeyiFees'
 
 function LoadingScreen() {
   return (
@@ -38,6 +39,10 @@ function AccountantRoutesInner() {
       <Route path="shule-avance" element={<ProtectedRoute title="Shule Avance"><ShuleAvance /></ProtectedRoute>} />
 
       <Route path="fees" element={<ProtectedRoute title="Student Fees"><Fees /></ProtectedRoute>} />
+      <Route
+        path="fees/babyeyi-fees"
+        element={<ProtectedRoute title="Babyeyi fee cards"><BabyeyiFees /></ProtectedRoute>}
+      />
       <Route path="invoices" element={<ProtectedRoute title="Invoices"><Invoices /></ProtectedRoute>} />
       <Route path="invoices/settings" element={<ProtectedRoute title="Configure Invoices"><InvoiceSettings /></ProtectedRoute>} />
       <Route path="expenses" element={<ProtectedRoute title="School Expenses"><Expenses /></ProtectedRoute>} />

@@ -1,6 +1,6 @@
 /**
  * PublicPayBySchool.jsx — Modern Modal Step Wizard
- * #000435 navy + amber · MTN/Nunito font · Tailwind only
+ * #000435 navy + amber · Montserrat font · Tailwind only
  * Beautiful step-by-step modal with smooth transitions
  */
 
@@ -16,12 +16,10 @@ import {
 const SERVER = import.meta.env.VITE_API_URL || "http://localhost:5100";
 const API = `${SERVER}/api`;
 
-const FONT = `"MTN Brighter Sans","Nunito","Varela Round",sans-serif`;
+const FONT = `"Montserrat",sans-serif`;
 
 const FontLoader = () => (
   <style>{`
-    @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Varela+Round&display=swap');
-    *{font-family:"MTN Brighter Sans","Nunito","Varela Round",sans-serif!important}
     @keyframes stepIn{from{opacity:0;transform:translateX(18px)}to{opacity:1;transform:translateX(0)}}
     @keyframes stepOut{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(-18px)}}
     @keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
@@ -36,6 +34,7 @@ const FontLoader = () => (
 /* ── helpers ─────────────────────────────────────────────────── */
 function normFeeId(id) {
   if (id != null && String(id).startsWith("pasreq:")) return String(id);
+  if (id != null && String(id).startsWith("paspay:")) return String(id);
   const n = Number(id);
   return Number.isFinite(n) ? n : id;
 }
@@ -334,7 +333,7 @@ export default function PublicPayBySchool() {
     const out = {};
     if (!pricingData?.school_fees) return out;
     for (const f of pricingData.school_fees) {
-      if (f.pay_source !== "requirement_paid_at_school") continue;
+      if (f.pay_source !== "requirement_paid_at_school" && f.pay_source !== "payment_paid_at_school") continue;
       const fid = normFeeId(f.id);
       if (!feeSel.has(fid)) continue;
       const key = String(fid);
@@ -358,7 +357,10 @@ export default function PublicPayBySchool() {
     return pricingData.school_fees.filter(f => feeSel.has(normFeeId(f.id))).reduce((s, f) => {
       const owed = Math.round(Number(f.amount || 0) * 100) / 100;
       const key = String(normFeeId(f.id));
-      const cred = f.pay_source === "requirement_paid_at_school" ? (schoolCounterCreditsRwf[key] || 0) : 0;
+      const cred =
+        f.pay_source === "requirement_paid_at_school" || f.pay_source === "payment_paid_at_school"
+          ? (schoolCounterCreditsRwf[key] || 0)
+          : 0;
       return s + Math.max(0, owed - cred);
     }, 0);
   }, [pricingData, feeSel, schoolCounterCreditsRwf]);
@@ -454,7 +456,6 @@ export default function PublicPayBySchool() {
   const remainingFullDocumentAfterCurrentPayment = remainingFullDocument != null
     ? Math.max(0, Math.round((remainingFullDocument - enteredAmount) * 100) / 100)
     : null;
-  const overpays = remainingOwed != null && enteredAmount > remainingOwed + 1.5;
 
   const classMismatch = useMemo(() => {
     if (!student?.class_name || !pricingData?.babyeyi?.class_name) return false;
@@ -489,7 +490,6 @@ export default function PublicPayBySchool() {
     if (classMismatch) { setPayErr("Student's class does not match the selected Babyeyi. Go back and pick another term or year."); return; }
     if (!student) { setPayErr("Student could not be confirmed. Go back to step 1."); return; }
     if (balanceLoading) { setPayErr("Please wait — confirming balance."); return; }
-    if (overpays) { setPayErr("Amount exceeds remaining balance for this student."); return; }
     const selectedStudent = { student_id: student.id, student_uid: student.student_uid || null, student_code: student.student_code || null, sdm_code: student.sdm_code || null, student_name: `${student.first_name || ""} ${student.last_name || ""}`.trim(), first_name: student.first_name || null, last_name: student.last_name || null, class_name: student.class_name || null, academic_year: student.academic_year || null, school_name: school.school_name || null };
     const fullDraft = {
       schoolId: school.id,
@@ -578,8 +578,7 @@ export default function PublicPayBySchool() {
       amountValid &&
       !!student &&
       !classMismatch &&
-      !balanceLoading &&
-      !overpays;
+      !balanceLoading;
     if (!ready) return;
     autoCheckoutTriggered.current = true;
     const t = setTimeout(() => continueToPayment(), 180);
@@ -593,7 +592,6 @@ export default function PublicPayBySchool() {
     student,
     classMismatch,
     balanceLoading,
-    overpays,
   ]);
 
   // ── RENDER ────────────────────────────────────────────────────
@@ -814,7 +812,9 @@ export default function PublicPayBySchool() {
                           {pricingData.school_fees.map(f => {
                             const fid = normFeeId(f.id);
                             const selected = feeSel.has(fid);
-                            const isPas = f.pay_source === "requirement_paid_at_school";
+                            const isPas =
+                              f.pay_source === "requirement_paid_at_school" ||
+                              f.pay_source === "payment_paid_at_school";
                             const owedLine = Math.round(Number(f.amount || 0) * 100) / 100;
                             return (
                               <div
@@ -1094,12 +1094,6 @@ export default function PublicPayBySchool() {
                             <span className="text-white font-black font-mono">{remainingFullDocumentAfterCurrentPayment.toLocaleString()} RWF</span>
                           </div>
                         )}
-                        {overpays && (
-                          <div className="flex items-start gap-2 p-3 rounded-xl border border-red-400/30 bg-red-400/8 text-[12px] text-red-400 font-semibold">
-                            <AlertCircle size={12} className="mt-0.5 shrink-0"/>
-                            Amount exceeds remaining balance. Go back and lower the amount.
-                          </div>
-                        )}
                       </div>
                     )}
                   </div>
@@ -1111,9 +1105,9 @@ export default function PublicPayBySchool() {
                   </div>
                 )}
 
-                <button type="button" onClick={continueToPayment} disabled={overpays || balanceLoading || classMismatch}
+                <button type="button" onClick={continueToPayment} disabled={balanceLoading || classMismatch}
                   className={`w-full flex items-center justify-center gap-2.5 py-4 rounded-xl font-black text-[15px] transition-all min-h-[56px] ${
-                    overpays || balanceLoading || classMismatch
+                    balanceLoading || classMismatch
                       ? "bg-white/8 text-white/25 cursor-not-allowed"
                       : "bg-amber-400 text-[#000435] hover:bg-amber-300 shadow-2xl shadow-amber-400/25 active:scale-[.98]"
                   }`}>

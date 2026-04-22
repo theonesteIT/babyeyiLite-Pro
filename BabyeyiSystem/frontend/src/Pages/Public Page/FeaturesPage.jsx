@@ -28,10 +28,6 @@ import {
   MapPin,
 } from "lucide-react";
 
-const FontLoader = () => (
-  <style>{`@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800;900&display=swap');*{font-family:'Barlow','Trebuchet MS',sans-serif!important}`}</style>
-);
-
 function Navbar() {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -251,7 +247,6 @@ export default function FeaturesPage() {
 
   return (
     <div>
-      <FontLoader />
       <Navbar />
       <FeaturesHero />
       <FeaturesGridSection />

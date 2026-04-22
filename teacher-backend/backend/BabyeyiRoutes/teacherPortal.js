@@ -822,6 +822,32 @@ router.post('/marks', requireTeacherRole, async (req, res) => {
 // ═══════════════════════════════════════════════════════════════
 
 let teacherReqTableReady = false;
+let teacherInventoryTableReady = false;
+async function ensureTeacherInventoryTable() {
+    if (teacherInventoryTableReady) return;
+    await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS school_store_items (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      school_id INT UNSIGNED NOT NULL,
+      name VARCHAR(255) NOT NULL,
+      category VARCHAR(120) NOT NULL DEFAULT 'Other',
+      term VARCHAR(32) NULL,
+      academic_year VARCHAR(64) NULL,
+      unit VARCHAR(32) NOT NULL DEFAULT 'pcs',
+      quantity DECIMAL(14,3) NOT NULL DEFAULT 0,
+      reorder_level DECIMAL(14,3) NOT NULL DEFAULT 0,
+      unit_cost DECIMAL(14,2) NOT NULL DEFAULT 0,
+      location VARCHAR(255) NULL,
+      note TEXT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      KEY idx_ssi_school (school_id),
+      KEY idx_ssi_name (school_id, name)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+    teacherInventoryTableReady = true;
+}
+
 async function ensureTeacherRequisitionsTable() {
     if (teacherReqTableReady) return;
     await promisePool.query(`
@@ -852,6 +878,14 @@ async function ensureTeacherRequisitionsTable() {
       MODIFY COLUMN status ENUM('pending','approved','rejected','issued') NOT NULL DEFAULT 'pending'
     `);
     } catch (_) { /* already migrated */ }
+    await promisePool.query('ALTER TABLE school_requisitions ADD COLUMN item_id INT UNSIGNED NULL').catch(() => {});
+    await promisePool.query('ALTER TABLE school_requisitions ADD COLUMN quantity_requested DECIMAL(14,3) NULL').catch(() => {});
+    await promisePool.query('ALTER TABLE school_requisitions ADD COLUMN purpose TEXT NULL').catch(() => {});
+    await promisePool.query("ALTER TABLE school_requisitions ADD COLUMN priority_level ENUM('low','medium','high') NULL").catch(() => {});
+    await promisePool.query('ALTER TABLE school_requisitions ADD COLUMN expected_return_date DATE NULL').catch(() => {});
+    await promisePool.query('ALTER TABLE school_requisitions ADD COLUMN status_note TEXT NULL').catch(() => {});
+    await promisePool.query('ALTER TABLE school_requisitions ADD COLUMN issued_at DATETIME NULL').catch(() => {});
+    await promisePool.query('ALTER TABLE school_requisitions ADD COLUMN returned_at DATETIME NULL').catch(() => {});
     teacherReqTableReady = true;
 }
 
@@ -859,6 +893,71 @@ function trimReqStr(v) {
     if (v === undefined || v === null) return '';
     return String(v).trim();
 }
+
+function reqRowToDto(r) {
+    const quantityRequested = Number(r.quantity_requested || 0);
+    return {
+        id: r.req_code || `REQ-${String(r.id).padStart(4, '0')}`,
+        db_id: r.id,
+        item_id: r.item_id ? Number(r.item_id) : null,
+        item_name: r.item_name || '',
+        qty: quantityRequested > 0 ? quantityRequested : Number(r.amount || 0),
+        dept: r.dept || 'General',
+        requester: r.requester || '',
+        items: r.items || '',
+        amount: Number(r.amount || 0),
+        purpose: r.purpose || '',
+        priority_level: r.priority_level || 'medium',
+        expected_return_date: r.expected_return_date || null,
+        submitted: r.submitted_date || null,
+        approved_at: r.approved_at || null,
+        issued_at: r.issued_at || null,
+        returned_at: r.returned_at || null,
+        status_note: r.status_note || '',
+        status: r.status || 'pending',
+        attachmentName: r.attachment_name || '',
+        note: r.note || '',
+        description: r.note || '',
+    };
+}
+
+router.get('/inventory-equipment', requireTeacherRole, async (req, res) => {
+    try {
+        const schoolId = resolveSchoolId(req);
+        if (!schoolId) return res.status(400).json({ success: false, message: 'School not found in session.' });
+        await ensureTeacherInventoryTable();
+        const q = trimReqStr(req.query?.q).toLowerCase();
+        const [rows] = await promisePool.query(
+            `SELECT id, name, category, unit, quantity, reorder_level
+       FROM school_store_items
+       WHERE school_id = ?
+       ORDER BY name ASC
+       LIMIT 500`,
+            [schoolId]
+        );
+        const data = (rows || [])
+            .map((r) => {
+                const quantity = Number(r.quantity || 0);
+                const reorder = Number(r.reorder_level || 0);
+                const availability = quantity <= 0
+                    ? 'out_of_stock'
+                    : (reorder > 0 && quantity <= reorder ? 'low_stock' : 'available');
+                return {
+                    id: r.id,
+                    name: r.name || '',
+                    category: r.category || '',
+                    unit: r.unit || 'pcs',
+                    quantity,
+                    availability,
+                };
+            })
+            .filter((r) => !q || r.name.toLowerCase().includes(q) || r.category.toLowerCase().includes(q));
+        return res.json({ success: true, data });
+    } catch (err) {
+        console.error('GET /teacher-portal/inventory-equipment:', err);
+        return res.status(500).json({ success: false, message: 'Failed to load equipment' });
+    }
+});
 
 router.get('/requisitions', requireTeacherRole, async (req, res) => {
     try {
@@ -869,25 +968,18 @@ router.get('/requisitions', requireTeacherRole, async (req, res) => {
         }
         await ensureTeacherRequisitionsTable();
         const [rows] = await promisePool.query(
-            `SELECT id, req_code, dept, requester, items, amount, submitted_date, status, attachment_name, note
+            `SELECT r.id, r.req_code, r.dept, r.requester, r.items, r.amount, r.submitted_date, r.status,
+              r.attachment_name, r.note, r.item_id, r.quantity_requested, r.purpose, r.priority_level,
+              r.expected_return_date, r.status_note, r.approved_at, r.issued_at, r.returned_at,
+              i.name AS item_name
        FROM school_requisitions
-       WHERE school_id = ? AND created_by_user_id = ?
-       ORDER BY submitted_date DESC, id DESC
+       r LEFT JOIN school_store_items i ON i.id = r.item_id AND i.school_id = r.school_id
+       WHERE r.school_id = ? AND r.created_by_user_id = ?
+       ORDER BY r.submitted_date DESC, r.id DESC
        LIMIT 200`,
             [schoolId, userId]
         );
-        const data = rows.map((r) => ({
-            id: r.req_code || `REQ-${String(r.id).padStart(4, '0')}`,
-            db_id: r.id,
-            dept: r.dept,
-            requester: r.requester,
-            items: r.items,
-            amount: Number(r.amount || 0),
-            submitted: r.submitted_date,
-            status: r.status,
-            attachmentName: r.attachment_name || '',
-            note: r.note || '',
-        }));
+        const data = rows.map(reqRowToDto);
         return res.json({ success: true, data });
     } catch (err) {
         console.error('GET /teacher-portal/requisitions:', err);
@@ -903,43 +995,189 @@ router.post('/requisitions', requireTeacherRole, async (req, res) => {
             return res.status(400).json({ success: false, message: 'School or user not found in session.' });
         }
         await ensureTeacherRequisitionsTable();
+        await ensureTeacherInventoryTable();
         const body = req.body || {};
         const u = req.session?.user || {};
         const defaultName = [u.first_name, u.last_name].filter(Boolean).join(' ').trim() || u.full_name || u.email || 'Staff';
-        const dept = trimReqStr(body.dept);
+        const rawItemId = Number(body.item_id);
+        const rawQty = Number(body.quantity_requested);
+        const itemPayloadProvided = body.item_id != null || body.quantity_requested != null;
+        const hasInventorySelection = rawItemId > 0 && Number.isFinite(rawQty) && rawQty > 0;
+        if (itemPayloadProvided && !hasInventorySelection) {
+            return res.status(400).json({ success: false, message: 'item_id and quantity_requested must both be provided together.' });
+        }
+        const itemId = hasInventorySelection ? rawItemId : null;
+        const qty = hasInventorySelection ? rawQty : null;
+        const dept = trimReqStr(body.dept) || 'General';
         const requester = trimReqStr(body.requester) || defaultName;
         const items = trimReqStr(body.items);
-        const amount = Number(body.amount);
         const submitted = trimReqStr(body.submitted) || new Date().toISOString().slice(0, 10);
-        if (!dept || !items || Number.isNaN(amount) || amount <= 0) {
-            return res.status(400).json({
-                success: false,
-                message: 'dept, items and a positive amount are required.',
-            });
+        const purpose = trimReqStr(body.purpose) || null;
+        const priorityRaw = trimReqStr(body.priority_level).toLowerCase();
+        const priorityLevel = ['low', 'medium', 'high'].includes(priorityRaw) ? priorityRaw : 'medium';
+        const expectedReturnDate = trimReqStr(body.expected_return_date) || null;
+        let computedItems = items;
+        let amount = Number.isFinite(Number(body.amount)) && Number(body.amount) > 0 ? Number(body.amount) : 0;
+        if (hasInventorySelection) {
+            const [[inv]] = await promisePool.query(
+                `SELECT id, name, quantity, unit_cost
+         FROM school_store_items
+         WHERE id = ? AND school_id = ?
+         LIMIT 1`,
+                [itemId, schoolId]
+            );
+            if (!inv) {
+                return res.status(404).json({ success: false, message: 'Selected equipment was not found in stock.' });
+            }
+            const available = Number(inv.quantity || 0);
+            if (qty > available) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Requested quantity exceeds stock. Available: ${available}`,
+                });
+            }
+            computedItems = items || trimReqStr(inv.name) || 'Equipment request';
+            if (!amount || amount <= 0) {
+                amount = Number((qty * Number(inv.unit_cost || 0)).toFixed(2));
+            }
+        } else {
+            if (!computedItems) {
+                return res.status(400).json({ success: false, message: 'items description is required when no equipment is selected.' });
+            }
+            if (!Number.isFinite(amount) || amount < 0) amount = 0;
         }
         const [[cnt]] = await promisePool.query('SELECT COUNT(*) AS c FROM school_requisitions WHERE school_id = ?', [schoolId]);
         const reqCode = `REQ-${String(Number(cnt?.c || 0) + 1001)}`;
         const [ins] = await promisePool.query(
             `INSERT INTO school_requisitions
-         (school_id, req_code, dept, requester, items, amount, submitted_date, status, attachment_name, note, created_by_user_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)`,
+         (school_id, req_code, dept, requester, items, amount, submitted_date, status, attachment_name, note, created_by_user_id,
+          item_id, quantity_requested, purpose, priority_level, expected_return_date)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 schoolId,
                 reqCode,
                 dept,
                 requester,
-                items,
+                computedItems,
                 amount,
                 submitted,
                 trimReqStr(body.attachmentName) || null,
-                trimReqStr(body.note) || null,
+                trimReqStr(body.description) || trimReqStr(body.note) || null,
                 userId,
+                itemId,
+                qty,
+                purpose,
+                priorityLevel,
+                expectedReturnDate,
             ]
         );
         return res.status(201).json({ success: true, data: { id: ins.insertId, req_code: reqCode } });
     } catch (err) {
         console.error('POST /teacher-portal/requisitions:', err);
         return res.status(500).json({ success: false, message: 'Failed to create requisition' });
+    }
+});
+
+router.patch('/requisitions/:id', requireTeacherRole, async (req, res) => {
+    try {
+        const schoolId = resolveSchoolId(req);
+        const userId = resolveUserId(req);
+        const requisitionId = Number(req.params.id);
+        if (!schoolId || !userId || !requisitionId) {
+            return res.status(400).json({ success: false, message: 'Invalid request context.' });
+        }
+        await ensureTeacherRequisitionsTable();
+        await ensureTeacherInventoryTable();
+        const [[existing]] = await promisePool.query(
+            `SELECT id, item_id, quantity_requested, items, purpose, priority_level, expected_return_date, attachment_name, note, status
+       FROM school_requisitions
+       WHERE id = ? AND school_id = ? AND created_by_user_id = ?
+       LIMIT 1`,
+            [requisitionId, schoolId, userId]
+        );
+        if (!existing) return res.status(404).json({ success: false, message: 'Requisition not found.' });
+        if (String(existing.status || '').toLowerCase() !== 'pending') {
+            return res.status(409).json({ success: false, message: 'Only pending requisitions can be edited.' });
+        }
+        const body = req.body || {};
+        let itemId = body.item_id == null ? Number(existing.item_id || 0) : Number(body.item_id);
+        let qty = body.quantity_requested == null ? Number(existing.quantity_requested || 0) : Number(body.quantity_requested);
+        const itemPayloadProvided = body.item_id != null || body.quantity_requested != null;
+        const hasInventorySelection = itemId > 0 && Number.isFinite(qty) && qty > 0;
+        if (itemPayloadProvided && !hasInventorySelection) {
+            return res.status(400).json({ success: false, message: 'item_id and quantity_requested must both be provided together.' });
+        }
+        const items = body.items == null ? trimReqStr(existing.items) : trimReqStr(body.items);
+        const purpose = body.purpose == null ? (existing.purpose || null) : (trimReqStr(body.purpose) || null);
+        const priorityRaw = body.priority_level == null ? String(existing.priority_level || '') : trimReqStr(body.priority_level);
+        const priorityLevel = ['low', 'medium', 'high'].includes(priorityRaw.toLowerCase()) ? priorityRaw.toLowerCase() : 'medium';
+        const expectedReturnDate = body.expected_return_date == null
+            ? (existing.expected_return_date || null)
+            : (trimReqStr(body.expected_return_date) || null);
+        const attachmentName = body.attachmentName == null
+            ? (existing.attachment_name || null)
+            : (trimReqStr(body.attachmentName) || null);
+        const nextDescription = body.description == null ? null : trimReqStr(body.description);
+        const note = nextDescription !== null
+            ? (nextDescription || null)
+            : (body.note == null ? (existing.note || null) : (trimReqStr(body.note) || null));
+        let resolvedItems = items;
+        if (hasInventorySelection) {
+            const [[inv]] = await promisePool.query(
+                `SELECT id, name, quantity
+         FROM school_store_items
+         WHERE id = ? AND school_id = ?
+         LIMIT 1`,
+                [itemId, schoolId]
+            );
+            if (!inv) return res.status(404).json({ success: false, message: 'Selected equipment was not found in stock.' });
+            const available = Number(inv.quantity || 0);
+            if (qty > available) {
+                return res.status(400).json({ success: false, message: `Requested quantity exceeds stock. Available: ${available}` });
+            }
+            resolvedItems = items || trimReqStr(inv.name) || 'Equipment request';
+        } else {
+            itemId = null;
+            qty = null;
+            resolvedItems = items || trimReqStr(existing.items);
+            if (!resolvedItems) {
+                return res.status(400).json({ success: false, message: 'items description is required when no equipment is selected.' });
+            }
+        }
+        await promisePool.query(
+            `UPDATE school_requisitions
+       SET item_id = ?, quantity_requested = ?, items = ?, purpose = ?, priority_level = ?, expected_return_date = ?, attachment_name = ?, note = ?
+       WHERE id = ? AND school_id = ? AND created_by_user_id = ?`,
+            [itemId, qty, resolvedItems, purpose, priorityLevel, expectedReturnDate, attachmentName, note, requisitionId, schoolId, userId]
+        );
+        return res.json({ success: true, message: 'Requisition updated.' });
+    } catch (err) {
+        console.error('PATCH /teacher-portal/requisitions/:id:', err);
+        return res.status(500).json({ success: false, message: 'Failed to update requisition' });
+    }
+});
+
+router.delete('/requisitions/:id', requireTeacherRole, async (req, res) => {
+    try {
+        const schoolId = resolveSchoolId(req);
+        const userId = resolveUserId(req);
+        const requisitionId = Number(req.params.id);
+        if (!schoolId || !userId || !requisitionId) {
+            return res.status(400).json({ success: false, message: 'Invalid request context.' });
+        }
+        await ensureTeacherRequisitionsTable();
+        const [r] = await promisePool.query(
+            `DELETE FROM school_requisitions
+       WHERE id = ? AND school_id = ? AND created_by_user_id = ? AND status = 'pending'`,
+            [requisitionId, schoolId, userId]
+        );
+        if (!r.affectedRows) {
+            return res.status(409).json({ success: false, message: 'Only pending requisitions can be cancelled.' });
+        }
+        return res.json({ success: true, message: 'Requisition cancelled.' });
+    } catch (err) {
+        console.error('DELETE /teacher-portal/requisitions/:id:', err);
+        return res.status(500).json({ success: false, message: 'Failed to cancel requisition' });
     }
 });
 

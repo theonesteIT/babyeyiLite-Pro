@@ -1,7 +1,8 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Inter", "Outfit", system-ui, sans-serif;
+  --font-sans: "Montserrat", system-ui, sans-serif;
+  --font-heading: "Montserrat", system-ui, sans-serif;
 
   /* Brand Colors - Clean & Premium */
   --color-re-orange: #FF8C00;
@@ -39,8 +40,10 @@
 }
 
 @layer base {
+  html,
   body {
     @apply bg-re-bg text-re-text font-sans antialiased;
+    font-family: "Montserrat", system-ui, sans-serif;
   }
 }
 

@@ -145,10 +145,11 @@ const Sidebar = ({ onClose }) => {
 
       {/* Nav */}
       <nav className="flex-1 px-2 py-1 overflow-y-auto space-y-0.5" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-        <NavItem icon={LayoutDashboard} name="Dashboard" path="/" exact onClose={onClose} />
+        <NavItem icon={LayoutDashboard} name="Dashboard" path="/accountant" exact onClose={onClose} />
 
         <SectionLabel label="Finance operations" />
         <NavItem icon={Receipt} name="Student Fees" path="/fees" onClose={onClose} />
+        <NavItem icon={FileSpreadsheet} name="Babyeyi fee cards" path="/fees/babyeyi-fees" onClose={onClose} />
         <ExpandableNavItem
           icon={FileText}
           name="Invoices"

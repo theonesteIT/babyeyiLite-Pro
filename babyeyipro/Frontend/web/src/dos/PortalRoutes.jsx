@@ -17,6 +17,7 @@ import AcademicPlanning from './pages/AcademicPlanning'
 import DosAcademicProgressPage from './pages/DosAcademicProgressPage'
 import DosSettingsPage from './pages/DosSettingsPage'
 import DosReportsPage from './pages/DosReportsPage'
+import TeacherRequisitionReports from './pages/TeacherRequisitionReports'
 import DosStudentRecordsPage from './pages/DosStudentRecordsPage'
 import { PORTAL } from './config/portal'
 import { h } from './utils/href'
@@ -136,6 +137,14 @@ function DosRoutesInner() {
             <ProDosGate>
               <DosReportsPage />
             </ProDosGate>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="teacher-requisitions"
+        element={
+          <ProtectedRoute title="Teacher requisitions report">
+            <TeacherRequisitionReports />
           </ProtectedRoute>
         }
       />

@@ -27,6 +27,7 @@ const PDFDocument = require('pdfkit');
 const router = express.Router();
 // DOS portal: DOS / managers / teachers / HoD; accountants often use the same UI for oversight.
 const DOS_ONLY = ['DOS', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER', 'TEACHER', 'HOD', 'ACCOUNTANT'];
+const DOS_DASHBOARD_ROLES = DOS_ONLY;
 
 // ── DEBUG TRACERS ──────────────────────────────────────────────
 router.use((req, res, next) => {
@@ -254,7 +255,149 @@ function parseReportDateRange(req) {
   return { from, to };
 }
 
-router.get('/reports/attendance/by-class', requireRole(DOS_ONLY), async (req, res) => {
+const REQUISITION_STATUSES = ['pending', 'approved', 'rejected', 'issued', 'returned', 'cancelled'];
+let reqReportTablesReady = false;
+async function ensureTeacherRequisitionReportTables() {
+  if (reqReportTablesReady) return;
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS school_store_items (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      school_id INT UNSIGNED NOT NULL,
+      name VARCHAR(255) NOT NULL,
+      category VARCHAR(120) NOT NULL DEFAULT 'Other',
+      term VARCHAR(32) NULL,
+      academic_year VARCHAR(64) NULL,
+      unit VARCHAR(32) NOT NULL DEFAULT 'pcs',
+      quantity DECIMAL(14,3) NOT NULL DEFAULT 0,
+      reorder_level DECIMAL(14,3) NOT NULL DEFAULT 0,
+      unit_cost DECIMAL(14,2) NOT NULL DEFAULT 0,
+      location VARCHAR(255) NULL,
+      note TEXT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      KEY idx_ssi_school (school_id),
+      KEY idx_ssi_name (school_id, name)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS school_requisitions (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      school_id INT UNSIGNED NOT NULL,
+      req_code VARCHAR(40) NOT NULL,
+      dept VARCHAR(120) NOT NULL,
+      requester VARCHAR(180) NOT NULL,
+      items TEXT NOT NULL,
+      amount DECIMAL(14,2) NOT NULL DEFAULT 0,
+      submitted_date DATE NOT NULL,
+      status ENUM('pending','approved','rejected','issued') NOT NULL DEFAULT 'pending',
+      attachment_name VARCHAR(255) NULL,
+      note TEXT NULL,
+      created_by_user_id INT UNSIGNED NOT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      approved_by_user_id INT UNSIGNED NULL,
+      approved_at DATETIME NULL,
+      INDEX idx_sr_school (school_id),
+      INDEX idx_sr_status (status),
+      INDEX idx_sr_creator (school_id, created_by_user_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+  await promisePool.query(`ALTER TABLE school_requisitions ADD COLUMN item_id INT UNSIGNED NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE school_requisitions ADD COLUMN quantity_requested DECIMAL(14,3) NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE school_requisitions ADD COLUMN purpose TEXT NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE school_requisitions ADD COLUMN priority_level ENUM('low','medium','high') NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE school_requisitions ADD COLUMN expected_return_date DATE NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE school_requisitions ADD COLUMN status_note TEXT NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE school_requisitions ADD COLUMN issued_at DATETIME NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE school_requisitions ADD COLUMN returned_at DATETIME NULL`).catch(() => {});
+  reqReportTablesReady = true;
+}
+
+router.get('/reports/requisitions/teacher', requireRole([...DOS_ONLY, 'STORE_MANAGER']), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(403).json({ success: false, message: 'No active school context' });
+    await ensureTeacherRequisitionReportTables();
+
+    const status = trimStr(req.query.status).toLowerCase();
+    const term = trimStr(req.query.term);
+    const academicYear = trimStr(req.query.academic_year);
+    const { from, to } = parseReportDateRange(req);
+
+    const where = ['r.school_id = ?'];
+    const params = [schoolId];
+    if (status && REQUISITION_STATUSES.includes(status)) {
+      where.push('LOWER(r.status) = ?');
+      params.push(status);
+    }
+    if (term) {
+      where.push('i.term = ?');
+      params.push(term);
+    }
+    if (academicYear) {
+      where.push('i.academic_year = ?');
+      params.push(academicYear);
+    }
+    if (from) {
+      where.push('DATE(r.submitted_date) >= ?');
+      params.push(from);
+    }
+    if (to) {
+      where.push('DATE(r.submitted_date) <= ?');
+      params.push(to);
+    }
+
+    const [rows] = await promisePool.query(
+      `SELECT r.id, r.req_code, r.item_id, i.name AS item_name, r.quantity_requested, r.dept, r.requester, r.items, r.purpose,
+              r.priority_level, r.expected_return_date, r.amount, r.submitted_date, r.approved_at, r.issued_at, r.returned_at,
+              r.status_note, r.attachment_name, r.note, r.status
+       FROM school_requisitions r
+       LEFT JOIN school_store_items i ON i.id = r.item_id AND i.school_id = r.school_id
+       WHERE ${where.join(' AND ')}
+       ORDER BY r.submitted_date DESC, r.id DESC
+       LIMIT 1000`,
+      params
+    );
+
+    const data = (rows || []).map((r) => ({
+      id: r.req_code || `REQ-${String(r.id).padStart(4, '0')}`,
+      db_id: r.id,
+      item_id: r.item_id ? Number(r.item_id) : null,
+      item_name: r.item_name || '',
+      qty: Number(r.quantity_requested || 0) || 0,
+      dept: r.dept || 'General',
+      requester: r.requester || '',
+      items: r.items || '',
+      purpose: r.purpose || '',
+      priority_level: r.priority_level || '',
+      expected_return_date: r.expected_return_date || null,
+      amount: Number(r.amount || 0),
+      submitted: r.submitted_date || null,
+      approved_at: r.approved_at || null,
+      issued_at: r.issued_at || null,
+      returned_at: r.returned_at || null,
+      status_note: r.status_note || '',
+      attachmentName: r.attachment_name || '',
+      note: r.note || '',
+      status: String(r.status || 'pending').toLowerCase(),
+    }));
+
+    const summary = {
+      total_requests: data.length,
+      pending: data.filter((r) => r.status === 'pending').length,
+      approved: data.filter((r) => r.status === 'approved').length,
+      rejected: data.filter((r) => r.status === 'rejected').length,
+      issued: data.filter((r) => r.status === 'issued').length,
+      returned: data.filter((r) => r.status === 'returned').length,
+    };
+
+    return res.json({ success: true, data, summary });
+  } catch (err) {
+    console.error('[GET /dos/reports/requisitions/teacher]', err);
+    return res.status(500).json({ success: false, message: 'Failed to load teacher requisition report' });
+  }
+});
+
+router.get('/reports/attendance/by-class', requireRole(DOS_DASHBOARD_ROLES), async (req, res) => {
   try {
     const schoolId = resolveSchoolId(req);
     if (!schoolId) {
@@ -365,7 +508,7 @@ router.get('/reports/attendance/by-class', requireRole(DOS_ONLY), async (req, re
 // GET /api/dos/reports/attendance/by-teacher
 // Student period attendance attributed to timetable teacher
 // ============================================================
-router.get('/reports/attendance/by-teacher', requireRole(DOS_ONLY), async (req, res) => {
+router.get('/reports/attendance/by-teacher', requireRole(DOS_DASHBOARD_ROLES), async (req, res) => {
   try {
     const schoolId = resolveSchoolId(req);
     if (!schoolId) {

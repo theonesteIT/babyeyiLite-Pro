@@ -8,9 +8,17 @@ import {
 import StudentFeesModal from '../components/StudentFeesModal';
 import RecordPaymentModal from '../components/RecordPaymentModal';
 import api from '../services/api';
+import * as XLSX from 'xlsx';
 
 const TERMS = ['Term 1', 'Term 2', 'Term 3', 'Annual Review'];
 const YEARS = ['2026-2027', '2025-2026', '2024-2025', '2023-2024', '2022-2023'];
+const PAYMENT_STATUSES = [
+    { value: 'All', label: 'All statuses' },
+    { value: 'full_pay', label: 'Full paid' },
+    { value: 'remain_pay', label: 'Partially paid' },
+    { value: 'not_paid', label: 'Not paid' },
+    { value: 'no_fee_card', label: 'No Babyeyi card' },
+];
 
 function formatMoneyRWF(value) {
   const n = Number(value) || 0;
@@ -29,6 +37,7 @@ const Fees = () => {
     const [selectedTerm, setSelectedTerm] = useState('Term 1');
     const [selectedYear, setSelectedYear] = useState('2025-2026');
     const [selectedClass, setSelectedClass] = useState('All Classes');
+    const [selectedStatus, setSelectedStatus] = useState('All');
     const [loading, setLoading] = useState(false);
     const [reportRows, setReportRows] = useState([]);
     const [paymentsRaw, setPaymentsRaw] = useState([]);
@@ -51,6 +60,7 @@ const Fees = () => {
                     academic_year: selectedYear,
                     term: selectedTerm,
                     class_name: classParam || undefined,
+                    status: selectedStatus !== 'All' ? selectedStatus : undefined,
                 },
             });
             if (!res.data?.success) throw new Error(res.data?.message || 'Failed to load fees report');
@@ -101,7 +111,7 @@ const Fees = () => {
     useEffect(() => {
         fetchReport();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedYear, selectedTerm, selectedClass]);
+    }, [selectedYear, selectedTerm, selectedClass, selectedStatus]);
 
     const filteredLearners = reportRows.filter(l => {
         const classMatch = selectedClass === 'All Classes' || l.class === selectedClass;
@@ -127,6 +137,47 @@ const Fees = () => {
     const sortBadge = (key) => {
         if (sortBy.key !== key) return null;
         return <span className="ml-1 text-[9px] font-black">{sortBy.dir === 'asc' ? '↑' : '↓'}</span>;
+    };
+
+    const statusLabel = (v) => {
+        const x = String(v || '').toLowerCase();
+        if (x === 'full_pay' || x === 'full') return 'Full paid';
+        if (x === 'remain_pay') return 'Partially paid';
+        if (x === 'not_paid') return 'Not paid';
+        if (x === 'no_fee_card') return 'No Babyeyi card';
+        return 'Unknown';
+    };
+
+    const statusBadgeClass = (v) => {
+        const x = String(v || '').toLowerCase();
+        if (x === 'full_pay' || x === 'full') return 'bg-emerald-50 text-emerald-700 border-emerald-100';
+        if (x === 'remain_pay') return 'bg-amber-50 text-amber-700 border-amber-100';
+        if (x === 'not_paid') return 'bg-red-50 text-red-700 border-red-100';
+        if (x === 'no_fee_card') return 'bg-slate-50 text-slate-600 border-slate-200';
+        return 'bg-slate-50 text-slate-600 border-slate-200';
+    };
+
+    const exportFilteredExcel = () => {
+        const rows = sortedStudents.map((s) => ({
+            'Learner ID': s.id,
+            'Learner Name': s.name,
+            Class: s.class,
+            'Amount To Pay (RWF)': Number(s.amountToPay || 0),
+            'Paid This Term (RWF)': Number(s.paidThisTerm || 0),
+            'Remaining (RWF)': Number(s.remaining || 0),
+            Status: statusLabel(s.status),
+            Term: selectedTerm,
+            'Academic Year': selectedYear,
+        }));
+        const ws = XLSX.utils.json_to_sheet(rows);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Student Fees');
+        const classPart = (selectedClass === 'All Classes' ? 'all-classes' : selectedClass).replace(/\s+/g, '-');
+        const statusPart = (selectedStatus || 'all').replace(/\s+/g, '-');
+        XLSX.writeFile(
+            wb,
+            `accountant-student-fees-${selectedYear}-${selectedTerm.replace(/\s+/g, '-')}-${classPart}-${statusPart}.xlsx`
+        );
     };
 
     return (
@@ -193,6 +244,7 @@ const Fees = () => {
                                             term: selectedTerm,
                                         });
                                         if (selectedClass !== 'All Classes') params.set('class_name', selectedClass);
+                                        if (selectedStatus !== 'All') params.set('status', selectedStatus);
                                         const url = `${(import.meta.env.VITE_API_URL || 'http://localhost:5100')}/api/accountant/reports/payments/export.pdf?${params.toString()}`;
                                         window.open(url, '_blank');
                                     }}
@@ -201,6 +253,13 @@ const Fees = () => {
                                 >
                                     <Printer size={14} />
                                     <span>Print report</span>
+                                </button>
+                                <button
+                                    onClick={exportFilteredExcel}
+                                    className="w-full h-11 flex items-center justify-center gap-2 bg-white border border-black/5 text-re-text font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg hover:border-[#1E3A5F]/20 hover:shadow-re-soft transition-all group"
+                                >
+                                    <Download size={14} className="text-emerald-600" />
+                                    <span className="group-hover:text-[#1E3A5F] transition-colors">Export Excel</span>
                                 </button>
                                 <button
                                     onClick={() => setIsPaymentModalOpen(true)}
@@ -239,6 +298,19 @@ const Fees = () => {
                                         style={{ backgroundImage: `url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%231E3A5F%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.5rem center', backgroundSize: '10px' }}
                                     >
                                         {TERMS.map(t => <option key={t} value={t}>{t}</option>)}
+                                    </select>
+                                </div>
+
+                                <div className="relative w-[10rem] shrink-0">
+                                    <select
+                                        value={selectedStatus}
+                                        onChange={(e) => setSelectedStatus(e.target.value)}
+                                        className="w-full h-8 bg-white/80 rounded-lg outline-none border border-black/5 focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[9px] font-black uppercase tracking-widest shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.5)] cursor-pointer appearance-none pl-3 pr-8"
+                                        style={{ backgroundImage: `url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%231E3A5F%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.5rem center', backgroundSize: '10px' }}
+                                    >
+                                        {PAYMENT_STATUSES.map((s) => (
+                                            <option key={s.value} value={s.value}>{s.label}</option>
+                                        ))}
                                     </select>
                                 </div>
 
@@ -281,6 +353,9 @@ const Fees = () => {
                                         <th onClick={() => toggleSort('remaining')} className="px-4 sm:px-6 py-2.5 sm:py-3 text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 cursor-pointer select-none hover:opacity-70 text-right border-r border-black/5">
                                             Remaining {sortBadge('remaining')}
                                         </th>
+                                        <th className="hidden md:table-cell px-6 py-3 text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5 text-center">
+                                            Status
+                                        </th>
                                         <th className="px-4 sm:px-6 py-2.5 sm:py-3 text-right text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40">Action</th>
                                     </tr>
                                 </thead>
@@ -318,10 +393,15 @@ const Fees = () => {
                                                         {formatMoneyRWF(s.remaining).replace('RWF', '')}
                                                     </p>
                                                 </td>
+                                                <td className="hidden md:table-cell px-6 py-3 border-r border-black/5 text-center">
+                                                    <span className={`inline-flex px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border ${statusBadgeClass(s.status)}`}>
+                                                        {statusLabel(s.status)}
+                                                    </span>
+                                                </td>
                                                 {/* Action */}
                                                 <td className="px-4 sm:px-6 py-2.5 sm:py-3 text-right">
                                                     <button 
-                                                        onClick={(e) => { e.stopPropagation(); setIsPaymentModalOpen(true); }}
+                                                        onClick={(e) => { e.stopPropagation(); setDetailsStudent(s); setIsPaymentModalOpen(true); }}
                                                         className="h-7 px-3 rounded-xl flex items-center justify-center gap-1.5 bg-white border border-black/5 text-re-text font-black text-[9px] uppercase tracking-widest shadow-sm hover:bg-re-bg hover:text-[#1E3A5F] transition-all ml-auto"
                                                     >
                                                         <CreditCard size={12} className="text-amber-500 transition-colors" />
@@ -333,7 +413,7 @@ const Fees = () => {
                                     })}
                                     {!loading && sortedStudents.length === 0 && (
                                         <tr>
-                                            <td colSpan={6} className="px-6 py-8 text-center text-[10px] font-black text-re-text-muted uppercase tracking-widest opacity-50">
+                                            <td colSpan={7} className="px-6 py-8 text-center text-[10px] font-black text-re-text-muted uppercase tracking-widest opacity-50">
                                                 No learners found for this filter
                                             </td>
                                         </tr>
@@ -351,7 +431,7 @@ const Fees = () => {
                                 </div>
                                 <div className="w-px h-3 bg-black/10" />
                                 <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] opacity-40 italic">
-                                    {filteredLearners.length} Participants · {selectedYear} · {selectedTerm}
+                                    {filteredLearners.length} Participants · {selectedYear} · {selectedTerm} · {PAYMENT_STATUSES.find((x) => x.value === selectedStatus)?.label || 'All statuses'}
                                 </p>
                             </div>
                         </div>
@@ -370,6 +450,14 @@ const Fees = () => {
                 academicYear={selectedYear}
                 term={selectedTerm}
                 paymentHistory={paymentsRaw.filter((p) => Number(p.student_id) === Number(detailsStudent?.student_id))}
+                onEditPayment={async (paymentId, payload) => {
+                    await api.patch(`/accountant/payments/${paymentId}`, payload);
+                    await fetchReport();
+                }}
+                onDeletePayment={async (paymentId) => {
+                    await api.delete(`/accountant/payments/${paymentId}`);
+                    await fetchReport();
+                }}
             />
 
             <RecordPaymentModal
@@ -380,11 +468,13 @@ const Fees = () => {
                 }}
                 onSave={async ({ amount, method, note }) => {
                     if (!detailsStudent?.student_id) return;
+                    const totalDue = Number(detailsStudent.amountToPay);
                     await api.post('/accountant/payments', {
                         student_id: detailsStudent.student_id,
                         academic_year: selectedYear,
                         term: selectedTerm,
-                        class_name: detailsStudent.class,
+                        class_name: detailsStudent.class === '—' ? '' : detailsStudent.class,
+                        total_due: Number.isFinite(totalDue) && totalDue >= 0 ? totalDue : 0,
                         amount_paid: Number(amount),
                         notes: [method, note].filter(Boolean).join(' · '),
                     });

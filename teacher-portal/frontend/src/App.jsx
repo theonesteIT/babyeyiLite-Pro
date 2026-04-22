@@ -14,6 +14,7 @@ import Attendance from './pages/Attendance';
 import RecordMarks from './pages/RecordMarks';
 import ViewMarks from './pages/ViewMarks';
 import Requisitions from './pages/Requisitions';
+import RequisitionsRes from './pages/RequisitionsRes';
 import './index.css';
 
 // ── Loading screen ────────────────────────────────────────────
@@ -52,6 +53,7 @@ function AppContent() {
       <Route path="/timetable" element={<ProtectedRoute title="Timetable">         <Timetable />                                                    </ProtectedRoute>} />
       <Route path="/attendance" element={<ProtectedRoute title="Attendance">        <Attendance />                                                   </ProtectedRoute>} />
       <Route path="/requisitions" element={<ProtectedRoute title="Requisitions">    <Requisitions />                                                 </ProtectedRoute>} />
+      <Route path="/requisitionsRes" element={<ProtectedRoute title="Requisitions"> <RequisitionsRes />                                              </ProtectedRoute>} />
       <Route path="/marks/view" element={<ProtectedRoute title="View Student Marks"><ViewMarks /></ProtectedRoute>} />
       <Route path="/marks/record" element={<ProtectedRoute title="Record Marks">      <RecordMarks /></ProtectedRoute>} />
 

@@ -1267,8 +1267,7 @@ function FullSiteViewer({ schoolId, onBack, onEdit }) {
   };
 
   return (
-    <div className="min-h-screen" style={{ fontFamily: "'Montserrat', system-ui, sans-serif" }}>
-      <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <div className="min-h-screen">
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2 px-4 py-2.5 rounded-2xl shadow-2xl border border-white/15"
         style={{ background: "rgba(15,23,42,0.92)", backdropFilter: "blur(12px)" }}>
         <button onClick={onBack}

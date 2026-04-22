@@ -132,14 +132,8 @@ export default function ParentDashboardLayout() {
   return (
     <div
       className={resolvedTheme === "dark" ? "dark" : ""}
-      style={{ fontFamily: "'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif" }}
     >
       <div className="min-h-[100dvh] flex flex-col lg:flex-row bg-slate-50 scroll-smooth antialiased dark:bg-slate-950">
-        <link
-          href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
-          rel="stylesheet"
-        />
-
         {/* ── Desktop sidebar ── */}
         <aside className="hidden lg:flex lg:flex-col lg:w-60 xl:w-64 shrink-0 bg-white border-r border-slate-200/80 z-20 dark:bg-slate-900 dark:border-slate-700">
           <div className="p-6 border-b border-slate-100 dark:border-slate-700">

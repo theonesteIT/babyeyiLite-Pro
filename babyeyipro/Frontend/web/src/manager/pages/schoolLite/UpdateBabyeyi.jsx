@@ -294,7 +294,7 @@ const buildBlankForm = (school = {}) => ({
   requestDescription:   "",
   parentApprovalDoc:    null,
   schoolBudgetDoc:      null,
-  requirements:         [{ item:"", description:"", quantity:"" }],
+  requirements:         [{ item: "", description: "", quantity: "", pay_channel: "babyeyi", cost: "" }],
   bankName:             "",
   accountNumber:        "",
   accountName:          school.name || "",
@@ -594,13 +594,30 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null }
     if (editRecord) {
       const rec = editRecord;
       const parsedPayments = (() => {
-        try { return typeof rec.payments === "string" ? JSON.parse(rec.payments) : (rec.payments || []); }
-        catch { return []; }
+        try {
+          const raw = typeof rec.payments === "string" ? JSON.parse(rec.payments) : (rec.payments || []);
+          if (!Array.isArray(raw)) return [];
+          return raw.map((p) => ({
+            name: p?.name ?? "",
+            amount: p?.amount != null && p?.amount !== "" ? String(p.amount) : "",
+            pay_channel:
+              String(p?.pay_channel || p?.payChannel || "babyeyi").toLowerCase() === "school" ? "school" : "babyeyi",
+          }));
+        } catch {
+          return [];
+        }
       })();
-      const parsedReqs = (() => {
+      const parsedReqsRaw = (() => {
         try { return typeof rec.requirements === "string" ? JSON.parse(rec.requirements) : (rec.requirements || []); }
         catch { return []; }
       })();
+      const parsedReqs = (Array.isArray(parsedReqsRaw) ? parsedReqsRaw : []).map((r) => ({
+        item: r?.item ?? "",
+        description: r?.description ?? "",
+        quantity: r?.quantity ?? "",
+        pay_channel: String(r?.pay_channel ?? r?.payChannel ?? "").toLowerCase() === "school" ? "school" : "babyeyi",
+        cost: r?.cost != null && r.cost !== "" ? String(r.cost) : "",
+      }));
       const parsedOtherInfos = (() => {
         try { return typeof rec.otherInfos === "string" ? JSON.parse(rec.otherInfos) : (rec.otherInfos || []); }
         catch { return []; }
@@ -637,8 +654,8 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null }
         language:      rec.language      || "en",
         classes:       rec.className ? [rec.className] : ["P1"],
         parentMessage: rec.parentMessage || "",
-        payments:      parsedPayments.length ? parsedPayments : [{ name: "Tuition Fee", amount: "" }],
-        requirements:  parsedReqs,
+        payments:      parsedPayments.length ? parsedPayments : [{ name: "Tuition Fee", amount: "", pay_channel: "babyeyi" }],
+        requirements:  parsedReqs.length ? parsedReqs : [{ item: "", description: "", quantity: "", pay_channel: "babyeyi", cost: "" }],
         otherInfos:    parsedOtherInfos,
         bankName:      primaryBank.bankName      || rec.bankName      || "",
         accountNumber: primaryBank.accountNumber || rec.bankAccountNo || "",
@@ -1522,7 +1539,7 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null }
         const toggleReq = name => {
           const has = selectedNames.includes(name);
           const nextNames = has ? selectedNames.filter(n=>n!==name) : [...selectedNames, name];
-          up("requirements", nextNames.map(n => ({ item:n, description:"", quantity:"" })));
+          up("requirements", nextNames.map(n => ({ item:n, description:"", quantity:"", pay_channel: "babyeyi", cost: "" })));
         };
         return (
           <div className="space-y-4">
@@ -1542,7 +1559,7 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null }
                       ...current,
                       ...PACKAGE_REQUIREMENTS
                         .filter(item => !names.includes(item))
-                        .map(item => ({ item, description:"", quantity:"" })),
+                        .map(item => ({ item, description:"", quantity:"", pay_channel: "babyeyi", cost: "" })),
                     ];
                     up("requirements", merged);
                   }}
@@ -1565,7 +1582,7 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null }
               <label className="text-[10px] font-black uppercase tracking-widest" style={{ color: C.darkMid }}>Custom Requirements</label>
               <button
                 type="button"
-                onClick={() => up("requirements", [...(form.requirements||[]), { item:"", description:"", quantity:"" }])}
+                onClick={() => up("requirements", [...(form.requirements||[]), { item:"", description:"", quantity:"", pay_channel: "babyeyi", cost: "" }])}
                 className="flex items-center gap-1 text-xs font-bold hover:opacity-80 px-2 py-1 rounded-lg"
                 style={{ color: C.goldDark, background: C.goldBg }}>
                 <I n="plus" size={12} /> Add
@@ -1608,6 +1625,51 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null }
                       className={inp}
                       style={{ borderColor: "#E5E7EB" }}
                     />
+                  </div>
+                  <div className="pl-7">
+                    <label className="text-[9px] font-black uppercase tracking-wider mb-1 block" style={{ color: C.slate }}>Where parents pay</label>
+                    <select
+                      value={r.pay_channel === "school" ? "school" : "babyeyi"}
+                      onChange={(e) => {
+                        const rs = [...(form.requirements || [])];
+                        const school = e.target.value === "school";
+                        rs[i] = {
+                          ...rs[i],
+                          pay_channel: school ? "school" : "babyeyi",
+                          ...(school ? {} : { cost: "" }),
+                        };
+                        up("requirements", rs);
+                      }}
+                      className={`${inp} text-[13px] font-semibold`}
+                      style={{ borderColor: C.goldBorder }}
+                    >
+                      <option value="babyeyi">Pay via Babyeyi (online / MoMo)</option>
+                      <option value="school">Paid at school (counter / cash at office)</option>
+                    </select>
+                    <p className="text-[10px] mt-1 leading-snug" style={{ color: C.slate }}>
+                      Counter lines group with tuition on the public pay page.
+                    </p>
+                    {r.pay_channel === "school" && (
+                      <div className="mt-2.5">
+                        <label className="text-[9px] font-black uppercase tracking-wider mb-1 block" style={{ color: C.slate }}>
+                          Amount at school (RWF)
+                        </label>
+                        <input
+                          type="number"
+                          min={0}
+                          step={1}
+                          value={r.cost ?? ""}
+                          onChange={(e) => {
+                            const rs = [...(form.requirements || [])];
+                            rs[i] = { ...rs[i], cost: e.target.value };
+                            up("requirements", rs);
+                          }}
+                          placeholder="Total for this line at the office"
+                          className={`${inp} text-[13px] font-semibold font-mono`}
+                          style={{ borderColor: C.goldBorder }}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}

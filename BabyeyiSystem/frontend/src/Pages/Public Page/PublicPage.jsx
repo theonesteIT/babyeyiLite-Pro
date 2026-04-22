@@ -1,7 +1,7 @@
 /**
  * PublicPage.jsx — Babyeyi Landing Page
  * #000435 navy + amber · Tailwind only · Fully responsive (320px → 2560px)
- * MTN Brighter Sans font · Modern premium design
+ * Montserrat font · Modern premium design
  */
 
 import { useState, useEffect, useRef } from "react";
@@ -49,25 +49,12 @@ function partnersFromAssetsFolder() {
 /* ── Font ──────────────────────────────────────────────────────── */
 const FontLoader = () => (
   <style>{`
-    @import url('https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700;800;900&family=Barlow+Condensed:wght@700;800;900&display=swap');
-
-    @font-face {
-      font-family: 'MTN Brighter Sans';
-      src: local('MTN Brighter Sans'), local('MTNBrighterSans-Regular');
-      font-weight: 400; font-display: swap;
-    }
-    @font-face {
-      font-family: 'MTN Brighter Sans';
-      src: local('MTN Brighter Sans Bold'), local('MTNBrighterSans-Bold');
-      font-weight: 700 900; font-display: swap;
-    }
-
-    *, *::before, *::after {
-      font-family: 'MTN Brighter Sans', 'Barlow', 'Trebuchet MS', sans-serif !important;
-    }
     h1.hero-h1 {
-      font-family: 'Barlow', 'Trebuchet MS', sans-serif !important;
-      font-weight: 900 !important;
+      font-weight: 800 !important;
+    }
+
+    b, strong, .font-bold, .font-extrabold, .font-black {
+      font-weight: 800 !important;
     }
 
     :root {
@@ -379,15 +366,15 @@ function AISearchBox() {
     <div className="w-full max-w-xl 2xl:max-w-2xl mt-0">
       <div className="flex items-center gap-2 mb-2.5 pl-1">
         {[0, 200, 400].map((d) => (
-          <span key={d} className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" style={{ animationDelay: `${d}ms` }} />
+          <span key={d} className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" style={{ animationDelay: `${d}ms` }} />
         ))}
-        <span className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-400/80">SDMS Code / ShuleCard ID</span>
+        <span className="text-[10px] font-black uppercase tracking-[0.18em] text-white">SDMS Code / ShuleCard ID</span>
       </div>
 
       <div className="flex items-center gap-2 p-2 rounded-2xl"
-        style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(16px)", border: "1px solid rgba(251,191,36,0.25)" }}>
+        style={{ border: "1px solid #000435", backdropFilter: "blur(16px)"   }}>
         <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-          style={{ background: "rgba(251,191,36,0.1)" }}>
+          style={{ background: "#000435" }}>
           <Bot size={17} className="text-amber-400" />
         </div>
         <input
@@ -528,17 +515,17 @@ function HeroSection() {
 
       {/* Desktop overlay */}
       <div className="absolute inset-0 z-[1] pointer-events-none hidden sm:block"
-        style={{ background: "linear-gradient(135deg, rgba(0,4,53,0.75) 0%, rgba(0,4,53,0.48) 55%, rgba(0,4,53,0.22) 100%)" }} />
+        />
 
       {/* Mobile overlay — lighter so the amber BG + figures remain vivid */}
       <div className="absolute inset-0 z-[1] pointer-events-none sm:hidden"
-        style={{ background: "linear-gradient(180deg, rgba(0,4,53,0.30) 0%, rgba(0,4,53,0.18) 40%, rgba(0,4,53,0.52) 100%)" }} />
+         />
 
       {/* NO grid lines on hero — removed as requested */}
 
       {/* Amber radial bloom top-right (desktop only) */}
       <div className="absolute -top-40 -right-40 w-[600px] h-[600px] rounded-full pointer-events-none z-[2] hidden lg:block"
-        style={{ background: "radial-gradient(circle, rgba(251,191,36,0.07) 0%, transparent 68%)" }} />
+        />
 
       {/* Content — on mobile, block starts lower (not vertically centered) */}
       <div className="relative z-[11] max-w-[1400px] mx-auto px-4 sm:px-6 xl:px-10 2xl:px-16 flex flex-col justify-start sm:justify-center py-8 sm:py-20 xl:py-24"
@@ -558,42 +545,43 @@ function HeroSection() {
           <h1
             className="hero-h1 anim-su2 leading-[1.08] mb-4 sm:mb-6"
             style={{
-              fontSize: "clamp(1.55rem, 5vw, 4.5rem)",
+              fontSize: "clamp(1.55rem, 5vw, 3rem)",
               color: "#ffffff",
               letterSpacing: "-0.02em",
-              textShadow: "0 2px 28px rgba(0,4,53,0.65)",
+              fontWeight: 500,
+              
             }}
           >
             An Integrated{" "}
-            <span className="shimmer">Digital Platform</span>
+            <span className="text-white">Digital Platform for Equitable</span>
             <br className="hidden sm:block" />
-            {" "}for Equitable{" "}
-            <span style={{ color: "#FBBF24" }}>School Readiness</span>
+            {"School Readiness "} {" "}
+            <span className="text-white"></span>
           </h1>
 
           {/* Hero cards (4 only) */}
           <div className="anim-su4 flex flex-col gap-2.5 sm:gap-3 w-full sm:max-w-[clamp(300px,90vw,490px)]">
             <div className="grid grid-cols-2 gap-2 sm:gap-3">
               <Link to="/pay-by-school"
-                className="btn-shine inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-2xl font-black text-[#000435] transition-all active:scale-[.97] hover:shadow-[0_8px_28px_rgba(251,191,36,.4)]"
-                style={{ minHeight: "clamp(44px,5.5vw,56px)", fontSize: "clamp(11px,2.8vw,15px)", background: "linear-gradient(135deg,#FBBF24 0%,#F59E0B 100%)" }}>
+                className="btn-shine inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-2xl font-black text-amber-400 transition-all active:scale-[.97] hover:shadow-[0_8px_28px_rgba(251,191,36,.4)]"
+                style={{ minHeight: "clamp(44px,5.5vw,56px)", fontSize: "clamp(11px,2.8vw,15px)", background: "#000435" }}>
                 <CreditCard size={14} strokeWidth={2.5} className="shrink-0" /> Pay Fees
               </Link>
               <a href="/parents/login"
                 className="inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-2xl font-black text-white transition-all hover:bg-white/8"
-                style={{ minHeight: "clamp(44px,5.5vw,56px)", fontSize: "clamp(11px,2.8vw,15px)", border: "1.5px solid rgba(255,255,255,0.2)" }}>
+                style={{ minHeight: "clamp(44px,5.5vw,56px)", fontSize: "clamp(11px,2.8vw,15px)", background: "#000435" }}>
                 <LogIn size={14} className="text-amber-300 shrink-0" /> Parent Login
               </a>
             </div>
             <div className="grid grid-cols-2 gap-2 sm:gap-3">
               <Link to="/register"
                 className="inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-2xl font-semibold text-white transition-all hover:bg-amber-400/14"
-                style={{ minHeight: "clamp(42px,5vw,52px)", fontSize: "clamp(10.5px,2.6vw,14px)", border: "1px solid rgba(251,191,36,0.35)", background: "rgba(251,191,36,0.07)" }}>
+                style={{ minHeight: "clamp(42px,5vw,52px)", fontSize: "clamp(10.5px,2.6vw,14px)",background: "#000435" }}>
                 <Building2 size={14} className="text-amber-400 shrink-0" /> Register School
               </Link>
               <Link to="/services"
                 className="inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-2xl font-semibold text-white transition-all hover:bg-white/10"
-                style={{ minHeight: "clamp(42px,5vw,52px)", fontSize: "clamp(10.5px,2.6vw,14px)", border: "1px solid rgba(255,255,255,0.13)", background: "rgba(255,255,255,0.05)" }}>
+                style={{ minHeight: "clamp(42px,5vw,52px)", fontSize: "clamp(10.5px,2.6vw,14px)", background: "#000435" }}>
                 <Sparkles size={14} className="text-amber-200/80 shrink-0" /> Tools & Services
               </Link>
             </div>
@@ -901,7 +889,7 @@ function PartnersSection() {
                   style={{
                     display: "none",
                     background: "rgba(0,4,53,0.05)",
-                    fontWeight: 900,
+                    fontWeight: 800,
                     fontSize: "clamp(10px,2.8vw,12px)",
                     color: "#F59E0B",
                     letterSpacing: "0.04em",

@@ -426,8 +426,7 @@ export default function AdmissionApplyPage({ formId: propFormId, onClose }) {
 
   // ── Form ─────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen" style={{ background: theme.s, fontFamily: "'Sora', 'Inter', system-ui, sans-serif" }}>
-      <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700;800&display=swap" rel="stylesheet" />
+    <div className="min-h-screen" style={{ background: theme.s }}>
 
       {/* Header */}
       <div className="text-white py-10 px-6" style={{ background: `linear-gradient(135deg, ${theme.p}, ${theme.p}cc)` }}>

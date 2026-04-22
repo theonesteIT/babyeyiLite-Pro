@@ -4,29 +4,6 @@
 const db = require('../config/database');
 const { loadApprovedBabyeyiPricing } = require('./babyeyiPublicPricingCore');
 
-const SQL_JOIN_STUDENT_REQ_BY_ITEM = `LEFT JOIN student_requirements sr ON CONVERT(TRIM(LOWER(sr.name)) USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(TRIM(LOWER(bsr.item)) USING utf8mb4) COLLATE utf8mb4_unicode_ci`;
-
-function parseRequirementQuantity(raw) {
-  if (raw == null || raw === '') return 1;
-  const s = String(raw).trim();
-  const m = s.match(/(\d+(?:\.\d+)?)/);
-  if (m) {
-    const n = parseFloat(m[1]);
-    if (Number.isFinite(n) && n > 0) return n;
-  }
-  return 1;
-}
-
-/** Line RWF for one babyeyi_student_requirements row (matches public pricing rules). */
-function computeBsrLineAmountRwf(r, hasPayChMeta) {
-  const qty = parseRequirementQuantity(r.quantity);
-  const ch = hasPayChMeta ? String(r.pay_channel || 'babyeyi').toLowerCase() : 'babyeyi';
-  const stored = hasPayChMeta && ch === 'school' ? Number(r.school_line_rwf ?? r.cost ?? 0) : 0;
-  if (stored > 0) return roundMoney(stored);
-  const unit = Number(r.unit_price || 0);
-  return roundMoney(unit * qty);
-}
-
 function studentRowKey(s) {
   if (!s || typeof s !== 'object') return '';
   const uid = String(s.student_uid || '').trim().toUpperCase();
@@ -49,140 +26,82 @@ function roundMoney(x) {
   return Math.round(Number(x || 0) * 100) / 100;
 }
 
-/** Fee id keys: numeric babyeyi_payments.id, -1 synthetic, or "pasreq:<bsr_id>" for paid-at-school requirement lines. */
+/** Fee id keys: numeric babyeyi_payments.id, -1 synthetic, "pasreq:<bsr_id>", or "paspay:<payment_id>" for tuition paid at school. */
 function feeRowKeyFromId(id) {
   if (id == null) return id;
   const s = String(id);
-  if (s.startsWith('pasreq:')) return s;
+  if (s.startsWith('pasreq:') || s.startsWith('paspay:')) return s;
   const n = Number(id);
   return Number.isFinite(n) ? n : s;
 }
 
+/**
+ * Meta row for balance math — mirrors live school_babyeyi when possible, otherwise synthetic
+ * when pricing is served from accountant archive (manager deleted Babyeyi).
+ */
 async function fetchBabyeyiMetaRow(babyeyiId, schoolId) {
+  const pr = await loadApprovedBabyeyiPricing(babyeyiId, schoolId);
+  if (pr.ok) {
+    const b = pr.data.babyeyi;
+    const inactive = b.live_babyeyi_active === false;
+    return {
+      id: babyeyiId,
+      school_id: schoolId,
+      academic_year: b.academic_year,
+      term: b.term,
+      class_name: b.class_name,
+      status: 'approved',
+      total_fee: b.total_fee,
+      is_active: inactive ? 0 : 1,
+    };
+  }
   const [rows] = await db.promisePool.execute(
-    `SELECT id, school_id, academic_year, term, class_name, status, total_fee
-     FROM school_babyeyi
-     WHERE id = ? AND school_id = ? AND is_active = 1
-     LIMIT 1`,
+    `SELECT id, school_id, academic_year, term, class_name, status, total_fee, is_active
+     FROM school_babyeyi WHERE id = ? AND school_id = ? LIMIT 1`,
     [babyeyiId, schoolId]
   );
   return rows?.[0] || null;
 }
 
+/** Resolve selected fee lines using the same JSON as GET /public/babyeyi-pay/pricing (live or archive). */
 async function loadFeesForSelection(babyeyiId, feeIds, metaRow) {
   const rawList = Array.isArray(feeIds) ? feeIds : [];
-  const numericIds = [];
-  const pasBsrIds = [];
+  const schoolId = metaRow?.school_id != null ? parseInt(metaRow.school_id, 10) : null;
+  if (!schoolId) return [];
+
+  const pr = await loadApprovedBabyeyiPricing(babyeyiId, schoolId);
+  if (!pr.ok) return [];
+
+  const map = new Map();
+  for (const f of pr.data.school_fees || []) {
+    map.set(feeRowKeyFromId(f.id), f);
+  }
+
+  const fees = [];
   for (const raw of rawList) {
-    const s = String(raw ?? '');
-    if (s.startsWith('pasreq:')) {
-      const n = parseInt(s.slice(7), 10);
-      if (n > 0) pasBsrIds.push(n);
-    } else {
-      const n = Number(raw);
-      if (Number.isFinite(n)) numericIds.push(n);
-    }
-  }
-  const hasSynthetic = numericIds.includes(-1);
-  const realIds = numericIds.filter((n) => n !== -1);
-  let fees = [];
-  if (realIds.length) {
-    const ph = realIds.map(() => '?').join(',');
-    const [feeRows] = await db.promisePool.execute(
-      `SELECT id, name, amount FROM babyeyi_payments WHERE babyeyi_id = ? AND id IN (${ph}) ORDER BY sort_order, id`,
-      [babyeyiId, ...realIds]
-    );
-    fees = feeRows || [];
-  }
-  if (hasSynthetic && metaRow && Number(metaRow.total_fee) > 0) {
+    const k = feeRowKeyFromId(raw);
+    const f = map.get(k);
+    if (!f) continue;
     fees.push({
-      id: -1,
-      name: 'School fee (total on document)',
-      amount: Number(metaRow.total_fee),
+      id: k,
+      name: f.name || 'Fee item',
+      amount: roundMoney(Number(f.amount || 0)),
     });
-  }
-  if (pasBsrIds.length) {
-    const ph = pasBsrIds.map(() => '?').join(',');
-    let reqRows;
-    let hasPayChMeta = true;
-    try {
-      const [rows] = await db.promisePool.execute(
-        `SELECT bsr.id, bsr.item AS requirement_name, bsr.description, bsr.quantity,
-                COALESCE(bsr.pay_channel, 'babyeyi') AS pay_channel,
-                bsr.cost AS school_line_rwf,
-                COALESCE(rp.price, sr.default_price, bsr.cost, 0) AS unit_price
-         FROM babyeyi_student_requirements bsr
-         LEFT JOIN requirement_prices rp ON rp.babyeyi_id = bsr.babyeyi_id AND rp.babyeyi_requirement_id = bsr.id
-         ${SQL_JOIN_STUDENT_REQ_BY_ITEM}
-         WHERE bsr.babyeyi_id = ? AND bsr.id IN (${ph})
-         ORDER BY bsr.sort_order, bsr.id`,
-        [babyeyiId, ...pasBsrIds]
-      );
-      reqRows = rows;
-    } catch (e) {
-      if (e.code !== 'ER_BAD_FIELD_ERROR') throw e;
-      hasPayChMeta = false;
-      const [rows] = await db.promisePool.execute(
-        `SELECT bsr.id, bsr.item AS requirement_name, bsr.description, bsr.quantity,
-                COALESCE(rp.price, sr.default_price, bsr.cost, 0) AS unit_price
-         FROM babyeyi_student_requirements bsr
-         LEFT JOIN requirement_prices rp ON rp.babyeyi_id = bsr.babyeyi_id AND rp.babyeyi_requirement_id = bsr.id
-         ${SQL_JOIN_STUDENT_REQ_BY_ITEM}
-         WHERE bsr.babyeyi_id = ? AND bsr.id IN (${ph})
-         ORDER BY bsr.sort_order, bsr.id`,
-        [babyeyiId, ...pasBsrIds]
-      );
-      reqRows = rows;
-    }
-    for (const r of reqRows || []) {
-      const line = computeBsrLineAmountRwf(r, hasPayChMeta);
-      fees.push({
-        id: `pasreq:${r.id}`,
-        name: r.requirement_name || 'Requirement',
-        amount: line,
-      });
-    }
   }
   return fees;
 }
 
-async function loadReqLinesForSelection(babyeyiId, reqIds) {
+async function loadReqLinesForSelection(babyeyiId, reqIds, schoolId) {
   const ids = (Array.isArray(reqIds) ? reqIds : []).map((x) => parseInt(x, 10)).filter((n) => n > 0);
-  if (!ids.length) return [];
-  const ph = ids.map(() => '?').join(',');
-  let reqRows;
-  try {
-    const [rows] = await db.promisePool.execute(
-      `SELECT bsr.id AS babyeyi_requirement_id, bsr.item AS requirement_name, bsr.description, bsr.quantity,
-              COALESCE(rp.price, sr.default_price, bsr.cost, 0) AS unit_price
-       FROM babyeyi_student_requirements bsr
-       LEFT JOIN requirement_prices rp ON rp.babyeyi_id = bsr.babyeyi_id AND rp.babyeyi_requirement_id = bsr.id
-       ${SQL_JOIN_STUDENT_REQ_BY_ITEM}
-       WHERE bsr.babyeyi_id = ? AND bsr.id IN (${ph})
-       ORDER BY bsr.sort_order, bsr.id`,
-      [babyeyiId, ...ids]
-    );
-    reqRows = rows;
-  } catch (e) {
-    if (e.code !== 'ER_BAD_FIELD_ERROR') throw e;
-    const [rows] = await db.promisePool.execute(
-      `SELECT bsr.id AS babyeyi_requirement_id, bsr.item AS requirement_name, bsr.description, bsr.quantity,
-              COALESCE(rp.price, sr.default_price, 0) AS unit_price
-       FROM babyeyi_student_requirements bsr
-       LEFT JOIN requirement_prices rp ON rp.babyeyi_id = bsr.babyeyi_id AND rp.babyeyi_requirement_id = bsr.id
-       ${SQL_JOIN_STUDENT_REQ_BY_ITEM}
-       WHERE bsr.babyeyi_id = ? AND bsr.id IN (${ph})
-       ORDER BY bsr.sort_order, bsr.id`,
-      [babyeyiId, ...ids]
-    );
-    reqRows = rows;
-  }
-  return (reqRows || []).map((r) => {
-    const qty = parseRequirementQuantity(r.quantity);
-    const unit = Number(r.unit_price || 0);
-    const line = roundMoney(unit * qty);
-    return { ...r, quantity_value: qty, unit_price_rwf: unit, line_total_rwf: line };
-  });
+  if (!ids.length || !schoolId) return [];
+
+  const pr = await loadApprovedBabyeyiPricing(babyeyiId, schoolId);
+  if (!pr.ok) return [];
+
+  const byId = new Map(
+    (pr.data.requirements || []).map((r) => [Number(r.babyeyi_requirement_id), r])
+  );
+  return ids.map((id) => byId.get(id)).filter(Boolean);
 }
 
 /**
@@ -195,6 +114,16 @@ function normalizeCatalogFromPricing(pricingData) {
   for (const f of pricingData?.school_fees || []) {
     const rawId = f?.id;
     if (rawId != null && String(rawId).startsWith('pasreq:')) {
+      const sid = String(rawId);
+      feeIds.push(sid);
+      feeRows.push({
+        id: sid,
+        name: f?.name,
+        amount: roundMoney(Number(f?.amount || 0)),
+      });
+      continue;
+    }
+    if (rawId != null && String(rawId).startsWith('paspay:')) {
       const sid = String(rawId);
       feeIds.push(sid);
       feeRows.push({
@@ -242,8 +171,8 @@ function paidOnCatalogLines(sk, slot, catalogFeeIds, catalogReqIds) {
 }
 
 async function computePayloadSelectionTotals(babyeyiId, schoolId, payload) {
-  const metaRow = await fetchBabyeyiMetaRow(babyeyiId, schoolId);
-  if (!metaRow || String(metaRow.status || '') !== 'approved') return null;
+  const prCheck = await loadApprovedBabyeyiPricing(babyeyiId, schoolId);
+  if (!prCheck.ok) return null;
   let payloadObj = payload;
   if (typeof payloadObj === 'string') {
     try {
@@ -254,8 +183,9 @@ async function computePayloadSelectionTotals(babyeyiId, schoolId, payload) {
   }
   const feeIds = Array.isArray(payloadObj?.selected_fee_ids) ? payloadObj.selected_fee_ids : [];
   const reqIds = Array.isArray(payloadObj?.selected_requirement_ids) ? payloadObj.selected_requirement_ids : [];
-  const fees = await loadFeesForSelection(babyeyiId, feeIds, metaRow);
-  const requirements = await loadReqLinesForSelection(babyeyiId, reqIds);
+  const feeMeta = { school_id: schoolId };
+  const fees = await loadFeesForSelection(babyeyiId, feeIds, feeMeta);
+  const requirements = await loadReqLinesForSelection(babyeyiId, reqIds, schoolId);
   const feesTotal = roundMoney(fees.reduce((s, f) => s + Number(f.amount || 0), 0));
   const reqTotal = roundMoney(requirements.reduce((s, r) => s + Number(r.line_total_rwf || 0), 0));
   const perStudentTotal = roundMoney(feesTotal + reqTotal);
@@ -263,7 +193,7 @@ async function computePayloadSelectionTotals(babyeyiId, schoolId, payload) {
   const studentCount = Math.max(1, studs.length);
   const selectedTotalRwF = roundMoney(perStudentTotal * studentCount);
   return {
-    metaRow,
+    metaRow: await fetchBabyeyiMetaRow(babyeyiId, schoolId),
     fees,
     requirements,
     feesTotal,
@@ -377,7 +307,7 @@ function schoolCounterCreditsMap(opts) {
   const m = new Map();
   for (const [k0, v] of Object.entries(raw)) {
     const k = String(k0 || '').trim();
-    if (!k.startsWith('pasreq:')) continue;
+    if (!k.startsWith('pasreq:') && !k.startsWith('paspay:')) continue;
     const n = roundMoney(Number(v));
     if (n > 0) m.set(k, n);
   }
@@ -407,7 +337,7 @@ async function quoteBabyeyiPayBalance(opts) {
 
   const metaRow = await fetchBabyeyiMetaRow(babyeyiId, schoolId);
   const fees = await loadFeesForSelection(babyeyiId, selectedFeeIds, metaRow);
-  const requirements = await loadReqLinesForSelection(babyeyiId, selectedReqIds);
+  const requirements = await loadReqLinesForSelection(babyeyiId, selectedReqIds, schoolId);
 
   const feeMap = new Map(fees.map((f) => [feeRowKeyFromId(f.id), f]));
   const reqMap = new Map(requirements.map((r) => [Number(r.babyeyi_requirement_id), r]));
@@ -447,9 +377,10 @@ async function quoteBabyeyiPayBalance(opts) {
       if (!f) continue;
       const owed = roundMoney(Number(f.amount || 0));
       const paid = roundMoney(sk && slot ? slot.fee.get(fid) || 0 : 0);
-      const declared = String(fid).startsWith('pasreq:')
-        ? roundMoney(Math.min(owed, schoolCredits.get(String(fid)) || 0))
-        : 0;
+      const declared =
+        String(fid).startsWith('pasreq:') || String(fid).startsWith('paspay:')
+          ? roundMoney(Math.min(owed, schoolCredits.get(String(fid)) || 0))
+          : 0;
       const rem = roundMoney(Math.max(0, owed - paid - declared));
       subRemaining += rem;
       lines.push({
@@ -545,8 +476,6 @@ async function quoteBabyeyiPayBalance(opts) {
   };
 }
 
-const OVERPAY_EPSILON = 1.5;
-
 /**
  * @returns {Promise<{ ok: true } | { ok: false, status: number, message: string, code?: string, details?: object }>}
  */
@@ -559,7 +488,6 @@ async function validateBabyeyiPaymentAgainstBalance(body) {
 
   const schoolId = parseInt(body.school_id, 10);
   const babyeyiId = parseInt(body.babyeyi_id, 10);
-  const totalRwf = roundMoney(body.total_rwf);
   const selectedFeeIds = body.selected_fee_ids || [];
   const selectedReqIds = body.selected_requirement_ids || [];
   const selectedStudents = Array.isArray(body.selected_students)
@@ -581,34 +509,9 @@ async function validateBabyeyiPaymentAgainstBalance(body) {
 
   if (!quote.ok) return { ok: true };
 
-  const remaining = roundMoney(quote.data.remaining_rwf);
-  if (totalRwf <= remaining + OVERPAY_EPSILON) {
-    return { ok: true };
-  }
-
-  const excess = roundMoney(totalRwf - remaining);
-  const term = quote.data.term_label ? ` (${quote.data.term_label})` : '';
-  const msg =
-    remaining <= 0
-      ? `This amount exceeds what is still owed for the selected items on this Babyeyi document${term}. Our records show no remaining balance for this selection. If you believe this is incorrect, please contact the school office with your proof of payment.`
-      : `The amount you entered is higher than the remaining balance for this term${term}. For your current selection, the outstanding total is ${remaining.toLocaleString(
-          'en-RW'
-        )} RWF, while you are attempting to pay ${totalRwf.toLocaleString('en-RW')} RWF (${excess.toLocaleString(
-          'en-RW'
-        )} RWF above the balance). Please adjust the payment to the outstanding amount, or contact the school if you need a correction.`;
-
-  return {
-    ok: false,
-    status: 400,
-    code: 'BABYEYI_OVERPAY',
-    message: msg,
-    details: {
-      remaining_rwf: remaining,
-      attempted_rwf: totalRwf,
-      excess_rwf: excess,
-      term_label: quote.data.term_label,
-    },
-  };
+  // Allow top-up amounts above current remaining balance.
+  // Frontend still enforces minimum selected requirements/items amount.
+  return { ok: true };
 }
 
 module.exports = {
@@ -616,4 +519,5 @@ module.exports = {
   validateBabyeyiPaymentAgainstBalance,
   studentRowKey,
   buildPaidAllocationsByStudent,
+  loadFeesForSelection,
 };

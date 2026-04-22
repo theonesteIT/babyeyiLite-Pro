@@ -30,14 +30,6 @@ import Heroimage from "../../assets/hero-image.png";
 const BABYeyiLogoUrl = "/1BABYEYI LOGO FINAL.png";
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5100";
 
-// ─── GOOGLE FONTS ─────────────────────────────────────────────────────────────
-const FontLoader = () => (
-  <link
-    href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,600;1,700&display=swap"
-    rel="stylesheet"
-  />
-);
-
 // ─── COUNTER HOOK ─────────────────────────────────────────────────────────────
 function useCounter(target, duration = 2000, startOnMount = false) {
   const [count, setCount] = useState(0);
@@ -1508,8 +1500,7 @@ export default function PublicPage() {
   }, []);
 
   return (
-    <div style={{ fontFamily: "'Montserrat', sans-serif" }}>
-      <FontLoader />
+    <div>
       <LandingNav />
       <HeroSection onSearchSchools={goSchools} />
       <FeaturesSection />

@@ -141,8 +141,6 @@ export default function Sidebar({
 
   return (
     <>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Varela+Round&display=swap');`}</style>
-
       {/* Desktop sidebar */}
       <aside
         className="hidden lg:flex flex-col fixed left-0 top-0 h-full z-30 w-[240px] xl:w-[256px] border-r border-amber-400/15 bg-[#000435]"

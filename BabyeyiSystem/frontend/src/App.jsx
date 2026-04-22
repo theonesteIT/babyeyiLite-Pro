@@ -123,6 +123,7 @@ import AgentUniformVoucherOrdersPage from './Pages/Agent/AgentUniformVoucherOrde
 import SuperAdminStandardKitRequestsPage from './Pages/SuperAdmin/SuperAdminStandardKitRequestsPage';
 import SuperAdminShuleAvanceOrgs from './Pages/SuperAdmin/SuperAdminShuleAvanceOrgs';
 import ShuleAvanceTeacher from './Pages/SuperAdmin/ShuleAvanceTeacher';
+import TeacherDealProducts from './Pages/SuperAdmin/TeacherDealProducts';
 import ShuleAvancePartnerDashboard from './Pages/ShuleAvance/ShuleAvancePartnerDashboard';
 import BabyeyiVerifyPage        from './Pages/School Manager/components/BabyeyiVerifyPage';
 import ParentLogin              from './Pages/Parents/ParentLogin';
@@ -300,6 +301,11 @@ export default function App() {
           <Route path="/superadmin/shule-avance-teacher" element={
             <ProtectedRoute role={['SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER']}>
               <ShuleAvanceTeacher />
+            </ProtectedRoute>
+          } />
+          <Route path="/superadmin/teacher-deal-products" element={
+            <ProtectedRoute role="SUPER_ADMIN">
+              <TeacherDealProducts />
             </ProtectedRoute>
           } />
 

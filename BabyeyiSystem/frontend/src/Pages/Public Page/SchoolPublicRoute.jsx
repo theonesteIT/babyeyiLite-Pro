@@ -26,14 +26,6 @@ const SERVER  = import.meta.env.VITE_API_URL || 'http://localhost:5100';
 const API     = `${SERVER}/api/mini-websites`;
 const ADM_API = `${SERVER}/api/admissions`;
 
-// ─── FONTS ───────────────────────────────────────────────────────────────────
-const FontLoader = () => (
-  <link
-    href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,600;1,700&display=swap"
-    rel="stylesheet"
-  />
-);
-
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 function imgUrl(p) {
   if (!p) return null;
@@ -2073,7 +2065,6 @@ function SchoolSite({ data, slug, initialLookupSeed = null }) {
 
   return (
     <div className="min-h-screen w-full max-w-[100vw] overflow-x-hidden" style={montserrat}>
-      <FontLoader />
       <style>{`
         * { box-sizing: border-box; }
         ::-webkit-scrollbar { width: 5px; }
@@ -2150,7 +2141,6 @@ export default function SchoolPublicRoute() {
 
   if (loading) return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-5" style={{ background: '#1F2937', ...montserrat }}>
-      <FontLoader />
       <div
         className="w-20 h-20 rounded-3xl flex items-center justify-center shadow-2xl animate-pulse"
         style={{ background: '#FBBF24', boxShadow: '0 8px 32px rgba(251,191,36,0.35)' }}
@@ -2167,7 +2157,6 @@ export default function SchoolPublicRoute() {
 
   if (error || !data) return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6 gap-6" style={{ background: '#1F2937', ...montserrat }}>
-      <FontLoader />
       <div
         className="w-20 h-20 rounded-3xl flex items-center justify-center text-4xl"
         style={{ background: 'rgba(255,255,255,0.06)', border: '1.5px dashed rgba(251,191,36,0.3)' }}

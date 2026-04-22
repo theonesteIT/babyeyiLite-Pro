@@ -1,13 +1,13 @@
 /**
  * BabyeyiPdf.jsx — Public Document Viewer
- * #000435 navy + amber-400 · MTN font · Tailwind only
+ * #000435 navy + amber-400 · Montserrat font · Tailwind only
  */
 
 import { useState, useEffect } from "react";
 import { buildWordDocHTML } from "./BabyeyiList";
 import { getLegacyBabyeyiUI, getParentMessageForDisplay, getStatusLabelSafe } from "../../../i18n";
 
-const FONT = `"MTN Brighter Sans","Nunito","Varela Round",sans-serif`;
+const FONT = `"Montserrat",system-ui,sans-serif`;
 const API_BASE   = "http://localhost:5100/api";
 const ASSET_BASE = "http://localhost:5100";
 const FRONTEND_ORIGIN = typeof window !== "undefined" ? window.location.origin : "http://localhost:5174";
@@ -298,7 +298,6 @@ export default function BabyeyiPdf() {
 
   if (loading) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#000435] gap-4" style={{ fontFamily: FONT }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap');`}</style>
       <div className="w-14 h-14 rounded-2xl border border-amber-400/20 flex items-center justify-center">
         <div className="w-7 h-7 border-2 border-amber-400/30 border-t-amber-400 rounded-full animate-spin"/>
       </div>
@@ -308,7 +307,6 @@ export default function BabyeyiPdf() {
 
   if (error) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#000435] gap-4 p-6" style={{ fontFamily: FONT }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap');`}</style>
       <div className="text-5xl">⚠️</div>
       <p className="text-red-400 font-black text-lg">Failed to load document</p>
       <p className="text-white/40 text-[13px] text-center max-w-sm">{error}</p>
@@ -323,7 +321,7 @@ export default function BabyeyiPdf() {
 
   return (
     <div className="min-h-screen bg-[#000435] py-6 px-3 sm:px-6" style={{ fontFamily: FONT }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&display=swap'); @keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
 
       {/* Top bar */}
       <div className="max-w-4xl mx-auto mb-5">

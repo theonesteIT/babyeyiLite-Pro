@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { CheckCircle2, ClipboardList, Download, FileText, Filter, RefreshCw, Search, Upload, X } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import api from '../services/api';
+import PortalToast from '../components/PortalToast';
 
 function formatMoneyRWF(value) {
   const n = Number(value) || 0;
@@ -55,8 +56,8 @@ const RequisitionDetailsDrawer = ({ isOpen, req, onClose, onApprove, onReject })
             {[
               { label: 'Requester', value: req.requester || '—', icon: ClipboardList },
               { label: 'Items', value: req.items || '—', icon: FileText },
+              { label: 'Description', value: req.description || req.note || '—', icon: FileText },
               { label: 'Attachment', value: req.attachmentName || '—', icon: Upload },
-              { label: 'Notes', value: req.note || '—', icon: FileText },
             ].map((item) => (
               <div key={item.label} className="flex items-center justify-between group">
                 <div className="flex items-center gap-2">
@@ -129,6 +130,8 @@ const AddRequisitionModal = ({ isOpen, onClose, onCreate }) => {
   const [submitted, setSubmitted] = useState(() => new Date().toISOString().slice(0, 10));
   const [attachment, setAttachment] = useState(null);
   const [note, setNote] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   if (!isOpen) return null;
 
@@ -220,6 +223,9 @@ const AddRequisitionModal = ({ isOpen, onClose, onCreate }) => {
               placeholder="Note (optional)"
               className="w-full min-h-[80px] rounded-lg bg-re-bg px-3 py-2.5 outline-none border border-black/5 focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[9px] sm:text-[10px] font-bold tracking-tight shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.55)] placeholder:text-re-text-muted/40 resize-none"
             />
+            {!!errorMsg && (
+              <p className="text-[10px] font-bold text-red-600">{errorMsg}</p>
+            )}
           </div>
 
           <div className="bg-white border-t border-black/5 px-5 sm:px-6 py-2 flex items-center justify-between shrink-0 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
@@ -235,24 +241,47 @@ const AddRequisitionModal = ({ isOpen, onClose, onCreate }) => {
               </button>
               <button
                 type="button"
-                onClick={() => {
+                disabled={submitting}
+                onClick={async () => {
                   const amt = Number(amount) || 0;
-                  if (!dept.trim() || !requester.trim() || !items.trim() || amt <= 0) return;
-                  onCreate?.({
-                    dept: dept.trim(),
-                    requester: requester.trim(),
-                    items: items.trim(),
-                    amount: amt,
-                    submitted,
-                    attachmentName: attachment?.name || '',
-                    note: note.trim(),
-                  });
-                  onClose?.();
+                  const cleanDept = dept.trim();
+                  const cleanRequester = requester.trim();
+                  const cleanItems = items.trim();
+                  if (!cleanDept || !cleanRequester || !cleanItems) {
+                    setErrorMsg('Department, requester and requested items are required.');
+                    return;
+                  }
+                  if (amt <= 0) {
+                    setErrorMsg('Amount must be greater than zero.');
+                    return;
+                  }
+                  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(submitted || ''))) {
+                    setErrorMsg('Submitted date must be valid.');
+                    return;
+                  }
+                  setErrorMsg('');
+                  setSubmitting(true);
+                  try {
+                    await onCreate?.({
+                      dept: cleanDept,
+                      requester: cleanRequester,
+                      items: cleanItems,
+                      amount: amt,
+                      submitted,
+                      attachmentName: attachment?.name || '',
+                      note: note.trim(),
+                    });
+                    onClose?.();
+                  } catch (e) {
+                    setErrorMsg(e?.response?.data?.message || e.message || 'Failed to submit requisition.');
+                  } finally {
+                    setSubmitting(false);
+                  }
                 }}
-                className="h-9 px-6 rounded-lg text-white font-black text-[9px] uppercase tracking-widest shadow-lg hover:scale-[1.02] active:scale-95 transition-all"
+                className="h-9 px-6 rounded-lg text-white font-black text-[9px] uppercase tracking-widest shadow-lg hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-60 disabled:hover:scale-100"
                 style={{ background: 'linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)' }}
               >
-                Submit
+                {submitting ? 'Submitting…' : 'Submit'}
               </button>
             </div>
           </div>
@@ -266,17 +295,26 @@ const AddRequisitionModal = ({ isOpen, onClose, onCreate }) => {
 export default function Requisitions() {
   const [searchTerm, setSearchTerm] = useState('');
   const [status, setStatus] = useState('All');
+  const [teacherOnly, setTeacherOnly] = useState(false);
   const [details, setDetails] = useState(null);
   const [isAddOpen, setIsAddOpen] = useState(false);
 
   const [rows, setRows] = useState([]);
+  const [toast, setToast] = useState(null);
+  const [actionBusyKey, setActionBusyKey] = useState('');
+
+  useEffect(() => {
+    if (!toast) return undefined;
+    const t = window.setTimeout(() => setToast(null), 3200);
+    return () => window.clearTimeout(t);
+  }, [toast]);
 
   const fetchRequisitions = async () => {
     try {
       const res = await api.get('/accountant/requisitions');
       if (res.data?.success) setRows(Array.isArray(res.data.data) ? res.data.data : []);
     } catch (e) {
-      console.warn('[Requisitions] Failed to load live requisitions:', e.message);
+      setToast({ type: 'error', message: e?.response?.data?.message || e.message || 'Failed to load requisitions.' });
     }
   };
 
@@ -297,10 +335,11 @@ export default function Requisitions() {
     const q = searchTerm.trim().toLowerCase();
     return rows.filter((r) => {
       const stOk = status === 'All' || r.status === status;
+      const srcOk = !teacherOnly || String(r.source_portal || '').toLowerCase() === 'teacher';
       const qOk = !q || r.id.toLowerCase().includes(q) || r.dept.toLowerCase().includes(q) || r.requester.toLowerCase().includes(q);
-      return stOk && qOk;
+      return stOk && srcOk && qOk;
     });
-  }, [rows, searchTerm, status]);
+  }, [rows, searchTerm, status, teacherOnly]);
 
   const exportPdf = () => {
     const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
@@ -363,6 +402,87 @@ export default function Requisitions() {
       y += 18;
     });
     doc.save(`requisitions-report-${new Date().toISOString().slice(0, 10)}.pdf`);
+  };
+
+  const updateStatus = async (r, nextStatus) => {
+    if (!r || r.status === nextStatus) return;
+    const dbId = Number(r?.db_id);
+    if (!dbId) {
+      setToast({ type: 'error', message: 'Requisition ID is invalid.' });
+      return;
+    }
+    const key = `${r.id}:status:${nextStatus}`;
+    setActionBusyKey(key);
+    try {
+      await api.patch(`/accountant/requisitions/${dbId}/status`, { status: nextStatus });
+      await fetchRequisitions();
+      setDetails((prev) => (prev && prev.id === r.id ? { ...prev, status: nextStatus } : prev));
+      setToast({ type: 'success', message: `Requisition ${r.id} marked ${nextStatus}.` });
+    } catch (e) {
+      setToast({ type: 'error', message: e?.response?.data?.message || e.message || 'Status update failed.' });
+    } finally {
+      setActionBusyKey('');
+    }
+  };
+
+  const editRequisition = async (r) => {
+    const nextDept = window.prompt('Department:', r.dept || '');
+    if (nextDept == null) return;
+    const nextItems = window.prompt('Items requested:', r.items || '');
+    if (nextItems == null) return;
+    const nextAmountRaw = window.prompt('Amount (RWF):', String(r.amount || 0));
+    if (nextAmountRaw == null) return;
+    const nextAmount = Number(String(nextAmountRaw).replace(/[^\d.]/g, ''));
+    if (!String(nextDept).trim() || !String(nextItems).trim()) {
+      setToast({ type: 'error', message: 'Department and items are required.' });
+      return;
+    }
+    if (!Number.isFinite(nextAmount) || nextAmount <= 0) {
+      setToast({ type: 'error', message: 'Amount must be greater than zero.' });
+      return;
+    }
+    const dbId = Number(r?.db_id);
+    if (!dbId) {
+      setToast({ type: 'error', message: 'Requisition ID is invalid.' });
+      return;
+    }
+    const key = `${r.id}:edit`;
+    setActionBusyKey(key);
+    try {
+      await api.patch(`/accountant/requisitions/${dbId}`, {
+        dept: String(nextDept).trim(),
+        items: String(nextItems).trim(),
+        amount: nextAmount,
+      });
+      await fetchRequisitions();
+      setToast({ type: 'success', message: `Requisition ${r.id} updated.` });
+    } catch (e) {
+      setToast({ type: 'error', message: e?.response?.data?.message || e.message || 'Update failed.' });
+    } finally {
+      setActionBusyKey('');
+    }
+  };
+
+  const deleteRequisition = async (r) => {
+    const yes = window.confirm(`Delete requisition ${r.id}?`);
+    if (!yes) return;
+    const dbId = Number(r?.db_id);
+    if (!dbId) {
+      setToast({ type: 'error', message: 'Requisition ID is invalid.' });
+      return;
+    }
+    const key = `${r.id}:delete`;
+    setActionBusyKey(key);
+    try {
+      await api.delete(`/accountant/requisitions/${dbId}`);
+      await fetchRequisitions();
+      setToast({ type: 'success', message: `Requisition ${r.id} deleted.` });
+      setDetails((prev) => (prev?.id === r.id ? null : prev));
+    } catch (e) {
+      setToast({ type: 'error', message: e?.response?.data?.message || e.message || 'Delete failed.' });
+    } finally {
+      setActionBusyKey('');
+    }
   };
 
   return (
@@ -458,9 +578,22 @@ export default function Requisitions() {
               </div>
             </div>
 
-            <button className="h-8 w-8 flex items-center justify-center bg-white border border-black/5 rounded-lg hover:bg-re-bg transition-all shadow-sm disabled:opacity-40 shrink-0 ml-auto">
+            <button
+              type="button"
+              onClick={() => fetchRequisitions()}
+              className="h-8 w-8 flex items-center justify-center bg-white border border-black/5 rounded-lg hover:bg-re-bg transition-all shadow-sm disabled:opacity-40 shrink-0 ml-auto"
+            >
               <RefreshCw size={12} className="text-[#1E3A5F]" />
             </button>
+              <button
+                type="button"
+                onClick={() => setTeacherOnly((v) => !v)}
+                className={`h-8 px-3 rounded-lg border text-[9px] font-black uppercase tracking-widest shadow-sm transition-all ${
+                  teacherOnly ? 'bg-[#1E3A5F] text-white border-[#1E3A5F]' : 'bg-white text-[#1E3A5F] border-black/10'
+                }`}
+              >
+                Teacher only
+              </button>
           </div>
 
           <div className="overflow-x-auto bg-white flex-1">
@@ -469,6 +602,7 @@ export default function Requisitions() {
                 <tr className="bg-re-bg/20 border-b border-black/5">
                   <th className="px-4 sm:px-6 py-2.5 sm:py-3 text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Request</th>
                   <th className="hidden md:table-cell px-6 py-3 text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Department</th>
+                  <th className="hidden lg:table-cell px-6 py-3 text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Description</th>
                   <th className="hidden md:table-cell px-6 py-3 text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Submitted</th>
                   <th className="px-4 sm:px-6 py-2.5 sm:py-3 text-right text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Amount</th>
                   <th className="px-4 sm:px-6 py-2.5 sm:py-3 text-right text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Status</th>
@@ -476,13 +610,21 @@ export default function Requisitions() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/5">
-                {filtered.map((r) => (
+                {filtered.map((r) => {
+                  const isBusy = actionBusyKey.startsWith(`${r.id}:`);
+                  return (
                   <tr key={r.id} onClick={() => setDetails(r)} className="hover:bg-re-bg/60 even:bg-re-bg/20 transition-colors cursor-pointer">
                     <td className="px-4 sm:px-6 py-2.5 sm:py-3 border-r border-black/5">
                       <p className="text-[13px] font-black text-[#1E3A5F] tracking-tight truncate">{r.requester}</p>
+                      <p className="text-[10px] font-bold text-slate-500 mt-0.5 truncate">
+                        {r.description || r.note || 'No description'}
+                      </p>
                       <p className="text-[8px] font-bold text-re-text-muted uppercase tracking-widest leading-none mt-1 opacity-50">{r.id}</p>
                     </td>
                     <td className="hidden md:table-cell px-6 py-3 border-r border-black/5 text-[11px] font-black text-[#1E3A5F]">{r.dept}</td>
+                    <td className="hidden lg:table-cell px-6 py-3 border-r border-black/5 text-[10px] font-bold text-slate-600 max-w-[260px] truncate">
+                      {r.description || r.note || '—'}
+                    </td>
                     <td className="hidden md:table-cell px-6 py-3 border-r border-black/5 text-[10px] font-black text-[#1E3A5F]">{r.submitted}</td>
                     <td className="px-4 sm:px-6 py-2.5 sm:py-3 border-r border-black/5 text-right text-[12px] font-black text-[#1E3A5F]">
                       {formatMoneyRWF(r.amount).replace('RWF', '')}
@@ -504,42 +646,58 @@ export default function Requisitions() {
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (r.status === 'rejected') return;
-                            setRows((prev) => prev.map((x) => (x.id === r.id ? { ...x, status: 'rejected' } : x)));
-                            setDetails((prev) => (prev && prev.id === r.id ? { ...prev, status: 'rejected' } : prev));
-                            const dbId = Number(r?.db_id);
-                            api.patch(`/accountant/requisitions/${dbId}/status`, { status: 'rejected' }).then(() => fetchRequisitions());
+                            updateStatus(r, 'rejected');
                           }}
                           className="h-7 px-3 rounded-xl bg-white border border-black/5 text-red-600 font-black text-[9px] uppercase tracking-widest shadow-sm hover:bg-re-bg transition-all disabled:opacity-40"
-                          disabled={r.status === 'rejected'}
+                          disabled={r.status === 'rejected' || isBusy}
                           title="Reject requisition"
                         >
-                          Reject
+                          {isBusy && actionBusyKey.endsWith(':rejected') ? 'Saving…' : 'Reject'}
                         </button>
                         <button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (r.status === 'approved') return;
-                            setRows((prev) => prev.map((x) => (x.id === r.id ? { ...x, status: 'approved' } : x)));
-                            setDetails((prev) => (prev && prev.id === r.id ? { ...prev, status: 'approved' } : prev));
-                            const dbId = Number(r?.db_id);
-                            api.patch(`/accountant/requisitions/${dbId}/status`, { status: 'approved' }).then(() => fetchRequisitions());
+                            updateStatus(r, 'approved');
                           }}
                           className="h-7 px-3 rounded-xl text-white font-black text-[9px] uppercase tracking-widest shadow-sm hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-40 disabled:hover:scale-100"
                           style={{ background: 'linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)' }}
-                          disabled={r.status === 'approved'}
+                          disabled={r.status === 'approved' || isBusy}
                           title="Approve requisition"
                         >
-                          Approve
+                          {isBusy && actionBusyKey.endsWith(':approved') ? 'Saving…' : 'Approve'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            await editRequisition(r);
+                          }}
+                          className="h-7 px-3 rounded-xl bg-white border border-black/5 text-[#1E3A5F] font-black text-[9px] uppercase tracking-widest shadow-sm hover:bg-re-bg transition-all"
+                          disabled={isBusy}
+                          title="Edit requisition"
+                        >
+                          {isBusy && actionBusyKey.endsWith(':edit') ? 'Saving…' : 'Edit'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            await deleteRequisition(r);
+                          }}
+                          className="h-7 px-3 rounded-xl bg-white border border-red-200 text-red-600 font-black text-[9px] uppercase tracking-widest shadow-sm hover:bg-red-50 transition-all"
+                          disabled={isBusy}
+                          title="Delete requisition"
+                        >
+                          {isBusy && actionBusyKey.endsWith(':delete') ? 'Deleting…' : 'Delete'}
                         </button>
                       </div>
                     </td>
                   </tr>
-                ))}
+                )})}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-6 py-10 text-center">
+                    <td colSpan={7} className="px-6 py-10 text-center">
                       <p className="text-[9px] font-black text-re-text-muted uppercase tracking-widest opacity-40">No requisitions found.</p>
                     </td>
                   </tr>
@@ -566,33 +724,20 @@ export default function Requisitions() {
         isOpen={!!details}
         req={details}
         onClose={() => setDetails(null)}
-        onApprove={(req) => {
-          setRows((prev) => prev.map((r) => (r.id === req.id ? { ...r, status: 'approved' } : r)));
-          setDetails((prev) => (prev && prev.id === req.id ? { ...prev, status: 'approved' } : prev));
-          const dbId = Number(req?.db_id);
-          api.patch(`/accountant/requisitions/${dbId}/status`, { status: 'approved' }).then(() => fetchRequisitions());
-        }}
-        onReject={(req) => {
-          setRows((prev) => prev.map((r) => (r.id === req.id ? { ...r, status: 'rejected' } : r)));
-          setDetails((prev) => (prev && prev.id === req.id ? { ...prev, status: 'rejected' } : prev));
-          const dbId = Number(req?.db_id);
-          api.patch(`/accountant/requisitions/${dbId}/status`, { status: 'rejected' }).then(() => fetchRequisitions());
-        }}
+        onApprove={(req) => updateStatus(req, 'approved')}
+        onReject={(req) => updateStatus(req, 'rejected')}
       />
 
       <AddRequisitionModal
         isOpen={isAddOpen}
         onClose={() => setIsAddOpen(false)}
-        onCreate={(payload) => {
-          api.post('/accountant/requisitions', payload).then(() => fetchRequisitions());
-          setRows((prev) => {
-            const next = prev.length ? prev : [];
-            const nextIdNum = 1000 + next.length + 1;
-            const nextId = `REQ-${nextIdNum}`;
-            return [{ id: nextId, status: 'pending', ...payload }, ...prev];
-          });
+        onCreate={async (payload) => {
+          await api.post('/accountant/requisitions', payload);
+          await fetchRequisitions();
+          setToast({ type: 'success', message: 'Requisition submitted successfully.' });
         }}
       />
+      <PortalToast toast={toast} />
     </div>
   );
 }

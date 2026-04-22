@@ -153,6 +153,33 @@ async function findApprovedBabyeyiForSchoolClass(schoolId, className, academicYe
       return r;
     }
   }
+  const [archRows] = await db.promisePool
+    .query(
+      `SELECT babyeyi_id, school_id, academic_year, term, class_name, classes_json
+       FROM accountant_babyeyi_fee_archive
+       WHERE school_id = ?
+       ORDER BY updated_at DESC`,
+      [schoolId]
+    )
+    .catch(() => [[]]);
+  for (const a of archRows || []) {
+    if (
+      classMatchesBabyeyi(a, className)
+      && yearMatchesRow(a.academic_year, academicYearLabel || '')
+      && termMatchesRow(a.term, termLabel || '')
+    ) {
+      return {
+        id: a.babyeyi_id,
+        school_id: a.school_id,
+        academic_year: a.academic_year,
+        term: a.term,
+        class_name: a.class_name,
+        classes_json: a.classes_json,
+        status: 'approved',
+        total_fee: null,
+      };
+    }
+  }
   return null;
 }
 
@@ -300,6 +327,7 @@ router.post('/student-catalog', flowLimiter, async (req, res) => {
     const yearSet = new Set();
     const termSet = new Set();
 
+    const seenIds = new Set();
     for (const r of rows || []) {
       if (!classMatchesBabyeyi(r, className)) continue;
       const year = r.academic_year != null && String(r.academic_year).trim() !== '' ? String(r.academic_year).trim() : '';
@@ -308,11 +336,43 @@ router.post('/student-catalog', flowLimiter, async (req, res) => {
       if (term) termSet.add(term);
       const names = expandClassNamesFromRow(r);
       const cn = names.find((x) => trimStr(x).toLowerCase() === className.toLowerCase()) || className;
+      seenIds.add(Number(r.id));
       combinations.push({
         babyeyi_id: r.id,
         class_name: cn,
         term: term || null,
         academic_year: year || null,
+        pricing_source: 'live_babyeyi',
+      });
+    }
+
+    const [archRows] = await db.promisePool
+      .query(
+        `SELECT babyeyi_id, academic_year, term, class_name, classes_json
+         FROM accountant_babyeyi_fee_archive
+         WHERE school_id = ?
+         ORDER BY updated_at DESC`,
+        [school.id]
+      )
+      .catch(() => [[]]);
+    for (const ar of archRows || []) {
+      if (!classMatchesBabyeyi(ar, className)) continue;
+      const bid = Number(ar.babyeyi_id);
+      if (seenIds.has(bid)) continue;
+      seenIds.add(bid);
+      const year =
+        ar.academic_year != null && String(ar.academic_year).trim() !== '' ? String(ar.academic_year).trim() : '';
+      const term = ar.term != null && String(ar.term).trim() !== '' ? String(ar.term).trim() : '';
+      if (year) yearSet.add(year);
+      if (term) termSet.add(term);
+      const names = expandClassNamesFromRow(ar);
+      const cn = names.find((x) => trimStr(x).toLowerCase() === className.toLowerCase()) || className;
+      combinations.push({
+        babyeyi_id: bid,
+        class_name: cn,
+        term: term || null,
+        academic_year: year || null,
+        pricing_source: 'accountant_archive',
       });
     }
 
@@ -404,6 +464,7 @@ router.post('/school-catalog', flowLimiter, async (req, res) => {
     const termSet = new Set();
     const classSet = new Set();
 
+    const seenSchoolCombo = new Set();
     for (const r of rows || []) {
       const year = r.academic_year != null && String(r.academic_year).trim() !== '' ? String(r.academic_year).trim() : '';
       const term = r.term != null && String(r.term).trim() !== '' ? String(r.term).trim() : '';
@@ -412,11 +473,44 @@ router.post('/school-catalog', flowLimiter, async (req, res) => {
       const names = expandClassNamesFromRow(r);
       names.forEach((cn) => classSet.add(cn));
       names.forEach((cn) => {
+        seenSchoolCombo.add(`${r.id}|${cn}|${term}|${year}`);
         combinations.push({
           babyeyi_id: r.id,
           class_name: cn,
           term: term || null,
           academic_year: year || null,
+          pricing_source: 'live_babyeyi',
+        });
+      });
+    }
+
+    const [archSchoolRows] = await db.promisePool
+      .query(
+        `SELECT babyeyi_id, academic_year, term, class_name, classes_json
+         FROM accountant_babyeyi_fee_archive
+         WHERE school_id = ?
+         ORDER BY updated_at DESC`,
+        [school.id]
+      )
+      .catch(() => [[]]);
+    for (const ar of archSchoolRows || []) {
+      const year =
+        ar.academic_year != null && String(ar.academic_year).trim() !== '' ? String(ar.academic_year).trim() : '';
+      const term = ar.term != null && String(ar.term).trim() !== '' ? String(ar.term).trim() : '';
+      if (year) yearSet.add(year);
+      if (term) termSet.add(term);
+      const names = expandClassNamesFromRow(ar);
+      names.forEach((cn) => classSet.add(cn));
+      names.forEach((cn) => {
+        const key = `${ar.babyeyi_id}|${cn}|${term}|${year}`;
+        if (seenSchoolCombo.has(key)) return;
+        seenSchoolCombo.add(key);
+        combinations.push({
+          babyeyi_id: ar.babyeyi_id,
+          class_name: cn,
+          term: term || null,
+          academic_year: year || null,
+          pricing_source: 'accountant_archive',
         });
       });
     }

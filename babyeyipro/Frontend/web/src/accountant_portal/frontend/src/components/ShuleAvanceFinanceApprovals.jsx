@@ -27,6 +27,11 @@ const STATUS_LABEL = {
   rejected_by_manager: { label: 'Rejected (manager)', cls: 'bg-red-50 text-red-900 border-red-200' },
 };
 
+function isTeacherDealRequest(row) {
+  return String(row?.request_type || '').toLowerCase() === 'service'
+    && String(row?.service_category || '').toLowerCase() === 'teacher_deals';
+}
+
 function Modal({ open, title, subtitle, children, onClose, wide }) {
   if (!open) return null;
   return createPortal(
@@ -304,6 +309,7 @@ export default function ShuleAvanceFinanceApprovals() {
                     <th className="px-4 py-3">ID</th>
                     <th className="px-4 py-3">Staff</th>
                     <th className="px-4 py-3">Type</th>
+                    <th className="px-4 py-3">Teacher Deals</th>
                     <th className="px-4 py-3">Amount</th>
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3 text-right">Actions</th>
@@ -319,6 +325,15 @@ export default function ShuleAvanceFinanceApprovals() {
                       </td>
                       <td className="px-4 py-3 capitalize text-xs font-semibold">{r.request_type || '—'}</td>
                       <td className="px-4 py-3 font-black">{fmtMoney(r.amount_rwf)}</td>
+                      <td className="px-4 py-3">
+                        {isTeacherDealRequest(r) ? (
+                          <span className="inline-flex rounded-full border px-2 py-0.5 text-[9px] font-black uppercase bg-fuchsia-50 text-fuchsia-800 border-fuchsia-200">
+                            Teacher Deals
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold text-slate-300">—</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3">
                         <span
                           className={`inline-flex rounded-full border px-2 py-0.5 text-[9px] font-black uppercase ${
@@ -383,6 +398,11 @@ export default function ShuleAvanceFinanceApprovals() {
                   </div>
                   <p className="text-lg font-black text-[#1E3A5F]">{fmtMoney(r.amount_rwf)}</p>
                   <p className="text-[11px] text-slate-600 line-clamp-3">{r.purpose}</p>
+                  {isTeacherDealRequest(r) ? (
+                    <p className="inline-flex rounded-full border px-2 py-0.5 text-[9px] font-black uppercase bg-fuchsia-50 text-fuchsia-800 border-fuchsia-200">
+                      Teacher Deals
+                    </p>
+                  ) : null}
                   {r.status === 'pending_accountant' ? (
                     <div className="flex flex-col gap-2">
                       <button

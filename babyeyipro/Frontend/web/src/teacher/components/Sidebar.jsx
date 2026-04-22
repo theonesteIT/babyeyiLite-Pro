@@ -5,7 +5,7 @@ import { h } from '../utils/href';
 import {
   LayoutDashboard, Users, BookOpen, Calendar, ClipboardCheck,
   Wallet, MessageSquare, ClipboardList, Eye, PenLine,
-  User, LogOut, Wifi, WifiOff, RefreshCw, GraduationCap, ChevronDown,
+  User, LogOut, Wifi, WifiOff, RefreshCw, GraduationCap, ChevronDown, Package,
 } from 'lucide-react';
 
 // ── Status Badge ──────────────────────────────────────────────
@@ -139,6 +139,7 @@ const Sidebar = ({ onClose }) => {
         <NavItem icon={BookOpen} name="English Club" path="/english-club" onClose={onClose} />
         <NavItem icon={Calendar} name="Timetable" path="/timetable" onClose={onClose} />
         <NavItem icon={ClipboardCheck} name="Attendance" path="/attendance" onClose={onClose} />
+        <NavItem icon={Package} name="Request Equipment" path="/equipment-requests" onClose={onClose} />
 
         <SectionLabel label="Services" />
         <NavItem icon={Wallet} name="Shule Avance" path="/shule-avance" onClose={onClose} />

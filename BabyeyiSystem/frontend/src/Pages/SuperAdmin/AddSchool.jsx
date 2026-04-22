@@ -349,9 +349,8 @@ export default function AddSchool() {
 
   return (
     <div className="min-h-screen flex flex-col"
-      style={{ background: 'linear-gradient(160deg,#FFFDF3 0%,#FFF6CC 40%,#FFE58A 100%)', fontFamily: "'Montserrat',system-ui,sans-serif" }}>
+      style={{ background: 'linear-gradient(160deg,#FFFDF3 0%,#FFF6CC 40%,#FFE58A 100%)' }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap');
         option { background: white; color: #1F2937; }
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-thumb { background: #FFE58A; border-radius: 99px; }

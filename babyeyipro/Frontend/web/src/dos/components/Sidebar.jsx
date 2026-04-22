@@ -176,6 +176,9 @@ const Sidebar = ({ onClose }) => {
           </>
         )}
 
+        <SectionLabel label="Stock reports" />
+        <NavItem icon={ClipboardList} name="Teacher requisitions" path="/teacher-requisitions" onClose={onClose} />
+
         <SectionLabel label="Professional resources" />
         <NavItem icon={Wallet} name="Shule Avance" path="/shule-avance" onClose={onClose} />
         <NavItem icon={MessageSquare} name="TichaAI" path="/ticha-ai" onClose={onClose} />

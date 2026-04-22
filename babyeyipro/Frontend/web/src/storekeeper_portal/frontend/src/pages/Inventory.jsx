@@ -14,6 +14,7 @@ function fmtMoney(v) {
 }
 
 const CATEGORIES = ['All', 'Stationery', 'Furniture', 'Electronics', 'Cleaning', 'Sports', 'Lab', 'Kitchen', 'Other'];
+const TERM_OPTIONS = ['Term 1', 'Term 2', 'Term 3'];
 
 // ── Item form modal ───────────────────────────────────────────
 const ItemModal = ({ item, onClose, onSave }) => {
@@ -21,6 +22,8 @@ const ItemModal = ({ item, onClose, onSave }) => {
   const [form, setForm] = useState({
     name: item?.name || '',
     category: item?.category || 'Stationery',
+    term: item?.term || '',
+    academic_year: item?.academic_year || '',
     unit: item?.unit || 'pcs',
     quantity: item?.quantity ?? '',
     reorder_level: item?.reorder_level ?? '',
@@ -64,6 +67,27 @@ const ItemModal = ({ item, onClose, onSave }) => {
             </select>
           </div>
           <div>
+            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-1">Term</label>
+            <select
+              value={form.term}
+              onChange={(e) => set('term', e.target.value)}
+              className="w-full bg-re-bg border border-black/5 rounded-xl px-3 py-2.5 text-[11px] font-bold outline-none focus:ring-2 focus:ring-re-navy/20 transition-all"
+            >
+              <option value="">Select term…</option>
+              {TERM_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-1">Academic year</label>
+            <input
+              type="text"
+              value={form.academic_year}
+              onChange={(e) => set('academic_year', e.target.value)}
+              placeholder="e.g. 2025-2026"
+              className="w-full bg-re-bg border border-black/5 rounded-xl px-3 py-2.5 text-[11px] font-bold outline-none focus:ring-2 focus:ring-re-navy/20 transition-all"
+            />
+          </div>
+          <div>
             <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-1">Note</label>
             <textarea value={form.note} onChange={e => set('note', e.target.value)} rows={2} placeholder="Optional note"
               className="w-full bg-re-bg border border-black/5 rounded-xl px-3 py-2.5 text-[11px] font-bold outline-none focus:ring-2 focus:ring-re-navy/20 transition-all resize-none" />
@@ -90,6 +114,8 @@ export default function Inventory() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('All');
+  const [termFilter, setTermFilter] = useState('All');
+  const [yearFilter, setYearFilter] = useState('All');
   const [stockFilter, setStockFilter] = useState('All');
   const [modal, setModal] = useState(null); // null | { item?: object }
   const [deleteConfirm, setDeleteConfirm] = useState(null);
@@ -134,14 +160,26 @@ export default function Inventory() {
     const q = search.trim().toLowerCase();
     return items.filter(i => {
       const catOk = category === 'All' || i.category === category;
+      const termOk = termFilter === 'All' || String(i.term || '') === termFilter;
+      const yearOk = yearFilter === 'All' || String(i.academic_year || '') === yearFilter;
       const stockOk = stockFilter === 'All'
         || (stockFilter === 'Low' && i.reorder_level > 0 && Number(i.quantity) <= Number(i.reorder_level) && Number(i.quantity) > 0)
         || (stockFilter === 'Out' && Number(i.quantity) === 0)
         || (stockFilter === 'OK' && (i.reorder_level <= 0 || Number(i.quantity) > Number(i.reorder_level)));
-      const qOk = !q || i.name?.toLowerCase().includes(q) || i.category?.toLowerCase().includes(q) || i.location?.toLowerCase().includes(q);
-      return catOk && stockOk && qOk;
+      const qOk = !q
+        || i.name?.toLowerCase().includes(q)
+        || i.category?.toLowerCase().includes(q)
+        || i.location?.toLowerCase().includes(q)
+        || String(i.term || '').toLowerCase().includes(q)
+        || String(i.academic_year || '').toLowerCase().includes(q);
+      return catOk && termOk && yearOk && stockOk && qOk;
     });
-  }, [items, search, category, stockFilter]);
+  }, [items, search, category, termFilter, yearFilter, stockFilter]);
+
+  const yearOptions = useMemo(() => {
+    const set = new Set(items.map((i) => String(i.academic_year || '').trim()).filter(Boolean));
+    return ['All', ...Array.from(set)];
+  }, [items]);
 
   const exportPDF = () => {
     const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
@@ -276,6 +314,32 @@ export default function Inventory() {
                 ))}
               </select>
             </div>
+            <div className="relative w-full sm:w-[10rem] shrink-0">
+              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[8px] font-black uppercase text-slate-400 tracking-[0.2em] z-[1] pointer-events-none">Term</span>
+              <select
+                value={termFilter}
+                onChange={(e) => setTermFilter(e.target.value)}
+                className={`w-full ${selectCls} !pl-12`}
+                style={selectChevron}
+              >
+                {['All', ...TERM_OPTIONS].map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </div>
+            <div className="relative w-full sm:w-[11rem] shrink-0">
+              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[8px] font-black uppercase text-slate-400 tracking-[0.2em] z-[1] pointer-events-none">Academic year</span>
+              <select
+                value={yearFilter}
+                onChange={(e) => setYearFilter(e.target.value)}
+                className={`w-full ${selectCls} !pl-[6.8rem]`}
+                style={selectChevron}
+              >
+                {yearOptions.map((y) => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </div>
             <div className="relative flex-1 min-w-[200px] group">
               <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-re-text-muted/50 group-focus-within:text-[#1E3A5F] transition-colors z-[1] pointer-events-none" />
               <input
@@ -305,7 +369,7 @@ export default function Inventory() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-re-bg/20 border-b border-black/5">
-                {['Item', 'Category', 'Qty', 'Unit', 'Reorder', 'Unit cost', 'Location', 'Status', ''].map((h, hi) => (
+                {['Item', 'Category', 'Term', 'Academic year', 'Qty', 'Unit', 'Reorder', 'Unit cost', 'Location', 'Status', ''].map((h, hi) => (
                   <th
                     key={`inv-th-${hi}`}
                     className="px-4 sm:px-6 py-3 text-[7px] sm:text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-50 border-r border-black/5 last:border-r-0"
@@ -327,6 +391,8 @@ export default function Inventory() {
                   <td className="px-4 sm:px-6 py-3 border-r border-black/5 text-[10px] font-black text-[#1E3A5F]">
                     <span className="bg-re-bg px-2 py-0.5 rounded-lg border border-black/5">{item.category}</span>
                   </td>
+                  <td className="px-4 sm:px-6 py-3 border-r border-black/5 text-[10px] font-bold text-slate-500">{item.term || '—'}</td>
+                  <td className="px-4 sm:px-6 py-3 border-r border-black/5 text-[10px] font-bold text-slate-500">{item.academic_year || '—'}</td>
                   <td className="px-4 sm:px-6 py-3 border-r border-black/5 font-black text-slate-800 text-[12px]">{item.quantity}</td>
                   <td className="px-4 sm:px-6 py-3 border-r border-black/5 text-[10px] font-bold text-slate-500">{item.unit}</td>
                   <td className="px-4 sm:px-6 py-3 border-r border-black/5 text-[10px] font-bold text-slate-500">{item.reorder_level || '—'}</td>

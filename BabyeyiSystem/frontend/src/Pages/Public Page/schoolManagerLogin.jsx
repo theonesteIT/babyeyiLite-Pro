@@ -221,8 +221,6 @@ export default function SchoolManagerLogin() {
         .sm-right{width:100%;display:flex;flex-direction:column}
         @media(min-width:1024px){.sm-right{width:50%}}
       `}</style>
-      <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-
       <div className="sm-left">
         <div className="sm-left-inner">
           <img src={loginLogo} alt="Babyeyi Shulemanager" className="sm-brand" />

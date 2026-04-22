@@ -1,12 +1,10 @@
-/* Babyeyi dashboards — navy #000435 + amber; MTN-style font fallbacks */
-@import url("https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Varela+Round&display=swap");
+/* Babyeyi dashboards — navy #000435 + amber; typography now inherited globally */
 
 :root {
   --babyeyi-navy: #000435;
   --babyeyi-amber: #fbbf24;
   --babyeyi-amber-soft: #fde68a;
-  --babyeyi-font: "MTN Brighter Sans", "Nunito", "Varela Round", system-ui,
-    sans-serif;
+  --babyeyi-font: "Montserrat", system-ui, sans-serif;
 }
 
 .babyeyi-dash-shell {

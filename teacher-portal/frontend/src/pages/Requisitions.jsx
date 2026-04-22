@@ -22,6 +22,8 @@ import {
   CheckCircle,
   CheckCircle2,
   Paperclip,
+  Eye,
+  Pencil,
 } from 'lucide-react';
 import { teacherInnerSearchCls, teacherInnerSelectCls } from '../utils/teacherGradebookUi';
 
@@ -43,22 +45,28 @@ const STATUS_BADGE = {
 
 
 
-function AddModal({ open, onClose, defaultRequester, onSubmit }) {
+function AddModal({ open, onClose, defaultRequester, onSubmit, initialData = null, submitLabel = 'Submit to Finance' }) {
   const [dept, setDept] = useState('');
   const [requester, setRequester] = useState(defaultRequester || '');
   const [items, setItems] = useState('');
   const [amount, setAmount] = useState('');
   const [submitted, setSubmitted] = useState(() => new Date().toISOString().slice(0, 10));
   const [attachment, setAttachment] = useState(null);
-  const [note, setNote] = useState('');
+  const [description, setDescription] = useState('');
   const [activeStep, setActiveStep] = useState(1);
 
   useEffect(() => {
     if (open) {
-      setRequester(defaultRequester || '');
+      setDept(initialData?.dept || '');
+      setRequester(initialData?.requester || defaultRequester || '');
+      setItems(initialData?.items || '');
+      setAmount(initialData?.amount != null ? String(Number(initialData.amount) || '') : '');
+      setSubmitted(initialData?.submitted ? String(initialData.submitted).slice(0, 10) : new Date().toISOString().slice(0, 10));
+      setDescription(initialData?.description || initialData?.note || '');
+      setAttachment(null);
       setActiveStep(1);
     }
-  }, [open, defaultRequester]);
+  }, [open, defaultRequester, initialData]);
 
   if (!open) return null;
 
@@ -151,7 +159,7 @@ function AddModal({ open, onClose, defaultRequester, onSubmit }) {
 
                 <div className="space-y-1.5">
                   <label className="text-[9px] font-black text-re-text-muted uppercase tracking-[0.15em] opacity-60 ml-1">
-                    Total Amount (RWF) <span className="text-red-400 ml-0.5">*</span>
+                    Total Amount (RWF) <span className="text-[8px] normal-case opacity-60">(optional)</span>
                   </label>
                   <div className="relative group">
                     <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-re-orange">
@@ -165,6 +173,19 @@ function AddModal({ open, onClose, defaultRequester, onSubmit }) {
                       className="w-full h-12 rounded-[16px] bg-re-bg pl-11 pr-4 font-black text-[14px] tabular-nums outline-none border border-transparent shadow-inner focus:border-re-orange/30 focus:bg-white focus:ring-2 focus:ring-re-orange/15 transition-all"
                     />
                   </div>
+                </div>
+
+                <div className="space-y-1.5 sm:col-span-2">
+                  <label className="text-[9px] font-black text-re-text-muted uppercase tracking-[0.15em] opacity-60 ml-1">
+                    Description <span className="text-red-400 ml-0.5">*</span>
+                  </label>
+                  <textarea
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Write clear description for accountant review..."
+                    rows={2}
+                    className="w-full rounded-[20px] bg-re-bg px-4 py-3 font-bold text-xs outline-none border border-transparent shadow-inner focus:border-re-orange/30 focus:bg-white focus:ring-2 focus:ring-re-orange/15 transition-all resize-none"
+                  />
                 </div>
               </div>
             )}
@@ -201,18 +222,6 @@ function AddModal({ open, onClose, defaultRequester, onSubmit }) {
                     </label>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-[9px] font-black text-re-text-muted uppercase tracking-[0.15em] opacity-60 ml-1">
-                      Additional Notes
-                    </label>
-                    <textarea
-                      value={note}
-                      onChange={(e) => setNote(e.target.value)}
-                      placeholder="Any extra info for the finance team..."
-                      rows={2}
-                      className="w-full rounded-[20px] bg-re-bg px-4 py-3 font-bold text-xs outline-none border border-transparent shadow-inner focus:border-re-orange/30 focus:bg-white focus:ring-2 focus:ring-re-orange/15 transition-all resize-none"
-                    />
-                  </div>
                 </div>
               </div>
             )}
@@ -245,7 +254,7 @@ function AddModal({ open, onClose, defaultRequester, onSubmit }) {
               type="button"
               onClick={() => {
                 const amt = Number(amount) || 0;
-                if (!dept.trim() || !requester.trim() || !items.trim() || amt <= 0) return;
+                if (!dept.trim() || !requester.trim() || !items.trim() || !description.trim()) return;
                 onSubmit({
                   dept: dept.trim(),
                   requester: requester.trim(),
@@ -253,14 +262,48 @@ function AddModal({ open, onClose, defaultRequester, onSubmit }) {
                   amount: amt,
                   submitted,
                   attachmentName: attachment?.name || '',
-                  note: note.trim(),
+                  description: description.trim(),
+                  note: description.trim(),
                 });
               }}
               className="h-11 px-8 rounded-[16px] bg-re-grad-orange text-white font-black text-[10px] uppercase tracking-[0.2em] shadow-re-glow active:scale-95 transition-all inline-flex items-center gap-2 group"
             >
-              <CheckCircle size={14} /> Submit to Finance
+              <CheckCircle size={14} /> {submitLabel}
             </button>
           )}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+function ViewModal({ open, onClose, req }) {
+  if (!open || !req) return null;
+  return createPortal(
+    <div className="fixed inset-0 z-[240] bg-[#08111F]/60 backdrop-blur-sm p-4 flex items-center justify-center">
+      <div className="w-full max-w-2xl rounded-[28px] bg-white shadow-2xl border border-black/5 overflow-hidden">
+        <div className="px-5 py-4 border-b border-black/5 bg-re-bg/40 flex items-center justify-between">
+          <div>
+            <p className="text-[9px] uppercase tracking-widest font-black text-re-text-muted">Requisition Details</p>
+            <h3 className="text-sm font-black text-re-text mt-1">{req.id}</h3>
+          </div>
+          <button type="button" onClick={onClose} className="h-9 w-9 rounded-xl border border-black/10 hover:bg-slate-50 text-slate-500 inline-flex items-center justify-center">
+            <X size={14} />
+          </button>
+        </div>
+        <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+          <div><p className="text-[10px] uppercase tracking-widest text-slate-400 font-black">Department</p><p className="font-bold text-re-text mt-1">{req.dept || '—'}</p></div>
+          <div><p className="text-[10px] uppercase tracking-widest text-slate-400 font-black">Requester</p><p className="font-bold text-re-text mt-1">{req.requester || '—'}</p></div>
+          <div><p className="text-[10px] uppercase tracking-widest text-slate-400 font-black">Amount</p><p className="font-black text-re-text mt-1">{fmtMoney(req.amount)}</p></div>
+          <div><p className="text-[10px] uppercase tracking-widest text-slate-400 font-black">Submitted</p><p className="font-bold text-re-text mt-1">{fmtDate(req.submitted)}</p></div>
+          <div className="sm:col-span-2"><p className="text-[10px] uppercase tracking-widest text-slate-400 font-black">Items / Services</p><p className="font-bold text-re-text mt-1 whitespace-pre-wrap">{req.items || '—'}</p></div>
+          <div className="sm:col-span-2"><p className="text-[10px] uppercase tracking-widest text-slate-400 font-black">Description</p><p className="font-bold text-re-text mt-1 whitespace-pre-wrap">{req.description || req.note || '—'}</p></div>
+          <div className="sm:col-span-2">
+            <span className={`inline-block text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border ${STATUS_BADGE[req.status] || 'bg-slate-50 text-slate-600 border-slate-200'}`}>
+              {req.status}
+            </span>
+          </div>
         </div>
       </div>
     </div>,
@@ -277,6 +320,8 @@ export default function Requisitions() {
   const [status, setStatus] = useState('All');
   const [modal, setModal] = useState(false);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const [viewReq, setViewReq] = useState(null);
+  const [editReq, setEditReq] = useState(null);
 
   const defaultRequester = [teacher?.first_name, teacher?.last_name].filter(Boolean).join(' ').trim() || teacher?.full_name || '';
 
@@ -322,12 +367,29 @@ export default function Requisitions() {
         amount: payload.amount,
         submitted: payload.submitted,
         attachmentName: payload.attachmentName,
-        note: payload.note,
+        description: payload.description,
+        note: payload.description,
       });
       setModal(false);
       load();
     } catch (e) {
       setError(e.response?.data?.message || 'Submit failed');
+    }
+  };
+
+  const updateReq = async (payload) => {
+    if (!editReq?.db_id) return;
+    try {
+      await api.patch(`/teacher-portal/requisitions/${editReq.db_id}`, {
+        items: payload.items,
+        attachmentName: payload.attachmentName,
+        description: payload.description,
+        note: payload.description,
+      });
+      setEditReq(null);
+      load();
+    } catch (e) {
+      setError(e.response?.data?.message || 'Update failed');
     }
   };
 
@@ -441,7 +503,11 @@ export default function Requisitions() {
                         {r.id} · {fmtDate(r.submitted)}
                         {r.attachmentName ? ` · 📎 ${r.attachmentName}` : ''}
                       </p>
-                      {r.note ? <p className="text-[10px] text-slate-400 mt-1 italic">{r.note}</p> : null}
+                      {r.description || r.note ? (
+                        <p className="text-[10px] text-slate-500 mt-1 italic">
+                          Description: {r.description || r.note}
+                        </p>
+                      ) : null}
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-lg font-black text-re-text">{fmtMoney(r.amount)}</p>
@@ -452,6 +518,27 @@ export default function Requisitions() {
                       >
                         {r.status}
                       </span>
+                      <div className="mt-2 flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setViewReq(r)}
+                          className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-lg border border-slate-200 text-slate-600 hover:text-re-orange hover:border-re-orange/30 hover:bg-orange-50/40 text-[9px] font-black uppercase tracking-widest transition-colors"
+                        >
+                          <Eye size={12} /> View
+                        </button>
+                        <button
+                          type="button"
+                          disabled={r.status !== 'pending'}
+                          onClick={() => setEditReq(r)}
+                          className={`inline-flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-colors ${
+                            r.status === 'pending'
+                              ? 'border border-slate-200 text-slate-600 hover:text-re-orange hover:border-re-orange/30 hover:bg-orange-50/40'
+                              : 'border border-slate-100 text-slate-300 cursor-not-allowed'
+                          }`}
+                        >
+                          <Pencil size={12} /> Edit
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -462,6 +549,15 @@ export default function Requisitions() {
       </div>
 
       <AddModal open={modal} onClose={() => setModal(false)} defaultRequester={defaultRequester} onSubmit={createReq} />
+      <AddModal
+        open={!!editReq}
+        onClose={() => setEditReq(null)}
+        defaultRequester={defaultRequester}
+        onSubmit={updateReq}
+        initialData={editReq}
+        submitLabel="Save Changes"
+      />
+      <ViewModal open={!!viewReq} onClose={() => setViewReq(null)} req={viewReq} />
     </div>
   );
 }

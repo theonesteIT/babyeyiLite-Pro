@@ -754,8 +754,23 @@ async function loadFullRecord(sumRec, docLang = "en") {
   const json = await res.json();
   if (!json.success) throw new Error(json.message || "Failed");
   const d = json.data, sig = d.signatures || {};
-  let payments = (d.payments || []).map(p => ({ name: p.name, amount: Number(p.amount || 0) }));
-  if (!payments.length && d.payments_json) { try { payments = JSON.parse(d.payments_json); } catch {} }
+  let payments = (d.payments || []).map((p) => ({
+    name: p.name,
+    amount: String(p.amount ?? ""),
+    pay_channel: String(p.pay_channel || p.payChannel || "babyeyi").toLowerCase() === "school" ? "school" : "babyeyi",
+  }));
+  if (!payments.length && d.payments_json) {
+    try {
+      const raw = JSON.parse(d.payments_json);
+      if (Array.isArray(raw)) {
+        payments = raw.map((p) => ({
+          ...p,
+          amount: String(p.amount ?? ""),
+          pay_channel: String(p.pay_channel || p.payChannel || "babyeyi").toLowerCase() === "school" ? "school" : "babyeyi",
+        }));
+      }
+    } catch { /* ignore */ }
+  }
   const norm = (p) => p ? p.replace(/\\/g, "/") : null;
   const allClassReqs = (d.class_requirements || []).map(r => ({ item: r.item || r.information || "", details: r.details || "" }));
   const classNotes = allClassReqs.filter(r => r.details && r.details.trim());
@@ -885,7 +900,7 @@ export default function BabyeyiList({ session }) {
 
   return (
     <>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Varela+Round&display=swap'); @keyframes slideIn{from{transform:translateX(100px);opacity:0}to{transform:translateX(0);opacity:1}} @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}} .card-enter{animation:fadeUp .3s ease-out both}`}</style>
+      <style>{`@keyframes slideIn{from{transform:translateX(100px);opacity:0}to{transform:translateX(0);opacity:1}} @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}} .card-enter{animation:fadeUp .3s ease-out both}`}</style>
 
       {viewing && <OfficialDoc key={viewing.id} rec={viewing} onClose={() => setViewing(null)} globalLang={lang} />}
       {editing && <EditWizardModal rec={editing} session={session} onClose={() => setEditing(null)} onSaved={u => { handleSaved(u); setEditing(null); }} />}

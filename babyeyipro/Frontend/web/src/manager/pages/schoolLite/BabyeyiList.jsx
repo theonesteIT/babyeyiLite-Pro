@@ -752,8 +752,23 @@ async function loadFullRecord(sumRec, docLang = "en") {
   const json = await res.json();
   if (!json.success) throw new Error(json.message || "Failed");
   const d = json.data, sig = d.signatures || {};
-  let payments = (d.payments || []).map(p => ({ name: p.name, amount: Number(p.amount || 0) }));
-  if (!payments.length && d.payments_json) { try { payments = JSON.parse(d.payments_json); } catch {} }
+  let payments = (d.payments || []).map((p) => ({
+    name: p.name,
+    amount: String(p.amount ?? ""),
+    pay_channel: String(p.pay_channel || p.payChannel || "babyeyi").toLowerCase() === "school" ? "school" : "babyeyi",
+  }));
+  if (!payments.length && d.payments_json) {
+    try {
+      const raw = JSON.parse(d.payments_json);
+      if (Array.isArray(raw)) {
+        payments = raw.map((p) => ({
+          ...p,
+          amount: String(p.amount ?? ""),
+          pay_channel: String(p.pay_channel || p.payChannel || "babyeyi").toLowerCase() === "school" ? "school" : "babyeyi",
+        }));
+      }
+    } catch { /* ignore */ }
+  }
   const norm = (p) => p ? p.replace(/\\/g, "/") : null;
   const allClassReqs = (d.class_requirements || []).map(r => ({ item: r.item || r.information || "", details: r.details || "" }));
   const classNotes = allClassReqs.filter(r => r.details && r.details.trim());
@@ -763,7 +778,13 @@ async function loadFullRecord(sumRec, docLang = "en") {
   else { try { const lRes = await fetch(`${API_BASE}/babyeyi/${sumRec.id}/leaders`, { credentials: "include" }); const lJson = await lRes.json(); if (lJson.success && Array.isArray(lJson.data)) leaders = lJson.data; } catch {} }
   return {
     ...sumRec, payments,
-    requirements: (d.student_requirements || []).map(r => ({ item: r.item, description: r.description || "", quantity: r.quantity || "" })),
+    requirements: (d.student_requirements || []).map((r) => ({
+      item: r.item,
+      description: r.description || "",
+      quantity: r.quantity || "",
+      pay_channel: String(r.pay_channel || r.payChannel || "").toLowerCase() === "school" ? "school" : "babyeyi",
+      cost: r.cost != null && r.cost !== "" ? String(r.cost) : "",
+    })),
     classNotes, otherInfos, leaders, leadersCount: leaders.length,
     increaseRequest: d.increase_request ? { requestTitle: d.increase_request.request_title || d.increase_request.reason, nesaStatus: d.increase_request.nesa_status } : null,
     signaturePath: norm(sig.director_sig_path) || null, stampPath: norm(sig.stamp_path) || null,

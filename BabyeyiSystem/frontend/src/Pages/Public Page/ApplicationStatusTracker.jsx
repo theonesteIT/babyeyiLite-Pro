@@ -252,14 +252,11 @@ export default function ApplicationStatusTracker({ schoolSlug }) {
     <div
       className="min-h-screen"
       style={{
-        fontFamily: "'Nunito', system-ui, sans-serif",
         background: result
           ? "#f1f5f9"
           : "linear-gradient(160deg, #0f172a 0%, #1e1b4b 40%, #0f172a 100%)",
       }}
     >
-      <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
-
       {/* ─── SEARCH SCREEN ─────────────────────────────────────── */}
       {!result && (
         <div className="min-h-screen flex flex-col items-center justify-center px-4 py-12">

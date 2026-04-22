@@ -80,7 +80,6 @@ export default function SuperAdministratorSignup() {
       className="min-h-screen flex items-center justify-center px-4 py-12"
       style={{
         background: 'linear-gradient(165deg, #0B1D3A 0%, #0f2744 50%, #0B1D3A 100%)',
-        fontFamily: 'Sora, system-ui, sans-serif',
       }}
     >
       <div className="w-full max-w-md">

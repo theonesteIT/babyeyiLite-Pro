@@ -246,7 +246,6 @@ const Login = () => {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
         .lr*{box-sizing:border-box}
         .lr{font-family:'Sora',sans-serif;min-height:100vh;display:flex;background:#0B1D3A}
         .lp{position:relative;display:none;width:50%;flex-direction:column;min-height:100vh;overflow:hidden}

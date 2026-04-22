@@ -233,6 +233,7 @@ const NAV = [
   { id: 'register-agents', icon: Radio, label: 'Field Agents' },
   { id: 'shule-avance-orgs', icon: Sparkles, label: 'ShuleAvance Orgs' },
   { id: 'shule-avance-teacher', icon: Percent, label: 'ShuleAvance Teacher' },
+  { id: 'teacher-deal-products', icon: Package, label: 'Teacher Deal Products' },
   // { id: 'activity',   icon: Activity,   label: 'Activity Log' },
   { id: 'settings',   icon: Settings,   label: 'Settings' },
 ];
@@ -316,6 +317,7 @@ function Sidebar({ page, onChange, online, user, navigate }) {
           const isStandardShuleKits = item.id === 'standard-shule-kits';
           const isShuleAvanceOrgs = item.id === 'shule-avance-orgs';
           const isShuleAvanceTeacher = item.id === 'shule-avance-teacher';
+          const isTeacherDealProducts = item.id === 'teacher-deal-products';
           return (
             <button key={item.id}
               onClick={() => {
@@ -339,6 +341,8 @@ function Sidebar({ page, onChange, online, user, navigate }) {
                   navigate('/superadmin/shule-avance-organizations');
                 } else if (isShuleAvanceTeacher) {
                   navigate('/superadmin/shule-avance-teacher');
+                } else if (isTeacherDealProducts) {
+                  navigate('/superadmin/teacher-deal-products');
                 } else if (isRequirementsPrices) {
                   navigate('/manage-requirements-prices');
                 } else if (isPricesList) {
@@ -3680,6 +3684,7 @@ export default function SuperAdminDashboard() {
                 const isStandardShuleKits = item.id === 'standard-shule-kits';
                 const isShuleAvanceOrgs = item.id === 'shule-avance-orgs';
                 const isShuleAvanceTeacher = item.id === 'shule-avance-teacher';
+                const isTeacherDealProducts = item.id === 'teacher-deal-products';
                 return (
                   <button key={item.id}
                     onClick={() => {
@@ -3693,6 +3698,7 @@ export default function SuperAdminDashboard() {
                       else if (isStandardShuleKits) { navigate('/superadmin/standard-shule-kits'); }
                       else if (isShuleAvanceOrgs) { navigate('/superadmin/shule-avance-organizations'); }
                       else if (isShuleAvanceTeacher) { navigate('/superadmin/shule-avance-teacher'); }
+                      else if (isTeacherDealProducts) { navigate('/superadmin/teacher-deal-products'); }
                       else if (isRequirementsPrices) { navigate('/manage-requirements-prices'); }
                       else if (isPricesList) { navigate('/requirement-prices-list'); }
                       else if (isInvoices) { navigate('/invoices'); }

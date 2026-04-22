@@ -22,6 +22,7 @@ import {
 
 const SERVER = import.meta.env.VITE_API_URL || 'http://localhost:5100';
 const API    = `${SERVER}/api`;
+const FONT_FAMILY = '"Montserrat", sans-serif';
 
 // ── Brand only: navy #000435 + amber + white (no blue spectrum) ─
 const C = {
@@ -640,7 +641,6 @@ export default function PaymentsPage() {
     ? Math.max(0, Math.round((selectionListedRwf - remainingBalanceRwf) * 100) / 100) : null;
   const afterThisPaymentRwf     = remainingBalanceRwf != null
     ? Math.max(0, Math.round((remainingBalanceRwf - principal) * 100) / 100) : null;
-  const exceedsRemaining = payMethod !== 'loan' && remainingBalanceRwf != null && principal > remainingBalanceRwf + 1.5;
 
   /** School-fees Babyeyi payment intents only — PDFs use intent id + invoice_no */
   const isSchoolFeesIntent = Boolean(
@@ -1526,9 +1526,6 @@ export default function PaymentsPage() {
     if (!draft?.schoolId || !draft?.babyeyiId) return;
     setSubmitError('');
     if (!principal || principal < 100) { setSubmitError(`Invalid amount: ${principal} RWF. Minimum is 100 RWF.`); return; }
-    if (exceedsRemaining && payMethod !== 'loan') {
-      setSubmitError(`The amount (${Number(principal).toLocaleString()} RWF) is above the remaining balance (${Number(remainingBalanceRwf).toLocaleString()} RWF).`); return;
-    }
 
     if (payMethod === 'momo') {
       if (!isValidMomoPhone(momoPhoneRaw)) {
@@ -1654,7 +1651,7 @@ export default function PaymentsPage() {
             : payMethod === 'momo' && (!momoStatus || momoStatus === 'FAILED' || momoStatus === 'TIMEOUT'))
     : draft?.agentShopCheckout || draft?.standardKitCheckout
       ? !submitting && !doneId && payMethod === 'momo' && (!momoStatus || momoStatus === 'FAILED' || momoStatus === 'TIMEOUT') && principal >= 100
-    : !submitting && !doneId && !exceedsRemaining && !awaitingBalance &&
+    : !submitting && !doneId && !awaitingBalance &&
       (payMethod === 'momo'
         ? (!momoStatus || momoStatus === 'FAILED' || momoStatus === 'TIMEOUT')
         : payMethod === 'visa'
@@ -1696,7 +1693,7 @@ export default function PaymentsPage() {
   }, [draft]);
   // ── No draft ──────────────────────────────────────────────────
   if (!draft) return (
-    <div style={{ minHeight: "100vh", background: C.db900, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+    <div style={{ minHeight: "100vh", background: C.db900, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: FONT_FAMILY }}>
       <div style={{ maxWidth: 400, textAlign: "center" }}>
         <AlertCircle size={40} color={C.am200} style={{ marginBottom: 16 }} />
         <div style={{ fontWeight: 700, color: "#fff", fontSize: 16, marginBottom: 8 }}>No payment selection loaded.</div>
@@ -1710,7 +1707,7 @@ export default function PaymentsPage() {
   );
 
   return (
-    <div style={{ minHeight: "100vh", background: C.db900, paddingBottom: 60 }}>
+    <div style={{ minHeight: "100vh", background: C.db900, paddingBottom: 60, fontFamily: FONT_FAMILY }}>
       {/* Top bar */}
       <div style={{ background: C.db800, borderBottom: `3px solid ${C.am200}`, padding: "14px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
@@ -1758,40 +1755,6 @@ export default function PaymentsPage() {
             </div>
           )}
         </div>
-
-        {feeLikeTabs && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
-            {[
-              { id: 'direct', label: 'Direct Pay' },
-              { id: 'shuleavance', label: 'Access ShuleAvance' },
-              { id: 'loan', label: 'Get Loan' },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => {
-                  setPageTab(tab.id);
-                  setSubmitError('');
-                  setLoanError('');
-                  setShuleError('');
-                  if (tab.id === 'loan' || tab.id === 'shuleavance') setPayMethod('loan');
-                  if (tab.id === 'direct') setPayMethod('momo');
-                  if (tab.id === 'loan') setLoanStep('bank');
-                  if (tab.id === 'shuleavance') setShuleStep('organization');
-                }}
-                style={{
-                  padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12,
-                  border: `1.5px solid ${pageTab === tab.id ? C.am200 : C.db100}`,
-                  background: pageTab === tab.id ? C.am50 : "#fff",
-                  color: pageTab === tab.id ? C.am900 : C.db600,
-                  cursor: "pointer",
-                }}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        )}
 
         {/* ── Payment summary card ────────────────────────────── */}
         <div style={card}>
@@ -1919,11 +1882,6 @@ export default function PaymentsPage() {
 
 
           
-          {exceedsRemaining && (
-            <div style={{ marginTop: 8, background: "#fff", border: `1px solid ${C.am200}`, borderRadius: 6, padding: "8px 12px", fontSize: 12, fontWeight: 700, color: C.navy }}>
-              Your total exceeds what is still owed — reduce selected items or contact the school.
-            </div>
-          )}
           {(invoiceNo || invoiceStatus) && (
             <div style={{ marginTop: 12, background: C.db50, border: `1px solid ${C.db100}`, borderRadius: 6, padding: "8px 12px", display: "flex", justifyContent: "space-between", fontSize: 12 }}>
               <span style={{ color: C.db600 }}>{invoiceNo ? `Invoice ${invoiceNo}` : 'Invoice'}</span>
@@ -1931,6 +1889,40 @@ export default function PaymentsPage() {
             </div>
           )}
         </div>
+
+        {feeLikeTabs && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+            {[
+              { id: 'direct', label: 'Direct Pay' },
+              { id: 'shuleavance', label: 'Access ShuleAvance' },
+              { id: 'loan', label: 'Get Loan' },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => {
+                  setPageTab(tab.id);
+                  setSubmitError('');
+                  setLoanError('');
+                  setShuleError('');
+                  if (tab.id === 'loan' || tab.id === 'shuleavance') setPayMethod('loan');
+                  if (tab.id === 'direct') setPayMethod('momo');
+                  if (tab.id === 'loan') setLoanStep('bank');
+                  if (tab.id === 'shuleavance') setShuleStep('organization');
+                }}
+                style={{
+                  padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12,
+                  border: `1.5px solid ${pageTab === tab.id ? C.am200 : C.db100}`,
+                  background: pageTab === tab.id ? C.am50 : "#fff",
+                  color: pageTab === tab.id ? C.am900 : C.db600,
+                  cursor: "pointer",
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* ── Payment method card ─────────────────────────────── */}
         <div style={card}>
@@ -2516,11 +2508,11 @@ export default function PaymentsPage() {
                       <div style={{ border: `1px solid #000435`, borderRadius: 8, padding: "12px 14px", display: "flex", gap: 10 }}>
                         <Calculator size={18} color="#000435" style={{ flexShrink: 0, marginTop: 2 }} />
                         <div>
-                          <div style={{ fontWeight: 600, color: "#000435", fontSize: 13, marginBottom: 4,fontFamily: "Montserrat" }}>Indicative schedule</div>
-                          <div style={{ fontWeight: 600,fontSize: 13,fontFamily: "Montserrat", color: "#000435", marginBottom: 3 }}>
+                          <div style={{ fontWeight: 600, color: "#000435", fontSize: 13, marginBottom: 4 }}>Indicative schedule</div>
+                          <div style={{ fontWeight: 600, fontSize: 13, color: "#000435", marginBottom: 3 }}>
                             Principal: {principal.toLocaleString()} RWF · Interest: {sched.interest.toLocaleString()} RWF
                           </div>
-                          <div style={{ fontFamily: "Montserrat", fontWeight: 800, color: C.am200, fontSize: 20 }}>
+                          <div style={{ fontWeight: 800, color: C.am200, fontSize: 20 }}>
                             {sched.installments} × ~{sched.each.toLocaleString()} RWF
                           </div>
                           <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", marginTop: 6 }}>Estimate only — real rates depend on the lender.</div>

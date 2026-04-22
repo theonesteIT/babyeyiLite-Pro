@@ -6,12 +6,24 @@ import {
     Phone, Printer, Users, Home, Banknote, Send, Settings2
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
+import PortalToast from './PortalToast';
 
-export default function StudentFeesModal({ isOpen, onClose, student, academicYear, term, paymentHistory = [] }) {
+export default function StudentFeesModal({
+    isOpen,
+    onClose,
+    student,
+    academicYear,
+    term,
+    paymentHistory = [],
+    onEditPayment,
+    onDeletePayment,
+}) {
     const [loading, setLoading] = useState(true);
     const [history, setHistory] = useState([]);
     const [invoiceMenuOpen, setInvoiceMenuOpen] = useState(false);
     const [invoiceSettingsOpen, setInvoiceSettingsOpen] = useState(false);
+    const [toast, setToast] = useState(null);
+    const [busyActionKey, setBusyActionKey] = useState('');
 
     const storageKeys = useMemo(() => {
         const uid = student?.id || 'student';
@@ -73,6 +85,12 @@ export default function StudentFeesModal({ isOpen, onClose, student, academicYea
         setHistory(rows);
         setLoading(false);
     }, [isOpen, student, paymentHistory, term]);
+
+    useEffect(() => {
+        if (!toast) return undefined;
+        const t = window.setTimeout(() => setToast(null), 3200);
+        return () => window.clearTimeout(t);
+    }, [toast]);
 
     if (!isOpen || !student) return null;
 
@@ -427,15 +445,88 @@ export default function StudentFeesModal({ isOpen, onClose, student, academicYea
                                                     </p>
                                                 </td>
                                                 <td className="px-3 py-2 text-right">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => printReceiptPdf(log)}
-                                                        className="h-6 px-2.5 rounded-lg flex items-center justify-center gap-1.5 bg-white border border-black/5 text-re-text font-black text-[7.5px] uppercase tracking-widest shadow-sm hover:bg-re-bg hover:text-[#1E3A5F] transition-all ml-auto"
-                                                        title="Print receipt"
-                                                    >
-                                                        <Printer size={12} className="text-amber-500" />
-                                                        <span>Print</span>
-                                                    </button>
+                                                    {(() => {
+                                                        const isBusy = busyActionKey.startsWith(`${log.id}:`);
+                                                        return (
+                                                    <div className="flex items-center justify-end gap-1.5">
+                                                        <button
+                                                            type="button"
+                                                            onClick={async () => {
+                                                                const nextAmountRaw = window.prompt('Update amount (RWF):', String(log.amount || 0));
+                                                                if (nextAmountRaw == null) return;
+                                                                const nextAmount = Number(String(nextAmountRaw).replace(/[^\d.]/g, ''));
+                                                                if (!Number.isFinite(nextAmount) || nextAmount <= 0) {
+                                                                    setToast({ type: 'error', message: 'Amount must be greater than zero.' });
+                                                                    return;
+                                                                }
+                                                                const nextNote = window.prompt('Update note / payment mode:', String(log.channel || '')) || '';
+                                                                if (String(nextNote).length > 120) {
+                                                                    setToast({ type: 'error', message: 'Note is too long (max 120 characters).' });
+                                                                    return;
+                                                                }
+                                                                if (onEditPayment) {
+                                                                    setBusyActionKey(`${log.id}:edit`);
+                                                                    try {
+                                                                        await onEditPayment(log.id, {
+                                                                            amount_paid: nextAmount,
+                                                                            notes: nextNote,
+                                                                        });
+                                                                    } catch (e) {
+                                                                        setToast({ type: 'error', message: e?.response?.data?.message || e.message || 'Could not update payment.' });
+                                                                        return;
+                                                                    } finally {
+                                                                        setBusyActionKey('');
+                                                                    }
+                                                                }
+                                                                setHistory((prev) => prev.map((x) => (
+                                                                    x.id === log.id ? { ...x, amount: nextAmount, channel: nextNote || x.channel } : x
+                                                                )));
+                                                                setToast({ type: 'success', message: 'Payment updated.' });
+                                                            }}
+                                                            className="h-6 px-2 rounded-lg flex items-center justify-center bg-white border border-black/5 text-[#1E3A5F] font-black text-[7px] uppercase tracking-widest shadow-sm hover:bg-re-bg transition-all"
+                                                            disabled={isBusy}
+                                                            title="Edit payment"
+                                                        >
+                                                            {isBusy && busyActionKey.endsWith(':edit') ? 'Saving…' : 'Edit'}
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={async () => {
+                                                                const yes = window.confirm('Delete this payment record?');
+                                                                if (!yes) return;
+                                                                if (onDeletePayment) {
+                                                                    setBusyActionKey(`${log.id}:delete`);
+                                                                    try {
+                                                                        await onDeletePayment(log.id);
+                                                                    } catch (e) {
+                                                                        setToast({ type: 'error', message: e?.response?.data?.message || e.message || 'Could not delete payment.' });
+                                                                        return;
+                                                                    } finally {
+                                                                        setBusyActionKey('');
+                                                                    }
+                                                                }
+                                                                setHistory((prev) => prev.filter((x) => x.id !== log.id));
+                                                                setToast({ type: 'success', message: 'Payment deleted.' });
+                                                            }}
+                                                            className="h-6 px-2 rounded-lg flex items-center justify-center bg-white border border-red-200 text-red-600 font-black text-[7px] uppercase tracking-widest shadow-sm hover:bg-red-50 transition-all"
+                                                            disabled={isBusy}
+                                                            title="Delete payment"
+                                                        >
+                                                            {isBusy && busyActionKey.endsWith(':delete') ? 'Deleting…' : 'Del'}
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => printReceiptPdf(log)}
+                                                            className="h-6 px-2.5 rounded-lg flex items-center justify-center gap-1.5 bg-white border border-black/5 text-re-text font-black text-[7.5px] uppercase tracking-widest shadow-sm hover:bg-re-bg hover:text-[#1E3A5F] transition-all"
+                                                            disabled={isBusy}
+                                                            title="Print receipt"
+                                                        >
+                                                            <Printer size={12} className="text-amber-500" />
+                                                            <span>Print</span>
+                                                        </button>
+                                                    </div>
+                                                        );
+                                                    })()}
                                                 </td>
                                             </tr>
                                         ))}
@@ -521,6 +612,7 @@ export default function StudentFeesModal({ isOpen, onClose, student, academicYea
                 setConfig={setInvoiceConfig}
                 sentAt={sentMeta}
             />
+            <PortalToast toast={toast} />
         </>,
         document.body
     );

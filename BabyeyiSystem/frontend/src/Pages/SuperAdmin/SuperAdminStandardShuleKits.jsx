@@ -289,7 +289,6 @@ export default function SuperAdminStandardShuleKits() {
         className="min-h-screen flex items-center justify-center"
         style={{
           background: 'linear-gradient(160deg,#fffbeb 0%,#fef3c7 40%,#fde68a 100%)',
-          fontFamily: 'Montserrat, sans-serif',
         }}
       >
         <Loader2 className="w-10 h-10 animate-spin text-amber-600" />
@@ -302,11 +301,8 @@ export default function SuperAdminStandardShuleKits() {
       className="min-h-screen text-gray-900"
       style={{
         background: 'linear-gradient(160deg,#fffbeb 0%,#fef3c7 40%,#fde68a 100%)',
-        fontFamily: 'Montserrat, sans-serif',
       }}
     >
-      <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-
       {toast ? (
         <div
           className={`fixed bottom-4 left-4 right-4 z-[300] sm:left-auto sm:right-4 sm:max-w-sm flex items-start gap-3 px-4 py-3 rounded-2xl shadow-2xl border pointer-events-auto ${

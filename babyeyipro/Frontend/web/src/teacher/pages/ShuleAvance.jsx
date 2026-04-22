@@ -10,9 +10,24 @@ import {
    ArrowRight,
    TrendingUp,
    CreditCard,
-   Users
+   Users,
+   Eye,
+   Package
 } from 'lucide-react';
 import ShuleAvanceRepaymentCalculator from '../components/ShuleAvanceRepaymentCalculator';
+
+const UPLOADS_BASE = (import.meta.env.VITE_UPLOADS_BASE || import.meta.env.VITE_API_URL || 'http://localhost:5100').replace(/\/$/, '');
+
+function fmtMoney(v) {
+   return `${Number(v || 0).toLocaleString()} RWF`;
+}
+
+function toAssetUrl(pathLike) {
+   if (!pathLike || typeof pathLike !== 'string') return null;
+   if (pathLike.startsWith('http://') || pathLike.startsWith('https://')) return pathLike;
+   const clean = pathLike.replace(/\\/g, '/');
+   return `${UPLOADS_BASE}${clean.startsWith('/') ? clean : `/${clean}`}`;
+}
 
 const ShuleAvance = () => {
    const [loanStatus, setLoanStatus] = useState(null);
@@ -21,6 +36,12 @@ const ShuleAvance = () => {
    const [showApply, setShowApply] = useState(false);
 
    const [catalog, setCatalog] = useState({ services: [], cashouts: [] });
+   const [dealProducts, setDealProducts] = useState([]);
+   const [requestType, setRequestType] = useState('cashout');
+   const [serviceCategory, setServiceCategory] = useState('');
+   const [selectedDealProductIds, setSelectedDealProductIds] = useState([]);
+   const [dealPreview, setDealPreview] = useState(null);
+   const [teacherDealsStep, setTeacherDealsStep] = useState('products');
    const [cashoutCategory, setCashoutCategory] = useState('');
 
    // Form State
@@ -29,11 +50,38 @@ const ShuleAvance = () => {
    const [term, setTerm] = useState(6);
    const [submitting, setSubmitting] = useState(false);
 
+   const activeServiceSlug = serviceCategory || catalog.services?.[0]?.slug || '';
+   const isTeacherDealsMode = requestType === 'service' && activeServiceSlug === 'teacher_deals';
+
    const selectedRate = useMemo(() => {
-      const slug = cashoutCategory || catalog.cashouts?.[0]?.slug;
-      const row = catalog.cashouts?.find((c) => c.slug === slug);
+      const slug = requestType === 'cashout'
+         ? (cashoutCategory || catalog.cashouts?.[0]?.slug)
+         : (serviceCategory || catalog.services?.[0]?.slug);
+      const row = requestType === 'cashout'
+         ? catalog.cashouts?.find((c) => c.slug === slug)
+         : catalog.services?.find((s) => s.slug === slug);
       return row?.income_rate_percent ?? null;
-   }, [catalog, cashoutCategory]);
+   }, [catalog, cashoutCategory, requestType, serviceCategory]);
+
+   const selectedDealProducts = useMemo(() => (
+      dealProducts.filter((p) => selectedDealProductIds.includes(Number(p.id)))
+   ), [dealProducts, selectedDealProductIds]);
+
+   const teacherDealsTotal = useMemo(
+      () => selectedDealProducts.reduce((sum, p) => sum + Number(p.price_rwf || 0), 0),
+      [selectedDealProducts]
+   );
+
+   const principalAmount = useMemo(() => {
+      if (isTeacherDealsMode) return Number(teacherDealsTotal || 0);
+      return Number(String(amount).replace(/[^\d.]/g, ''));
+   }, [amount, isTeacherDealsMode, teacherDealsTotal]);
+
+   useEffect(() => {
+      if (isTeacherDealsMode) {
+         setTeacherDealsStep('products');
+      }
+   }, [isTeacherDealsMode]);
 
    const fetchLoanStatus = async () => {
       try {
@@ -56,6 +104,19 @@ const ShuleAvance = () => {
                cashouts,
             });
             setCashoutCategory((prev) => prev || (cashouts[0]?.slug ?? ''));
+            setServiceCategory((prev) => prev || (res.data.data.services?.[0]?.slug ?? ''));
+         }
+      } catch {
+         /* optional */
+      }
+   };
+
+   const loadTeacherDealProducts = async () => {
+      try {
+         const res = await api.get('/services/shule-avance/teacher-deal-products');
+         if (res.data?.success) {
+            const list = Array.isArray(res.data.data) ? res.data.data : [];
+            setDealProducts(list);
          }
       } catch {
          /* optional */
@@ -66,7 +127,7 @@ const ShuleAvance = () => {
       (async () => {
          setLoading(true);
          try {
-            await Promise.all([fetchLoanStatus(), loadCatalog()]);
+            await Promise.all([fetchLoanStatus(), loadCatalog(), loadTeacherDealProducts()]);
          } finally {
             setLoading(false);
          }
@@ -78,21 +139,52 @@ const ShuleAvance = () => {
       setSubmitting(true);
       setError(null);
       try {
-         const slug = cashoutCategory || catalog.cashouts?.[0]?.slug;
-         if (!slug) {
-            setError('Cashout programs are not configured yet.');
+         let payload = null;
+         if (requestType === 'cashout') {
+            const slug = cashoutCategory || catalog.cashouts?.[0]?.slug;
+            if (!slug) {
+               setError('Cashout programs are not configured yet.');
+               setSubmitting(false);
+               return;
+            }
+            payload = {
+               request_type: 'cashout',
+               cashout_category: slug,
+               reason: purpose,
+               amount_requested: principalAmount,
+               repayment_term_months: Math.min(12, Math.max(1, Number(term))),
+            };
+         } else {
+            const serviceSlug = serviceCategory || catalog.services?.[0]?.slug;
+            if (!serviceSlug) {
+               setError('Service categories are not configured yet.');
+               setSubmitting(false);
+               return;
+            }
+            if (serviceSlug === 'teacher_deals' && selectedDealProductIds.length === 0) {
+               setError('Select at least one Teacher Deal product.');
+               setSubmitting(false);
+               return;
+            }
+            payload = {
+               request_type: 'service',
+               service_category: serviceSlug,
+               description: purpose,
+               amount_requested: principalAmount,
+               repayment_term_months: Math.min(12, Math.max(1, Number(term))),
+               selected_deal_product_ids: serviceSlug === 'teacher_deals' ? selectedDealProductIds : undefined,
+            };
+         }
+         if (!Number.isFinite(principalAmount) || principalAmount <= 0) {
+            setError('Enter a valid amount greater than zero.');
             setSubmitting(false);
             return;
          }
-         const res = await api.post('/services/shule-avance/applicant/requests', {
-            request_type: 'cashout',
-            cashout_category: slug,
-            reason: purpose,
-            amount_requested: Number(String(amount).replace(/[^\d.]/g, '')),
-            repayment_term_months: Math.min(12, Math.max(1, Number(term))),
-         });
+         const res = await api.post('/services/shule-avance/applicant/requests', payload);
          if (res.data.success) {
             setShowApply(false);
+            setSelectedDealProductIds([]);
+            setTeacherDealsStep('products');
             await fetchLoanStatus();
          }
       } catch (err) {
@@ -152,77 +244,282 @@ const ShuleAvance = () => {
                            <div className="flex items-center justify-between">
                               <div className="space-y-0.5">
                                  <h3 className="text-lg font-black text-re-text tracking-tight uppercase">Credit Application</h3>
-                                 <p className="text-[9px] text-re-text-muted font-bold uppercase tracking-widest opacity-40">Step 1 of 2: Basic Details</p>
+                                 <p className="text-[9px] text-re-text-muted font-bold uppercase tracking-widest opacity-40">
+                                    {isTeacherDealsMode
+                                       ? (teacherDealsStep === 'products' ? 'Step 1: Products' : 'Step 2: Repayment')
+                                       : 'Step 1 of 2: Basic Details'}
+                                 </p>
                               </div>
                               <button onClick={() => setShowApply(false)} className="text-[9px] font-black text-re-text-muted hover:text-re-orange transition-colors uppercase tracking-widest">Cancel Application</button>
                            </div>
+                           {isTeacherDealsMode ? (
+                              <div className="flex items-center gap-2">
+                                 <span
+                                    className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border ${
+                                       teacherDealsStep === 'products'
+                                          ? 'bg-re-orange text-white border-re-orange'
+                                          : 'bg-white text-slate-500 border-slate-200'
+                                    }`}
+                                 >
+                                    Step 1: Products
+                                 </span>
+                                 <span
+                                    className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border ${
+                                       teacherDealsStep === 'financing'
+                                          ? 'bg-re-orange text-white border-re-orange'
+                                          : 'bg-white text-slate-500 border-slate-200'
+                                    }`}
+                                 >
+                                    Step 2: Repayment
+                                 </span>
+                              </div>
+                           ) : null}
 
                            <form onSubmit={handleApply} className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                              <div className="space-y-1.5">
-                                 <label className="text-[9px] font-black text-re-text-muted uppercase tracking-widest opacity-40">Desired Amount (RWF)</label>
-                                 <input
-                                    type="number"
-                                    className="w-full h-11 bg-re-bg rounded-lg px-4 font-bold outline-none border border-transparent focus:border-re-orange/20 focus:bg-white transition-all text-xs"
-                                    placeholder="Ex: 500,000"
-                                    value={amount}
-                                    onChange={(e) => setAmount(e.target.value)}
-                                    required
-                                 />
-                              </div>
-                              <div className="space-y-1.5">
-                                 <label className="text-[9px] font-black text-re-text-muted uppercase tracking-widest opacity-40">Repayment Period</label>
-                                 <select
-                                    className="w-full h-11 bg-re-bg rounded-lg px-4 font-bold outline-none border border-transparent focus:border-re-orange/20 focus:bg-white transition-all text-xs appearance-none"
-                                    value={term}
-                                    onChange={(e) => setTerm(Number(e.target.value))}
-                                 >
-                                    {[1,2,3,4,5,6,7,8,9,10,11,12].map((m) => (
-                                       <option key={m} value={m}>{m} months</option>
-                                    ))}
-                                 </select>
+                              <div className="space-y-1.5 md:col-span-2">
+                                 <label className="text-[9px] font-black text-re-text-muted uppercase tracking-widest opacity-40">Request Type</label>
+                                 <div className="grid grid-cols-2 gap-2">
+                                    <button
+                                       type="button"
+                                       onClick={() => setRequestType('cashout')}
+                                       className={`h-11 rounded-lg border text-[10px] font-black uppercase tracking-widest ${
+                                          requestType === 'cashout'
+                                             ? 'bg-re-orange text-white border-re-orange'
+                                             : 'bg-re-bg text-re-text border-transparent'
+                                       }`}
+                                    >
+                                       Cashout
+                                    </button>
+                                    <button
+                                       type="button"
+                                       onClick={() => {
+                                          setRequestType('service');
+                                          if ((serviceCategory || catalog.services?.[0]?.slug) === 'teacher_deals') {
+                                             setTeacherDealsStep('products');
+                                          }
+                                       }}
+                                       className={`h-11 rounded-lg border text-[10px] font-black uppercase tracking-widest ${
+                                          requestType === 'service'
+                                             ? 'bg-re-orange text-white border-re-orange'
+                                             : 'bg-re-bg text-re-text border-transparent'
+                                       }`}
+                                    >
+                                       Service
+                                    </button>
+                                 </div>
                               </div>
                               <div className="space-y-1.5 md:col-span-2">
-                                 <label className="text-[9px] font-black text-re-text-muted uppercase tracking-widest opacity-40">Cashout program</label>
-                                 <select
-                                    className="w-full h-11 bg-re-bg rounded-lg px-4 font-bold outline-none border border-transparent focus:border-re-orange/20 focus:bg-white transition-all text-xs appearance-none"
-                                    value={cashoutCategory}
-                                    onChange={(e) => setCashoutCategory(e.target.value)}
-                                 >
-                                    {(catalog.cashouts || []).map((c) => (
-                                       <option key={c.slug} value={c.slug}>{c.label}</option>
-                                    ))}
-                                 </select>
+                                 {requestType === 'cashout' ? (
+                                    <>
+                                       <label className="text-[9px] font-black text-re-text-muted uppercase tracking-widest opacity-40">Cashout program</label>
+                                       <select
+                                          className="w-full h-11 bg-re-bg rounded-lg px-4 font-bold outline-none border border-transparent focus:border-re-orange/20 focus:bg-white transition-all text-xs appearance-none"
+                                          value={cashoutCategory}
+                                          onChange={(e) => setCashoutCategory(e.target.value)}
+                                       >
+                                          {(catalog.cashouts || []).map((c) => (
+                                             <option key={c.slug} value={c.slug}>{c.label}</option>
+                                          ))}
+                                       </select>
+                                    </>
+                                 ) : (
+                                    <>
+                                       <label className="text-[9px] font-black text-re-text-muted uppercase tracking-widest opacity-40">Service category</label>
+                                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                          {(catalog.services || []).map((s) => {
+                                             const isActive = (serviceCategory || catalog.services?.[0]?.slug) === s.slug;
+                                             return (
+                                                <button
+                                                   key={s.slug}
+                                                   type="button"
+                                                   onClick={() => {
+                                                      setServiceCategory(s.slug);
+                                                      if (s.slug === 'teacher_deals') {
+                                                         setTeacherDealsStep('products');
+                                                      } else {
+                                                         setSelectedDealProductIds([]);
+                                                      }
+                                                   }}
+                                                   className={`rounded-xl border p-3 text-left transition-all ${
+                                                      isActive ? 'border-re-orange bg-orange-50/50' : 'border-black/10 bg-white hover:border-black/20'
+                                                   }`}
+                                                >
+                                                   <p className="text-[11px] font-black text-re-text uppercase tracking-wide">{s.label}</p>
+                                                   <p className="text-[10px] font-bold text-re-orange mt-0.5">
+                                                      {Number(s.income_rate_percent || 0).toFixed(2)}% / month
+                                                   </p>
+                                                   {s.description ? (
+                                                      <p className="text-[10px] font-semibold text-slate-500 mt-1 line-clamp-2">{s.description}</p>
+                                                   ) : null}
+                                                </button>
+                                             );
+                                          })}
+                                       </div>
+                                    </>
+                                 )}
                               </div>
-                              <div className="space-y-1.5 md:col-span-2">
-                                 <label className="text-[9px] font-black text-re-text-muted uppercase tracking-widest opacity-40">Purpose of Credit</label>
-                                 <textarea
-                                    className="w-full h-20 bg-re-bg rounded-lg p-4 font-bold outline-none border border-transparent focus:border-re-orange/20 focus:bg-white transition-all text-xs resize-none"
-                                    placeholder="Ex: Improving housing, tuition fees..."
-                                    value={purpose}
-                                    onChange={(e) => setPurpose(e.target.value)}
-                                    required
-                                 ></textarea>
-                              </div>
-                              <div className="md:col-span-2">
-                                 <ShuleAvanceRepaymentCalculator
-                                    principal={amount}
-                                    monthlyRatePercent={selectedRate}
-                                    months={term}
-                                    title="Repayment estimate"
-                                 />
-                              </div>
-                              <div className="md:col-span-2 flex justify-between items-center bg-re-bg/50 p-4 rounded-lg border border-dashed border-gray-200">
-                                 <p className="text-[9px] text-re-text-muted font-bold italic max-w-[55%] leading-snug">
-                                    Uses platform monthly rate for the selected program. Not a binding offer.
-                                 </p>
-                                 <button
-                                    type="submit"
-                                    disabled={submitting}
-                                    className="bg-re-grad-orange text-white px-6 py-2.5 rounded-lg font-black shadow-re-glow hover:scale-[1.02] active:scale-95 transition-all text-[10px] uppercase tracking-widest disabled:opacity-50"
-                                 >
-                                    {submitting ? 'Submitting...' : 'Submit Request'}
-                                 </button>
-                              </div>
+                              {isTeacherDealsMode && teacherDealsStep === 'products' ? (
+                                 <div className="space-y-2 md:col-span-2">
+                                    <label className="text-[9px] font-black text-re-text-muted uppercase tracking-widest opacity-40">
+                                       Teacher Deal products (select one or more)
+                                    </label>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[360px] overflow-y-auto pr-1">
+                                       {dealProducts.map((p) => {
+                                          const isChecked = selectedDealProductIds.includes(Number(p.id));
+                                          return (
+                                             <div
+                                                key={p.id}
+                                                onClick={() => {
+                                                   const id = Number(p.id);
+                                                   setSelectedDealProductIds((prev) => (
+                                                      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+                                                   ));
+                                                }}
+                                                onKeyDown={(ev) => {
+                                                   if (ev.key === 'Enter' || ev.key === ' ') {
+                                                      ev.preventDefault();
+                                                      const id = Number(p.id);
+                                                      setSelectedDealProductIds((prev) => (
+                                                         prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+                                                      ));
+                                                   }
+                                                }}
+                                                role="button"
+                                                tabIndex={0}
+                                                className={`rounded-xl border p-3 flex gap-3 items-start cursor-pointer transition-all text-left ${
+                                                   isChecked ? 'border-re-orange bg-orange-50/40 shadow-sm' : 'border-black/10 bg-white'
+                                                }`}
+                                             >
+                                                <div className="relative w-16 h-16 rounded-lg border border-black/10 bg-re-bg overflow-hidden shrink-0 flex items-center justify-center">
+                                                   {p.image_url ? (
+                                                      <img src={toAssetUrl(p.image_url)} alt={p.name} className="w-full h-full object-cover" />
+                                                   ) : (
+                                                      <Package size={14} className="text-slate-400" />
+                                                   )}
+                                                   <button
+                                                      type="button"
+                                                      onClick={(ev) => {
+                                                         ev.stopPropagation();
+                                                         setDealPreview(p);
+                                                      }}
+                                                      className="absolute right-1 top-1 h-6 w-6 rounded-full bg-black/60 text-white inline-flex items-center justify-center hover:bg-black/75"
+                                                   >
+                                                      <Eye size={12} />
+                                                   </button>
+                                                </div>
+                                                <div className="min-w-0 flex-1">
+                                                   <p className="text-[11px] font-black text-re-text truncate">{p.name}</p>
+                                                   <p className="text-[10px] font-bold text-re-orange">{fmtMoney(p.price_rwf)}</p>
+                                                   <p className="mt-1 text-[9px] font-black uppercase tracking-widest text-slate-500">
+                                                      {isChecked ? 'Selected' : 'Tap to select'}
+                                                   </p>
+                                                </div>
+                                             </div>
+                                          );
+                                       })}
+                                       {!dealProducts.length ? (
+                                          <div className="col-span-full rounded-lg border border-dashed border-black/10 p-3 text-[10px] font-bold text-slate-500">
+                                             No Teacher Deal products available yet.
+                                          </div>
+                                       ) : null}
+                                    </div>
+                                    <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3 flex flex-wrap items-center justify-between gap-3">
+                                       <div>
+                                          <p className="text-[10px] font-black uppercase tracking-widest text-amber-800">
+                                             Selected: {selectedDealProductIds.length} product(s)
+                                          </p>
+                                          <p className="text-sm font-black text-re-text mt-0.5">
+                                             Total products: {fmtMoney(teacherDealsTotal)}
+                                          </p>
+                                       </div>
+                                       <button
+                                          type="button"
+                                          disabled={!selectedDealProductIds.length}
+                                          onClick={() => setTeacherDealsStep('financing')}
+                                          className="bg-re-grad-orange text-white px-5 py-2.5 rounded-lg font-black shadow-re-glow hover:scale-[1.02] active:scale-95 transition-all text-[10px] uppercase tracking-widest disabled:opacity-50"
+                                       >
+                                          Continue to repayment
+                                       </button>
+                                    </div>
+                                 </div>
+                              ) : null}
+                              {(!isTeacherDealsMode || teacherDealsStep === 'financing') ? (
+                                 <>
+                                    <div className="space-y-1.5">
+                                       <label className="text-[9px] font-black text-re-text-muted uppercase tracking-widest opacity-40">
+                                          {isTeacherDealsMode ? 'Products Total (RWF)' : 'Desired Amount (RWF)'}
+                                       </label>
+                                       <input
+                                          type="number"
+                                          className="w-full h-11 bg-re-bg rounded-lg px-4 font-bold outline-none border border-transparent focus:border-re-orange/20 focus:bg-white transition-all text-xs"
+                                          placeholder="Ex: 500,000"
+                                          value={isTeacherDealsMode ? teacherDealsTotal : amount}
+                                          onChange={(e) => setAmount(e.target.value)}
+                                          readOnly={isTeacherDealsMode}
+                                          required
+                                       />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                       <label className="text-[9px] font-black text-re-text-muted uppercase tracking-widest opacity-40">Repayment Period</label>
+                                       <select
+                                          className="w-full h-11 bg-re-bg rounded-lg px-4 font-bold outline-none border border-transparent focus:border-re-orange/20 focus:bg-white transition-all text-xs appearance-none"
+                                          value={term}
+                                          onChange={(e) => setTerm(Number(e.target.value))}
+                                       >
+                                          {[1,2,3,4,5,6,7,8,9,10,11,12].map((m) => (
+                                             <option key={m} value={m}>{m} months</option>
+                                          ))}
+                                       </select>
+                                    </div>
+                                    <div className="space-y-1.5 md:col-span-2">
+                                       <label className="text-[9px] font-black text-re-text-muted uppercase tracking-widest opacity-40">Purpose of Credit</label>
+                                       <textarea
+                                          className="w-full h-20 bg-re-bg rounded-lg p-4 font-bold outline-none border border-transparent focus:border-re-orange/20 focus:bg-white transition-all text-xs resize-none"
+                                          placeholder="Ex: Improving housing, tuition fees..."
+                                          value={purpose}
+                                          onChange={(e) => setPurpose(e.target.value)}
+                                          required
+                                       ></textarea>
+                                    </div>
+                                    {isTeacherDealsMode ? (
+                                       <div className="md:col-span-2 rounded-xl border border-fuchsia-200 bg-fuchsia-50/50 p-3">
+                                          <p className="text-[10px] font-black uppercase tracking-widest text-fuchsia-700">
+                                             Teacher Deals rate
+                                          </p>
+                                          <p className="text-sm font-black text-re-text mt-1">
+                                             {Number(selectedRate || 0).toFixed(2)}% / month applied on selected products total.
+                                          </p>
+                                          <button
+                                             type="button"
+                                             onClick={() => setTeacherDealsStep('products')}
+                                             className="mt-2 text-[10px] font-black uppercase tracking-widest text-fuchsia-700 hover:text-fuchsia-800"
+                                          >
+                                             Back to product selection
+                                          </button>
+                                       </div>
+                                    ) : null}
+                                    <div className="md:col-span-2">
+                                       <ShuleAvanceRepaymentCalculator
+                                          principal={principalAmount}
+                                          monthlyRatePercent={selectedRate}
+                                          months={term}
+                                          title="Repayment estimate"
+                                       />
+                                    </div>
+                                    <div className="md:col-span-2 flex justify-between items-center bg-re-bg/50 p-4 rounded-lg border border-dashed border-gray-200">
+                                       <p className="text-[9px] text-re-text-muted font-bold italic max-w-[55%] leading-snug">
+                                          Uses platform monthly rate for the selected program. Not a binding offer.
+                                       </p>
+                                       <button
+                                          type="submit"
+                                          disabled={submitting}
+                                          className="bg-re-grad-orange text-white px-6 py-2.5 rounded-lg font-black shadow-re-glow hover:scale-[1.02] active:scale-95 transition-all text-[10px] uppercase tracking-widest disabled:opacity-50"
+                                       >
+                                          {submitting ? 'Submitting...' : 'Submit Request'}
+                                       </button>
+                                    </div>
+                                 </>
+                              ) : null}
                            </form>
                         </div>
                      ) : (
@@ -434,6 +731,25 @@ const ShuleAvance = () => {
                </div>
             </div>
          </div>
+         {dealPreview ? (
+            <div className="fixed inset-0 z-[260] p-4 flex items-center justify-center">
+               <div className="absolute inset-0 bg-black/45" onClick={() => setDealPreview(null)} />
+               <div className="relative w-full max-w-md bg-white rounded-2xl border border-black/10 shadow-2xl overflow-hidden">
+                  <div className="h-56 bg-re-bg border-b border-black/5 overflow-hidden flex items-center justify-center">
+                     {dealPreview.image_url ? (
+                        <img src={toAssetUrl(dealPreview.image_url)} alt={dealPreview.name} className="w-full h-full object-cover" />
+                     ) : (
+                        <Package size={22} className="text-slate-400" />
+                     )}
+                  </div>
+                  <div className="p-4">
+                     <p className="text-lg font-black text-re-text">{dealPreview.name}</p>
+                     <p className="text-sm font-black text-re-orange mt-1">{fmtMoney(dealPreview.price_rwf)}</p>
+                     <p className="text-sm text-slate-600 mt-2">{dealPreview.description || 'No description.'}</p>
+                  </div>
+               </div>
+            </div>
+         ) : null}
       </div>
    );
 };

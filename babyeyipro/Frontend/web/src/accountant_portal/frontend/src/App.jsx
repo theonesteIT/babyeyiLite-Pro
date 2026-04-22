@@ -13,6 +13,7 @@ import PayrollHistory from './pages/PayrollHistory';
 import PayrollConfig from './pages/PayrollConfig';
 import ShuleAvance from './pages/ShuleAvance';
 import FeaturePlaceholders from './pages/FeaturePlaceholders';
+import BabyeyiFees from './pages/BabyeyiFees';
 import './index.css';
 import { PORTAL } from './config/portal';
 
@@ -47,6 +48,10 @@ function AppContent() {
 
       {/* Accountant modules */}
       <Route path="/fees" element={<ProtectedRoute title="Student Fees"><Fees /></ProtectedRoute>} />
+      <Route
+        path="/fees/babyeyi-fees"
+        element={<ProtectedRoute title="Babyeyi fee cards"><BabyeyiFees /></ProtectedRoute>}
+      />
       <Route path="/invoices" element={<ProtectedRoute title="Invoices"><Invoices /></ProtectedRoute>} />
       <Route path="/invoices/settings" element={<ProtectedRoute title="Configure Invoices"><InvoiceSettings /></ProtectedRoute>} />
       <Route path="/expenses" element={<ProtectedRoute title="School Expenses"><Expenses /></ProtectedRoute>} />

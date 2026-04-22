@@ -14,14 +14,6 @@ import {
   CheckCircle2, ArrowLeft, Sparkles, LayoutGrid, List,
 } from 'lucide-react';
 
-// ─── FONTS ───────────────────────────────────────────────────────────────────
-const FontLoader = () => (
-  <link
-    href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,600;1,700&display=swap"
-    rel="stylesheet"
-  />
-);
-
     const SERVER = import.meta.env.VITE_API_URL || "https://babyeyi.rw";
     const API    = `${SERVER}/api/mini-websites`;
 
@@ -567,10 +559,8 @@ export default function AllSchools() {
   return (
     <div
       className="min-h-screen"
-      style={{ background: '#F8F7F4', fontFamily: "'Montserrat', sans-serif" }}
+      style={{ background: '#F8F7F4' }}
     >
-      <FontLoader />
-
       {/* ─── TOPBAR ──────────────────────────────────────────────────────── */}
       <header
         className="sticky top-0 z-30"

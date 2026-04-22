@@ -220,7 +220,6 @@ export default function HodLayout() {
       }}
     >
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap');
         .hod-scroll::-webkit-scrollbar { width: 4px; height: 4px; }
         .hod-scroll::-webkit-scrollbar-thumb { background: #FEBF10; border-radius: 99px; }
       `}</style>

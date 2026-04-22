@@ -9,6 +9,26 @@ import {
     GraduationCap, Award, Clock, Home, Building2,
     Calendar, ShieldCheck
 } from 'lucide-react';
+import api from '../services/api';
+import * as XLSX from 'xlsx';
+
+const TERMS = ['Term 1', 'Term 2', 'Term 3', 'Annual Review'];
+const STATUS_OPTIONS = [
+    { value: 'all', label: 'All status' },
+    { value: 'full_pay', label: 'Paid' },
+    { value: 'not_paid', label: 'Not paid' },
+    { value: 'remain_pay', label: 'Partial payment' },
+];
+
+function getAcademicYears(count = 6) {
+    const now = new Date();
+    const y = now.getFullYear();
+    const start = now.getMonth() >= 7 ? y : y - 1;
+    return Array.from({ length: count }, (_, i) => {
+        const a = start - i;
+        return `${a}-${a + 1}`;
+    });
+}
 
 // ── Financial Detail Drawer (Inherited & Adapted Pattern) ──────────────────
 const StudentModal = ({ student, onClose }) => {
@@ -165,36 +185,154 @@ const FeePayments = () => {
     const [openDropdownId, setOpenDropdownId] = useState(null);
     const [showClassFilter, setShowClassFilter] = useState(false);
     const [selectedClass, setSelectedClass] = useState('View All');
-    const [isClassSelected, setIsClassSelected] = useState(true);
+    const [selectedStatus, setSelectedStatus] = useState('all');
+    const [selectedTerm, setSelectedTerm] = useState('Term 1');
+    const [selectedYear, setSelectedYear] = useState(getAcademicYears(1)[0]);
 
     const [loading, setLoading] = useState(true);
-    const classes = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'P6', 'P5'];
-
-    const [students, setStudents] = useState([
-        { id: 'RRA-2024-001', name: 'Alain Munyaneza', grade: 'S4', stream: 'MCB', totalBill: 75000, paid: 75000, balance: 0, status: 'Fully Paid' },
-        { id: 'RRA-2024-005', name: 'Divine Uwase', grade: 'S4', stream: 'PCB', totalBill: 75000, paid: 45000, balance: 30000, status: 'Partial' },
-        { id: 'RRA-2024-012', name: 'Safi Ishimwe', grade: 'S1', stream: 'A', totalBill: 65000, paid: 10000, balance: 55000, status: 'Not Paid' },
-        { id: 'RRA-2024-018', name: 'Manzi Kevin', grade: 'P6', stream: 'B', totalBill: 45000, paid: 45000, balance: 0, status: 'Fully Paid' },
-        { id: 'RRA-2024-022', name: 'Bella Ingabire', grade: 'S6', stream: 'HEG', totalBill: 75000, paid: 70000, balance: 5000, status: 'Partial' },
-        { id: 'RRA-2024-030', name: 'Eric Gakwaya', grade: 'S2', stream: 'A', totalBill: 65000, paid: 65000, balance: 0, status: 'Fully Paid' },
-    ]);
+    const [error, setError] = useState('');
+    const [students, setStudents] = useState([]);
+    const [classes, setClasses] = useState([]);
+    const yearOptions = getAcademicYears();
 
     useEffect(() => {
-        setTimeout(() => setLoading(false), 800);
-    }, []);
-
-    const stats = {
-        totalEnrolled: '1,240',
-        totalRevenue: 'RWF 42.5M',
-        pendingRevenue: 'RWF 8.3M',
-        collectionRate: '83.6%'
-    };
+        let cancelled = false;
+        const run = async () => {
+            setLoading(true);
+            setError('');
+            try {
+                const params = {
+                    academic_year: selectedYear,
+                    term: selectedTerm,
+                };
+                if (selectedClass !== 'View All') params.class_name = selectedClass;
+                if (selectedStatus !== 'all') params.status = selectedStatus;
+                const { data } = await api.get('/manager/finance/payments/report', { params });
+                if (!data?.success) throw new Error(data?.message || 'Failed to load fee registry');
+                const rows = Array.isArray(data?.data?.rows) ? data.data.rows : [];
+                const classNames = Array.isArray(data?.data?.class_names) ? data.data.class_names : [];
+                const mapped = rows.map((r) => {
+                    const totalBill = Number(r.total_due || 0);
+                    const paid = Number(r.total_paid || 0);
+                    const balance = r.remaining == null ? Math.max(0, totalBill - paid) : Number(r.remaining || 0);
+                    const st = String(r.status || '').toLowerCase();
+                    const statusLabel =
+                        st === 'full_pay' || st === 'full'
+                            ? 'Fully Paid'
+                            : st === 'remain_pay'
+                                ? 'Partial'
+                                : st === 'not_paid'
+                                    ? 'Not Paid'
+                                    : 'No Fee Card';
+                    return {
+                        id: r.student_uid || r.student_code || String(r.student_id || ''),
+                        dbId: Number(r.student_id || 0),
+                        name: `${r.first_name || ''} ${r.last_name || ''}`.trim() || 'Learner',
+                        grade: r.class_name || '—',
+                        stream: '',
+                        totalBill,
+                        paid,
+                        balance,
+                        status: statusLabel,
+                    };
+                });
+                if (!cancelled) {
+                    setStudents(mapped);
+                    setClasses(classNames.filter(Boolean));
+                }
+            } catch (e) {
+                if (!cancelled) {
+                    setStudents([]);
+                    setError(e?.response?.data?.message || e.message || 'Failed to load fee registry');
+                }
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        };
+        run();
+        return () => {
+            cancelled = true;
+        };
+    }, [selectedClass, selectedStatus, selectedTerm, selectedYear]);
 
     const filteredStudents = students.filter(s =>
         (s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             s.id.toLowerCase().includes(searchTerm.toLowerCase())) &&
         (selectedClass === 'View All' || s.grade === selectedClass)
     );
+
+    const exportLedgerCsv = () => {
+        const header = [
+            'Student ID',
+            'Student Name',
+            'Class',
+            'Expected Total (RWF)',
+            'Paid (RWF)',
+            'Remaining (RWF)',
+            'Status',
+            'Term',
+            'Academic Year',
+        ];
+        const lines = filteredStudents.map((s) => [
+            s.id,
+            s.name,
+            s.grade || '',
+            Number(s.totalBill || 0),
+            Number(s.paid || 0),
+            Number(s.balance || 0),
+            s.status,
+            selectedTerm,
+            selectedYear,
+        ]);
+        const csv = [header, ...lines]
+            .map((line) => line.map((x) => `"${String(x ?? '').replace(/"/g, '""')}"`).join(','))
+            .join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const classPart = (selectedClass === 'View All' ? 'all-classes' : selectedClass).replace(/\s+/g, '-');
+        const statusPart = String(selectedStatus || 'all').replace(/\s+/g, '-');
+        a.download = `student-fee-ledger-${selectedYear}-${selectedTerm.replace(/\s+/g, '-')}-${classPart}-${statusPart}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
+    const exportLedgerXlsx = () => {
+        const classPart = (selectedClass === 'View All' ? 'all-classes' : selectedClass).replace(/\s+/g, '-');
+        const statusPart = String(selectedStatus || 'all').replace(/\s+/g, '-');
+        const rowsForExport = filteredStudents.map((s) => ({
+            'Student ID': s.id,
+            'Student Name': s.name,
+            Class: s.grade || '',
+            'Expected Total (RWF)': Number(s.totalBill || 0),
+            'Paid (RWF)': Number(s.paid || 0),
+            'Remaining (RWF)': Number(s.balance || 0),
+            Status: s.status,
+            Term: selectedTerm,
+            'Academic Year': selectedYear,
+        }));
+        const worksheet = XLSX.utils.json_to_sheet(rowsForExport);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Fee Ledger');
+        XLSX.writeFile(
+            workbook,
+            `student-fee-ledger-${selectedYear}-${selectedTerm.replace(/\s+/g, '-')}-${classPart}-${statusPart}.xlsx`
+        );
+    };
+
+    const stats = (() => {
+        const totalDue = filteredStudents.reduce((s, x) => s + Number(x.totalBill || 0), 0);
+        const totalPaid = filteredStudents.reduce((s, x) => s + Number(x.paid || 0), 0);
+        const totalRemain = filteredStudents.reduce((s, x) => s + Number(x.balance || 0), 0);
+        const rate = totalDue > 0 ? `${Math.round((totalPaid / totalDue) * 1000) / 10}%` : '0%';
+        return {
+            totalEnrolled: filteredStudents.length.toLocaleString(),
+            totalRevenue: `RWF ${Math.round(totalPaid).toLocaleString()}`,
+            pendingRevenue: `RWF ${Math.round(totalRemain).toLocaleString()}`,
+            collectionRate: rate,
+        };
+    })();
 
     return (
         <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen">
@@ -252,9 +390,19 @@ const FeePayments = () => {
 
                         {/* Actions */}
                         <div className="hidden lg:flex flex-col border-l border-black/5 bg-re-bg/30 p-6 justify-center gap-3">
-                            <button className="w-full h-11 flex items-center justify-center gap-2 bg-re-grad-navy text-white rounded-xl font-black text-[9px] uppercase tracking-widest shadow-re-premium-navy hover:scale-[1.02] active:scale-95 transition-all">
+                            <button
+                                onClick={exportLedgerCsv}
+                                className="w-full h-11 flex items-center justify-center gap-2 bg-re-grad-navy text-white rounded-xl font-black text-[9px] uppercase tracking-widest shadow-re-premium-navy hover:scale-[1.02] active:scale-95 transition-all"
+                            >
                                 <Download size={14} />
-                                Export Ledger
+                                Export CSV
+                            </button>
+                            <button
+                                onClick={exportLedgerXlsx}
+                                className="w-full h-11 flex items-center justify-center gap-2 bg-white border border-black/5 text-re-navy font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg hover:shadow-re-soft transition-all"
+                            >
+                                <Download size={14} className="text-re-gold" />
+                                Export Excel
                             </button>
                             <button className="w-full h-11 flex items-center justify-center gap-2 bg-white border border-black/5 text-re-navy font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg hover:shadow-re-soft transition-all">
                                 <Mail size={14} className="text-re-gold" />
@@ -283,6 +431,33 @@ const FeePayments = () => {
                                 <Filter size={14} className="text-re-gold" />
                                 Filter By Class
                             </button>
+                            <select
+                                value={selectedStatus}
+                                onChange={(e) => setSelectedStatus(e.target.value)}
+                                className="h-10 sm:h-11 px-3 sm:px-5 bg-white border border-black/5 rounded-xl text-re-text-muted font-black text-[8px] sm:text-[9px] uppercase tracking-widest hover:bg-re-bg transition-all shadow-sm whitespace-nowrap"
+                            >
+                                {STATUS_OPTIONS.map((s) => (
+                                    <option key={s.value} value={s.value}>{s.label}</option>
+                                ))}
+                            </select>
+                            <select
+                                value={selectedTerm}
+                                onChange={(e) => setSelectedTerm(e.target.value)}
+                                className="h-10 sm:h-11 px-3 sm:px-5 bg-white border border-black/5 rounded-xl text-re-text-muted font-black text-[8px] sm:text-[9px] uppercase tracking-widest hover:bg-re-bg transition-all shadow-sm whitespace-nowrap"
+                            >
+                                {TERMS.map((t) => (
+                                    <option key={t} value={t}>{t}</option>
+                                ))}
+                            </select>
+                            <select
+                                value={selectedYear}
+                                onChange={(e) => setSelectedYear(e.target.value)}
+                                className="h-10 sm:h-11 px-3 sm:px-5 bg-white border border-black/5 rounded-xl text-re-text-muted font-black text-[8px] sm:text-[9px] uppercase tracking-widest hover:bg-re-bg transition-all shadow-sm whitespace-nowrap"
+                            >
+                                {yearOptions.map((y) => (
+                                    <option key={y} value={y}>{y}</option>
+                                ))}
+                            </select>
                             <div className="w-px h-6 bg-black/5 hidden md:block"></div>
                             <button className="h-10 sm:h-11 flex-1 md:flex-none px-3 sm:px-6 bg-re-bg border border-black/5 rounded-xl text-re-navy font-black text-[8px] sm:text-[9px] uppercase tracking-widest hover:bg-white hover:border-re-gold/20 transition-all shadow-sm group flex items-center gap-1.5 sm:gap-2 whitespace-nowrap">
                                 <Wallet size={14} className="text-re-gold opacity-60 group-hover:opacity-100 transition-opacity" />
@@ -312,6 +487,11 @@ const FeePayments = () => {
 
                     {/* Table View */}
                     <div className="overflow-x-auto bg-white">
+                        {error ? (
+                            <div className="px-8 py-3 text-[10px] font-black uppercase tracking-widest text-red-600 border-b border-black/5">
+                                {error}
+                            </div>
+                        ) : null}
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-re-bg/20 border-b border-black/5">
@@ -351,7 +531,7 @@ const FeePayments = () => {
                                                 <td className="hidden md:table-cell px-8 py-5 border-r border-black/5">
                                                     <div className="flex flex-col gap-0.5">
                                                         <p className="text-[10px] font-black text-re-navy uppercase tracking-tight">{s.grade}</p>
-                                                        <p className="text-[9px] font-black text-re-gold uppercase italic">{s.stream}</p>
+                                                            <p className="text-[9px] font-black text-re-gold uppercase italic">{s.stream || '—'}</p>
                                                     </div>
                                                 </td>
                                                 <td className="hidden md:table-cell px-8 py-5 border-r border-black/5 text-re-navy">
@@ -416,7 +596,7 @@ const FeePayments = () => {
                                 <p className="text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 italic">Ledger Synchronized</p>
                             </div>
                             <div className="w-px h-3 bg-black/10"></div>
-                            <p className="text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 italic">Displaying {filteredStudents.length} Records</p>
+                                                    <p className="text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 italic">Displaying {filteredStudents.length} Records · {selectedTerm} · {selectedYear}</p>
                         </div>
                         <div className="flex items-center gap-1.5">
                             <button className="h-8 px-4 rounded-lg bg-white border border-black/5 text-[9px] font-black text-re-text-muted tracking-tighter opacity-40 hover:opacity-100 transition-all font-mono italic">Prev_set</button>

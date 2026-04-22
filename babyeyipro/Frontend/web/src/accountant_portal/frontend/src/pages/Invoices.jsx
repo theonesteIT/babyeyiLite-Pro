@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { jsPDF } from 'jspdf';
 import api from '../services/api.js';
+import PortalToast from '../components/PortalToast.jsx';
 import {
   FileText,
   Plus,
@@ -340,6 +341,7 @@ function NewInvoiceModal({ open, onClose, onCreate, config }) {
   const [taxRate, setTaxRate] = useState(0);
   const [notes, setNotes] = useState(config?.defaultTerms || 'Payment due within 7 days. Late fees may apply.');
   const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
   if (!open) return null;
   const root = getModalRoot();
@@ -486,6 +488,9 @@ function NewInvoiceModal({ open, onClose, onCreate, config }) {
             <p className="text-[9px] font-black text-[#1E3A5F] uppercase tracking-[0.2em] mb-1.5 opacity-80">Terms / Notes</p>
             <input value={notes} onChange={(e) => setNotes(e.target.value)} className="w-full h-9 rounded-lg bg-white px-3 outline-none border border-black/5 focus:border-[#1E3A5F]/20 transition-all text-[#1E3A5F] text-[10px] font-black tracking-tight shadow-inner" />
           </div>
+          {!!errorMsg && (
+            <p className="text-[10px] font-bold text-red-600">{errorMsg}</p>
+          )}
         </div>
 
         <div className="bg-white border-t border-black/5 px-5 sm:px-6 py-2 flex items-center justify-end gap-2 shrink-0 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
@@ -500,19 +505,43 @@ function NewInvoiceModal({ open, onClose, onCreate, config }) {
             type="button"
             disabled={submitting}
             onClick={async () => {
+              const trimmedName = String(name || '').trim();
+              const cleanItems = (items || [])
+                .map((it) => ({
+                  ...it,
+                  name: String(it.name || '').trim(),
+                  qty: Number(it.qty) || 0,
+                  unitPrice: Number(it.unitPrice) || 0,
+                }))
+                .filter((it) => it.name && it.qty > 0 && it.unitPrice >= 0);
+              const validDue = /^\d{4}-\d{2}-\d{2}$/.test(String(dueDate || ''));
+              const total = computeTotals(cleanItems, taxRate).total;
+              if (!trimmedName) {
+                setErrorMsg('Student name is required.');
+                return;
+              }
+              if (!validDue) {
+                setErrorMsg('Due date must be a valid YYYY-MM-DD date.');
+                return;
+              }
+              if (!cleanItems.length || total <= 0) {
+                setErrorMsg('Add at least one valid line item with a total greater than zero.');
+                return;
+              }
+              setErrorMsg('');
               setSubmitting(true);
               try {
                 await onCreate({
-                  bill_to: { name: name || 'Student', uid, class: cls },
+                  bill_to: { name: trimmedName || 'Student', uid, class: cls },
                   due_date: dueDate,
-                  items,
+                  items: cleanItems,
                   tax_rate: taxRate,
                   notes,
                 });
                 onClose();
               } catch (err) {
                 const msg = err?.response?.data?.message || err.message || 'Could not create invoice';
-                window.alert(msg);
+                setErrorMsg(msg);
               } finally {
                 setSubmitting(false);
               }
@@ -549,6 +578,14 @@ export default function Invoices() {
 
   const [rows, setRows] = useState([]);
   const [loadError, setLoadError] = useState(null);
+  const [toast, setToast] = useState(null);
+  const [actionLoadingKey, setActionLoadingKey] = useState('');
+
+  useEffect(() => {
+    if (!toast) return undefined;
+    const t = window.setTimeout(() => setToast(null), 3200);
+    return () => window.clearTimeout(t);
+  }, [toast]);
 
   const loadInvoices = useCallback(async () => {
     setLoading(true);
@@ -607,11 +644,15 @@ export default function Invoices() {
     const intentId = Number(id);
     if (!intentId) return;
     const action = status === 'paid' ? 'mark_paid' : 'mark_sent';
+    setActionLoadingKey(`${intentId}:status:${status}`);
     try {
       await api.patch(`${INVOICES_API}/${intentId}`, { action });
       await loadInvoices();
+      setToast({ type: 'success', message: `Invoice marked as ${status}.` });
     } catch (e) {
-      window.alert(e?.response?.data?.message || e.message || 'Update failed');
+      setToast({ type: 'error', message: e?.response?.data?.message || e.message || 'Update failed' });
+    } finally {
+      setActionLoadingKey('');
     }
   };
 
@@ -632,6 +673,56 @@ export default function Invoices() {
       throw new Error(data?.message || 'Create failed');
     }
     await loadInvoices();
+    setToast({ type: 'success', message: 'Invoice created successfully.' });
+  };
+
+  const handleQuickEdit = async (row) => {
+    const due = window.prompt('Due date (YYYY-MM-DD):', row.dueDate || '');
+    if (due == null) return;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(due).trim())) {
+      setToast({ type: 'error', message: 'Please enter a valid due date format (YYYY-MM-DD).' });
+      return;
+    }
+    const notes = window.prompt('Invoice notes:', row.notes || '') ?? '';
+    if (String(notes).length > 500) {
+      setToast({ type: 'error', message: 'Notes must be 500 characters or less.' });
+      return;
+    }
+    setActionLoadingKey(`${row.intentId}:edit`);
+    try {
+      await api.patch(`${INVOICES_API}/${row.intentId}`, {
+        due_date: String(due).trim(),
+        notes,
+        bill_to: {
+          name: row.billTo?.name || '',
+          uid: String((row.billTo?.metaLines || []).find((x) => String(x).startsWith('UID: ')) || '').replace('UID: ', ''),
+          class: String((row.billTo?.metaLines || []).find((x) => String(x).startsWith('Class: ')) || '').replace('Class: ', ''),
+        },
+        items: row.items || [],
+        tax_rate: row.taxRate || 0,
+      });
+      await loadInvoices();
+      setToast({ type: 'success', message: `Invoice ${row.invoiceNo} updated.` });
+    } catch (e) {
+      setToast({ type: 'error', message: e?.response?.data?.message || e.message || 'Update failed' });
+    } finally {
+      setActionLoadingKey('');
+    }
+  };
+
+  const handleDeleteInvoice = async (row) => {
+    const ok = window.confirm(`Delete invoice ${row.invoiceNo}?`);
+    if (!ok) return;
+    setActionLoadingKey(`${row.intentId}:delete`);
+    try {
+      await api.delete(`${INVOICES_API}/${row.intentId}`);
+      await loadInvoices();
+      setToast({ type: 'success', message: `Invoice ${row.invoiceNo} deleted.` });
+    } catch (e) {
+      setToast({ type: 'error', message: e?.response?.data?.message || e.message || 'Delete failed' });
+    } finally {
+      setActionLoadingKey('');
+    }
   };
 
   return (
@@ -769,7 +860,6 @@ export default function Invoices() {
                 {loadError}
               </div>
             )}
-
             {/* Table */}
             <div className="overflow-x-auto bg-white flex-1 min-h-[420px]">
               <table className="w-full text-left border-collapse">
@@ -793,6 +883,7 @@ export default function Invoices() {
                   )}
                   {derived.filtered.map((r) => {
                     const chip = statusChip(r.status);
+                    const isRowBusy = actionLoadingKey.startsWith(`${r.intentId}:`);
                     return (
                       <tr key={r.id} className="hover:bg-re-bg/60 even:bg-re-bg/20 transition-colors group">
                         <td className="px-4 sm:px-6 py-2.5 sm:py-3 border-r border-black/5">
@@ -845,6 +936,7 @@ export default function Invoices() {
                             <button
                               type="button"
                               onClick={() => setRowMenuOpen((v) => (v === r.id ? null : r.id))}
+                              disabled={isRowBusy}
                               className="h-7 px-3 rounded-xl flex items-center justify-center gap-1.5 bg-white border border-black/5 text-re-text font-black text-[9px] uppercase tracking-widest shadow-sm hover:bg-re-bg hover:text-[#1E3A5F] transition-all ml-auto"
                             >
                               <ChevronRight size={14} className={`opacity-50 transition-transform ${rowMenuOpen === r.id ? 'rotate-90' : ''}`} />
@@ -866,6 +958,7 @@ export default function Invoices() {
                                         exportInvoicePdf({ invoice: r, config });
                                       }
                                     }}
+                                    disabled={isRowBusy}
                                     className="w-full px-4 py-3 flex items-center gap-2 text-left hover:bg-re-bg/30 transition-all"
                                   >
                                     <Printer size={14} className="text-[#1E3A5F]" />
@@ -874,6 +967,7 @@ export default function Invoices() {
                                   <button
                                     type="button"
                                     onClick={() => { setRowMenuOpen(null); exportInvoicePdf({ invoice: r, config }); }}
+                                    disabled={isRowBusy}
                                     className="w-full px-4 py-3 flex items-center gap-2 text-left hover:bg-re-bg/30 transition-all border-t border-black/5"
                                   >
                                     <Printer size={14} className="text-slate-500" />
@@ -881,7 +975,8 @@ export default function Invoices() {
                                   </button>
                                   <button
                                     type="button"
-                                    onClick={() => { setRowMenuOpen(null); setStatus(r.id, 'sent'); }}
+                                    onClick={() => { setRowMenuOpen(null); setStatus(r.intentId, 'sent'); }}
+                                    disabled={isRowBusy}
                                     className="w-full px-4 py-3 flex items-center gap-2 text-left hover:bg-re-bg/30 transition-all border-t border-black/5"
                                   >
                                     <Send size={14} className="text-[#1E3A5F]" />
@@ -889,11 +984,30 @@ export default function Invoices() {
                                   </button>
                                   <button
                                     type="button"
-                                    onClick={() => { setRowMenuOpen(null); setStatus(r.id, 'paid'); }}
+                                    onClick={() => { setRowMenuOpen(null); setStatus(r.intentId, 'paid'); }}
+                                    disabled={isRowBusy}
                                     className="w-full px-4 py-3 flex items-center gap-2 text-left hover:bg-re-bg/30 transition-all border-t border-black/5"
                                   >
                                     <CheckCircle2 size={14} className="text-emerald-600" />
                                     <span className="text-[10px] font-black uppercase tracking-widest text-[#1E3A5F]">Mark as paid</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => { setRowMenuOpen(null); handleQuickEdit(r); }}
+                                    disabled={isRowBusy}
+                                    className="w-full px-4 py-3 flex items-center gap-2 text-left hover:bg-re-bg/30 transition-all border-t border-black/5"
+                                  >
+                                    <Calendar size={14} className="text-[#1E3A5F]" />
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-[#1E3A5F]">Edit invoice</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => { setRowMenuOpen(null); handleDeleteInvoice(r); }}
+                                    disabled={isRowBusy}
+                                    className="w-full px-4 py-3 flex items-center gap-2 text-left hover:bg-red-50 transition-all border-t border-black/5"
+                                  >
+                                    <AlertTriangle size={14} className="text-red-600" />
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-red-600">Delete invoice</span>
                                   </button>
                                 </div>
                               </>
@@ -933,6 +1047,7 @@ export default function Invoices() {
         config={config}
         onCreate={handleCreateInvoice}
       />
+      <PortalToast toast={toast} />
     </>
   );
 }
