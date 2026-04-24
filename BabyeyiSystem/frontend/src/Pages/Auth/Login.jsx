@@ -247,17 +247,14 @@ const Login = () => {
     <>
       <style>{`
         .lr*{box-sizing:border-box}
-        .lr{font-family:'Sora',sans-serif;min-height:100vh;display:flex;background:#0B1D3A}
+        .lr{font-family:'Sora',sans-serif;min-height:100vh;display:flex;background:#000435}
         .lp{position:relative;display:none;width:50%;flex-direction:column;min-height:100vh;overflow:hidden}
         @media(min-width:1024px){.lp{display:flex}}
         .lp-logo{
           position:relative;z-index:2;
           flex:1;display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;
           padding:2rem 2.25rem 1.25rem;
-          background:
-            radial-gradient(850px 400px at 10% 0%, rgba(59,130,246,.24), transparent 56%),
-            radial-gradient(480px 280px at 15% 65%, rgba(251,191,36,.12), transparent 64%),
-            linear-gradient(180deg, rgba(5,20,50,0.96) 0%, rgba(11,29,58,0.92) 100%);
+          background:#000435;
         }
         .lp-brand{
           width:100%;
@@ -304,7 +301,7 @@ const Login = () => {
         }
         .lp-ft{padding:1rem 2.5rem;text-align:center}
         .lp-ft p{color:rgba(148,163,184,.5);font-size:.7rem}
-        .rp{width:100%;display:flex;align-items:center;justify-content:center;padding:2.5rem 1.5rem;position:relative;overflow:hidden;background:#0B1D3A}
+        .rp{width:100%;display:flex;align-items:center;justify-content:center;padding:2.5rem 1.5rem;position:relative;overflow:hidden;background:#000435}
         @media(min-width:1024px){.rp{width:50%}}
         .orb{position:absolute;border-radius:50%;filter:blur(80px);pointer-events:none;animation:orbF 8s ease-in-out infinite alternate}
         .o1{width:280px;height:280px;background:rgba(37,99,235,.18);top:-80px;right:-80px}
