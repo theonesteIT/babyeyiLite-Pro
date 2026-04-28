@@ -91,6 +91,53 @@ async function getStudentCardPayload(req, studentId) {
   };
 }
 
+// Public profile lookup for QR page (no login required).
+router.get('/students/public/:id', async (req, res) => {
+  try {
+    const studentId = Number(req.params.id);
+    if (!studentId) {
+      return res.status(400).json({ success: false, message: 'Invalid student id' });
+    }
+
+    const row = await getStudentCardRow(studentId);
+    if (!row) {
+      return res.status(404).json({ success: false, message: 'Student not found' });
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        id: row.id,
+        full_name: `${row.first_name || ''} ${row.last_name || ''}`.trim(),
+        first_name: row.first_name || '',
+        last_name: row.last_name || '',
+        code: row.student_code || row.student_uid || `ST-${row.id}`,
+        student_code: row.student_code || row.student_uid || `ST-${row.id}`,
+        student_uid: row.student_uid || null,
+        birth_year: row.birth_year || null,
+        gender: row.gender || null,
+        class_name: row.class_name || null,
+        academic_year: row.academic_year || null,
+        student_photo: row.student_photo || null,
+        photo_url: row.student_photo ? `/uploads/student-profile-photos/${row.student_photo}` : null,
+        school_id: row.school_id,
+        school_name: row.school_name || null,
+        logo_url: row.logo_url || null,
+        school_phone: row.school_phone || null,
+        school_email: row.school_email || null,
+        school_website: row.website || null,
+        postal_address: row.postal_address || null,
+        province: row.province || null,
+        district: row.district || null,
+        sector: row.sector || null,
+      },
+    });
+  } catch (err) {
+    console.error('GET /students/public/:id error:', err);
+    return res.status(500).json({ success: false, message: 'Failed to load public student profile' });
+  }
+});
+
 function drawCardPage(doc, card) {
   const W = 980;
   const H = 560;
