@@ -29,6 +29,8 @@ const SystemConfiguration = () => {
     const [events, setEvents] = useState([]);
     const [classes, setClasses] = useState([]);
     const [selectedEvent, setSelectedEvent] = useState(null);
+    const [academicYear, setAcademicYear] = useState('2025-2026');
+    const [activeTerms, setActiveTerms] = useState(['Term 1', 'Term 2', 'Term 3']);
 
     const [eventForm, setEventForm] = useState({
         event_name: '',
@@ -80,6 +82,19 @@ const SystemConfiguration = () => {
         }
     };
 
+    const fetchAcademicSettings = async () => {
+        try {
+            const res = await api.get('/dos/academic-calendar-settings');
+            if (res.data?.success) {
+                const data = res.data.data || {};
+                setAcademicYear(data.current_academic_year || '2025-2026');
+                setActiveTerms(Array.isArray(data.active_terms) && data.active_terms.length ? data.active_terms : ['Term 1', 'Term 2', 'Term 3']);
+            }
+        } catch (err) {
+            console.error('Failed to fetch academic settings:', err);
+        }
+    };
+
     useEffect(() => {
         if (activeTab === 'rfid') {
             fetchDevices();
@@ -87,8 +102,29 @@ const SystemConfiguration = () => {
             fetchClasses();
         } else if (activeTab === 'events') {
             fetchEvents();
+        } else if (activeTab === 'preferences') {
+            fetchAcademicSettings();
         }
     }, [activeTab]);
+
+    const handleSaveAcademicSettings = async () => {
+        setIsSaving(true);
+        try {
+            const terms = activeTerms.map((t) => String(t).trim()).filter(Boolean);
+            const res = await api.put('/dos/academic-calendar-settings', {
+                current_academic_year: academicYear,
+                active_terms: terms,
+            });
+            if (res.data?.success) {
+                alert('Academic settings saved.');
+            }
+        } catch (err) {
+            console.error('Failed to save academic settings:', err);
+            alert(err.response?.data?.message || 'Failed to save academic settings');
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
     const handleAddDevice = async (e) => {
         e.preventDefault();
@@ -405,6 +441,51 @@ const SystemConfiguration = () => {
                                 </div>
 
                                 <div className="space-y-3">
+                                    <div className="p-4 bg-white border border-black/5 shadow-sm rounded-2xl">
+                                        <h3 className="text-[10px] font-black uppercase tracking-widest text-[#1E3A5F] mb-3">Academic Calendar</h3>
+                                        <div className="grid md:grid-cols-2 gap-3">
+                                            <div>
+                                                <label className="block text-[9px] font-black uppercase tracking-widest text-re-text-muted mb-1">Current Academic Year</label>
+                                                <input
+                                                    value={academicYear}
+                                                    onChange={(e) => setAcademicYear(e.target.value)}
+                                                    placeholder="2025-2026"
+                                                    className="w-full h-10 rounded-xl border border-black/10 px-3 text-xs font-bold"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-[9px] font-black uppercase tracking-widest text-re-text-muted mb-1">Active Terms</label>
+                                                <div className="flex gap-2">
+                                                    {['Term 1', 'Term 2', 'Term 3'].map((term) => {
+                                                        const checked = activeTerms.includes(term);
+                                                        return (
+                                                            <label key={term} className="inline-flex items-center gap-1 text-[10px] font-black">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={checked}
+                                                                    onChange={(e) => {
+                                                                        setActiveTerms((prev) => e.target.checked ? [...new Set([...prev, term])] : prev.filter((x) => x !== term));
+                                                                    }}
+                                                                />
+                                                                {term}
+                                                            </label>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="mt-3">
+                                            <button
+                                                type="button"
+                                                disabled={isSaving}
+                                                onClick={handleSaveAcademicSettings}
+                                                className="h-10 px-4 rounded-xl bg-[#1E3A5F] text-white font-black text-[10px] uppercase tracking-widest inline-flex items-center gap-2"
+                                            >
+                                                {isSaving ? <Loader2 size={14} className="animate-spin text-[#FEBF10]" /> : <Save size={14} style={{ color: "#FEBF10" }} />}
+                                                Save Academic Calendar
+                                            </button>
+                                        </div>
+                                    </div>
                                     {[
                                         { icon: <Moon size={14} />, label: "Dark Mode", desc: "Use a darker theme for the interface", active: darkMode, toggle: () => setDarkMode(!darkMode) },
                                         { icon: <Bell size={14} />, label: "Email Alerts", desc: "Send emails for critical discipline issues", active: true, toggle: () => {} },

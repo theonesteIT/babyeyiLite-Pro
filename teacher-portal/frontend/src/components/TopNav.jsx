@@ -3,7 +3,7 @@ import { Menu, Search, Bell, ChevronDown, LogOut, Settings, User } from 'lucide-
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-const TopNav = ({ title, onMenuClick }) => {
+const TopNav = ({ title, onMenuClick, showMenuButton = true }) => {
     const navigate = useNavigate();
     const { teacher, logout } = useAuth();
     const [userOpen, setUserOpen] = useState(false);
@@ -28,12 +28,14 @@ const TopNav = ({ title, onMenuClick }) => {
 
             {/* Left — hamburger + page title */}
             <div className="flex items-center gap-3 shrink-0">
-                <button
-                    onClick={onMenuClick}
-                    className="lg:hidden p-2 text-re-text-muted hover:bg-orange-50 hover:text-re-orange rounded-xl transition-all"
-                >
-                    <Menu size={18} />
-                </button>
+                {showMenuButton && (
+                    <button
+                        onClick={onMenuClick}
+                        className="lg:hidden p-2 text-re-text-muted hover:bg-orange-50 hover:text-re-orange rounded-xl transition-all"
+                    >
+                        <Menu size={18} />
+                    </button>
+                )}
                 <h1 className="hidden lg:block text-sm font-black text-re-text tracking-tight uppercase">
                     {title || 'Dashboard'}
                 </h1>

@@ -2,6 +2,7 @@
 
 const express = require('express');
 const { promisePool } = require('../config/database');
+const { fetchActiveCatalogMaps } = require('./shuleAvanceCatalogStore');
 
 const router = express.Router();
 
@@ -26,7 +27,7 @@ const STORE_WRITE_ROLES = ['STORE_MANAGER', 'STOREKEEPER'];
 const ADMIN_AUDIT_ROLES = ['SCHOOL_ADMIN', 'SCHOOL_MANAGER'];
 
 let tablesReady = false;
-const PORTAL_OPS_PREFIX_RE = /^\/(teacher-portal\/requisitions|accountant\/(?:requisitions|expenses|payroll)|store\/(?:requisitions|inventory|suppliers|movements)|admin\/portal-audit-logs|tools\/ticha-ai)(\/|$)/i;
+const PORTAL_OPS_PREFIX_RE = /^\/(teacher-portal\/requisitions|accountant\/(?:requisitions|expenses|payroll(?:-requests)?)|manager\/payroll-requests|staff\/payroll\/my|payroll\/audit-log|store\/(?:requisitions|inventory|suppliers|movements)|admin\/portal-audit-logs|tools\/ticha-ai)(\/|$)/i;
 
 function resolveUserId(req) {
   return req.session?.userId || req.session?.user?.id || req.user?.id || null;
@@ -77,6 +78,23 @@ function toMoney(v) {
 function toDateOrNow(v) {
   const d = v ? new Date(v) : new Date();
   return Number.isNaN(d.getTime()) ? new Date() : d;
+}
+
+function monthLabelToNumber(v) {
+  const raw = String(v || '').trim();
+  const n = Number(raw);
+  if (n >= 1 && n <= 12) return n;
+  const labels = {
+    january: 1, february: 2, march: 3, april: 4, may: 5, june: 6,
+    july: 7, august: 8, september: 9, october: 10, november: 11, december: 12,
+  };
+  return labels[raw.toLowerCase()] || 0;
+}
+
+function numberToMonthLabel(n) {
+  const idx = Number(n) - 1;
+  const labels = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  return labels[idx] || String(n || '');
 }
 
 function parseDateStart(v) {
@@ -138,6 +156,35 @@ async function appendAuditLog({
   }
 }
 
+async function createPayrollNotification({
+  schoolId,
+  requestId,
+  actorUserId,
+  actorRoleCode,
+  eventType,
+  recipientRoleCode,
+  message,
+}) {
+  try {
+    await promisePool.query(
+      `INSERT INTO payroll_notifications
+       (school_id, request_id, actor_user_id, actor_role_code, event_type, recipient_role_code, message)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        schoolId,
+        requestId,
+        actorUserId || null,
+        actorRoleCode || null,
+        eventType || null,
+        recipientRoleCode || null,
+        String(message || '').slice(0, 500) || null,
+      ]
+    );
+  } catch (e) {
+    console.warn('[portalOperations] payroll notification skipped:', e.message);
+  }
+}
+
 async function ensureTables() {
   if (tablesReady) return;
 
@@ -171,6 +218,7 @@ async function ensureTables() {
       KEY idx_req_source (source_portal)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
+  await promisePool.query(`ALTER TABLE payroll_requests ADD COLUMN paid_by_user_id INT UNSIGNED NULL`).catch(() => {});
 
   await promisePool.query(`
     CREATE TABLE IF NOT EXISTS accountant_expenses (
@@ -291,6 +339,84 @@ async function ensureTables() {
       KEY idx_payroll_pay_staff (staff_user_id),
       KEY idx_payroll_pay_period (pay_year, pay_month),
       KEY idx_payroll_pay_status (payment_status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+  await promisePool.query(`ALTER TABLE accountant_payroll_payments ADD COLUMN pay_term VARCHAR(32) NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE accountant_payroll_payments ADD COLUMN academic_year_label VARCHAR(64) NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE accountant_payroll_payments ADD COLUMN requested_amount_rwf DECIMAL(14,2) NOT NULL DEFAULT 0`).catch(() => {});
+  await promisePool.query(`ALTER TABLE accountant_payroll_payments ADD COLUMN approved_by_user_id INT UNSIGNED NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE accountant_payroll_payments ADD COLUMN approved_at DATETIME NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE accountant_payroll_payments ADD COLUMN manager_note TEXT NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE accountant_payroll_payments ADD COLUMN final_payable_rwf DECIMAL(14,2) NOT NULL DEFAULT 0`).catch(() => {});
+  await promisePool.query(`ALTER TABLE accountant_payroll_payments ADD COLUMN paid_amount_rwf DECIMAL(14,2) NOT NULL DEFAULT 0`).catch(() => {});
+  await promisePool.query(`ALTER TABLE accountant_payroll_payments ADD COLUMN remaining_amount_rwf DECIMAL(14,2) NOT NULL DEFAULT 0`).catch(() => {});
+  await promisePool.query(`ALTER TABLE accountant_payroll_payments ADD COLUMN payment_completion_status VARCHAR(32) NOT NULL DEFAULT 'fully_paid'`).catch(() => {});
+  await promisePool.query(`ALTER TABLE accountant_payroll_payments ADD COLUMN last_payment_at DATETIME NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE payroll_requests DROP INDEX uq_payroll_request_unique`).catch(() => {});
+  await promisePool.query(`ALTER TABLE payroll_requests ADD INDEX idx_payroll_request_period (school_id, staff_user_id, month, term, year)`).catch(() => {});
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS payroll_requests (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      school_id INT UNSIGNED NOT NULL,
+      staff_user_id INT UNSIGNED NOT NULL,
+      staff_code VARCHAR(64) NULL,
+      staff_name VARCHAR(180) NOT NULL,
+      role_code VARCHAR(64) NULL,
+      department VARCHAR(120) NULL,
+      month TINYINT UNSIGNED NOT NULL,
+      term VARCHAR(32) NOT NULL,
+      year SMALLINT UNSIGNED NOT NULL,
+      amount DECIMAL(14,2) NOT NULL DEFAULT 0,
+      status ENUM('Pending','Approved','Rejected','Paid') NOT NULL DEFAULT 'Pending',
+      created_by_user_id INT UNSIGNED NOT NULL,
+      approved_by_user_id INT UNSIGNED NULL,
+      rejected_reason TEXT NULL,
+      manager_note TEXT NULL,
+      approved_at DATETIME NULL,
+      paid_at DATETIME NULL,
+      locked_at DATETIME NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      deleted_at DATETIME NULL,
+      UNIQUE KEY uq_payroll_request_unique (school_id, staff_user_id, month, term, year),
+      KEY idx_payroll_req_school (school_id),
+      KEY idx_payroll_req_status (status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS payroll_details (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      request_id INT UNSIGNED NOT NULL,
+      school_id INT UNSIGNED NOT NULL,
+      basic DECIMAL(14,2) NOT NULL DEFAULT 0,
+      allowances DECIMAL(14,2) NOT NULL DEFAULT 0,
+      deductions DECIMAL(14,2) NOT NULL DEFAULT 0,
+      net_salary DECIMAL(14,2) NOT NULL DEFAULT 0,
+      advance DECIMAL(14,2) NOT NULL DEFAULT 0,
+      final_payable DECIMAL(14,2) NOT NULL DEFAULT 0,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_payroll_details_request (request_id),
+      KEY idx_payroll_details_school (school_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS payroll_notifications (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      school_id INT UNSIGNED NOT NULL,
+      request_id INT UNSIGNED NOT NULL,
+      actor_user_id INT UNSIGNED NULL,
+      actor_role_code VARCHAR(64) NULL,
+      event_type VARCHAR(64) NOT NULL,
+      recipient_role_code VARCHAR(64) NULL,
+      message VARCHAR(500) NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_payroll_notif_school (school_id),
+      KEY idx_payroll_notif_request (request_id),
+      KEY idx_payroll_notif_event (event_type)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
 
@@ -1485,7 +1611,806 @@ router.delete('/accountant/expenses/:expenseId/payments/:paymentId', requireRole
 });
 
 // -------------------- Payroll --------------------
-const PAYROLL_PAYMENT_STATUSES = ['pending', 'paid', 'cancelled'];
+const PAYROLL_PAYMENT_STATUSES = ['pending', 'approved', 'rejected', 'paid'];
+const PAYROLL_MANAGER_ROLES = ['SCHOOL_MANAGER', 'SCHOOL_ADMIN'];
+const PAYROLL_DECISION_ROLES = ['SCHOOL_MANAGER', 'SCHOOL_ADMIN', 'ACCOUNTANT'];
+
+router.get('/accountant/payroll-requests', requireRole(ACCOUNTANT_READ_ROLES), async (req, res) => {
+  try {
+    const { schoolId } = req.ctx;
+    const status = String(req.query?.status || '').trim();
+    const month = monthLabelToNumber(req.query?.month);
+    const term = String(req.query?.term || '').trim();
+    const year = Number(req.query?.year || 0);
+    const qRaw = String(req.query?.query || '').trim();
+    const department = String(req.query?.department || '').trim();
+    const q = `%${qRaw}%`;
+
+    const where = ['r.school_id = ?', 'r.deleted_at IS NULL'];
+    const params = [schoolId];
+    if (status && ['Pending', 'Approved', 'Rejected', 'Paid'].includes(status)) {
+      where.push('r.status = ?');
+      params.push(status);
+    }
+    if (month >= 1 && month <= 12) {
+      where.push('r.month = ?');
+      params.push(month);
+    }
+    if (term) {
+      where.push('r.term = ?');
+      params.push(term);
+    }
+    if (year >= 2000 && year <= 3000) {
+      where.push('r.year = ?');
+      params.push(year);
+    }
+    if (qRaw) {
+      where.push('(r.staff_name LIKE ? OR COALESCE(r.staff_code, "") LIKE ?)');
+      params.push(q, q);
+    }
+    if (department) {
+      where.push('LOWER(COALESCE(r.department, "")) = LOWER(?)');
+      params.push(department);
+    }
+
+    const [rows] = await promisePool.query(
+      `SELECT r.id, r.staff_user_id, r.staff_code, r.staff_name, r.role_code, r.department,
+              r.month, r.term, r.year, r.amount, r.status, r.rejected_reason, r.manager_note,
+              r.created_by_user_id, r.approved_by_user_id, r.paid_by_user_id, r.approved_at, r.paid_at, r.created_at,
+              d.basic, d.allowances, d.deductions, d.net_salary, d.advance, d.final_payable,
+              TRIM(CONCAT(COALESCE(cu.first_name, ''), ' ', COALESCE(cu.last_name, ''))) AS submit_actor_name,
+              COALESCE(cr.role_code, '') AS submit_actor_role,
+              TRIM(CONCAT(COALESCE(apu.first_name, ''), ' ', COALESCE(apu.last_name, ''))) AS approved_actor_name,
+              COALESCE(apr.role_code, '') AS approved_actor_role,
+              TRIM(CONCAT(COALESCE(pyu.first_name, ''), ' ', COALESCE(pyu.last_name, ''))) AS paid_actor_name,
+              COALESCE(pyr.role_code, '') AS paid_actor_role
+       FROM payroll_requests r
+       LEFT JOIN payroll_details d ON d.request_id = r.id AND d.school_id = r.school_id
+       LEFT JOIN users cu ON cu.id = r.created_by_user_id
+       LEFT JOIN roles cr ON cr.id = cu.role_id
+       LEFT JOIN users apu ON apu.id = r.approved_by_user_id
+       LEFT JOIN roles apr ON apr.id = apu.role_id
+       LEFT JOIN users pyu ON pyu.id = r.paid_by_user_id
+       LEFT JOIN roles pyr ON pyr.id = pyu.role_id
+       WHERE ${where.join(' AND ')}
+       ORDER BY r.id DESC
+       LIMIT 500`,
+      params
+    );
+
+    return res.json({
+      success: true,
+      data: (rows || []).map((r) => ({
+        id: Number(r.id),
+        payrollId: `PAY-${r.id}`,
+        staffUserId: Number(r.staff_user_id),
+        staffCode: r.staff_code || `STF-${r.staff_user_id}`,
+        staffName: r.staff_name || '',
+        role: r.role_code || 'STAFF',
+        department: r.department || '',
+        month: numberToMonthLabel(r.month),
+        monthNumber: Number(r.month || 0),
+        term: r.term || '',
+        year: String(r.year || ''),
+        amount: Number(r.amount || 0),
+        status: r.status || 'Pending',
+        basic: Number(r.basic || 0),
+        allowances: Number(r.allowances || 0),
+        deductions: Number(r.deductions || 0),
+        netSalary: Number(r.net_salary || 0),
+        advance: Number(r.advance || 0),
+        finalPayable: Number(r.final_payable || 0),
+        rejectedReason: r.rejected_reason || '',
+        managerNote: r.manager_note || '',
+        submittedBy: r.submit_actor_name || '',
+        submittedByRole: r.submit_actor_role || '',
+        submittedAt: r.created_at || null,
+        approvedByUserId: Number(r.approved_by_user_id || 0) || null,
+        paidByUserId: Number(r.paid_by_user_id || 0) || null,
+        approvedBy: r.approved_actor_name || '',
+        approvedByRole: r.approved_actor_role || '',
+        approvedAt: r.approved_at || null,
+        paidBy: r.paid_actor_name || '',
+        paidByRole: r.paid_actor_role || '',
+        paidAt: r.paid_at || null,
+        createdAt: r.created_at,
+      })),
+    });
+  } catch (e) {
+    console.error('[accountant/payroll-requests GET]:', e.message);
+    return res.status(500).json({ success: false, message: 'Failed to load payroll requests' });
+  }
+});
+
+router.get('/manager/payroll-requests', requireRole(PAYROLL_MANAGER_ROLES), async (req, res) => {
+  try {
+    const { schoolId } = req.ctx;
+    const status = String(req.query?.status || '').trim();
+    const month = monthLabelToNumber(req.query?.month);
+    const term = String(req.query?.term || '').trim();
+    const year = Number(req.query?.year || 0);
+    const qRaw = String(req.query?.query || '').trim();
+    const department = String(req.query?.department || '').trim();
+    const page = Math.max(1, Number(req.query?.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(req.query?.limit) || 20));
+    const offset = (page - 1) * limit;
+    const q = `%${qRaw}%`;
+
+    const where = ['r.school_id = ?', 'r.deleted_at IS NULL'];
+    const params = [schoolId];
+    if (status && ['Pending', 'Approved', 'Rejected', 'Paid'].includes(status)) {
+      where.push('r.status = ?');
+      params.push(status);
+    }
+    if (month >= 1 && month <= 12) {
+      where.push('r.month = ?');
+      params.push(month);
+    }
+    if (term) {
+      where.push('r.term = ?');
+      params.push(term);
+    }
+    if (year >= 2000 && year <= 3000) {
+      where.push('r.year = ?');
+      params.push(year);
+    }
+    if (qRaw) {
+      where.push('(r.staff_name LIKE ? OR COALESCE(r.staff_code, "") LIKE ?)');
+      params.push(q, q);
+    }
+    if (department) {
+      where.push('LOWER(COALESCE(r.department, "")) = LOWER(?)');
+      params.push(department);
+    }
+
+    const [countRows] = await promisePool.query(
+      `SELECT COUNT(*) AS total
+       FROM payroll_requests r
+       WHERE ${where.join(' AND ')}`,
+      params
+    );
+    const total = Number(countRows?.[0]?.total || 0);
+
+    const [rows] = await promisePool.query(
+      `SELECT r.id, r.staff_user_id, r.staff_code, r.staff_name, r.role_code, r.department,
+              r.month, r.term, r.year, r.amount, r.status, r.rejected_reason, r.manager_note,
+              r.created_by_user_id, r.approved_by_user_id, r.paid_by_user_id, r.approved_at, r.paid_at, r.created_at,
+              d.basic, d.allowances, d.deductions, d.net_salary, d.advance, d.final_payable,
+              TRIM(CONCAT(COALESCE(cu.first_name, ''), ' ', COALESCE(cu.last_name, ''))) AS submit_actor_name,
+              COALESCE(cr.role_code, '') AS submit_actor_role,
+              TRIM(CONCAT(COALESCE(apu.first_name, ''), ' ', COALESCE(apu.last_name, ''))) AS approved_actor_name,
+              COALESCE(apr.role_code, '') AS approved_actor_role,
+              TRIM(CONCAT(COALESCE(pyu.first_name, ''), ' ', COALESCE(pyu.last_name, ''))) AS paid_actor_name,
+              COALESCE(pyr.role_code, '') AS paid_actor_role
+       FROM payroll_requests r
+       LEFT JOIN payroll_details d ON d.request_id = r.id AND d.school_id = r.school_id
+       LEFT JOIN users cu ON cu.id = r.created_by_user_id
+       LEFT JOIN roles cr ON cr.id = cu.role_id
+       LEFT JOIN users apu ON apu.id = r.approved_by_user_id
+       LEFT JOIN roles apr ON apr.id = apu.role_id
+       LEFT JOIN users pyu ON pyu.id = r.paid_by_user_id
+       LEFT JOIN roles pyr ON pyr.id = pyu.role_id
+       WHERE ${where.join(' AND ')}
+       ORDER BY r.id DESC
+       LIMIT ? OFFSET ?`,
+      [...params, limit, offset]
+    );
+
+    return res.json({
+      success: true,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      },
+      data: (rows || []).map((r) => ({
+        id: Number(r.id),
+        payrollId: `PAY-${r.id}`,
+        staffUserId: Number(r.staff_user_id),
+        staffCode: r.staff_code || `STF-${r.staff_user_id}`,
+        staffName: r.staff_name || '',
+        role: r.role_code || 'STAFF',
+        department: r.department || '',
+        month: numberToMonthLabel(r.month),
+        monthNumber: Number(r.month || 0),
+        term: r.term || '',
+        year: String(r.year || ''),
+        amount: Number(r.amount || 0),
+        status: r.status || 'Pending',
+        basic: Number(r.basic || 0),
+        allowances: Number(r.allowances || 0),
+        deductions: Number(r.deductions || 0),
+        netSalary: Number(r.net_salary || 0),
+        advance: Number(r.advance || 0),
+        finalPayable: Number(r.final_payable || 0),
+        rejectedReason: r.rejected_reason || '',
+        managerNote: r.manager_note || '',
+        submittedBy: r.submit_actor_name || '',
+        submittedByRole: r.submit_actor_role || '',
+        submittedAt: r.created_at || null,
+        approvedByUserId: Number(r.approved_by_user_id || 0) || null,
+        paidByUserId: Number(r.paid_by_user_id || 0) || null,
+        approvedBy: r.approved_actor_name || '',
+        approvedByRole: r.approved_actor_role || '',
+        approvedAt: r.approved_at || null,
+        paidBy: r.paid_actor_name || '',
+        paidByRole: r.paid_actor_role || '',
+        paidAt: r.paid_at || null,
+        createdAt: r.created_at,
+      })),
+    });
+  } catch (e) {
+    console.error('[manager/payroll-requests GET]:', e.message);
+    return res.status(500).json({ success: false, message: 'Failed to load payroll requests' });
+  }
+});
+
+router.get('/accountant/payroll-requests/:id/details', requireRole(ACCOUNTANT_READ_ROLES), async (req, res) => {
+  try {
+    const { schoolId } = req.ctx;
+    const id = Number(String(req.params.id || '').replace('PAY-', ''));
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid payroll request id' });
+
+    const [[row]] = await promisePool.query(
+      `SELECT r.id, r.staff_user_id, r.staff_code, r.staff_name, r.role_code, r.department,
+              r.month, r.term, r.year, r.amount, r.status, r.rejected_reason, r.manager_note,
+              r.created_by_user_id, r.approved_by_user_id, r.paid_by_user_id, r.approved_at, r.paid_at, r.created_at,
+              d.basic, d.allowances, d.deductions, d.net_salary, d.advance, d.final_payable,
+              TRIM(CONCAT(COALESCE(cu.first_name, ''), ' ', COALESCE(cu.last_name, ''))) AS submit_actor_name,
+              COALESCE(cr.role_code, '') AS submit_actor_role,
+              TRIM(CONCAT(COALESCE(apu.first_name, ''), ' ', COALESCE(apu.last_name, ''))) AS approved_actor_name,
+              COALESCE(apr.role_code, '') AS approved_actor_role,
+              TRIM(CONCAT(COALESCE(pyu.first_name, ''), ' ', COALESCE(pyu.last_name, ''))) AS paid_actor_name,
+              COALESCE(pyr.role_code, '') AS paid_actor_role
+       FROM payroll_requests r
+       LEFT JOIN payroll_details d ON d.request_id = r.id AND d.school_id = r.school_id
+       LEFT JOIN users cu ON cu.id = r.created_by_user_id
+       LEFT JOIN roles cr ON cr.id = cu.role_id
+       LEFT JOIN users apu ON apu.id = r.approved_by_user_id
+       LEFT JOIN roles apr ON apr.id = apu.role_id
+       LEFT JOIN users pyu ON pyu.id = r.paid_by_user_id
+       LEFT JOIN roles pyr ON pyr.id = pyu.role_id
+       WHERE r.school_id = ? AND r.id = ? AND r.deleted_at IS NULL
+       LIMIT 1`,
+      [schoolId, id]
+    );
+    if (!row) return res.status(404).json({ success: false, message: 'Payroll request not found' });
+
+    return res.json({
+      success: true,
+      data: {
+        id: Number(row.id),
+        payrollId: `PAY-${row.id}`,
+        staffUserId: Number(row.staff_user_id),
+        staffCode: row.staff_code || `STF-${row.staff_user_id}`,
+        staffName: row.staff_name || '',
+        role: row.role_code || 'STAFF',
+        department: row.department || '',
+        month: numberToMonthLabel(row.month),
+        monthNumber: Number(row.month || 0),
+        term: row.term || '',
+        year: String(row.year || ''),
+        amount: Number(row.amount || 0),
+        status: row.status || 'Pending',
+        basic: Number(row.basic || 0),
+        allowances: Number(row.allowances || 0),
+        deductions: Number(row.deductions || 0),
+        netSalary: Number(row.net_salary || 0),
+        advance: Number(row.advance || 0),
+        finalPayable: Number(row.final_payable || 0),
+        rejectedReason: row.rejected_reason || '',
+        managerNote: row.manager_note || '',
+        submittedBy: row.submit_actor_name || '',
+        submittedByRole: row.submit_actor_role || '',
+        submittedAt: row.created_at || null,
+        approvedByUserId: Number(row.approved_by_user_id || 0) || null,
+        paidByUserId: Number(row.paid_by_user_id || 0) || null,
+        approvedBy: row.approved_actor_name || '',
+        approvedByRole: row.approved_actor_role || '',
+        approvedAt: row.approved_at || null,
+        paidBy: row.paid_actor_name || '',
+        paidByRole: row.paid_actor_role || '',
+        paidAt: row.paid_at || null,
+        createdAt: row.created_at,
+      },
+    });
+  } catch (e) {
+    console.error('[accountant/payroll-requests/:id/details GET]:', e.message);
+    return res.status(500).json({ success: false, message: 'Failed to load payroll details' });
+  }
+});
+
+router.get('/staff/payroll/my', async (req, res) => {
+  try {
+    const { schoolId, userId } = req.ctx;
+    if (!schoolId || !userId) {
+      return res.status(400).json({ success: false, message: 'Missing school or user context' });
+    }
+
+    const [[userRow]] = await promisePool.query(
+      `SELECT u.id, u.user_uid, u.first_name, u.last_name, u.email, u.phone,
+              r.role_code,
+              st.department, st.date_of_employment,
+              st.payroll_basic_salary, st.payroll_transport_allowance, st.payroll_housing_allowance, st.payroll_meal_allowance,
+              st.payroll_other_allowances, st.payroll_tax_percent, st.payroll_pension_amount, st.payroll_other_deductions
+       FROM users u
+       LEFT JOIN roles r ON r.id = u.role_id
+       LEFT JOIN staff st ON st.school_id = u.school_id AND st.user_id = u.id
+       WHERE u.school_id = ? AND u.id = ? AND u.deleted_at IS NULL
+       LIMIT 1`,
+      [schoolId, userId]
+    );
+    if (!userRow) {
+      return res.json({
+        success: true,
+        data: {
+          staff: {
+            staffUserId: Number(userId || 0),
+            staffCode: `STF-${userId || 0}`,
+            fullName: 'Staff',
+            role: 'STAFF',
+            department: 'STAFF',
+            email: '',
+            phone: '',
+            joinDate: null,
+            avatar: null,
+          },
+          currentSalary: { basic: 0, allowances: 0, rssb: 0, tax: 0, net: 0 },
+          advance: { totalLoan: 0, totalPaid: 0, remaining: 0, monthlyDeduction: 0, disbursedDate: null, expectedEndDate: null },
+          history: [],
+          notifications: [],
+        },
+      });
+    }
+
+    const parseList = (raw) => {
+      if (Array.isArray(raw)) return raw;
+      if (typeof raw !== 'string' || !raw.trim()) return [];
+      try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    };
+    const monthName = (n) => {
+      const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+      return months[Math.max(0, Number(n || 1) - 1)] || String(n || '');
+    };
+
+    const basic = toMoney(userRow.payroll_basic_salary);
+    const fixedAllowances =
+      toMoney(userRow.payroll_transport_allowance) +
+      toMoney(userRow.payroll_housing_allowance) +
+      toMoney(userRow.payroll_meal_allowance);
+    const extraAllowances = parseList(userRow.payroll_other_allowances).reduce((sum, item) => sum + toMoney(item?.amount), 0);
+    const allowances = fixedAllowances + extraAllowances;
+    const gross = basic + allowances;
+    const tax = (gross * toMoney(userRow.payroll_tax_percent)) / 100;
+    const pension = toMoney(userRow.payroll_pension_amount);
+    const otherDeductions = parseList(userRow.payroll_other_deductions).reduce((sum, item) => sum + toMoney(item?.amount), 0);
+    const deductions = tax + pension + otherDeductions;
+    const net = Math.max(0, gross - deductions);
+
+    const [payRows] = await promisePool.query(
+      `SELECT r.id, r.month, r.term, r.year, r.amount, r.status, r.created_at, r.approved_at, r.paid_at,
+              d.basic, d.allowances, d.deductions, d.net_salary, d.advance, d.final_payable,
+              TRIM(CONCAT(COALESCE(cu.first_name, ''), ' ', COALESCE(cu.last_name, ''))) AS submit_actor_name,
+              TRIM(CONCAT(COALESCE(apu.first_name, ''), ' ', COALESCE(apu.last_name, ''))) AS approved_actor_name
+       FROM payroll_requests r
+       LEFT JOIN payroll_details d ON d.request_id = r.id AND d.school_id = r.school_id
+       LEFT JOIN users cu ON cu.id = r.created_by_user_id
+       LEFT JOIN users apu ON apu.id = r.approved_by_user_id
+       WHERE r.school_id = ? AND r.staff_user_id = ? AND r.deleted_at IS NULL
+       ORDER BY r.year DESC, r.month DESC, r.id DESC
+       LIMIT 80`,
+      [schoolId, userId]
+    );
+
+    const history = (payRows || []).map((r) => ({
+      id: Number(r.id),
+      month: monthName(r.month),
+      term: r.term || '',
+      year: Number(r.year || 0),
+      basic: toMoney(r.basic),
+      allowances: toMoney(r.allowances),
+      rssb: 0,
+      tax: toMoney(r.deductions),
+      advance: toMoney(r.advance),
+      net: toMoney(r.net_salary),
+      paid: String(r.status || '') === 'Paid' ? toMoney(r.amount) : 0,
+      status: r.status || 'Pending',
+      paidDate: r.paid_at || null,
+      submittedBy: r.submit_actor_name || null,
+      approvedBy: r.approved_actor_name || null,
+    }));
+
+    const [advanceRows] = await promisePool.query(
+      `SELECT id, amount_rwf, status, submitted_at
+       FROM shule_avance_requests
+       WHERE school_id = ? AND teacher_user_id = ?
+       ORDER BY id DESC
+       LIMIT 120`,
+      [schoolId, userId]
+    );
+    const totalLoan = (advanceRows || []).reduce((sum, row) => sum + toMoney(row.amount_rwf), 0);
+    const remaining = (advanceRows || [])
+      .filter((row) => ['pending_accountant', 'sent_to_manager', 'approved'].includes(String(row.status || '').toLowerCase()))
+      .reduce((sum, row) => sum + toMoney(row.amount_rwf), 0);
+    const totalPaid = Math.max(0, totalLoan - remaining);
+
+    return res.json({
+      success: true,
+      data: {
+        staff: {
+          staffUserId: Number(userRow.id),
+          staffCode: userRow.user_uid || `STF-${userRow.id}`,
+          fullName: `${userRow.first_name || ''} ${userRow.last_name || ''}`.trim(),
+          role: String(userRow.role_code || 'STAFF').toUpperCase(),
+          department: userRow.department || String(userRow.role_code || 'STAFF').toUpperCase(),
+          email: userRow.email || '',
+          phone: userRow.phone || '',
+          joinDate: userRow.date_of_employment || null,
+          avatar: null,
+        },
+        currentSalary: {
+          basic,
+          allowances,
+          rssb: pension,
+          tax,
+          net,
+        },
+        advance: {
+          totalLoan,
+          totalPaid,
+          remaining,
+          monthlyDeduction: 0,
+          disbursedDate: (advanceRows || [])[0]?.submitted_at || null,
+          expectedEndDate: null,
+        },
+        history,
+        notifications: [],
+      },
+    });
+  } catch (e) {
+    console.error('[staff/payroll/my GET]:', e.message);
+    return res.status(500).json({ success: false, message: 'Failed to load my payroll data' });
+  }
+});
+
+router.post('/accountant/payroll-requests', requireRole(ACCOUNTANT_WRITE_ROLES), async (req, res) => {
+  const conn = await promisePool.getConnection();
+  try {
+    const { schoolId, userId, roleCode } = req.ctx;
+    const payload = req.body || {};
+    const staffUserId = Number(payload.staffUserId || 0);
+    const staffCode = String(payload.staffCode || '').trim();
+    const staffName = String(payload.staffName || '').trim();
+    const role = String(payload.role || 'STAFF').trim().toUpperCase();
+    const department = String(payload.department || role).trim().toUpperCase();
+    const month = monthLabelToNumber(payload.month);
+    const term = String(payload.term || '').trim();
+    const year = Number(payload.year || 0);
+    const amount = toMoney(payload.amount);
+    const basic = toMoney(payload.basic);
+    const allowances = toMoney(payload.allowances);
+    const deductions = toMoney(payload.deductions);
+    const netSalary = toMoney(payload.netSalary);
+    const advance = toMoney(payload.advance);
+    const finalPayable = toMoney(payload.finalPayable);
+
+    if (!staffUserId) return res.status(400).json({ success: false, message: 'staffUserId is required' });
+    if (!staffName) return res.status(400).json({ success: false, message: 'staffName is required' });
+    if (!(month >= 1 && month <= 12)) return res.status(400).json({ success: false, message: 'valid month is required' });
+    if (!term) return res.status(400).json({ success: false, message: 'term is required' });
+    if (!(year >= 2000 && year <= 3000)) return res.status(400).json({ success: false, message: 'valid year is required' });
+    if (!(amount > 0)) return res.status(400).json({ success: false, message: 'amount must be greater than zero' });
+    if (finalPayable > 0 && amount > finalPayable) {
+      return res.status(400).json({ success: false, message: `Amount exceeds allowed net salary (${Math.round(finalPayable)} RWF)` });
+    }
+
+    await conn.beginTransaction();
+
+    const [existingRows] = await conn.query(
+      `SELECT r.id, r.status, r.amount, d.final_payable
+       FROM payroll_requests r
+       LEFT JOIN payroll_details d ON d.request_id = r.id AND d.school_id = r.school_id
+       WHERE r.school_id = ? AND r.staff_user_id = ? AND r.month = ? AND r.term = ? AND r.year = ?
+         AND r.deleted_at IS NULL
+       ORDER BY r.id DESC`,
+      [schoolId, staffUserId, month, term, year]
+    );
+    const hasPendingOrApproved = (existingRows || []).some((x) => x.status === 'Pending' || x.status === 'Approved');
+    if (hasPendingOrApproved) {
+      await conn.rollback();
+      return res.status(409).json({ success: false, message: 'This payroll request is waiting manager action.' });
+    }
+    const alreadyPaid = (existingRows || [])
+      .filter((x) => x.status === 'Paid')
+      .reduce((sum, x) => sum + toMoney(x.amount), 0);
+    const existingFinal = (existingRows || []).reduce((m, x) => Math.max(m, toMoney(x.final_payable)), 0);
+    const finalForPeriod = Math.max(existingFinal, finalPayable);
+    const remainingForPeriod = Math.max(0, finalForPeriod - alreadyPaid);
+    if (existingRows?.length && remainingForPeriod <= 0) {
+      await conn.rollback();
+      return res.status(409).json({ success: false, message: `Salary for ${numberToMonthLabel(month)} is already fully paid.` });
+    }
+    if (existingRows?.length && amount > remainingForPeriod) {
+      await conn.rollback();
+      return res.status(400).json({ success: false, message: `Amount exceeds remaining balance (${Math.round(remainingForPeriod)} RWF).` });
+    }
+
+    const [insReq] = await conn.query(
+      `INSERT INTO payroll_requests
+       (school_id, staff_user_id, staff_code, staff_name, role_code, department, month, term, year, amount, status, created_by_user_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending', ?)`,
+      [schoolId, staffUserId, staffCode || `STF-${staffUserId}`, staffName, role, department, month, term, year, amount, userId]
+    );
+
+    await conn.query(
+      `INSERT INTO payroll_details
+       (request_id, school_id, basic, allowances, deductions, net_salary, advance, final_payable)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [insReq.insertId, schoolId, basic, allowances, deductions, netSalary, advance, finalPayable]
+    );
+
+    await conn.commit();
+
+    await appendAuditLog({
+      schoolId,
+      userId,
+      roleCode,
+      endpoint: '/accountant/payroll-requests',
+      entityType: 'payroll_request',
+      entityId: insReq.insertId,
+      action: 'create',
+      afterState: { staff_user_id: staffUserId, month, term, year, amount, status: 'Pending' },
+    });
+
+    await createPayrollNotification({
+      schoolId,
+      requestId: insReq.insertId,
+      actorUserId: userId,
+      actorRoleCode: roleCode,
+      eventType: 'REQUEST_SUBMITTED',
+      recipientRoleCode: 'SCHOOL_MANAGER',
+      message: `Payroll request PAY-${insReq.insertId} submitted for ${staffName} (${numberToMonthLabel(month)} ${year}, ${term}).`,
+    });
+    const io = req.app?.get('io');
+    if (io) {
+      io.emit('payroll:request-submitted', { school_id: schoolId, request_id: insReq.insertId, staff_name: staffName, term, year, month });
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: 'Payroll request submitted',
+      data: { id: insReq.insertId, payrollId: `PAY-${insReq.insertId}`, status: 'Pending' },
+    });
+  } catch (e) {
+    await conn.rollback();
+    console.error('[accountant/payroll-requests POST]:', e.message);
+    return res.status(500).json({ success: false, message: 'Failed to create payroll request' });
+  } finally {
+    conn.release();
+  }
+});
+
+router.post('/accountant/payroll-requests/finish-payment', requireRole(ACCOUNTANT_WRITE_ROLES), async (req, res) => {
+  const conn = await promisePool.getConnection();
+  try {
+    const { schoolId, userId, roleCode } = req.ctx;
+    const payload = req.body || {};
+    const staffUserId = Number(payload.staffUserId || 0);
+    const month = monthLabelToNumber(payload.month);
+    const term = String(payload.term || '').trim();
+    const year = Number(payload.year || 0);
+    const amount = toMoney(payload.amount);
+
+    if (!staffUserId) return res.status(400).json({ success: false, message: 'staffUserId is required' });
+    if (!(month >= 1 && month <= 12)) return res.status(400).json({ success: false, message: 'valid month is required' });
+    if (!term) return res.status(400).json({ success: false, message: 'term is required' });
+    if (!(year >= 2000 && year <= 3000)) return res.status(400).json({ success: false, message: 'valid year is required' });
+    if (!(amount > 0)) return res.status(400).json({ success: false, message: 'amount must be greater than zero' });
+
+    await conn.beginTransaction();
+    const [rows] = await conn.query(
+      `SELECT r.id, r.staff_code, r.staff_name, r.role_code, r.department, r.status, r.amount,
+              d.basic, d.allowances, d.deductions, d.net_salary, d.advance, d.final_payable
+       FROM payroll_requests r
+       LEFT JOIN payroll_details d ON d.request_id = r.id AND d.school_id = r.school_id
+       WHERE r.school_id = ? AND r.staff_user_id = ? AND r.month = ? AND r.term = ? AND r.year = ?
+         AND r.deleted_at IS NULL
+       ORDER BY r.id DESC`,
+      [schoolId, staffUserId, month, term, year]
+    );
+    if (!rows.length) {
+      await conn.rollback();
+      return res.status(404).json({ success: false, message: 'No payroll request found for this period' });
+    }
+
+    const hasPendingOrApproved = rows.some((r) => r.status === 'Pending' || r.status === 'Approved');
+    if (hasPendingOrApproved) {
+      await conn.rollback();
+      return res.status(409).json({ success: false, message: 'This payroll period is waiting manager action first.' });
+    }
+
+    const finalPayable = rows.reduce((m, r) => Math.max(m, toMoney(r.final_payable)), 0);
+    const paidAmount = rows.filter((r) => r.status === 'Paid').reduce((s, r) => s + toMoney(r.amount), 0);
+    const remaining = Math.max(0, finalPayable - paidAmount);
+    if (remaining <= 0) {
+      await conn.rollback();
+      return res.status(409).json({ success: false, message: 'This payroll period is already fully paid' });
+    }
+    if (amount > remaining) {
+      await conn.rollback();
+      return res.status(400).json({ success: false, message: `Amount exceeds remaining balance (${Math.round(remaining)} RWF)` });
+    }
+
+    const tpl = rows[0];
+    const [insReq] = await conn.query(
+      `INSERT INTO payroll_requests
+       (school_id, staff_user_id, staff_code, staff_name, role_code, department, month, term, year, amount, status, created_by_user_id, paid_by_user_id, paid_at, locked_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Paid', ?, ?, NOW(), CASE WHEN ? >= ? THEN NOW() ELSE NULL END)`,
+      [
+        schoolId, staffUserId, tpl.staff_code || `STF-${staffUserId}`, tpl.staff_name || `User ${staffUserId}`,
+        tpl.role_code || 'STAFF', tpl.department || (tpl.role_code || 'STAFF'),
+        month, term, year, amount, userId, userId, (paidAmount + amount), finalPayable,
+      ]
+    );
+    await conn.query(
+      `INSERT INTO payroll_details
+       (request_id, school_id, basic, allowances, deductions, net_salary, advance, final_payable)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        insReq.insertId, schoolId,
+        toMoney(tpl.basic), toMoney(tpl.allowances), toMoney(tpl.deductions),
+        toMoney(tpl.net_salary), toMoney(tpl.advance), finalPayable,
+      ]
+    );
+
+    await conn.commit();
+
+    const remainingAfter = Math.max(0, finalPayable - (paidAmount + amount));
+    await appendAuditLog({
+      schoolId,
+      userId,
+      roleCode,
+      endpoint: '/accountant/payroll-requests/finish-payment',
+      entityType: 'payroll_request',
+      entityId: insReq.insertId,
+      action: 'pay',
+      afterState: { staff_user_id: staffUserId, month, term, year, amount, remaining_after: remainingAfter },
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: remainingAfter === 0 ? 'Payment completed for this month' : 'Partial payment recorded',
+      data: { id: insReq.insertId, remainingAfter, fullyPaid: remainingAfter === 0 },
+    });
+  } catch (e) {
+    await conn.rollback();
+    console.error('[accountant/payroll-requests/finish-payment POST]:', e.message);
+    return res.status(500).json({ success: false, message: 'Failed to finish payroll payment' });
+  } finally {
+    conn.release();
+  }
+});
+
+router.patch('/manager/payroll-requests/:id/decision', requireRole(PAYROLL_DECISION_ROLES), async (req, res) => {
+  try {
+    const { schoolId, userId, roleCode } = req.ctx;
+    const id = Number(String(req.params.id || '').replace('PAY-', ''));
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid payroll request id' });
+    const decision = String(req.body?.decision || '').trim().toLowerCase();
+    const reason = String(req.body?.reason || req.body?.note || '').trim();
+
+    let nextStatus = '';
+    if (decision === 'approve') nextStatus = 'Approved';
+    if (decision === 'reject') nextStatus = 'Rejected';
+    if (decision === 'pay' || decision === 'mark_paid' || decision === 'paid') nextStatus = 'Paid';
+    if (!nextStatus) return res.status(400).json({ success: false, message: 'decision must be approve, reject, or pay' });
+    if (roleCode === 'ACCOUNTANT' && nextStatus !== 'Paid') {
+      return res.status(403).json({ success: false, message: 'Accountant can only mark approved payroll as paid' });
+    }
+    if (nextStatus === 'Rejected' && !reason) return res.status(400).json({ success: false, message: 'Rejection reason is required' });
+
+    const [[existing]] = await promisePool.query(
+      `SELECT id, staff_name, status
+       FROM payroll_requests
+       WHERE school_id = ? AND id = ? AND deleted_at IS NULL
+       LIMIT 1`,
+      [schoolId, id]
+    );
+    if (!existing) return res.status(404).json({ success: false, message: 'Payroll request not found' });
+    if (existing.status === 'Paid') return res.status(409).json({ success: false, message: 'Payroll is already paid and locked' });
+    if (nextStatus === 'Paid' && existing.status !== 'Approved') {
+      return res.status(409).json({ success: false, message: 'Only approved payroll requests can be marked as paid' });
+    }
+
+    const [r] = await promisePool.query(
+      `UPDATE payroll_requests
+       SET status = ?,
+           approved_by_user_id = CASE WHEN ? = 'Approved' THEN ? ELSE approved_by_user_id END,
+           approved_at = CASE WHEN ? = 'Approved' THEN NOW() ELSE approved_at END,
+           paid_by_user_id = CASE WHEN ? = 'Paid' THEN ? ELSE paid_by_user_id END,
+           paid_at = CASE WHEN ? = 'Paid' THEN NOW() ELSE paid_at END,
+           locked_at = CASE WHEN ? = 'Paid' THEN NOW() ELSE locked_at END,
+           rejected_reason = CASE WHEN ? = 'Rejected' THEN ? ELSE rejected_reason END,
+           manager_note = CASE WHEN ? = 'Rejected' THEN ? ELSE manager_note END
+       WHERE school_id = ? AND id = ? AND deleted_at IS NULL`,
+      [
+        nextStatus,
+        nextStatus, userId,
+        nextStatus,
+        nextStatus, userId,
+        nextStatus,
+        nextStatus,
+        nextStatus, reason || null,
+        nextStatus, reason || null,
+        schoolId, id,
+      ]
+    );
+    if (!r.affectedRows) return res.status(404).json({ success: false, message: 'Payroll request not found' });
+
+    await appendAuditLog({
+      schoolId,
+      userId,
+      roleCode,
+      endpoint: '/manager/payroll-requests/:id/decision',
+      entityType: 'payroll_request',
+      entityId: id,
+      action: nextStatus.toLowerCase(),
+      afterState: { status: nextStatus, manager_note: reason || null },
+    });
+    await createPayrollNotification({
+      schoolId,
+      requestId: id,
+      actorUserId: userId,
+      actorRoleCode: roleCode,
+      eventType: `REQUEST_${nextStatus.toUpperCase()}`,
+      recipientRoleCode: 'ACCOUNTANT',
+      message: `Payroll request PAY-${id} for ${existing.staff_name} is now ${nextStatus}.`,
+    });
+    const io = req.app?.get('io');
+    if (io) io.emit('payroll:request-status-changed', { school_id: schoolId, request_id: id, status: nextStatus });
+
+    return res.json({ success: true, message: `Payroll request ${nextStatus.toLowerCase()}` });
+  } catch (e) {
+    console.error('[manager/payroll-requests/:id/decision PATCH]:', e.message);
+    return res.status(500).json({ success: false, message: 'Failed to apply manager payroll decision' });
+  }
+});
+
+router.get('/payroll/audit-log', requireRole(ACCOUNTANT_READ_ROLES), async (req, res) => {
+  try {
+    const { schoolId } = req.ctx;
+    const [rows] = await promisePool.query(
+      `SELECT id, request_id, actor_user_id, actor_role_code, event_type, recipient_role_code, message, created_at
+       FROM payroll_notifications
+       WHERE school_id = ?
+       ORDER BY id DESC
+       LIMIT 500`,
+      [schoolId]
+    );
+    return res.json({
+      success: true,
+      data: (rows || []).map((r) => ({
+        id: Number(r.id),
+        requestId: Number(r.request_id),
+        actorUserId: Number(r.actor_user_id || 0) || null,
+        actorRoleCode: r.actor_role_code || '',
+        eventType: r.event_type || '',
+        recipientRoleCode: r.recipient_role_code || '',
+        message: r.message || '',
+        createdAt: r.created_at,
+      })),
+    });
+  } catch (e) {
+    console.error('[payroll/audit-log GET]:', e.message);
+    return res.status(500).json({ success: false, message: 'Failed to load payroll audit log' });
+  }
+});
 
 router.get('/accountant/payroll/staff/search', requireRole(ACCOUNTANT_READ_ROLES), async (req, res) => {
   try {
@@ -1498,9 +2423,18 @@ router.get('/accountant/payroll/staff/search', requireRole(ACCOUNTANT_READ_ROLES
       `SELECT u.id, u.user_uid, u.first_name, u.last_name, r.role_code,
               COALESCE(o.rate_role_code, r.role_code) AS assigned_role_code,
               COALESCE(pr.base_rwf, 0) AS base_rwf,
-              COALESCE(pr.allowance_rwf, 0) AS allowance_rwf
+              COALESCE(pr.allowance_rwf, 0) AS allowance_rwf,
+              st.payroll_basic_salary,
+              st.payroll_transport_allowance,
+              st.payroll_housing_allowance,
+              st.payroll_meal_allowance,
+              st.payroll_other_allowances,
+              st.payroll_tax_percent,
+              st.payroll_pension_amount,
+              st.payroll_other_deductions
        FROM users u
        LEFT JOIN roles r ON r.id = u.role_id
+       LEFT JOIN staff st ON st.school_id = u.school_id AND st.user_id = u.id
        LEFT JOIN accountant_payroll_staff_overrides o
               ON o.school_id = u.school_id AND o.user_id = u.id
        LEFT JOIN accountant_payroll_rates pr
@@ -1537,6 +2471,16 @@ router.get('/accountant/payroll/staff/search', requireRole(ACCOUNTANT_READ_ROLES
             allowance,
             grossSuggested: basicSalary + allowance,
           },
+          payroll: {
+            basicSalary: Number(r.payroll_basic_salary || 0),
+            transportAllowance: Number(r.payroll_transport_allowance || 0),
+            housingAllowance: Number(r.payroll_housing_allowance || 0),
+            mealAllowance: Number(r.payroll_meal_allowance || 0),
+            otherAllowances: r.payroll_other_allowances || null,
+            taxPercent: Number(r.payroll_tax_percent || 0),
+            pensionAmount: Number(r.payroll_pension_amount || 0),
+            otherDeductions: r.payroll_other_deductions || null,
+          },
         };
       }),
     });
@@ -1553,6 +2497,8 @@ router.get('/accountant/payroll', requireRole(ACCOUNTANT_READ_ROLES), async (req
     const status = String(req.query?.status || '').trim().toLowerCase();
     const month = Number(req.query?.month || 0);
     const year = Number(req.query?.year || 0);
+    const term = String(req.query?.term || '').trim();
+    const academicYear = String(req.query?.academic_year || req.query?.academicYear || '').trim();
     const where = ['p.school_id = ?', 'p.deleted_at IS NULL'];
     const params = [schoolId];
 
@@ -1577,13 +2523,21 @@ router.get('/accountant/payroll', requireRole(ACCOUNTANT_READ_ROLES), async (req
       where.push('p.pay_year = ?');
       params.push(year);
     }
+    if (term) {
+      where.push('COALESCE(p.pay_term, "") = ?');
+      params.push(term);
+    }
+    if (academicYear) {
+      where.push('COALESCE(p.academic_year_label, "") = ?');
+      params.push(academicYear);
+    }
     const limit = Math.min(500, Math.max(1, Number(req.query?.limit) || 200));
 
     const [rows] = await promisePool.query(
       `SELECT p.id, p.staff_user_id, p.staff_code, p.staff_name, p.role_code, p.department,
               p.basic_salary_rwf, p.bonus_rwf, p.deduction_rwf, p.net_salary_rwf,
-              p.pay_month, p.pay_year, p.payment_date, p.payment_status, p.payment_method,
-              p.note, p.created_by_user_id, p.created_at, p.updated_at,
+              p.pay_month, p.pay_year, p.pay_term, p.academic_year_label, p.payment_date, p.payment_status, p.payment_method,
+              p.requested_amount_rwf, p.note, p.manager_note, p.created_by_user_id, p.approved_by_user_id, p.approved_at, p.created_at, p.updated_at,
               u.first_name AS creator_first_name, u.last_name AS creator_last_name
        FROM accountant_payroll_payments p
        LEFT JOIN users u ON u.id = p.created_by_user_id
@@ -1610,14 +2564,20 @@ router.get('/accountant/payroll', requireRole(ACCOUNTANT_READ_ROLES), async (req
         netSalaryPaid: Number(r.net_salary_rwf || 0),
         month: Number(r.pay_month || 0),
         year: Number(r.pay_year || 0),
+        term: r.pay_term || '',
+        academicYear: r.academic_year_label || '',
         paymentDate: r.payment_date,
         paymentStatus: r.payment_status || 'pending',
         paymentMethod: r.payment_method || '',
+        requestedAmount: Number(r.requested_amount_rwf || 0),
         note: r.note || '',
+        managerNote: r.manager_note || '',
         createdBy: {
           userId: Number(r.created_by_user_id || 0),
           name: `${r.creator_first_name || ''} ${r.creator_last_name || ''}`.trim() || 'Accountant',
         },
+        approvedByUserId: Number(r.approved_by_user_id || 0) || null,
+        approvedAt: r.approved_at || null,
         createdAt: r.created_at,
         updatedAt: r.updated_at,
       })),
@@ -1638,8 +2598,8 @@ router.get('/accountant/payroll/record/:id', requireRole(ACCOUNTANT_READ_ROLES),
     const [[r]] = await promisePool.query(
       `SELECT p.id, p.staff_user_id, p.staff_code, p.staff_name, p.role_code, p.department,
               p.basic_salary_rwf, p.bonus_rwf, p.deduction_rwf, p.net_salary_rwf,
-              p.pay_month, p.pay_year, p.payment_date, p.payment_status, p.payment_method,
-              p.note, p.created_by_user_id, p.created_at, p.updated_at,
+              p.pay_month, p.pay_year, p.pay_term, p.academic_year_label, p.payment_date, p.payment_status, p.payment_method,
+              p.requested_amount_rwf, p.note, p.manager_note, p.created_by_user_id, p.approved_by_user_id, p.approved_at, p.created_at, p.updated_at,
               u.first_name AS creator_first_name, u.last_name AS creator_last_name
        FROM accountant_payroll_payments p
        LEFT JOIN users u ON u.id = p.created_by_user_id
@@ -1666,14 +2626,20 @@ router.get('/accountant/payroll/record/:id', requireRole(ACCOUNTANT_READ_ROLES),
         netSalaryPaid: Number(r.net_salary_rwf || 0),
         month: Number(r.pay_month || 0),
         year: Number(r.pay_year || 0),
+        term: r.pay_term || '',
+        academicYear: r.academic_year_label || '',
         paymentDate: r.payment_date,
         paymentStatus: r.payment_status || 'pending',
         paymentMethod: r.payment_method || '',
+        requestedAmount: Number(r.requested_amount_rwf || 0),
         note: r.note || '',
+        managerNote: r.manager_note || '',
         createdBy: {
           userId: Number(r.created_by_user_id || 0),
           name: `${r.creator_first_name || ''} ${r.creator_last_name || ''}`.trim() || 'Accountant',
         },
+        approvedByUserId: Number(r.approved_by_user_id || 0) || null,
+        approvedAt: r.approved_at || null,
         createdAt: r.created_at,
         updatedAt: r.updated_at,
       },
@@ -1697,14 +2663,21 @@ router.post('/accountant/payroll', requireRole(ACCOUNTANT_WRITE_ROLES), async (r
     const netSalaryComputed = basicSalary + bonus - deduction;
     const paymentDate = payload.paymentDate || payload.payment_date;
     const paymentMethod = String(payload.paymentMethod || payload.payment_method || 'cash').trim();
-    const paymentStatus = String(payload.paymentStatus || payload.payment_status || 'paid').trim().toLowerCase();
+    const paymentStatus = String(payload.paymentStatus || payload.payment_status || 'pending').trim().toLowerCase();
     const note = String(payload.note || payload.notes || '').trim() || null;
+    const managerNote = String(payload.managerNote || payload.manager_note || '').trim() || null;
+    const term = String(payload.term || '').trim();
+    const academicYear = String(payload.academicYear || payload.academic_year || '').trim();
+    const requestedAmount = toMoney(payload.requestedAmount || payload.requested_amount || netSalaryComputed);
 
     if (!staffUserId) return res.status(400).json({ success: false, message: 'staffUserId is required' });
     if (!(month >= 1 && month <= 12)) return res.status(400).json({ success: false, message: 'month must be between 1 and 12' });
     if (!(year >= 2000 && year <= 3000)) return res.status(400).json({ success: false, message: 'year is required' });
     if (!(basicSalary > 0)) return res.status(400).json({ success: false, message: 'salary amount must be greater than zero' });
+    if (!(requestedAmount > 0)) return res.status(400).json({ success: false, message: 'requested amount must be greater than zero' });
     if (!paymentDate) return res.status(400).json({ success: false, message: 'paymentDate is required' });
+    if (!term) return res.status(400).json({ success: false, message: 'term is required' });
+    if (!academicYear) return res.status(400).json({ success: false, message: 'academic year is required' });
     if (!PAYROLL_PAYMENT_STATUSES.includes(paymentStatus)) {
       return res.status(400).json({ success: false, message: 'Invalid payment status' });
     }
@@ -1719,12 +2692,45 @@ router.post('/accountant/payroll', requireRole(ACCOUNTANT_WRITE_ROLES), async (r
     );
     if (!staff) return res.status(404).json({ success: false, message: 'Staff not found' });
 
+    const [[staffPayroll]] = await promisePool.query(
+      `SELECT payroll_basic_salary, payroll_tax_percent, payroll_pension_amount, payroll_other_allowances, payroll_other_deductions
+       FROM staff
+       WHERE school_id = ? AND user_id = ?
+       LIMIT 1`,
+      [schoolId, staffUserId]
+    );
+    if (staffPayroll) {
+      let allowances = 0;
+      let extraDeductions = 0;
+      try {
+        const arr = JSON.parse(staffPayroll.payroll_other_allowances || '[]');
+        if (Array.isArray(arr)) allowances = arr.reduce((sum, row) => sum + toMoney(row?.amount), 0);
+      } catch (_) {}
+      try {
+        const arr = JSON.parse(staffPayroll.payroll_other_deductions || '[]');
+        if (Array.isArray(arr)) extraDeductions = arr.reduce((sum, row) => sum + toMoney(row?.amount), 0);
+      } catch (_) {}
+      const baseCfg = toMoney(staffPayroll.payroll_basic_salary);
+      const grossCfg = baseCfg + allowances;
+      const taxCfg = (grossCfg * toMoney(staffPayroll.payroll_tax_percent)) / 100;
+      const pensionCfg = toMoney(staffPayroll.payroll_pension_amount);
+      const configuredNetCap = Math.max(0, grossCfg - taxCfg - pensionCfg - extraDeductions);
+      if (configuredNetCap > 0 && requestedAmount > configuredNetCap) {
+        return res.status(400).json({
+          success: false,
+          message: `Requested amount cannot exceed configured net salary (${Math.round(configuredNetCap)} RWF)`,
+        });
+      }
+    }
+
     const [[dup]] = await promisePool.query(
       `SELECT id
        FROM accountant_payroll_payments
-       WHERE school_id = ? AND staff_user_id = ? AND pay_month = ? AND pay_year = ? AND deleted_at IS NULL
+       WHERE school_id = ? AND staff_user_id = ? AND pay_month = ? AND pay_year = ?
+         AND COALESCE(pay_term, '') = ? AND COALESCE(academic_year_label, '') = ?
+         AND deleted_at IS NULL
        LIMIT 1`,
-      [schoolId, staffUserId, month, year]
+      [schoolId, staffUserId, month, year, term, academicYear]
     );
     if (dup) {
       return res.status(409).json({
@@ -1737,8 +2743,9 @@ router.post('/accountant/payroll', requireRole(ACCOUNTANT_WRITE_ROLES), async (r
       `INSERT INTO accountant_payroll_payments
        (school_id, staff_user_id, staff_code, staff_name, role_code, department,
         basic_salary_rwf, bonus_rwf, deduction_rwf, net_salary_rwf,
-        pay_month, pay_year, payment_date, payment_status, payment_method, note, created_by_user_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        pay_month, pay_year, pay_term, academic_year_label, payment_date, payment_status, payment_method,
+        requested_amount_rwf, note, manager_note, created_by_user_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         schoolId,
         staffUserId,
@@ -1752,10 +2759,14 @@ router.post('/accountant/payroll', requireRole(ACCOUNTANT_WRITE_ROLES), async (r
         netSalaryComputed,
         month,
         year,
+        term,
+        academicYear,
         toDateOrNow(paymentDate),
         paymentStatus,
         paymentMethod || 'cash',
+        requestedAmount,
         note,
+        managerNote,
         userId,
       ]
     );
@@ -1768,7 +2779,7 @@ router.post('/accountant/payroll', requireRole(ACCOUNTANT_WRITE_ROLES), async (r
       entityType: 'payroll_payment',
       entityId: insertResult.insertId,
       action: 'create',
-      afterState: { staff_user_id: staffUserId, month, year, payment_status: paymentStatus, net_salary_rwf: netSalaryComputed },
+      afterState: { staff_user_id: staffUserId, month, year, term, academic_year: academicYear, payment_status: paymentStatus, net_salary_rwf: netSalaryComputed, requested_amount_rwf: requestedAmount },
     });
 
     res.status(201).json({
@@ -1779,6 +2790,408 @@ router.post('/accountant/payroll', requireRole(ACCOUNTANT_WRITE_ROLES), async (r
   } catch (e) {
     console.error('[accountant/payroll POST]:', e.message);
     res.status(500).json({ success: false, message: 'Failed to create payroll record' });
+  }
+});
+
+router.get('/accountant/payroll/payments-tracker', requireRole(ACCOUNTANT_READ_ROLES), async (req, res) => {
+  try {
+    const { schoolId } = req.ctx;
+    const query = String(req.query?.query || '').trim();
+    const month = Number(req.query?.month || 0);
+    const year = Number(req.query?.year || 0);
+    const term = String(req.query?.term || '').trim();
+    const academicYear = String(req.query?.academic_year || '').trim();
+    const status = String(req.query?.status || '').trim().toLowerCase();
+    const where = ['p.school_id = ?', 'p.deleted_at IS NULL'];
+    const params = [schoolId];
+    if (query) {
+      const like = `%${query}%`;
+      where.push('(p.staff_name LIKE ? OR COALESCE(p.staff_code, "") LIKE ?)');
+      params.push(like, like);
+    }
+    if (month >= 1 && month <= 12) { where.push('p.pay_month = ?'); params.push(month); }
+    if (year >= 2000 && year <= 3000) { where.push('p.pay_year = ?'); params.push(year); }
+    if (term) { where.push('COALESCE(p.pay_term, "") = ?'); params.push(term); }
+    if (academicYear) { where.push('COALESCE(p.academic_year_label, "") = ?'); params.push(academicYear); }
+    if (['fully_paid', 'partially_paid'].includes(status)) {
+      where.push('LOWER(COALESCE(p.payment_completion_status, "fully_paid")) = ?');
+      params.push(status);
+    }
+
+    const [rows] = await promisePool.query(
+      `SELECT p.id, p.staff_user_id, p.staff_code, p.staff_name, p.pay_month, p.pay_year, p.pay_term, p.academic_year_label,
+              p.final_payable_rwf, p.paid_amount_rwf, p.remaining_amount_rwf, p.payment_completion_status,
+              p.last_payment_at, p.created_at
+       FROM accountant_payroll_payments p
+       WHERE ${where.join(' AND ')}
+       ORDER BY p.id DESC
+       LIMIT 500`,
+      params
+    );
+    return res.json({
+      success: true,
+      data: (rows || []).map((r) => ({
+        id: Number(r.id),
+        staffUserId: Number(r.staff_user_id),
+        staffCode: r.staff_code || `STF-${r.staff_user_id}`,
+        staffName: r.staff_name || '',
+        month: numberToMonthLabel(r.pay_month),
+        monthNumber: Number(r.pay_month || 0),
+        year: String(r.pay_year || ''),
+        term: r.pay_term || '',
+        academicYear: r.academic_year_label || '',
+        finalPayable: Number(r.final_payable_rwf || 0),
+        paidAmount: Number(r.paid_amount_rwf || 0),
+        remainingAmount: Number(r.remaining_amount_rwf || 0),
+        paymentCompletionStatus: (r.payment_completion_status || 'fully_paid').toLowerCase(),
+        lastPaymentAt: r.last_payment_at || null,
+        createdAt: r.created_at,
+      })),
+    });
+  } catch (e) {
+    console.error('[accountant/payroll/payments-tracker GET]:', e.message);
+    return res.status(500).json({ success: false, message: 'Failed to load payment tracker' });
+  }
+});
+
+router.post('/accountant/payroll/payments', requireRole(ACCOUNTANT_WRITE_ROLES), async (req, res) => {
+  try {
+    const { schoolId, userId, roleCode } = req.ctx;
+    const payload = req.body || {};
+    const staffUserId = Number(payload.staffUserId || 0);
+    const staffCode = String(payload.staffCode || '').trim();
+    const staffName = String(payload.staffName || '').trim();
+    const role = String(payload.role || 'STAFF').trim().toUpperCase();
+    const department = String(payload.department || role).trim().toUpperCase();
+    const month = monthLabelToNumber(payload.month);
+    const term = String(payload.term || '').trim();
+    const year = Number(payload.year || 0);
+    const academicYear = String(payload.academicYear || payload.academic_year || '').trim();
+    const finalPayable = toMoney(payload.finalPayable);
+    const paidAmount = toMoney(payload.amountToPay || payload.paidAmount || payload.amount);
+    const remainingAmount = Math.max(0, finalPayable - paidAmount);
+    const completion = remainingAmount === 0 ? 'fully_paid' : 'partially_paid';
+    if (!staffUserId) return res.status(400).json({ success: false, message: 'staffUserId is required' });
+    if (!(month >= 1 && month <= 12)) return res.status(400).json({ success: false, message: 'Valid month is required' });
+    if (!term) return res.status(400).json({ success: false, message: 'term is required' });
+    if (!(year >= 2000 && year <= 3000)) return res.status(400).json({ success: false, message: 'Valid year is required' });
+    if (!(finalPayable > 0)) return res.status(400).json({ success: false, message: 'finalPayable must be > 0' });
+    if (!(paidAmount > 0)) return res.status(400).json({ success: false, message: 'amount to pay must be > 0' });
+    if (paidAmount > finalPayable) return res.status(400).json({ success: false, message: `Amount exceeds final payable (${Math.round(finalPayable)} RWF)` });
+
+    const [[existing]] = await promisePool.query(
+      `SELECT id, payment_completion_status, paid_amount_rwf, remaining_amount_rwf
+       FROM accountant_payroll_payments
+       WHERE school_id = ? AND staff_user_id = ? AND pay_month = ? AND pay_year = ?
+         AND COALESCE(pay_term, '') = ? AND COALESCE(academic_year_label, '') = ?
+         AND deleted_at IS NULL
+       LIMIT 1`,
+      [schoolId, staffUserId, month, year, term, academicYear]
+    );
+    if (existing) {
+      if (String(existing.payment_completion_status || '').toLowerCase() === 'fully_paid') {
+        return res.status(409).json({ success: false, message: `Salary for ${numberToMonthLabel(month)} is already fully paid. Please select another month.` });
+      }
+      return res.status(409).json({ success: false, message: 'This month is partially paid. Use Finish Payment.', paymentId: Number(existing.id) });
+    }
+
+    const [ins] = await promisePool.query(
+      `INSERT INTO accountant_payroll_payments
+       (school_id, staff_user_id, staff_code, staff_name, role_code, department,
+        basic_salary_rwf, bonus_rwf, deduction_rwf, net_salary_rwf,
+        pay_month, pay_year, pay_term, academic_year_label, payment_date, payment_status, payment_method,
+        requested_amount_rwf, final_payable_rwf, paid_amount_rwf, remaining_amount_rwf, payment_completion_status,
+        note, manager_note, created_by_user_id, last_payment_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURDATE(), 'paid', 'cash', ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [
+        schoolId, staffUserId, staffCode || `STF-${staffUserId}`, staffName || `User ${staffUserId}`, role, department,
+        0, 0, 0, 0,
+        month, year, term, academicYear || `${year}-${year + 1}`,
+        paidAmount, finalPayable, paidAmount, remainingAmount, completion,
+        completion === 'partially_paid' ? 'Partial payroll payment' : 'Full payroll payment', null, userId
+      ]
+    );
+
+    await appendAuditLog({
+      schoolId,
+      userId,
+      roleCode,
+      endpoint: '/accountant/payroll/payments',
+      entityType: 'payroll_payment',
+      entityId: ins.insertId,
+      action: 'create',
+      afterState: { staff_user_id: staffUserId, month, term, year, paid_amount_rwf: paidAmount, final_payable_rwf: finalPayable, remaining_amount_rwf: remainingAmount, payment_completion_status: completion },
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: completion === 'fully_paid' ? 'Payment successful' : 'Remaining balance updated',
+      data: { id: ins.insertId, paymentCompletionStatus: completion, remainingAmount },
+    });
+  } catch (e) {
+    console.error('[accountant/payroll/payments POST]:', e.message);
+    return res.status(500).json({ success: false, message: 'Failed to save payroll payment' });
+  }
+});
+
+router.post('/accountant/payroll/payments/:id/finish', requireRole(ACCOUNTANT_WRITE_ROLES), async (req, res) => {
+  try {
+    const { schoolId, userId, roleCode } = req.ctx;
+    const id = Number(req.params.id || 0);
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid payment id' });
+    const [[row]] = await promisePool.query(
+      `SELECT id, final_payable_rwf, paid_amount_rwf, remaining_amount_rwf, payment_completion_status
+       FROM accountant_payroll_payments
+       WHERE school_id = ? AND id = ? AND deleted_at IS NULL
+       LIMIT 1`,
+      [schoolId, id]
+    );
+    if (!row) return res.status(404).json({ success: false, message: 'Payment not found' });
+    if (String(row.payment_completion_status || '').toLowerCase() === 'fully_paid') {
+      return res.status(409).json({ success: false, message: 'This salary is already fully paid' });
+    }
+    const remainingNow = toMoney(row.remaining_amount_rwf);
+    const inputAmount = toMoney(req.body?.amountToPay);
+    const amountToPay = inputAmount > 0 ? inputAmount : remainingNow;
+    if (!(amountToPay > 0)) return res.status(400).json({ success: false, message: 'amount to pay must be > 0' });
+    if (amountToPay > remainingNow) return res.status(400).json({ success: false, message: `Amount exceeds remaining balance (${Math.round(remainingNow)} RWF)` });
+
+    const finalPayable = toMoney(row.final_payable_rwf);
+    const newPaid = toMoney(row.paid_amount_rwf) + amountToPay;
+    const newRemaining = Math.max(0, finalPayable - newPaid);
+    const completion = newRemaining === 0 ? 'fully_paid' : 'partially_paid';
+
+    await promisePool.query(
+      `UPDATE accountant_payroll_payments
+       SET paid_amount_rwf = ?, remaining_amount_rwf = ?, payment_completion_status = ?, last_payment_at = NOW()
+       WHERE school_id = ? AND id = ? AND deleted_at IS NULL`,
+      [newPaid, newRemaining, completion, schoolId, id]
+    );
+
+    await appendAuditLog({
+      schoolId,
+      userId,
+      roleCode,
+      endpoint: '/accountant/payroll/payments/:id/finish',
+      entityType: 'payroll_payment',
+      entityId: id,
+      action: 'update',
+      afterState: { paid_amount_rwf: newPaid, remaining_amount_rwf: newRemaining, payment_completion_status: completion },
+    });
+
+    return res.json({
+      success: true,
+      message: completion === 'fully_paid' ? 'Payment successful' : 'Remaining balance updated',
+      data: { id, paymentCompletionStatus: completion, paidAmount: newPaid, remainingAmount: newRemaining },
+    });
+  } catch (e) {
+    console.error('[accountant/payroll/payments/:id/finish POST]:', e.message);
+    return res.status(500).json({ success: false, message: 'Failed to finish payment' });
+  }
+});
+
+router.get('/accountant/payroll/advance-check/:staffUserId', requireRole(ACCOUNTANT_READ_ROLES), async (req, res) => {
+  try {
+    const { schoolId } = req.ctx;
+    const staffUserId = Number(req.params.staffUserId || 0);
+    if (!staffUserId) return res.status(400).json({ success: false, message: 'Invalid staffUserId' });
+
+    const maps = await fetchActiveCatalogMaps();
+    const serviceRates = maps?.servicesBySlug || new Map();
+    const cashoutRates = maps?.cashoutsBySlug || new Map();
+
+    const [rows] = await promisePool.query(
+      `SELECT id, amount_rwf, repayment_term_months, status, submitted_at, request_type, service_category, cashout_category_slug
+       FROM shule_avance_requests
+       WHERE school_id = ? AND teacher_user_id = ?
+        AND status = 'approved'
+       ORDER BY id DESC
+       LIMIT 100`,
+      [schoolId, staffUserId]
+    );
+
+    const [paidPeriods] = await promisePool.query(
+      `SELECT DISTINCT month, year, paid_at
+       FROM payroll_requests
+       WHERE school_id = ? AND staff_user_id = ?
+         AND status = 'Paid' AND deleted_at IS NULL AND paid_at IS NOT NULL
+       ORDER BY paid_at ASC`,
+      [schoolId, staffUserId]
+    );
+    const paidPeriodRows = (paidPeriods || []).map((p) => ({
+      month: Number(p.month || 0),
+      year: Number(p.year || 0),
+      paidAt: p.paid_at ? new Date(p.paid_at) : null,
+    })).filter((p) => p.paidAt && !Number.isNaN(p.paidAt.getTime()));
+
+    const approvedAdvances = (rows || []).map((r) => {
+      const amount = toMoney(r.amount_rwf);
+      const months = Math.max(1, Number(r.repayment_term_months || 1));
+      const submittedAt = r.submitted_at ? new Date(r.submitted_at) : null;
+      const reqType = String(r.request_type || '').toLowerCase();
+      const interestRate = reqType === 'cashout'
+        ? Number(cashoutRates.get(String(r.cashout_category_slug || '').toLowerCase())?.income_rate_percent || 0)
+        : Number(serviceRates.get(String(r.service_category || '').toLowerCase())?.income_rate_percent || 0);
+      const principalPerMonth = amount / months;
+      const interestPerMonth = (amount * interestRate) / 100;
+      const monthlyPayment = principalPerMonth + interestPerMonth;
+      const paidInstallments = paidPeriodRows.filter((p) => {
+        if (!submittedAt || Number.isNaN(submittedAt.getTime())) return true;
+        return p.paidAt >= submittedAt;
+      }).length;
+      const remainingMonths = Math.max(0, months - paidInstallments);
+      const monthlyPaymentApplied = remainingMonths > 0 ? monthlyPayment : 0;
+      const remainingBalance = monthlyPayment * remainingMonths;
+      return {
+        id: r.id,
+        status: r.status,
+        submittedAt: r.submitted_at,
+        totalAmount: Math.round(amount),
+        months,
+        paidInstallments,
+        remainingMonths,
+        interestRate,
+        principalPerMonth: Math.round(principalPerMonth),
+        interestPerMonth: Math.round(interestPerMonth),
+        monthlyPayment: Math.round(monthlyPaymentApplied),
+        remainingBalance: Math.round(remainingBalance),
+      };
+    });
+
+    const totalOutstanding = approvedAdvances.reduce((sum, row) => sum + toMoney(row.remainingBalance), 0);
+    const totalMonthlyDeduction = approvedAdvances.reduce((sum, row) => sum + toMoney(row.monthlyPayment), 0);
+
+    res.json({
+      success: true,
+      data: {
+        hasActiveAdvance: approvedAdvances.length > 0,
+        totalOutstanding,
+        totalMonthlyDeduction,
+        approvedAdvances,
+        requests: (rows || []).map((r) => ({
+          id: r.id,
+          amount: toMoney(r.amount_rwf),
+          status: r.status,
+          submittedAt: r.submitted_at,
+        })),
+      },
+    });
+  } catch (e) {
+    console.error('[accountant/payroll/advance-check/:staffUserId GET]:', e.message);
+    res.status(500).json({ success: false, message: 'Failed to load advance summary' });
+  }
+});
+
+router.get('/manager/payroll/requests', requireRole(ACCOUNTANT_READ_ROLES), async (req, res) => {
+  try {
+    const { schoolId } = req.ctx;
+    const query = String(req.query?.query || '').trim();
+    const status = String(req.query?.status || '').trim().toLowerCase();
+    const month = Number(req.query?.month || 0);
+    const year = Number(req.query?.year || 0);
+    const term = String(req.query?.term || '').trim();
+    const academicYear = String(req.query?.academic_year || '').trim();
+    const where = ['p.school_id = ?', 'p.deleted_at IS NULL'];
+    const params = [schoolId];
+
+    if (query) {
+      where.push(`(p.staff_name LIKE ? OR COALESCE(p.staff_code, '') LIKE ? OR CONCAT('PAY-', p.id) LIKE ?)`);
+      const like = `%${query}%`;
+      params.push(like, like, like);
+    }
+    if (status && PAYROLL_PAYMENT_STATUSES.includes(status)) {
+      where.push('p.payment_status = ?');
+      params.push(status);
+    }
+    if (month >= 1 && month <= 12) {
+      where.push('p.pay_month = ?');
+      params.push(month);
+    }
+    if (year >= 2000 && year <= 3000) {
+      where.push('p.pay_year = ?');
+      params.push(year);
+    }
+    if (term) {
+      where.push('COALESCE(p.pay_term, "") = ?');
+      params.push(term);
+    }
+    if (academicYear) {
+      where.push('COALESCE(p.academic_year_label, "") = ?');
+      params.push(academicYear);
+    }
+
+    const [rows] = await promisePool.query(
+      `SELECT p.id, p.staff_user_id, p.staff_code, p.staff_name, p.role_code, p.department,
+              p.basic_salary_rwf, p.bonus_rwf, p.deduction_rwf, p.net_salary_rwf,
+              p.pay_month, p.pay_year, p.pay_term, p.academic_year_label, p.payment_date, p.payment_status, p.payment_method,
+              p.requested_amount_rwf, p.note, p.manager_note, p.created_by_user_id, p.approved_by_user_id, p.approved_at, p.created_at, p.updated_at
+       FROM accountant_payroll_payments p
+       WHERE ${where.join(' AND ')}
+       ORDER BY p.id DESC
+       LIMIT 500`,
+      params
+    );
+
+    res.json({
+      success: true,
+      data: (rows || []).map((r) => ({
+        payrollId: `PAY-${r.id}`,
+        staffUserId: Number(r.staff_user_id),
+        staffCode: r.staff_code || '',
+        staffName: r.staff_name || '',
+        role: r.role_code || 'STAFF',
+        department: r.department || '',
+        basicSalary: Number(r.basic_salary_rwf || 0),
+        bonus: Number(r.bonus_rwf || 0),
+        deduction: Number(r.deduction_rwf || 0),
+        netSalaryPaid: Number(r.net_salary_rwf || 0),
+        requestedAmount: Number(r.requested_amount_rwf || 0),
+        month: Number(r.pay_month || 0),
+        year: Number(r.pay_year || 0),
+        term: r.pay_term || '',
+        academicYear: r.academic_year_label || '',
+        paymentDate: r.payment_date,
+        paymentStatus: r.payment_status || 'pending',
+        paymentMethod: r.payment_method || '',
+        note: r.note || '',
+        managerNote: r.manager_note || '',
+        approvedByUserId: Number(r.approved_by_user_id || 0) || null,
+        approvedAt: r.approved_at || null,
+        createdAt: r.created_at,
+        updatedAt: r.updated_at,
+      })),
+    });
+  } catch (e) {
+    console.error('[manager/payroll/requests GET]:', e.message);
+    res.status(500).json({ success: false, message: 'Failed to load payroll requests' });
+  }
+});
+
+router.patch('/manager/payroll/requests/:id/decision', requireRole(PAYROLL_MANAGER_ROLES), async (req, res) => {
+  try {
+    const { schoolId, userId } = req.ctx;
+    const raw = String(req.params.id || '');
+    const id = raw.startsWith('PAY-') ? Number(raw.slice(4)) : Number(raw);
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid payroll id' });
+    const decision = String(req.body?.decision || '').trim().toLowerCase();
+    const note = String(req.body?.note || '').trim() || null;
+    let nextStatus = '';
+    if (decision === 'approve') nextStatus = 'approved';
+    if (decision === 'reject') nextStatus = 'rejected';
+    if (decision === 'mark_paid' || decision === 'paid') nextStatus = 'paid';
+    if (!nextStatus) return res.status(400).json({ success: false, message: 'decision must be approve, reject, or mark_paid' });
+
+    const [r] = await promisePool.query(
+      `UPDATE accountant_payroll_payments
+       SET payment_status = ?, approved_by_user_id = ?, approved_at = NOW(), manager_note = COALESCE(?, manager_note)
+       WHERE school_id = ? AND id = ? AND deleted_at IS NULL`,
+      [nextStatus, userId, note, schoolId, id]
+    );
+    if (!r.affectedRows) return res.status(404).json({ success: false, message: 'Payroll request not found' });
+    res.json({ success: true, message: `Payroll request ${nextStatus}` });
+  } catch (e) {
+    console.error('[manager/payroll/requests/:id/decision PATCH]:', e.message);
+    res.status(500).json({ success: false, message: 'Failed to update payroll decision' });
   }
 });
 

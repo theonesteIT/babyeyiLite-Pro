@@ -172,8 +172,10 @@ const Dashboard = () => {
             </div>
 
             {/* Quick Support Card (Rich Gradient + Texture) */}
-            <div className="relative rounded-[24px] p-6 text-white shadow-re-premium-purple overflow-hidden group cursor-pointer active:scale-95 transition-all
-              bg-re-grad-purple">
+            <Link
+              to="/chat"
+              className="relative block rounded-[24px] p-6 text-white shadow-re-premium-purple overflow-hidden group cursor-pointer active:scale-95 transition-all bg-re-grad-purple"
+            >
 
               {/* Background Texture Overlay */}
               <div className="absolute inset-0 opacity-10 mix-blend-overlay">
@@ -198,7 +200,7 @@ const Dashboard = () => {
               {/* Premium Glows */}
               <div className="absolute -bottom-10 -right-10 w-28 h-28 bg-white/20 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-1000"></div>
               <div className="absolute -top-10 -left-10 w-20 h-20 bg-white/10 rounded-full blur-2xl"></div>
-            </div>
+            </Link>
           </div>
 
         </div>

@@ -23,6 +23,8 @@ import {
   ShieldCheck,   Star, Plus, Filter, Loader2, Info, PlusCircle, DollarSign, Radio, ShoppingBag, Package, Shirt,
   Sparkles,
   Percent,
+  IdCard,
+  LayoutTemplate,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import LogoutButton from '../Auth/LogoutButton';
@@ -234,6 +236,8 @@ const NAV = [
   { id: 'shule-avance-orgs', icon: Sparkles, label: 'ShuleAvance Orgs' },
   { id: 'shule-avance-teacher', icon: Percent, label: 'ShuleAvance Teacher' },
   { id: 'teacher-deal-products', icon: Package, label: 'Teacher Deal Products' },
+  { id: 'school-students-card', icon: IdCard, label: 'School Students Card' },
+  { id: 'student-card-template-2', icon: LayoutTemplate, label: 'Student Card Template 2' },
   // { id: 'activity',   icon: Activity,   label: 'Activity Log' },
   { id: 'settings',   icon: Settings,   label: 'Settings' },
 ];
@@ -318,6 +322,8 @@ function Sidebar({ page, onChange, online, user, navigate }) {
           const isShuleAvanceOrgs = item.id === 'shule-avance-orgs';
           const isShuleAvanceTeacher = item.id === 'shule-avance-teacher';
           const isTeacherDealProducts = item.id === 'teacher-deal-products';
+          const isSchoolStudentsCard = item.id === 'school-students-card';
+          const isStudentCardTemplate2 = item.id === 'student-card-template-2';
           return (
             <button key={item.id}
               onClick={() => {
@@ -343,6 +349,10 @@ function Sidebar({ page, onChange, online, user, navigate }) {
                   navigate('/superadmin/shule-avance-teacher');
                 } else if (isTeacherDealProducts) {
                   navigate('/superadmin/teacher-deal-products');
+                } else if (isSchoolStudentsCard) {
+                  navigate('/superadmin/school-students-card');
+                } else if (isStudentCardTemplate2) {
+                  navigate('/superadmin/student-card-template-2');
                 } else if (isRequirementsPrices) {
                   navigate('/manage-requirements-prices');
                 } else if (isPricesList) {

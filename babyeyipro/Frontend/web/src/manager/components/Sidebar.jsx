@@ -9,8 +9,11 @@ import {
   Building2, School, Landmark, UserCog, UserCheck, PieChart, Activity, Settings, ShieldCheck, Table2,
   LayoutGrid,
   Radio,
+  DoorOpen,
+  DollarSign,
 } from 'lucide-react';
 import { h } from '../utils/href';
+import useChatUnread from '../../shared/hooks/useChatUnread';
 
 // ── Status Badge ──────────────────────────────────────────────
 const statusConfig = {
@@ -34,7 +37,7 @@ const AppStatusBadge = ({ status = 'online' }) => {
 };
 
 // ── Single nav link ───────────────────────────────────────────
-const NavItem = ({ icon: Icon, name, path, exact, onClose }) => (
+const NavItem = ({ icon: Icon, name, path, exact, onClose, badgeCount = 0 }) => (
   <NavLink
     to={h(path)}
     end={exact}
@@ -51,6 +54,11 @@ const NavItem = ({ icon: Icon, name, path, exact, onClose }) => (
       <>
         <Icon size={13} className={isActive ? 'text-white' : 'text-re-text-muted/50 group-hover:text-re-navy transition-colors'} />
         <span>{name}</span>
+        {badgeCount > 0 && (
+          <span className="ml-auto text-[10px] leading-none px-1.5 py-1 rounded-full bg-red-100 text-red-700">
+            {badgeCount > 99 ? '99+' : badgeCount}
+          </span>
+        )}
       </>
     )}
   </NavLink>
@@ -120,6 +128,7 @@ const SectionLabel = ({ label }) => (
 // ── Sidebar ───────────────────────────────────────────────────
 const Sidebar = ({ onClose }) => {
   const { manager, logout, canAccessSchoolConsole } = useAuth();
+  const unreadCount = useChatUnread();
 
   const schoolConsoleSubItems = useMemo(
     () =>
@@ -158,7 +167,7 @@ const Sidebar = ({ onClose }) => {
 
       {/* Nav */}
       <nav className="flex-1 px-2 py-1 overflow-y-auto space-y-0.5">
-        <NavItem icon={LayoutDashboard} name="Command Center" path="/" exact onClose={onClose} />
+        <NavItem icon={LayoutDashboard} name="Dashboard" path="/" exact onClose={onClose} />
         <SectionLabel label="School admin" />
         {canAccessSchoolConsole && (
           <ExpandableNavItem
@@ -180,18 +189,23 @@ const Sidebar = ({ onClose }) => {
           ]}
         />
         <NavItem icon={UserCog} name="HRCentral" path="/hr" onClose={onClose} />
+        <NavItem icon={ClipboardCheck} name="Payroll" path="/payroll" onClose={onClose} />
 
         <SectionLabel label="Services" />
+        <NavItem icon={DollarSign} name="My Payroll" path="/my-payroll" onClose={onClose} />
         <NavItem icon={Wallet} name="Shule Avance" path="/avance" onClose={onClose} />
 
         <SectionLabel label="Operational Tools" />
         <NavItem icon={MessageSquare} name="TichaAI" path="/manager-ai" onClose={onClose} />
+        <NavItem icon={MessageSquare} name="Chat Center" path="/chat" onClose={onClose} badgeCount={unreadCount} />
         {canAccessSchoolConsole && (
           <NavItem icon={Radio} name="Smart School Access" path="/smart-access" onClose={onClose} />
         )}
         {canAccessSchoolConsole && (
           <NavItem icon={UserCheck} name="Staff smart access" path="/staff-smart-access" onClose={onClose} />
         )}
+        <NavItem icon={DoorOpen} name="Gate Attendance" path="/attendance/gate" onClose={onClose} />
+        <NavItem icon={ClipboardList} name="All Gate Logs" path="/attendance/gate-logs" onClose={onClose} />
         <NavItem icon={ShieldCheck} name="Student Permissions" path="/permissions" onClose={onClose} />
         <ExpandableNavItem
           icon={ClipboardList}

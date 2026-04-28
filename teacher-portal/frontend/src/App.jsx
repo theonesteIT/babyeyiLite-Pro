@@ -15,6 +15,8 @@ import RecordMarks from './pages/RecordMarks';
 import ViewMarks from './pages/ViewMarks';
 import Requisitions from './pages/Requisitions';
 import RequisitionsRes from './pages/RequisitionsRes';
+import ChatCenter from './pages/ChatCenter';
+import StaffPayroll from './pages/StaffPayroll';
 import './index.css';
 
 // ── Loading screen ────────────────────────────────────────────
@@ -54,6 +56,8 @@ function AppContent() {
       <Route path="/attendance" element={<ProtectedRoute title="Attendance">        <Attendance />                                                   </ProtectedRoute>} />
       <Route path="/requisitions" element={<ProtectedRoute title="Requisitions">    <Requisitions />                                                 </ProtectedRoute>} />
       <Route path="/requisitionsRes" element={<ProtectedRoute title="Requisitions"> <RequisitionsRes />                                              </ProtectedRoute>} />
+      <Route path="/chat" element={<ProtectedRoute title="Chat center">            <ChatCenter />                                                   </ProtectedRoute>} />
+      <Route path="/payroll" element={<ProtectedRoute title="My Payroll">          <StaffPayroll />                                                 </ProtectedRoute>} />
       <Route path="/marks/view" element={<ProtectedRoute title="View Student Marks"><ViewMarks /></ProtectedRoute>} />
       <Route path="/marks/record" element={<ProtectedRoute title="Record Marks">      <RecordMarks /></ProtectedRoute>} />
 

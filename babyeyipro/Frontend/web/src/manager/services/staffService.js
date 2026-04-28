@@ -32,7 +32,7 @@ const staffService = {
      */
     updateStaff: async (staffId, staffData) => {
         try {
-            const response = await api.put(`/school/staff/${staffId}`, staffData);
+            const response = await api.patch(`/school/staff/${staffId}`, staffData);
             return response.data;
         } catch (error) {
             console.error('Error updating staff:', error);
@@ -45,8 +45,8 @@ const staffService = {
      */
     updateStaffPhoto: async (staffId, formData) => {
         try {
-            const response = await api.put(
-                `/school/staff/${staffId}/identity/photo`,
+            const response = await api.post(
+                `/school/staff/${staffId}/photo`,
                 formData,
                 { headers: { 'Content-Type': undefined } }   // let axios auto-set multipart/form-data + boundary
             );
@@ -66,6 +66,32 @@ const staffService = {
             return response.data;
         } catch (error) {
             console.error('Error resending invitation:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Delete staff account (soft-delete on backend)
+     */
+    deleteStaff: async (staffId) => {
+        try {
+            const response = await api.delete(`/school/staff/${staffId}`);
+            return response.data;
+        } catch (error) {
+            console.error('Error deleting staff:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Activate / deactivate staff account
+     */
+    setStaffActive: async (staffId, isActive) => {
+        try {
+            const response = await api.patch(`/school/staff/${staffId}`, { is_active: !!isActive });
+            return response.data;
+        } catch (error) {
+            console.error('Error changing staff active status:', error);
             throw error;
         }
     }

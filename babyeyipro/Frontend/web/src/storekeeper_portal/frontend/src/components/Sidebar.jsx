@@ -3,8 +3,9 @@ import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, Package, ArrowDownUp, ClipboardList, Building2,
-  Wallet, User, LogOut, Wifi, WifiOff, RefreshCw, Store,
+  Wallet, User, LogOut, Wifi, WifiOff, RefreshCw, Store, MessageSquare, DollarSign,
 } from 'lucide-react';
+import useChatUnread from '../../../../shared/hooks/useChatUnread';
 
 const statusConfig = {
   online:  { label: 'Online',  dot: 'bg-[#FEBF10]', text: 'text-re-navy', ring: 'ring-[#FEBF10]/35', bg: 'bg-[#FEBF10]/12',  Icon: Wifi },
@@ -26,7 +27,7 @@ const AppStatusBadge = ({ status = 'online' }) => {
   );
 };
 
-const NavItem = ({ icon: Icon, name, path, exact, onClose }) => (
+const NavItem = ({ icon: Icon, name, path, exact, onClose, badgeCount = 0 }) => (
   <NavLink to={path} end={exact} onClick={onClose}
     className={({ isActive }) =>
       `relative flex items-center gap-2 px-2.5 py-1.5 rounded-xl transition-all duration-200 group text-[11px] font-bold
@@ -36,6 +37,11 @@ const NavItem = ({ icon: Icon, name, path, exact, onClose }) => (
       <>
         <Icon size={13} className={isActive ? 'text-white' : 'text-re-text-muted/50 group-hover:text-re-navy transition-colors'} />
         <span>{name}</span>
+        {badgeCount > 0 && (
+          <span className="ml-auto text-[10px] leading-none px-1.5 py-1 rounded-full bg-red-100 text-red-700">
+            {badgeCount > 99 ? '99+' : badgeCount}
+          </span>
+        )}
       </>
     )}
   </NavLink>
@@ -47,6 +53,7 @@ const SectionLabel = ({ label }) => (
 
 const Sidebar = ({ onClose }) => {
   const { staff, logout } = useAuth();
+  const unreadCount = useChatUnread();
   return (
     <div className="flex flex-col h-full bg-white border-r border-black/5 shadow-sm">
       <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
@@ -77,7 +84,9 @@ const Sidebar = ({ onClose }) => {
         <NavItem icon={Building2}      name="Suppliers"        path="/suppliers"         onClose={onClose} />
 
         <SectionLabel label="Services" />
+        <NavItem icon={DollarSign}     name="My Payroll"      path="/my-payroll"           onClose={onClose} />
         <NavItem icon={Wallet}         name="Shule Avance"     path="/shule-avance"      onClose={onClose} />
+        <NavItem icon={MessageSquare}  name="Chat Center"      path="/chat"              onClose={onClose} badgeCount={unreadCount} />
       </nav>
 
       <div className="p-3" style={{ fontFamily: "'Montserrat', sans-serif" }}>

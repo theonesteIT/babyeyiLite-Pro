@@ -66,6 +66,7 @@ import StudentServiceCheckout from './Pages/Public Page/StudentServiceCheckout';
 import PublicShoesVoucherFlow from './Pages/Public Page/PublicShoesVoucherFlow';
 import PublicUniformVoucherRequestFlow from './Pages/Public Page/PublicUniformVoucherRequestFlow';
 import PublicUniformVoucherTrack from './Pages/Public Page/PublicUniformVoucherTrack';
+import OnlineService from './Pages/Public Page/OnlineService';
 
 // ── Auth pages ──────────────────────────────────────────────────
 import Login           from './Pages/Auth/Login';
@@ -122,6 +123,8 @@ import AgentStandardKitRequestsPage from './Pages/Agent/AgentStandardKitRequests
 import AgentUniformVoucherOrdersPage from './Pages/Agent/AgentUniformVoucherOrdersPage';
 import SuperAdminStandardKitRequestsPage from './Pages/SuperAdmin/SuperAdminStandardKitRequestsPage';
 import SuperAdminShuleAvanceOrgs from './Pages/SuperAdmin/SuperAdminShuleAvanceOrgs';
+import SchoolStudentsCard from './Pages/SuperAdmin/SchoolStudentsCard';
+import SchoolStudentCardTemplate2 from './Pages/SuperAdmin/SchoolStudentCardTemplate2';
 import ShuleAvanceTeacher from './Pages/SuperAdmin/ShuleAvanceTeacher';
 import TeacherDealProducts from './Pages/SuperAdmin/TeacherDealProducts';
 import ShuleAvancePartnerDashboard from './Pages/ShuleAvance/ShuleAvancePartnerDashboard';
@@ -142,6 +145,7 @@ import QuickPayStudentSelect    from './Pages/Parents/QuickPayStudentSelect';
 import ParentPaymentsReport     from './Pages/Parents/PaymentsReport';
 import InvoicesListPage         from './Pages/Shared/InvoicesListPage';
 import { ParentShellProvider } from './context/ParentShellContext';
+import StudentDashboard from './Pages/Student/student_dashboard';
 
 export default function App() {
   return (
@@ -182,6 +186,7 @@ export default function App() {
           <Route path="/standard-kit/request/:kitId" element={<StandardKitRequestFlow />} />
           <Route path="/services/item/:idOrCode" element={<PublicServiceDetail />} />
           <Route path="/services/checkout" element={<StudentServiceCheckout />} />
+          <Route path="/online-service" element={<OnlineService />} />
           <Route path="/track" element={<ApplicationStatusTracker />} />
 
           {/* ── Auth ──────────────────────────────────────────── */}
@@ -190,6 +195,11 @@ export default function App() {
           <Route path="/parents/login"      element={<ParentLogin />} />
           <Route path="/parents/register"   element={<ParentRegister />} />
           <Route path="/parents/reset-phone" element={<ParentResetPhone />} />
+          <Route path="/online-service/dashboard" element={
+            <ProtectedRoute role="STUDENT" redirectTo="/online-service">
+              <StudentDashboard />
+            </ProtectedRoute>
+          } />
           <Route path="/parents" element={
             <ProtectedRoute role="PARENT" redirectTo="/parents/login">
               <ParentShellProvider>
@@ -306,6 +316,16 @@ export default function App() {
           <Route path="/superadmin/teacher-deal-products" element={
             <ProtectedRoute role="SUPER_ADMIN">
               <TeacherDealProducts />
+            </ProtectedRoute>
+          } />
+          <Route path="/superadmin/school-students-card" element={
+            <ProtectedRoute role={['SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER']}>
+              <SchoolStudentsCard />
+            </ProtectedRoute>
+          } />
+          <Route path="/superadmin/student-card-template-2" element={
+            <ProtectedRoute role={['SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER']}>
+              <SchoolStudentCardTemplate2 />
             </ProtectedRoute>
           } />
 

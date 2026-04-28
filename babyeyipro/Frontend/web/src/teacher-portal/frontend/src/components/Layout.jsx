@@ -36,7 +36,7 @@ const DashboardLayout = ({ children, title }) => {
           <div className="fixed bottom-0 right-0 w-96 h-96 bg-re-orange/5 blur-[120px] rounded-full pointer-events-none z-0" />
           <div className="fixed top-0 left-0 w-72 h-72 bg-re-purple/5 blur-[100px] rounded-full pointer-events-none z-0" />
 
-          <div className="relative z-10 max-w-[1600px] mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <div className="relative max-w-[1600px] mx-auto">
             {children}
           </div>
         </main>

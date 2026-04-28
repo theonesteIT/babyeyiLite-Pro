@@ -10,8 +10,11 @@ import {
   ClipboardCheck,
   Banknote,
   FileSpreadsheet,
-  FileText
+  FileText,
+  MessageSquare,
+  DollarSign,
 } from 'lucide-react';
+import useChatUnread from '../../../../shared/hooks/useChatUnread';
 
 // ── Status Badge ──────────────────────────────────────────────
 const statusConfig = {
@@ -35,7 +38,7 @@ const AppStatusBadge = ({ status = 'online' }) => {
 };
 
 // ── Single nav link ───────────────────────────────────────────
-const NavItem = ({ icon, name, path, exact, onClose }) => {
+const NavItem = ({ icon, name, path, exact, onClose, badgeCount = 0 }) => {
   const ItemIcon = icon;
 
   return (
@@ -55,6 +58,11 @@ const NavItem = ({ icon, name, path, exact, onClose }) => {
         <>
           <ItemIcon size={13} className={isActive ? 'text-white' : 'text-re-text-muted/50 group-hover:text-re-navy transition-colors'} />
           <span>{name}</span>
+          {badgeCount > 0 && (
+            <span className="ml-auto text-[10px] leading-none px-1.5 py-1 rounded-full bg-red-100 text-red-700">
+              {badgeCount > 99 ? '99+' : badgeCount}
+            </span>
+          )}
         </>
       )}
     </NavLink>
@@ -116,6 +124,7 @@ const SectionLabel = ({ label }) => (
 
 const Sidebar = ({ onClose }) => {
   const { staff, logout } = useAuth();
+  const unreadCount = useChatUnread();
 
   return (
     <div className="flex flex-col h-full bg-white border-r border-black/5 shadow-sm">
@@ -166,14 +175,16 @@ const Sidebar = ({ onClose }) => {
           name="Payroll"
           onClose={onClose}
           subItems={[
-            { name: 'Payroll runs', path: '/payroll/history', icon: ClipboardCheck },
+            { name: 'Payroll center', path: '/payroll', icon: ClipboardCheck },
             { name: 'Configure Payroll', path: '/payroll/config', icon: Settings },
           ]}
         />
 
 
         <SectionLabel label="Services" />
+        <NavItem icon={DollarSign} name="My Payroll" path="/my-payroll" onClose={onClose} />
         <NavItem icon={Wallet} name="Shule Avance" path="/shule-avance" onClose={onClose} />
+        <NavItem icon={MessageSquare} name="Chat Center" path="/chat" onClose={onClose} badgeCount={unreadCount} />
 
         
       </nav>

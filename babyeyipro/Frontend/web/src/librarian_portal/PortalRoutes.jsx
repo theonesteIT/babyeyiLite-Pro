@@ -8,9 +8,11 @@ import Borrowing from './frontend/src/pages/Borrowing'
 import Returns from './frontend/src/pages/Returns'
 import Members from './frontend/src/pages/Members'
 import Reports from './frontend/src/pages/Reports'
+import StaffPayroll from './frontend/src/pages/StaffPayroll'
 import ShuleAvance from './frontend/src/pages/ShuleAvance'
 import TichaAI from './frontend/src/pages/TichaAI'
 import FeaturePlaceholders from './frontend/src/pages/FeaturePlaceholders'
+import ChatCenter from '../shared/pages/ChatCenter'
 
 function LoadingScreen() {
   return (
@@ -39,8 +41,11 @@ function LibrarianRoutesInner() {
       <Route path="returns" element={<ProtectedRoute title="Returns History"><Returns /></ProtectedRoute>} />
       <Route path="members" element={<ProtectedRoute title="Library Members"><Members /></ProtectedRoute>} />
       <Route path="reports" element={<ProtectedRoute title="Library Reports"><Reports /></ProtectedRoute>} />
+      <Route path="my-payroll" element={<ProtectedRoute title="My Payroll"><StaffPayroll /></ProtectedRoute>} />
+      <Route path="payroll" element={<Navigate to="my-payroll" replace />} />
       <Route path="shule-avance" element={<ProtectedRoute title="Shule Avance"><ShuleAvance /></ProtectedRoute>} />
       <Route path="ticha-ai" element={<ProtectedRoute title="TichaAI"><TichaAI /></ProtectedRoute>} />
+      <Route path="chat" element={<ProtectedRoute title="Chat center"><ChatCenter /></ProtectedRoute>} />
       <Route path="settings" element={<ProtectedRoute title="Settings"><FeaturePlaceholders feature="Library Settings" icon="⚙️" /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/librarian" replace />} />
     </Routes>

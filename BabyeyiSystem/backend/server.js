@@ -16,6 +16,8 @@ const MySQLStoreFactory = require('express-mysql-session')(session);
 const multer         = require('multer');
 const path           = require('path');
 const fs             = require('fs');
+const http           = require('http');
+const { Server }     = require('socket.io');
 require('dotenv').config();
 
 const { testConnection, promisePool } = require('./config/database');
@@ -25,6 +27,7 @@ const { ensureFullSystemControllerRole } = require('./utils/ensureRoles');
 const { ensureShuleAvanceOrgTables } = require('./BabyeyiRoutes/shuleAvanceOrgSchema');
 const shuleAvanceOrgPortalRoutes = require('./BabyeyiRoutes/shuleAvanceOrgPortal');
 const { getAgentSessionPayload } = require('./BabyeyiRoutes/fieldAgentsRoutes');
+const chatModule = require('./BabyeyiRoutes/chatRoutes');
 
 /** SUPER_ADMIN and FULL_SYSTEM_CONTROLLER — exempt from maintenance session kill & write lock */
 function isElevatedPlatformRole(roleCode) {
@@ -34,6 +37,8 @@ function isElevatedPlatformRole(roleCode) {
 
 const app  = express();
 const PORT = process.env.PORT || 5100;
+const httpServer = http.createServer(app);
+let io = null;
 
 // ── FIX: Trust reverse proxy (nginx) so cookies work over HTTPS ──
 app.set('trust proxy', 1);
@@ -131,12 +136,21 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
 }));
 
+io = new Server(httpServer, {
+  cors: {
+    origin: getAllowedOrigins(),
+    credentials: true,
+    methods: ['GET', 'POST'],
+  },
+});
+app.set('io', io);
+
 app.use(cookieParser(process.env.SESSION_SECRET || 'babyeyi-default-secret'));
 
 // ── FIX: Session cookie — secure only in production (nginx handles HTTPS)
 // sameSite 'none' requires secure=true, but that breaks localhost dev.
 // In production behind nginx: secure=true + sameSite='none' works correctly.
-app.use(session({
+const sessionMiddleware = session({
   name:   'babyeyi_sid',
   secret: process.env.SESSION_SECRET || 'babyeyi-default-secret',
   store:  sessionStore,
@@ -148,7 +162,8 @@ app.use(session({
     sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     maxAge:   8 * 60 * 60 * 1000,
   },
-}));
+});
+app.use(sessionMiddleware);
 
 // Do not run body parsers on multipart — they can interfere with multer/busboy ("Unexpected end of form").
 const jsonParser = express.json({ limit: '50mb' });
@@ -194,7 +209,16 @@ const apiLimiter = rateLimit({
   message: { success: false, message: 'Too many requests — please slow down' },
   skip: (req) => {
     const p = (req.originalUrl || req.url || '').split('?')[0];
-    return p.endsWith('/session/me') || p.endsWith('/district/babyeyi/me');
+    return (
+      p.endsWith('/session/me') ||
+      p.endsWith('/district/babyeyi/me') ||
+      p.endsWith('/chat/schools') ||
+      p.endsWith('/chat/unread-count') ||
+      p.endsWith('/teacher-portal/timetable') ||
+      p.endsWith('/teacher-portal/timetable-filters') ||
+      p.endsWith('/teacher-portal/attendance-summary/daily') ||
+      p.endsWith('/teacher-portal/attendance-summary/weekly')
+    );
   },
 });
 app.use('/api/', apiLimiter);
@@ -339,6 +363,166 @@ function requireAuth(req, res, allowedRoles = []) {
 app.set('requireAuth', requireAuth);
 
 // ============================================================
+// SOCKET.IO — realtime chat transport
+// ============================================================
+io.engine.use((req, res, next) => {
+  sessionMiddleware(req, res, next);
+});
+
+io.use((socket, next) => {
+  try {
+    const fakeReq = { session: socket.request.session, user: null };
+    const identity = chatModule.resolveUserIdentity(fakeReq);
+    if (!identity) return next(new Error('NOT_AUTHENTICATED'));
+    socket.data.identity = identity;
+    return next();
+  } catch (err) {
+    return next(err);
+  }
+});
+
+const onlineUserSockets = new Map();
+const onlineParentSockets = new Map();
+
+function bumpCount(map, key) {
+  const n = Number(map.get(key) || 0) + 1;
+  map.set(key, n);
+}
+
+function dropCount(map, key) {
+  const n = Number(map.get(key) || 0) - 1;
+  if (n <= 0) map.delete(key);
+  else map.set(key, n);
+}
+
+function emitPresenceForIdentity(identity, schoolIds, status) {
+  try {
+    for (const sid of schoolIds || []) {
+      io.to(`chat:presence:school:${sid}`).emit('chat:presence-changed', {
+        school_id: Number(sid),
+        identity: identity.type === 'USER'
+          ? { type: 'USER', user_id: identity.user_id }
+          : { type: 'PARENT', parent_phone: identity.parent_phone },
+        status,
+        online_count: identity.type === 'USER'
+          ? Number(onlineUserSockets.get(identity.user_id) || 0)
+          : Number(onlineParentSockets.get(identity.parent_phone) || 0),
+      });
+    }
+  } catch (_e) {}
+}
+
+io.on('connection', (socket) => {
+  const identity = socket.data?.identity;
+  if (!identity) {
+    socket.disconnect(true);
+    return;
+  }
+
+  const initPresence = async () => {
+    try {
+      const schools = await chatModule.resolveIdentitySchools(identity, { session: socket.request.session, user: null });
+      socket.data.schoolIds = (schools || []).map((s) => Number(s.id)).filter(Boolean);
+    } catch {
+      socket.data.schoolIds = [];
+    }
+    if (identity.type === 'USER' && identity.user_id) {
+      socket.join(`chat:user:${identity.user_id}`);
+      bumpCount(onlineUserSockets, identity.user_id);
+    }
+    if (identity.type === 'PARENT' && identity.parent_phone) {
+      socket.join(`chat:parent:${identity.parent_phone}`);
+      bumpCount(onlineParentSockets, identity.parent_phone);
+    }
+    emitPresenceForIdentity(identity, socket.data.schoolIds || [], 'online');
+  };
+  initPresence();
+
+  socket.on('chat:presence-subscribe', async (payload = {}) => {
+    try {
+      const schoolId = Number(payload.school_id || 0);
+      if (!schoolId) return;
+      const fakeReq = { session: socket.request.session, user: null };
+      const schools = await chatModule.resolveIdentitySchools(identity, fakeReq);
+      if (!schools.some((s) => Number(s.id) === schoolId)) return;
+      socket.join(`chat:presence:school:${schoolId}`);
+    } catch (_err) {}
+  });
+
+  socket.on('chat:join-thread', async (payload = {}) => {
+    try {
+      const threadId = Number(payload.thread_id || 0);
+      if (!threadId) return;
+      const schoolId = Number(payload.school_id || 0);
+      if (!schoolId) return;
+      const canRead = await (async () => {
+        if (identity.type === 'USER') {
+          const [[row]] = await promisePool.query(
+            `SELECT id FROM school_chat_participants
+             WHERE thread_id = ? AND school_id = ? AND participant_type = 'USER' AND user_id = ? LIMIT 1`,
+            [threadId, schoolId, identity.user_id]
+          );
+          return !!row;
+        }
+        const [[row]] = await promisePool.query(
+          `SELECT id FROM school_chat_participants
+           WHERE thread_id = ? AND school_id = ? AND participant_type = 'PARENT' AND parent_phone = ? LIMIT 1`,
+          [threadId, schoolId, identity.parent_phone]
+        );
+        return !!row;
+      })();
+      if (canRead) {
+        socket.join(`chat:thread:${threadId}`);
+      }
+    } catch (_err) {}
+  });
+
+  socket.on('chat:typing', async (payload = {}) => {
+    try {
+      const threadId = Number(payload.thread_id || 0);
+      const schoolId = Number(payload.school_id || 0);
+      const isTyping = Boolean(payload.is_typing);
+      if (!threadId || !schoolId) return;
+      const canRead = await (async () => {
+        if (identity.type === 'USER') {
+          const [[row]] = await promisePool.query(
+            `SELECT id FROM school_chat_participants
+             WHERE thread_id = ? AND school_id = ? AND participant_type = 'USER' AND user_id = ? LIMIT 1`,
+            [threadId, schoolId, identity.user_id]
+          );
+          return !!row;
+        }
+        const [[row]] = await promisePool.query(
+          `SELECT id FROM school_chat_participants
+           WHERE thread_id = ? AND school_id = ? AND participant_type = 'PARENT' AND parent_phone = ? LIMIT 1`,
+          [threadId, schoolId, identity.parent_phone]
+        );
+        return !!row;
+      })();
+      if (!canRead) return;
+      socket.to(`chat:thread:${threadId}`).emit('chat:typing', {
+        thread_id: threadId,
+        school_id: schoolId,
+        is_typing: isTyping,
+        sender: identity.type === 'USER'
+          ? { type: 'USER', user_id: identity.user_id }
+          : { type: 'PARENT', parent_phone: identity.parent_phone },
+      });
+    } catch (_err) {}
+  });
+
+  socket.on('disconnect', () => {
+    if (identity.type === 'USER' && identity.user_id) {
+      dropCount(onlineUserSockets, identity.user_id);
+    }
+    if (identity.type === 'PARENT' && identity.parent_phone) {
+      dropCount(onlineParentSockets, identity.parent_phone);
+    }
+    emitPresenceForIdentity(identity, socket.data.schoolIds || [], 'offline');
+  });
+});
+
+// ============================================================
 // GLOBAL MULTER PASS-THROUGH
 // ============================================================
 const globalUpload = multer({
@@ -370,6 +554,7 @@ const MULTER_SELF_MANAGED = [
   '/api/public/schools',
   '/api/auth',
   '/api/students',
+  '/api/chat',
   '/api/requirement-prices',
   '/api/student-services',
   '/api/standard-shule-kits',
@@ -628,6 +813,10 @@ const studentTransferRoutes = require('./BabyeyiRoutes/studentTransfer');
 console.log('  ✅  studentTransfer.js');
 const parentPortalRoutes = require('./BabyeyiRoutes/parentPortal');
 console.log('  ✅  parentPortal.js');
+const onlineServiceRoutes = require('./BabyeyiRoutes/onlineServiceRoutes');
+console.log('  ✅  onlineServiceRoutes.js');
+const studentCardsRoutes = require('./BabyeyiRoutes/studentCards');
+console.log('  ✅  studentCards.js');
 
 let locationRoutes = null;
 try {
@@ -693,6 +882,10 @@ app.use('/api/public/public-pay', publicPaySchoolFlowRoutes);
 console.log('  ✅  /api/public/public-pay/*');
 app.use('/api', parentPortalRoutes);
 console.log('  ✅  /api/parent-portal/* (early — before babyeyi-finder alias)');
+app.use('/api', onlineServiceRoutes);
+console.log('  ✅  /api/online-service/*');
+app.use('/api', studentCardsRoutes);
+console.log('  ✅  /api/student-cards/*');
 app.use('/api/parent-portal/public/babyeyi-finder', publicBabyeyiPayRoutes);
 console.log('  ✅  /api/parent-portal/public/babyeyi-finder/*');
 app.use('/api', studentRoutes);
@@ -713,6 +906,8 @@ app.use('/api', schoolRoleOperationsRoutes);
 console.log('  ✅  /api/library/*  /api/stock/*  /api/gate/*');
 app.use('/api', portalOperationsRoutes);
 console.log('  ✅  /api/store/*  /api/accountant/requisitions|expenses|payroll/*  /api/teacher-portal/requisitions  /api/tools/ticha-ai/*');
+app.use('/api', chatModule.router);
+console.log('  ✅  /api/chat/*');
 app.use('/api', studentPermissionsRoutes);
 console.log('  ✅  /api/permissions/*');
 app.use('/api/services', shuleAvanceServicesRoutes);
@@ -770,7 +965,7 @@ const startServer = async () => {
     await ensureFullSystemControllerRole();
     await ensureShuleAvanceOrgTables().catch((e) => console.warn('ensureShuleAvanceOrgTables:', e.message));
 
-    app.listen(PORT, () => {
+    httpServer.listen(PORT, () => {
       console.log(`
 ╔══════════════════════════════════════════════════════════════╗
 ║            BABYEYI API SERVER  v2.3.0                       ║
@@ -797,6 +992,10 @@ const startServer = async () => {
 ║  POST /api/admissions/school/:id   → create/update form     ║
 ║  GET  /api/admissions/slug/:slug   → public form by slug    ║
 ║  POST /api/admissions/forms/:id/apply → submit application  ║
+║  GET  /api/chat/schools             → chat schools          ║
+║  GET  /api/chat/staff               → school staff directory║
+║  GET  /api/chat/threads             → inbox threads         ║
+║  POST /api/chat/threads/:id/messages→ send chat message     ║
 ╚══════════════════════════════════════════════════════════════╝`);
     });
   } catch (err) {

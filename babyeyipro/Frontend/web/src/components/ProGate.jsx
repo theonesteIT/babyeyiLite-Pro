@@ -12,8 +12,8 @@ export const PORTAL_ROLES = {
   storekeeper: ['STOREKEEPER', 'STORE_MANAGER'],
   librarian: ['LIBRARIAN'],
   'discipline-staff': ['DISCIPLINE_STAFF'],
-  teacher: ['TEACHER', 'HOD'],
-  discipline: ['TEACHER', 'HOD'],
+  teacher: ['TEACHER'],
+  discipline: ['TEACHER', 'HOD', 'DISCIPLINE', 'DISCIPLINE_STAFF'],
 }
 
 const ROLE_HOME_PORTAL = {
@@ -24,9 +24,10 @@ const ROLE_HOME_PORTAL = {
   STOREKEEPER: 'storekeeper',
   STORE_MANAGER: 'storekeeper',
   LIBRARIAN: 'librarian',
-  DISCIPLINE_STAFF: 'discipline-staff',
+  DISCIPLINE_STAFF: 'discipline',
+  DISCIPLINE: 'discipline',
   TEACHER: 'teacher',
-  HOD: 'teacher',
+  HOD: 'discipline',
 }
 
 export function NotSubscribedToPro() {

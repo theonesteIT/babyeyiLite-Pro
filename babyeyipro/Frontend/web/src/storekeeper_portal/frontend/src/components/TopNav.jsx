@@ -24,7 +24,7 @@ const TopNav = ({ title, onMenuClick }) => {
         : '?';
 
     return (
-        <header className="h-14 flex items-center justify-between px-4 md:px-6 bg-white/80 backdrop-blur-xl border-b border-black/5 sticky top-0 z-30 gap-3 font-sans">
+        <header className="h-14 flex items-center justify-between px-4 md:px-6 bg-white/80 backdrop-blur-xl border-b border-black/5 sticky top-0 z-20 gap-3 font-sans">
 
             {/* Left — hamburger + page title */}
             <div className="flex items-center gap-3 shrink-0">

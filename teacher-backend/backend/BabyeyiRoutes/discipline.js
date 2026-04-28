@@ -39,6 +39,10 @@ let tablesReady = false;
 async function ensureDisciplineTables() {
   if (tablesReady) return;
   await promisePool.query(`
+    ALTER TABLE students
+      ADD COLUMN IF NOT EXISTS discipline_marks DECIMAL(8,2) NULL
+  `);
+  await promisePool.query(`
     CREATE TABLE IF NOT EXISTS school_discipline_settings (
       school_id INT UNSIGNED NOT NULL PRIMARY KEY,
       total_marks DECIMAL(8,2) NOT NULL DEFAULT 100.00,
@@ -47,6 +51,14 @@ async function ensureDisciplineTables() {
       cases_book_status ENUM('ACTIVE', 'ARCHIVED') NOT NULL DEFAULT 'ACTIVE',
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       updated_by_user_id INT UNSIGNED NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS school_discipline_default_marks (
+      school_id INT UNSIGNED NOT NULL PRIMARY KEY,
+      default_marks DECIMAL(8,2) NOT NULL DEFAULT 40.00,
+      last_updated DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      updated_by INT UNSIGNED NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
@@ -86,16 +98,47 @@ async function ensureDisciplineTables() {
 
 async function getSettingsForSchool(schoolId) {
   const [[row]] = await promisePool.query(
-    'SELECT total_marks, starting_marks, permissions_enabled, cases_book_status FROM school_discipline_settings WHERE school_id = ? LIMIT 1',
+    `SELECT
+      s.total_marks,
+      s.starting_marks,
+      s.permissions_enabled,
+      s.cases_book_status,
+      d.default_marks,
+      d.last_updated,
+      d.updated_by
+    FROM school_discipline_settings s
+    LEFT JOIN school_discipline_default_marks d ON d.school_id = s.school_id
+    WHERE s.school_id = ?
+    LIMIT 1`,
     [schoolId]
   );
-  if (row) return {
-    total_marks: Number(row.total_marks),
-    starting_marks: Number(row.starting_marks),
-    permissions_enabled: !!row.permissions_enabled,
-    cases_book_status: row.cases_book_status
+  if (row) {
+    const fallbackDefault = Number(row.starting_marks ?? row.total_marks ?? 40);
+    return {
+      total_marks: Number(row.total_marks),
+      starting_marks: Number(row.starting_marks),
+      permissions_enabled: !!row.permissions_enabled,
+      cases_book_status: row.cases_book_status,
+      default_marks: row.default_marks != null ? Number(row.default_marks) : fallbackDefault,
+      last_updated: row.last_updated || null,
+      updated_by: row.updated_by || null,
+    };
+  }
+
+  const [[defaultsOnly]] = await promisePool.query(
+    'SELECT default_marks, last_updated, updated_by FROM school_discipline_default_marks WHERE school_id = ? LIMIT 1',
+    [schoolId]
+  );
+  const defaultMarks = defaultsOnly?.default_marks != null ? Number(defaultsOnly.default_marks) : 40;
+  return {
+    total_marks: 100,
+    starting_marks: 100,
+    permissions_enabled: true,
+    cases_book_status: 'ACTIVE',
+    default_marks: defaultMarks,
+    last_updated: defaultsOnly?.last_updated || null,
+    updated_by: defaultsOnly?.updated_by || null,
   };
-  return { total_marks: 100, starting_marks: 100, permissions_enabled: true, cases_book_status: 'ACTIVE' };
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -160,6 +203,73 @@ router.put('/discipline/settings', requireRole(HOD_ONLY), async (req, res) => {
   } catch (err) {
     console.error('PUT /discipline/settings:', err);
     return res.status(500).json({ success: false, message: 'Failed to save settings' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+// PUT /api/discipline/settings/default-marks
+// body: { default_marks, apply_to: 'new'|'all', confirmed_overwrite?: boolean }
+// ════════════════════════════════════════════════════════════════
+router.put('/discipline/settings/default-marks', requireRole(HOD_ONLY), async (req, res) => {
+  try {
+    await ensureDisciplineTables();
+    const schoolId = resolveSchoolId(req);
+    const userId = resolveUserId(req);
+    if (!schoolId || !userId) {
+      return res.status(400).json({ success: false, message: 'Invalid session.' });
+    }
+
+    const defaultMarks = Number(req.body?.default_marks);
+    const applyTo = trimStr(req.body?.apply_to || 'new').toLowerCase();
+    const confirmed = !!req.body?.confirmed_overwrite;
+
+    if (Number.isNaN(defaultMarks) || defaultMarks < 0 || defaultMarks > 100) {
+      return res.status(400).json({
+        success: false,
+        message: 'default_marks must be a number between 0 and 100.',
+      });
+    }
+    if (!['new', 'all'].includes(applyTo)) {
+      return res.status(400).json({ success: false, message: 'apply_to must be "new" or "all".' });
+    }
+    if (applyTo === 'all' && !confirmed) {
+      return res.status(400).json({
+        success: false,
+        message: 'Confirmation required to overwrite all students.',
+      });
+    }
+
+    await promisePool.query(
+      `INSERT INTO school_discipline_default_marks (school_id, default_marks, updated_by)
+       VALUES (?,?,?)
+       ON DUPLICATE KEY UPDATE
+         default_marks = VALUES(default_marks),
+         updated_by = VALUES(updated_by)`,
+      [schoolId, defaultMarks, userId]
+    );
+
+    let updateSql = 'UPDATE students SET discipline_marks = ? WHERE school_id = ?';
+    const updateParams = [defaultMarks, schoolId];
+    if (applyTo === 'new') {
+      updateSql += ' AND discipline_marks IS NULL';
+    }
+    const [updateResult] = await promisePool.query(updateSql, updateParams);
+
+    const settings = await getSettingsForSchool(schoolId);
+    return res.json({
+      success: true,
+      message: applyTo === 'all'
+        ? 'Default marks saved and applied to all students.'
+        : 'Default marks saved and applied to new students only.',
+      data: {
+        ...settings,
+        updated_students: Number(updateResult?.affectedRows || 0),
+        apply_to: applyTo,
+      },
+    });
+  } catch (err) {
+    console.error('PUT /discipline/settings/default-marks:', err);
+    return res.status(500).json({ success: false, message: 'Failed to update default marks.' });
   }
 });
 

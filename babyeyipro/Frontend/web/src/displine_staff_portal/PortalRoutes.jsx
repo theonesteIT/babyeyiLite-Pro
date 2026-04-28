@@ -13,6 +13,8 @@ import DisciplineConfig from './frontend/src/pages/DisciplineConfig'
 import LearnersConduct from './frontend/src/pages/LearnersConduct'
 import ConductReports from './frontend/src/pages/ConductReports'
 import StudentPermissions from './frontend/src/pages/StudentPermissions'
+import StaffPayroll from './frontend/src/pages/StaffPayroll'
+import ChatCenter from '../shared/pages/ChatCenter'
 
 function LoadingScreen() {
   return (
@@ -42,11 +44,14 @@ function DisciplineStaffRoutesInner() {
       <Route path="students" element={<ProtectedRoute title="Learners & discipline"><LearnersConduct /></ProtectedRoute>} />
       <Route path="timetable" element={<ProtectedRoute title="School schedule"><Timetable /></ProtectedRoute>} />
       <Route path="attendance" element={<ProtectedRoute title="Attendance"><Attendance /></ProtectedRoute>} />
+      <Route path="my-payroll" element={<ProtectedRoute title="My Payroll"><StaffPayroll /></ProtectedRoute>} />
+      <Route path="payroll" element={<Navigate to="my-payroll" replace />} />
       <Route path="marks/view" element={<ProtectedRoute title="Academic marks (view)"><ViewMarks /></ProtectedRoute>} />
       <Route path="marks/record" element={<Navigate to="students" replace />} />
       <Route path="conduct/reports" element={<ProtectedRoute title="Conduct reports"><ConductReports /></ProtectedRoute>} />
       <Route path="permissions" element={<ProtectedRoute title="Student permissions"><StudentPermissions /></ProtectedRoute>} />
       <Route path="settings" element={<ProtectedRoute title="Discipline Config"><DisciplineConfig /></ProtectedRoute>} />
+      <Route path="chat" element={<ProtectedRoute title="Chat center"><ChatCenter /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/discipline-staff" replace />} />
     </Routes>
   )

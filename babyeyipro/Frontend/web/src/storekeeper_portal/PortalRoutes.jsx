@@ -7,8 +7,10 @@ import Inventory from './frontend/src/pages/Inventory'
 import StockMovements from './frontend/src/pages/StockMovements'
 import Requisitions from './frontend/src/pages/Requisitions'
 import Suppliers from './frontend/src/pages/Suppliers'
+import StaffPayroll from './frontend/src/pages/StaffPayroll'
 import ShuleAvance from './frontend/src/pages/ShuleAvance'
 import TichaAI from './frontend/src/pages/TichaAI'
+import ChatCenter from '../shared/pages/ChatCenter'
 
 function LoadingScreen() {
   return (
@@ -36,8 +38,11 @@ function StorekeeperRoutesInner() {
       <Route path="movements" element={<ProtectedRoute title="Stock Movements"><StockMovements /></ProtectedRoute>} />
       <Route path="requisitions" element={<ProtectedRoute title="Requisitions"><Requisitions /></ProtectedRoute>} />
       <Route path="suppliers" element={<ProtectedRoute title="Suppliers"><Suppliers /></ProtectedRoute>} />
+      <Route path="my-payroll" element={<ProtectedRoute title="My Payroll"><StaffPayroll /></ProtectedRoute>} />
+      <Route path="payroll" element={<Navigate to="my-payroll" replace />} />
       <Route path="shule-avance" element={<ProtectedRoute title="Shule Avance"><ShuleAvance /></ProtectedRoute>} />
       <Route path="ticha-ai" element={<ProtectedRoute title="TichaAI"><TichaAI /></ProtectedRoute>} />
+      <Route path="chat" element={<ProtectedRoute title="Chat center"><ChatCenter /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/storekeeper" replace />} />
     </Routes>
   )

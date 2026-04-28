@@ -5,15 +5,21 @@ import {
     Banknote,
     ClipboardCheck,
     Wallet,
+    DollarSign,
+    MessageSquare,
 } from 'lucide-react';
+import useChatUnread from '../../../../shared/hooks/useChatUnread';
 
 const BottomNav = () => {
+    const unreadCount = useChatUnread();
     const navItems = [
         { icon: LayoutDashboard, name: 'Home', path: '/accountant', exact: true },
         { icon: Receipt, name: 'Fees', path: '/fees' },
         { icon: Banknote, name: 'Expenses', path: '/expenses' },
         { icon: ClipboardCheck, name: 'Payroll', path: '/payroll/history' },
+        { icon: DollarSign, name: 'My Payroll', path: '/my-payroll' },
         { icon: Wallet, name: 'Avance', path: '/shule-avance' },
+        { icon: MessageSquare, name: 'Chat', path: '/chat', badgeCount: unreadCount },
     ];
 
     return (
@@ -29,7 +35,14 @@ const BottomNav = () => {
               ${isActive ? 'text-re-orange' : 'text-gray-400'}
             `}
                     >
-                        <item.icon size={20} strokeWidth={2} />
+                        <div className="relative">
+                            <item.icon size={20} strokeWidth={2} />
+                            {item.badgeCount > 0 && (
+                                <span className="absolute -top-2 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[9px] leading-4 text-center">
+                                    {item.badgeCount > 99 ? '99+' : item.badgeCount}
+                                </span>
+                            )}
+                        </div>
                         <span className="text-[9px] font-bold uppercase tracking-wider">
                             {item.name}
                         </span>

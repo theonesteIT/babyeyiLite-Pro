@@ -299,7 +299,7 @@ export default function StudentWizardModal({ open, onClose, session, toast, onSu
   const handlePhotoChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    if (!file.type.startsWith("image/")) { setError("Please select an image file."); return; }
+    if (!["image/jpeg", "image/jpg", "image/png"].includes(file.type)) { setError("Only JPG and PNG images are allowed."); return; }
     if (file.size > 5 * 1024 * 1024) { setError("Image size must be less than 5MB."); return; }
     setPhotoFile(file);
     const reader = new FileReader();
@@ -340,6 +340,11 @@ export default function StudentWizardModal({ open, onClose, session, toast, onSu
           setLoading(false);
           return;
         }
+        // Auto-build card cache right after photo upload so card pages are instant.
+        await fetch(`${API}/api/student-cards/cache/refresh/${studentId}`, {
+          method: "POST",
+          credentials: "include",
+        }).catch(() => null);
       }
       
       if(toast) toast(isEdit ? "Student updated" : "Student registered", "success");
@@ -515,7 +520,7 @@ export default function StudentWizardModal({ open, onClose, session, toast, onSu
                             <div className="w-full sm:w-1/3 flex flex-col items-center">
                               <label className="text-[8px] font-black text-[#1E3A5F] uppercase tracking-[0.2em] mb-1.5 self-start opacity-80">Profile Portrait</label>
                               <div className="relative group cursor-pointer w-28 h-28 rounded-2xl overflow-hidden border-2 border-dashed border-[#1E3A5F]/20 hover:border-re-gold transition-colors bg-re-bg flex flex-col justify-center items-center">
-                                <input type="file" disabled={loading} accept="image/png, image/jpeg, image/webp" className="absolute inset-0 opacity-0 cursor-pointer z-10" onChange={handlePhotoChange} />
+                                <input type="file" disabled={loading} accept="image/png, image/jpeg" className="absolute inset-0 opacity-0 cursor-pointer z-10" onChange={handlePhotoChange} />
                                 {(photoPreview || editStudent?.student_photo_url) ? (
                                   <img src={photoPreview || `${API}${editStudent.student_photo_url}`} alt="Student" className="w-full h-full object-cover" />
                                 ) : (

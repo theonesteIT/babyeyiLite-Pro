@@ -37,6 +37,10 @@ function getRoleCode(req) {
     return String(req.user?.role_code || req.session?.user?.role?.code || '').toUpperCase();
 }
 
+function isDosRole(req) {
+    return getRoleCode(req) === 'DOS';
+}
+
 /** DOS / managers / HoD see the full school timetable; class teachers only their own periods. */
 function isSchoolWideTimetableRole(req) {
     return ['SCHOOL_ADMIN', 'SCHOOL_MANAGER', 'DOS', 'HOD'].includes(getRoleCode(req));
@@ -71,7 +75,31 @@ function attendanceDbToUi(dbStatus) {
 
 let teacherTablesReady = false;
 async function ensureTeacherTables() {
-    if (teacherTablesReady) return;
+    if (teacherTablesReady) {
+        const required = [
+            'attendance_class',
+            'attendance_class_details',
+            'attendance_student',
+            'attendance_teacher',
+            'attendance_teacher_class',
+            'parent_notification_queue',
+        ];
+        try {
+            const [rows] = await promisePool.query(
+                `SELECT LOWER(TABLE_NAME) AS table_name
+                 FROM information_schema.tables
+                 WHERE table_schema = DATABASE()`
+            );
+            const existing = new Set((rows || []).map((r) => String(r.table_name || '').toLowerCase()));
+            const missing = required.some((t) => !existing.has(t));
+            if (!missing) return;
+            teacherTablesReady = false;
+            console.warn('[attendance-module] Missing tables detected, running ensureTeacherTables migration.');
+        } catch (e) {
+            console.warn('[attendance-module] Could not verify table existence, forcing migration:', e.message);
+            teacherTablesReady = false;
+        }
+    }
 
     await promisePool.query(`
       CREATE TABLE IF NOT EXISTS academic_timetables (
@@ -88,6 +116,22 @@ async function ensureTeacherTables() {
         INDEX idx_tt_school_staff (school_id, staff_id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
+    await promisePool.query('ALTER TABLE academic_timetables ADD COLUMN term VARCHAR(32) NULL').catch(() => {});
+    await promisePool.query('ALTER TABLE academic_timetables ADD COLUMN academic_year VARCHAR(32) NULL').catch(() => {});
+    await promisePool.query(
+        `UPDATE academic_timetables
+         SET term = CASE
+             WHEN term IS NULL OR TRIM(term) = '' THEN 'Term 1'
+             ELSE term
+         END,
+         academic_year = CASE
+             WHEN academic_year IS NULL OR TRIM(academic_year) = '' THEN '2025-2026'
+             ELSE academic_year
+         END
+         WHERE term IS NULL OR TRIM(term) = '' OR academic_year IS NULL OR TRIM(academic_year) = ''`
+    ).catch((e) => {
+        console.warn('[migration] Backfill academic_timetables term/year skipped:', e.message);
+    });
 
     await promisePool.query(`
       CREATE TABLE IF NOT EXISTS academic_attendance_logs (
@@ -101,6 +145,9 @@ async function ensureTeacherTables() {
         INDEX idx_att_log_date (school_id, timetable_id, record_date)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
+    await promisePool.query(
+        'ALTER TABLE academic_attendance_logs ADD UNIQUE KEY uq_attendance_single (school_id, timetable_id, record_date)'
+    ).catch(() => {});
 
     await promisePool.query(`
       CREATE TABLE IF NOT EXISTS academic_attendance_records (
@@ -110,6 +157,131 @@ async function ensureTeacherTables() {
         status VARCHAR(32) NOT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         INDEX idx_att_rec (log_id, student_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+    await promisePool.query('ALTER TABLE academic_attendance_records ADD COLUMN remarks VARCHAR(255) NULL').catch(() => {});
+
+    await promisePool.query(`
+      CREATE TABLE IF NOT EXISTS teacher_attendance_logs (
+        id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        school_id INT UNSIGNED NOT NULL,
+        teacher_user_id INT UNSIGNED NOT NULL,
+        record_date DATE NOT NULL,
+        status ENUM('Present', 'Absent', 'Late', 'Excused') NOT NULL DEFAULT 'Present',
+        remarks VARCHAR(255) NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_teacher_day (school_id, teacher_user_id, record_date),
+        INDEX idx_teacher_day (school_id, record_date)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+
+    await promisePool.query(`
+      CREATE TABLE IF NOT EXISTS attendance_class (
+        id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        school_id INT UNSIGNED NOT NULL,
+        class_id VARCHAR(120) NOT NULL,
+        attendance_date DATE NOT NULL,
+        term VARCHAR(32) NOT NULL,
+        academic_year VARCHAR(32) NOT NULL,
+        created_by_user_id INT UNSIGNED NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_attendance_class_scope (school_id, class_id, attendance_date, term, academic_year),
+        INDEX idx_attendance_class_date (school_id, attendance_date)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+
+    await promisePool.query(`
+      CREATE TABLE IF NOT EXISTS attendance_class_details (
+        id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        attendance_id INT UNSIGNED NOT NULL,
+        student_id INT UNSIGNED NOT NULL,
+        period VARCHAR(24) NOT NULL,
+        status ENUM('Present', 'Absent', 'Late', 'Excused') NOT NULL DEFAULT 'Present',
+        remarks VARCHAR(255) NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_attendance_class_detail (attendance_id, student_id, period),
+        INDEX idx_attendance_class_student (student_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+
+    await promisePool.query(`
+      CREATE TABLE IF NOT EXISTS attendance_student (
+        id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        school_id INT UNSIGNED NOT NULL,
+        student_id INT UNSIGNED NOT NULL,
+        attendance_date DATE NOT NULL,
+        check_in DATETIME NULL,
+        check_out DATETIME NULL,
+        status_in ENUM('On time', 'Late', 'Absent') DEFAULT 'Absent',
+        status_out ENUM('Checked out', 'Missing') DEFAULT 'Missing',
+        source_in ENUM('MANUAL', 'RFID') DEFAULT 'MANUAL',
+        source_out ENUM('MANUAL', 'RFID') DEFAULT 'MANUAL',
+        notes VARCHAR(255) NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_attendance_student_day (school_id, student_id, attendance_date),
+        INDEX idx_attendance_student_date (school_id, attendance_date)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+
+    await promisePool.query(`
+      CREATE TABLE IF NOT EXISTS attendance_teacher (
+        id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        school_id INT UNSIGNED NOT NULL,
+        teacher_id INT UNSIGNED NOT NULL,
+        attendance_date DATE NOT NULL,
+        check_in DATETIME NULL,
+        check_out DATETIME NULL,
+        status_in ENUM('Present', 'Late', 'Absent', 'Excused') DEFAULT 'Absent',
+        status_out ENUM('Checked out', 'Missing') DEFAULT 'Missing',
+        source_in ENUM('MANUAL', 'RFID') DEFAULT 'MANUAL',
+        source_out ENUM('MANUAL', 'RFID') DEFAULT 'MANUAL',
+        remarks VARCHAR(255) NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_attendance_teacher_day (school_id, teacher_id, attendance_date),
+        INDEX idx_attendance_teacher_date (school_id, attendance_date)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+
+    await promisePool.query(`
+      CREATE TABLE IF NOT EXISTS attendance_teacher_class (
+        id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        school_id INT UNSIGNED NOT NULL,
+        teacher_id INT UNSIGNED NOT NULL,
+        class_id VARCHAR(120) NOT NULL,
+        period VARCHAR(24) NOT NULL,
+        course VARCHAR(120) NULL,
+        attendance_date DATE NOT NULL,
+        check_time DATETIME NULL,
+        status ENUM('Present', 'Missed', 'Late') DEFAULT 'Missed',
+        source ENUM('MANUAL', 'RFID', 'AUTO') DEFAULT 'AUTO',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_attendance_teacher_class_day (school_id, teacher_id, class_id, period, attendance_date),
+        INDEX idx_attendance_teacher_class_date (school_id, attendance_date)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+
+    await promisePool.query(`
+      CREATE TABLE IF NOT EXISTS parent_notification_queue (
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        school_id INT UNSIGNED NOT NULL,
+        student_id INT UNSIGNED NOT NULL,
+        attendance_date DATE NOT NULL,
+        channel ENUM('IN_APP', 'WEB') NOT NULL DEFAULT 'IN_APP',
+        category ENUM('ABSENT', 'LATE', 'MISSING_CHECKOUT', 'MANUAL') NOT NULL DEFAULT 'MANUAL',
+        title VARCHAR(180) NOT NULL,
+        body TEXT NOT NULL,
+        status ENUM('PENDING', 'SENT', 'FAILED') NOT NULL DEFAULT 'PENDING',
+        metadata_json JSON NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        sent_at DATETIME NULL,
+        INDEX idx_parent_notification_school (school_id, attendance_date),
+        INDEX idx_parent_notification_status (status, created_at)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
 
@@ -195,7 +367,47 @@ async function ensureTeacherTables() {
     teacherTablesReady = true;
 }
 
-// Ensure middleware hook runs for routes
+function normalizePeriodLabel(startTime) {
+    const [hRaw, mRaw] = String(startTime || '00:00').split(':');
+    const h = Number(hRaw || 0);
+    const m = Number(mRaw || 0);
+    const total = h * 60 + m;
+    if (total < 540) return 'P1';
+    if (total < 600) return 'P2';
+    if (total < 660) return 'P3';
+    if (total < 720) return 'P4';
+    if (total < 780) return 'P5';
+    if (total < 840) return 'P6';
+    return 'P7';
+}
+
+function toSqlDate(dateStr) {
+    const d = dateStr ? new Date(dateStr) : new Date();
+    return d.toISOString().slice(0, 10);
+}
+
+function toDayName(dateStr) {
+    return new Date(`${dateStr}T12:00:00`).toLocaleDateString('en-US', { weekday: 'long' });
+}
+
+function toClassStatusValue(v) {
+    const key = String(v || '').toLowerCase().trim();
+    if (key === 'present') return 'Present';
+    if (key === 'absent') return 'Absent';
+    if (key === 'late') return 'Late';
+    return 'Excused';
+}
+
+function fromTeacherRecordStatus(v) {
+    const s = String(v || '').toLowerCase().trim();
+    if (s === 'present') return 'Present';
+    if (s === 'absent' || s === 'sick') return 'Absent';
+    if (s === 'late') return 'Late';
+    if (s === 'excused' || s === 'permission') return 'Excused';
+    return 'Present';
+}
+
+// Ensure attendance schema exists before any route handler executes.
 router.use(async (req, res, next) => {
     try {
         await ensureTeacherTables();
@@ -203,6 +415,714 @@ router.use(async (req, res, next) => {
     } catch (e) {
         console.error('Failed to init teacher tables:', e);
         res.status(500).json({ success: false, message: 'Database initialization failed.' });
+    }
+});
+
+async function enqueueParentNotification({
+    schoolId,
+    studentId,
+    attendanceDate,
+    channel = 'IN_APP',
+    category = 'MANUAL',
+    title,
+    body,
+    metadata = null,
+}) {
+    if (!schoolId || !studentId || !attendanceDate || !title || !body) return;
+    await promisePool.query(
+        `INSERT INTO parent_notification_queue
+         (school_id, student_id, attendance_date, channel, category, title, body, status, metadata_json)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING', ?)`,
+        [schoolId, studentId, attendanceDate, channel, category, title, body, metadata ? JSON.stringify(metadata) : null]
+    );
+}
+
+router.get('/attendance-module/meta', requireTeacherRole, async (req, res) => {
+    try {
+        const schoolId = resolveSchoolId(req);
+        const userId = resolveUserId(req);
+        if (!schoolId) return res.status(400).json({ success: false, message: 'No school linked' });
+        const wide = isSchoolWideTimetableRole(req);
+        const where = wide ? 'WHERE school_id = ?' : 'WHERE school_id = ? AND staff_id = ?';
+        const params = wide ? [schoolId] : [schoolId, userId];
+        const [rows] = await promisePool.query(
+            `SELECT DISTINCT class_name, term, academic_year
+             FROM academic_timetables ${where}
+             ORDER BY class_name ASC`,
+            params
+        );
+        const [studentClassRows] = await promisePool.query(
+            `SELECT DISTINCT class_name
+             FROM students
+             WHERE school_id = ? AND class_name IS NOT NULL AND TRIM(class_name) <> ''
+             ORDER BY class_name ASC`,
+            [schoolId]
+        );
+        const timetableClasses = rows.map((r) => normalizeGradebookLabel(r.class_name)).filter(Boolean);
+        const studentClasses = (studentClassRows || []).map((r) => normalizeGradebookLabel(r.class_name)).filter(Boolean);
+        const classes = Array.from(new Set([...studentClasses, ...timetableClasses]));
+        const terms = Array.from(new Set(rows.map((r) => String(r.term || '').trim()).filter(Boolean)));
+        const years = Array.from(new Set(rows.map((r) => String(r.academic_year || '').trim()).filter(Boolean)));
+        res.json({
+            success: true,
+            data: {
+                classes,
+                timetableClasses: Array.from(new Set(timetableClasses)),
+                studentClasses: Array.from(new Set(studentClasses)),
+                terms,
+                years,
+            },
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: 'Failed to load attendance metadata' });
+    }
+});
+
+router.get('/attendance-module/class-period', requireTeacherRole, async (req, res) => {
+    try {
+        const schoolId = resolveSchoolId(req);
+        const userId = resolveUserId(req);
+        if (!schoolId) return res.status(400).json({ success: false, message: 'No school linked' });
+        const className = normalizeGradebookLabel(req.query.class_name || '');
+        const term = String(req.query.term || '').trim();
+        const academicYear = String(req.query.academic_year || '').trim();
+        const date = toSqlDate(req.query.date);
+        if (!className || !term || !academicYear) {
+            return res.status(400).json({ success: false, message: 'class_name, term and academic_year are required' });
+        }
+        const dayName = toDayName(date);
+        const wide = isSchoolWideTimetableRole(req);
+        let [ttRows] = await promisePool.query(
+            `SELECT t.id, t.class_name, t.subject_name, t.start_time, t.end_time, t.staff_id,
+                    t.day_of_week,
+                    TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))) AS teacher_name
+             FROM academic_timetables t
+             LEFT JOIN users u ON u.id = t.staff_id
+             WHERE t.school_id = ?
+               AND (${sqlNormLabelEquals('t.class_name')})
+               AND t.term = ?
+               AND t.academic_year = ?
+               AND t.day_of_week = ?
+               ${wide ? '' : 'AND t.staff_id = ?'}
+             ORDER BY t.start_time ASC`,
+            wide ? [schoolId, className, term, academicYear, dayName] : [schoolId, className, term, academicYear, dayName, userId]
+        );
+        let timetableMode = 'exact_day';
+        if (!ttRows.length) {
+            // Fallback: if selected date has no exact day timetable, still load available class periods.
+            [ttRows] = await promisePool.query(
+                `SELECT t.id, t.class_name, t.subject_name, t.start_time, t.end_time, t.staff_id,
+                        t.day_of_week,
+                        TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))) AS teacher_name
+                 FROM academic_timetables t
+                 LEFT JOIN users u ON u.id = t.staff_id
+                 WHERE t.school_id = ?
+                   AND (${sqlNormLabelEquals('t.class_name')})
+                   AND t.term = ?
+                   AND t.academic_year = ?
+                   ${wide ? '' : 'AND t.staff_id = ?'}
+                 ORDER BY t.day_of_week ASC, t.start_time ASC`,
+                wide ? [schoolId, className, term, academicYear] : [schoolId, className, term, academicYear, userId]
+            );
+            timetableMode = 'fallback_any_day';
+        }
+        if (!ttRows.length) {
+            // Fallback 2: class + academic year (ignore term/day)
+            [ttRows] = await promisePool.query(
+                `SELECT t.id, t.class_name, t.subject_name, t.start_time, t.end_time, t.staff_id,
+                        t.day_of_week,
+                        TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))) AS teacher_name
+                 FROM academic_timetables t
+                 LEFT JOIN users u ON u.id = t.staff_id
+                 WHERE t.school_id = ?
+                   AND (${sqlNormLabelEquals('t.class_name')})
+                   AND t.academic_year = ?
+                   ${wide ? '' : 'AND t.staff_id = ?'}
+                 ORDER BY t.day_of_week ASC, t.start_time ASC`,
+                wide ? [schoolId, className, academicYear] : [schoolId, className, academicYear, userId]
+            );
+            timetableMode = 'fallback_year_only';
+        }
+        if (!ttRows.length) {
+            // Fallback 3: class only (ignore term/year/day) so DOS still sees period structure.
+            [ttRows] = await promisePool.query(
+                `SELECT t.id, t.class_name, t.subject_name, t.start_time, t.end_time, t.staff_id,
+                        t.day_of_week,
+                        TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))) AS teacher_name
+                 FROM academic_timetables t
+                 LEFT JOIN users u ON u.id = t.staff_id
+                 WHERE t.school_id = ?
+                   AND (${sqlNormLabelEquals('t.class_name')})
+                   ${wide ? '' : 'AND t.staff_id = ?'}
+                 ORDER BY t.day_of_week ASC, t.start_time ASC`,
+                wide ? [schoolId, className] : [schoolId, className, userId]
+            );
+            timetableMode = 'fallback_class_only';
+        }
+        // Build dense period labels from actual timetable rows (P1..Pn), not fixed time buckets.
+        const uniqueStarts = Array.from(
+            new Set(
+                (ttRows || [])
+                    .map((r) => String(r.start_time || '').trim())
+                    .filter(Boolean)
+            )
+        ).sort();
+        const periodByStart = new Map(uniqueStarts.map((start, idx) => [start, `P${idx + 1}`]));
+
+        const seenPeriod = new Set();
+        const periods = ttRows.map((r) => {
+            const period = periodByStart.get(String(r.start_time || '').trim()) || normalizePeriodLabel(r.start_time);
+            if (seenPeriod.has(period)) return null;
+            seenPeriod.add(period);
+            return {
+                period,
+                subject: r.subject_name,
+                start_time: r.start_time,
+                end_time: r.end_time,
+                day_of_week: r.day_of_week,
+                timetable_id: r.id,
+                teacher_name: r.teacher_name || '',
+            };
+        }).filter(Boolean);
+        const [students] = await promisePool.query(
+            `SELECT id, student_uid, CONCAT(first_name, ' ', last_name) AS student_name
+             FROM students
+             WHERE school_id = ? AND (${sqlNormLabelEquals('class_name')})
+             ORDER BY first_name ASC, last_name ASC`,
+            [schoolId, className]
+        );
+        const [masterRows] = await promisePool.query(
+            `SELECT id FROM attendance_class
+             WHERE school_id = ? AND class_id = ? AND attendance_date = ? AND term = ? AND academic_year = ?
+             LIMIT 1`,
+            [schoolId, className, date, term, academicYear]
+        );
+        let detailRows = [];
+        if (masterRows.length) {
+            const [dRows] = await promisePool.query(
+                `SELECT student_id, period, status, remarks
+                 FROM attendance_class_details
+                 WHERE attendance_id = ?`,
+                [masterRows[0].id]
+            );
+            detailRows = dRows;
+        }
+        if (!detailRows.length) {
+            // Fallback to teacher-marked period attendance so DOS sees the same data as teacher page.
+            const [teacherRows] = await promisePool.query(
+                `SELECT ar.student_id, ar.status, ar.remarks, tt.start_time
+                 FROM academic_attendance_logs al
+                 INNER JOIN academic_attendance_records ar ON ar.log_id = al.id
+                 INNER JOIN academic_timetables tt ON tt.id = al.timetable_id AND tt.school_id = al.school_id
+                 WHERE al.school_id = ?
+                   AND al.record_date = ?
+                   AND (${sqlNormLabelEquals('tt.class_name')})
+                   AND tt.term = ?
+                   AND tt.academic_year = ?
+                 ORDER BY al.id DESC, ar.id DESC`,
+                [schoolId, date, className, term, academicYear]
+            );
+            const used = new Set();
+            detailRows = (teacherRows || []).map((r) => ({
+                student_id: r.student_id,
+                period: periodByStart.get(String(r.start_time || '').trim()) || normalizePeriodLabel(r.start_time),
+                status: fromTeacherRecordStatus(r.status),
+                remarks: r.remarks || '',
+            })).filter((r) => {
+                const k = `${r.student_id}:${r.period}`;
+                if (used.has(k)) return false;
+                used.add(k);
+                return true;
+            });
+        }
+        const byKey = new Map(detailRows.map((r) => [`${r.student_id}:${r.period}`, r]));
+        const roster = students.map((s) => {
+            const periodStatuses = {};
+            const remarks = [];
+            periods.forEach((p) => {
+                const row = byKey.get(`${s.id}:${p.period}`);
+                periodStatuses[p.period] = row ? row.status : 'NotMarked';
+                if (row?.remarks) remarks.push(`${p.period}: ${row.remarks}`);
+            });
+            return {
+                student_id: s.id,
+                student_uid: s.student_uid,
+                student_name: s.student_name,
+                period_statuses: periodStatuses,
+                remarks: remarks.join(' | '),
+            };
+        });
+        res.json({
+            success: true,
+            data: {
+                class_name: className,
+                term,
+                academic_year: academicYear,
+                date,
+                selected_day: dayName,
+                timetable_mode: timetableMode,
+                periods,
+                roster,
+            },
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: 'Failed to load class period attendance' });
+    }
+});
+
+router.post('/attendance-module/class-period', requireTeacherRole, async (req, res) => {
+    const conn = await promisePool.getConnection();
+    try {
+        const schoolId = resolveSchoolId(req);
+        const userId = resolveUserId(req);
+        const { class_name, term, academic_year, date, records } = req.body || {};
+        const className = normalizeGradebookLabel(class_name || '');
+        const recordDate = toSqlDate(date);
+        if (!schoolId || !className || !term || !academic_year || !Array.isArray(records)) {
+            return res.status(400).json({ success: false, message: 'Invalid payload' });
+        }
+        await conn.beginTransaction();
+        const [existing] = await conn.query(
+            `SELECT id FROM attendance_class
+             WHERE school_id = ? AND class_id = ? AND attendance_date = ? AND term = ? AND academic_year = ?
+             LIMIT 1`,
+            [schoolId, className, recordDate, term, academic_year]
+        );
+        let attendanceId = existing[0]?.id;
+        if (!attendanceId) {
+            const [ins] = await conn.query(
+                `INSERT INTO attendance_class (school_id, class_id, attendance_date, term, academic_year, created_by_user_id)
+                 VALUES (?, ?, ?, ?, ?, ?)`,
+                [schoolId, className, recordDate, term, academic_year, userId]
+            );
+            attendanceId = ins.insertId;
+        } else {
+            await conn.query('DELETE FROM attendance_class_details WHERE attendance_id = ?', [attendanceId]);
+        }
+        for (const row of records) {
+            const studentId = Number(row.student_id || 0);
+            if (!studentId || !row.period) continue;
+            await conn.query(
+                `INSERT INTO attendance_class_details (attendance_id, student_id, period, status, remarks)
+                 VALUES (?, ?, ?, ?, ?)`,
+                [attendanceId, studentId, String(row.period).trim(), toClassStatusValue(row.status), row.remarks ? String(row.remarks).slice(0, 255) : null]
+            );
+        }
+        await conn.commit();
+        res.json({ success: true, message: 'Class attendance saved' });
+    } catch (err) {
+        await conn.rollback().catch(() => {});
+        console.error(err);
+        res.status(500).json({ success: false, message: 'Failed to save class attendance' });
+    } finally {
+        conn.release();
+    }
+});
+
+router.get('/attendance-module/student-entry-exit', requireTeacherRole, async (req, res) => {
+    try {
+        const schoolId = resolveSchoolId(req);
+        if (!schoolId) return res.status(400).json({ success: false, message: 'No school linked' });
+        const date = toSqlDate(req.query.date);
+        const className = normalizeGradebookLabel(req.query.class_name || '');
+        const [rows] = await promisePool.query(
+            `SELECT s.id AS student_id, s.student_uid, CONCAT(s.first_name, ' ', s.last_name) AS student_name,
+                    a.check_in, a.check_out, a.status_in, a.status_out
+             FROM students s
+             LEFT JOIN attendance_student a
+               ON a.school_id = s.school_id AND a.student_id = s.id AND a.attendance_date = ?
+             WHERE s.school_id = ? ${className ? `AND (${sqlNormLabelEquals('s.class_name')})` : ''}
+             ORDER BY s.first_name ASC, s.last_name ASC`,
+            className ? [date, schoolId, className] : [date, schoolId]
+        );
+        const totals = {
+            total_students: rows.length,
+            on_time: rows.filter((r) => r.status_in === 'On time').length,
+            late: rows.filter((r) => r.status_in === 'Late').length,
+            absent: rows.filter((r) => r.status_in === 'Absent' || !r.status_in).length,
+            checked_out: rows.filter((r) => r.status_out === 'Checked out').length,
+            missing: rows.filter((r) => r.status_out === 'Missing' || !r.status_out).length,
+        };
+        res.json({ success: true, data: { rows, totals, date } });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: 'Failed to load student entry/exit' });
+    }
+});
+
+router.post('/attendance-module/student-entry-exit/simulate-scan', requireTeacherRole, async (req, res) => {
+    try {
+        const schoolId = resolveSchoolId(req);
+        const { student_id, direction, date } = req.body || {};
+        if (!schoolId || !student_id || !direction) {
+            return res.status(400).json({ success: false, message: 'student_id and direction are required' });
+        }
+        const recordDate = toSqlDate(date);
+        const now = new Date();
+        const hhmm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:00`;
+        const statusIn = hhmm <= '07:30:00' ? 'On time' : 'Late';
+        if (String(direction).toUpperCase() === 'IN') {
+            await promisePool.query(
+                `INSERT INTO attendance_student (school_id, student_id, attendance_date, check_in, status_in, source_in)
+                 VALUES (?, ?, ?, NOW(), ?, 'RFID')
+                 ON DUPLICATE KEY UPDATE check_in = VALUES(check_in), status_in = VALUES(status_in), source_in = 'RFID'`,
+                [schoolId, student_id, recordDate, statusIn]
+            );
+            if (statusIn === 'Late') {
+                await enqueueParentNotification({
+                    schoolId,
+                    studentId: Number(student_id),
+                    attendanceDate: recordDate,
+                    channel: 'IN_APP',
+                    category: 'LATE',
+                    title: 'Late arrival alert',
+                    body: 'Your student arrived late today.',
+                    metadata: { source: 'RFID_SIMULATION', direction: 'IN' },
+                });
+            }
+        } else {
+            await promisePool.query(
+                `INSERT INTO attendance_student (school_id, student_id, attendance_date, check_out, status_out, source_out)
+                 VALUES (?, ?, ?, NOW(), 'Checked out', 'RFID')
+                 ON DUPLICATE KEY UPDATE check_out = VALUES(check_out), status_out = 'Checked out', source_out = 'RFID'`,
+                [schoolId, student_id, recordDate]
+            );
+        }
+        res.json({ success: true, message: 'RFID scan simulated' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: 'Failed to simulate student RFID scan' });
+    }
+});
+
+router.get('/attendance-module/student-entry-exit/monthly-grid', requireTeacherRole, async (req, res) => {
+    try {
+        const schoolId = resolveSchoolId(req);
+        if (!schoolId) return res.status(400).json({ success: false, message: 'No school linked' });
+        const className = normalizeGradebookLabel(req.query.class_name || '');
+        const month = Math.min(Math.max(Number(req.query.month || new Date().getMonth() + 1), 1), 12);
+        const year = Number(req.query.year || new Date().getFullYear());
+        const firstDate = `${year}-${String(month).padStart(2, '0')}-01`;
+        const lastDate = `${year}-${String(month).padStart(2, '0')}-30`;
+
+        const [rows] = await promisePool.query(
+            `SELECT s.id AS student_id, s.student_uid, CONCAT(s.first_name, ' ', s.last_name) AS student_name,
+                    a.attendance_date, a.status_in
+             FROM students s
+             LEFT JOIN attendance_student a
+               ON a.school_id = s.school_id
+              AND a.student_id = s.id
+              AND a.attendance_date BETWEEN ? AND ?
+             WHERE s.school_id = ? ${className ? `AND (${sqlNormLabelEquals('s.class_name')})` : ''}
+             ORDER BY s.first_name ASC, s.last_name ASC, a.attendance_date ASC`,
+            className ? [firstDate, lastDate, schoolId, className] : [firstDate, lastDate, schoolId]
+        );
+
+        const byStudent = new Map();
+        for (const r of rows) {
+            if (!byStudent.has(r.student_id)) {
+                byStudent.set(r.student_id, {
+                    student_id: r.student_id,
+                    student_uid: r.student_uid,
+                    student_name: r.student_name,
+                    days: {},
+                    present_days: 0,
+                    late_days: 0,
+                    absent_days: 0,
+                });
+            }
+            if (!r.attendance_date) continue;
+            const dayNum = new Date(r.attendance_date).getDate();
+            if (dayNum > 30) continue;
+            const dayKey = String(dayNum).padStart(2, '0');
+            const statusIn = String(r.status_in || 'Absent');
+            const symbol = statusIn === 'On time' ? 'Present' : statusIn === 'Late' ? 'Late' : 'Absent';
+            const bucket = byStudent.get(r.student_id);
+            bucket.days[dayKey] = symbol;
+        }
+
+        const grid = Array.from(byStudent.values()).map((r) => {
+            for (let d = 1; d <= 30; d += 1) {
+                const k = String(d).padStart(2, '0');
+                const value = r.days[k] || 'Absent';
+                if (value === 'Present') r.present_days += 1;
+                else if (value === 'Late') r.late_days += 1;
+                else r.absent_days += 1;
+            }
+            return r;
+        });
+
+        res.json({ success: true, data: { month, year, grid } });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: 'Failed to load monthly student grid' });
+    }
+});
+
+router.get('/attendance-module/teacher', requireTeacherRole, async (req, res) => {
+    try {
+        const schoolId = resolveSchoolId(req);
+        if (!schoolId) return res.status(400).json({ success: false, message: 'No school linked' });
+        const date = toSqlDate(req.query.date);
+        const [rows] = await promisePool.query(
+            `SELECT u.id AS teacher_id, TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))) AS teacher_name,
+                    a.check_in, a.check_out, a.status_in, a.status_out, a.remarks
+             FROM users u
+             INNER JOIN roles r ON r.id = u.role_id
+             LEFT JOIN attendance_teacher a
+               ON a.school_id = u.school_id AND a.teacher_id = u.id AND a.attendance_date = ?
+             WHERE u.school_id = ? AND UPPER(r.role_code) = 'TEACHER' AND u.deleted_at IS NULL
+             ORDER BY teacher_name ASC`,
+            [date, schoolId]
+        );
+        res.json({ success: true, data: rows });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: 'Failed to load teacher attendance' });
+    }
+});
+
+router.get('/attendance-module/teacher/monthly-grid', requireTeacherRole, async (req, res) => {
+    try {
+        const schoolId = resolveSchoolId(req);
+        if (!schoolId) return res.status(400).json({ success: false, message: 'No school linked' });
+        const month = Math.min(Math.max(Number(req.query.month || new Date().getMonth() + 1), 1), 12);
+        const year = Number(req.query.year || new Date().getFullYear());
+        const firstDate = `${year}-${String(month).padStart(2, '0')}-01`;
+        const lastDate = `${year}-${String(month).padStart(2, '0')}-30`;
+        const [rows] = await promisePool.query(
+            `SELECT u.id AS teacher_id, TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))) AS teacher_name,
+                    a.attendance_date, a.status_in
+             FROM users u
+             INNER JOIN roles r ON r.id = u.role_id
+             LEFT JOIN attendance_teacher a
+               ON a.school_id = u.school_id
+              AND a.teacher_id = u.id
+              AND a.attendance_date BETWEEN ? AND ?
+             WHERE u.school_id = ? AND UPPER(r.role_code) = 'TEACHER' AND u.deleted_at IS NULL
+             ORDER BY teacher_name ASC, a.attendance_date ASC`,
+            [firstDate, lastDate, schoolId]
+        );
+        const byTeacher = new Map();
+        for (const r of rows) {
+            if (!byTeacher.has(r.teacher_id)) {
+                byTeacher.set(r.teacher_id, {
+                    teacher_id: r.teacher_id,
+                    teacher_name: r.teacher_name,
+                    days: {},
+                    present_days: 0,
+                    late_days: 0,
+                    absent_days: 0,
+                });
+            }
+            if (!r.attendance_date) continue;
+            const d = new Date(r.attendance_date).getDate();
+            if (d > 30) continue;
+            const dayKey = String(d).padStart(2, '0');
+            const st = String(r.status_in || 'Absent');
+            const value = st === 'Present' ? 'Present' : st === 'Late' ? 'Late' : 'Absent';
+            byTeacher.get(r.teacher_id).days[dayKey] = value;
+        }
+        const grid = Array.from(byTeacher.values()).map((r) => {
+            for (let d = 1; d <= 30; d += 1) {
+                const k = String(d).padStart(2, '0');
+                const value = r.days[k] || 'Absent';
+                if (value === 'Present') r.present_days += 1;
+                else if (value === 'Late') r.late_days += 1;
+                else r.absent_days += 1;
+            }
+            return r;
+        });
+        res.json({ success: true, data: { month, year, grid } });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: 'Failed to load monthly teacher grid' });
+    }
+});
+
+router.post('/attendance-module/teacher/manual', requireTeacherRole, async (req, res) => {
+    try {
+        const schoolId = resolveSchoolId(req);
+        const { teacher_id, date, status_in, remarks } = req.body || {};
+        const recordDate = toSqlDate(date);
+        if (!schoolId || !teacher_id) return res.status(400).json({ success: false, message: 'teacher_id is required' });
+        const status = ['Present', 'Absent', 'Late', 'Excused'].includes(status_in) ? status_in : 'Present';
+        await promisePool.query(
+            `INSERT INTO attendance_teacher (school_id, teacher_id, attendance_date, check_in, status_in, remarks, source_in)
+             VALUES (?, ?, ?, NOW(), ?, ?, 'MANUAL')
+             ON DUPLICATE KEY UPDATE status_in = VALUES(status_in), remarks = VALUES(remarks), check_in = COALESCE(check_in, VALUES(check_in)), source_in = 'MANUAL'`,
+            [schoolId, teacher_id, recordDate, status, remarks ? String(remarks).slice(0, 255) : null]
+        );
+        res.json({ success: true, message: 'Teacher attendance saved' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: 'Failed to save teacher attendance' });
+    }
+});
+
+router.post('/attendance-module/teacher/simulate-scan', requireTeacherRole, async (req, res) => {
+    try {
+        const schoolId = resolveSchoolId(req);
+        const { teacher_id, date } = req.body || {};
+        const recordDate = toSqlDate(date);
+        if (!schoolId || !teacher_id) return res.status(400).json({ success: false, message: 'teacher_id is required' });
+        const hhmm = new Date().toTimeString().slice(0, 8);
+        const status = hhmm <= '09:00:00' ? 'Present' : 'Late';
+        await promisePool.query(
+            `INSERT INTO attendance_teacher (school_id, teacher_id, attendance_date, check_in, status_in, source_in)
+             VALUES (?, ?, ?, NOW(), ?, 'RFID')
+             ON DUPLICATE KEY UPDATE check_in = VALUES(check_in), status_in = VALUES(status_in), source_in = 'RFID'`,
+            [schoolId, teacher_id, recordDate, status]
+        );
+        res.json({ success: true, message: 'Teacher RFID scan simulated' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: 'Failed to simulate teacher RFID scan' });
+    }
+});
+
+router.get('/attendance-module/teacher-class-checkin', requireTeacherRole, async (req, res) => {
+    try {
+        const schoolId = resolveSchoolId(req);
+        if (!schoolId) return res.status(400).json({ success: false, message: 'No school linked' });
+        const date = toSqlDate(req.query.date);
+        const dayName = toDayName(date);
+        const [expected] = await promisePool.query(
+            `SELECT t.staff_id AS teacher_id, t.class_name AS class_id, t.subject_name AS course,
+                    t.start_time, t.end_time,
+                    ${"TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, '')))"} AS teacher_name
+             FROM academic_timetables t
+             LEFT JOIN users u ON u.id = t.staff_id
+             WHERE t.school_id = ? AND t.day_of_week = ?`,
+            [schoolId, dayName]
+        );
+        for (const row of expected) {
+            const period = normalizePeriodLabel(row.start_time);
+            await promisePool.query(
+                `INSERT INTO attendance_teacher_class
+                 (school_id, teacher_id, class_id, period, course, attendance_date, status, source)
+                 VALUES (?, ?, ?, ?, ?, ?, 'Missed', 'AUTO')
+                 ON DUPLICATE KEY UPDATE course = VALUES(course)`,
+                [schoolId, row.teacher_id, normalizeGradebookLabel(row.class_id), period, row.course, date]
+            );
+        }
+        const [rows] = await promisePool.query(
+            `SELECT c.teacher_id, c.class_id, c.period, c.course, c.attendance_date,
+                    c.check_time, c.status, c.source,
+                    TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))) AS teacher_name
+             FROM attendance_teacher_class c
+             LEFT JOIN users u ON u.id = c.teacher_id
+             WHERE c.school_id = ? AND c.attendance_date = ?
+             ORDER BY teacher_name ASC, c.period ASC`,
+            [schoolId, date]
+        );
+        const byTeacher = {};
+        for (const r of rows) {
+            if (!byTeacher[r.teacher_id]) byTeacher[r.teacher_id] = { teacher_name: r.teacher_name, total: 0, attended: 0, missed: 0, late: 0 };
+            byTeacher[r.teacher_id].total += 1;
+            if (r.status === 'Present') byTeacher[r.teacher_id].attended += 1;
+            else if (r.status === 'Late') byTeacher[r.teacher_id].late += 1;
+            else byTeacher[r.teacher_id].missed += 1;
+        }
+        res.json({ success: true, data: { rows, summary: Object.values(byTeacher) } });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: 'Failed to load teacher class check-ins' });
+    }
+});
+
+router.post('/attendance-module/teacher-class-checkin/simulate-scan', requireTeacherRole, async (req, res) => {
+    try {
+        const schoolId = resolveSchoolId(req);
+        const { teacher_id, class_id, period, date } = req.body || {};
+        if (!schoolId || !teacher_id || !class_id || !period) {
+            return res.status(400).json({ success: false, message: 'teacher_id, class_id and period are required' });
+        }
+        const recordDate = toSqlDate(date);
+        const hhmm = new Date().toTimeString().slice(0, 8);
+        const status = hhmm > '09:00:00' ? 'Late' : 'Present';
+        await promisePool.query(
+            `INSERT INTO attendance_teacher_class
+             (school_id, teacher_id, class_id, period, attendance_date, check_time, status, source)
+             VALUES (?, ?, ?, ?, ?, NOW(), ?, 'RFID')
+             ON DUPLICATE KEY UPDATE check_time = VALUES(check_time), status = VALUES(status), source = 'RFID'`,
+            [schoolId, teacher_id, normalizeGradebookLabel(class_id), String(period).trim(), recordDate, status]
+        );
+        res.json({ success: true, message: 'Teacher class RFID check-in simulated' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: 'Failed to simulate class check-in' });
+    }
+});
+
+router.post('/attendance-module/teacher-class-checkin/override', requireTeacherRole, async (req, res) => {
+    try {
+        if (!isDosRole(req)) {
+            return res.status(403).json({ success: false, message: 'DOS only override' });
+        }
+        const schoolId = resolveSchoolId(req);
+        const { teacher_id, class_id, period, date, status, course } = req.body || {};
+        if (!schoolId || !teacher_id || !class_id || !period || !date) {
+            return res.status(400).json({ success: false, message: 'Missing required fields' });
+        }
+        const safeStatus = ['Present', 'Missed', 'Late'].includes(status) ? status : 'Present';
+        await promisePool.query(
+            `INSERT INTO attendance_teacher_class
+             (school_id, teacher_id, class_id, period, course, attendance_date, status, source)
+             VALUES (?, ?, ?, ?, ?, ?, ?, 'MANUAL')
+             ON DUPLICATE KEY UPDATE status = VALUES(status), source = 'MANUAL', course = COALESCE(VALUES(course), course)`,
+            [schoolId, teacher_id, normalizeGradebookLabel(class_id), String(period).trim(), course || null, toSqlDate(date), safeStatus]
+        );
+        res.json({ success: true, message: 'Teacher class check-in overridden' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: 'Failed to override class check-in' });
+    }
+});
+
+router.get('/attendance-module/parent-notifications', requireTeacherRole, async (req, res) => {
+    try {
+        const schoolId = resolveSchoolId(req);
+        if (!schoolId) return res.status(400).json({ success: false, message: 'No school linked' });
+        const date = toSqlDate(req.query.date);
+        const [rows] = await promisePool.query(
+            `SELECT q.id, q.student_id, q.attendance_date, q.channel, q.category, q.title, q.body, q.status, q.created_at,
+                    CONCAT(COALESCE(s.first_name, ''), ' ', COALESCE(s.last_name, '')) AS student_name
+             FROM parent_notification_queue q
+             LEFT JOIN students s ON s.id = q.student_id
+             WHERE q.school_id = ? AND q.attendance_date = ?
+             ORDER BY q.created_at DESC`,
+            [schoolId, date]
+        );
+        res.json({ success: true, data: rows });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: 'Failed to load parent notification queue' });
+    }
+});
+
+router.post('/attendance-module/parent-notifications/enqueue', requireTeacherRole, async (req, res) => {
+    try {
+        const schoolId = resolveSchoolId(req);
+        const { student_id, attendance_date, channel, category, title, body } = req.body || {};
+        if (!schoolId || !student_id || !attendance_date || !title || !body) {
+            return res.status(400).json({ success: false, message: 'Missing queue fields' });
+        }
+        await enqueueParentNotification({
+            schoolId,
+            studentId: Number(student_id),
+            attendanceDate: toSqlDate(attendance_date),
+            channel: channel === 'WEB' ? 'WEB' : 'IN_APP',
+            category: ['ABSENT', 'LATE', 'MISSING_CHECKOUT', 'MANUAL'].includes(category) ? category : 'MANUAL',
+            title: String(title).slice(0, 180),
+            body: String(body).slice(0, 1200),
+        });
+        res.json({ success: true, message: 'Notification queued' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: 'Failed to queue notification' });
     }
 });
 
@@ -436,11 +1356,12 @@ router.get('/timetable', requireTeacherRole, async (req, res) => {
         const userId = resolveUserId(req);
         if (!schoolId) return res.status(400).json({ success: false, message: 'No school linked' });
 
-        const { day } = req.query;
+        const { day, class_name, term, academic_year } = req.query;
         const wide = isSchoolWideTimetableRole(req);
         let query = `
             SELECT tt.id, tt.subject_name AS subject, tt.class_name AS \`group\`, tt.room,
                    CONCAT(tt.start_time, " - ", tt.end_time) AS time, tt.day_of_week AS day, tt.staff_id,
+                   tt.term, tt.academic_year,
                    TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))) AS teacher_name
             FROM academic_timetables tt
             LEFT JOIN users u ON u.id = tt.staff_id
@@ -455,6 +1376,18 @@ router.get('/timetable', requireTeacherRole, async (req, res) => {
         if (day) {
             query += ' AND tt.day_of_week = ?';
             params.push(day);
+        }
+        if (class_name) {
+            query += ` AND (${sqlNormLabelEquals('tt.class_name')})`;
+            params.push(normalizeGradebookLabel(class_name));
+        }
+        if (term) {
+            query += ' AND TRIM(COALESCE(tt.term, "")) = ?';
+            params.push(String(term).trim());
+        }
+        if (academic_year) {
+            query += ' AND TRIM(COALESCE(tt.academic_year, "")) = ?';
+            params.push(String(academic_year).trim());
         }
 
         query += ' ORDER BY tt.start_time ASC';
@@ -501,6 +1434,62 @@ router.get('/timetable', requireTeacherRole, async (req, res) => {
     }
 });
 
+router.get('/timetable-filters', requireTeacherRole, async (req, res) => {
+    try {
+        const schoolId = resolveSchoolId(req);
+        const userId = resolveUserId(req);
+        if (!schoolId) return res.status(400).json({ success: false, message: 'No school linked' });
+
+        const wide = isSchoolWideTimetableRole(req);
+        const whereClause = wide ? 'WHERE school_id = ?' : 'WHERE school_id = ? AND staff_id = ?';
+        const whereParams = wide ? [schoolId] : [schoolId, userId];
+        const [rows] = await promisePool.query(
+            `SELECT DISTINCT class_name, term, academic_year
+             FROM academic_timetables
+             ${whereClause}
+             ORDER BY class_name ASC`,
+            whereParams
+        );
+
+        const classes = Array.from(
+            new Set((rows || []).map((r) => normalizeGradebookLabel(r.class_name)).filter(Boolean))
+        );
+        const terms = Array.from(new Set((rows || []).map((r) => String(r.term || '').trim()).filter(Boolean)));
+        const academicYears = Array.from(
+            new Set((rows || []).map((r) => String(r.academic_year || '').trim()).filter(Boolean))
+        );
+
+        const [[settingsRow]] = await promisePool.query(
+            `SELECT current_academic_year, active_terms_json
+             FROM school_academic_settings
+             WHERE school_id = ?
+             LIMIT 1`,
+            [schoolId]
+        ).catch(() => [[null]]);
+        if (settingsRow?.current_academic_year && !academicYears.includes(settingsRow.current_academic_year)) {
+            academicYears.unshift(String(settingsRow.current_academic_year).trim());
+        }
+        if (settingsRow?.active_terms_json) {
+            try {
+                const parsed = Array.isArray(settingsRow.active_terms_json)
+                    ? settingsRow.active_terms_json
+                    : JSON.parse(settingsRow.active_terms_json);
+                for (const t of parsed || []) {
+                    const term = String(t || '').trim();
+                    if (term && !terms.includes(term)) terms.push(term);
+                }
+            } catch (_) {
+                /* ignore malformed settings */
+            }
+        }
+
+        res.json({ success: true, data: { classes, terms, academicYears } });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: 'Failed to load timetable filters' });
+    }
+});
+
 // ============================================================
 // GET /api/teacher-portal/attendance  ?timetable_id=&date=
 // Returns saved roll for that period/date (if any).
@@ -524,12 +1513,13 @@ router.get('/attendance', requireTeacherRole, async (req, res) => {
         }
         const logId = logs[0].id;
         const [recs] = await promisePool.query(
-            'SELECT student_id, status FROM academic_attendance_records WHERE log_id = ?',
+            'SELECT student_id, status, remarks FROM academic_attendance_records WHERE log_id = ?',
             [logId]
         );
         const records = recs.map((r) => ({
             student_id: r.student_id,
             status: attendanceDbToUi(r.status),
+            remarks: r.remarks || '',
         }));
         res.json({ success: true, data: { log_id: logId, records } });
     } catch (err) {
@@ -580,8 +1570,8 @@ router.post('/attendance', requireTeacherRole, async (req, res) => {
         for (const r of records) {
             const st = normalizeAttendanceStatusDb(r.status);
             await conn.query(
-               'INSERT INTO academic_attendance_records (log_id, student_id, status) VALUES (?, ?, ?)',
-               [logId, r.student_id, st]
+               'INSERT INTO academic_attendance_records (log_id, student_id, status, remarks) VALUES (?, ?, ?, ?)',
+               [logId, r.student_id, st, r.remarks ? String(r.remarks).slice(0, 255) : null]
             );
         }
 
@@ -593,6 +1583,128 @@ router.post('/attendance', requireTeacherRole, async (req, res) => {
         res.status(500).json({ success: false, message: 'Failed to register attendance' });
     } finally {
         conn.release();
+    }
+});
+
+router.get('/attendance-summary/daily', requireTeacherRole, async (req, res) => {
+    try {
+        const schoolId = resolveSchoolId(req);
+        const userId = resolveUserId(req);
+        if (!schoolId) return res.status(400).json({ success: false, message: 'No school linked' });
+
+        const date = req.query.date || new Date().toISOString().slice(0, 10);
+        const className = req.query.class_name ? normalizeGradebookLabel(req.query.class_name) : null;
+        let classSql = '';
+        const params = [schoolId, date, userId];
+        if (className) {
+            classSql = ` AND (${sqlNormLabelEquals('tt.class_name')})`;
+            params.push(className);
+        }
+
+        const [rows] = await promisePool.query(
+            `SELECT tt.class_name, tt.subject_name,
+                    COUNT(ar.id) AS total_students,
+                    SUM(CASE WHEN LOWER(TRIM(ar.status)) = 'present' THEN 1 ELSE 0 END) AS present_count,
+                    SUM(CASE WHEN LOWER(TRIM(ar.status)) = 'absent' THEN 1 ELSE 0 END) AS absent_count,
+                    SUM(CASE WHEN LOWER(TRIM(ar.status)) = 'late' THEN 1 ELSE 0 END) AS late_count,
+                    SUM(CASE WHEN LOWER(TRIM(ar.status)) = 'excused' THEN 1 ELSE 0 END) AS excused_count
+             FROM academic_attendance_logs al
+             INNER JOIN academic_timetables tt ON tt.id = al.timetable_id AND tt.school_id = al.school_id
+             INNER JOIN academic_attendance_records ar ON ar.log_id = al.id
+             WHERE al.school_id = ? AND al.record_date = ? AND al.recorded_by_user_id = ?${classSql}
+             GROUP BY tt.class_name, tt.subject_name
+             ORDER BY tt.class_name ASC, tt.subject_name ASC`,
+            params
+        );
+
+        res.json({ success: true, data: rows });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: 'Failed to load daily summary' });
+    }
+});
+
+router.get('/attendance-summary/weekly', requireTeacherRole, async (req, res) => {
+    try {
+        const schoolId = resolveSchoolId(req);
+        const userId = resolveUserId(req);
+        if (!schoolId) return res.status(400).json({ success: false, message: 'No school linked' });
+
+        const anchor = req.query.date ? new Date(req.query.date) : new Date();
+        const day = anchor.getDay();
+        const monday = new Date(anchor);
+        monday.setDate(anchor.getDate() - ((day + 6) % 7));
+        const friday = new Date(monday);
+        friday.setDate(monday.getDate() + 4);
+        const toIso = (d) => d.toISOString().slice(0, 10);
+
+        const [rows] = await promisePool.query(
+            `SELECT s.student_uid, CONCAT(s.first_name, ' ', s.last_name) AS student_name,
+                    al.record_date, ar.status
+             FROM academic_attendance_logs al
+             INNER JOIN academic_attendance_records ar ON ar.log_id = al.id
+             INNER JOIN students s ON s.student_uid = ar.student_id AND s.school_id = al.school_id
+             WHERE al.school_id = ? AND al.recorded_by_user_id = ?
+               AND al.record_date BETWEEN ? AND ?
+             ORDER BY student_name ASC, al.record_date ASC`,
+            [schoolId, userId, toIso(monday), toIso(friday)]
+        );
+
+        res.json({ success: true, data: { start: toIso(monday), end: toIso(friday), rows } });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: 'Failed to load weekly summary' });
+    }
+});
+
+router.get('/teacher-attendance', requireTeacherRole, async (req, res) => {
+    try {
+        const schoolId = resolveSchoolId(req);
+        const userId = resolveUserId(req);
+        if (!schoolId) return res.status(400).json({ success: false, message: 'No school linked' });
+        const date = req.query.date || new Date().toISOString().slice(0, 10);
+        const [[row]] = await promisePool.query(
+            `SELECT id, record_date, status, remarks
+             FROM teacher_attendance_logs
+             WHERE school_id = ? AND teacher_user_id = ? AND record_date = ?
+             LIMIT 1`,
+            [schoolId, userId, date]
+        );
+        res.json({ success: true, data: row || null });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: 'Failed to load teacher attendance' });
+    }
+});
+
+router.post('/teacher-attendance', requireTeacherRole, async (req, res) => {
+    try {
+        const schoolId = resolveSchoolId(req);
+        const userId = resolveUserId(req);
+        if (!schoolId) return res.status(400).json({ success: false, message: 'No school linked' });
+
+        const recordDate = req.body.date || new Date().toISOString().slice(0, 10);
+        const statusRaw = String(req.body.status || 'Present').toLowerCase();
+        const statusMap = {
+            present: 'Present',
+            absent: 'Absent',
+            late: 'Late',
+            excused: 'Excused',
+        };
+        const status = statusMap[statusRaw] || 'Present';
+        const remarks = req.body.remarks ? String(req.body.remarks).slice(0, 255) : null;
+
+        await promisePool.query(
+            `INSERT INTO teacher_attendance_logs (school_id, teacher_user_id, record_date, status, remarks)
+             VALUES (?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE status = VALUES(status), remarks = VALUES(remarks), updated_at = CURRENT_TIMESTAMP`,
+            [schoolId, userId, recordDate, status, remarks]
+        );
+
+        res.json({ success: true, message: 'Teacher attendance saved' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: 'Failed to save teacher attendance' });
     }
 });
 
@@ -850,6 +1962,194 @@ router.post('/marks', requireTeacherRole, async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ success: false, message: 'Failed to record marks' });
+    }
+});
+
+// GET /api/teacher-portal/staff/payroll/my
+// Returns payroll dashboard data for the logged-in teacher only.
+router.get('/staff/payroll/my', requireTeacherRole, async (req, res) => {
+    try {
+        const schoolId = resolveSchoolId(req);
+        const teacherUserId = resolveUserId(req);
+        if (!schoolId || !teacherUserId) {
+            return res.status(400).json({ success: false, message: 'Missing school or user context' });
+        }
+
+        const [[teacherRow]] = await promisePool.query(
+            `SELECT u.id, u.user_uid, u.first_name, u.last_name, u.email, u.phone,
+                    r.role_code,
+                    st.department, st.date_of_employment,
+                    st.payroll_basic_salary, st.payroll_transport_allowance, st.payroll_housing_allowance, st.payroll_meal_allowance,
+                    st.payroll_other_allowances, st.payroll_tax_percent, st.payroll_pension_amount, st.payroll_other_deductions,
+                    st.advance_deduction_type, st.advance_deduction_value
+             FROM users u
+             LEFT JOIN roles r ON r.id = u.role_id
+             LEFT JOIN staff st ON st.school_id = u.school_id AND st.user_id = u.id
+             WHERE u.school_id = ? AND u.id = ? AND u.deleted_at IS NULL
+             LIMIT 1`,
+            [schoolId, teacherUserId]
+        );
+        if (!teacherRow) {
+            return res.status(404).json({ success: false, message: 'Teacher profile not found' });
+        }
+
+        const parseList = (raw) => {
+            if (Array.isArray(raw)) return raw;
+            if (typeof raw !== 'string' || !raw.trim()) return [];
+            try {
+                const p = JSON.parse(raw);
+                return Array.isArray(p) ? p : [];
+            } catch {
+                return [];
+            }
+        };
+        const toMoney = (v) => {
+            const n = Number(v);
+            return Number.isFinite(n) ? n : 0;
+        };
+        const monthName = (n) => {
+            const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+            return months[Math.max(0, Number(n || 1) - 1)] || String(n || '');
+        };
+
+        const basic = toMoney(teacherRow.payroll_basic_salary);
+        const fixedAllowances =
+            toMoney(teacherRow.payroll_transport_allowance) +
+            toMoney(teacherRow.payroll_housing_allowance) +
+            toMoney(teacherRow.payroll_meal_allowance);
+        const extraAllowances = parseList(teacherRow.payroll_other_allowances)
+            .reduce((sum, item) => sum + toMoney(item?.amount), 0);
+        const allowances = fixedAllowances + extraAllowances;
+        const gross = basic + allowances;
+        const taxPercent = toMoney(teacherRow.payroll_tax_percent);
+        const tax = (gross * taxPercent) / 100;
+        const pension = toMoney(teacherRow.payroll_pension_amount);
+        const otherDeductions = parseList(teacherRow.payroll_other_deductions)
+            .reduce((sum, item) => sum + toMoney(item?.amount), 0);
+        const deductions = tax + pension + otherDeductions;
+        const net = Math.max(0, gross - deductions);
+
+        const teacherStaffCode = String(teacherRow.user_uid || '').trim();
+        const [payRows] = await promisePool.query(
+            `SELECT r.id, r.month, r.term, r.year, r.amount, r.status, r.created_at, r.approved_at, r.paid_at,
+                    d.basic, d.allowances, d.deductions, d.net_salary, d.advance, d.final_payable,
+                    TRIM(CONCAT(COALESCE(cu.first_name, ''), ' ', COALESCE(cu.last_name, ''))) AS submit_actor_name,
+                    TRIM(CONCAT(COALESCE(apu.first_name, ''), ' ', COALESCE(apu.last_name, ''))) AS approved_actor_name
+             FROM payroll_requests r
+             LEFT JOIN payroll_details d ON d.request_id = r.id AND d.school_id = r.school_id
+             LEFT JOIN users cu ON cu.id = r.created_by_user_id
+             LEFT JOIN users apu ON apu.id = r.approved_by_user_id
+             WHERE r.school_id = ?
+               AND (
+                    r.staff_user_id = ?
+                    OR (? <> '' AND r.staff_code = ?)
+               )
+               AND r.deleted_at IS NULL
+             ORDER BY r.year DESC, r.month DESC, r.id DESC
+             LIMIT 80`,
+            [schoolId, teacherUserId, teacherStaffCode, teacherStaffCode]
+        );
+
+        const history = (payRows || []).map((r) => {
+            const status = String(r.status || 'Pending');
+            const paidAmount = status === 'Paid' ? toMoney(r.amount) : 0;
+            const deductionsAmount = toMoney(r.deductions);
+            const amountRequested = toMoney(r.amount);
+            const finalPayable = toMoney(r.final_payable || r.net_salary || r.amount);
+            return {
+                id: Number(r.id),
+                payrollId: `PAY-${r.id}`,
+                month: monthName(r.month),
+                term: r.term || '',
+                year: Number(r.year || 0),
+                basic: toMoney(r.basic),
+                allowances: toMoney(r.allowances),
+                rssb: 0,
+                tax: deductionsAmount,
+                deductions: deductionsAmount,
+                advance: toMoney(r.advance),
+                net: toMoney(r.net_salary || r.amount),
+                finalPayable,
+                amountRequested,
+                paid: paidAmount,
+                status,
+                submittedAt: r.created_at || null,
+                paidDate: r.paid_at || null,
+                submittedBy: r.submit_actor_name || null,
+                approvedBy: r.approved_actor_name || null,
+            };
+        });
+
+        const [advanceRows] = await promisePool.query(
+            `SELECT id, amount_rwf, status, submitted_at
+             FROM shule_avance_requests
+             WHERE school_id = ? AND teacher_user_id = ?
+             ORDER BY id DESC
+             LIMIT 120`,
+            [schoolId, teacherUserId]
+        );
+        const [[schoolRow]] = await promisePool.query(
+            `SELECT id, school_name, logo_url, school_stamp_url, head_signature_url
+             FROM schools
+             WHERE id = ?
+             LIMIT 1`,
+            [schoolId]
+        );
+        const totalLoan = (advanceRows || []).reduce((sum, row) => sum + toMoney(row.amount_rwf), 0);
+        const remaining = (advanceRows || [])
+            .filter((row) => ['pending_accountant', 'sent_to_manager', 'approved'].includes(String(row.status || '').toLowerCase()))
+            .reduce((sum, row) => sum + toMoney(row.amount_rwf), 0);
+        const totalPaid = Math.max(0, totalLoan - remaining);
+        const monthlyDeduction = remaining > 0
+            ? (String(teacherRow.advance_deduction_type || '').toLowerCase() === 'fixed'
+                ? toMoney(teacherRow.advance_deduction_value)
+                : Math.round((net * toMoney(teacherRow.advance_deduction_value || 10)) / 100))
+            : 0;
+        const firstDisbursed = (advanceRows || []).find((row) => row.submitted_at)?.submitted_at || null;
+
+        return res.json({
+            success: true,
+            data: {
+                staff: {
+                    staffUserId: Number(teacherRow.id),
+                    staffCode: teacherRow.user_uid || `STF-${teacherRow.id}`,
+                    fullName: `${teacherRow.first_name || ''} ${teacherRow.last_name || ''}`.trim(),
+                    role: String(teacherRow.role_code || 'TEACHER').toUpperCase(),
+                    department: teacherRow.department || String(teacherRow.role_code || 'TEACHER').toUpperCase(),
+                    email: teacherRow.email || '',
+                    phone: teacherRow.phone || '',
+                    joinDate: teacherRow.date_of_employment || null,
+                    avatar: null,
+                },
+                school: {
+                    schoolId: Number(schoolRow?.id || schoolId),
+                    schoolName: schoolRow?.school_name || null,
+                    logoUrl: schoolRow?.logo_url || null,
+                    stampUrl: schoolRow?.school_stamp_url || null,
+                    signatureUrl: schoolRow?.head_signature_url || null,
+                },
+                currentSalary: {
+                    basic,
+                    allowances,
+                    rssb: pension,
+                    tax,
+                    net,
+                },
+                advance: {
+                    totalLoan,
+                    totalPaid,
+                    remaining,
+                    monthlyDeduction,
+                    disbursedDate: firstDisbursed,
+                    expectedEndDate: null,
+                },
+                history,
+                notifications: [],
+            },
+        });
+    } catch (err) {
+        console.error('[teacher-portal/staff/payroll/my GET]:', err.message);
+        return res.status(500).json({ success: false, message: 'Failed to load staff payroll' });
     }
 });
 

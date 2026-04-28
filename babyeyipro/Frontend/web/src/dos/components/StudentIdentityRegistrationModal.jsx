@@ -507,7 +507,7 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
 
   const handleUploadSelect = useCallback((file) => {
     if (!file) return;
-    if (!file.type?.startsWith("image/")) {
+    if (!["image/jpeg", "image/jpg", "image/png"].includes(file.type || "")) {
       setSearchError(null);
       return;
     }
@@ -554,6 +554,10 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
           setSearchError(json.message || "Failed to save student photo.");
           return false;
         }
+        await fetch(`${API}/api/student-cards/cache/refresh/${selectedStudent.id}`, {
+          method: "POST",
+          credentials: "include",
+        }).catch(() => null);
 
         setSelectedStudent((prev) => ({
           ...(prev || {}),
@@ -1058,13 +1062,13 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
 
                     {photoTab === "upload" && (
                       <div className="space-y-3">
-                        <Field label="Upload image" hint="JPG/PNG/WebP">
+                        <Field label="Upload image" hint="JPG/PNG">
                           <label className="flex items-center justify-center gap-2 px-4 py-3 min-h-[48px] rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer touch-manipulation">
                             <Upload className="w-4 h-4 text-slate-600" />
                             <span className="text-sm font-black text-slate-800">Choose file</span>
                             <input
                               type="file"
-                              accept="image/*"
+                              accept="image/png,image/jpeg"
                               className="hidden"
                               onChange={(e) => handleUploadSelect(e.target.files?.[0] || null)}
                             />

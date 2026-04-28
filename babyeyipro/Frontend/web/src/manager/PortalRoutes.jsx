@@ -10,6 +10,8 @@ import Students from './pages/Students'
 import AcademicPlanner from './pages/AcademicPlanner'
 import RegistryOperations from './pages/RegistryOperations'
 import Attendance from './pages/Attendance'
+import GateAttendance from '../dos/pages/AttendanceModule/GateAttendance'
+import AllGateLogs from './pages/AllGateLogs'
 import RecordMarks from './pages/RecordMarks'
 import ViewMarks from './pages/ViewMarks'
 import Registry from './pages/Registry'
@@ -17,6 +19,8 @@ import FinanceCenter from './pages/FinanceCenter'
 import FeePayments from './pages/FeePayments'
 import BabyeyiWizard from './pages/BabyeyiWizard'
 import HRCentral from './pages/HRCentral'
+import Payroll from './pages/Payroll'
+import StaffPayroll from './pages/StaffPayroll'
 import AcademicReports from './pages/AcademicReports'
 import ClassAcademicReport from './pages/ClassAcademicReport'
 import StudentAttendanceReports from './pages/StudentAttendanceReports'
@@ -27,6 +31,7 @@ import PermissionsManager from './pages/PermissionsManager'
 import SchoolLiteSuite from './pages/SchoolLiteSuite'
 import SmartSchoolHardwarePage from './pages/SmartSchoolHardwarePage'
 import StaffSmartAccessPage from './pages/StaffSmartAccessPage'
+import ChatCenter from '../shared/pages/ChatCenter'
 import { PORTAL } from './config/portal'
 import { h } from './utils/href'
 
@@ -98,11 +103,15 @@ function ManagerRoutesInner() {
       <Route path="timetable" element={<ProtectedRoute title="Academic Planner"><AcademicPlanner /></ProtectedRoute>} />
       <Route path="operations" element={<ProtectedRoute title="School Operations"><RegistryOperations /></ProtectedRoute>} />
       <Route path="attendance" element={<ProtectedRoute title="Attendance"><Attendance /></ProtectedRoute>} />
+      <Route path="attendance/gate" element={<ProtectedRoute title="Gate Attendance"><GateAttendance /></ProtectedRoute>} />
+      <Route path="attendance/gate-logs" element={<ProtectedRoute title="All Gate Logs"><AllGateLogs /></ProtectedRoute>} />
       <Route path="registry" element={<ProtectedRoute title="School Registry"><Registry /></ProtectedRoute>} />
       <Route path="marks/view" element={<ProtectedRoute title="View Student Marks"><ViewMarks /></ProtectedRoute>} />
       <Route path="marks/record" element={<ProtectedRoute title="Record Marks"><RecordMarks /></ProtectedRoute>} />
       <Route path="finance" element={<ProtectedRoute title="Finance Center"><FinanceCenter /></ProtectedRoute>} />
       <Route path="hr" element={<ProtectedRoute title="HRCentral"><HRCentral /></ProtectedRoute>} />
+      <Route path="payroll" element={<ProtectedRoute title="Payroll"><Payroll /></ProtectedRoute>} />
+      <Route path="my-payroll" element={<ProtectedRoute title="My Payroll"><StaffPayroll /></ProtectedRoute>} />
       <Route path="finance/payments" element={<ProtectedRoute title="Student Fee Payments"><FeePayments /></ProtectedRoute>} />
       <Route path="finance/wizard" element={<ProtectedRoute title="Babyeyi Wizard"><BabyeyiWizard /></ProtectedRoute>} />
 
@@ -116,6 +125,7 @@ function ManagerRoutesInner() {
       <Route path="settings" element={<ProtectedRoute title="System Configuration"><SystemConfiguration /></ProtectedRoute>} />
       <Route path="settings/gradebook" element={<Navigate to={h('/operations?tab=gradebook')} replace />} />
       <Route path="permissions" element={<ProtectedRoute title="Student Permissions"><PermissionsManager /></ProtectedRoute>} />
+      <Route path="chat" element={<ProtectedRoute title="Chat center"><ChatCenter /></ProtectedRoute>} />
 
       <Route path="*" element={<Navigate to={PORTAL.basePath} replace />} />
     </Routes>

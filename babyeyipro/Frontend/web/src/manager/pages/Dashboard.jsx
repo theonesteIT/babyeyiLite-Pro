@@ -565,12 +565,9 @@ const Dashboard = () => {
                     <div className="absolute inset-0 bg-black/50 backdrop-blur-[1px]"></div>
                 </div>
                 <div className="relative z-10 max-w-4xl">
-                    <h1 className="text-2xl md:text-3xl font-black tracking-tight mb-2">
-                        Welcome back, <span style={{ color: "#FEBF10" }}>{manager?.name || 'Executive Officer'}</span> 
+                    <h1 className="text-2xl md:text-3xl font-black tracking-tight mb-2" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+                        Welcome back, <span style={{ color: "#FEBF10" }}>School Manager</span>
                     </h1>
-                    <p className="text-sm md:text-base font-bold opacity-90 max-w-2xl italic tracking-tight">
-                        Institutional status: <span className="text-emerald-400">Optimal</span>. Strategic systems verified and synchronized for executive oversight.
-                    </p>
                 </div>
             </section>
 

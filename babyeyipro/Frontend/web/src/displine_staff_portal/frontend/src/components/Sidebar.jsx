@@ -6,7 +6,9 @@ import {
   Wallet, MessageSquare, ClipboardList, Eye, PenLine,
   User, LogOut, Wifi, WifiOff, RefreshCw, GraduationCap, ChevronDown,
   Building2, School, Landmark, UserCog, UserCheck, PieChart, Activity, Settings, ShieldCheck, ShieldAlert
+  , DollarSign
 } from 'lucide-react';
+import useChatUnread from '../../../../shared/hooks/useChatUnread';
 
 // ── Status Badge ──────────────────────────────────────────────
 const statusConfig = {
@@ -30,7 +32,7 @@ const AppStatusBadge = ({ status = 'online' }) => {
 };
 
 // ── Single nav link ───────────────────────────────────────────
-const NavItem = ({ icon: Icon, name, path, exact, onClose }) => (
+const NavItem = ({ icon: Icon, name, path, exact, onClose, badgeCount = 0 }) => (
   <NavLink
     to={path}
     end={exact}
@@ -47,6 +49,11 @@ const NavItem = ({ icon: Icon, name, path, exact, onClose }) => (
       <>
         <Icon size={13} className={isActive ? 'text-white' : 'text-white/40 group-hover:text-white transition-colors'} />
         <span>{name}</span>
+        {badgeCount > 0 && (
+          <span className="ml-auto text-[10px] leading-none px-1.5 py-1 rounded-full bg-red-100 text-red-700">
+            {badgeCount > 99 ? '99+' : badgeCount}
+          </span>
+        )}
       </>
     )}
   </NavLink>
@@ -106,6 +113,7 @@ const SectionLabel = ({ label }) => (
 
 const Sidebar = ({ onClose }) => {
   const { staff, logout } = useAuth();
+  const unreadCount = useChatUnread();
 
   return (
     <div className="flex flex-col h-full bg-re-navy border-r border-white/5 shadow-2xl">
@@ -140,7 +148,9 @@ const Sidebar = ({ onClose }) => {
         <NavItem icon={ShieldCheck} name="Student Permissions" path="/permissions" onClose={onClose} />
 
         <SectionLabel label="Services" />
+        <NavItem icon={DollarSign} name="My Payroll" path="/my-payroll" onClose={onClose} />
         <NavItem icon={Wallet} name="Shule Avance" path="/shule-avance" onClose={onClose} />
+        <NavItem icon={MessageSquare} name="Chat Center" path="/chat" onClose={onClose} badgeCount={unreadCount} />
 
         <SectionLabel label="Config" />
         <NavItem icon={Settings} name="System Settings" path="/settings" onClose={onClose} />

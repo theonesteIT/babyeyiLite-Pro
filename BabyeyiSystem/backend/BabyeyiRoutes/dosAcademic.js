@@ -19,7 +19,7 @@ const { requireRole } = require('../middleware/deoAuth');
 const xlsx = require('xlsx');
 const PDFDocument = require('pdfkit');
 const ensureAcademicTables = require('./teacherPortal').ensureAcademicTables;
-const { normalizeGradebookLabel } = require('../utils/gradebookLabels');
+const { normalizeGradebookLabel, sqlNormLabelEquals } = require('../utils/gradebookLabels');
 
 const router = express.Router();
 const DOS_ONLY = ['DOS'];
@@ -99,6 +99,31 @@ async function ensureDosTables() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS school_periods (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      school_id INT UNSIGNED NOT NULL,
+      period_name VARCHAR(120) NOT NULL,
+      start_time VARCHAR(10) NOT NULL,
+      end_time VARCHAR(10) NOT NULL,
+      is_break TINYINT(1) NOT NULL DEFAULT 0,
+      sort_order INT NOT NULL DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_school_periods_school (school_id),
+      INDEX idx_school_periods_order (school_id, sort_order, start_time)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS school_academic_settings (
+      school_id INT UNSIGNED NOT NULL PRIMARY KEY,
+      current_academic_year VARCHAR(32) NOT NULL DEFAULT '2025-2026',
+      active_terms_json JSON NULL,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      updated_by_user_id INT UNSIGNED NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
   tablesReady = true;
 }
 
@@ -120,6 +145,34 @@ const statusLabelForCode = (code, label) => {
   if (c === 'other') return label ? String(label) : 'Other';
   return label ? String(label) : c || '—';
 };
+
+async function getAcademicCalendarSettings(schoolId) {
+  await ensureDosTables();
+  const [[row]] = await promisePool.query(
+    `SELECT current_academic_year, active_terms_json
+     FROM school_academic_settings
+     WHERE school_id = ?
+     LIMIT 1`,
+    [schoolId]
+  );
+  let terms = ['Term 1', 'Term 2', 'Term 3'];
+  if (row?.active_terms_json) {
+    try {
+      const parsed = Array.isArray(row.active_terms_json)
+        ? row.active_terms_json
+        : JSON.parse(row.active_terms_json);
+      if (Array.isArray(parsed) && parsed.length) {
+        terms = parsed.map((x) => String(x).trim()).filter(Boolean);
+      }
+    } catch (_) {
+      /* keep defaults */
+    }
+  }
+  return {
+    current_academic_year: row?.current_academic_year || '2025-2026',
+    active_terms: terms,
+  };
+}
 
 function safeFilenamePart(s) {
   return String(s || '')
@@ -344,6 +397,52 @@ router.put('/dos/settings', requireRole(DOS_ONLY), async (req, res) => {
   } catch (err) {
     console.error('PUT /dos/settings:', err);
     return res.status(500).json({ success: false, message: 'Failed to save DOS settings' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+// GET /api/dos/academic-calendar-settings
+// PUT /api/dos/academic-calendar-settings
+// ════════════════════════════════════════════════════════════════
+router.get('/dos/academic-calendar-settings', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School not found in session.' });
+    const data = await getAcademicCalendarSettings(schoolId);
+    return res.json({ success: true, data });
+  } catch (err) {
+    console.error('GET /dos/academic-calendar-settings:', err);
+    return res.status(500).json({ success: false, message: 'Failed to load academic settings' });
+  }
+});
+
+router.put('/dos/academic-calendar-settings', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    const userId = resolveUserId(req);
+    if (!schoolId || !userId) return res.status(400).json({ success: false, message: 'Invalid session.' });
+    const year = trimStr(req.body?.current_academic_year);
+    const termsRaw = Array.isArray(req.body?.active_terms) ? req.body.active_terms : [];
+    const terms = termsRaw.map((x) => trimStr(x)).filter(Boolean);
+    if (!/^\d{4}-\d{4}$/.test(year)) {
+      return res.status(400).json({ success: false, message: 'current_academic_year must be like 2025-2026.' });
+    }
+    if (!terms.length) {
+      return res.status(400).json({ success: false, message: 'At least one term is required.' });
+    }
+    await promisePool.query(
+      `INSERT INTO school_academic_settings (school_id, current_academic_year, active_terms_json, updated_by_user_id)
+       VALUES (?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE
+         current_academic_year = VALUES(current_academic_year),
+         active_terms_json = VALUES(active_terms_json),
+         updated_by_user_id = VALUES(updated_by_user_id)`,
+      [schoolId, year, JSON.stringify(terms), userId]
+    );
+    return res.json({ success: true, data: { current_academic_year: year, active_terms: terms } });
+  } catch (err) {
+    console.error('PUT /dos/academic-calendar-settings:', err);
+    return res.status(500).json({ success: false, message: 'Failed to save academic settings' });
   }
 });
 
@@ -973,6 +1072,89 @@ async function assertTeachingStaffForSchool(schoolId, staffUserId) {
 }
 
 // ════════════════════════════════════════════════════════════════
+// GET /api/dos/timetable — list timetable with optional filters
+//   ?class_name=&staff_id=&subject_name=&day_of_week=&q=
+// ════════════════════════════════════════════════════════════════
+router.get('/dos/timetable', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureAcademicTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School not found in session.' });
+
+    const className = normalizeGradebookLabel(req.query?.class_name);
+    const subjectName = normalizeGradebookLabel(req.query?.subject_name);
+    const dayOfWeek = trimStr(req.query?.day_of_week);
+    const term = trimStr(req.query?.term);
+    const academicYear = trimStr(req.query?.academic_year);
+    const q = trimStr(req.query?.q).toLowerCase();
+    const staffIdRaw = req.query?.staff_id;
+    const staffId = staffIdRaw != null && String(staffIdRaw).trim() !== '' ? Number(staffIdRaw) : null;
+
+    let sql = `
+      SELECT
+        tt.id,
+        tt.class_name,
+        tt.subject_name,
+        tt.staff_id,
+        tt.day_of_week,
+        tt.start_time,
+        tt.end_time,
+        tt.room,
+        tt.term,
+        tt.academic_year,
+        CONCAT(tt.start_time, ' - ', tt.end_time) AS time,
+        TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))) AS teacher_name
+      FROM academic_timetables tt
+      LEFT JOIN users u ON u.id = tt.staff_id
+      WHERE tt.school_id = ?`;
+    const params = [schoolId];
+
+    if (className) {
+      sql += ` AND (${sqlNormLabelEquals('tt.class_name')})`;
+      params.push(className);
+    }
+    if (subjectName) {
+      sql += ` AND (${sqlNormLabelEquals('tt.subject_name')})`;
+      params.push(subjectName);
+    }
+    if (dayOfWeek) {
+      sql += ` AND tt.day_of_week = ?`;
+      params.push(dayOfWeek);
+    }
+    if (term) {
+      sql += ` AND TRIM(COALESCE(tt.term, '')) = ?`;
+      params.push(term);
+    }
+    if (academicYear) {
+      sql += ` AND TRIM(COALESCE(tt.academic_year, '')) = ?`;
+      params.push(academicYear);
+    }
+    if (staffId != null && !Number.isNaN(staffId)) {
+      sql += ` AND tt.staff_id = ?`;
+      params.push(staffId);
+    }
+    if (q) {
+      sql += ` AND (
+        LOWER(COALESCE(tt.class_name, '')) LIKE ?
+        OR LOWER(COALESCE(tt.subject_name, '')) LIKE ?
+        OR LOWER(COALESCE(tt.room, '')) LIKE ?
+        OR LOWER(TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, '')))) LIKE ?
+      )`;
+      const like = `%${q}%`;
+      params.push(like, like, like, like);
+    }
+
+    sql += ' ORDER BY FIELD(tt.day_of_week, "Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"), tt.start_time ASC, tt.id ASC';
+
+    const [rows] = await promisePool.query(sql, params);
+    return res.json({ success: true, data: rows || [] });
+  } catch (err) {
+    console.error('GET /dos/timetable:', err);
+    return res.status(500).json({ success: false, message: 'Failed to load timetable' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
 // POST /api/dos/subjects — add a subject (“course”) for the school catalogue
 // ════════════════════════════════════════════════════════════════
 router.post('/dos/subjects', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
@@ -1049,6 +1231,13 @@ router.post('/dos/timetable', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) 
     const start_time = trimStr(req.body?.start_time);
     const end_time = trimStr(req.body?.end_time);
     const room = trimStr(req.body?.room) || null;
+    let term = trimStr(req.body?.term);
+    let academic_year = trimStr(req.body?.academic_year);
+    if (!term || !academic_year) {
+      const defaults = await getAcademicCalendarSettings(schoolId);
+      if (!academic_year) academic_year = defaults.current_academic_year;
+      if (!term) term = defaults.active_terms?.[0] || 'Term 1';
+    }
 
     if (!class_name || !subject_name) {
       return res.status(400).json({ success: false, message: 'class_name and subject_name are required.' });
@@ -1059,6 +1248,9 @@ router.post('/dos/timetable', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) 
     if (!day_of_week || !start_time || !end_time) {
       return res.status(400).json({ success: false, message: 'day_of_week, start_time, and end_time are required.' });
     }
+    if (!term || !academic_year) {
+      return res.status(400).json({ success: false, message: 'term and academic_year are required.' });
+    }
 
     const okStaff = await assertTeachingStaffForSchool(schoolId, staff_id);
     if (!okStaff) {
@@ -1067,9 +1259,9 @@ router.post('/dos/timetable', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) 
 
     const [ins] = await promisePool.query(
       `INSERT INTO academic_timetables
-        (school_id, class_name, subject_name, staff_id, day_of_week, start_time, end_time, room)
-       VALUES (?,?,?,?,?,?,?,?)`,
-      [schoolId, class_name, subject_name, staff_id, day_of_week, start_time, end_time, room]
+        (school_id, class_name, subject_name, staff_id, day_of_week, start_time, end_time, room, term, academic_year)
+       VALUES (?,?,?,?,?,?,?,?,?,?)`,
+      [schoolId, class_name, subject_name, staff_id, day_of_week, start_time, end_time, room, term, academic_year]
     );
     return res.status(201).json({
       success: true,
@@ -1106,6 +1298,8 @@ router.put('/dos/timetable/:id', requireRole(DOS_ACADEMIC_ADMIN), async (req, re
     const start_time = req.body?.start_time != null ? trimStr(req.body.start_time) : null;
     const end_time = req.body?.end_time != null ? trimStr(req.body.end_time) : null;
     const room = req.body?.room !== undefined ? (trimStr(req.body.room) || null) : undefined;
+    const term = req.body?.term !== undefined ? trimStr(req.body.term) || null : undefined;
+    const academic_year = req.body?.academic_year !== undefined ? trimStr(req.body.academic_year) || null : undefined;
 
     if (staff_id != null && !Number.isNaN(staff_id)) {
       const okStaff = await assertTeachingStaffForSchool(schoolId, staff_id);
@@ -1143,6 +1337,14 @@ router.put('/dos/timetable/:id', requireRole(DOS_ACADEMIC_ADMIN), async (req, re
     if (room !== undefined) {
       fields.push('room = ?');
       vals.push(room);
+    }
+    if (term !== undefined) {
+      fields.push('term = ?');
+      vals.push(term);
+    }
+    if (academic_year !== undefined) {
+      fields.push('academic_year = ?');
+      vals.push(academic_year);
     }
 
     if (!fields.length) {
@@ -1183,6 +1385,72 @@ router.delete('/dos/timetable/:id', requireRole(DOS_ACADEMIC_ADMIN), async (req,
   } catch (err) {
     console.error('DELETE /dos/timetable/:id:', err);
     return res.status(500).json({ success: false, message: 'Failed to delete timetable period' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+// CALENDAR PERIODS (Break, Lunch, Free Hour, Teaching slots)
+// ════════════════════════════════════════════════════════════════
+router.get('/dos/calendar/periods', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureDosTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School not found in session.' });
+    const [rows] = await promisePool.query(
+      `SELECT id, school_id, period_name, start_time, end_time, is_break, sort_order
+       FROM school_periods
+       WHERE school_id = ?
+       ORDER BY sort_order ASC, start_time ASC, id ASC`,
+      [schoolId]
+    );
+    return res.json({ success: true, data: rows || [] });
+  } catch (err) {
+    console.error('GET /dos/calendar/periods:', err);
+    return res.status(500).json({ success: false, message: 'Failed to load periods' });
+  }
+});
+
+router.post('/dos/calendar/periods', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureDosTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School not found in session.' });
+    const period_name = trimStr(req.body?.period_name);
+    const start_time = trimStr(req.body?.start_time);
+    const end_time = trimStr(req.body?.end_time);
+    const is_break = req.body?.is_break ? 1 : 0;
+    const sort_order = Number(req.body?.sort_order) || 0;
+    if (!period_name || !start_time || !end_time) {
+      return res.status(400).json({ success: false, message: 'period_name, start_time and end_time are required.' });
+    }
+    const [ins] = await promisePool.query(
+      `INSERT INTO school_periods (school_id, period_name, start_time, end_time, is_break, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [schoolId, period_name, start_time, end_time, is_break, sort_order]
+    );
+    return res.status(201).json({ success: true, message: 'Period added.', data: { id: ins.insertId } });
+  } catch (err) {
+    console.error('POST /dos/calendar/periods:', err);
+    return res.status(500).json({ success: false, message: 'Failed to add period' });
+  }
+});
+
+router.delete('/dos/calendar/periods/:id', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureDosTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School not found in session.' });
+    const id = Number(req.params.id);
+    if (!id || Number.isNaN(id)) return res.status(400).json({ success: false, message: 'Invalid id.' });
+    const [del] = await promisePool.query(
+      `DELETE FROM school_periods WHERE id = ? AND school_id = ?`,
+      [id, schoolId]
+    );
+    if (!del.affectedRows) return res.status(404).json({ success: false, message: 'Period not found.' });
+    return res.json({ success: true, message: 'Period removed.' });
+  } catch (err) {
+    console.error('DELETE /dos/calendar/periods/:id:', err);
+    return res.status(500).json({ success: false, message: 'Failed to delete period' });
   }
 });
 

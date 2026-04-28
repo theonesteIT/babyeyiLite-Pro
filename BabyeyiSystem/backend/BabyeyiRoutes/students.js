@@ -62,15 +62,15 @@ const studentPhotoUpload = multer({
     destination(_req, _file, cb) { cb(null, STUDENT_PHOTO_DIR); },
     filename(_req, file, cb) {
       const extRaw = path.extname(file.originalname || '').toLowerCase();
-      const ext = ['.jpg', '.jpeg', '.png', '.webp'].includes(extRaw) ? extRaw : '.jpg';
+      const ext = ['.jpg', '.jpeg', '.png'].includes(extRaw) ? extRaw : '.jpg';
       cb(null, `student-${Date.now()}-${crypto.randomBytes(8).toString('hex')}${ext}`);
     },
   }),
   limits: { fileSize: 5 * 1024 * 1024, files: 1 },
   fileFilter(_req, file, cb) {
-    const ok = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'].includes(file.mimetype);
+    const ok = ['image/jpeg', 'image/jpg', 'image/png'].includes(file.mimetype);
     if (ok) return cb(null, true);
-    cb(new Error('Only image files are allowed (jpg/png/webp).'));
+    cb(new Error('Only image files are allowed (jpg/png).'));
   },
 });
 

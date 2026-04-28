@@ -1,16 +1,19 @@
 import { NavLink } from 'react-router-dom';
 import {
-    LayoutDashboard, Building2, Landmark,
-    UserCog, Users
+    GraduationCap, Landmark, LayoutDashboard, BriefcaseBusiness, MessageSquare, DoorOpen
 } from 'lucide-react';
+import { h } from '../utils/href';
+import useChatUnread from '../../shared/hooks/useChatUnread';
 
 const BottomNav = () => {
+    const unreadCount = useChatUnread();
     const navItems = [
-        { icon: LayoutDashboard, name: 'Home', path: '/', exact: true },
-        { icon: Building2, name: 'Registry', path: '/registry' },
-        { icon: Landmark, name: 'Finance', path: '/finance' },
-        { icon: UserCog, name: 'HR', path: '/hr' },
-        { icon: Users, name: 'Students', path: '/students' },
+        { icon: LayoutDashboard, name: 'Home', path: h('/'), exact: true },
+        { icon: GraduationCap, name: 'Babyeyi', path: h('/babyeyi') },
+        { icon: BriefcaseBusiness, name: 'My Payroll', path: h('/payroll') },
+        { icon: Landmark, name: 'Finance', path: h('/finance') },
+        { icon: DoorOpen, name: 'Gate', path: h('/attendance/gate') },
+        { icon: MessageSquare, name: 'Chat', path: h('/chat'), badgeCount: unreadCount },
     ];
 
     return (
@@ -26,7 +29,14 @@ const BottomNav = () => {
               ${isActive ? 'text-re-navy' : 'text-gray-400'}
             `}
                     >
-                        <item.icon size={20} strokeWidth={2} />
+                        <div className="relative">
+                            <item.icon size={20} strokeWidth={2} />
+                            {item.badgeCount > 0 && (
+                                <span className="absolute -top-2 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[9px] leading-4 text-center">
+                                    {item.badgeCount > 99 ? '99+' : item.badgeCount}
+                                </span>
+                            )}
+                        </div>
                         <span className="text-[9px] font-bold uppercase tracking-wider">
                             {item.name}
                         </span>

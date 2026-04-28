@@ -12,6 +12,10 @@ import Attendance from './pages/Attendance'
 import RecordMarks from './pages/RecordMarks'
 import ViewMarks from './pages/ViewMarks'
 import ConductOverview from './pages/ConductOverview'
+import StaffPayroll from './pages/StaffPayroll'
+import DisciplineSettings from './pages/DisciplineSettings'
+import SetDisciplineMarks from './pages/SetDisciplineMarks'
+import ChatCenter from '../shared/pages/ChatCenter'
 import { PORTAL } from './config/portal'
 
 const LoadingScreen = () => (
@@ -44,9 +48,14 @@ function DisciplineRoutesInner() {
       <Route path="students" element={<ProtectedRoute title="Students"><Students /></ProtectedRoute>} />
       <Route path="timetable" element={<ProtectedRoute title="Timetable"><Timetable /></ProtectedRoute>} />
       <Route path="attendance" element={<ProtectedRoute title="Attendance"><Attendance /></ProtectedRoute>} />
+      <Route path="my-payroll" element={<ProtectedRoute title="My Payroll"><StaffPayroll /></ProtectedRoute>} />
+      <Route path="payroll" element={<Navigate to="my-payroll" replace />} />
       <Route path="marks/view" element={<ProtectedRoute title="View Student Marks"><ViewMarks /></ProtectedRoute>} />
       <Route path="marks/record" element={<ProtectedRoute title="Record Marks"><RecordMarks /></ProtectedRoute>} />
       <Route path="conduct" element={<ProtectedRoute title="Conduct overview"><ConductOverview /></ProtectedRoute>} />
+      <Route path="discipline/settings" element={<ProtectedRoute title="Discipline Settings"><DisciplineSettings /></ProtectedRoute>} />
+      <Route path="discipline/set-marks" element={<ProtectedRoute title="Set Discipline Marks"><SetDisciplineMarks /></ProtectedRoute>} />
+      <Route path="chat" element={<ProtectedRoute title="Chat center"><ChatCenter /></ProtectedRoute>} />
 
       <Route path="*" element={<Navigate to={PORTAL.basePath} replace />} />
     </Routes>

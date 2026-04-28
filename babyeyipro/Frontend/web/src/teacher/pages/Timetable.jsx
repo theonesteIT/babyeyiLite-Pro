@@ -9,14 +9,39 @@ export default function Timetable() {
     const [view, setView] = useState('grid'); // 'grid' or 'list'
     const [selectedDay, setSelectedDay] = useState('Monday');
     const [mockSchedule, setMockSchedule] = useState([]);
+    const [filterOptions, setFilterOptions] = useState({ classes: [], terms: [], academicYears: [] });
+    const [selectedClass, setSelectedClass] = useState('');
+    const [selectedTerm, setSelectedTerm] = useState('');
+    const [selectedAcademicYear, setSelectedAcademicYear] = useState('');
     const [loading, setLoading] = useState(true);
 
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
     useEffect(() => {
+        const fetchFilterOptions = async () => {
+            try {
+                const res = await api.get('/teacher-portal/timetable-filters');
+                if (res.data?.success) {
+                    setFilterOptions(res.data.data || { classes: [], terms: [], academicYears: [] });
+                }
+            } catch (e) {
+                console.error('Failed to load timetable filters', e);
+            }
+        };
+        fetchFilterOptions();
+    }, []);
+
+    useEffect(() => {
         const fetchTimetable = async () => {
             try {
-                const res = await api.get('/teacher-portal/timetable');
+                setLoading(true);
+                const res = await api.get('/teacher-portal/timetable', {
+                    params: {
+                        class_name: selectedClass || undefined,
+                        term: selectedTerm || undefined,
+                        academic_year: selectedAcademicYear || undefined,
+                    },
+                });
                 if (res.data.success) {
                     setMockSchedule(res.data.data || []);
                 }
@@ -27,7 +52,7 @@ export default function Timetable() {
             }
         };
         fetchTimetable();
-    }, []);
+    }, [selectedClass, selectedTerm, selectedAcademicYear]);
 
     const todaySchedule = mockSchedule.filter(s => s.day === selectedDay).sort((a, b) => a.time.localeCompare(b.time));
 
@@ -121,9 +146,46 @@ export default function Timetable() {
                             </button>
                         </div>
                     </div>
+                    <div className="px-6 py-3 border-b border-black/5 bg-white flex flex-col md:flex-row gap-2">
+                        <select
+                            value={selectedClass}
+                            onChange={(e) => setSelectedClass(e.target.value)}
+                            className="h-10 px-3 rounded-xl border border-black/10 text-xs font-bold text-re-text"
+                        >
+                            <option value="">All classes</option>
+                            {filterOptions.classes.map((cls) => (
+                                <option key={cls} value={cls}>{cls}</option>
+                            ))}
+                        </select>
+                        <select
+                            value={selectedTerm}
+                            onChange={(e) => setSelectedTerm(e.target.value)}
+                            className="h-10 px-3 rounded-xl border border-black/10 text-xs font-bold text-re-text"
+                        >
+                            <option value="">All terms</option>
+                            {filterOptions.terms.map((term) => (
+                                <option key={term} value={term}>{term}</option>
+                            ))}
+                        </select>
+                        <select
+                            value={selectedAcademicYear}
+                            onChange={(e) => setSelectedAcademicYear(e.target.value)}
+                            className="h-10 px-3 rounded-xl border border-black/10 text-xs font-bold text-re-text"
+                        >
+                            <option value="">All academic years</option>
+                            {filterOptions.academicYears.map((year) => (
+                                <option key={year} value={year}>{year}</option>
+                            ))}
+                        </select>
+                    </div>
 
                     {/* Content inside the card */}
                     <div className="bg-white">
+                        {loading && (
+                            <div className="p-6 text-xs font-bold text-re-text-muted uppercase tracking-widest text-center">
+                                Loading timetable...
+                            </div>
+                        )}
                         {view === 'grid' ? (
                             <div className="bg-white shadow-sm border border-black/5 overflow-x-auto custom-scrollbar">
                                 <table className="w-full text-left border-collapse table-fixed">

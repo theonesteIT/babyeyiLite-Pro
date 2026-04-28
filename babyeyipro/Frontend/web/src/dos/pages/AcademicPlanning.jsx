@@ -12,6 +12,7 @@ import {
   Pencil,
   Power,
   Eye,
+  X,
 } from 'lucide-react';
 import api from '../services/api';
 import { h } from '../utils/href';
@@ -61,6 +62,7 @@ export default function AcademicPlanning() {
   const [editTeacher, setEditTeacher] = useState(null);
   const [editTeacherForm, setEditTeacherForm] = useState(null);
   const [deleteTeacher, setDeleteTeacher] = useState(null);
+  const [showTeacherModal, setShowTeacherModal] = useState(false);
   const bannerTimer = useRef(null);
 
   const showBanner = (type, text) => {
@@ -132,16 +134,21 @@ export default function AcademicPlanning() {
             : res.data.message || 'Teacher account created.'
         );
         setTeacherForm(emptyTeacher());
+        setShowTeacherModal(false);
         load();
       }
     } catch (err) {
       const code = err.response?.data?.code;
-      const msg =
-        err.response?.data?.message ||
+      const field = err.response?.data?.field;
+      const msg = err.response?.data?.message ||
         (code === 'PRO_REQUIRED'
           ? 'Staff accounts require a Pro school subscription.'
           : 'Could not create teacher.');
-      showBanner('err', msg);
+      if (field) {
+        showBanner('err', `${msg} (Field: ${field})`);
+      } else {
+        showBanner('err', msg);
+      }
     }
   };
 
@@ -162,10 +169,16 @@ export default function AcademicPlanning() {
   const saveTeacherEdit = async (e) => {
     e.preventDefault();
     if (!editTeacher || !editTeacherForm) return;
-    const ok = await patchTeacher(editTeacher.id, {
+    const body = {
       first_name: editTeacherForm.first_name.trim(),
       last_name: editTeacherForm.last_name.trim(),
       phone: editTeacherForm.phone.trim() || null,
+      email: editTeacherForm.email.trim(),
+    };
+    const nextPassword = (editTeacherForm.password || '').trim();
+    if (nextPassword) body.password = nextPassword;
+    const ok = await patchTeacher(editTeacher.id, {
+      ...body,
     });
     if (ok) {
       setEditTeacher(null);
@@ -314,72 +327,23 @@ export default function AcademicPlanning() {
         </div>
 
         {tab === 'teachers' && (
-          <div className="grid md:grid-cols-2 gap-5">
-            <form
-              onSubmit={submitTeacher}
-              className="bg-white rounded-[24px] border border-black/5 shadow-sm p-5 space-y-4"
-            >
-              <h2 className="text-sm font-black text-re-text uppercase tracking-widest opacity-80">New teacher account</h2>
-              <p className="text-[10px] text-re-text-muted font-bold leading-relaxed">
-                Creates a login with the Teacher role. A secure password is generated and emailed to the address you enter.
-                Requires Pro school access for staff management.
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-[11px] font-bold text-re-text-muted">
+                Manage teacher accounts with a cleaner full-width view and mobile-friendly layout.
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <input
-                  required
-                  placeholder="First name"
-                  className="rounded-xl border border-black/10 px-3 py-2 text-sm font-bold"
-                  value={teacherForm.first_name}
-                  onChange={(e) => setTeacherForm((f) => ({ ...f, first_name: e.target.value }))}
-                />
-                <input
-                  required
-                  placeholder="Last name"
-                  className="rounded-xl border border-black/10 px-3 py-2 text-sm font-bold"
-                  value={teacherForm.last_name}
-                  onChange={(e) => setTeacherForm((f) => ({ ...f, last_name: e.target.value }))}
-                />
-              </div>
-              <input
-                required
-                type="email"
-                placeholder="Work email (receives temporary password)"
-                className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm font-bold"
-                value={teacherForm.email}
-                onChange={(e) => setTeacherForm((f) => ({ ...f, email: e.target.value }))}
-              />
-              <input
-                required
-                minLength={3}
-                placeholder="Username (login)"
-                className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm font-bold font-mono"
-                value={teacherForm.username}
-                onChange={(e) => setTeacherForm((f) => ({ ...f, username: e.target.value }))}
-              />
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <input
-                  placeholder="Phone (optional)"
-                  className="rounded-xl border border-black/10 px-3 py-2 text-sm font-bold"
-                  value={teacherForm.phone}
-                  onChange={(e) => setTeacherForm((f) => ({ ...f, phone: e.target.value }))}
-                />
-                <input
-                  placeholder="Staff ID label (optional)"
-                  className="rounded-xl border border-black/10 px-3 py-2 text-sm font-bold"
-                  value={teacherForm.staff_id}
-                  onChange={(e) => setTeacherForm((f) => ({ ...f, staff_id: e.target.value }))}
-                />
-              </div>
               <button
-                type="submit"
-                className="w-full py-3 rounded-xl bg-re-grad-orange text-white font-black text-[10px] uppercase tracking-widest shadow-md hover:opacity-95"
+                type="button"
+                onClick={() => setShowTeacherModal(true)}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-re-grad-orange text-white text-[10px] font-black uppercase tracking-widest shadow-md hover:opacity-95"
               >
-                Create teacher
+                <UserPlus size={14} />
+                Add teacher
               </button>
-            </form>
+            </div>
 
-            <div className="bg-white rounded-[24px] border border-black/5 shadow-sm p-5 flex flex-col min-h-[320px]">
-              <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <div className="bg-white rounded-[24px] border border-black/5 shadow-sm p-4 sm:p-5 flex flex-col min-h-[320px]">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
                 <h2 className="text-sm font-black text-re-text uppercase tracking-widest opacity-80">
                   Teachers ({teachersOnly.length})
                 </h2>
@@ -399,14 +363,14 @@ export default function AcademicPlanning() {
                   </button>
                 </div>
               </div>
-              <div className="overflow-x-auto rounded-xl border border-black/5 flex-1">
-                <table className="w-full text-left text-[10px] min-w-[520px]">
+              <div className="hidden md:block overflow-x-auto rounded-xl border border-black/5 flex-1">
+                <table className="w-full text-left text-[11px] min-w-[680px]">
                   <thead>
                     <tr className="text-re-text-muted font-black uppercase tracking-wider border-b border-black/5 bg-re-bg/50">
-                      <th className="py-2 px-2">Teacher</th>
-                      <th className="py-2 px-2 hidden sm:table-cell">Username</th>
-                      <th className="py-2 px-2">Status</th>
-                      <th className="py-2 px-2 text-right w-[1%]">Actions</th>
+                      <th className="py-2.5 px-3">Teacher</th>
+                      <th className="py-2.5 px-3">Username</th>
+                      <th className="py-2.5 px-3">Status</th>
+                      <th className="py-2.5 px-3 text-right whitespace-nowrap">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -420,32 +384,32 @@ export default function AcademicPlanning() {
                     {teachersOnly.map((s) => {
                       const active = s.is_active === 1 || s.is_active === true;
                       return (
-                        <tr key={s.id} className={`border-b border-black/5 ${active ? '' : 'opacity-60'}`}>
-                          <td className="py-2.5 px-2 align-top">
-                            <p className="font-black text-re-text text-[11px]">
+                        <tr key={s.id} className={`border-b border-black/5 ${active ? '' : 'opacity-60'} hover:bg-re-bg/40`}>
+                          <td className="py-3 px-3 align-top">
+                            <p className="font-black text-re-text text-[12px]">
                               {s.first_name} {s.last_name}
                             </p>
-                            <p className="text-[9px] text-re-text-muted font-mono truncate max-w-[160px]">{s.email}</p>
+                            <p className="text-[10px] text-re-text-muted font-mono truncate max-w-[240px]">{s.email}</p>
                           </td>
-                          <td className="py-2.5 px-2 align-top font-mono text-[9px] text-re-text-muted hidden sm:table-cell">
+                          <td className="py-3 px-3 align-top font-mono text-[10px] text-re-text-muted">
                             {s.username || '—'}
                           </td>
-                          <td className="py-2.5 px-2 align-top">
+                          <td className="py-3 px-3 align-top">
                             <span
-                              className={`inline-flex px-2 py-0.5 rounded-lg text-[8px] font-black uppercase ${
+                              className={`inline-flex px-2.5 py-1 rounded-lg text-[9px] font-black uppercase ${
                                 active ? 'bg-emerald-50 text-emerald-800' : 'bg-slate-100 text-slate-600'
                               }`}
                             >
                               {active ? 'Active' : 'Inactive'}
                             </span>
                           </td>
-                          <td className="py-2.5 px-2 align-top">
-                            <div className="flex flex-wrap justify-end gap-1">
+                          <td className="py-3 px-3 align-middle">
+                            <div className="inline-flex items-center justify-end gap-1.5 whitespace-nowrap min-w-[146px]">
                               <button
                                 type="button"
                                 title="View"
                                 onClick={() => setViewTeacher(s)}
-                                className="p-1.5 rounded-lg text-re-text-muted hover:bg-re-bg"
+                                className="p-2 rounded-lg text-re-text-muted hover:bg-re-bg transition-colors"
                               >
                                 <Eye size={14} />
                               </button>
@@ -458,9 +422,11 @@ export default function AcademicPlanning() {
                                     first_name: s.first_name || '',
                                     last_name: s.last_name || '',
                                     phone: s.phone || '',
+                                    email: s.email || '',
+                                    password: '',
                                   });
                                 }}
-                                className="p-1.5 rounded-lg text-re-orange hover:bg-orange-50"
+                                className="p-2 rounded-lg text-re-orange hover:bg-orange-50 transition-colors"
                               >
                                 <Pencil size={14} />
                               </button>
@@ -468,7 +434,7 @@ export default function AcademicPlanning() {
                                 type="button"
                                 title={active ? 'Deactivate' : 'Activate'}
                                 onClick={() => toggleTeacherActive(s)}
-                                className={`p-1.5 rounded-lg ${active ? 'text-amber-700 hover:bg-orange-50' : 'text-slate-400 hover:bg-re-bg'}`}
+                                className={`p-2 rounded-lg transition-colors ${active ? 'text-amber-700 hover:bg-orange-50' : 'text-slate-400 hover:bg-re-bg'}`}
                               >
                                 <Power size={14} />
                               </button>
@@ -476,7 +442,7 @@ export default function AcademicPlanning() {
                                 type="button"
                                 title="Delete"
                                 onClick={() => setDeleteTeacher(s)}
-                                className="p-1.5 rounded-lg text-red-500 hover:bg-red-50"
+                                className="p-2 rounded-lg text-red-500 hover:bg-red-50 transition-colors"
                               >
                                 <Trash2 size={14} />
                               </button>
@@ -487,6 +453,80 @@ export default function AcademicPlanning() {
                     })}
                   </tbody>
                 </table>
+              </div>
+
+              <div className="md:hidden space-y-2">
+                {teachersOnly.length === 0 && (
+                  <div className="rounded-xl border border-black/5 px-3 py-6 text-center text-re-text-muted font-bold text-sm">
+                    No teacher accounts yet.
+                  </div>
+                )}
+                {teachersOnly.map((s) => {
+                  const active = s.is_active === 1 || s.is_active === true;
+                  return (
+                    <div key={s.id} className={`rounded-xl border border-black/5 p-3 ${active ? 'bg-white' : 'bg-slate-50'}`}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-black text-re-text text-sm truncate">
+                            {s.first_name} {s.last_name}
+                          </p>
+                          <p className="text-[10px] text-re-text-muted font-mono truncate">{s.email}</p>
+                          <p className="text-[10px] text-re-text-muted font-mono truncate mt-0.5">u: {s.username || '—'}</p>
+                        </div>
+                        <span
+                          className={`inline-flex px-2 py-0.5 rounded-lg text-[8px] font-black uppercase ${
+                            active ? 'bg-emerald-50 text-emerald-800' : 'bg-slate-100 text-slate-600'
+                          }`}
+                        >
+                          {active ? 'Active' : 'Inactive'}
+                        </span>
+                      </div>
+                      <div className="mt-2 flex items-center justify-end gap-1">
+                        <button
+                          type="button"
+                          title="View"
+                          onClick={() => setViewTeacher(s)}
+                          className="p-1.5 rounded-lg text-re-text-muted hover:bg-re-bg"
+                        >
+                          <Eye size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          title="Edit"
+                          onClick={() => {
+                            setEditTeacher(s);
+                            setEditTeacherForm({
+                              first_name: s.first_name || '',
+                              last_name: s.last_name || '',
+                              phone: s.phone || '',
+                              email: s.email || '',
+                              password: '',
+                            });
+                          }}
+                          className="p-1.5 rounded-lg text-re-orange hover:bg-orange-50"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          title={active ? 'Deactivate' : 'Activate'}
+                          onClick={() => toggleTeacherActive(s)}
+                          className={`p-1.5 rounded-lg ${active ? 'text-amber-700 hover:bg-orange-50' : 'text-slate-400 hover:bg-re-bg'}`}
+                        >
+                          <Power size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          title="Delete"
+                          onClick={() => setDeleteTeacher(s)}
+                          className="p-1.5 rounded-lg text-red-500 hover:bg-red-50"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -779,6 +819,97 @@ export default function AcademicPlanning() {
         </div>
       )}
 
+      {showTeacherModal && (
+        <div className="fixed inset-0 z-[4000] flex items-center justify-center bg-black/50 p-3 sm:p-4">
+          <form
+            onSubmit={submitTeacher}
+            className="w-full max-w-2xl bg-white rounded-3xl border border-black/5 shadow-2xl overflow-hidden"
+          >
+            <div className="px-4 sm:px-5 py-4 border-b border-black/5 flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-black text-re-text uppercase tracking-widest opacity-90">New teacher account</h3>
+                <p className="text-[10px] text-re-text-muted font-bold mt-1">
+                  Creates a Teacher login and sends a temporary password by email.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowTeacherModal(false)}
+                className="p-2 rounded-lg text-re-text-muted hover:bg-re-bg"
+                aria-label="Close teacher form"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="p-4 sm:p-5 space-y-4 max-h-[78vh] overflow-y-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <input
+                  required
+                  placeholder="First name"
+                  className="rounded-xl border border-black/10 px-3 py-2.5 text-sm font-bold"
+                  value={teacherForm.first_name}
+                  onChange={(e) => setTeacherForm((f) => ({ ...f, first_name: e.target.value }))}
+                />
+                <input
+                  required
+                  placeholder="Last name"
+                  className="rounded-xl border border-black/10 px-3 py-2.5 text-sm font-bold"
+                  value={teacherForm.last_name}
+                  onChange={(e) => setTeacherForm((f) => ({ ...f, last_name: e.target.value }))}
+                />
+              </div>
+              <input
+                required
+                type="email"
+                placeholder="Work email (receives temporary password)"
+                className="w-full rounded-xl border border-black/10 px-3 py-2.5 text-sm font-bold"
+                value={teacherForm.email}
+                onChange={(e) => setTeacherForm((f) => ({ ...f, email: e.target.value }))}
+              />
+              <input
+                required
+                minLength={3}
+                placeholder="Username (login)"
+                className="w-full rounded-xl border border-black/10 px-3 py-2.5 text-sm font-bold font-mono"
+                value={teacherForm.username}
+                onChange={(e) => setTeacherForm((f) => ({ ...f, username: e.target.value }))}
+              />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <input
+                  placeholder="Phone (optional)"
+                  className="rounded-xl border border-black/10 px-3 py-2.5 text-sm font-bold"
+                  value={teacherForm.phone}
+                  onChange={(e) => setTeacherForm((f) => ({ ...f, phone: e.target.value }))}
+                />
+                <input
+                  placeholder="Staff ID label (optional)"
+                  className="rounded-xl border border-black/10 px-3 py-2.5 text-sm font-bold"
+                  value={teacherForm.staff_id}
+                  onChange={(e) => setTeacherForm((f) => ({ ...f, staff_id: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="px-4 sm:px-5 py-4 border-t border-black/5 flex flex-col-reverse sm:flex-row sm:justify-end gap-2 bg-white">
+              <button
+                type="button"
+                onClick={() => setShowTeacherModal(false)}
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl text-sm font-bold text-re-text-muted hover:bg-re-bg"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-re-grad-orange text-white font-black text-[11px] uppercase tracking-widest shadow-md hover:opacity-95"
+              >
+                Create teacher
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {editTeacher && editTeacherForm && (
         <div className="fixed inset-0 z-[4000] flex items-center justify-center bg-black/50 p-4">
           <form onSubmit={saveTeacherEdit} className="w-full max-w-md rounded-2xl bg-white shadow-xl border border-black/5 p-6 space-y-4">
@@ -805,12 +936,51 @@ export default function AcademicPlanning() {
               </div>
             </div>
             <div>
+              <label className="block text-[9px] font-black uppercase text-re-text-muted mb-1">Email</label>
+              <input
+                required
+                type="email"
+                className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm font-bold"
+                value={editTeacherForm.email}
+                onChange={(e) => setEditTeacherForm((f) => ({ ...f, email: e.target.value }))}
+              />
+            </div>
+            <div>
               <label className="block text-[9px] font-black uppercase text-re-text-muted mb-1">Phone</label>
               <input
                 className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm font-bold"
                 value={editTeacherForm.phone}
                 onChange={(e) => setEditTeacherForm((f) => ({ ...f, phone: e.target.value }))}
               />
+            </div>
+            <div>
+              <label className="block text-[9px] font-black uppercase text-re-text-muted mb-1">New password (optional)</label>
+              <input
+                type="password"
+                minLength={8}
+                placeholder="Leave blank to keep current password"
+                className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm font-bold"
+                value={editTeacherForm.password}
+                onChange={(e) => setEditTeacherForm((f) => ({ ...f, password: e.target.value }))}
+              />
+            </div>
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  patchTeacher(editTeacher.id, { is_active: !(editTeacher.is_active === 1 || editTeacher.is_active === true) });
+                  setEditTeacher((prev) =>
+                    prev ? { ...prev, is_active: prev.is_active === 1 || prev.is_active === true ? 0 : 1 } : prev
+                  );
+                }}
+                className={`w-full py-2.5 rounded-xl text-sm font-black ${
+                  editTeacher.is_active === 1 || editTeacher.is_active === true
+                    ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                    : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                }`}
+              >
+                {editTeacher.is_active === 1 || editTeacher.is_active === true ? 'Deactivate teacher' : 'Activate teacher'}
+              </button>
             </div>
             <div className="flex gap-2 justify-end pt-2">
               <button

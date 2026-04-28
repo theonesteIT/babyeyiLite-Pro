@@ -12,6 +12,8 @@ import Attendance from './pages/Attendance'
 import RecordMarks from './pages/RecordMarks'
 import ViewMarks from './pages/ViewMarks'
 import EquipmentRequests from './pages/EquipmentRequests'
+import StaffPayroll from './pages/StaffPayroll'
+import ChatCenter from '../shared/pages/ChatCenter'
 import { PORTAL } from './config/portal'
 
 const LoadingScreen = () => (
@@ -47,6 +49,9 @@ function TeacherRoutesInner() {
       <Route path="marks/view" element={<ProtectedRoute title="View Student Marks"><ViewMarks /></ProtectedRoute>} />
       <Route path="marks/record" element={<ProtectedRoute title="Record Marks"><RecordMarks /></ProtectedRoute>} />
       <Route path="equipment-requests" element={<ProtectedRoute title="Request Equipment"><EquipmentRequests /></ProtectedRoute>} />
+      <Route path="my-payroll" element={<ProtectedRoute title="My Payroll"><StaffPayroll /></ProtectedRoute>} />
+      <Route path="payroll" element={<Navigate to="my-payroll" replace />} />
+      <Route path="chat" element={<ProtectedRoute title="Chat center"><ChatCenter /></ProtectedRoute>} />
 
       <Route path="*" element={<Navigate to={PORTAL.basePath} replace />} />
     </Routes>

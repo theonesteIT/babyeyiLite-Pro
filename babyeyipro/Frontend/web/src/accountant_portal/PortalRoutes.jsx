@@ -10,9 +10,11 @@ import Expenses from './frontend/src/pages/Expenses'
 import Requisitions from './frontend/src/pages/Requisitions'
 import PayrollHistory from './frontend/src/pages/PayrollHistory'
 import PayrollConfig from './frontend/src/pages/PayrollConfig'
+import StaffPayroll from './frontend/src/pages/StaffPayroll'
 import ShuleAvance from './frontend/src/pages/ShuleAvance'
 import FeaturePlaceholders from './frontend/src/pages/FeaturePlaceholders'
 import BabyeyiFees from './frontend/src/pages/BabyeyiFees'
+import ChatCenter from '../shared/pages/ChatCenter'
 
 function LoadingScreen() {
   return (
@@ -50,6 +52,8 @@ function AccountantRoutesInner() {
       <Route path="payroll" element={<Navigate to="payroll/history" replace />} />
       <Route path="payroll/history" element={<ProtectedRoute title="Payroll History"><PayrollHistory /></ProtectedRoute>} />
       <Route path="payroll/config" element={<ProtectedRoute title="Configure Payroll"><PayrollConfig /></ProtectedRoute>} />
+      <Route path="my-payroll" element={<ProtectedRoute title="My Payroll"><StaffPayroll /></ProtectedRoute>} />
+      <Route path="chat" element={<ProtectedRoute title="Chat center"><ChatCenter /></ProtectedRoute>} />
 
       <Route path="settings" element={<ProtectedRoute title="Settings"><FeaturePlaceholders feature="Settings" icon="⚙️" /></ProtectedRoute>} />
 

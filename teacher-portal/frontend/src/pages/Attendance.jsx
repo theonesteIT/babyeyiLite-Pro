@@ -12,8 +12,10 @@ import {
 } from 'lucide-react';
 
 export default function Attendance() {
+    const [attendanceMode, setAttendanceMode] = useState('student');
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
     const [selectedClass, setSelectedClass] = useState(null);
+    const [selectedClassFilter, setSelectedClassFilter] = useState('');
     const [selectedLesson, setSelectedLesson] = useState(null);
     const [lessons, setLessons] = useState([]);
     const [isClassSelected, setIsClassSelected] = useState(false);
@@ -22,6 +24,13 @@ export default function Attendance() {
     const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(false);
     const [roster, setRoster] = useState([]);
+    const [selectedStudents, setSelectedStudents] = useState([]);
+    const [dailySummary, setDailySummary] = useState([]);
+    const [weeklySummary, setWeeklySummary] = useState(null);
+    const [teacherAttendanceStatus, setTeacherAttendanceStatus] = useState('Present');
+    const [teacherAttendanceRemarks, setTeacherAttendanceRemarks] = useState('');
+    const [selectedStudent, setSelectedStudent] = useState(null);
+    const [showMobileChartPanel, setShowMobileChartPanel] = useState(false);
 
     const getDayName = (dateStr) => {
         const date = new Date(dateStr + 'T12:00:00');
@@ -36,6 +45,13 @@ export default function Attendance() {
 
     const rosterClassForLesson = (lesson) =>
         lesson?.roster_class_name || lesson?.group || '';
+
+    const classOptionsFromLessons = Array.from(
+        new Set((lessons || []).map((l) => rosterClassForLesson(l)).filter(Boolean))
+    );
+    const periodOptions = selectedClassFilter
+        ? lessons.filter((l) => rosterClassForLesson(l) === selectedClassFilter)
+        : lessons;
 
     const lessonClassDisplay = (lesson) => {
         if (!lesson) return '';
@@ -55,6 +71,7 @@ export default function Attendance() {
         fetchLessons();
         setSelectedLesson(null);
         setIsClassSelected(false);
+        setSelectedClassFilter('');
     }, [selectedDate]);
 
     useEffect(() => {
@@ -63,16 +80,25 @@ export default function Attendance() {
         }
     }, [selectedClass, selectedLesson?.id, selectedDate]);
 
+    useEffect(() => {
+        if (attendanceMode !== 'student') return;
+        fetchDailySummary();
+        fetchWeeklySummary();
+    }, [attendanceMode, selectedDate, selectedClass]);
+
+    useEffect(() => {
+        if (attendanceMode !== 'teacher') return;
+        fetchTeacherAttendance();
+    }, [attendanceMode, selectedDate]);
+
     const fetchLessons = async () => {
         setLoading(true);
         try {
-            const day = getDayName(selectedDate);
-            const res = await api.get('/teacher-portal/timetable', { params: { day } });
-            if (res.data.success) {
-                setLessons(res.data.data || []);
-            }
+            const res = await api.get('/teacher-portal/timetable');
+            setLessons(res.data?.success ? (res.data.data || []) : []);
         } catch (err) {
             console.error('Failed to fetch lessons:', err);
+            setLessons([]);
         } finally {
             setLoading(false);
         }
@@ -98,6 +124,7 @@ export default function Attendance() {
                 name: s.name,
                 gender: s.gender === 'Male' ? 'M' : s.gender === 'Female' ? 'F' : '—',
                 status: s.active_permission ? 'permission' : 'present',
+                remarks: '',
                 active_permission: s.active_permission,
                 residency_status: s.residency_status || 'DAY',
             }));
@@ -110,7 +137,13 @@ export default function Attendance() {
                     attRes.data.data.records.map((r) => [r.student_id, r.status])
                 );
                 rows = rows.map((row) =>
-                    byId[row.id] != null ? { ...row, status: byId[row.id] } : row
+                    byId[row.id] != null
+                        ? {
+                            ...row,
+                            status: byId[row.id],
+                            remarks: (attRes.data.data.records.find((x) => x.student_id === row.id)?.remarks || ''),
+                        }
+                        : row
                 );
             }
             setRoster(rows);
@@ -122,12 +155,60 @@ export default function Attendance() {
         }
     };
 
+    const fetchDailySummary = async () => {
+        try {
+            const res = await api.get('/teacher-portal/attendance-summary/daily', {
+                params: { date: selectedDate, class_name: selectedClass || undefined },
+            });
+            if (res.data?.success) setDailySummary(res.data.data || []);
+        } catch (err) {
+            console.error('Failed to load daily summary', err);
+            setDailySummary([]);
+        }
+    };
+
+    const fetchWeeklySummary = async () => {
+        try {
+            const res = await api.get('/teacher-portal/attendance-summary/weekly', {
+                params: { date: selectedDate },
+            });
+            if (res.data?.success) setWeeklySummary(res.data.data || null);
+        } catch (err) {
+            console.error('Failed to load weekly summary', err);
+            setWeeklySummary(null);
+        }
+    };
+
+    const fetchTeacherAttendance = async () => {
+        try {
+            const res = await api.get('/teacher-portal/teacher-attendance', { params: { date: selectedDate } });
+            if (res.data?.success && res.data.data) {
+                setTeacherAttendanceStatus(res.data.data.status || 'Present');
+                setTeacherAttendanceRemarks(res.data.data.remarks || '');
+            } else {
+                setTeacherAttendanceStatus('Present');
+                setTeacherAttendanceRemarks('');
+            }
+        } catch (err) {
+            console.error('Failed to load teacher attendance', err);
+        }
+    };
+
     const handleSave = async () => {
         if (!selectedLesson) return alert("Select a lesson/period first.");
+        if (roster.length === 0) return alert('No students loaded for this class.');
 
         try {
             setLoading(true);
-            const records = roster.map(s => ({ student_id: s.id, status: s.status }));
+            const existing = await api.get('/teacher-portal/attendance', {
+                params: { timetable_id: selectedLesson.id, date: selectedDate },
+            });
+            if (existing.data?.success && existing.data?.data?.log_id) {
+                const overwrite = window.confirm('Attendance already exists for this class and date. Do you want to overwrite it?');
+                if (!overwrite) return;
+            }
+
+            const records = roster.map(s => ({ student_id: s.id, status: s.status, remarks: s.remarks || '' }));
             const res = await api.post('/teacher-portal/attendance', { 
                 records, 
                 date: selectedDate, 
@@ -151,10 +232,52 @@ export default function Attendance() {
             student.id === id ? { ...student, status: newStatus } : student
         ));
     };
+    const selectedStudentDetails = selectedStudent
+        ? roster.find((s) => s.id === selectedStudent.id) || selectedStudent
+        : null;
+    const selectedStudentWeeklyRows = selectedStudentDetails?.adm && weeklySummary?.rows?.length
+        ? weeklySummary.rows.filter((r) => String(r.student_uid) === String(selectedStudentDetails.adm))
+        : [];
 
     const handleMarkAll = (status) => {
         const resolved = status === 'none' ? 'absent' : status;
-        setRoster((prev) => prev.map((student) => ({ ...student, status: resolved })));
+        setRoster((prev) =>
+            prev.map((student) => {
+                if (selectedStudents.length && !selectedStudents.includes(student.id)) return student;
+                return { ...student, status: resolved };
+            })
+        );
+    };
+
+    const toggleStudentSelect = (id) => {
+        setSelectedStudents((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedStudents.length === filteredRoster.length) {
+            setSelectedStudents([]);
+        } else {
+            setSelectedStudents(filteredRoster.map((s) => s.id));
+        }
+    };
+
+    const handleTeacherAttendanceSave = async () => {
+        try {
+            setLoading(true);
+            const res = await api.post('/teacher-portal/teacher-attendance', {
+                date: selectedDate,
+                status: teacherAttendanceStatus,
+                remarks: teacherAttendanceRemarks,
+            });
+            if (res.data?.success) {
+                alert('Teacher attendance saved.');
+            }
+        } catch (err) {
+            console.error(err);
+            alert('Failed to save teacher attendance');
+        } finally {
+            setLoading(false);
+        }
     };
 
     const searchNorm = searchQuery.trim().toLowerCase();
@@ -183,9 +306,10 @@ export default function Attendance() {
 
             {/* ── High-Fidelity Hero Section ── */}
             <div className="relative w-full min-h-[300px] overflow-hidden">
-                <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(8,17,31,0.92),rgba(18,35,58,0.84),rgba(33,49,74,0.78))] z-10 backdrop-blur-[2px]"></div>
-                <div className="absolute inset-0 z-10 bg-[radial-gradient(circle_at_top_right,rgba(255,140,0,0.20),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(255,184,0,0.10),transparent_24%)]"></div>
+                <div className="absolute inset-0  bg-orange-950/70 z-10 backdrop-blur-[2px]"></div>
+                {/* Fallback pattern */}
                 <img src="/teacher.jpg" alt="Hero" className="absolute inset-0 w-full h-full object-cover scale-105 opacity-100" />
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent to-transparent z-[5]"></div>
 
                 <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-12 pt-16 pb-24">
                     <div className="space-y-1">
@@ -206,8 +330,28 @@ export default function Attendance() {
 
             {/* ── Main Content Area ── */}
             <div className="relative z-30 max-w-[1600px] mx-auto px-2 md:px-6 -mt-16">
+                <div className="mb-3 bg-white border border-black/5 rounded-2xl p-2 flex gap-2 w-full md:w-fit">
+                    <button
+                        type="button"
+                        onClick={() => setAttendanceMode('student')}
+                        className={`px-4 h-10 rounded-xl text-[10px] font-black uppercase tracking-widest ${
+                            attendanceMode === 'student' ? 'bg-re-grad-orange text-white' : 'bg-re-bg text-re-text-muted'
+                        }`}
+                    >
+                        StudentAttendance
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setAttendanceMode('teacher')}
+                        className={`px-4 h-10 rounded-xl text-[10px] font-black uppercase tracking-widest ${
+                            attendanceMode === 'teacher' ? 'bg-re-grad-orange text-white' : 'bg-re-bg text-re-text-muted'
+                        }`}
+                    >
+                        TeacherAttendance
+                    </button>
+                </div>
 
-                <div className="bg-white lg:rounded-t-[2.5rem] shadow-2xl border border-black/5 overflow-hidden flex flex-col">
+                <div className={`${attendanceMode === 'teacher' ? 'hidden' : 'flex'} bg-white rounded-t-[2.5rem] shadow-2xl border border-black/5 overflow-hidden flex-col`}>
 
                     {/* Mobile: date always visible (header row is hidden on small screens until a period is chosen) */}
                     <div className="lg:hidden px-3 py-3 border-b border-black/5 bg-white flex flex-col gap-2">
@@ -278,7 +422,7 @@ export default function Attendance() {
                                 <select
                                     value={selectedLesson?.id || ''}
                                     onChange={(e) => {
-                                        const lesson = lessons.find(l => l.id.toString() === e.target.value);
+                                        const lesson = periodOptions.find(l => l.id.toString() === e.target.value);
                                         if (lesson) {
                                             setSelectedLesson(lesson);
                                             setSelectedClass(rosterClassForLesson(lesson));
@@ -288,11 +432,27 @@ export default function Attendance() {
                                     className={`${teacherInnerSelectCls} !pl-8 shadow-[inset_0_2px_8px_rgba(15,23,42,0.11),inset_0_-1px_0_rgba(255,255,255,0.55)]`}
                                 >
                                     <option value="">Select Period / Lesson</option>
-                                    {lessons.map(lesson => (
+                                    {periodOptions.map(lesson => (
                                         <option key={lesson.id} value={lesson.id}>
                                             {lesson.subject} — {lessonClassDisplay(lesson)} ({lesson.time})
                                             {lesson.teacher_name ? ` · ${lesson.teacher_name}` : ''}
                                         </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="relative hidden lg:block lg:min-w-[9rem] lg:max-w-[14rem] shrink-0">
+                                <select
+                                    value={selectedClassFilter}
+                                    onChange={(e) => {
+                                        setSelectedClassFilter(e.target.value);
+                                        setSelectedLesson(null);
+                                        setIsClassSelected(false);
+                                    }}
+                                    className={`${teacherInnerSelectCls} shadow-[inset_0_2px_8px_rgba(15,23,42,0.11),inset_0_-1px_0_rgba(255,255,255,0.55)]`}
+                                >
+                                    <option value="">All classes</option>
+                                    {classOptionsFromLessons.map((className) => (
+                                        <option key={className} value={className}>{className}</option>
                                     ))}
                                 </select>
                             </div>
@@ -379,11 +539,27 @@ export default function Attendance() {
                                 </button>
                             )}
                         </div>
+                        <div className="flex gap-2">
+                            <select
+                                value={selectedClassFilter}
+                                onChange={(e) => {
+                                    setSelectedClassFilter(e.target.value);
+                                    setSelectedLesson(null);
+                                    setIsClassSelected(false);
+                                }}
+                                className="h-9 rounded-xl border border-black/10 px-3 text-[10px] font-black uppercase tracking-widest bg-white"
+                            >
+                                <option value="">All classes</option>
+                                {classOptionsFromLessons.map((className) => (
+                                    <option key={className} value={className}>{className}</option>
+                                ))}
+                            </select>
+                        </div>
                         {loading && lessons.length === 0 ? (
                             <p className="text-[10px] font-bold text-re-text-muted text-center py-3">Loading timetable…</p>
-                        ) : lessons.length > 0 ? (
+                        ) : periodOptions.length > 0 ? (
                             <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-thin">
-                                {lessons.map((lesson) => {
+                                {periodOptions.map((lesson) => {
                                     const active = selectedLesson?.id === lesson.id;
                                     return (
                                         <button
@@ -406,7 +582,7 @@ export default function Attendance() {
                             </div>
                         ) : (
                             <p className="text-[10px] font-bold text-re-text-muted text-center py-3 leading-relaxed">
-                                No periods on this date in your timetable. Change the date at the top to try another day.
+                                No periods for this class/date in your timetable. Change class or date to try another day.
                             </p>
                         )}
                     </div>
@@ -471,6 +647,13 @@ export default function Attendance() {
                         <table className="w-full text-left border-collapse min-w-full sm:min-w-[800px]">
                             <thead>
                                 <tr>
+                                    <th className="border-b border-r border-black/5 bg-re-bg/50 px-2 py-3 text-center">
+                                        <input
+                                            type="checkbox"
+                                            checked={filteredRoster.length > 0 && selectedStudents.length === filteredRoster.length}
+                                            onChange={toggleSelectAll}
+                                        />
+                                    </th>
                                     <th className="border-b border-r border-black/5 bg-re-bg/50 px-2 py-3 text-center text-[7px] sm:text-[9px] font-black uppercase tracking-widest text-re-text-muted w-8 sm:w-12">#</th>
                                     <th className="border-b border-r border-black/5 bg-re-bg/50 px-4 py-3 text-left text-[7px] sm:text-[9px] font-black uppercase tracking-widest text-re-text-muted w-24 hidden sm:table-cell">Roll No</th>
                                     <th className="border-b border-r border-black/5 bg-re-bg/50 px-4 py-3 text-left text-[7px] sm:text-[9px] font-black uppercase tracking-widest text-re-text-muted">Student Details</th>
@@ -480,7 +663,7 @@ export default function Attendance() {
                             <tbody>
                                 {loading ? (
                                     <tr>
-                                        <td colSpan="4" className="p-12 text-center">
+                                        <td colSpan="5" className="p-12 text-center">
                                             <div className="w-8 h-8 border-4 border-re-orange border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
                                             <p className="text-[10px] font-black text-re-text-muted uppercase tracking-widest">Fetching Central Registry...</p>
                                         </td>
@@ -488,7 +671,18 @@ export default function Attendance() {
                                 ) : (
                                     <>
                                         {filteredRoster.map((student, idx) => (
-                                            <tr key={student.id} className="hover:bg-re-bg/30 transition-colors">
+                                            <tr
+                                                key={student.id}
+                                                className="hover:bg-re-bg/30 transition-colors"
+                                            >
+                                                <td className="border-r border-b border-black/5 px-2 py-3 text-center">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedStudents.includes(student.id)}
+                                                        onChange={() => toggleStudentSelect(student.id)}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    />
+                                                </td>
                                                 <td className="border-r border-b border-black/5 px-2 py-3 text-center text-[10px] font-black text-gray-300">
                                                     {idx + 1}
                                                 </td>
@@ -502,7 +696,18 @@ export default function Attendance() {
                                                             <div className="w-1 h-1 sm:w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>
                                                         </div>
                                                     </div>
-                                                    <div className="flex-1 min-w-0">
+                                                    <div
+                                                        className="flex-1 min-w-0 cursor-pointer"
+                                                        onClick={() => setSelectedStudent(student)}
+                                                        role="button"
+                                                        tabIndex={0}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                                e.preventDefault();
+                                                                setSelectedStudent(student);
+                                                            }
+                                                        }}
+                                                    >
                                                         <h4 className="text-[11px] sm:text-xs font-black tracking-tight text-re-text truncate block">{student.name}</h4>
                                                         <div className="flex items-center gap-2">
                                                             <span className="text-[8px] sm:text-[9px] font-bold text-re-text-muted uppercase tracking-widest">{student.gender}</span>
@@ -518,7 +723,8 @@ export default function Attendance() {
                                                     </div>
                                                 </td>
                                                 <td className="border-b border-black/5 px-2 py-3">
-                                                    <div className="flex items-center justify-center gap-2">
+                                                    <div className="flex flex-col gap-2">
+                                                        <div className="flex items-center justify-center gap-2">
                                                         <StatusButton
                                                             active={student.status === 'present'}
                                                             onClick={() => handleStatusChange(student.id, 'present')}
@@ -547,20 +753,34 @@ export default function Attendance() {
                                                             icon={<FileText size={12} />}
                                                             label="Excused"
                                                         />
+                                                        </div>
+                                                        <input
+                                                            type="text"
+                                                            value={student.remarks || ''}
+                                                            onChange={(e) =>
+                                                                setRoster((prev) =>
+                                                                    prev.map((row) =>
+                                                                        row.id === student.id ? { ...row, remarks: e.target.value } : row
+                                                                    )
+                                                                )
+                                                            }
+                                                            placeholder="Remarks (optional)"
+                                                            className="w-full h-8 rounded-lg border border-black/10 px-2 text-[10px]"
+                                                        />
                                                     </div>
                                                 </td>
                                             </tr>
                                         ))}
                                         {filteredRoster.length === 0 && roster.length > 0 && searchNorm && (
                                             <tr>
-                                                <td colSpan="4" className="p-8 text-center text-sm font-bold text-re-text-muted">
+                                                <td colSpan="5" className="p-8 text-center text-sm font-bold text-re-text-muted">
                                                     No students match your search. Clear the search box to see the full class list.
                                                 </td>
                                             </tr>
                                         )}
                                         {filteredRoster.length === 0 && roster.length === 0 && !loading && isClassSelected && (
                                             <tr>
-                                                <td colSpan="4" className="p-8 text-center text-sm font-bold text-re-text-muted leading-relaxed max-w-md mx-auto">
+                                                <td colSpan="5" className="p-8 text-center text-sm font-bold text-re-text-muted leading-relaxed max-w-md mx-auto">
                                                     No students were returned for class <span className="text-re-text">{selectedClass}</span>. Usually this means the class name on the timetable does not exactly match the class name on student records—ask your manager to align them—or there are no students enrolled in this class.
                                                 </td>
                                             </tr>
@@ -586,8 +806,170 @@ export default function Attendance() {
                         </div>
                     </div>
                 )}
+
+                {attendanceMode === 'teacher' && (
+                    <div className="bg-white rounded-[2rem] shadow-2xl border border-black/5 overflow-hidden p-6 space-y-4">
+                        <h3 className="text-sm font-black uppercase tracking-widest text-re-text">Teacher Attendance</h3>
+                        <div className="grid md:grid-cols-3 gap-3">
+                            <input
+                                type="date"
+                                value={selectedDate}
+                                onChange={(e) => setSelectedDate(e.target.value)}
+                                className="h-11 px-3 rounded-xl border border-black/10 text-xs font-black"
+                            />
+                            <select
+                                value={teacherAttendanceStatus}
+                                onChange={(e) => setTeacherAttendanceStatus(e.target.value)}
+                                className="h-11 px-3 rounded-xl border border-black/10 text-xs font-black"
+                            >
+                                <option>Present</option>
+                                <option>Absent</option>
+                                <option>Late</option>
+                                <option>Excused</option>
+                            </select>
+                            <button
+                                type="button"
+                                onClick={handleTeacherAttendanceSave}
+                                className="h-11 bg-re-grad-orange text-white font-black text-[10px] uppercase tracking-widest rounded-xl"
+                            >
+                                Save Teacher Attendance
+                            </button>
+                        </div>
+                        <textarea
+                            value={teacherAttendanceRemarks}
+                            onChange={(e) => setTeacherAttendanceRemarks(e.target.value)}
+                            placeholder="Remarks (optional)"
+                            className="w-full min-h-[90px] rounded-xl border border-black/10 p-3 text-sm"
+                        />
+                    </div>
+                )}
+
+                {attendanceMode === 'student' && (
+                    <div className="mt-4 grid lg:grid-cols-2 gap-4">
+                        <div className="bg-white border border-black/5 rounded-2xl p-4">
+                            <h3 className="text-xs font-black uppercase tracking-widest text-re-text mb-3">Daily Attendance Summary</h3>
+                            {dailySummary.length === 0 ? (
+                                <p className="text-xs text-re-text-muted font-bold">No daily summary available.</p>
+                            ) : (
+                                <div className="space-y-2">
+                                    {dailySummary.map((row, idx) => (
+                                        <div key={`${row.class_name}-${row.subject_name}-${idx}`} className="p-3 rounded-xl bg-re-bg/40 border border-black/5">
+                                            <p className="text-xs font-black text-re-text">{row.class_name} - {row.subject_name}</p>
+                                            <p className="text-[11px] font-bold text-re-text-muted">
+                                                Total {row.total_students} | Present {row.present_count} | Absent {row.absent_count} | Late {row.late_count} | Excused {row.excused_count}
+                                            </p>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                        <div className="bg-white border border-black/5 rounded-2xl p-4">
+                            <h3 className="text-xs font-black uppercase tracking-widest text-re-text mb-3">Weekly Attendance Snapshot</h3>
+                            {!weeklySummary?.rows?.length ? (
+                                <p className="text-xs text-re-text-muted font-bold">No weekly summary available.</p>
+                            ) : (
+                                <p className="text-[11px] text-re-text-muted font-bold">
+                                    {weeklySummary.rows.length} records from {weeklySummary.start} to {weeklySummary.end}
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                )}
             </div>
-        </div>
+                {attendanceMode === 'student' && (
+                    <>
+                        {/* Mobile floating chart toggle */}
+                        <button
+                            type="button"
+                            onClick={() => setShowMobileChartPanel((v) => !v)}
+                            className="lg:hidden fixed bottom-24 right-4 z-[120] w-12 h-12 rounded-full bg-re-grad-orange text-white shadow-re-glow flex items-center justify-center"
+                            aria-label="Toggle attendance charts"
+                        >
+                            <BarChart2 size={18} />
+                        </button>
+
+                        {/* Mobile chart panel */}
+                        {showMobileChartPanel && (
+                            <div className="lg:hidden fixed bottom-40 right-3 left-3 z-[120] bg-white border border-black/10 rounded-2xl shadow-2xl p-3 space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="text-[10px] font-black uppercase tracking-widest text-re-text">Attendance Charts</h3>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowMobileChartPanel(false)}
+                                        className="text-re-text-muted"
+                                    >
+                                        <X size={14} />
+                                    </button>
+                                </div>
+                                <div className="text-[10px] font-bold text-re-text-muted">
+                                    Daily items: {dailySummary.length} · Weekly records: {weeklySummary?.rows?.length || 0}
+                                </div>
+                            </div>
+                        )}
+                    </>
+                )}
+
+                {/* Student drawer modal */}
+                {selectedStudentDetails && (
+                    <>
+                        <div
+                            className="fixed inset-0 z-[150] bg-black/15 backdrop-blur-[1px]"
+                            onClick={() => setSelectedStudent(null)}
+                        />
+                        <div className="fixed inset-y-0 right-0 z-[151] w-full sm:max-w-md md:max-w-lg bg-white/98 shadow-2xl border-l border-black/10 overflow-y-auto rounded-l-3xl">
+                            <div className="sticky top-0 z-10 bg-white/95 backdrop-blur border-b border-black/5 px-4 sm:px-5 py-4">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="text-sm font-black uppercase tracking-widest text-re-text">Student Attendance</h3>
+                                    <button onClick={() => setSelectedStudent(null)} className="text-re-text-muted hover:text-re-text transition-colors">
+                                        <X size={16} />
+                                    </button>
+                                </div>
+                                <p className="text-[10px] font-bold text-re-text-muted mt-1 uppercase tracking-wider">Quick details and mark actions</p>
+                            </div>
+                            <div className="p-4 sm:p-5">
+                            <div className="space-y-2 mb-4 bg-re-bg/40 border border-black/5 rounded-2xl p-3">
+                                <p className="text-xs font-black text-re-text">{selectedStudentDetails.name}</p>
+                                <p className="text-[10px] font-bold text-re-text-muted">ID: {selectedStudentDetails.adm}</p>
+                                <p className="text-[10px] font-bold text-re-text-muted">Class: {selectedClass || '—'}</p>
+                            </div>
+                            <div className="space-y-2 mb-4">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-re-text-muted">Quick Mark</p>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <button onClick={() => handleStatusChange(selectedStudentDetails.id, 'present')} className="h-10 rounded-xl text-[10px] font-black uppercase bg-emerald-50 text-emerald-700 border border-emerald-100">Present</button>
+                                    <button onClick={() => handleStatusChange(selectedStudentDetails.id, 'absent')} className="h-10 rounded-xl text-[10px] font-black uppercase bg-red-50 text-red-700 border border-red-100">Absent</button>
+                                    <button onClick={() => handleStatusChange(selectedStudentDetails.id, 'late')} className="h-10 rounded-xl text-[10px] font-black uppercase bg-orange-50 text-orange-700 border border-orange-100">Late</button>
+                                    <button onClick={() => handleStatusChange(selectedStudentDetails.id, 'permission')} className="h-10 rounded-xl text-[10px] font-black uppercase bg-blue-50 text-blue-700 border border-blue-100">Excused</button>
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-re-text-muted">Weekly History</p>
+                                {!selectedStudentWeeklyRows.length ? (
+                                    <p className="text-xs font-bold text-re-text-muted">No weekly history available.</p>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {selectedStudentWeeklyRows.map((row, idx) => (
+                                            <div key={`${row.record_date}-${idx}`} className="p-2 rounded-lg bg-re-bg/40 border border-black/5">
+                                                <p className="text-[11px] font-black text-re-text">{row.record_date}</p>
+                                                <p className="text-[10px] font-bold text-re-text-muted">{row.status}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                            <div className="mt-5 pt-3 border-t border-black/10 flex justify-end">
+                                <button
+                                    type="button"
+                                    onClick={() => setSelectedStudent(null)}
+                                    className="h-11 px-5 rounded-xl border border-black/15 text-re-text font-black text-[10px] uppercase tracking-widest hover:bg-re-bg w-full sm:w-auto"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                            </div>
+                        </div>
+                    </>
+                )}
+            </div>
     );
 }
 

@@ -22,6 +22,7 @@ const SERVICES = [
   { key:"uniform",    Icon:Shirt,       title:"Uniform Voucher",     desc:"Ensures students have at least one set of new uniforms at the beginning of each academic year.", href:"/services/uniform-voucher/request", cta:"Open flow" },
   { key:"mybabyeyi",  Icon:User,        title:"My Babyeyi Account",  desc:"Your family dashboard for tracking all services and payments in one place.",              href:"/parents/login",                     cta:"Open Dashboard" },
   { key:"paidschool", Icon:CreditCard,  title:"Paid at School",      desc:"Pay school fees and requirements through the school portal with just a school code.",    href:"/pay-by-school",                 cta:"Pay by school code" },
+  { key:"onlineService", Icon:User,      title:"OnlineService",       desc:"Student portal login using student code. Default password is your school name.",             href:"/online-service",                 cta:"Open student login" },
   { key:"papeterie",  Icon:Store,       title:"Shule Papeterie",     desc:"Stationery and learning materials, fast and convenient.",                                  href:"/services/shule-papeterie",       cta:"Open store" },
 ];
 

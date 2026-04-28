@@ -3,9 +3,10 @@ import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, BookOpen, BookMarked, Users, RotateCcw,
-  Wallet, User, LogOut, Wifi, WifiOff, RefreshCw, ChevronDown,
-  Library, BarChart2, Settings,
+  Wallet, User, LogOut, Wifi, WifiOff, RefreshCw, ChevronDown, MessageSquare,
+  Library, BarChart2, Settings, DollarSign,
 } from 'lucide-react';
+import useChatUnread from '../../../../shared/hooks/useChatUnread';
 
 const statusConfig = {
   online:  { label: 'Online',  dot: 'bg-emerald-400', text: 'text-emerald-600', ring: 'ring-emerald-100', bg: 'bg-emerald-50',  Icon: Wifi },
@@ -27,7 +28,7 @@ const AppStatusBadge = ({ status = 'online' }) => {
   );
 };
 
-const NavItem = ({ icon: Icon, name, path, exact, onClose }) => (
+const NavItem = ({ icon: Icon, name, path, exact, onClose, badgeCount = 0 }) => (
   <NavLink to={path} end={exact} onClick={onClose}
     className={({ isActive }) =>
       `relative flex items-center gap-2 px-2.5 py-1.5 rounded-xl transition-all duration-200 group text-[11px] font-bold
@@ -38,6 +39,11 @@ const NavItem = ({ icon: Icon, name, path, exact, onClose }) => (
       <>
         <Icon size={13} className={isActive ? 'text-white' : 'text-re-text-muted/50 group-hover:text-re-navy transition-colors'} />
         <span>{name}</span>
+        {badgeCount > 0 && (
+          <span className="ml-auto text-[10px] leading-none px-1.5 py-1 rounded-full bg-red-100 text-red-700">
+            {badgeCount > 99 ? '99+' : badgeCount}
+          </span>
+        )}
       </>
     )}
   </NavLink>
@@ -79,6 +85,7 @@ const SectionLabel = ({ label }) => (
 
 const Sidebar = ({ onClose }) => {
   const { staff, logout } = useAuth();
+  const unreadCount = useChatUnread();
   return (
     <div className="flex flex-col h-full bg-white border-r border-black/5 shadow-sm">
       <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
@@ -117,7 +124,9 @@ const Sidebar = ({ onClose }) => {
         <NavItem icon={BarChart2}  name="Library Reports"  path="/reports"     onClose={onClose} />
 
         <SectionLabel label="Services" />
+        <NavItem icon={DollarSign} name="My Payroll" path="/my-payroll" onClose={onClose} />
         <NavItem icon={Wallet}     name="Shule Avance"     path="/shule-avance" onClose={onClose} />
+        <NavItem icon={MessageSquare} name="Chat Center"   path="/chat" onClose={onClose} badgeCount={unreadCount} />
 
         <SectionLabel label="System" />
         <NavItem icon={Settings}   name="Settings"         path="/settings"    onClose={onClose} />

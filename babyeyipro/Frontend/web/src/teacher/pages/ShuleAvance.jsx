@@ -12,11 +12,19 @@ import {
    CreditCard,
    Users,
    Eye,
-   Package
+   Package,
+   X
 } from 'lucide-react';
 import ShuleAvanceRepaymentCalculator from '../components/ShuleAvanceRepaymentCalculator';
 
 const UPLOADS_BASE = (import.meta.env.VITE_UPLOADS_BASE || import.meta.env.VITE_API_URL || 'http://localhost:5100').replace(/\/$/, '');
+const REQUEST_STATUS_META = {
+   pending_accountant: { label: 'Pending for Accountant', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+   sent_to_manager: { label: 'Sent to Manager', cls: 'bg-sky-50 text-sky-700 border-sky-200' },
+   approved: { label: 'Approved', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+   rejected_by_accountant: { label: 'Rejected by Accountant', cls: 'bg-red-50 text-red-700 border-red-200' },
+   rejected_by_manager: { label: 'Rejected by Manager', cls: 'bg-red-50 text-red-700 border-red-200' },
+};
 
 function fmtMoney(v) {
    return `${Number(v || 0).toLocaleString()} RWF`;
@@ -29,6 +37,17 @@ function toAssetUrl(pathLike) {
    return `${UPLOADS_BASE}${clean.startsWith('/') ? clean : `/${clean}`}`;
 }
 
+function normalizeList(value) {
+   if (Array.isArray(value)) return value;
+   if (typeof value !== 'string' || !value.trim()) return [];
+   try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+   } catch {
+      return [];
+   }
+}
+
 const ShuleAvance = () => {
    const [loanStatus, setLoanStatus] = useState(null);
    const [loading, setLoading] = useState(true);
@@ -37,6 +56,10 @@ const ShuleAvance = () => {
 
    const [catalog, setCatalog] = useState({ services: [], cashouts: [] });
    const [dealProducts, setDealProducts] = useState([]);
+   const [allRequests, setAllRequests] = useState([]);
+   const [requestFilter, setRequestFilter] = useState('all');
+   const [selectedStatementId, setSelectedStatementId] = useState(null);
+   const [statementModalOpen, setStatementModalOpen] = useState(false);
    const [requestType, setRequestType] = useState('cashout');
    const [serviceCategory, setServiceCategory] = useState('');
    const [selectedDealProductIds, setSelectedDealProductIds] = useState([]);
@@ -63,6 +86,42 @@ const ShuleAvance = () => {
       return row?.income_rate_percent ?? null;
    }, [catalog, cashoutCategory, requestType, serviceCategory]);
 
+   const resolveRateForRow = (row) => {
+      if (!row) return 0;
+      if (String(row.request_type || '').toLowerCase() === 'cashout') {
+         return Number(catalog.cashouts?.find((c) => c.slug === row.cashout_category_slug)?.income_rate_percent || 0);
+      }
+      return Number(catalog.services?.find((s) => s.slug === row.service_category)?.income_rate_percent || 0);
+   };
+
+   const estimatedMonthly = (principal, months, ratePercent) => {
+      const p = Number(principal || 0);
+      const m = Math.max(1, Number(months || 1));
+      const r = Number(ratePercent || 0) / 100;
+      const total = p + (p * r * m);
+      return total / m;
+   };
+
+   const visibleRequests = useMemo(() => {
+      return allRequests.filter((r) => {
+         if (requestFilter === 'all') return true;
+         if (requestFilter === 'rejected') {
+            return r.status === 'rejected_by_accountant' || r.status === 'rejected_by_manager';
+         }
+         return r.status === requestFilter;
+      });
+   }, [allRequests, requestFilter]);
+
+   const selectedStatement = useMemo(() => {
+      const history = Array.isArray(loanStatus?.history) ? loanStatus.history : [];
+      if (!history.length) return null;
+      const activeId = selectedStatementId ?? history[0]?.id ?? null;
+      const historyRow = history.find((x) => Number(x.id) === Number(activeId)) || history[0];
+      if (!historyRow) return null;
+      const full = allRequests.find((x) => Number(x.id) === Number(historyRow.id));
+      return full ? { ...historyRow, ...full } : historyRow;
+   }, [allRequests, loanStatus, selectedStatementId]);
+
    const selectedDealProducts = useMemo(() => (
       dealProducts.filter((p) => selectedDealProductIds.includes(Number(p.id)))
    ), [dealProducts, selectedDealProductIds]);
@@ -83,6 +142,12 @@ const ShuleAvance = () => {
       }
    }, [isTeacherDealsMode]);
 
+   useEffect(() => {
+      if (!loanStatus?.history?.length) {
+         setSelectedStatementId(null);
+      }
+   }, [loanStatus]);
+
    const fetchLoanStatus = async () => {
       try {
          const res = await api.get('/services/shule-avance/status');
@@ -91,6 +156,19 @@ const ShuleAvance = () => {
          }
       } catch (err) {
          setError('Could not load loan information.');
+      }
+   };
+
+   const fetchAllRequests = async () => {
+      try {
+         const res = await api.get('/services/shule-avance/applicant/my-requests');
+         if (res.data?.success) {
+            setAllRequests(Array.isArray(res.data.data) ? res.data.data : []);
+         } else {
+            setAllRequests([]);
+         }
+      } catch {
+         setAllRequests([]);
       }
    };
 
@@ -127,7 +205,7 @@ const ShuleAvance = () => {
       (async () => {
          setLoading(true);
          try {
-            await Promise.all([fetchLoanStatus(), loadCatalog(), loadTeacherDealProducts()]);
+            await Promise.all([fetchLoanStatus(), fetchAllRequests(), loadCatalog(), loadTeacherDealProducts()]);
          } finally {
             setLoading(false);
          }
@@ -185,7 +263,7 @@ const ShuleAvance = () => {
             setShowApply(false);
             setSelectedDealProductIds([]);
             setTeacherDealsStep('products');
-            await fetchLoanStatus();
+            await Promise.all([fetchLoanStatus(), fetchAllRequests()]);
          }
       } catch (err) {
          setError(err.response?.data?.message || 'Application failed.');
@@ -199,7 +277,7 @@ const ShuleAvance = () => {
       try {
          const res = await api.delete(`/services/shule-avance/cancel/${id}`);
          if (res.data.success) {
-            fetchLoanStatus();
+            Promise.all([fetchLoanStatus(), fetchAllRequests()]);
          }
       } catch (err) {
          alert('Could not cancel application.');
@@ -634,7 +712,18 @@ const ShuleAvance = () => {
                         </div>
                         <div className="divide-y divide-gray-50">
                            {loanStatus?.history?.length > 0 ? loanStatus.history.map((loan) => (
-                              <div key={loan.id} className="px-5 py-3.5 flex items-center justify-between group hover:bg-re-bg/30 transition-all cursor-default">
+                              <div
+                                 key={loan.id}
+                                 onClick={() => {
+                                    setSelectedStatementId(loan.id);
+                                    setStatementModalOpen(true);
+                                 }}
+                                 className={`px-5 py-3.5 flex items-center justify-between group transition-all cursor-pointer ${
+                                    Number(selectedStatementId) === Number(loan.id)
+                                       ? 'bg-orange-50/60'
+                                       : 'hover:bg-re-bg/30'
+                                 }`}
+                              >
                                  <div className="flex items-center gap-3">
                                     <div className="w-9 h-9 rounded-lg bg-re-bg flex items-center justify-center group-hover:bg-white transition-all shadow-inner border border-black/5">
                                        <CreditCard size={14} className="text-re-orange/40" />
@@ -646,7 +735,13 @@ const ShuleAvance = () => {
                                  </div>
                                  <div className="text-right">
                                     <p className="text-xs font-black text-re-text tracking-tight">{Number(loan.amount_requested).toLocaleString()} <span className="text-[8px] opacity-30 uppercase">RWF</span></p>
-                                    <span className={`text-[7px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full inline-block mt-0.5 ${loan.status === 'completed' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-amber-50 text-amber-600 border border-amber-100'}`}>
+                                    <span className={`text-[7px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full inline-block mt-0.5 ${
+                                       REQUEST_STATUS_META[loan.status]
+                                          ? REQUEST_STATUS_META[loan.status].cls
+                                          : (loan.status === 'completed'
+                                             ? 'bg-emerald-50 text-emerald-600 border border-emerald-100'
+                                             : 'bg-amber-50 text-amber-600 border border-amber-100')
+                                    }`}>
                                        {loan.status}
                                     </span>
                                  </div>
@@ -671,6 +766,7 @@ const ShuleAvance = () => {
                         )}
                      </div>
                   </div>
+
                </div>
 
                {/* ── Right Column (Sidebar) ── */}
@@ -748,6 +844,92 @@ const ShuleAvance = () => {
                      <p className="text-sm text-slate-600 mt-2">{dealPreview.description || 'No description.'}</p>
                   </div>
                </div>
+            </div>
+         ) : null}
+         {statementModalOpen && selectedStatement ? (
+            <div className="fixed inset-0 z-[270] p-4 flex items-center justify-center">
+               <button
+                  type="button"
+                  aria-label="Close statement details"
+                  className="absolute inset-0 bg-black/45 backdrop-blur-[2px]"
+                  onClick={() => setStatementModalOpen(false)}
+               />
+               {(() => {
+                  const rate = resolveRateForRow(selectedStatement);
+                  const months = Math.max(1, Number(selectedStatement.repayment_term_months || selectedStatement.term || 1));
+                  const monthly = estimatedMonthly(selectedStatement.amount_requested || selectedStatement.amount_rwf, months, rate);
+                  const total = monthly * months;
+                  const statusCfg = REQUEST_STATUS_META[selectedStatement.status] || { label: selectedStatement.status, cls: 'bg-slate-50 text-slate-700 border-slate-200' };
+                  const dealNames = normalizeList(selectedStatement.details_json?.selected_deal_products).map((p) => p?.name).filter(Boolean).join(', ');
+                  return (
+                     <div className="relative w-full max-w-2xl bg-white rounded-[28px] border border-black/10 shadow-2xl animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
+                        <div className="flex items-center justify-between border-b border-black/5 px-5 py-4 bg-gradient-to-r from-[#fff6ea] to-white">
+                           <div>
+                              <p className="text-[10px] font-black uppercase tracking-widest text-re-text-muted opacity-60">Statement Details</p>
+                              <h3 className="text-lg font-black text-re-text">Credit #{selectedStatement.id}</h3>
+                           </div>
+                           <button
+                              type="button"
+                              onClick={() => setStatementModalOpen(false)}
+                              className="h-9 w-9 rounded-xl border border-black/10 bg-white inline-flex items-center justify-center hover:bg-re-bg/60 transition-colors"
+                              aria-label="Close statement modal"
+                           >
+                              <X size={16} />
+                           </button>
+                        </div>
+                        <div className="p-5 space-y-4 max-h-[78vh] overflow-y-auto">
+                           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                              <div className="rounded-xl border border-black/10 bg-re-bg/40 p-3">
+                                 <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted opacity-50">Amount</p>
+                                 <p className="text-[11px] font-black text-re-text">{fmtMoney(selectedStatement.amount_requested || selectedStatement.amount_rwf)}</p>
+                              </div>
+                              <div className="rounded-xl border border-black/10 bg-re-bg/40 p-3">
+                                 <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted opacity-50">Income Rate</p>
+                                 <p className="text-[11px] font-black text-re-text">{Number(rate || 0).toFixed(2)}% / month</p>
+                              </div>
+                              <div className="rounded-xl border border-black/10 bg-re-bg/40 p-3">
+                                 <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted opacity-50">Months Selected</p>
+                                 <p className="text-[11px] font-black text-re-text">{months} months</p>
+                              </div>
+                              <div className="rounded-xl border border-black/10 bg-re-bg/40 p-3">
+                                 <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted opacity-50">Expected Monthly</p>
+                                 <p className="text-[11px] font-black text-re-text">{fmtMoney(monthly)}</p>
+                              </div>
+                           </div>
+                           <div className="rounded-xl border border-black/10 bg-white p-3 flex items-center justify-between">
+                              <div>
+                                 <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted opacity-50">Expected Total To Pay</p>
+                                 <p className="text-sm font-black text-re-text mt-0.5">{fmtMoney(total)}</p>
+                              </div>
+                              <span className={`inline-flex rounded-full border px-2.5 py-1 text-[8px] font-black uppercase tracking-widest ${statusCfg.cls}`}>
+                                 {statusCfg.label}
+                              </span>
+                           </div>
+                           <div className="rounded-xl border border-black/10 bg-white p-3">
+                              <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted opacity-50">Submitted On</p>
+                              <p className="text-[11px] font-black text-re-text mt-1">
+                                 {new Date(selectedStatement.created_at || selectedStatement.submitted_at).toLocaleString()}
+                              </p>
+                           </div>
+                           {dealNames ? (
+                              <div className="rounded-xl border border-black/10 bg-white p-3">
+                                 <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted opacity-50">Teacher Deals</p>
+                                 <p className="text-[11px] font-black text-re-text mt-1">{dealNames}</p>
+                              </div>
+                           ) : null}
+                           <div className="flex justify-end">
+                              <button
+                                 type="button"
+                                 onClick={() => setStatementModalOpen(false)}
+                                 className="rounded-xl border border-black/10 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:bg-re-bg/60"
+                              >
+                                 Cancel
+                              </button>
+                           </div>
+                        </div>
+                     </div>
+                  );
+               })()}
             </div>
          ) : null}
       </div>

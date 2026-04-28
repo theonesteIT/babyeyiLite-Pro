@@ -256,6 +256,11 @@ function Navbar() {
         </div>
 
         <div className="hidden lg:flex items-center gap-3">
+          <Link to="/online-service"
+            className="btn-shine inline-flex items-center gap-2 min-h-[40px] xl:min-h-[42px] px-4 xl:px-5 rounded-xl font-black text-[12.5px] xl:text-[13px] text-[#000435] transition-all duration-200 hover:shadow-[0_4px_20px_rgba(251,191,36,.4)] active:scale-[.97]"
+            style={{ background: "linear-gradient(135deg,#FDE68A 0%,#FBBF24 60%,#F59E0B 100%)" }}>
+            <UserCheck size={14} strokeWidth={2.4} /> OnlineService
+          </Link>
           <Link to="/register"
             className="px-4 py-2 rounded-xl text-[13px] font-semibold text-white/60 border border-white/10 hover:border-amber-400/50 hover:text-amber-400 transition-all duration-200">
             Register School
@@ -268,6 +273,11 @@ function Navbar() {
         </div>
 
         <div className="flex lg:hidden items-center gap-2">
+          <Link to="/online-service"
+            className="btn-shine inline-flex items-center gap-1.5 h-9 px-3 rounded-xl text-[#000435] text-[11.5px] font-black"
+            style={{ background: "linear-gradient(135deg,#FDE68A,#F59E0B)" }}>
+            <UserCheck size={12} strokeWidth={2.4} /> Online
+          </Link>
           <a href="/login"
             className="btn-shine inline-flex items-center gap-1.5 h-9 px-3.5 rounded-xl text-[#000435] text-[12px] font-black"
             style={{ background: "linear-gradient(135deg,#FBBF24,#F59E0B)" }}>
@@ -295,6 +305,11 @@ function Navbar() {
               className="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-xl border text-amber-400 text-[14px] font-bold transition-all hover:bg-amber-400/8"
               style={{ borderColor: "rgba(251,191,36,0.35)" }}>
               Register School
+            </Link>
+            <Link to="/online-service" onClick={() => setOpen(false)}
+              className="btn-shine flex items-center justify-center gap-2 w-full px-4 py-3.5 rounded-xl text-[#000435] text-[14px] font-black"
+              style={{ background: "linear-gradient(135deg,#FDE68A,#F59E0B)" }}>
+              <UserCheck size={16} strokeWidth={2.4} /> OnlineService
             </Link>
             <a href="/login" onClick={() => setOpen(false)}
               className="btn-shine flex items-center justify-center gap-2 w-full px-4 py-3.5 rounded-xl text-[#000435] text-[14px] font-black"
@@ -606,6 +621,11 @@ function HeroSection() {
                 <Sparkles size={14} className="text-amber-200/80 shrink-0" /> Tools & Services
               </Link>
             </div>
+            <Link to="/online-service"
+              className="btn-shine inline-flex items-center justify-center gap-2 rounded-2xl font-black text-[#000435] transition-all active:scale-[.97] hover:shadow-[0_8px_28px_rgba(251,191,36,.4)]"
+              style={{ minHeight: "clamp(44px,5.2vw,54px)", fontSize: "clamp(11px,2.6vw,14px)", background: "linear-gradient(135deg,#FBBF24,#F59E0B)" }}>
+              <UserCheck size={15} strokeWidth={2.4} className="shrink-0" /> OnlineService Student Login
+            </Link>
           </div>
 
           <div className="mt-6 sm:mt-7 w-full">

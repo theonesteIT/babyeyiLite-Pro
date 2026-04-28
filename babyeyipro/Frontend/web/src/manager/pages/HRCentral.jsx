@@ -14,6 +14,43 @@ import { useAuth } from '../context/AuthContext';
 // ── Staff Detail Modal (Drawer Style) ──────────────────────────────────────
 const StaffModal = ({ staff, onClose }) => {
     if (!staff) return null;
+    const raw = staff._raw || {};
+    const pick = (...vals) => {
+        for (const v of vals) {
+            if (v !== undefined && v !== null && String(v).trim() !== '') return v;
+        }
+        return null;
+    };
+    const toAmount = (v) => {
+        const n = Number(v);
+        return Number.isFinite(n) ? n : 0;
+    };
+    const parseMaybeJson = (val) => {
+        if (!val) return [];
+        if (Array.isArray(val)) return val;
+        try {
+            const out = JSON.parse(val);
+            return Array.isArray(out) ? out : [];
+        } catch {
+            return [];
+        }
+    };
+    const formatRwf = (v) => `${new Intl.NumberFormat('en-RW').format(Math.max(0, Math.round(v || 0)))} RWF`;
+    const basic = toAmount(pick(staff.payrollBasicSalary, raw.payroll_basic_salary));
+    const fixedAllowances =
+        toAmount(pick(staff.payrollTransportAllowance, raw.payroll_transport_allowance)) +
+        toAmount(pick(staff.payrollHousingAllowance, raw.payroll_housing_allowance)) +
+        toAmount(pick(staff.payrollMealAllowance, raw.payroll_meal_allowance));
+    const otherAllowances = parseMaybeJson(pick(staff.payrollOtherAllowances, raw.payroll_other_allowances))
+        .reduce((sum, row) => sum + toAmount(row?.amount), 0);
+    const gross = basic + fixedAllowances + otherAllowances;
+    const taxPercent = toAmount(pick(staff.payrollTaxPercent, raw.payroll_tax_percent));
+    const taxAmount = taxPercent > 0 ? (gross * taxPercent) / 100 : 0;
+    const pension = toAmount(pick(staff.payrollPensionAmount, raw.payroll_pension_amount));
+    const otherDeductions = parseMaybeJson(pick(staff.payrollOtherDeductions, raw.payroll_other_deductions))
+        .reduce((sum, row) => sum + toAmount(row?.amount), 0);
+    const deductions = taxAmount + pension + otherDeductions;
+    const net = gross - deductions;
 
     return createPortal(
         <>
@@ -84,27 +121,102 @@ const StaffModal = ({ staff, onClose }) => {
                     </div>
 
                     {/* Detailed Info Matrix */}
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-2 mb-2">
-                            <span className="text-[9px] font-black text-re-text-muted uppercase tracking-[0.3em] opacity-40">HR Intelligence</span>
-                            <div className="flex-1 h-px bg-black/5" />
-                        </div>
+                    <div className="space-y-5">
                         {[
-                            { label: 'Role/Position', value: staff.role, icon: Briefcase },
-                            { label: 'Department', value: staff.department, icon: Building2 },
-                            { label: 'Primary Contact', value: staff.phone || 'N/A', icon: Phone },
-                            { label: 'Institutional Email', value: staff.email, icon: Mail },
-                            { label: 'Contract Origination', value: staff.joinedDate, icon: Clock },
-                        ].map((item, i) => (
-                            <div key={i} className="flex items-center justify-between group">
-                                <div className="flex items-center gap-2">
-                                    <item.icon size={11} className="opacity-30" style={{ color: "#FEBF10" }} />
-                                    <span className="text-[10px] font-black text-re-text-muted uppercase tracking-widest">{item.label}</span>
+                            {
+                                section: 'Personal Information',
+                                rows: [
+                                    { label: 'Full Name', value: pick(staff.name, raw.full_name, `${raw.first_name || ''} ${raw.last_name || ''}`.trim()) || 'N/A', icon: User },
+                                    { label: 'Gender', value: pick(staff.gender, raw.gender) || 'N/A', icon: UserCheck },
+                                    { label: 'Date of Birth', value: pick(staff.dateOfBirth, raw.date_of_birth) || 'N/A', icon: Clock },
+                                    { label: 'National ID/Passport', value: pick(staff.nationalId, raw.national_id, raw.passport_number) || 'N/A', icon: IdCard },
+                                    { label: 'Phone', value: pick(staff.phone, raw.phone) || 'N/A', icon: Phone },
+                                    { label: 'Email', value: pick(staff.email, raw.email) || 'N/A', icon: Mail },
+                                    { label: 'Address', value: pick(staff.address, raw.address) || 'N/A', icon: Home },
+                                ],
+                            },
+                            {
+                                section: 'Employment Details',
+                                rows: [
+                                    { label: 'Staff ID', value: pick(staff.staffId, raw.staff_id, staff.id, raw.user_uid) || 'N/A', icon: Tag },
+                                    { label: 'Employment Type', value: pick(staff.employmentType, raw.employment_type) || 'N/A', icon: Briefcase },
+                                    { label: 'Job Title', value: pick(staff.jobTitle, raw.job_title, staff.role, raw.role_name, raw.role_code) || 'N/A', icon: Briefcase },
+                                    { label: 'Date of Employment', value: pick(staff.dateOfEmployment, raw.date_of_employment, staff.joinedDate, raw.created_at) || 'N/A', icon: Clock },
+                                    { label: 'Contract Start Date', value: pick(staff.contractStartDate, raw.contract_start_date) || 'N/A', icon: Clock },
+                                    { label: 'Contract End Date', value: pick(staff.contractEndDate, raw.contract_end_date) || ((pick(staff.fullContract, raw.employment_type === 'Contract' && !raw.contract_end_date)) ? 'Full Contract (No End Date)' : 'N/A'), icon: Clock },
+                                    { label: 'Status', value: pick(staff.employmentStatus, raw.employment_status, staff.status) || 'N/A', icon: Activity },
+                                ],
+                            },
+                            {
+                                section: 'Department & Role',
+                                rows: [
+                                    { label: 'Department', value: pick(staff.department, raw.department) || 'N/A', icon: Building2 },
+                                    { label: 'Sub-department', value: pick(staff.subDepartment, raw.sub_department) || 'N/A', icon: Building2 },
+                                    { label: 'Role', value: pick(staff.role, raw.role_name, raw.role_code) || 'N/A', icon: ShieldCheck },
+                                ],
+                            },
+                            {
+                                section: 'Payroll Setup',
+                                rows: [
+                                    { label: 'Basic Salary', value: pick(staff.payrollBasicSalary, raw.payroll_basic_salary) != null ? `${pick(staff.payrollBasicSalary, raw.payroll_basic_salary)} RWF` : 'N/A', icon: CreditCard },
+                                    { label: 'Tax (%)', value: pick(staff.payrollTaxPercent, raw.payroll_tax_percent) != null ? `${pick(staff.payrollTaxPercent, raw.payroll_tax_percent)}%` : 'Not set', icon: TrendingUp },
+                                    { label: 'Payment Frequency', value: pick(staff.payrollPaymentFrequency, raw.payroll_payment_frequency) || 'N/A', icon: Clock },
+                                    { label: 'Payment Method', value: pick(staff.payrollPaymentMethod, raw.payroll_payment_method) || 'N/A', icon: CreditCard },
+                                    { label: 'Bank Name', value: pick(staff.payrollBankName, raw.payroll_bank_name) || 'N/A', icon: Building2 },
+                                    { label: 'Account Number', value: pick(staff.payrollAccountNumber, raw.payroll_account_number) || 'N/A', icon: IdCard },
+                                    { label: 'Mobile Money', value: pick(staff.payrollMobileMoneyPhone, raw.payroll_mobile_money_phone) || 'N/A', icon: Phone },
+                                    { label: 'Advance Allowed', value: (pick(staff.allowAdvance, raw.allow_advance) ? 'Yes' : 'No'), icon: FileSignature },
+                                ],
+                            },
+                            {
+                                section: 'Account & Identity',
+                                rows: [
+                                    { label: 'Account Enabled', value: (pick(staff.accountEnabled, raw.account_enabled) ? 'Yes' : 'No'), icon: UserCheck },
+                                    { label: 'Username', value: pick(staff.username, raw.staff_login_username, raw.username) || 'N/A', icon: User },
+                                    { label: 'RFID UID', value: staff.rfid_uid || 'N/A', icon: IdCard },
+                                    { label: 'Fingerprint ID', value: staff.fingerprint_id || 'N/A', icon: Fingerprint },
+                                    { label: 'Identity Remarks', value: staff.identity_remarks || 'N/A', icon: FileText },
+                                ],
+                            },
+                        ].map((group) => (
+                            <div key={group.section} className="space-y-2">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-[9px] font-black text-re-text-muted uppercase tracking-[0.3em] opacity-40">{group.section}</span>
+                                    <div className="flex-1 h-px bg-black/5" />
                                 </div>
-                                <div className="flex-1 mx-3 border-b border-dashed border-black/10 group-hover:border-[#FEBF10]/30 transition-colors" />
-                                <span className="text-[10px] font-black text-re-text uppercase tracking-tight text-right truncate max-w-[150px]" title={item.value}>{item.value}</span>
+                                {group.rows.map((item, i) => (
+                                    <div key={`${group.section}-${i}`} className="flex items-center justify-between group">
+                                        <div className="flex items-center gap-2">
+                                            <item.icon size={11} className="opacity-30" style={{ color: "#FEBF10" }} />
+                                            <span className="text-[10px] font-black text-re-text-muted uppercase tracking-widest">{item.label}</span>
+                                        </div>
+                                        <div className="flex-1 mx-3 border-b border-dashed border-black/10 group-hover:border-[#FEBF10]/30 transition-colors" />
+                                        <span className="text-[10px] font-black text-re-text uppercase tracking-tight text-right truncate max-w-[170px]" title={String(item.value || 'N/A')}>{item.value || 'N/A'}</span>
+                                    </div>
+                                ))}
                             </div>
                         ))}
+
+                        <div className="rounded-2xl border border-[#1E3A5F]/15 bg-[#1E3A5F]/5 p-3">
+                            <div className="flex items-center gap-2 mb-2">
+                                <span className="text-[9px] font-black text-[#1E3A5F] uppercase tracking-[0.25em]">Payroll Summary</span>
+                                <div className="flex-1 h-px bg-[#1E3A5F]/15" />
+                            </div>
+                            <div className="grid grid-cols-3 gap-2">
+                                <div className="bg-white rounded-xl border border-black/5 p-2">
+                                    <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Gross</p>
+                                    <p className="text-[10px] font-black text-re-text">{formatRwf(gross)}</p>
+                                </div>
+                                <div className="bg-white rounded-xl border border-black/5 p-2">
+                                    <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Tax</p>
+                                    <p className="text-[10px] font-black text-re-text">{taxPercent > 0 ? `${taxPercent}% (${formatRwf(taxAmount)})` : 'Not set'}</p>
+                                </div>
+                                <div className="bg-white rounded-xl border border-black/5 p-2">
+                                    <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Net</p>
+                                    <p className="text-[10px] font-black text-re-text">{formatRwf(net)}</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     {/* Behavioral Activity Log (HR History) */}
@@ -161,319 +273,668 @@ const StaffModal = ({ staff, onClose }) => {
         document.body
     );
 };
-const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, departments }) => {
+const HIRE_STEPS = [
+    'Personal Information',
+    'Employment Details',
+    'Department & Role Assignment',
+    'Payroll Setup',
+    'Account Setup',
+    'Review & Save'
+];
+
+const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaff }) => {
     const isEditMode = !!editingStaff;
-    const [step, setStep] = useState(1);
-    const [formData, setFormData] = useState({
-        first_name: '', last_name: '', email: '', 
-        phone: '', role_code: '',
-        rfid_uid: '', fingerprint_id: '', identity_remarks: ''
-    });
+    const [step, setStep] = useState(0);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [error, setError] = useState('');
+    const [fieldErrors, setFieldErrors] = useState({});
     const [photo, setPhoto] = useState(null);
     const [preview, setPreview] = useState(null);
+    const [formData, setFormData] = useState({
+        full_name: '',
+        gender: '',
+        date_of_birth: '',
+        national_id: '',
+        passport_number: '',
+        phone: '',
+        email: '',
+        address: '',
+        staff_id: '',
+        employment_type: 'Full-time',
+        job_title: '',
+        date_of_employment: '',
+        contract_start_date: '',
+        contract_end_date: '',
+        full_contract: false,
+        employment_status: 'Active',
+        department: 'Academics',
+        sub_department: '',
+        role_code: 'TEACHER',
+        payroll_basic_salary: '',
+        payroll_transport_allowance: '',
+        payroll_housing_allowance: '',
+        payroll_meal_allowance: '',
+        payroll_other_allowances: [{ label: '', amount: '' }],
+        payroll_tax_percent: '',
+        payroll_pension_amount: '',
+        payroll_other_deductions: [{ label: '', amount: '' }],
+        payroll_payment_frequency: 'Monthly',
+        payroll_payment_method: 'Bank Transfer',
+        payroll_bank_name: '',
+        payroll_account_number: '',
+        payroll_mobile_money_phone: '',
+        payroll_part_time_rate: '',
+        payroll_part_time_unit: 'hour',
+        allow_advance: false,
+        max_advance_limit: '',
+        advance_deduction_type: 'percent',
+        advance_deduction_value: '',
+        account_enabled: true,
+        username: '',
+        password: '',
+        confirm_password: '',
+        rfid_uid: '',
+        fingerprint_id: '',
+        identity_remarks: ''
+    });
 
-    // Pre-fill form when editing
     useEffect(() => {
+        if (!isOpen) return;
         if (isEditMode && editingStaff) {
-            const nameParts = (editingStaff.name || '').split(' ');
+            const parts = String(editingStaff.name || '').trim().split(/\s+/);
+            const parseList = (val) => {
+                if (!val) return [{ label: '', amount: '' }];
+                if (Array.isArray(val)) return val.length ? val : [{ label: '', amount: '' }];
+                try {
+                    const out = JSON.parse(val);
+                    return Array.isArray(out) && out.length ? out : [{ label: '', amount: '' }];
+                } catch {
+                    return [{ label: '', amount: '' }];
+                }
+            };
+            const normalizedDepartment =
+                editingStaff.department === 'Academic Staff'
+                    ? 'Academics'
+                    : editingStaff.department || 'Administration';
             setFormData({
-                first_name: nameParts[0] || '',
-                last_name: nameParts.slice(1).join(' ') || '',
-                email: editingStaff.email || '',
+                full_name: editingStaff.name || '',
+                gender: editingStaff.gender || '',
+                date_of_birth: editingStaff.date_of_birth || '',
+                national_id: editingStaff.nationalId || '',
+                passport_number: editingStaff.passportNumber || '',
                 phone: editingStaff.phone !== 'N/A' ? editingStaff.phone : '',
-                role_code: editingStaff.role_code || '',
+                email: editingStaff.email || '',
+                address: editingStaff.address || '',
+                staff_id: String(editingStaff.staffId || editingStaff.id || ''),
+                employment_type: editingStaff.employmentType || 'Full-time',
+                job_title: editingStaff.jobTitle || editingStaff.role || '',
+                date_of_employment: editingStaff.date_of_employment || '',
+                contract_start_date: editingStaff.contract_start_date || '',
+                contract_end_date: editingStaff.contract_end_date || '',
+                full_contract: !!(editingStaff.employmentType === 'Contract' && !editingStaff.contract_end_date),
+                employment_status: editingStaff.employmentStatus || (editingStaff.status === 'Inactive' ? 'Suspended' : 'Active'),
+                department: normalizedDepartment,
+                sub_department: editingStaff.subDepartment || '',
+                role_code: editingStaff.role_code || 'TEACHER',
+                payroll_basic_salary: editingStaff.payrollBasicSalary ?? '',
+                payroll_transport_allowance: editingStaff.payrollTransportAllowance ?? '',
+                payroll_housing_allowance: editingStaff.payrollHousingAllowance ?? '',
+                payroll_meal_allowance: editingStaff.payrollMealAllowance ?? '',
+                payroll_other_allowances: parseList(editingStaff.payrollOtherAllowances),
+                payroll_tax_percent: editingStaff.payrollTaxPercent ?? '',
+                payroll_pension_amount: editingStaff.payrollPensionAmount ?? '',
+                payroll_other_deductions: parseList(editingStaff.payrollOtherDeductions),
+                payroll_payment_frequency: editingStaff.payrollPaymentFrequency || 'Monthly',
+                payroll_payment_method: editingStaff.payrollPaymentMethod || 'Bank Transfer',
+                payroll_bank_name: editingStaff.payrollBankName || '',
+                payroll_account_number: editingStaff.payrollAccountNumber || '',
+                payroll_mobile_money_phone: editingStaff.payrollMobileMoneyPhone || '',
+                payroll_part_time_rate: editingStaff.payrollPartTimeRate ?? '',
+                payroll_part_time_unit: editingStaff.payrollPartTimeUnit || 'hour',
+                allow_advance: !!editingStaff.allowAdvance,
+                max_advance_limit: editingStaff.maxAdvanceLimit ?? '',
+                advance_deduction_type: editingStaff.advanceDeductionType || 'percent',
+                advance_deduction_value: editingStaff.advanceDeductionValue ?? '',
+                account_enabled: editingStaff.accountEnabled !== false,
+                username: editingStaff.username || (editingStaff.email || `${parts[0] || ''}.${parts[1] || ''}`).split('@')[0],
+                password: '',
+                confirm_password: '',
                 rfid_uid: editingStaff.rfid_uid || '',
                 fingerprint_id: editingStaff.fingerprint_id || '',
                 identity_remarks: editingStaff.identity_remarks || ''
             });
-            // Show existing photo as preview
-            if (editingStaff.photo) {
-                setPreview((import.meta.env.VITE_API_URL || 'http://localhost:5100') + editingStaff.photo);
-            }
-            setStep(1);
-        } else if (!isEditMode) {
-            setFormData({ first_name: '', last_name: '', email: '', phone: '', role_code: '', rfid_uid: '', fingerprint_id: '', identity_remarks: '' });
-            setPhoto(null);
+            setPreview(editingStaff.photo ? (import.meta.env.VITE_API_URL || 'http://localhost:5100') + editingStaff.photo : null);
+        } else {
+            const nextId = String((existingStaff?.length || 0) + 1).padStart(3, '0');
+            setFormData((prev) => ({
+                ...prev,
+                full_name: '',
+                gender: '',
+                date_of_birth: '',
+                national_id: '',
+                passport_number: '',
+                phone: '',
+                email: '',
+                address: '',
+                staff_id: `STF-${new Date().getFullYear()}-${nextId}`,
+                employment_type: 'Full-time',
+                job_title: '',
+                date_of_employment: '',
+                contract_start_date: '',
+                contract_end_date: '',
+                full_contract: false,
+                employment_status: 'Active',
+                department: 'Academics',
+                sub_department: '',
+                role_code: 'TEACHER',
+                payroll_basic_salary: '',
+                payroll_transport_allowance: '',
+                payroll_housing_allowance: '',
+                payroll_meal_allowance: '',
+                payroll_other_allowances: [{ label: '', amount: '' }],
+                payroll_tax_percent: '',
+                payroll_pension_amount: '',
+                payroll_other_deductions: [{ label: '', amount: '' }],
+                payroll_payment_frequency: 'Monthly',
+                payroll_payment_method: 'Bank Transfer',
+                payroll_bank_name: '',
+                payroll_account_number: '',
+                payroll_mobile_money_phone: '',
+                payroll_part_time_rate: '',
+                payroll_part_time_unit: 'hour',
+                allow_advance: false,
+                max_advance_limit: '',
+                advance_deduction_type: 'percent',
+                advance_deduction_value: '',
+                account_enabled: true,
+                username: '',
+                password: '',
+                confirm_password: '',
+                rfid_uid: '',
+                fingerprint_id: '',
+                identity_remarks: ''
+            }));
             setPreview(null);
-            setStep(1);
         }
-    }, [editingStaff, isEditMode]);
+        setPhoto(null);
+        setStep(0);
+        setError('');
+        setFieldErrors({});
+    }, [isOpen, isEditMode, editingStaff, existingStaff]);
 
     if (!isOpen) return null;
 
+    const setField = (key, value) => {
+        setFormData((p) => ({ ...p, [key]: value }));
+        setFieldErrors((prev) => {
+            if (!prev[key]) return prev;
+            const next = { ...prev };
+            delete next[key];
+            return next;
+        });
+    };
+    const toNumberOrNull = (v) => {
+        if (v === '' || v == null) return null;
+        const n = Number(v);
+        return Number.isFinite(n) ? n : null;
+    };
+    const sameEmail = (existingStaff || []).find((s) => String(s.email || '').toLowerCase() === String(formData.email || '').toLowerCase() && String(s.id) !== String(editingStaff?.id));
+    const sameNationalId = (existingStaff || []).find((s) => String(s.national_id || '') && String(s.national_id) === String(formData.national_id || '') && String(s.id) !== String(editingStaff?.id));
+
+    const validateStep = () => {
+        if (step === 0) {
+            if (!formData.full_name || !formData.email || !formData.phone || !formData.gender || !formData.national_id) return 'Fill all required personal fields.';
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) return 'Email format is invalid.';
+            if (!/^[+]?[\d\s-]{9,20}$/.test(formData.phone)) return 'Phone format is invalid.';
+            if (sameEmail) return 'Email already exists.';
+            if (sameNationalId) return 'National ID/Passport already exists.';
+        }
+        if (step === 1) {
+            if (!formData.staff_id || !formData.job_title || !formData.date_of_employment) return 'Employment details are required.';
+            if (formData.employment_type === 'Contract' && !formData.contract_start_date) return 'Contract start date is required.';
+            if (formData.employment_type === 'Contract' && !formData.full_contract && !formData.contract_end_date) return 'Contract end date is required unless Full Contract is checked.';
+        }
+        if (step === 2 && (!formData.department || !formData.role_code)) return 'Department and role are required.';
+        if (step === 4 && formData.account_enabled) {
+            if (!formData.username) return 'Username is required when account is enabled.';
+            if (!isEditMode && String(formData.password || '').length < 8) return 'Password must be at least 8 characters.';
+            if (!isEditMode && formData.password !== formData.confirm_password) return 'Passwords do not match.';
+        }
+        return '';
+    };
+
     const handlePhotoChange = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            setPhoto(file);
-            setPreview(URL.createObjectURL(file));
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setPhoto(file);
+        setPreview(URL.createObjectURL(file));
+    };
+
+    const updateListItem = (field, index, key, value) => {
+        const list = [...formData[field]];
+        list[index] = { ...list[index], [key]: value };
+        setField(field, list);
+    };
+
+    const preparePayload = () => {
+        const [first_name, ...rest] = String(formData.full_name || '').trim().split(/\s+/);
+        const last_name = rest.join(' ') || '-';
+        const payload = {
+            first_name,
+            last_name,
+            full_name: formData.full_name,
+            gender: formData.gender,
+            date_of_birth: formData.date_of_birth || null,
+            national_id: formData.national_id || null,
+            passport_number: formData.passport_number || null,
+            phone: formData.phone || null,
+            email: formData.email,
+            address: formData.address || null,
+            staff_id: formData.staff_id || null,
+            employment_type: formData.employment_type,
+            job_title: formData.job_title,
+            date_of_employment: formData.date_of_employment || null,
+            contract_start_date: formData.employment_type === 'Contract' ? formData.contract_start_date || null : null,
+            contract_end_date: formData.employment_type === 'Contract' ? (formData.full_contract ? null : (formData.contract_end_date || null)) : null,
+            employment_status: formData.employment_status,
+            department: formData.department,
+            sub_department: formData.sub_department || null,
+            role_code: formData.role_code,
+            payroll_basic_salary: toNumberOrNull(formData.payroll_basic_salary),
+            payroll_transport_allowance: null,
+            payroll_housing_allowance: null,
+            payroll_meal_allowance: null,
+            payroll_other_allowances: formData.payroll_other_allowances.filter((a) => a.label || a.amount),
+            payroll_tax_percent: toNumberOrNull(formData.payroll_tax_percent),
+            payroll_pension_amount: null,
+            payroll_other_deductions: formData.payroll_other_deductions.filter((d) => d.label || d.amount),
+            payroll_payment_frequency: formData.payroll_payment_frequency,
+            payroll_payment_method: formData.payroll_payment_method,
+            payroll_bank_name: formData.payroll_payment_method === 'Bank Transfer' ? formData.payroll_bank_name || null : null,
+            payroll_account_number: formData.payroll_payment_method === 'Bank Transfer' ? formData.payroll_account_number || null : null,
+            payroll_mobile_money_phone: formData.payroll_payment_method === 'Mobile Money' ? formData.payroll_mobile_money_phone || null : null,
+            payroll_part_time_rate: formData.employment_type === 'Part-time' ? toNumberOrNull(formData.payroll_part_time_rate) : null,
+            payroll_part_time_unit: formData.employment_type === 'Part-time' ? formData.payroll_part_time_unit : null,
+            allow_advance: !!formData.allow_advance,
+            max_advance_limit: formData.allow_advance ? toNumberOrNull(formData.max_advance_limit) : null,
+            advance_deduction_type: formData.allow_advance ? formData.advance_deduction_type : null,
+            advance_deduction_value: formData.allow_advance ? toNumberOrNull(formData.advance_deduction_value) : null,
+            account_enabled: !!formData.account_enabled,
+            username: formData.username || String(formData.email || '').split('@')[0],
+            rfid_uid: formData.rfid_uid || null,
+            fingerprint_id: formData.fingerprint_id || null,
+            identity_remarks: formData.identity_remarks || null
+        };
+        if (!isEditMode && formData.account_enabled) payload.password = formData.password;
+        return payload;
+    };
+
+    const onNext = () => {
+        const msg = validateStep();
+        setError(msg);
+        if (msg) return;
+        setStep((s) => Math.min(s + 1, HIRE_STEPS.length - 1));
+    };
+
+    const onSubmit = async (e) => {
+        e.preventDefault();
+        const msg = validateStep();
+        setError(msg);
+        if (msg) return;
+        setFieldErrors({});
+        setIsSubmitting(true);
+        const payload = preparePayload();
+        const result = isEditMode ? await onEdit(editingStaff.real_id || editingStaff.id, payload, photo) : await onHire(payload, photo);
+        setIsSubmitting(false);
+        if (result?.ok) {
+            onClose();
+            return;
+        }
+        setError(result?.message || 'Unable to save this staff record. Please review highlighted fields.');
+        if (result?.field) {
+            const backendToUiField = {
+                email: 'email',
+                phone: 'phone',
+                username: 'username',
+                national_id: 'national_id'
+            };
+            const uiField = backendToUiField[result.field] || null;
+            if (uiField) {
+                setFieldErrors((prev) => ({ ...prev, [uiField]: result.message || 'Invalid value' }));
+                if (uiField === 'email' || uiField === 'phone' || uiField === 'national_id') setStep(0);
+                if (uiField === 'username') setStep(4);
+            }
         }
     };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setIsSubmitting(true);
-        
-        if (isEditMode) {
-            // Edit mode: send JSON for biometrics, separate call for photo
-            const biometricPayload = {
-                rfid_uid: formData.rfid_uid || null,
-                fingerprint_id: formData.fingerprint_id || null,
-                identity_remarks: formData.identity_remarks || null,
-            };
-            const success = await onEdit(editingStaff.id, biometricPayload, photo);
-            setIsSubmitting(false);
-            if (success) onClose();
-        } else {
-            // Create mode: multipart FormData
-            const data = new FormData();
-            Object.keys(formData).forEach(key => data.append(key, formData[key]));
-            if (photo) data.append('photo', photo);
-            const success = await onHire(data);
-            setIsSubmitting(false);
-            if (success) {
-                setPhoto(null);
-                setPreview(null);
-                onClose();
-            }
+    const inputCls = 'w-full h-9 bg-re-bg/80 border border-black/5 rounded-xl px-3 text-[10px] font-black outline-none focus:ring-1 ring-re-navy/10 transition-all shadow-inner';
+    const inputClsWithError = (field) => `${inputCls} ${fieldErrors[field] ? 'border-red-400 focus:border-red-500 ring-red-200' : ''}`;
+    const parseAmount = (v) => {
+        const n = Number(v);
+        return Number.isFinite(n) ? n : 0;
+    };
+    const formatRwf = (v) => new Intl.NumberFormat('en-RW').format(Math.max(0, Math.round(v || 0)));
+    const basicSalaryValue = parseAmount(formData.payroll_basic_salary);
+    const fixedAllowancesValue = 0;
+    const extraAllowancesValue = (formData.payroll_other_allowances || [])
+        .reduce((sum, row) => sum + parseAmount(row.amount), 0);
+    const grossSalary = basicSalaryValue + fixedAllowancesValue + extraAllowancesValue;
+    const taxPercentValue = parseAmount(formData.payroll_tax_percent);
+    const taxAmount = taxPercentValue > 0 ? (grossSalary * taxPercentValue) / 100 : 0;
+    const pensionAmount = 0;
+    const otherDeductionsValue = (formData.payroll_other_deductions || [])
+        .reduce((sum, row) => sum + parseAmount(row.amount), 0);
+    const totalDeductions = taxAmount + pensionAmount + otherDeductionsValue;
+    const netSalary = grossSalary - totalDeductions;
+    const section = () => {
+        if (step === 0) {
+            return (
+                <div className="space-y-4">
+                    <div className="flex items-center gap-4">
+                        <div className="relative">
+                            <div className="w-20 h-20 rounded-2xl bg-re-bg border border-black/10 flex items-center justify-center overflow-hidden">
+                                {preview ? <img src={preview} alt="preview" className="w-full h-full object-cover" /> : <Camera size={20} className="opacity-40" />}
+                            </div>
+                            <input type="file" accept="image/*" onChange={handlePhotoChange} className="absolute inset-0 opacity-0 cursor-pointer" />
+                        </div>
+                        <div className="text-[9px] font-bold text-re-text-muted uppercase tracking-widest">Profile Photo (with preview)</div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                        <label className="space-y-1">
+                            <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Full Name</p>
+                            <input className={inputCls} placeholder="e.g. Juma Ally" value={formData.full_name} onChange={(e) => setField('full_name', e.target.value)} />
+                        </label>
+                        <label className="space-y-1">
+                            <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Gender</p>
+                            <select className={inputCls} value={formData.gender} onChange={(e) => setField('gender', e.target.value)}><option value="">Select gender</option><option>Male</option><option>Female</option></select>
+                        </label>
+                        <label className="space-y-1">
+                            <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Date of Birth</p>
+                            <input type="date" className={inputCls} value={formData.date_of_birth} onChange={(e) => setField('date_of_birth', e.target.value)} />
+                        </label>
+                        <label className="space-y-1">
+                            <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">National ID / Passport</p>
+                            <input className={inputClsWithError('national_id')} placeholder="ID or Passport Number" value={formData.national_id} onChange={(e) => setField('national_id', e.target.value)} />
+                            {fieldErrors.national_id && <p className="text-[9px] font-bold text-red-600">{fieldErrors.national_id}</p>}
+                        </label>
+                        <label className="space-y-1">
+                            <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Phone Number</p>
+                            <input className={inputClsWithError('phone')} placeholder="e.g. 07XXXXXXXX" value={formData.phone} onChange={(e) => setField('phone', e.target.value)} />
+                            {fieldErrors.phone && <p className="text-[9px] font-bold text-red-600">{fieldErrors.phone}</p>}
+                        </label>
+                        <label className="space-y-1">
+                            <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Email Address</p>
+                            <input type="email" className={inputClsWithError('email')} placeholder="e.g. name@gmail.com" value={formData.email} onChange={(e) => setField('email', e.target.value)} />
+                            {fieldErrors.email && <p className="text-[9px] font-bold text-red-600">{fieldErrors.email}</p>}
+                        </label>
+                    </div>
+                    <label className="space-y-1">
+                        <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Address</p>
+                        <input className={inputCls} placeholder="e.g. Kigali, Gasabo, Kimironko" value={formData.address} onChange={(e) => setField('address', e.target.value)} />
+                    </label>
+                </div>
+            );
         }
+        if (step === 1) {
+            return (
+                <div className="grid grid-cols-2 gap-3">
+                    <label className="space-y-1">
+                        <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Staff ID</p>
+                        <input className={inputCls} placeholder="e.g. STF-2026-007" value={formData.staff_id} onChange={(e) => setField('staff_id', e.target.value)} />
+                    </label>
+                    <label className="space-y-1">
+                        <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Employment Type</p>
+                        <select className={inputCls} value={formData.employment_type} onChange={(e) => setField('employment_type', e.target.value)}><option>Full-time</option><option>Part-time</option><option>Contract</option><option>Temporary</option></select>
+                    </label>
+                    <label className="space-y-1">
+                        <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Job Title / Position</p>
+                        <input className={inputCls} placeholder="e.g. Teacher, Accountant, DOS" value={formData.job_title} onChange={(e) => setField('job_title', e.target.value)} />
+                    </label>
+                    <label className="space-y-1">
+                        <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Date of Employment</p>
+                        <input type="date" className={inputCls} value={formData.date_of_employment} onChange={(e) => setField('date_of_employment', e.target.value)} />
+                    </label>
+                    {formData.employment_type === 'Contract' && (
+                        <label className="space-y-1">
+                            <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Contract Start Date</p>
+                            <input type="date" className={inputCls} value={formData.contract_start_date} onChange={(e) => setField('contract_start_date', e.target.value)} />
+                        </label>
+                    )}
+                    {formData.employment_type === 'Contract' && (
+                        <label className="col-span-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#1E3A5F] bg-[#1E3A5F]/5 border border-[#1E3A5F]/15 rounded-xl px-3 py-2">
+                            <input
+                                type="checkbox"
+                                checked={!!formData.full_contract}
+                                onChange={(e) => {
+                                    const checked = e.target.checked;
+                                    setField('full_contract', checked);
+                                    if (checked) setField('contract_end_date', '');
+                                }}
+                            />
+                            Full Contract (No End Date)
+                        </label>
+                    )}
+                    {formData.employment_type === 'Contract' && (
+                        <label className="space-y-1">
+                            <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Contract End Date</p>
+                            <input
+                                type="date"
+                                className={`${inputCls} ${formData.full_contract ? 'opacity-60 cursor-not-allowed bg-slate-100' : ''}`}
+                                value={formData.contract_end_date}
+                                onChange={(e) => setField('contract_end_date', e.target.value)}
+                                disabled={!!formData.full_contract}
+                            />
+                        </label>
+                    )}
+                    <label className="space-y-1">
+                        <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Employment Status</p>
+                        <select className={inputCls} value={formData.employment_status} onChange={(e) => setField('employment_status', e.target.value)}><option>Active</option><option>On Leave</option><option>Suspended</option></select>
+                    </label>
+                </div>
+            );
+        }
+        if (step === 2) {
+            return (
+                <div className="grid grid-cols-2 gap-3">
+                    <label className="space-y-1">
+                        <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Department</p>
+                        <select className={inputCls} value={formData.department} onChange={(e) => setField('department', e.target.value)}>
+                            <option>Academics</option><option>Administration</option><option>Finance</option><option>Discipline</option><option>HR</option><option>Library</option><option>Store</option>
+                        </select>
+                    </label>
+                    <label className="space-y-1">
+                        <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Sub-department (Optional)</p>
+                        <input className={inputCls} placeholder="e.g. Secondary Section, Accounts Unit" value={formData.sub_department} onChange={(e) => setField('sub_department', e.target.value)} />
+                    </label>
+                    <label className="space-y-1">
+                        <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Role Assignment</p>
+                        <select className={inputCls} value={formData.role_code} onChange={(e) => setField('role_code', e.target.value)}>
+                            <option value="TEACHER">Teacher</option><option value="ACCOUNTANT">Accountant</option><option value="HR">HR</option><option value="DOS">DOS</option>
+                            <option value="STORE_MANAGER">Store Manager</option><option value="LIBRARIAN">Librarian</option><option value="DISCIPLINE">Head of Discipline</option><option value="SECRETARY">Secretary</option><option value="HOD">Staff</option>
+                        </select>
+                    </label>
+                </div>
+            );
+        }
+        if (step === 3) {
+            return (
+                <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                        <label className="space-y-1">
+                            <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Basic Salary (Amount)</p>
+                            <input type="number" className={inputCls} placeholder="0" value={formData.payroll_basic_salary} onChange={(e) => setField('payroll_basic_salary', e.target.value)} />
+                        </label>
+                        <label className="space-y-1">
+                            <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Tax (%) Optional</p>
+                            <input type="number" className={inputCls} placeholder="e.g. 30" value={formData.payroll_tax_percent} onChange={(e) => setField('payroll_tax_percent', e.target.value)} />
+                        </label>
+                        <label className="space-y-1">
+                            <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Payment Frequency</p>
+                            <select className={inputCls} value={formData.payroll_payment_frequency} onChange={(e) => setField('payroll_payment_frequency', e.target.value)}><option>Monthly</option><option>Weekly</option></select>
+                        </label>
+                        <label className="space-y-1">
+                            <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Payment Method</p>
+                            <select className={inputCls} value={formData.payroll_payment_method} onChange={(e) => setField('payroll_payment_method', e.target.value)}><option>Bank Transfer</option><option>Mobile Money</option></select>
+                        </label>
+                        {formData.payroll_payment_method === 'Bank Transfer' ? (
+                            <label className="space-y-1">
+                                <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Bank Name</p>
+                                <input className={inputCls} placeholder="Bank Name" value={formData.payroll_bank_name} onChange={(e) => setField('payroll_bank_name', e.target.value)} />
+                            </label>
+                        ) : (
+                            <label className="space-y-1">
+                                <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Mobile Money Phone</p>
+                                <input className={inputCls} placeholder="250..." value={formData.payroll_mobile_money_phone} onChange={(e) => setField('payroll_mobile_money_phone', e.target.value)} />
+                            </label>
+                        )}
+                        {formData.payroll_payment_method === 'Bank Transfer' ? (
+                            <label className="space-y-1">
+                                <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Account Number</p>
+                                <input className={inputCls} placeholder="Account Number" value={formData.payroll_account_number} onChange={(e) => setField('payroll_account_number', e.target.value)} />
+                            </label>
+                        ) : null}
+                        {formData.employment_type === 'Part-time' ? (
+                            <label className="space-y-1">
+                                <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Part-time Rate (Optional)</p>
+                                <input type="number" className={inputCls} placeholder="0" value={formData.payroll_part_time_rate} onChange={(e) => setField('payroll_part_time_rate', e.target.value)} />
+                            </label>
+                        ) : null}
+                        {formData.employment_type === 'Part-time' ? (
+                            <label className="space-y-1">
+                                <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Rate Unit</p>
+                                <select className={inputCls} value={formData.payroll_part_time_unit} onChange={(e) => setField('payroll_part_time_unit', e.target.value)}><option value="hour">Per Hour</option><option value="session">Per Session</option></select>
+                            </label>
+                        ) : null}
+                    </div>
+                    <div className="border border-black/5 rounded-xl p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-black uppercase tracking-widest">Allowances (Add Many)</span>
+                            <button type="button" onClick={() => setField('payroll_other_allowances', [...formData.payroll_other_allowances, { label: '', amount: '' }])} className="text-[9px] font-black uppercase">Add</button>
+                        </div>
+                        {formData.payroll_other_allowances.map((item, idx) => (
+                            <div key={`allow-${idx}`} className="grid grid-cols-5 gap-2">
+                                <input className={`col-span-3 ${inputCls}`} placeholder="Allowance Label (e.g. Night Shift)" value={item.label} onChange={(e) => updateListItem('payroll_other_allowances', idx, 'label', e.target.value)} />
+                                <input type="number" className={inputCls} placeholder="Amount (optional)" value={item.amount} onChange={(e) => updateListItem('payroll_other_allowances', idx, 'amount', e.target.value)} />
+                                <button type="button" onClick={() => setField('payroll_other_allowances', formData.payroll_other_allowances.filter((_, i) => i !== idx))} className="text-red-500"><X size={14} /></button>
+                            </div>
+                        ))}
+                    </div>
+                    <div className="border border-black/5 rounded-xl p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-black uppercase tracking-widest">Other Deductions (Optional)</span>
+                            <button type="button" onClick={() => setField('payroll_other_deductions', [...formData.payroll_other_deductions, { label: '', amount: '' }])} className="text-[9px] font-black uppercase">Add</button>
+                        </div>
+                        {formData.payroll_other_deductions.map((item, idx) => (
+                            <div key={`ded-${idx}`} className="grid grid-cols-5 gap-2">
+                                <input className={`col-span-3 ${inputCls}`} placeholder="Deduction Label" value={item.label} onChange={(e) => updateListItem('payroll_other_deductions', idx, 'label', e.target.value)} />
+                                <input type="number" className={inputCls} placeholder="Amount (optional)" value={item.amount} onChange={(e) => updateListItem('payroll_other_deductions', idx, 'amount', e.target.value)} />
+                                <button type="button" onClick={() => setField('payroll_other_deductions', formData.payroll_other_deductions.filter((_, i) => i !== idx))} className="text-red-500"><X size={14} /></button>
+                            </div>
+                        ))}
+                    </div>
+                    <div className="border border-black/5 rounded-xl p-3 space-y-2">
+                        <label className="flex items-center gap-2 text-[10px] font-black uppercase"><input type="checkbox" checked={formData.allow_advance} onChange={(e) => setField('allow_advance', e.target.checked)} /> Allow Advance / Loan</label>
+                        {formData.allow_advance && (
+                            <div className="grid grid-cols-3 gap-3">
+                                <input type="number" className={inputCls} placeholder="Max Advance Limit" value={formData.max_advance_limit} onChange={(e) => setField('max_advance_limit', e.target.value)} />
+                                <select className={inputCls} value={formData.advance_deduction_type} onChange={(e) => setField('advance_deduction_type', e.target.value)}><option value="percent">Percent</option><option value="fixed">Fixed</option></select>
+                                <input type="number" className={inputCls} placeholder="Deduction Value" value={formData.advance_deduction_value} onChange={(e) => setField('advance_deduction_value', e.target.value)} />
+                            </div>
+                        )}
+                    </div>
+                    <div className="border border-[#1E3A5F]/20 bg-[#1E3A5F]/5 rounded-xl p-3">
+                        <p className="text-[9px] font-black uppercase tracking-widest text-[#1E3A5F] mb-2">Auto Payroll Calculation</p>
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-[9px] font-black uppercase tracking-wider">
+                            <div className="bg-white rounded-lg border border-black/5 p-2">
+                                <p className="text-re-text-muted text-[8px]">Gross</p>
+                                <p>{formatRwf(grossSalary)} RWF</p>
+                            </div>
+                            <div className="bg-white rounded-lg border border-black/5 p-2">
+                                <p className="text-re-text-muted text-[8px]">Tax</p>
+                                <p>{taxPercentValue > 0 ? `${taxPercentValue}%` : 'Not set'}</p>
+                            </div>
+                            <div className="bg-white rounded-lg border border-black/5 p-2">
+                                <p className="text-re-text-muted text-[8px]">Tax Amount</p>
+                                <p>{formatRwf(taxAmount)} RWF</p>
+                            </div>
+                            <div className="bg-white rounded-lg border border-black/5 p-2">
+                                <p className="text-re-text-muted text-[8px]">Deductions</p>
+                                <p>{formatRwf(totalDeductions)} RWF</p>
+                            </div>
+                            <div className="bg-white rounded-lg border border-black/5 p-2">
+                                <p className="text-re-text-muted text-[8px]">Net Salary</p>
+                                <p>{formatRwf(netSalary)} RWF</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+        if (step === 4) {
+            return (
+                <div className="space-y-3">
+                    <label className="flex items-center gap-2 text-[10px] font-black uppercase"><input type="checkbox" checked={formData.account_enabled} onChange={(e) => setField('account_enabled', e.target.checked)} /> Create Login Account</label>
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                            <input className={inputClsWithError('username')} placeholder="Username" value={formData.username} onChange={(e) => setField('username', e.target.value)} />
+                            {fieldErrors.username && <p className="text-[9px] font-bold text-red-600">{fieldErrors.username}</p>}
+                        </div>
+                        {!isEditMode && <input type="password" className={inputCls} placeholder="Password" value={formData.password} onChange={(e) => setField('password', e.target.value)} />}
+                        {!isEditMode && <input type="password" className={inputCls} placeholder="Confirm Password" value={formData.confirm_password} onChange={(e) => setField('confirm_password', e.target.value)} />}
+                        <input className={inputCls} placeholder="RFID UID (Optional)" value={formData.rfid_uid} onChange={(e) => setField('rfid_uid', e.target.value)} />
+                        <input className={inputCls} placeholder="Fingerprint ID (Optional)" value={formData.fingerprint_id} onChange={(e) => setField('fingerprint_id', e.target.value)} />
+                    </div>
+                    <textarea className="w-full min-h-[70px] bg-re-bg/80 border border-black/5 rounded-xl p-3 text-[10px] font-black outline-none" placeholder="Identity remarks" value={formData.identity_remarks} onChange={(e) => setField('identity_remarks', e.target.value)} />
+                </div>
+            );
+        }
+        return (
+            <div className="space-y-2 text-[10px] font-bold uppercase">
+                <p><span className="text-re-text-muted">Personal:</span> {formData.full_name} | {formData.email}</p>
+                <p><span className="text-re-text-muted">Employment:</span> {formData.staff_id} | {formData.employment_type} | {formData.job_title}</p>
+                <p><span className="text-re-text-muted">Role:</span> {formData.department} / {formData.role_code}</p>
+                <p><span className="text-re-text-muted">Payroll:</span> {formData.payroll_payment_frequency} / {formData.payroll_payment_method}</p>
+                <p><span className="text-re-text-muted">Account:</span> {formData.account_enabled ? `Enabled (${formData.username || 'auto'})` : 'Disabled'}</p>
+            </div>
+        );
     };
 
     return createPortal(
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
             <div className="fixed inset-0 bg-[#0a192f]/70 backdrop-blur-sm animate-in fade-in duration-300" onClick={onClose} />
-            <div className="relative bg-white w-full max-w-lg rounded-[2rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 border border-white/10 flex flex-col max-h-[90vh]">
-                {/* Header Phase */}
-                <div className="px-5 py-2.5 flex items-center justify-between shadow-md shrink-0 relative z-10" style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)" }}>
-                    <div className="flex items-center gap-2 min-w-0">
-                        <div className="w-7 h-7 rounded-lg bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-md shadow-re-gold/10 shrink-0">
-                            {isEditMode ? <Edit3 size={14} className="text-re-gold" /> : <UserPlus size={15} className="text-re-gold" />}
-                        </div>
-                        <div className="min-w-0 pb-0.5">
-                            <h3 className="text-[10px] font-black text-white truncate uppercase tracking-widest leading-none">{isEditMode ? `Edit — ${editingStaff?.name?.split(' ')[0]}` : 'Hire Personnel'}</h3>
-                            <p className="text-[6px] text-white/40 font-bold uppercase tracking-tight mt-0.5 truncate">{isEditMode ? 'Update Biometrics & Profile' : 'Institutional Provisioning'}</p>
-                        </div>
-                    </div>
-                    <button onClick={onClose} className="w-7 h-7 rounded-lg flex items-center justify-center text-white/40 hover:text-re-gold hover:bg-white/10 transition-all shrink-0">
-                        <X size={12} className="hover:rotate-90 transition-all duration-300" />
-                    </button>
-                </div>
-
-                {/* Compact Stepper */}
-                <div className="bg-re-grad-navy relative flex items-center shrink-0 border-t border-white/10">
-                    <div className="flex items-center justify-between overflow-x-auto scrollbar-none pb-0.5 scroll-smooth w-full px-5 py-2">
-                        <div className="flex items-center shrink-0">
-                            <button onClick={() => setStep(1)} disabled={isSubmitting} className={`flex items-center gap-1.5 transition-all outline-none ${step === 1 ? 'opacity-100' : 'opacity-40 hover:opacity-80'}`}>
-                                <div className={`w-6 h-6 rounded-md flex items-center justify-center border transition-all ${
-                                    step === 1 ? 'bg-re-gold border-re-gold text-[#1E3A5F] shadow-[0_0_15px_rgba(254,191,16,0.2)]' : 'bg-emerald-500 border-emerald-500 text-white'
-                                }`}>
-                                    {step > 1 ? <CheckCircle size={12} /> : <User size={10} />}
-                                </div>
-                                <div className="text-left">
-                                    <p className="text-[6px] font-black uppercase tracking-widest leading-none mb-0.5 text-white/50">Phase 01</p>
-                                    <p className="text-[8px] font-black text-white tracking-tight leading-none">Profile & Role</p>
-                                </div>
-                            </button>
-                            <div className="w-4 h-px bg-white/10 mx-3" />
-                            <button onClick={() => setStep(2)} disabled={isSubmitting} className={`flex items-center gap-1.5 transition-all outline-none ${step === 2 ? 'opacity-100' : 'opacity-40 hover:opacity-80'}`}>
-                                <div className={`w-6 h-6 rounded-md flex items-center justify-center border transition-all ${
-                                    step === 2 ? 'bg-re-gold border-re-gold text-[#1E3A5F] shadow-[0_0_15px_rgba(254,191,16,0.2)]' : 'bg-white/5 border-white/10 text-white'
-                                }`}>
-                                    <Fingerprint size={10} />
-                                </div>
-                                <div className="text-left">
-                                    <p className="text-[6px] font-black uppercase tracking-widest leading-none mb-0.5 text-white/50">Phase 02</p>
-                                    <p className="text-[8px] font-black text-white tracking-tight leading-none">Biometrics</p>
-                                </div>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Scrollable Body */}
-                <div className="flex-1 overflow-y-auto custom-scrollbar bg-re-bg/50">
-                    <form id="hire-personnel-form" onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4">
-                        {step === 1 && (
-                          <div className="space-y-4 animate-in slide-in-from-right-4">
-                        {/* Photo Upload Section */}
-                        <div className="flex flex-col items-center justify-center pb-4">
-                            <div className="relative group">
-                                <div className="w-20 h-20 rounded-2xl bg-re-bg border-2 border-dashed border-black/10 flex items-center justify-center overflow-hidden transition-all group-hover:border-[#FEBF10]/50">
-                                    {preview ? (
-                                        <img src={preview} alt="Preview" className="w-full h-full object-cover" />
-                                    ) : (
-                                        <Camera size={24} className="text-re-text-muted opacity-30" />
-                                    )}
-                                </div>
-                                <input 
-                                    type="file" 
-                                    accept="image/*" 
-                                    onChange={handlePhotoChange}
-                                    className="absolute inset-0 opacity-0 cursor-pointer"
-                                    title="Upload Profile Picture"
-                                />
-                                <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-white rounded-xl shadow-lg border border-black/5 flex items-center justify-center text-[#1E3A5F] group-hover:scale-110 transition-transform">
-                                    <Plus size={16} />
-                                </div>
-                            </div>
-                            <p className="text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] mt-3 opacity-40">Profile Photo (Optional)</p>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-1">
-                                <p className="text-[7px] font-black text-re-text-muted uppercase tracking-[0.2em] ml-1">First Name</p>
-                                <input required value={formData.first_name} onChange={e => setFormData({...formData, first_name: e.target.value})} placeholder="e.g. Jean" className="w-full h-9 bg-re-bg/80 border border-black/5 rounded-xl px-4 text-[10px] font-black outline-none focus:ring-1 ring-re-navy/10 transition-all shadow-inner" />
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-[7px] font-black text-re-text-muted uppercase tracking-[0.2em] ml-1">Last Name</p>
-                                <input required value={formData.last_name} onChange={e => setFormData({...formData, last_name: e.target.value})} placeholder="e.g. Pierre" className="w-full h-9 bg-re-bg/80 border border-black/5 rounded-xl px-4 text-[10px] font-black outline-none focus:ring-1 ring-re-navy/10 transition-all shadow-inner" />
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-1">
-                                <p className="text-[7px] font-black text-re-text-muted uppercase tracking-[0.2em] ml-1">Email Addr</p>
-                                <input required type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} placeholder="e.g. name@school.rw" className="w-full h-9 bg-re-bg/80 border border-black/5 rounded-xl px-4 text-[10px] font-black outline-none focus:ring-1 ring-re-navy/10 transition-all shadow-inner" />
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-[7px] font-black text-re-text-muted uppercase tracking-[0.2em] ml-1">Phone</p>
-                                <input value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full h-9 bg-re-bg/80 border border-black/5 rounded-xl px-4 text-[10px] font-black outline-none focus:ring-1 ring-re-navy/10 transition-all shadow-inner" placeholder="250..." />
-                            </div>
-                        </div>
-
-                        {/* Role — full width */}
-                        <div className="space-y-1">
-                            <p className="text-[7px] font-black text-re-text-muted uppercase tracking-[0.2em] ml-1">Role</p>
-                            {isEditMode ? (
-                                <div className="w-full h-9 bg-re-bg/50 border border-black/5 rounded-xl px-4 flex items-center gap-2 shadow-inner">
-                                    <span className="text-[10px] font-black text-[#1E3A5F] uppercase tracking-widest">{formData.role_code || editingStaff?.role || '—'}</span>
-                                    <span className="ml-auto text-[7px] font-black text-re-text-muted opacity-40 uppercase tracking-widest italic">Read-only</span>
-                                </div>
-                            ) : (
-                                <select required value={formData.role_code} onChange={e => setFormData({...formData, role_code: e.target.value})} className="w-full h-9 bg-re-bg/80 border border-black/5 rounded-xl px-4 text-[10px] font-black outline-none focus:ring-1 ring-re-navy/10 transition-all uppercase appearance-none shadow-inner">
-                                    <option value="">Select...</option>
-                                    <option value="TEACHER">Teacher</option>
-                                    <option value="DOS">DOS</option>
-                                    <option value="HOD">HOD</option>
-                                    <option value="ACCOUNTANT">Accountant</option>
-                                    <option value="LIBRARIAN">Librarian</option>
-                                    <option value="GATE_OFFICER">Gate Officer</option>
-                                    <option value="STORE_MANAGER">Store Manager</option>
-                                </select>
-                            )}
-                        </div>
-
-                        {/* End of Step 1 */}
-                        </div>
-                        )}
-
-                        {step === 2 && (
-                          <div className="space-y-4 animate-in slide-in-from-right-4">
-                            <div className="space-y-3">
-                                <p className="text-[9px] font-black text-[#1E3A5F] uppercase tracking-widest border-b border-black/10 pb-2 mb-2">Gate Integration & Biometrics</p>
-                                
-                                <div className="space-y-1">
-                                    <p className="text-[7px] font-black text-re-text-muted uppercase tracking-[0.2em] ml-1">RFID Gateway Tag UID</p>
-                                    <div className="relative">
-                                      <CreditCard className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#1E3A5F]/30" size={14} />
-                                      <input type="text" value={formData.rfid_uid} onChange={e => setFormData({...formData, rfid_uid: e.target.value})} placeholder="Scan or enter RFID card..." className="w-full h-9 bg-re-bg/80 border border-black/5 rounded-xl pl-10 pr-4 text-[10px] font-black outline-none focus:ring-1 ring-re-navy/10 transition-all shadow-inner uppercase" />
-                                    </div>
-                                </div>
-                                
-                                <div className="space-y-1">
-                                    <p className="text-[7px] font-black text-re-text-muted uppercase tracking-[0.2em] ml-1">Biometric Fingerprint ID</p>
-                                    <div className="relative">
-                                      <Fingerprint className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#1E3A5F]/30" size={14} />
-                                      <input type="text" value={formData.fingerprint_id} onChange={e => setFormData({...formData, fingerprint_id: e.target.value})} placeholder="Assign device fingerprint ID..." className="w-full h-9 bg-re-bg/80 border border-black/5 rounded-xl pl-10 pr-4 text-[10px] font-black outline-none focus:ring-1 ring-re-navy/10 transition-all shadow-inner uppercase" />
-                                    </div>
-                                </div>
-
-                                <div className="space-y-1">
-                                    <p className="text-[7px] font-black text-re-text-muted uppercase tracking-[0.2em] ml-1">Identity/Access Remarks</p>
-                                    <div className="relative">
-                                      <FileText className="absolute left-3.5 top-3.5 text-[#1E3A5F]/30" size={14} />
-                                      <textarea placeholder="Special access constraints..." value={formData.identity_remarks} onChange={e => setFormData({...formData, identity_remarks: e.target.value})} className="w-full bg-re-bg/80 border border-black/5 rounded-xl pl-10 pr-4 py-3 min-h-[60px] text-[10px] font-black outline-none focus:ring-1 ring-re-navy/10 transition-all shadow-inner resize-none uppercase" />
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Auto-credentials info banner */}
-                            <div className="flex items-start gap-3 px-4 py-3.5 rounded-xl border border-black/5 bg-white shadow-sm mt-4">
-                                <div className="p-1.5 rounded-lg text-white shrink-0 mt-0.5" style={{ background: '#1E3A5F' }}>
-                                    <Mail size={12} />
-                                </div>
-                                <div>
-                                    <p className="text-[9px] font-black uppercase tracking-widest" style={{ color: '#1E3A5F' }}>System Instructions</p>
-                                    <p className="text-[8px] font-bold leading-relaxed mt-1" style={{ color: '#6b7280' }}>
-                                        A secure <span className="font-black" style={{ color: '#1E3A5F' }}>password</span> &amp; <span className="font-black" style={{ color: '#1E3A5F' }}>Staff Login</span> will be auto-generated and emailed upon finalizing enrollment.
-                                    </p>
-                                </div>
-                            </div>
-                          </div>
-                        )}
-                    </form>
-                </div>
-
-                {/* Sticky Footer */}
-                <div className="px-5 sm:px-6 py-3 bg-white border-t border-black/5 flex items-center justify-between shrink-0">
-                    <button 
-                        type="button" 
-                        onClick={step === 1 ? onClose : () => setStep(1)} 
-                        className="h-9 px-4 rounded-lg border border-black/5 text-[9px] font-black uppercase tracking-widest text-[#1E3A5F] hover:bg-re-bg transition-all active:scale-95"
-                    >
-                        {step === 1 ? 'Cancel' : 'Back'}
-                    </button>
-
+            <div className="relative bg-white w-full max-w-3xl rounded-[2rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 border border-white/10 flex flex-col max-h-[92vh]">
+                <div className="px-6 py-3 flex items-center justify-between shadow-md shrink-0" style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)" }}>
                     <div className="flex items-center gap-2">
-                        {/* In edit mode: always show Save. In create step 1: show Continue. In create step 2: show Enroll */}
-                        {isEditMode ? (
-                            <>
-                                {/* Navigate between steps in edit mode */}
-                                {step === 1 && (
-                                    <button
-                                        type="button"
-                                        onClick={() => setStep(2)}
-                                        className="h-9 px-4 rounded-lg border border-black/5 text-[9px] font-black uppercase tracking-widest text-[#1E3A5F] hover:bg-re-bg transition-all active:scale-95 flex items-center gap-1"
-                                    >
-                                        Biometrics <ChevronRight size={12} />
-                                    </button>
-                                )}
-                                <button
-                                    type="submit"
-                                    form="hire-personnel-form"
-                                    disabled={isSubmitting}
-                                    className="h-9 px-6 rounded-lg font-black text-[9px] uppercase tracking-widest shadow-lg flex items-center justify-center gap-2 text-[#1E3A5F] bg-re-gold hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50"
-                                >
-                                    {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : <><CheckCircle size={14} /> Save Changes</>}
-                                </button>
-                            </>
-                        ) : step === 1 ? (
-                            <button 
-                                type="button" 
-                                onClick={(e) => {
-                                    e.preventDefault();
-                                    const formEl = document.getElementById('hire-personnel-form');
-                                    if (formEl.checkValidity()) {
-                                        setStep(2);
-                                    } else {
-                                        formEl.reportValidity();
-                                    }
-                                }} 
-                                className="h-9 px-6 rounded-lg bg-re-grad-navy text-white font-black text-[9px] uppercase tracking-widest shadow-md hover:scale-[1.02] active:scale-95 transition-all flex items-center gap-1.5"
-                            >
-                                Continue <ChevronRight size={14} />
-                            </button>
-                        ) : (
-                            <button 
-                                type="submit" 
-                                form="hire-personnel-form"
-                                disabled={isSubmitting} 
-                                className="h-9 px-6 rounded-lg font-black text-[9px] uppercase tracking-widest shadow-lg flex items-center justify-center gap-2 text-[#1E3A5F] bg-re-gold hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50" 
-                            >
-                                {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : <><CheckCircle size={14} /> Enroll Personnel</>}
-                            </button>
-                        )}
+                        <UserPlus size={14} className="text-re-gold" />
+                        <h3 className="text-[10px] font-black text-white uppercase tracking-widest">{isEditMode ? 'Edit Staff' : 'Add New Staff'} - HR Central</h3>
                     </div>
+                    <button onClick={onClose} className="text-white/70 hover:text-re-gold"><X size={14} /></button>
+                </div>
+                <div className="px-5 py-3 bg-re-bg/30 border-b border-black/5 grid grid-cols-2 md:grid-cols-6 gap-2">
+                    {HIRE_STEPS.map((label, i) => (
+                        <button key={label} type="button" onClick={() => setStep(i)} className={`h-8 rounded-lg text-[8px] font-black uppercase tracking-widest border ${i === step ? 'bg-[#1E3A5F] text-white border-[#1E3A5F]' : i < step ? 'bg-[#1E3A5F]/10 text-[#1E3A5F] border-[#1E3A5F]/30' : 'bg-white text-re-text-muted border-black/10'}`}>
+                            {label}
+                        </button>
+                    ))}
+                </div>
+                <form id="hr-staff-stepper-form" onSubmit={onSubmit} className="p-5 space-y-4 overflow-y-auto">
+                    {error && (
+                        <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-rose-700">Action failed</p>
+                            <p className="text-[11px] font-bold text-rose-800 mt-0.5">{error}</p>
+                        </div>
+                    )}
+                    {section()}
+                </form>
+                <div className="px-5 py-3 bg-white border-t border-black/5 flex items-center justify-between">
+                    <button type="button" onClick={step === 0 ? onClose : () => setStep((s) => Math.max(0, s - 1))} className="h-9 px-4 rounded-lg border border-black/10 text-[9px] font-black uppercase tracking-widest text-[#1E3A5F]">Back</button>
+                    {step < HIRE_STEPS.length - 1 ? (
+                        <button type="button" onClick={onNext} className="h-9 px-5 rounded-lg bg-re-grad-navy text-white font-black text-[9px] uppercase tracking-widest flex items-center gap-1">Next <ChevronRight size={12} /></button>
+                    ) : (
+                        <button type="submit" form="hr-staff-stepper-form" disabled={isSubmitting} className="h-9 px-5 rounded-lg bg-re-gold text-[#1E3A5F] font-black text-[9px] uppercase tracking-widest flex items-center gap-1 disabled:opacity-60">
+                            {isSubmitting ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />} {isSubmitting ? 'Saving...' : 'Review & Save'}
+                        </button>
+                    )}
                 </div>
             </div>
         </div>,
@@ -493,6 +954,15 @@ const HRCentral = () => {
     const [activeDropdown, setActiveDropdown] = useState(null);
     const [showHireModal, setShowHireModal] = useState(false);
     const [editingStaff, setEditingStaff] = useState(null);
+    const [notifications, setNotifications] = useState([]);
+
+    const notify = (type, message) => {
+        const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        setNotifications((prev) => [...prev, { id, type, message }]);
+        setTimeout(() => {
+            setNotifications((prev) => prev.filter((n) => n.id !== id));
+        }, 4200);
+    };
 
     const openEditModal = (staffMember) => {
         setEditingStaff(staffMember);
@@ -514,9 +984,38 @@ const HRCentral = () => {
         setIsActionLoading(true);
         try {
             await staffService.resendInvitation(staffId);
-            window.alert("Invitation resent successfully.");
+            notify('success', 'Invitation resent successfully.');
         } catch (error) {
-            window.alert(error.response?.data?.message || "Failed to resend invitation.");
+            notify('error', error.response?.data?.message || 'Failed to resend invitation.');
+        } finally {
+            setIsActionLoading(false);
+            setOpenDropdownId(null);
+        }
+    };
+
+    const handleDeleteStaff = async (staffId, name) => {
+        if (!window.confirm(`Delete ${name}? This will deactivate and remove the account from active records.`)) return;
+        setIsActionLoading(true);
+        try {
+            await staffService.deleteStaff(staffId);
+            notify('success', 'Staff account deleted.');
+            await fetchStaff();
+        } catch (error) {
+            notify('error', error.response?.data?.message || 'Failed to delete staff.');
+        } finally {
+            setIsActionLoading(false);
+            setOpenDropdownId(null);
+        }
+    };
+
+    const handleToggleActive = async (staffId, isCurrentlyActive) => {
+        setIsActionLoading(true);
+        try {
+            await staffService.setStaffActive(staffId, !isCurrentlyActive);
+            notify('success', `Staff account ${isCurrentlyActive ? 'deactivated' : 'activated'} successfully.`);
+            await fetchStaff();
+        } catch (error) {
+            notify('error', error.response?.data?.message || 'Failed to update staff status.');
         } finally {
             setIsActionLoading(false);
             setOpenDropdownId(null);
@@ -546,14 +1045,15 @@ const HRCentral = () => {
                     const attenScore = 90 + (seed % 10);
                     
                     return {
+                        _raw: s,
                         id: s.user_uid || s.id,
                         real_id: s.id,
-                        name: `${s.first_name || ''} ${s.last_name || ''}`.trim(),
+                        name: s.full_name || `${s.first_name || ''} ${s.last_name || ''}`.trim(),
                         role: s.role_name || s.role_code,
                         role_code: s.role_code || '',
-                        department: s.role_code === 'TEACHER' ? 'Academic Staff' : 
+                        department: s.department || (s.role_code === 'TEACHER' ? 'Academic Staff' : 
                                    ['HOD', 'DOS'].includes(s.role_code) ? 'Leadership' :
-                                   ['ACCOUNTANT'].includes(s.role_code) ? 'Administration' : 'Support Staff',
+                                   ['ACCOUNTANT'].includes(s.role_code) ? 'Administration' : 'Support Staff'),
                         phone: s.phone || 'N/A',
                         email: s.email,
                         photo: s.photo,
@@ -562,6 +1062,45 @@ const HRCentral = () => {
                         evaluation: evalScore,
                         attendance: attenScore,
                         joinedDate: s.created_at ? new Date(s.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A',
+                        staffId: s.staff_id || null,
+                        gender: s.gender || null,
+                        date_of_birth: s.date_of_birth || '',
+                        dateOfBirth: s.date_of_birth ? new Date(s.date_of_birth).toLocaleDateString('en-GB') : null,
+                        nationalId: s.national_id || s.passport_number || null,
+                        passportNumber: s.passport_number || null,
+                        address: s.address || null,
+                        employmentType: s.employment_type || null,
+                        jobTitle: s.job_title || null,
+                        date_of_employment: s.date_of_employment || '',
+                        dateOfEmployment: s.date_of_employment ? new Date(s.date_of_employment).toLocaleDateString('en-GB') : null,
+                        contract_start_date: s.contract_start_date || '',
+                        contractStartDate: s.contract_start_date ? new Date(s.contract_start_date).toLocaleDateString('en-GB') : null,
+                        contract_end_date: s.contract_end_date || '',
+                        contractEndDate: s.contract_end_date ? new Date(s.contract_end_date).toLocaleDateString('en-GB') : null,
+                        fullContract: s.employment_type === 'Contract' && !s.contract_end_date,
+                        employmentStatus: s.employment_status || null,
+                        subDepartment: s.sub_department || null,
+                        payrollBasicSalary: s.payroll_basic_salary,
+                        payrollTransportAllowance: s.payroll_transport_allowance,
+                        payrollHousingAllowance: s.payroll_housing_allowance,
+                        payrollMealAllowance: s.payroll_meal_allowance,
+                        payrollOtherAllowances: s.payroll_other_allowances,
+                        payrollTaxPercent: s.payroll_tax_percent,
+                        payrollPensionAmount: s.payroll_pension_amount,
+                        payrollOtherDeductions: s.payroll_other_deductions,
+                        payrollPartTimeRate: s.payroll_part_time_rate,
+                        payrollPartTimeUnit: s.payroll_part_time_unit,
+                        payrollPaymentFrequency: s.payroll_payment_frequency || null,
+                        payrollPaymentMethod: s.payroll_payment_method || null,
+                        payrollBankName: s.payroll_bank_name || null,
+                        payrollAccountNumber: s.payroll_account_number || null,
+                        payrollMobileMoneyPhone: s.payroll_mobile_money_phone || null,
+                        allowAdvance: !!s.allow_advance,
+                        maxAdvanceLimit: s.max_advance_limit,
+                        advanceDeductionType: s.advance_deduction_type || null,
+                        advanceDeductionValue: s.advance_deduction_value,
+                        accountEnabled: s.account_enabled !== 0,
+                        username: s.staff_login_username || s.username || null,
                         rfid_uid: s.rfid_uid,
                         fingerprint_id: s.fingerprint_id,
                         identity_remarks: s.identity_remarks
@@ -602,41 +1141,51 @@ const HRCentral = () => {
         fetchStaff();
     }, [manager]);
 
-    const handleHire = async (formData) => {
+    const handleHire = async (payload, photoFile) => {
         try {
-            const res = await staffService.createStaff(formData);
+            const res = await staffService.createStaff(payload);
             if (res.success) {
-                alert("Personnel account created successfully!");
+                const createdId = res?.data?.id;
+                if (createdId && photoFile) {
+                    const photoData = new FormData();
+                    photoData.append('photo', photoFile);
+                    await staffService.updateStaffPhoto(createdId, photoData);
+                }
+                notify('success', 'Personnel account created successfully.');
                 fetchStaff();
-                return true;
+                return { ok: true };
             }
+            notify('error', res?.message || 'Hiring failed. Please check inputs.');
+            return { ok: false, field: res?.field, message: res?.message };
         } catch (err) {
             console.error("Failed to hire staff:", err);
-            alert(err.response?.data?.message || "Hiring failed. Please check inputs.");
-            return false;
+            const field = err?.response?.data?.field;
+            const message = err?.response?.data?.message || 'Hiring failed. Please check inputs.';
+            notify('error', message);
+            return { ok: false, field, message };
         }
     };
 
-    const handleEditStaff = async (staffId, biometricPayload, photoFile) => {
+    const handleEditStaff = async (staffId, payload, photoFile) => {
         try {
-            // 1. Update biometrics (always)
-            const res = await staffService.updateStaff(staffId, biometricPayload);
+            const res = await staffService.updateStaff(staffId, payload);
             if (!res.success) throw new Error(res.message || 'Update failed');
 
-            // 2. If a new photo was chosen, upload it separately
             if (photoFile) {
                 const photoData = new FormData();
                 photoData.append('photo', photoFile);
                 await staffService.updateStaffPhoto(staffId, photoData);
             }
 
-            alert("Staff profile updated successfully!");
+            notify('success', 'Staff profile updated successfully.');
             fetchStaff();
-            return true;
+            return { ok: true };
         } catch (err) {
             console.error("Failed to update staff:", err);
-            alert(err.response?.data?.message || err.message || "Update failed. Please try again.");
-            return false;
+            const field = err?.response?.data?.field;
+            const message = err.response?.data?.message || err.message || 'Update failed. Please try again.';
+            notify('error', message);
+            return { ok: false, field, message };
         }
     };
 
@@ -649,6 +1198,23 @@ const HRCentral = () => {
 
     return (
         <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen">
+            <div className="fixed top-5 right-5 z-[220] flex flex-col gap-2 w-[320px] max-w-[calc(100vw-24px)]">
+                {notifications.map((n) => (
+                    <div
+                        key={n.id}
+                        className={`rounded-xl border shadow-xl px-4 py-3 animate-in slide-in-from-right-5 duration-300 ${
+                            n.type === 'success'
+                                ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                                : 'bg-rose-50 border-rose-200 text-rose-800'
+                        }`}
+                    >
+                        <p className="text-[10px] font-black uppercase tracking-widest">
+                            {n.type === 'success' ? 'Success' : 'Action Failed'}
+                        </p>
+                        <p className="text-[11px] font-bold mt-0.5 tracking-tight">{n.message}</p>
+                    </div>
+                ))}
+            </div>
             <StaffModal
                 staff={selectedStaff}
                 onClose={() => setSelectedStaff(null)}
@@ -660,7 +1226,7 @@ const HRCentral = () => {
                 onHire={handleHire}
                 onEdit={handleEditStaff}
                 editingStaff={editingStaff}
-                departments={departments}
+                existingStaff={staff}
             />
 
             {/* Mobile "More Departments" Modal */}
@@ -814,6 +1380,15 @@ const HRCentral = () => {
                                     </>
                                 )}
                             </div>
+
+                            {/* Direct CTA: Add New Staff */}
+                            <button
+                                onClick={() => { setShowHireModal(true); setActiveDropdown(null); }}
+                                className="w-full h-11 flex items-center justify-center gap-2 rounded-xl font-black text-[9px] uppercase tracking-widest text-[#1E3A5F] border border-[#FEBF10]/40 bg-[#FEBF10]/15 hover:bg-[#FEBF10]/25 transition-all"
+                            >
+                                <UserPlus size={14} />
+                                Add New Staff
+                            </button>
                         </div>
                     </div>
 
@@ -830,6 +1405,13 @@ const HRCentral = () => {
                             />
                         </div>
                         <div className="flex items-center gap-2 w-full md:w-auto">
+                            <button
+                                onClick={() => { setShowHireModal(true); setActiveDropdown(null); }}
+                                className="h-9 sm:h-10 px-3 sm:px-5 bg-[#FEBF10]/15 border border-[#FEBF10]/40 rounded-xl flex items-center gap-1.5 sm:gap-2 text-[#1E3A5F] font-black text-[8px] sm:text-[9px] uppercase tracking-widest hover:bg-[#FEBF10]/25 transition-all shadow-sm whitespace-nowrap"
+                            >
+                                <UserPlus size={13} />
+                                Add New Staff
+                            </button>
                             <button
                                 onClick={() => setShowDeptFilter(!showDeptFilter)}
                                 className="h-9 sm:h-10 px-3 sm:px-5 bg-white border border-black/5 rounded-xl flex items-center gap-1.5 sm:gap-2 text-re-text-muted font-black text-[8px] sm:text-[9px] uppercase tracking-widest hover:bg-re-bg transition-all shadow-sm whitespace-nowrap"
@@ -1068,11 +1650,27 @@ const HRCentral = () => {
                                                                             </button>
                                                                             <button
                                                                                 className="w-full text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-re-text hover:bg-re-bg transition-colors flex items-center gap-2.5 border-t border-black/5"
-                                                                                onClick={() => handleResendInvite(s.id)}
+                                                                                onClick={() => handleResendInvite(s.real_id || s.id)}
                                                                                 disabled={isActionLoading}
                                                                             >
                                                                                 {isActionLoading ? <Loader2 size={13} className="animate-spin" /> : <Mail size={13} className="text-[#FEBF10]" />} 
                                                                                 Resend Invitation
+                                                                            </button>
+                                                                            <button
+                                                                                className="w-full text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-indigo-700 hover:bg-indigo-50 transition-colors flex items-center gap-2.5 border-t border-black/5"
+                                                                                onClick={() => handleToggleActive(s.real_id || s.id, s.status !== 'Inactive')}
+                                                                                disabled={isActionLoading}
+                                                                            >
+                                                                                {isActionLoading ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+                                                                                {s.status === 'Inactive' ? 'Activate Staff' : 'Deactivate Staff'}
+                                                                            </button>
+                                                                            <button
+                                                                                className="w-full text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2.5 border-t border-black/5"
+                                                                                onClick={() => handleDeleteStaff(s.real_id || s.id, s.name)}
+                                                                                disabled={isActionLoading}
+                                                                            >
+                                                                                {isActionLoading ? <Loader2 size={13} className="animate-spin" /> : <X size={13} />}
+                                                                                Delete Staff
                                                                             </button>
                                                                             <button
                                                                                 className="w-full text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-re-text hover:bg-re-bg transition-colors flex items-center gap-2.5 border-t border-black/5"

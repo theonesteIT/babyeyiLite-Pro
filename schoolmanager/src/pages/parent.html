@@ -1,0 +1,1653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EduTrack — Parent & Student Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --navy: #000435;
+      --navy2: #000855;
+      --navy3: #001070;
+      --amber: #F59E0B;
+      --amber2: #FCD34D;
+      --amber3: #FDE68A;
+      --white: #FFFFFF;
+      --offwhite: #F8F9FF;
+      --text-muted: rgba(255,255,255,0.6);
+      --text-soft: rgba(255,255,255,0.85);
+      --card-bg: rgba(255,255,255,0.04);
+      --card-border: rgba(255,255,255,0.08);
+      --success: #10B981;
+      --danger: #EF4444;
+      --warning: #F59E0B;
+      --info: #3B82F6;
+    }
+
+    html, body {
+      font-family: 'Montserrat', sans-serif;
+      background: var(--navy);
+      color: var(--white);
+      font-size: 14px;
+      min-height: 100vh;
+    }
+
+    .dash {
+      min-height: 100vh;
+      background: linear-gradient(135deg, #000435 0%, #000855 50%, #001275 100%);
+    }
+
+    /* ===== TOP BAR ===== */
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 20px;
+      background: rgba(0,0,0,0.3);
+      border-bottom: 1px solid var(--card-border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(10px);
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+      font-size: 18px;
+      color: var(--amber);
+      text-decoration: none;
+    }
+    .logo-icon {
+      width: 36px;
+      height: 36px;
+      background: var(--amber);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--navy);
+      font-size: 18px;
+      font-weight: 700;
+    }
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .lang-btn {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text-soft);
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      cursor: pointer;
+      font-family: 'Montserrat', sans-serif;
+      transition: all 0.2s;
+    }
+    .lang-btn.active {
+      background: var(--amber);
+      color: var(--navy);
+      border-color: var(--amber);
+      font-weight: 700;
+    }
+    .icon-btn {
+      position: relative;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      color: var(--white);
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 17px;
+      transition: background 0.2s;
+    }
+    .icon-btn:hover { background: rgba(255,255,255,0.1); }
+    .notif-dot {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      width: 8px;
+      height: 8px;
+      background: var(--danger);
+      border-radius: 50%;
+      border: 1.5px solid #000855;
+    }
+    .user-avatar {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: var(--amber);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--navy);
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+      border: 2px solid rgba(245,158,11,0.4);
+    }
+
+    /* ===== ROLE SWITCHER ===== */
+    .role-bar {
+      padding: 12px 20px 0;
+    }
+    .role-toggle {
+      display: flex;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .role-btn {
+      flex: 1;
+      padding: 11px 0;
+      text-align: center;
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      transition: all 0.2s;
+    }
+    .role-btn.active {
+      background: var(--amber);
+      color: var(--navy);
+    }
+
+    /* ===== PROFILE HERO ===== */
+    .profile-hero {
+      margin: 14px 20px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .profile-avatar-wrap { position: relative; flex-shrink: 0; }
+    .profile-avatar {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--amber), #F97316);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--navy);
+      border: 3px solid rgba(245,158,11,0.4);
+    }
+    .status-indicator {
+      position: absolute;
+      bottom: 2px;
+      right: 2px;
+      background: var(--success);
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 2.5px solid #000855;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      color: white;
+    }
+    .profile-info { flex: 1; min-width: 160px; }
+    .profile-name { font-size: 20px; font-weight: 700; margin-bottom: 3px; }
+    .profile-sub { font-size: 11px; color: var(--text-muted); margin-bottom: 10px; }
+    .profile-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+    .tag {
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .tag-amber { background: rgba(245,158,11,0.15); color: var(--amber); border: 1px solid rgba(245,158,11,0.3); }
+    .tag-green { background: rgba(16,185,129,0.15); color: #34D399; border: 1px solid rgba(16,185,129,0.3); }
+    .tag-blue { background: rgba(59,130,246,0.15); color: #60A5FA; border: 1px solid rgba(59,130,246,0.3); }
+    .profile-ring { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    .ring-label { font-size: 10px; color: var(--text-muted); text-align: center; line-height: 1.4; }
+
+    /* ===== SUMMARY CARDS ===== */
+    .summary-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+      padding: 0 20px;
+    }
+    .scard {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .scard-icon { font-size: 20px; margin-bottom: 2px; }
+    .scard-val { font-size: 22px; font-weight: 700; }
+    .scard-val.green { color: var(--success); }
+    .scard-val.amber { color: var(--amber); }
+    .scard-val.blue { color: var(--info); }
+    .scard-val.red { color: var(--danger); }
+    .scard-label { font-size: 11px; color: var(--text-muted); font-weight: 500; }
+    .scard-trend { font-size: 10px; color: var(--success); }
+    .scard-trend.down { color: var(--danger); }
+
+    /* ===== AI INSIGHTS ===== */
+    .ai-strip {
+      margin: 12px 20px;
+      background: linear-gradient(135deg, rgba(139,92,246,0.15), rgba(59,130,246,0.1));
+      border: 1px solid rgba(139,92,246,0.3);
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .ai-header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .ai-badge {
+      background: linear-gradient(135deg, #7C3AED, #2563EB);
+      color: white;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 20px;
+    }
+    .ai-insight {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(139,92,246,0.12);
+    }
+    .ai-insight:last-child { border-bottom: none; padding-bottom: 0; }
+    .ai-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+    .ai-text { font-size: 12px; line-height: 1.5; }
+    .ai-text .label { font-weight: 600; display: block; margin-bottom: 2px; }
+    .ai-text .desc { color: var(--text-muted); }
+
+    /* ===== TABS ===== */
+    .tabs-wrap {
+      padding: 14px 20px 0;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .tabs-wrap::-webkit-scrollbar { display: none; }
+    .tabs { display: flex; gap: 6px; min-width: max-content; }
+    .tab {
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: 'Montserrat', sans-serif;
+      border: 1px solid var(--card-border);
+      white-space: nowrap;
+      transition: all 0.2s;
+      background: var(--card-bg);
+      color: var(--text-muted);
+    }
+    .tab.active {
+      background: var(--amber);
+      color: var(--navy);
+      border-color: var(--amber);
+    }
+    .tab:hover:not(.active) { background: rgba(255,255,255,0.08); color: var(--white); }
+
+    /* ===== PANELS ===== */
+    .panel { display: none; padding: 16px 20px 80px; }
+    .panel.active { display: block; }
+    .section-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--white);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .section-title .icon { color: var(--amber); }
+
+    /* ===== CARDS ===== */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+    .card-title { font-size: 13px; font-weight: 600; color: var(--text-soft); margin-bottom: 12px; }
+
+    /* ===== ATTENDANCE CALENDAR ===== */
+    .cal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .cal-month { font-weight: 700; font-size: 15px; }
+    .cal-nav {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--card-border);
+      color: var(--white);
+      width: 30px;
+      height: 30px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+      font-family: 'Montserrat', sans-serif;
+      transition: background 0.2s;
+    }
+    .cal-nav:hover { background: rgba(255,255,255,0.12); }
+    .cal-days-hdr {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 3px;
+      margin-bottom: 5px;
+    }
+    .cal-dh {
+      text-align: center;
+      font-size: 10px;
+      color: var(--text-muted);
+      font-weight: 600;
+      padding: 4px 0;
+    }
+    .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+    .cal-cell {
+      aspect-ratio: 1;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.1s;
+    }
+    .cal-cell:hover { transform: scale(1.1); }
+    .cal-cell.present { background: rgba(16,185,129,0.25); color: #34D399; border: 1px solid rgba(16,185,129,0.3); }
+    .cal-cell.absent { background: rgba(239,68,68,0.25); color: #F87171; border: 1px solid rgba(239,68,68,0.3); }
+    .cal-cell.late { background: rgba(245,158,11,0.25); color: var(--amber); border: 1px solid rgba(245,158,11,0.3); }
+    .cal-cell.holiday { background: rgba(139,92,246,0.2); color: #A78BFA; border: 1px solid rgba(139,92,246,0.3); }
+    .cal-cell.empty { opacity: 0; pointer-events: none; }
+    .cal-cell.today { outline: 2px solid var(--amber); }
+    .cal-legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+    .leg-item { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--text-muted); }
+    .leg-dot { width: 10px; height: 10px; border-radius: 3px; }
+    .att-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+    .att-stat { background: rgba(255,255,255,0.03); border-radius: 8px; padding: 10px; text-align: center; }
+    .att-stat-val { font-size: 20px; font-weight: 700; }
+    .att-stat-lab { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+
+    /* ===== SUBJECTS TABLE ===== */
+    .subj-table { width: 100%; border-collapse: collapse; }
+    .subj-table th {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      padding: 6px 8px;
+      text-align: left;
+      border-bottom: 1px solid var(--card-border);
+    }
+    .subj-table td {
+      padding: 10px 8px;
+      font-size: 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+    }
+    .grade-pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .gA { background: rgba(16,185,129,0.2); color: #34D399; }
+    .gB { background: rgba(59,130,246,0.2); color: #60A5FA; }
+    .gC { background: rgba(245,158,11,0.2); color: var(--amber); }
+    .gD { background: rgba(239,68,68,0.2); color: #F87171; }
+    .bar-wrap { background: rgba(255,255,255,0.08); border-radius: 20px; height: 6px; width: 80px; overflow: hidden; display: inline-block; vertical-align: middle; }
+    .bar-fill { height: 100%; border-radius: 20px; }
+
+    /* ===== DISCIPLINE ===== */
+    .disc-overview { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; margin-bottom: 14px; }
+    .disc-grade-big { font-size: 60px; font-weight: 700; color: var(--success); line-height: 1; }
+    .disc-score-details { flex: 1; min-width: 160px; }
+    .score-bar-wrap { background: rgba(255,255,255,0.08); border-radius: 20px; height: 10px; overflow: hidden; margin: 8px 0; }
+    .score-bar-fill { height: 100%; border-radius: 20px; background: linear-gradient(90deg, var(--amber), #F97316); }
+    .incident-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      font-size: 12px;
+    }
+    .incident-item:last-child { border-bottom: none; }
+    .inc-sign {
+      font-size: 11px;
+      font-weight: 700;
+      width: 30px;
+      height: 30px;
+      border-radius: 7px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .inc-pos { background: rgba(16,185,129,0.2); color: #34D399; }
+    .inc-neg { background: rgba(239,68,68,0.2); color: #F87171; }
+    .inc-info { flex: 1; }
+    .inc-info .inc-title { font-weight: 600; margin-bottom: 2px; }
+    .inc-info .inc-sub { font-size: 10px; color: var(--text-muted); }
+    .inc-date { font-size: 10px; color: var(--text-muted); flex-shrink: 0; }
+
+    /* ===== FEES ===== */
+    .fees-bar-wrap { background: rgba(255,255,255,0.08); border-radius: 20px; height: 12px; overflow: hidden; margin: 10px 0; }
+    .fees-bar-fill { height: 100%; border-radius: 20px; background: linear-gradient(90deg, var(--success), #059669); }
+    .fees-row { display: flex; justify-content: space-between; font-size: 13px; margin: 5px 0; }
+    .fees-row .label { color: var(--text-muted); }
+    .pay-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      font-size: 12px;
+    }
+    .pay-item:last-child { border-bottom: none; }
+    .pay-date { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+    .pay-amount { font-weight: 600; color: var(--success); }
+    .pdf-btn {
+      background: rgba(245,158,11,0.12);
+      color: var(--amber);
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      font-family: 'Montserrat', sans-serif;
+      margin-top: 4px;
+      transition: background 0.2s;
+    }
+    .pdf-btn:hover { background: rgba(245,158,11,0.25); }
+    .btn-primary {
+      width: 100%;
+      background: var(--amber);
+      color: var(--navy);
+      border: none;
+      border-radius: 10px;
+      padding: 12px;
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+      margin-top: 12px;
+      transition: opacity 0.2s;
+    }
+    .btn-primary:hover { opacity: 0.9; }
+
+    /* ===== MESSAGES ===== */
+    .msg-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--card-border);
+    }
+    .msg-avatar {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+    .online-dot { width: 8px; height: 8px; background: var(--success); border-radius: 50%; }
+    .msg-body {
+      padding: 14px 16px;
+      max-height: 240px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .msg-bubble { display: flex; flex-direction: column; max-width: 85%; }
+    .msg-bubble.teacher { align-self: flex-start; }
+    .msg-bubble.parent { align-self: flex-end; align-items: flex-end; }
+    .bubble-text {
+      padding: 9px 13px;
+      border-radius: 12px;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .teacher .bubble-text { background: rgba(255,255,255,0.08); border-radius: 4px 12px 12px 12px; }
+    .parent .bubble-text { background: rgba(245,158,11,0.18); border: 1px solid rgba(245,158,11,0.3); border-radius: 12px 4px 12px 12px; }
+    .bubble-time { font-size: 10px; color: var(--text-muted); margin-top: 3px; padding: 0 4px; }
+    .msg-input-wrap {
+      display: flex;
+      gap: 8px;
+      padding: 10px 14px;
+      border-top: 1px solid var(--card-border);
+    }
+    .msg-input {
+      flex: 1;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--card-border);
+      color: var(--white);
+      border-radius: 20px;
+      padding: 9px 14px;
+      font-size: 12px;
+      font-family: 'Montserrat', sans-serif;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .msg-input::placeholder { color: var(--text-muted); }
+    .msg-input:focus { border-color: rgba(245,158,11,0.4); }
+    .send-btn {
+      background: var(--amber);
+      border: none;
+      color: var(--navy);
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: transform 0.1s, opacity 0.2s;
+    }
+    .send-btn:hover { opacity: 0.85; }
+    .send-btn:active { transform: scale(0.95); }
+
+    /* ===== HOMEWORK ===== */
+    .assign-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 10px;
+      transition: border-color 0.2s;
+    }
+    .assign-card:hover { border-color: rgba(245,158,11,0.3); }
+    .assign-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 4px; }
+    .assign-title { font-size: 13px; font-weight: 600; }
+    .due-badge { font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 12px; white-space: nowrap; }
+    .due-urgent { background: rgba(239,68,68,0.2); color: #F87171; }
+    .due-warn { background: rgba(245,158,11,0.2); color: var(--amber); }
+    .due-ok { background: rgba(16,185,129,0.2); color: #34D399; }
+    .due-done { background: rgba(59,130,246,0.2); color: #60A5FA; }
+    .assign-sub { font-size: 11px; color: var(--text-muted); margin-bottom: 10px; }
+    .assign-foot { display: flex; align-items: center; justify-content: space-between; }
+    .upload-btn {
+      background: rgba(59,130,246,0.15);
+      color: #60A5FA;
+      border: 1px solid rgba(59,130,246,0.3);
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: 'Montserrat', sans-serif;
+      transition: background 0.2s;
+    }
+    .upload-btn:hover { background: rgba(59,130,246,0.25); }
+    .graded-badge { background: rgba(16,185,129,0.2); color: #34D399; padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+
+    /* ===== ANNOUNCEMENTS ===== */
+    .ann-item {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-left: 3px solid var(--amber);
+      border-radius: 0 12px 12px 0;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+    }
+    .ann-item.urgent { border-left-color: var(--danger); }
+    .ann-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+    .ann-item.urgent .ann-title { color: #F87171; }
+    .ann-body { font-size: 12px; color: var(--text-muted); line-height: 1.6; }
+    .ann-meta { display: flex; justify-content: space-between; margin-top: 6px; font-size: 10px; color: var(--text-muted); }
+    .event-item { display: flex; gap: 12px; align-items: center; padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+    .event-item:last-child { border-bottom: none; }
+    .event-date-box {
+      width: 44px;
+      height: 44px;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 700;
+      flex-shrink: 0;
+      line-height: 1.2;
+    }
+    .event-date-box .day { font-size: 18px; font-weight: 700; }
+
+    /* ===== TRANSPORT ===== */
+    .bus-stops { position: relative; padding-left: 8px; }
+    .bus-line {
+      position: absolute;
+      left: 22px;
+      top: 18px;
+      bottom: 18px;
+      width: 2px;
+      background: rgba(255,255,255,0.1);
+    }
+    .bus-stop { display: flex; align-items: center; gap: 12px; padding: 8px 0; font-size: 12px; position: relative; z-index: 1; }
+    .stop-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+    .stop-done { background: var(--success); }
+    .stop-active { background: var(--amber); box-shadow: 0 0 0 4px rgba(245,158,11,0.25); }
+    .stop-pending { background: rgba(255,255,255,0.2); }
+    .eta-card {
+      background: rgba(245,158,11,0.1);
+      border: 1px solid rgba(245,158,11,0.3);
+      border-radius: 10px;
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 12px;
+    }
+
+    /* ===== NOTIFICATIONS ===== */
+    .notif-item { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.04); align-items: flex-start; }
+    .notif-item:last-child { border-bottom: none; }
+    .notif-icon { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0; }
+    .notif-content { flex: 1; }
+    .notif-content .ntitle { font-size: 12px; font-weight: 600; margin-bottom: 2px; }
+    .notif-content .nbody { font-size: 11px; color: var(--text-muted); line-height: 1.4; }
+    .notif-content .ntime { font-size: 10px; color: rgba(255,255,255,0.3); margin-top: 3px; }
+    .unread-dot { width: 7px; height: 7px; background: var(--amber); border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+
+    /* ===== INFO BANNERS ===== */
+    .info-banner {
+      border-radius: 10px;
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .info-banner.green { background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); }
+    .info-banner.blue { background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); }
+    .info-banner .ib-title { font-size: 12px; font-weight: 600; }
+    .info-banner .ib-body { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+    /* ===== SCROLLBAR ===== */
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(245,158,11,0.3); border-radius: 4px; }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 480px) {
+      .profile-hero { padding: 14px; gap: 12px; }
+      .profile-avatar { width: 64px; height: 64px; font-size: 22px; }
+      .profile-name { font-size: 16px; }
+      .summary-cards { grid-template-columns: repeat(2, 1fr); }
+      .scard-val { font-size: 18px; }
+      .disc-grade-big { font-size: 48px; }
+    }
+    @media (max-width: 360px) {
+      .topbar { padding: 10px 14px; }
+      .panel { padding: 12px 14px 80px; }
+      .profile-hero { margin: 12px 14px; }
+      .summary-cards { padding: 0 14px; }
+      .ai-strip { margin: 10px 14px; }
+      .tabs-wrap { padding: 12px 14px 0; }
+    }
+  </style>
+</head>
+
+<body>
+<div class="dash" id="mainDash">
+
+  <!-- TOP BAR -->
+  <header class="topbar">
+    <a href="#" class="logo">
+      <div class="logo-icon">S</div>
+      EduTrack
+    </a>
+    <div class="topbar-right">
+      <button class="lang-btn active" onclick="setLang('en')">EN</button>
+      <button class="lang-btn" onclick="setLang('rw')">RW</button>
+      <button class="lang-btn" onclick="setLang('fr')">FR</button>
+      <button class="icon-btn" onclick="switchTab('notifications')" title="Notifications">
+        &#128276;
+        <div class="notif-dot"></div>
+      </button>
+      <div class="user-avatar" title="Marie Kayitesi">MK</div>
+    </div>
+  </header>
+
+  <!-- ROLE SWITCHER -->
+  <div class="role-bar">
+    <div class="role-toggle">
+      <button class="role-btn active" id="roleParent" onclick="setRole('parent')">&#128106; Parent View</button>
+      <button class="role-btn" id="roleStudent" onclick="setRole('student')">&#127891; Student View</button>
+    </div>
+  </div>
+
+  <!-- STUDENT PROFILE HERO -->
+  <section class="profile-hero">
+    <div class="profile-avatar-wrap">
+      <div class="profile-avatar">MK</div>
+      <div class="status-indicator" title="Active">&#10003;</div>
+    </div>
+    <div class="profile-info">
+      <div class="profile-name">Marie Kayitesi</div>
+      <div class="profile-sub">Student ID: GS-2024-0471 &nbsp;|&nbsp; Academic Year: 2024–25</div>
+      <div class="profile-tags">
+        <span class="tag tag-amber">S4 Science</span>
+        <span class="tag tag-green">&#9679; Active</span>
+        <span class="tag tag-blue">Rank #3 / 42</span>
+      </div>
+    </div>
+    <div class="profile-ring">
+      <svg width="82" height="82" viewBox="0 0 82 82" aria-label="Overall performance 80%">
+        <circle cx="41" cy="41" r="33" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="7"/>
+        <circle cx="41" cy="41" r="33" fill="none" stroke="#F59E0B" stroke-width="7"
+          stroke-dasharray="207" stroke-dashoffset="41"
+          stroke-linecap="round" transform="rotate(-90 41 41)"/>
+        <text x="41" y="46" text-anchor="middle" fill="white" font-size="14"
+          font-weight="700" font-family="Montserrat,sans-serif">80%</text>
+      </svg>
+      <div class="ring-label">Overall<br>Performance</div>
+    </div>
+  </section>
+
+  <!-- SUMMARY CARDS -->
+  <section class="summary-cards">
+    <div class="scard">
+      <div class="scard-icon">&#128197;</div>
+      <div class="scard-val green">92%</div>
+      <div class="scard-label">Attendance</div>
+      <div class="scard-trend">&#9650; +3% this month</div>
+    </div>
+    <div class="scard">
+      <div class="scard-icon">&#127942;</div>
+      <div class="scard-val amber">B+</div>
+      <div class="scard-label">Avg Grade</div>
+      <div class="scard-trend">&#9650; Up from B</div>
+    </div>
+    <div class="scard">
+      <div class="scard-icon">&#9878;</div>
+      <div class="scard-val blue">78</div>
+      <div class="scard-label">Discipline Score</div>
+      <div class="scard-trend">Grade: B</div>
+    </div>
+    <div class="scard">
+      <div class="scard-icon">&#128181;</div>
+      <div class="scard-val red">45k RWF</div>
+      <div class="scard-label">Fees Balance</div>
+      <div class="scard-trend down">&#9660; Due in 7 days</div>
+    </div>
+  </section>
+
+  <!-- AI INSIGHTS -->
+  <div class="ai-strip">
+    <div class="ai-header">
+      <div class="ai-badge">&#129504; AI Insights</div>
+      <span style="font-size:12px;color:var(--text-muted)">Powered by Intelligence Engine</span>
+    </div>
+    <div class="ai-insight">
+      <div class="ai-icon">&#128200;</div>
+      <div class="ai-text">
+        <span class="label">Performance trending up</span>
+        <span class="desc">Math improved by 12 points last month. Keep the momentum going!</span>
+      </div>
+    </div>
+    <div class="ai-insight">
+      <div class="ai-icon">&#9888;</div>
+      <div class="ai-text">
+        <span class="label">Attendance alert</span>
+        <span class="desc">2 unexcused absences detected. Attendance dropped by 4% vs last month.</span>
+      </div>
+    </div>
+    <div class="ai-insight">
+      <div class="ai-icon">&#128218;</div>
+      <div class="ai-text">
+        <span class="label">Recommended focus area</span>
+        <span class="desc">Chemistry CAT score was 58%. Extra revision sessions strongly recommended.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <nav class="tabs-wrap">
+    <div class="tabs" role="tablist">
+      <button class="tab active" role="tab" onclick="switchTab('attendance')">&#128197; Attendance</button>
+      <button class="tab" role="tab" onclick="switchTab('academics')">&#128218; Academics</button>
+      <button class="tab" role="tab" onclick="switchTab('discipline')">&#9878; Discipline</button>
+      <button class="tab" role="tab" onclick="switchTab('fees')">&#128181; Fees</button>
+      <button class="tab" role="tab" onclick="switchTab('messages')">&#128172; Messages</button>
+      <button class="tab" role="tab" onclick="switchTab('homework')">&#128196; Homework</button>
+      <button class="tab" role="tab" onclick="switchTab('transport')">&#128652; Transport</button>
+      <button class="tab" role="tab" onclick="switchTab('notices')">&#128227; Notices</button>
+      <button class="tab" role="tab" onclick="switchTab('notifications')">&#128276; Alerts</button>
+    </div>
+  </nav>
+
+  <!-- ========== PANEL: ATTENDANCE ========== -->
+  <div class="panel active" id="panel-attendance" role="tabpanel">
+    <div class="section-title"><span class="icon">&#128197;</span> Attendance Tracking — April 2025</div>
+
+    <div class="card">
+      <div class="cal-header">
+        <button class="cal-nav" onclick="changeMonth(-1)">&#8249;</button>
+        <div class="cal-month" id="calMonthLabel">April 2025</div>
+        <button class="cal-nav" onclick="changeMonth(1)">&#8250;</button>
+      </div>
+      <div class="cal-days-hdr">
+        <div class="cal-dh">Sun</div><div class="cal-dh">Mon</div><div class="cal-dh">Tue</div>
+        <div class="cal-dh">Wed</div><div class="cal-dh">Thu</div><div class="cal-dh">Fri</div>
+        <div class="cal-dh">Sat</div>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+      <div class="cal-legend">
+        <div class="leg-item"><div class="leg-dot" style="background:rgba(16,185,129,0.6)"></div> Present</div>
+        <div class="leg-item"><div class="leg-dot" style="background:rgba(239,68,68,0.6)"></div> Absent</div>
+        <div class="leg-item"><div class="leg-dot" style="background:rgba(245,158,11,0.6)"></div> Late</div>
+        <div class="leg-item"><div class="leg-dot" style="background:rgba(139,92,246,0.5)"></div> Holiday</div>
+      </div>
+      <div class="att-stats">
+        <div class="att-stat"><div class="att-stat-val" style="color:#34D399">18</div><div class="att-stat-lab">Present</div></div>
+        <div class="att-stat"><div class="att-stat-val" style="color:#F87171">2</div><div class="att-stat-lab">Absent</div></div>
+        <div class="att-stat"><div class="att-stat-val" style="color:var(--amber)">1</div><div class="att-stat-lab">Late</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Monthly attendance trend (2024–2025)</div>
+      <div style="position:relative;width:100%;height:180px">
+        <canvas id="attChart" role="img" aria-label="Line chart of monthly attendance percentage from August 2024 to April 2025">Monthly attendance percentages.</canvas>
+      </div>
+    </div>
+
+    <div class="info-banner green">
+      <span style="font-size:22px">&#128241;</span>
+      <div>
+        <div class="ib-title" style="color:#34D399">RFID Live Check-in Active</div>
+        <div class="ib-body">Today: Checked in at 07:42 AM &nbsp;&#128276; Parent notified via SMS</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== PANEL: ACADEMICS ========== -->
+  <div class="panel" id="panel-academics" role="tabpanel">
+    <div class="section-title"><span class="icon">&#128218;</span> Academic Performance</div>
+
+    <div class="card">
+      <div class="card-title">Subject performance — Term 2 (CAT vs Exam)</div>
+      <div style="position:relative;width:100%;height:230px">
+        <canvas id="perfChart" role="img" aria-label="Bar chart comparing CAT and exam scores for each subject in Term 2">CAT and Exam subject scores.</canvas>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <div class="card-title">Performance trend — all terms</div>
+      <div style="position:relative;width:100%;height:160px">
+        <canvas id="trendChart" role="img" aria-label="Line chart of average performance over the academic year terms">Average performance trend.</canvas>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <div class="card-title">Subject breakdown</div>
+      <table class="subj-table">
+        <thead>
+          <tr>
+            <th>Subject</th><th>CAT</th><th>Exam</th><th>Grade</th><th>Progress</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="font-weight:600">Mathematics</td>
+            <td>78</td><td>82</td>
+            <td><span class="grade-pill gA">A</span></td>
+            <td><div class="bar-wrap"><div class="bar-fill" style="width:82%;background:#34D399"></div></div></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600">Biology</td>
+            <td>74</td><td>76</td>
+            <td><span class="grade-pill gB">B+</span></td>
+            <td><div class="bar-wrap"><div class="bar-fill" style="width:76%;background:#60A5FA"></div></div></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600">Chemistry</td>
+            <td>58</td><td>63</td>
+            <td><span class="grade-pill gC">C+</span></td>
+            <td><div class="bar-wrap"><div class="bar-fill" style="width:63%;background:#F59E0B"></div></div></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600">Physics</td>
+            <td>80</td><td>85</td>
+            <td><span class="grade-pill gA">A</span></td>
+            <td><div class="bar-wrap"><div class="bar-fill" style="width:85%;background:#34D399"></div></div></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600">English</td>
+            <td>70</td><td>72</td>
+            <td><span class="grade-pill gB">B</span></td>
+            <td><div class="bar-wrap"><div class="bar-fill" style="width:72%;background:#60A5FA"></div></div></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600">Kinyarwanda</td>
+            <td>85</td><td>88</td>
+            <td><span class="grade-pill gA">A</span></td>
+            <td><div class="bar-wrap"><div class="bar-fill" style="width:88%;background:#34D399"></div></div></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="info-banner blue" style="margin-bottom:0">
+      <span style="font-size:22px">&#128172;</span>
+      <div>
+        <div class="ib-title" style="color:#60A5FA">Teacher Feedback — Ms. Uwimana</div>
+        <div class="ib-body">"Marie is a dedicated student who shows great effort in Mathematics and Physics. Chemistry needs more revision particularly on organic reactions. Overall excellent progress this term."</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== PANEL: DISCIPLINE ========== -->
+  <div class="panel" id="panel-discipline" role="tabpanel">
+    <div class="section-title"><span class="icon">&#9878;</span> Discipline & Behavior</div>
+
+    <div class="card">
+      <div class="disc-overview">
+        <div style="text-align:center">
+          <div class="disc-grade-big">B</div>
+          <div style="font-size:11px;color:var(--text-muted)">Auto Grade</div>
+        </div>
+        <div class="disc-score-details" style="flex:1">
+          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
+            <span>Total Score</span>
+            <span style="font-weight:700;color:var(--amber)">78 / 100</span>
+          </div>
+          <div class="score-bar-wrap"><div class="score-bar-fill" style="width:78%"></div></div>
+          <div style="display:flex;gap:16px;font-size:11px;margin-top:4px">
+            <span style="color:#34D399">&#9650; Positive: +18</span>
+            <span style="color:#F87171">&#9660; Negative: -10</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title"><span class="icon">&#128203;</span> Incident Log</div>
+    <div class="card" style="padding:0 16px">
+      <div class="incident-item">
+        <div class="inc-sign inc-pos">+5</div>
+        <div class="inc-info">
+          <div class="inc-title">Excellent class participation</div>
+          <div class="inc-sub">Mathematics — Mr. Nzabonimpa</div>
+        </div>
+        <div class="inc-date">Apr 20</div>
+      </div>
+      <div class="incident-item">
+        <div class="inc-sign inc-pos">+8</div>
+        <div class="inc-info">
+          <div class="inc-title">Won inter-class Science Quiz</div>
+          <div class="inc-sub">Chemistry — Ms. Ingabire</div>
+        </div>
+        <div class="inc-date">Apr 15</div>
+      </div>
+      <div class="incident-item">
+        <div class="inc-sign inc-pos">+5</div>
+        <div class="inc-info">
+          <div class="inc-title">Good behavior — helped classmate</div>
+          <div class="inc-sub">General — Class Teacher</div>
+        </div>
+        <div class="inc-date">Apr 8</div>
+      </div>
+      <div class="incident-item">
+        <div class="inc-sign inc-neg">-5</div>
+        <div class="inc-info">
+          <div class="inc-title">Late to class (2× this week)</div>
+          <div class="inc-sub">Physics — Mr. Habimana</div>
+        </div>
+        <div class="inc-date">Mar 28</div>
+      </div>
+      <div class="incident-item">
+        <div class="inc-sign inc-neg">-5</div>
+        <div class="inc-info">
+          <div class="inc-title">Incomplete homework submission</div>
+          <div class="inc-sub">Biology — Ms. Mukamana</div>
+        </div>
+        <div class="inc-date">Mar 18</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== PANEL: FEES ========== -->
+  <div class="panel" id="panel-fees" role="tabpanel">
+    <div class="section-title"><span class="icon">&#128181;</span> Fees & Payments</div>
+
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;margin-bottom:10px">
+        <span style="font-size:14px;font-weight:700">Term 2 — 2024/25</span>
+        <span style="font-size:11px;color:#F87171;font-weight:600">Due: May 5, 2025</span>
+      </div>
+      <div class="fees-row"><span class="label">Total Fees</span><span style="font-weight:600">250,000 RWF</span></div>
+      <div class="fees-row"><span class="label">Amount Paid</span><span style="color:#34D399;font-weight:600">205,000 RWF</span></div>
+      <div class="fees-row"><span class="label">Balance Remaining</span><span style="color:#F87171;font-weight:700">45,000 RWF</span></div>
+      <div class="fees-bar-wrap"><div class="fees-bar-fill" style="width:82%"></div></div>
+      <div style="font-size:11px;color:var(--text-muted);text-align:right;margin-top:2px">82% paid</div>
+      <button class="btn-primary" onclick="alert('Redirecting to payment gateway...')">&#128179; Pay Now — 45,000 RWF</button>
+    </div>
+
+    <div class="section-title"><span class="icon">&#128203;</span> Payment History</div>
+    <div class="card" style="padding:0">
+      <div class="pay-item">
+        <div>
+          <div style="font-weight:600">Term 2 — Installment 2</div>
+          <div class="pay-date">April 12, 2025 &nbsp;&#183;&nbsp; MTN MoMo</div>
+        </div>
+        <div style="text-align:right">
+          <div class="pay-amount">100,000 RWF</div>
+          <button class="pdf-btn" onclick="alert('Downloading receipt PDF...')">&#128196; Download PDF</button>
+        </div>
+      </div>
+      <div class="pay-item">
+        <div>
+          <div style="font-weight:600">Term 2 — Installment 1</div>
+          <div class="pay-date">February 3, 2025 &nbsp;&#183;&nbsp; Bank Transfer</div>
+        </div>
+        <div style="text-align:right">
+          <div class="pay-amount">105,000 RWF</div>
+          <button class="pdf-btn" onclick="alert('Downloading receipt PDF...')">&#128196; Download PDF</button>
+        </div>
+      </div>
+      <div class="pay-item">
+        <div>
+          <div style="font-weight:600">Term 1 — Full Payment</div>
+          <div class="pay-date">October 10, 2024 &nbsp;&#183;&nbsp; Bank Transfer</div>
+        </div>
+        <div style="text-align:right">
+          <div class="pay-amount">250,000 RWF</div>
+          <button class="pdf-btn" onclick="alert('Downloading receipt PDF...')">&#128196; Download PDF</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== PANEL: MESSAGES ========== -->
+  <div class="panel" id="panel-messages" role="tabpanel">
+    <div class="section-title"><span class="icon">&#128172;</span> Parent ↔ Teacher Messages</div>
+
+    <div class="card" style="padding:0">
+      <div class="msg-header">
+        <div class="msg-avatar" style="background:var(--amber);color:var(--navy)">UN</div>
+        <div>
+          <div style="font-size:13px;font-weight:600">Ms. Uwimana Nadia</div>
+          <div style="font-size:10px;color:var(--text-muted)">Class Teacher — S4 Science</div>
+        </div>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:5px">
+          <div class="online-dot"></div>
+          <span style="font-size:10px;color:#34D399;font-weight:600">Online</span>
+        </div>
+      </div>
+      <div class="msg-body" id="msgBody">
+        <div class="msg-bubble teacher">
+          <div class="bubble-text">Good morning! Marie did excellent in today's Physics test. She scored 85/100. We are very proud of her.</div>
+          <div class="bubble-time">Mon 9:15 AM</div>
+        </div>
+        <div class="msg-bubble parent">
+          <div class="bubble-text">Thank you so much Ms. Uwimana! We are very happy to hear that. We will encourage her to keep working hard.</div>
+          <div class="bubble-time">Mon 10:02 AM</div>
+        </div>
+        <div class="msg-bubble teacher">
+          <div class="bubble-text">She needs a bit more focus on Chemistry — specifically organic reactions. I have attached revision notes for you.</div>
+          <div class="bubble-time">Mon 10:08 AM</div>
+        </div>
+        <div class="msg-bubble teacher">
+          <div class="bubble-text" style="background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.3);display:flex;align-items:center;gap:8px">
+            <span>&#128196;</span> Chemistry_Revision_Notes.pdf
+          </div>
+          <div class="bubble-time">Mon 10:09 AM</div>
+        </div>
+      </div>
+      <div class="msg-input-wrap">
+        <input type="text" class="msg-input" id="msgInput" placeholder="Type a message..." onkeydown="if(event.key==='Enter') sendMsg()" />
+        <button class="send-btn" onclick="sendMsg()" title="Send">&#10148;</button>
+      </div>
+    </div>
+
+    <div class="section-title" style="margin-top:16px"><span class="icon">&#128101;</span> Other Teachers</div>
+    <div class="card" style="padding:0">
+      <div class="pay-item" style="cursor:pointer">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="msg-avatar" style="background:#3B82F6;color:white;width:38px;height:38px;font-size:12px">MN</div>
+          <div>
+            <div style="font-weight:600;font-size:12px">Mr. Nzabonimpa</div>
+            <div style="font-size:10px;color:var(--text-muted)">Mathematics</div>
+          </div>
+        </div>
+        <span style="font-size:11px;color:var(--text-muted)">2 days ago &#8250;</span>
+      </div>
+      <div class="pay-item" style="cursor:pointer">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="msg-avatar" style="background:#8B5CF6;color:white;width:38px;height:38px;font-size:12px">MK</div>
+          <div>
+            <div style="font-weight:600;font-size:12px">Ms. Mukamana</div>
+            <div style="font-size:10px;color:var(--text-muted)">Biology</div>
+          </div>
+        </div>
+        <span style="font-size:11px;color:var(--text-muted)">5 days ago &#8250;</span>
+      </div>
+      <div class="pay-item" style="cursor:pointer">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="msg-avatar" style="background:#EF4444;color:white;width:38px;height:38px;font-size:12px">HI</div>
+          <div>
+            <div style="font-weight:600;font-size:12px">Mr. Habimana Innocent</div>
+            <div style="font-size:10px;color:var(--text-muted)">Physics</div>
+          </div>
+        </div>
+        <span style="font-size:11px;color:var(--text-muted)">1 week ago &#8250;</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== PANEL: HOMEWORK ========== -->
+  <div class="panel" id="panel-homework" role="tabpanel">
+    <div class="section-title"><span class="icon">&#128196;</span> Homework & Assignments</div>
+
+    <div class="assign-card">
+      <div class="assign-head">
+        <div class="assign-title">Organic Chemistry Reactions — Essay</div>
+        <span class="due-badge due-urgent">Due Tomorrow</span>
+      </div>
+      <div class="assign-sub">Chemistry — Ms. Ingabire &nbsp;&#183;&nbsp; Minimum 2 pages &nbsp;&#183;&nbsp; Typed</div>
+      <div class="assign-foot">
+        <span style="font-size:11px;color:#F87171">&#9888; Late penalty: -20%</span>
+        <button class="upload-btn" onclick="alert('File upload dialog would open here')">&#128196; Upload</button>
+      </div>
+    </div>
+
+    <div class="assign-card">
+      <div class="assign-head">
+        <div class="assign-title">Quadratic Equations — Problem Set 5</div>
+        <span class="due-badge due-warn">Due in 3 days</span>
+      </div>
+      <div class="assign-sub">Mathematics — Mr. Nzabonimpa &nbsp;&#183;&nbsp; 15 problems</div>
+      <div class="assign-foot">
+        <span style="font-size:11px;color:var(--text-muted)">Not submitted yet</span>
+        <button class="upload-btn" onclick="alert('File upload dialog would open here')">&#128196; Upload</button>
+      </div>
+    </div>
+
+    <div class="assign-card">
+      <div class="assign-head">
+        <div class="assign-title">Cell Division — Illustrated Diagram</div>
+        <span class="due-badge due-ok">Due in 7 days</span>
+      </div>
+      <div class="assign-sub">Biology — Ms. Mukamana &nbsp;&#183;&nbsp; Hand-drawn with labels</div>
+      <div class="assign-foot">
+        <span style="font-size:11px;color:var(--text-muted)">Not submitted yet</span>
+        <button class="upload-btn" onclick="alert('File upload dialog would open here')">&#128196; Upload</button>
+      </div>
+    </div>
+
+    <div class="assign-card" style="opacity:0.7">
+      <div class="assign-head">
+        <div class="assign-title">Newton's Laws — Lab Report</div>
+        <span class="due-badge due-done">Submitted &#10003;</span>
+      </div>
+      <div class="assign-sub">Physics — Mr. Habimana &nbsp;&#183;&nbsp; April 20, 2025</div>
+      <div class="assign-foot">
+        <span style="font-size:11px;color:#34D399">Grade: 88/100 — "Well done!"</span>
+        <span class="graded-badge">Graded</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== PANEL: TRANSPORT ========== -->
+  <div class="panel" id="panel-transport" role="tabpanel">
+    <div class="section-title"><span class="icon">&#128652;</span> Transport Tracking</div>
+
+    <div class="card">
+      <div style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:8px;padding:10px 12px;display:flex;align-items:center;gap:10px;margin-bottom:16px">
+        <span style="font-size:22px">&#128652;</span>
+        <div>
+          <div style="font-size:13px;font-weight:700;color:#34D399">Bus #04 — Route Kimironko → GS Kigali</div>
+          <div style="font-size:11px;color:var(--text-muted)">Live tracking active &nbsp;&#9679; Driver: Jean Pierre Mutabazi &nbsp;&#183;&nbsp; Plate: RAC 204 B</div>
+        </div>
+      </div>
+
+      <div style="font-size:12px;font-weight:700;margin-bottom:10px;color:var(--text-soft)">Morning route progress — Today</div>
+      <div class="bus-stops">
+        <div class="bus-line"></div>
+        <div class="bus-stop">
+          <div class="stop-dot stop-done"></div>
+          <div>
+            <div style="font-size:12px;font-weight:600">Kimironko Market</div>
+            <div style="font-size:10px;color:#34D399">Departed 06:45 AM</div>
+          </div>
+        </div>
+        <div class="bus-stop">
+          <div class="stop-dot stop-done"></div>
+          <div>
+            <div style="font-size:12px;font-weight:600">Remera Round-about</div>
+            <div style="font-size:10px;color:#34D399">Passed 07:02 AM</div>
+          </div>
+        </div>
+        <div class="bus-stop">
+          <div class="stop-dot stop-active"></div>
+          <div>
+            <div style="font-size:12px;font-weight:700;color:var(--amber)">KG 11 Ave — Marie's Stop &#128205;</div>
+            <div style="font-size:10px;color:var(--amber)">Arriving in ~5 minutes</div>
+          </div>
+        </div>
+        <div class="bus-stop" style="opacity:0.45">
+          <div class="stop-dot stop-pending"></div>
+          <div>
+            <div style="font-size:12px;font-weight:600">GS Kigali (School)</div>
+            <div style="font-size:10px;color:var(--text-muted)">Est. arrival: 07:45 AM</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="eta-card">
+        <div>
+          <div style="font-size:11px;color:var(--text-muted)">Bus arriving at stop</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">&#128276; Parent notified via SMS</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:24px;font-weight:700;color:var(--amber)">~5 min</div>
+          <div style="font-size:10px;color:var(--text-muted)">Live estimate</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== PANEL: NOTICES ========== -->
+  <div class="panel" id="panel-notices" role="tabpanel">
+    <div class="section-title"><span class="icon">&#128227;</span> Announcements & Notices</div>
+
+    <div class="ann-item urgent">
+      <div class="ann-title">&#128680; Term 2 Exams Start Monday</div>
+      <div class="ann-body">All students must be present by 7:30 AM. No late entry after 8:00 AM. Full exam timetable is available on the portal and has been sent via SMS.</div>
+      <div class="ann-meta"><span>&#128336; April 23, 2025</span><span style="color:#F87171;font-weight:600">URGENT</span></div>
+    </div>
+    <div class="ann-item">
+      <div class="ann-title">Parent–Teacher Meeting — May 3</div>
+      <div class="ann-body">All parents are warmly invited to the end-of-term parent-teacher conference. Please register your attendance via the portal or contact the school office.</div>
+      <div class="ann-meta"><span>&#128336; April 20, 2025</span><span>General</span></div>
+    </div>
+    <div class="ann-item">
+      <div class="ann-title">School Closed — Liberation Day Holiday</div>
+      <div class="ann-body">School will be closed on July 4 in observance of Liberation Day. Classes resume as normal on Monday, July 5.</div>
+      <div class="ann-meta"><span>&#128336; April 18, 2025</span><span>Holiday</span></div>
+    </div>
+    <div class="ann-item">
+      <div class="ann-title">Science Fair — Register by May 10</div>
+      <div class="ann-body">All S4 and S5 students are encouraged to participate in the inter-school Science Fair. Contact your science teacher for project guidelines and registration forms.</div>
+      <div class="ann-meta"><span>&#128336; April 15, 2025</span><span>Event</span></div>
+    </div>
+
+    <div class="section-title" style="margin-top:8px"><span class="icon">&#128197;</span> Upcoming Events</div>
+    <div class="card" style="padding:0">
+      <div class="event-item">
+        <div class="event-date-box" style="background:rgba(239,68,68,0.2);color:#F87171">
+          <div style="font-size:9px;font-weight:700">APR</div>
+          <div class="day">28</div>
+        </div>
+        <div>
+          <div style="font-size:13px;font-weight:600">Term 2 Exams Begin</div>
+          <div style="font-size:11px;color:var(--text-muted)">All subjects — 2 weeks duration</div>
+        </div>
+      </div>
+      <div class="event-item">
+        <div class="event-date-box" style="background:rgba(59,130,246,0.2);color:#60A5FA">
+          <div style="font-size:9px;font-weight:700">MAY</div>
+          <div class="day">3</div>
+        </div>
+        <div>
+          <div style="font-size:13px;font-weight:600">Parent–Teacher Meeting</div>
+          <div style="font-size:11px;color:var(--text-muted)">Main Hall — 9:00 AM to 4:00 PM</div>
+        </div>
+      </div>
+      <div class="event-item">
+        <div class="event-date-box" style="background:rgba(139,92,246,0.2);color:#A78BFA">
+          <div style="font-size:9px;font-weight:700">MAY</div>
+          <div class="day">10</div>
+        </div>
+        <div>
+          <div style="font-size:13px;font-weight:600">Science Fair Registration Deadline</div>
+          <div style="font-size:11px;color:var(--text-muted)">Science Department Office</div>
+        </div>
+      </div>
+      <div class="event-item">
+        <div class="event-date-box" style="background:rgba(245,158,11,0.2);color:var(--amber)">
+          <div style="font-size:9px;font-weight:700">JUL</div>
+          <div class="day">4</div>
+        </div>
+        <div>
+          <div style="font-size:13px;font-weight:600">Liberation Day — School Closed</div>
+          <div style="font-size:11px;color:var(--text-muted)">National Holiday</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== PANEL: NOTIFICATIONS ========== -->
+  <div class="panel" id="panel-notifications" role="tabpanel">
+    <div class="section-title"><span class="icon">&#128276;</span> Notification Center</div>
+    <div class="card" style="padding:4px 16px">
+      <div class="notif-item">
+        <div class="notif-icon" style="background:rgba(16,185,129,0.15)">&#128197;</div>
+        <div class="notif-content">
+          <div class="ntitle">Attendance Confirmed</div>
+          <div class="nbody">Marie checked in at school at 07:42 AM via RFID card today.</div>
+          <div class="ntime">Today, 07:42 AM</div>
+        </div>
+        <div class="unread-dot"></div>
+      </div>
+      <div class="notif-item">
+        <div class="notif-icon" style="background:rgba(239,68,68,0.15)">&#128680;</div>
+        <div class="notif-content">
+          <div class="ntitle">Exam Reminder</div>
+          <div class="nbody">Term 2 Exams begin Monday April 28. Ensure your child is well prepared.</div>
+          <div class="ntime">Today, 06:00 AM</div>
+        </div>
+        <div class="unread-dot"></div>
+      </div>
+      <div class="notif-item">
+        <div class="notif-icon" style="background:rgba(245,158,11,0.15)">&#128181;</div>
+        <div class="notif-content">
+          <div class="ntitle">Fee Payment Reminder</div>
+          <div class="nbody">Balance of 45,000 RWF is due in 7 days. Please pay to avoid late charges.</div>
+          <div class="ntime">Yesterday, 8:00 AM</div>
+        </div>
+      </div>
+      <div class="notif-item">
+        <div class="notif-icon" style="background:rgba(59,130,246,0.15)">&#128172;</div>
+        <div class="notif-content">
+          <div class="ntitle">New Message from Ms. Uwimana</div>
+          <div class="nbody">"She needs more focus on Chemistry — organic reactions. Revision notes attached."</div>
+          <div class="ntime">Monday, 10:08 AM</div>
+        </div>
+      </div>
+      <div class="notif-item">
+        <div class="notif-icon" style="background:rgba(16,185,129,0.15)">&#127942;</div>
+        <div class="notif-content">
+          <div class="ntitle">Assignment Graded</div>
+          <div class="nbody">Newton's Laws Lab Report — Grade: 88/100. Comment: "Well done, excellent work!"</div>
+          <div class="ntime">Apr 22, 3:15 PM</div>
+        </div>
+      </div>
+      <div class="notif-item">
+        <div class="notif-icon" style="background:rgba(139,92,246,0.15)">&#9878;</div>
+        <div class="notif-content">
+          <div class="ntitle">Discipline Update — Positive</div>
+          <div class="nbody">+5 points awarded for excellent class participation in Mathematics.</div>
+          <div class="ntime">Apr 20, 11:30 AM</div>
+        </div>
+      </div>
+      <div class="notif-item">
+        <div class="notif-icon" style="background:rgba(245,158,11,0.15)">&#128652;</div>
+        <div class="notif-content">
+          <div class="ntitle">Bus Approaching Stop</div>
+          <div class="nbody">Bus #04 is approximately 5 minutes away from KG 11 Ave pickup point.</div>
+          <div class="ntime">Today, 07:38 AM</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /.dash -->
+
+<script>
+  /* ===== TAB SWITCHING ===== */
+  function switchTab(id) {
+    document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('active'); });
+    document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+    var panel = document.getElementById('panel-' + id);
+    if (panel) panel.classList.add('active');
+    document.querySelectorAll('.tab').forEach(function(t) {
+      if (t.getAttribute('onclick') === "switchTab('" + id + "')") t.classList.add('active');
+    });
+    if (id === 'academics') setTimeout(initAcadCharts, 100);
+    if (id === 'attendance') setTimeout(initAttChart, 100);
+  }
+
+  /* ===== ROLE SWITCHER ===== */
+  function setRole(r) {
+    document.getElementById('roleParent').classList.toggle('active', r === 'parent');
+    document.getElementById('roleStudent').classList.toggle('active', r === 'student');
+  }
+
+  /* ===== LANGUAGE SWITCHER ===== */
+  function setLang(l) {
+    document.querySelectorAll('.lang-btn').forEach(function(b) {
+      b.classList.toggle('active', b.getAttribute('onclick') === "setLang('" + l + "')");
+    });
+  }
+
+  /* ===== ATTENDANCE CALENDAR ===== */
+  var attendance = {
+    1:'present',2:'present',3:'present',4:'late',
+    7:'present',8:'absent',9:'present',10:'present',11:'present',
+    14:'present',15:'holiday',16:'present',17:'present',18:'present',
+    21:'present',22:'present',23:'absent',24:'present',25:'present'
+  };
+
+  function buildCalendar() {
+    var grid = document.getElementById('calGrid');
+    if (!grid) return;
+    var firstDay = 2; /* April 2025 starts on Tuesday */
+    var daysInMonth = 30;
+    var html = '';
+    for (var i = 0; i < firstDay; i++) html += '<div class="cal-cell empty"></div>';
+    for (var d = 1; d <= daysInMonth; d++) {
+      var cls = attendance[d] || '';
+      var today = (d === 25) ? ' today' : '';
+      html += '<div class="cal-cell ' + cls + today + '" title="' + (cls || 'weekend') + '">' + d + '</div>';
+    }
+    grid.innerHTML = html;
+  }
+
+  function changeMonth(dir) {
+    var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    var label = document.getElementById('calMonthLabel');
+    var parts = label.textContent.split(' ');
+    var mi = months.indexOf(parts[0]);
+    mi = (mi + dir + 12) % 12;
+    label.textContent = months[mi] + ' 2025';
+  }
+
+  /* ===== CHARTS ===== */
+  var attChartDone = false;
+  var acadChartDone = false;
+
+  function initAttChart() {
+    if (attChartDone || !window.Chart) return;
+    attChartDone = true;
+    var ctx = document.getElementById('attChart');
+    if (!ctx) return;
+    new Chart(ctx.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: ['Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr'],
+        datasets: [{
+          label: 'Attendance %',
+          data: [95, 92, 97, 88, 85, 94, 91, 89, 92],
+          borderColor: '#F59E0B',
+          backgroundColor: 'rgba(245,158,11,0.1)',
+          fill: true,
+          tension: 0.4,
+          pointBackgroundColor: '#F59E0B',
+          pointRadius: 5,
+          pointHoverRadius: 7
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: {
+            min: 70, max: 100,
+            ticks: { color: 'rgba(255,255,255,0.5)', font: { family: 'Montserrat', size: 10 } },
+            grid: { color: 'rgba(255,255,255,0.06)' }
+          },
+          x: {
+            ticks: { color: 'rgba(255,255,255,0.5)', font: { family: 'Montserrat', size: 10 } },
+            grid: { color: 'rgba(255,255,255,0.04)' }
+          }
+        }
+      }
+    });
+  }
+
+  function initAcadCharts() {
+    if (acadChartDone || !window.Chart) return;
+    acadChartDone = true;
+
+    /* Performance chart */
+    var ctx1 = document.getElementById('perfChart');
+    if (ctx1) {
+      new Chart(ctx1.getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: ['Math','Biology','Chem','Physics','English','Kinya'],
+          datasets: [
+            {
+              label: 'CAT',
+              data: [78, 74, 58, 80, 70, 85],
+              backgroundColor: 'rgba(245,158,11,0.75)',
+              borderRadius: 4
+            },
+            {
+              label: 'Exam',
+              data: [82, 76, 63, 85, 72, 88],
+              backgroundColor: 'rgba(59,130,246,0.75)',
+              borderRadius: 4
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: true,
+              labels: { color: 'rgba(255,255,255,0.7)', font: { family:'Montserrat', size:11 }, boxWidth: 12 }
+            }
+          },
+          scales: {
+            y: {
+              min: 40, max: 100,
+              ticks: { color:'rgba(255,255,255,0.5)', font:{size:10} },
+              grid: { color:'rgba(255,255,255,0.06)' }
+            },
+            x: {
+              ticks: { color:'rgba(255,255,255,0.5)', font:{size:10} },
+              grid: { display: false }
+            }
+          }
+        }
+      });
+    }
+
+    /* Trend chart */
+    var ctx2 = document.getElementById('trendChart');
+    if (ctx2) {
+      new Chart(ctx2.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: ['T1 CAT','T1 Exam','T2 CAT','T2 Exam'],
+          datasets: [{
+            label: 'Average %',
+            data: [72, 76, 78, 80],
+            borderColor: '#34D399',
+            backgroundColor: 'rgba(16,185,129,0.1)',
+            fill: true,
+            tension: 0.4,
+            pointBackgroundColor: '#34D399',
+            pointRadius: 6,
+            pointHoverRadius: 8
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: {
+              min: 60, max: 100,
+              ticks: { color:'rgba(255,255,255,0.5)', font:{size:10} },
+              grid: { color:'rgba(255,255,255,0.06)' }
+            },
+            x: {
+              ticks: { color:'rgba(255,255,255,0.5)', font:{size:10} },
+              grid: { display: false }
+            }
+          }
+        }
+      });
+    }
+  }
+
+  /* ===== MESSAGING ===== */
+  function sendMsg() {
+    var input = document.getElementById('msgInput');
+    var text = input.value.trim();
+    if (!text) return;
+    var body = document.getElementById('msgBody');
+    var bubble = document.createElement('div');
+    bubble.className = 'msg-bubble parent';
+    bubble.innerHTML =
+      '<div class="bubble-text">' + escapeHtml(text) + '</div>' +
+      '<div class="bubble-time">Just now</div>';
+    body.appendChild(bubble);
+    body.scrollTop = body.scrollHeight;
+    input.value = '';
+
+    /* Simulate teacher reply */
+    setTimeout(function() {
+      var reply = document.createElement('div');
+      reply.className = 'msg-bubble teacher';
+      reply.innerHTML =
+        '<div class="bubble-text">Thank you for your message. I will get back to you shortly.</div>' +
+        '<div class="bubble-time">Just now</div>';
+      body.appendChild(reply);
+      body.scrollTop = body.scrollHeight;
+    }, 1500);
+  }
+
+  function escapeHtml(text) {
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  /* ===== INIT ===== */
+  buildCalendar();
+  setTimeout(initAttChart, 300);
+</script>
+</body>
+</html>

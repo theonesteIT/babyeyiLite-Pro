@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
+import { Link } from 'react-router-dom';
 import {
     Calendar, Users, CheckCircle, XCircle, Clock,
     FileText, Search, ChevronDown, Check, X, Filter, BarChart2, CheckSquare, List,
-    ChevronUp, User
+    ChevronUp, User, DoorOpen, ClipboardList
 } from 'lucide-react';
+import { h } from '../utils/href';
 
 export default function Attendance() {
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -141,6 +143,24 @@ export default function Attendance() {
 
     return (
         <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen pb-12">
+            <div className="mb-3">
+                <div className="flex flex-wrap gap-2">
+                    <Link
+                        to={h('/attendance/gate')}
+                        className="inline-flex items-center gap-2 rounded-xl bg-[#0b1220] px-4 py-2 text-[11px] font-black uppercase tracking-widest text-amber-300 transition hover:bg-[#121a2d]"
+                    >
+                        <DoorOpen size={14} />
+                        Open Gate Attendance
+                    </Link>
+                    <Link
+                        to={h('/attendance/gate-logs')}
+                        className="inline-flex items-center gap-2 rounded-xl bg-white border border-slate-300 px-4 py-2 text-[11px] font-black uppercase tracking-widest text-slate-700 transition hover:bg-slate-50"
+                    >
+                        <ClipboardList size={14} />
+                        All Gate Logs
+                    </Link>
+                </div>
+            </div>
 
             {/* ── High-Fidelity Hero Section ── */}
             <div className="relative w-full min-h-[300px] overflow-hidden">

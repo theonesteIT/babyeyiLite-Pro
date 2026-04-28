@@ -9,8 +9,9 @@ import Invoices from './pages/Invoices';
 import InvoiceSettings from './pages/InvoiceSettings';
 import Expenses from './pages/Expenses';
 import Requisitions from './pages/Requisitions';
-import PayrollHistory from './pages/PayrollHistory';
 import PayrollConfig from './pages/PayrollConfig';
+import PayrollCenter from './pages/PayrollCenter';
+import StaffPayroll from './pages/StaffPayroll';
 import ShuleAvance from './pages/ShuleAvance';
 import FeaturePlaceholders from './pages/FeaturePlaceholders';
 import BabyeyiFees from './pages/BabyeyiFees';
@@ -56,9 +57,10 @@ function AppContent() {
       <Route path="/invoices/settings" element={<ProtectedRoute title="Configure Invoices"><InvoiceSettings /></ProtectedRoute>} />
       <Route path="/expenses" element={<ProtectedRoute title="School Expenses"><Expenses /></ProtectedRoute>} />
       <Route path="/requisitions" element={<ProtectedRoute title="Requisitions"><Requisitions /></ProtectedRoute>} />
-      <Route path="/payroll" element={<Navigate to="/payroll/history" replace />} />
-      <Route path="/payroll/history" element={<ProtectedRoute title="Payroll History"><PayrollHistory /></ProtectedRoute>} />
+      <Route path="/payroll" element={<ProtectedRoute title="Payroll Center"><PayrollCenter /></ProtectedRoute>} />
+      <Route path="/payroll/history" element={<ProtectedRoute title="Payroll Center"><PayrollCenter /></ProtectedRoute>} />
       <Route path="/payroll/config" element={<ProtectedRoute title="Configure Payroll"><PayrollConfig /></ProtectedRoute>} />
+      <Route path="/my-payroll" element={<ProtectedRoute title="My Payroll"><StaffPayroll /></ProtectedRoute>} />
 
       {/* Keep settings route but use a placeholder until wired */}
       <Route path="/settings" element={<ProtectedRoute title="Settings"><FeaturePlaceholders feature="Settings" icon="⚙️" /></ProtectedRoute>} />

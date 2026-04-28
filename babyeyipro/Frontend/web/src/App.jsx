@@ -34,9 +34,10 @@ const ROLE_HOME_PORTAL = {
   STOREKEEPER: 'storekeeper',
   STORE_MANAGER: 'storekeeper',
   LIBRARIAN: 'librarian',
-  DISCIPLINE_STAFF: 'discipline-staff',
+  DISCIPLINE_STAFF: 'discipline',
+  DISCIPLINE: 'discipline',
   TEACHER: 'teacher',
-  HOD: 'teacher',
+  HOD: 'discipline',
 }
 
 const KNOWN_ROOTS = [

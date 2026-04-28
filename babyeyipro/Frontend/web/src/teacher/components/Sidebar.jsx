@@ -2,6 +2,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { h } from '../utils/href';
+import useChatUnread from '../../shared/hooks/useChatUnread';
 import {
   LayoutDashboard, Users, BookOpen, Calendar, ClipboardCheck,
   Wallet, MessageSquare, ClipboardList, Eye, PenLine,
@@ -30,7 +31,7 @@ const AppStatusBadge = ({ status = 'online' }) => {
 };
 
 // ── Single nav link ───────────────────────────────────────────
-const NavItem = ({ icon: Icon, name, path, exact, onClose }) => (
+const NavItem = ({ icon: Icon, name, path, exact, onClose, badgeCount = 0 }) => (
   <NavLink
     to={h(path)}
     end={exact}
@@ -47,6 +48,11 @@ const NavItem = ({ icon: Icon, name, path, exact, onClose }) => (
       <>
         <Icon size={13} className={isActive ? 'text-white' : 'text-re-text-muted/50 group-hover:text-re-orange transition-colors'} />
         <span>{name}</span>
+        {badgeCount > 0 && (
+          <span className="ml-auto text-[10px] leading-none px-1.5 py-1 rounded-full bg-red-100 text-red-700">
+            {badgeCount > 99 ? '99+' : badgeCount}
+          </span>
+        )}
       </>
     )}
   </NavLink>
@@ -106,6 +112,7 @@ const SectionLabel = ({ label }) => (
 // ── Sidebar ───────────────────────────────────────────────────
 const Sidebar = ({ onClose }) => {
   const { teacher, logout } = useAuth();
+  const unreadCount = useChatUnread();
 
   return (
     <div className="flex flex-col h-full bg-white border-r border-black/5 shadow-sm">
@@ -146,6 +153,7 @@ const Sidebar = ({ onClose }) => {
 
         <SectionLabel label="Tools" />
         <NavItem icon={MessageSquare} name="TichaAI" path="/ticha-ai" onClose={onClose} />
+        <NavItem icon={MessageSquare} name="Chat Center" path="/chat" onClose={onClose} badgeCount={unreadCount} />
         <ExpandableNavItem
           icon={ClipboardList}
           name="Marks Sheet"

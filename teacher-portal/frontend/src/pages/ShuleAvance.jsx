@@ -111,6 +111,14 @@ function resolveRateForRow(row, catalog) {
   return c?.income_rate_percent ?? null;
 }
 
+function estimateMonthly(principal, months, monthlyRatePercent) {
+  const p = Number(principal || 0);
+  const m = Math.max(1, Number(months || 1));
+  const rate = Number(monthlyRatePercent || 0) / 100;
+  const total = p + (p * rate * m);
+  return total / m;
+}
+
 function isTeacherDealRequestRow(row) {
   return (
     String(row?.request_type || '').toLowerCase() === 'service' &&
@@ -544,12 +552,13 @@ export default function ShuleAvance() {
 
         {/* List */}
         <div className="overflow-hidden rounded-[24px] border border-black/5 bg-white shadow-xl">
-          <div className="hidden grid-cols-12 gap-2 border-b border-black/5 bg-re-bg/80 px-4 py-3 text-[9px] font-black uppercase tracking-widest text-re-text-muted md:grid">
+          <div className="hidden grid-cols-14 gap-2 border-b border-black/5 bg-re-bg/80 px-4 py-3 text-[9px] font-black uppercase tracking-widest text-re-text-muted md:grid">
             <div className="col-span-1">ID</div>
             <div className="col-span-2">Type</div>
             <div className="col-span-2">Category</div>
             <div className="col-span-2">Amount</div>
             <div className="col-span-2">Repay</div>
+            <div className="col-span-2">Rate / Monthly</div>
             <div className="col-span-2">Status</div>
             <div className="col-span-1 text-right">Actions</div>
           </div>
@@ -562,7 +571,7 @@ export default function ShuleAvance() {
             <ul className="divide-y divide-black/5">
               {filtered.map((r) => (
                 <li key={r.id} className="px-4 py-4 transition hover:bg-re-bg/40">
-                  <div className="flex flex-col gap-3 md:grid md:grid-cols-12 md:items-center md:gap-2">
+                  <div className="flex flex-col gap-3 md:grid md:grid-cols-14 md:items-center md:gap-2">
                     <div className="flex items-center justify-between md:col-span-1">
                       <span className="text-[10px] font-black text-re-text-muted md:hidden">ID</span>
                       <span className="font-mono text-xs font-black text-re-text">#{r.id}</span>
@@ -582,6 +591,12 @@ export default function ShuleAvance() {
                     <div className="flex items-center justify-between md:col-span-2">
                       <span className="text-[10px] font-black text-re-text-muted md:hidden">Repayment</span>
                       <span className="text-xs font-bold">{r.repayment_term_months} mo</span>
+                    </div>
+                    <div className="flex items-center justify-between md:col-span-2">
+                      <span className="text-[10px] font-black text-re-text-muted md:hidden">Rate / Monthly</span>
+                      <span className="text-xs font-bold text-right">
+                        {Number(resolveRateForRow(r, catalog) || 0).toFixed(2)}% · {formatMoney(estimateMonthly(r.amount_rwf, r.repayment_term_months, resolveRateForRow(r, catalog)))}
+                      </span>
                     </div>
                     <div className="flex items-center justify-between md:col-span-2">
                       <span className="text-[10px] font-black text-re-text-muted md:hidden">Status</span>

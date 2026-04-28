@@ -8,6 +8,7 @@ const router = express.Router();
 const LIBRARY_ROLES = ['LIBRARIAN', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER'];
 const STOCK_ROLES = ['STORE_MANAGER', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER'];
 const GATE_ROLES = ['GATE_OFFICER', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER'];
+const GATE_ATTENDANCE_ADMIN_ROLES = ['GATE_OFFICER', 'DOS', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER'];
 
 let tablesReady = false;
 
@@ -38,6 +39,45 @@ function cleanNumber(value, fallback = 0) {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
   return n;
+}
+
+function normalizeUid(value) {
+  return String(value == null ? '' : value).trim().toUpperCase();
+}
+
+function hhmm(value) {
+  const m = String(value == null ? '' : value).trim().match(/^(\d{1,2}):(\d{2})/);
+  if (!m) return null;
+  const h = Number(m[1]);
+  const mm = Number(m[2]);
+  if (!Number.isFinite(h) || !Number.isFinite(mm) || h < 0 || h > 23 || mm < 0 || mm > 59) return null;
+  return `${String(h).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+}
+
+function minutesOf(value) {
+  const t = hhmm(value);
+  if (!t) return null;
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + m;
+}
+
+function currentSchoolDateAndMinutes(date = new Date()) {
+  // Use fixed school timezone so gate windows are deterministic
+  // regardless of server OS timezone settings.
+  const tz = process.env.SCHOOL_TIMEZONE || 'Africa/Kigali';
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(date);
+  const get = (type) => parts.find((p) => p.type === type)?.value || '00';
+  const dateStr = `${get('year')}-${get('month')}-${get('day')}`;
+  const mins = Number(get('hour')) * 60 + Number(get('minute'));
+  return { dateStr, mins };
 }
 
 async function ensureSchoolRoleOpsTables() {
@@ -140,7 +180,142 @@ async function ensureSchoolRoleOpsTables() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS school_gate_attendance_settings (
+      school_id INT UNSIGNED NOT NULL PRIMARY KEY,
+      morning_deadline VARCHAR(5) NOT NULL DEFAULT '08:00',
+      morning_cutoff VARCHAR(5) NOT NULL DEFAULT '10:00',
+      evening_start VARCHAR(5) NOT NULL DEFAULT '16:00',
+      evening_cutoff VARCHAR(5) NOT NULL DEFAULT '19:00',
+      updated_by_user_id INT UNSIGNED NULL,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS school_gate_attendance_records (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      school_id INT UNSIGNED NOT NULL,
+      attendance_date DATE NOT NULL,
+      card_uid VARCHAR(64) NOT NULL,
+      person_type ENUM('STUDENT','STAFF') NOT NULL,
+      person_id INT UNSIGNED NOT NULL,
+      person_name VARCHAR(180) NOT NULL,
+      person_ref VARCHAR(120) NULL,
+      morning_check_in DATETIME NULL,
+      morning_status ENUM('OnTime','Late') NULL,
+      morning_device_id VARCHAR(80) NULL,
+      evening_check_out DATETIME NULL,
+      evening_status ENUM('Exit') NULL,
+      evening_device_id VARCHAR(80) NULL,
+      academic_year VARCHAR(32) NULL,
+      term VARCHAR(32) NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_gate_card_day (school_id, attendance_date, card_uid),
+      KEY idx_gate_att_school_day (school_id, attendance_date),
+      KEY idx_gate_att_person_day (school_id, person_type, person_id, attendance_date),
+      KEY idx_gate_att_term_year (school_id, term, academic_year)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+  await promisePool.query('ALTER TABLE school_gate_attendance_records ADD COLUMN academic_year VARCHAR(32) NULL').catch(() => {});
+  await promisePool.query('ALTER TABLE school_gate_attendance_records ADD COLUMN term VARCHAR(32) NULL').catch(() => {});
+  await promisePool.query('ALTER TABLE school_gate_attendance_records ADD KEY idx_gate_att_term_year (school_id, term, academic_year)').catch(() => {});
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS school_gate_attendance_events (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      school_id INT UNSIGNED NULL,
+      device_id VARCHAR(80) NULL,
+      card_uid VARCHAR(64) NULL,
+      result_code VARCHAR(64) NOT NULL,
+      http_status INT NOT NULL,
+      message VARCHAR(255) NULL,
+      session_type VARCHAR(16) NULL,
+      person_type VARCHAR(16) NULL,
+      person_id INT UNSIGNED NULL,
+      attendance_date DATE NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_gate_event_school_time (school_id, created_at),
+      KEY idx_gate_event_code_time (result_code, created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
   tablesReady = true;
+}
+
+async function getSchoolGateAttendanceSettings(schoolId) {
+  const [[row]] = await promisePool.query(
+    `SELECT morning_deadline, morning_cutoff, evening_start, evening_cutoff
+     FROM school_gate_attendance_settings
+     WHERE school_id = ?
+     LIMIT 1`,
+    [schoolId]
+  );
+  return {
+    morning_deadline: hhmm(row?.morning_deadline) || '08:00',
+    morning_cutoff: hhmm(row?.morning_cutoff) || '10:00',
+    evening_start: hhmm(row?.evening_start) || '16:00',
+    evening_cutoff: hhmm(row?.evening_cutoff) || '19:00',
+  };
+}
+
+async function logGateAttendanceEvent({
+  schoolId = null,
+  deviceId = null,
+  cardUid = null,
+  resultCode = 'UNKNOWN',
+  httpStatus = 500,
+  message = null,
+  sessionType = null,
+  personType = null,
+  personId = null,
+  attendanceDate = null,
+}) {
+  try {
+    await promisePool.query(
+      `INSERT INTO school_gate_attendance_events
+       (school_id, device_id, card_uid, result_code, http_status, message, session_type, person_type, person_id, attendance_date)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [schoolId, deviceId, cardUid, resultCode, Number(httpStatus || 0), message, sessionType, personType, personId, attendanceDate]
+    );
+  } catch (err) {
+    console.error('[gate_attendance] failed to log event:', err.message);
+  }
+}
+
+async function getSchoolAcademicMetaForDate(schoolId, dateStr) {
+  const [[row]] = await promisePool.query(
+    `SELECT current_academic_year, active_terms_json
+     FROM school_academic_settings
+     WHERE school_id = ?
+     LIMIT 1`,
+    [schoolId]
+  ).catch(() => [[null]]);
+
+  const currentAcademicYear = String(row?.current_academic_year || '').trim() || null;
+  let terms = ['Term 1', 'Term 2', 'Term 3'];
+  try {
+    if (row?.active_terms_json) {
+      const parsed = Array.isArray(row.active_terms_json)
+        ? row.active_terms_json
+        : JSON.parse(row.active_terms_json);
+      if (Array.isArray(parsed) && parsed.length) {
+        terms = parsed.map((x) => String(x || '').trim()).filter(Boolean);
+      }
+    }
+  } catch (_) {}
+  const d = new Date(`${dateStr}T12:00:00`);
+  const month = d.getMonth() + 1;
+  let inferredTerm = terms[0] || 'Term 1';
+  if (terms.length >= 3) {
+    if (month >= 9 && month <= 12) inferredTerm = terms[0];
+    else if (month >= 1 && month <= 4) inferredTerm = terms[1] || terms[0];
+    else inferredTerm = terms[2] || terms[terms.length - 1];
+  } else if (terms.length === 2) {
+    inferredTerm = month >= 9 || month <= 2 ? terms[0] : terms[1];
+  }
+  return { academicYear: currentAcademicYear, term: inferredTerm };
 }
 
 async function ensureProSchoolAccess(req, res, next) {
@@ -195,8 +370,10 @@ async function recalculateStockCurrentQty(schoolId, itemId) {
 function isRoleOpsPath(req) {
   const orig = String(req.originalUrl || '').split('?')[0];
   if (/^\/api\/(library|stock|gate)(\/|$)/i.test(orig)) return true;
+  if (/^\/api\/gate_attendance(\/|$)/i.test(orig)) return true;
   const p = String(req.path || req.url || '').split('?')[0];
-  return /^\/(library|stock|gate)(\/|$)/i.test(p);
+  if (/^\/(library|stock|gate)(\/|$)/i.test(p)) return true;
+  return /^\/gate_attendance(\/|$)/i.test(p);
 }
 
 router.use((req, res, next) => {
@@ -214,7 +391,483 @@ router.use(async (_req, res, next) => {
   }
 });
 
+router.post('/gate_attendance', async (req, res, next) => {
+  try {
+    const deviceID = cleanOptional(req.body?.deviceID || req.body?.device_id, 80);
+    const validDevice = /^ATT[_-]?[A-Za-z0-9]{2,}$/i.test(String(deviceID || ''));
+    const sendResult = async (status, payload, meta = {}) => {
+      await logGateAttendanceEvent({
+        schoolId: meta.schoolId ?? null,
+        deviceId: deviceID,
+        cardUid: meta.cardUid ?? null,
+        resultCode: payload?.code || 'UNKNOWN',
+        httpStatus: status,
+        message: payload?.message || null,
+        sessionType: meta.sessionType || null,
+        personType: meta.personType || null,
+        personId: meta.personId || null,
+        attendanceDate: meta.attendanceDate || null,
+      });
+      return res.status(status).json(payload);
+    };
+
+    if (!validDevice) {
+      return sendResult(403, {
+        success: false,
+        code: 'INVALID_DEVICE_ID',
+        message: 'Invalid deviceID. Attendance is allowed only for ATT devices with identifier (example: ATT_12345).',
+      });
+    }
+    const cardUID = normalizeUid(req.body?.cardUID || req.body?.card_uid);
+    if (!cardUID) return sendResult(400, { success: false, code: 'INVALID_CARD', message: 'cardUID is required.' });
+
+    const [studentRows] = await promisePool.query(
+      `SELECT s.id, s.school_id, CONCAT(COALESCE(s.first_name, ''), ' ', COALESCE(s.last_name, '')) AS person_name, s.student_uid AS person_ref
+       FROM students s
+       WHERE UPPER(TRIM(COALESCE(s.rfid_uid, ''))) = ?
+       LIMIT 2`,
+      [cardUID]
+    );
+    const [staffRows] = await promisePool.query(
+      `SELECT u.id, u.school_id, TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))) AS person_name, u.user_uid AS person_ref
+       FROM users u
+       WHERE UPPER(TRIM(COALESCE(u.rfid_uid, ''))) = ? AND u.deleted_at IS NULL
+       LIMIT 2`,
+      [cardUID]
+    );
+    const matches = [
+      ...(studentRows || []).map((r) => ({ ...r, person_type: 'STUDENT' })),
+      ...(staffRows || []).map((r) => ({ ...r, person_type: 'STAFF' })),
+    ];
+    if (!matches.length) {
+      return sendResult(404, {
+        success: false,
+        code: 'CARD_NOT_REGISTERED',
+        message: 'You are not exist in system. Card not registered.',
+        data: { card_uid: cardUID, device_id: deviceID },
+      }, { cardUid: cardUID });
+    }
+    if (matches.length > 1) {
+      return sendResult(409, {
+        success: false,
+        code: 'DUPLICATE_CARD_UID',
+        message: 'Card UID is linked to multiple users. Please fix card registration first.',
+      }, { cardUid: cardUID });
+    }
+    const person = matches[0];
+    const schoolId = Number(person.school_id || 0);
+    if (!schoolId) return sendResult(400, { success: false, code: 'SCHOOL_NOT_FOUND', message: 'Card owner has no school.' }, { cardUid: cardUID });
+
+    const [[schoolRow]] = await promisePool.query(
+      `SELECT subscription_plan, pro_enabled, pro_end_date
+       FROM schools WHERE id = ? AND deleted_at IS NULL LIMIT 1`,
+      [schoolId]
+    );
+    if (!computeProAccessEffective(schoolRow || null)) {
+      return sendResult(403, { success: false, code: 'PRO_REQUIRED', message: 'Gate attendance is available for Pro schools only.' }, { schoolId, cardUid: cardUID });
+    }
+
+    const settings = await getSchoolGateAttendanceSettings(schoolId);
+    const { dateStr, mins } = currentSchoolDateAndMinutes();
+    const morningDeadlineM = minutesOf(settings.morning_deadline);
+    const morningCutoffM = minutesOf(settings.morning_cutoff);
+    const eveningStartM = minutesOf(settings.evening_start);
+    const eveningCutoffM = minutesOf(settings.evening_cutoff);
+    if (
+      morningDeadlineM == null ||
+      morningCutoffM == null ||
+      eveningStartM == null ||
+      eveningCutoffM == null ||
+      morningDeadlineM > morningCutoffM ||
+      eveningStartM >= eveningCutoffM ||
+      morningCutoffM >= eveningStartM
+    ) {
+      return sendResult(403, {
+        success: false,
+        code: 'INVALID_GATE_SETTINGS',
+        message:
+          'Gate time settings are invalid. Ensure: morning deadline <= morning cutoff < evening open < evening close.',
+      }, { schoolId, cardUid: cardUID, attendanceDate: dateStr });
+    }
+
+    const [[existing]] = await promisePool.query(
+      `SELECT id, morning_check_in, morning_status, evening_check_out, evening_status
+       FROM school_gate_attendance_records
+       WHERE school_id = ? AND attendance_date = ? AND card_uid = ?
+       LIMIT 1`,
+      [schoolId, dateStr, cardUID]
+    );
+
+    if (!existing) {
+      // If first tap happens in evening window, allow direct exit log (no morning record).
+      if (mins >= eveningStartM && mins <= eveningCutoffM) {
+        const academicMeta = await getSchoolAcademicMetaForDate(schoolId, dateStr);
+        await promisePool.query(
+          `INSERT INTO school_gate_attendance_records
+           (school_id, attendance_date, card_uid, person_type, person_id, person_name, person_ref, evening_check_out, evening_status, evening_device_id, academic_year, term)
+           VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), 'Exit', ?, ?, ?)`,
+          [
+            schoolId,
+            dateStr,
+            cardUID,
+            person.person_type,
+            person.id,
+            String(person.person_name || '').trim() || 'Unknown',
+            person.person_ref || null,
+            deviceID,
+            academicMeta.academicYear,
+            academicMeta.term,
+          ]
+        );
+        return sendResult(200, {
+          success: true,
+          code: 'EVENING_RECORDED_NO_MORNING',
+          message: 'Evening exit attendance recorded (no morning entry found).',
+          data: {
+            session: 'evening',
+            status: 'Exit',
+            date: dateStr,
+            card_uid: cardUID,
+            person: { type: person.person_type, id: person.id, name: person.person_name, ref: person.person_ref || null },
+          },
+        }, { schoolId, cardUid: cardUID, attendanceDate: dateStr, personType: person.person_type, personId: person.id, sessionType: 'evening' });
+      }
+
+      if (morningCutoffM != null && mins > morningCutoffM) {
+        return sendResult(403, {
+          success: false,
+          code: 'MORNING_WINDOW_CLOSED',
+          message: `Morning attendance window closed at ${settings.morning_cutoff}. Wait until evening exit opens at ${settings.evening_start}.`,
+          data: { card_uid: cardUID, date: dateStr },
+        }, { schoolId, cardUid: cardUID, attendanceDate: dateStr, personType: person.person_type, personId: person.id, sessionType: 'morning' });
+      }
+      const morningStatus = morningDeadlineM != null && mins > morningDeadlineM ? 'Late' : 'OnTime';
+      const academicMeta = await getSchoolAcademicMetaForDate(schoolId, dateStr);
+      await promisePool.query(
+        `INSERT INTO school_gate_attendance_records
+         (school_id, attendance_date, card_uid, person_type, person_id, person_name, person_ref, morning_check_in, morning_status, morning_device_id, academic_year, term)
+         VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?)`,
+        [
+          schoolId,
+          dateStr,
+          cardUID,
+          person.person_type,
+          person.id,
+          String(person.person_name || '').trim() || 'Unknown',
+          person.person_ref || null,
+          morningStatus,
+          deviceID,
+          academicMeta.academicYear,
+          academicMeta.term,
+        ]
+      );
+      return sendResult(200, {
+        success: true,
+        code: 'MORNING_RECORDED',
+        message: morningStatus === 'Late' ? 'Morning attendance recorded as Late.' : 'Morning attendance recorded.',
+        data: {
+          session: 'morning',
+          status: morningStatus,
+          date: dateStr,
+          card_uid: cardUID,
+          person: { type: person.person_type, id: person.id, name: person.person_name, ref: person.person_ref || null },
+        },
+      }, { schoolId, cardUid: cardUID, attendanceDate: dateStr, personType: person.person_type, personId: person.id, sessionType: 'morning' });
+    }
+
+    if (!existing.evening_check_out) {
+      if (eveningStartM != null && mins < eveningStartM) {
+        return sendResult(403, {
+          success: false,
+          code: 'EVENING_NOT_OPEN',
+          message: `Evening exit attendance opens at ${settings.evening_start}.`,
+          data: { card_uid: cardUID, date: dateStr },
+        }, { schoolId, cardUid: cardUID, attendanceDate: dateStr, personType: person.person_type, personId: person.id, sessionType: 'evening' });
+      }
+      if (eveningCutoffM != null && mins > eveningCutoffM) {
+        return sendResult(403, {
+          success: false,
+          code: 'EVENING_WINDOW_CLOSED',
+          message: `Evening exit attendance closed at ${settings.evening_cutoff}.`,
+          data: { card_uid: cardUID, date: dateStr },
+        }, { schoolId, cardUid: cardUID, attendanceDate: dateStr, personType: person.person_type, personId: person.id, sessionType: 'evening' });
+      }
+      await promisePool.query(
+        `UPDATE school_gate_attendance_records
+         SET evening_check_out = NOW(), evening_status = 'Exit', evening_device_id = ?
+         WHERE id = ?`,
+        [deviceID, existing.id]
+      );
+      return sendResult(200, {
+        success: true,
+        code: 'EVENING_RECORDED',
+        message: 'Evening exit attendance recorded.',
+        data: {
+          session: 'evening',
+          status: 'Exit',
+          date: dateStr,
+          card_uid: cardUID,
+          person: { type: person.person_type, id: person.id, name: person.person_name, ref: person.person_ref || null },
+        },
+      }, { schoolId, cardUid: cardUID, attendanceDate: dateStr, personType: person.person_type, personId: person.id, sessionType: 'evening' });
+    }
+
+    return sendResult(200, {
+      success: false,
+      code: 'ALREADY_COMPLETED',
+      message: 'Morning and evening attendance already recorded for today.',
+      data: {
+        card_uid: cardUID,
+        date: dateStr,
+        morning_check_in: existing.morning_check_in,
+        evening_check_out: existing.evening_check_out,
+      },
+    }, { schoolId, cardUid: cardUID, attendanceDate: dateStr, personType: person.person_type, personId: person.id });
+  } catch (err) {
+    console.error('POST /gate_attendance', err);
+    return next(err);
+  }
+});
+
 router.use(ensureProSchoolAccess);
+
+router.get('/gate/attendance/settings', requireRole(GATE_ATTENDANCE_ADMIN_ROLES), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School context missing.' });
+    const data = await getSchoolGateAttendanceSettings(schoolId);
+    return res.json({ success: true, data });
+  } catch (err) {
+    console.error('GET /gate/attendance/settings', err);
+    return res.status(500).json({ success: false, message: 'Failed to load gate attendance settings.' });
+  }
+});
+
+router.put('/gate/attendance/settings', requireRole(GATE_ATTENDANCE_ADMIN_ROLES), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    const userId = resolveUserId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School context missing.' });
+    const morningDeadline = hhmm(req.body?.morningDeadline || req.body?.morning_deadline);
+    const morningCutoff = hhmm(req.body?.morningCutoff || req.body?.morning_cutoff);
+    const eveningStart = hhmm(req.body?.eveningStart || req.body?.evening_start);
+    const eveningCutoff = hhmm(req.body?.eveningCutoff || req.body?.evening_cutoff);
+    if (!morningDeadline || !morningCutoff || !eveningStart || !eveningCutoff) {
+      return res.status(400).json({ success: false, message: 'All four time settings are required in HH:MM format.' });
+    }
+    const mDeadline = minutesOf(morningDeadline);
+    const mCutoff = minutesOf(morningCutoff);
+    const eStart = minutesOf(eveningStart);
+    const eCutoff = minutesOf(eveningCutoff);
+    if (mDeadline > mCutoff) {
+      return res.status(400).json({ success: false, message: 'Morning on-time deadline must be before or equal to morning cutoff.' });
+    }
+    if (eStart >= eCutoff) {
+      return res.status(400).json({ success: false, message: 'Evening exit open time must be before evening exit close time.' });
+    }
+    if (mCutoff >= eStart) {
+      return res.status(400).json({ success: false, message: 'Morning cutoff must be before evening exit open time.' });
+    }
+    await promisePool.query(
+      `INSERT INTO school_gate_attendance_settings
+       (school_id, morning_deadline, morning_cutoff, evening_start, evening_cutoff, updated_by_user_id)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE
+         morning_deadline = VALUES(morning_deadline),
+         morning_cutoff = VALUES(morning_cutoff),
+         evening_start = VALUES(evening_start),
+         evening_cutoff = VALUES(evening_cutoff),
+         updated_by_user_id = VALUES(updated_by_user_id)`,
+      [schoolId, morningDeadline, morningCutoff, eveningStart, eveningCutoff, userId]
+    );
+    return res.json({
+      success: true,
+      data: {
+        morning_deadline: morningDeadline,
+        morning_cutoff: morningCutoff,
+        evening_start: eveningStart,
+        evening_cutoff: eveningCutoff,
+      },
+      message: 'Gate attendance settings saved.',
+    });
+  } catch (err) {
+    console.error('PUT /gate/attendance/settings', err);
+    return res.status(500).json({ success: false, message: 'Failed to save gate attendance settings.' });
+  }
+});
+
+router.get('/gate/attendance/latest-event', requireRole(GATE_ATTENDANCE_ADMIN_ROLES), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School context missing.' });
+    const [[row]] = await promisePool.query(
+      `SELECT
+         id, school_id, device_id, card_uid, result_code, http_status, message,
+         session_type, person_type, person_id, attendance_date, created_at
+       FROM school_gate_attendance_events
+       WHERE school_id = ?
+       ORDER BY id DESC
+       LIMIT 1`,
+      [schoolId]
+    );
+    return res.json({ success: true, data: row || null });
+  } catch (err) {
+    console.error('GET /gate/attendance/latest-event', err);
+    return res.status(500).json({ success: false, message: 'Failed to load latest gate event.' });
+  }
+});
+
+router.get('/gate/attendance/today', requireRole(GATE_ATTENDANCE_ADMIN_ROLES), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School context missing.' });
+    const date = cleanStr(req.query?.date, 20) || currentSchoolDateAndMinutes().dateStr;
+    const [rows] = await promisePool.query(
+      `SELECT
+         id, attendance_date, card_uid, person_type, person_id, person_name, person_ref,
+         morning_check_in, morning_status, evening_check_out, evening_status, term, academic_year
+       FROM school_gate_attendance_records
+       WHERE school_id = ? AND attendance_date = ?
+       ORDER BY COALESCE(morning_check_in, created_at) DESC, id DESC`,
+      [schoolId, date]
+    );
+    return res.json({ success: true, data: rows || [] });
+  } catch (err) {
+    console.error('GET /gate/attendance/today', err);
+    return res.status(500).json({ success: false, message: 'Failed to load today gate attendance.' });
+  }
+});
+
+router.get('/gate/attendance/logs', requireRole(GATE_ATTENDANCE_ADMIN_ROLES), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School context missing.' });
+
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(200, Math.max(10, Number(req.query.limit) || 50));
+    const offset = (page - 1) * limit;
+
+    const fromDate = cleanStr(req.query.from_date, 20);
+    const toDate = cleanStr(req.query.to_date, 20);
+    const role = cleanStr(req.query.role, 20).toUpperCase();
+    const session = cleanStr(req.query.session, 20).toLowerCase();
+    const term = cleanStr(req.query.term, 40);
+    const academicYear = cleanStr(req.query.academic_year, 40);
+    const q = cleanStr(req.query.search, 120).toLowerCase();
+
+    let where = 'WHERE school_id = ?';
+    const params = [schoolId];
+
+    if (fromDate) { where += ' AND attendance_date >= ?'; params.push(fromDate); }
+    if (toDate) { where += ' AND attendance_date <= ?'; params.push(toDate); }
+    if (role && ['STUDENT', 'STAFF'].includes(role)) { where += ' AND person_type = ?'; params.push(role); }
+    if (term) { where += ' AND term = ?'; params.push(term); }
+    if (academicYear) { where += ' AND academic_year = ?'; params.push(academicYear); }
+    if (session === 'morning_only') where += ' AND morning_check_in IS NOT NULL AND evening_check_out IS NULL';
+    if (session === 'evening_only') where += ' AND morning_check_in IS NULL AND evening_check_out IS NOT NULL';
+    if (session === 'both') where += ' AND morning_check_in IS NOT NULL AND evening_check_out IS NOT NULL';
+    if (q) {
+      where += ` AND (
+        LOWER(COALESCE(person_name,'')) LIKE ?
+        OR LOWER(COALESCE(person_ref,'')) LIKE ?
+        OR LOWER(COALESCE(card_uid,'')) LIKE ?
+      )`;
+      const like = `%${q}%`;
+      params.push(like, like, like);
+    }
+
+    const [[countRow]] = await promisePool.query(
+      `SELECT COUNT(*) AS total
+       FROM school_gate_attendance_records
+       ${where}`,
+      params
+    );
+    const total = Number(countRow?.total || 0);
+
+    const [rows] = await promisePool.query(
+      `SELECT
+         id, attendance_date, card_uid, person_type, person_id, person_name, person_ref,
+         morning_check_in, morning_status, evening_check_out, evening_status,
+         term, academic_year, created_at, updated_at
+       FROM school_gate_attendance_records
+       ${where}
+       ORDER BY attendance_date DESC, COALESCE(evening_check_out, morning_check_in, created_at) DESC, id DESC
+       LIMIT ? OFFSET ?`,
+      [...params, limit, offset]
+    );
+
+    return res.json({
+      success: true,
+      data: rows || [],
+      pagination: {
+        page,
+        limit,
+        total,
+        total_pages: Math.max(1, Math.ceil(total / limit)),
+      },
+    });
+  } catch (err) {
+    console.error('GET /gate/attendance/logs', err);
+    return res.status(500).json({ success: false, message: 'Failed to load gate attendance logs.' });
+  }
+});
+
+router.delete('/gate/attendance/today/:cardUid', requireRole(GATE_ATTENDANCE_ADMIN_ROLES), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School context missing.' });
+    const cardUid = normalizeUid(req.params?.cardUid);
+    const date = cleanStr(req.query?.date, 20) || currentSchoolDateAndMinutes().dateStr;
+    if (!cardUid) return res.status(400).json({ success: false, message: 'cardUid is required.' });
+    const [del] = await promisePool.query(
+      `DELETE FROM school_gate_attendance_records
+       WHERE school_id = ? AND attendance_date = ? AND card_uid = ?`,
+      [schoolId, date, cardUid]
+    );
+    return res.json({ success: true, deleted: Number(del?.affectedRows || 0) });
+  } catch (err) {
+    console.error('DELETE /gate/attendance/today/:cardUid', err);
+    return res.status(500).json({ success: false, message: 'Failed to delete gate attendance record.' });
+  }
+});
+
+router.post('/gate/attendance/today/delete-selected', requireRole(GATE_ATTENDANCE_ADMIN_ROLES), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School context missing.' });
+    const date = cleanStr(req.body?.date, 20) || currentSchoolDateAndMinutes().dateStr;
+    const raw = Array.isArray(req.body?.card_uids) ? req.body.card_uids : [];
+    const cardUids = [...new Set(raw.map((x) => normalizeUid(x)).filter(Boolean))].slice(0, 500);
+    if (!cardUids.length) return res.status(400).json({ success: false, message: 'No card_uids provided.' });
+    const placeholders = cardUids.map(() => '?').join(',');
+    const [del] = await promisePool.query(
+      `DELETE FROM school_gate_attendance_records
+       WHERE school_id = ? AND attendance_date = ? AND card_uid IN (${placeholders})`,
+      [schoolId, date, ...cardUids]
+    );
+    return res.json({ success: true, deleted: Number(del?.affectedRows || 0) });
+  } catch (err) {
+    console.error('POST /gate/attendance/today/delete-selected', err);
+    return res.status(500).json({ success: false, message: 'Failed to delete selected gate records.' });
+  }
+});
+
+router.delete('/gate/attendance/today', requireRole(GATE_ATTENDANCE_ADMIN_ROLES), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School context missing.' });
+    const date = cleanStr(req.query?.date, 20) || currentSchoolDateAndMinutes().dateStr;
+    const [del] = await promisePool.query(
+      `DELETE FROM school_gate_attendance_records
+       WHERE school_id = ? AND attendance_date = ?`,
+      [schoolId, date]
+    );
+    return res.json({ success: true, deleted: Number(del?.affectedRows || 0) });
+  } catch (err) {
+    console.error('DELETE /gate/attendance/today', err);
+    return res.status(500).json({ success: false, message: 'Failed to delete all gate records for date.' });
+  }
+});
 
 router.get('/library/books', requireRole(LIBRARY_ROLES), async (req, res) => {
   try {
