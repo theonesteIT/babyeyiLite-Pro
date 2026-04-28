@@ -6,7 +6,7 @@
  *  2. globalAlpha always reset to 1 before every draw section
  *  3. Denser QR pattern — 29×29 grid with proper finder + data modules
  *  4. ctx.save()/restore() wraps every clipped section so nothing bleeds
- *  5. Photo cover-fit is pixel-perfect centered inside square frame
+ *  5. Photo cover-fit is pixel-perfect centered inside circle
  *  6. Fast off-screen canvas pipeline (no html2canvas)
  *  7. Bulk ZIP with progress bar
  */
@@ -27,18 +27,14 @@ const C = {
   red:        '#c62828',
   white:      '#ffffff',
   gold:       '#c8a84b',
-  amber:      '#FFBF00',
-  amberLight: '#FFBF00',
   text:       '#1a1a2e',
   sub:        '#4a5568',
 };
-const FONT_STACK = "'Montserrat', 'Segoe UI', system-ui, sans-serif";
 
 /* ─── Env ────────────────────────────────────────────────────────────── */
 const API_ROOT     = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL)     || 'http://localhost:5100';
 const API          = `${API_ROOT.replace(/\/$/, '')}/api`;
 const UPLOADS_BASE = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_UPLOADS_BASE) || API_ROOT.replace(/\/$/, '');
-const PUBLIC_SITE  = 'https://babyeyi.rw';
 
 function getBase() {
   return (typeof import.meta !== 'undefined' ? String(import.meta.env?.BASE_URL || '/') : '/').replace(/\/?$/, '/');
@@ -47,35 +43,6 @@ function getBase() {
 /* ─── Data helpers ───────────────────────────────────────────────────── */
 function formatWebsite(w) { return w ? String(w).replace(/^https?:\/\//i, '').trim() : ''; }
 function formatDob(y)     { return y == null || y === '' ? '-' : String(y); }
-function yearOnly(v) {
-  if (v == null || v === '') return '-';
-  const m = String(v).match(/\b(19|20)\d{2}\b/);
-  return m ? m[0] : String(v);
-}
-function buildStudentQrPayload(student) {
-  const profileUrl = `${PUBLIC_SITE}/online-service/dashboard?student=${encodeURIComponent(student.id)}`;
-  return JSON.stringify({
-    profile_url: profileUrl,
-    student: {
-      id: student.id,
-      code: student.studentCode,
-      name: student.fullName,
-      gender: student.gender,
-      class: student.className,
-      registration_year: student.registrationYear,
-    },
-    school: {
-      name: student.school,
-      phone: student.phone,
-      email: student.email,
-      website: student.website,
-      address: student.addressSummary,
-    },
-  });
-}
-function getQrImageUrl(payload) {
-  return `https://api.qrserver.com/v1/create-qr-code/?size=512x512&format=png&data=${encodeURIComponent(payload)}`;
-}
 
 export function deriveSectionFromClass(cn) {
   if (!cn || cn === '-') return '-';
@@ -92,6 +59,7 @@ export function mapRowToStudent(row) {
   const fullName = row.full_name || `${row.first_name || ''} ${row.last_name || ''}`.trim();
   const code     = row.code || row.student_code || row.student_uid || `ST-${row.id}`;
   const photoRel = row.photo_url || (row.student_photo ? `/uploads/student-profile-photos/${row.student_photo}` : null);
+  const origin   = typeof window !== 'undefined' ? window.location.origin : '';
   const loc      = [row.sector, row.district, row.province].filter(Boolean).join(', ');
   return {
     id:           row.id,
@@ -101,7 +69,6 @@ export function mapRowToStudent(row) {
     gender:       row.gender || '-',
     className:    row.class_name || '-',
     academicYear: row.academic_year || '-',
-    registrationYear: yearOnly(row.registration_year || row.enrollment_year || row.created_at || row.createdAt || row.academic_year),
     school:       row.school_name || '-',
     photo:        photoRel ? `${UPLOADS_BASE}${photoRel}` : null,
     province:     row.province,
@@ -109,7 +76,7 @@ export function mapRowToStudent(row) {
     sector:       row.sector,
     school_id:    row.school_id,
     school_logo_full: row.logo_url ? `${UPLOADS_BASE}${row.logo_url}` : null,
-    qrFallbackUrl:    `${PUBLIC_SITE}/online-service/dashboard?student=${encodeURIComponent(row.id)}`,
+    qrFallbackUrl:    `${origin}/online-service/dashboard?student=${encodeURIComponent(row.id)}`,
     phone:        row.school_phone ? String(row.school_phone).trim() : '',
     email:        row.school_email ? String(row.school_email).trim() : '',
     website:      formatWebsite(row.school_website || ''),
@@ -183,23 +150,23 @@ export async function renderCardToCanvas(student, template, photoImg, logoImg, f
   ctx.save(); /* save-A: card clip */
   ctx.clip();
 
-  /* ── 2. Watermark (behind all content) ── */
-  ctx.save();
-  ctx.globalAlpha = 0.035;
-  const wmSize = 200 * s;
-  const wmX = W / 2 - wmSize / 2;
-  const wmY = H * 0.35 - wmSize / 2;
-  if (logoImg) {
-    ctx.drawImage(logoImg, wmX, wmY, wmSize, wmSize);
-  } else {
-    ctx.beginPath();
-    ctx.arc(W / 2, H * 0.35, wmSize * 0.24, 0, Math.PI * 2);
-    ctx.fillStyle = C.navy;
-    ctx.fill();
-  }
-  ctx.restore();
+  /* ── 2. Side borders ── */
+  const og = ctx.createLinearGradient(0, 0, 0, H);
+  og.addColorStop(0, C.orange); og.addColorStop(1, '#ff8f00');
+  ctx.fillStyle = og;
+  ctx.fillRect(0, 0, 7 * s, H);
 
-  /* ── 3. School logo (top centre) ── */
+  const rg = ctx.createLinearGradient(0, 0, 0, H);
+  rg.addColorStop(0, C.red); rg.addColorStop(1, '#e53935');
+  ctx.fillStyle = rg;
+  ctx.fillRect(W - 7 * s, 0, 7 * s, H);
+
+  /* ── 3. Gold hairlines ── */
+  ctx.fillStyle = C.gold;
+  ctx.fillRect(7 * s, 0, W - 14 * s, 3 * s);
+  ctx.fillRect(7 * s, H - 3 * s, W - 14 * s, 3 * s);
+
+  /* ── 4. School logo (top centre) ── */
   const logoSz = 64 * s;
   const logoCX = W / 2;
   const logoY  = 14 * s;
@@ -215,7 +182,7 @@ export async function renderCardToCanvas(student, template, photoImg, logoImg, f
     ctx.arc(logoCX, logoY + logoSz / 2, logoSz / 2, 0, Math.PI * 2);
     ctx.fillStyle = C.navy; ctx.fill();
     ctx.fillStyle = '#fff';
-    ctx.font = `bold ${9 * s}px ${FONT_STACK}`;
+    ctx.font = `bold ${9 * s}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.fillText('SCHOOL', logoCX, logoY + logoSz / 2 + 3 * s);
   }
@@ -225,7 +192,7 @@ export async function renderCardToCanvas(student, template, photoImg, logoImg, f
   const schoolTitle = (template?.school_name || student.school || 'SCHOOL').toUpperCase();
   const nameY = logoY + logoSz + 14 * s;
   ctx.fillStyle = C.navy;
-  ctx.font = `900 ${16.5 * s}px ${FONT_STACK}`;
+  ctx.font = `900 ${15 * s}px 'Segoe UI', system-ui, sans-serif`;
   ctx.textAlign = 'center';
   ctx.fillText(schoolTitle, W / 2, nameY);
 
@@ -242,21 +209,18 @@ export async function renderCardToCanvas(student, template, photoImg, logoImg, f
 
   ctx.globalAlpha = 1;
   ctx.fillStyle = C.sub;
-  ctx.font = `500 ${9 * s}px ${FONT_STACK}`;
+  ctx.font = `500 ${8 * s}px 'Segoe UI', system-ui, sans-serif`;
   ctx.textAlign = 'center';
-  const lineH = 14 * s;
+  const lineH = 13 * s;
   let cY = nameY + 14 * s;
   cLines.forEach(line => { ctx.fillText(line, W / 2, cY); cY += lineH; });
 
   /* ── 7. Arc wings ── */
   const photoZoneTop = cY + 8 * s;
-  const photoSize    = 128 * s;
-  const photoFrame   = 4 * s;
-  const photoRadius  = 8 * s;
-  const photoHalf    = photoSize / 2;
-  const photoCX      = W / 2;
-  const photoCY      = photoZoneTop + 6 * s + photoHalf;
-  const wingEndY     = photoCY + 56 * s;
+  const circleR      = 53 * s;
+  const circleCX     = W / 2;
+  const circleCY     = photoZoneTop + 6 * s + circleR;
+  const wingEndY     = circleCY + 36 * s;
 
   ctx.globalAlpha = 1;
   ctx.strokeStyle = C.navy;
@@ -265,53 +229,52 @@ export async function renderCardToCanvas(student, template, photoImg, logoImg, f
   /* Primary LEFT — shallow curve to side edge */
   ctx.lineWidth = 3.5 * s;
   ctx.beginPath();
-  ctx.moveTo(photoCX - photoHalf, photoCY);
-  ctx.quadraticCurveTo(7 * s + 48 * s, photoCY + 10 * s, 7 * s, wingEndY);
+  ctx.moveTo(circleCX - circleR, circleCY);
+  ctx.quadraticCurveTo(7 * s + 48 * s, circleCY + 10 * s, 7 * s, wingEndY);
   ctx.stroke();
 
   /* Primary RIGHT — shallow curve to side edge */
   ctx.beginPath();
-  ctx.moveTo(photoCX + photoHalf, photoCY);
-  ctx.quadraticCurveTo(W - 7 * s - 48 * s, photoCY + 10 * s, W - 7 * s, wingEndY);
+  ctx.moveTo(circleCX + circleR, circleCY);
+  ctx.quadraticCurveTo(W - 7 * s - 48 * s, circleCY + 10 * s, W - 7 * s, wingEndY);
   ctx.stroke();
 
   /* ── RESET alpha before EVERY subsequent draw ── */
   ctx.globalAlpha = 1;
 
-  /* ── 8. Photo square ── */
-  const outerX = photoCX - photoHalf;
-  const outerY = photoCY - photoHalf;
-  const innerSize = photoSize - photoFrame * 2;
-  const innerX = outerX + photoFrame;
-  const innerY = outerY + photoFrame;
+  /* ── 8. Photo circle ── */
+  const innerR = circleR - 4 * s;
 
-  /* Navy frame */
+  /* Navy ring */
+  ctx.beginPath();
+  ctx.arc(circleCX, circleCY, circleR, 0, Math.PI * 2);
   ctx.fillStyle = C.navy;
-  rRect(ctx, outerX, outerY, photoSize, photoSize, photoRadius);
   ctx.fill();
 
-  /* Photo or placeholder — clipped to inner square */
+  /* Photo or placeholder — clipped to inner circle */
   ctx.save(); /* save-C: photo clip */
-  rRect(ctx, innerX, innerY, innerSize, innerSize, Math.max(photoRadius - photoFrame, 0));
+  ctx.beginPath();
+  ctx.arc(circleCX, circleCY, innerR, 0, Math.PI * 2);
   ctx.clip();
 
   ctx.globalAlpha = 1;
   if (photoImg) {
     const iw    = photoImg.naturalWidth  || photoImg.width  || 1;
     const ih    = photoImg.naturalHeight || photoImg.height || 1;
-    const ratio = Math.max(innerSize / iw, innerSize / ih);
+    const d     = innerR * 2;
+    const ratio = Math.max(d / iw, d / ih);
     const dw    = iw * ratio;
     const dh    = ih * ratio;
-    ctx.drawImage(photoImg, innerX + (innerSize - dw) / 2, innerY + (innerSize - dh) / 2, dw, dh);
+    ctx.drawImage(photoImg, circleCX - dw / 2, circleCY - dh / 2, dw, dh);
   } else {
     ctx.fillStyle = '#dde4f0';
-    ctx.fillRect(innerX, innerY, innerSize, innerSize);
+    ctx.fillRect(circleCX - innerR, circleCY - innerR, innerR * 2, innerR * 2);
     ctx.fillStyle = '#7b92b8';
     ctx.beginPath();
-    ctx.arc(photoCX, photoCY - innerSize * 0.18, innerSize * 0.30, 0, Math.PI * 2);
+    ctx.arc(circleCX, circleCY - innerR * 0.18, innerR * 0.38, 0, Math.PI * 2);
     ctx.fill();
     ctx.beginPath();
-    ctx.arc(photoCX, photoCY + innerSize * 0.52, innerSize * 0.45, Math.PI, 0);
+    ctx.arc(circleCX, circleCY + innerR * 0.65, innerR * 0.55, Math.PI, 0);
     ctx.fill();
   }
   ctx.restore(); /* restore-C */
@@ -319,32 +282,36 @@ export async function renderCardToCanvas(student, template, photoImg, logoImg, f
   /* ── 9. Info fields ── */
   ctx.globalAlpha = 1; /* RESET */
 
-  const infoTopY = photoZoneTop + 6 * s + photoSize + 16 * s;
+  const infoTopY = photoZoneTop + 6 * s + circleR * 2 + 16 * s;
 
   const infoRows = [
     { label: 'Name',          value: student.fullName,                                bold: true  },
     { label: 'ID Number',     value: student.studentCode,                             bold: false },
     { label: 'Section',       value: deriveSectionFromClass(student.className),       bold: false },
+    { label: 'Academic year', value: template?.academic_year || student.academicYear, bold: false },
   ];
 
-  const rowH     = 18 * s;
-  const baseFontSize = 11.2 * s;
+  const rowH     = 17 * s;
+  const fontSize = 10 * s;
   let   infoY    = infoTopY;
-  const infoStartX = 94 * s;
 
   ctx.globalAlpha = 1;
   infoRows.forEach(({ label, value, bold }) => {
-    const rowFontSize = (label === 'Name' || label === 'ID Number' || label === 'Section') ? 11 * s : baseFontSize;
     const lText = `${label}: `;
-    ctx.fillStyle = C.navy;
-    ctx.font      = `800 ${rowFontSize}px ${FONT_STACK}`;
-    ctx.textAlign = 'left';
-    ctx.fillText(lText, infoStartX, infoY);
+    ctx.font      = `800 ${fontSize}px 'Segoe UI', system-ui, sans-serif`;
     const lw      = ctx.measureText(lText).width;
+    ctx.font      = `${bold ? 900 : 700} ${fontSize}px 'Segoe UI', system-ui, sans-serif`;
+    const vw      = ctx.measureText(value).width;
+    const startX  = W / 2 - (lw + vw) / 2;
+
+    ctx.fillStyle = C.navy;
+    ctx.font      = `800 ${fontSize}px 'Segoe UI', system-ui, sans-serif`;
+    ctx.textAlign = 'left';
+    ctx.fillText(lText, startX, infoY);
 
     ctx.fillStyle = bold ? C.navy : C.text;
-    ctx.font      = `${bold ? 900 : 700} ${rowFontSize}px ${FONT_STACK}`;
-    ctx.fillText(value, infoStartX + lw, infoY);
+    ctx.font      = `${bold ? 900 : 700} ${fontSize}px 'Segoe UI', system-ui, sans-serif`;
+    ctx.fillText(value, startX + lw, infoY);
 
     infoY += rowH;
   });
@@ -352,9 +319,9 @@ export async function renderCardToCanvas(student, template, photoImg, logoImg, f
   /* ── 10. QR CODE — fixed draw order ── */
   ctx.globalAlpha = 1; /* CRITICAL RESET */
 
-  const qrPx  = 78 * s;
+  const qrPx  = 74 * s;
   const qrX   = W / 2 - qrPx / 2;
-  const qrY   = infoY - 2 * s;
+  const qrY   = infoY + 6 * s;
   const pad   = 5 * s;
   const boxR  = 9 * s;
 
@@ -369,7 +336,7 @@ export async function renderCardToCanvas(student, template, photoImg, logoImg, f
   } else {
     // Do not draw pseudo QR in exports; better show explicit unavailable state.
     ctx.fillStyle = '#b91c1c';
-    ctx.font = `700 ${8.4 * s}px ${FONT_STACK}`;
+    ctx.font = `700 ${8 * s}px 'Segoe UI', system-ui, sans-serif`;
     ctx.textAlign = 'center';
     ctx.fillText('QR unavailable', W / 2, qrY + qrPx / 2);
   }
@@ -382,32 +349,32 @@ export async function renderCardToCanvas(student, template, photoImg, logoImg, f
   ctx.stroke();
 
   /* "Scan for student profile" — darker/larger so it stays readable after export compression */
-  const scanLabelY = qrY + qrPx + pad + 8 * s;
+  const scanLabelY = qrY + qrPx + pad + 9 * s;
   ctx.globalAlpha = 1;
   ctx.fillStyle = '#ffffff';
-  ctx.fillRect(W / 2 - 72 * s, scanLabelY - 8 * s, 144 * s, 12 * s);
+  ctx.fillRect(W / 2 - 62 * s, scanLabelY - 7 * s, 124 * s, 10 * s);
   ctx.fillStyle   = '#4b5563';
-  ctx.font        = `500 ${8.2 * s}px ${FONT_STACK}`;
+  ctx.font        = `700 ${7.6 * s}px 'Segoe UI', system-ui, sans-serif`;
   ctx.textAlign   = 'center';
-  ctx.fillText('SCAN FOR STUDENT PROFILE', W / 2, scanLabelY);
+  ctx.fillText('Scan for student profile', W / 2, scanLabelY);
 
   /* ── 11. Green footer ── */
   ctx.globalAlpha = 1;
-  const footerH = 44 * s;
-  const footerY = H - footerH;
+  const footerH = 56 * s;
+  const footerY = H - footerH - 3 * s;
   const gg = ctx.createLinearGradient(0, 0, W, 0);
-  gg.addColorStop(0, C.amber); gg.addColorStop(1, C.amberLight);
+  gg.addColorStop(0, C.green); gg.addColorStop(1, C.greenLight);
   ctx.fillStyle = gg;
-  ctx.fillRect(0, footerY, W, footerH);
+  ctx.fillRect(7 * s, footerY, W - 14 * s, footerH);
 
   if (footerImg) {
-    const fh   = 30 * s;
+    const fh   = 44 * s;
     const fAsp = (footerImg.naturalWidth || 1) / (footerImg.naturalHeight || 1);
-    const fw   = Math.min(fh * fAsp, W * 0.72);
+    const fw   = Math.min(fh * fAsp, (W - 28 * s) * 0.9);
     ctx.drawImage(footerImg, W / 2 - fw / 2, footerY + (footerH - fh) / 2, fw, fh);
   } else {
     ctx.fillStyle = '#ffffff';
-    ctx.font      = `900 ${13 * s}px ${FONT_STACK}`;
+    ctx.font      = `900 ${13 * s}px 'Segoe UI', system-ui, sans-serif`;
     ctx.textAlign = 'center';
     ctx.fillText('Babyeyi · Student ID', W / 2, footerY + footerH / 2 + 5 * s);
   }
@@ -432,7 +399,7 @@ function SchoolLogoSVG({ px = 64 }) {
   );
 }
 
-function CardLogoImg({ maxWidth = 210, height = 34 }) {
+function CardLogoImg({ maxWidth = 220, height = 44 }) {
   const [i, setI] = useState(0);
   const srcs = useMemo(() => {
     const b = getBase();
@@ -452,8 +419,8 @@ function CardLogoImg({ maxWidth = 210, height = 34 }) {
 export function IDCardT2({ student, template, scale = 1 }) {
   const schoolTitle   = (template?.school_name || student.school || 'SCHOOL').toUpperCase();
   const schoolLogoSrc = template?.school_logo_url ? `${UPLOADS_BASE}${template.school_logo_url}` : student.school_logo_full;
-  const qrPayload     = useMemo(() => buildStudentQrPayload(student), [student]);
-  const qrImg         = getQrImageUrl(qrPayload);
+  const qrImg         = template?.qr_data_url;
+  const qrFallback    = student.qrFallbackUrl || '';
   const web           = formatWebsite(template?.website || student.website) || 'www.wisdomschoolrwanda.rw';
 
   const cLines = [];
@@ -469,6 +436,7 @@ export function IDCardT2({ student, template, scale = 1 }) {
     { label:'Name',          value:student.fullName,                                bold:true  },
     { label:'ID Number',     value:student.studentCode,                             bold:false },
     { label:'Section',       value:deriveSectionFromClass(student.className),       bold:false },
+    { label:'Academic year', value:template?.academic_year || student.academicYear, bold:false },
   ];
 
   return (
@@ -476,10 +444,16 @@ export function IDCardT2({ student, template, scale = 1 }) {
       width:CARD_PX.w*scale, height:CARD_PX.h*scale,
       transform:`scale(${scale})`, transformOrigin:'top left',
       position:'relative', borderRadius:18, overflow:'hidden',
-      background:'#fff', fontFamily:FONT_STACK,
+      background:'#fff', fontFamily:"'Segoe UI',system-ui,sans-serif",
       boxShadow:scale>=1?'0 24px 72px rgba(26,53,114,0.28),0 4px 16px rgba(0,0,0,0.15)':'none',
       flexShrink:0,
     }}>
+      {/* Side borders */}
+      <div style={{position:'absolute',left:0,top:0,bottom:0,width:7,background:`linear-gradient(180deg,${C.orange},#ff8f00)`,zIndex:5,borderRadius:'18px 0 0 18px'}}/>
+      <div style={{position:'absolute',right:0,top:0,bottom:0,width:7,background:`linear-gradient(180deg,${C.red},#e53935)`,zIndex:5,borderRadius:'0 18px 18px 0'}}/>
+      <div style={{position:'absolute',top:0,left:7,right:7,height:3,background:C.gold,zIndex:5}}/>
+      <div style={{position:'absolute',bottom:0,left:7,right:7,height:3,background:C.gold,zIndex:5}}/>
+
       {/* Watermark */}
       <div style={{position:'absolute',top:'35%',left:'50%',transform:'translate(-50%,-50%)',opacity:0.035,zIndex:1,pointerEvents:'none'}}>
         {schoolLogoSrc ? <img src={schoolLogoSrc} alt="" style={{width:200,height:200,objectFit:'contain'}}/> : <SchoolLogoSVG px={200}/>}
@@ -492,25 +466,25 @@ export function IDCardT2({ student, template, scale = 1 }) {
         </div>
 
         {/* School name */}
-        <div style={{fontSize:17,fontWeight:900,color:C.navy,textAlign:'center',lineHeight:1.25,letterSpacing:0.2,marginBottom:5}}>{schoolTitle}</div>
+        <div style={{fontSize:15,fontWeight:900,color:C.navy,textAlign:'center',lineHeight:1.25,letterSpacing:0.2,marginBottom:5}}>{schoolTitle}</div>
 
         {/* Contact lines */}
-        <div style={{fontSize:9,color:C.sub,textAlign:'center',lineHeight:1.65,marginBottom:4}}>
+        <div style={{fontSize:8,color:C.sub,textAlign:'center',lineHeight:1.65,marginBottom:4}}>
           {cLines.map((l,i)=><div key={i}>{l}</div>)}
           {web && <div>{web}</div>}
         </div>
 
         {/* Photo + wings */}
-        <div style={{position:'relative',marginLeft:-7,marginRight:-7,width:'calc(100% + 14px)',height:134,marginTop:4,flexShrink:0}}>
+        <div style={{position:'relative',marginLeft:-7,marginRight:-7,width:'calc(100% + 14px)',height:118,marginTop:4,flexShrink:0}}>
           <svg viewBox="0 0 306 240" width="100%" height="240"
             preserveAspectRatio="none"
             style={{position:'absolute',left:0,top:0,pointerEvents:'none',zIndex:1,overflow:'visible'}}>
-            <path d="M 102 57 Q 50 86 0 160" stroke={C.navy} strokeWidth="3.5" fill="none" strokeLinecap="round"/>
-            <path d="M 204 57 Q 256 86 306 160" stroke={C.navy} strokeWidth="3.5" fill="none" strokeLinecap="round"/>
+            <path d="M 102 57 Q 50 67 0 93" stroke={C.navy} strokeWidth="3.5" fill="none" strokeLinecap="round"/>
+            <path d="M 204 57 Q 256 67 306 93" stroke={C.navy} strokeWidth="3.5" fill="none" strokeLinecap="round"/>
           </svg>
 
-          {/* Photo square */}
-          <div style={{position:'absolute',left:'50%',top:0,transform:'translateX(-50%)',width:128,height:128,borderRadius:8,border:`4px solid ${C.navy}`,overflow:'hidden',background:'#f1f5f9',display:'flex',alignItems:'center',justifyContent:'center',zIndex:3,boxSizing:'border-box'}}>
+          {/* Photo circle */}
+          <div style={{position:'absolute',left:'50%',top:6,transform:'translateX(-50%)',width:106,height:106,borderRadius:'50%',border:`4px solid ${C.navy}`,overflow:'hidden',background:'#f1f5f9',display:'flex',alignItems:'center',justifyContent:'center',zIndex:3,boxSizing:'border-box'}}>
             {student.photo ? (
               <img src={student.photo} alt="" style={{width:'100%',height:'100%',objectFit:'cover',objectPosition:'center'}}/>
             ) : (
@@ -527,14 +501,12 @@ export function IDCardT2({ student, template, scale = 1 }) {
         {/* Info rows */}
         <div style={{width:'100%',paddingLeft:12,paddingRight:12,paddingTop:10,paddingBottom:4,zIndex:4,position:'relative',flexShrink:0}}>
           
-          <div style={{width:'fit-content',margin:'0 auto',textAlign:'left'}}>
-            {infoRows.map(({label,value,bold})=>(
-              <div key={label} style={{fontSize:(label==='Name'||label==='ID Number'||label==='Section')?10.6:10.4,color:C.text,marginBottom:4,lineHeight:1.35,textAlign:'left'}}>
-                <span style={{fontWeight:800,color:C.navy}}>{label}: </span>
-                <span style={{fontWeight:bold?900:700,color:bold?C.navy:C.text}}>{value}</span>
-              </div>
-            ))}
-          </div>
+          {infoRows.map(({label,value,bold})=>(
+            <div key={label} style={{fontSize:9.5,color:C.text,marginBottom:5,lineHeight:1.35,textAlign:'center'}}>
+              <span style={{fontWeight:800,color:C.navy}}>{label}: </span>
+              <span style={{fontWeight:bold?900:700,color:bold?C.navy:C.text}}>{value}</span>
+            </div>
+          ))}
         </div>
 
         {/* QR */}
@@ -548,13 +520,13 @@ export function IDCardT2({ student, template, scale = 1 }) {
               </div>
             )}
           </div>
-          <span style={{fontSize:7.9,color:C.sub,letterSpacing:0.35,fontWeight:500,textTransform:'uppercase'}}>Scan for student profile</span>
+          <span style={{fontSize:7,color:C.sub,letterSpacing:0.4}}>Scan for student profile</span>
         </div>
 
         {/* Green footer */}
-        <div style={{alignSelf:'stretch',marginLeft:-14,marginRight:-14,width:'calc(100% + 28px)',boxSizing:'border-box',borderTopLeftRadius:14,borderTopRightRadius:14,background:`linear-gradient(90deg,${C.amber},${C.amberLight})`,padding:'8px 10px 10px',marginBottom:0,display:'flex',alignItems:'center',justifyContent:'center',minHeight:44,marginTop:'auto',flexShrink:0,zIndex:4}}>
+        <div style={{alignSelf:'stretch',marginLeft:-14,marginRight:-14,width:'calc(100% + 28px)',boxSizing:'border-box',borderTopLeftRadius:14,borderTopRightRadius:14,background:`linear-gradient(90deg,${C.green},${C.greenLight})`,padding:'12px 10px 14px',marginBottom:3,display:'flex',alignItems:'center',justifyContent:'center',minHeight:58,marginTop:'auto',flexShrink:0,zIndex:4}}>
           <div style={{width:'100%',maxWidth:280,display:'flex',justifyContent:'center',alignItems:'center'}}>
-            <CardLogoImg maxWidth={190} height={30}/>
+            <CardLogoImg maxWidth={260} height={44}/>
           </div>
         </div>
       </div>
@@ -579,12 +551,12 @@ export function useCardExport(student, template) {
       student.photo ? loadImageCORS(student.photo) : Promise.resolve(null),
       logoSrc       ? loadImageCORS(logoSrc)       : Promise.resolve(null),
       loadImageCORS(footerSrc),
-      loadImageCORS(getQrImageUrl(buildStudentQrPayload(student))),
+      template?.qr_data_url ? loadImageCORS(template.qr_data_url) : Promise.resolve(null),
     ]).then(([photo, logo, footer, qr]) => {
       refs.current = { photo, logo, footer, qr };
       setReady(true);
     });
-  }, [student?.id, student?.photo, student?.studentCode, student?.fullName, student?.className, student?.school, student?.registrationYear, template?.school_logo_url]);
+  }, [student?.id, student?.photo, template?.school_logo_url, template?.qr_data_url]);
 
   const getCanvas = useCallback(() =>
     renderCardToCanvas(student, template, refs.current.photo, refs.current.logo, refs.current.footer, refs.current.qr),
@@ -651,8 +623,7 @@ export async function bulkDownloadZip(students, template, onProgress) {
         // keep shared template fallback
       }
       const photoImg = student.photo ? await loadImageCORS(student.photo) : null;
-      const qrSrc    = getQrImageUrl(buildStudentQrPayload(student));
-      const qrImg    = await loadImageCORS(qrSrc);
+      const qrImg    = perStudentTemplate?.qr_data_url ? await loadImageCORS(perStudentTemplate.qr_data_url) : null;
       const canvas   = await renderCardToCanvas(student, perStudentTemplate, photoImg, logoImg, footerImg, qrImg);
       const blob     = await new Promise(r => canvas.toBlob(r, 'image/png'));
       folder.file(`${student.studentCode}_${student.fullName.replace(/\s+/g,'_')}.png`, await blob.arrayBuffer());

@@ -23,6 +23,7 @@ import {
   CreditCard,
   Package,
   Bot,
+  UserCheck,
   Sparkles,
   ArrowRight,
   MapPin,
@@ -111,16 +112,18 @@ function SH({ eyebrow, title, sub, light = false }) {
 
 function FeaturesHero() {
   return (
-    <section className="pt-24 sm:pt-28 xl:pt-32 pb-12 sm:pb-16 bg-[#000435] relative overflow-hidden">
-      <div className="absolute inset-0 opacity-[0.05] pointer-events-none" style={{ backgroundImage: "linear-gradient(rgba(251,191,36,.8) 1px,transparent 1px),linear-gradient(90deg,rgba(251,191,36,.8) 1px,transparent 1px)", backgroundSize: "48px 48px" }} />
-      <div className="relative max-w-[1400px] mx-auto px-4 sm:px-6 xl:px-10 2xl:px-16 text-center">
+    <section className="pt-24 sm:pt-28 xl:pt-32 pb-12 sm:pb-16 bg-[#000435]">
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 xl:px-10 2xl:px-16 text-center">
         <SH eyebrow="Platform Features" title="Everything Schools Need" sub="A complete digital platform built for speed, trust, and accessibility across Rwanda." light />
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-          <Link to="/register" className="inline-flex items-center gap-2 rounded-xl bg-amber-400 px-5 py-3 text-[13px] font-black text-[#000435] hover:bg-amber-300 transition-colors">
+          <Link to="/register" className="inline-flex w-[220px] sm:w-auto justify-center items-center gap-2 rounded-xl bg-amber-400 px-5 py-3 text-[13px] font-black text-[#000435] hover:bg-amber-300 transition-colors">
             <Building2 size={15} /> Register School
           </Link>
-          <Link to="/pay-by-school" className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/5 px-5 py-3 text-[13px] font-black text-white hover:bg-white/10 transition-colors">
+          <Link to="/pay-by-school" className="inline-flex w-[220px] sm:w-auto justify-center items-center gap-2 rounded-xl border border-white/20 bg-white/5 px-5 py-3 text-[13px] font-black text-white hover:bg-white/10 transition-colors">
             <CreditCard size={15} className="text-amber-300" /> Pay Fees
+          </Link>
+          <Link to="/online-service" className="inline-flex w-[220px] sm:w-auto justify-center items-center gap-2 rounded-xl border border-white/20 bg-white/5 px-5 py-3 text-[13px] font-black text-white hover:bg-white/10 transition-colors">
+            <UserCheck size={15} className="text-amber-300" /> OnlineService
           </Link>
         </div>
       </div>
@@ -140,6 +143,7 @@ function FeaturesGridSection() {
     { Icon: Shield, title: "Secure & Reliable", desc: "Secure data handling, reliable uptime, and a mobile-first design built for Rwanda.", color: "#84CC16" },
     { Icon: Smartphone, title: "Mobile Friendly", desc: "Every school website is fully responsive for phones, tablets, and desktop users.", color: "#A855F7" },
     { Icon: CreditCard, title: "Fee Payments", desc: "Parents pay school fees by school code, no account required, mobile-money powered.", color: "#FBBF24" },
+    { Icon: UserCheck, title: "OnlineService", desc: "Students access their online service dashboard to view profile details and school-linked information.", color: "#1D4ED8" },
     { Icon: Package, title: "ShuleKit", desc: "Educational tools and stationery, standard or school-custom, delivered to families.", color: "#14B8A6" },
     { Icon: Bot, title: "Agent Assistant", desc: "In-platform assistant guiding parents and schools through payments, admissions, and support.", color: "#0EA5E9" },
   ];

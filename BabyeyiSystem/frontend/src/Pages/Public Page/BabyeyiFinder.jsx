@@ -20,9 +20,9 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Search, FileText, Download, Loader2, AlertCircle, CheckCircle2,
-  ChevronDown, X, Eye, Shield, RefreshCw, ZoomIn, Calendar,
-  GraduationCap, Building2, DollarSign, QrCode, Printer, CreditCard,
+  Search, FileText, Download, Loader2, AlertCircle,
+  ChevronDown, X, Eye, Shield, ZoomIn, Calendar,
+  GraduationCap, Building2, DollarSign,
 } from 'lucide-react';
 import Heroimage from '../../assets/hero-image.png';
 
@@ -1071,56 +1071,16 @@ export default function BabyeyiFinder({ school, theme, schoolSlug, openModal = f
   const [viewing,  setViewing]  = useState(null);
   const [loadingView, setLoadingView] = useState(false);
   const [openingAuto, setOpeningAuto] = useState(false);
-  const [payOpen, setPayOpen] = useState(false);
-  const [payRec, setPayRec] = useState(null);
   const [finderModalOpen, setFinderModalOpen] = useState(false);
 
   // We must resolve schoolId from the mini-website data
   const schoolId = school?.schoolId || school?.id || school?.school_id || null;
 
   const startPublicPayFlow = (rec) => {
-    if (!schoolId || !rec?.id) return;
-    try {
-      sessionStorage.setItem(
-        "babyeyi_public_pay_draft",
-        JSON.stringify({
-          schoolId,
-          babyeyiId: rec.id,
-          schoolName: school?.name || school?.schoolName || "",
-          schoolSlug: schoolSlug || "",
-          docLabel: `${rec.class_name || ""} · ${rec.term} · ${rec.academic_year}`,
-          fromPublicFinder: true,
-          publicPayNoLogin: true,
-          fromSchoolMiniSite: !!publicPayFromSchoolSite,
-          studentCodeHint: lookupPrefill?.code || "",
-        })
-      );
-    } catch {}
-    navigate("/public-pay/search-student");
-  };
-
-  const handleContinuePay = (payload) => {
-    if (!payRec) return;
-    try {
-      sessionStorage.setItem(
-        "babyeyi_public_pay_draft",
-        JSON.stringify({
-          schoolId,
-          babyeyiId: payRec.id,
-          schoolName: school?.name || school?.schoolName || "",
-          schoolSlug: schoolSlug || "",
-          docLabel: `${payRec.class_name || ""} · ${payRec.term} · ${payRec.academic_year}`,
-          grandTotal: payload.grandTotal,
-          selectedFeeIds: payload.selectedFeeIds,
-          selectedReqIds: payload.selectedReqIds,
-          pricingSnapshot: payload.pricing,
-          fromPublicFinder: true,
-        })
-      );
-    } catch {}
-    navigate("/parents/login?next=%2Fparents%2Fquick-pay");
-    setPayOpen(false);
-    setPayRec(null);
+    const code = (studentCode || lookupPrefill?.code || "").trim();
+    const q = new URLSearchParams();
+    if (code) q.set("code", code);
+    navigate(q.toString() ? `/pay-by-school?${q.toString()}` : "/pay-by-school");
   };
 
   const handleSearch = async (override = null) => {
@@ -1323,14 +1283,14 @@ export default function BabyeyiFinder({ school, theme, schoolSlug, openModal = f
     <>
       {finderModalOpen && (
         <div className="fixed inset-0 z-[280] bg-black/55 p-3 sm:p-6 flex items-end sm:items-center justify-center" onClick={closeFinderModal}>
-          <div className="w-full max-w-3xl bg-white rounded-3xl shadow-2xl border border-gray-100 max-h-[92dvh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
-            <div className="px-4 sm:px-6 py-4 border-b border-amber-100 flex items-start justify-between gap-3">
+          <div className="w-full max-w-3xl bg-[#000435] rounded-3xl shadow-2xl border border-amber-400/30 max-h-[92dvh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="px-4 sm:px-6 py-4 border-b border-white/10 flex items-start justify-between gap-3">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: a }}>School Fee Documents</p>
-                <h3 className="text-base sm:text-lg font-black text-gray-900">Find Your Babyeyi</h3>
-                <p className="text-xs text-gray-500 mt-0.5">Search by student code or SDM ID, then year, term, and class.</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-400">School Mini Website</p>
+                <h3 className="text-base sm:text-lg font-black text-white">Find School Document</h3>
+                <p className="text-xs text-white/60 mt-0.5">Search by student code or SDM ID, then year, term, and class.</p>
               </div>
-              <button type="button" onClick={closeFinderModal} className="p-2 rounded-xl hover:bg-gray-100" aria-label="Close">
+              <button type="button" onClick={closeFinderModal} className="p-2 rounded-xl hover:bg-white/10 text-white/80" aria-label="Close">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1341,32 +1301,30 @@ export default function BabyeyiFinder({ school, theme, schoolSlug, openModal = f
                   value={studentCode}
                   onChange={(e) => setStudentCode(e.target.value)}
                   placeholder="Student code or SDM ID"
-                  className="w-full px-3.5 py-2.5 rounded-xl border-2 text-sm font-semibold text-gray-800 focus:outline-none transition-all"
-                  style={{ borderColor: studentCode ? p : '#E5E7EB', background: 'white' }}
+                  className="w-full px-3.5 py-2.5 rounded-xl border text-sm font-semibold text-white focus:outline-none transition-all bg-white/5 border-white/20 placeholder:text-white/35"
                 />
                 <button
                   type="button"
                   onClick={() => runStudentCodeLookup()}
                   disabled={loading}
-                  className="px-3 sm:px-4 py-2.5 rounded-xl font-black text-[11px] sm:text-sm text-white disabled:opacity-60 leading-snug text-center max-w-full"
-                  style={{ background: p }}
+                  className="px-3 sm:px-4 py-2.5 rounded-xl font-black text-[11px] sm:text-sm text-[#000435] disabled:opacity-60 leading-snug text-center max-w-full bg-amber-400 hover:bg-amber-300"
                 >
                   Confirm details before continuing
                 </button>
               </div>
 
               <div className="grid sm:grid-cols-3 gap-3">
-                <select value={year} onChange={(e) => setYear(e.target.value)} className="w-full appearance-none px-3.5 py-2.5 rounded-xl border-2 text-sm font-semibold text-gray-800 focus:outline-none transition-all" style={{ borderColor: year ? p : '#E5E7EB', background: 'white' }}>
+                <select value={year} onChange={(e) => setYear(e.target.value)} className="w-full appearance-none px-3.5 py-2.5 rounded-xl border text-sm font-semibold text-white focus:outline-none transition-all bg-white/5 border-white/20">
                   <option value="">All Years</option>
                   {YEAR_OPTIONS.map((y) => <option key={y} value={y}>{y}</option>)}
                   <option value={String(currentYear)}>{currentYear}</option>
                   <option value={String(currentYear - 1)}>{currentYear - 1}</option>
                 </select>
-                <select value={term} onChange={(e) => setTerm(e.target.value)} className="w-full appearance-none px-3.5 py-2.5 rounded-xl border-2 text-sm font-semibold text-gray-800 focus:outline-none transition-all" style={{ borderColor: term ? p : '#E5E7EB', background: 'white' }}>
+                <select value={term} onChange={(e) => setTerm(e.target.value)} className="w-full appearance-none px-3.5 py-2.5 rounded-xl border text-sm font-semibold text-white focus:outline-none transition-all bg-white/5 border-white/20">
                   <option value="">All Terms</option>
                   {TERM_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
                 </select>
-                <select value={cls} onChange={(e) => setCls(e.target.value)} className="w-full appearance-none px-3.5 py-2.5 rounded-xl border-2 text-sm font-semibold text-gray-800 focus:outline-none transition-all" style={{ borderColor: cls ? p : '#E5E7EB', background: 'white' }}>
+                <select value={cls} onChange={(e) => setCls(e.target.value)} className="w-full appearance-none px-3.5 py-2.5 rounded-xl border text-sm font-semibold text-white focus:outline-none transition-all bg-white/5 border-white/20">
                   <option value="">All Classes</option>
                   {CLASS_OPTIONS.map((group) => (
                     <optgroup key={group.group} label={group.group}>
@@ -1376,9 +1334,9 @@ export default function BabyeyiFinder({ school, theme, schoolSlug, openModal = f
                 </select>
               </div>
 
-              {error && <div className="text-sm rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-red-700">{error}</div>}
+              {error && <div className="text-sm rounded-xl border border-red-400/30 bg-red-400/10 px-3 py-2 text-red-300">{error}</div>}
 
-                  <button onClick={() => handleSearch()} disabled={loading} className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-black text-sm text-white disabled:opacity-60" style={{ background: p }}>
+                  <button onClick={() => handleSearch()} disabled={loading} className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-black text-sm text-[#000435] bg-amber-400 hover:bg-amber-300 disabled:opacity-60">
                 {loading ? <><Loader2 size={16} className="animate-spin" /> Searching...</> : <><Search size={16} /> Search Documents</>}
               </button>
               {openingAuto && (
@@ -1390,29 +1348,19 @@ export default function BabyeyiFinder({ school, theme, schoolSlug, openModal = f
               {searched && !loading && (
                 <div className="space-y-2">
                   {results.length === 0 ? (
-                    <p className="text-sm text-gray-500">No approved Babyeyi documents found for this filter.</p>
+                    <p className="text-sm text-white/65">No approved documents found for this filter.</p>
                   ) : (
                     results.map((rec) => (
-                      <div key={rec.id} className="rounded-xl border border-gray-200 p-3">
-                        <p className="font-bold text-sm text-gray-900">{getClassLabel(rec)} · {rec.term} · {rec.academic_year}</p>
+                      <div key={rec.id} className="rounded-xl border border-white/15 bg-white/5 p-3">
+                        <p className="font-bold text-sm text-white">{getClassLabel(rec)} · {rec.term} · {rec.academic_year}</p>
                         <div className="mt-2 flex flex-wrap gap-2">
-                          <button type="button" onClick={() => { closeFinderModal(); handleView(rec); }} className="px-3 py-2 rounded-lg text-xs font-black text-white" style={{ background: p }}>View &amp; Download</button>
+                          <button type="button" onClick={() => { closeFinderModal(); handleView(rec); }} className="px-3 py-2 rounded-lg text-xs font-black text-[#000435] bg-amber-400 hover:bg-amber-300">Open &amp; Download</button>
                           <button
                             type="button"
-                            onClick={() => {
-                              if (publicPayNoLogin) {
-                                closeFinderModal();
-                                startPublicPayFlow(rec);
-                                return;
-                              }
-                              closeFinderModal();
-                              setPayRec(rec);
-                              setPayOpen(true);
-                            }}
-                            className="px-3 py-2 rounded-lg text-xs font-black border-2"
-                            style={{ borderColor: `${p}55`, color: p }}
+                            onClick={() => { closeFinderModal(); startPublicPayFlow(rec); }}
+                            className="px-3 py-2 rounded-lg text-xs font-black border border-amber-400/40 text-amber-300 hover:bg-white/10"
                           >
-                            View &amp; pay
+                            View &amp; Pay
                           </button>
                         </div>
                       </div>
@@ -1453,7 +1401,7 @@ export default function BabyeyiFinder({ school, theme, schoolSlug, openModal = f
               Find Your Babyeyi
             </h2>
             <p className={fs ? "text-slate-600 text-base max-w-xl mx-auto" : "text-white/70 text-base max-w-xl mx-auto"}>
-              Search and download the official fee document (Babyeyi) for your child's class. Only approved documents are shown.
+              Search and download official school mini-website documents for your child's class. Only approved documents are shown.
             </p>
           </div>
 
@@ -1691,18 +1639,11 @@ export default function BabyeyiFinder({ school, theme, schoolSlug, openModal = f
                               </button>
                               <button
                                 type="button"
-                                onClick={() => {
-                                  if (publicPayNoLogin) {
-                                    startPublicPayFlow(rec);
-                                    return;
-                                  }
-                                  setPayRec(rec);
-                                  setPayOpen(true);
-                                }}
+                                onClick={() => startPublicPayFlow(rec)}
                                 className={fs ? "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-black text-sm border border-slate-300 bg-white hover:bg-slate-50 transition-colors text-slate-800" : "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-black text-sm border hover:bg-white/10 transition-colors text-white"}
                                 style={fs ? undefined : { borderColor: 'rgba(255,255,255,0.28)' }}
                               >
-                                <DollarSign size={14} /> View &amp; pay
+                                <DollarSign size={14} /> View &amp; Pay
                               </button>
                             </div>
                           </div>
@@ -1739,17 +1680,6 @@ export default function BabyeyiFinder({ school, theme, schoolSlug, openModal = f
         <DocumentViewer rec={viewing} theme={theme} onClose={() => setViewing(null)} />
       )}
 
-      {!publicPayNoLogin && payOpen && payRec && schoolId && (
-        <ViewAndPayModal
-          open={payOpen}
-          onClose={() => { setPayOpen(false); setPayRec(null); }}
-          rec={payRec}
-          schoolId={schoolId}
-          schoolName={school?.name || school?.schoolName || ''}
-          theme={theme}
-          onContinue={handleContinuePay}
-        />
-      )}
     </>
   );
 }

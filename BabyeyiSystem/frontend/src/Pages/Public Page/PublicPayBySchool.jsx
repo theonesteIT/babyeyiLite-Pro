@@ -68,16 +68,16 @@ function StepIndicator({ current }) {
               <div className={`relative w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center font-black text-[13px] transition-all duration-300 ${
                 done ? "bg-amber-400 text-[#000435] shadow-md shadow-amber-400/30"
                 : active ? "bg-[#000435] border-2 border-amber-400 text-amber-400 shadow-lg shadow-amber-400/20"
-                : "bg-white border border-slate-200 text-[#000435]/35"
+                : "bg-white/5 border border-white/15 text-white/30"
               }`} style={active ? { animation: "pulseAmber 2s ease-in-out infinite" } : {}}>
                 {done ? <Check size={15} strokeWidth={3}/> : <s.icon size={14}/>}
               </div>
               <span className={`text-[9px] sm:text-[10px] font-black uppercase tracking-[.06em] text-center leading-none hidden xs:block ${
-                done ? "text-amber-500" : active ? "text-[#000435]" : "text-[#000435]/35"
+                done ? "text-amber-400" : active ? "text-white" : "text-white/30"
               }`}>{s.short}</span>
             </div>
             {i < STEPS.length - 1 && (
-              <div className="flex-1 h-0.5 mx-1 sm:mx-2 rounded-full overflow-hidden bg-slate-200">
+              <div className="flex-1 h-0.5 mx-1 sm:mx-2 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.1)" }}>
                 <div className="h-full rounded-full bg-amber-400 transition-all duration-500"
                   style={{ width: done ? "100%" : active ? "50%" : "0%" }}/>
               </div>
@@ -93,12 +93,12 @@ function StepIndicator({ current }) {
 function Field({ label, required, error, hint, children }) {
   return (
     <div>
-      <label className="block text-[10px] font-black uppercase tracking-[.1em] text-[#000435]/55 mb-2">
+      <label className="block text-[10px] font-black uppercase tracking-[.1em] text-white/40 mb-2">
         {label}{required && <span className="text-amber-400 ml-0.5">*</span>}
       </label>
       {children}
       {error && <p className="flex items-center gap-1.5 text-[11px] text-red-400 font-semibold mt-1.5"><AlertCircle size={11}/>{error}</p>}
-      {hint && !error && <p className="text-[11px] text-[#000435]/50 mt-1.5">{hint}</p>}
+      {hint && !error && <p className="text-[11px] text-white/35 mt-1.5">{hint}</p>}
     </div>
   );
 }
@@ -107,13 +107,13 @@ function Input({ value, onChange, placeholder, type="text", icon: Icon, onKeyDow
   const [focused, setFocused] = useState(false);
   return (
     <div className={`flex items-center gap-2.5 rounded-xl border transition-all ${
-      focused ? "border-amber-400 bg-amber-50 shadow-lg shadow-amber-200/50" : "border-slate-200 bg-white hover:border-[#000435]/35"
+      focused ? "border-amber-400 bg-amber-400/5 shadow-lg shadow-amber-400/10" : "border-white/15 bg-white/5 hover:border-white/25"
     } px-3.5 h-12`}>
-      {Icon && <Icon size={15} className={focused ? "text-amber-500" : "text-[#000435]/40"} />}
+      {Icon && <Icon size={15} className={focused ? "text-amber-400" : "text-white/35"} />}
       <input
         type={type} value={value} onChange={onChange} placeholder={placeholder}
         onFocus={() => setFocused(true)} onBlur={() => setFocused(false)} onKeyDown={onKeyDown}
-        className={`flex-1 bg-transparent text-[#000435] text-[14px] font-semibold placeholder:text-[#000435]/35 outline-none ${className}`}
+        className={`flex-1 bg-transparent text-white text-[14px] font-semibold placeholder:text-white/25 outline-none ${className}`}
       />
     </div>
   );
@@ -123,12 +123,12 @@ function Select({ value, onChange, children, disabled = false }) {
   return (
     <div className="relative">
       <select value={value} onChange={onChange} disabled={disabled}
-        className={`w-full h-12 rounded-xl border border-slate-200 bg-white text-[#000435] text-[13px] font-bold px-4 outline-none appearance-none transition-all ${
-          disabled ? "opacity-60 cursor-not-allowed" : "hover:border-[#000435]/35 focus:border-amber-400 focus:bg-amber-50 cursor-pointer"
+        className={`w-full h-12 rounded-xl border border-white/15 bg-white/5 text-white text-[13px] font-bold px-4 outline-none appearance-none transition-all ${
+          disabled ? "opacity-60 cursor-not-allowed" : "hover:border-white/25 focus:border-amber-400 focus:bg-amber-400/5 cursor-pointer"
         }`}>
         {children}
       </select>
-      <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#000435]/45 pointer-events-none"/>
+      <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none"/>
     </div>
   );
 }
@@ -138,14 +138,14 @@ function SummaryCard({ label, value, sub, highlight, green }) {
   return (
     <div className={`rounded-xl p-3.5 sm:p-4 border ${
       highlight ? "bg-amber-400/12 border-amber-400/30"
-      : green ? "bg-emerald-50 border-emerald-200"
-      : "bg-white border-slate-200"
+      : green ? "bg-emerald-500/10 border-emerald-500/25"
+      : "bg-white/5 border-white/10"
     }`}>
-      <p className="text-[9px] font-black uppercase tracking-[.1em] text-[#000435]/55 mb-1">{label}</p>
+      <p className="text-[9px] font-black uppercase tracking-[.1em] text-white/40 mb-1">{label}</p>
       <p className={`text-[16px] sm:text-[18px] font-black leading-none ${
-        highlight ? "text-amber-500" : green ? "text-emerald-600" : "text-[#000435]"
+        highlight ? "text-amber-400" : green ? "text-emerald-400" : "text-white"
       }`}>{value}</p>
-      {sub && <p className="text-[10px] text-[#000435]/55 mt-1 font-semibold">{sub}</p>}
+      {sub && <p className="text-[10px] text-white/35 mt-1 font-semibold">{sub}</p>}
     </div>
   );
 }
@@ -153,17 +153,17 @@ function SummaryCard({ label, value, sub, highlight, green }) {
 /* ── Nav buttons ─────────────────────────────────────────────── */
 function NavBtns({ onBack, onNext, nextLabel = "Continue", nextDisabled = false, nextLoading = false, backLabel = "Back" }) {
   return (
-    <div className="flex items-center gap-3 pt-5 mt-1 border-t border-slate-200">
+    <div className="flex items-center gap-3 pt-5 mt-1 border-t border-white/8">
       {onBack && (
         <button type="button" onClick={onBack}
-          className="flex items-center gap-2 px-4 py-3 rounded-xl border border-slate-300 text-[#000435]/70 font-bold text-[13px] hover:border-[#000435]/30 hover:text-[#000435] transition-all min-h-[48px]">
+          className="flex items-center gap-2 px-4 py-3 rounded-xl border border-white/15 text-white/60 font-bold text-[13px] hover:border-white/30 hover:text-white transition-all min-h-[48px]">
           <ArrowLeft size={15}/> {backLabel}
         </button>
       )}
       <button type="button" onClick={onNext} disabled={nextDisabled || nextLoading}
         className={`flex-1 sm:flex-none sm:ml-auto flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-black text-[14px] min-h-[48px] transition-all ${
           nextDisabled || nextLoading
-            ? "bg-slate-200 text-[#000435]/35 cursor-not-allowed"
+            ? "bg-white/8 text-white/25 cursor-not-allowed"
             : "bg-amber-400 text-[#000435] hover:bg-amber-300 shadow-xl shadow-amber-400/20 active:scale-[.98]"
         }`}>
         {nextLoading && <Loader2 size={16} className="spin-anim"/>}
@@ -596,25 +596,25 @@ export default function PublicPayBySchool() {
 
   // ── RENDER ────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-white" style={{ fontFamily: FONT }}>
+    <div className="min-h-screen bg-[#000435]" style={{ fontFamily: FONT }}>
       <FontLoader/>
 
       {/* Top bar */}
-      <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-xl border-b border-amber-300 shadow-sm">
+      <div className="sticky top-0 z-20 bg-[#000435]/95 backdrop-blur-xl border-b-[3px] border-amber-400">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center gap-3">
           <button onClick={() => navigate(-1)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-[#000435]/70 font-bold text-[12px] hover:border-[#000435]/30 hover:text-[#000435] transition-all">
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/6 border border-white/12 text-white/60 font-bold text-[12px] hover:bg-white/10 hover:text-white transition-all">
             <ArrowLeft size={14}/> Back
           </button>
           <div className="flex items-center gap-2 ml-1">
             <div className="w-7 h-7 rounded-lg bg-amber-400 flex items-center justify-center">
               <School size={14} className="text-[#000435]"/>
             </div>
-            <span className="font-black text-[14px] sm:text-[15px] text-[#000435] hidden xs:block">
+            <span className="font-black text-[14px] sm:text-[15px] text-white hidden xs:block">
               {classkitIntent ? "Pay ClassKit" : "Pay School Fees"}
             </span>
           </div>
-          <div className="flex items-center gap-1.5 ml-auto text-[11px] font-bold text-amber-500">
+          <div className="flex items-center gap-1.5 ml-auto text-[11px] font-bold text-amber-400">
             <ShieldCheck size={14}/>
             <span className="hidden sm:inline">Secure Checkout</span>
           </div>
@@ -626,24 +626,24 @@ export default function PublicPayBySchool() {
 
         {/* Hero heading */}
         <div className="mb-7 sm:mb-8">
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200 px-3 py-1.5 mb-4">
+          <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-400/10 border border-amber-400/25 px-3 py-1.5 mb-4">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-400"/>
-            <span className="text-[10px] font-black uppercase tracking-[.12em] text-amber-600">
+            <span className="text-[10px] font-black uppercase tracking-[.12em] text-amber-400">
               {classkitIntent ? "ClassKit & ShuleKit" : "Parents & Guardians"}
             </span>
           </div>
-          <h1 className="font-black text-[#000435] text-[24px] sm:text-[28px] xl:text-[32px] tracking-tight leading-tight mb-2">
+          <h1 className="font-black text-white text-[24px] sm:text-[28px] xl:text-[32px] tracking-tight leading-tight mb-2">
             {classkitIntent ? "Pay for SchoolKit" : "Pay school fees by"}&nbsp;
-            <span className="text-amber-500">Student code</span>
+            <span className="text-amber-400">Student code</span>
           </h1>
         
         </div>
 
         {/* Main card */}
-        <div className="rounded-2xl xl:rounded-3xl bg-white border border-slate-200 overflow-hidden shadow-[0_20px_60px_-25px_rgba(0,4,53,0.25)]">
+        <div className="rounded-2xl xl:rounded-3xl bg-white/4 border border-amber-400/20 overflow-hidden shadow-2xl shadow-black/30">
 
           {/* Step indicator header */}
-          <div className="px-5 sm:px-6 py-5 border-b border-slate-200 bg-slate-50">
+          <div className="px-5 sm:px-6 py-5 border-b border-white/8 bg-[#000435]/50">
             <StepIndicator current={step}/>
           </div>
 
@@ -654,7 +654,7 @@ export default function PublicPayBySchool() {
             {step === 1 && (
               <div key={stepKey} className="step-in">
                 <div className="mb-6">
-                  <h2 className="font-black text-[#000435] text-[18px] sm:text-[20px] mb-1.5">Enter student code</h2>
+                  <h2 className="font-black text-white text-[18px] sm:text-[20px] mb-1.5">Enter student code</h2>
                   
                 </div>
 
@@ -678,20 +678,20 @@ export default function PublicPayBySchool() {
                         <Building2 size={18} className="text-amber-400"/>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-black text-[#000435] text-[15px] truncate">{school.school_name}</p>
+                        <p className="font-black text-white text-[15px] truncate">{school.school_name}</p>
                         <p className="text-[11px] font-mono text-amber-400/70 mt-0.5">School code: {school.school_code}</p>
                       </div>
                       <Check size={16} className="text-amber-400 shrink-0" strokeWidth={2.5}/>
                     </div>
-                    <div className="flex items-start gap-3 p-4 rounded-xl border border-slate-200 bg-slate-50/70">
+                    <div className="flex items-start gap-3 p-4 rounded-xl border border-white/10 bg-white/4">
                       <div className="w-10 h-10 rounded-xl bg-amber-400/15 border border-amber-400/25 flex items-center justify-center font-black text-[13px] text-amber-400 shrink-0">
                         {`${student.first_name || " "}`[0]}{`${student.last_name || " "}`[0]}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-black text-[#000435] text-[15px]">{student.first_name} {student.last_name}</p>
-                        <p className="text-[12px] text-[#000435]/65 font-semibold mt-1">
-                          Class <span className="text-[#000435]">{student.class_name || "—"}</span>
-                          {student.academic_year ? <span className="text-[#000435]/50"> · Record year {student.academic_year}</span> : null}
+                        <p className="font-black text-white text-[15px]">{student.first_name} {student.last_name}</p>
+                        <p className="text-[12px] text-white/45 font-semibold mt-1">
+                          Class <span className="text-white/80">{student.class_name || "—"}</span>
+                          {student.academic_year ? <span className="text-white/35"> · Record year {student.academic_year}</span> : null}
                         </p>
                       </div>
                     </div>
@@ -714,8 +714,8 @@ export default function PublicPayBySchool() {
             {step === 2 && school && student && (
               <div key={stepKey} className="step-in">
                 <div className="mb-6">
-                  <h2 className="font-black text-[#000435] text-[18px] sm:text-[20px] mb-1.5">Term and academic year</h2>
-                  <p className="text-[#000435]/65 text-[13px]">
+                  <h2 className="font-black text-white text-[18px] sm:text-[20px] mb-1.5">Term and academic year</h2>
+                  <p className="text-white/45 text-[13px]">
                     Fees are for <span className="text-amber-400 font-bold">{student.class_name || "your class"}</span> at {school.school_name}.
                   
                   </p>
@@ -769,8 +769,8 @@ export default function PublicPayBySchool() {
             {step === 3 && school && (
               <div key={stepKey} className="step-in">
                 <div className="mb-5">
-                  <h2 className="font-black text-[#000435] text-[18px] sm:text-[20px] mb-1">Select what to pay</h2>
-                  <p className="text-[#000435]/65 text-[13px]">Choose one or more fee and requirement items. Total updates instantly.</p>
+                  <h2 className="font-black text-white text-[18px] sm:text-[20px] mb-1">Select what to pay</h2>
+                  <p className="text-white/45 text-[13px]">Choose one or more fee and requirement items. Total updates instantly.</p>
                 </div>
 
                 {/* Combo selector */}
@@ -779,7 +779,7 @@ export default function PublicPayBySchool() {
                     <GraduationCap size={15} className="text-[#000435]"/>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-black text-[#000435] text-[13px]">{school.school_name}</p>
+                    <p className="font-black text-white text-[13px]">{school.school_name}</p>
                     <p className="text-[11px] text-amber-400/70 font-semibold">{selectedCombo ? comboLabel(selectedCombo) : "—"}</p>
                   </div>
                   <button type="button" onClick={() => goStep(2)} className="text-[11px] text-amber-400/60 hover:text-amber-400 font-bold transition-colors shrink-0">Change</button>
@@ -790,7 +790,7 @@ export default function PublicPayBySchool() {
                     <div className="w-10 h-10 rounded-xl border border-amber-400/25 flex items-center justify-center">
                       <Loader2 size={20} className="text-amber-400 spin-anim"/>
                     </div>
-                    <p className="text-[#000435]/55 text-[13px] font-semibold">Loading fees…</p>
+                    <p className="text-white/40 text-[13px] font-semibold">Loading fees…</p>
                   </div>
                 )}
 
@@ -805,7 +805,7 @@ export default function PublicPayBySchool() {
                     {/* School fees */}
                     {(pricingData.school_fees || []).length > 0 && (
                       <div className="mb-4">
-                        <p className="text-[10px] font-black uppercase tracking-[.1em] text-[#000435]/55 mb-3 flex items-center gap-2">
+                        <p className="text-[10px] font-black uppercase tracking-[.1em] text-white/35 mb-3 flex items-center gap-2">
                           <Wallet size={12}/> Tuition &amp; Paid at School Items
                         </p>
                         <div className="space-y-2">
@@ -820,7 +820,7 @@ export default function PublicPayBySchool() {
                               <div
                                 key={String(f.id)}
                                 className={`rounded-xl border transition-all ${
-                                  selected ? "border-amber-400/40 bg-amber-50" : "border-slate-200 bg-white hover:border-[#000435]/25"
+                                  selected ? "border-amber-400/40 bg-amber-400/8" : "border-white/10 bg-white/3 hover:border-white/20"
                                 }`}
                               >
                                 <div
@@ -831,19 +831,19 @@ export default function PublicPayBySchool() {
                                   className="flex items-center gap-3 p-3.5 cursor-pointer"
                                 >
                                   <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 border-2 transition-all ${
-                                    selected ? "bg-amber-400 border-amber-400" : "border-slate-300 bg-transparent"
+                                    selected ? "bg-amber-400 border-amber-400" : "border-white/25 bg-transparent"
                                   }`}>
                                     {selected && <Check size={11} className="text-[#000435]" strokeWidth={3}/>}
                                   </div>
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 flex-wrap">
-                                      <span className="font-semibold text-[#000435] text-[13px]">{f.name || "Fee item"}</span>
+                                      <span className="font-semibold text-white text-[13px]">{f.name || "Fee item"}</span>
                                       {isPas ? (
-                                        <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200">Paid at school</span>
+                                        <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-white/10 text-amber-300/90 border border-white/10">Paid at school</span>
                                       ) : null}
                                     </div>
                                     {isPas && f.unit_price_rwf != null ? (
-                                      <p className="text-[10px] text-[#000435]/55 mt-1">
+                                      <p className="text-[10px] text-white/35 mt-1">
                                         {Number(f.unit_price_rwf || 0).toLocaleString()} RWF × {Number(f.quantity_value ?? 1)} = {owedLine.toLocaleString()} RWF
                                       </p>
                                     ) : null}
@@ -857,7 +857,7 @@ export default function PublicPayBySchool() {
                           })}
                         </div>
                         <div className="mt-3 p-3.5 rounded-xl border border-amber-400/30 bg-amber-400/7 flex items-center justify-between">
-                          <p className="text-[12px] font-black text-[#000435]">Total Tuition Fee &amp; Paid At School</p>
+                          <p className="text-[12px] font-black text-white">Total Tuition Fee &amp; Paid At School</p>
                           <p className="font-black text-[16px] font-mono text-amber-400">{feeTotal.toLocaleString()} RWF</p>
                         </div>
                       </div>
@@ -866,7 +866,7 @@ export default function PublicPayBySchool() {
                     {/* Requirements (selectable) */}
                     {(pricingData.requirements || []).length > 0 && (
                       <div className="mb-5">
-                        <p className="text-[10px] font-black uppercase tracking-[.1em] text-[#000435]/55 mb-3 flex items-center gap-2">
+                        <p className="text-[10px] font-black uppercase tracking-[.1em] text-white/35 mb-3 flex items-center gap-2">
                           <GraduationCap size={12}/> Pay via Babyeyi — other requirements
                         </p>
                         <div className="space-y-2">
@@ -879,11 +879,11 @@ export default function PublicPayBySchool() {
                                 key={r.babyeyi_requirement_id}
                                 onClick={() => rid != null && toggleReq(rid)}
                                 className={`flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
-                                  selected ? "border-amber-400/40 bg-amber-50" : "border-slate-200 bg-white hover:border-[#000435]/25"
+                                  selected ? "border-amber-400/40 bg-amber-400/8" : "border-white/10 bg-white/3 hover:border-white/20"
                                 }`}
                               >
                                 <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 border-2 transition-all ${
-                                  selected ? "bg-amber-400 border-amber-400" : "border-slate-300 bg-transparent"
+                                  selected ? "bg-amber-400 border-amber-400" : "border-white/25 bg-transparent"
                                 }`}>
                                   {selected && <Check size={11} className="text-[#000435]" strokeWidth={3}/>}
                                 </div>
@@ -891,14 +891,14 @@ export default function PublicPayBySchool() {
                                   <button
                                     type="button"
                                     onClick={(e) => { e.stopPropagation(); setImgPreview(payImgUrl(r.catalog_image_url)); }}
-                                    className="w-9 h-9 rounded-lg border border-slate-200 overflow-hidden shrink-0"
+                                    className="w-9 h-9 rounded-lg border border-white/10 overflow-hidden shrink-0"
                                   >
                                     <img src={payImgUrl(r.catalog_image_url)} alt="" className="w-full h-full object-contain"/>
                                   </button>
                                 ) : null}
                                 <div className="flex-1 min-w-0">
-                                  <p className="font-semibold text-[#000435] text-[13px]">{r.requirement_name}</p>
-                                  <p className="text-[10px] text-[#000435]/55 mt-0.5">
+                                  <p className="font-semibold text-white text-[13px]">{r.requirement_name}</p>
+                                  <p className="text-[10px] text-white/35 mt-0.5">
                                     {Number(r.unit_price_rwf ?? 0).toLocaleString()} RWF × {Number(r.quantity_value ?? 1)} = {line.toLocaleString()} RWF
                                     {r.quantity != null && String(r.quantity).trim() !== "" ? ` · ${String(r.quantity)}` : ""}
                                   </p>
@@ -914,11 +914,11 @@ export default function PublicPayBySchool() {
                     {/* Grand total */}
                     <div className="p-4 rounded-xl border-2 border-amber-400/40 bg-amber-400/6">
                       <div className="flex items-center justify-between">
-                        <p className="font-black text-[#000435] text-[15px]">Total due online</p>
+                        <p className="font-black text-white text-[15px]">Total due online</p>
                         <p className="font-black text-amber-400 text-[22px] font-mono">{grand.toLocaleString()} <span className="text-[14px]">RWF</span></p>
                       </div>
                       {schoolCounterCreditSum > 0 && (
-                        <p className="text-[11px] text-emerald-600 font-semibold mt-2 pt-2 border-t border-amber-300/40">
+                        <p className="text-[11px] text-emerald-300/90 font-semibold mt-2 pt-2 border-t border-amber-400/15">
                           Including −{schoolCounterCreditSum.toLocaleString()} RWF declared as already paid at school (school-counter items only).
                         </p>
                       )}
@@ -939,7 +939,7 @@ export default function PublicPayBySchool() {
             {step === 4 && pricingData && (
               <div key={stepKey} className="step-in">
                 <div className="mb-5">
-                  <h2 className="font-black text-[#000435] text-[18px] sm:text-[20px] mb-1.5">Payment amount</h2>
+                  <h2 className="font-black text-white text-[18px] sm:text-[20px] mb-1.5">Payment amount</h2>
                   
                 </div>
 
@@ -949,10 +949,10 @@ export default function PublicPayBySchool() {
                       type="button"
                       onClick={() => { setPayScope("tuition_school"); setAmountInput(String(Math.round(feeTotal * 100) / 100)); }}
                       className={`text-left rounded-xl border px-4 py-3 transition-all ${
-                        payScope === "tuition_school" ? "border-amber-400 bg-amber-50" : "border-slate-200 bg-white hover:border-[#000435]/25"
+                        payScope === "tuition_school" ? "border-amber-400 bg-amber-400/10" : "border-white/12 bg-white/4 hover:border-white/25"
                       }`}
                     >
-                      <p className="text-[11px] font-black uppercase tracking-[.08em] text-[#000435]/55">Paid at school items</p>
+                      <p className="text-[11px] font-black uppercase tracking-[.08em] text-white/40">Paid at school items</p>
                       <p className="text-[15px] font-black text-amber-400 font-mono mt-0.5">{Math.round(feeTotal * 100) / 100} RWF</p>
                      
                     </button>
@@ -962,10 +962,10 @@ export default function PublicPayBySchool() {
                       type="button"
                       onClick={() => { setPayScope("requirements_online"); setAmountInput(String(Math.round(reqTotal * 100) / 100)); }}
                       className={`text-left rounded-xl border px-4 py-3 transition-all ${
-                        payScope === "requirements_online" ? "border-amber-400 bg-amber-50" : "border-slate-200 bg-white hover:border-[#000435]/25"
+                        payScope === "requirements_online" ? "border-amber-400 bg-amber-400/10" : "border-white/12 bg-white/4 hover:border-white/25"
                       }`}
                     >
-                      <p className="text-[11px] font-black uppercase tracking-[.08em] text-[#000435]/55">Selected Requirements </p>
+                      <p className="text-[11px] font-black uppercase tracking-[.08em] text-white/40">Selected Requirements </p>
                       <p className="text-[15px] font-black text-amber-400 font-mono mt-0.5">{Math.round(reqTotal * 100) / 100} RWF</p>
                       
                     </button>
@@ -975,10 +975,10 @@ export default function PublicPayBySchool() {
                       type="button"
                       onClick={() => { setPayScope("combined"); setAmountInput(String(Math.round(grand * 100) / 100)); }}
                       className={`text-left rounded-xl border px-4 py-3 transition-all ${
-                        payScope === "combined" ? "border-amber-400 bg-amber-50" : "border-slate-200 bg-white hover:border-[#000435]/25"
+                        payScope === "combined" ? "border-amber-400 bg-amber-400/10" : "border-white/12 bg-white/4 hover:border-white/25"
                       }`}
                     >
-                      <p className="text-[11px] font-black uppercase tracking-[.08em] text-[#000435]/55">Total of Paid at school items &amp; Selected Requirements</p>
+                      <p className="text-[11px] font-black uppercase tracking-[.08em] text-white/40">Total of Paid at school items &amp; Selected Requirements</p>
                       <p className="text-[15px] font-black text-amber-400 font-mono mt-0.5">{Math.round(grand * 100) / 100} RWF</p>
                       
                     </button>
@@ -991,20 +991,20 @@ export default function PublicPayBySchool() {
                   <div className={`flex items-center gap-2.5 rounded-xl border transition-all h-14 px-4 ${
                     amountOverSel ? "border-red-400/50 bg-red-400/5"
                     : amountValid && enteredAmount > 0 ? "border-emerald-400/50 bg-emerald-400/5"
-                    : "border-slate-200 bg-white"
+                    : "border-white/15 bg-white/5"
                   }`}>
-                    <span className="text-[#000435]/55 font-bold text-[12px] shrink-0">RWF</span>
+                    <span className="text-white/35 font-bold text-[12px] shrink-0">RWF</span>
                     <input
                       type="number" value={amountInput} onChange={e => setAmountInput(e.target.value)}
                       placeholder="0" min="0"
-                      className="flex-1 bg-transparent text-[#000435] text-[20px] font-black font-mono placeholder:text-[#000435]/30 outline-none"
+                      className="flex-1 bg-transparent text-white text-[20px] font-black font-mono placeholder:text-white/20 outline-none"
                     />
                     {amountValid && enteredAmount > 0 && <Check size={18} className="text-emerald-400 shrink-0" strokeWidth={2.5}/>}
                   </div>
                 </Field>
 
                 {allocationNote && enteredAmount >= 100 && (
-                  <div className="mt-3 rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-3 text-[12px] text-[#000435]/80 font-semibold leading-snug">
+                  <div className="mt-3 rounded-xl border border-amber-400/25 bg-amber-400/8 px-3.5 py-3 text-[12px] text-amber-100/90 font-semibold leading-snug">
                     {allocationNote}
                   </div>
                 )}
@@ -1028,8 +1028,8 @@ export default function PublicPayBySchool() {
             {step === 5 && pricingData && amountValid && student && !classMismatch && (
               <div key={stepKey} className="step-in">
                 <div className="mb-6">
-                  <h2 className="font-black text-[#000435] text-[18px] sm:text-[20px] mb-1.5">Confirm and continue</h2>
-                  <p className="text-[#000435]/65 text-[13px]">Review this payment and continue to choose your payment method.</p>
+                  <h2 className="font-black text-white text-[18px] sm:text-[20px] mb-1.5">Confirm and continue</h2>
+                  <p className="text-white/45 text-[13px]">Review this payment and continue to choose your payment method.</p>
                 </div>
 
                 {/* Payment summary */}
@@ -1040,31 +1040,31 @@ export default function PublicPayBySchool() {
                   </div>
                   <div className="space-y-1.5 text-[13px]">
                     <div className="flex items-center justify-between">
-                      <span className="text-[#000435]/60 font-semibold">School</span>
-                      <span className="text-[#000435] font-bold truncate max-w-[60%] text-right">{school?.school_name}</span>
+                      <span className="text-white/50 font-semibold">School</span>
+                      <span className="text-white font-bold truncate max-w-[60%] text-right">{school?.school_name}</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-[#000435]/60 font-semibold">Class / Term</span>
-                      <span className="text-[#000435] font-bold">{comboLabel(selectedCombo)}</span>
+                      <span className="text-white/50 font-semibold">Class / Term</span>
+                      <span className="text-white font-bold">{comboLabel(selectedCombo)}</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-[#000435]/60 font-semibold">Student</span>
-                      <span className="text-[#000435] font-bold">{student.first_name} {student.last_name}</span>
+                      <span className="text-white/50 font-semibold">Student</span>
+                      <span className="text-white font-bold">{student.first_name} {student.last_name}</span>
                     </div>
                     {remainingOwed != null && (
                       <div className="flex items-center justify-between">
-                        <span className="text-[#000435]/60 font-semibold">Outstanding before payment</span>
-                        <span className="text-[#000435] font-bold">{remainingOwed.toLocaleString()} RWF</span>
+                        <span className="text-white/50 font-semibold">Outstanding before payment</span>
+                        <span className="text-white font-bold">{remainingOwed.toLocaleString()} RWF</span>
                       </div>
                     )}
                     <div className="flex items-center justify-between pt-2 mt-1 border-t border-amber-400/15">
-                      <span className="text-[#000435] font-black">Total to pay</span>
+                      <span className="text-white font-black">Total to pay</span>
                       <span className="text-amber-400 font-black text-[18px] font-mono">{enteredAmount.toLocaleString()} RWF</span>
                     </div>
                     {remainingAfterCurrentPayment != null && (
                       <div className="flex items-center justify-between">
-                        <span className="text-[#000435]/60 font-semibold">Outstanding after payment</span>
-                        <span className={`font-bold ${remainingAfterCurrentPayment === 0 ? "text-emerald-500" : "text-[#000435]"}`}>
+                        <span className="text-white/50 font-semibold">Outstanding after payment</span>
+                        <span className={`font-bold ${remainingAfterCurrentPayment === 0 ? "text-emerald-400" : "text-white"}`}>
                           {remainingAfterCurrentPayment.toLocaleString()} RWF
                         </span>
                       </div>
@@ -1073,10 +1073,10 @@ export default function PublicPayBySchool() {
                 </div>
 
                 {!classMismatch && (balanceLoading || balanceErr || balanceQuote) && (
-                  <div className="rounded-xl border border-slate-200 bg-slate-50/70 overflow-hidden mb-4">
-                    <div className="px-4 py-3 border-b border-slate-200 flex items-center gap-2">
+                  <div className="rounded-xl border border-white/10 bg-white/3 overflow-hidden mb-4">
+                    <div className="px-4 py-3 border-b border-white/8 flex items-center gap-2">
                       <CircleDollarSign size={15} className="text-amber-400"/>
-                      <span className="text-[11px] font-black uppercase tracking-[.1em] text-[#000435]/55">Balance check</span>
+                      <span className="text-[11px] font-black uppercase tracking-[.1em] text-white/50">Balance check</span>
                       {balanceLoading && <Loader2 size={13} className="text-amber-400 spin-anim ml-auto"/>}
                     </div>
                     {balanceErr && (
@@ -1089,9 +1089,9 @@ export default function PublicPayBySchool() {
                           <SummaryCard label="Remaining After This Payment" value={`${(remainingAfterCurrentPayment ?? 0).toLocaleString()} RWF`} sub={balanceQuote.term_label} green={remainingAfterCurrentPayment === 0} />
                         </div>
                         {remainingFullDocumentAfterCurrentPayment != null && (
-                          <div className="p-3 rounded-xl bg-white border border-slate-200 text-[12px]">
-                            <span className="text-[#000435]/60 font-bold">Outstanding after this payment for this term: </span>
-                            <span className="text-[#000435] font-black font-mono">{remainingFullDocumentAfterCurrentPayment.toLocaleString()} RWF</span>
+                          <div className="p-3 rounded-xl bg-white/4 border border-white/8 text-[12px]">
+                            <span className="text-white/40 font-bold">Outstanding after this payment for this term: </span>
+                            <span className="text-white font-black font-mono">{remainingFullDocumentAfterCurrentPayment.toLocaleString()} RWF</span>
                           </div>
                         )}
                       </div>
@@ -1108,7 +1108,7 @@ export default function PublicPayBySchool() {
                 <button type="button" onClick={continueToPayment} disabled={balanceLoading || classMismatch}
                   className={`w-full flex items-center justify-center gap-2.5 py-4 rounded-xl font-black text-[15px] transition-all min-h-[56px] ${
                     balanceLoading || classMismatch
-                      ? "bg-slate-200 text-[#000435]/35 cursor-not-allowed"
+                      ? "bg-white/8 text-white/25 cursor-not-allowed"
                       : "bg-amber-400 text-[#000435] hover:bg-amber-300 shadow-2xl shadow-amber-400/25 active:scale-[.98]"
                   }`}>
                   {balanceLoading ? <Loader2 size={18} className="spin-anim"/> : <CreditCard size={18} strokeWidth={2.5}/>}
@@ -1116,12 +1116,12 @@ export default function PublicPayBySchool() {
                   {!balanceLoading && <ArrowRight size={16}/>}
                 </button>
 
-                <div className="flex items-center justify-center gap-2 mt-3 text-[11px] text-[#000435]/50 font-semibold">
+                <div className="flex items-center justify-center gap-2 mt-3 text-[11px] text-white/25 font-semibold">
                   <ShieldCheck size={12}/> Choose MTN MoMo, bank transfer, or card on the next screen
                 </div>
 
-                <div className="mt-4 pt-4 border-t border-slate-200">
-                  <button type="button" onClick={() => goStep(4)} className="text-[12px] text-[#000435]/55 hover:text-[#000435]/80 font-bold transition-colors flex items-center gap-1.5">
+                <div className="mt-4 pt-4 border-t border-white/8">
+                  <button type="button" onClick={() => goStep(4)} className="text-[12px] text-white/35 hover:text-white/60 font-bold transition-colors flex items-center gap-1.5">
                     <ArrowLeft size={13}/> Back to amount
                   </button>
                 </div>
@@ -1132,14 +1132,14 @@ export default function PublicPayBySchool() {
         </div>
 
         {/* Footer link */}
-        <div className="text-center mt-6 text-[12px] text-[#000435]/55 font-semibold">
+        <div className="text-center mt-6 text-[12px] text-white/30 font-semibold">
           Need a different learner?{" "}
           <button type="button" onClick={() => {
             setCatalog(null); setStudent(null); setTermPick(""); setYearPick(""); setPricingData(null);
             setAmountInput(""); setCatalogErr(""); setComboIndex(0); goStep(1);
-          }} className="text-amber-600 hover:text-amber-500 transition-colors font-bold">Start over</button>
+          }} className="text-amber-400/70 hover:text-amber-400 transition-colors font-bold">Start over</button>
           {" · "}
-          <Link to="/schools" className="text-amber-600 hover:text-amber-500 transition-colors font-bold">Browse schools</Link>
+          <Link to="/schools" className="text-amber-400/70 hover:text-amber-400 transition-colors font-bold">Browse schools</Link>
         </div>
       </div>
 
