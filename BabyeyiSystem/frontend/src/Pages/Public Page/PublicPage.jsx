@@ -17,7 +17,7 @@ import {
 
 import Heroimage from "../../assets/logo-bg2.png";
 import HeroImageMobile from "../../assets/logo-bg-left.png";
-import MineduLogo from "../../assets/PartnersLogo/mineduc.png";
+import IconicLogo from "../../assets/PartnersLogo/iconic.png";
 import NESLogo from "../../assets/PartnersLogo/Nesa.png";
 import MTNLogo from "../../assets/PartnersLogo/mtn.png";
 import UmwarimuLogo from "../../assets/PartnersLogo/umwarimu sacco.jpg";
@@ -832,7 +832,7 @@ function GetStartedSection() {
 const TRUSTED_PARTNERS = [
    { name: "MTN RWANDA", full: "Mobile Money Payments", logo: MTNLogo },
   { name: "Umwarimu Sacco", full: "Teachers' Sacco", logo: UmwarimuLogo },
-  { name: "MINEDUC", full: "Ministry of Education", logo: MineduLogo, emphasize: true },
+  { name: "Iconic InnovatorZ", full: "Ministry of Education", logo: IconicLogo, emphasize: true },
   { name: "NESA", full: "Nat. Exam & School Inspection", logo: NESLogo, emphasize: true },
   { name: "XentriPay", full: "Payments partner", logo: XentriLogo },
   { name: "Airtel", full: "Airtel Rwanda", logo: AitelLogo },
@@ -872,9 +872,9 @@ function PartnersSection() {
             <div
               key={`${p.name}-${i}`}
               className={`
-                group relative flex min-h-[132px] flex-col items-center justify-between gap-3
+                group relative flex min-h-[138px] flex-col items-center justify-between gap-3
                 w-full rounded-2xl bg-gradient-to-b from-white to-slate-50/90
-                px-3 py-4 sm:min-h-[152px] sm:px-4 sm:py-5 md:min-h-[168px] md:py-6
+                px-3 py-4 sm:min-h-[160px] sm:px-4 sm:py-5 md:min-h-[176px] md:py-6
                 shadow-[0_2px_16px_-4px_rgba(0,4,53,0.07)]
                 transition-all duration-300 ease-out
                 hover:shadow-[0_16px_40px_-12px_rgba(245,158,11,0.18)] hover:-translate-y-0.5
@@ -882,17 +882,17 @@ function PartnersSection() {
               `}
             >
               <div
-                className="flex min-h-[56px] flex-1 w-full flex-col items-center justify-center sm:min-h-[64px]"
+                className="flex min-h-[62px] flex-1 w-full flex-col items-center justify-center sm:min-h-[72px]"
               >
                 <img
                   src={p.logo}
                   alt={p.name}
                   className={`partner-logo-light max-h-full w-auto${p.emphasize ? " partner-logo-emphasis" : ""}`}
                   style={{
-                    height: p.emphasize ? "clamp(44px, 11vw, 76px)" : "clamp(30px, 8vw, 48px)",
-                    maxHeight: p.emphasize ? "76px" : "48px",
+                    height: p.emphasize ? "clamp(48px, 12vw, 84px)" : "clamp(34px, 9vw, 56px)",
+                    maxHeight: p.emphasize ? "84px" : "56px",
                     width: "auto",
-                    maxWidth: "min(100%, 200px)",
+                    maxWidth: "min(100%, 220px)",
                     objectFit: "contain",
                     objectPosition: "center",
                     display: "block",

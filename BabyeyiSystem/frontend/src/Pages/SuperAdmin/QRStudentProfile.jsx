@@ -13,6 +13,26 @@
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
+import {
+  AlertTriangle,
+  BadgeCheck,
+  BookOpen,
+  CalendarClock,
+  CalendarDays,
+  ExternalLink,
+  Globe,
+  GraduationCap,
+  IdCard,
+  Lock,
+  Mail,
+  MapPin,
+  Phone,
+  School,
+  ShieldCheck,
+  User,
+  UserRound,
+  VenusAndMars,
+} from 'lucide-react';
 
 /* ─── Config ──────────────────────────────────────────────────────── */
 const API_ROOT     = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL)      || 'http://localhost:5100';
@@ -28,6 +48,8 @@ function getFrontendOrigin() {
 }
 
 const PUBLIC_SITE_URL = getFrontendOrigin();
+const UNIFORM_ICON_SIZE = 16;
+const UNIFORM_ICON_STROKE = 1.75;
 
 /* ─── Helpers ─────────────────────────────────────────────────────── */
 function getStudentIdFromUrl() {
@@ -133,7 +155,7 @@ export default function QRStudentsProfile() {
         <header className="qrp-header">
           <div className="qrp-header-inner">
             <div className="qrp-brand-badge">
-              <span className="qrp-brand-icon">🎓</span>
+              <span className="qrp-brand-icon"><GraduationCap size={UNIFORM_ICON_SIZE} strokeWidth={UNIFORM_ICON_STROKE} /></span>
               <span className="qrp-brand-name">Babyeyi System</span>
             </div>
             <div className="qrp-header-tag">Student Verification Portal</div>
@@ -148,7 +170,8 @@ export default function QRStudentsProfile() {
 
         <footer className="qrp-footer">
           <p className="qrp-footer-text">
-            🔒 Official record · Babyeyi Rwanda School Management System · <a href={PUBLIC_SITE_URL} className="qrp-footer-link">{PUBLIC_SITE_URL.replace(/^https?:\/\//, '')}</a>
+            <Lock size={UNIFORM_ICON_SIZE} strokeWidth={UNIFORM_ICON_STROKE} style={{ verticalAlign: 'text-bottom', marginRight: 6 }} />
+            Official record · Babyeyi Rwanda School Management System · <a href={PUBLIC_SITE_URL} className="qrp-footer-link">{PUBLIC_SITE_URL.replace(/^https?:\/\//, '')}</a>
           </p>
         </footer>
       </div>
@@ -174,7 +197,7 @@ function LoadingState() {
 function ErrorState({ message }) {
   return (
     <div className="qrp-state-wrap">
-      <div className="qrp-error-icon">⚠️</div>
+      <div className="qrp-error-icon"><AlertTriangle size={UNIFORM_ICON_SIZE} strokeWidth={UNIFORM_ICON_STROKE} /></div>
       <p className="qrp-state-title">Unable to Load Profile</p>
       <p className="qrp-state-sub">{message}</p>
       <a href={PUBLIC_SITE_URL} className="qrp-back-btn">Visit Babyeyi Portal →</a>
@@ -187,21 +210,21 @@ function ProfileCard({ student, entered, imgError, setImgError }) {
   const section = deriveSectionFromClass(student.className);
 
   const infoItems = [
-    { icon: '🪪', label: 'Student Code', value: student.studentCode, mono: true, accent: true },
-    { icon: '🎓', label: 'Class',         value: student.className },
-    { icon: '📚', label: 'Section',       value: section },
-    { icon: '📅', label: 'Academic Year', value: student.academicYear },
-    { icon: '⚥',  label: 'Gender',        value: student.gender },
-    { icon: '🗓️', label: 'Year of Birth', value: student.dob },
-    { icon: '📆', label: 'Registered',    value: student.registrationYear },
+    { icon: IdCard,       label: 'Student Code', value: student.studentCode, mono: true, accent: true },
+    { icon: GraduationCap,label: 'Class',         value: student.className },
+    { icon: BookOpen,     label: 'Section',       value: section },
+    { icon: CalendarDays, label: 'Academic Year', value: student.academicYear },
+    { icon: VenusAndMars, label: 'Gender',        value: student.gender },
+    { icon: CalendarDays, label: 'Year of Birth', value: student.dob },
+    { icon: CalendarClock,label: 'Registered',    value: student.registrationYear },
   ].filter(i => i.value && i.value !== '-');
 
   const schoolItems = [
-    { icon: '🏫', label: 'School',    value: student.school },
-    { icon: '📍', label: 'Location',  value: student.addressSummary },
-    { icon: '📞', label: 'Phone',     value: student.phone,  href: `tel:${student.phone}` },
-    { icon: '📧', label: 'Email',     value: student.email,  href: `mailto:${student.email}` },
-    { icon: '🌐', label: 'Website',   value: student.website, href: student.website ? `https://${student.website}` : null },
+    { icon: School, label: 'School',    value: student.school },
+    { icon: MapPin, label: 'Location',  value: student.addressSummary },
+    { icon: Phone,  label: 'Phone',     value: student.phone,  href: `tel:${student.phone}` },
+    { icon: Mail,   label: 'Email',     value: student.email,  href: `mailto:${student.email}` },
+    { icon: Globe,  label: 'Website',   value: student.website, href: student.website ? `https://${student.website}` : null },
   ].filter(i => i.value);
 
   return (
@@ -234,10 +257,7 @@ function ProfileCard({ student, entered, imgError, setImgError }) {
               />
             ) : (
               <div className="qrp-photo-placeholder">
-                <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2">
-                  <circle cx="12" cy="8" r="4"/>
-                  <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
-                </svg>
+                <UserRound size={UNIFORM_ICON_SIZE} strokeWidth={UNIFORM_ICON_STROKE} />
               </div>
             )}
           </div>
@@ -258,13 +278,13 @@ function ProfileCard({ student, entered, imgError, setImgError }) {
       {/* ── Student info grid ── */}
       <div className="qrp-section">
         <div className="qrp-section-header">
-          <span className="qrp-section-icon">👤</span>
+          <span className="qrp-section-icon"><User size={UNIFORM_ICON_SIZE} strokeWidth={UNIFORM_ICON_STROKE} /></span>
           <span className="qrp-section-label">Student Information</span>
         </div>
         <div className="qrp-info-grid">
-          {infoItems.map(({ icon, label, value, mono, accent }) => (
+          {infoItems.map(({ icon: Icon, label, value, mono, accent }) => (
             <div key={label} className={`qrp-info-row ${accent ? 'qrp-info-row-accent' : ''}`}>
-              <div className="qrp-info-icon">{icon}</div>
+              <div className="qrp-info-icon"><Icon size={UNIFORM_ICON_SIZE} strokeWidth={UNIFORM_ICON_STROKE} /></div>
               <div className="qrp-info-content">
                 <div className="qrp-info-label">{label}</div>
                 <div className={`qrp-info-value ${mono ? 'qrp-mono' : ''}`}>{value}</div>
@@ -277,13 +297,13 @@ function ProfileCard({ student, entered, imgError, setImgError }) {
       {/* ── School details ── */}
       <div className="qrp-section">
         <div className="qrp-section-header">
-          <span className="qrp-section-icon">🏫</span>
+          <span className="qrp-section-icon"><School size={UNIFORM_ICON_SIZE} strokeWidth={UNIFORM_ICON_STROKE} /></span>
           <span className="qrp-section-label">School Details</span>
         </div>
         <div className="qrp-info-grid">
-          {schoolItems.map(({ icon, label, value, href }) => (
+          {schoolItems.map(({ icon: Icon, label, value, href }) => (
             <div key={label} className="qrp-info-row">
-              <div className="qrp-info-icon">{icon}</div>
+              <div className="qrp-info-icon"><Icon size={UNIFORM_ICON_SIZE} strokeWidth={UNIFORM_ICON_STROKE} /></div>
               <div className="qrp-info-content">
                 <div className="qrp-info-label">{label}</div>
                 {href ? (
@@ -301,7 +321,7 @@ function ProfileCard({ student, entered, imgError, setImgError }) {
       <div className="qrp-stamp">
         <div className="qrp-stamp-inner">
           <div className="qrp-stamp-left">
-            <div className="qrp-stamp-seal">✅</div>
+            <div className="qrp-stamp-seal"><BadgeCheck size={UNIFORM_ICON_SIZE} strokeWidth={UNIFORM_ICON_STROKE} /></div>
             <div>
               <div className="qrp-stamp-title">Officially Registered</div>
               <div className="qrp-stamp-sub">Babyeyi Rwanda School System</div>
@@ -317,18 +337,21 @@ function ProfileCard({ student, entered, imgError, setImgError }) {
       {/* ── Action buttons ── */}
       <div className="qrp-actions">
         <a href={PUBLIC_SITE_URL} className="qrp-action-btn qrp-action-primary">
-          🌐 Visit School Portal
+          <Globe size={UNIFORM_ICON_SIZE} strokeWidth={UNIFORM_ICON_STROKE} />
+          Visit School Portal
+          <ExternalLink size={UNIFORM_ICON_SIZE} strokeWidth={UNIFORM_ICON_STROKE} />
         </a>
         {student.phone && (
           <a href={`tel:${student.phone}`} className="qrp-action-btn qrp-action-secondary">
-            📞 Contact School
+            <Phone size={UNIFORM_ICON_SIZE} strokeWidth={UNIFORM_ICON_STROKE} />
+            Contact School
           </a>
         )}
       </div>
 
       {/* ── Note ── */}
       <div className="qrp-note">
-        <span className="qrp-note-icon">🔒</span>
+        <span className="qrp-note-icon"><ShieldCheck size={UNIFORM_ICON_SIZE} strokeWidth={UNIFORM_ICON_STROKE} /></span>
         This profile is publicly accessible via an official QR code issued on the student's ID card.
         The information displayed is verified and managed by the registered school.
       </div>
