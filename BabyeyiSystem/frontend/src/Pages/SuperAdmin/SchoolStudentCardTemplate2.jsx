@@ -38,10 +38,24 @@ const FONT_STACK = "'Montserrat', 'Segoe UI', system-ui, sans-serif";
 const API_ROOT     = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL)     || 'http://localhost:5100';
 const API          = `${API_ROOT.replace(/\/$/, '')}/api`;
 const UPLOADS_BASE = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_UPLOADS_BASE) || API_ROOT.replace(/\/$/, '');
-const PUBLIC_SITE  = 'https://babyeyi.rw';
+const PUBLIC_SITE  = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_PUBLIC_SITE_URL) || 'https://babyeyi.rw';
 
 function getBase() {
   return (typeof import.meta !== 'undefined' ? String(import.meta.env?.BASE_URL || '/') : '/').replace(/\/?$/, '/');
+}
+
+function getFrontendOrigin() {
+  const envOrigin = String(PUBLIC_SITE || '').trim();
+  if (envOrigin) return envOrigin.replace(/\/$/, '');
+  if (typeof window !== 'undefined' && window.location?.origin) return window.location.origin.replace(/\/$/, '');
+  return 'https://babyeyi.rw';
+}
+
+function buildStudentProfileUrl(studentId) {
+  const origin = getFrontendOrigin();
+  const basePath = getBase().replace(/\/$/, '');
+  const profilePath = `${basePath}/online-service/dashboard`.replace(/\/{2,}/g, '/');
+  return `${origin}${profilePath}?student=${encodeURIComponent(studentId)}`;
 }
 
 /* ─── Data helpers ───────────────────────────────────────────────────── */
@@ -53,25 +67,8 @@ function yearOnly(v) {
   return m ? m[0] : String(v);
 }
 function buildStudentQrPayload(student) {
-  const profileUrl = `${PUBLIC_SITE}/online-service/dashboard?student=${encodeURIComponent(student.id)}`;
-  return JSON.stringify({
-    profile_url: profileUrl,
-    student: {
-      id: student.id,
-      code: student.studentCode,
-      name: student.fullName,
-      gender: student.gender,
-      class: student.className,
-      registration_year: student.registrationYear,
-    },
-    school: {
-      name: student.school,
-      phone: student.phone,
-      email: student.email,
-      website: student.website,
-      address: student.addressSummary,
-    },
-  });
+  // Keep QR content as a plain URL so scanner apps can auto-open it directly.
+  return buildStudentProfileUrl(student.id);
 }
 function getQrImageUrl(payload) {
   return `https://api.qrserver.com/v1/create-qr-code/?size=512x512&format=png&data=${encodeURIComponent(payload)}`;
@@ -109,7 +106,7 @@ export function mapRowToStudent(row) {
     sector:       row.sector,
     school_id:    row.school_id,
     school_logo_full: row.logo_url ? `${UPLOADS_BASE}${row.logo_url}` : null,
-    qrFallbackUrl:    `${PUBLIC_SITE}/online-service/dashboard?student=${encodeURIComponent(row.id)}`,
+    qrFallbackUrl:    buildStudentProfileUrl(row.id),
     phone:        row.school_phone ? String(row.school_phone).trim() : '',
     email:        row.school_email ? String(row.school_email).trim() : '',
     website:      formatWebsite(row.school_website || ''),
