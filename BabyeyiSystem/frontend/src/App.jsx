@@ -125,6 +125,7 @@ import SuperAdminStandardKitRequestsPage from './Pages/SuperAdmin/SuperAdminStan
 import SuperAdminShuleAvanceOrgs from './Pages/SuperAdmin/SuperAdminShuleAvanceOrgs';
 import SchoolStudentsCard from './Pages/SuperAdmin/SchoolStudentsCard';
 import SchoolStudentCardTemplate2 from './Pages/SuperAdmin/SchoolStudentCardTemplate2';
+import QRStudentsProfile from './Pages/SuperAdmin/QRStudentProfile';
 import ShuleAvanceTeacher from './Pages/SuperAdmin/ShuleAvanceTeacher';
 import TeacherDealProducts from './Pages/SuperAdmin/TeacherDealProducts';
 import ShuleAvancePartnerDashboard from './Pages/ShuleAvance/ShuleAvancePartnerDashboard';
@@ -187,6 +188,7 @@ export default function App() {
           <Route path="/services/item/:idOrCode" element={<PublicServiceDetail />} />
           <Route path="/services/checkout" element={<StudentServiceCheckout />} />
           <Route path="/online-service" element={<OnlineService />} />
+          <Route path="/qr-student-profile" element={<QRStudentsProfile />} />
           <Route path="/track" element={<ApplicationStatusTracker />} />
 
           {/* ── Auth ──────────────────────────────────────────── */}

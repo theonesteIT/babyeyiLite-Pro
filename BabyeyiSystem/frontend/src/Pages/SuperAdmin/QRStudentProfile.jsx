@@ -2,7 +2,7 @@
  * QRStudentsProfile.jsx
  * Public student profile page — opened via QR code scan (no login required)
  *
- * Route: /online-service/dashboard?student=:id
+ * Route: /qr-student-profile?student=:id
  *
  * Features:
  *  - No authentication required — fully public

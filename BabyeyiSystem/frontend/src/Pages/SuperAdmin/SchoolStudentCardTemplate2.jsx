@@ -54,7 +54,7 @@ function getFrontendOrigin() {
 function buildStudentProfileUrl(studentId) {
   const origin = getFrontendOrigin();
   const basePath = getBase().replace(/\/$/, '');
-  const profilePath = `${basePath}/online-service/dashboard`.replace(/\/{2,}/g, '/');
+  const profilePath = `${basePath}/qr-student-profile`.replace(/\/{2,}/g, '/');
   return `${origin}${profilePath}?student=${encodeURIComponent(studentId)}`;
 }
 
