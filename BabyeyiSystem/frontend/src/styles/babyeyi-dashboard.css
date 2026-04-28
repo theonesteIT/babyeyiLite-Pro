@@ -1,0 +1,18 @@
+/* Babyeyi dashboards — navy #000435 + amber; typography now inherited globally */
+
+:root {
+  --babyeyi-navy: #000435;
+  --babyeyi-amber: #fbbf24;
+  --babyeyi-amber-soft: #fde68a;
+  --babyeyi-font: "Montserrat", system-ui, sans-serif;
+}
+
+.babyeyi-dash-shell {
+  font-family: var(--babyeyi-font);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Mobile: prevent horizontal overflow on nested tables/cards */
+.babyeyi-dash-main {
+  min-width: 0;
+}

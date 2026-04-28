@@ -1,0 +1,1447 @@
+const express = require('express');
+const { promisePool } = require('../config/database');
+const { requireRole } = require('../middleware/deoAuth');
+const { computeProAccessEffective } = require('../utils/schoolSubscription');
+
+const router = express.Router();
+
+const LIBRARY_ROLES = ['LIBRARIAN', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER'];
+const STOCK_ROLES = ['STORE_MANAGER', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER'];
+const GATE_ROLES = ['GATE_OFFICER', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER'];
+const GATE_ATTENDANCE_ADMIN_ROLES = ['GATE_OFFICER', 'DOS', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER'];
+
+let tablesReady = false;
+
+function resolveSchoolId(req) {
+  return (
+    req.user?.school_id ||
+    req.session?.school_id ||
+    req.session?.user?.school_id ||
+    req.session?.user?.school?.id ||
+    null
+  );
+}
+
+function resolveUserId(req) {
+  return req.user?.id || req.session?.userId || req.session?.user?.id || null;
+}
+
+function cleanStr(value, max = 255) {
+  return String(value == null ? '' : value).trim().slice(0, max);
+}
+
+function cleanOptional(value, max = 255) {
+  const v = cleanStr(value, max);
+  return v || null;
+}
+
+function cleanNumber(value, fallback = 0) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return n;
+}
+
+function normalizeUid(value) {
+  return String(value == null ? '' : value).trim().toUpperCase();
+}
+
+function hhmm(value) {
+  const m = String(value == null ? '' : value).trim().match(/^(\d{1,2}):(\d{2})/);
+  if (!m) return null;
+  const h = Number(m[1]);
+  const mm = Number(m[2]);
+  if (!Number.isFinite(h) || !Number.isFinite(mm) || h < 0 || h > 23 || mm < 0 || mm > 59) return null;
+  return `${String(h).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+}
+
+function minutesOf(value) {
+  const t = hhmm(value);
+  if (!t) return null;
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + m;
+}
+
+function currentSchoolDateAndMinutes(date = new Date()) {
+  // Use fixed school timezone so gate windows are deterministic
+  // regardless of server OS timezone settings.
+  const tz = process.env.SCHOOL_TIMEZONE || 'Africa/Kigali';
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(date);
+  const get = (type) => parts.find((p) => p.type === type)?.value || '00';
+  const dateStr = `${get('year')}-${get('month')}-${get('day')}`;
+  const mins = Number(get('hour')) * 60 + Number(get('minute'));
+  return { dateStr, mins };
+}
+
+async function ensureSchoolRoleOpsTables() {
+  if (tablesReady) return;
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS school_library_books (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      school_id INT UNSIGNED NOT NULL,
+      title VARCHAR(220) NOT NULL,
+      author VARCHAR(180) NULL,
+      isbn VARCHAR(80) NULL,
+      category VARCHAR(120) NULL,
+      quantity_total INT NOT NULL DEFAULT 1,
+      quantity_available INT NOT NULL DEFAULT 1,
+      shelf_location VARCHAR(120) NULL,
+      status ENUM('ACTIVE','INACTIVE') NOT NULL DEFAULT 'ACTIVE',
+      created_by_user_id INT UNSIGNED NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      KEY idx_library_school (school_id),
+      KEY idx_library_status (status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS school_library_checkouts (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      school_id INT UNSIGNED NOT NULL,
+      book_id INT UNSIGNED NOT NULL,
+      borrower_name VARCHAR(180) NOT NULL,
+      borrower_type ENUM('STUDENT','STAFF','VISITOR') NOT NULL DEFAULT 'STUDENT',
+      borrower_ref VARCHAR(120) NULL,
+      issued_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      due_date DATE NULL,
+      returned_at DATETIME NULL,
+      status ENUM('ISSUED','RETURNED') NOT NULL DEFAULT 'ISSUED',
+      notes TEXT NULL,
+      created_by_user_id INT UNSIGNED NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      KEY idx_checkouts_school (school_id),
+      KEY idx_checkouts_book (book_id),
+      KEY idx_checkouts_status (status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS school_stock_items (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      school_id INT UNSIGNED NOT NULL,
+      item_name VARCHAR(200) NOT NULL,
+      sku VARCHAR(80) NULL,
+      category VARCHAR(120) NULL,
+      unit VARCHAR(40) NOT NULL DEFAULT 'pcs',
+      reorder_level DECIMAL(10,2) NOT NULL DEFAULT 0,
+      opening_qty DECIMAL(10,2) NOT NULL DEFAULT 0,
+      current_qty DECIMAL(10,2) NOT NULL DEFAULT 0,
+      status ENUM('ACTIVE','INACTIVE') NOT NULL DEFAULT 'ACTIVE',
+      created_by_user_id INT UNSIGNED NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      KEY idx_stock_items_school (school_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS school_stock_movements (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      school_id INT UNSIGNED NOT NULL,
+      item_id INT UNSIGNED NOT NULL,
+      movement_type ENUM('IN','OUT','ADJUSTMENT') NOT NULL,
+      quantity_change DECIMAL(10,2) NOT NULL,
+      reason VARCHAR(220) NULL,
+      movement_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      created_by_user_id INT UNSIGNED NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      KEY idx_stock_mv_school (school_id),
+      KEY idx_stock_mv_item (item_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS school_gate_logs (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      school_id INT UNSIGNED NOT NULL,
+      person_name VARCHAR(180) NOT NULL,
+      person_type ENUM('STUDENT','STAFF','VISITOR') NOT NULL DEFAULT 'STUDENT',
+      person_ref VARCHAR(120) NULL,
+      action_type ENUM('IN','OUT') NOT NULL,
+      logged_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      notes TEXT NULL,
+      created_by_user_id INT UNSIGNED NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      KEY idx_gate_school (school_id),
+      KEY idx_gate_person (person_type),
+      KEY idx_gate_time (logged_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS school_gate_attendance_settings (
+      school_id INT UNSIGNED NOT NULL PRIMARY KEY,
+      morning_deadline VARCHAR(5) NOT NULL DEFAULT '08:00',
+      morning_cutoff VARCHAR(5) NOT NULL DEFAULT '10:00',
+      evening_start VARCHAR(5) NOT NULL DEFAULT '16:00',
+      evening_cutoff VARCHAR(5) NOT NULL DEFAULT '19:00',
+      updated_by_user_id INT UNSIGNED NULL,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS school_gate_attendance_records (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      school_id INT UNSIGNED NOT NULL,
+      attendance_date DATE NOT NULL,
+      card_uid VARCHAR(64) NOT NULL,
+      person_type ENUM('STUDENT','STAFF') NOT NULL,
+      person_id INT UNSIGNED NOT NULL,
+      person_name VARCHAR(180) NOT NULL,
+      person_ref VARCHAR(120) NULL,
+      morning_check_in DATETIME NULL,
+      morning_status ENUM('OnTime','Late') NULL,
+      morning_device_id VARCHAR(80) NULL,
+      evening_check_out DATETIME NULL,
+      evening_status ENUM('Exit') NULL,
+      evening_device_id VARCHAR(80) NULL,
+      academic_year VARCHAR(32) NULL,
+      term VARCHAR(32) NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_gate_card_day (school_id, attendance_date, card_uid),
+      KEY idx_gate_att_school_day (school_id, attendance_date),
+      KEY idx_gate_att_person_day (school_id, person_type, person_id, attendance_date),
+      KEY idx_gate_att_term_year (school_id, term, academic_year)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+  await promisePool.query('ALTER TABLE school_gate_attendance_records ADD COLUMN academic_year VARCHAR(32) NULL').catch(() => {});
+  await promisePool.query('ALTER TABLE school_gate_attendance_records ADD COLUMN term VARCHAR(32) NULL').catch(() => {});
+  await promisePool.query('ALTER TABLE school_gate_attendance_records ADD KEY idx_gate_att_term_year (school_id, term, academic_year)').catch(() => {});
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS school_gate_attendance_events (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      school_id INT UNSIGNED NULL,
+      device_id VARCHAR(80) NULL,
+      card_uid VARCHAR(64) NULL,
+      result_code VARCHAR(64) NOT NULL,
+      http_status INT NOT NULL,
+      message VARCHAR(255) NULL,
+      session_type VARCHAR(16) NULL,
+      person_type VARCHAR(16) NULL,
+      person_id INT UNSIGNED NULL,
+      attendance_date DATE NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_gate_event_school_time (school_id, created_at),
+      KEY idx_gate_event_code_time (result_code, created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  tablesReady = true;
+}
+
+async function getSchoolGateAttendanceSettings(schoolId) {
+  const [[row]] = await promisePool.query(
+    `SELECT morning_deadline, morning_cutoff, evening_start, evening_cutoff
+     FROM school_gate_attendance_settings
+     WHERE school_id = ?
+     LIMIT 1`,
+    [schoolId]
+  );
+  return {
+    morning_deadline: hhmm(row?.morning_deadline) || '08:00',
+    morning_cutoff: hhmm(row?.morning_cutoff) || '10:00',
+    evening_start: hhmm(row?.evening_start) || '16:00',
+    evening_cutoff: hhmm(row?.evening_cutoff) || '19:00',
+  };
+}
+
+async function logGateAttendanceEvent({
+  schoolId = null,
+  deviceId = null,
+  cardUid = null,
+  resultCode = 'UNKNOWN',
+  httpStatus = 500,
+  message = null,
+  sessionType = null,
+  personType = null,
+  personId = null,
+  attendanceDate = null,
+}) {
+  try {
+    await promisePool.query(
+      `INSERT INTO school_gate_attendance_events
+       (school_id, device_id, card_uid, result_code, http_status, message, session_type, person_type, person_id, attendance_date)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [schoolId, deviceId, cardUid, resultCode, Number(httpStatus || 0), message, sessionType, personType, personId, attendanceDate]
+    );
+  } catch (err) {
+    console.error('[gate_attendance] failed to log event:', err.message);
+  }
+}
+
+async function getSchoolAcademicMetaForDate(schoolId, dateStr) {
+  const [[row]] = await promisePool.query(
+    `SELECT current_academic_year, active_terms_json
+     FROM school_academic_settings
+     WHERE school_id = ?
+     LIMIT 1`,
+    [schoolId]
+  ).catch(() => [[null]]);
+
+  const currentAcademicYear = String(row?.current_academic_year || '').trim() || null;
+  let terms = ['Term 1', 'Term 2', 'Term 3'];
+  try {
+    if (row?.active_terms_json) {
+      const parsed = Array.isArray(row.active_terms_json)
+        ? row.active_terms_json
+        : JSON.parse(row.active_terms_json);
+      if (Array.isArray(parsed) && parsed.length) {
+        terms = parsed.map((x) => String(x || '').trim()).filter(Boolean);
+      }
+    }
+  } catch (_) {}
+  const d = new Date(`${dateStr}T12:00:00`);
+  const month = d.getMonth() + 1;
+  let inferredTerm = terms[0] || 'Term 1';
+  if (terms.length >= 3) {
+    if (month >= 9 && month <= 12) inferredTerm = terms[0];
+    else if (month >= 1 && month <= 4) inferredTerm = terms[1] || terms[0];
+    else inferredTerm = terms[2] || terms[terms.length - 1];
+  } else if (terms.length === 2) {
+    inferredTerm = month >= 9 || month <= 2 ? terms[0] : terms[1];
+  }
+  return { academicYear: currentAcademicYear, term: inferredTerm };
+}
+
+async function ensureProSchoolAccess(req, res, next) {
+  try {
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) {
+      return res.status(400).json({ success: false, message: 'School context missing.' });
+    }
+    const [[schoolRow]] = await promisePool.query(
+      `SELECT subscription_plan, pro_enabled, pro_end_date
+       FROM schools WHERE id = ? AND deleted_at IS NULL LIMIT 1`,
+      [schoolId]
+    );
+    if (!computeProAccessEffective(schoolRow || null)) {
+      return res.status(403).json({
+        success: false,
+        code: 'PRO_REQUIRED',
+        message: 'This feature is available for Pro schools only.',
+      });
+    }
+    return next();
+  } catch (err) {
+    console.error('[schoolRoleOperations] pro check failed:', err);
+    return res.status(500).json({ success: false, message: 'Failed to verify school subscription.' });
+  }
+}
+
+async function recalculateStockCurrentQty(schoolId, itemId) {
+  const [[item]] = await promisePool.query(
+    `SELECT opening_qty FROM school_stock_items WHERE id = ? AND school_id = ? LIMIT 1`,
+    [itemId, schoolId]
+  );
+  if (!item) return;
+  const [[agg]] = await promisePool.query(
+    `SELECT COALESCE(SUM(quantity_change), 0) AS delta
+     FROM school_stock_movements WHERE school_id = ? AND item_id = ?`,
+    [schoolId, itemId]
+  );
+  const nextQty = cleanNumber(item.opening_qty, 0) + cleanNumber(agg?.delta, 0);
+  await promisePool.query(
+    `UPDATE school_stock_items SET current_qty = ? WHERE id = ? AND school_id = ?`,
+    [nextQty, itemId, schoolId]
+  );
+}
+
+/**
+ * This router is mounted at `/api` alongside many other modules.
+ * Only `/library/*`, `/stock/*`, and `/gate/*` belong here — otherwise we must
+ * immediately `next('router')` so requests like `GET /api/schools` reach
+ * `school-add.js` instead of failing with "School context missing."
+ */
+function isRoleOpsPath(req) {
+  const orig = String(req.originalUrl || '').split('?')[0];
+  if (/^\/api\/(library|stock|gate)(\/|$)/i.test(orig)) return true;
+  if (/^\/api\/gate_attendance(\/|$)/i.test(orig)) return true;
+  const p = String(req.path || req.url || '').split('?')[0];
+  if (/^\/(library|stock|gate)(\/|$)/i.test(p)) return true;
+  return /^\/gate_attendance(\/|$)/i.test(p);
+}
+
+router.use((req, res, next) => {
+  if (!isRoleOpsPath(req)) return next('router');
+  next();
+});
+
+router.use(async (_req, res, next) => {
+  try {
+    await ensureSchoolRoleOpsTables();
+    next();
+  } catch (err) {
+    console.error('[schoolRoleOperations] table init failed:', err);
+    res.status(500).json({ success: false, message: 'Failed to initialize role operation tables.' });
+  }
+});
+
+router.post('/gate_attendance', async (req, res, next) => {
+  try {
+    const deviceID = cleanOptional(req.body?.deviceID || req.body?.device_id, 80);
+    const validDevice = /^ATT[_-]?[A-Za-z0-9]{2,}$/i.test(String(deviceID || ''));
+    const sendResult = async (status, payload, meta = {}) => {
+      await logGateAttendanceEvent({
+        schoolId: meta.schoolId ?? null,
+        deviceId: deviceID,
+        cardUid: meta.cardUid ?? null,
+        resultCode: payload?.code || 'UNKNOWN',
+        httpStatus: status,
+        message: payload?.message || null,
+        sessionType: meta.sessionType || null,
+        personType: meta.personType || null,
+        personId: meta.personId || null,
+        attendanceDate: meta.attendanceDate || null,
+      });
+      return res.status(status).json(payload);
+    };
+
+    if (!validDevice) {
+      return sendResult(403, {
+        success: false,
+        code: 'INVALID_DEVICE_ID',
+        message: 'Invalid deviceID. Attendance is allowed only for ATT devices with identifier (example: ATT_12345).',
+      });
+    }
+    const cardUID = normalizeUid(req.body?.cardUID || req.body?.card_uid);
+    if (!cardUID) return sendResult(400, { success: false, code: 'INVALID_CARD', message: 'cardUID is required.' });
+
+    const [studentRows] = await promisePool.query(
+      `SELECT s.id, s.school_id, CONCAT(COALESCE(s.first_name, ''), ' ', COALESCE(s.last_name, '')) AS person_name, s.student_uid AS person_ref
+       FROM students s
+       WHERE UPPER(TRIM(COALESCE(s.rfid_uid, ''))) = ?
+       LIMIT 2`,
+      [cardUID]
+    );
+    const [staffRows] = await promisePool.query(
+      `SELECT u.id, u.school_id, TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))) AS person_name, u.user_uid AS person_ref
+       FROM users u
+       WHERE UPPER(TRIM(COALESCE(u.rfid_uid, ''))) = ? AND u.deleted_at IS NULL
+       LIMIT 2`,
+      [cardUID]
+    );
+    const matches = [
+      ...(studentRows || []).map((r) => ({ ...r, person_type: 'STUDENT' })),
+      ...(staffRows || []).map((r) => ({ ...r, person_type: 'STAFF' })),
+    ];
+    if (!matches.length) {
+      return sendResult(404, {
+        success: false,
+        code: 'CARD_NOT_REGISTERED',
+        message: 'You are not exist in system. Card not registered.',
+        data: { card_uid: cardUID, device_id: deviceID },
+      }, { cardUid: cardUID });
+    }
+    if (matches.length > 1) {
+      return sendResult(409, {
+        success: false,
+        code: 'DUPLICATE_CARD_UID',
+        message: 'Card UID is linked to multiple users. Please fix card registration first.',
+      }, { cardUid: cardUID });
+    }
+    const person = matches[0];
+    const schoolId = Number(person.school_id || 0);
+    if (!schoolId) return sendResult(400, { success: false, code: 'SCHOOL_NOT_FOUND', message: 'Card owner has no school.' }, { cardUid: cardUID });
+
+    const [[schoolRow]] = await promisePool.query(
+      `SELECT subscription_plan, pro_enabled, pro_end_date
+       FROM schools WHERE id = ? AND deleted_at IS NULL LIMIT 1`,
+      [schoolId]
+    );
+    if (!computeProAccessEffective(schoolRow || null)) {
+      return sendResult(403, { success: false, code: 'PRO_REQUIRED', message: 'Gate attendance is available for Pro schools only.' }, { schoolId, cardUid: cardUID });
+    }
+
+    const settings = await getSchoolGateAttendanceSettings(schoolId);
+    const { dateStr, mins } = currentSchoolDateAndMinutes();
+    const morningDeadlineM = minutesOf(settings.morning_deadline);
+    const morningCutoffM = minutesOf(settings.morning_cutoff);
+    const eveningStartM = minutesOf(settings.evening_start);
+    const eveningCutoffM = minutesOf(settings.evening_cutoff);
+    if (
+      morningDeadlineM == null ||
+      morningCutoffM == null ||
+      eveningStartM == null ||
+      eveningCutoffM == null ||
+      morningDeadlineM > morningCutoffM ||
+      eveningStartM >= eveningCutoffM ||
+      morningCutoffM >= eveningStartM
+    ) {
+      return sendResult(403, {
+        success: false,
+        code: 'INVALID_GATE_SETTINGS',
+        message:
+          'Gate time settings are invalid. Ensure: morning deadline <= morning cutoff < evening open < evening close.',
+      }, { schoolId, cardUid: cardUID, attendanceDate: dateStr });
+    }
+
+    const [[existing]] = await promisePool.query(
+      `SELECT id, morning_check_in, morning_status, evening_check_out, evening_status
+       FROM school_gate_attendance_records
+       WHERE school_id = ? AND attendance_date = ? AND card_uid = ?
+       LIMIT 1`,
+      [schoolId, dateStr, cardUID]
+    );
+
+    if (!existing) {
+      // If first tap happens in evening window, allow direct exit log (no morning record).
+      if (mins >= eveningStartM && mins <= eveningCutoffM) {
+        const academicMeta = await getSchoolAcademicMetaForDate(schoolId, dateStr);
+        await promisePool.query(
+          `INSERT INTO school_gate_attendance_records
+           (school_id, attendance_date, card_uid, person_type, person_id, person_name, person_ref, evening_check_out, evening_status, evening_device_id, academic_year, term)
+           VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), 'Exit', ?, ?, ?)`,
+          [
+            schoolId,
+            dateStr,
+            cardUID,
+            person.person_type,
+            person.id,
+            String(person.person_name || '').trim() || 'Unknown',
+            person.person_ref || null,
+            deviceID,
+            academicMeta.academicYear,
+            academicMeta.term,
+          ]
+        );
+        return sendResult(200, {
+          success: true,
+          code: 'EVENING_RECORDED_NO_MORNING',
+          message: 'Evening exit attendance recorded (no morning entry found).',
+          data: {
+            session: 'evening',
+            status: 'Exit',
+            date: dateStr,
+            card_uid: cardUID,
+            person: { type: person.person_type, id: person.id, name: person.person_name, ref: person.person_ref || null },
+          },
+        }, { schoolId, cardUid: cardUID, attendanceDate: dateStr, personType: person.person_type, personId: person.id, sessionType: 'evening' });
+      }
+
+      if (morningCutoffM != null && mins > morningCutoffM) {
+        return sendResult(403, {
+          success: false,
+          code: 'MORNING_WINDOW_CLOSED',
+          message: `Morning attendance window closed at ${settings.morning_cutoff}. Wait until evening exit opens at ${settings.evening_start}.`,
+          data: { card_uid: cardUID, date: dateStr },
+        }, { schoolId, cardUid: cardUID, attendanceDate: dateStr, personType: person.person_type, personId: person.id, sessionType: 'morning' });
+      }
+      const morningStatus = morningDeadlineM != null && mins > morningDeadlineM ? 'Late' : 'OnTime';
+      const academicMeta = await getSchoolAcademicMetaForDate(schoolId, dateStr);
+      await promisePool.query(
+        `INSERT INTO school_gate_attendance_records
+         (school_id, attendance_date, card_uid, person_type, person_id, person_name, person_ref, morning_check_in, morning_status, morning_device_id, academic_year, term)
+         VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?)`,
+        [
+          schoolId,
+          dateStr,
+          cardUID,
+          person.person_type,
+          person.id,
+          String(person.person_name || '').trim() || 'Unknown',
+          person.person_ref || null,
+          morningStatus,
+          deviceID,
+          academicMeta.academicYear,
+          academicMeta.term,
+        ]
+      );
+      return sendResult(200, {
+        success: true,
+        code: 'MORNING_RECORDED',
+        message: morningStatus === 'Late' ? 'Morning attendance recorded as Late.' : 'Morning attendance recorded.',
+        data: {
+          session: 'morning',
+          status: morningStatus,
+          date: dateStr,
+          card_uid: cardUID,
+          person: { type: person.person_type, id: person.id, name: person.person_name, ref: person.person_ref || null },
+        },
+      }, { schoolId, cardUid: cardUID, attendanceDate: dateStr, personType: person.person_type, personId: person.id, sessionType: 'morning' });
+    }
+
+    if (!existing.evening_check_out) {
+      if (eveningStartM != null && mins < eveningStartM) {
+        return sendResult(403, {
+          success: false,
+          code: 'EVENING_NOT_OPEN',
+          message: `Evening exit attendance opens at ${settings.evening_start}.`,
+          data: { card_uid: cardUID, date: dateStr },
+        }, { schoolId, cardUid: cardUID, attendanceDate: dateStr, personType: person.person_type, personId: person.id, sessionType: 'evening' });
+      }
+      if (eveningCutoffM != null && mins > eveningCutoffM) {
+        return sendResult(403, {
+          success: false,
+          code: 'EVENING_WINDOW_CLOSED',
+          message: `Evening exit attendance closed at ${settings.evening_cutoff}.`,
+          data: { card_uid: cardUID, date: dateStr },
+        }, { schoolId, cardUid: cardUID, attendanceDate: dateStr, personType: person.person_type, personId: person.id, sessionType: 'evening' });
+      }
+      await promisePool.query(
+        `UPDATE school_gate_attendance_records
+         SET evening_check_out = NOW(), evening_status = 'Exit', evening_device_id = ?
+         WHERE id = ?`,
+        [deviceID, existing.id]
+      );
+      return sendResult(200, {
+        success: true,
+        code: 'EVENING_RECORDED',
+        message: 'Evening exit attendance recorded.',
+        data: {
+          session: 'evening',
+          status: 'Exit',
+          date: dateStr,
+          card_uid: cardUID,
+          person: { type: person.person_type, id: person.id, name: person.person_name, ref: person.person_ref || null },
+        },
+      }, { schoolId, cardUid: cardUID, attendanceDate: dateStr, personType: person.person_type, personId: person.id, sessionType: 'evening' });
+    }
+
+    return sendResult(200, {
+      success: false,
+      code: 'ALREADY_COMPLETED',
+      message: 'Morning and evening attendance already recorded for today.',
+      data: {
+        card_uid: cardUID,
+        date: dateStr,
+        morning_check_in: existing.morning_check_in,
+        evening_check_out: existing.evening_check_out,
+      },
+    }, { schoolId, cardUid: cardUID, attendanceDate: dateStr, personType: person.person_type, personId: person.id });
+  } catch (err) {
+    console.error('POST /gate_attendance', err);
+    return next(err);
+  }
+});
+
+router.use(ensureProSchoolAccess);
+
+router.get('/gate/attendance/settings', requireRole(GATE_ATTENDANCE_ADMIN_ROLES), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School context missing.' });
+    const data = await getSchoolGateAttendanceSettings(schoolId);
+    return res.json({ success: true, data });
+  } catch (err) {
+    console.error('GET /gate/attendance/settings', err);
+    return res.status(500).json({ success: false, message: 'Failed to load gate attendance settings.' });
+  }
+});
+
+router.put('/gate/attendance/settings', requireRole(GATE_ATTENDANCE_ADMIN_ROLES), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    const userId = resolveUserId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School context missing.' });
+    const morningDeadline = hhmm(req.body?.morningDeadline || req.body?.morning_deadline);
+    const morningCutoff = hhmm(req.body?.morningCutoff || req.body?.morning_cutoff);
+    const eveningStart = hhmm(req.body?.eveningStart || req.body?.evening_start);
+    const eveningCutoff = hhmm(req.body?.eveningCutoff || req.body?.evening_cutoff);
+    if (!morningDeadline || !morningCutoff || !eveningStart || !eveningCutoff) {
+      return res.status(400).json({ success: false, message: 'All four time settings are required in HH:MM format.' });
+    }
+    const mDeadline = minutesOf(morningDeadline);
+    const mCutoff = minutesOf(morningCutoff);
+    const eStart = minutesOf(eveningStart);
+    const eCutoff = minutesOf(eveningCutoff);
+    if (mDeadline > mCutoff) {
+      return res.status(400).json({ success: false, message: 'Morning on-time deadline must be before or equal to morning cutoff.' });
+    }
+    if (eStart >= eCutoff) {
+      return res.status(400).json({ success: false, message: 'Evening exit open time must be before evening exit close time.' });
+    }
+    if (mCutoff >= eStart) {
+      return res.status(400).json({ success: false, message: 'Morning cutoff must be before evening exit open time.' });
+    }
+    await promisePool.query(
+      `INSERT INTO school_gate_attendance_settings
+       (school_id, morning_deadline, morning_cutoff, evening_start, evening_cutoff, updated_by_user_id)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE
+         morning_deadline = VALUES(morning_deadline),
+         morning_cutoff = VALUES(morning_cutoff),
+         evening_start = VALUES(evening_start),
+         evening_cutoff = VALUES(evening_cutoff),
+         updated_by_user_id = VALUES(updated_by_user_id)`,
+      [schoolId, morningDeadline, morningCutoff, eveningStart, eveningCutoff, userId]
+    );
+    return res.json({
+      success: true,
+      data: {
+        morning_deadline: morningDeadline,
+        morning_cutoff: morningCutoff,
+        evening_start: eveningStart,
+        evening_cutoff: eveningCutoff,
+      },
+      message: 'Gate attendance settings saved.',
+    });
+  } catch (err) {
+    console.error('PUT /gate/attendance/settings', err);
+    return res.status(500).json({ success: false, message: 'Failed to save gate attendance settings.' });
+  }
+});
+
+router.get('/gate/attendance/latest-event', requireRole(GATE_ATTENDANCE_ADMIN_ROLES), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School context missing.' });
+    const [[row]] = await promisePool.query(
+      `SELECT
+         id, school_id, device_id, card_uid, result_code, http_status, message,
+         session_type, person_type, person_id, attendance_date, created_at
+       FROM school_gate_attendance_events
+       WHERE school_id = ?
+       ORDER BY id DESC
+       LIMIT 1`,
+      [schoolId]
+    );
+    return res.json({ success: true, data: row || null });
+  } catch (err) {
+    console.error('GET /gate/attendance/latest-event', err);
+    return res.status(500).json({ success: false, message: 'Failed to load latest gate event.' });
+  }
+});
+
+router.get('/gate/attendance/today', requireRole(GATE_ATTENDANCE_ADMIN_ROLES), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School context missing.' });
+    const date = cleanStr(req.query?.date, 20) || currentSchoolDateAndMinutes().dateStr;
+    const [rows] = await promisePool.query(
+      `SELECT
+         id, attendance_date, card_uid, person_type, person_id, person_name, person_ref,
+         morning_check_in, morning_status, evening_check_out, evening_status, term, academic_year
+       FROM school_gate_attendance_records
+       WHERE school_id = ? AND attendance_date = ?
+       ORDER BY COALESCE(morning_check_in, created_at) DESC, id DESC`,
+      [schoolId, date]
+    );
+    return res.json({ success: true, data: rows || [] });
+  } catch (err) {
+    console.error('GET /gate/attendance/today', err);
+    return res.status(500).json({ success: false, message: 'Failed to load today gate attendance.' });
+  }
+});
+
+router.get('/gate/attendance/logs', requireRole(GATE_ATTENDANCE_ADMIN_ROLES), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School context missing.' });
+
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(200, Math.max(10, Number(req.query.limit) || 50));
+    const offset = (page - 1) * limit;
+
+    const fromDate = cleanStr(req.query.from_date, 20);
+    const toDate = cleanStr(req.query.to_date, 20);
+    const role = cleanStr(req.query.role, 20).toUpperCase();
+    const session = cleanStr(req.query.session, 20).toLowerCase();
+    const term = cleanStr(req.query.term, 40);
+    const academicYear = cleanStr(req.query.academic_year, 40);
+    const q = cleanStr(req.query.search, 120).toLowerCase();
+
+    let where = 'WHERE school_id = ?';
+    const params = [schoolId];
+
+    if (fromDate) { where += ' AND attendance_date >= ?'; params.push(fromDate); }
+    if (toDate) { where += ' AND attendance_date <= ?'; params.push(toDate); }
+    if (role && ['STUDENT', 'STAFF'].includes(role)) { where += ' AND person_type = ?'; params.push(role); }
+    if (term) { where += ' AND term = ?'; params.push(term); }
+    if (academicYear) { where += ' AND academic_year = ?'; params.push(academicYear); }
+    if (session === 'morning_only') where += ' AND morning_check_in IS NOT NULL AND evening_check_out IS NULL';
+    if (session === 'evening_only') where += ' AND morning_check_in IS NULL AND evening_check_out IS NOT NULL';
+    if (session === 'both') where += ' AND morning_check_in IS NOT NULL AND evening_check_out IS NOT NULL';
+    if (q) {
+      where += ` AND (
+        LOWER(COALESCE(person_name,'')) LIKE ?
+        OR LOWER(COALESCE(person_ref,'')) LIKE ?
+        OR LOWER(COALESCE(card_uid,'')) LIKE ?
+      )`;
+      const like = `%${q}%`;
+      params.push(like, like, like);
+    }
+
+    const [[countRow]] = await promisePool.query(
+      `SELECT COUNT(*) AS total
+       FROM school_gate_attendance_records
+       ${where}`,
+      params
+    );
+    const total = Number(countRow?.total || 0);
+
+    const [rows] = await promisePool.query(
+      `SELECT
+         id, attendance_date, card_uid, person_type, person_id, person_name, person_ref,
+         morning_check_in, morning_status, evening_check_out, evening_status,
+         term, academic_year, created_at, updated_at
+       FROM school_gate_attendance_records
+       ${where}
+       ORDER BY attendance_date DESC, COALESCE(evening_check_out, morning_check_in, created_at) DESC, id DESC
+       LIMIT ? OFFSET ?`,
+      [...params, limit, offset]
+    );
+
+    return res.json({
+      success: true,
+      data: rows || [],
+      pagination: {
+        page,
+        limit,
+        total,
+        total_pages: Math.max(1, Math.ceil(total / limit)),
+      },
+    });
+  } catch (err) {
+    console.error('GET /gate/attendance/logs', err);
+    return res.status(500).json({ success: false, message: 'Failed to load gate attendance logs.' });
+  }
+});
+
+router.delete('/gate/attendance/today/:cardUid', requireRole(GATE_ATTENDANCE_ADMIN_ROLES), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School context missing.' });
+    const cardUid = normalizeUid(req.params?.cardUid);
+    const date = cleanStr(req.query?.date, 20) || currentSchoolDateAndMinutes().dateStr;
+    if (!cardUid) return res.status(400).json({ success: false, message: 'cardUid is required.' });
+    const [del] = await promisePool.query(
+      `DELETE FROM school_gate_attendance_records
+       WHERE school_id = ? AND attendance_date = ? AND card_uid = ?`,
+      [schoolId, date, cardUid]
+    );
+    return res.json({ success: true, deleted: Number(del?.affectedRows || 0) });
+  } catch (err) {
+    console.error('DELETE /gate/attendance/today/:cardUid', err);
+    return res.status(500).json({ success: false, message: 'Failed to delete gate attendance record.' });
+  }
+});
+
+router.post('/gate/attendance/today/delete-selected', requireRole(GATE_ATTENDANCE_ADMIN_ROLES), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School context missing.' });
+    const date = cleanStr(req.body?.date, 20) || currentSchoolDateAndMinutes().dateStr;
+    const raw = Array.isArray(req.body?.card_uids) ? req.body.card_uids : [];
+    const cardUids = [...new Set(raw.map((x) => normalizeUid(x)).filter(Boolean))].slice(0, 500);
+    if (!cardUids.length) return res.status(400).json({ success: false, message: 'No card_uids provided.' });
+    const placeholders = cardUids.map(() => '?').join(',');
+    const [del] = await promisePool.query(
+      `DELETE FROM school_gate_attendance_records
+       WHERE school_id = ? AND attendance_date = ? AND card_uid IN (${placeholders})`,
+      [schoolId, date, ...cardUids]
+    );
+    return res.json({ success: true, deleted: Number(del?.affectedRows || 0) });
+  } catch (err) {
+    console.error('POST /gate/attendance/today/delete-selected', err);
+    return res.status(500).json({ success: false, message: 'Failed to delete selected gate records.' });
+  }
+});
+
+router.delete('/gate/attendance/today', requireRole(GATE_ATTENDANCE_ADMIN_ROLES), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School context missing.' });
+    const date = cleanStr(req.query?.date, 20) || currentSchoolDateAndMinutes().dateStr;
+    const [del] = await promisePool.query(
+      `DELETE FROM school_gate_attendance_records
+       WHERE school_id = ? AND attendance_date = ?`,
+      [schoolId, date]
+    );
+    return res.json({ success: true, deleted: Number(del?.affectedRows || 0) });
+  } catch (err) {
+    console.error('DELETE /gate/attendance/today', err);
+    return res.status(500).json({ success: false, message: 'Failed to delete all gate records for date.' });
+  }
+});
+
+router.get('/library/books', requireRole(LIBRARY_ROLES), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School context missing.' });
+    const [rows] = await promisePool.query(
+      `SELECT * FROM school_library_books WHERE school_id = ? ORDER BY id DESC`,
+      [schoolId]
+    );
+    res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('GET /library/books', err);
+    res.status(500).json({ success: false, message: 'Failed to load books.' });
+  }
+});
+
+router.post('/library/books', requireRole(LIBRARY_ROLES), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    const userId = resolveUserId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School context missing.' });
+    const title = cleanStr(req.body?.title, 220);
+    if (!title) return res.status(400).json({ success: false, message: 'Book title is required.' });
+    const quantityTotal = Math.max(0, Math.floor(cleanNumber(req.body?.quantity_total, 1)));
+    const quantityAvailable = Math.max(
+      0,
+      Math.min(quantityTotal, Math.floor(cleanNumber(req.body?.quantity_available, quantityTotal)))
+    );
+    const [result] = await promisePool.query(
+      `INSERT INTO school_library_books
+       (school_id, title, author, isbn, category, quantity_total, quantity_available, shelf_location, status, created_by_user_id)
+       VALUES (?,?,?,?,?,?,?,?,?,?)`,
+      [
+        schoolId,
+        title,
+        cleanOptional(req.body?.author, 180),
+        cleanOptional(req.body?.isbn, 80),
+        cleanOptional(req.body?.category, 120),
+        quantityTotal || 1,
+        quantityAvailable || quantityTotal || 1,
+        cleanOptional(req.body?.shelf_location, 120),
+        cleanStr(req.body?.status || 'ACTIVE', 10).toUpperCase() === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE',
+        userId,
+      ]
+    );
+    res.status(201).json({ success: true, data: { id: result.insertId } });
+  } catch (err) {
+    console.error('POST /library/books', err);
+    res.status(500).json({ success: false, message: 'Failed to create book.' });
+  }
+});
+
+router.put('/library/books/:id', requireRole(LIBRARY_ROLES), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    const id = Number(req.params.id);
+    if (!schoolId || !id) return res.status(400).json({ success: false, message: 'Invalid request.' });
+    const title = cleanStr(req.body?.title, 220);
+    if (!title) return res.status(400).json({ success: false, message: 'Book title is required.' });
+    const quantityTotal = Math.max(0, Math.floor(cleanNumber(req.body?.quantity_total, 1)));
+    const quantityAvailable = Math.max(
+      0,
+      Math.min(quantityTotal, Math.floor(cleanNumber(req.body?.quantity_available, quantityTotal)))
+    );
+    await promisePool.query(
+      `UPDATE school_library_books
+       SET title = ?, author = ?, isbn = ?, category = ?, quantity_total = ?, quantity_available = ?, shelf_location = ?, status = ?
+       WHERE id = ? AND school_id = ?`,
+      [
+        title,
+        cleanOptional(req.body?.author, 180),
+        cleanOptional(req.body?.isbn, 80),
+        cleanOptional(req.body?.category, 120),
+        quantityTotal || 1,
+        quantityAvailable || quantityTotal || 1,
+        cleanOptional(req.body?.shelf_location, 120),
+        cleanStr(req.body?.status || 'ACTIVE', 10).toUpperCase() === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE',
+        id,
+        schoolId,
+      ]
+    );
+    res.json({ success: true, message: 'Book updated.' });
+  } catch (err) {
+    console.error('PUT /library/books/:id', err);
+    res.status(500).json({ success: false, message: 'Failed to update book.' });
+  }
+});
+
+router.delete('/library/books/:id', requireRole(LIBRARY_ROLES), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    const id = Number(req.params.id);
+    if (!schoolId || !id) return res.status(400).json({ success: false, message: 'Invalid request.' });
+    await promisePool.query(`DELETE FROM school_library_books WHERE id = ? AND school_id = ?`, [id, schoolId]);
+    await promisePool.query(`DELETE FROM school_library_checkouts WHERE school_id = ? AND book_id = ?`, [schoolId, id]);
+    res.json({ success: true, message: 'Book deleted.' });
+  } catch (err) {
+    console.error('DELETE /library/books/:id', err);
+    res.status(500).json({ success: false, message: 'Failed to delete book.' });
+  }
+});
+
+router.get('/library/checkouts', requireRole(LIBRARY_ROLES), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School context missing.' });
+    const [rows] = await promisePool.query(
+      `SELECT c.*, b.title AS book_title
+       FROM school_library_checkouts c
+       LEFT JOIN school_library_books b ON b.id = c.book_id
+       WHERE c.school_id = ?
+       ORDER BY c.id DESC`,
+      [schoolId]
+    );
+    res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('GET /library/checkouts', err);
+    res.status(500).json({ success: false, message: 'Failed to load checkouts.' });
+  }
+});
+
+router.post('/library/checkouts', requireRole(LIBRARY_ROLES), async (req, res) => {
+  const conn = await promisePool.getConnection();
+  try {
+    const schoolId = resolveSchoolId(req);
+    const userId = resolveUserId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School context missing.' });
+    const bookId = Number(req.body?.book_id);
+    const borrowerName = cleanStr(req.body?.borrower_name, 180);
+    if (!bookId || !borrowerName) {
+      return res.status(400).json({ success: false, message: 'Book and borrower name are required.' });
+    }
+    await conn.beginTransaction();
+    const [[book]] = await conn.query(
+      `SELECT id, quantity_available FROM school_library_books WHERE id = ? AND school_id = ? LIMIT 1`,
+      [bookId, schoolId]
+    );
+    if (!book) {
+      await conn.rollback();
+      return res.status(404).json({ success: false, message: 'Book not found.' });
+    }
+    if (Number(book.quantity_available) <= 0) {
+      await conn.rollback();
+      return res.status(400).json({ success: false, message: 'No available copies for checkout.' });
+    }
+    await conn.query(
+      `INSERT INTO school_library_checkouts
+       (school_id, book_id, borrower_name, borrower_type, borrower_ref, due_date, notes, created_by_user_id)
+       VALUES (?,?,?,?,?,?,?,?)`,
+      [
+        schoolId,
+        bookId,
+        borrowerName,
+        cleanStr(req.body?.borrower_type || 'STUDENT', 10).toUpperCase() === 'STAFF' ? 'STAFF' : (cleanStr(req.body?.borrower_type || 'STUDENT', 10).toUpperCase() === 'VISITOR' ? 'VISITOR' : 'STUDENT'),
+        cleanOptional(req.body?.borrower_ref, 120),
+        cleanOptional(req.body?.due_date, 30),
+        cleanOptional(req.body?.notes, 5000),
+        userId,
+      ]
+    );
+    await conn.query(
+      `UPDATE school_library_books SET quantity_available = GREATEST(quantity_available - 1, 0) WHERE id = ? AND school_id = ?`,
+      [bookId, schoolId]
+    );
+    await conn.commit();
+    res.status(201).json({ success: true, message: 'Checkout recorded.' });
+  } catch (err) {
+    await conn.rollback().catch(() => {});
+    console.error('POST /library/checkouts', err);
+    res.status(500).json({ success: false, message: 'Failed to create checkout.' });
+  } finally {
+    conn.release();
+  }
+});
+
+router.put('/library/checkouts/:id', requireRole(LIBRARY_ROLES), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    const id = Number(req.params.id);
+    if (!schoolId || !id) return res.status(400).json({ success: false, message: 'Invalid request.' });
+    const borrowerName = cleanStr(req.body?.borrower_name, 180);
+    if (!borrowerName) return res.status(400).json({ success: false, message: 'Borrower name is required.' });
+    await promisePool.query(
+      `UPDATE school_library_checkouts
+       SET borrower_name = ?, borrower_type = ?, borrower_ref = ?, due_date = ?, notes = ?
+       WHERE id = ? AND school_id = ?`,
+      [
+        borrowerName,
+        cleanStr(req.body?.borrower_type || 'STUDENT', 10).toUpperCase() === 'STAFF' ? 'STAFF' : (cleanStr(req.body?.borrower_type || 'STUDENT', 10).toUpperCase() === 'VISITOR' ? 'VISITOR' : 'STUDENT'),
+        cleanOptional(req.body?.borrower_ref, 120),
+        cleanOptional(req.body?.due_date, 30),
+        cleanOptional(req.body?.notes, 5000),
+        id,
+        schoolId,
+      ]
+    );
+    res.json({ success: true, message: 'Checkout updated.' });
+  } catch (err) {
+    console.error('PUT /library/checkouts/:id', err);
+    res.status(500).json({ success: false, message: 'Failed to update checkout.' });
+  }
+});
+
+router.patch('/library/checkouts/:id/return', requireRole(LIBRARY_ROLES), async (req, res) => {
+  const conn = await promisePool.getConnection();
+  try {
+    const schoolId = resolveSchoolId(req);
+    const id = Number(req.params.id);
+    if (!schoolId || !id) return res.status(400).json({ success: false, message: 'Invalid request.' });
+    await conn.beginTransaction();
+    const [[checkout]] = await conn.query(
+      `SELECT id, book_id, status FROM school_library_checkouts WHERE id = ? AND school_id = ? LIMIT 1`,
+      [id, schoolId]
+    );
+    if (!checkout) {
+      await conn.rollback();
+      return res.status(404).json({ success: false, message: 'Checkout not found.' });
+    }
+    if (checkout.status === 'RETURNED') {
+      await conn.rollback();
+      return res.json({ success: true, message: 'Checkout already returned.' });
+    }
+    await conn.query(
+      `UPDATE school_library_checkouts SET status = 'RETURNED', returned_at = NOW() WHERE id = ? AND school_id = ?`,
+      [id, schoolId]
+    );
+    await conn.query(
+      `UPDATE school_library_books
+       SET quantity_available = LEAST(quantity_available + 1, quantity_total)
+       WHERE id = ? AND school_id = ?`,
+      [checkout.book_id, schoolId]
+    );
+    await conn.commit();
+    res.json({ success: true, message: 'Book returned successfully.' });
+  } catch (err) {
+    await conn.rollback().catch(() => {});
+    console.error('PATCH /library/checkouts/:id/return', err);
+    res.status(500).json({ success: false, message: 'Failed to return book.' });
+  } finally {
+    conn.release();
+  }
+});
+
+router.delete('/library/checkouts/:id', requireRole(LIBRARY_ROLES), async (req, res) => {
+  const conn = await promisePool.getConnection();
+  try {
+    const schoolId = resolveSchoolId(req);
+    const id = Number(req.params.id);
+    if (!schoolId || !id) return res.status(400).json({ success: false, message: 'Invalid request.' });
+    await conn.beginTransaction();
+    const [[checkout]] = await conn.query(
+      `SELECT id, book_id, status FROM school_library_checkouts WHERE id = ? AND school_id = ? LIMIT 1`,
+      [id, schoolId]
+    );
+    if (!checkout) {
+      await conn.rollback();
+      return res.status(404).json({ success: false, message: 'Checkout not found.' });
+    }
+    await conn.query(`DELETE FROM school_library_checkouts WHERE id = ? AND school_id = ?`, [id, schoolId]);
+    if (checkout.status === 'ISSUED') {
+      await conn.query(
+        `UPDATE school_library_books
+         SET quantity_available = LEAST(quantity_available + 1, quantity_total)
+         WHERE id = ? AND school_id = ?`,
+        [checkout.book_id, schoolId]
+      );
+    }
+    await conn.commit();
+    res.json({ success: true, message: 'Checkout removed.' });
+  } catch (err) {
+    await conn.rollback().catch(() => {});
+    console.error('DELETE /library/checkouts/:id', err);
+    res.status(500).json({ success: false, message: 'Failed to delete checkout.' });
+  } finally {
+    conn.release();
+  }
+});
+
+router.get('/stock/items', requireRole(STOCK_ROLES), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School context missing.' });
+    const [rows] = await promisePool.query(
+      `SELECT * FROM school_stock_items WHERE school_id = ? ORDER BY id DESC`,
+      [schoolId]
+    );
+    res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('GET /stock/items', err);
+    res.status(500).json({ success: false, message: 'Failed to load stock items.' });
+  }
+});
+
+router.post('/stock/items', requireRole(STOCK_ROLES), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    const userId = resolveUserId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School context missing.' });
+    const itemName = cleanStr(req.body?.item_name, 200);
+    if (!itemName) return res.status(400).json({ success: false, message: 'Item name is required.' });
+    const openingQty = cleanNumber(req.body?.opening_qty, 0);
+    const [result] = await promisePool.query(
+      `INSERT INTO school_stock_items
+       (school_id, item_name, sku, category, unit, reorder_level, opening_qty, current_qty, status, created_by_user_id)
+       VALUES (?,?,?,?,?,?,?,?,?,?)`,
+      [
+        schoolId,
+        itemName,
+        cleanOptional(req.body?.sku, 80),
+        cleanOptional(req.body?.category, 120),
+        cleanStr(req.body?.unit || 'pcs', 40),
+        Math.max(0, cleanNumber(req.body?.reorder_level, 0)),
+        openingQty,
+        openingQty,
+        cleanStr(req.body?.status || 'ACTIVE', 10).toUpperCase() === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE',
+        userId,
+      ]
+    );
+    res.status(201).json({ success: true, data: { id: result.insertId } });
+  } catch (err) {
+    console.error('POST /stock/items', err);
+    res.status(500).json({ success: false, message: 'Failed to create stock item.' });
+  }
+});
+
+router.put('/stock/items/:id', requireRole(STOCK_ROLES), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    const id = Number(req.params.id);
+    if (!schoolId || !id) return res.status(400).json({ success: false, message: 'Invalid request.' });
+    const itemName = cleanStr(req.body?.item_name, 200);
+    if (!itemName) return res.status(400).json({ success: false, message: 'Item name is required.' });
+    await promisePool.query(
+      `UPDATE school_stock_items
+       SET item_name = ?, sku = ?, category = ?, unit = ?, reorder_level = ?, opening_qty = ?, status = ?
+       WHERE id = ? AND school_id = ?`,
+      [
+        itemName,
+        cleanOptional(req.body?.sku, 80),
+        cleanOptional(req.body?.category, 120),
+        cleanStr(req.body?.unit || 'pcs', 40),
+        Math.max(0, cleanNumber(req.body?.reorder_level, 0)),
+        cleanNumber(req.body?.opening_qty, 0),
+        cleanStr(req.body?.status || 'ACTIVE', 10).toUpperCase() === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE',
+        id,
+        schoolId,
+      ]
+    );
+    await recalculateStockCurrentQty(schoolId, id);
+    res.json({ success: true, message: 'Stock item updated.' });
+  } catch (err) {
+    console.error('PUT /stock/items/:id', err);
+    res.status(500).json({ success: false, message: 'Failed to update stock item.' });
+  }
+});
+
+router.delete('/stock/items/:id', requireRole(STOCK_ROLES), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    const id = Number(req.params.id);
+    if (!schoolId || !id) return res.status(400).json({ success: false, message: 'Invalid request.' });
+    await promisePool.query(`DELETE FROM school_stock_movements WHERE school_id = ? AND item_id = ?`, [schoolId, id]);
+    await promisePool.query(`DELETE FROM school_stock_items WHERE id = ? AND school_id = ?`, [id, schoolId]);
+    res.json({ success: true, message: 'Stock item deleted.' });
+  } catch (err) {
+    console.error('DELETE /stock/items/:id', err);
+    res.status(500).json({ success: false, message: 'Failed to delete stock item.' });
+  }
+});
+
+router.get('/stock/movements', requireRole(STOCK_ROLES), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School context missing.' });
+    const [rows] = await promisePool.query(
+      `SELECT m.*, i.item_name
+       FROM school_stock_movements m
+       LEFT JOIN school_stock_items i ON i.id = m.item_id
+       WHERE m.school_id = ?
+       ORDER BY m.id DESC`,
+      [schoolId]
+    );
+    res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('GET /stock/movements', err);
+    res.status(500).json({ success: false, message: 'Failed to load stock movements.' });
+  }
+});
+
+router.post('/stock/movements', requireRole(STOCK_ROLES), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    const userId = resolveUserId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School context missing.' });
+    const itemId = Number(req.body?.item_id);
+    if (!itemId) return res.status(400).json({ success: false, message: 'Item is required.' });
+    const movementTypeRaw = cleanStr(req.body?.movement_type, 20).toUpperCase();
+    const movementType = ['IN', 'OUT', 'ADJUSTMENT'].includes(movementTypeRaw) ? movementTypeRaw : 'IN';
+    const quantity = Math.abs(cleanNumber(req.body?.quantity, 0));
+    if (!quantity) return res.status(400).json({ success: false, message: 'Quantity must be greater than zero.' });
+    const quantityChange = movementType === 'OUT' ? -quantity : quantity;
+    await promisePool.query(
+      `INSERT INTO school_stock_movements
+       (school_id, item_id, movement_type, quantity_change, reason, movement_date, created_by_user_id)
+       VALUES (?,?,?,?,?,?,?)`,
+      [
+        schoolId,
+        itemId,
+        movementType,
+        quantityChange,
+        cleanOptional(req.body?.reason, 220),
+        cleanOptional(req.body?.movement_date, 40) || new Date(),
+        userId,
+      ]
+    );
+    await recalculateStockCurrentQty(schoolId, itemId);
+    res.status(201).json({ success: true, message: 'Stock movement recorded.' });
+  } catch (err) {
+    console.error('POST /stock/movements', err);
+    res.status(500).json({ success: false, message: 'Failed to create stock movement.' });
+  }
+});
+
+router.put('/stock/movements/:id', requireRole(STOCK_ROLES), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    const id = Number(req.params.id);
+    if (!schoolId || !id) return res.status(400).json({ success: false, message: 'Invalid request.' });
+    const [[prev]] = await promisePool.query(
+      `SELECT id, item_id FROM school_stock_movements WHERE id = ? AND school_id = ? LIMIT 1`,
+      [id, schoolId]
+    );
+    if (!prev) return res.status(404).json({ success: false, message: 'Movement not found.' });
+    const itemId = Number(req.body?.item_id);
+    if (!itemId) return res.status(400).json({ success: false, message: 'Item is required.' });
+    const movementTypeRaw = cleanStr(req.body?.movement_type, 20).toUpperCase();
+    const movementType = ['IN', 'OUT', 'ADJUSTMENT'].includes(movementTypeRaw) ? movementTypeRaw : 'IN';
+    const quantity = Math.abs(cleanNumber(req.body?.quantity, 0));
+    if (!quantity) return res.status(400).json({ success: false, message: 'Quantity must be greater than zero.' });
+    const quantityChange = movementType === 'OUT' ? -quantity : quantity;
+    await promisePool.query(
+      `UPDATE school_stock_movements
+       SET item_id = ?, movement_type = ?, quantity_change = ?, reason = ?, movement_date = ?
+       WHERE id = ? AND school_id = ?`,
+      [
+        itemId,
+        movementType,
+        quantityChange,
+        cleanOptional(req.body?.reason, 220),
+        cleanOptional(req.body?.movement_date, 40) || new Date(),
+        id,
+        schoolId,
+      ]
+    );
+    await recalculateStockCurrentQty(schoolId, prev.item_id);
+    if (Number(prev.item_id) !== itemId) await recalculateStockCurrentQty(schoolId, itemId);
+    res.json({ success: true, message: 'Stock movement updated.' });
+  } catch (err) {
+    console.error('PUT /stock/movements/:id', err);
+    res.status(500).json({ success: false, message: 'Failed to update stock movement.' });
+  }
+});
+
+router.delete('/stock/movements/:id', requireRole(STOCK_ROLES), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    const id = Number(req.params.id);
+    if (!schoolId || !id) return res.status(400).json({ success: false, message: 'Invalid request.' });
+    const [[prev]] = await promisePool.query(
+      `SELECT item_id FROM school_stock_movements WHERE id = ? AND school_id = ? LIMIT 1`,
+      [id, schoolId]
+    );
+    if (!prev) return res.status(404).json({ success: false, message: 'Movement not found.' });
+    await promisePool.query(`DELETE FROM school_stock_movements WHERE id = ? AND school_id = ?`, [id, schoolId]);
+    await recalculateStockCurrentQty(schoolId, prev.item_id);
+    res.json({ success: true, message: 'Stock movement deleted.' });
+  } catch (err) {
+    console.error('DELETE /stock/movements/:id', err);
+    res.status(500).json({ success: false, message: 'Failed to delete stock movement.' });
+  }
+});
+
+router.get('/gate/logs', requireRole(GATE_ROLES), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School context missing.' });
+    const [rows] = await promisePool.query(
+      `SELECT * FROM school_gate_logs WHERE school_id = ? ORDER BY logged_at DESC, id DESC`,
+      [schoolId]
+    );
+    res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('GET /gate/logs', err);
+    res.status(500).json({ success: false, message: 'Failed to load gate logs.' });
+  }
+});
+
+router.post('/gate/logs', requireRole(GATE_ROLES), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    const userId = resolveUserId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School context missing.' });
+    const personName = cleanStr(req.body?.person_name, 180);
+    if (!personName) return res.status(400).json({ success: false, message: 'Person name is required.' });
+    const personTypeRaw = cleanStr(req.body?.person_type, 15).toUpperCase();
+    const personType = ['STUDENT', 'STAFF', 'VISITOR'].includes(personTypeRaw) ? personTypeRaw : 'STUDENT';
+    const actionRaw = cleanStr(req.body?.action_type, 8).toUpperCase();
+    const actionType = actionRaw === 'OUT' ? 'OUT' : 'IN';
+    await promisePool.query(
+      `INSERT INTO school_gate_logs
+       (school_id, person_name, person_type, person_ref, action_type, logged_at, notes, created_by_user_id)
+       VALUES (?,?,?,?,?,?,?,?)`,
+      [
+        schoolId,
+        personName,
+        personType,
+        cleanOptional(req.body?.person_ref, 120),
+        actionType,
+        cleanOptional(req.body?.logged_at, 40) || new Date(),
+        cleanOptional(req.body?.notes, 5000),
+        userId,
+      ]
+    );
+    res.status(201).json({ success: true, message: 'Gate log created.' });
+  } catch (err) {
+    console.error('POST /gate/logs', err);
+    res.status(500).json({ success: false, message: 'Failed to create gate log.' });
+  }
+});
+
+router.put('/gate/logs/:id', requireRole(GATE_ROLES), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    const id = Number(req.params.id);
+    if (!schoolId || !id) return res.status(400).json({ success: false, message: 'Invalid request.' });
+    const personName = cleanStr(req.body?.person_name, 180);
+    if (!personName) return res.status(400).json({ success: false, message: 'Person name is required.' });
+    const personTypeRaw = cleanStr(req.body?.person_type, 15).toUpperCase();
+    const personType = ['STUDENT', 'STAFF', 'VISITOR'].includes(personTypeRaw) ? personTypeRaw : 'STUDENT';
+    const actionRaw = cleanStr(req.body?.action_type, 8).toUpperCase();
+    const actionType = actionRaw === 'OUT' ? 'OUT' : 'IN';
+    await promisePool.query(
+      `UPDATE school_gate_logs
+       SET person_name = ?, person_type = ?, person_ref = ?, action_type = ?, logged_at = ?, notes = ?
+       WHERE id = ? AND school_id = ?`,
+      [
+        personName,
+        personType,
+        cleanOptional(req.body?.person_ref, 120),
+        actionType,
+        cleanOptional(req.body?.logged_at, 40) || new Date(),
+        cleanOptional(req.body?.notes, 5000),
+        id,
+        schoolId,
+      ]
+    );
+    res.json({ success: true, message: 'Gate log updated.' });
+  } catch (err) {
+    console.error('PUT /gate/logs/:id', err);
+    res.status(500).json({ success: false, message: 'Failed to update gate log.' });
+  }
+});
+
+router.delete('/gate/logs/:id', requireRole(GATE_ROLES), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    const id = Number(req.params.id);
+    if (!schoolId || !id) return res.status(400).json({ success: false, message: 'Invalid request.' });
+    await promisePool.query(`DELETE FROM school_gate_logs WHERE id = ? AND school_id = ?`, [id, schoolId]);
+    res.json({ success: true, message: 'Gate log deleted.' });
+  } catch (err) {
+    console.error('DELETE /gate/logs/:id', err);
+    res.status(500).json({ success: false, message: 'Failed to delete gate log.' });
+  }
+});
+
+module.exports = router;

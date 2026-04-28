@@ -1,0 +1,2843 @@
+// ================================================================
+// routes/BabyeyiRoutes/babyeyi.js  — v13
+//
+// v13 changes vs v12:
+//   • buildQRPayload now encodes full verify URL so phone scanners
+//     open the browser directly:
+//     http://localhost:5173/babyeyi/verify/BY-2025-00025?h=abc123def456
+//   • parseQRPayload handles both new URL format AND legacy pipe format
+//     (BY-2025-00025|abc123def456) — old printed QRs keep working
+//   • GET /verify/:docId now also reads ?h= query param so the
+//     verify page gets full cryptographic validation
+//   • GET /verify/:docId response now includes verifyUrl field
+//
+// .env requirement:
+//   BABYEYI_HASH_SECRET=43b7920096c8119a89a3d04500579ded67c6b012b4290f6a92553782d8a889b1
+//   FRONTEND_URL=http://localhost:5173   (change to prod domain when ready)
+// ================================================================
+
+const express  = require("express");
+const router   = express.Router();
+const multer   = require("multer");
+const path     = require("path");
+const fs       = require("fs");
+const QRCode   = require("qrcode");
+const PDFDoc   = require("pdfkit");
+const crypto   = require("crypto");
+const nodemailer = require("nodemailer");
+const { v4: uuidv4 } = require("uuid");
+const db       = require("../config/database");
+const { buildBabyeyiTranslationBundle } = require("../utils/babyeyiI18n");
+
+// ── Upload dirs ───────────────────────────────────────────────
+const UPLOAD_DIR = "uploads/babyeyi/";
+const QR_DIR     = "uploads/babyeyi/qrcodes/";
+const PDF_DIR    = "uploads/babyeyi/pdfs/";
+const ASSET_DIR  = "uploads/school_assets/";
+
+[UPLOAD_DIR, QR_DIR, PDF_DIR, ASSET_DIR].forEach(d => {
+  if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
+});
+
+// ── Debug flag ────────────────────────────────────────────────
+const DEBUG_HASH = process.env.DEBUG_HASH === "1" || process.env.NODE_ENV === "development";
+
+// ── Helpers ───────────────────────────────────────────────────
+const query = (sql, params = []) => db.query(sql, params);
+
+let parentNotifyMailer = null;
+function getParentNotifyMailer() {
+  if (parentNotifyMailer !== null) return parentNotifyMailer;
+  if (!process.env.SMTP_USER) {
+    parentNotifyMailer = false;
+    return null;
+  }
+  parentNotifyMailer = nodemailer.createTransport({
+    host: process.env.SMTP_HOST || "smtp.gmail.com",
+    port: parseInt(process.env.SMTP_PORT || "587", 10),
+    secure: process.env.SMTP_SECURE === "true",
+    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+  });
+  return parentNotifyMailer;
+}
+
+function normalizeEmail(v) {
+  const s = String(v || "").trim().toLowerCase();
+  if (!s || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s)) return null;
+  return s;
+}
+
+function parseClassesForAnnouncement(babyeyiRow) {
+  const classes = [];
+  const fromClass = String(babyeyiRow?.class_name || "").trim();
+  if (fromClass) classes.push(fromClass);
+  const raw = babyeyiRow?.classes_json;
+  if (raw) {
+    try {
+      const arr = Array.isArray(raw) ? raw : JSON.parse(raw);
+      for (const c of arr || []) {
+        const t = String(c || "").trim();
+        if (t) classes.push(t);
+      }
+    } catch (_) {}
+  }
+  return Array.from(new Set(classes.map((c) => c.toUpperCase())));
+}
+
+async function notifyParentsBabyeyiReady(babyeyiId, reason = "published") {
+  const id = Number(babyeyiId || 0);
+  if (!id) return { sent: false, skipped: "invalid_id" };
+  const transport = getParentNotifyMailer();
+  if (!transport) return { sent: false, skipped: "smtp_not_configured" };
+
+  const rows = await query(
+    `SELECT id, school_id, school_name, academic_year, term, class_name, classes_json, status, doc_id
+     FROM school_babyeyi
+     WHERE id = ? AND is_active = 1
+     LIMIT 1`,
+    [id]
+  );
+  const babyeyi = rows?.[0];
+  if (!babyeyi) return { sent: false, skipped: "babyeyi_not_found" };
+  if (String(babyeyi.status || "").toLowerCase() !== "approved") {
+    return { sent: false, skipped: "not_approved" };
+  }
+  const classes = parseClassesForAnnouncement(babyeyi);
+  if (!babyeyi.school_id || !classes.length) return { sent: false, skipped: "missing_school_or_classes" };
+  const marks = classes.map(() => "?").join(",");
+  const parentRows = await query(
+    `SELECT father_email, mother_email
+     FROM students
+     WHERE school_id = ?
+       AND UPPER(TRIM(class_name)) IN (${marks})`,
+    [babyeyi.school_id, ...classes]
+  ).catch(() => []);
+  const allEmails = new Set();
+  for (const r of parentRows || []) {
+    const e1 = normalizeEmail(r?.father_email);
+    const e2 = normalizeEmail(r?.mother_email);
+    if (e1) allEmails.add(e1);
+    if (e2) allEmails.add(e2);
+  }
+  const recipients = Array.from(allEmails);
+  if (!recipients.length) return { sent: false, skipped: "no_parent_emails" };
+
+  const frontendUrl = String(process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/+$/, "");
+  const payUrl = `${frontendUrl}/babyeyi-finder`;
+  const classLabel = classes.join(", ");
+  const subject = `New school payment notice - ${babyeyi.school_name || "School"} (${babyeyi.term}/${babyeyi.academic_year})`;
+  const text = `Dear Parent/Guardian,
+
+Your school published a new Babyeyi payment notice.
+School: ${babyeyi.school_name || "School"}
+Term: ${babyeyi.term || "-"}
+Academic year: ${babyeyi.academic_year || "-"}
+Class(es): ${classLabel}
+Document: ${babyeyi.doc_id || `BY-${babyeyi.id}`}
+
+Open and pay: ${payUrl}
+Reference: ${reason}`;
+
+  let sentCount = 0;
+  const from = process.env.SMTP_FROM || `"Babyeyi Notifications" <${process.env.SMTP_USER}>`;
+  for (let i = 0; i < recipients.length; i += 80) {
+    const chunk = recipients.slice(i, i + 80);
+    try {
+      await transport.sendMail({
+        from,
+        to: from,
+        bcc: chunk,
+        subject,
+        text,
+      });
+      sentCount += chunk.length;
+    } catch (e) {
+      console.warn("[babyeyi] parent announcement failed:", e.message);
+    }
+  }
+  return { sent: sentCount > 0, sentCount, totalRecipients: recipients.length };
+}
+
+/** After school saves Babyeyi requirements, insert requirement_prices from student_requirements.default_price when missing. */
+async function seedRequirementPricesFromDefaults(babyeyiId, schoolId, academicYear, term, className) {
+  try {
+    const rows = await query(
+      `SELECT id, item FROM babyeyi_student_requirements WHERE babyeyi_id = ?`,
+      [babyeyiId]
+    );
+    for (const row of rows) {
+      const m = await query(
+        `SELECT default_price FROM student_requirements WHERE TRIM(LOWER(name)) = TRIM(LOWER(?)) LIMIT 1`,
+        [row.item]
+      );
+      const def = m[0]?.default_price;
+      if (def == null || Number(def) === 0) continue;
+      const ex = await query(
+        `SELECT id FROM requirement_prices WHERE babyeyi_id = ? AND babyeyi_requirement_id = ?`,
+        [babyeyiId, row.id]
+      );
+      if (ex.length) continue;
+      await query(
+        `INSERT INTO requirement_prices (babyeyi_id, babyeyi_requirement_id, school_id, class_id, term, academic_year, price)
+         VALUES (?,?,?,?,?,?,?)`,
+        [babyeyiId, row.id, schoolId, className, term, academicYear, Number(def)]
+      );
+    }
+  } catch (e) {
+    console.warn("[babyeyi] seedRequirementPricesFromDefaults:", e.message);
+  }
+}
+
+const getIp = req =>
+  req.headers["x-forwarded-for"]?.split(",")[0].trim() ||
+  req.socket?.remoteAddress || "unknown";
+
+const audit = async (babyeyiId, action, oldVals, newVals, req) => {
+  try {
+    const userId = req.user?.id || null;
+    const ip     = getIp(req);
+    const oldJ   = oldVals ? JSON.stringify(oldVals) : null;
+    const newJ   = newVals ? JSON.stringify(newVals) : null;
+    try {
+      await query(
+        `INSERT INTO babyeyi_audit_log (babyeyi_id, action, changed_by, old_values, new_values, ip_address) VALUES (?,?,?,?,?,?)`,
+        [babyeyiId, action, userId, oldJ, newJ, ip]
+      );
+    } catch (e1) {
+      if (e1.code === "ER_BAD_FIELD_ERROR") {
+        await query(
+          `INSERT INTO babyeyi_audit_log (babyeyi_id, action, user_id, old_values, new_values, ip_address) VALUES (?,?,?,?,?,?)`,
+          [babyeyiId, action, userId, oldJ, newJ, ip]
+        );
+      } else { throw e1; }
+    }
+  } catch (e) { console.warn("[babyeyi] audit fail:", e.message); }
+};
+
+const parseJSONField = (val) => {
+  if (!val) return [];
+  if (Array.isArray(val)) return val;
+  try { return JSON.parse(val); } catch { return []; }
+};
+
+const classToLevel = (cls) => {
+  if (["N1","N2","N3"].includes(cls))                    return "Nursery";
+  if (["P1","P2","P3","P4","P5","P6"].includes(cls))    return "Primary";
+  if (["S1","S2","S3","S4","S5","S6"].includes(cls))    return "Secondary";
+  if (["L1","L2","L3"].includes(cls))                    return "University";
+  return "Primary";
+};
+
+const normalise = (r) => {
+  if (!r) return r;
+  return {
+    ...r,
+    class:    r.class_name      || r.class    || "",
+    level:    r.education_level || r.level    || "",
+    category: r.school_category || r.category || "",
+    district: r.school_district || r.district || "",
+    sector:   r.school_sector   || r.sector   || "",
+    province: r.school_province || r.province || "",
+  };
+};
+
+const normaliseClassReq = (r) => ({
+  ...r,
+  item:    r.item    || r.information || "",
+  details: r.details || "",
+});
+
+const resolveSchoolId = (req) => {
+  const fromBody        = req.body?.school_id            ? Number(req.body.school_id)           : null;
+  const fromUser        = req.user?.school_id            ? Number(req.user.school_id)           : null;
+  const fromSchool      = req.user?.school?.id           ? Number(req.user.school.id)           : null;
+  const fromSessionUser = req.session?.user?.school?.id  ? Number(req.session.user.school.id)  : null;
+  const fromSessionFlat = req.session?.user?.school_id   ? Number(req.session.user.school_id)  : null;
+  const fromSessionTop  = req.session?.school_id         ? Number(req.session.school_id)        : null;
+  const resolved = fromBody || fromUser || fromSchool || fromSessionUser || fromSessionFlat || fromSessionTop || null;
+  if (!resolved) {
+    console.warn(`[babyeyi] ⚠️  school_id is NULL — user ${req.user?.id || "unknown"}`);
+  }
+  return resolved;
+};
+
+const resolveFilePath = (storedPath) => {
+  if (!storedPath) return null;
+  return storedPath.replace(/\\/g, "/").replace(/^\//, "");
+};
+
+const fileExists = (p) => {
+  if (!p) return false;
+  try { return fs.existsSync(resolveFilePath(p)); } catch { return false; }
+};
+
+// ── Leaders helpers ───────────────────────────────────────────
+
+const upsertLeaders = async (bid, schoolId, leaders) => {
+  if (!Array.isArray(leaders) || leaders.length === 0) return;
+  await query("DELETE FROM babyeyi_leaders WHERE babyeyi_id = ?", [bid]);
+  const valid = leaders
+    .map((l, i) => ({
+      name:  (l.name  || "").trim(),
+      role:  (l.role  || "").trim(),
+      phone: (l.phone || "").trim().replace(/^\+?250/, ""),
+      email: (l.email || "").trim().toLowerCase(),
+      sort:  i,
+    }))
+    .filter(l => l.name);
+  for (const l of valid) {
+    await query(
+      `INSERT INTO babyeyi_leaders
+         (babyeyi_id, school_id, leader_name, leader_role, phone, email, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [bid, schoolId || null, l.name, l.role || "", l.phone || null, l.email || null, l.sort]
+    );
+  }
+};
+
+const fetchLeaders = async (bid) => {
+  try {
+    const rows = await query(
+      `SELECT id, leader_name AS name, leader_role AS role,
+              phone, email, sort_order
+       FROM babyeyi_leaders
+       WHERE babyeyi_id = ? AND is_active = 1
+       ORDER BY sort_order ASC`,
+      [bid]
+    );
+    return rows;
+  } catch (e) {
+    console.warn("[fetchLeaders]", e.message);
+    return [];
+  }
+};
+
+const deactivateLeaders = async (bid) => {
+  await query("UPDATE babyeyi_leaders SET is_active = 0 WHERE babyeyi_id = ?", [bid])
+    .catch(e => console.warn("[deactivateLeaders]", e.message));
+};
+
+
+// ════════════════════════════════════════════════════════════
+// HMAC CRYPTO — v13
+// ════════════════════════════════════════════════════════════
+const HASH_SECRET = process.env.BABYEYI_HASH_SECRET || "babyeyi-default-secret-change-me-in-production";
+
+if (!process.env.BABYEYI_HASH_SECRET) {
+  console.warn("[babyeyi] ⚠️  BABYEYI_HASH_SECRET not set in .env — using insecure default!");
+} else {
+  console.log("[babyeyi] ✅ BABYEYI_HASH_SECRET loaded. Prefix:", HASH_SECRET.slice(0, 8) + "...");
+}
+
+const safeStr = (v) => {
+  if (v == null)         return "";
+  if (v === "null")      return "";
+  if (v === "undefined") return "";
+  return String(v).trim();
+};
+
+const safeAmt = (v) => String(Math.round(Number(v) || 0));
+
+const buildCanonical = ({ docId, schoolId, className, term, academicYear, payments = [], bankAccountNo = "" }) => {
+  const paymentStr = [...payments]
+    .filter(p => safeStr(p.name) !== "")
+    .sort((a, b) => safeStr(a.name).localeCompare(safeStr(b.name)))
+    .map(p => `${safeStr(p.name)}:${safeAmt(p.amount)}`)
+    .join(",");
+
+  const canonical = [
+    safeStr(docId),
+    safeStr(schoolId),
+    safeStr(className),
+    safeStr(term),
+    safeStr(academicYear),
+    paymentStr,
+    safeStr(bankAccountNo),
+  ].join("|");
+
+  if (DEBUG_HASH) {
+    console.log("[buildCanonical] canonical =", JSON.stringify(canonical));
+  }
+
+  return canonical;
+};
+
+const generateIntegrityHash = (fields) =>
+  crypto.createHmac("sha256", HASH_SECRET)
+    .update(buildCanonical(fields))
+    .digest("hex")
+    .slice(0, 16);
+
+const verifyIntegrityHash = (fields, providedHash) => {
+  if (!providedHash || typeof providedHash !== "string") return false;
+  const expected = generateIntegrityHash(fields);
+  try {
+    const a = Buffer.from(expected.padEnd(64, "0").slice(0, 64));
+    const b = Buffer.from(providedHash.padEnd(64, "0").slice(0, 64));
+    return crypto.timingSafeEqual(a, b) && providedHash.length === expected.length;
+  } catch { return false; }
+};
+
+// ── v13: QR encodes full verify URL so phone opens browser directly ──
+const buildQRPayload = (docId, hash) => {
+  const base = (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, "");
+  return `${base}/babyeyi/verify/${docId}?h=${hash}`;
+};
+
+// ── v13: parses both new URL format and legacy pipe format ────────────
+const parseQRPayload = (payload) => {
+  if (!payload || typeof payload !== "string") return null;
+  let decoded;
+  try { decoded = decodeURIComponent(payload); } catch { decoded = payload; }
+
+  // New format: http://localhost:5173/babyeyi/verify/BY-2025-00025?h=abc123def456
+  const urlMatch = decoded.match(/\/babyeyi\/verify\/(BY-\d{4}-\d{5})\?h=([0-9a-f]{16})/i);
+  if (urlMatch) {
+    return { docId: urlMatch[1].toUpperCase(), hash: urlMatch[2].toLowerCase() };
+  }
+
+  // Legacy format: BY-2025-00025|abc123def456 — keeps old printed QRs working
+  const pipeIdx = decoded.indexOf("|");
+  if (pipeIdx !== -1) {
+    const docId = decoded.slice(0, pipeIdx).toUpperCase().trim();
+    const hash  = decoded.slice(pipeIdx + 1).toLowerCase().trim();
+    if (/^BY-\d{4}-\d{5}$/.test(docId) && /^[0-9a-f]{16}$/.test(hash)) {
+      return { docId, hash };
+    }
+  }
+
+  return null;
+};
+
+// ── normalisePaymentsForHash ──────────────────────────────────
+const normalisePaymentsForHash = (payments) =>
+  (Array.isArray(payments) ? payments : [])
+    .map(p => ({
+      name:   safeStr(p.name),
+      amount: safeAmt(p.amount),
+    }))
+    .filter(p => p.name !== "");
+
+// ════════════════════════════════════════════════════════════
+// AUTO-RUN MIGRATIONS AT STARTUP
+// ════════════════════════════════════════════════════════════
+const runMigrations = async () => {
+  const migrations = [
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS signature_url VARCHAR(500) NULL`,
+    `ALTER TABLE school_babyeyi ADD COLUMN IF NOT EXISTS parent_message TEXT NULL`,
+    `ALTER TABLE school_babyeyi ADD COLUMN IF NOT EXISTS qr_view_url VARCHAR(500) NULL`,
+    `ALTER TABLE school_babyeyi ADD COLUMN IF NOT EXISTS qr_code_path VARCHAR(500) NULL`,
+    `ALTER TABLE school_babyeyi ADD COLUMN IF NOT EXISTS pdf_path VARCHAR(500) NULL`,
+    `ALTER TABLE school_babyeyi ADD COLUMN IF NOT EXISTS pdf_name VARCHAR(255) NULL`,
+    `ALTER TABLE school_babyeyi ADD COLUMN IF NOT EXISTS integrity_hash VARCHAR(64) NULL`,
+    `ALTER TABLE school_babyeyi ADD COLUMN IF NOT EXISTS translations_json LONGTEXT NULL`,
+    `ALTER TABLE babyeyi_class_requirements ADD COLUMN IF NOT EXISTS item VARCHAR(300) NULL`,
+    `ALTER TABLE babyeyi_class_requirements ADD COLUMN IF NOT EXISTS details TEXT NULL`,
+    `ALTER TABLE babyeyi_class_requirements ADD COLUMN IF NOT EXISTS sort_order INT DEFAULT 0`,
+    `ALTER TABLE babyeyi_signatures ADD COLUMN IF NOT EXISTS qr_view_url VARCHAR(500) NULL`,
+    `ALTER TABLE babyeyi_signatures ADD COLUMN IF NOT EXISTS qr_code_path VARCHAR(500) NULL`,
+    `ALTER TABLE babyeyi_signatures ADD COLUMN IF NOT EXISTS qr_code_name VARCHAR(255) NULL`,
+    // ── v12: leaders table ────────────────────────────────────
+    `CREATE TABLE IF NOT EXISTS babyeyi_leaders (
+       id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+       babyeyi_id    INT UNSIGNED NOT NULL,
+       school_id     INT UNSIGNED NULL,
+       leader_name   VARCHAR(200)  NOT NULL,
+       leader_role   VARCHAR(200)  NOT NULL DEFAULT '',
+       phone         VARCHAR(30)   NULL,
+       email         VARCHAR(200)  NULL,
+       sort_order    INT           NOT NULL DEFAULT 0,
+       is_active     TINYINT(1)    NOT NULL DEFAULT 1,
+       created_at    TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+       updated_at    TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+       INDEX idx_bl_babyeyi (babyeyi_id),
+       INDEX idx_bl_school  (school_id)
+     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+  ];
+  for (const sql of migrations) {
+    try { await db.query(sql); }
+    catch (e) { console.warn("[babyeyi] migration warn:", e.message.slice(0, 120)); }
+  }
+  console.log("[babyeyi] ✅ Migrations complete");
+};
+
+// ════════════════════════════════════════════════════════════
+// runRehashMigration — MODULE SCOPE
+// ════════════════════════════════════════════════════════════
+const runRehashMigration = async () => {
+  console.log("[babyeyi] 🔄 Running hash rehash migration...");
+  try {
+    const docs = await query(
+      "SELECT id, doc_id, school_id, class_name, term, academic_year, bank_account_no FROM school_babyeyi WHERE is_active=1 AND doc_id IS NOT NULL"
+    );
+    console.log("[babyeyi] Rehashing", docs.length, "documents...");
+    let fixed = 0, skipped = 0;
+    for (const doc of docs) {
+      try {
+        const payments = await query(
+          "SELECT name, amount FROM babyeyi_payments WHERE babyeyi_id=? ORDER BY sort_order",
+          [doc.id]
+        ).catch(() => []);
+        const normPayments = normalisePaymentsForHash(payments);
+        const newHash = generateIntegrityHash({
+          docId:        doc.doc_id,
+          schoolId:     doc.school_id,
+          className:    doc.class_name    || "",
+          term:         doc.term          || "",
+          academicYear: doc.academic_year || "",
+          payments:     normPayments,
+          bankAccountNo: doc.bank_account_no || "",
+        });
+        await query("UPDATE school_babyeyi SET integrity_hash=? WHERE id=?", [newHash, doc.id]);
+        fixed++;
+      } catch (e) {
+        console.warn("[rehash] skipped doc", doc.doc_id, ":", e.message);
+        skipped++;
+      }
+    }
+    console.log("[babyeyi] ✅ Rehash complete:", fixed, "fixed,", skipped, "skipped");
+  } catch (e) {
+    console.error("[babyeyi] ❌ Rehash migration failed:", e.message);
+  }
+};
+
+// Run both at startup
+runMigrations().catch(e => console.error("[babyeyi] migration error:", e.message));
+
+// Rehash after 3s delay — ensures DB is ready and migrations ran first
+setTimeout(() => {
+  runRehashMigration().catch(e => console.error("[babyeyi] rehash error:", e.message));
+}, 3000);
+
+// ── Multer ────────────────────────────────────────────────────
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
+  filename:    (_req, file, cb) => {
+    const ext  = path.extname(file.originalname);
+    const base = path.basename(file.originalname, ext).replace(/\s+/g, "-");
+    cb(null, `${base}-${Date.now()}${ext}`);
+  },
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const ok = ["application/pdf","image/png","image/jpeg","image/jpg"].includes(file.mimetype);
+    ok ? cb(null, true) : cb(new Error("Only PDF and images allowed"));
+  },
+}).fields([
+  { name: "director_signature",   maxCount: 1 },
+  { name: "accountant_signature", maxCount: 1 },
+  { name: "stamp",                maxCount: 1 },
+  { name: "parent_rep_doc",       maxCount: 1 },
+  { name: "budget_doc",           maxCount: 1 },
+  { name: "school_logo",          maxCount: 1 },
+  { name: "other_logo",           maxCount: 1 },
+  { name: "qr_code",              maxCount: 1 },
+]);
+
+const assetStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, ASSET_DIR),
+  filename: (req, file, cb) => {
+    const schoolId = req.user?.school_id || "unknown";
+    const ext      = path.extname(file.originalname);
+    const type     = req.body?.asset_type || "asset";
+    cb(null, `school_${schoolId}_${type}_${Date.now()}${ext}`);
+  },
+});
+
+const uploadAsset = multer({
+  storage: assetStorage,
+  limits:  { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const ok = /^image\/(jpeg|jpg|png|webp|svg\+xml)$/.test(file.mimetype);
+    cb(ok ? null : new Error("Only image files are allowed"), ok);
+  },
+});
+
+// ── Generate doc ID ───────────────────────────────────────────
+const generateDocId = async (academicYear) => {
+  const year = (academicYear && String(academicYear).includes("-"))
+    ? String(academicYear).split("-")[0]
+    : (academicYear ? String(academicYear) : String(new Date().getFullYear()));
+  try {
+    const rows = await query(
+      `SELECT doc_id FROM school_babyeyi
+       WHERE doc_id LIKE ? AND doc_id IS NOT NULL
+       ORDER BY doc_id DESC LIMIT 1`,
+      [`BY-${year}-%`]
+    );
+    let seq = 1;
+    if (rows.length && rows[0].doc_id) {
+      const parts  = String(rows[0].doc_id).split("-");
+      const parsed = parseInt(parts[2] || "0", 10);
+      if (!isNaN(parsed)) seq = parsed + 1;
+    }
+    return `BY-${year}-${String(seq).padStart(5, "0")}`;
+  } catch (e) {
+    console.error("[generateDocId] error:", e.message);
+    return `BY-${year}-${String(Date.now()).slice(-5)}`;
+  }
+};
+
+// ── Generate QR PNG file ──────────────────────────────────────
+const generateQRCodeFile = async (qrPayload, docId) => {
+  if (!qrPayload || !docId) {
+    throw new Error(`[generateQRCodeFile] invalid inputs: qrPayload="${qrPayload}", docId="${docId}"`);
+  }
+  if (!fs.existsSync(QR_DIR)) fs.mkdirSync(QR_DIR, { recursive: true });
+  const filename = `qr-${docId}-${Date.now()}.png`;
+  const filepath = path.join(QR_DIR, filename);
+  console.log(`[generateQRCodeFile] Writing QR to ${filepath}`);
+  await QRCode.toFile(filepath, qrPayload, {
+    errorCorrectionLevel: "H",
+    type: "png",
+    width: 300,
+    margin: 2,
+    color: { dark: "#1e3a5f", light: "#ffffff" },
+  });
+  if (!fs.existsSync(filepath)) {
+    throw new Error(`QR file was not created at ${filepath}`);
+  }
+  console.log(`[generateQRCodeFile] ✅ QR written: ${filepath}`);
+  return { filePath: `/${QR_DIR}${filename}`, fileName: filename, fullPath: filepath };
+};
+
+// ── Generate PDF ──────────────────────────────────────────────
+const generateBabyeyiPDF = async ({
+  babyeyi,
+  payments,
+  requirements,
+  classNotes,
+  sigPaths,
+  qrFilePath,
+  docId,
+  parentMessage,
+  leaders = [],
+}) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      if (!fs.existsSync(PDF_DIR)) fs.mkdirSync(PDF_DIR, { recursive: true });
+
+      const filename = `babyeyi-${docId}-${Date.now()}.pdf`;
+      const filepath = path.join(PDF_DIR, filename);
+      const webPath  = `/${PDF_DIR}${filename}`;
+      const b        = normalise(babyeyi);
+      const className = b.class || b.class_name || b.className || "N/A";
+
+      const doc = new PDFDoc({
+        size: "A4",
+        margins: { top: 40, bottom: 40, left: 50, right: 50 },
+        info: {
+          Title:   `Babyeyi — ${className} · ${b.term} · ${b.academic_year}`,
+          Author:  b.school_name || "School",
+          Subject: "Official School Fee Document",
+        },
+      });
+
+      const stream = fs.createWriteStream(filepath);
+      doc.pipe(stream);
+
+      const NAVY   = "#1e3a5f";
+      const ACCENT = "#2563eb";
+      const GRAY   = "#64748b";
+      const WHITE  = "#ffffff";
+      const BLACK  = "#0f172a";
+      const W = doc.page.width  - doc.page.margins.left - doc.page.margins.right;
+      const L = doc.page.margins.left;
+
+      // Top bar
+      doc.rect(0, 0, doc.page.width, 6).fill(NAVY);
+      doc.rect(0, 6, doc.page.width, 115).fill("#f8fafc");
+
+      let yHead = 18;
+
+      // School Logo LEFT
+      const schoolLogoPath = resolveFilePath(sigPaths?.schoolLogoPath);
+      if (schoolLogoPath && fs.existsSync(schoolLogoPath)) {
+        try { doc.image(schoolLogoPath, L, yHead, { width: 70, height: 70, fit: [70, 70] }); }
+        catch (_) {
+          doc.rect(L, yHead, 70, 70).stroke("#cbd5e1");
+          doc.fontSize(7).fillColor(GRAY).text("LOGO", L + 15, yHead + 30, { width: 40, align: "center" });
+        }
+      } else {
+        doc.rect(L, yHead, 70, 70).stroke("#cbd5e1");
+        doc.fontSize(7).fillColor(GRAY).text("SCHOOL\nLOGO", L + 10, yHead + 25, { width: 50, align: "center" });
+      }
+
+      // Other Logo RIGHT
+      const otherLogoPath = resolveFilePath(sigPaths?.otherLogoPath);
+      if (otherLogoPath && fs.existsSync(otherLogoPath)) {
+        try { doc.image(otherLogoPath, L + W - 70, yHead, { width: 70, height: 70, fit: [70, 70] }); }
+        catch (_) { doc.rect(L + W - 70, yHead, 70, 70).stroke("#cbd5e1"); }
+      } else {
+        doc.rect(L + W - 70, yHead, 70, 70).stroke("#cbd5e1");
+        doc.fontSize(7).fillColor(GRAY).text("OTHER\nLOGO", L + W - 60, yHead + 25, { width: 50, align: "center" });
+      }
+
+      // Center header
+      const cx = L + 80;
+      const cw = W - 160;
+      doc.fontSize(7).fillColor(GRAY).font("Helvetica")
+         .text("REPUBLIC OF RWANDA", cx, yHead + 2, { width: cw, align: "center", characterSpacing: 1.5 });
+      doc.fontSize(7).fillColor(GRAY)
+         .text("Ministry of Education", cx, yHead + 12, { width: cw, align: "center" });
+      doc.fontSize(13).font("Helvetica-Bold").fillColor(NAVY)
+         .text((b.school_name || "SCHOOL NAME").toUpperCase(), cx, yHead + 24, { width: cw, align: "center", characterSpacing: 0.5 });
+
+      const locParts = [b.district, b.sector].filter(Boolean);
+      doc.fontSize(8).font("Helvetica").fillColor(GRAY)
+         .text(locParts.length ? locParts.join(" / ") : "Rwanda", cx, yHead + 42, { width: cw, align: "center" });
+
+      const bannerY = yHead + 56;
+      doc.rect(cx, bannerY, cw, 20).fill(NAVY);
+      doc.fontSize(8).font("Helvetica-Bold").fillColor(WHITE)
+         .text(`BABYEYI  —  ${b.term}  ·  ${b.academic_year}  ·  CLASSE ${className}`,
+               cx, bannerY + 6, { width: cw, align: "center", characterSpacing: 1 });
+
+      doc.fontSize(7).fillColor(GRAY).font("Helvetica")
+         .text(`Kigali, le ${new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })}`,
+               cx, yHead + 82, { width: cw, align: "right" });
+
+      doc.moveTo(L, 125).lineTo(L + W, 125).lineWidth(0.5).stroke("#cbd5e1");
+
+      let y = 133;
+
+      // Badges
+      const badge = (text, x, bY, bgCol = NAVY) => {
+        const bW = doc.widthOfString(text) + 14;
+        doc.roundedRect(x, bY, bW, 16, 3).fill(bgCol);
+        doc.fontSize(8).font("Helvetica-Bold").fillColor(WHITE).text(text, x + 7, bY + 4);
+        return bW;
+      };
+      badge(className, L, y);
+      badge(b.level || "Level", L + 42, y, ACCENT);
+      badge(b.category || "Category", L + 105, y, "#475569");
+      const docIdText = `ID: ${docId}`;
+      const docIdW = doc.widthOfString(docIdText) + 14;
+      doc.roundedRect(L + W - docIdW, y, docIdW, 16, 3).fill("#e0e7ff");
+      doc.fontSize(8).font("Helvetica-Bold").fillColor("#3730a3").text(docIdText, L + W - docIdW + 7, y + 4);
+      y += 28;
+
+      // Parent message
+      const msgText = parentMessage || b.parent_message || "";
+      if (msgText && msgText.trim()) {
+        doc.fontSize(7).font("Helvetica-Bold").fillColor(GRAY)
+           .text("MESSAGE AUX PARENTS", L, y, { characterSpacing: 1.2 });
+        doc.moveTo(L + 135, y + 5).lineTo(L + W, y + 5).lineWidth(0.3).stroke("#cbd5e1");
+        y += 12;
+        const msgH = doc.heightOfString(msgText, { width: W - 16 }) + 16;
+        doc.rect(L, y, W, msgH).fill("#fafffe");
+        doc.fontSize(8).font("Helvetica").fillColor(BLACK)
+           .text(msgText, L + 8, y + 6, { width: W - 16, lineGap: 2 });
+        doc.rect(L, y, W, msgH).stroke("#e2e8f0").lineWidth(0.3);
+        y += msgH + 10;
+      }
+
+      // Fees table
+      doc.fontSize(7).font("Helvetica-Bold").fillColor(GRAY)
+         .text("FRAIS SCOLAIRES", L, y, { characterSpacing: 1.2 });
+      doc.moveTo(L + 105, y + 5).lineTo(L + W, y + 5).lineWidth(0.3).stroke("#cbd5e1");
+      y += 12;
+
+      const colW = [30, W - 120, 90];
+      const colX = [L, L + 30, L + W - 90];
+
+      doc.rect(L, y, W, 20).fill(NAVY);
+      ["N°", "Désignation", "Montant (RWF)"].forEach((h, i) => {
+        doc.fontSize(8).font("Helvetica-Bold").fillColor(WHITE)
+           .text(h, colX[i] + 6, y + 6, { width: colW[i], align: i === 2 ? "right" : "left" });
+      });
+      y += 20;
+
+      let total = 0;
+      payments.filter(p => p.name && Number(p.amount) > 0).forEach((p, idx) => {
+        const amt = Number(p.amount) || 0; total += amt;
+        const rowBg = idx % 2 === 0 ? WHITE : "#f8fafc";
+        doc.rect(L, y, W, 18).fill(rowBg);
+        doc.rect(L, y, W, 18).stroke("#e2e8f0").lineWidth(0.3);
+        doc.fontSize(8).font("Helvetica").fillColor(BLACK)
+           .text(String(idx + 1), colX[0] + 6, y + 5, { width: colW[0], align: "center" });
+        doc.fontSize(8).font("Helvetica").fillColor(BLACK)
+           .text(p.name, colX[1] + 6, y + 5, { width: colW[1] - 10 });
+        doc.fontSize(8).font("Helvetica-Bold").fillColor(NAVY)
+           .text(amt.toLocaleString(), colX[2] + 6, y + 5, { width: colW[2] - 10, align: "right" });
+        y += 18;
+      });
+
+      doc.rect(L, y, W, 22).fill(NAVY);
+      doc.fontSize(10).font("Helvetica-Bold").fillColor(WHITE)
+         .text("TOTAL", colX[1] + 6, y + 6, { width: colW[1] });
+      doc.fontSize(11).font("Helvetica-Bold").fillColor("#fbbf24")
+         .text(`RWF ${total.toLocaleString()}`, colX[2] + 6, y + 5, { width: colW[2] - 10, align: "right" });
+      y += 30;
+
+      // Banks
+      const banksData = parseJSONField(babyeyi.banks_json);
+      const hasBankInfo = b.bank_name || b.bank_account_no || banksData.length > 0;
+      if (hasBankInfo) {
+        doc.fontSize(7).font("Helvetica-Bold").fillColor(GRAY)
+           .text("COMPTE(S) BANCAIRE(S)", L, y, { characterSpacing: 1.2 });
+        doc.moveTo(L + 140, y + 5).lineTo(L + W, y + 5).lineWidth(0.3).stroke("#cbd5e1");
+        y += 12;
+        const allBanks = banksData.length > 0
+          ? banksData
+          : [{ bankName: b.bank_name, accountNumber: b.bank_account_no }];
+        allBanks.forEach((bk, bi) => {
+          const bkName  = bk.bankName      || bk.bank_name        || "";
+          const bkAccNo = bk.accountNumber || bk.bank_account_no  || "";
+          const bkAccNm = bk.accountName   || bk.bank_account_name || b.bank_account_name || "";
+          if (!bkName && !bkAccNo) return;
+          doc.rect(L, y, W, 36).fill("#eff6ff").stroke("#bfdbfe").lineWidth(0.5);
+          if (allBanks.length > 1) {
+            doc.fontSize(7).font("Helvetica-Bold").fillColor(ACCENT)
+               .text(`Banque ${bi + 1}${bk.isPrimary ? " (Principale)" : ""}`, L + 8, y + 3);
+          }
+          const bColW = W / 3;
+          [["Banque:", bkName || "—"], ["N° Compte:", bkAccNo || "—"], ["Nom:", bkAccNm || "—"]].forEach((bf, i) => {
+            doc.fontSize(7).font("Helvetica-Bold").fillColor(GRAY)
+               .text(bf[0], L + 8 + i * bColW, y + (allBanks.length > 1 ? 14 : 6), { width: bColW - 10 });
+            doc.fontSize(8).font("Helvetica-Bold").fillColor(NAVY)
+               .text(bf[1], L + 8 + i * bColW, y + (allBanks.length > 1 ? 22 : 18), { width: bColW - 10 });
+          });
+          y += 44;
+        });
+      }
+
+      // School Leaders
+      if (leaders && leaders.length > 0) {
+        doc.fontSize(7).font("Helvetica-Bold").fillColor(GRAY)
+           .text("SCHOOL LEADERSHIP CONTACTS", L, y, { characterSpacing: 1.2 });
+        doc.moveTo(L + 185, y + 5).lineTo(L + W, y + 5).lineWidth(0.3).stroke("#cbd5e1");
+        y += 12;
+        const lColW  = (W - 10) / 2;
+        const perCol = Math.ceil(leaders.length / 2);
+        leaders.forEach((leader, idx) => {
+          const col = idx < perCol ? 0 : 1;
+          const row = idx < perCol ? idx : idx - perCol;
+          const lx  = L + col * (lColW + 10);
+          const ly  = y + row * 38;
+          doc.rect(lx, ly, lColW, 34)
+             .fill(idx % 2 === 0 ? "#fafafa" : WHITE)
+             .stroke("#e2e8f0")
+             .lineWidth(0.3);
+          doc.fontSize(8).font("Helvetica-Bold").fillColor(NAVY)
+             .text(leader.name || leader.leader_name || "", lx + 6, ly + 4, { width: lColW - 12 });
+          doc.fontSize(7).font("Helvetica").fillColor(GRAY)
+             .text(leader.role || leader.leader_role || "", lx + 6, ly + 14, { width: lColW - 12 });
+          const contact = [
+            leader.phone ? `+250 ${leader.phone}` : "",
+            leader.email || "",
+          ].filter(Boolean).join("  ·  ");
+          if (contact) {
+            doc.fontSize(7).font("Helvetica").fillColor(ACCENT)
+               .text(contact, lx + 6, ly + 24, { width: lColW - 12 });
+          }
+        });
+        y += perCol * 38 + 10;
+      }
+
+      // Requirements
+      if (requirements.length > 0) {
+        doc.fontSize(7).font("Helvetica-Bold").fillColor(GRAY)
+           .text("MATÉRIELS REQUIS", L, y, { characterSpacing: 1.2 });
+        doc.moveTo(L + 115, y + 5).lineTo(L + W, y + 5).lineWidth(0.3).stroke("#cbd5e1");
+        y += 12;
+        const reqPerCol = Math.ceil(requirements.length / 2);
+        const reqColW   = (W - 10) / 2;
+        requirements.forEach((r, idx) => {
+          const col = idx < reqPerCol ? 0 : 1;
+          const row = idx < reqPerCol ? idx : idx - reqPerCol;
+          const rx  = L + col * (reqColW + 10);
+          const ry  = y + row * 13;
+          doc.circle(rx + 4, ry + 5, 2).fill("#94a3b8");
+          doc.fontSize(8).font("Helvetica").fillColor(BLACK)
+             .text(r.item || r, rx + 10, ry, { width: reqColW - 14 });
+        });
+        y += reqPerCol * 13 + 10;
+      }
+
+      // Class notes
+      if (classNotes.length > 0) {
+        doc.fontSize(7).font("Helvetica-Bold").fillColor(GRAY)
+           .text("INFORMATIONS & NOTES DE CLASSE", L, y, { characterSpacing: 1.2 });
+        doc.moveTo(L + 195, y + 5).lineTo(L + W, y + 5).lineWidth(0.3).stroke("#cbd5e1");
+        y += 12;
+        classNotes.forEach((n, idx) => {
+          const itemText   = n.item    || n.information || "";
+          const detailText = n.details || "";
+          doc.rect(L, y, W, 14).fill(idx % 2 === 0 ? "#fafafa" : WHITE);
+          doc.fontSize(8).font("Helvetica-Bold").fillColor(NAVY)
+             .text(itemText + (detailText ? ":" : ""), L + 6, y + 3, { width: 90 });
+          if (detailText) {
+            doc.fontSize(8).font("Helvetica").fillColor(BLACK)
+               .text(detailText, L + 98, y + 3, { width: W - 104 });
+          }
+          y += 14;
+        });
+        y += 10;
+      }
+
+      // Signature row
+      if (y > doc.page.height - 190) { doc.addPage(); y = doc.page.margins.top; }
+
+      doc.fontSize(7).font("Helvetica-Bold").fillColor(GRAY)
+         .text("AUTORISATION OFFICIELLE", L, y, { characterSpacing: 1.2 });
+      doc.moveTo(L + 145, y + 5).lineTo(L + W, y + 5).lineWidth(0.3).stroke("#cbd5e1");
+      y += 16;
+
+      const authRowH = 115;
+      const colSize  = W / 3;
+
+      // LEFT: Director Signature
+      doc.rect(L, y, colSize - 8, authRowH).fill("#fafafa").stroke("#e2e8f0").lineWidth(0.5);
+      doc.fontSize(7).font("Helvetica-Bold").fillColor(NAVY)
+         .text("DIRECTEUR / HEAD TEACHER", L + 8, y + 8, { width: colSize - 24, align: "center", characterSpacing: 0.5 });
+      const dirSigPath = resolveFilePath(sigPaths?.sigPath);
+      if (dirSigPath && fs.existsSync(dirSigPath)) {
+        try {
+          doc.image(dirSigPath, L + (colSize - 8) / 2 - 35, y + 22, { width: 70, height: 50, fit: [70, 50] });
+        } catch (_) {
+          doc.fontSize(20).fillColor("#e2e8f0").text("✍", L + (colSize - 8) / 2 - 10, y + 38);
+        }
+      } else {
+        doc.fontSize(20).fillColor("#e2e8f0").text("✍", L + (colSize - 8) / 2 - 10, y + 38);
+      }
+      doc.moveTo(L + 10, y + authRowH - 24).lineTo(L + colSize - 18, y + authRowH - 24)
+         .lineWidth(0.8).stroke("#334155");
+      doc.fontSize(7).font("Helvetica").fillColor(GRAY)
+         .text("Signature & Cachet", L + 8, y + authRowH - 18, { width: colSize - 24, align: "center" });
+
+      // CENTER: QR Code
+      const qrX = L + colSize;
+      doc.rect(qrX, y, colSize - 8, authRowH).fill("#eef2ff").stroke("#c7d2fe").lineWidth(0.5);
+      if (qrFilePath && typeof qrFilePath === "string" && fs.existsSync(qrFilePath)) {
+        try {
+          const qrSize = 72;
+          doc.image(qrFilePath, qrX + (colSize - 8) / 2 - qrSize / 2, y + 10,
+                    { width: qrSize, height: qrSize, fit: [qrSize, qrSize] });
+        } catch (_) {
+          doc.fontSize(24).fillColor("#c7d2fe").text("▣", qrX + (colSize - 8) / 2 - 12, y + 32);
+        }
+      } else {
+        doc.fontSize(24).fillColor("#c7d2fe").text("▣", qrX + (colSize - 8) / 2 - 12, y + 32);
+      }
+      doc.fontSize(6.5).font("Helvetica-Bold").fillColor("#3730a3")
+         .text("SCAN TO VERIFY AUTHENTICITY", qrX + 8, y + 86, { width: colSize - 24, align: "center", characterSpacing: 0.5 });
+      doc.fontSize(6).font("Helvetica").fillColor("#6366f1")
+         .text(docId, qrX + 8, y + 96, { width: colSize - 24, align: "center" });
+
+      // RIGHT: Stamp
+      const stmpX = L + colSize * 2;
+      doc.rect(stmpX, y, colSize - 8, authRowH).fill("#fafafa").stroke("#e2e8f0").lineWidth(0.5);
+      doc.fontSize(7).font("Helvetica-Bold").fillColor(NAVY)
+         .text("CACHET OFFICIEL", stmpX + 8, y + 8, { width: colSize - 24, align: "center", characterSpacing: 0.5 });
+      const stampPath = resolveFilePath(sigPaths?.stampPath);
+      if (stampPath && fs.existsSync(stampPath)) {
+        try {
+          doc.image(stampPath, stmpX + (colSize - 8) / 2 - 35, y + 18,
+                    { width: 70, height: 70, fit: [70, 70] });
+        } catch (_) {
+          doc.fontSize(26).fillColor("#e2e8f0").text("🔏", stmpX + (colSize - 8) / 2 - 14, y + 34);
+        }
+      } else {
+        doc.fontSize(26).fillColor("#e2e8f0").text("🔏", stmpX + (colSize - 8) / 2 - 14, y + 34);
+      }
+
+      // Footer
+      const footerY = doc.page.height - 36;
+      doc.rect(0, footerY, doc.page.width, 30).fill("#f1f5f9");
+      doc.moveTo(0, footerY).lineTo(doc.page.width, footerY).lineWidth(0.5).stroke("#cbd5e1");
+      doc.fontSize(7).font("Helvetica").fillColor(GRAY)
+         .text(`${b.school_name || ""} · ${b.academic_year} · ${b.term}`, L, footerY + 6, { width: W / 2 });
+      doc.fontSize(7).font("Helvetica-Bold").fillColor(NAVY)
+         .text("Document Officiel — NE PAS FALSIFIER", L + W / 2, footerY + 6, { width: W / 2, align: "center" });
+      doc.fontSize(7).font("Helvetica").fillColor(GRAY)
+         .text("Page 1/1", L, footerY + 6, { width: W, align: "right" });
+      doc.rect(0, doc.page.height - 6, doc.page.width, 6).fill(NAVY);
+
+      doc.end();
+      stream.on("finish", () => {
+        if (!fs.existsSync(filepath)) {
+          return reject(new Error(`PDF file not created at ${filepath}`));
+        }
+        resolve({ filePath: webPath, fileName: filename, fullPath: filepath });
+      });
+      stream.on("error", reject);
+    } catch (err) {
+      reject(err);
+    }
+  });
+};
+
+// ════════════════════════════════════════════════════════════
+// generateDocuments — v13
+// ════════════════════════════════════════════════════════════
+const generateDocuments = async ({ bid, babyeyi, payments, requirements, classNotes, sigPaths, academicYear, schoolId, parentMessage }) => {
+  console.log(`[generateDocuments] START bid=${bid}`);
+
+  const nb = normalise(babyeyi);
+  const resolvedClass = nb.class || nb.class_name || babyeyi.class_name || babyeyi.class || "N/A";
+  const resolvedTerm  = nb.term  || babyeyi.term  || "Term 1";
+  const resolvedYear  = academicYear || nb.academic_year || babyeyi.academic_year || String(new Date().getFullYear());
+
+  console.log(`[generateDocuments] class="${resolvedClass}", term="${resolvedTerm}", year="${resolvedYear}"`);
+
+  if (!bid) throw new Error("[generateDocuments] bid is required");
+
+  const resolvedSchoolId = schoolId || nb.school_id || babyeyi.school_id || null;
+  const normalisedPayments = normalisePaymentsForHash(payments);
+
+  if (DEBUG_HASH) {
+    console.log("[generateDocuments] normalisedPayments:", JSON.stringify(normalisedPayments));
+    console.log("[generateDocuments] resolvedSchoolId:", resolvedSchoolId);
+  }
+
+  let resolvedSigPaths = { ...sigPaths };
+
+  if (resolvedSchoolId) {
+    try {
+      const schoolRows = await query(
+        "SELECT logo_url, school_stamp_url, head_signature_url FROM schools WHERE id=? LIMIT 1",
+        [resolvedSchoolId]
+      );
+      if (schoolRows.length) {
+        const sr = schoolRows[0];
+        if (!resolvedSigPaths.schoolLogoPath && sr.logo_url)           resolvedSigPaths.schoolLogoPath = sr.logo_url;
+        if (!resolvedSigPaths.stampPath      && sr.school_stamp_url)   resolvedSigPaths.stampPath      = sr.school_stamp_url;
+        if (!resolvedSigPaths.sigPath        && sr.head_signature_url) resolvedSigPaths.sigPath        = sr.head_signature_url;
+      }
+    } catch (e) { console.warn("[generateDocuments] school fallback:", e.message); }
+  }
+
+  if (!resolvedSigPaths.sigPath && resolvedSchoolId) {
+    try {
+      const sigRows = await query(
+        `SELECT u.signature_url FROM users u
+         WHERE u.school_id = ? AND u.signature_url IS NOT NULL AND u.signature_url != ''
+         LIMIT 1`,
+        [resolvedSchoolId]
+      );
+      if (sigRows.length) resolvedSigPaths.sigPath = sigRows[0].signature_url;
+    } catch (_) {}
+  }
+
+  const existingDocId = babyeyi.doc_id && /^BY-\d{4}-\d{5}$/.test(babyeyi.doc_id)
+    ? babyeyi.doc_id
+    : null;
+  const docId = existingDocId || await generateDocId(resolvedYear);
+  console.log(`[generateDocuments] docId=${docId}`);
+
+  const integrityHash = generateIntegrityHash({
+    docId,
+    schoolId:      resolvedSchoolId,
+    className:     resolvedClass,
+    term:          resolvedTerm,
+    academicYear:  resolvedYear,
+    payments:      normalisedPayments,
+    bankAccountNo: nb.bank_account_no || babyeyi.bank_account_no || "",
+  });
+
+  if (DEBUG_HASH) {
+    console.log(`[generateDocuments] integrityHash=${integrityHash}`);
+  }
+
+  // v13: QR payload is now the full verify URL
+  const qrPayload = buildQRPayload(docId, integrityHash);
+  console.log(`[generateDocuments] QR payload="${qrPayload}"`);
+
+  const qr = await generateQRCodeFile(qrPayload, docId);
+
+  const leaderRows = await fetchLeaders(bid).catch(() => []);
+
+  const pdf = await generateBabyeyiPDF({
+    babyeyi: { ...nb, id: bid, class_name: resolvedClass, class: resolvedClass },
+    payments,
+    requirements,
+    classNotes,
+    sigPaths: resolvedSigPaths,
+    qrFilePath: qr.fullPath,
+    docId,
+    parentMessage: parentMessage || nb.parent_message || "",
+    leaders: leaderRows,
+  });
+  console.log(`[generateDocuments] PDF file=${pdf.filePath}`);
+
+  const viewUrl = `${process.env.FRONTEND_URL || "http://localhost:5173"}/babyeyi/verify/${docId}`;
+
+  try {
+    await query(
+      `UPDATE school_babyeyi
+       SET doc_id=?, qr_code_path=?, qr_view_url=?, pdf_path=?, pdf_name=?, integrity_hash=?
+       WHERE id=?`,
+      [docId, qr.filePath, viewUrl, pdf.filePath, pdf.fileName, integrityHash, bid]
+    );
+  } catch (e) {
+    console.error("[generateDocuments] UPDATE school_babyeyi failed:", e.message);
+    await query(
+      `UPDATE school_babyeyi SET doc_id=?, qr_code_path=?, pdf_path=?, pdf_name=?, integrity_hash=? WHERE id=?`,
+      [docId, qr.filePath, pdf.filePath, pdf.fileName, integrityHash, bid]
+    );
+  }
+
+  try {
+    const existingSig = await query("SELECT id FROM babyeyi_signatures WHERE babyeyi_id=?", [bid]);
+    if (existingSig.length) {
+      try {
+        await query(
+          `UPDATE babyeyi_signatures SET qr_code_path=?, qr_code_name=?, qr_view_url=? WHERE babyeyi_id=?`,
+          [qr.filePath, qr.fileName, viewUrl, bid]
+        );
+      } catch (e) {
+        if (e.code === "ER_BAD_FIELD_ERROR") {
+          await query(
+            `UPDATE babyeyi_signatures SET qr_code_path=?, qr_code_name=? WHERE babyeyi_id=?`,
+            [qr.filePath, qr.fileName, bid]
+          );
+        } else throw e;
+      }
+    } else {
+      try {
+        await query(
+          `INSERT INTO babyeyi_signatures (babyeyi_id, qr_code_path, qr_code_name, qr_view_url) VALUES (?,?,?,?)`,
+          [bid, qr.filePath, qr.fileName, viewUrl]
+        );
+      } catch (e) {
+        if (e.code === "ER_BAD_FIELD_ERROR") {
+          await query(
+            `INSERT INTO babyeyi_signatures (babyeyi_id, qr_code_path, qr_code_name) VALUES (?,?,?)`,
+            [bid, qr.filePath, qr.fileName]
+          );
+        } else throw e;
+      }
+    }
+  } catch (e) {
+    console.warn("[generateDocuments] signatures upsert warn:", e.message);
+  }
+
+  await query(
+    `INSERT IGNORE INTO babyeyi_doc_ids (doc_id, babyeyi_id) VALUES (?,?)`,
+    [docId, bid]
+  ).catch(e => console.warn("[generateDocuments] babyeyi_doc_ids:", e.message));
+
+  console.log(`[babyeyi] ✅ generateDocuments done: bid=${bid}, docId=${docId}, hash=${integrityHash}`);
+  return { docId, qrPath: qr.filePath, qrViewUrl: viewUrl, pdfPath: pdf.filePath, integrityHash };
+};
+
+// ════════════════════════════════════════════════════════════
+// MIDDLEWARE
+// ════════════════════════════════════════════════════════════
+const PUBLIC_PATHS = ["/verify/"];
+
+router.use((req, res, next) => {
+  const isPublic = PUBLIC_PATHS.some(p => req.path.startsWith(p));
+
+  // Allow unauthenticated GET requests to the list endpoint
+  // ONLY when a school_id is provided — this powers the public school website
+  // BabyeyiFinder component. The handler further filters to approved-only docs.
+  const isPublicSchoolSearch =
+    req.method === "GET" &&
+    (req.path === "/" || req.path === "") &&
+    !!req.query.school_id;
+
+  // Allow unauthenticated GET for single document and QR code (BabyeyiFinder public view)
+  // Handlers enforce approved-only for GET /:id when unauthenticated
+  const isPublicSingleOrQr =
+    req.method === "GET" &&
+    /^\/\d+(\/qrcode)?$/.test(req.path);
+
+  if (isPublic || isPublicSchoolSearch || isPublicSingleOrQr) return next();
+
+  if (!req.user && !req.session?.userId) {
+    return res.status(401).json({ success: false, message: "Not authenticated" });
+  }
+  if (!req.user && req.session?.user) req.user = req.session.user;
+  if (req.user && !req.user.school_id) {
+    req.user.school_id =
+      req.user?.school?.id          ||
+      req.session?.user?.school?.id ||
+      req.session?.user?.school_id  ||
+      req.session?.school_id        ||
+      null;
+  }
+  next();
+});
+// ════════════════════════════════════════════════════════════
+// GET /api/babyeyi/school-info
+// ════════════════════════════════════════════════════════════
+router.get("/school-info", async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) {
+      return res.status(400).json({ success: false, message: "school_id not found in session" });
+    }
+
+    let school = {};
+    try {
+      const minimalRows = await query(
+        `SELECT id, school_name, school_code, province, district, sector, phone, email FROM schools WHERE id=? LIMIT 1`,
+        [schoolId]
+      );
+      if (!minimalRows.length) return res.status(404).json({ success: false, message: "School not found" });
+      school = { ...minimalRows[0] };
+    } catch (e) {
+      return res.status(500).json({ success: false, message: "Failed to load school info" });
+    }
+
+    try {
+      const fullRows = await query("SELECT * FROM schools WHERE id=? LIMIT 1", [schoolId]);
+      if (fullRows?.[0]) Object.assign(school, fullRows[0]);
+    } catch (_) {}
+
+    // Keep cell and village separate (both come directly from `schools` table).
+    // `cell` should not fall back to village, so Step 1 dropdown values match DB.
+    const cell           = school.cell ?? "";
+    const stampUrl       = school.school_stamp_url ?? school.stamp_url ?? "";
+    const headName       = school.head_teacher_name ?? "";
+    const headPhone      = school.head_teacher_phone ?? "";
+    const headEmail      = school.head_teacher_email ?? "";
+    let educationLevels  = school.education_levels;
+    try { educationLevels = typeof educationLevels === "string" ? JSON.parse(educationLevels) : (educationLevels || []); }
+    catch (_) { educationLevels = []; }
+
+    const schoolPayload = {
+      id:               school.id,
+      school_name:      school.school_name      ?? "",
+      school_code:      school.school_code      ?? "",
+      category:         school.school_category  ?? "",
+      ownership:        school.ownership_type   ?? "",
+      type:             school.school_type      ?? "",
+      province:         school.province         ?? "",
+      district:         school.district         ?? "",
+      sector:           school.sector           ?? "",
+      cell,
+      village:          school.village          ?? "",
+      phone:            school.phone            ?? "",
+      email:            school.email            ?? "",
+      po_box:           school.postal_address   ?? "",
+      logo_url:         school.logo_url         ?? "",
+      stamp_url:        stampUrl,
+      head_teacher_name:  headName,
+      head_teacher_phone: headPhone,
+      head_teacher_email: headEmail,
+      education_levels:   educationLevels,
+      status:             school.status         ?? "active",
+    };
+
+    const userId = req.user?.id || req.session?.userId;
+    let headTeacherSignatureUrl = "";
+    let headTeacherFullName     = headName;
+
+    if (userId) {
+      try {
+        const userRows = await query(
+          `SELECT CONCAT(u.first_name, ' ', u.last_name) AS full_name,
+                  COALESCE(u.signature_url, '') AS signature_url
+           FROM users u WHERE u.id=? AND u.deleted_at IS NULL LIMIT 1`,
+          [userId]
+        );
+        if (userRows.length) {
+          // Prefer manager/user signature_url, but fallback to the school's stored head signature.
+          headTeacherSignatureUrl = userRows[0].signature_url || school.head_signature_url || "";
+          if (!headTeacherFullName.trim()) headTeacherFullName = userRows[0].full_name || "";
+        }
+      } catch (e) { console.warn("[school-info] user sig query:", e.message); }
+    }
+
+    schoolPayload.head_teacher_name          = headTeacherFullName;
+    schoolPayload.head_teacher_signature_url = headTeacherSignatureUrl;
+    schoolPayload.head_teacher_title         = "Head Teacher";
+
+    const latestBabyeyi = await query(
+      `SELECT id, academic_year, term, status FROM school_babyeyi WHERE school_id=? ORDER BY created_at DESC LIMIT 1`,
+      [schoolId]
+    ).then(rows => rows[0] || null).catch(() => null);
+
+    res.json({ success: true, data: { school: schoolPayload, latest_babyeyi: latestBabyeyi } });
+  } catch (err) {
+    console.error("❌ /school-info error:", err.message);
+    res.status(500).json({ success: false, message: "Failed to load school info" });
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// POST /api/babyeyi/upload-asset
+// ════════════════════════════════════════════════════════════
+router.post("/upload-asset", uploadAsset.single("file"), async (req, res) => {
+  try {
+    const schoolId  = resolveSchoolId(req);
+    const assetType = req.body?.asset_type;
+    if (!schoolId)  return res.status(400).json({ success: false, message: "school_id missing from session" });
+    if (!req.file)  return res.status(400).json({ success: false, message: "No file uploaded" });
+    if (!["logo","signature","stamp","other_logo"].includes(assetType)) {
+      return res.status(400).json({ success: false, message: "asset_type must be logo, other_logo, signature, or stamp" });
+    }
+    const fileUrl = `/${ASSET_DIR}${req.file.filename}`;
+    if (assetType === "logo") {
+      await query(`UPDATE schools SET logo_url=? WHERE id=?`, [fileUrl, schoolId]);
+    } else if (assetType === "other_logo") {
+      await query(
+        `UPDATE babyeyi_signatures bs INNER JOIN school_babyeyi b ON b.id=bs.babyeyi_id
+         SET bs.other_logo_path=?, bs.other_logo_name=? WHERE b.school_id=?`,
+        [fileUrl, req.file.originalname, schoolId]
+      ).catch(e => console.warn("[upload-asset] other_logo update:", e.message));
+    } else if (assetType === "stamp") {
+      await query(`UPDATE schools SET school_stamp_url=? WHERE id=?`, [fileUrl, schoolId]);
+    } else if (assetType === "signature") {
+      const userId = req.user?.id || req.session?.userId;
+      if (userId) await query(`UPDATE users SET signature_url=? WHERE id=?`, [fileUrl, userId]);
+      await query(`UPDATE schools SET head_signature_url=? WHERE id=?`, [fileUrl, schoolId]).catch(() => {});
+    }
+    res.json({ success: true, url: fileUrl, asset_type: assetType, message: `${assetType} uploaded successfully` });
+  } catch (err) {
+    console.error("❌ /upload-asset error:", err.message);
+    res.status(500).json({ success: false, message: "Upload failed" });
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// GET /api/babyeyi/nesa-limit
+// ════════════════════════════════════════════════════════════
+router.get("/nesa-limit", async (req, res) => {
+  try {
+    const { category, level, term, academic_year } = req.query;
+    if (!category || !level || !term || !academic_year)
+      return res.json({ success: true, data: null, message: "Parameters missing" });
+    const rows = await query(
+      `SELECT id, max_amount, regulation_ref, notes FROM fee_limits
+       WHERE category=? AND level=? AND term=? AND academic_year=? AND is_active=1 LIMIT 1`,
+      [category, level, term, academic_year]
+    );
+    res.json({ success: true, data: rows[0] || null });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Failed to fetch NESA limit" });
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// GET /api/babyeyi/student-requirements-catalog
+// Master list for Step 3 — rows from `student_requirements` (MariaDB)
+// ════════════════════════════════════════════════════════════
+router.get("/student-requirements-catalog", async (req, res) => {
+  try {
+    let rows;
+    try {
+      rows = await query(
+        `SELECT id, name, description, quantity FROM student_requirements ORDER BY id ASC`
+      );
+    } catch (e) {
+      if (e.code === "ER_BAD_FIELD_ERROR") {
+        rows = await query(`SELECT id, name FROM student_requirements ORDER BY id ASC`);
+        rows = (rows || []).map((r) => ({ ...r, description: null, quantity: null }));
+      } else {
+        throw e;
+      }
+    }
+    return res.json({ success: true, data: rows || [] });
+  } catch (err) {
+    console.error("[babyeyi] student-requirements-catalog:", err.message);
+    return res.status(500).json({ success: false, message: "Failed to load student requirements" });
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// GET /api/babyeyi/debug-hash/:id
+// ════════════════════════════════════════════════════════════
+router.get("/debug-hash/:id", async (req, res) => {
+  if (!DEBUG_HASH) return res.status(403).json({ message: "Set DEBUG_HASH=1 in .env to use this endpoint" });
+  try {
+    const docId = req.params.id.toUpperCase().trim();
+    const rows = await query("SELECT * FROM school_babyeyi WHERE doc_id=? LIMIT 1", [docId]);
+    if (!rows.length) return res.status(404).json({ message: "Not found" });
+    const b = normalise(rows[0]);
+    const payments = await query("SELECT name, amount FROM babyeyi_payments WHERE babyeyi_id=? ORDER BY sort_order", [b.id]);
+    const normed = normalisePaymentsForHash(payments);
+    const hashFields = {
+      docId,
+      schoolId:      b.school_id,
+      className:     b.class || b.class_name || "",
+      term:          b.term  || "",
+      academicYear:  b.academic_year || "",
+      payments:      normed,
+      bankAccountNo: b.bank_account_no || "",
+    };
+    const serverHash = generateIntegrityHash(hashFields);
+    const canonical  = buildCanonical(hashFields);
+    res.json({
+      docId,
+      storedHash:   b.integrity_hash || null,
+      serverHash,
+      match:        b.integrity_hash === serverHash,
+      canonical,
+      fields:       hashFields,
+      secretPrefix: HASH_SECRET.slice(0, 8) + "...",
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// GET /api/babyeyi/verify/:docId — PUBLIC
+// v13: reads ?h= query param; returns verifyUrl in response
+// ════════════════════════════════════════════════════════════
+router.get("/verify/:docId", async (req, res) => {
+  try {
+    let rawParam = req.params.docId || "";
+    try { rawParam = decodeURIComponent(rawParam); } catch (_) {}
+    rawParam = rawParam.trim().replace(/%7[Cc]/g, "|");
+
+    const parsed = parseQRPayload(rawParam);
+    const docId  = parsed
+      ? parsed.docId
+      : rawParam.split("|")[0].toUpperCase().trim();
+
+    // v13: accept hash from parsed payload OR ?h= query param
+    const qrHash = parsed?.hash
+      || (typeof req.query.h === "string" && /^[0-9a-f]{16}$/i.test(req.query.h)
+          ? req.query.h.toLowerCase()
+          : null);
+
+    if (!docId || !/^BY-\d{4}-\d{5}$/.test(docId)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid document ID format. Got: "${docId || rawParam}". Expected: BY-YYYY-NNNNN`,
+      });
+    }
+
+    const rows = await query(
+      `SELECT b.*,
+              COALESCE(b.school_name, s.school_name) AS resolved_school_name,
+              COALESCE(b.school_district, s.district) AS resolved_district,
+              COALESCE(b.school_sector, s.sector)     AS resolved_sector
+       FROM school_babyeyi b
+       LEFT JOIN schools s ON s.id=b.school_id
+       WHERE b.doc_id=? AND b.is_active=1 LIMIT 1`,
+      [docId]
+    );
+    if (!rows.length) {
+      return res.status(404).json({ success: false, message: `Document "${docId}" not found or revoked.`, docId });
+    }
+
+    const babyeyi = normalise(rows[0]);
+
+    const [payments, sigs] = await Promise.all([
+      query("SELECT name, amount FROM babyeyi_payments WHERE babyeyi_id=? ORDER BY sort_order", [babyeyi.id]),
+      query("SELECT qr_code_path, qr_view_url FROM babyeyi_signatures WHERE babyeyi_id=? LIMIT 1", [babyeyi.id])
+        .catch(() => []),
+    ]);
+
+    let paymentList = payments;
+    if (!paymentList.length && babyeyi.payments) {
+      try {
+        const p = typeof babyeyi.payments === "string" ? JSON.parse(babyeyi.payments) : babyeyi.payments;
+        if (Array.isArray(p)) paymentList = p;
+      } catch (_) {}
+    }
+
+    const totalFee = paymentList.reduce((s, p) => s + Number(p.amount || 0), 0);
+    const normalisedPaymentsForVerify = normalisePaymentsForHash(paymentList);
+
+    const hashFields = {
+      docId,
+      schoolId:      babyeyi.school_id,
+      className:     babyeyi.class || babyeyi.class_name || "",
+      term:          babyeyi.term  || "",
+      academicYear:  babyeyi.academic_year || "",
+      payments:      normalisedPaymentsForVerify,
+      bankAccountNo: babyeyi.bank_account_no || "",
+    };
+
+    if (DEBUG_HASH) {
+      console.log("[verify] hashFields:", JSON.stringify(hashFields));
+    }
+
+    const serverHash = generateIntegrityHash(hashFields);
+
+    let integrityStatus, integrityDetail;
+
+    if (qrHash) {
+      const match = verifyIntegrityHash(hashFields, qrHash);
+      integrityStatus = match ? "valid" : "tampered";
+      integrityDetail = match
+        ? "QR hash matches server — document is authentic"
+        : "QR hash does NOT match server — possible tampering";
+    } else {
+      const storedHash = babyeyi.integrity_hash;
+      if (!storedHash) {
+        try {
+          await query("UPDATE school_babyeyi SET integrity_hash=? WHERE id=?", [serverHash, babyeyi.id]);
+        } catch (_) {}
+        integrityStatus = "no_hash";
+        integrityDetail = "Document created before cryptographic signing was enabled. Hash now stored.";
+      } else {
+        const match = storedHash === serverHash;
+        if (!match) {
+          try {
+            await query("UPDATE school_babyeyi SET integrity_hash=? WHERE id=?", [serverHash, babyeyi.id]);
+            integrityStatus = "valid";
+            integrityDetail = "Hash was recomputed (old algorithm/secret) — document is authentic";
+          } catch (rehashErr) {
+            integrityStatus = "tampered";
+            integrityDetail = "Hash mismatch — possible tampering OR old hash algorithm";
+          }
+        } else {
+          integrityStatus = "valid";
+          integrityDetail = "Stored hash matches recomputed hash";
+        }
+      }
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        docId,
+        status:       babyeyi.status,
+        isValid:      babyeyi.status === "approved",
+        schoolName:   rows[0].resolved_school_name || babyeyi.school_name || "Unknown School",
+        class:        babyeyi.class       || "",
+        level:        babyeyi.level       || "",
+        academicYear: babyeyi.academic_year,
+        term:         babyeyi.term,
+        category:     babyeyi.category    || "",
+        district:     rows[0].resolved_district || null,
+        sector:       rows[0].resolved_sector   || null,
+        totalFee,
+        payments:     paymentList,
+        pdfPath:      babyeyi.pdf_path    || null,
+        qrPath:       (sigs[0] || {})?.qr_code_path || babyeyi.qr_code_path || null,
+        verifyUrl:    buildQRPayload(docId, serverHash),  // v13: full canonical verify URL
+        createdAt:    babyeyi.created_at,
+        verifiedAt:   new Date().toISOString(),
+        exceedsLimit: !!babyeyi.exceeds_limit,
+        nesaLimit:    babyeyi.nesa_limit  || null,
+        integrity: {
+          status:     integrityStatus,
+          detail:     integrityDetail,
+          serverHash,
+          storedHash: babyeyi.integrity_hash || null,
+          qrHash:     qrHash || null,
+          algorithm:  "HMAC-SHA256 (truncated 64-bit)",
+        },
+      },
+    });
+  } catch (err) {
+    console.error("[babyeyi/verify] Error:", err.message);
+    return res.status(500).json({ success: false, message: "Verification failed — server error" });
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// GET /api/babyeyi/stats
+// ════════════════════════════════════════════════════════════
+router.get("/stats", async (req, res) => {
+  try {
+    const schoolId = req.query.school_id || resolveSchoolId(req);
+    const params   = schoolId ? [schoolId] : [];
+    const where    = schoolId ? "WHERE b.school_id=? AND b.is_active=1" : "WHERE b.is_active=1";
+    const [totals] = await query(
+      `SELECT COUNT(*) AS total,
+              SUM(b.status='approved')  AS approved,
+              SUM(b.status='pending')   AS pending,
+              SUM(b.status='rejected')  AS rejected,
+              SUM(b.status='draft')     AS draft,
+              SUM(b.exceeds_limit=1)    AS exceeds_count
+       FROM school_babyeyi b ${where}`,
+      params
+    );
+    res.json({ success: true, data: { ...totals } });
+  } catch (err) {
+    console.error("❌ /stats:", err.message);
+    res.status(500).json({ success: false, message: "Failed to fetch stats" });
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// GET /api/babyeyi — list
+// ════════════════════════════════════════════════════════════
+router.get("/", async (req, res) => {
+  try {
+    const { status, year, term, category, level, search, school_id, request_status, page = 1, limit = 20 } = req.query;
+    let where = ["b.is_active=1"], params = [];
+    const join = "LEFT JOIN babyeyi_increase_requests ir ON ir.babyeyi_id=b.id";
+
+    if (status)         { where.push("b.status=?");          params.push(status); }
+    if (year)           { where.push("b.academic_year=?");   params.push(year); }
+    if (term)           { where.push("b.term=?");            params.push(term); }
+    if (category)       { where.push("b.school_category=?"); params.push(category); }
+    if (level)          { where.push("b.education_level=?"); params.push(level); }
+    if (request_status) { where.push("ir.nesa_status=?");    params.push(request_status); }
+
+    const resolvedSchoolId = school_id || resolveSchoolId(req);
+    if (resolvedSchoolId) { where.push("b.school_id=?"); params.push(resolvedSchoolId); }
+    if (search) {
+      // Support multi-class Babyeyi: match either primary class_name or the JSON array in classes_json
+      where.push("(b.class_name LIKE ? OR b.classes_json LIKE ? OR b.academic_year LIKE ? OR b.doc_id LIKE ?)");
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
+    }
+
+    const whereSQL = `WHERE ${where.join(" AND ")}`;
+    const offset   = (Number(page) - 1) * Number(limit);
+
+   const pageNum   = Math.max(1, parseInt(page)  || 1);
+const limitNum  = Math.max(1, parseInt(limit) || 20);
+const offsetNum = (pageNum - 1) * limitNum;
+
+const [rows, [{ total }]] = await Promise.all([
+  query(
+    `SELECT b.*, ir.id AS request_id, ir.nesa_status AS request_status, ir.deo_notes
+     FROM school_babyeyi b ${join} ${whereSQL}
+     ORDER BY b.created_at DESC LIMIT ? OFFSET ?`,
+    [...params, limitNum, offsetNum]
+  ),
+  query(`SELECT COUNT(*) AS total FROM school_babyeyi b ${join} ${whereSQL}`, params),
+]);
+
+    res.json({
+      success: true,
+      data: rows.map(normalise),
+      pagination: { total, page: Number(page), limit: Number(limit), pages: Math.ceil(total / Number(limit)) },
+    });
+  } catch (err) {
+    console.error("[babyeyi/GET]", err);
+    res.status(500).json({ success: false, message: "Failed to fetch babyeyi" });
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// GET /api/babyeyi/requests
+// ════════════════════════════════════════════════════════════
+router.get("/requests", async (req, res) => {
+  try {
+    const { status, school_id, page = 1, limit = 20 } = req.query;
+    const resolvedSchoolId = school_id ? Number(school_id) : resolveSchoolId(req);
+    const where  = [];
+    const params = [];
+
+    if (status) { where.push("r.nesa_status = ?"); params.push(status); }
+    if (resolvedSchoolId) { where.push("b.school_id = ?"); params.push(resolvedSchoolId); }
+
+    const whereSQL = where.length ? `WHERE ${where.join(" AND ")}` : "";
+    const offset   = (Math.max(Number(page), 1) - 1) * Number(limit);
+
+    const rows = await query(
+      `SELECT
+         r.id, r.babyeyi_id, r.school_id, r.nesa_status, r.reason, r.description,
+         COALESCE(r.current_limit, 0)      AS current_limit,
+         COALESCE(r.requested_amount, 0)   AS requested_amount,
+         COALESCE(r.excess_amount, 0)      AS excess_amount,
+         COALESCE(r.deo_notes, '')         AS deo_notes,
+         COALESCE(r.nesa_notes, '')        AS nesa_notes,
+         COALESCE(r.submitted_at, r.created_at, NOW()) AS submitted_at,
+         COALESCE(r.reviewed_at, NULL)     AS reviewed_at,
+         r.parent_rep_doc_path, r.parent_rep_doc_name,
+         r.budget_doc_path, r.budget_doc_name,
+         b.class_name, b.term, b.academic_year, b.school_category, b.education_level,
+         COALESCE(b.total_fee, b.total_amount, 0) AS total_fee,
+         b.school_id AS babyeyi_school_id,
+         b.school_name AS babyeyi_school_name,
+         b.doc_id, b.status AS babyeyi_status
+       FROM babyeyi_increase_requests r
+       JOIN school_babyeyi b ON b.id = r.babyeyi_id
+       ${whereSQL}
+       ORDER BY COALESCE(r.submitted_at, r.created_at) DESC
+       LIMIT ? OFFSET ?`,
+      [...params, Number(limit), offset]
+    );
+
+    let total = rows.length;
+    try {
+      const [countRow] = await query(
+        `SELECT COUNT(*) AS total FROM babyeyi_increase_requests r JOIN school_babyeyi b ON b.id = r.babyeyi_id ${whereSQL}`,
+        params
+      );
+      total = countRow?.total ?? rows.length;
+    } catch (_) {}
+
+    res.json({
+      success: true,
+      data: rows.map(r => ({
+        ...normalise(r),
+        id: r.id, babyeyiId: r.babyeyi_id, nesaStatus: r.nesa_status,
+        reason: r.reason || "", description: r.description || "",
+        currentLimit: Number(r.current_limit || 0),
+        requestedAmount: Number(r.requested_amount || 0),
+        excessAmount: Number(r.excess_amount || 0),
+        deoNotes: r.deo_notes || "", nesaNotes: r.nesa_notes || "",
+        submittedAt: r.submitted_at, reviewedAt: r.reviewed_at || null,
+        parentRepDocPath: r.parent_rep_doc_path || null,
+        parentRepDocName: r.parent_rep_doc_name || null,
+        budgetDocPath: r.budget_doc_path || null,
+        budgetDocName: r.budget_doc_name || null,
+        className: r.class_name || "", term: r.term || "",
+        academicYear: r.academic_year || "", category: r.school_category || "",
+        level: r.education_level || "", totalFee: Number(r.total_fee || 0),
+        schoolId: r.school_id || r.babyeyi_school_id,
+        schoolName: r.babyeyi_school_name || "",
+        docId: r.doc_id || null, babyeyiStatus: r.babyeyi_status || "",
+      })),
+      pagination: { total, page: Number(page), limit: Number(limit), pages: Math.ceil(total / Number(limit)) },
+    });
+  } catch (err) {
+    console.error("[babyeyi/GET /requests] ❌", err.message, err.stack);
+    res.status(500).json({ success: false, message: `Failed to fetch requests: ${err.message}` });
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// GET /api/babyeyi/:id  — includes leaders
+// ════════════════════════════════════════════════════════════
+router.get("/:id", async (req, res) => {
+  try {
+    const rows = await query("SELECT * FROM school_babyeyi WHERE id=? AND is_active=1", [req.params.id]);
+    if (!rows.length) return res.status(404).json({ success: false, message: "Not found" });
+    const babyeyi = normalise(rows[0]);
+
+    // Public access (unauthenticated): only allow viewing approved documents
+    if (!req.user && babyeyi.status !== "approved") {
+      return res.status(404).json({ success: false, message: "Not found" });
+    }
+
+    const [payments, studentReqs, classReqsRaw, signatures, increaseReq, leaders] = await Promise.all([
+      query("SELECT * FROM babyeyi_payments WHERE babyeyi_id=? ORDER BY sort_order",             [babyeyi.id]),
+      query("SELECT * FROM babyeyi_student_requirements WHERE babyeyi_id=? ORDER BY sort_order", [babyeyi.id]),
+      query(`SELECT id, babyeyi_id,
+                    COALESCE(item, information) AS item,
+                    details, COALESCE(sort_order, 0) AS sort_order
+             FROM babyeyi_class_requirements WHERE babyeyi_id=? ORDER BY COALESCE(sort_order, 0)`,
+            [babyeyi.id]).catch(() => []),
+      query("SELECT * FROM babyeyi_signatures WHERE babyeyi_id=?", [babyeyi.id]).catch(() => []),
+      query("SELECT * FROM babyeyi_increase_requests WHERE babyeyi_id=? LIMIT 1", [babyeyi.id]).catch(() => []),
+      fetchLeaders(babyeyi.id),
+    ]);
+
+    const classReqs = classReqsRaw.map(normaliseClassReq);
+    const sigRow = signatures[0] || {};
+
+    let fallbackSigPath   = sigRow.director_sig_path || null;
+    let fallbackStampPath = sigRow.stamp_path        || null;
+    let fallbackLogoPath  = sigRow.school_logo_path  || null;
+
+    if (babyeyi.school_id) {
+      try {
+        const [schoolRow] = await query(
+          "SELECT logo_url, school_stamp_url, head_signature_url FROM schools WHERE id=? LIMIT 1",
+          [babyeyi.school_id]
+        );
+        if (schoolRow) {
+          if (!fallbackSigPath   && schoolRow.head_signature_url) fallbackSigPath   = schoolRow.head_signature_url;
+          if (!fallbackStampPath && schoolRow.school_stamp_url)   fallbackStampPath = schoolRow.school_stamp_url;
+          if (!fallbackLogoPath  && schoolRow.logo_url)           fallbackLogoPath  = schoolRow.logo_url;
+        }
+      } catch (_) {}
+    }
+
+    const mergedSig = {
+      ...sigRow,
+      director_sig_path: fallbackSigPath,
+      stamp_path:        fallbackStampPath,
+      school_logo_path:  fallbackLogoPath,
+      other_logo_path:   sigRow.other_logo_path || null,
+    };
+
+    res.json({
+      success: true,
+      data: {
+        ...babyeyi,
+        payments,
+        student_requirements: studentReqs,
+        class_requirements:   classReqs,
+        signatures:           Object.keys(mergedSig).length ? mergedSig : null,
+        increase_request:     increaseReq[0] || null,
+        leaders,
+      },
+    });
+  } catch (err) {
+    console.error("[babyeyi/:id]", err.message);
+    res.status(500).json({ success: false, message: "Failed to fetch babyeyi" });
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// POST /api/babyeyi — create
+// ════════════════════════════════════════════════════════════
+router.post("/", (req, res) => {
+  upload(req, res, async (uploadErr) => {
+    if (uploadErr) return res.status(400).json({ success: false, message: uploadErr.message });
+    try {
+      const body  = req.body;
+      const files = req.files || {};
+
+      if (!body.academic_year || !body.term || (!body.class && !body.classes) || !body.category) {
+        return res.status(422).json({ success: false, message: "academic_year, term, class/classes, category are required" });
+      }
+
+      const schoolId = resolveSchoolId(req);
+      const fv = (v, fb = null) => Array.isArray(v) ? v[0] ?? fb : v ?? fb;
+
+      const schoolProvince = fv(body.province, req.user?.province || null);
+      const schoolDistrict = fv(body.district, req.user?.district || null);
+      const schoolSector   = fv(body.sector,   req.user?.sector   || null);
+
+      // ── Multi-class support: classes_json + primary class ─────
+      const classesArrRaw = body.classes || body.classes_json || null;
+      const classesArr    = parseJSONField(classesArrRaw);
+      const primaryClass  = (classesArr[0] || body.class || body.class_name || "").toString().trim();
+      if (!primaryClass) {
+        return res.status(422).json({ success: false, message: "At least one class is required" });
+      }
+
+      const level         = body.level || classToLevel(primaryClass);
+      const payments      = parseJSONField(body.payments);
+      const totalFee      = payments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
+      const parentMessage = body.parent_message || "";
+
+      const banksJsonRaw  = body.banks_json || body.banks || null;
+      const banks         = parseJSONField(banksJsonRaw);
+      const primaryBank   = banks.length > 0 ? banks[0] : null;
+      const bankName      = primaryBank ? (primaryBank.bankName || primaryBank.bank_name || body.bank_name || null) : (body.bank_name || null);
+      const bankAccountNo = primaryBank ? (primaryBank.accountNumber || primaryBank.bank_account_no || body.bank_account_no || null) : (body.bank_account_no || null);
+      const bankBranch    = primaryBank ? (primaryBank.bankBranch || primaryBank.bank_branch || body.bank_branch || null) : (body.bank_branch || null);
+      const banksJson     = banks.length > 0 ? JSON.stringify(banks) : (banksJsonRaw || null);
+
+      const nesaRows = await query(
+        `SELECT max_amount FROM fee_limits WHERE category=? AND level=? AND term=? AND academic_year=? AND is_active=1 LIMIT 1`,
+        [body.category, level, body.term, body.academic_year]
+      ).catch(() => []);
+      const nesaLimit       = nesaRows[0]?.max_amount ?? null;
+      const exceeds         = nesaLimit !== null && totalFee > Number(nesaLimit);
+      const requestIncrease = body.request_increase === "true" || body.request_increase === true;
+
+      let schoolName = body.school_name || null;
+      let schoolCode = body.school_code || null;
+      if (schoolId && !schoolName) {
+        try {
+          const [schRow] = await query("SELECT school_name, school_code FROM schools WHERE id=? LIMIT 1", [schoolId]);
+          if (schRow) { schoolName = schRow.school_name; schoolCode = schRow.school_code; }
+        } catch (_) {}
+      }
+
+      const status = !exceeds ? "approved" : requestIncrease ? "pending" : "draft";
+      const preDocId = await generateDocId(body.academic_year);
+
+      const result = await query(
+        `INSERT INTO school_babyeyi
+           (school_id, school_name, school_code,
+            school_province, school_district, school_sector,
+            academic_year, term, class_name, classes_json,
+            school_category, education_level,
+            payments, total_amount,
+            bank_name, bank_account_no, bank_branch, banks_json,
+            parent_message, total_fee, nesa_limit, exceeds_limit, status, doc_id)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        [
+          schoolId, schoolName, schoolCode,
+          schoolProvince, schoolDistrict, schoolSector,
+          body.academic_year, body.term, primaryClass, classesArr.length ? JSON.stringify(classesArr) : null,
+          body.category, level,
+          JSON.stringify(payments), totalFee,
+          bankName, bankAccountNo, bankBranch, banksJson,
+          parentMessage, totalFee, nesaLimit, exceeds ? 1 : 0, status, preDocId,
+        ]
+      );
+      const bid = result.insertId;
+
+      // When fee exceeds NESA limit and school requested increase, create increase request so DEO sees it
+      if (exceeds && requestIncrease) {
+        const increaseReason = body.increase_reason || body.increase_title || "Fee exceeds NESA limit — school requested approval";
+        const increaseDesc   = body.increase_desc   || body.increase_description || null;
+        try {
+          await query(
+            `INSERT INTO babyeyi_increase_requests
+               (babyeyi_id, school_id, school_name, district,
+                reason, description,
+                current_limit, requested_amount, excess_amount, nesa_status, submitted_at, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW(), NOW())`,
+            [
+              bid,
+              schoolId,
+              schoolName,
+              schoolDistrict,
+              increaseReason,
+              increaseDesc,
+              nesaLimit,
+              totalFee,
+              totalFee - Number(nesaLimit),
+            ]
+          );
+        } catch (irErr) {
+          if (irErr.code === "ER_BAD_FIELD_ERROR") {
+            await query(
+              `INSERT INTO babyeyi_increase_requests
+                 (babyeyi_id, school_id, school_name, district,
+                  requested_amount, current_limit, nesa_status, reason, submitted_at, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, NOW(), NOW())`,
+              [bid, schoolId, schoolName, schoolDistrict, totalFee, nesaLimit, increaseReason]
+            );
+          } else throw irErr;
+        }
+        // If school uploaded parent rep doc or budget doc in this request, save to increase_request so DEO can see them
+        const parentDoc = files.parent_rep_doc?.[0];
+        const budgetDoc = files.budget_doc?.[0];
+        if (parentDoc || budgetDoc) {
+          const up = []; const v = [];
+          if (parentDoc) { up.push("parent_rep_doc_path=?, parent_rep_doc_name=?"); v.push(`/${UPLOAD_DIR}${parentDoc.filename}`, parentDoc.originalname || null); }
+          if (budgetDoc) { up.push("budget_doc_path=?, budget_doc_name=?"); v.push(`/${UPLOAD_DIR}${budgetDoc.filename}`, budgetDoc.originalname || null); }
+          if (up.length) { v.push(bid); await query(`UPDATE babyeyi_increase_requests SET ${up.join(", ")} WHERE babyeyi_id=?`, v).catch(e => console.warn("[POST] update increase_request docs:", e.message)); }
+        }
+      }
+
+      await query(
+        `INSERT IGNORE INTO babyeyi_doc_ids (doc_id, babyeyi_id) VALUES (?,?)`,
+        [preDocId, bid]
+      ).catch(e => console.warn("[POST] babyeyi_doc_ids:", e.message));
+
+      const allNamedPayments = payments.filter(p => p.name && String(p.name).trim());
+      for (let i = 0; i < allNamedPayments.length; i++) {
+        await query(
+          "INSERT INTO babyeyi_payments (babyeyi_id, name, amount, sort_order) VALUES (?,?,?,?)",
+          [bid, allNamedPayments[i].name, Number(allNamedPayments[i].amount) || 0, i]
+        );
+      }
+
+      const studentReqs = parseJSONField(body.requirements);
+      for (let i = 0; i < studentReqs.length; i++) {
+        const r = studentReqs[i] || {};
+        if (r.item) {
+          await query(
+            "INSERT INTO babyeyi_student_requirements (babyeyi_id, item, description, quantity, sort_order) VALUES (?,?,?,?,?)",
+            [bid, r.item, r.description || null, r.quantity || null, i]
+          ).catch(async (e) => {
+            // Backward-compat: fall back to old schema (item,cost,sort_order) if new columns do not exist
+            if (e.code === "ER_BAD_FIELD_ERROR") {
+              await query(
+                "INSERT INTO babyeyi_student_requirements (babyeyi_id, item, cost, sort_order) VALUES (?,?,?,?)",
+                [bid, r.item, r.cost ? Number(r.cost) : null, i]
+              );
+            } else {
+              throw e;
+            }
+          });
+        }
+      }
+
+      await seedRequirementPricesFromDefaults(bid, schoolId, body.academic_year, body.term, primaryClass);
+
+      const classReqs = parseJSONField(body.classReqs);
+      for (let i = 0; i < classReqs.length; i++) {
+        const itemText   = classReqs[i].item    || classReqs[i].information || "";
+        const detailText = classReqs[i].details || "";
+        if (itemText) {
+          await query(
+            `INSERT INTO babyeyi_class_requirements (babyeyi_id, information, item, details, sort_order) VALUES (?,?,?,?,?)`,
+            [bid, itemText, itemText, detailText || null, i]
+          );
+        }
+      }
+
+      const otherInfos      = parseJSONField(body.other_infos);
+      const otherInfoOffset = classReqs.length;
+      for (let i = 0; i < otherInfos.length; i++) {
+        const itemText = otherInfos[i].item || otherInfos[i].information || "";
+        if (itemText && itemText.trim()) {
+          await query(
+            `INSERT INTO babyeyi_class_requirements (babyeyi_id, information, item, details, sort_order) VALUES (?,?,?,?,?)`,
+            [bid, itemText, itemText, null, otherInfoOffset + i]
+          );
+        }
+      }
+
+      const leadersPayload = parseJSONField(body.leaders);
+      if (leadersPayload.length) {
+        await upsertLeaders(bid, schoolId, leadersPayload);
+      }
+
+      const dirSig     = files.director_signature?.[0];
+      const stamp      = files.stamp?.[0];
+      const schoolLogo = files.school_logo?.[0];
+      const otherLogo  = files.other_logo?.[0];
+      const accSig     = files.accountant_signature?.[0];
+
+      if (dirSig || accSig || stamp || schoolLogo || otherLogo) {
+        await query(
+          `INSERT INTO babyeyi_signatures
+             (babyeyi_id, director_sig_path, director_sig_name,
+              accountant_sig_path, accountant_sig_name,
+              stamp_path, stamp_name,
+              school_logo_path, school_logo_name,
+              other_logo_path, other_logo_name)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+          [bid,
+           dirSig     ? `/${UPLOAD_DIR}${dirSig.filename}`     : null, dirSig?.originalname     || null,
+           accSig     ? `/${UPLOAD_DIR}${accSig.filename}`     : null, accSig?.originalname     || null,
+           stamp      ? `/${UPLOAD_DIR}${stamp.filename}`      : null, stamp?.originalname      || null,
+           schoolLogo ? `/${UPLOAD_DIR}${schoolLogo.filename}` : null, schoolLogo?.originalname || null,
+           otherLogo  ? `/${UPLOAD_DIR}${otherLogo.filename}`  : null, otherLogo?.originalname  || null]
+        );
+      }
+
+      try {
+        const bundle = await buildBabyeyiTranslationBundle({
+          sourceLang: fv(body.language, "en"),
+          parentMessage,
+          payments:     allNamedPayments,
+          requirements: studentReqs,
+          classReqs,
+          otherInfos,
+          leaders: leadersPayload,
+        });
+        await query(`UPDATE school_babyeyi SET translations_json=? WHERE id=?`, [JSON.stringify(bundle), bid]);
+      } catch (tErr) {
+        console.warn("[babyeyi] translations_json (create):", tErr.message);
+      }
+
+      const newRows   = await query("SELECT * FROM school_babyeyi WHERE id=?", [bid]);
+      const newRecord = normalise(newRows[0]);
+      await audit(bid, "created", null, newRecord, req);
+
+      const sigRowsNew = await query("SELECT * FROM babyeyi_signatures WHERE babyeyi_id=?", [bid]).catch(() => []);
+      const sigRowNew  = sigRowsNew[0] || {};
+      const sigPathsNew = {
+        sigPath:        sigRowNew.director_sig_path  || null,
+        stampPath:      sigRowNew.stamp_path         || null,
+        schoolLogoPath: sigRowNew.school_logo_path   || null,
+        otherLogoPath:  sigRowNew.other_logo_path    || null,
+      };
+
+      const docParams = {
+        bid,
+        babyeyi: { ...newRecord, doc_id: preDocId, bank_name: bankName, bank_account_no: bankAccountNo, banks_json: banksJson },
+        payments:     allNamedPayments.map(p => ({ name: p.name, amount: Number(p.amount) || 0 })),
+        requirements: studentReqs.filter(r => r.item),
+        classNotes: [
+          ...classReqs.filter(c => c.item || c.information),
+          ...otherInfos.filter(o => o.item).map(o => ({ item: o.item, details: "" })),
+        ],
+        sigPaths:     sigPathsNew,
+        academicYear: body.academic_year,
+        schoolId,
+        parentMessage,
+      };
+
+      let docResult = null;
+      try {
+        docResult = await generateDocuments(docParams);
+      } catch (docErr) {
+        console.error(`[babyeyi] ⚠️  Doc gen failed on create (bid=${bid}):`, docErr.message, docErr.stack);
+      }
+
+      if (String(status).toLowerCase() === "approved") {
+        notifyParentsBabyeyiReady(bid, "created_approved").catch((e) => {
+          console.warn("[babyeyi] notifyParentsBabyeyiReady(create):", e.message);
+        });
+      }
+
+      res.status(201).json({
+        success: true,
+        message: status === "approved"
+          ? "Babyeyi created and approved."
+          : status === "pending"
+          ? "Babyeyi created with increase request."
+          : "Babyeyi saved as draft.",
+        data: {
+          ...newRecord,
+          doc_id:       preDocId,
+          qr_code_path: docResult?.qrPath    || null,
+          qr_view_url:  docResult?.qrViewUrl || null,
+          pdf_path:     docResult?.pdfPath   || null,
+        },
+        exceeds,
+        status,
+        nesa_limit: nesaLimit,
+        docs_generated: !!docResult,
+      });
+
+    } catch (err) {
+      console.error("[babyeyi/POST]", err);
+      res.status(500).json({ success: false, message: "Failed to create babyeyi", detail: err.message });
+    }
+  });
+});
+
+// ════════════════════════════════════════════════════════════
+// POST /api/babyeyi/:id/regenerate-docs
+// ════════════════════════════════════════════════════════════
+router.post("/:id/regenerate-docs", async (req, res) => {
+  const { id } = req.params;
+  console.log(`[regenerate-docs] START id=${id}`);
+  try {
+    const rows = await query("SELECT * FROM school_babyeyi WHERE id=? AND is_active=1", [id]);
+    if (!rows.length) return res.status(404).json({ success: false, message: "Not found" });
+    const babyeyi = normalise(rows[0]);
+
+    let payments = await query(
+      "SELECT name, amount FROM babyeyi_payments WHERE babyeyi_id=? ORDER BY sort_order", [id]
+    );
+    if (!payments.length && rows[0].payments) {
+      try {
+        const raw = typeof rows[0].payments === "string" ? JSON.parse(rows[0].payments) : rows[0].payments;
+        if (Array.isArray(raw)) payments = raw;
+      } catch {}
+    }
+
+    const [studentReqs, classReqsRaw, sigRows] = await Promise.all([
+      query("SELECT item, description, quantity FROM babyeyi_student_requirements WHERE babyeyi_id=? ORDER BY sort_order", [id]).catch(() => []),
+      query(`SELECT COALESCE(item, information) AS item, details
+             FROM babyeyi_class_requirements WHERE babyeyi_id=? ORDER BY COALESCE(sort_order, 0)`, [id]).catch(() => []),
+      query("SELECT * FROM babyeyi_signatures WHERE babyeyi_id=? LIMIT 1", [id]).catch(() => []),
+    ]);
+
+    const sigRow    = sigRows[0] || {};
+    const classReqs = classReqsRaw.map(normaliseClassReq);
+
+    const result = await generateDocuments({
+      bid: id,
+      babyeyi,
+      payments: payments.map(p => ({ name: p.name, amount: Number(p.amount) || 0 })),
+      requirements: studentReqs,
+      classNotes:   classReqs,
+      sigPaths: {
+        sigPath:        sigRow.director_sig_path  || null,
+        stampPath:      sigRow.stamp_path         || null,
+        schoolLogoPath: sigRow.school_logo_path   || null,
+        otherLogoPath:  sigRow.other_logo_path    || null,
+      },
+      academicYear:  babyeyi.academic_year,
+      schoolId:      babyeyi.school_id,
+      parentMessage: babyeyi.parent_message || "",
+    });
+
+    console.log(`[regenerate-docs] ✅ Success: docId=${result.docId}`);
+    res.json({
+      success: true,
+      message: "Documents regenerated successfully",
+      data: {
+        docId:         result.docId,
+        qrPath:        result.qrPath,
+        qrViewUrl:     result.qrViewUrl,
+        pdfPath:       result.pdfPath,
+        integrityHash: result.integrityHash,
+      },
+    });
+  } catch (err) {
+    console.error(`[regenerate-docs] ❌ ERROR id=${id}:`, err.message);
+    res.status(500).json({ success: false, message: `Regeneration failed: ${err.message}`, detail: err.stack });
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// GET /api/babyeyi/:id/qrcode
+// ════════════════════════════════════════════════════════════
+router.get("/:id/qrcode", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const sigs = await query(
+      "SELECT qr_code_path, qr_view_url FROM babyeyi_signatures WHERE babyeyi_id=? LIMIT 1", [id]
+    ).catch(() => []);
+
+    if (sigs.length && sigs[0].qr_code_path && fileExists(sigs[0].qr_code_path)) {
+      return res.json({
+        success: true,
+        data: { qr_code_url: sigs[0].qr_code_path, qr_view_url: sigs[0].qr_view_url || null },
+      });
+    }
+
+    const rows = await query(
+      "SELECT qr_code_path, qr_view_url, doc_id FROM school_babyeyi WHERE id=? LIMIT 1", [id]
+    );
+    if (rows[0]?.qr_code_path && fileExists(rows[0].qr_code_path)) {
+      return res.json({
+        success: true,
+        data: { qr_code_url: rows[0].qr_code_path, qr_view_url: rows[0].qr_view_url || null },
+      });
+    }
+
+    console.log(`[GET qrcode] QR missing for id=${id} — auto-regenerating`);
+
+    const babyeyiRows = await query("SELECT * FROM school_babyeyi WHERE id=? AND is_active=1", [id]);
+    if (!babyeyiRows.length) {
+      return res.status(404).json({ success: false, message: "Babyeyi not found" });
+    }
+    const babyeyi = normalise(babyeyiRows[0]);
+
+    let payments = await query(
+      "SELECT name, amount FROM babyeyi_payments WHERE babyeyi_id=? ORDER BY sort_order", [id]
+    ).catch(() => []);
+    if (!payments.length && babyeyiRows[0].payments) {
+      try {
+        const raw = typeof babyeyiRows[0].payments === "string"
+          ? JSON.parse(babyeyiRows[0].payments)
+          : babyeyiRows[0].payments;
+        if (Array.isArray(raw)) payments = raw;
+      } catch {}
+    }
+
+    const [studentReqs, classReqsRaw, sigRows2] = await Promise.all([
+      query("SELECT item, description, quantity FROM babyeyi_student_requirements WHERE babyeyi_id=? ORDER BY sort_order", [id]).catch(() => []),
+      query(`SELECT COALESCE(item, information) AS item, details
+             FROM babyeyi_class_requirements WHERE babyeyi_id=? ORDER BY COALESCE(sort_order, 0)`, [id]).catch(() => []),
+      query("SELECT * FROM babyeyi_signatures WHERE babyeyi_id=? LIMIT 1", [id]).catch(() => []),
+    ]);
+
+    const sigRow2   = sigRows2[0] || {};
+    const classReqs = classReqsRaw.map(normaliseClassReq);
+
+    const result = await generateDocuments({
+      bid: id,
+      babyeyi,
+      payments: payments.map(p => ({ name: p.name, amount: Number(p.amount) || 0 })),
+      requirements: studentReqs,
+      classNotes:   classReqs,
+      sigPaths: {
+        sigPath:        sigRow2.director_sig_path || null,
+        stampPath:      sigRow2.stamp_path        || null,
+        schoolLogoPath: sigRow2.school_logo_path  || null,
+        otherLogoPath:  sigRow2.other_logo_path   || null,
+      },
+      academicYear:  babyeyi.academic_year,
+      schoolId:      babyeyi.school_id,
+      parentMessage: babyeyi.parent_message || "",
+    });
+
+    return res.json({
+      success: true,
+      data: { qr_code_url: result.qrPath, qr_view_url: result.qrViewUrl },
+    });
+  } catch (err) {
+    console.error(`[GET qrcode] ❌ ERROR id=${id}:`, err.message);
+    res.status(500).json({ success: false, message: `Failed to retrieve QR code: ${err.message}` });
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// POST /api/babyeyi/:id/qrcode — upload QR manually
+// ════════════════════════════════════════════════════════════
+router.post("/:id/qrcode", (req, res) => {
+  const qrUpload = multer({
+    storage,
+    limits: { fileSize: 2 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+      const ok = ["image/png","image/jpeg","image/jpg"].includes(file.mimetype);
+      ok ? cb(null, true) : cb(new Error("Only image files allowed for QR code"));
+    },
+  }).fields([{ name: "qr_code", maxCount: 1 }]);
+
+  qrUpload(req, res, async (uploadErr) => {
+    if (uploadErr) return res.status(400).json({ success: false, message: uploadErr.message });
+    try {
+      const { id }  = req.params;
+      const qrFile  = (req.files || {}).qr_code?.[0];
+      if (!qrFile) return res.status(422).json({ success: false, message: "No QR code file provided" });
+
+      const rows = await query("SELECT * FROM school_babyeyi WHERE id=? AND is_active=1", [id]);
+      if (!rows.length) return res.status(404).json({ success: false, message: "Babyeyi not found" });
+      const babyeyi = rows[0];
+
+      const qrPath  = `/${UPLOAD_DIR}${qrFile.filename}`;
+      const viewUrl = `${process.env.FRONTEND_URL || "http://localhost:5173"}/babyeyi/verify/${babyeyi.doc_id || id}`;
+
+      const existing = await query("SELECT id FROM babyeyi_signatures WHERE babyeyi_id=?", [id]).catch(() => []);
+      if (existing.length) {
+        await query(`UPDATE babyeyi_signatures SET qr_code_path=?, qr_code_name=?, qr_view_url=? WHERE babyeyi_id=?`,
+                    [qrPath, qrFile.originalname, viewUrl, id])
+          .catch(() => query(`UPDATE babyeyi_signatures SET qr_code_path=?, qr_code_name=? WHERE babyeyi_id=?`,
+                    [qrPath, qrFile.originalname, id]));
+      } else {
+        await query(`INSERT INTO babyeyi_signatures (babyeyi_id, qr_code_path, qr_code_name, qr_view_url) VALUES (?,?,?,?)`,
+                    [id, qrPath, qrFile.originalname, viewUrl])
+          .catch(() => query(`INSERT INTO babyeyi_signatures (babyeyi_id, qr_code_path, qr_code_name) VALUES (?,?,?)`,
+                    [id, qrPath, qrFile.originalname]));
+      }
+      await query("UPDATE school_babyeyi SET qr_code_path=? WHERE id=?", [qrPath, id]);
+
+      res.json({ success: true, message: "QR code stored", data: { qr_code_path: qrPath, qr_view_url: viewUrl, babyeyi_id: id } });
+    } catch (err) {
+      console.error("[POST qrcode]", err.message);
+      res.status(500).json({ success: false, message: "Failed to store QR code", detail: err.message });
+    }
+  });
+});
+
+// ════════════════════════════════════════════════════════════
+// PUT /api/babyeyi/:id — update
+// ════════════════════════════════════════════════════════════
+router.put("/:id", (req, res) => {
+  upload(req, res, async (uploadErr) => {
+    if (uploadErr) return res.status(400).json({ success: false, message: uploadErr.message });
+    try {
+      const { id } = req.params;
+      const body   = req.body;
+      const files  = req.files || {};
+
+      const oldRows = await query("SELECT * FROM school_babyeyi WHERE id=? AND is_active=1", [id]);
+      if (!oldRows.length) return res.status(404).json({ success: false, message: "Babyeyi not found" });
+      const old = normalise(oldRows[0]);
+
+      const schoolId       = body.school_id ? Number(body.school_id) : old.school_id;
+      const fv             = (v, fb) => Array.isArray(v) ? v[0] ?? fb : v ?? fb;
+      const schoolProvince = fv(body.province, old.province || null);
+      const schoolDistrict = fv(body.district, old.district || null);
+      const schoolSector   = fv(body.sector,   old.sector   || null);
+
+      const newClass = body.class         || old.class;
+      const newTerm  = body.term          || old.term;
+      const newYear  = body.academic_year || old.academic_year;
+      const level    = body.level || classToLevel(newClass);
+
+      const payments      = parseJSONField(body.payments);
+      const totalFee      = payments.length ? payments.reduce((s, p) => s + (Number(p.amount) || 0), 0) : old.total_fee || 0;
+      const parentMessage = body.parent_message !== undefined ? body.parent_message : (old.parent_message || "");
+
+      const banksJsonRaw  = body.banks_json || body.banks || null;
+      const banks         = parseJSONField(banksJsonRaw);
+      const primaryBank   = banks.length > 0 ? banks[0] : null;
+      const bankName      = primaryBank ? (primaryBank.bankName || primaryBank.bank_name || body.bank_name || old.bank_name || null) : (body.bank_name !== undefined ? body.bank_name : old.bank_name);
+      const bankAccountNo = primaryBank ? (primaryBank.accountNumber || primaryBank.bank_account_no || body.bank_account_no || old.bank_account_no || null) : (body.bank_account_no !== undefined ? body.bank_account_no : old.bank_account_no);
+      const bankBranch    = primaryBank ? (primaryBank.bankBranch || primaryBank.bank_branch || body.bank_branch || old.bank_branch || null) : (body.bank_branch !== undefined ? body.bank_branch : old.bank_branch);
+      const banksJson     = banks.length > 0 ? JSON.stringify(banks) : (banksJsonRaw || old.banks_json || null);
+
+      const nesaRows = await query(
+        `SELECT max_amount FROM fee_limits WHERE category=? AND level=? AND term=? AND academic_year=? AND is_active=1 LIMIT 1`,
+        [body.category || old.school_category, level, newTerm, newYear]
+      ).catch(() => []);
+      const nesaLimit       = nesaRows[0]?.max_amount ?? old.nesa_limit;
+      const exceeds         = nesaLimit !== null && totalFee > Number(nesaLimit);
+      const requestIncrease = body.request_increase === "true" || body.request_increase === true;
+      const status          = !exceeds ? "approved" : requestIncrease ? "pending" : ["approved"].includes(old.status) ? old.status : "draft";
+
+      await query(
+        `UPDATE school_babyeyi SET
+           school_id=?, school_province=?, school_district=?, school_sector=?,
+           academic_year=?, term=?, class_name=?,
+           school_category=?, education_level=?,
+           payments=?, total_amount=?,
+           bank_name=?, bank_account_no=?, bank_branch=?, banks_json=?,
+           parent_message=?, total_fee=?, nesa_limit=?, exceeds_limit=?, status=?
+         WHERE id=?`,
+        [
+          schoolId, schoolProvince, schoolDistrict, schoolSector,
+          newYear, newTerm, newClass,
+          body.category || old.school_category, level,
+          JSON.stringify(payments.length ? payments : parseJSONField(old.payments)), totalFee,
+          bankName, bankAccountNo, bankBranch, banksJson,
+          parentMessage, totalFee, nesaLimit, exceeds ? 1 : 0, status, id,
+        ]
+      );
+
+      if (payments.length) {
+        await query("DELETE FROM babyeyi_payments WHERE babyeyi_id=?", [id]);
+        const allNamedPay = payments.filter(p => p.name && String(p.name).trim());
+        for (let i = 0; i < allNamedPay.length; i++) {
+          await query("INSERT INTO babyeyi_payments (babyeyi_id, name, amount, sort_order) VALUES (?,?,?,?)",
+                      [id, allNamedPay[i].name, Number(allNamedPay[i].amount) || 0, i]);
+        }
+      }
+
+      const studentReqs = parseJSONField(body.requirements);
+      if (studentReqs.length) {
+        await query("DELETE FROM babyeyi_student_requirements WHERE babyeyi_id=?", [id]);
+        for (let i = 0; i < studentReqs.length; i++) {
+          if (studentReqs[i].item) {
+            await query("INSERT INTO babyeyi_student_requirements (babyeyi_id, item, cost, sort_order) VALUES (?,?,?,?)",
+                        [id, studentReqs[i].item, studentReqs[i].cost ? Number(studentReqs[i].cost) : null, i]);
+          }
+        }
+        await seedRequirementPricesFromDefaults(id, schoolId, newYear, newTerm, newClass);
+      }
+
+      const classReqs  = parseJSONField(body.classReqs);
+      const otherInfos = parseJSONField(body.other_infos);
+      if (classReqs.length > 0 || otherInfos.length > 0) {
+        await query("DELETE FROM babyeyi_class_requirements WHERE babyeyi_id=?", [id]);
+        for (let i = 0; i < classReqs.length; i++) {
+          const itemText = classReqs[i].item || classReqs[i].information || "";
+          if (itemText) {
+            await query(
+              `INSERT INTO babyeyi_class_requirements (babyeyi_id, information, item, details, sort_order) VALUES (?,?,?,?,?)`,
+              [id, itemText, itemText, classReqs[i].details || null, i]
+            );
+          }
+        }
+        const otherInfoOffset = classReqs.length;
+        for (let i = 0; i < otherInfos.length; i++) {
+          const itemText = otherInfos[i].item || otherInfos[i].information || "";
+          if (itemText && itemText.trim()) {
+            await query(
+              `INSERT INTO babyeyi_class_requirements (babyeyi_id, information, item, details, sort_order) VALUES (?,?,?,?,?)`,
+              [id, itemText, itemText, null, otherInfoOffset + i]
+            );
+          }
+        }
+      }
+
+      const leadersPayloadPut = parseJSONField(body.leaders);
+      if (leadersPayloadPut.length) {
+        await upsertLeaders(id, schoolId, leadersPayloadPut);
+      }
+
+      const dirSig     = files.director_signature?.[0];
+      const accSig     = files.accountant_signature?.[0];
+      const stamp      = files.stamp?.[0];
+      const schoolLogo = files.school_logo?.[0];
+      const otherLogo  = files.other_logo?.[0];
+
+      if (dirSig || accSig || stamp || schoolLogo || otherLogo) {
+        const existingSig = await query("SELECT id FROM babyeyi_signatures WHERE babyeyi_id=?", [id]).catch(() => []);
+        const updates = [], vals = [];
+        if (dirSig)     { updates.push("director_sig_path=?, director_sig_name=?");     vals.push(`/${UPLOAD_DIR}${dirSig.filename}`,     dirSig.originalname); }
+        if (accSig)     { updates.push("accountant_sig_path=?, accountant_sig_name=?"); vals.push(`/${UPLOAD_DIR}${accSig.filename}`,     accSig.originalname); }
+        if (stamp)      { updates.push("stamp_path=?, stamp_name=?");                   vals.push(`/${UPLOAD_DIR}${stamp.filename}`,      stamp.originalname); }
+        if (schoolLogo) { updates.push("school_logo_path=?, school_logo_name=?");       vals.push(`/${UPLOAD_DIR}${schoolLogo.filename}`, schoolLogo.originalname); }
+        if (otherLogo)  { updates.push("other_logo_path=?, other_logo_name=?");         vals.push(`/${UPLOAD_DIR}${otherLogo.filename}`,  otherLogo.originalname); }
+
+        if (existingSig.length) {
+          vals.push(id);
+          await query(`UPDATE babyeyi_signatures SET ${updates.join(", ")} WHERE babyeyi_id=?`, vals);
+        } else {
+          await query(
+            `INSERT INTO babyeyi_signatures
+               (babyeyi_id, director_sig_path, director_sig_name,
+                accountant_sig_path, accountant_sig_name,
+                stamp_path, stamp_name,
+                school_logo_path, school_logo_name,
+                other_logo_path, other_logo_name)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+            [id,
+             dirSig     ? `/${UPLOAD_DIR}${dirSig.filename}`     : null, dirSig?.originalname     || null,
+             accSig     ? `/${UPLOAD_DIR}${accSig.filename}`     : null, accSig?.originalname     || null,
+             stamp      ? `/${UPLOAD_DIR}${stamp.filename}`      : null, stamp?.originalname      || null,
+             schoolLogo ? `/${UPLOAD_DIR}${schoolLogo.filename}` : null, schoolLogo?.originalname || null,
+             otherLogo  ? `/${UPLOAD_DIR}${otherLogo.filename}`  : null, otherLogo?.originalname  || null]
+          );
+        }
+      }
+
+      const updatedRows = await query("SELECT * FROM school_babyeyi WHERE id=?", [id]);
+      const updated = normalise(updatedRows[0]);
+      await audit(id, "updated", old, updated, req);
+
+      const hashFieldsChanged = (
+        newClass !== old.class ||
+        newTerm  !== old.term  ||
+        newYear  !== old.academic_year ||
+        bankAccountNo !== old.bank_account_no ||
+        payments.length > 0 ||
+        dirSig || stamp || schoolLogo
+      );
+
+      let docResult = null;
+      if (hashFieldsChanged) {
+        try {
+          const sigRowsUp   = await query("SELECT * FROM babyeyi_signatures WHERE babyeyi_id=?", [id]).catch(() => []);
+          const sigRowUp    = sigRowsUp[0] || {};
+          const updatedPay  = await query("SELECT name, amount FROM babyeyi_payments WHERE babyeyi_id=? ORDER BY sort_order", [id]).catch(() => []);
+          const classReqsUp = await query(
+            `SELECT COALESCE(item, information) AS item, details FROM babyeyi_class_requirements WHERE babyeyi_id=? ORDER BY COALESCE(sort_order, 0)`, [id]
+          ).catch(() => []);
+          docResult = await generateDocuments({
+            bid: id,
+            babyeyi: updated,
+            payments: updatedPay.map(p => ({ name: p.name, amount: Number(p.amount) || 0 })),
+            requirements: studentReqs.filter(r => r.item),
+            classNotes:   classReqsUp.map(normaliseClassReq),
+            sigPaths: {
+              sigPath:        sigRowUp.director_sig_path  || null,
+              stampPath:      sigRowUp.stamp_path         || null,
+              schoolLogoPath: sigRowUp.school_logo_path   || null,
+              otherLogoPath:  sigRowUp.other_logo_path    || null,
+            },
+            academicYear:  updated.academic_year,
+            schoolId:      updated.school_id,
+            parentMessage,
+          });
+        } catch (e) {
+          console.error("[babyeyi] PUT regen error:", e.message, e.stack);
+        }
+      }
+
+      try {
+        const payRows = await query(
+          "SELECT name, amount FROM babyeyi_payments WHERE babyeyi_id=? ORDER BY sort_order",
+          [id]
+        );
+        const reqRows = await query(
+          "SELECT item, description, quantity FROM babyeyi_student_requirements WHERE babyeyi_id=? ORDER BY sort_order",
+          [id]
+        ).catch(() => []);
+        const classRows = await query(
+          `SELECT COALESCE(item, information) AS item, details
+           FROM babyeyi_class_requirements WHERE babyeyi_id=? ORDER BY COALESCE(sort_order, 0)`,
+          [id]
+        ).catch(() => []);
+        const allC = (classRows || []).map((r) => ({
+          item: r.item || "",
+          details: r.details || "",
+        }));
+        const classNotesSplit = allC.filter((r) => r.details && String(r.details).trim());
+        const otherInfosSplit = allC.filter((r) => !r.details || !String(r.details).trim());
+        const leadersForI18n = await fetchLeaders(id);
+        const bundle = await buildBabyeyiTranslationBundle({
+          sourceLang: fv(body.language, "en"),
+          parentMessage: parentMessage || "",
+          payments: (payRows || []).map((p) => ({ name: p.name, amount: p.amount })),
+          requirements: (reqRows || []).map((r) => ({
+            item: r.item,
+            description: r.description || "",
+          })),
+          classReqs: classNotesSplit.map((n) => ({
+            item: n.item,
+            details: n.details,
+            information: n.item,
+          })),
+          otherInfos: otherInfosSplit.map((o) => ({
+            item: o.item,
+            information: o.item,
+            details: "",
+          })),
+          leaders: leadersForI18n || [],
+        });
+        await query(`UPDATE school_babyeyi SET translations_json=? WHERE id=?`, [JSON.stringify(bundle), id]);
+      } catch (tErr) {
+        console.warn("[babyeyi] translations_json (update):", tErr.message);
+      }
+
+      res.json({ success: true, message: "Babyeyi updated", data: updated, docs_regenerated: !!docResult });
+    } catch (err) {
+      console.error("[babyeyi/PUT]", err);
+      res.status(500).json({ success: false, message: "Failed to update babyeyi", detail: err.message });
+    }
+  });
+});
+
+// ════════════════════════════════════════════════════════════
+// DELETE /api/babyeyi/:id
+// ════════════════════════════════════════════════════════════
+router.delete("/:id", async (req, res) => {
+  try {
+    const rows = await query("SELECT * FROM school_babyeyi WHERE id=? AND is_active=1", [req.params.id]);
+    if (!rows.length) return res.status(404).json({ success: false, message: "Not found" });
+    await query("UPDATE school_babyeyi SET is_active=0 WHERE id=?", [req.params.id]);
+    await audit(req.params.id, "deleted", normalise(rows[0]), null, req);
+    res.json({ success: true, message: "Babyeyi deleted" });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Failed to delete" });
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// PATCH — approval workflow
+// ════════════════════════════════════════════════════════════
+router.patch("/:id/district-approve", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deoId = req.user?.id || req.body?.deo_id || null;
+    const rows = await query("SELECT * FROM school_babyeyi WHERE id=? AND is_active=1", [id]);
+    if (!rows.length) return res.status(404).json({ success: false, message: "Not found" });
+    const b = rows[0];
+    await query("UPDATE school_babyeyi SET status=? WHERE id=?", ["approved", id]);
+    await query(`UPDATE babyeyi_increase_requests SET nesa_status='approved', deo_id=?, deo_notes=?, deo_reviewed_at=NOW(), reviewed_at=NOW(), reviewed_by=? WHERE babyeyi_id=?`,
+                [deoId, req.body?.notes || null, deoId, id]).catch(() => {});
+    await audit(id, "district_approved", { status: b.status }, { status: "approved" }, req);
+    notifyParentsBabyeyiReady(id, "district_approved").catch((e) => {
+      console.warn("[babyeyi] notifyParentsBabyeyiReady(district_approve):", e.message);
+    });
+    res.json({ success: true, message: "Approved by District." });
+  } catch (err) { res.status(500).json({ success: false, message: "Failed to approve" }); }
+});
+
+router.patch("/:id/district-recommend", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deoId = req.user?.id || req.body?.deo_id || null;
+    await query(`UPDATE babyeyi_increase_requests SET nesa_status='recommended', deo_id=?, deo_notes=?, deo_reviewed_at=NOW(), reviewed_at=NOW(), reviewed_by=? WHERE babyeyi_id=?`,
+                [deoId, req.body?.notes || null, deoId, id]).catch(() => {});
+    await audit(id, "district_recommended", {}, {}, req);
+    res.json({ success: true, message: "Recommended to NESA." });
+  } catch (err) { res.status(500).json({ success: false, message: "Failed to recommend" }); }
+});
+
+router.patch("/:id/nesa-approve", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.id || null;
+    const rows = await query("SELECT * FROM school_babyeyi WHERE id=? AND is_active=1", [id]);
+    if (!rows.length) return res.status(404).json({ success: false, message: "Not found" });
+    const b = rows[0];
+    await query("UPDATE school_babyeyi SET status=? WHERE id=?", ["approved", id]);
+    await query(`UPDATE babyeyi_increase_requests SET nesa_status='approved', nesa_notes=?, reviewed_at=NOW(), reviewed_by=? WHERE babyeyi_id=?`,
+                [req.body?.notes || null, userId, id]).catch(() => {});
+    await audit(id, "nesa_approved", { status: b.status }, { status: "approved" }, req);
+    notifyParentsBabyeyiReady(id, "nesa_approved").catch((e) => {
+      console.warn("[babyeyi] notifyParentsBabyeyiReady(nesa_approve):", e.message);
+    });
+    res.json({ success: true, message: "NESA approved." });
+  } catch (err) { res.status(500).json({ success: false, message: "Failed to approve" }); }
+});
+
+router.patch("/:id/nesa-reject", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.id || null;
+    const rows = await query("SELECT * FROM school_babyeyi WHERE id=? AND is_active=1", [id]);
+    if (!rows.length) return res.status(404).json({ success: false, message: "Not found" });
+    const b = rows[0];
+    await query("UPDATE school_babyeyi SET status=? WHERE id=?", ["rejected", id]);
+    await query(`UPDATE babyeyi_increase_requests SET nesa_status='nesa_rejected', nesa_notes=?, reviewed_at=NOW(), reviewed_by=? WHERE babyeyi_id=?`,
+                [req.body?.notes || null, userId, id]).catch(() => {});
+    await audit(id, "nesa_rejected", { status: b.status }, { status: "rejected" }, req);
+    res.json({ success: true, message: "NESA rejected." });
+  } catch (err) { res.status(500).json({ success: false, message: "Failed to reject" }); }
+});
+
+router.patch("/:id/district-reject", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deoId = req.user?.id || req.body?.deo_id || null;
+    const rows = await query("SELECT * FROM school_babyeyi WHERE id=? AND is_active=1", [id]);
+    if (!rows.length) return res.status(404).json({ success: false, message: "Not found" });
+    const b = rows[0];
+    await query("UPDATE school_babyeyi SET status=? WHERE id=?", ["rejected", id]);
+    await query(`UPDATE babyeyi_increase_requests SET nesa_status='rejected', deo_id=?, deo_notes=?, deo_reviewed_at=NOW(), reviewed_at=NOW(), reviewed_by=? WHERE babyeyi_id=?`,
+                [deoId, req.body?.notes || null, deoId, id]).catch(() => {});
+    await audit(id, "district_rejected", { status: b.status }, { status: "rejected" }, req);
+    res.json({ success: true, message: "Rejected by District." });
+  } catch (err) { res.status(500).json({ success: false, message: "Failed to reject" }); }
+});
+
+// ════════════════════════════════════════════════════════════
+// POST /api/babyeyi/:id/submit-request
+// ════════════════════════════════════════════════════════════
+router.post("/:id/submit-request", (req, res) => {
+  upload(req, res, async (uploadErr) => {
+    if (uploadErr) return res.status(400).json({ success: false, message: uploadErr.message });
+    try {
+      const { id } = req.params;
+      const body   = req.body;
+      const files  = req.files || {};
+
+      const rows = await query("SELECT * FROM school_babyeyi WHERE id=? AND is_active=1", [id]);
+      if (!rows.length) return res.status(404).json({ success: false, message: "Babyeyi not found" });
+      const b = rows[0];
+
+      const parentDoc = files.parent_rep_doc?.[0];
+      const budgetDoc = files.budget_doc?.[0];
+      const existing  = await query("SELECT id FROM babyeyi_increase_requests WHERE babyeyi_id=?", [id]).catch(() => []);
+
+      if (existing.length) {
+        const updates = ["reason=?", "description=?", "nesa_status=?"];
+        const vals    = [body.reason || "", body.description || "", "pending"];
+        if (parentDoc) { updates.push("parent_rep_doc_path=?, parent_rep_doc_name=?"); vals.push(`/${UPLOAD_DIR}${parentDoc.filename}`, parentDoc.originalname); }
+        if (budgetDoc) { updates.push("budget_doc_path=?, budget_doc_name=?");         vals.push(`/${UPLOAD_DIR}${budgetDoc.filename}`, budgetDoc.originalname); }
+        vals.push(id);
+        await query(`UPDATE babyeyi_increase_requests SET ${updates.join(", ")} WHERE babyeyi_id=?`, vals);
+      } else {
+        const schoolName   = b.school_name || null;
+        const schoolDist   = b.school_district || b.district || null;
+        try {
+          await query(
+            `INSERT INTO babyeyi_increase_requests
+               (babyeyi_id, school_id, school_name, district, reason, description,
+                current_limit, requested_amount, excess_amount,
+                parent_rep_doc_path, parent_rep_doc_name,
+                budget_doc_path, budget_doc_name, nesa_status, submitted_at, created_at)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW(),NOW())`,
+            [id, b.school_id, schoolName, schoolDist, body.reason || "", body.description || null,
+             Number(b.nesa_limit), Number(b.total_fee), Number(b.total_fee) - Number(b.nesa_limit),
+             parentDoc ? `/${UPLOAD_DIR}${parentDoc.filename}` : null, parentDoc?.originalname || null,
+             budgetDoc ? `/${UPLOAD_DIR}${budgetDoc.filename}` : null, budgetDoc?.originalname || null,
+             "pending"]
+          );
+        } catch (insErr) {
+          if (insErr.code === "ER_BAD_FIELD_ERROR") {
+            await query(
+              `INSERT INTO babyeyi_increase_requests
+                 (babyeyi_id, school_id, reason, description,
+                  current_limit, requested_amount, excess_amount,
+                  parent_rep_doc_path, parent_rep_doc_name,
+                  budget_doc_path, budget_doc_name, nesa_status)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+              [id, b.school_id, body.reason || "", body.description || null,
+               Number(b.nesa_limit), Number(b.total_fee), Number(b.total_fee) - Number(b.nesa_limit),
+               parentDoc ? `/${UPLOAD_DIR}${parentDoc.filename}` : null, parentDoc?.originalname || null,
+               budgetDoc ? `/${UPLOAD_DIR}${budgetDoc.filename}` : null, budgetDoc?.originalname || null,
+               "pending"]
+            );
+          } else throw insErr;
+        }
+      }
+      await query("UPDATE school_babyeyi SET status=? WHERE id=?", ["pending", id]);
+      res.json({ success: true, message: "Increase request submitted." });
+    } catch (err) {
+      res.status(500).json({ success: false, message: "Failed to submit request", detail: err.message });
+    }
+  });
+});
+
+// ════════════════════════════════════════════════════════════
+// PDF streaming routes
+// ════════════════════════════════════════════════════════════
+router.get("/pdf/:docId", async (req, res) => {
+  try {
+    let docId;
+    try { docId = decodeURIComponent(req.params.docId); } catch (_) { docId = req.params.docId; }
+    docId = docId.replace(/%7[Cc]/g, "|").split("|")[0].toUpperCase().trim();
+
+    if (!/^BY-\d{4}-\d{5}$/.test(docId)) {
+      return res.status(400).json({ success: false, message: "Invalid document ID" });
+    }
+
+    const rows = await query(
+      "SELECT pdf_path, pdf_name, class_name, term, doc_id FROM school_babyeyi WHERE doc_id=? AND is_active=1 LIMIT 1",
+      [docId]
+    );
+    if (!rows.length || !rows[0].pdf_path) {
+      return res.status(404).json({ success: false, message: "PDF not ready yet — try again in a few seconds." });
+    }
+
+    const absPath = path.resolve(resolveFilePath(rows[0].pdf_path));
+    if (!fs.existsSync(absPath)) {
+      return res.status(404).json({ success: false, message: "PDF file not found on server." });
+    }
+
+    const fileName = rows[0].pdf_name || ("Babyeyi-" + docId + ".pdf");
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="${fileName}"`);
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    fs.createReadStream(absPath).pipe(res);
+  } catch (err) {
+    console.error("[babyeyi/pdf/:docId]", err.message);
+    res.status(500).json({ success: false, message: "Failed to serve PDF" });
+  }
+});
+
+router.get("/:id/pdf", async (req, res) => {
+  try {
+    const rows = await query(
+      "SELECT pdf_path, pdf_name, class_name, doc_id FROM school_babyeyi WHERE id=? AND is_active=1 LIMIT 1",
+      [req.params.id]
+    );
+    if (!rows.length || !rows[0].pdf_path) {
+      return res.status(404).json({ success: false, message: "PDF not ready yet." });
+    }
+
+    const absPath = path.resolve(resolveFilePath(rows[0].pdf_path));
+    if (!fs.existsSync(absPath)) {
+      return res.status(404).json({ success: false, message: "PDF file missing on server." });
+    }
+
+    const fileName = rows[0].pdf_name || ("Babyeyi-" + (rows[0].doc_id || req.params.id) + ".pdf");
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="${fileName}"`);
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    fs.createReadStream(absPath).pipe(res);
+  } catch (err) {
+    console.error("[babyeyi/:id/pdf]", err.message);
+    res.status(500).json({ success: false, message: "Failed to serve PDF" });
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// LEADERS ROUTES
+// ════════════════════════════════════════════════════════════
+
+router.get("/:id/leaders", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const rows = await query(
+      "SELECT id, school_id FROM school_babyeyi WHERE id = ? AND is_active = 1 LIMIT 1",
+      [id]
+    );
+    if (!rows.length) {
+      return res.status(404).json({ success: false, message: "Babyeyi not found" });
+    }
+    const leaders = await fetchLeaders(id);
+    res.json({ success: true, data: leaders, total: leaders.length });
+  } catch (err) {
+    console.error("[GET leaders]", err.message);
+    res.status(500).json({ success: false, message: "Failed to fetch leaders" });
+  }
+});
+
+router.post("/:id/leaders", async (req, res) => {
+  try {
+    const { id }  = req.params;
+    const leaders = parseJSONField(req.body?.leaders);
+    const rows = await query(
+      "SELECT id, school_id FROM school_babyeyi WHERE id = ? AND is_active = 1 LIMIT 1",
+      [id]
+    );
+    if (!rows.length) {
+      return res.status(404).json({ success: false, message: "Babyeyi not found" });
+    }
+    const schoolId = rows[0].school_id;
+    await upsertLeaders(id, schoolId, leaders);
+    await audit(id, "leaders_updated", null, { leaders }, req);
+    const saved = await fetchLeaders(id);
+    res.json({ success: true, message: "Leaders saved", data: saved });
+  } catch (err) {
+    console.error("[POST leaders]", err.message);
+    res.status(500).json({ success: false, message: "Failed to save leaders", detail: err.message });
+  }
+});
+
+router.put("/:id/leaders/:leaderId", async (req, res) => {
+  try {
+    const { id, leaderId } = req.params;
+    const { name, role, phone, email, sort_order } = req.body;
+    const existing = await query(
+      "SELECT id FROM babyeyi_leaders WHERE id = ? AND babyeyi_id = ? AND is_active = 1 LIMIT 1",
+      [leaderId, id]
+    );
+    if (!existing.length) {
+      return res.status(404).json({ success: false, message: "Leader not found" });
+    }
+    await query(
+      `UPDATE babyeyi_leaders
+         SET leader_name = COALESCE(?, leader_name),
+             leader_role = COALESCE(?, leader_role),
+             phone       = ?,
+             email       = ?,
+             sort_order  = COALESCE(?, sort_order)
+       WHERE id = ?`,
+      [
+        name  ? name.trim()  : null,
+        role  ? role.trim()  : null,
+        phone ? phone.trim().replace(/^\+?250/, "") : null,
+        email ? email.trim().toLowerCase() : null,
+        sort_order !== undefined ? Number(sort_order) : null,
+        leaderId,
+      ]
+    );
+    const [updated] = await query(
+      `SELECT id, leader_name AS name, leader_role AS role, phone, email, sort_order
+       FROM babyeyi_leaders WHERE id = ?`,
+      [leaderId]
+    );
+    res.json({ success: true, message: "Leader updated", data: updated });
+  } catch (err) {
+    console.error("[PUT leader]", err.message);
+    res.status(500).json({ success: false, message: "Failed to update leader" });
+  }
+});
+
+router.delete("/:id/leaders/:leaderId", async (req, res) => {
+  try {
+    const { id, leaderId } = req.params;
+    const existing = await query(
+      "SELECT id FROM babyeyi_leaders WHERE id = ? AND babyeyi_id = ? AND is_active = 1 LIMIT 1",
+      [leaderId, id]
+    );
+    if (!existing.length) {
+      return res.status(404).json({ success: false, message: "Leader not found" });
+    }
+    await query("UPDATE babyeyi_leaders SET is_active = 0 WHERE id = ?", [leaderId]);
+    await audit(id, "leader_deleted", { leaderId }, null, req);
+    res.json({ success: true, message: "Leader removed" });
+  } catch (err) {
+    console.error("[DELETE leader]", err.message);
+    res.status(500).json({ success: false, message: "Failed to delete leader" });
+  }
+});
+
+module.exports = router;
