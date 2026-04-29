@@ -170,7 +170,6 @@ export default function TichaDealDetails() {
             <p className="leading-relaxed">{error}</p>
           </div>
         )}
-
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
           {/* Product Image & Details */}
           <div className="lg:col-span-7 space-y-8">
