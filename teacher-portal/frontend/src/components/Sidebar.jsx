@@ -1,33 +1,20 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import useChatUnread from '../hooks/useChatUnread';
 import {
   LayoutDashboard, Users, BookOpen, Calendar, ClipboardCheck,
   Wallet, MessageSquare, ClipboardList, Eye, PenLine, FileSpreadsheet,
-  User, LogOut, Wifi, WifiOff, RefreshCw, GraduationCap, ChevronDown,DollarSign,
+  Building2, LogOut, WifiOff, GraduationCap, ChevronDown, DollarSign,
 } from 'lucide-react';
 
-// ── Status Badge ──────────────────────────────────────────────
-const statusConfig = {
-  online: { label: 'Online', dot: 'bg-green-400', text: 'text-green-600', ring: 'ring-green-100', bg: 'bg-green-50', Icon: Wifi },
-  offline: { label: 'Offline', dot: 'bg-red-400', text: 'text-red-500', ring: 'ring-red-100', bg: 'bg-red-50', Icon: WifiOff },
-  syncing: { label: 'Syncing', dot: 'bg-amber-400', text: 'text-amber-600', ring: 'ring-amber-100', bg: 'bg-amber-50', Icon: RefreshCw },
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5100';
+const toPhotoUrl = (photo) => {
+  if (!photo) return null;
+  if (photo.startsWith('http://') || photo.startsWith('https://')) return photo;
+  return `${API_BASE}${photo}`;
 };
 
-const AppStatusBadge = ({ status = 'online' }) => {
-  const s = statusConfig[status];
-  return (
-    <div className={`flex items-center gap-1 px-2 py-1 rounded-lg ${s.bg} ring-1 ${s.ring}`}>
-      <span className="relative flex h-1.5 w-1.5">
-        {status !== 'offline' && <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${s.dot} opacity-60`} />}
-        <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${s.dot}`} />
-      </span>
-      <s.Icon size={9} className={`${s.text} ${status === 'syncing' ? 'animate-spin' : ''}`} />
-      <span className={`text-[9px] font-bold ${s.text}`}>{s.label}</span>
-    </div>
-  );
-};
 
 // ── Single nav link ───────────────────────────────────────────
 const NavItem = ({ icon: Icon, name, path, exact, onClose, badgeCount = 0 }) => (
@@ -36,7 +23,7 @@ const NavItem = ({ icon: Icon, name, path, exact, onClose, badgeCount = 0 }) => 
     end={exact}
     onClick={onClose}
     className={({ isActive }) =>
-      `relative flex items-center gap-2 px-2.5 py-1.5 rounded-xl transition-all duration-200 group text-[11px] font-bold
+      `relative flex items-center gap-2 px-2.5 py-1.5 rounded-xl transition-all duration-200 group text-xs
       ${isActive ? 'text-white shadow-sm' : 'text-re-text-muted hover:bg-orange-50 hover:text-re-orange'}`
     }
     style={({ isActive }) =>
@@ -67,7 +54,7 @@ const ExpandableNavItem = ({ icon: Icon, name, subItems, onClose }) => {
     <div>
       <button
         onClick={() => setOpen(o => !o)}
-        className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl transition-all text-[11px] font-bold group
+        className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl transition-all text-xs group
           ${isAnyActive ? 'text-re-orange bg-orange-50' : 'text-re-text-muted hover:bg-orange-50 hover:text-re-orange'}`}
       >
         <Icon size={13} className={`${isAnyActive ? 'text-re-orange' : 'text-re-text-muted/50 group-hover:text-re-orange'} transition-colors`} />
@@ -83,7 +70,7 @@ const ExpandableNavItem = ({ icon: Icon, name, subItems, onClose }) => {
               to={sub.path}
               onClick={onClose}
               className={({ isActive }) =>
-                `flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all
+                `flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs  transition-all
                 ${isActive ? 'text-re-orange bg-orange-50' : 'text-re-text-muted hover:text-re-orange hover:bg-orange-50/50'}`
               }
             >
@@ -112,7 +99,26 @@ const SectionLabel = ({ label }) => (
 const Sidebar = ({ onClose }) => {
   const { teacher, logout } = useAuth();
   const unreadCount = useChatUnread();
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [logoError, setLogoError] = useState(false);
 
+  useEffect(() => {
+    const goOnline  = () => setIsOnline(true);
+    const goOffline = () => setIsOnline(false);
+    window.addEventListener('online',  goOnline);
+    window.addEventListener('offline', goOffline);
+    return () => {
+      window.removeEventListener('online',  goOnline);
+      window.removeEventListener('offline', goOffline);
+    };
+  }, []);
+
+  // School logo + initials fallback
+  const schoolLogo   = teacher?.school?.logo ? toPhotoUrl(teacher.school.logo) : null;
+  const schoolName   = teacher?.school?.name || '';
+  const schoolInitial = schoolName.trim().charAt(0).toUpperCase() || 'S';
+   console.log('school logo: ', schoolLogo);
+   
   return (
     <div className="flex flex-col h-full bg-white border-r border-black/5 shadow-sm">
 
@@ -169,46 +175,48 @@ const Sidebar = ({ onClose }) => {
       <div className="p-3">
         <div className="rounded-2xl border border-black/5 bg-re-bg shadow-inner p-2 space-y-2">
 
-          <div className="flex items-center justify-between px-1">
-            <p className="text-[10px] font-bold text-re-text-muted/50">Status</p>
-            <AppStatusBadge status="online" />
-          </div>
+          {/* Offline warning — only shown when offline */}
+          {!isOnline && (
+            <div className="flex items-center gap-2 px-2 py-1.5 rounded-xl bg-red-50 border border-red-100">
+              <WifiOff size={13} className="text-tomato shrink-0" style={{ color: 'tomato' }} />
+              <p className="text-[10px] font-bold" style={{ color: 'tomato' }}>
+                You are working offline
+              </p>
+            </div>
+          )}
 
-          <div className="h-px bg-black/5 mx-1" />
-
-          {/* Teacher profile */}
-          <div className="flex items-center gap-2.5 px-2 py-1.5 bg-white rounded-xl border border-black/5 shadow-sm">
+          {/* School card */}
+          <div className="flex items-center gap-2.5 px-2 py-1.5 ">
             <div className="w-8 h-8 rounded-xl overflow-hidden bg-orange-100 flex items-center justify-center shrink-0">
-              {teacher?.photo
-                ? <img src={teacher.photo} alt={teacher.full_name} className="w-full h-full object-cover" />
-                : <User size={16} style={{ color: '#FF8C00' }} />
+              {schoolLogo && !logoError
+                ? <img
+                    src={schoolLogo}
+                    alt={schoolName}
+                    className="w-full h-full object-contain p-0.5"
+                    onError={() => setLogoError(true)}
+                  />
+                : <span
+                    className="text-sm font-black"
+                    style={{ color: '#FF8C00' }}
+                  >{schoolInitial}</span>
               }
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold truncate text-re-text">
+              <p className="text-xs  truncate text-re-text">
                 {teacher?.first_name || 'Teacher'}
               </p>
-              <p className="text-[10px] text-re-text-muted truncate font-medium opacity-50 mt-0.5">
-                {teacher?.school?.name || 'Academic Staff'}
+              <p className="text-xs text-re-text-muted truncate  mt-0.5">
+                {schoolName || 'Academic Staff'}
               </p>
             </div>
+            <button
+              onClick={logout}
+              className="p-1.5 rounded-lg text-re-text-muted hover:bg-red-50 hover:text-red-500 transition-colors shrink-0"
+              title="Sign out"
+            >
+              <LogOut size={14} />
+            </button>
           </div>
-
-          {/* Logout */}
-          <button
-            onClick={logout}
-            className="flex items-center justify-between w-full px-3 py-2 bg-white hover:bg-red-50 text-re-text-muted hover:text-red-500 rounded-xl border border-black/5 hover:border-red-100 shadow-sm transition-all group cursor-pointer"
-          >
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-lg bg-re-bg group-hover:bg-red-100 flex items-center justify-center transition-colors">
-                <LogOut size={13} className="text-re-text-muted group-hover:text-red-500" />
-              </div>
-              <span className="text-sm font-bold">Logout</span>
-            </div>
-            <p className="text-[10px] text-re-text-muted/40 font-bold truncate max-w-[90px]">
-              {teacher?.email || ''}
-            </p>
-          </button>
 
         </div>
       </div>

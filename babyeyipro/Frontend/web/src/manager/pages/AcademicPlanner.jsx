@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
-import heroImg from '../assets/hero.png';
+
 
 export default function AcademicPlanner() {
     const { manager } = useAuth();
@@ -149,7 +149,7 @@ export default function AcademicPlanner() {
         <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen pb-12 font-sans lowercase">
 
             {/* ── High-Fidelity Hero Section ── */}
-            <div className="relative w-full min-h-[220px] overflow-hidden" style={{ backgroundImage: `url(${heroImg})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
+            <div className="relative w-full min-h-[220px] overflow-hidden" style={{ backgroundImage: `url(./teacher.jpg)`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
                 <div className="absolute inset-0 bg-[#0a192f]/85 z-10 backdrop-blur-[2px]"></div>
                 <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-12 pt-12 pb-16 flex items-center gap-6">
                     <div className="hidden md:flex shrink-0 w-20 h-20 rounded-3xl border border-white/10 bg-white/5 items-center justify-center backdrop-blur-xl shadow-2xl relative overflow-hidden group">

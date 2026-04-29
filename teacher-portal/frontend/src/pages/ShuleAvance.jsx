@@ -391,7 +391,7 @@ export default function ShuleAvance() {
       const payrollBalance = mockBaseSalary - totalActiveDeduction;
 
       return (
-         <div className="relative rounded-none sm:rounded-[24px] overflow-hidden border-y sm:border border-white/10 bg-[linear-gradient(145deg,#0E1F35,#1B3354)] text-white p-5 md:shadow-[0_18px_45px_-22px_rgba(14,31,53,0.9)]">
+         <div className="relative -mx-4 rounded-none sm:rounded-[24px] overflow-hidden border-y sm:border border-white/10 bg-[linear-gradient(145deg,#0E1F35,#1B3354)] text-white p-5 shadow-none md:shadow-[0_18px_45px_-22px_rgba(14,31,53,0.9)]">
             <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-re-orange/20" />
             <div className="absolute -bottom-8 left-6 w-24 h-24 rounded-full bg-white/5" />
  
@@ -438,7 +438,7 @@ export default function ShuleAvance() {
       
       if (isMobile) return (
          <div className="px-0 md:py-4">
-            <button onClick={trigger} className="w-full bg-white border border-re-orange/20 md:rounded-xl p-5 flex items-center justify-between shadow-sm hover:shadow-md transition-all group active:scale-[0.98]">
+            <button onClick={trigger} className="w-full bg-white border border-re-orange/20 rounded-2xl p-5 flex items-center justify-between shadow-sm hover:shadow-md transition-all group active:scale-[0.98]">
                <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-2xl bg-re-orange/10 flex items-center justify-center text-re-orange">
                      <Plus size={24} strokeWidth={3} />
@@ -463,17 +463,17 @@ export default function ShuleAvance() {
    return (
       <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen">
          {/* ── Main Content Grid ── */}
-         <div className="max-w-[1600px] mx-auto px-0 md:px-12 md:pt-6 pb-20 relative z-20">
+          <div className="max-w-[1600px] mx-auto px-4 md:px-12 md:pt-6 pb-20 relative z-20">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
                {/* ── Left Column (Financial Dashboard) ── */}
-                <div className="lg:col-span-2 space-y-0 md:space-y-8">
-                   <div className="lg:hidden">
+                <div className="lg:col-span-2 space-y-4 md:space-y-8">
+                   <div className="lg:hidden space-y-4">
                       {renderBalanceCard()}
                       {renderRequestButton(true)}
                    </div>
 
-                  <div className="bg-white rounded-none md:rounded-[32px] md:shadow-2xl border-y md:border border-black/5 p-0 md:p-8 relative overflow-hidden">
+                   <div className="bg-white rounded-2xl md:rounded-[32px] md:shadow-2xl border-y md:border border-black/5 p-0 md:p-8 relative overflow-hidden">
                      <div className="pointer-events-none absolute inset-x-0 top-0 h-20 md:bg-[linear-gradient(180deg,rgba(255,140,0,0.07),transparent)]"></div>
                      
                      {activeApplications.length > 0 && (

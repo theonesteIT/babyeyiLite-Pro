@@ -267,7 +267,7 @@ app.use(async (req, _res, next) => {
         let schoolRows = [];
         try {
           [schoolRows] = await promisePool.query(
-            `SELECT id, school_name, school_code, email, phone, district, province,
+            `SELECT id, school_name, school_code, email, phone, district, province, logo_url,
                     status AS school_record_status,
                     school_status AS school_access_status,
                     subscription_plan, pro_enabled, pro_start_date, pro_end_date
@@ -290,6 +290,7 @@ app.use(async (req, _res, next) => {
             id: s.id,
             name: s.school_name,
             code: s.school_code,
+            logo: s.logo_url || null,
             email: s.email || null,
             phone: s.phone || null,
             district: s.district || null,
@@ -574,7 +575,7 @@ app.use((req, res, next) => {
 // ============================================================
 // SESSION ENDPOINTS
 // ============================================================
-const SCHOOL_ROW_SELECT = `SELECT id, school_name, school_code, email, phone, district, province,
+const SCHOOL_ROW_SELECT = `SELECT id, school_name, school_code, email, phone, district, province, logo_url,
               status AS school_record_status,
               school_status AS school_access_status,
               subscription_plan, pro_enabled, pro_start_date, pro_end_date
@@ -594,6 +595,7 @@ async function rowToSchoolSessionPayload(s) {
     id: s.id,
     name: s.school_name,
     code: s.school_code,
+    logo: s.logo_url || null,
     email: s.email || null,
     phone: s.phone || null,
     district: s.district || null,

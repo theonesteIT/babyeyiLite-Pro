@@ -12,6 +12,18 @@ const emptyForm = {
   description: '',
   is_active: true,
   image: null,
+  media: [],
+  partner_org_id: '',
+};
+
+const emptyPartnerForm = {
+  org_name: '',
+  login_username: '',
+  contact_email: '',
+  contact_phone: '',
+  password: '',
+  description: '',
+  is_active: true,
 };
 
 function toErrorMessage(error, fallback) {
@@ -31,13 +43,19 @@ function toAssetUrl(pathLike) {
 
 export default function TeacherDealProducts() {
   const [rows, setRows] = useState([]);
+  const [partners, setPartners] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [partnersLoading, setPartnersLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(emptyForm);
+  const [partnerForm, setPartnerForm] = useState(emptyPartnerForm);
   const [preview, setPreview] = useState(null);
   const [error, setError] = useState('');
   const [ok, setOk] = useState('');
+  const [partnerError, setPartnerError] = useState('');
+  const [partnerOk, setPartnerOk] = useState('');
+  const [partnerSaving, setPartnerSaving] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -58,13 +76,34 @@ export default function TeacherDealProducts() {
     }
   };
 
+  const loadPartners = async () => {
+    setPartnersLoading(true);
+    setPartnerError('');
+    try {
+      const res = await axios.get(`${API}/auth/shule-avance-organizations`, { withCredentials: true });
+      if (!res.data?.success) throw new Error(res.data?.message || 'Could not load partners');
+      const data = Array.isArray(res.data?.data) ? res.data.data : [];
+      setPartners(data);
+    } catch (e) {
+      setPartners([]);
+      setPartnerError(toErrorMessage(e, 'Could not load partner organizations.'));
+    } finally {
+      setPartnersLoading(false);
+    }
+  };
+
   useEffect(() => {
     load();
+    loadPartners();
   }, []);
 
   const resetForm = () => {
     setEditingId(null);
     setForm(emptyForm);
+  };
+
+  const resetPartnerForm = () => {
+    setPartnerForm(emptyPartnerForm);
   };
 
   const submit = async (e) => {
@@ -78,7 +117,13 @@ export default function TeacherDealProducts() {
       fd.append('price_rwf', String(form.price_rwf || '').trim());
       fd.append('description', String(form.description || '').trim());
       fd.append('is_active', form.is_active ? '1' : '0');
+      if (form.partner_org_id) fd.append('partner_org_id', String(form.partner_org_id));
       if (form.image) fd.append('image', form.image);
+      if (form.media?.length) {
+        form.media.forEach((file) => {
+          fd.append('media', file);
+        });
+      }
 
       if (editingId) {
         const res = await axios.put(`${API}/services/shule-avance/admin/teacher-deal-products/${editingId}`, fd, {
@@ -102,6 +147,54 @@ export default function TeacherDealProducts() {
     }
   };
 
+  const submitPartner = async (e) => {
+    e.preventDefault();
+    setPartnerSaving(true);
+    setPartnerError('');
+    setPartnerOk('');
+    try {
+      const res = await axios.post(`${API}/auth/create-shule-avance-organization`, partnerForm, {
+        withCredentials: true,
+      });
+      if (!res.data?.success) throw new Error(res.data?.message || 'Could not create partner');
+      setPartnerOk('Partner account created.');
+      resetPartnerForm();
+      await loadPartners();
+    } catch (e) {
+      setPartnerError(toErrorMessage(e, 'Could not create partner account.'));
+    } finally {
+      setPartnerSaving(false);
+    }
+  };
+
+  const togglePartnerActive = async (partner) => {
+    setPartnerError('');
+    setPartnerOk('');
+    try {
+      await axios.put(`${API}/auth/shule-avance-organization/${partner.id}`, { is_active: !partner.is_active }, { withCredentials: true });
+      setPartnerOk(`Partner ${partner.is_active ? 'deactivated' : 'activated'}.`);
+      await loadPartners();
+    } catch (e) {
+      setPartnerError(toErrorMessage(e, 'Could not update partner status.'));
+    }
+  };
+
+  const deletePartner = async (partner) => {
+    if (!window.confirm(`Delete partner ${partner.org_name}? This will disable their login.`)) return;
+    setPartnerError('');
+    setPartnerOk('');
+    try {
+      const res = await axios.delete(`${API}/auth/shule-avance-organization/${partner.id}`, {
+        withCredentials: true,
+      });
+      if (!res.data?.success) throw new Error(res.data?.message || 'Delete failed');
+      setPartnerOk('Partner disabled.');
+      await loadPartners();
+    } catch (e) {
+      setPartnerError(toErrorMessage(e, 'Could not remove partner.'));
+    }
+  };
+
   const onEdit = (row) => {
     setEditingId(row.id);
     setForm({
@@ -110,6 +203,8 @@ export default function TeacherDealProducts() {
       description: row.description || '',
       is_active: !!row.is_active,
       image: null,
+      media: [],
+      partner_org_id: row.partner_org_id || '',
     });
     setError('');
     setOk('');
@@ -133,6 +228,7 @@ export default function TeacherDealProducts() {
   };
 
   const activeCount = useMemo(() => rows.filter((r) => r.is_active).length, [rows]);
+  const activePartnerOptions = partners.filter((p) => p.is_active);
 
   return (
     <div
@@ -146,24 +242,29 @@ export default function TeacherDealProducts() {
             Teacher Deal Products
           </h1>
           <p className="text-xs font-bold text-amber-800/80 mt-1">
-            Manage products teachers can select from Shule Avance Teacher Deals.
+            Manage products, partners, and rich product media for Shule Avance Teacher Deals.
           </p>
         </div>
         <button
           type="button"
-          onClick={load}
+          onClick={() => {
+            load();
+            loadPartners();
+          }}
           className="h-10 px-4 rounded-xl border border-amber-300 bg-white text-[10px] font-black uppercase tracking-widest text-amber-800 inline-flex items-center gap-2"
         >
-          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+          <RefreshCw size={14} className={loading || partnersLoading ? 'animate-spin' : ''} />
           Refresh
         </button>
       </div>
 
+      {partnerOk ? <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">{partnerOk}</div> : null}
       {ok ? <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">{ok}</div> : null}
+      {partnerError ? <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">{partnerError}</div> : null}
       {error ? <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">{error}</div> : null}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <section className="lg:col-span-1 bg-white rounded-2xl border border-amber-100 shadow-sm p-5">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
+        <section className="xl:col-span-1 bg-white rounded-2xl border border-amber-100 shadow-sm p-5">
           <div className="flex items-center gap-2 mb-4">
             <Plus size={16} className="text-amber-600" />
             <h2 className="text-sm font-black uppercase tracking-wider text-[#1F2937]">
@@ -194,20 +295,37 @@ export default function TeacherDealProducts() {
             <div className="space-y-1">
               <label className="text-[10px] font-black uppercase tracking-widest text-amber-800">Description</label>
               <textarea
-                rows={4}
+                rows={5}
                 value={form.description}
                 onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                 className="w-full rounded-lg border border-amber-200 p-3 text-sm font-semibold outline-none focus:border-amber-400"
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] font-black uppercase tracking-widest text-amber-800">Image</label>
+              <label className="text-[10px] font-black uppercase tracking-widest text-amber-800">Partner (optional)</label>
+              <select
+                value={form.partner_org_id || ''}
+                onChange={(e) => setForm((f) => ({ ...f, partner_org_id: e.target.value || '' }))}
+                className="w-full h-10 rounded-lg border border-amber-200 bg-white px-3 text-sm font-semibold outline-none focus:border-amber-400"
+              >
+                <option value="">No partner</option>
+                {activePartnerOptions.map((p) => (
+                  <option key={p.id} value={p.id}>{p.org_name} ({p.login_username})</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-black uppercase tracking-widest text-amber-800">Media</label>
               <input
                 type="file"
-                accept="image/*"
-                onChange={(e) => setForm((f) => ({ ...f, image: e.target.files?.[0] || null }))}
+                accept="image/*,video/*,application/pdf"
+                multiple
+                onChange={(e) => setForm((f) => ({ ...f, media: Array.from(e.target.files || []) }))}
                 className="w-full text-xs font-bold"
               />
+              {form.media?.length ? (
+                <p className="text-[10px] text-slate-500">{form.media.length} file(s) selected.</p>
+              ) : null}
             </div>
             <label className="inline-flex items-center gap-2 text-xs font-black text-amber-900 uppercase tracking-wide">
               <input
@@ -240,7 +358,7 @@ export default function TeacherDealProducts() {
           </form>
         </section>
 
-        <section className="lg:col-span-2 bg-white rounded-2xl border border-amber-100 shadow-sm overflow-hidden">
+        <section className="xl:col-span-2 bg-white rounded-2xl border border-amber-100 shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-amber-100 flex items-center justify-between gap-3">
             <h2 className="text-sm font-black uppercase tracking-wider text-[#1F2937]">Products</h2>
             <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border border-slate-200 bg-slate-50 text-slate-700">
@@ -260,7 +378,9 @@ export default function TeacherDealProducts() {
                 <div key={r.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="w-14 h-14 rounded-xl border border-amber-100 bg-slate-50 overflow-hidden shrink-0 flex items-center justify-center">
-                      {r.image_url ? (
+                      {r.media?.length ? (
+                        <img src={toAssetUrl(r.media[0].url)} alt={r.name} className="w-full h-full object-cover" />
+                      ) : r.image_url ? (
                         <img src={toAssetUrl(r.image_url)} alt={r.name} className="w-full h-full object-cover" />
                       ) : (
                         <Package size={16} className="text-slate-400" />
@@ -270,6 +390,12 @@ export default function TeacherDealProducts() {
                       <p className="text-sm font-black text-[#1F2937] truncate">{r.name}</p>
                       <p className="text-xs font-bold text-slate-500 mt-0.5 truncate">{fmtMoney(r.price_rwf)}</p>
                       <p className="text-[11px] text-slate-500 mt-1 line-clamp-2">{r.description || 'No description.'}</p>
+                      {r.partner_org_name ? (
+                        <p className="text-[10px] font-semibold text-slate-500 mt-1">Partner: {r.partner_org_name}</p>
+                      ) : null}
+                      {r.media?.length ? (
+                        <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400 mt-1">Media: {r.media.length} item{r.media.length > 1 ? 's' : ''}</p>
+                      ) : null}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -309,6 +435,134 @@ export default function TeacherDealProducts() {
         </section>
       </div>
 
+      <section className="bg-white rounded-2xl border border-amber-100 shadow-sm p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <Plus size={16} className="text-amber-600" />
+          <h2 className="text-sm font-black uppercase tracking-wider text-[#1F2937]">Teacher Deal Partners</h2>
+        </div>
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+          <div className="bg-slate-50 rounded-2xl border border-slate-100 p-4">
+            <h3 className="text-sm font-black uppercase tracking-wider text-slate-800 mb-3">Create Partner Account</h3>
+            <form className="space-y-3" onSubmit={submitPartner}>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-600">Organization Name</label>
+                <input
+                  required
+                  value={partnerForm.org_name}
+                  onChange={(e) => setPartnerForm((f) => ({ ...f, org_name: e.target.value }))}
+                  className="w-full h-10 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-amber-400"
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-600">Login username</label>
+                  <input
+                    required
+                    value={partnerForm.login_username}
+                    onChange={(e) => setPartnerForm((f) => ({ ...f, login_username: e.target.value }))}
+                    className="w-full h-10 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-amber-400"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-600">Email</label>
+                  <input
+                    required
+                    type="email"
+                    value={partnerForm.contact_email}
+                    onChange={(e) => setPartnerForm((f) => ({ ...f, contact_email: e.target.value }))}
+                    className="w-full h-10 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-amber-400"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-600">Phone</label>
+                  <input
+                    value={partnerForm.contact_phone}
+                    onChange={(e) => setPartnerForm((f) => ({ ...f, contact_phone: e.target.value }))}
+                    className="w-full h-10 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-amber-400"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-600">Password</label>
+                  <input
+                    required
+                    type="password"
+                    value={partnerForm.password}
+                    onChange={(e) => setPartnerForm((f) => ({ ...f, password: e.target.value }))}
+                    className="w-full h-10 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-amber-400"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-600">Description</label>
+                <textarea
+                  rows={3}
+                  value={partnerForm.description}
+                  onChange={(e) => setPartnerForm((f) => ({ ...f, description: e.target.value }))}
+                  className="w-full rounded-lg border border-slate-200 p-3 text-sm outline-none focus:border-amber-400"
+                />
+              </div>
+              <label className="inline-flex items-center gap-2 text-xs font-black text-slate-700 uppercase tracking-wide">
+                <input
+                  type="checkbox"
+                  checked={partnerForm.is_active}
+                  onChange={(e) => setPartnerForm((f) => ({ ...f, is_active: e.target.checked }))}
+                />
+                Active partner account
+              </label>
+              <button
+                type="submit"
+                disabled={partnerSaving}
+                className="w-full h-10 rounded-lg bg-amber-500 text-[#000435] text-[10px] font-black uppercase tracking-widest disabled:opacity-50"
+              >
+                {partnerSaving ? <Loader2 size={14} className="animate-spin inline-block mr-2" /> : null}
+                Create Partner
+              </button>
+            </form>
+          </div>
+
+          <div className="bg-slate-50 rounded-2xl border border-slate-100 p-4">
+            <h3 className="text-sm font-black uppercase tracking-wider text-slate-800 mb-3">Partner list</h3>
+            {partnersLoading ? (
+              <div className="text-sm text-slate-500">Loading partners...</div>
+            ) : partners.length === 0 ? (
+              <div className="text-sm text-slate-500">No partners created yet.</div>
+            ) : (
+              <div className="space-y-3">
+                {partners.map((partner) => (
+                  <div key={partner.id} className="rounded-2xl border border-slate-200 bg-white p-3">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-black text-slate-900">{partner.org_name}</p>
+                        <p className="text-[10px] text-slate-500">{partner.login_username} · {partner.contact_email}</p>
+                        <p className="text-[10px] text-slate-500">{partner.contact_phone || 'No phone provided'}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => togglePartnerActive(partner)}
+                          className="h-8 px-3 rounded-lg border border-slate-200 bg-white text-[10px] font-black uppercase tracking-wider text-slate-700"
+                        >
+                          {partner.is_active ? 'Disable' : 'Enable'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deletePartner(partner)}
+                          className="h-8 px-3 rounded-lg border border-red-200 bg-red-50 text-[10px] font-black uppercase tracking-wider text-red-700"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
       {preview ? (
         <div className="fixed inset-0 z-[260] p-4 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/45" onClick={() => setPreview(null)} />
@@ -321,7 +575,9 @@ export default function TeacherDealProducts() {
             </div>
             <div className="p-5 space-y-3">
               <div className="h-52 rounded-xl bg-slate-50 border border-amber-100 overflow-hidden flex items-center justify-center">
-                {preview.image_url ? (
+                {preview.media?.length ? (
+                  <img src={toAssetUrl(preview.media[0].url)} alt={preview.name} className="w-full h-full object-cover" />
+                ) : preview.image_url ? (
                   <img src={toAssetUrl(preview.image_url)} alt={preview.name} className="w-full h-full object-cover" />
                 ) : (
                   <Package size={22} className="text-slate-400" />
@@ -330,6 +586,19 @@ export default function TeacherDealProducts() {
               <p className="text-lg font-black text-[#1F2937]">{preview.name}</p>
               <p className="text-sm font-black text-amber-700">{fmtMoney(preview.price_rwf)}</p>
               <p className="text-sm font-semibold text-slate-600">{preview.description || 'No description.'}</p>
+              {preview.partner_org_name ? (
+                <p className="text-sm font-semibold text-slate-500">Partner: {preview.partner_org_name}</p>
+              ) : null}
+              {preview.media?.length ? (
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Media items</p>
+                  <ul className="list-disc list-inside text-[11px] text-slate-500">
+                    {preview.media.map((item, idx) => (
+                      <li key={idx}>{item.url}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>

@@ -97,4 +97,29 @@ async function ensureShuleAvanceOrgTables() {
   ready = true;
 }
 
-module.exports = { ensureShuleAvanceOrgTables, ensureShuleAvancePartnerRole };
+async function ensureTeacherDealPartnerTable() {
+  await db.promisePool.execute(`
+    CREATE TABLE IF NOT EXISTS teacher_deal_partners (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      org_name VARCHAR(200) NOT NULL,
+      partner_code VARCHAR(120) NULL,
+      login_username VARCHAR(120) NULL,
+      contact_email VARCHAR(180) NULL,
+      contact_phone VARCHAR(40) NULL,
+      logo_url VARCHAR(500) NULL,
+      description TEXT NULL,
+      is_active TINYINT(1) NOT NULL DEFAULT 1,
+      created_by_user_id INT UNSIGNED NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NULL ON UPDATE CURRENT_TIMESTAMP,
+      deleted_at DATETIME NULL,
+      UNIQUE KEY uq_teacher_deal_partner_code (partner_code),
+      KEY idx_teacher_deal_partner_active (is_active)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+  await db.promisePool
+    .execute(`CREATE UNIQUE INDEX uq_teacher_deal_partner_login_username ON teacher_deal_partners (login_username)`)
+    .catch(() => {});
+}
+
+module.exports = { ensureShuleAvanceOrgTables, ensureShuleAvancePartnerRole, ensureTeacherDealPartnerTable };

@@ -1,40 +1,3 @@
-// ================================================================
-// src/App.jsx
-//
-// ROUTES:
-//   /                          → PublicPage (landing)
-//   /schools                   → AllSchools (browse all published schools)
-//   /school/:slug              → SchoolPublicRoute (individual school mini-site)
-//   /login                     → Login
-//   /parents/login             → ParentLogin (phone + password)
-//   /parents/register          → ParentRegister (new parent account)
-//   /parents/reset-phone       → ParentResetPhone (email self-service phone reset)
-//   /parents/*                 → Parent dashboard (Home, Shop, …) (PARENT session)
-//   /register                  → AddSchool (public registration)
-//   /signup/super-admin        → SuperAdminSignup
-//   /superadmin/signup         → SuperAdministratorSignup (first Super Admin credentials)
-//   /signup/super-controller   → SuperControllerSignup (first Full System Controller only)
-//   /superadmin/control        → SuperAdministratorControl (FULL_SYSTEM_CONTROLLER only)
-//   /system-controller/dashboard → redirects to /superadmin/control
-//   /superadmin/dashboard      → SuperAdminDashboard (SUPER_ADMIN only)
-//   /superadmin/voucher-services → SuperAdminVoucherServices (SUPER_ADMIN | FULL_SYSTEM_CONTROLLER)
-//   /superadmin/standard-shule-kits → SuperAdminStandardShuleKits (SUPER_ADMIN | FULL_SYSTEM_CONTROLLER)
-//   /services/standard-shulekit → PublicStandardShuleKit (public)
-//   /superadmin/register-agents → RegisterAgents (SUPER_ADMIN | FULL_SYSTEM_CONTROLLER)
-//   /agent/*                   → AgentLayout (AGENT)
-//   /add-school                → AddSchool (SUPER_ADMIN | FULL_SYSTEM_CONTROLLER)
-//   /manage-requirements-prices→ ManageRequirementsPrices (same)
-//   /requirement-prices-list   → RequirementPricesList (same)
-//   /nesa-babyeyi-dashboard    → NESABABYEYIDashboard (NESA_ADMIN)
-//   /district-babyeyi-dashboard→ DistrictBABYEYIDashboard (DEO)
-//   /school-babyeyi-dashboard  → SchoolBabyeyiDashboard (SCHOOL_ADMIN | SCHOOL_MANAGER)
-//   /accountant/*                → AccountantLayout (ACCOUNTANT) — dashboard, payment, reports
-//   /hod/*                       → HodLayout (HOD) — students, discipline marks settings, reports
-//   /pay-by-school             → PublicPayBySchool (guest: student code → term/year → fees → pay)
-//   /babyeyi/verify/:docId     → BabyeyiVerifyPage
-//   /unauthorized              → 403 page
-// ================================================================
-
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
@@ -127,7 +90,7 @@ import SchoolStudentsCard from './Pages/SuperAdmin/SchoolStudentsCard';
 import SchoolStudentCardTemplate2 from './Pages/SuperAdmin/SchoolStudentCardTemplate2';
 import QRStudentsProfile from './Pages/SuperAdmin/QRStudentProfile';
 import ShuleAvanceTeacher from './Pages/SuperAdmin/ShuleAvanceTeacher';
-import TeacherDealProducts from './Pages/SuperAdmin/TeacherDealProducts';
+import TeacherDealPage from './Pages/SuperAdmin/TeacherDeal/TeacherDealPage';
 import ShuleAvancePartnerDashboard from './Pages/ShuleAvance/ShuleAvancePartnerDashboard';
 import BabyeyiVerifyPage        from './Pages/School Manager/components/BabyeyiVerifyPage';
 import ParentLogin              from './Pages/Parents/ParentLogin';
@@ -317,7 +280,7 @@ export default function App() {
           } />
           <Route path="/superadmin/teacher-deal-products" element={
             <ProtectedRoute role="SUPER_ADMIN">
-              <TeacherDealProducts />
+              <TeacherDealPage />
             </ProtectedRoute>
           } />
           <Route path="/superadmin/school-students-card" element={

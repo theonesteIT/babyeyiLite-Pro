@@ -11,7 +11,6 @@ import { useAuth } from '../context/AuthContext';
 import GradebookColumns from './GradebookColumns';
 import { createPortal } from 'react-dom';
 import api from '../services/api';
-import heroImg from '../assets/hero.png';
 import {
     operationsInnerSelectCls,
     operationsInnerInputCls,
@@ -190,7 +189,7 @@ export default function RegistryOperations() {
         <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen pb-12 font-sans lowercase">
 
             {/* ── High-Fidelity Hero Section ── */}
-            <div className="relative w-full min-h-[220px] overflow-hidden" style={{ backgroundImage: `url(${heroImg})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
+            <div className="relative w-full min-h-[220px] overflow-hidden" style={{ backgroundImage: `url(./teacher.jpg)`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
                 <div className="absolute inset-0 bg-[#0a192f]/85 z-10 backdrop-blur-[2px]"></div>
 
                 <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-12 pt-12 pb-16 flex items-center gap-6 text-white text-center">

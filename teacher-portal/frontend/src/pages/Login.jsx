@@ -111,7 +111,7 @@ const Login = () => {
                         <img src="/logo.png" alt="Babyeyi" className="w-7 h-7 object-contain" />
                      </div>
                      <h1 className="text-xl font-black mt-2 text-re-text tracking-tight uppercase">Shule Teacher</h1>
-                     <p className="text-[11px] text-center text-re-text-muted">The Babyeyi Educational Hub — Authorize your session</p>
+                     <p className="text-xs text-center text-re-text-muted">The Babyeyi Educational Hub — Authorize your session</p>
                   </div>
 
                   {/* Error */}
@@ -125,7 +125,7 @@ const Login = () => {
                   <form onSubmit={handleSubmit} className="space-y-3">
                      {/* Identifier — same as main Babyeyi login */}
                      <div>
-                        <label className="text-[11px] ml-1">
+                        <label className="text-sm ml-1">
                            Email or username
                         </label>
                         <div className="flex items-center bg-re-bg border border-black/5 rounded-xl overflow-hidden mt-1 shadow-inner focus-within:ring-2 transition-all" style={{ '--tw-ring-color': 'rgba(255,140,0,0.35)' }}>
@@ -164,7 +164,7 @@ const Login = () => {
 
                      {/* Password */}
                      <div>
-                        <label className="text-[11px] ml-1">
+                        <label className="text-sm ml-1">
                            Password
                         </label>
                         <div className="flex items-center bg-re-bg border border-black/5 rounded-xl overflow-hidden mt-1 shadow-inner focus-within:ring-2 transition-all" style={{ '--tw-ring-color': 'rgba(255,140,0,0.35)' }}>
@@ -173,7 +173,7 @@ const Login = () => {
                               type={showPassword ? 'text' : 'password'}
                               value={password}
                               onChange={e => setPassword(e.target.value)}
-                              placeholder="••••••••"
+                              placeholder="enter your password here ..."
                               className="w-full p-2.5 bg-transparent outline-none text-xs text-re-text"
                               required
                            />
@@ -188,7 +188,7 @@ const Login = () => {
                      </div>
 
                      {/* Remember + forgot */}
-                     <div className="flex items-center justify-between gap-2">
+                     <div className="flex my-6 items-center justify-between gap-2">
                         <label className="flex items-center gap-2 cursor-pointer select-none">
                            <input
                               type="checkbox"
@@ -196,9 +196,9 @@ const Login = () => {
                               onChange={e => setRememberMe(e.target.checked)}
                               className="rounded border-black/20 text-re-orange focus:ring-re-orange"
                            />
-                           <span className="text-[10px] text-re-text-muted">Remember me</span>
+                           <span className="text-xs text-re-text-muted">Remember me</span>
                         </label>
-                        <button type="button" className="text-[10px] hover:underline tracking-wider shrink-0" style={{ color: '#FF8C00' }}>
+                        <button type="button" className="text-xs hover:underline tracking-wider shrink-0" style={{ color: '#FF8C00' }}>
                            Forgot Password?
                         </button>
                      </div>
@@ -242,7 +242,7 @@ const Login = () => {
                      </div> */}
                   </div>
 
-                  <p className="text-center text-[11px] text-re-text-muted">
+                  <p className="text-center text-xs text-re-text-muted">
                      © 2026 Babyeyi Systems • Rwandan National Education Portal
                   </p>
                </div>

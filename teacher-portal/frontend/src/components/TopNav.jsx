@@ -53,7 +53,7 @@ const TopNav = ({ title, onMenuClick, showMenuButton = true }) => {
 
     if (isHome) {
         if (scrolled) {
-            headerStyle = "sticky top-0 h-12 bg-white/95 backdrop-blur-md border-b border-black/5 shadow-sm py-1";
+            headerStyle = "sticky top-0 h-12 bg-white/95 backdrop-blur-md md:border-b md:border-black/5 shadow-sm py-1";
             iconThemeCls = "text-re-text-muted hover:bg-orange-50 hover:text-re-orange";
             menuBtnCls = "text-re-text-muted hover:bg-orange-50";
         } else {
@@ -62,7 +62,7 @@ const TopNav = ({ title, onMenuClick, showMenuButton = true }) => {
             menuBtnCls = "text-white md:text-re-text-muted hover:bg-white/10 md:hover:bg-orange-50";
         }
     } else {
-        headerStyle = "sticky top-0 h-14 bg-white/80 backdrop-blur-xl border-b border-black/5 py-2";
+        headerStyle = "sticky top-0 h-14 bg-white/80 backdrop-blur-xl md:border-b md:border-black/5 py-2";
         iconThemeCls = "text-re-text-muted hover:bg-orange-50 hover:text-re-orange";
         menuBtnCls = "text-re-text-muted hover:bg-orange-50";
     }
@@ -92,7 +92,12 @@ const TopNav = ({ title, onMenuClick, showMenuButton = true }) => {
                     )
                 )}
                 <h1 className={`text-sm font-bold transition-all duration-300 ${titleThemeCls}`}>
-                    {location.pathname === '/ticha-ai' ? 'Ticha AI - Assistant Engine' :location.pathname=== '/shule-avance' ? 'Ticha Avance' : (title || 'Dashboard')}
+                    {(() => {
+                        if (location.pathname === '/ticha-ai') return 'Ticha AI - Assistant Engine';
+                        if (location.pathname === '/shule-avance') return 'Ticha Avance';
+                        if (location.pathname.startsWith('/ticha-deals/') && location.hash === '#checkout') return 'Checkout Details';
+                        return title || 'Dashboard';
+                    })()}
                 </h1>
             </div>
 

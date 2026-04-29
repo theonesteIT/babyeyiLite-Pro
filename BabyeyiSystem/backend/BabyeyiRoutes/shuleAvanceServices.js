@@ -8,6 +8,7 @@ const {
   ensureShuleAvanceTeacherCatalogTable,
   fetchActiveCatalogMaps,
 } = require('./shuleAvanceCatalogStore');
+const { ensureShuleAvanceOrgTables, ensureTeacherDealPartnerTable } = require('./shuleAvanceOrgSchema');
 
 const router = express.Router();
 
@@ -28,6 +29,7 @@ const STATUS = {
 
 let tableReady = false;
 let teacherDealProductsReady = false;
+let teacherDealPartnersReady = false;
 
 function toRoleCode(req) {
   return String(req.user?.role_code || req.session?.user?.role?.code || '').toUpperCase();
@@ -147,45 +149,107 @@ async function ensureTable() {
 
 async function ensureTeacherDealProductsTable() {
   if (teacherDealProductsReady) return;
+  await ensureShuleAvanceOrgTables();
+  await ensureTeacherDealPartnerTable();
   await promisePool.query(`
     CREATE TABLE IF NOT EXISTS shule_avance_teacher_deal_products (
       id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      product_code VARCHAR(120) NULL,
+      category VARCHAR(180) NULL,
       name VARCHAR(180) NOT NULL,
       price_rwf DECIMAL(14,2) NOT NULL DEFAULT 0,
       image_url VARCHAR(500) NULL,
-      description TEXT NULL,
+      media_json LONGTEXT NULL,
+      short_description VARCHAR(280) NULL,
+      description LONGTEXT NULL,
+      max_quantity INT UNSIGNED NULL,
       is_active TINYINT(1) NOT NULL DEFAULT 1,
+      partner_org_id INT UNSIGNED NULL,
       created_by_user_id INT UNSIGNED NULL,
       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       deleted_at DATETIME NULL,
       KEY idx_sadp_active (is_active),
-      KEY idx_sadp_deleted (deleted_at)
+      KEY idx_sadp_deleted (deleted_at),
+      KEY idx_sadp_partner (partner_org_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
+
+  const alters = [
+    ['partner_org_id', 'INT UNSIGNED NULL'],
+    ['media_json', 'LONGTEXT NULL'],
+    ['product_code', 'VARCHAR(120) NULL'],
+    ['category', 'VARCHAR(180) NULL'],
+    ['short_description', 'VARCHAR(280) NULL'],
+    ['max_quantity', 'INT UNSIGNED NULL'],
+  ];
+  for (const [name, def] of alters) {
+    try {
+      await promisePool.query(`ALTER TABLE shule_avance_teacher_deal_products ADD COLUMN ${name} ${def}`);
+    } catch (e) {
+      if (e.code !== 'ER_DUP_FIELDNAME') {
+        console.warn(`[shule-avance] ALTER add ${name}:`, e.message);
+      }
+    }
+  }
+
+  try {
+    await promisePool.query(`ALTER TABLE shule_avance_teacher_deal_products MODIFY COLUMN description LONGTEXT NULL`);
+  } catch (e) {
+    if (e.code !== 'ER_DUP_FIELDNAME' && !String(e.message || '').includes('Duplicate column')) {
+      console.warn('[shule-avance] ALTER modify description:', e.message);
+    }
+  }
+
   teacherDealProductsReady = true;
 }
 
 function toDealProductDto(r) {
+  const media = [];
+  if (r.media_json) {
+    try {
+      const parsed = typeof r.media_json === 'string' ? JSON.parse(r.media_json) : r.media_json;
+      if (Array.isArray(parsed)) {
+        media.push(...parsed.filter(Boolean));
+      }
+    } catch {}
+  }
+  if (!media.length && r.image_url) {
+    media.push({ url: r.image_url, type: 'image' });
+  }
+
   return {
     id: Number(r.id),
+    product_code: r.product_code || null,
+    category: r.category || null,
     name: r.name || '',
+    short_description: r.short_description || null,
     price_rwf: Number(r.price_rwf || 0),
     image_url: r.image_url || '',
     description: r.description || '',
+    max_quantity: r.max_quantity ? Number(r.max_quantity) : null,
     is_active: Number(r.is_active || 0) === 1,
+    partner_org_id: r.partner_org_id ? Number(r.partner_org_id) : null,
+    partner_org_name: r.partner_org_name || null,
+    partner_org_login: r.partner_org_login || null,
+    partner_org_logo: r.partner_org_logo || null,
+    media: media,
   };
 }
 
 async function listTeacherDealProducts({ includeInactive = false } = {}) {
   await ensureTeacherDealProductsTable();
-  const where = ['deleted_at IS NULL'];
-  if (!includeInactive) where.push('is_active = 1');
+  const where = ['r.deleted_at IS NULL'];
+  if (!includeInactive) where.push('r.is_active = 1');
   const [rows] = await promisePool.query(
-    `SELECT id, name, price_rwf, image_url, description, is_active
-     FROM shule_avance_teacher_deal_products
+    `SELECT r.id, r.product_code, r.category, r.name, r.short_description, r.price_rwf, r.image_url, r.description, r.max_quantity, r.is_active,
+            r.partner_org_id, tp.org_name AS partner_org_name, tp.login_username AS partner_org_login, tp.logo_url AS partner_org_logo,
+            r.media_json
+     FROM shule_avance_teacher_deal_products r
+     LEFT JOIN teacher_deal_partners tp ON tp.id = r.partner_org_id
      WHERE ${where.join(' AND ')}
-     ORDER BY id DESC`
+     AND (r.partner_org_id IS NULL OR tp.is_active = 1)
+     ORDER BY r.id DESC`
   );
   return (rows || []).map(toDealProductDto);
 }
@@ -213,7 +277,7 @@ async function fetchTeacherDealProductsByIds(ids) {
   if (!cleanIds.length) return [];
   await ensureTeacherDealProductsTable();
   const [rows] = await promisePool.query(
-    `SELECT id, name, price_rwf, image_url, description, is_active
+    `SELECT id, product_code, category, name, short_description, price_rwf, image_url, description, max_quantity, is_active, partner_org_id, media_json
      FROM shule_avance_teacher_deal_products
      WHERE deleted_at IS NULL AND is_active = 1 AND id IN (?)`,
     [cleanIds]
@@ -221,15 +285,14 @@ async function fetchTeacherDealProductsByIds(ids) {
   return (rows || []).map(toDealProductDto);
 }
 
-function pickUploadedImage(req) {
-  const files = Array.isArray(req.files) ? req.files : [];
-  return files.find((f) => String(f.mimetype || '').toLowerCase().startsWith('image/')) || null;
+function pickUploadedMediaFiles(req) {
+  return Array.isArray(req.files) ? req.files : [];
 }
 
-async function persistProductImage(file) {
+async function persistProductMediaFile(file) {
   if (!file?.path) return null;
   const ext = (path.extname(file.originalname || '') || '.jpg').toLowerCase();
-  const safeExt = /^[.](jpg|jpeg|png|webp|gif)$/i.test(ext) ? ext : '.jpg';
+  const safeExt = /^[.](jpg|jpeg|png|webp|gif|mp4|mov|avi|pdf|webm)$/i.test(ext) ? ext : '.jpg';
   const relDir = path.join('uploads', 'shule-avance-deals');
   const absDir = path.join(__dirname, '..', relDir);
   fs.mkdirSync(absDir, { recursive: true });
@@ -567,20 +630,37 @@ router.post('/shule-avance/admin/teacher-deal-products', requireLoggedIn, requir
     await ensureTeacherDealProductsTable();
     const userId = resolveUserId(req);
     const name = String(req.body?.name || '').trim();
+    const productCode = String(req.body?.product_code || '').trim() || null;
+    const category = String(req.body?.category || '').trim() || null;
+    const shortDescription = String(req.body?.short_description || '').trim() || null;
     const description = String(req.body?.description || '').trim() || null;
     const price = Number(req.body?.price_rwf);
+    const maxQuantity = req.body?.max_quantity ? Number(req.body.max_quantity) : null;
     const isActive = req.body?.is_active === undefined ? true : !!req.body.is_active;
+    const partnerOrgId = req.body?.partner_org_id ? Number(req.body.partner_org_id) : null;
+
     if (!name) return res.status(400).json({ success: false, message: 'name is required' });
     if (!Number.isFinite(price) || price <= 0) {
       return res.status(400).json({ success: false, message: 'price_rwf must be greater than zero' });
     }
-    const imageFile = pickUploadedImage(req);
-    const imageUrl = imageFile ? await persistProductImage(imageFile) : null;
+    if (partnerOrgId && !Number.isFinite(partnerOrgId)) {
+      return res.status(400).json({ success: false, message: 'partner_org_id must be a valid id' });
+    }
+
+    const mediaFiles = pickUploadedMediaFiles(req);
+    const mediaUrls = [];
+    for (const file of mediaFiles) {
+      const url = await persistProductMediaFile(file);
+      if (url) mediaUrls.push({ url, type: String(file.mimetype || '').split('/')[0] || 'file' });
+    }
+    const imageUrl = mediaUrls.find((m) => m.type === 'image')?.url || null;
+    const mediaJson = mediaUrls.length ? JSON.stringify(mediaUrls) : null;
+
     const [r] = await promisePool.query(
       `INSERT INTO shule_avance_teacher_deal_products
-       (name, price_rwf, image_url, description, is_active, created_by_user_id)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [name, Number(price.toFixed(2)), imageUrl, description, isActive ? 1 : 0, userId]
+       (product_code, category, name, short_description, price_rwf, image_url, media_json, description, max_quantity, is_active, partner_org_id, created_by_user_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [productCode, category, name, shortDescription, Number(price.toFixed(2)), imageUrl, mediaJson, description, Number(maxQuantity || 0) || null, isActive ? 1 : 0, partnerOrgId, userId]
     );
     res.status(201).json({ success: true, id: r.insertId, message: 'Teacher Deal product created' });
   } catch (error) {
@@ -595,7 +675,7 @@ router.put('/shule-avance/admin/teacher-deal-products/:id', requireLoggedIn, req
     const id = Number(req.params.id);
     if (!id) return res.status(400).json({ success: false, message: 'Invalid product id' });
     const [[existing]] = await promisePool.query(
-      `SELECT id, image_url
+      `SELECT id, image_url, media_json
        FROM shule_avance_teacher_deal_products
        WHERE id = ? AND deleted_at IS NULL
        LIMIT 1`,
@@ -605,11 +685,23 @@ router.put('/shule-avance/admin/teacher-deal-products/:id', requireLoggedIn, req
 
     const fields = [];
     const vals = [];
+    if (req.body?.product_code !== undefined) {
+      fields.push('product_code = ?');
+      vals.push(String(req.body.product_code || '').trim() || null);
+    }
+    if (req.body?.category !== undefined) {
+      fields.push('category = ?');
+      vals.push(String(req.body.category || '').trim() || null);
+    }
     if (req.body?.name !== undefined) {
       const name = String(req.body.name || '').trim();
       if (!name) return res.status(400).json({ success: false, message: 'name cannot be empty' });
       fields.push('name = ?');
       vals.push(name);
+    }
+    if (req.body?.short_description !== undefined) {
+      fields.push('short_description = ?');
+      vals.push(String(req.body.short_description || '').trim() || null);
     }
     if (req.body?.price_rwf !== undefined) {
       const price = Number(req.body.price_rwf);
@@ -619,6 +711,11 @@ router.put('/shule-avance/admin/teacher-deal-products/:id', requireLoggedIn, req
       fields.push('price_rwf = ?');
       vals.push(Number(price.toFixed(2)));
     }
+    if (req.body?.max_quantity !== undefined) {
+      const maxQuantity = req.body.max_quantity ? Number(req.body.max_quantity) : null;
+      fields.push('max_quantity = ?');
+      vals.push(maxQuantity !== null && Number.isFinite(maxQuantity) ? maxQuantity : null);
+    }
     if (req.body?.description !== undefined) {
       fields.push('description = ?');
       vals.push(String(req.body.description || '').trim() || null);
@@ -627,12 +724,31 @@ router.put('/shule-avance/admin/teacher-deal-products/:id', requireLoggedIn, req
       fields.push('is_active = ?');
       vals.push(req.body.is_active ? 1 : 0);
     }
-    const imageFile = pickUploadedImage(req);
-    if (imageFile) {
-      const imageUrl = await persistProductImage(imageFile);
-      fields.push('image_url = ?');
-      vals.push(imageUrl);
+    if (req.body?.partner_org_id !== undefined) {
+      const partnerOrgId = req.body.partner_org_id ? Number(req.body.partner_org_id) : null;
+      if (partnerOrgId !== null && !Number.isFinite(partnerOrgId)) {
+        return res.status(400).json({ success: false, message: 'partner_org_id must be a valid id' });
+      }
+      fields.push('partner_org_id = ?');
+      vals.push(partnerOrgId);
     }
+
+    const mediaFiles = pickUploadedMediaFiles(req);
+    if (mediaFiles.length) {
+      const mediaUrls = [];
+      for (const file of mediaFiles) {
+        const url = await persistProductMediaFile(file);
+        if (url) mediaUrls.push({ url, type: String(file.mimetype || '').split('/')[0] || 'file' });
+      }
+      if (mediaUrls.length) {
+        const imageUrl = mediaUrls.find((m) => m.type === 'image')?.url || existing.image_url || null;
+        fields.push('image_url = ?');
+        vals.push(imageUrl);
+        fields.push('media_json = ?');
+        vals.push(JSON.stringify(mediaUrls));
+      }
+    }
+
     if (!fields.length) {
       return res.status(400).json({ success: false, message: 'No changes provided' });
     }
@@ -666,6 +782,157 @@ router.delete('/shule-avance/admin/teacher-deal-products/:id', requireLoggedIn, 
   } catch (error) {
     console.error('[shule-avance] admin delete teacher deal product:', error.message);
     res.status(500).json({ success: false, message: 'Failed to delete Teacher Deal product' });
+  }
+});
+
+function toDealPartnerDto(r) {
+  return {
+    id: Number(r.id),
+    org_name: r.org_name || '',
+    partner_code: r.partner_code || null,
+    login_username: r.login_username || null,
+    contact_email: r.contact_email || null,
+    contact_phone: r.contact_phone || null,
+    logo_url: r.logo_url || null,
+    description: r.description || null,
+    is_active: Number(r.is_active || 0) === 1,
+    created_at: r.created_at,
+    updated_at: r.updated_at,
+  };
+}
+
+async function listTeacherDealPartners() {
+  await ensureTeacherDealPartnerTable();
+  const [rows] = await promisePool.query(
+    `SELECT id, org_name, partner_code, login_username, contact_email, contact_phone, description, is_active
+     FROM teacher_deal_partners
+     WHERE deleted_at IS NULL
+     ORDER BY id DESC`
+  );
+  return (rows || []).map(toDealPartnerDto);
+}
+
+router.get('/shule-avance/admin/teacher-deal-partners', requireLoggedIn, requireDealProductAdmin, async (req, res) => {
+  try {
+    const data = await listTeacherDealPartners();
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('[shule-avance] admin list teacher deal partners:', error.message);
+    res.status(500).json({ success: false, message: 'Failed to load teacher deal partners' });
+  }
+});
+
+router.post('/shule-avance/admin/teacher-deal-partners', requireLoggedIn, requireDealProductAdmin, async (req, res) => {
+  try {
+    await ensureTeacherDealPartnerTable();
+    const createdBy = resolveUserId(req);
+    const orgName = String(req.body?.org_name || '').trim();
+    const loginUsername = String(req.body?.login_username || '').trim() || null;
+    const partnerCode = String(req.body?.partner_code || '').trim() || null;
+    const contactEmail = String(req.body?.contact_email || '').trim() || null;
+    const contactPhone = String(req.body?.contact_phone || '').trim() || null;
+    const description = String(req.body?.description || '').trim() || null;
+    const isActive = req.body?.is_active === undefined ? true : !!req.body.is_active;
+
+    let logoUrl = null;
+    const files = pickUploadedMediaFiles(req);
+    const logoFile = files.find(f => f.fieldname === 'logo' || f.fieldname === 'logo_url');
+    if (logoFile) {
+      logoUrl = await persistProductMediaFile(logoFile);
+    }
+
+    if (!orgName) return res.status(400).json({ success: false, message: 'org_name is required' });
+    if (!loginUsername) return res.status(400).json({ success: false, message: 'login_username is required' });
+    if (!contactEmail) return res.status(400).json({ success: false, message: 'contact_email is required' });
+
+    const [r] = await promisePool.query(
+      `INSERT INTO teacher_deal_partners
+       (org_name, partner_code, login_username, contact_email, contact_phone, logo_url, description, is_active, created_by_user_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [orgName, partnerCode, loginUsername, contactEmail, contactPhone, logoUrl, description, isActive ? 1 : 0, createdBy]
+    );
+    res.status(201).json({ success: true, id: r.insertId, message: 'Teacher Deal partner created' });
+  } catch (error) {
+    console.error('[shule-avance] admin create teacher deal partner:', error.message);
+    res.status(500).json({ success: false, message: 'Failed to create teacher deal partner' });
+  }
+});
+
+router.put('/shule-avance/admin/teacher-deal-partners/:id', requireLoggedIn, requireDealProductAdmin, async (req, res) => {
+  try {
+    await ensureTeacherDealPartnerTable();
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid partner id' });
+    const fields = [];
+    const vals = [];
+    if (req.body?.org_name !== undefined) {
+      const orgName = String(req.body.org_name || '').trim();
+      if (!orgName) return res.status(400).json({ success: false, message: 'org_name cannot be empty' });
+      fields.push('org_name = ?');
+      vals.push(orgName);
+    }
+    if (req.body?.login_username !== undefined) {
+      fields.push('login_username = ?');
+      vals.push(String(req.body.login_username || '').trim() || null);
+    }
+    if (req.body?.partner_code !== undefined) {
+      fields.push('partner_code = ?');
+      vals.push(String(req.body.partner_code || '').trim() || null);
+    }
+    if (req.body?.contact_email !== undefined) {
+      fields.push('contact_email = ?');
+      vals.push(String(req.body.contact_email || '').trim() || null);
+    }
+    if (req.body?.contact_phone !== undefined) {
+      fields.push('contact_phone = ?');
+      vals.push(String(req.body.contact_phone || '').trim() || null);
+    }
+    if (req.body?.description !== undefined) {
+      fields.push('description = ?');
+      vals.push(String(req.body.description || '').trim() || null);
+    }
+    if (req.body?.is_active !== undefined) {
+      fields.push('is_active = ?');
+      vals.push(req.body.is_active ? 1 : 0);
+    }
+    const files = pickUploadedMediaFiles(req);
+    const logoFile = files.find(f => f.fieldname === 'logo' || f.fieldname === 'logo_url');
+    if (logoFile) {
+      const logoUrl = await persistProductMediaFile(logoFile);
+      if (logoUrl) {
+        fields.push('logo_url = ?');
+        vals.push(logoUrl);
+      }
+    }
+    if (!fields.length) {
+      return res.status(400).json({ success: false, message: 'No changes provided' });
+    }
+    vals.push(id);
+    await promisePool.query(
+      `UPDATE teacher_deal_partners SET ${fields.join(', ')} WHERE id = ? AND deleted_at IS NULL`,
+      vals
+    );
+    res.json({ success: true, message: 'Teacher Deal partner updated' });
+  } catch (error) {
+    console.error('[shule-avance] admin update teacher deal partner:', error.message);
+    res.status(500).json({ success: false, message: 'Failed to update teacher deal partner' });
+  }
+});
+
+router.delete('/shule-avance/admin/teacher-deal-partners/:id', requireLoggedIn, requireDealProductAdmin, async (req, res) => {
+  try {
+    await ensureTeacherDealPartnerTable();
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid partner id' });
+    const [r] = await promisePool.query(
+      `UPDATE teacher_deal_partners SET deleted_at = NOW(), is_active = 0 WHERE id = ? AND deleted_at IS NULL`,
+      [id]
+    );
+    if (!r.affectedRows) return res.status(404).json({ success: false, message: 'Partner not found' });
+    res.json({ success: true, message: 'Teacher Deal partner deleted' });
+  } catch (error) {
+    console.error('[shule-avance] admin delete teacher deal partner:', error.message);
+    res.status(500).json({ success: false, message: 'Failed to delete teacher deal partner' });
   }
 });
 
