@@ -69,7 +69,7 @@ const TichaAI = () => {
       {/* ── High-Fidelity Hero Section ── */}
       <div className="relative w-full min-h-[140px] md:min-h-[200px] overflow-hidden">
         <div className="absolute inset-0 bg-[#0a192f]/90 z-10 backdrop-blur-[2px]"></div>
-        <img src="/teacher.jpg" alt="Hero" className="absolute inset-0 w-full h-full object-cover scale-105" />
+        <img src={import.meta.env.BASE_URL + "teacher.jpg"} alt="Hero" className="absolute inset-0 w-full h-full object-cover scale-105" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#1E3A5F]/40 via-transparent to-transparent z-10 max-w-[1600px] mx-auto"></div>
 
         <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-12 pt-8 md:pt-12 pb-10 md:pb-16 flex items-center gap-6">
@@ -137,7 +137,7 @@ const TichaAI = () => {
                     </button>
                   )) : (
                     <div className="py-12 text-center space-y-4 opacity-20 flex flex-col items-center">
-                      <img src="/undraw_no-data_ig65 (1).svg" alt="No data" className="w-20 mx-auto grayscale" />
+                      <img src={import.meta.env.BASE_URL + "undraw_no-data_ig65 (1).svg"} alt="No data" className="w-20 mx-auto grayscale" />
                       <p className="text-[8px] font-black text-re-text-muted uppercase tracking-[0.3em]">Zero trace of activity</p>
                     </div>
                   )}
@@ -271,7 +271,7 @@ const TichaAI = () => {
                 ))}
                 {history.length === 0 && (
                   <div className="py-12 text-center space-y-4 opacity-30 flex flex-col items-center">
-                    <img src="/undraw_no-data_ig65 (1).svg" alt="No data" className="w-24 mx-auto grayscale opacity-50" />
+                    <img src={import.meta.env.BASE_URL + "undraw_no-data_ig65 (1).svg"} alt="No data" className="w-24 mx-auto grayscale opacity-50" />
                     <p className="text-[9px] font-black text-[#1E3A5F] uppercase tracking-[0.3em]">Zero trace of activity</p>
                   </div>
                 )}

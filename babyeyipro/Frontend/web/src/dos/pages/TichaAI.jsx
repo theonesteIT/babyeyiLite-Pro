@@ -69,7 +69,7 @@ const TichaAI = () => {
       {/* ── High-Fidelity Hero Section ── */}
       <div className="relative w-full min-h-[140px] md:min-h-[200px] overflow-hidden">
         <div className="absolute inset-0 bg-re-purple/70 z-10 backdrop-blur-[2px]"></div>
-        <img src="/teacher.jpg" alt="Hero" className="absolute inset-0 w-full h-full object-cover scale-105 grayscale " />
+        <img src={import.meta.env.BASE_URL + "teacher.jpg"} alt="Hero" className="absolute inset-0 w-full h-full object-cover scale-105 grayscale " />
 
         <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-12 pt-8 md:pt-12 pb-10 md:pb-16">
           <div className="space-y-1">
@@ -131,7 +131,7 @@ const TichaAI = () => {
                     </button>
                   )) : (
                     <div className="py-12 text-center space-y-4 opacity-20 flex flex-col items-center">
-                      <img src="/undraw_no-data_ig65 (1).svg" alt="No data" className="w-20 mx-auto grayscale" />
+                      <img src={import.meta.env.BASE_URL + "undraw_no-data_ig65 (1).svg"} alt="No data" className="w-20 mx-auto grayscale" />
                       <p className="text-[8px] font-black text-re-text-muted uppercase tracking-[0.3em]">Zero trace of activity</p>
                     </div>
                   )}
@@ -258,7 +258,7 @@ const TichaAI = () => {
                 ))}
                 {history.length === 0 && (
                   <div className="py-12 text-center space-y-4 opacity-20 flex flex-col items-center">
-                    <img src="/undraw_no-data_ig65 (1).svg" alt="No data" className="w-24 mx-auto grayscale" />
+                    <img src={import.meta.env.BASE_URL + "undraw_no-data_ig65 (1).svg"} alt="No data" className="w-24 mx-auto grayscale" />
                     <p className="text-[8px] font-black text-re-text-muted uppercase tracking-[0.3em]">Zero trace of activity</p>
                   </div>
                 )}

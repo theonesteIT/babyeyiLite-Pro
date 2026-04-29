@@ -166,7 +166,7 @@ export default function Attendance() {
             <div className="relative w-full min-h-[300px] overflow-hidden">
                 <div className="absolute inset-0  bg-orange-950/70 z-10 backdrop-blur-[2px]"></div>
                 {/* Fallback pattern */}
-                <img src="/teacher.jpg" alt="Hero" className="absolute inset-0 w-full h-full object-cover scale-105 opacity-100" />
+                <img src={import.meta.env.BASE_URL + "teacher.jpg"} alt="Hero" className="absolute inset-0 w-full h-full object-cover scale-105 opacity-100" />
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent to-transparent z-[5]"></div>
 
                 <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-12 pt-16 pb-24">

@@ -150,7 +150,7 @@ const Dashboard = () => {
       {/* HERO */}
       <section className="relative p-7 md:p-10 text-white overflow-hidden min-h-[230px] flex items-center">
         <div className="absolute inset-0 z-0">
-          <img src="/teacher.jpg" className="w-full h-full object-cover shadow-2xl" />
+          <img src={import.meta.env.BASE_URL + "teacher.jpg"} className="w-full h-full object-cover shadow-2xl" />
           <div className="absolute inset-0 bg-black/50 backdrop-blur-[1px]"></div>
         </div>
 
@@ -276,7 +276,7 @@ const Dashboard = () => {
 
               {/* Background Texture Overlay */}
               <div className="absolute inset-0 opacity-10 mix-blend-overlay">
-                <img src="/teacher.jpg" alt="" className="w-full h-full object-cover grayscale" />
+                <img src={import.meta.env.BASE_URL + "teacher.jpg"} alt="" className="w-full h-full object-cover grayscale" />
               </div>
 
               <Link to={h('/marks/view')} className="relative z-10 flex flex-col gap-4 block">

@@ -124,7 +124,7 @@ const Sidebar = ({ onClose }) => {
         <div className="rounded-2xl shadow-re-inner-dark border border-white/5 p-3 space-y-1">
           <div className="flex items-center gap-3">
             <div className="bg-white/20 p-2.5 rounded-2xl shadow-re-inner-dark text-white">
-                  <img src="/logo.png" alt="Babyeyi" className="w-7 h-7 object-contain brightness-0 invert" />
+                  <img src={import.meta.env.BASE_URL + "logo.png"} alt="Babyeyi" className="w-7 h-7 object-contain brightness-0 invert" />
             </div>
             <div>
               <span className="text-xl font-black tracking-tight leading-none block text-white">

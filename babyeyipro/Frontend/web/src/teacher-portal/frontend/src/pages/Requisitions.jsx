@@ -206,7 +206,7 @@ export default function Requisitions() {
     <div className="animate-in fade-in duration-500 bg-re-bg min-h-screen pb-24">
       <div className="relative w-full min-h-[200px] overflow-hidden">
         <div className="absolute inset-0 bg-orange-950/65 z-10 backdrop-blur-[1px]" />
-        <img src="/teacher.jpg" alt="" className="absolute inset-0 w-full h-full object-cover scale-105 opacity-90" />
+        <img src={import.meta.env.BASE_URL + "teacher.jpg"} alt="" className="absolute inset-0 w-full h-full object-cover scale-105 opacity-90" />
         <div className="relative z-20 max-w-[1200px] mx-auto px-6 py-12 flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-[10px] font-black text-re-orange uppercase tracking-[0.25em] mb-2">Procurement</p>

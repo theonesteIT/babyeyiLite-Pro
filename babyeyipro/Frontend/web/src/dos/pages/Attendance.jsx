@@ -11,7 +11,7 @@ export default function Attendance() {
   return (
     <div className="min-h-screen space-y-4 bg-re-bg pb-10">
       <div className="relative overflow-hidden rounded-3xl border border-black/5 bg-white">
-        <img src="/teacher.jpg" alt="Attendance banner" className="h-44 w-full object-cover" />
+        <img src={import.meta.env.BASE_URL + "teacher.jpg"} alt="Attendance banner" className="h-44 w-full object-cover" />
         <div className="absolute inset-0 bg-black/50" />
         <div className="absolute inset-0 p-6 text-white">
           <p className="text-[11px] font-black uppercase tracking-[0.2em]">Attendance Module</p>

@@ -42,7 +42,7 @@ export default function ConductOverview() {
       <div className="relative w-full min-h-[220px] overflow-hidden">
         <div className="absolute inset-0 bg-slate-900/75 z-10 backdrop-blur-[2px]" />
         <img
-          src="/teacher.jpg"
+          src={import.meta.env.BASE_URL + "teacher.jpg"}
           alt=""
           className="absolute inset-0 w-full h-full object-cover scale-105"
         />

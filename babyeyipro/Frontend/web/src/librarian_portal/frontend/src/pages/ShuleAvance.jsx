@@ -302,7 +302,7 @@ const ShuleAvance = () => {
                               <div className="p-12 flex flex-col items-center justify-center text-center space-y-4">
                                  <div className="relative w-32 h-32 opacity-20 group-hover:opacity-30 transition-opacity">
                                     <img
-                                       src="/undraw_no-data_ig65 (1).svg"
+                                       src={import.meta.env.BASE_URL + "undraw_no-data_ig65 (1).svg"}
                                        alt="EmptyState"
                                        className="w-full h-full object-contain grayscale"
                                     />

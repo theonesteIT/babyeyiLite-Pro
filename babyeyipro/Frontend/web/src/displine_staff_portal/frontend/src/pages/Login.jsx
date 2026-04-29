@@ -85,7 +85,7 @@ const Login = () => {
                   {/* Header */}
                   <div className="flex flex-col items-center mb-5">
                      <div className="bg-[#1E3A5F]/10 p-2.5 rounded-full login-float">
-                        <img src="/logo.png" alt="Babyeyi" className="w-7 h-7 object-contain" />
+                        <img src={import.meta.env.BASE_URL + "logo.png"} alt="Babyeyi" className="w-7 h-7 object-contain" />
                      </div>
                      <h1 className="text-xl font-black mt-2 text-[#1E3A5F] tracking-tight uppercase">Discipline Portal</h1>
                      <p className="text-[11px] text-center font-bold text-slate-500 opacity-60">The Babyeyi Behavioral Cell — Authorize your session</p>

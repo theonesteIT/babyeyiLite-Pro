@@ -54,7 +54,7 @@ const Login = () => {
                {/* ── Left: Image / Branding Panel ── */}
                <div className="flex w-full h-52 md:h-auto md:w-1/2 relative overflow-hidden group/image shrink-0">
                   <img
-                     src="/teacher.jpg"
+                     src={import.meta.env.BASE_URL + "teacher.jpg"}
                      alt="Teacher Portal"
                      className="w-full h-full object-cover transition-transform duration-[2000ms] group-hover/image:scale-110"
                   />

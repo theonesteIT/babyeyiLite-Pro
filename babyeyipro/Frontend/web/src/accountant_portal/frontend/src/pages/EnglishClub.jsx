@@ -159,7 +159,7 @@ const EnglishClub = () => {
                 ))
               ) : (
                 <div className="col-span-full py-20 text-center space-y-5 bg-white rounded-[24px] border border-black/5 flex flex-col items-center">
-                  <img src="/undraw_no-data_ig65 (1).svg" alt="No data" className="w-32 opacity-20 grayscale" />
+                  <img src={import.meta.env.BASE_URL + "undraw_no-data_ig65 (1).svg"} alt="No data" className="w-32 opacity-20 grayscale" />
                   <div className="space-y-1">
                     <h3 className="text-base font-black text-re-text uppercase tracking-tight">Zero trace of activity</h3>
                     <p className="text-[9px] text-re-text-muted font-bold uppercase tracking-widest opacity-40">No matching educational assets found.</p>

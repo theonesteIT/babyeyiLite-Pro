@@ -132,7 +132,7 @@ const TichaAI = () => {
                     </button>
                   )) : (
                     <div className="py-12 text-center space-y-4 opacity-20 flex flex-col items-center">
-                      <img src="/undraw_no-data_ig65 (1).svg" alt="No data" className="w-20 mx-auto grayscale" />
+                      <img src={import.meta.env.BASE_URL + "undraw_no-data_ig65 (1).svg"} alt="No data" className="w-20 mx-auto grayscale" />
                       <p className="text-[8px] font-black text-re-text-muted uppercase tracking-[0.3em]">Zero trace of activity</p>
                     </div>
                   )}
@@ -259,7 +259,7 @@ const TichaAI = () => {
                 ))}
                 {history.length === 0 && (
                   <div className="py-12 text-center space-y-4 opacity-20 flex flex-col items-center">
-                    <img src="/undraw_no-data_ig65 (1).svg" alt="No data" className="w-24 mx-auto grayscale" />
+                    <img src={import.meta.env.BASE_URL + "undraw_no-data_ig65 (1).svg"} alt="No data" className="w-24 mx-auto grayscale" />
                     <p className="text-[8px] font-black text-re-text-muted uppercase tracking-[0.3em]">Zero trace of activity</p>
                   </div>
                 )}

@@ -494,7 +494,7 @@ export default function FinanceCenter() {
       />
       <section className="relative min-h-[220px] overflow-hidden">
         <div className="absolute inset-0 bg-[#0a192f]/85 z-10" />
-        <img src="/teacher.jpg" alt="Finance background" className="absolute inset-0 h-full w-full object-cover" />
+        <img src={import.meta.env.BASE_URL + "teacher.jpg"} alt="Finance background" className="absolute inset-0 h-full w-full object-cover" />
         <div className="relative z-20 max-w-[1500px] mx-auto px-4 md:px-8 py-12 text-white">
           <p className="text-[10px] uppercase tracking-[0.3em] font-black text-[#FEBF10]">School Manager</p>
           <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tight mt-2">Finance approvals & reports</h1>

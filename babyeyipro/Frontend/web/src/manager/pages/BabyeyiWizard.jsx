@@ -383,7 +383,7 @@ const BabyeyiRegistry = () => {
             {/* Hero Section - Compactified */}
             <div className="relative w-full h-[220px] overflow-hidden">
                 <div className="absolute inset-0 bg-re-navy/85 z-10 backdrop-blur-[1px] transition-all"></div>
-                <img src="/teacher.jpg" alt="Hero" className="absolute inset-0 w-full h-full object-cover scale-105" />
+                <img src={import.meta.env.BASE_URL + "teacher.jpg"} alt="Hero" className="absolute inset-0 w-full h-full object-cover scale-105" />
                 <div className="relative z-20 max-w-[1600px] mx-auto px-12 h-full flex items-center justify-between">
                     <div className="pb-4">
                         <div className="flex items-center gap-2 mb-2 mt-4">

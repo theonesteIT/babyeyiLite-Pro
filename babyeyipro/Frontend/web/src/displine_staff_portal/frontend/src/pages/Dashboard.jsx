@@ -481,7 +481,7 @@ export default function Dashboard() {
             <div className="py-14 text-center text-slate-400">
               <div className="mx-auto w-32 h-32 opacity-25">
                 <img
-                  src="/undraw_no-data_ig65 (1).svg"
+                  src={import.meta.env.BASE_URL + "undraw_no-data_ig65 (1).svg"}
                   alt="Empty"
                   className="w-full h-full object-contain grayscale"
                 />
@@ -639,7 +639,7 @@ export default function Dashboard() {
                 <div className="py-14 text-center text-slate-400">
                   <div className="mx-auto w-32 h-32 opacity-25">
                     <img
-                      src="/undraw_no-data_ig65 (1).svg"
+                      src={import.meta.env.BASE_URL + "undraw_no-data_ig65 (1).svg"}
                       alt="Empty"
                       className="w-full h-full object-contain grayscale"
                     />
@@ -696,7 +696,7 @@ export default function Dashboard() {
                     <div className="py-14 text-center text-slate-400">
                       <div className="mx-auto w-32 h-32 opacity-25">
                         <img
-                          src="/undraw_no-data_ig65 (1).svg"
+                          src={import.meta.env.BASE_URL + "undraw_no-data_ig65 (1).svg"}
                           alt="Empty"
                           className="w-full h-full object-contain grayscale"
                         />

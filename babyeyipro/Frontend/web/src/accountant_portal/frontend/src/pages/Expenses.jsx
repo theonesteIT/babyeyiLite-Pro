@@ -624,7 +624,7 @@ export default function Expenses() {
       {/* Hero */}
       <div className="relative w-full min-h-[280px] overflow-hidden">
         <div className="absolute inset-0 bg-[#0a192f]/85 z-10 backdrop-blur-[2px]"></div>
-        <img src="/teacher.jpg" alt="Hero Background" className="absolute inset-0 w-full h-full object-cover scale-105" />
+        <img src={import.meta.env.BASE_URL + "teacher.jpg"} alt="Hero Background" className="absolute inset-0 w-full h-full object-cover scale-105" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#1E3A5F]/40 via-transparent to-transparent z-10 max-w-[1600px] mx-auto"></div>
 
         <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-12 pt-16 pb-24 flex items-center gap-8">

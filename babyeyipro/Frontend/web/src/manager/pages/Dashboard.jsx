@@ -561,7 +561,7 @@ const Dashboard = () => {
             {/* HERO */}
             <section className="relative p-7 md:p-10 text-white overflow-hidden min-h-[230px] flex items-center" style={{ fontFamily: "'Montserrat', sans-serif" }}>
                 <div className="absolute inset-0 z-0">
-                    <img src="/teacher.jpg" className="w-full h-full object-cover shadow-2xl" alt="School hero" />
+                    <img src={import.meta.env.BASE_URL + "teacher.jpg"} className="w-full h-full object-cover shadow-2xl" alt="School hero" />
                     <div className="absolute inset-0 bg-black/50 backdrop-blur-[1px]"></div>
                 </div>
                 <div className="relative z-10 max-w-4xl">

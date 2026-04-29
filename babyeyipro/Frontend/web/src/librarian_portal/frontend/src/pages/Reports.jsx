@@ -26,7 +26,7 @@ export default function Reports() {
     <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen" style={{ fontFamily: "'Montserrat', sans-serif" }}>
       <div className="relative w-full min-h-[280px] overflow-hidden">
         <div className="absolute inset-0 bg-[#0a192f]/85 z-10 backdrop-blur-[2px]" />
-        <img src="/teacher.jpg" alt="" className="absolute inset-0 w-full h-full object-cover scale-105" />
+        <img src={import.meta.env.BASE_URL + "teacher.jpg"} alt="" className="absolute inset-0 w-full h-full object-cover scale-105" />
         <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-12 pt-16 pb-24 flex items-center gap-8">
           <div className="hidden md:flex shrink-0 w-24 h-24 rounded-[32px] border border-white/10 bg-white/5 items-center justify-center backdrop-blur-xl shadow-2xl group">
             <BarChart2 size={40} style={{ color: '#FEBF10' }} className="group-hover:scale-110 transition-transform duration-500" />

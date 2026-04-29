@@ -342,7 +342,7 @@ const Students = () => {
             {/* ── High-Fidelity Hero Section (Institutional Pattern) ── */}
             <div className="relative w-full min-h-[280px] overflow-hidden">
                 <div className="absolute inset-0 bg-[#0a192f]/80 z-10 backdrop-blur-[2px]"></div>
-                <img src="/teacher.jpg" alt="Hero" className="absolute inset-0 w-full h-full object-cover scale-105" />
+                <img src={import.meta.env.BASE_URL + "teacher.jpg"} alt="Hero" className="absolute inset-0 w-full h-full object-cover scale-105" />
 
                 <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-12 pt-16 pb-24">
                     <div className="space-y-1">

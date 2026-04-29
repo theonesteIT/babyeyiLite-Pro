@@ -295,7 +295,7 @@ const ShuleAvance = () => {
          {/* ── High-Fidelity Hero Section ── */}
          <div className="relative w-full min-h-[280px] overflow-hidden">
             <div className="absolute inset-0 bg-orange-950/70 z-10 backdrop-blur-[2px]"></div>
-            <img src="/teacher.jpg" alt="Hero" className="absolute inset-0 w-full h-full object-cover scale-105" />
+            <img src={import.meta.env.BASE_URL + "teacher.jpg"} alt="Hero" className="absolute inset-0 w-full h-full object-cover scale-105" />
 
             <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-12 pt-16 pb-24">
                <div className="space-y-1">
@@ -750,7 +750,7 @@ const ShuleAvance = () => {
                               <div className="p-12 flex flex-col items-center justify-center text-center space-y-4">
                                  <div className="relative w-32 h-32 opacity-20 group-hover:opacity-30 transition-opacity">
                                     <img
-                                       src="/undraw_no-data_ig65 (1).svg"
+                                       src={import.meta.env.BASE_URL + "undraw_no-data_ig65 (1).svg"}
                                        alt="EmptyState"
                                        className="w-full h-full object-contain grayscale"
                                     />
@@ -803,7 +803,7 @@ const ShuleAvance = () => {
 
                      {/* Texture Overlay */}
                      <div className="absolute inset-0 opacity-10 mix-blend-overlay">
-                        <img src="/teacher.jpg" alt="" className="w-full h-full object-cover grayscale" />
+                        <img src={import.meta.env.BASE_URL + "teacher.jpg"} alt="" className="w-full h-full object-cover grayscale" />
                      </div>
 
                      <div className="relative z-10 flex flex-col gap-3">

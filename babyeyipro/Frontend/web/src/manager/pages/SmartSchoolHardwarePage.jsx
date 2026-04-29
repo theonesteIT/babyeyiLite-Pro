@@ -583,7 +583,7 @@ export default function SmartSchoolHardwarePage({ portalBase = '/manager', accen
         <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-10 pt-10 pb-14 flex flex-col md:flex-row md:items-end gap-8">
           <div className="flex items-start gap-4 flex-1 min-w-0">
             <div className="shrink-0 w-14 h-14 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center shadow-lg backdrop-blur-md">
-              <img src="/favicon.svg" alt="" className="w-8 h-8 opacity-95" />
+              <img src={import.meta.env.BASE_URL + "favicon.svg"} alt="" className="w-8 h-8 opacity-95" />
             </div>
             <div className="min-w-0">
               <p className={`text-[10px] font-black uppercase tracking-[0.35em] ${goldText} mb-1`}>Babyeyi Pro · Hardware</p>
