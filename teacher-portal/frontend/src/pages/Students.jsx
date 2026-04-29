@@ -482,7 +482,7 @@ const Students = () => {
                                 </div>
 
                                 {/* Mobile Persistent Toolbar - Moved here */}
-                                {students.length > 0 && (
+                                {filteredStudents.length > 0 && (
                                     <div className="md:hidden px-6 py-3 bg-re-bg/40 border-b border-black/5 flex items-center gap-3 w-full">
                                         <div className="relative flex-1 group">
                                             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-re-text-muted/40 group-focus-within:text-re-orange transition-colors pointer-events-none" />
@@ -505,7 +505,7 @@ const Students = () => {
                                 )}
                             </>
                         )}
-                        {isClassSelected && students.length > 0 && (
+                        {isClassSelected && filteredStudents.length > 0 && (
                             <table className="w-full text-left border-collapse">
                                 <thead>
                                     <tr className="bg-re-bg/20 border-b border-black/5">
@@ -640,7 +640,7 @@ const Students = () => {
                                                 </tr>
                                             );
                                         })}
-                                        {filteredStudents.length === 0 && students.length > 0 && (
+                                        {filteredStudents.length === 0 && mockStudents.length > 0 && (
                                             <tr>
                                                 <td colSpan="2" className="p-12 text-center text-[10px] font-bold text-re-text-muted italic opacity-40">No students found matching your criteria.</td>
                                             </tr>
@@ -651,7 +651,7 @@ const Students = () => {
                         </table>
                     )}
 
-                        {isClassSelected && students.length === 0 && !loading && (
+                        {isClassSelected && mockStudents.length === 0 && !loading && (
                             <div className="flex flex-col items-center justify-center py-24 px-6 text-center animate-in fade-in zoom-in-95 duration-700">
                                 <div className="relative mb-8">
                                     <img 
@@ -673,7 +673,7 @@ const Students = () => {
                             </div>
                         )}
                     </div>
-                    {isClassSelected && students.length > 0 && (
+                    {isClassSelected && filteredStudents.length > 0 && (
                         <div className="hidden md:flex px-4 sm:px-8 py-5 bg-re-bg/20 border-t border-black/5 flex-row items-center justify-between gap-4">
                             <p className="text-[10px] font-bold text-re-text-muted opacity-40 italic whitespace-nowrap">Displaying {filteredStudents.length} Records</p>
 
