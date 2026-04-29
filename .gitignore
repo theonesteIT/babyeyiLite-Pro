@@ -15,3 +15,22 @@ uploads/
 *.webp 
 *.exe 
 *.rar 
+
+# Allow public folder static assets (needed for Vite builds)
+!teacher-portal/frontend/public/*.png
+!teacher-portal/frontend/public/*.jpg
+!teacher-portal/frontend/public/*.jpeg
+!teacher-portal/frontend/public/*.gif
+!teacher-portal/frontend/public/*.svg
+!teacher-portal/frontend/public/*.webp
+!teacher-portal/frontend/public/*.ico
+
+# Also allow other portal public folders
+!BabyeyiSystem/frontend/public/*.png
+!BabyeyiSystem/frontend/public/*.jpg
+!BabyeyiSystem/frontend/public/*.svg
+!BabyeyiSystem/frontend/public/*.ico
+!babyeyipro/Frontend/web/public/*.png
+!babyeyipro/Frontend/web/public/*.jpg
+!babyeyipro/Frontend/web/public/*.svg
+!babyeyipro/Frontend/web/public/*.ico
