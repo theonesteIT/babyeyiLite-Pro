@@ -2,6 +2,7 @@ node_modules/
 dist/ 
 build/ 
 uploads/ 
+babyeyipro2.0/ 
 *.zip 
 *.log 
 .env 
