@@ -34,7 +34,7 @@ const StudentModal = ({ student, onClose }) => {
                     <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-2xl bg-re-bg border border-black/5 flex items-center justify-center text-re-text font-black text-lg shadow-inner relative overflow-hidden shrink-0">
                             {student.student_photo_url ? (
-                                <img src={`http://localhost:5100${student.student_photo_url}`} className="w-full h-full object-cover relative z-10" alt="Student" />
+                                <img src={`${api.defaults.baseURL.replace('/api', '')}${student.student_photo_url}`} className="w-full h-full object-cover relative z-10" alt="Student" />
                             ) : (
                                 <>
                                     <span className="relative z-10" style={{ color: "#1E3A5F" }}>{student.name.charAt(0)}</span>
@@ -661,7 +661,7 @@ const Students = () => {
                                                         <div className="flex items-center gap-3 sm:gap-4">
                                                             <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-re-bg border border-black/5 flex-shrink-0 flex items-center justify-center text-re-text-muted transition-colors relative shadow-inner overflow-hidden group-hover:bg-white">
                                                                 {s.student_photo_url ? (
-                                                                    <img src={`http://localhost:5100${s.student_photo_url}`} className="w-full h-full object-cover" alt="Student" />
+                                                                    <img src={`${api.defaults.baseURL.replace('/api', '')}${s.student_photo_url}`} className="w-full h-full object-cover" alt="Student" />
                                                                 ) : (
                                                                     <User size={12} className="sm:w-3.5 sm:h-3.5 opacity-40 text-re-text-muted" />
                                                                 )}
