@@ -17,6 +17,7 @@ import {
 
 import Heroimage from "../../assets/logo-bg2.png";
 import HeroImageMobile from "../../assets/logo-bg-left.png";
+import BabyeyiLogo from "../../assets/1BABYEYI LOGO FINAL.png";
 import IconicLogo from "../../assets/PartnersLogo/iconic.png";
 import NESLogo from "../../assets/PartnersLogo/Nesa.png";
 import MTNLogo from "../../assets/PartnersLogo/mtn.png";
@@ -216,7 +217,6 @@ function useVisible(ref) {
 function Navbar() {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const BABYEYI_LOGO_URL = "/1BABYEYI LOGO FINAL.png";
 
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 40);
@@ -241,7 +241,13 @@ function Navbar() {
     >
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 xl:px-10 2xl:px-16 flex items-center justify-between h-14 sm:h-[62px] xl:h-[70px]">
         <Link to="/" className="flex items-center shrink-0 group">
-          <img src={BABYEYI_LOGO_URL} alt="Babyeyi logo"
+          <img
+            src={BabyeyiLogo}
+            alt="Babyeyi logo"
+            onError={(e) => {
+              e.currentTarget.onerror = null;
+              e.currentTarget.src = "/1BABYEYI LOGO FINAL.png";
+            }}
             className="h-9 sm:h-10 xl:h-[42px] w-auto object-contain transition-all duration-300 group-hover:brightness-110" />
         </Link>
 
