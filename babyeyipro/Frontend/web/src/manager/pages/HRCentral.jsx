@@ -282,6 +282,30 @@ const HIRE_STEPS = [
     'Review & Save'
 ];
 
+const getRoleAbbr = (roleCode) => {
+    const role = (roleCode || '').toUpperCase();
+    if (role.includes('MANAGER')) return 'SM';
+    if (role.includes('DIRECTOR')) return 'SD';
+    if (role.includes('ACCOUNTANT')) return 'AC';
+    if (role.includes('TEACHER')) return 'TR';
+    return 'SS'; // Support Staff default
+};
+
+const getNextStaffCode = (roleCode, existingStaff = [], currentStaffId = null) => {
+    const prefix = getRoleAbbr(roleCode);
+    let maxCodeNumber = 0;
+    (existingStaff || []).forEach((s) => {
+        if (currentStaffId && String(s?.id) === String(currentStaffId)) return;
+        const rawCode = String(s?.staff_id || s?.staffId || '').trim().toUpperCase();
+        const match = rawCode.match(/^[A-Z]{2}-(\d{1,})$/);
+        if (match) {
+            const n = Number(match[1]);
+            if (Number.isFinite(n)) maxCodeNumber = Math.max(maxCodeNumber, n);
+        }
+    });
+    return `${prefix}-${String(maxCodeNumber + 1).padStart(3, '0')}`;
+};
+
 const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaff }) => {
     const isEditMode = !!editingStaff;
     const [step, setStep] = useState(0);
@@ -405,7 +429,8 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
             });
             setPreview(editingStaff.photo ? (import.meta.env.VITE_API_URL || 'http://localhost:5100') + editingStaff.photo : null);
         } else {
-            const nextId = String((existingStaff?.length || 0) + 1).padStart(3, '0');
+            const defaultRole = 'TEACHER';
+            const defaultStaffCode = getNextStaffCode(defaultRole, existingStaff);
             setFormData((prev) => ({
                 ...prev,
                 full_name: '',
@@ -416,7 +441,7 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
                 phone: '',
                 email: '',
                 address: '',
-                staff_id: `STF-${new Date().getFullYear()}-${nextId}`,
+                staff_id: defaultStaffCode,
                 employment_type: 'Full-time',
                 job_title: '',
                 date_of_employment: '',
@@ -426,7 +451,7 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
                 employment_status: 'Active',
                 department: 'Academics',
                 sub_department: '',
-                role_code: 'TEACHER',
+                role_code: defaultRole,
                 payroll_basic_salary: '',
                 payroll_transport_allowance: '',
                 payroll_housing_allowance: '',
@@ -531,6 +556,7 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
             email: formData.email,
             address: formData.address || null,
             staff_id: formData.staff_id || null,
+            staff_code: formData.staff_id || null,
             employment_type: formData.employment_type,
             job_title: formData.job_title,
             date_of_employment: formData.date_of_employment || null,
@@ -679,8 +705,8 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
             return (
                 <div className="grid grid-cols-2 gap-3">
                     <label className="space-y-1">
-                        <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Staff ID</p>
-                        <input className={inputCls} placeholder="e.g. STF-2026-007" value={formData.staff_id} onChange={(e) => setField('staff_id', e.target.value)} />
+                        <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Staff ID / Code (Auto Generated)</p>
+                        <input className={`${inputCls} bg-black/5 opacity-80 cursor-not-allowed`} placeholder="e.g. TR-007" value={formData.staff_id} readOnly />
                     </label>
                     <label className="space-y-1">
                         <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Employment Type</p>
@@ -748,9 +774,15 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
                     </label>
                     <label className="space-y-1">
                         <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Role Assignment</p>
-                        <select className={inputCls} value={formData.role_code} onChange={(e) => setField('role_code', e.target.value)}>
+                        <select className={inputCls} value={formData.role_code} onChange={(e) => {
+                            const val = e.target.value;
+                            setField('role_code', val);
+                            if (!isEditMode) {
+                                setField('staff_id', getNextStaffCode(val, existingStaff));
+                            }
+                        }}>
                             <option value="TEACHER">Teacher</option><option value="ACCOUNTANT">Accountant</option><option value="HR">HR</option><option value="DOS">DOS</option>
-                            <option value="STORE_MANAGER">Store Manager</option><option value="LIBRARIAN">Librarian</option><option value="DISCIPLINE">Head of Discipline</option><option value="SECRETARY">Secretary</option><option value="HOD">Staff</option>
+                            <option value="STORE_MANAGER">Store Manager</option><option value="LIBRARIAN">Librarian</option><option value="DISCIPLINE">Head of Discipline</option><option value="SECRETARY">Secretary</option><option value="HOD">Staff</option><option value="SCHOOL MANAGER">School Manager</option><option value="SCHOOL DIRECTOR">School Director</option>
                         </select>
                     </label>
                 </div>
@@ -1021,7 +1053,7 @@ const HRCentral = () => {
             setOpenDropdownId(null);
         }
     };
-    
+
     const [stats, setStats] = useState({
         totalStaff: '0',
         activePercent: '100%',
@@ -1043,7 +1075,7 @@ const HRCentral = () => {
                     const seed = (s.id || 0) % 15;
                     const evalScore = 80 + seed;
                     const attenScore = 90 + (seed % 10);
-                    
+
                     return {
                         _raw: s,
                         id: s.user_uid || s.id,
@@ -1051,9 +1083,9 @@ const HRCentral = () => {
                         name: s.full_name || `${s.first_name || ''} ${s.last_name || ''}`.trim(),
                         role: s.role_name || s.role_code,
                         role_code: s.role_code || '',
-                        department: s.department || (s.role_code === 'TEACHER' ? 'Academic Staff' : 
-                                   ['HOD', 'DOS'].includes(s.role_code) ? 'Leadership' :
-                                   ['ACCOUNTANT'].includes(s.role_code) ? 'Administration' : 'Support Staff'),
+                        department: s.department || (s.role_code === 'TEACHER' ? 'Academic Staff' :
+                            ['HOD', 'DOS'].includes(s.role_code) ? 'Leadership' :
+                                ['ACCOUNTANT'].includes(s.role_code) ? 'Administration' : 'Support Staff'),
                         phone: s.phone || 'N/A',
                         email: s.email,
                         photo: s.photo,
@@ -1107,21 +1139,21 @@ const HRCentral = () => {
                     };
                 });
                 setStaff(mapped);
-                
+
                 // Calculate real stats
                 const total = mapped.length;
                 const active = mapped.filter(s => s.status === 'Expected').length;
                 const activePct = total > 0 ? Math.round((active / total) * 100) : 0;
-                
+
                 // Calculate Average Evaluation (Scale 1-10)
-                const avgEval = mapped.length > 0 
+                const avgEval = mapped.length > 0
                     ? (mapped.reduce((acc, curr) => acc + curr.evaluation, 0) / (mapped.length * 10)).toFixed(1)
                     : '0.0';
 
                 // Calculate Retention Rate (Mocked logic but based on active/total)
                 const retention = total > 0 ? (95 + (activePct / 20)).toFixed(1) : '0.0';
-                
-                setStats({ 
+
+                setStats({
                     totalStaff: total.toString(),
                     activePercent: `${activePct}%`,
                     presentCount: active,
@@ -1191,7 +1223,7 @@ const HRCentral = () => {
 
     const filteredStaff = staff.filter(s =>
         (s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            s.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
+            s.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
             s.role.toLowerCase().includes(searchTerm.toLowerCase())) &&
         (selectedDept === 'All Departments' || s.department === selectedDept)
     );
@@ -1202,11 +1234,10 @@ const HRCentral = () => {
                 {notifications.map((n) => (
                     <div
                         key={n.id}
-                        className={`rounded-xl border shadow-xl px-4 py-3 animate-in slide-in-from-right-5 duration-300 ${
-                            n.type === 'success'
+                        className={`rounded-xl border shadow-xl px-4 py-3 animate-in slide-in-from-right-5 duration-300 ${n.type === 'success'
                                 ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
                                 : 'bg-rose-50 border-rose-200 text-rose-800'
-                        }`}
+                            }`}
                     >
                         <p className="text-[10px] font-black uppercase tracking-widest">
                             {n.type === 'success' ? 'Success' : 'Action Failed'}
@@ -1220,7 +1251,7 @@ const HRCentral = () => {
                 onClose={() => setSelectedStaff(null)}
             />
 
-            <HireModal 
+            <HireModal
                 isOpen={showHireModal}
                 onClose={closeHireModal}
                 onHire={handleHire}
@@ -1293,13 +1324,13 @@ const HRCentral = () => {
                     <div className={`${!isDeptSelected ? 'hidden md:grid' : 'grid'} grid-cols-1 lg:grid-cols-4 border-b border-black/5`}>
                         {/* Stats (3 columns on lg) */}
                         <div className="lg:col-span-3 grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-black/5">
-                             {[
+                            {[
                                 { label: 'Total Personnel', value: stats.totalStaff, icon: <Users size={12} className="mb-1.5" /> },
-                                { 
-                                    label: 'Active Present', 
-                                    value: stats.activePercent, 
+                                {
+                                    label: 'Active Present',
+                                    value: stats.activePercent,
                                     subValue: `${stats.presentCount} present | ${stats.absentCount} absent`,
-                                    icon: <Activity size={12} className="mb-1.5" /> 
+                                    icon: <Activity size={12} className="mb-1.5" />
                                 },
                                 { label: 'Evaluation Avg', value: stats.avgEvaluation, icon: <Award size={12} className="mb-1.5" /> },
                                 { label: 'Retention Rate', value: stats.retentionRate, icon: <TrendingUp size={12} className="mb-1.5" /> }
@@ -1327,7 +1358,7 @@ const HRCentral = () => {
                         <div className="hidden lg:flex flex-col border-l border-black/5 bg-re-bg/30 p-6 justify-center gap-3 relative">
                             {/* Export Dropdown */}
                             <div className="relative">
-                                <button 
+                                <button
                                     onClick={() => setActiveDropdown(activeDropdown === 'export' ? null : 'export')}
                                     className="w-full h-11 flex items-center justify-center gap-2 text-white rounded-xl font-black text-[9px] uppercase tracking-widest shadow-xl hover:scale-[1.02] active:scale-95 transition-all"
                                     style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)" }}
@@ -1354,7 +1385,7 @@ const HRCentral = () => {
 
                             {/* Quick Actions Dropdown */}
                             <div className="relative">
-                                <button 
+                                <button
                                     onClick={() => setActiveDropdown(activeDropdown === 'actions' ? null : 'actions')}
                                     className="w-full h-11 flex items-center justify-center gap-2 bg-white border border-black/5 text-re-text font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg hover:shadow-re-soft transition-all"
                                 >
@@ -1367,7 +1398,7 @@ const HRCentral = () => {
                                     <>
                                         <div className="fixed inset-0 z-[40]" onClick={() => setActiveDropdown(null)} />
                                         <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-black/5 shadow-2xl rounded-2xl overflow-hidden py-1 z-[50] animate-in slide-in-from-top-2 duration-200">
-                                            <button 
+                                            <button
                                                 onClick={() => { setShowHireModal(true); setActiveDropdown(null); }}
                                                 className="w-full text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-[#1E3A5F] hover:bg-re-navy/5 transition-colors flex items-center gap-2.5"
                                             >
@@ -1555,9 +1586,9 @@ const HRCentral = () => {
                                                         <div className="flex items-center gap-3 sm:gap-4">
                                                             <div className="w-8 h-8 rounded-full bg-re-bg border border-black/5 flex-shrink-0 flex items-center justify-center text-re-text-muted transition-colors relative shadow-inner overflow-hidden group-hover:bg-white">
                                                                 {s.photo ? (
-                                                                    <img 
-                                                                        src={(import.meta.env.VITE_API_URL || 'http://localhost:5100') + s.photo} 
-                                                                        className="w-full h-full object-cover" 
+                                                                    <img
+                                                                        src={(import.meta.env.VITE_API_URL || 'http://localhost:5100') + s.photo}
+                                                                        className="w-full h-full object-cover"
                                                                         alt={s.name}
                                                                     />
                                                                 ) : (
@@ -1653,7 +1684,7 @@ const HRCentral = () => {
                                                                                 onClick={() => handleResendInvite(s.real_id || s.id)}
                                                                                 disabled={isActionLoading}
                                                                             >
-                                                                                {isActionLoading ? <Loader2 size={13} className="animate-spin" /> : <Mail size={13} className="text-[#FEBF10]" />} 
+                                                                                {isActionLoading ? <Loader2 size={13} className="animate-spin" /> : <Mail size={13} className="text-[#FEBF10]" />}
                                                                                 Resend Invitation
                                                                             </button>
                                                                             <button
@@ -1718,7 +1749,7 @@ const HRCentral = () => {
                         <div className="flex items-center gap-1 sm:gap-1.5">
                             <button className="h-7 sm:h-7.5 px-2 sm:px-3 rounded-lg bg-white border border-black/5 text-[7px] sm:text-[8px] font-black text-re-text-muted tracking-tighter opacity-40 hover:opacity-100 transition-all font-mono italic">Prev_set</button>
                             <div className="h-7 sm:h-7.5 px-3 sm:px-4 rounded-lg flex items-center justify-center bg-white border border-black/5 text-[7px] sm:text-[8px] font-black text-re-text tracking-tighter">Page 01</div>
-                            <button 
+                            <button
                                 className="h-7 sm:h-7.5 px-3 sm:px-4 rounded-lg text-white text-[7px] sm:text-[8px] font-black shadow-xl tracking-tighter"
                                 style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)" }}
                             >

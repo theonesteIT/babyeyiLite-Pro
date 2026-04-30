@@ -2,17 +2,19 @@
  * QRStudentsProfile.jsx
  * Public student profile page — opened via QR code scan (no login required)
  *
- * Route: /qr-student-profile?student=:id
+ * Route: /qr-student-profile/:studentId  (preferred for QR — survives scanner quirks)
+ *     or /qr-student-profile?student=:id
  *
  * Features:
  *  - No authentication required — fully public
- *  - Reads `student` param from URL query string
+ *  - Reads student id from path param, then query string, then hash
  *  - Fetches student data from public API endpoint
  *  - Modern, mobile-first, luxury card design
  *  - Animated entrance, glassmorphism, premium typography
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
+import { useParams, useSearchParams } from 'react-router-dom';
 import {
   AlertTriangle,
   BadgeCheck,
@@ -52,9 +54,17 @@ const UNIFORM_ICON_SIZE = 16;
 const UNIFORM_ICON_STROKE = 1.75;
 
 /* ─── Helpers ─────────────────────────────────────────────────────── */
-function getStudentIdFromUrl() {
-  const params = new URLSearchParams(window.location.search);
-  return params.get('student') || params.get('id') || null;
+function getStudentIdFromSearchAndHash() {
+  const search = new URLSearchParams(window.location.search);
+  const fromSearch = search.get('student') || search.get('id');
+  if (fromSearch) return fromSearch.trim();
+  const hash = window.location.hash.replace(/^#/, '');
+  if (hash.includes('=')) {
+    const h = new URLSearchParams(hash.startsWith('?') ? hash.slice(1) : hash);
+    const fromHash = h.get('student') || h.get('id');
+    if (fromHash) return fromHash.trim();
+  }
+  return null;
 }
 
 function deriveSectionFromClass(cn) {
@@ -70,6 +80,15 @@ function deriveSectionFromClass(cn) {
 
 function formatWebsite(w) {
   return w ? String(w).replace(/^https?:\/\//i, '').trim() : '';
+}
+
+function buildStudentFeesUrl(student) {
+  const base = PUBLIC_SITE_URL.replace(/\/$/, '');
+  const p = new URLSearchParams();
+  if (student?.id) p.set('student', String(student.id));
+  if (student?.studentCode) p.set('student_code', String(student.studentCode));
+  if (student?.fullName) p.set('name', String(student.fullName));
+  return `${base}/paid-at-school?${p.toString()}`;
 }
 
 function mapRowToStudent(row) {
@@ -104,11 +123,21 @@ function mapRowToStudent(row) {
    MAIN PAGE COMPONENT
 ═══════════════════════════════════════════════════════════════════ */
 export default function QRStudentsProfile() {
+  const { studentId: idFromPath } = useParams();
+  const [searchParams] = useSearchParams();
   const [student,  setStudent]  = useState(null);
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState(null);
   const [imgError, setImgError] = useState(false);
   const [entered,  setEntered]  = useState(false);
+
+  const resolveStudentId = useCallback(() => {
+    const a = idFromPath && String(idFromPath).trim();
+    if (a) return a;
+    const q = searchParams.get('student') || searchParams.get('id');
+    if (q) return q.trim();
+    return getStudentIdFromSearchAndHash();
+  }, [idFromPath, searchParams]);
 
   const fetchStudent = useCallback(async (id) => {
     setLoading(true);
@@ -118,6 +147,7 @@ export default function QRStudentsProfile() {
       const res = await fetch(`${API}/students/public/${id}`);
       if (!res.ok) {
         if (res.status === 404) throw new Error('Student not found. This QR code may be invalid or expired.');
+        if (res.status === 400) throw new Error('Invalid student link. Ask your school to print a new ID card QR.');
         throw new Error(`Server error (${res.status}). Please try again.`);
       }
       const json = await res.json();
@@ -133,14 +163,14 @@ export default function QRStudentsProfile() {
   }, []);
 
   useEffect(() => {
-    const id = getStudentIdFromUrl();
+    const id = resolveStudentId();
     if (!id) {
-      setError('No student ID found in this QR code. Please scan a valid student ID card.');
+      setError('No student ID in this link. Re-scan the QR on the ID card, or use a card printed after the latest update.');
       setLoading(false);
       return;
     }
     fetchStudent(id);
-  }, [fetchStudent]);
+  }, [fetchStudent, resolveStudentId]);
 
   return (
     <>
@@ -155,7 +185,7 @@ export default function QRStudentsProfile() {
         <header className="qrp-header">
           <div className="qrp-header-inner">
             <div className="qrp-brand-badge">
-              <span className="qrp-brand-icon"><GraduationCap size={UNIFORM_ICON_SIZE} strokeWidth={UNIFORM_ICON_STROKE} /></span>
+              <span className="qrp-brand-icon"><BabyeyiLogoMark /></span>
               <span className="qrp-brand-name">Babyeyi System</span>
             </div>
             <div className="qrp-header-tag">Student Verification Portal</div>
@@ -202,6 +232,23 @@ function ErrorState({ message }) {
       <p className="qrp-state-sub">{message}</p>
       <a href={PUBLIC_SITE_URL} className="qrp-back-btn">Visit Babyeyi Portal →</a>
     </div>
+  );
+}
+
+function BabyeyiLogoMark() {
+  return (
+    <span className="qrp-brand-logo" aria-hidden="true">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+        <rect x="1.25" y="1.25" width="21.5" height="21.5" rx="6" fill="url(#qrp-grad)" stroke="#E8C76A" strokeWidth="1.2" />
+        <path d="M7.2 6.8h6.9c2.25 0 3.45 1.08 3.45 2.84 0 1.22-.73 2.08-1.86 2.44 1.35.31 2.2 1.34 2.2 2.82 0 2.12-1.63 3.5-4.25 3.5H7.2V6.8Zm5.92 4.62c1.02 0 1.53-.43 1.53-1.16 0-.75-.51-1.15-1.53-1.15H10.2v2.31h2.92Zm.35 4.65c1.1 0 1.67-.45 1.67-1.26 0-.79-.57-1.23-1.67-1.23H10.2v2.49h3.27Z" fill="#0A1628" />
+        <defs>
+          <linearGradient id="qrp-grad" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+            <stop stopColor="#F6D46D" />
+            <stop offset="1" stopColor="#FFBF00" />
+          </linearGradient>
+        </defs>
+      </svg>
+    </span>
   );
 }
 
@@ -336,6 +383,11 @@ function ProfileCard({ student, entered, imgError, setImgError }) {
 
       {/* ── Action buttons ── */}
       <div className="qrp-actions">
+        <a href={buildStudentFeesUrl(student)} className="qrp-action-btn qrp-action-primary">
+          <IdCard size={UNIFORM_ICON_SIZE} strokeWidth={UNIFORM_ICON_STROKE} />
+          Pay school fees for this student
+          <ExternalLink size={UNIFORM_ICON_SIZE} strokeWidth={UNIFORM_ICON_STROKE} />
+        </a>
         <a href={PUBLIC_SITE_URL} className="qrp-action-btn qrp-action-primary">
           <Globe size={UNIFORM_ICON_SIZE} strokeWidth={UNIFORM_ICON_STROKE} />
           Visit School Portal
@@ -462,8 +514,17 @@ const CSS = `
     gap: 9px;
   }
   .qrp-brand-icon {
-    font-size: 20px;
-    filter: drop-shadow(0 0 8px rgba(200,168,75,0.6));
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    filter: drop-shadow(0 0 8px rgba(200,168,75,0.42));
+  }
+  .qrp-brand-logo {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
   }
   .qrp-brand-name {
     font-size: 15px;

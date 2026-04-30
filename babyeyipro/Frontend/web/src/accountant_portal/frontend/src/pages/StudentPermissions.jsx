@@ -110,7 +110,7 @@ export default function StudentPermissions() {
     const PermissionModal = isModalOpen ? createPortal(
         <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 bg-[#0a192f]/60 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="bg-white rounded-[40px] shadow-2xl border border-black/5 w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col">
-                <div className="px-6 py-5 bg-gradient-to-br from-[#1E3A5F] to-[#0D2644] text-white shrink-0">
+                <div className="px-6 py-5 bg-gradient-to-br from-[#000435] to-[#0D2644] text-white shrink-0">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             <div className="w-9 h-9 rounded-2xl bg-white/10 flex items-center justify-center backdrop-blur-md">
@@ -132,14 +132,14 @@ export default function StudentPermissions() {
                 <form onSubmit={handleCreate} className="px-6 py-5 space-y-5 overflow-y-auto">
                     <div className="space-y-4">
                         <div className="space-y-1.5">
-                            <label className="text-[9px] font-black text-[#1E3A5F] uppercase tracking-widest ml-1">Select Student</label>
+                            <label className="text-[9px] font-black text-[#000435] uppercase tracking-widest ml-1">Select Student</label>
                             <div className="relative">
                                 <div className="absolute left-4 top-1/2 -translate-y-1/2 text-re-text-muted/60 pointer-events-none">
                                     <Search size={14} />
                                 </div>
                                 <select
                                     required
-                                    className="w-full h-11 pl-12 pr-4 bg-white border border-black/5 rounded-2xl text-[10px] font-black text-[#1E3A5F] uppercase tracking-widest shadow-inner outline-none focus:ring-2 focus:ring-[#FEBF10]/20 appearance-none cursor-pointer"
+                                    className="w-full h-11 pl-12 pr-4 bg-white border border-black/5 rounded-2xl text-[10px] font-black text-[#000435] uppercase tracking-widest shadow-inner outline-none focus:ring-2 focus:ring-[#FEBF10]/20 appearance-none cursor-pointer"
                                     value={form.student_id}
                                     onChange={e => setForm({...form, student_id: e.target.value})}
                                 >
@@ -154,19 +154,19 @@ export default function StudentPermissions() {
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1.5">
-                                <label className="text-[9px] font-black text-[#1E3A5F] uppercase tracking-widest ml-1">From</label>
+                                <label className="text-[9px] font-black text-[#000435] uppercase tracking-widest ml-1">From</label>
                                 <input 
                                     required type="datetime-local"
-                                    className="w-full h-11 px-4 bg-white border border-black/5 rounded-2xl text-[10px] font-black text-[#1E3A5F] uppercase tracking-widest shadow-inner outline-none focus:ring-2 focus:ring-[#FEBF10]/20"
+                                    className="w-full h-11 px-4 bg-white border border-black/5 rounded-2xl text-[10px] font-black text-[#000435] uppercase tracking-widest shadow-inner outline-none focus:ring-2 focus:ring-[#FEBF10]/20"
                                     value={form.starts_at}
                                     onChange={e => setForm({...form, starts_at: e.target.value})}
                                 />
                             </div>
                             <div className="space-y-1.5">
-                                <label className="text-[9px] font-black text-[#1E3A5F] uppercase tracking-widest ml-1">To</label>
+                                <label className="text-[9px] font-black text-[#000435] uppercase tracking-widest ml-1">To</label>
                                 <input 
                                     required type="datetime-local"
-                                    className="w-full h-11 px-4 bg-white border border-black/5 rounded-2xl text-[10px] font-black text-[#1E3A5F] uppercase tracking-widest shadow-inner outline-none focus:ring-2 focus:ring-[#FEBF10]/20"
+                                    className="w-full h-11 px-4 bg-white border border-black/5 rounded-2xl text-[10px] font-black text-[#000435] uppercase tracking-widest shadow-inner outline-none focus:ring-2 focus:ring-[#FEBF10]/20"
                                     value={form.ends_at}
                                     onChange={e => setForm({...form, ends_at: e.target.value})}
                                 />
@@ -174,14 +174,14 @@ export default function StudentPermissions() {
                         </div>
 
                         <div className="space-y-1.5">
-                            <label className="text-[9px] font-black text-[#1E3A5F] uppercase tracking-widest ml-1">Leave Type</label>
+                            <label className="text-[9px] font-black text-[#000435] uppercase tracking-widest ml-1">Leave Type</label>
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                                 {['MEDICAL', 'FAMILY', 'OFFICIAL', 'OTHER'].map(type => (
                                     <button 
                                         key={type} type="button"
                                         onClick={() => setForm({...form, permission_type: type})}
                                         className={`py-2 rounded-xl text-[8px] font-black uppercase tracking-widest transition-all border ${
-                                            form.permission_type === type ? 'bg-[#1E3A5F] text-white border-[#1E3A5F]' : 'bg-white border-black/5 text-re-text-muted hover:border-[#1E3A5F]/30 shadow-inner'
+                                            form.permission_type === type ? 'bg-[#000435] text-white border-[#000435]' : 'bg-white border-black/5 text-re-text-muted hover:border-[#000435]/30 shadow-inner'
                                         }`}
                                     >
                                         {type}
@@ -191,7 +191,7 @@ export default function StudentPermissions() {
                         </div>
 
                         <div className="space-y-1.5">
-                            <label className="text-[9px] font-black text-[#1E3A5F] uppercase tracking-widest ml-1">Reason / Remarks</label>
+                            <label className="text-[9px] font-black text-[#000435] uppercase tracking-widest ml-1">Reason / Remarks</label>
                             <textarea 
                                 className="w-full h-24 p-4 bg-white border border-black/5 rounded-2xl text-xs font-semibold shadow-inner outline-none focus:ring-2 focus:ring-[#FEBF10]/20 resize-none"
                                 placeholder="Short reason (optional)..."
@@ -214,7 +214,7 @@ export default function StudentPermissions() {
                             type="submit"
                             disabled={isSaving}
                             className="flex-[2] h-11 rounded-2xl text-white font-black text-[9px] uppercase tracking-[0.2em] shadow-xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-60"
-                            style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)" }}
+                            style={{ background: "linear-gradient(135deg, #000435 0%, #0D2644 100%)" }}
                         >
                             {isSaving ? <Loader2 size={15} className="animate-spin" /> : <ShieldCheck size={15} style={{ color: "#FEBF10" }} />}
                             Register Permission
@@ -230,7 +230,7 @@ export default function StudentPermissions() {
     const PermissionDetailsModal = selectedPermission ? createPortal(
         <div className="fixed inset-0 z-[230] flex items-center justify-center p-4 bg-[#0a192f]/60 backdrop-blur-sm animate-in fade-in duration-150">
             <div className="bg-white rounded-[32px] shadow-2xl border border-black/5 w-full max-w-md overflow-hidden max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-150">
-                <div className="px-6 py-5 bg-gradient-to-br from-[#1E3A5F] to-[#0D2644] text-white shrink-0">
+                <div className="px-6 py-5 bg-gradient-to-br from-[#000435] to-[#0D2644] text-white shrink-0">
                     <div className="flex items-center justify-between">
                         <div className="min-w-0">
                             <p className="text-[9px] font-black uppercase tracking-[0.3em]" style={{ color: "#FEBF10" }}>Permission</p>
@@ -254,22 +254,22 @@ export default function StudentPermissions() {
                     <div className="grid grid-cols-2 gap-3">
                         <div className="bg-white border border-black/5 rounded-2xl p-3 shadow-inner">
                             <p className="text-[8px] font-black text-re-text-muted uppercase tracking-widest opacity-50">Type</p>
-                            <p className="text-[11px] font-black text-[#1E3A5F] uppercase tracking-widest mt-1">{selectedPermission.permission_type}</p>
+                            <p className="text-[11px] font-black text-[#000435] uppercase tracking-widest mt-1">{selectedPermission.permission_type}</p>
                         </div>
                         <div className="bg-white border border-black/5 rounded-2xl p-3 shadow-inner">
                             <p className="text-[8px] font-black text-re-text-muted uppercase tracking-widest opacity-50">Status</p>
-                            <p className="text-[11px] font-black text-[#1E3A5F] uppercase tracking-widest mt-1">{selectedPermission.status}</p>
+                            <p className="text-[11px] font-black text-[#000435] uppercase tracking-widest mt-1">{selectedPermission.status}</p>
                         </div>
                     </div>
 
                     <div className="bg-white border border-black/5 rounded-2xl p-4 shadow-inner space-y-2">
                         <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-widest text-re-text-muted/60">
                             <span>From</span>
-                            <span className="text-[#1E3A5F]">{new Date(selectedPermission.starts_at).toLocaleString()}</span>
+                            <span className="text-[#000435]">{new Date(selectedPermission.starts_at).toLocaleString()}</span>
                         </div>
                         <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-widest text-re-text-muted/60 border-t border-black/5 pt-2">
                             <span>To</span>
-                            <span className="text-[#1E3A5F]">{new Date(selectedPermission.ends_at).toLocaleString()}</span>
+                            <span className="text-[#000435]">{new Date(selectedPermission.ends_at).toLocaleString()}</span>
                         </div>
                     </div>
 
@@ -306,7 +306,7 @@ export default function StudentPermissions() {
                                         });
                                     }}
                                     className="h-11 flex items-center justify-center gap-2 rounded-2xl text-white font-black text-[9px] uppercase tracking-[0.2em] shadow-xl hover:scale-[1.02] active:scale-95 transition-all"
-                                    style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)" }}
+                                    style={{ background: "linear-gradient(135deg, #000435 0%, #0D2644 100%)" }}
                                 >
                                     <Printer size={15} style={{ color: "#FEBF10" }} />
                                     Print
@@ -329,7 +329,7 @@ export default function StudentPermissions() {
             <div className="relative w-full min-h-[280px] overflow-hidden">
                 <div className="absolute inset-0 bg-[#0a192f]/75 z-10 backdrop-blur-[2px]"></div>
                 <img src="/teacher.jpg" alt="Hero" className="absolute inset-0 w-full h-full object-cover scale-105 opacity-60 z-0" />
-                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#1E3A5F]/40 via-transparent to-transparent z-10 max-w-[1600px] mx-auto"></div>
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#000435]/40 via-transparent to-transparent z-10 max-w-[1600px] mx-auto"></div>
                 
                 <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-12 pt-12 pb-24 flex items-center gap-8">
                     <div className="space-y-1">
@@ -361,10 +361,10 @@ export default function StudentPermissions() {
                                 { label: 'Currently Out', value: stats.active, icon: <ShieldCheck size={12} className="mb-1.5" />, color: "#FEBF10" }
                             ].map((s, i) => (
                                 <div key={i} className="p-3 sm:p-5 flex flex-col items-center justify-center text-center group hover:bg-re-bg/20 transition-all cursor-default">
-                                    <div className="mb-1 sm:mb-1.5 opacity-40 shrink-0" style={{ color: s.color || "#1E3A5F" }}>
+                                    <div className="mb-1 sm:mb-1.5 opacity-40 shrink-0" style={{ color: s.color || "#000435" }}>
                                         {s.icon}
                                     </div>
-                                    <span className="text-sm sm:text-xl font-black text-re-text tracking-tighter group-hover:text-[#1E3A5F] transition-colors">
+                                    <span className="text-sm sm:text-xl font-black text-re-text tracking-tighter group-hover:text-[#000435] transition-colors">
                                         {s.value}
                                     </span>
                                     <p className="text-[6px] sm:text-[7px] font-black text-re-text-muted uppercase tracking-[0.2em] mt-0.5 opacity-60">
@@ -379,7 +379,7 @@ export default function StudentPermissions() {
                             <button 
                                 onClick={() => setIsModalOpen(true)}
                                 className="w-full h-11 flex items-center justify-center gap-2 text-white rounded-xl font-black text-[9px] uppercase tracking-widest shadow-xl hover:scale-[1.02] active:scale-95 transition-all"
-                                style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)" }}
+                                style={{ background: "linear-gradient(135deg, #000435 0%, #0D2644 100%)" }}
                             >
                                 <Plus size={14} />
                                 <span>Issue Permission</span>
@@ -396,7 +396,7 @@ export default function StudentPermissions() {
                                         key={f}
                                         onClick={() => setActiveFilter(f)}
                                         className={`px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
-                                            activeFilter === f ? 'bg-[#1E3A5F] text-white shadow-md' : 'text-re-text-muted hover:bg-re-bg'
+                                            activeFilter === f ? 'bg-[#000435] text-white shadow-md' : 'text-re-text-muted hover:bg-re-bg'
                                         }`}
                                     >
                                         {f}
@@ -407,11 +407,11 @@ export default function StudentPermissions() {
 
                         <div className="flex items-center gap-3 w-full lg:w-auto">
                             <div className="relative flex-1 lg:w-80 group">
-                                <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-re-text-muted transition-colors group-focus-within:text-[#1E3A5F]" />
+                                <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-re-text-muted transition-colors group-focus-within:text-[#000435]" />
                                 <input 
                                     type="text"
                                     placeholder="Search by student or ID..."
-                                    className="w-full h-11 pl-11 pr-4 bg-white border border-black/5 rounded-xl shadow-inner text-xs font-bold outline-none focus:ring-2 ring-[#1E3A5F]/10"
+                                    className="w-full h-11 pl-11 pr-4 bg-white border border-black/5 rounded-xl shadow-inner text-xs font-bold outline-none focus:ring-2 ring-[#000435]/10"
                                     value={searchQuery}
                                     onChange={e => setSearchQuery(e.target.value)}
                                 />
@@ -519,7 +519,7 @@ export default function StudentPermissions() {
                         )}
                         {!loading && filteredPermissions.length === 0 && (
                             <div className="p-24 text-center">
-                                <AlertCircle size={40} className="text-gray-200 mx-auto mb-4" />
+                                <AlertCircle size={40} className="text-[#000435] mx-auto mb-4" />
                                 <p className="text-[10px] font-black text-re-text-muted uppercase tracking-widest">No permission records found</p>
                             </div>
                         )}

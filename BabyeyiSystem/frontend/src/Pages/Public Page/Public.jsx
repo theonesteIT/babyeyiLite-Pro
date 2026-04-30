@@ -389,8 +389,8 @@ function BabyeyiAIBox() {
                     const href = `/babyeyi-finder?${q.toString()}`;
                     const paySt = String(d.student_uid || d.student_code || d.sdm_code || "").trim();
                     const payFeesHref = paySt
-                      ? `/pay-by-school?code=${encodeURIComponent(paySt)}`
-                      : "/pay-by-school";
+                      ? `/paid-at-school?code=${encodeURIComponent(paySt)}`
+                      : "/paid-at-school";
                     return (
                       <div className="sticky top-0 z-10 -mx-1 px-1 pt-0.5 pb-2 bg-gradient-to-b from-slate-900/98 via-slate-900/86 to-transparent space-y-2">
                         <Link
@@ -490,7 +490,7 @@ function BabyeyiAIBox() {
               {lookupResult.schoolCatalog && (() => {
                 const sch = lookupResult.schoolCatalog.school;
                 const combos = lookupResult.schoolCatalog.combinations || [];
-                const payHref = "/pay-by-school";
+                const payHref = "/paid-at-school";
                 return (
                   <div className="space-y-2.5 min-[360px]:space-y-3 sm:space-y-4">
                     <div className="sticky top-0 z-10 -mx-1 px-1 pt-0.5 pb-2 bg-gradient-to-b from-slate-900/98 via-slate-900/86 to-transparent">
@@ -678,7 +678,7 @@ function LandingNav() {
           {[
             { label: "Features", href: "#features" },
             { label: "Schools", href: "/schools" },
-            { label: "Pay fees", href: "/pay-by-school" },
+            { label: "Pay fees", href: "/paid-at-school" },
             { label: "About", href: "#about" },
           ].map(l => (
             <a
@@ -757,7 +757,7 @@ function LandingNav() {
             Schools
           </Link>
           <Link
-            to="/pay-by-school"
+            to="/paid-at-school"
             onClick={() => setMenuOpen(false)}
             className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-bold text-amber-200/95 hover:bg-white/10 hover:text-white transition-all"
             style={{ fontFamily: "'Montserrat', sans-serif" }}
@@ -1419,7 +1419,7 @@ function CTASection() {
 function LandingFooter() {
   const cols = [
     { title: "Platform", links: [{ label: "About Babyeyi", href: "#about" }, { label: "Features", href: "#features" }, { label: "School Manager Login", href: "/school-manager/login" }, { label: "Parent Login", href: "/parents/login" }, { label: "Staff Login", href: "/login" }, { label: "Pricing", href: "#pricing" }, { label: "How It Works", href: "#how" }] },
-    { title: "Schools", links: [{ label: "Search Schools", href: "/schools" }, { label: "Pay by school code", href: "/pay-by-school" }, { label: "Academic Programs", href: "/schools" }, { label: "TVET Trades", href: "/schools" }, { label: "Register School", href: "/register" }] },
+    { title: "Schools", links: [{ label: "Search Schools", href: "/schools" }, { label: "Pay by school code", href: "/paid-at-school" }, { label: "Academic Programs", href: "/schools" }, { label: "TVET Trades", href: "/schools" }, { label: "Register School", href: "/register" }] },
     { title: "Support", links: [{ label: "Help Center", href: "#" }, { label: "Contact Us", href: "#contact" }, { label: "FAQs", href: "#" }, { label: "Documentation", href: "#" }] },
     { title: "Legal", links: [{ label: "Privacy Policy", href: "#" }, { label: "Terms of Service", href: "#" }, { label: "Cookie Policy", href: "#" }] },
   ];

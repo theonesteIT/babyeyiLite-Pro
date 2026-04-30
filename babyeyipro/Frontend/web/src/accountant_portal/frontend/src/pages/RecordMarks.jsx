@@ -337,12 +337,12 @@ export default function RecordMarks() {
                                         const grade = calculateGrade(total);
                                         return (
                                             <tr key={m.id} className="hover:bg-re-bg/30 transition-colors group">
-                                                <td className="border-r border-b border-black/5 px-2 sm:px-4 py-4 text-center text-[10px] font-black text-gray-300">
+                                                <td className="border-r border-b border-black/5 px-2 sm:px-4 py-4 text-center text-[10px] font-black text-[#000435]">
                                                     {idx + 1}
                                                 </td>
                                                 <td className="border-r border-b border-black/5 px-2 sm:px-4 py-4 min-w-0 overflow-hidden">
                                                     <div className="flex items-center gap-3">
-                                                        <div className="w-8 h-8 rounded-full bg-re-bg flex-shrink-0 flex items-center justify-center font-black text-[10px] text-gray-400 border border-black/5 group-hover:bg-white transition-colors">
+                                                        <div className="w-8 h-8 rounded-full bg-re-bg flex-shrink-0 flex items-center justify-center font-black text-[10px] text-[#000435] border border-black/5 group-hover:bg-white transition-colors">
                                                             <User size={14} className="opacity-40" />
                                                         </div>
                                                         <div className="flex-1 min-w-0">

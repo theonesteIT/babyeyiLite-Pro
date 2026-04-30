@@ -1457,6 +1457,108 @@ const ensureLoanRepaymentTable = async () => {
   }
 };
 
+const ensureParentLimitedAccessTables = async () => {
+  try {
+    await db.promisePool.execute(`
+      CREATE TABLE IF NOT EXISTS student_access (
+        id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        parent_portal_account_id INT UNSIGNED NULL,
+        parent_phone VARCHAR(30) NOT NULL,
+        student_id INT UNSIGNED NOT NULL,
+        access_type ENUM('FULL','LIMITED') NOT NULL DEFAULT 'LIMITED',
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_parent_student (parent_phone, student_id),
+        KEY idx_parent_student_student (student_id),
+        KEY idx_parent_student_type (access_type)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+    await db.promisePool.execute(`
+      CREATE TABLE IF NOT EXISTS parent_student_activity_logs (
+        id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        parent_portal_account_id INT UNSIGNED NULL,
+        parent_phone VARCHAR(30) NOT NULL,
+        student_id INT UNSIGNED NOT NULL,
+        access_type ENUM('FULL','LIMITED') NOT NULL DEFAULT 'LIMITED',
+        action_type VARCHAR(80) NOT NULL,
+        endpoint VARCHAR(160) NULL,
+        payload_json LONGTEXT NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        KEY idx_psal_parent_phone (parent_phone),
+        KEY idx_psal_student (student_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+    await db.promisePool.execute(`
+      CREATE TABLE IF NOT EXISTS parent_portal_notifications (
+        id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        target_parent_phone VARCHAR(30) NOT NULL,
+        source_parent_phone VARCHAR(30) NULL,
+        student_id INT UNSIGNED NULL,
+        type VARCHAR(80) NOT NULL,
+        title VARCHAR(200) NOT NULL,
+        body TEXT NULL,
+        payload_json LONGTEXT NULL,
+        read_at DATETIME NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        KEY idx_ppn_target_phone (target_parent_phone),
+        KEY idx_ppn_student (student_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+  } catch (e) {
+    console.warn('[publicBabyeyiPay] ensureParentLimitedAccessTables:', e.message);
+  }
+};
+
+async function processLimitedAccessPaymentEffects({ intentId, schoolId, payload, payerPhone, amountRwf }) {
+  try {
+    await ensureParentLimitedAccessTables();
+    const pPhone = normalizeRwandaPhone(payerPhone);
+    const studentId = Number(payload?.selected_student?.student_id || 0);
+    if (!pPhone || !studentId) return;
+    const [[acc]] = await db.promisePool.execute(
+      `SELECT access_type FROM student_access WHERE parent_phone = ? AND student_id = ? LIMIT 1`,
+      [pPhone, studentId]
+    );
+    const accessType = String(acc?.access_type || '').toUpperCase();
+    if (accessType !== 'LIMITED') return;
+    await db.promisePool.execute(
+      `INSERT INTO parent_student_activity_logs
+        (parent_portal_account_id, parent_phone, student_id, access_type, action_type, endpoint, payload_json)
+       VALUES (NULL, ?, ?, 'LIMITED', 'create_payment', '/api/public/babyeyi-pay/intent', ?)`,
+      [pPhone, studentId, JSON.stringify({ intent_id: intentId, school_id: schoolId, total_rwf: amountRwf || 0 })]
+    );
+    const [rows] = await db.promisePool.execute(
+      `SELECT first_name, last_name, father_phone, mother_phone FROM students WHERE id = ? LIMIT 1`,
+      [studentId]
+    );
+    const st = rows?.[0];
+    if (!st) return;
+    const studentName = `${st.first_name || ''} ${st.last_name || ''}`.trim() || 'your child';
+    const targets = [normalizeRwandaPhone(st.father_phone), normalizeRwandaPhone(st.mother_phone)]
+      .filter(Boolean)
+      .filter((phone) => phone !== pPhone);
+    if (!targets.length) return;
+    const uniq = Array.from(new Set(targets));
+    for (const t of uniq) {
+      await db.promisePool.execute(
+        `INSERT INTO parent_portal_notifications
+          (target_parent_phone, source_parent_phone, student_id, type, title, body, payload_json)
+         VALUES (?, ?, ?, 'LIMITED_ACCESS_PAYMENT', ?, ?, ?)`,
+        [
+          t,
+          pPhone,
+          studentId,
+          'Limited-access payment activity',
+          `A limited-access parent made a payment for ${studentName}.`,
+          JSON.stringify({ intent_id: intentId, school_id: schoolId, student_id: studentId, amount_rwf: amountRwf || 0 }),
+        ]
+      );
+    }
+  } catch (e) {
+    console.warn('[publicBabyeyiPay] processLimitedAccessPaymentEffects:', e.message);
+  }
+}
+
 const ensureWebhookLogsTable = async () => {
   try {
     await db.promisePool.execute(`
@@ -1960,6 +2062,15 @@ router.post('/intent', async (req, res) => {
         `UPDATE babyeyi_payment_intents SET invoice_no = ? WHERE id = ?`,
         [invoiceNo, r.insertId]
       );
+    }
+    if (['submitted', 'paid'].includes(String(status || '').toLowerCase())) {
+      processLimitedAccessPaymentEffects({
+        intentId: finalIntentId,
+        schoolId,
+        payload,
+        payerPhone,
+        amountRwf: total_rwf,
+      }).catch(() => {});
     }
     const isShuleFinancingSubmit =
       String(payload?.payment_plan?.method || '').toLowerCase() === 'shule_avance' &&

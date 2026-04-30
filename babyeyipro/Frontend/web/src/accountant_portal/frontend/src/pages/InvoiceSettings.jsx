@@ -80,14 +80,14 @@ export default function InvoiceSettings() {
     <div className="group space-y-2">
       <div className="flex items-center gap-2 ml-1">
         <Icon size={11} className="text-re-gold opacity-50 group-focus-within:opacity-100 transition-opacity" />
-        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{label}</label>
+        <label className="text-[9px] font-black text-[#000435] uppercase tracking-widest">{label}</label>
       </div>
       <input
         type={type}
         value={value}
         onChange={onChange}
         placeholder={placeholder}
-        className="w-full h-11 rounded-xl bg-slate-50 px-4 outline-none border border-transparent focus:border-[#1E3A5F]/10 focus:bg-white focus:ring-4 focus:ring-[#1E3A5F]/5 transition-all text-[#1E3A5F] text-[10px] font-black tracking-tight shadow-inner"
+        className="w-full h-11 rounded-xl bg-white px-4 outline-none border border-transparent focus:border-[#000435]/10 focus:bg-white focus:ring-4 focus:ring-[#000435]/5 transition-all text-[#000435] text-[10px] font-black tracking-tight shadow-inner"
       />
     </div>
   );
@@ -100,7 +100,7 @@ export default function InvoiceSettings() {
       <div className="relative w-full min-h-[320px] overflow-hidden">
         <div className="absolute inset-0 bg-[#0a192f]/85 z-10 backdrop-blur-[2px]"></div>
         <img src="/teacher.jpg" alt="Hero Background" className="absolute inset-0 w-full h-full object-cover scale-105" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#1E3A5F]/40 via-transparent to-transparent z-10 max-w-[1600px] mx-auto"></div>
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#000435]/40 via-transparent to-transparent z-10 max-w-[1600px] mx-auto"></div>
 
         <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-12 pt-12 pb-16">
           <button
@@ -135,7 +135,7 @@ export default function InvoiceSettings() {
               <button
                 onClick={handleSave}
                 disabled={isSaving}
-                className="h-10 px-6 rounded-xl text-[#1E3A5F] bg-[#FEBF10] font-black text-[9px] uppercase tracking-widest shadow-xl shadow-[#FEBF10]/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center gap-3 disabled:opacity-50"
+                className="h-10 px-6 rounded-xl text-[#000435] bg-[#FEBF10] font-black text-[9px] uppercase tracking-widest shadow-xl shadow-[#FEBF10]/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center gap-3 disabled:opacity-50"
               >
                 {isSaving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
                 {isSaving ? 'Syncing...' : 'Save Configuration'}
@@ -154,16 +154,16 @@ export default function InvoiceSettings() {
             <div className="bg-white rounded-[24px] shadow-2xl border border-black/5 overflow-hidden">
               
               {/* Top Stats Ribbon */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-black/5 border-b border-black/5 bg-slate-50/50">
+              <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-black/5 border-b border-black/5 bg-white/50">
                 {[
                   { label: 'Branding Status', value: 'Active', icon: <Building2 size={12} className="text-emerald-500" /> },
                   { label: 'Payment Channels', value: 'Enabled', icon: <Banknote size={12} className="text-blue-500" /> },
                   { label: 'Institutional Health', value: 'Optimal', icon: <ShieldCheck size={12} className="text-amber-500" /> },
-                  { label: 'Last Update', value: lastSaved || 'Now', icon: <Calendar size={12} className="text-slate-400" /> },
+                  { label: 'Last Update', value: lastSaved || 'Now', icon: <Calendar size={12} className="text-[#000435]" /> },
                 ].map((stat, i) => (
                   <div key={i} className="p-3 flex flex-col items-center justify-center text-center group hover:bg-white transition-all cursor-default py-4">
                     <div className="mb-1 opacity-40 shrink-0">{stat.icon}</div>
-                    <span className="text-[12px] font-black text-[#1E3A5F] tracking-tight">{stat.value}</span>
+                    <span className="text-[12px] font-black text-[#000435] tracking-tight">{stat.value}</span>
                     <p className="text-[6px] font-black text-re-text-muted uppercase tracking-[0.2em] mt-0.5 opacity-60">{stat.label}</p>
                   </div>
                 ))}
@@ -176,12 +176,12 @@ export default function InvoiceSettings() {
                   {/* Section 1: Institutional Core */}
                   <div>
                     <div className="flex items-center gap-3 mb-6">
-                      <div className="w-8 h-8 rounded-xl bg-slate-50 border border-black/5 flex items-center justify-center text-[#1E3A5F]">
+                      <div className="w-8 h-8 rounded-xl bg-white border border-black/5 flex items-center justify-center text-[#000435]">
                         <Building2 size={16} />
                       </div>
                       <div>
-                        <h2 className="text-[10px] font-black text-[#1E3A5F] uppercase tracking-widest">Brand Identity</h2>
-                        <p className="text-[7px] font-bold text-slate-400 uppercase tracking-tight opacity-60 mt-0.5">Primary information for PDF headers</p>
+                        <h2 className="text-[10px] font-black text-[#000435] uppercase tracking-widest">Brand Identity</h2>
+                        <p className="text-[7px] font-bold text-[#000435] uppercase tracking-tight opacity-60 mt-0.5">Primary information for PDF headers</p>
                       </div>
                     </div>
                     
@@ -199,12 +199,12 @@ export default function InvoiceSettings() {
                   {/* Section 2: Payment Pathways */}
                   <div className="pt-8 border-t border-black/5">
                     <div className="flex items-center gap-3 mb-6">
-                      <div className="w-8 h-8 rounded-xl bg-slate-50 border border-black/5 flex items-center justify-center text-[#1E3A5F]">
+                      <div className="w-8 h-8 rounded-xl bg-white border border-black/5 flex items-center justify-center text-[#000435]">
                         <Banknote size={16} />
                       </div>
                       <div>
-                        <h2 className="text-[10px] font-black text-[#1E3A5F] uppercase tracking-widest">Financial Channels</h2>
-                        <p className="text-[7px] font-bold text-slate-400 uppercase tracking-tight opacity-60 mt-0.5">Designate account numbers for parents</p>
+                        <h2 className="text-[10px] font-black text-[#000435] uppercase tracking-widest">Financial Channels</h2>
+                        <p className="text-[7px] font-bold text-[#000435] uppercase tracking-tight opacity-60 mt-0.5">Designate account numbers for parents</p>
                       </div>
                     </div>
                     
@@ -217,12 +217,12 @@ export default function InvoiceSettings() {
                   {/* Section 3: Legal Disclosures */}
                   <div className="pt-8 border-t border-black/5">
                     <div className="flex items-center gap-3 mb-6">
-                      <div className="w-8 h-8 rounded-xl bg-slate-50 border border-black/5 flex items-center justify-center text-[#1E3A5F]">
+                      <div className="w-8 h-8 rounded-xl bg-white border border-black/5 flex items-center justify-center text-[#000435]">
                         <ShieldCheck size={16} />
                       </div>
                       <div>
-                        <h2 className="text-[10px] font-black text-[#1E3A5F] uppercase tracking-widest">Disclosures & Terms</h2>
-                        <p className="text-[7px] font-bold text-slate-400 uppercase tracking-tight opacity-60 mt-0.5">Add legal context to your invoices</p>
+                        <h2 className="text-[10px] font-black text-[#000435] uppercase tracking-widest">Disclosures & Terms</h2>
+                        <p className="text-[7px] font-bold text-[#000435] uppercase tracking-tight opacity-60 mt-0.5">Add legal context to your invoices</p>
                       </div>
                     </div>
                     
@@ -230,12 +230,12 @@ export default function InvoiceSettings() {
                       <div className="group space-y-2">
                         <div className="flex items-center gap-2 ml-1">
                           <FileText size={11} className="text-re-gold" />
-                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest opacity-60 italic">Terms & Conditions</label>
+                          <label className="text-[9px] font-black text-[#000435] uppercase tracking-widest opacity-60 italic">Terms & Conditions</label>
                         </div>
                         <textarea
                           value={config.defaultTerms}
                           onChange={(e) => setConfig({...config, defaultTerms: e.target.value})}
-                          className="w-full h-24 rounded-xl bg-slate-50 p-4 outline-none border border-transparent focus:border-[#1E3A5F]/10 focus:bg-white transition-all text-[#1E3A5F] text-[10px] font-black leading-relaxed shadow-inner custom-scrollbar"
+                          className="w-full h-24 rounded-xl bg-white p-4 outline-none border border-transparent focus:border-[#000435]/10 focus:bg-white transition-all text-[#000435] text-[10px] font-black leading-relaxed shadow-inner custom-scrollbar"
                           placeholder="Standard billing terms..."
                         />
                       </div>
@@ -246,14 +246,14 @@ export default function InvoiceSettings() {
               </div>
 
               {/* Status Footer Ribbon */}
-              <div className="px-8 py-5 bg-slate-50 border-t border-black/5 flex items-center justify-between">
+              <div className="px-8 py-5 bg-white border-t border-black/5 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-re-gold animate-pulse" />
-                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest italic opacity-60">
+                  <p className="text-[8px] font-black text-[#000435] uppercase tracking-widest italic opacity-60">
                     Configuration Engine v1.0 · Integrated Billing
                   </p>
                 </div>
-                <div className="flex items-center gap-4 text-[8px] font-black uppercase tracking-widest text-[#1E3A5F] opacity-40">
+                <div className="flex items-center gap-4 text-[8px] font-black uppercase tracking-widest text-[#000435] opacity-40">
                   <span>SSL SECURE</span>
                   <span>ENCRYPTED REPOSITORY</span>
                 </div>
@@ -265,7 +265,7 @@ export default function InvoiceSettings() {
           <div className="space-y-6">
             
             {/* Live Preview Insights */}
-            <div className="bg-[#1E3A5F] rounded-[24px] p-6 text-white shadow-2xl shadow-[#1E3A5F]/20 relative overflow-hidden group">
+            <div className="bg-[#000435] rounded-[24px] p-6 text-white shadow-2xl shadow-[#000435]/20 relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-24 h-24 bg-white/5 rounded-full -mr-12 -mt-12 group-hover:scale-110 transition-transform duration-700"></div>
               <div className="flex items-center gap-3 mb-5 relative z-10">
                 <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center">
@@ -297,27 +297,27 @@ export default function InvoiceSettings() {
                 <div className="w-8 h-8 rounded-xl bg-re-bg flex items-center justify-center text-re-gold">
                   <Info size={16} />
                 </div>
-                <h3 className="text-[10px] font-black text-[#1E3A5F] uppercase tracking-widest leading-tight">Need Help?</h3>
+                <h3 className="text-[10px] font-black text-[#000435] uppercase tracking-widest leading-tight">Need Help?</h3>
               </div>
-              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tight leading-relaxed mb-4">
+              <p className="text-[8px] font-bold text-[#000435] uppercase tracking-tight leading-relaxed mb-4">
                 Consult the Finance Admin guide for help with international bank standards or MoMo integration.
               </p>
-              <button className="w-full h-10 rounded-xl bg-slate-50 border border-black/5 text-[#1E3A5F] font-black text-[8px] uppercase tracking-widest hover:bg-[#1E3A5F] hover:text-white transition-all flex items-center justify-center gap-2 group">
+              <button className="w-full h-10 rounded-xl bg-white border border-black/5 text-[#000435] font-black text-[8px] uppercase tracking-widest hover:bg-[#000435] hover:text-white transition-all flex items-center justify-center gap-2 group">
                 Open Guide
                 <ChevronRight size={12} className="opacity-40 group-hover:translate-x-1" />
               </button>
             </div>
 
             {/* Quick Actions */}
-            <div className="bg-[#FEBF10] rounded-[24px] p-6 text-[#1E3A5F] shadow-xl shadow-[#FEBF10]/10 border border-white/20">
+            <div className="bg-[#FEBF10] rounded-[24px] p-6 text-[#000435] shadow-xl shadow-[#FEBF10]/10 border border-white/20">
                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] mb-4">Registry Quick-Link</h3>
                <button 
                 onClick={() => navigate('/invoices')}
-                className="w-full h-10 rounded-xl bg-[#1E3A5F] text-white font-black text-[8px] uppercase tracking-[0.2em] shadow-lg hover:scale-[1.02] active:scale-95 transition-all mb-2"
+                className="w-full h-10 rounded-xl bg-[#000435] text-white font-black text-[8px] uppercase tracking-[0.2em] shadow-lg hover:scale-[1.02] active:scale-95 transition-all mb-2"
                >
                 View Registry
                </button>
-               <p className="text-[7px] font-bold text-[#1E3A5F]/60 text-center uppercase tracking-widest">Return to Invoice management</p>
+               <p className="text-[7px] font-bold text-[#000435]/60 text-center uppercase tracking-widest">Return to Invoice management</p>
             </div>
 
 

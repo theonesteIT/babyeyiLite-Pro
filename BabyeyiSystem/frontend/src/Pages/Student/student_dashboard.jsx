@@ -11,8 +11,10 @@ import {
   ZapIcon, Star, Target,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import StudentChat from './studentChat';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5100';
+const TIMETABLE_DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
 /* ─── Brand tokens ─────────────────────────────────────────────────── */
 const B = {
@@ -77,6 +79,25 @@ const statusColor = (s) => {
 const bgradeColor = (g) => {
   const m = { A:B.green, B:B.blue, C:B.amber, D:B.orange, E:B.red, F:B.red };
   return m[String(g||'A').toUpperCase()[0]] || B.amber;
+};
+
+const TIMETABLE_SUBJECT_PALETTES = [
+  { bg: '#fff1f2', border: '#fecdd3', title: '#9f1239', meta: '#881337' },
+  { bg: '#eff6ff', border: '#bfdbfe', title: '#1d4ed8', meta: '#1e40af' },
+  { bg: '#ecfdf5', border: '#bbf7d0', title: '#047857', meta: '#065f46' },
+  { bg: '#fff7ed', border: '#fed7aa', title: '#c2410c', meta: '#9a3412' },
+  { bg: '#f5f3ff', border: '#ddd6fe', title: '#6d28d9', meta: '#5b21b6' },
+  { bg: '#f0fdfa', border: '#99f6e4', title: '#0f766e', meta: '#115e59' },
+  { bg: '#fefce8', border: '#fde68a', title: '#a16207', meta: '#854d0e' },
+  { bg: '#eef2ff', border: '#c7d2fe', title: '#3730a3', meta: '#312e81' },
+];
+
+const timetablePaletteForSubject = (subject = '') => {
+  const value = String(subject || '').trim().toLowerCase();
+  if (!value) return TIMETABLE_SUBJECT_PALETTES[0];
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
+  return TIMETABLE_SUBJECT_PALETTES[hash % TIMETABLE_SUBJECT_PALETTES.length];
 };
 
 async function apiGet(path, params = {}) {
@@ -145,7 +166,7 @@ function StatCard({ icon: Icon, label, value, sub, color, trend, onClick, dark }
     <div onClick={onClick} style={{ background:bg, border:`1px solid ${border}`, borderRadius:18, padding:'18px 20px', cursor:onClick?'pointer':'default', transition:'transform 0.18s, box-shadow 0.18s', position:'relative', overflow:'hidden' }}
       onMouseEnter={e => { if(onClick){ e.currentTarget.style.transform='translateY(-2px)'; e.currentTarget.style.boxShadow=`0 12px 40px ${color}30`; }}}
       onMouseLeave={e => { e.currentTarget.style.transform=''; e.currentTarget.style.boxShadow=''; }}>
-      <div style={{ position:'absolute', top:-20, right:-20, width:80, height:80, borderRadius:'50%', background:color, opacity:0.08 }}/>
+      <div style={{ position:'absolute', top:-20, right:-20, width:80, height:80, borderRadius:'50%', background:color, opacity:0.08, pointerEvents:'none' }}/>
       <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:12 }}>
         <div style={{ width:40, height:40, borderRadius:12, background:`${color}18`, display:'flex', alignItems:'center', justifyContent:'center' }}>
           <Icon size={18} color={color}/>
@@ -279,7 +300,6 @@ export default function StudentDashboard() {
   const navigate = useNavigate();
 
   const [dark,    setDark]    = useState(false);
-  const [liveNow, setLiveNow] = useState(new Date());
   const [page,    setPage]    = useState('dashboard');
   const [mobile,  setMobile]  = useState(() => typeof window !== 'undefined' ? window.innerWidth < 980 : false);
   const [dash,    setDash]    = useState(emptyData);
@@ -289,6 +309,7 @@ export default function StudentDashboard() {
   const [error,   setError]   = useState('');
   const [notifs,  setNotifs]  = useState([]);
   const [showNotifPanel, setShowNotifPanel] = useState(false);
+  const notifPanelRef = useRef(null);
 
   /* password change */
   const [pwdLoading, setPwdLoading] = useState(false);
@@ -307,11 +328,15 @@ export default function StudentDashboard() {
   const [uploading,     setUploading]     = useState(false);
   const [chatInfo,      setChatInfo]      = useState('');
   const [chatError,     setChatError]     = useState('');
+  const [staffSearch,   setStaffSearch]   = useState('');
+  const [timetableSelDay, setTimetableSelDay] = useState(() => new Date().toLocaleDateString('en-GB', { weekday:'long' }));
+  const [timetableViewMode, setTimetableViewMode] = useState('day');
   const msgEndRef = useRef(null);
 
   const activeThread = useMemo(() => threads.find(t => Number(t.id) === Number(activeThreadId)) || null, [threads, activeThreadId]);
   const user         = auth.user || {};
   const mustChange   = !!user?.force_password_change;
+  const currentNow   = new Date();
 
   /* ── colors ── */
   const pageBg   = dark ? '#02071a' : B.slate100;
@@ -327,11 +352,22 @@ export default function StudentDashboard() {
     return () => window.removeEventListener('resize', h);
   }, []);
 
-  /* ── clock ── */
   useEffect(() => {
-    const t = setInterval(() => setLiveNow(new Date()), 1000);
-    return () => clearInterval(t);
-  }, []);
+    if (!showNotifPanel) return;
+    const onDocDown = (e) => {
+      if (!notifPanelRef.current) return;
+      if (!notifPanelRef.current.contains(e.target)) setShowNotifPanel(false);
+    };
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') setShowNotifPanel(false);
+    };
+    document.addEventListener('mousedown', onDocDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onDocDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [showNotifPanel]);
 
   /* ── auth guard ── */
   useEffect(() => {
@@ -499,6 +535,16 @@ export default function StudentDashboard() {
     const rows = (dash.fees?.transactions || dash.fees?.payments || []).slice(-8);
     return rows.map(r => Number(r.amount_paid||0));
   }, [dash.fees]);
+
+  const filteredStaff = useMemo(() => {
+    const q = staffSearch.trim().toLowerCase();
+    if (!q) return staff;
+    return staff.filter((s) => {
+      const fullName = `${s.first_name || ''} ${s.last_name || ''}`.trim().toLowerCase();
+      const role = String(s.role_code || '').toLowerCase().replace(/_/g, ' ');
+      return fullName.includes(q) || role.includes(q);
+    });
+  }, [staff, staffSearch]);
 
   /* ── nav items ── */
   const NAV = [
@@ -840,25 +886,63 @@ export default function StudentDashboard() {
 
   /* ─────────────────── PAGE: TIMETABLE ─────────────────── */
   const PageTimetable = () => {
-    const now      = liveNow;
+    const now      = currentNow;
     const today    = now.toLocaleDateString('en-GB', { weekday:'long' });
-    const [selDay, setSelDay] = useState(today);
-    const DAYS     = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-    const filtered = (dash.marks?.timetable||[]).filter(r => r.day_of_week === selDay);
+    const selDay = TIMETABLE_DAYS.includes(timetableSelDay) ? timetableSelDay : today;
+    const viewMode = timetableViewMode;
+    const DAYS = TIMETABLE_DAYS;
+    const timetableRows = dash.marks?.timetable || [];
+    const filtered = timetableRows.filter(r => r.day_of_week === selDay);
+    const hasData = timetableRows.length > 0;
 
-    const currentPeriod = filtered.find(r => {
+    const currentPeriod = timetableRows.find(r => {
       if (!r.start_time || !r.end_time) return false;
+      if (String(r.day_of_week || '').toLowerCase() !== String(today || '').toLowerCase()) return false;
       const [sh,sm] = r.start_time.split(':').map(Number);
       const [eh,em] = r.end_time.split(':').map(Number);
       const cur = now.getHours()*60 + now.getMinutes();
       return cur >= sh*60+sm && cur <= eh*60+em;
     });
 
+    const allTimeRanges = useMemo(() => {
+      const uniq = Array.from(new Set(timetableRows
+        .map(r => `${r.start_time || '—'}-${r.end_time || '—'}`)))
+        .filter(v => v !== '—-—')
+        .sort((a, b) => {
+          const [aStart] = a.split('-');
+          const [bStart] = b.split('-');
+          return String(aStart).localeCompare(String(bStart));
+        });
+      return uniq;
+    }, [timetableRows]);
+
+    const timetableMap = useMemo(() => {
+      const m = new Map();
+      timetableRows.forEach((r) => {
+        const key = `${r.day_of_week}__${r.start_time || '—'}-${r.end_time || '—'}`;
+        m.set(key, r);
+      });
+      return m;
+    }, [timetableRows]);
+
+    const subjectLegend = useMemo(() => {
+      const names = Array.from(new Set(timetableRows.map((r) => String(r.subject_name || '').trim()).filter(Boolean)));
+      return names.sort((a, b) => a.localeCompare(b)).slice(0, 12);
+    }, [timetableRows]);
+
     return (
       <>
+        <div style={{ marginTop:14, display:'flex', justifyContent:'space-between', flexWrap:'wrap', gap:8 }}>
+          <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+            <button onClick={() => setTimetableViewMode('day')} style={{ height:34, borderRadius:10, border:`1px solid ${viewMode==='day'?B.amber:panelBdr}`, background:viewMode==='day'?`${B.amber}20`:'transparent', color:viewMode==='day'?B.amber:txt, fontWeight:700, fontSize:11, padding:'0 12px', cursor:'pointer', fontFamily:'Montserrat,sans-serif' }}>Day View</button>
+            <button onClick={() => setTimetableViewMode('week')} style={{ height:34, borderRadius:10, border:`1px solid ${viewMode==='week'?B.amber:panelBdr}`, background:viewMode==='week'?`${B.amber}20`:'transparent', color:viewMode==='week'?B.amber:txt, fontWeight:700, fontSize:11, padding:'0 12px', cursor:'pointer', fontFamily:'Montserrat,sans-serif' }}>Week Grid</button>
+          </div>
+          <p style={{ margin:0, alignSelf:'center', fontSize:11, color:sub, fontWeight:600 }}>Teacher names and rooms are shown in all views</p>
+        </div>
+
         <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginTop:14 }}>
           {DAYS.map(d => (
-            <button key={d} onClick={() => setSelDay(d)} style={{ height:36, borderRadius:10, border:`1px solid ${selDay===d?B.amber:panelBdr}`, background: selDay===d?B.amber:'transparent', color: selDay===d?B.navy:txt, fontWeight:700, fontSize:11, cursor:'pointer', padding:'0 14px', transition:'all 0.15s', fontFamily:'Montserrat,sans-serif' }}>
+            <button key={d} onClick={() => setTimetableSelDay(d)} style={{ height:36, borderRadius:10, border:`1px solid ${selDay===d?B.amber:panelBdr}`, background: selDay===d?B.amber:'transparent', color: selDay===d?B.navy:txt, fontWeight:700, fontSize:11, cursor:'pointer', padding:'0 14px', transition:'all 0.15s', fontFamily:'Montserrat,sans-serif' }}>
               {d.slice(0,3)}
               {d === today && <span style={{ marginLeft:4, fontSize:8, background:B.navy, color:B.amber, borderRadius:4, padding:'1px 4px' }}>TODAY</span>}
             </button>
@@ -876,29 +960,119 @@ export default function StudentDashboard() {
           </div>
         )}
 
-        <div style={{ display:'grid', gap:10, marginTop:14 }}>
-          {filtered.length === 0 ? (
-            <div style={{ textAlign:'center', padding:'40px', color:sub }}>
-              <Calendar size={32} style={{ margin:'0 auto 10px', opacity:0.3 }}/>
-              <p style={{ margin:0 }}>No classes scheduled for {selDay}</p>
-            </div>
-          ) : filtered.map((r, i) => {
-            const isCurrent = r === currentPeriod;
-            return (
-              <div key={i} style={{ padding:'14px 18px', borderRadius:14, border:`1px solid ${isCurrent ? B.amber : panelBdr}`, background: isCurrent ? `${B.amber}10` : (dark?'rgba(255,255,255,0.02)':B.offWhite), display:'grid', gridTemplateColumns:'60px 1fr auto', gap:14, alignItems:'center', transition:'border-color 0.2s' }}>
-                <div style={{ textAlign:'center' }}>
-                  <p style={{ margin:0, fontSize:11, fontWeight:800, color:isCurrent?B.amber:sub }}>{r.start_time||'—'}</p>
-                  <p style={{ margin:'2px 0 0', fontSize:10, color:sub }}>{r.end_time||'—'}</p>
-                </div>
-                <div>
-                  <p style={{ margin:0, fontWeight:800, fontSize:14, color:isCurrent?B.amber:txt }}>{r.subject_name||'—'}</p>
-                  <p style={{ margin:'2px 0 0', fontSize:11, color:sub }}>{r.teacher_name||'Not assigned'} · Room {r.room||'TBD'}</p>
-                </div>
-                {isCurrent && <span style={{ fontSize:9, fontWeight:800, color:B.amber, textTransform:'uppercase', letterSpacing:'0.1em', background:`${B.amber}20`, padding:'4px 10px', borderRadius:999 }}>Live</span>}
+        {viewMode === 'day' && (
+          <div style={{ display:'grid', gap:10, marginTop:14 }}>
+            {filtered.length === 0 ? (
+              <div style={{ textAlign:'center', padding:'40px', color:sub }}>
+                <Calendar size={32} style={{ margin:'0 auto 10px', opacity:0.3 }}/>
+                <p style={{ margin:0 }}>No classes scheduled for {selDay}</p>
               </div>
-            );
-          })}
-        </div>
+            ) : filtered.map((r, i) => {
+              const isCurrent = r === currentPeriod;
+              const palette = timetablePaletteForSubject(r.subject_name);
+              return (
+                <div key={i} style={{ padding:'14px 18px', borderRadius:14, border:`1px solid ${isCurrent ? B.amber : palette.border}`, background: isCurrent ? `${B.amber}10` : palette.bg, display:'grid', gridTemplateColumns: mobile ? '1fr' : '78px 1fr auto', gap:12, alignItems:'center', transition:'border-color 0.2s' }}>
+                  <div style={{ textAlign: mobile ? 'left' : 'center' }}>
+                    <p style={{ margin:0, fontSize:11, fontWeight:800, color:isCurrent?B.amber:sub }}>{r.start_time||'—'}</p>
+                    <p style={{ margin:'2px 0 0', fontSize:10, color:sub }}>{r.end_time||'—'}</p>
+                  </div>
+                  <div>
+                    <p style={{ margin:0, fontWeight:800, fontSize:14, color:isCurrent?B.amber:palette.title }}>{r.subject_name||'—'}</p>
+                    <p style={{ margin:'2px 0 0', fontSize:11, color:palette.meta }}>{r.teacher_name||'Not assigned'} · Room {r.room||'TBD'}</p>
+                  </div>
+                  {isCurrent && <span style={{ justifySelf: mobile ? 'flex-start' : 'end', fontSize:9, fontWeight:800, color:B.amber, textTransform:'uppercase', letterSpacing:'0.1em', background:`${B.amber}20`, padding:'4px 10px', borderRadius:999 }}>Live</span>}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {viewMode === 'week' && (
+          <div style={{ marginTop:14 }}>
+            {!hasData ? (
+              <div style={{ textAlign:'center', padding:'40px', color:sub }}>
+                <Calendar size={32} style={{ margin:'0 auto 10px', opacity:0.3 }}/>
+                <p style={{ margin:0 }}>No timetable configured for your class yet.</p>
+              </div>
+            ) : (
+              <div style={{ overflow:'auto', maxHeight: mobile ? 440 : 540, border:`1px solid ${panelBdr}`, borderRadius:14 }}>
+                <div style={{ minWidth: mobile ? 780 : 920, display:'grid', gridTemplateColumns:'110px repeat(6, minmax(110px, 1fr))', background:dark?'rgba(255,255,255,0.02)':B.offWhite }}>
+                  <div style={{ position:'sticky', top:0, left:0, zIndex:4, padding:'10px 8px', borderRight:`1px solid ${panelBdr}`, borderBottom:`1px solid ${panelBdr}`, fontSize:10, fontWeight:800, color:sub, textTransform:'uppercase', letterSpacing:'0.08em', background: dark ? '#0b1638' : '#f8fafc' }}>Time</div>
+                  {DAYS.map((d) => (
+                    <div key={d} style={{ position:'sticky', top:0, zIndex:3, padding:'10px 8px', borderRight:`1px solid ${panelBdr}`, borderBottom:`1px solid ${panelBdr}`, fontSize:10, fontWeight:800, color:d===today?B.amber:txt, textTransform:'uppercase', letterSpacing:'0.08em', background:d===today?(dark ? '#33280a' : '#fef3c7'):(dark ? '#0b1638' : '#f8fafc') }}>{d}</div>
+                  ))}
+                  {allTimeRanges.map((slot) => {
+                    const [start, end] = slot.split('-');
+                    return (
+                      <React.Fragment key={slot}>
+                        <div style={{ position:'sticky', left:0, zIndex:2, padding:'10px 8px', borderRight:`1px solid ${panelBdr}`, borderBottom:`1px solid ${panelBdr}`, fontSize:11, color:txt, background:dark ? '#08112e' : '#ffffff' }}>
+                          <p style={{ margin:0, fontWeight:800 }}>{start}</p>
+                          <p style={{ margin:'2px 0 0', color:sub, fontSize:10 }}>{end}</p>
+                        </div>
+                        {DAYS.map((d) => {
+                          const item = timetableMap.get(`${d}__${slot}`);
+                          const isCurrent = currentPeriod && item && item.day_of_week === currentPeriod.day_of_week && item.start_time === currentPeriod.start_time && item.end_time === currentPeriod.end_time;
+                          const palette = item ? timetablePaletteForSubject(item.subject_name) : null;
+                          return (
+                            <div key={`${d}-${slot}`} style={{ padding:'8px', borderRight:`1px solid ${panelBdr}`, borderBottom:`1px solid ${panelBdr}`, minHeight:86, background:isCurrent?`${B.amber}14`:(item ? palette.bg : 'transparent') }}>
+                              {item ? (
+                                <>
+                                  <p style={{ margin:0, fontSize:12, fontWeight:800, color:isCurrent?B.amber:palette.title }}>{item.subject_name||'Subject'}</p>
+                                  <p style={{ margin:'3px 0 0', fontSize:10, color:palette.meta }}>{item.teacher_name||'Teacher pending'}</p>
+                                  <p style={{ margin:'2px 0 0', fontSize:10, color:palette.meta }}>Room {item.room||'TBD'}</p>
+                                </>
+                              ) : (
+                                <p style={{ margin:0, fontSize:10, color:sub }}>—</p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </React.Fragment>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        {subjectLegend.length > 0 && (
+          <div style={{ marginTop:14, padding:'12px 14px', borderRadius:12, border:`1px solid ${panelBdr}`, background:dark?'rgba(255,255,255,0.02)':'#ffffff' }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+              <p style={{ margin:0, fontSize:10, fontWeight:800, color:sub, textTransform:'uppercase', letterSpacing:'0.08em' }}>Course Color Legend</p>
+              <p style={{ margin:0, fontSize:10, color:sub, fontWeight:700 }}>{subjectLegend.length} courses</p>
+            </div>
+            <div style={{ marginTop:10, display:'flex', flexWrap:'wrap', gap:8 }}>
+              {subjectLegend.map((subject) => {
+                const palette = timetablePaletteForSubject(subject);
+                return (
+                  <span key={subject} style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'5px 9px', borderRadius:999, border:`1px solid ${palette.border}`, background:palette.bg, color:palette.title, fontSize:11, fontWeight:700 }}>
+                    <span style={{ width:8, height:8, borderRadius:'50%', background:palette.title }} />
+                    {subject}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        {subjectLegend.length > 0 && (
+          <div style={{ marginTop:14, padding:'12px 14px', borderRadius:12, border:`1px solid ${panelBdr}`, background:dark?'rgba(255,255,255,0.02)':'#ffffff' }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+              <p style={{ margin:0, fontSize:10, fontWeight:800, color:sub, textTransform:'uppercase', letterSpacing:'0.08em' }}>Course Color Legend</p>
+              <p style={{ margin:0, fontSize:10, color:sub, fontWeight:700 }}>{subjectLegend.length} courses</p>
+            </div>
+            <div style={{ marginTop:10, display:'flex', flexWrap:'wrap', gap:8 }}>
+              {subjectLegend.map((subject) => {
+                const palette = timetablePaletteForSubject(subject);
+                return (
+                  <span key={subject} style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'5px 9px', borderRadius:999, border:`1px solid ${palette.border}`, background:palette.bg, color:palette.title, fontSize:11, fontWeight:700 }}>
+                    <span style={{ width:8, height:8, borderRadius:'50%', background:palette.title }} />
+                    {subject}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </>
     );
   };
@@ -937,89 +1111,7 @@ export default function StudentDashboard() {
   };
 
   /* ─────────────────── PAGE: CHAT ─────────────────── */
-  const PageChat = () => (
-    <div style={{ display:'grid', gridTemplateColumns: mobile ? '1fr' : '220px 220px 1fr', gap:12, marginTop:14, minHeight:480 }}>
-      {/* Staff list */}
-      <div style={{ background: panelBg, border:`1px solid ${panelBdr}`, borderRadius:16, padding:14, display:'flex', flexDirection:'column', gap:8 }}>
-        <p style={{ margin:0, fontWeight:900, fontSize:12, color:txt, textTransform:'uppercase', letterSpacing:'0.08em' }}>Teachers</p>
-        <div style={{ display:'grid', gap:6, overflowY:'auto', maxHeight:mobile?200:undefined }}>
-          {staff.map(s => (
-            <button key={`${s.id}-${s.role_code}`} onClick={() => createThread(s.id)} style={{ border:`1px solid ${panelBdr}`, background:'transparent', color:txt, borderRadius:10, minHeight:36, padding:'0 10px', textAlign:'left', fontSize:11, cursor:'pointer', fontFamily:'Montserrat,sans-serif' }}>
-              {s.first_name} {s.last_name} · {s.role_code}
-            </button>
-          ))}
-          {staff.length === 0 && <p style={{ margin:0, fontSize:11, color:sub }}>No teachers assigned yet.</p>}
-        </div>
-      </div>
-
-      {/* Thread list */}
-      <div style={{ background: panelBg, border:`1px solid ${panelBdr}`, borderRadius:16, padding:14, display:'flex', flexDirection:'column', gap:8 }}>
-        <p style={{ margin:0, fontWeight:900, fontSize:12, color:txt, textTransform:'uppercase', letterSpacing:'0.08em' }}>Inbox</p>
-        <div style={{ display:'grid', gap:6, overflowY:'auto', maxHeight:mobile?200:undefined }}>
-          {threads.map(t => (
-            <div key={t.id} style={{ border: activeThreadId===Number(t.id) ? 'none' : `1px solid ${panelBdr}`, background: activeThreadId===Number(t.id) ? B.navy : 'transparent', color: activeThreadId===Number(t.id) ? '#fff' : txt, borderRadius:10, minHeight:42, padding:'6px 10px', display:'flex', alignItems:'center', justifyContent:'space-between', gap:8 }}>
-              <button type="button" onClick={() => setActiveThreadId(Number(t.id))} style={{ border:'none', background:'transparent', color:'inherit', textAlign:'left', cursor:'pointer', padding:0, fontSize:11, fontFamily:'Montserrat,sans-serif', flex:1 }}>
-                <div style={{ fontWeight:700 }}>{t.thread_name||t.other_participant?.name||'Thread'}{Number(t.unread_count||0)>0 && <span style={{ marginLeft:6, fontSize:9, background:B.amber, color:B.navy, borderRadius:999, padding:'1px 6px' }}>{t.unread_count}</span>}</div>
-                <div style={{ fontSize:10, opacity:0.65 }}>{t.thread_type==='GROUP'?(t.thread_scope||'Group'):'Direct'}</div>
-              </button>
-              <button type="button" onClick={() => deleteThread(Number(t.id))} style={{ border:'none', background:'transparent', color: activeThreadId===Number(t.id)?'#fca5a5':B.red, cursor:'pointer', padding:0, display:'flex' }}><Trash2 size={13}/></button>
-            </div>
-          ))}
-          {threads.length === 0 && <p style={{ margin:0, fontSize:11, color:sub }}>No conversations.</p>}
-        </div>
-      </div>
-
-      {/* Chat area */}
-      <div style={{ background: panelBg, border:`1px solid ${panelBdr}`, borderRadius:16, padding:14, display:'flex', flexDirection:'column', minHeight:0 }}>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
-          <p style={{ margin:0, fontWeight:900, fontSize:13, color:txt }}>
-            {activeThread?.other_participant?.name || activeThread?.thread_name || 'Select a conversation'}
-          </p>
-        </div>
-        {chatInfo  && <Banner type="success" text={chatInfo}  onClose={() => setChatInfo('')}/>}
-        {chatError && <Banner type="error"   text={chatError} onClose={() => setChatError('')}/>}
-
-        <div style={{ flex:1, overflowY:'auto', border:`1px solid ${panelBdr}`, borderRadius:12, padding:12, marginBottom:10, display:'flex', flexDirection:'column', gap:10, minHeight:200 }}>
-          {messages.map(m => (
-            <div key={m.id} style={{ display:'flex', flexDirection:'column', alignItems: m.sender_type==='PARENT'?'flex-end':'flex-start', gap:3 }}>
-              <span style={{ fontSize:10, color:sub }}>{m.sender_name} · {fmtDT(m.created_at)}</span>
-              <div style={{ maxWidth:'80%', padding:'9px 12px', borderRadius:12, fontSize:13, color:m.sender_type==='PARENT'?(dark?'#e2e8f0':'#1e3a8a'):(dark?B.slate400:B.slate800), background: m.sender_type==='PARENT'?(dark?B.slate800:B.bluePale):(dark?'rgba(255,255,255,0.03)':B.offWhite), border:`1px solid ${panelBdr}` }}>
-                {m.body||(m.attachment_url?'(Attachment)':'')}
-                {m.attachment_url && <a href={`${API}${m.attachment_url}`} target="_blank" rel="noreferrer" style={{ display:'block', marginTop:4, color:B.blue, fontSize:11 }}>Open attachment</a>}
-              </div>
-              <button type="button" onClick={() => setReplyTarget({ id:m.id, sender_name:m.sender_name, body:m.body||'[Attachment]' })} style={{ border:'none', background:'transparent', color:sub, fontSize:10, cursor:'pointer', textDecoration:'underline', padding:0 }}>Reply</button>
-            </div>
-          ))}
-          {messages.length===0 && <p style={{ margin:'auto', color:sub, fontSize:12 }}>No messages yet.</p>}
-          <div ref={msgEndRef}/>
-        </div>
-
-        {replyTarget && (
-          <div style={{ marginBottom:8, padding:'6px 10px', borderRadius:10, background: dark?'rgba(255,255,255,0.04)':B.bluePale, border:`1px solid ${panelBdr}`, display:'flex', justifyContent:'space-between', gap:8 }}>
-            <div>
-              <p style={{ margin:0, fontSize:10, fontWeight:800, color:B.blue }}>Replying to {replyTarget.sender_name}</p>
-              <p style={{ margin:0, fontSize:11, color:sub, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:240 }}>{replyTarget.body}</p>
-            </div>
-            <button onClick={() => setReplyTarget(null)} style={{ border:'none', background:'transparent', color:sub, cursor:'pointer' }}><X size={13}/></button>
-          </div>
-        )}
-
-        <textarea value={chatText} onChange={e => setChatText(e.target.value)} onKeyDown={e => { if (e.key==='Enter' && !e.ctrlKey && !uploading) { e.preventDefault(); sendChat(); } }} placeholder="Type a message to your teacher…" rows={2} style={{ border:`1px solid ${panelBdr}`, background: dark?'rgba(255,255,255,0.04)':B.offWhite, color:txt, borderRadius:10, padding:'9px 12px', fontSize:13, resize:'vertical', fontFamily:'Montserrat,sans-serif', outline:'none' }}/>
-
-        <div style={{ display:'grid', gridTemplateColumns:'1fr auto auto', gap:8, marginTop:8 }}>
-          <label style={{ border:`1px solid ${panelBdr}`, borderRadius:10, minHeight:36, display:'flex', alignItems:'center', gap:6, padding:'0 10px', cursor:'pointer', fontSize:11, color:sub }}>
-            <Paperclip size={12}/>{chatFile ? String(chatFile.name).slice(0,24) : 'Attach file'}
-            <input type="file" style={{ display:'none' }} onChange={e => setChatFile(e.target.files?.[0]||null)}/>
-          </label>
-          {chatFile && <button onClick={() => setChatFile(null)} style={{ border:`1px solid ${panelBdr}`, background:'transparent', color:sub, borderRadius:10, padding:'0 10px', cursor:'pointer', fontFamily:'Montserrat,sans-serif' }}>Clear</button>}
-          <button onClick={sendChat} disabled={uploading} style={{ border:'none', background:B.navy, color:B.amber, borderRadius:10, minHeight:36, padding:'0 16px', fontWeight:800, display:'flex', alignItems:'center', gap:6, cursor:'pointer', fontFamily:'Montserrat,sans-serif' }}>
-            <Send size={13}/>{uploading?'Uploading…':'Send'}
-          </button>
-        </div>
-        <p style={{ margin:'6px 0 0', fontSize:10, color:sub }}>Enter to send · Ctrl+Enter for new line</p>
-      </div>
-    </div>
-  );
+  const PageChat = () => <StudentChat />;
 
   /* ─────────────────── PAGE: SECURITY ─────────────────── */
   const PageSecurity = () => (
@@ -1042,19 +1134,19 @@ export default function StudentDashboard() {
 
   /* ─────────────────── RENDER ─────────────────── */
   const pageContent = {
-    dashboard:  <PageDashboard/>,
-    attendance: <PageAttendance/>,
-    academics:  <PageAcademics/>,
-    discipline: <PageDiscipline/>,
-    fees:       <PageFees/>,
-    timetable:  <PageTimetable/>,
-    chat:       <PageChat/>,
-    profile:    <PageProfile/>,
-    security:   <PageSecurity/>,
+    dashboard:  PageDashboard(),
+    attendance: PageAttendance(),
+    academics:  PageAcademics(),
+    discipline: PageDiscipline(),
+    fees:       PageFees(),
+    timetable:  PageTimetable(),
+    chat:       PageChat(),
+    profile:    PageProfile(),
+    security:   PageSecurity(),
   };
 
   return (
-    <div style={{ minHeight:'100vh', background:pageBg, color:txt, paddingBottom: mobile ? 80 : 0, fontFamily:"'Montserrat', 'Segoe UI', sans-serif" }}>
+    <div style={{ minHeight:'100vh', background:pageBg, color:txt, paddingBottom: mobile ? 80 : 0, fontFamily:"'Montserrat', 'Segoe UI', sans-serif", position:'relative', zIndex:1200, isolation:'isolate' }}>
       <div style={{ maxWidth:1380, margin:'0 auto', display:'grid', gridTemplateColumns: mobile ? '1fr' : '248px 1fr', gap:12, padding:'12px 12px 12px' }}>
 
         {/* ─── SIDEBAR ─── */}
@@ -1117,12 +1209,12 @@ export default function StudentDashboard() {
                 {NAV.find(n=>n.id===page)?.label||'Dashboard'}
               </h1>
               <p style={{ margin:'3px 0 0', fontSize:11, color:'rgba(255,255,255,0.6)' }}>
-                {liveNow.toLocaleTimeString()} · {liveNow.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})} · Class {dash.profile?.class_name||'—'}
+                {currentNow.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})} · Class {dash.profile?.class_name||'—'}
               </p>
             </div>
             <div style={{ display:'flex', alignItems:'center', gap:10 }}>
               {/* Notification bell */}
-              <div style={{ position:'relative' }}>
+              <div style={{ position:'relative' }} ref={notifPanelRef}>
                 <button onClick={() => setShowNotifPanel(p=>!p)} style={{ width:40, height:40, borderRadius:12, border:'1px solid rgba(255,255,255,0.15)', background:'rgba(255,255,255,0.07)', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', transition:'all 0.15s' }}>
                   <Bell size={16}/>
                   {notifs.length > 0 && <span style={{ position:'absolute', top:-4, right:-4, width:16, height:16, borderRadius:'50%', background:B.amber, color:B.navy, fontSize:8, fontWeight:900, display:'flex', alignItems:'center', justifyContent:'center' }}>{notifs.length}</span>}
@@ -1189,6 +1281,9 @@ export default function StudentDashboard() {
         </>
       )}
 
+
+
+      
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap');
         * { box-sizing: border-box; }

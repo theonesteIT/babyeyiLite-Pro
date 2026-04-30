@@ -161,7 +161,7 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
                                     setNote('');
                                     setSuccess(false);
                                 }}
-                                className="w-full py-4 bg-[#FEBF10] text-[#1E3A5F] rounded-2xl text-xs font-black shadow-md shadow-[#FEBF10]/20 hover:scale-[1.02] active:scale-95 transition-all"
+                                className="w-full py-4 bg-[#FEBF10] text-[#000435] rounded-2xl text-xs font-black shadow-md shadow-[#FEBF10]/20 hover:scale-[1.02] active:scale-95 transition-all"
                             >
                                 Add More Marks
                             </button>
@@ -255,7 +255,7 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
                         </div>
                         <button
                             onClick={() => setShowBrowser(true)}
-                            className="mt-2 flex items-center justify-center gap-2 px-6 py-2.5 bg-[#FEBF10]/10 text-[#1E3A5F] rounded-xl text-xs font-bold hover:bg-[#FEBF10]/20 transition-all border border-[#FEBF10]/20"
+                            className="mt-2 flex items-center justify-center gap-2 px-6 py-2.5 bg-[#FEBF10]/10 text-[#000435] rounded-xl text-xs font-bold hover:bg-[#FEBF10]/20 transition-all border border-[#FEBF10]/20"
                         >
                             <Plus size={14} /> Add Criteria
                         </button>
@@ -325,7 +325,7 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
                 <button
                     onClick={() => setMobileStep('summary')}
                     disabled={rows.length === 0}
-                    className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-black transition active:scale-95 ${rows.length > 0 ? 'bg-[#FEBF10] text-[#1E3A5F] shadow-md shadow-[#FEBF10]/30 hover:scale-[1.02]' : 'bg-re-bg text-gray-400 cursor-not-allowed'
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-black transition active:scale-95 ${rows.length > 0 ? 'bg-[#FEBF10] text-[#000435] shadow-md shadow-[#FEBF10]/30 hover:scale-[1.02]' : 'bg-re-bg text-gray-400 cursor-not-allowed'
                         }`}
                 >
                     <span className="uppercase tracking-widest text-[10px]">Continue to Assignment</span>
@@ -425,7 +425,7 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
                         }
                     }}
                     disabled={!canSubmit || submitting}
-                    className={`w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-[10px] uppercase tracking-widest font-black transition-all ${canSubmit && !submitting ? 'bg-[#FEBF10] text-[#1E3A5F] shadow-md shadow-[#FEBF10]/30 hover:scale-[1.02] active:scale-95' : 'bg-re-bg text-gray-400 cursor-not-allowed border border-black/5'
+                    className={`w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-[10px] uppercase tracking-widest font-black transition-all ${canSubmit && !submitting ? 'bg-[#FEBF10] text-[#000435] shadow-md shadow-[#FEBF10]/30 hover:scale-[1.02] active:scale-95' : 'bg-re-bg text-gray-400 cursor-not-allowed border border-black/5'
                         }`}
                 >
                     {submitting ? <Loader2 size={15} className="animate-spin" /> : <Activity size={15} />}
@@ -476,7 +476,7 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowStudents(false)} />
             <div className="relative bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden max-h-[80vh] flex flex-col">
                 {/* Header */}
-                <div className="px-5 py-4 border-b border-black/5 flex items-center justify-between relative z-10 bg-[#1E3A5F]">
+                <div className="px-5 py-4 border-b border-black/5 flex items-center justify-between relative z-10 bg-[#000435]">
                     <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center text-[#FEBF10]">
                             <Users size={16} />
@@ -493,7 +493,7 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
 
                 {/* Search input */}
                 <div className="px-4 pt-4 pb-2 shrink-0">
-                    <div className="flex items-center bg-re-bg border border-black/5 rounded-xl overflow-hidden shadow-inner focus-within:ring-2 focus-within:ring-[#1E3A5F]/20 transition">
+                    <div className="flex items-center bg-re-bg border border-black/5 rounded-xl overflow-hidden shadow-inner focus-within:ring-2 focus-within:ring-[#000435]/20 transition">
                         <Search className="text-gray-400 w-4 h-4 ml-3 mr-2 shrink-0" />
                         <input
                             autoFocus
@@ -514,7 +514,7 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
                 <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2">
                     {pickerLoading ? (
                         <div className="flex flex-col items-center justify-center py-10 gap-3">
-                            <Loader2 size={22} className="animate-spin text-[#1E3A5F]/40" />
+                            <Loader2 size={22} className="animate-spin text-[#000435]/40" />
                             <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Fetching Registry...</p>
                         </div>
                     ) : pickerStudents.length === 0 ? (
@@ -534,16 +534,16 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
                             <button
                                 key={s.id}
                                 onClick={() => { setStudent(s); setShowStudents(false); }}
-                                className="w-full flex items-center gap-3 px-4 py-3 border border-black/5 rounded-xl hover:bg-re-bg hover:border-[#1E3A5F]/20 transition-all text-left group"
+                                className="w-full flex items-center gap-3 px-4 py-3 border border-black/5 rounded-xl hover:bg-re-bg hover:border-[#000435]/20 transition-all text-left group"
                             >
-                                <div className="w-8 h-8 rounded-lg bg-[#1E3A5F]/5 border border-[#1E3A5F]/10 flex items-center justify-center font-black text-[10px] text-[#1E3A5F] shrink-0">
+                                <div className="w-8 h-8 rounded-lg bg-[#000435]/5 border border-[#000435]/10 flex items-center justify-center font-black text-[10px] text-[#000435] shrink-0">
                                     {s.name.charAt(0)}
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-xs font-bold text-gray-900 truncate group-hover:text-[#1E3A5F] transition-colors">{s.name}</p>
+                                    <p className="text-xs font-bold text-gray-900 truncate group-hover:text-[#000435] transition-colors">{s.name}</p>
                                     <p className="text-[10px] font-bold text-gray-400">{s.id} · {s.grade}</p>
                                 </div>
-                                <ChevronRight size={14} className="text-gray-300 group-hover:text-[#1E3A5F] transition-colors" />
+                                <ChevronRight size={14} className="text-gray-300 group-hover:text-[#000435] transition-colors" />
                             </button>
                         ))
                     )}
@@ -562,7 +562,7 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
 
             {/* MOBILE CONTAINER */}
             <div className="fixed inset-0 z-[90] flex md:hidden flex-col bg-white">
-                <div className="flex items-center justify-between px-4 py-3 shrink-0 bg-[#1E3A5F] shadow-md">
+                <div className="flex items-center justify-between px-4 py-3 shrink-0 bg-[#000435] shadow-md">
                     <div className="flex items-center gap-2">
                         {mobileStep === 'summary' ? (
                             <button onClick={() => setMobileStep('items')} className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-white/70 hover:text-white transition">
@@ -594,7 +594,7 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
             {/* DESKTOP CONTAINER */}
             <div className="hidden md:flex fixed inset-0 z-[90] items-center justify-center p-6">
                 <div className="bg-re-bg rounded-3xl shadow-[0_32px_128px_-15px_rgba(30,58,95,0.4)] w-full max-w-4xl min-h-[500px] flex flex-col max-h-[90vh] overflow-hidden border border-white/20">
-                    <div className="flex items-center justify-between px-6 py-5 shrink-0 bg-[#1E3A5F] relative z-10 shadow-md">
+                    <div className="flex items-center justify-between px-6 py-5 shrink-0 bg-[#000435] relative z-10 shadow-md">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 bg-white/10 rounded-xl border border-white/20 flex items-center justify-center text-[#FEBF10] shadow-md shadow-[#FEBF10]/10">
                                 <Activity size={18} />

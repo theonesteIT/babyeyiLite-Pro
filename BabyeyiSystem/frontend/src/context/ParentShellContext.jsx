@@ -7,6 +7,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 
 const STORAGE_THEME = "babyeyi_parent_theme";
 const STORAGE_NOTIFS = "babyeyi_parent_notifications_v1";
+const API = import.meta.env.VITE_API_URL || "http://localhost:5100";
 
 const ParentShellContext = createContext(null);
 
@@ -85,6 +86,40 @@ export function ParentShellProvider({ children }) {
     mq.addEventListener("change", onChange);
     return () => mq.removeEventListener("change", onChange);
   }, [themeMode]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${API}/api/parent-portal/notifications?limit=40`, {
+          credentials: "include",
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json.success || !Array.isArray(json.data) || cancelled) return;
+        setNotifications((prev) => {
+          const existing = new Set((prev || []).map((n) => String(n.id)));
+          const incoming = json.data
+            .map((n) => ({
+              id: `srv-${n.id}`,
+              title: n.title || "Notification",
+              body: n.body || "",
+              createdAt: n.created_at || new Date().toISOString(),
+              read: !!n.read,
+            }))
+            .filter((n) => !existing.has(String(n.id)));
+          if (!incoming.length) return prev;
+          const next = [...incoming, ...prev];
+          saveNotifications(next);
+          return next;
+        });
+      } catch {
+        // silent: local notifications still work
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const setThemeMode = useCallback((mode) => {
     if (mode === "light" || mode === "dark" || mode === "system") setThemeModeState(mode);

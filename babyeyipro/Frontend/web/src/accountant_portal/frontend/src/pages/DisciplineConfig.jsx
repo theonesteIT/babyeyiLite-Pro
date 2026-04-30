@@ -68,7 +68,7 @@ export default function DisciplineConfig() {
             <div className="relative w-full min-h-[160px] overflow-hidden">
                 <div className="absolute inset-0 bg-[#0a192f]/85 z-10 backdrop-blur-[2px]"></div>
                 <img src="/teacher.jpg" alt="Hero" className="absolute inset-0 w-full h-full object-cover scale-105 opacity-30 mix-blend-overlay z-0" />
-                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#1E3A5F]/40 via-transparent to-transparent z-10 max-w-[1600px] mx-auto"></div>
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#000435]/40 via-transparent to-transparent z-10 max-w-[1600px] mx-auto"></div>
 
                 <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-10 pt-10 pb-12 flex items-center gap-5 text-white">
                     <div className="hidden md:flex shrink-0 w-14 h-14 rounded-xl border border-white/10 bg-white/5 items-center justify-center backdrop-blur-xl shadow-2xl relative overflow-hidden group">
@@ -97,7 +97,7 @@ export default function DisciplineConfig() {
                     {/* Left Sidebar Layout */}
                     <div className="w-full md:w-56 lg:w-64 bg-re-bg/30 border-r border-black/5 flex flex-col pt-5 shrink-0 relative">
                         <div className="px-5 mb-4">
-                            <h3 className="text-[9px] font-black uppercase tracking-[0.2em] text-[#1E3A5F]/50 flex items-center gap-1.5">
+                            <h3 className="text-[9px] font-black uppercase tracking-[0.2em] text-[#000435]/50 flex items-center gap-1.5">
                                 <Award size={12} /> Registry Sections
                             </h3>
                         </div>
@@ -106,7 +106,7 @@ export default function DisciplineConfig() {
                             <button 
                                 onClick={() => setActiveTab('conduct')}
                                 className={`flex items-center gap-3 px-4 py-2.5 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all ${
-                                    activeTab === 'conduct' ? 'bg-white shadow-sm text-[#1E3A5F] ring-1 ring-black/5' : 'text-re-text-muted hover:text-re-text hover:bg-re-bg'
+                                    activeTab === 'conduct' ? 'bg-white shadow-sm text-[#000435] ring-1 ring-black/5' : 'text-re-text-muted hover:text-re-text hover:bg-re-bg'
                                 }`}
                             >
                                 <Zap size={14} className={activeTab === 'conduct' ? "text-[#FEBF10]" : ""} /> Conduct Scale
@@ -114,7 +114,7 @@ export default function DisciplineConfig() {
                             <button 
                                 onClick={() => setActiveTab('permissions')}
                                 className={`flex items-center gap-3 px-4 py-2.5 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all ${
-                                    activeTab === 'permissions' ? 'bg-white shadow-sm text-[#1E3A5F] ring-1 ring-black/5' : 'text-re-text-muted hover:text-re-text hover:bg-re-bg'
+                                    activeTab === 'permissions' ? 'bg-white shadow-sm text-[#000435] ring-1 ring-black/5' : 'text-re-text-muted hover:text-re-text hover:bg-re-bg'
                                 }`}
                             >
                                 <ShieldCheck size={14} className={activeTab === 'permissions' ? "text-[#FEBF10]" : ""} /> Permission Protocols
@@ -122,7 +122,7 @@ export default function DisciplineConfig() {
                             <button 
                                 onClick={() => setActiveTab('registry')}
                                 className={`flex items-center gap-3 px-4 py-2.5 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all ${
-                                    activeTab === 'registry' ? 'bg-white shadow-sm text-[#1E3A5F] ring-1 ring-black/5' : 'text-re-text-muted hover:text-re-text hover:bg-re-bg'
+                                    activeTab === 'registry' ? 'bg-white shadow-sm text-[#000435] ring-1 ring-black/5' : 'text-re-text-muted hover:text-re-text hover:bg-re-bg'
                                 }`}
                             >
                                 <BookOpen size={14} className={activeTab === 'registry' ? "text-[#FEBF10]" : ""} /> Cases Book
@@ -156,17 +156,17 @@ export default function DisciplineConfig() {
                                 {activeTab === 'conduct' && (
                                     <div className="space-y-5">
                                         <div>
-                                            <h2 className="text-lg font-black text-[#1E3A5F] uppercase tracking-tighter">Conduct Scale</h2>
+                                            <h2 className="text-lg font-black text-[#000435] uppercase tracking-tighter">Conduct Scale</h2>
                                             <p className="text-[9px] font-bold text-re-text-muted uppercase tracking-widest mt-0.5">Manage disciplinary points and starting marks</p>
                                         </div>
 
                                         <div className="grid md:grid-cols-2 gap-5">
                                             {/* Max Scale Cap Input */}
                                             <div className="space-y-2">
-                                                <label className="text-[9px] font-black text-[#1E3A5F]/60 uppercase tracking-widest ml-1">Maximum Scale Cap</label>
+                                                <label className="text-[9px] font-black text-[#000435]/60 uppercase tracking-widest ml-1">Maximum Scale Cap</label>
                                                 <div className="flex items-center bg-white border border-black/5 rounded-xl overflow-hidden shadow-inner focus-within:ring-2 focus-within:ring-[#FEBF10]/30 transition-all">
                                                     <div className="w-1 h-12 bg-[#FEBF10] shrink-0" />
-                                                    <div className="px-3 text-[#1E3A5F]/30">
+                                                    <div className="px-3 text-[#000435]/30">
                                                         <Award size={16} />
                                                     </div>
                                                     <input 
@@ -181,10 +181,10 @@ export default function DisciplineConfig() {
 
                                             {/* Entry Starting Marks Input */}
                                             <div className="space-y-2">
-                                                <label className="text-[9px] font-black text-[#1E3A5F]/60 uppercase tracking-widest ml-1">Entry Starting Marks</label>
+                                                <label className="text-[9px] font-black text-[#000435]/60 uppercase tracking-widest ml-1">Entry Starting Marks</label>
                                                 <div className="flex items-center bg-white border border-black/5 rounded-xl overflow-hidden shadow-inner focus-within:ring-2 focus-within:ring-[#FEBF10]/30 transition-all">
                                                     <div className="w-1 h-12 bg-[#3B82F6] shrink-0" />
-                                                    <div className="px-3 text-[#1E3A5F]/30">
+                                                    <div className="px-3 text-[#000435]/30">
                                                         <Zap size={16} />
                                                     </div>
                                                     <input 
@@ -203,25 +203,25 @@ export default function DisciplineConfig() {
                                 {activeTab === 'permissions' && (
                                     <div className="space-y-5">
                                         <div>
-                                            <h2 className="text-lg font-black text-[#1E3A5F] uppercase tracking-tighter">Student Permissions</h2>
+                                            <h2 className="text-lg font-black text-[#000435] uppercase tracking-tighter">Student Permissions</h2>
                                             <p className="text-[9px] font-bold text-re-text-muted uppercase tracking-widest mt-0.5">Manage out-pass and excusal protocols</p>
                                         </div>
 
                                         <div className="bg-re-bg/50 p-6 rounded-[2rem] border border-black/5 space-y-4">
                                             <div className="flex items-center justify-between group p-5 bg-white rounded-[1.5rem] shadow-sm border border-black/5">
                                                 <div className="flex items-center gap-3">
-                                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${settings.permissions_enabled ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'bg-re-bg text-[#1E3A5F]/20'}`}>
+                                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${settings.permissions_enabled ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'bg-re-bg text-[#000435]/20'}`}>
                                                         <ShieldCheck size={20} />
                                                     </div>
                                                     <div>
-                                                        <h3 className="text-[10px] font-black text-[#1E3A5F] uppercase tracking-tight">Permissions &amp; Excusals</h3>
+                                                        <h3 className="text-[10px] font-black text-[#000435] uppercase tracking-tight">Permissions &amp; Excusals</h3>
                                                         <p className="text-[8px] font-bold text-re-text-muted uppercase tracking-widest">Enable digital out-pass issuance</p>
                                                     </div>
                                                 </div>
                                                 <button 
                                                     type="button"
                                                     onClick={() => setSettings({...settings, permissions_enabled: !settings.permissions_enabled})}
-                                                    className={`w-12 h-6 rounded-full transition-all relative ${settings.permissions_enabled ? 'bg-emerald-500 shadow-inner' : 'bg-slate-200 shadow-inner'}`}
+                                                    className={`w-12 h-6 rounded-full transition-all relative ${settings.permissions_enabled ? 'bg-emerald-500 shadow-inner' : 'bg-white shadow-inner'}`}
                                                 >
                                                     <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-all shadow-md ${settings.permissions_enabled ? 'right-0.5' : 'left-0.5'}`}></div>
                                                 </button>
@@ -233,16 +233,16 @@ export default function DisciplineConfig() {
                                 {activeTab === 'registry' && (
                                     <div className="space-y-6">
                                         <div>
-                                            <h2 className="text-lg md:text-xl font-black text-[#1E3A5F] uppercase tracking-tighter">Incident Registry</h2>
+                                            <h2 className="text-lg md:text-xl font-black text-[#000435] uppercase tracking-tighter">Incident Registry</h2>
                                             <p className="text-[10px] font-bold text-re-text-muted uppercase tracking-widest mt-1">Manage disciplinary logging and archival</p>
                                         </div>
 
                                         <div className="grid md:grid-cols-2 gap-5">
                                             <div className="space-y-2">
-                                                <label className="text-[9px] font-black text-[#1E3A5F]/60 uppercase tracking-widest ml-1">Registry Mode</label>
+                                                <label className="text-[9px] font-black text-[#000435]/60 uppercase tracking-widest ml-1">Registry Mode</label>
                                                 <div className="flex items-center bg-white border border-black/5 rounded-xl overflow-hidden shadow-inner focus-within:ring-2 focus-within:ring-[#FEBF10]/30 transition-all">
-                                                    <div className="w-1 h-12 bg-[#1E3A5F] shrink-0" />
-                                                    <div className="px-3 text-[#1E3A5F]/30">
+                                                    <div className="w-1 h-12 bg-[#000435] shrink-0" />
+                                                    <div className="px-3 text-[#000435]/30">
                                                         <BookOpen size={16} />
                                                     </div>
                                                     <select 
@@ -264,7 +264,7 @@ export default function DisciplineConfig() {
                                         type="submit"
                                         disabled={isSaving}
                                         className="h-12 px-8 rounded-xl text-white font-black text-[10px] uppercase tracking-[0.2em] shadow-2xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50 group overflow-hidden relative"
-                                        style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)" }}
+                                        style={{ background: "linear-gradient(135deg, #000435 0%, #0D2644 100%)" }}
                                     >
                                         <div className="absolute inset-x-0 bottom-0 h-1 bg-[#FEBF10]/20 scale-x-0 group-hover:scale-x-100 transition-transform duration-500" />
                                         {isSaving ? <Loader2 size={14} className="animate-spin text-[#FEBF10]" /> : <Save size={14} style={{ color: "#FEBF10" }} />}

@@ -247,6 +247,16 @@ async function sendParentPortalEmail({ to, subject, text }) {
 
 let tableReady = false;
 let tablePromise = null;
+let accessTableReady = false;
+let accessTablePromise = null;
+let accessLogTableReady = false;
+let accessLogTablePromise = null;
+let accessRequestTableReady = false;
+let accessRequestTablePromise = null;
+let parentNotificationTableReady = false;
+let parentNotificationTablePromise = null;
+let shulecardTableReady = false;
+let shulecardTablePromise = null;
 let loanRepayTableReady = false;
 let loanRepayTablePromise = null;
 
@@ -283,6 +293,188 @@ async function ensureParentPortalTable() {
     await tablePromise;
   } finally {
     tablePromise = null;
+  }
+}
+
+async function ensureStudentAccessTable() {
+  if (accessTableReady) return;
+  if (accessTablePromise) return accessTablePromise;
+  accessTablePromise = (async () => {
+    await promisePool.query(`
+      CREATE TABLE IF NOT EXISTS student_access (
+        id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        parent_portal_account_id INT UNSIGNED NULL,
+        parent_phone VARCHAR(30) NOT NULL,
+        student_id INT UNSIGNED NOT NULL,
+        access_type ENUM('FULL','LIMITED') NOT NULL DEFAULT 'LIMITED',
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_parent_student (parent_phone, student_id),
+        KEY idx_parent_student_account (parent_portal_account_id),
+        KEY idx_parent_student_student (student_id),
+        KEY idx_parent_student_type (access_type)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+    await promisePool.query('ALTER TABLE student_access ADD COLUMN parent_portal_account_id INT UNSIGNED NULL').catch(() => {});
+    accessTableReady = true;
+  })();
+  try {
+    await accessTablePromise;
+  } finally {
+    accessTablePromise = null;
+  }
+}
+
+async function ensureParentAccessLogTable() {
+  if (accessLogTableReady) return;
+  if (accessLogTablePromise) return accessLogTablePromise;
+  accessLogTablePromise = (async () => {
+    await promisePool.query(`
+      CREATE TABLE IF NOT EXISTS parent_student_activity_logs (
+        id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        parent_portal_account_id INT UNSIGNED NULL,
+        parent_phone VARCHAR(30) NOT NULL,
+        student_id INT UNSIGNED NOT NULL,
+        access_type ENUM('FULL','LIMITED') NOT NULL DEFAULT 'LIMITED',
+        action_type VARCHAR(80) NOT NULL,
+        endpoint VARCHAR(160) NULL,
+        payload_json LONGTEXT NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        KEY idx_psal_parent_phone (parent_phone),
+        KEY idx_psal_student (student_id),
+        KEY idx_psal_access_type (access_type),
+        KEY idx_psal_action_type (action_type)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+    accessLogTableReady = true;
+  })();
+  try {
+    await accessLogTablePromise;
+  } finally {
+    accessLogTablePromise = null;
+  }
+}
+
+async function ensureParentAccessRequestTable() {
+  if (accessRequestTableReady) return;
+  if (accessRequestTablePromise) return accessRequestTablePromise;
+  accessRequestTablePromise = (async () => {
+    await promisePool.query(`
+      CREATE TABLE IF NOT EXISTS parent_student_access_requests (
+        id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        parent_portal_account_id INT UNSIGNED NULL,
+        parent_phone VARCHAR(30) NOT NULL,
+        student_id INT UNSIGNED NOT NULL,
+        school_id INT UNSIGNED NULL,
+        status ENUM('PENDING','APPROVED','REJECTED','CANCELLED') NOT NULL DEFAULT 'PENDING',
+        purpose VARCHAR(120) NULL,
+        message TEXT NULL,
+        reviewed_by VARCHAR(120) NULL,
+        reviewed_at DATETIME NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        KEY idx_psar_parent_phone (parent_phone),
+        KEY idx_psar_student (student_id),
+        KEY idx_psar_school (school_id),
+        KEY idx_psar_status (status)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+    accessRequestTableReady = true;
+  })();
+  try {
+    await accessRequestTablePromise;
+  } finally {
+    accessRequestTablePromise = null;
+  }
+}
+
+async function ensureParentNotificationTable() {
+  if (parentNotificationTableReady) return;
+  if (parentNotificationTablePromise) return parentNotificationTablePromise;
+  parentNotificationTablePromise = (async () => {
+    await promisePool.query(`
+      CREATE TABLE IF NOT EXISTS parent_portal_notifications (
+        id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        target_parent_phone VARCHAR(30) NOT NULL,
+        source_parent_phone VARCHAR(30) NULL,
+        student_id INT UNSIGNED NULL,
+        type VARCHAR(80) NOT NULL,
+        title VARCHAR(200) NOT NULL,
+        body TEXT NULL,
+        payload_json LONGTEXT NULL,
+        read_at DATETIME NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        KEY idx_ppn_target_phone (target_parent_phone),
+        KEY idx_ppn_student (student_id),
+        KEY idx_ppn_type (type),
+        KEY idx_ppn_created (created_at)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+    parentNotificationTableReady = true;
+  })();
+  try {
+    await parentNotificationTablePromise;
+  } finally {
+    parentNotificationTablePromise = null;
+  }
+}
+
+async function ensureShulecardTables() {
+  if (shulecardTableReady) return;
+  if (shulecardTablePromise) return shulecardTablePromise;
+  shulecardTablePromise = (async () => {
+    await promisePool.query(`
+      CREATE TABLE IF NOT EXISTS parent_shulecard_wallets (
+        id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        parent_portal_account_id INT UNSIGNED NULL,
+        parent_phone VARCHAR(30) NOT NULL,
+        student_id INT UNSIGNED NOT NULL,
+        balance_rwf DECIMAL(14,2) NOT NULL DEFAULT 0,
+        daily_limit_rwf DECIMAL(14,2) NOT NULL DEFAULT 5000,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_psw_parent_student (parent_phone, student_id),
+        KEY idx_psw_student (student_id),
+        KEY idx_psw_parent (parent_phone)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+    await promisePool.query(`
+      CREATE TABLE IF NOT EXISTS parent_shulecard_topups (
+        id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        parent_portal_account_id INT UNSIGNED NULL,
+        parent_phone VARCHAR(30) NOT NULL,
+        student_id INT UNSIGNED NOT NULL,
+        amount_rwf DECIMAL(14,2) NOT NULL,
+        payment_method VARCHAR(40) NOT NULL DEFAULT 'momo',
+        note VARCHAR(255) NULL,
+        status VARCHAR(20) NOT NULL DEFAULT 'completed',
+        reference_no VARCHAR(80) NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        KEY idx_pst_student (student_id),
+        KEY idx_pst_parent (parent_phone),
+        KEY idx_pst_created (created_at)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+    await promisePool.query(`
+      CREATE TABLE IF NOT EXISTS parent_shulecard_spending_events (
+        id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        student_id INT UNSIGNED NOT NULL,
+        spender_phone VARCHAR(30) NULL,
+        merchant_name VARCHAR(120) NULL,
+        amount_rwf DECIMAL(14,2) NOT NULL,
+        note VARCHAR(255) NULL,
+        spent_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        KEY idx_psse_student (student_id),
+        KEY idx_psse_spent_at (spent_at)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+    shulecardTableReady = true;
+  })();
+  try {
+    await shulecardTablePromise;
+  } finally {
+    shulecardTablePromise = null;
   }
 }
 
@@ -473,6 +665,64 @@ function buildParentSessionUserFromStudentPhone(phone, profileRow) {
     force_password_change: false,
     phone_only_registration_required: true,
   };
+}
+
+async function upsertStudentAccess({ parentPortalAccountId, parentPhone, studentId, accessType }) {
+  await ensureStudentAccessTable();
+  await promisePool.query(
+    `INSERT INTO student_access (parent_portal_account_id, parent_phone, student_id, access_type)
+     VALUES (?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE
+       parent_portal_account_id = VALUES(parent_portal_account_id),
+       access_type = VALUES(access_type),
+       updated_at = CURRENT_TIMESTAMP`,
+    [parentPortalAccountId || null, parentPhone, studentId, accessType]
+  );
+}
+
+async function logParentStudentAction({
+  parentPortalAccountId,
+  parentPhone,
+  studentId,
+  accessType,
+  actionType,
+  endpoint,
+  payload,
+}) {
+  await ensureParentAccessLogTable();
+  await promisePool.query(
+    `INSERT INTO parent_student_activity_logs
+      (parent_portal_account_id, parent_phone, student_id, access_type, action_type, endpoint, payload_json)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [
+      parentPortalAccountId || null,
+      parentPhone,
+      studentId,
+      accessType || 'LIMITED',
+      String(actionType || '').slice(0, 80) || 'unknown_action',
+      endpoint ? String(endpoint).slice(0, 160) : null,
+      payload ? JSON.stringify(payload) : null,
+    ]
+  );
+}
+
+async function resolveParentStudentAccess(parentPhone, studentId) {
+  const [rows] = await promisePool.query(
+    `SELECT s.id, s.first_name, s.last_name, s.school_id, s.class_name, s.father_phone, s.mother_phone, sc.school_name,
+            sa.access_type
+     FROM students s
+     LEFT JOIN schools sc ON sc.id = s.school_id
+     LEFT JOIN student_access sa ON sa.student_id = s.id AND sa.parent_phone = ?
+     WHERE s.id = ?
+     LIMIT 1`,
+    [parentPhone, studentId]
+  );
+  const st = rows?.[0];
+  if (!st) return null;
+  const official = studentRowOwnedByPhone(st, parentPhone);
+  const accessType = official ? 'FULL' : (st.access_type || null);
+  if (!accessType) return null;
+  return { ...st, access_type: accessType, officially_linked: official };
 }
 
 // ── POST /api/parent-portal/check-phone ─────────────────────────
@@ -792,8 +1042,10 @@ router.get('/parent-portal/public/babyeyi-finder', (_req, res) => {
 // ── POST /api/parent-portal/link-student-by-code ─────────────────
 router.post('/parent-portal/link-student-by-code', authLimiter, async (req, res) => {
   try {
+    await ensureStudentAccessTable();
     const role = (req.session?.user?.role?.code || req.session?.roleCode || '').toUpperCase();
     const parentPhone = req.session?.user?.parent_phone;
+    const parentPortalAccountId = req.session?.parentPortalAccountId || req.session?.user?.parent_portal_id || null;
     if (role !== 'PARENT' || !parentPhone) {
       return res.status(401).json({ success: false, message: 'Not authenticated as parent' });
     }
@@ -801,18 +1053,43 @@ router.post('/parent-portal/link-student-by-code', authLimiter, async (req, res)
     if (!np) {
       return res.status(400).json({ success: false, message: 'Invalid parent session phone' });
     }
-    const st = await findStudentRowByCode(
-      req.body?.code ?? req.body?.student_uid ?? req.body?.sdm_code ?? req.body?.sdmCode
-    );
+    let st = null;
+    const studentId = Number(req.body?.student_id || 0);
+    if (studentId > 0) {
+      const [rows] = await promisePool.query(
+        `SELECT s.id, s.school_id, s.student_uid, s.student_code, s.sdm_code, s.father_phone, s.mother_phone,
+                s.first_name, s.last_name, s.class_name, s.academic_year, sc.school_name
+         FROM students s
+         LEFT JOIN schools sc ON sc.id = s.school_id
+         WHERE s.id = ?
+         LIMIT 1`,
+        [studentId]
+      );
+      st = rows?.[0] || null;
+    } else {
+      st = await findStudentRowByCode(
+        req.body?.code ?? req.body?.student_uid ?? req.body?.sdm_code ?? req.body?.sdmCode
+      );
+    }
     if (!st) {
       return res.json({ success: false, notFound: true });
     }
-    if (fieldContainsNormalizedPhone(st.father_phone, np) || fieldContainsNormalizedPhone(st.mother_phone, np)) {
+    const officiallyLinked =
+      fieldContainsNormalizedPhone(st.father_phone, np) || fieldContainsNormalizedPhone(st.mother_phone, np);
+    if (officiallyLinked) {
+      await upsertStudentAccess({
+        parentPortalAccountId,
+        parentPhone: np,
+        studentId: st.id,
+        accessType: 'FULL',
+      });
       return res.json({
         success: true,
         linked: true,
         alreadyLinked: true,
+        access_type: 'FULL',
         data: {
+          id: st.id,
           student_uid: st.student_uid,
           first_name: st.first_name,
           last_name: st.last_name,
@@ -821,45 +1098,289 @@ router.post('/parent-portal/link-student-by-code', authLimiter, async (req, res)
         },
       });
     }
-    if (phoneSlotEmpty(st.father_phone)) {
-      await promisePool.query('UPDATE students SET father_phone = ? WHERE id = ?', [np, st.id]);
-      return res.json({
-        success: true,
-        linked: true,
-        slot: 'father',
-        data: {
-          student_uid: st.student_uid,
-          first_name: st.first_name,
-          last_name: st.last_name,
-          school_name: st.school_name,
-          class_name: st.class_name,
-        },
-      });
-    }
-    if (phoneSlotEmpty(st.mother_phone)) {
-      await promisePool.query('UPDATE students SET mother_phone = ? WHERE id = ?', [np, st.id]);
-      return res.json({
-        success: true,
-        linked: true,
-        slot: 'mother',
-        data: {
-          student_uid: st.student_uid,
-          first_name: st.first_name,
-          last_name: st.last_name,
-          school_name: st.school_name,
-          class_name: st.class_name,
-        },
-      });
-    }
-    return res.status(409).json({
-      success: false,
-      code: 'PHONE_MISMATCH',
-      message:
-        'This learner is already linked to another parent phone. Ask the school to update your number on the student record.',
+    await upsertStudentAccess({
+      parentPortalAccountId,
+      parentPhone: np,
+      studentId: st.id,
+      accessType: 'LIMITED',
+    });
+    await logParentStudentAction({
+      parentPortalAccountId,
+      parentPhone: np,
+      studentId: st.id,
+      accessType: 'LIMITED',
+      actionType: 'add_student_limited',
+      endpoint: '/api/parent-portal/link-student-by-code',
+      payload: { student_uid: st.student_uid, student_code: st.student_code, sdm_code: st.sdm_code },
+    }).catch(() => {});
+    return res.json({
+      success: true,
+      linked: true,
+      access_type: 'LIMITED',
+      limited: true,
+      message: 'Student added with limited access.',
+      data: {
+        id: st.id,
+        student_uid: st.student_uid,
+        first_name: st.first_name,
+        last_name: st.last_name,
+        school_name: st.school_name,
+        class_name: st.class_name,
+      },
     });
   } catch (err) {
     console.error('[parent-portal/link-student-by-code]', err);
     return res.status(500).json({ success: false, message: 'Could not link student' });
+  }
+});
+
+// ── GET /api/parent-portal/search-students?q=... ──────────────────
+router.get('/parent-portal/search-students', authLimiter, async (req, res) => {
+  try {
+    await ensureStudentAccessTable();
+    const role = (req.session?.user?.role?.code || req.session?.roleCode || '').toUpperCase();
+    const parentPhone = req.session?.user?.parent_phone;
+    if (role !== 'PARENT' || !parentPhone) {
+      return res.status(401).json({ success: false, message: 'Not authenticated as parent' });
+    }
+    const np = normalizePhone(parentPhone);
+    if (!np) return res.status(400).json({ success: false, message: 'Invalid parent phone in session' });
+    const q = String(req.query?.q || '').trim();
+    if (q.length < 2) {
+      return res.status(400).json({ success: false, message: 'Enter at least 2 characters to search' });
+    }
+    const like = `%${q}%`;
+    const upperQ = q.toUpperCase();
+    const [rows] = await promisePool.query(
+      `SELECT s.id, s.student_uid, s.student_code, s.sdm_code, s.first_name, s.last_name, s.class_name, s.academic_year,
+              s.school_id, s.father_phone, s.mother_phone, sc.school_name,
+              sa.access_type AS saved_access_type
+       FROM students s
+       LEFT JOIN schools sc ON sc.id = s.school_id
+       LEFT JOIN student_access sa ON sa.student_id = s.id AND sa.parent_phone = ?
+       WHERE (
+         TRIM(UPPER(s.student_uid)) = ?
+         OR (s.student_code IS NOT NULL AND TRIM(s.student_code) = ?)
+         OR (s.sdm_code IS NOT NULL AND TRIM(UPPER(s.sdm_code)) = ?)
+         OR CONCAT(COALESCE(s.first_name,''), ' ', COALESCE(s.last_name,'')) LIKE ?
+         OR CONCAT(COALESCE(s.last_name,''), ' ', COALESCE(s.first_name,'')) LIKE ?
+       )
+       ORDER BY s.last_name ASC, s.first_name ASC
+       LIMIT 20`,
+      [np, upperQ, q, upperQ, like, like]
+    );
+    const data = (rows || []).map((r) => {
+      const official = studentRowOwnedByPhone(r, np);
+      const accessType = official ? 'FULL' : (r.saved_access_type || 'LIMITED');
+      return {
+        id: r.id,
+        student_uid: r.student_uid,
+        student_code: r.student_code,
+        sdm_code: r.sdm_code,
+        first_name: r.first_name,
+        last_name: r.last_name,
+        class_name: r.class_name,
+        academic_year: r.academic_year,
+        school_id: r.school_id,
+        school_name: r.school_name,
+        officially_linked: official,
+        access_type: accessType,
+      };
+    });
+    return res.json({ success: true, data });
+  } catch (err) {
+    console.error('[parent-portal/search-students]', err);
+    return res.status(500).json({ success: false, message: 'Could not search students' });
+  }
+});
+
+// ── POST /api/parent-portal/limited-actions/log ───────────────────
+router.post('/parent-portal/limited-actions/log', authLimiter, async (req, res) => {
+  try {
+    await ensureStudentAccessTable();
+    await ensureParentAccessLogTable();
+    const role = (req.session?.user?.role?.code || req.session?.roleCode || '').toUpperCase();
+    const parentPhone = normalizePhone(req.session?.user?.parent_phone || '');
+    const parentPortalAccountId = req.session?.parentPortalAccountId || req.session?.user?.parent_portal_id || null;
+    if (role !== 'PARENT' || !parentPhone) {
+      return res.status(401).json({ success: false, message: 'Not authenticated as parent' });
+    }
+    const studentId = Number(req.body?.student_id || 0);
+    const actionType = String(req.body?.action_type || '').trim().toLowerCase();
+    if (!studentId || !actionType) {
+      return res.status(400).json({ success: false, message: 'student_id and action_type are required' });
+    }
+    const [rows] = await promisePool.query(
+      `SELECT s.id, s.father_phone, s.mother_phone, sa.access_type
+       FROM students s
+       LEFT JOIN student_access sa ON sa.student_id = s.id AND sa.parent_phone = ?
+       WHERE s.id = ?
+       LIMIT 1`,
+      [parentPhone, studentId]
+    );
+    const row = rows?.[0];
+    if (!row) return res.status(404).json({ success: false, message: 'Student not found' });
+    const accessType = studentRowOwnedByPhone(row, parentPhone) ? 'FULL' : (row.access_type || null);
+    if (!accessType) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this student' });
+    }
+    if (accessType !== 'LIMITED') {
+      return res.status(400).json({ success: false, message: 'Action log endpoint is only for limited-access actions' });
+    }
+    await logParentStudentAction({
+      parentPortalAccountId,
+      parentPhone,
+      studentId,
+      accessType,
+      actionType,
+      endpoint: '/api/parent-portal/limited-actions/log',
+      payload: req.body?.payload || null,
+    });
+    return res.json({ success: true, message: 'Action logged' });
+  } catch (err) {
+    console.error('[parent-portal/limited-actions/log]', err);
+    return res.status(500).json({ success: false, message: 'Could not log action' });
+  }
+});
+
+// ── POST /api/parent-portal/access-requests ───────────────────────
+router.post('/parent-portal/access-requests', authLimiter, async (req, res) => {
+  try {
+    await ensureStudentAccessTable();
+    await ensureParentAccessRequestTable();
+    await ensureParentNotificationTable();
+    const role = (req.session?.user?.role?.code || req.session?.roleCode || '').toUpperCase();
+    const parentPhone = normalizePhone(req.session?.user?.parent_phone || '');
+    const parentPortalAccountId = req.session?.parentPortalAccountId || req.session?.user?.parent_portal_id || null;
+    if (role !== 'PARENT' || !parentPhone) {
+      return res.status(401).json({ success: false, message: 'Not authenticated as parent' });
+    }
+    const studentId = Number(req.body?.student_id || 0);
+    const message = String(req.body?.message || '').trim().slice(0, 1000);
+    const purpose = String(req.body?.purpose || 'full_access_request').trim().slice(0, 120);
+    if (!studentId) return res.status(400).json({ success: false, message: 'student_id is required' });
+    const [rows] = await promisePool.query(
+      `SELECT s.id, s.school_id, s.first_name, s.last_name, s.father_phone, s.mother_phone, sc.school_name, sa.access_type
+       FROM students s
+       LEFT JOIN schools sc ON sc.id = s.school_id
+       LEFT JOIN student_access sa ON sa.student_id = s.id AND sa.parent_phone = ?
+       WHERE s.id = ?
+       LIMIT 1`,
+      [parentPhone, studentId]
+    );
+    const st = rows?.[0];
+    if (!st) return res.status(404).json({ success: false, message: 'Student not found' });
+    if (studentRowOwnedByPhone(st, parentPhone)) {
+      return res.status(400).json({ success: false, message: 'You already have full access for this student' });
+    }
+    if (String(st.access_type || '').toUpperCase() !== 'LIMITED') {
+      return res.status(403).json({ success: false, message: 'Add this student first with limited access' });
+    }
+    const [openRows] = await promisePool.query(
+      `SELECT id FROM parent_student_access_requests
+       WHERE parent_phone = ? AND student_id = ? AND status = 'PENDING'
+       ORDER BY id DESC LIMIT 1`,
+      [parentPhone, studentId]
+    );
+    if (openRows?.[0]?.id) {
+      return res.status(409).json({ success: false, message: 'A pending request already exists for this student' });
+    }
+    const [ins] = await promisePool.query(
+      `INSERT INTO parent_student_access_requests
+        (parent_portal_account_id, parent_phone, student_id, school_id, status, purpose, message)
+       VALUES (?, ?, ?, ?, 'PENDING', ?, ?)`,
+      [parentPortalAccountId || null, parentPhone, studentId, st.school_id || null, purpose || null, message || null]
+    );
+    const studentName = `${st.first_name || ''} ${st.last_name || ''}`.trim() || 'Student';
+    await promisePool.query(
+      `INSERT INTO parent_portal_notifications
+        (target_parent_phone, source_parent_phone, student_id, type, title, body, payload_json)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        parentPhone,
+        null,
+        studentId,
+        'FULL_ACCESS_REQUEST_SUBMITTED',
+        'Full access request sent',
+        `Request sent to ${st.school_name || 'school admin'} for ${studentName}.`,
+        JSON.stringify({ request_id: ins.insertId, student_id: studentId, school_id: st.school_id || null }),
+      ]
+    );
+    return res.status(201).json({
+      success: true,
+      message: 'Full access request sent to school admin',
+      data: { id: ins.insertId, student_id: studentId, school_id: st.school_id || null, status: 'PENDING' },
+    });
+  } catch (err) {
+    console.error('[parent-portal/access-requests POST]', err);
+    return res.status(500).json({ success: false, message: 'Could not submit full access request' });
+  }
+});
+
+// ── GET /api/parent-portal/access-requests/mine ───────────────────
+router.get('/parent-portal/access-requests/mine', authLimiter, async (req, res) => {
+  try {
+    await ensureParentAccessRequestTable();
+    const role = (req.session?.user?.role?.code || req.session?.roleCode || '').toUpperCase();
+    const parentPhone = normalizePhone(req.session?.user?.parent_phone || '');
+    if (role !== 'PARENT' || !parentPhone) {
+      return res.status(401).json({ success: false, message: 'Not authenticated as parent' });
+    }
+    const [rows] = await promisePool.query(
+      `SELECT r.id, r.student_id, r.school_id, r.status, r.purpose, r.message, r.reviewed_by, r.reviewed_at, r.created_at, r.updated_at,
+              s.first_name, s.last_name, sc.school_name
+       FROM parent_student_access_requests r
+       LEFT JOIN students s ON s.id = r.student_id
+       LEFT JOIN schools sc ON sc.id = r.school_id
+       WHERE r.parent_phone = ?
+       ORDER BY r.created_at DESC, r.id DESC
+       LIMIT 100`,
+      [parentPhone]
+    );
+    return res.json({ success: true, data: rows || [] });
+  } catch (err) {
+    console.error('[parent-portal/access-requests/mine]', err);
+    return res.status(500).json({ success: false, message: 'Could not load access requests' });
+  }
+});
+
+// ── GET /api/parent-portal/notifications ──────────────────────────
+router.get('/parent-portal/notifications', authLimiter, async (req, res) => {
+  try {
+    await ensureParentNotificationTable();
+    const role = (req.session?.user?.role?.code || req.session?.roleCode || '').toUpperCase();
+    const parentPhone = normalizePhone(req.session?.user?.parent_phone || '');
+    if (role !== 'PARENT' || !parentPhone) {
+      return res.status(401).json({ success: false, message: 'Not authenticated as parent' });
+    }
+    const limit = Math.min(Math.max(Number(req.query?.limit || 30), 1), 100);
+    const [rows] = await promisePool.query(
+      `SELECT id, target_parent_phone, source_parent_phone, student_id, type, title, body, payload_json, read_at, created_at
+       FROM parent_portal_notifications
+       WHERE target_parent_phone = ?
+       ORDER BY created_at DESC, id DESC
+       LIMIT ?`,
+      [parentPhone, limit]
+    );
+    const data = (rows || []).map((r) => {
+      let payload = null;
+      try { payload = r.payload_json ? JSON.parse(r.payload_json) : null; } catch { payload = null; }
+      return {
+        id: r.id,
+        source_parent_phone: r.source_parent_phone || null,
+        student_id: r.student_id || null,
+        type: r.type,
+        title: r.title,
+        body: r.body,
+        payload,
+        read: !!r.read_at,
+        created_at: r.created_at,
+      };
+    });
+    return res.json({ success: true, data });
+  } catch (err) {
+    console.error('[parent-portal/notifications GET]', err);
+    return res.status(500).json({ success: false, message: 'Could not load notifications' });
   }
 });
 
@@ -1283,9 +1804,116 @@ router.get('/parent-portal/admin-accounts/export.csv', requireRole('SUPER_ADMIN'
   }
 });
 
+// ── School admin review: full-access requests ─────────────────────
+router.get('/parent-portal/admin/access-requests', requireRole('SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER'), async (req, res) => {
+  try {
+    await ensureParentAccessRequestTable();
+    const role = String(req.user?.role_code || '').toUpperCase();
+    const userSchoolId = Number(req.user?.school_id || 0);
+    const status = String(req.query?.status || 'PENDING').trim().toUpperCase();
+    const allowedStatus = new Set(['PENDING', 'APPROVED', 'REJECTED', 'CANCELLED', 'ALL']);
+    const scopedStatus = allowedStatus.has(status) ? status : 'PENDING';
+    const where = [];
+    const params = [];
+    if (role === 'SCHOOL_ADMIN' || role === 'SCHOOL_MANAGER') {
+      where.push('r.school_id = ?');
+      params.push(userSchoolId || -1);
+    } else {
+      const schoolId = Number(req.query?.school_id || 0);
+      if (schoolId) {
+        where.push('r.school_id = ?');
+        params.push(schoolId);
+      }
+    }
+    if (scopedStatus !== 'ALL') {
+      where.push('r.status = ?');
+      params.push(scopedStatus);
+    }
+    const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+    const [rows] = await promisePool.query(
+      `SELECT r.id, r.parent_phone, r.student_id, r.school_id, r.status, r.purpose, r.message, r.reviewed_by, r.reviewed_at, r.created_at,
+              s.first_name, s.last_name, sc.school_name
+       FROM parent_student_access_requests r
+       LEFT JOIN students s ON s.id = r.student_id
+       LEFT JOIN schools sc ON sc.id = r.school_id
+       ${whereSql}
+       ORDER BY r.created_at DESC, r.id DESC
+       LIMIT 300`,
+      params
+    );
+    return res.json({ success: true, data: rows || [] });
+  } catch (err) {
+    console.error('[parent-portal/admin/access-requests GET]', err);
+    return res.status(500).json({ success: false, message: 'Could not load access requests' });
+  }
+});
+
+router.patch('/parent-portal/admin/access-requests/:id', requireRole('SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER'), async (req, res) => {
+  try {
+    await ensureParentAccessRequestTable();
+    await ensureStudentAccessTable();
+    await ensureParentNotificationTable();
+    const id = Number(req.params.id || 0);
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid request id' });
+    const role = String(req.user?.role_code || '').toUpperCase();
+    const userSchoolId = Number(req.user?.school_id || 0);
+    const action = String(req.body?.action || '').trim().toLowerCase();
+    if (!['approve', 'reject'].includes(action)) {
+      return res.status(400).json({ success: false, message: 'action must be approve or reject' });
+    }
+    const [[row]] = await promisePool.query(
+      `SELECT id, parent_phone, student_id, school_id, status FROM parent_student_access_requests WHERE id = ? LIMIT 1`,
+      [id]
+    );
+    if (!row) return res.status(404).json({ success: false, message: 'Request not found' });
+    if ((role === 'SCHOOL_ADMIN' || role === 'SCHOOL_MANAGER') && Number(row.school_id || 0) !== userSchoolId) {
+      return res.status(403).json({ success: false, message: 'Access denied for this school request' });
+    }
+    if (String(row.status || '').toUpperCase() !== 'PENDING') {
+      return res.status(409).json({ success: false, message: `Request already ${String(row.status || '').toLowerCase()}` });
+    }
+    const reviewedBy = String(req.user?.full_name || req.user?.email || req.user?.username || req.user?.id || role).slice(0, 120);
+    const nextStatus = action === 'approve' ? 'APPROVED' : 'REJECTED';
+    await promisePool.query(
+      `UPDATE parent_student_access_requests
+       SET status = ?, reviewed_by = ?, reviewed_at = NOW()
+       WHERE id = ?`,
+      [nextStatus, reviewedBy, id]
+    );
+    if (action === 'approve') {
+      await promisePool.query(
+        `INSERT INTO student_access (parent_portal_account_id, parent_phone, student_id, access_type)
+         VALUES (NULL, ?, ?, 'FULL')
+         ON DUPLICATE KEY UPDATE access_type = 'FULL', updated_at = CURRENT_TIMESTAMP`,
+        [row.parent_phone, row.student_id]
+      );
+    }
+    await promisePool.query(
+      `INSERT INTO parent_portal_notifications
+        (target_parent_phone, source_parent_phone, student_id, type, title, body, payload_json)
+       VALUES (?, NULL, ?, ?, ?, ?, ?)`,
+      [
+        row.parent_phone,
+        row.student_id,
+        action === 'approve' ? 'FULL_ACCESS_REQUEST_APPROVED' : 'FULL_ACCESS_REQUEST_REJECTED',
+        action === 'approve' ? 'Full access approved' : 'Full access request declined',
+        action === 'approve'
+          ? 'School admin approved your full access request.'
+          : 'School admin declined your full access request.',
+        JSON.stringify({ request_id: id, reviewed_by: reviewedBy }),
+      ]
+    );
+    return res.json({ success: true, message: `Request ${nextStatus.toLowerCase()}` });
+  } catch (err) {
+    console.error('[parent-portal/admin/access-requests PATCH]', err);
+    return res.status(500).json({ success: false, message: 'Could not update request' });
+  }
+});
+
 // ── GET /api/parent-portal/children ─────────────────────────────
 router.get('/parent-portal/children', async (req, res) => {
   try {
+    await ensureStudentAccessTable();
     const role = (req.session?.user?.role?.code || req.session?.roleCode || '').toUpperCase();
     if (role !== 'PARENT' || !req.session?.user?.parent_phone) {
       return res.status(401).json({ success: false, message: 'Not authenticated as parent' });
@@ -1306,13 +1934,347 @@ router.get('/parent-portal/children', async (req, res) => {
        ORDER BY s.last_name ASC, s.first_name ASC`,
       bindParentPhoneMatchParams(phone)
     );
-    const students = (candidates || [])
+    const fullStudents = (candidates || [])
       .filter((r) => studentRowOwnedByPhone(r, phone))
-      .map(({ father_phone, mother_phone, ...rest }) => rest);
-    return res.json({ success: true, data: students });
+      .map(({ father_phone, mother_phone, ...rest }) => ({ ...rest, access_type: 'FULL' }));
+    const [limitedRows] = await promisePool.query(
+      `SELECT s.id, s.student_uid, s.student_code, s.sdm_code, s.school_id, s.first_name, s.last_name, s.gender, s.birth_year,
+              s.province, s.district, s.sector, s.class_name, s.academic_year,
+              sc.school_name, sc.school_code, sa.access_type
+       FROM student_access sa
+       INNER JOIN students s ON s.id = sa.student_id
+       LEFT JOIN schools sc ON sc.id = s.school_id
+       WHERE sa.parent_phone = ?
+       ORDER BY s.last_name ASC, s.first_name ASC`,
+      [phone]
+    );
+    const byId = new Map();
+    fullStudents.forEach((r) => byId.set(Number(r.id), r));
+    (limitedRows || []).forEach((r) => {
+      const idNum = Number(r.id);
+      if (!Number.isFinite(idNum) || byId.has(idNum)) return;
+      byId.set(idNum, r);
+    });
+    return res.json({ success: true, data: Array.from(byId.values()) });
   } catch (err) {
     console.error('[parent-portal/children]', err);
     return res.status(500).json({ success: false, message: 'Failed to load children' });
+  }
+});
+
+// ── ShuleCard APIs (student wallet, top-up, daily limit) ──────────
+router.get('/parent-portal/shulecard/students', async (req, res) => {
+  try {
+    await ensureStudentAccessTable();
+    await ensureShulecardTables();
+    const role = (req.session?.user?.role?.code || req.session?.roleCode || '').toUpperCase();
+    const phone = normalizePhone(req.session?.user?.parent_phone || '');
+    if (role !== 'PARENT' || !phone) return res.status(401).json({ success: false, message: 'Not authenticated as parent' });
+    const [childrenRes, walletRows] = await Promise.all([
+      promisePool.query(
+        `SELECT s.id, s.first_name, s.last_name, s.student_uid, s.student_code, s.sdm_code, s.school_id, s.class_name, s.academic_year,
+                s.father_phone, s.mother_phone, sc.school_name, sa.access_type AS saved_access_type
+         FROM students s
+         LEFT JOIN schools sc ON sc.id = s.school_id
+         LEFT JOIN student_access sa ON sa.student_id = s.id AND sa.parent_phone = ?
+         WHERE (
+            (s.father_phone IS NOT NULL AND TRIM(s.father_phone) <> '' AND s.father_phone REGEXP ?)
+            OR (s.mother_phone IS NOT NULL AND TRIM(s.mother_phone) <> '' AND s.mother_phone REGEXP ?)
+            OR sa.parent_phone = ?
+         )
+         ORDER BY s.last_name ASC, s.first_name ASC`,
+        [phone, mysqlPhoneTokenRegexp(phone), mysqlPhoneTokenRegexp(phone), phone]
+      ),
+      promisePool.query(
+        `SELECT student_id, balance_rwf, daily_limit_rwf, updated_at
+         FROM parent_shulecard_wallets
+         WHERE parent_phone = ?`,
+        [phone]
+      ),
+    ]);
+    const children = childrenRes?.[0] || [];
+    const wallets = walletRows?.[0] || [];
+    const walletByStudent = new Map(wallets.map((w) => [Number(w.student_id), w]));
+    const data = [];
+    const seen = new Set();
+    for (const c of children) {
+      const sid = Number(c.id);
+      if (!Number.isFinite(sid) || seen.has(sid)) continue;
+      seen.add(sid);
+      const official = studentRowOwnedByPhone(c, phone);
+      const accessType = official ? 'FULL' : (c.saved_access_type || null);
+      if (!accessType) continue;
+      const w = walletByStudent.get(sid);
+      data.push({
+        id: sid,
+        first_name: c.first_name,
+        last_name: c.last_name,
+        student_uid: c.student_uid,
+        student_code: c.student_code,
+        sdm_code: c.sdm_code,
+        class_name: c.class_name,
+        academic_year: c.academic_year,
+        school_id: c.school_id,
+        school_name: c.school_name,
+        access_type: accessType,
+        wallet: {
+          balance_rwf: Number(w?.balance_rwf || 0),
+          daily_limit_rwf: Number(w?.daily_limit_rwf || 5000),
+          updated_at: w?.updated_at || null,
+        },
+      });
+    }
+    return res.json({ success: true, data });
+  } catch (err) {
+    console.error('[parent-portal/shulecard/students]', err);
+    return res.status(500).json({ success: false, message: 'Failed to load shulecard students' });
+  }
+});
+
+router.post('/parent-portal/shulecard/topups', authLimiter, async (req, res) => {
+  try {
+    await ensureStudentAccessTable();
+    await ensureShulecardTables();
+    await ensureParentNotificationTable();
+    const role = (req.session?.user?.role?.code || req.session?.roleCode || '').toUpperCase();
+    const parentPhone = normalizePhone(req.session?.user?.parent_phone || '');
+    const parentPortalAccountId = req.session?.parentPortalAccountId || req.session?.user?.parent_portal_id || null;
+    if (role !== 'PARENT' || !parentPhone) return res.status(401).json({ success: false, message: 'Not authenticated as parent' });
+    const studentId = Number(req.body?.student_id || 0);
+    const amount = Math.floor(Number(req.body?.amount_rwf || 0));
+    const paymentMethod = String(req.body?.payment_method || 'momo').trim().toLowerCase();
+    const note = String(req.body?.note || '').trim().slice(0, 255);
+    if (!studentId) return res.status(400).json({ success: false, message: 'student_id is required' });
+    if (!Number.isFinite(amount) || amount < 500 || amount > 5_000_000) {
+      return res.status(400).json({ success: false, message: 'Amount must be between 500 and 5,000,000 RWF' });
+    }
+    const st = await resolveParentStudentAccess(parentPhone, studentId);
+    if (!st) return res.status(403).json({ success: false, message: 'No access to this student' });
+    const conn = await promisePool.getConnection();
+    let nextBalance = 0;
+    const referenceNo = `SC-${Date.now()}-${Math.floor(Math.random() * 9000 + 1000)}`;
+    try {
+      await conn.beginTransaction();
+      await conn.query(
+        `INSERT INTO parent_shulecard_wallets
+          (parent_portal_account_id, parent_phone, student_id, balance_rwf, daily_limit_rwf)
+         VALUES (?, ?, ?, 0, 5000)
+         ON DUPLICATE KEY UPDATE parent_portal_account_id = VALUES(parent_portal_account_id)`,
+        [parentPortalAccountId || null, parentPhone, studentId]
+      );
+      await conn.query(
+        `UPDATE parent_shulecard_wallets
+         SET balance_rwf = balance_rwf + ?
+         WHERE parent_phone = ? AND student_id = ?`,
+        [amount, parentPhone, studentId]
+      );
+      const [[wallet]] = await conn.query(
+        `SELECT balance_rwf, daily_limit_rwf FROM parent_shulecard_wallets WHERE parent_phone = ? AND student_id = ? LIMIT 1`,
+        [parentPhone, studentId]
+      );
+      nextBalance = Number(wallet?.balance_rwf || 0);
+      await conn.query(
+        `INSERT INTO parent_shulecard_topups
+          (parent_portal_account_id, parent_phone, student_id, amount_rwf, payment_method, note, status, reference_no)
+         VALUES (?, ?, ?, ?, ?, ?, 'completed', ?)`,
+        [parentPortalAccountId || null, parentPhone, studentId, amount, paymentMethod, note || null, referenceNo]
+      );
+      await conn.commit();
+    } catch (e) {
+      await conn.rollback();
+      throw e;
+    } finally {
+      conn.release();
+    }
+    await logParentStudentAction({
+      parentPortalAccountId,
+      parentPhone,
+      studentId,
+      accessType: st.access_type,
+      actionType: 'create_payment',
+      endpoint: '/api/parent-portal/shulecard/topups',
+      payload: { amount_rwf: amount, payment_method: paymentMethod, reference_no: referenceNo },
+    }).catch(() => {});
+    if (st.access_type === 'LIMITED') {
+      const studentName = `${st.first_name || ''} ${st.last_name || ''}`.trim() || 'your child';
+      const targets = [normalizePhone(st.father_phone), normalizePhone(st.mother_phone)]
+        .filter(Boolean)
+        .filter((p) => p !== parentPhone);
+      const uniqTargets = Array.from(new Set(targets));
+      for (const t of uniqTargets) {
+        await promisePool.query(
+          `INSERT INTO parent_portal_notifications
+            (target_parent_phone, source_parent_phone, student_id, type, title, body, payload_json)
+           VALUES (?, ?, ?, 'LIMITED_ACCESS_PAYMENT', ?, ?, ?)`,
+          [
+            t,
+            parentPhone,
+            studentId,
+            'Limited-access ShuleCard top-up',
+            `A limited-access parent added ${amount.toLocaleString()} RWF to ${studentName}.`,
+            JSON.stringify({ student_id: studentId, amount_rwf: amount, reference_no: referenceNo, product: 'shulecard_topup' }),
+          ]
+        ).catch(() => {});
+      }
+    }
+    return res.status(201).json({
+      success: true,
+      message: 'Top-up completed successfully',
+      data: {
+        student_id: studentId,
+        amount_rwf: amount,
+        balance_rwf: nextBalance,
+        reference_no: referenceNo,
+      },
+    });
+  } catch (err) {
+    console.error('[parent-portal/shulecard/topups]', err);
+    return res.status(500).json({ success: false, message: 'Failed to complete top-up' });
+  }
+});
+
+router.patch('/parent-portal/shulecard/daily-limit', authLimiter, async (req, res) => {
+  try {
+    await ensureStudentAccessTable();
+    await ensureShulecardTables();
+    const role = (req.session?.user?.role?.code || req.session?.roleCode || '').toUpperCase();
+    const parentPhone = normalizePhone(req.session?.user?.parent_phone || '');
+    const parentPortalAccountId = req.session?.parentPortalAccountId || req.session?.user?.parent_portal_id || null;
+    if (role !== 'PARENT' || !parentPhone) return res.status(401).json({ success: false, message: 'Not authenticated as parent' });
+    const studentId = Number(req.body?.student_id || 0);
+    const dailyLimit = Math.floor(Number(req.body?.daily_limit_rwf || 0));
+    if (!studentId) return res.status(400).json({ success: false, message: 'student_id is required' });
+    if (!Number.isFinite(dailyLimit) || dailyLimit < 500 || dailyLimit > 200000) {
+      return res.status(400).json({ success: false, message: 'Daily limit must be between 500 and 200,000 RWF' });
+    }
+    const st = await resolveParentStudentAccess(parentPhone, studentId);
+    if (!st) return res.status(403).json({ success: false, message: 'No access to this student' });
+    await promisePool.query(
+      `INSERT INTO parent_shulecard_wallets
+        (parent_portal_account_id, parent_phone, student_id, balance_rwf, daily_limit_rwf)
+       VALUES (?, ?, ?, 0, ?)
+       ON DUPLICATE KEY UPDATE
+         parent_portal_account_id = VALUES(parent_portal_account_id),
+         daily_limit_rwf = VALUES(daily_limit_rwf),
+         updated_at = CURRENT_TIMESTAMP`,
+      [parentPortalAccountId || null, parentPhone, studentId, dailyLimit]
+    );
+    await logParentStudentAction({
+      parentPortalAccountId,
+      parentPhone,
+      studentId,
+      accessType: st.access_type,
+      actionType: 'set_daily_limit',
+      endpoint: '/api/parent-portal/shulecard/daily-limit',
+      payload: { daily_limit_rwf: dailyLimit },
+    }).catch(() => {});
+    return res.json({
+      success: true,
+      message: 'Daily spending limit saved',
+      data: { student_id: studentId, daily_limit_rwf: dailyLimit },
+    });
+  } catch (err) {
+    console.error('[parent-portal/shulecard/daily-limit]', err);
+    return res.status(500).json({ success: false, message: 'Failed to save daily limit' });
+  }
+});
+
+router.get('/parent-portal/shulecard/topups', async (req, res) => {
+  try {
+    await ensureStudentAccessTable();
+    await ensureShulecardTables();
+    const role = (req.session?.user?.role?.code || req.session?.roleCode || '').toUpperCase();
+    const parentPhone = normalizePhone(req.session?.user?.parent_phone || '');
+    if (role !== 'PARENT' || !parentPhone) return res.status(401).json({ success: false, message: 'Not authenticated as parent' });
+    const studentId = Number(req.query?.student_id || 0);
+    if (!studentId) return res.status(400).json({ success: false, message: 'student_id is required' });
+    const st = await resolveParentStudentAccess(parentPhone, studentId);
+    if (!st) return res.status(403).json({ success: false, message: 'No access to this student' });
+    const [rows] = await promisePool.query(
+      `SELECT id, amount_rwf, payment_method, note, status, reference_no, created_at
+       FROM parent_shulecard_topups
+       WHERE parent_phone = ? AND student_id = ?
+       ORDER BY created_at DESC, id DESC
+       LIMIT 50`,
+      [parentPhone, studentId]
+    );
+    return res.json({ success: true, data: rows || [] });
+  } catch (err) {
+    console.error('[parent-portal/shulecard/topups GET]', err);
+    return res.status(500).json({ success: false, message: 'Failed to load top-up history' });
+  }
+});
+
+router.get('/parent-portal/shulecard/data', async (req, res) => {
+  try {
+    await ensureStudentAccessTable();
+    await ensureShulecardTables();
+    const role = (req.session?.user?.role?.code || req.session?.roleCode || '').toUpperCase();
+    const parentPhone = normalizePhone(req.session?.user?.parent_phone || '');
+    if (role !== 'PARENT' || !parentPhone) return res.status(401).json({ success: false, message: 'Not authenticated as parent' });
+
+    const [studentRowsRes] = await promisePool.query(
+      `SELECT s.id
+       FROM students s
+       LEFT JOIN student_access sa ON sa.student_id = s.id AND sa.parent_phone = ?
+       WHERE (
+         (s.father_phone IS NOT NULL AND TRIM(s.father_phone) <> '' AND s.father_phone REGEXP ?)
+         OR (s.mother_phone IS NOT NULL AND TRIM(s.mother_phone) <> '' AND s.mother_phone REGEXP ?)
+         OR sa.parent_phone = ?
+       )`,
+      [parentPhone, mysqlPhoneTokenRegexp(parentPhone), mysqlPhoneTokenRegexp(parentPhone), parentPhone]
+    );
+    const studentIds = Array.from(new Set((studentRowsRes || []).map((r) => Number(r.id)).filter(Boolean)));
+    if (!studentIds.length) {
+      return res.json({ success: true, data: { topups: [], limits: [], spending: [] } });
+    }
+    const placeholders = studentIds.map(() => '?').join(',');
+    const [topupsRes, limitsRes, spendingRes] = await Promise.all([
+      promisePool.query(
+        `SELECT t.id, t.student_id, t.amount_rwf, t.payment_method, t.note, t.status, t.reference_no, t.created_at,
+                s.first_name, s.last_name, s.class_name, sc.school_name
+         FROM parent_shulecard_topups t
+         LEFT JOIN students s ON s.id = t.student_id
+         LEFT JOIN schools sc ON sc.id = s.school_id
+         WHERE t.parent_phone = ? AND t.student_id IN (${placeholders})
+         ORDER BY t.created_at DESC, t.id DESC
+         LIMIT 500`,
+        [parentPhone, ...studentIds]
+      ),
+      promisePool.query(
+        `SELECT w.id, w.student_id, w.balance_rwf, w.daily_limit_rwf, w.updated_at,
+                s.first_name, s.last_name, s.class_name, sc.school_name
+         FROM parent_shulecard_wallets w
+         LEFT JOIN students s ON s.id = w.student_id
+         LEFT JOIN schools sc ON sc.id = s.school_id
+         WHERE w.parent_phone = ? AND w.student_id IN (${placeholders})
+         ORDER BY w.updated_at DESC, w.id DESC
+         LIMIT 500`,
+        [parentPhone, ...studentIds]
+      ),
+      promisePool.query(
+        `SELECT e.id, e.student_id, e.spender_phone, e.merchant_name, e.amount_rwf, e.note, e.spent_at,
+                s.first_name, s.last_name, s.class_name, sc.school_name
+         FROM parent_shulecard_spending_events e
+         LEFT JOIN students s ON s.id = e.student_id
+         LEFT JOIN schools sc ON sc.id = s.school_id
+         WHERE e.student_id IN (${placeholders})
+         ORDER BY e.spent_at DESC, e.id DESC
+         LIMIT 500`,
+        [...studentIds]
+      ),
+    ]);
+    return res.json({
+      success: true,
+      data: {
+        topups: topupsRes?.[0] || [],
+        limits: limitsRes?.[0] || [],
+        spending: spendingRes?.[0] || [],
+      },
+    });
+  } catch (err) {
+    console.error('[parent-portal/shulecard/data]', err);
+    return res.status(500).json({ success: false, message: 'Failed to load ShuleCard data' });
   }
 });
 
@@ -1320,6 +2282,7 @@ router.get('/parent-portal/children', async (req, res) => {
 // Returns class requirements + prices for a parent-owned student.
 router.get('/parent-portal/classkit-pricing', async (req, res) => {
   try {
+    await ensureStudentAccessTable();
     const role = (req.session?.user?.role?.code || req.session?.roleCode || '').toUpperCase();
     const phone = req.session?.user?.parent_phone || null;
     if (role !== 'PARENT' || !phone) {
@@ -1343,8 +2306,31 @@ router.get('/parent-portal/classkit-pricing', async (req, res) => {
       [studentId]
     );
     const st0 = ownRows?.[0];
-    if (!st0 || !studentRowOwnedByPhone(st0, phoneNorm)) {
+    const isOfficial = !!(st0 && studentRowOwnedByPhone(st0, phoneNorm));
+    if (!st0) {
       return res.status(404).json({ success: false, message: 'Student not found for this parent' });
+    }
+    let accessType = isOfficial ? 'FULL' : null;
+    if (!isOfficial) {
+      const [aRows] = await promisePool.query(
+        `SELECT access_type FROM student_access WHERE parent_phone = ? AND student_id = ? LIMIT 1`,
+        [phoneNorm, studentId]
+      );
+      accessType = aRows?.[0]?.access_type || null;
+    }
+    if (!accessType) {
+      return res.status(404).json({ success: false, message: 'Student not found for this parent' });
+    }
+    if (accessType === 'LIMITED') {
+      await logParentStudentAction({
+        parentPortalAccountId: req.session?.parentPortalAccountId || req.session?.user?.parent_portal_id || null,
+        parentPhone: phoneNorm,
+        studentId,
+        accessType,
+        actionType: 'purchase_items_preview',
+        endpoint: '/api/parent-portal/classkit-pricing',
+        payload: { scope: 'classkit_pricing' },
+      }).catch(() => {});
     }
     const { father_phone: _fp, mother_phone: _mp, ...st } = st0;
     if (!st.school_id || !st.class_name) {
@@ -1425,7 +2411,9 @@ router.get('/parent-portal/classkit-pricing', async (req, res) => {
         line_total_rwf: lineTotal,
       };
     });
-    const schoolFeesTotal = (feeRows || []).reduce((s, f) => s + Number(f.amount || 0), 0);
+    const canSeeSchoolFees = accessType === 'FULL';
+    const feeRowsScoped = canSeeSchoolFees ? (feeRows || []) : [];
+    const schoolFeesTotal = feeRowsScoped.reduce((s, f) => s + Number(f.amount || 0), 0);
     const requirementsTotal = requirements.reduce((s, r) => s + Number(r.line_total_rwf || 0), 0);
     const combinedTotal = Math.round((schoolFeesTotal + requirementsTotal) * 100) / 100;
 
@@ -1442,7 +2430,12 @@ router.get('/parent-portal/classkit-pricing', async (req, res) => {
           academic_year: st.academic_year,
         },
         babyeyi,
-        school_fees: feeRows || [],
+        access_type: accessType,
+        limited_access: accessType === 'LIMITED',
+        permissions: accessType === 'LIMITED'
+          ? ['create_payment', 'purchase_items']
+          : ['create_payment', 'purchase_items', 'get_fees_breakdown', 'get_transactions', 'get_reports', 'get_attendance', 'get_discipline'],
+        school_fees: feeRowsScoped,
         requirements,
         totals: {
           school_fees_rwf: Math.round(schoolFeesTotal * 100) / 100,
@@ -1500,8 +2493,8 @@ router.get('/parent-portal/payments-report', async (req, res) => {
     const where = [];
     const params = [];
     const studentFilter = `CAST(JSON_UNQUOTE(JSON_EXTRACT(i.payload_json, '$.selected_student.student_id')) AS UNSIGNED)`;
-    where.push(`(${studentFilter} IN (${ownedIds.map(() => '?').join(',')}) OR COALESCE(i.payer_phone, '') = ?)`);
-    params.push(...ownedIds, phoneNorm);
+    where.push(`(${studentFilter} IN (${ownedIds.map(() => '?').join(',')}))`);
+    params.push(...ownedIds);
     if (term) {
       where.push(`COALESCE(b.term, '') = ?`);
       params.push(term);
@@ -1653,8 +2646,8 @@ router.get('/parent-portal/payments-report/export.csv', async (req, res) => {
     const where = [];
     const params = [];
     const studentFilter = `CAST(JSON_UNQUOTE(JSON_EXTRACT(i.payload_json, '$.selected_student.student_id')) AS UNSIGNED)`;
-    where.push(`(${studentFilter} IN (${ownedIds.map(() => '?').join(',')}) OR COALESCE(i.payer_phone, '') = ?)`);
-    params.push(...ownedIds, phoneNorm);
+    where.push(`(${studentFilter} IN (${ownedIds.map(() => '?').join(',')}))`);
+    params.push(...ownedIds);
     if (term) {
       where.push(`COALESCE(b.term, '') = ?`);
       params.push(term);
@@ -1778,7 +2771,7 @@ router.get('/parent-portal/loan-intents/:id/detail', async (req, res) => {
       );
       ownsByStudent = !!(stu && studentRowOwnedByPhone(stu, phoneNorm));
     }
-    if (!ownsByStudent && normalizePhone(row.payer_phone) !== phoneNorm) {
+    if (!ownsByStudent) {
       return res.status(403).json({ success: false, message: 'Access denied for this loan' });
     }
     const isLoan = String(payload?.payment_plan?.payMode || '').toLowerCase() === 'loan';
@@ -1834,6 +2827,7 @@ router.get('/parent-portal/loan-intents/:id/detail', async (req, res) => {
 router.post('/parent-portal/loan-intents/:id/pay', async (req, res) => {
   try {
     await ensureLoanRepaymentTable();
+    await ensureStudentAccessTable();
     const role = (req.session?.user?.role?.code || req.session?.roleCode || '').toUpperCase();
     const phone = req.session?.user?.parent_phone || null;
     if (role !== 'PARENT' || !phone) {
@@ -1863,14 +2857,23 @@ router.post('/parent-portal/loan-intents/:id/pay', async (req, res) => {
     if (!isLoan) return res.status(400).json({ success: false, message: 'This intent is not a loan' });
     const studentId = Number(payload?.selected_student?.student_id || 0);
     let ownsByStudent = false;
+    let accessType = null;
     if (studentId && phoneNormPay) {
       const [[stu]] = await promisePool.query(
         `SELECT id, father_phone, mother_phone FROM students WHERE id = ? LIMIT 1`,
         [studentId]
       );
       ownsByStudent = !!(stu && studentRowOwnedByPhone(stu, phoneNormPay));
+      if (ownsByStudent) accessType = 'FULL';
+      if (!ownsByStudent) {
+        const [[aRow]] = await promisePool.query(
+          `SELECT access_type FROM student_access WHERE parent_phone = ? AND student_id = ? LIMIT 1`,
+          [phoneNormPay, studentId]
+        );
+        accessType = aRow?.access_type || null;
+      }
     }
-    if (!ownsByStudent && normalizePhone(row.payer_phone) !== phoneNormPay) {
+    if (!ownsByStudent && !accessType) {
       return res.status(403).json({ success: false, message: 'Access denied for this loan' });
     }
 
@@ -1898,6 +2901,15 @@ router.post('/parent-portal/loan-intents/:id/pay', async (req, res) => {
       `INSERT INTO babyeyi_loan_repayments (intent_id, receipt_no, amount_rwf, status, paid_by_phone, note) VALUES (?, ?, ?, 'pending', ?, ?)`,
       [id, receiptNo, amount, phone, note || null]
     );
+    await logParentStudentAction({
+      parentPortalAccountId: req.session?.parentPortalAccountId || req.session?.user?.parent_portal_id || null,
+      parentPhone: phoneNormPay,
+      studentId,
+      accessType: accessType || 'LIMITED',
+      actionType: 'create_payment',
+      endpoint: '/api/parent-portal/loan-intents/:id/pay',
+      payload: { intent_id: id, amount_rwf: amount, receipt_no: receiptNo },
+    }).catch(() => {});
     return res.json({
       success: true,
       message: 'Loan repayment submitted and waiting for admin approval',
@@ -1953,7 +2965,7 @@ router.get('/parent-portal/loan-repayments/:id/receipt', async (req, res) => {
       );
       ownsByStudent = !!(stu && studentRowOwnedByPhone(stu, phoneNormRcpt));
     }
-    if (!ownsByStudent && normalizePhone(row.payer_phone) !== phoneNormRcpt) {
+    if (!ownsByStudent) {
       return res.status(403).json({ success: false, message: 'Access denied for this receipt' });
     }
     const plan = buildLoanPlan(row.total_rwf, payload, row.intent_created_at);

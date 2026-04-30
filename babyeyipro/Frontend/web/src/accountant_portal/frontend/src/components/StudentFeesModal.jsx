@@ -327,17 +327,17 @@ export default function StudentFeesModal({
                 {/* Drawer Header */}
                 <div className="flex items-center justify-between px-8 py-6 border-b border-black/5 bg-white shrink-0">
                     <div className="flex items-center gap-4">
-                        <div className="w-14 h-14 rounded-full border border-black/5 bg-slate-50 flex items-center justify-center font-black text-lg shadow-inner relative overflow-hidden shrink-0 text-[#1E3A5F]">
+                        <div className="w-14 h-14 rounded-full border border-black/5 bg-slate-50 flex items-center justify-center font-black text-lg  relative overflow-hidden shrink-0 text-[#000435]">
                             <span>{student.name?.charAt(0) || <User size={20} />}</span>
                         </div>
                         <div className="min-w-0">
-                            <h3 className="font-black text-[#1E3A5F] text-base leading-tight uppercase tracking-tight truncate">{student.name}</h3>
+                            <h3 className="font-black text-[#000435] text-base leading-tight uppercase tracking-tight truncate">{student.name}</h3>
                             <div className="flex flex-col gap-0.5 mt-0.5">
                                 <p className="text-[9px] text-slate-400 font-bold flex items-center gap-1 uppercase tracking-widest opacity-60 truncate">
                                     <span className="w-1 h-1 rounded-full shrink-0 bg-amber-400"></span>
                                     UID: {student.id}
                                 </p>
-                                <p className="text-[8px] text-[#1E3A5F] font-black flex items-center gap-1 uppercase tracking-[0.2em] truncate">
+                                <p className="text-[8px] text-[#000435] font-black flex items-center gap-1 uppercase tracking-[0.2em] truncate">
                                     {student.class} Class
                                 </p>
                             </div>
@@ -345,7 +345,7 @@ export default function StudentFeesModal({
                     </div>
                     <button
                         onClick={() => onClose()}
-                        className="p-2.5 hover:bg-slate-50 rounded-xl transition-all text-slate-400 hover:text-[#1E3A5F] group"
+                        className="p-2.5 hover:bg-slate-50 rounded-xl transition-all text-slate-400 hover:text-[#000435] group"
                     >
                         <X size={18} className="group-hover:rotate-90 transition-transform duration-300" />
                     </button>
@@ -361,9 +361,9 @@ export default function StudentFeesModal({
                             <div className="flex-1 h-px bg-black/5" />
                         </div>
                         {[
-                            { label: 'Amount to pay (Total)', value: format(student.amountToPay ?? student.amountOwed ?? 0), icon: AlertTriangle, color: 'text-[#1E3A5F]' },
-                            { label: 'Guardian', value: 'Parent Name', icon: Users, color: 'text-[#1E3A5F]' },
-                            { label: 'Parent Phone', value: '+250 7XX XXX XXX', icon: Phone, color: 'text-[#1E3A5F]' },
+                            { label: 'Amount to pay (Total)', value: format(student.amountToPay ?? student.amountOwed ?? 0), icon: AlertTriangle, color: 'text-[#000435]' },
+                            { label: 'Guardian', value: 'Parent Name', icon: Users, color: 'text-[#000435]' },
+                            { label: 'Parent Phone', value: '+250 7XX XXX XXX', icon: Phone, color: 'text-[#000435]' },
                         ].map((item, i) => (
                             <div key={i} className="flex items-center justify-between group">
                                 <div className="flex items-center gap-2">
@@ -378,17 +378,17 @@ export default function StudentFeesModal({
 
                     {/* Financial Summary Section */}
                     <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-slate-50 rounded-3xl p-5 border border-black/5 shadow-inner relative overflow-hidden group">
+                        <div className="bg-slate-50 rounded-3xl p-5 border border-black/5  relative overflow-hidden group">
                             <div className="absolute top-0 right-0 w-16 h-16 bg-blue-500 opacity-5 rounded-full -mr-6 -mt-6 group-hover:scale-125 transition-transform duration-700" />
                             <p className="text-[8px] text-slate-400 uppercase tracking-[0.2em] font-black mb-1 relative z-10 opacity-60">Amount Paid</p>
                             <div className="flex items-baseline gap-1 relative z-10">
                                 <span className="text-xl font-black tracking-tighter text-emerald-600">
                                     {format(student.paidThisTerm ?? student.paid ?? 0).replace('RWF', '')}
                                 </span>
-                                <span className="text-[9px] font-black uppercase tracking-widest text-[#1E3A5F]">RWF</span>
+                                <span className="text-[9px] font-black uppercase tracking-widest text-[#000435]">RWF</span>
                             </div>
                         </div>
-                        <div className="bg-slate-50 rounded-3xl p-5 border border-black/5 shadow-inner relative overflow-hidden group text-right">
+                        <div className="bg-slate-50 rounded-3xl p-5 border border-black/5  relative overflow-hidden group text-right">
                             <div className="absolute top-0 left-0 w-16 h-16 bg-amber-500 opacity-5 rounded-full -ml-6 -mt-6 group-hover:scale-125 transition-transform duration-700" />
                             <p className="text-[8px] text-slate-400 uppercase tracking-[0.2em] font-black mb-1 relative z-10 opacity-60">Remaining</p>
                             <div className="flex items-baseline gap-1 justify-end relative z-10">
@@ -409,7 +409,7 @@ export default function StudentFeesModal({
 
                         {loading ? (
                             <div className="flex flex-col items-center justify-center py-10 gap-3">
-                                <Loader2 size={24} className="animate-spin text-[#1E3A5F]/30" />
+                                <Loader2 size={24} className="animate-spin text-[#000435]/30" />
                                 <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] opacity-40">Fetching logs...</p>
                             </div>
                         ) : history.length === 0 ? (
@@ -431,17 +431,17 @@ export default function StudentFeesModal({
                                         {history.map((log) => (
                                             <tr key={log.id} className="hover:bg-re-bg/30 transition-colors">
                                                 <td className="px-3 py-2 border-r border-black/5">
-                                                    <p className="text-[8px] font-black text-[#1E3A5F] uppercase tracking-widest leading-none whitespace-nowrap">{log.date}</p>
+                                                    <p className="text-[8px] font-black text-[#000435] uppercase tracking-widest leading-none whitespace-nowrap">{log.date}</p>
                                                     <p className="text-[6.5px] font-bold text-re-text-muted uppercase tracking-widest opacity-40 mt-1 leading-none truncate">{log.ref}</p>
                                                 </td>
                                                 <td className="px-3 py-2 border-r border-black/5">
-                                                    <p className="text-[8px] font-black text-[#1E3A5F] uppercase tracking-widest leading-none">{log.channel}</p>
+                                                    <p className="text-[8px] font-black text-[#000435] uppercase tracking-widest leading-none">{log.channel}</p>
                                                     <p className="text-[6.5px] font-bold text-re-text-muted uppercase tracking-widest opacity-40 mt-1 leading-none truncate">{log.category}</p>
                                                 </td>
                                                 <td className="px-3 py-2 border-r border-black/5 text-right">
                                                     <p className="text-[9px] font-black text-emerald-600 leading-none">
                                                         {format(log.amount).replace('RWF', '').trim()}
-                                                        <span className="ml-1 text-[7px] font-black text-[#1E3A5F]/60 uppercase tracking-widest">RWF</span>
+                                                        <span className="ml-1 text-[7px] font-black text-[#000435]/60 uppercase tracking-widest">RWF</span>
                                                     </p>
                                                 </td>
                                                 <td className="px-3 py-2 text-right">
@@ -483,7 +483,7 @@ export default function StudentFeesModal({
                                                                 )));
                                                                 setToast({ type: 'success', message: 'Payment updated.' });
                                                             }}
-                                                            className="h-6 px-2 rounded-lg flex items-center justify-center bg-white border border-black/5 text-[#1E3A5F] font-black text-[7px] uppercase tracking-widest shadow-sm hover:bg-re-bg transition-all"
+                                                            className="h-6 px-2 rounded-lg flex items-center justify-center bg-white border border-black/5 text-[#000435] font-black text-[7px] uppercase tracking-widest  hover:bg-re-bg transition-all"
                                                             disabled={isBusy}
                                                             title="Edit payment"
                                                         >
@@ -508,7 +508,7 @@ export default function StudentFeesModal({
                                                                 setHistory((prev) => prev.filter((x) => x.id !== log.id));
                                                                 setToast({ type: 'success', message: 'Payment deleted.' });
                                                             }}
-                                                            className="h-6 px-2 rounded-lg flex items-center justify-center bg-white border border-red-200 text-red-600 font-black text-[7px] uppercase tracking-widest shadow-sm hover:bg-red-50 transition-all"
+                                                            className="h-6 px-2 rounded-lg flex items-center justify-center bg-white border border-red-200 text-red-600 font-black text-[7px] uppercase tracking-widest  hover:bg-red-50 transition-all"
                                                             disabled={isBusy}
                                                             title="Delete payment"
                                                         >
@@ -517,7 +517,7 @@ export default function StudentFeesModal({
                                                         <button
                                                             type="button"
                                                             onClick={() => printReceiptPdf(log)}
-                                                            className="h-6 px-2.5 rounded-lg flex items-center justify-center gap-1.5 bg-white border border-black/5 text-re-text font-black text-[7.5px] uppercase tracking-widest shadow-sm hover:bg-re-bg hover:text-[#1E3A5F] transition-all"
+                                                            className="h-6 px-2.5 rounded-lg flex items-center justify-center gap-1.5 bg-white border border-black/5 text-re-text font-black text-[7.5px] uppercase tracking-widest  hover:bg-re-bg hover:text-[#000435] transition-all"
                                                             disabled={isBusy}
                                                             title="Print receipt"
                                                         >
@@ -541,19 +541,19 @@ export default function StudentFeesModal({
                 <div className="px-8 py-5 border-t border-black/5 bg-slate-50/20 flex flex-col gap-2">
                     <button
                         onClick={() => onClose({ recordPayment: true })}
-                        className="h-10 w-full flex items-center justify-center gap-2 text-white rounded-xl font-black text-[9px] uppercase tracking-widest shadow-lg hover:scale-[1.02] active:scale-95 transition-all"
-                        style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)" }}
+                        className="h-10 w-full flex items-center justify-center gap-2 text-white rounded-xl font-black text-[9px] uppercase tracking-widest  hover:scale-[1.02] active:scale-95 transition-all"
+                        style={{ background: "linear-gradient(135deg, #000435 0%, #0D2644 100%)" }}
                     >
                         <CreditCard size={14} /> Record Payment
                     </button>
                     <div className="grid grid-cols-2 gap-2">
-                        <button className="h-9 flex items-center justify-center gap-2 bg-white border border-black/5 text-[#1E3A5F] font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-slate-50 transition-all">
+                        <button className="h-9 flex items-center justify-center gap-2 bg-white border border-black/5 text-[#000435] font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-slate-50 transition-all">
                             <Phone size={14} className="text-amber-500" /> Call Parent
                         </button>
                         <div className="relative">
                             <button
                                 onClick={() => setInvoiceMenuOpen((v) => !v)}
-                                className="h-9 w-full flex items-center justify-center gap-2 bg-white border border-black/5 text-[#1E3A5F] font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-slate-50 transition-all"
+                                className="h-9 w-full flex items-center justify-center gap-2 bg-white border border-black/5 text-[#000435] font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-slate-50 transition-all"
                                 type="button"
                             >
                                 <Printer size={14} className="text-amber-500" />
@@ -564,38 +564,38 @@ export default function StudentFeesModal({
                             {invoiceMenuOpen && (
                                 <>
                                     <div className="fixed inset-0 z-[120]" onClick={() => setInvoiceMenuOpen(false)} />
-                                    <div className="absolute right-0 bottom-11 z-[130] w-56 rounded-2xl border border-black/10 bg-white shadow-2xl overflow-hidden">
+                                    <div className="absolute right-0 bottom-11 z-[130] w-56 rounded-2xl border border-black/10 bg-white  overflow-hidden">
                                         <button
                                             type="button"
                                             onClick={() => { setInvoiceMenuOpen(false); printInvoicePdf(); }}
                                             className="w-full px-4 py-3 flex items-center gap-2 text-left hover:bg-re-bg/30 transition-all"
                                         >
-                                            <Printer size={14} className="text-[#1E3A5F]" />
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-[#1E3A5F]">Print invoice</span>
+                                            <Printer size={14} className="text-[#000435]" />
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-[#000435]">Print invoice</span>
                                         </button>
                                         <button
                                             type="button"
                                             onClick={() => { setInvoiceMenuOpen(false); sendInvoiceToParent(); }}
                                             className="w-full px-4 py-3 flex items-center gap-2 text-left hover:bg-re-bg/30 transition-all border-t border-black/5"
                                         >
-                                            <Send size={14} className="text-[#1E3A5F]" />
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-[#1E3A5F]">Send invoice</span>
+                                            <Send size={14} className="text-[#000435]" />
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-[#000435]">Send invoice</span>
                                         </button>
                                         <button
                                             type="button"
                                             onClick={() => { setInvoiceMenuOpen(false); printInvoicePdf(); sendInvoiceToParent(); }}
                                             className="w-full px-4 py-3 flex items-center gap-2 text-left hover:bg-re-bg/30 transition-all border-t border-black/5"
                                         >
-                                            <Receipt size={14} className="text-[#1E3A5F]" />
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-[#1E3A5F]">Print & send</span>
+                                            <Receipt size={14} className="text-[#000435]" />
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-[#000435]">Print & send</span>
                                         </button>
                                         <button
                                             type="button"
                                             onClick={() => { setInvoiceMenuOpen(false); setInvoiceSettingsOpen(true); }}
                                             className="w-full px-4 py-3 flex items-center gap-2 text-left hover:bg-re-bg/30 transition-all border-t border-black/5"
                                         >
-                                            <Settings2 size={14} className="text-[#1E3A5F]" />
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-[#1E3A5F]">Invoice settings</span>
+                                            <Settings2 size={14} className="text-[#000435]" />
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-[#000435]">Invoice settings</span>
                                         </button>
                                     </div>
                                 </>
@@ -628,11 +628,11 @@ export function InvoiceSettingsModal({ open, onClose, config, setConfig, sentAt 
             <div className="relative w-full max-w-2xl max-h-[92vh] bg-re-bg rounded-3xl shadow-[0_32px_128px_-15px_rgba(30,58,95,0.35)] border border-white/20 flex flex-col overflow-hidden animate-in zoom-in-95 fade-in duration-500">
                 <div
                     className="relative z-10 px-5 py-3 shrink-0"
-                    style={{ background: 'linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)' }}
+                    style={{ background: 'linear-gradient(135deg, #000435 0%, #0D2644 100%)' }}
                 >
                     <div className="flex items-center justify-between mb-2.5">
                         <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20 text-re-gold shadow-md shadow-re-gold/10">
+                            <div className="w-8 h-8 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20 text-re-gold  -gold/10">
                                 <Settings2 size={16} />
                             </div>
                             <div>
@@ -657,11 +657,11 @@ export function InvoiceSettingsModal({ open, onClose, config, setConfig, sentAt 
                         { key: 'footerNote', label: 'Footer note' },
                     ].map((f) => (
                         <div key={f.key}>
-                            <p className="text-[9px] font-black text-[#1E3A5F] uppercase tracking-[0.2em] mb-1.5 opacity-80">{f.label}</p>
+                            <p className="text-[9px] font-black text-[#000435] uppercase tracking-[0.2em] mb-1.5 opacity-80">{f.label}</p>
                             <input
                                 value={config?.[f.key] || ''}
                                 onChange={(e) => setConfig((prev) => ({ ...(prev || {}), [f.key]: e.target.value }))}
-                                className="w-full h-9 rounded-lg bg-re-bg px-3 outline-none border border-black/5 focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[9px] sm:text-[10px] font-black tracking-tight shadow-inner placeholder:text-re-text-muted/40"
+                                className="w-full h-9 rounded-lg bg-re-bg px-3 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] sm:text-[10px] font-black tracking-tight  placeholder:text-re-text-muted/40"
                             />
                         </div>
                     ))}

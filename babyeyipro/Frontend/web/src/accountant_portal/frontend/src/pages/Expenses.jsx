@@ -26,17 +26,17 @@ const ExpenseDetailsDrawer = ({ isOpen, expense, onClose, onMarkPaid, onRecordPa
       <div className="fixed inset-y-0 right-0 z-[220] w-full md:w-[420px] bg-white shadow-[-20px_0_60px_-15px_rgba(0,0,0,0.1)] flex flex-col animate-in slide-in-from-right duration-500 ease-out">
         <div className="flex items-center justify-between px-8 py-6 border-b border-black/5 bg-white shrink-0">
           <div className="flex items-center gap-4 min-w-0">
-            <div className="w-14 h-14 rounded-full border border-black/5 bg-slate-50 flex items-center justify-center font-black text-lg shadow-inner relative overflow-hidden shrink-0 text-[#1E3A5F]">
+            <div className="w-14 h-14 rounded-full border border-black/5 bg-white flex items-center justify-center font-black text-lg shadow-inner relative overflow-hidden shrink-0 text-[#000435]">
               <span>{expense.vendor?.charAt(0) || 'E'}</span>
             </div>
             <div className="min-w-0">
-              <h3 className="font-black text-[#1E3A5F] text-base leading-tight uppercase tracking-tight truncate">{expense.vendor}</h3>
+              <h3 className="font-black text-[#000435] text-base leading-tight uppercase tracking-tight truncate">{expense.vendor}</h3>
               <div className="flex flex-col gap-0.5 mt-0.5">
-                <p className="text-[9px] text-slate-400 font-bold flex items-center gap-1 uppercase tracking-widest opacity-60 truncate">
+                <p className="text-[9px] text-[#000435] font-bold flex items-center gap-1 uppercase tracking-widest opacity-60 truncate">
                   <span className="w-1 h-1 rounded-full shrink-0 bg-amber-400" />
                   {expense.id} · {expense.category}
                 </p>
-                <p className="text-[8px] text-[#1E3A5F] font-black flex items-center gap-1 uppercase tracking-[0.2em] truncate">
+                <p className="text-[8px] text-[#000435] font-black flex items-center gap-1 uppercase tracking-[0.2em] truncate">
                   {expense.date} · {expense.status} · Remaining {formatMoneyRWF(remaining).replace('RWF', '')} RWF
                 </p>
               </div>
@@ -44,7 +44,7 @@ const ExpenseDetailsDrawer = ({ isOpen, expense, onClose, onMarkPaid, onRecordPa
           </div>
           <button
             onClick={onClose}
-            className="p-2.5 hover:bg-slate-50 rounded-xl transition-all text-slate-400 hover:text-[#1E3A5F] group"
+            className="p-2.5 hover:bg-white rounded-xl transition-all text-[#000435] hover:text-[#000435] group"
           >
             <X size={18} className="group-hover:rotate-90 transition-transform duration-300" />
           </button>
@@ -53,7 +53,7 @@ const ExpenseDetailsDrawer = ({ isOpen, expense, onClose, onMarkPaid, onRecordPa
         <div className="flex-1 overflow-y-auto px-8 py-8 space-y-8 custom-scrollbar bg-white">
           <div className="space-y-4">
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] opacity-40">Expense Details</span>
+              <span className="text-[9px] font-black text-[#000435] uppercase tracking-[0.3em] opacity-40">Expense Details</span>
               <div className="flex-1 h-px bg-black/5" />
             </div>
             {[
@@ -65,10 +65,10 @@ const ExpenseDetailsDrawer = ({ isOpen, expense, onClose, onMarkPaid, onRecordPa
               <div key={item.label} className="flex items-center justify-between group">
                 <div className="flex items-center gap-2">
                   <item.icon size={11} className="opacity-30 text-amber-500" />
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{item.label}</span>
+                  <span className="text-[10px] font-black text-[#000435] uppercase tracking-widest">{item.label}</span>
                 </div>
                 <div className="flex-1 mx-3 border-b border-dashed border-black/10 group-hover:border-amber-200 transition-colors" />
-                <span className="text-[10px] font-black uppercase tracking-tight text-[#1E3A5F] max-w-[170px] truncate text-right">
+                <span className="text-[10px] font-black uppercase tracking-tight text-[#000435] max-w-[170px] truncate text-right">
                   {item.value}
                 </span>
               </div>
@@ -76,9 +76,9 @@ const ExpenseDetailsDrawer = ({ isOpen, expense, onClose, onMarkPaid, onRecordPa
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <div className="bg-slate-50 rounded-3xl p-5 border border-black/5 shadow-inner relative overflow-hidden group">
+            <div className="bg-white rounded-3xl p-5 border border-black/5 shadow-inner relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-16 h-16 bg-blue-500 opacity-5 rounded-full -mr-6 -mt-6 group-hover:scale-125 transition-transform duration-700" />
-              <p className="text-[8px] text-slate-400 uppercase tracking-[0.2em] font-black mb-1 relative z-10 opacity-60">Status</p>
+              <p className="text-[8px] text-[#000435] uppercase tracking-[0.2em] font-black mb-1 relative z-10 opacity-60">Status</p>
               <div className="flex items-baseline gap-1 relative z-10">
                 <span className={`text-xl font-black tracking-tighter ${
                   expense.status === 'paid'
@@ -93,11 +93,11 @@ const ExpenseDetailsDrawer = ({ isOpen, expense, onClose, onMarkPaid, onRecordPa
                 </span>
               </div>
             </div>
-            <div className="bg-slate-50 rounded-3xl p-5 border border-black/5 shadow-inner relative overflow-hidden group text-right">
+            <div className="bg-white rounded-3xl p-5 border border-black/5 shadow-inner relative overflow-hidden group text-right">
               <div className="absolute top-0 left-0 w-16 h-16 bg-amber-500 opacity-5 rounded-full -ml-6 -mt-6 group-hover:scale-125 transition-transform duration-700" />
-              <p className="text-[8px] text-slate-400 uppercase tracking-[0.2em] font-black mb-1 relative z-10 opacity-60">Amount</p>
+              <p className="text-[8px] text-[#000435] uppercase tracking-[0.2em] font-black mb-1 relative z-10 opacity-60">Amount</p>
               <div className="flex items-baseline gap-1 justify-end relative z-10">
-                <span className="text-xl font-black text-[#1E3A5F] tracking-tighter">
+                <span className="text-xl font-black text-[#000435] tracking-tighter">
                   {formatMoneyRWF(expense.amount).replace('RWF', '')}
                 </span>
                 <span className="text-[9px] font-black uppercase tracking-widest ml-1 opacity-60">RWF</span>
@@ -108,13 +108,13 @@ const ExpenseDetailsDrawer = ({ isOpen, expense, onClose, onMarkPaid, onRecordPa
           {/* Payment history */}
           <div className="flex-1 overflow-y-auto">
             <div className="flex items-center gap-2 mb-4">
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] opacity-40">Payment History</span>
+              <span className="text-[9px] font-black text-[#000435] uppercase tracking-[0.3em] opacity-40">Payment History</span>
               <div className="flex-1 h-px bg-black/5" />
             </div>
 
             {payments.length === 0 ? (
               <div className="text-center py-6">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest italic opacity-40">No payments recorded yet.</p>
+                <p className="text-[9px] font-black text-[#000435] uppercase tracking-widest italic opacity-40">No payments recorded yet.</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -122,22 +122,22 @@ const ExpenseDetailsDrawer = ({ isOpen, expense, onClose, onMarkPaid, onRecordPa
                   .slice()
                   .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
                   .map((p) => (
-                    <div key={p.id} className="flex items-start gap-3 p-4 rounded-2xl bg-slate-50/50 border border-black/[0.02] group hover:bg-white hover:border-black/5 transition-all">
+                    <div key={p.id} className="flex items-start gap-3 p-4 rounded-2xl bg-white/50 border border-black/[0.02] group hover:bg-white hover:border-black/5 transition-all">
                       <div className="p-2 rounded-xl shrink-0 bg-emerald-50 text-emerald-500">
                         <CreditCard size={14} />
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between mb-0.5">
                           <div className="flex items-center gap-2">
-                            <span className="text-[8px] font-black uppercase tracking-widest text-[#1E3A5F]">{p.method || 'Payment'}</span>
+                            <span className="text-[8px] font-black uppercase tracking-widest text-[#000435]">{p.method || 'Payment'}</span>
                             <span className="w-1 h-1 bg-black/10 rounded-full" />
-                            <span className="text-[8px] font-bold text-slate-400 opacity-40 uppercase">{p.date || '—'}</span>
+                            <span className="text-[8px] font-bold text-[#000435] opacity-40 uppercase">{p.date || '—'}</span>
                           </div>
                           <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600">
                             +{formatMoneyRWF(p.amount).replace('RWF', '')} RWF
                           </span>
                         </div>
-                        <p className="text-[10px] font-bold text-slate-400 leading-relaxed tracking-tight group-hover:text-[#1E3A5F] transition-colors mt-1">
+                        <p className="text-[10px] font-bold text-[#000435] leading-relaxed tracking-tight group-hover:text-[#000435] transition-colors mt-1">
                           {p.methodRef ? `To: ${p.methodRef}` : 'To: —'} · Receipt: {p.receiptFileName ? p.receiptFileName : '—'}
                         </p>
                       </div>
@@ -148,12 +148,12 @@ const ExpenseDetailsDrawer = ({ isOpen, expense, onClose, onMarkPaid, onRecordPa
           </div>
         </div>
 
-        <div className="px-8 py-5 border-t border-black/5 bg-slate-50/20">
+        <div className="px-8 py-5 border-t border-black/5 bg-white/20">
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={() => onRecordPayment?.(expense)}
               disabled={!['approved', 'paid'].includes(String(expense.status || '').toLowerCase())}
-              className="h-10 w-full flex items-center justify-center gap-2 bg-white border border-black/5 text-[#1E3A5F] font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-slate-50 transition-all"
+              className="h-10 w-full flex items-center justify-center gap-2 bg-white border border-black/5 text-[#000435] font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-white transition-all"
             >
               <CreditCard size={14} className="text-amber-500" />
               Record payment
@@ -165,7 +165,7 @@ const ExpenseDetailsDrawer = ({ isOpen, expense, onClose, onMarkPaid, onRecordPa
               }}
               disabled={expense.status === 'paid' || expense.status === 'pending_approval'}
               className="h-10 w-full flex items-center justify-center gap-2 text-white rounded-xl font-black text-[9px] uppercase tracking-widest shadow-lg hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-40 disabled:hover:scale-100"
-              style={{ background: 'linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)' }}
+              style={{ background: 'linear-gradient(135deg, #000435 0%, #0D2644 100%)' }}
             >
               {expense.status === 'approved' ? 'Mark as paid' : 'Request approval'}
             </button>
@@ -209,7 +209,7 @@ const RecordExpensePaymentModal = ({ isOpen, onClose, expense, onSave }) => {
         <div className="relative w-full max-h-[92vh] bg-re-bg rounded-3xl shadow-[0_32px_128px_-15px_rgba(30,58,95,0.35)] border border-white/20 flex flex-col overflow-hidden animate-in zoom-in-95 fade-in duration-500">
           <div
             className="relative z-10 px-5 py-3 shrink-0"
-            style={{ background: 'linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)' }}
+            style={{ background: 'linear-gradient(135deg, #000435 0%, #0D2644 100%)' }}
           >
             <div className="flex items-center justify-between mb-2.5">
               <div className="flex items-center gap-2 min-w-0">
@@ -244,12 +244,12 @@ const RecordExpensePaymentModal = ({ isOpen, onClose, expense, onSave }) => {
                 onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ''))}
                 inputMode="numeric"
                 placeholder="Amount paid (RWF)"
-                className="w-full h-9 rounded-lg bg-re-bg px-3 outline-none border border-black/5 focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[9px] sm:text-[10px] font-black uppercase tracking-widest shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.55)] placeholder:text-re-text-muted/40"
+                className="w-full h-9 rounded-lg bg-white px-3 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] sm:text-[10px] font-black uppercase tracking-widest shadow-sm placeholder:text-re-text-muted/40"
               />
               <select
                 value={method}
                 onChange={(e) => setMethod(e.target.value)}
-                className="w-full h-9 rounded-lg bg-re-bg px-3 outline-none border border-black/5 focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[9px] sm:text-[10px] font-black uppercase tracking-widest shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.55)] cursor-pointer appearance-none pr-9"
+                className="w-full h-9 rounded-lg bg-white px-3 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] sm:text-[10px] font-black uppercase tracking-widest shadow-sm cursor-pointer appearance-none pr-9"
                 style={{
                   backgroundImage:
                     "url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236b7280%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')",
@@ -276,15 +276,15 @@ const RecordExpensePaymentModal = ({ isOpen, onClose, expense, onSave }) => {
                         ? 'Card reference / last4'
                         : 'Reference (optional)'
                 }
-                className="w-full h-9 rounded-lg bg-re-bg px-3 outline-none border border-black/5 focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[9px] sm:text-[10px] font-black uppercase tracking-widest shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.55)] placeholder:text-re-text-muted/40 md:col-span-2"
+                className="w-full h-9 rounded-lg bg-white px-3 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] sm:text-[10px] font-black uppercase tracking-widest shadow-sm placeholder:text-re-text-muted/40 md:col-span-2"
               />
               <input
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="w-full h-9 rounded-lg bg-re-bg px-3 outline-none border border-black/5 focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[9px] sm:text-[10px] font-black uppercase tracking-widest shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.55)]"
+                className="w-full h-9 rounded-lg bg-white px-3 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] sm:text-[10px] font-black uppercase tracking-widest shadow-sm"
               />
-              <label className="w-full h-9 rounded-lg bg-re-bg border border-black/5 px-3 flex items-center gap-2 cursor-pointer shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.55)] hover:bg-white hover:border-[#1E3A5F]/20 transition-all">
+              <label className="w-full h-9 rounded-lg bg-white border border-black/5 px-3 flex items-center gap-2 cursor-pointer shadow-sm hover:bg-white hover:border-[#000435]/20 transition-all">
                 <Upload size={14} className="text-amber-500 opacity-80" />
                 <span className="text-[9px] font-black uppercase tracking-widest text-re-text-muted/60 truncate">
                   {receiptFile ? receiptFile.name : 'Upload receipt'}
@@ -302,7 +302,7 @@ const RecordExpensePaymentModal = ({ isOpen, onClose, expense, onSave }) => {
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder="Note (optional)"
-              className="w-full min-h-[90px] rounded-lg bg-re-bg px-3 py-2.5 outline-none border border-black/5 focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[9px] sm:text-[10px] font-bold tracking-tight shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.55)] placeholder:text-re-text-muted/40 resize-none"
+              className="w-full min-h-[90px] rounded-lg bg-white px-3 py-2.5 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] sm:text-[10px] font-bold tracking-tight shadow-sm placeholder:text-re-text-muted/40 resize-none"
             />
           </div>
 
@@ -337,7 +337,7 @@ const RecordExpensePaymentModal = ({ isOpen, onClose, expense, onSave }) => {
                   onClose?.();
                 }}
                 className="h-9 px-6 rounded-lg text-white font-black text-[9px] uppercase tracking-widest shadow-lg hover:scale-[1.02] active:scale-95 transition-all"
-                style={{ background: 'linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)' }}
+                style={{ background: 'linear-gradient(135deg, #000435 0%, #0D2644 100%)' }}
               >
                 Save payment
               </button>
@@ -369,7 +369,7 @@ const AddExpenseModal = ({ isOpen, onClose, onCreate }) => {
           {/* Header (match school manager add-student modal) */}
           <div
             className="relative z-10 px-5 py-3 shrink-0"
-            style={{ background: 'linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)' }}
+            style={{ background: 'linear-gradient(135deg, #000435 0%, #0D2644 100%)' }}
           >
             <div className="flex items-center justify-between mb-2.5">
               <div className="flex items-center gap-2">
@@ -402,21 +402,21 @@ const AddExpenseModal = ({ isOpen, onClose, onCreate }) => {
                 value={vendor}
                 onChange={(e) => setVendor(e.target.value)}
                 placeholder="Vendor / Supplier"
-                className="w-full h-9 rounded-lg bg-re-bg px-3 outline-none border border-black/5 focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[9px] sm:text-[10px] font-black uppercase tracking-widest shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.55)] placeholder:text-re-text-muted/40"
+                className="w-full h-9 rounded-lg bg-white px-3 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] sm:text-[10px] font-black uppercase tracking-widest shadow-sm placeholder:text-re-text-muted/40"
               />
 
               <input
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
                 placeholder="Expense category (e.g. Utilities)"
-                className="w-full h-9 rounded-lg bg-re-bg px-3 outline-none border border-black/5 focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[9px] sm:text-[10px] font-black uppercase tracking-widest shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.55)] cursor-pointer appearance-none pr-9"
+                className="w-full h-9 rounded-lg bg-white px-3 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] sm:text-[10px] font-black uppercase tracking-widest shadow-sm cursor-pointer appearance-none pr-9"
               />
 
               <input
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="w-full h-9 rounded-lg bg-re-bg px-3 outline-none border border-black/5 focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[9px] sm:text-[10px] font-black uppercase tracking-widest shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.55)]"
+                className="w-full h-9 rounded-lg bg-white px-3 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] sm:text-[10px] font-black uppercase tracking-widest shadow-sm"
               />
 
               <input
@@ -424,7 +424,7 @@ const AddExpenseModal = ({ isOpen, onClose, onCreate }) => {
                 onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ''))}
                 inputMode="numeric"
                 placeholder="Amount (RWF)"
-                className="w-full h-9 rounded-lg bg-re-bg px-3 outline-none border border-black/5 focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[9px] sm:text-[10px] font-black uppercase tracking-widest shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.55)] placeholder:text-re-text-muted/40"
+                className="w-full h-9 rounded-lg bg-white px-3 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] sm:text-[10px] font-black uppercase tracking-widest shadow-sm placeholder:text-re-text-muted/40"
               />
             </div>
 
@@ -433,10 +433,10 @@ const AddExpenseModal = ({ isOpen, onClose, onCreate }) => {
                 value={invoiceNo}
                 onChange={(e) => setInvoiceNo(e.target.value)}
                 placeholder="Invoice number"
-                className="w-full h-9 rounded-lg bg-re-bg px-3 outline-none border border-black/5 focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[9px] sm:text-[10px] font-black uppercase tracking-widest shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.55)] placeholder:text-re-text-muted/40"
+                className="w-full h-9 rounded-lg bg-white px-3 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] sm:text-[10px] font-black uppercase tracking-widest shadow-sm placeholder:text-re-text-muted/40"
               />
 
-              <label className="w-full h-9 rounded-lg bg-re-bg border border-black/5 px-3 flex items-center gap-2 cursor-pointer shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.55)] hover:bg-white hover:border-[#1E3A5F]/20 transition-all">
+              <label className="w-full h-9 rounded-lg bg-white border border-black/5 px-3 flex items-center gap-2 cursor-pointer shadow-sm hover:bg-white hover:border-[#000435]/20 transition-all">
                 <Upload size={14} className="text-amber-500 opacity-80" />
                 <span className="text-[9px] font-black uppercase tracking-widest text-re-text-muted/60 truncate">
                   {invoiceFile ? invoiceFile.name : 'Upload invoice'}
@@ -454,7 +454,7 @@ const AddExpenseModal = ({ isOpen, onClose, onCreate }) => {
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder="Note (optional)"
-              className="w-full min-h-[90px] rounded-lg bg-re-bg px-3 py-2.5 outline-none border border-black/5 focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[9px] sm:text-[10px] font-bold tracking-tight shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.55)] placeholder:text-re-text-muted/40 resize-none"
+              className="w-full min-h-[90px] rounded-lg bg-white px-3 py-2.5 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] sm:text-[10px] font-bold tracking-tight shadow-sm placeholder:text-re-text-muted/40 resize-none"
             />
           </div>
 
@@ -489,7 +489,7 @@ const AddExpenseModal = ({ isOpen, onClose, onCreate }) => {
                 onClose?.();
               }}
               className="h-9 px-6 rounded-lg text-white font-black text-[9px] uppercase tracking-widest shadow-lg hover:scale-[1.02] active:scale-95 transition-all"
-              style={{ background: 'linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)' }}
+              style={{ background: 'linear-gradient(135deg, #000435 0%, #0D2644 100%)' }}
             >
               Save expense
             </button>
@@ -625,7 +625,7 @@ export default function Expenses() {
       <div className="relative w-full min-h-[280px] overflow-hidden">
         <div className="absolute inset-0 bg-[#0a192f]/85 z-10 backdrop-blur-[2px]"></div>
         <img src="/teacher.jpg" alt="Hero Background" className="absolute inset-0 w-full h-full object-cover scale-105" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#1E3A5F]/40 via-transparent to-transparent z-10 max-w-[1600px] mx-auto"></div>
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#000435]/40 via-transparent to-transparent z-10 max-w-[1600px] mx-auto"></div>
 
         <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-12 pt-16 pb-24 flex items-center gap-8">
           <div className="hidden md:flex shrink-0 w-24 h-24 rounded-[32px] border border-white/10 bg-white/5 items-center justify-center backdrop-blur-xl shadow-2xl relative overflow-hidden group">
@@ -657,12 +657,12 @@ export default function Expenses() {
               {[
                 { label: 'Total Expenses', value: formatMoneyRWF(derived.total).replace('RWF', ''), icon: <Banknote size={14} className="text-emerald-600" /> },
                 { label: 'Pending Bills', value: formatMoneyRWF(derived.pendingTotal).replace('RWF', ''), icon: <AlertTriangle size={14} className="text-amber-500" /> },
-                { label: 'Records', value: String(rows.length), icon: <Calendar size={14} className="text-slate-500" /> },
-                { label: 'Currency', value: 'RWF', icon: <Receipt size={14} className="text-[#1E3A5F]" /> },
+                { label: 'Records', value: String(rows.length), icon: <Calendar size={14} className="text-[#000435]" /> },
+                { label: 'Currency', value: 'RWF', icon: <Receipt size={14} className="text-[#000435]" /> },
               ].map((stat, i) => (
                 <div key={i} className="p-4 sm:p-8 flex flex-col items-center justify-center text-center group hover:bg-re-bg/20 transition-all cursor-default">
                   <div className="mb-1.5 sm:mb-2 opacity-40 shrink-0">{stat.icon}</div>
-                  <span className="text-sm sm:text-2xl font-black text-re-text tracking-tighter group-hover:text-[#1E3A5F] transition-colors">
+                  <span className="text-sm sm:text-2xl font-black text-re-text tracking-tighter group-hover:text-[#000435] transition-colors">
                     {stat.value}
                   </span>
                   <p className="text-[6px] sm:text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] mt-0.5 sm:mt-1 opacity-60">
@@ -675,7 +675,7 @@ export default function Expenses() {
               <button
                 onClick={() => setIsAddOpen(true)}
                 className="w-full h-11 flex items-center justify-center gap-2 text-white rounded-xl font-black text-[9px] uppercase tracking-widest shadow-xl hover:scale-[1.02] active:scale-95 transition-all"
-                style={{ background: 'linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)' }}
+                style={{ background: 'linear-gradient(135deg, #000435 0%, #0D2644 100%)' }}
               >
                 <Receipt size={14} />
                 <span>Add expense</span>
@@ -683,10 +683,10 @@ export default function Expenses() {
               <button
                 type="button"
                 onClick={downloadPdfReport}
-                className="w-full h-11 flex items-center justify-center gap-2 bg-white border border-black/5 text-re-text font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg hover:border-[#1E3A5F]/20 hover:shadow-re-soft transition-all group"
+                className="w-full h-11 flex items-center justify-center gap-2 bg-white border border-black/5 text-re-text font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg hover:border-[#000435]/20 hover:shadow-re-soft transition-all group"
               >
-                <Printer size={14} className="opacity-60 group-hover:opacity-100 transition-opacity" style={{ color: '#1E3A5F' }} />
-                <span className="group-hover:text-[#1E3A5F]">Export PDF</span>
+                <Printer size={14} className="opacity-60 group-hover:opacity-100 transition-opacity" style={{ color: '#000435' }} />
+                <span className="group-hover:text-[#000435]">Export PDF</span>
               </button>
             </div>
           </div>
@@ -700,7 +700,7 @@ export default function Expenses() {
                 <select
                   value={selectedCategory}
                   onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="w-full h-8 bg-white/80 rounded-lg outline-none border border-black/5 focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[9px] font-black uppercase tracking-widest shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.5)] cursor-pointer appearance-none !pl-[5.2rem] pr-8"
+                  className="w-full h-8 bg-white/80 rounded-lg outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] font-black uppercase tracking-widest shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.5)] cursor-pointer appearance-none !pl-[5.2rem] pr-8"
                 >
                   {derived.categories.map((c) => (
                     <option key={c} value={c}>{c}</option>
@@ -709,13 +709,13 @@ export default function Expenses() {
               </div>
 
               <div className="relative w-[14rem] group">
-                <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-re-text-muted/50 group-focus-within:text-[#1E3A5F] transition-colors z-[1] pointer-events-none" />
+                <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-re-text-muted/50 group-focus-within:text-[#000435] transition-colors z-[1] pointer-events-none" />
                 <input
                   type="text"
                   placeholder="Search vendor or ID..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full h-8 bg-white/80 rounded-lg outline-none border border-black/5 focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[9px] font-black uppercase tracking-tight shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.5)] placeholder:text-[#1E3A5F]/30 !pl-8"
+                  className="w-full h-8 bg-white/80 rounded-lg outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] font-black uppercase tracking-tight shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.5)] placeholder:text-[#000435]/30 !pl-8"
                 />
               </div>
             </div>
@@ -724,7 +724,7 @@ export default function Expenses() {
               onClick={() => fetchExpenses()}
               className="h-8 w-8 flex items-center justify-center bg-white border border-black/5 rounded-lg hover:bg-re-bg transition-all shadow-sm disabled:opacity-40 shrink-0 ml-auto"
             >
-              <RefreshCw size={12} className="text-[#1E3A5F]" />
+              <RefreshCw size={12} className="text-[#000435]" />
             </button>
           </div>
 
@@ -749,18 +749,18 @@ export default function Expenses() {
                     className="hover:bg-re-bg/60 even:bg-re-bg/20 transition-colors cursor-pointer"
                   >
                     <td className="px-4 sm:px-6 py-2.5 sm:py-3 border-r border-black/5">
-                      <p className="text-[13px] font-black text-[#1E3A5F] tracking-tight truncate">{r.vendor}</p>
+                      <p className="text-[13px] font-black text-[#000435] tracking-tight truncate">{r.vendor}</p>
                       <p className="text-[8px] font-bold text-re-text-muted uppercase tracking-widest leading-none mt-1 opacity-50">{r.id}</p>
                     </td>
                     <td className="hidden md:table-cell px-6 py-3 border-r border-black/5">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-lg bg-re-bg border border-black/5 text-[9px] font-black uppercase tracking-widest text-[#1E3A5F]">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-lg bg-white border border-black/5 text-[9px] font-black uppercase tracking-widest text-[#000435]">
                         {r.category}
                       </span>
                     </td>
-                    <td className="hidden md:table-cell px-6 py-3 border-r border-black/5 text-[10px] font-black text-[#1E3A5F]">
+                    <td className="hidden md:table-cell px-6 py-3 border-r border-black/5 text-[10px] font-black text-[#000435]">
                       {r.date}
                     </td>
-                    <td className="px-4 sm:px-6 py-2.5 sm:py-3 border-r border-black/5 text-right text-[12px] font-black text-[#1E3A5F]">
+                    <td className="px-4 sm:px-6 py-2.5 sm:py-3 border-r border-black/5 text-right text-[12px] font-black text-[#000435]">
                       {formatMoneyRWF(r.amount).replace('RWF', '')}
                     </td>
                     <td className="px-4 sm:px-6 py-2.5 sm:py-3 border-r border-black/5 text-right">
@@ -789,7 +789,7 @@ export default function Expenses() {
                             api.patch(`/accountant/expenses/${dbId}/request-approval`).then(() => fetchExpenses());
                           }}
                           disabled={r.status === 'pending_approval' || r.status === 'approved' || r.status === 'paid'}
-                          className="h-7 px-3 rounded-xl flex items-center justify-center gap-1.5 bg-white border border-black/5 text-re-text font-black text-[8px] uppercase tracking-widest shadow-sm hover:bg-re-bg hover:text-[#1E3A5F] transition-all disabled:opacity-40"
+                          className="h-7 px-3 rounded-xl flex items-center justify-center gap-1.5 bg-white border border-black/5 text-re-text font-black text-[8px] uppercase tracking-widest shadow-sm hover:bg-re-bg hover:text-[#000435] transition-all disabled:opacity-40"
                           title="Request manager approval"
                         >
                           <span>Request</span>
@@ -801,7 +801,7 @@ export default function Expenses() {
                             setPayingExpense(r);
                           }}
                           disabled={!['approved', 'paid'].includes(String(r.status || '').toLowerCase())}
-                          className="h-7 px-3 rounded-xl flex items-center justify-center gap-1.5 bg-white border border-black/5 text-re-text font-black text-[9px] uppercase tracking-widest shadow-sm hover:bg-re-bg hover:text-[#1E3A5F] transition-all disabled:opacity-40"
+                          className="h-7 px-3 rounded-xl flex items-center justify-center gap-1.5 bg-white border border-black/5 text-re-text font-black text-[9px] uppercase tracking-widest shadow-sm hover:bg-re-bg hover:text-[#000435] transition-all disabled:opacity-40"
                           title="Record payment"
                         >
                           <CreditCard size={12} className="text-amber-500" />

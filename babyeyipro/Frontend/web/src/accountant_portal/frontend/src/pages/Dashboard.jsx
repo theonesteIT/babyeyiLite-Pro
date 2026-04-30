@@ -100,20 +100,20 @@ const DonutChart = ({ data = [], size = 140 }) => {
 const ModalShell = ({ title, subtitle, onClose, children }) => {
   return createPortal(
     <div className="fixed inset-0 z-[200]">
-      <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-[#000435]/50 backdrop-blur-sm" onClick={onClose} />
       <div className="absolute inset-x-0 top-10 md:top-16 mx-auto w-[92vw] max-w-4xl">
-        <div className="bg-white rounded-[24px] shadow-2xl border border-black/10 overflow-hidden">
+        <div className="bg-white rounded-[24px]  border border-black/10 overflow-hidden">
           <div className="px-5 md:px-6 py-4 border-b border-black/5 flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <p className="text-[9px] font-black uppercase tracking-[0.28em] text-re-text-muted/45">{subtitle}</p>
+              <p className="text-[9px] font-black capitalize tracking-[0.28em] text-re-text-muted/45">{subtitle}</p>
               <h3 className="text-base md:text-lg font-black text-re-navy tracking-tight truncate">{title}</h3>
             </div>
             <button
               onClick={onClose}
-              className="shrink-0 w-9 h-9 rounded-xl border border-black/10 bg-re-bg shadow-inner flex items-center justify-center hover:bg-white transition-colors"
+              className="shrink-0 w-9 h-9 rounded-xl border border-black/10 bg-re-bg  flex items-center justify-center hover:bg-white transition-colors"
               aria-label="Close modal"
             >
-              <X size={16} className="text-slate-500" />
+              <X size={16} className="text-[#000435]" />
             </button>
           </div>
           <div className="max-h-[75vh] overflow-y-auto p-5 md:p-6">
@@ -127,25 +127,25 @@ const ModalShell = ({ title, subtitle, onClose, children }) => {
 };
 
 function ChartTooltip({ active, payload }) {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload;
-      return (
-        <div className="bg-white/95 backdrop-blur-md border border-black/5 shadow-xl p-2.5 rounded-xl z-50">
-          <p className="text-[10px] font-black text-[#1E3A5F] uppercase tracking-[0.2em]">{data.label || 'Day'}</p>
-          <p className="text-xs font-black text-[#1E3A5F] mt-1">{formatMoneyRWF(payload[0].value)}</p>
-        </div>
-      );
-    }
-    return null;
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    return (
+      <div className="bg-white/95 backdrop-blur-md border border-black/5  p-2.5 rounded-xl z-50">
+        <p className="text-[10px] font-black text-[#000435] capitalize tracking-[0.2em]">{data.label || 'Day'}</p>
+        <p className="text-xs font-black text-[#000435] mt-1">{formatMoneyRWF(payload[0].value)}</p>
+      </div>
+    );
+  }
+  return null;
 }
 
 const RechartsTrend = ({ series = [], height = 120, tone = 'navy' }) => {
   const data = useMemo(() => series.map((s) => ({ ...s, value: Number(s.value) })), [series]);
-  const stroke = tone === 'amber' ? '#FEBF10' : '#1E3A5F';
+  const stroke = tone === 'amber' ? '#FEBF10' : '#000435';
 
   if (!series.length) {
     return (
-      <div className="flex items-center justify-center text-slate-300 text-xs" style={{ height }}>
+      <div className="flex items-center justify-center text-[#000435] text-xs" style={{ height }}>
         No data
       </div>
     );
@@ -162,14 +162,14 @@ const RechartsTrend = ({ series = [], height = 120, tone = 'navy' }) => {
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#00000008" />
-          <XAxis 
-            dataKey="label" 
+          <XAxis
+            dataKey="label"
             axisLine={false}
             tickLine={false}
             tick={{ fontSize: 9, fontWeight: 700, fill: '#94a3b8' }}
             dy={10}
           />
-          <YAxis 
+          <YAxis
             axisLine={false}
             tickLine={false}
             tick={{ fontSize: 9, fontWeight: 700, fill: '#94a3b8' }}
@@ -196,15 +196,15 @@ const RechartsTrend = ({ series = [], height = 120, tone = 'navy' }) => {
 const FEE_REPORT_YEAR = '2025-2026';
 const FEE_REPORT_TERM = 'Term 1';
 
-const DONUT_COLORS = ['#1E3A5F', '#FEBF10', '#10b981', '#f59e0b', '#6366f1', '#ec4899', '#14b8a6', '#64748b'];
+const DONUT_COLORS = ['#000435', '#FEBF10', '#000866', '#FFD54F', '#000C99', '#FFE680', '#0010CC', '#FFF5CC'];
 
 function emptySeries14() {
-    const today = new Date();
+  const today = new Date();
   const dayMs = 24 * 60 * 60 * 1000;
   return Array.from({ length: 14 }).map((_, i) => {
     const d = new Date(today.getTime() - (13 - i) * dayMs);
     const ymd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      const label = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    const label = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
     return { ymd, label, value: 0 };
   });
 }
@@ -284,195 +284,195 @@ export default function Dashboard() {
     setRefreshing(true);
     setLiveOk(false);
     try {
-        const [
-          overviewRes,
-          paymentsRes,
-          expensesRes,
-          requisitionsRes,
-          payrollCfgRes,
-          payrollRunsRes,
-          feeReportRes,
-        ] = await Promise.all([
-          api.get('/accountant/overview'),
-          api.get('/accountant/payments', { params: { limit: 500 } }),
-          api.get('/accountant/expenses'),
-          api.get('/accountant/requisitions'),
-          api.get('/accountant/payroll/config'),
-          api.get('/accountant/payroll/runs', { params: { limit: 8 } }),
-          api.get('/accountant/reports/payments', {
-            params: { academic_year: FEE_REPORT_YEAR, term: FEE_REPORT_TERM },
-          }),
-        ]);
+      const [
+        overviewRes,
+        paymentsRes,
+        expensesRes,
+        requisitionsRes,
+        payrollCfgRes,
+        payrollRunsRes,
+        feeReportRes,
+      ] = await Promise.all([
+        api.get('/accountant/overview'),
+        api.get('/accountant/payments', { params: { limit: 500 } }),
+        api.get('/accountant/expenses'),
+        api.get('/accountant/requisitions'),
+        api.get('/accountant/payroll/config'),
+        api.get('/accountant/payroll/runs', { params: { limit: 8 } }),
+        api.get('/accountant/reports/payments', {
+          params: { academic_year: FEE_REPORT_YEAR, term: FEE_REPORT_TERM },
+        }),
+      ]);
 
-        if (!overviewRes.data?.success) {
-          setLiveOk(false);
-          return;
-        }
-        const ov = overviewRes.data?.data || {};
-        const payments = Array.isArray(paymentsRes.data?.data) ? paymentsRes.data.data : [];
-        const expenseRows = expensesRes.data?.success && Array.isArray(expensesRes.data.data) ? expensesRes.data.data : [];
-        const reqRows = requisitionsRes.data?.success && Array.isArray(requisitionsRes.data.data) ? requisitionsRes.data.data : [];
-        const payrollCfg = payrollCfgRes.data?.success ? payrollCfgRes.data.data : null;
-        const payrollRuns = payrollRunsRes.data?.success && Array.isArray(payrollRunsRes.data.data) ? payrollRunsRes.data.data : [];
-        const feeRows =
-          feeReportRes.data?.success && Array.isArray(feeReportRes.data.data?.rows) ? feeReportRes.data.data.rows : [];
+      if (!overviewRes.data?.success) {
+        setLiveOk(false);
+        return;
+      }
+      const ov = overviewRes.data?.data || {};
+      const payments = Array.isArray(paymentsRes.data?.data) ? paymentsRes.data.data : [];
+      const expenseRows = expensesRes.data?.success && Array.isArray(expensesRes.data.data) ? expensesRes.data.data : [];
+      const reqRows = requisitionsRes.data?.success && Array.isArray(requisitionsRes.data.data) ? requisitionsRes.data.data : [];
+      const payrollCfg = payrollCfgRes.data?.success ? payrollCfgRes.data.data : null;
+      const payrollRuns = payrollRunsRes.data?.success && Array.isArray(payrollRunsRes.data.data) ? payrollRunsRes.data.data : [];
+      const feeRows =
+        feeReportRes.data?.success && Array.isArray(feeReportRes.data.data?.rows) ? feeReportRes.data.data.rows : [];
 
-        const now = new Date();
-        const y = now.getFullYear();
-        const m = now.getMonth();
-        const thisMonth = monthBoundsYmd(y, m);
-        const pm = m === 0 ? 11 : m - 1;
-        const py = m === 0 ? y - 1 : y;
-        const prevMonth = monthBoundsYmd(py, pm);
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = now.getMonth();
+      const thisMonth = monthBoundsYmd(y, m);
+      const pm = m === 0 ? 11 : m - 1;
+      const py = m === 0 ? y - 1 : y;
+      const prevMonth = monthBoundsYmd(py, pm);
 
-        const monthCollections = sumPaymentsBetween(payments, toYmd, thisMonth.start, thisMonth.end);
-        const lastMonthCollections = sumPaymentsBetween(payments, toYmd, prevMonth.start, prevMonth.end);
-        const todayYmd = toYmd(now);
-        let todayCollections = 0;
+      const monthCollections = sumPaymentsBetween(payments, toYmd, thisMonth.start, thisMonth.end);
+      const lastMonthCollections = sumPaymentsBetween(payments, toYmd, prevMonth.start, prevMonth.end);
+      const todayYmd = toYmd(now);
+      let todayCollections = 0;
 
-        const collectionsLog = [];
-        for (const p of payments) {
-          const created = toYmd(p.created_at);
-          const paid = Number(p.amount_paid || 0);
-          const remaining = Number(p.balance_remaining || 0);
-          if (created === todayYmd) todayCollections += paid;
-          collectionsLog.push({
-            name: `${p.first_name || ''} ${p.last_name || ''}`.trim() || 'Learner',
-            cls: p.class_name || '—',
-            amount: paid,
-            time: p.created_at ? new Date(p.created_at).toLocaleString() : '—',
-            channel: 'Recorded',
-            remaining,
-          });
-        }
-        collectionsLog.sort((a, b) => String(b.time).localeCompare(String(a.time)));
-
-        const debtorsFromFees = feeRows
-          .map((r) => {
-            const rem = r.remaining == null ? null : Number(r.remaining);
-            if (rem == null || rem <= 0) return null;
-            const name = `${r.first_name || ''} ${r.last_name || ''}`.trim() || 'Learner';
-    return {
-              student_id: r.student_id,
-              name,
-              cls: r.class_name || '—',
-              balance: rem,
-              daysOverdue: 0,
-              phone: '',
-              feeStatus: r.status || '',
-            };
-          })
-          .filter(Boolean)
-          .sort((a, b) => b.balance - a.balance);
-
-        const outstanding = feeRows.reduce((s, r) => {
-          const rem = r.remaining == null ? 0 : Number(r.remaining);
-          return s + (rem > 0 ? rem : 0);
-        }, 0);
-        const learnersOwing = feeRows.filter((r) => {
-          const rem = r.remaining == null ? null : Number(r.remaining);
-          return rem != null && rem > 0;
-        }).length;
-
-        const reminders = debtorsFromFees.slice(0, 12).map((d) => ({
-          name: d.name,
-          cls: d.cls,
-          balance: d.balance,
-          due: reminderLabelFromFeeStatus(d.feeStatus),
-        }));
-
-        const payments14 = Array.isArray(ov.collections_last_14_days)
-          ? ov.collections_last_14_days.map((x) => ({
-              label: toLabel(String(x.date || '').slice(0, 10)),
-              value: Number(x.total_paid || 0),
-            }))
-          : emptySeries14().map(({ label, value }) => ({ label, value }));
-
-        const expenseByDay = new Map();
-        for (const e of expenseRows) {
-          const key = String(e.date || '').slice(0, 10);
-          if (!key) continue;
-          expenseByDay.set(key, (expenseByDay.get(key) || 0) + Number(e.amount || 0));
-        }
-        const expenses14 = emptySeries14().map(({ ymd, label }) => ({
-          label,
-          value: Math.round(expenseByDay.get(ymd) || 0),
-        }));
-
-        let monthExpenses = 0;
-        let lastMonthExpenses = 0;
-        const catAgg = new Map();
-        for (const e of expenseRows) {
-          const dStr = String(e.date || '').slice(0, 10);
-          const amt = Number(e.amount || 0);
-          if (ymdInMonth(dStr, y, m)) {
-            monthExpenses += amt;
-            const c = String(e.category || 'Other').trim() || 'Other';
-            catAgg.set(c, (catAgg.get(c) || 0) + amt);
-          }
-          if (ymdInMonth(dStr, py, pm)) lastMonthExpenses += amt;
-        }
-        const expenseCategories = Array.from(catAgg.entries())
-          .map(([label, value], i) => ({ label, value, color: DONUT_COLORS[i % DONUT_COLORS.length] }))
-          .sort((a, b) => b.value - a.value);
-
-        const requisitions = reqRows
-          .filter((r) => String(r.status || '').toLowerCase() === 'pending')
-          .map((r) => ({
-            dept: r.dept,
-            requester: r.requester,
-            amount: Number(r.amount || 0),
-            status: 'Pending',
-            submitted: r.submitted || '—',
-          }));
-
-        const billsDue = expenseRows
-          .filter((e) => String(e.status || '').toLowerCase() === 'pending')
-          .slice()
-          .sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')))
-          .slice(0, 12)
-          .map((e) => ({
-            vendor: e.vendor,
-            category: e.category,
-            due: e.date || '—',
-            amount: Number(e.amount || 0),
-          }));
-
-        const rates = Array.isArray(payrollCfg?.rates) ? payrollCfg.rates : [];
-        const staffList = Array.isArray(payrollCfg?.staff) ? payrollCfg.staff : [];
-        const rateById = Object.fromEntries(rates.map((rr) => [rr.id, rr]));
-        const activeStaff = staffList.filter((s) => s.active);
-        const staffCount = activeStaff.length;
-        let totalDue = 0;
-        for (const s of activeStaff) {
-          const rr = rateById[s.rateId];
-          totalDue += (Number(rr?.base) || 0) + (Number(rr?.allowance) || 0);
-        }
-        const lastRun = payrollRuns[0];
-        const processed = lastRun && Number(lastRun.staffCount) > 0 ? Math.min(Number(lastRun.staffCount), staffCount) : 0;
-        const dueEnd = new Date(y, m + 1, 0);
-        const dueDate = dueEnd.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-
-        setLiveData({
-          ...fallbackBase,
-      payments14,
-      expenses14,
-          debtors: debtorsFromFees.slice(0, 20),
-      requisitions,
-      billsDue,
-      reminders,
-      expenseCategories,
-      monthCollections,
-      lastMonthCollections,
-      monthExpenses,
-      lastMonthExpenses,
-      todayCollections,
-      outstanding,
-      learnersOwing,
-          payroll: { staffCount, dueDate, totalDue, processed },
-          collectionsLog: collectionsLog.slice(0, 24),
+      const collectionsLog = [];
+      for (const p of payments) {
+        const created = toYmd(p.created_at);
+        const paid = Number(p.amount_paid || 0);
+        const remaining = Number(p.balance_remaining || 0);
+        if (created === todayYmd) todayCollections += paid;
+        collectionsLog.push({
+          name: `${p.first_name || ''} ${p.last_name || ''}`.trim() || 'Learner',
+          cls: p.class_name || '—',
+          amount: paid,
+          time: p.created_at ? new Date(p.created_at).toLocaleString() : '—',
+          channel: 'Recorded',
+          remaining,
         });
-        setLiveOk(true);
+      }
+      collectionsLog.sort((a, b) => String(b.time).localeCompare(String(a.time)));
+
+      const debtorsFromFees = feeRows
+        .map((r) => {
+          const rem = r.remaining == null ? null : Number(r.remaining);
+          if (rem == null || rem <= 0) return null;
+          const name = `${r.first_name || ''} ${r.last_name || ''}`.trim() || 'Learner';
+          return {
+            student_id: r.student_id,
+            name,
+            cls: r.class_name || '—',
+            balance: rem,
+            daysOverdue: 0,
+            phone: '',
+            feeStatus: r.status || '',
+          };
+        })
+        .filter(Boolean)
+        .sort((a, b) => b.balance - a.balance);
+
+      const outstanding = feeRows.reduce((s, r) => {
+        const rem = r.remaining == null ? 0 : Number(r.remaining);
+        return s + (rem > 0 ? rem : 0);
+      }, 0);
+      const learnersOwing = feeRows.filter((r) => {
+        const rem = r.remaining == null ? null : Number(r.remaining);
+        return rem != null && rem > 0;
+      }).length;
+
+      const reminders = debtorsFromFees.slice(0, 12).map((d) => ({
+        name: d.name,
+        cls: d.cls,
+        balance: d.balance,
+        due: reminderLabelFromFeeStatus(d.feeStatus),
+      }));
+
+      const payments14 = Array.isArray(ov.collections_last_14_days)
+        ? ov.collections_last_14_days.map((x) => ({
+          label: toLabel(String(x.date || '').slice(0, 10)),
+          value: Number(x.total_paid || 0),
+        }))
+        : emptySeries14().map(({ label, value }) => ({ label, value }));
+
+      const expenseByDay = new Map();
+      for (const e of expenseRows) {
+        const key = String(e.date || '').slice(0, 10);
+        if (!key) continue;
+        expenseByDay.set(key, (expenseByDay.get(key) || 0) + Number(e.amount || 0));
+      }
+      const expenses14 = emptySeries14().map(({ ymd, label }) => ({
+        label,
+        value: Math.round(expenseByDay.get(ymd) || 0),
+      }));
+
+      let monthExpenses = 0;
+      let lastMonthExpenses = 0;
+      const catAgg = new Map();
+      for (const e of expenseRows) {
+        const dStr = String(e.date || '').slice(0, 10);
+        const amt = Number(e.amount || 0);
+        if (ymdInMonth(dStr, y, m)) {
+          monthExpenses += amt;
+          const c = String(e.category || 'Other').trim() || 'Other';
+          catAgg.set(c, (catAgg.get(c) || 0) + amt);
+        }
+        if (ymdInMonth(dStr, py, pm)) lastMonthExpenses += amt;
+      }
+      const expenseCategories = Array.from(catAgg.entries())
+        .map(([label, value], i) => ({ label, value, color: DONUT_COLORS[i % DONUT_COLORS.length] }))
+        .sort((a, b) => b.value - a.value);
+
+      const requisitions = reqRows
+        .filter((r) => String(r.status || '').toLowerCase() === 'pending')
+        .map((r) => ({
+          dept: r.dept,
+          requester: r.requester,
+          amount: Number(r.amount || 0),
+          status: 'Pending',
+          submitted: r.submitted || '—',
+        }));
+
+      const billsDue = expenseRows
+        .filter((e) => String(e.status || '').toLowerCase() === 'pending')
+        .slice()
+        .sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')))
+        .slice(0, 12)
+        .map((e) => ({
+          vendor: e.vendor,
+          category: e.category,
+          due: e.date || '—',
+          amount: Number(e.amount || 0),
+        }));
+
+      const rates = Array.isArray(payrollCfg?.rates) ? payrollCfg.rates : [];
+      const staffList = Array.isArray(payrollCfg?.staff) ? payrollCfg.staff : [];
+      const rateById = Object.fromEntries(rates.map((rr) => [rr.id, rr]));
+      const activeStaff = staffList.filter((s) => s.active);
+      const staffCount = activeStaff.length;
+      let totalDue = 0;
+      for (const s of activeStaff) {
+        const rr = rateById[s.rateId];
+        totalDue += (Number(rr?.base) || 0) + (Number(rr?.allowance) || 0);
+      }
+      const lastRun = payrollRuns[0];
+      const processed = lastRun && Number(lastRun.staffCount) > 0 ? Math.min(Number(lastRun.staffCount), staffCount) : 0;
+      const dueEnd = new Date(y, m + 1, 0);
+      const dueDate = dueEnd.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+
+      setLiveData({
+        ...fallbackBase,
+        payments14,
+        expenses14,
+        debtors: debtorsFromFees.slice(0, 20),
+        requisitions,
+        billsDue,
+        reminders,
+        expenseCategories,
+        monthCollections,
+        lastMonthCollections,
+        monthExpenses,
+        lastMonthExpenses,
+        todayCollections,
+        outstanding,
+        learnersOwing,
+        payroll: { staffCount, dueDate, totalDue, processed },
+        collectionsLog: collectionsLog.slice(0, 24),
+      });
+      setLiveOk(true);
     } catch (e) {
       console.warn('[Dashboard] Live accountant data unavailable:', e.message);
       setLiveData(null);
@@ -505,7 +505,7 @@ export default function Dashboard() {
       {/* ── Hero banner ── */}
       <section className="relative p-7 md:p-10 text-white overflow-hidden min-h-[230px] flex items-center">
         <div className="absolute inset-0 z-0">
-          <img src={PORTAL.heroImage} alt={PORTAL.heroImageAlt || ''} className="w-full h-full object-cover shadow-2xl" />
+          <img src={PORTAL.heroImage} alt={PORTAL.heroImageAlt || ''} className="w-full h-full object-cover " />
           <div className="absolute inset-0 bg-black/55 backdrop-blur-[1px]" />
         </div>
 
@@ -517,22 +517,22 @@ export default function Dashboard() {
               </h1>
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
-                <p className="text-[10px] font-black uppercase tracking-widest text-white/80">
+                <p className="text-[10px] font-black capitalize tracking-widest text-white/80">
                   {new Date().getFullYear()} · {new Date().toLocaleString(undefined, { month: 'long' })} · Fees · Expenses · Requisitions · Payroll
                 </p>
               </div>
             </div>
 
             <div className="flex items-center gap-3">
-              <div className="flex bg-white/10 backdrop-blur-md rounded-xl border border-white/20 px-3 py-2">
-                <span className="text-[10px] font-black uppercase tracking-widest text-white/90">
+              <div className="flex bg-re-bg/10 backdrop-blur-md rounded-xl border border-white/20 px-3 py-2">
+                <span className="text-[10px] font-black capitalize tracking-widest text-white/90">
                   {refreshing ? 'Updating…' : liveOk ? 'Live data' : 'Offline'}
                 </span>
               </div>
               <button
                 type="button"
                 onClick={() => loadDashboard()}
-                className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-white backdrop-blur-sm hover:bg-white/15 transition-all active:scale-95 disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-re-bg/10 px-4 py-2.5 text-[10px] font-black capitalize tracking-widest text-white backdrop-blur-sm hover:bg-white/15 transition-all active:scale-95 disabled:opacity-60"
                 title="Refresh"
                 disabled={refreshing}
               >
@@ -553,28 +553,28 @@ export default function Dashboard() {
 
           {/* ── LEFT column (span 2): Fee Collection stats ── */}
           <div className="lg:col-span-2">
-            <div className="bg-white rounded-[24px] shadow-2xl border border-black/5 overflow-hidden h-full flex flex-col">
+            <div className="bg-white rounded-[24px]  border border-black/5 overflow-hidden h-full flex flex-col">
               {/* column header */}
-              <div className="px-5 py-4 border-b border-black/5 bg-slate-50/60 flex items-center justify-between">
+              <div className="px-5 py-4 border-b border-black/5 bg-re-bg/60 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Banknote size={15} className="text-[#1E3A5F]" />
-                  <h3 className="text-[10px] font-black text-[#1E3A5F] uppercase tracking-[0.22em]">Fee Collections</h3>
+                  <Banknote size={15} className="text-[#000435]" />
+                  <h3 className="text-[10px] font-black text-[#000435] capitalize tracking-[0.22em]">Fee Collections</h3>
                 </div>
-                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Live</span>
+                <span className="text-[9px] font-black capitalize tracking-widest text-[#000435]">Live</span>
               </div>
 
               {/* Today collections — hero stat */}
               <button
                 type="button"
                 onClick={() => setModal('collections')}
-                className="p-5 border-b border-gray-100 flex flex-col items-start text-left w-full hover:bg-slate-50/60 transition-all active:scale-[0.99]"
+                className="p-5 border-b border-gray-100 flex flex-col items-start text-left w-full hover:bg-white/60 transition-all active:scale-[0.99]"
               >
-                <span className="text-[9px] font-black uppercase tracking-[0.28em] text-slate-400/70">Today's collections</span>
-                <span className="text-2xl font-black tracking-tighter text-[#1E3A5F] mt-1">
+                <span className="text-[9px] font-black capitalize tracking-[0.28em] text-[#000435]/70">Today's collections</span>
+                <span className="text-2xl font-black tracking-tighter text-[#000435] mt-1">
                   {formatCompactMoneyRWF(mock.todayCollections)}
-                  <span className="text-sm font-bold text-slate-400 ml-1">RWF</span>
+                  <span className="text-sm font-bold text-[#000435] ml-1">RWF</span>
                 </span>
-                <div className="mt-2 flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-[#1E3A5F]/60">
+                <div className="mt-2 flex items-center gap-1 text-[9px] font-black capitalize tracking-widest text-[#000435]/60">
                   View breakdown ↓
                 </div>
               </button>
@@ -583,10 +583,10 @@ export default function Dashboard() {
               <div className="grid grid-cols-2 flex-1">
                 {/* Month collections */}
                 <div className="p-4 flex flex-col items-center justify-center text-center border-r border-gray-100">
-                  <span className="text-xl font-black tracking-tighter text-[#1E3A5F]">
+                  <span className="text-xl font-black tracking-tighter text-[#000435]">
                     {formatCompactMoneyRWF(mock.monthCollections)}
                   </span>
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1 opacity-70">Month (MTD)</p>
+                  <p className="text-[9px] font-black text-[#000435] capitalize tracking-widest mt-1 opacity-70">Month (MTD)</p>
                   {kpis.collectionsDelta != null && (
                     <p className={`text-[9px] font-black mt-1 ${kpis.collectionsDelta >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
                       {kpis.collectionsDelta >= 0 ? '▲' : '▼'} {Math.abs(kpis.collectionsDelta).toFixed(1)}% vs last mo.
@@ -596,20 +596,20 @@ export default function Dashboard() {
 
                 {/* Outstanding + top debtor hints — all in one cell */}
                 <div className="p-3.5 flex flex-col justify-center items-center text-center">
-                  <span className="text-lg font-black tracking-tighter text-[#1E3A5F] leading-none">
+                  <span className="text-lg font-black tracking-tighter text-[#000435] leading-none">
                     {formatCompactMoneyRWF(mock.outstanding)}
                   </span>
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1 opacity-70">Outstanding</p>
-                  <div className="w-full h-px bg-slate-100 my-2" />
+                  <p className="text-[9px] font-black text-[#000435] capitalize tracking-widest mt-1 opacity-70">Outstanding</p>
+                  <div className="w-full h-px bg-re-bg my-2" />
                   {/* hint: learners owing + top debtor — like attendance "Absent / Missed" */}
-                  <div className="flex flex-col gap-1 text-[8.5px] font-bold text-slate-500 w-full bg-slate-50 rounded-lg py-1.5 px-2 border border-slate-100">
+                  <div className="flex flex-col gap-1 text-[8.5px] font-bold text-[#000435] w-full bg-re-bg rounded-lg py-1.5 px-2 border border-[#000435]">
                     <button
                       type="button"
                       onClick={() => setModal('debtors')}
                       className="flex justify-between items-center text-left w-full bg-transparent px-0 py-0 border-0 outline-none transition group"
                       title="View debtors"
                     >
-                      <span className="uppercase tracking-widest group-hover:text-[#1E3A5F] transition-colors">Owing</span>
+                      <span className="capitalize tracking-widest group-hover:text-[#000435] transition-colors">Owing</span>
                       <span className="font-black text-amber-600 group-hover:text-amber-700 transition-colors">{mock.learnersOwing} learners</span>
                     </button>
                     <button
@@ -618,7 +618,7 @@ export default function Dashboard() {
                       className="flex justify-between items-center text-left w-full bg-transparent px-0 py-0 border-0 outline-none transition group"
                       title="Send fee reminders"
                     >
-                      <span className="uppercase tracking-widest group-hover:text-[#1E3A5F] transition-colors">Reminders</span>
+                      <span className="capitalize tracking-widest group-hover:text-[#000435] transition-colors">Reminders</span>
                       <span className="font-black text-red-500 group-hover:text-red-600 transition-colors">{mock.reminders.length} due</span>
                     </button>
                   </div>
@@ -629,26 +629,26 @@ export default function Dashboard() {
 
           {/* ── CENTER column (span 2): Cost & Financial Health stats ── */}
           <div className="lg:col-span-2">
-            <div className="bg-white rounded-[24px] shadow-2xl border border-black/5 overflow-hidden h-full flex flex-col">
+            <div className="bg-white rounded-[24px]  border border-black/5 overflow-hidden h-full flex flex-col">
               {/* column header */}
-              <div className="px-5 py-4 border-b border-black/5 bg-slate-50/60 flex items-center justify-between">
+              <div className="px-5 py-4 border-b border-black/5 bg-re-bg/60 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <TrendingDown size={15} className="text-amber-500" />
-                  <h3 className="text-[10px] font-black text-[#1E3A5F] uppercase tracking-[0.22em]">Costs & Cashflow</h3>
+                  <h3 className="text-[10px] font-black text-[#000435] capitalize tracking-[0.22em]">Costs & Cashflow</h3>
                 </div>
-                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">MTD</span>
+                <span className="text-[9px] font-black capitalize tracking-widest text-[#000435]">MTD</span>
               </div>
 
               {/* Expenses MTD — hero stat */}
               <button
                 type="button"
                 onClick={() => setModal('expenses')}
-                className="p-5 border-b border-gray-100 flex flex-col items-start text-left w-full hover:bg-slate-50/60 transition-all active:scale-[0.99]"
+                className="p-5 border-b border-gray-100 flex flex-col items-start text-left w-full hover:bg-white/60 transition-all active:scale-[0.99]"
               >
-                <span className="text-[9px] font-black uppercase tracking-[0.28em] text-slate-400/70">Expenses (MTD)</span>
-                <span className="text-2xl font-black tracking-tighter text-[#1E3A5F] mt-1">
+                <span className="text-[9px] font-black capitalize tracking-[0.28em] text-[#000435]/70">Expenses (MTD)</span>
+                <span className="text-2xl font-black tracking-tighter text-[#000435] mt-1">
                   {formatCompactMoneyRWF(mock.monthExpenses)}
-                  <span className="text-sm font-bold text-slate-400 ml-1">RWF</span>
+                  <span className="text-sm font-bold text-[#000435] ml-1">RWF</span>
                 </span>
                 {kpis.expensesDelta != null && (
                   <p className={`text-[9px] font-black mt-1 ${kpis.expensesDelta <= 0 ? 'text-emerald-500' : 'text-amber-600'}`}>
@@ -664,7 +664,7 @@ export default function Dashboard() {
                   <span className={`text-xl font-black tracking-tighter ${kpis.netCashflow >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                     {kpis.netCashflow >= 0 ? '+' : ''}{formatCompactMoneyRWF(kpis.netCashflow)}
                   </span>
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1 opacity-70">Net Cashflow</p>
+                  <p className="text-[9px] font-black text-[#000435] capitalize tracking-widest mt-1 opacity-70">Net Cashflow</p>
                   <p className={`text-[9px] font-black mt-1 ${kpis.netCashflow >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
                     {kpis.netCashflow >= 0 ? 'Surplus' : 'Deficit'}
                   </p>
@@ -672,43 +672,43 @@ export default function Dashboard() {
 
                 {/* Payroll hints in single cell */}
                 <div className="p-3.5 flex flex-col justify-center items-center text-center">
-                  <span className="text-lg font-black tracking-tighter text-[#1E3A5F] leading-none">
+                  <span className="text-lg font-black tracking-tighter text-[#000435] leading-none">
                     {formatCompactMoneyRWF(mock.payroll.totalDue)}
                   </span>
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1 opacity-70">Payroll Due</p>
-                  <div className="w-full h-px bg-slate-100 my-2" />
-                  <div className="flex flex-col gap-1 text-[8.5px] font-bold text-slate-500 w-full bg-slate-50 rounded-lg py-1.5 px-2 border border-slate-100">
+                  <p className="text-[9px] font-black text-[#000435] capitalize tracking-widest mt-1 opacity-70">Payroll Due</p>
+                  <div className="w-full h-px bg-re-bg my-2" />
+                  <div className="flex flex-col gap-1 text-[8.5px] font-bold text-[#000435] w-full bg-re-bg rounded-lg py-1.5 px-2 border border-[#000435]">
                     <button
                       type="button"
                       onClick={() => navigate('/payroll/history')}
-                      className="flex justify-between items-center text-left w-full bg-slate-50 hover:bg-slate-100 px-2.5 py-2 rounded-xl border border-black/5 transition-all group"
+                      className="flex justify-between items-center text-left w-full bg-re-bg hover:bg-white px-2.5 py-2 rounded-xl border border-black/5 transition-all group"
                     >
-                      <span className="uppercase tracking-widest text-slate-500 group-hover:text-[#1E3A5F]">Processed</span>
+                      <span className="capitalize tracking-widest text-[#000435] group-hover:text-[#000435]">Processed</span>
                       <div className="flex items-center gap-2">
-                        <span className="font-black text-[#1E3A5F]">{mock.payroll.processed}/{mock.payroll.staffCount}</span>
-                        <ArrowRight size={10} className="text-slate-300 group-hover:text-[#1E3A5F]" />
+                        <span className="font-black text-[#000435]">{mock.payroll.processed}/{mock.payroll.staffCount}</span>
+                        <ArrowRight size={10} className="text-[#000435] group-hover:text-[#000435]" />
                       </div>
                     </button>
                     <button
                       type="button"
                       onClick={() => navigate('/requisitions')}
-                      className="flex justify-between items-center text-left w-full bg-slate-50 hover:bg-slate-100 px-2.5 py-2 rounded-xl border border-black/5 transition-all group"
+                      className="flex justify-between items-center text-left w-full bg-re-bg hover:bg-white px-2.5 py-2 rounded-xl border border-black/5 transition-all group"
                     >
-                      <span className="uppercase tracking-widest text-slate-500 group-hover:text-[#1E3A5F]">Requisitions</span>
+                      <span className="capitalize tracking-widest text-[#000435] group-hover:text-[#000435]">Requisitions</span>
                       <div className="flex items-center gap-2">
                         <span className="font-black text-amber-600 group-hover:text-amber-700">{mock.requisitions.length}</span>
-                        <ArrowRight size={10} className="text-slate-300 group-hover:text-[#1E3A5F]" />
+                        <ArrowRight size={10} className="text-[#000435] group-hover:text-[#000435]" />
                       </div>
                     </button>
                     <button
                       type="button"
                       onClick={() => navigate('/expenses')}
-                      className="flex justify-between items-center text-left w-full bg-slate-50 hover:bg-slate-100 px-2.5 py-2 rounded-xl border border-black/5 transition-all group"
+                      className="flex justify-between items-center text-left w-full bg-re-bg hover:bg-white px-2.5 py-2 rounded-xl border border-black/5 transition-all group"
                     >
-                      <span className="uppercase tracking-widest text-slate-500 group-hover:text-[#1E3A5F]">Bills Due</span>
+                      <span className="capitalize tracking-widest text-[#000435] group-hover:text-[#000435]">Bills Due</span>
                       <div className="flex items-center gap-2">
                         <span className="font-black text-red-500 group-hover:text-red-600">{mock.billsDue.length}</span>
-                        <ArrowRight size={10} className="text-slate-300 group-hover:text-[#1E3A5F]" />
+                        <ArrowRight size={10} className="text-[#000435] group-hover:text-[#000435]" />
                       </div>
                     </button>
                   </div>
@@ -726,25 +726,25 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mt-5">
 
           {/* Collections trend: spans 2 cols */}
-          <div className="bg-white border border-black/5 rounded-[24px] shadow-2xl p-5 md:p-6 lg:col-span-2">
+          <div className="bg-white border border-black/5 rounded-[24px]  p-5 md:p-6 lg:col-span-2">
             <div className="flex items-center justify-between gap-3 mb-4">
               <div className="flex items-center gap-2">
-                <TrendingUp size={16} className="text-[#1E3A5F]" />
-                <h3 className="text-[11px] font-black text-[#1E3A5F] uppercase tracking-[0.2em]">Collections trend</h3>
+                <TrendingUp size={16} className="text-[#000435]" />
+                <h3 className="text-[11px] font-black text-[#000435] capitalize tracking-[0.2em]">Collections trend</h3>
               </div>
-              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Last 14 days</span>
+              <span className="text-[9px] font-black capitalize tracking-widest text-[#000435]">Last 14 days</span>
             </div>
             <RechartsTrend series={mock.payments14} />
 
             <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div className="rounded-2xl bg-slate-50 border border-black/5 shadow-inner p-5 flex flex-col items-center">
-                <p className="text-[9px] font-black uppercase tracking-[0.28em] text-slate-400/70 mb-4 w-full">Expenses trend</p>
+              <div className="rounded-2xl bg-re-bg border border-black/5  p-5 flex flex-col items-center">
+                <p className="text-[9px] font-black capitalize tracking-[0.28em] text-[#000435]/70 mb-4 w-full">Expenses trend</p>
                 <div className="w-full">
                   <RechartsTrend series={mock.expenses14} tone="amber" height={100} />
                 </div>
               </div>
-              <div className="rounded-2xl bg-slate-50 border border-black/5 shadow-inner p-5">
-                <p className="text-[9px] font-black uppercase tracking-[0.28em] text-slate-400/70 mb-4">Expense breakdown</p>
+              <div className="rounded-2xl bg-re-bg border border-black/5  p-5">
+                <p className="text-[9px] font-black capitalize tracking-[0.28em] text-[#000435]/70 mb-4">Expense breakdown</p>
                 <div className="flex items-center gap-4 min-w-0 overflow-hidden">
                   <div className="shrink-0 flex items-center justify-center">
                     <DonutChart data={mock.expenseCategories} size={90} />
@@ -753,10 +753,10 @@ export default function Dashboard() {
                     {mock.expenseCategories.map((c) => (
                       <div key={c.label} className="flex items-center justify-between gap-1 group">
                         <div className="flex items-center gap-1.5 min-w-0">
-                          <span className="w-2 h-2 rounded-full shrink-0 shadow-sm" style={{ background: c.color }} />
-                          <p className="text-[9px] font-black text-[#1E3A5F] truncate uppercase tracking-tighter group-hover:text-amber-600 transition-colors">{c.label}</p>
+                          <span className="w-2 h-2 rounded-full shrink-0 " style={{ background: c.color }} />
+                          <p className="text-[9px] font-black text-[#000435] truncate capitalize tracking-tighter group-hover:text-amber-600 transition-colors">{c.label}</p>
                         </div>
-                        <p className="text-[9px] font-black text-[#1E3A5F] shrink-0">
+                        <p className="text-[9px] font-black text-[#000435] shrink-0">
                           {Math.round((c.value / (expenseTotal || 1)) * 100)}%
                         </p>
                       </div>
@@ -768,15 +768,15 @@ export default function Dashboard() {
           </div>
 
           {/* Top debtors: 1 col */}
-          <div className="bg-white border border-black/5 rounded-[24px] shadow-2xl p-5 md:p-6">
+          <div className="bg-white border border-black/5 rounded-[24px]  p-5 md:p-6">
             <div className="flex items-center justify-between gap-3 mb-4">
               <div className="flex items-center gap-2">
-                <Wallet size={16} className="text-[#1E3A5F]" />
-                <h3 className="text-[11px] font-black text-[#1E3A5F] uppercase tracking-[0.2em]">Top debtors</h3>
+                <Wallet size={16} className="text-[#000435]" />
+                <h3 className="text-[11px] font-black text-[#000435] capitalize tracking-[0.2em]">Top debtors</h3>
               </div>
               <button
                 onClick={() => setModal('debtors')}
-                className="text-[9px] font-black uppercase tracking-widest text-[#1E3A5F]/60 hover:text-[#1E3A5F] transition-colors flex items-center gap-1"
+                className="text-[9px] font-black capitalize tracking-widest text-[#000435]/60 hover:text-[#000435] transition-colors flex items-center gap-1"
               >
                 All <ArrowRight size={11} />
               </button>
@@ -784,23 +784,23 @@ export default function Dashboard() {
 
             <div className="overflow-hidden rounded-2xl border border-black/5">
               <table className="w-full text-left">
-                <thead className="bg-slate-50">
+                <thead className="bg-white">
                   <tr>
-                    <th className="px-4 py-3 text-[9px] font-black uppercase tracking-[0.24em] text-slate-400/70">Learner</th>
-                    <th className="px-4 py-3 text-right text-[9px] font-black uppercase tracking-[0.24em] text-slate-400/70">Balance</th>
+                    <th className="px-4 py-3 text-[9px] font-black capitalize tracking-[0.24em] text-[#000435]/70">Learner</th>
+                    <th className="px-4 py-3 text-right text-[9px] font-black capitalize tracking-[0.24em] text-[#000435]/70">Balance</th>
                   </tr>
                 </thead>
                 <tbody>
                   {mock.debtors.slice(0, 5).map((d, i) => (
-                    <tr key={d.student_id ?? d.name ?? i} className="border-t border-black/5 hover:bg-slate-50/40 transition-colors group">
+                    <tr key={d.student_id ?? d.name ?? i} className="border-t border-black/5 hover:bg-white/40 transition-colors group">
                       <td className="px-4 py-2.5">
-                        <p className="text-[10px] font-black text-[#1E3A5F]">{d.name}</p>
-                        <p className="text-[9px] font-bold text-slate-400">{d.cls}</p>
+                        <p className="text-[10px] font-black text-[#000435]">{d.name}</p>
+                        <p className="text-[9px] font-bold text-[#000435]">{d.cls}</p>
                       </td>
                       <td className="px-4 py-2.5 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          <span className="text-[10px] font-black text-[#1E3A5F]">{formatCompactMoneyRWF(d.balance)}</span>
-                          <button 
+                          <span className="text-[10px] font-black text-[#000435]">{formatCompactMoneyRWF(d.balance)}</span>
+                          <button
                             title="Send Reminder"
                             className="p-1 rounded-md bg-amber-50 text-amber-600 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-amber-100"
                           >
@@ -816,23 +816,23 @@ export default function Dashboard() {
 
             {/* Quick notes embedded below table — same col */}
             <div className="mt-4">
-              <button 
+              <button
                 onClick={() => setModal('reminders')}
-                className="w-full h-12 flex items-center justify-between px-5 rounded-2xl bg-[#1E3A5F] text-white shadow-lg shadow-blue-900/10 hover:bg-[#2A4B7C] shadow-xl transition-all active:scale-[0.98] group"
+                className="w-full h-12 flex items-center justify-between px-5 rounded-2xl bg-[#000435] text-white  -900/10 hover:bg-[#2A4B7C]  transition-all active:scale-[0.98] group"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-6 h-6 rounded-lg bg-white/10 flex items-center justify-center">
+                  <div className="w-6 h-6 rounded-lg bg-re-bg/10 flex items-center justify-center">
                     <TrendingUp size={12} className="text-white" />
                   </div>
-                  <span className="text-[10px] font-black uppercase tracking-[0.15em]">Send reminder to parents</span>
+                  <span className="text-[10px] font-black capitalize tracking-[0.15em]">Send reminder to parents</span>
                 </div>
                 <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
               </button>
-              
-              <div className="mt-2.5 rounded-2xl bg-slate-50 border border-black/5 shadow-inner p-3.5 flex justify-between items-center">
+
+              <div className="mt-2.5 rounded-2xl bg-re-bg border border-black/5  p-3.5 flex justify-between items-center">
                 <div>
-                  <p className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-400">Payroll Status</p>
-                  <p className="text-[10px] font-bold text-[#1E3A5F] mt-0.5">Approvals due by {mock.payroll.dueDate}</p>
+                  <p className="text-[8px] font-black capitalize tracking-[0.2em] text-[#000435]">Payroll Status</p>
+                  <p className="text-[10px] font-bold text-[#000435] mt-0.5">Approvals due by {mock.payroll.dueDate}</p>
                 </div>
                 <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
               </div>
@@ -848,10 +848,10 @@ export default function Dashboard() {
             <table className="w-full text-left">
               <thead className="bg-re-bg">
                 <tr>
-                  <th className="px-4 py-3 text-[9px] font-black uppercase tracking-[0.24em] text-re-text-muted/60">Learner</th>
-                  <th className="px-4 py-3 text-[9px] font-black uppercase tracking-[0.24em] text-re-text-muted/60">Class</th>
-                  <th className="px-4 py-3 text-[9px] font-black uppercase tracking-[0.24em] text-re-text-muted/60">Overdue</th>
-                  <th className="px-4 py-3 text-right text-[9px] font-black uppercase tracking-[0.24em] text-re-text-muted/60">Balance</th>
+                  <th className="px-4 py-3 text-[9px] font-black capitalize tracking-[0.24em] text-re-text-muted/60">Learner</th>
+                  <th className="px-4 py-3 text-[9px] font-black capitalize tracking-[0.24em] text-re-text-muted/60">Class</th>
+                  <th className="px-4 py-3 text-[9px] font-black capitalize tracking-[0.24em] text-re-text-muted/60">Overdue</th>
+                  <th className="px-4 py-3 text-right text-[9px] font-black capitalize tracking-[0.24em] text-re-text-muted/60">Balance</th>
                 </tr>
               </thead>
               <tbody>
@@ -878,10 +878,10 @@ export default function Dashboard() {
             <table className="w-full text-left">
               <thead className="bg-re-bg">
                 <tr>
-                  <th className="px-4 py-3 text-[9px] font-black uppercase tracking-[0.24em] text-re-text-muted/60">Department</th>
-                  <th className="px-4 py-3 text-[9px] font-black uppercase tracking-[0.24em] text-re-text-muted/60">Requester</th>
-                  <th className="px-4 py-3 text-[9px] font-black uppercase tracking-[0.24em] text-re-text-muted/60">Submitted</th>
-                  <th className="px-4 py-3 text-right text-[9px] font-black uppercase tracking-[0.24em] text-re-text-muted/60">Amount</th>
+                  <th className="px-4 py-3 text-[9px] font-black capitalize tracking-[0.24em] text-re-text-muted/60">Department</th>
+                  <th className="px-4 py-3 text-[9px] font-black capitalize tracking-[0.24em] text-re-text-muted/60">Requester</th>
+                  <th className="px-4 py-3 text-[9px] font-black capitalize tracking-[0.24em] text-re-text-muted/60">Submitted</th>
+                  <th className="px-4 py-3 text-right text-[9px] font-black capitalize tracking-[0.24em] text-re-text-muted/60">Amount</th>
                 </tr>
               </thead>
               <tbody>
@@ -905,10 +905,10 @@ export default function Dashboard() {
             <table className="w-full text-left">
               <thead className="bg-re-bg">
                 <tr>
-                  <th className="px-4 py-3 text-[9px] font-black uppercase tracking-[0.24em] text-re-text-muted/60">Vendor</th>
-                  <th className="px-4 py-3 text-[9px] font-black uppercase tracking-[0.24em] text-re-text-muted/60">Category</th>
-                  <th className="px-4 py-3 text-[9px] font-black uppercase tracking-[0.24em] text-re-text-muted/60">Due</th>
-                  <th className="px-4 py-3 text-right text-[9px] font-black uppercase tracking-[0.24em] text-re-text-muted/60">Amount</th>
+                  <th className="px-4 py-3 text-[9px] font-black capitalize tracking-[0.24em] text-re-text-muted/60">Vendor</th>
+                  <th className="px-4 py-3 text-[9px] font-black capitalize tracking-[0.24em] text-re-text-muted/60">Category</th>
+                  <th className="px-4 py-3 text-[9px] font-black capitalize tracking-[0.24em] text-re-text-muted/60">Due</th>
+                  <th className="px-4 py-3 text-right text-[9px] font-black capitalize tracking-[0.24em] text-re-text-muted/60">Amount</th>
                 </tr>
               </thead>
               <tbody>
@@ -932,10 +932,10 @@ export default function Dashboard() {
             <table className="w-full text-left">
               <thead className="bg-re-bg">
                 <tr>
-                  <th className="px-4 py-3 text-[9px] font-black uppercase tracking-[0.24em] text-re-text-muted/60">Learner</th>
-                  <th className="px-4 py-3 text-[9px] font-black uppercase tracking-[0.24em] text-re-text-muted/60">Class</th>
-                  <th className="px-4 py-3 text-[9px] font-black uppercase tracking-[0.24em] text-re-text-muted/60">Due</th>
-                  <th className="px-4 py-3 text-right text-[9px] font-black uppercase tracking-[0.24em] text-re-text-muted/60">Balance</th>
+                  <th className="px-4 py-3 text-[9px] font-black capitalize tracking-[0.24em] text-re-text-muted/60">Learner</th>
+                  <th className="px-4 py-3 text-[9px] font-black capitalize tracking-[0.24em] text-re-text-muted/60">Class</th>
+                  <th className="px-4 py-3 text-[9px] font-black capitalize tracking-[0.24em] text-re-text-muted/60">Due</th>
+                  <th className="px-4 py-3 text-right text-[9px] font-black capitalize tracking-[0.24em] text-re-text-muted/60">Balance</th>
                 </tr>
               </thead>
               <tbody>
@@ -956,8 +956,8 @@ export default function Dashboard() {
       {modal === 'expenses' && (
         <ModalShell title="Expenses (MTD)" subtitle="Breakdown · live" onClose={() => setModal(null)}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="rounded-2xl bg-white border border-black/5 shadow-2xl p-5">
-              <p className="text-[9px] font-black uppercase tracking-[0.28em] text-re-text-muted/45">Total</p>
+            <div className="rounded-2xl bg-re-bg border border-black/5  p-5">
+              <p className="text-[9px] font-black capitalize tracking-[0.28em] text-re-text-muted/45">Total</p>
               <p className="text-2xl font-black text-re-navy mt-1">{formatMoneyRWF(mock.monthExpenses)}</p>
               <div className="mt-4 space-y-2">
                 {mock.expenseCategories.map((c) => (
@@ -971,8 +971,8 @@ export default function Dashboard() {
                 ))}
               </div>
             </div>
-            <div className="rounded-2xl bg-re-bg border border-black/5 shadow-inner p-5">
-              <p className="text-[9px] font-black uppercase tracking-[0.28em] text-re-text-muted/45">Expenses trend (14 days)</p>
+            <div className="rounded-2xl bg-re-bg border border-black/5  p-5">
+              <p className="text-[9px] font-black capitalize tracking-[0.28em] text-re-text-muted/45">Expenses trend (14 days)</p>
               <div className="mt-3">
                 <RechartsTrend series={mock.expenses14} tone="amber" height={100} />
               </div>
@@ -989,8 +989,8 @@ export default function Dashboard() {
               { k: 'Processed', v: `${mock.payroll.processed}/${mock.payroll.staffCount}` },
               { k: 'Due date', v: mock.payroll.dueDate },
             ].map((s) => (
-              <div key={s.k} className="rounded-2xl bg-re-bg border border-black/5 shadow-inner p-5">
-                <p className="text-[9px] font-black uppercase tracking-[0.28em] text-re-text-muted/45">{s.k}</p>
+              <div key={s.k} className="rounded-2xl bg-re-bg border border-black/5  p-5">
+                <p className="text-[9px] font-black capitalize tracking-[0.28em] text-re-text-muted/45">{s.k}</p>
                 <p className="text-lg font-black text-re-navy mt-1">{s.v}</p>
               </div>
             ))}
@@ -1004,12 +1004,12 @@ export default function Dashboard() {
             <table className="w-full text-left">
               <thead className="bg-re-bg border-b border-black/5">
                 <tr>
-                  <th className="px-4 py-3 text-[9px] font-black uppercase tracking-[0.24em] text-re-text-muted/60">Learner</th>
-                  <th className="px-4 py-3 text-[9px] font-black uppercase tracking-[0.24em] text-re-text-muted/60">Class</th>
-                  <th className="px-4 py-3 text-[9px] font-black uppercase tracking-[0.24em] text-re-text-muted/60">Channel</th>
-                  <th className="px-4 py-3 text-[9px] font-black uppercase tracking-[0.24em] text-re-text-muted/60">When</th>
-                  <th className="px-4 py-3 text-right text-[9px] font-black uppercase tracking-[0.24em] text-re-text-muted/60">Collected</th>
-                  <th className="px-4 py-3 text-right text-[9px] font-black uppercase tracking-[0.24em] text-re-text-muted/60">Remaining</th>
+                  <th className="px-4 py-3 text-[9px] font-black capitalize tracking-[0.24em] text-re-text-muted/60">Learner</th>
+                  <th className="px-4 py-3 text-[9px] font-black capitalize tracking-[0.24em] text-re-text-muted/60">Class</th>
+                  <th className="px-4 py-3 text-[9px] font-black capitalize tracking-[0.24em] text-re-text-muted/60">Channel</th>
+                  <th className="px-4 py-3 text-[9px] font-black capitalize tracking-[0.24em] text-re-text-muted/60">When</th>
+                  <th className="px-4 py-3 text-right text-[9px] font-black capitalize tracking-[0.24em] text-re-text-muted/60">Collected</th>
+                  <th className="px-4 py-3 text-right text-[9px] font-black capitalize tracking-[0.24em] text-re-text-muted/60">Remaining</th>
                 </tr>
               </thead>
               <tbody>
@@ -1018,7 +1018,7 @@ export default function Dashboard() {
                     <td className="px-4 py-3 text-[11px] font-black text-re-navy">{c.name}</td>
                     <td className="px-4 py-3 text-[11px] font-bold text-re-navy">{c.cls}</td>
                     <td className="px-4 py-3">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider border bg-slate-100 text-slate-600 border-slate-200">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-lg text-[9px] font-black capitalize tracking-wider border bg-re-bg text-[#000435] border-[#000435]">
                         {c.channel}
                       </span>
                     </td>

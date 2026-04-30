@@ -12,10 +12,28 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  ArrowLeft,
+  Camera,
+  Check,
+  ChevronRight,
+  Download,
+  IdCard,
+  Loader2,
+  Search,
+  School,
+  UserRound,
+  Users,
+  X,
+} from 'lucide-react';
 
 /* ─── Constants ─────────────────────────────────────────────────────── */
-export const CARD_PX = { w: 320, h: 530 };
-const SCALE = 3; /* 3× → 960 × 1590 — print quality */
+/* Card height fits header + photo + info + QR + scan label + footer (QR size = QR_CARD_PX design px). */
+export const CARD_PX = { w: 320, h: 695 };
+/** On-card QR module size (design px). Encoded URL opens `QRStudentsProfile` → `/v/:studentId` in App.jsx */
+const QR_CARD_PX = 120;
+const SCALE = 3; /* 3× — print quality */
 
 const C = {
   navy:       '#1a3572',
@@ -44,18 +62,28 @@ function getBase() {
   return (typeof import.meta !== 'undefined' ? String(import.meta.env?.BASE_URL || '/') : '/').replace(/\/?$/, '/');
 }
 
-function getFrontendOrigin() {
-  const envOrigin = String(PUBLIC_SITE || '').trim();
-  if (envOrigin) return envOrigin.replace(/\/$/, '');
-  if (typeof window !== 'undefined' && window.location?.origin) return window.location.origin.replace(/\/$/, '');
-  return 'https://babyeyi.rw';
+/** Absolute https origin — required or phone scanners open only the bare domain (broken QR payload). */
+function normalizeSiteOrigin() {
+  let o = String(PUBLIC_SITE || '').trim().replace(/\/$/, '');
+  if (!o && typeof window !== 'undefined' && window.location?.origin) {
+    o = String(window.location.origin).replace(/\/$/, '');
+  }
+  if (!o) o = 'https://babyeyi.rw';
+  if (!/^https?:\/\//i.test(o)) o = `https://${o}`;
+  return o.replace(/\/$/, '');
 }
 
+/** Full URL placed inside the QR — scanning opens SPA route `/v/:id` → `QRStudentsProfile.jsx` (public). */
 function buildStudentProfileUrl(studentId) {
-  const origin = getFrontendOrigin();
+  const origin = normalizeSiteOrigin();
   const basePath = getBase().replace(/\/$/, '');
-  const profilePath = `${basePath}/qr-student-profile`.replace(/\/{2,}/g, '/');
-  return `${origin}${profilePath}?student=${encodeURIComponent(studentId)}`;
+  const id = encodeURIComponent(String(studentId));
+  /*
+   * Short path `/v/:id` — fewer characters in QR, fewer scanner bugs than long paths.
+   * Also: `/qr-student-profile/:id` and `?student=` — see App.jsx for same component.
+   */
+  const profilePath = `${basePath}/v/${id}`.replace(/\/{2,}/g, '/');
+  return `${origin}${profilePath.startsWith('/') ? profilePath : `/${profilePath}`}`;
 }
 
 /* ─── Data helpers ───────────────────────────────────────────────────── */
@@ -71,7 +99,8 @@ function buildStudentQrPayload(student) {
   return buildStudentProfileUrl(student.id);
 }
 function getQrImageUrl(payload) {
-  return `https://api.qrserver.com/v1/create-qr-code/?size=512x512&format=png&data=${encodeURIComponent(payload)}`;
+  /* Larger source bitmap so scaled-up QR on card stays sharp */
+  return `https://api.qrserver.com/v1/create-qr-code/?size=768x768&format=png&data=${encodeURIComponent(payload)}`;
 }
 
 export function deriveSectionFromClass(cn) {
@@ -180,126 +209,72 @@ export async function renderCardToCanvas(student, template, photoImg, logoImg, f
   ctx.save(); /* save-A: card clip */
   ctx.clip();
 
-  /* ── 2. Watermark (behind all content) ── */
-  ctx.save();
-  ctx.globalAlpha = 0.035;
-  const wmSize = 200 * s;
-  const wmX = W / 2 - wmSize / 2;
-  const wmY = H * 0.35 - wmSize / 2;
+  /* ── 2. School logo + school name + phone (top, centered) ── */
+  const schoolTitle = (template?.school_name || student.school || 'SCHOOL').toUpperCase();
+  const schoolPhone = (template?.school_phone || student.phone || '').trim();
+  const logoSz = 78 * s;
+  const logoX = W / 2 - logoSz / 2;
+  const logoY = 10 * s;
   if (logoImg) {
-    ctx.drawImage(logoImg, wmX, wmY, wmSize, wmSize);
+    ctx.save();
+    rRect(ctx, logoX, logoY, logoSz, logoSz, 12 * s);
+    ctx.clip();
+    ctx.drawImage(logoImg, logoX, logoY, logoSz, logoSz);
+    ctx.restore();
   } else {
-    ctx.beginPath();
-    ctx.arc(W / 2, H * 0.35, wmSize * 0.24, 0, Math.PI * 2);
     ctx.fillStyle = C.navy;
+    ctx.beginPath();
+    ctx.arc(W / 2, logoY + logoSz / 2, logoSz / 2, 0, Math.PI * 2);
     ctx.fill();
   }
-  ctx.restore();
 
-  /* ── 3. School logo (top centre) ── */
-  const logoSz = 64 * s;
-  const logoCX = W / 2;
-  const logoY  = 14 * s;
+  const schoolNameY = logoY + logoSz + 18 * s;
+  ctx.fillStyle = C.navy;
+  ctx.font = `900 ${18.5 * s}px ${FONT_STACK}`;
+  ctx.textAlign = 'center';
+  ctx.fillText(schoolTitle, W / 2, schoolNameY);
 
-  if (logoImg) {
-    ctx.save(); /* save-B: logo clip */
-    rRect(ctx, logoCX - logoSz / 2, logoY, logoSz, logoSz, 8 * s);
-    ctx.clip();
-    ctx.drawImage(logoImg, logoCX - logoSz / 2, logoY, logoSz, logoSz);
-    ctx.restore(); /* restore-B */
-  } else {
-    ctx.beginPath();
-    ctx.arc(logoCX, logoY + logoSz / 2, logoSz / 2, 0, Math.PI * 2);
-    ctx.fillStyle = C.navy; ctx.fill();
-    ctx.fillStyle = '#fff';
-    ctx.font = `bold ${9 * s}px ${FONT_STACK}`;
-    ctx.textAlign = 'center';
-    ctx.fillText('SCHOOL', logoCX, logoY + logoSz / 2 + 3 * s);
+  if (schoolPhone) {
+    ctx.fillStyle = C.sub;
+    ctx.font = `700 ${12.5 * s}px ${FONT_STACK}`;
+    ctx.fillText(schoolPhone, W / 2, schoolNameY + 16 * s);
   }
 
-  /* ── 5. School name ── */
-  ctx.globalAlpha = 1; /* RESET — always explicit before text */
-  const schoolTitle = (template?.school_name || student.school || 'SCHOOL').toUpperCase();
-  const nameY = logoY + logoSz + 14 * s;
-  ctx.fillStyle = C.navy;
-  ctx.font = `900 ${16.5 * s}px ${FONT_STACK}`;
-  ctx.textAlign = 'center';
-  ctx.fillText(schoolTitle, W / 2, nameY);
+  /* Space between phone (or school title) and photo */
+  const afterHeaderBaseline = schoolPhone ? schoolNameY + 16 * s + 14 * s : schoolNameY + 10 * s;
+  const gapBeforePhoto = 18 * s;
+  const photoZoneTop = afterHeaderBaseline + gapBeforePhoto;
 
-  /* ── 6. Contact lines ── */
-  const cLines = [];
-  const postal = template?.postal_address || student.postal_address;
-  const ph     = template?.school_phone   || student.phone;
-  const em     = template?.school_email   || student.email;
-  if (postal) cLines.push(postal);
-  if (ph)     cLines.push(ph);
-  if (em)     cLines.push(em);
-  const web = formatWebsite(template?.website || student.website) || 'www.wisdomschoolrwanda.rw';
-  cLines.push(web);
-
-  ctx.globalAlpha = 1;
-  ctx.fillStyle = C.sub;
-  ctx.font = `500 ${9 * s}px ${FONT_STACK}`;
-  ctx.textAlign = 'center';
-  const lineH = 14 * s;
-  let cY = nameY + 14 * s;
-  cLines.forEach(line => { ctx.fillText(line, W / 2, cY); cY += lineH; });
-
-  /* ── 7. Arc wings ── */
-  const photoZoneTop = cY + 8 * s;
-  const photoSize    = 128 * s;
-  const photoFrame   = 4 * s;
-  const photoRadius  = 8 * s;
+  /* ── 3. Student photo (large, no side borders/frame) ── */
+  const photoSize    = 172 * s;
   const photoHalf    = photoSize / 2;
   const photoCX      = W / 2;
-  const photoCY      = photoZoneTop + 6 * s + photoHalf;
-  const wingEndY     = photoCY + 56 * s;
+  const photoCY      = photoZoneTop + photoHalf;
+  const photoOffsetX = (Number(template?.photo_offset_x) || 0) * s;
+  const photoOffsetY = (Number(template?.photo_offset_y) || 0) * s;
+  const photoZoom    = Math.max(0.85, Math.min(2.2, Number(template?.photo_zoom) || 1));
 
-  ctx.globalAlpha = 1;
-  ctx.strokeStyle = C.navy;
-  ctx.lineCap     = 'round';
-
-  /* Primary LEFT — shallow curve to side edge */
-  ctx.lineWidth = 3.5 * s;
-  ctx.beginPath();
-  ctx.moveTo(photoCX - photoHalf, photoCY);
-  ctx.quadraticCurveTo(7 * s + 48 * s, photoCY + 10 * s, 7 * s, wingEndY);
-  ctx.stroke();
-
-  /* Primary RIGHT — shallow curve to side edge */
-  ctx.beginPath();
-  ctx.moveTo(photoCX + photoHalf, photoCY);
-  ctx.quadraticCurveTo(W - 7 * s - 48 * s, photoCY + 10 * s, W - 7 * s, wingEndY);
-  ctx.stroke();
-
-  /* ── RESET alpha before EVERY subsequent draw ── */
-  ctx.globalAlpha = 1;
-
-  /* ── 8. Photo square ── */
+  /* ── 4. Photo square ── */
   const outerX = photoCX - photoHalf;
   const outerY = photoCY - photoHalf;
-  const innerSize = photoSize - photoFrame * 2;
-  const innerX = outerX + photoFrame;
-  const innerY = outerY + photoFrame;
+  const innerSize = photoSize;
+  const innerX = outerX;
+  const innerY = outerY;
 
-  /* Navy frame */
-  ctx.fillStyle = C.navy;
-  rRect(ctx, outerX, outerY, photoSize, photoSize, photoRadius);
-  ctx.fill();
-
-  /* Photo or placeholder — clipped to inner square */
+  /* Photo or placeholder — clipped to square */
   ctx.save(); /* save-C: photo clip */
-  rRect(ctx, innerX, innerY, innerSize, innerSize, Math.max(photoRadius - photoFrame, 0));
+  ctx.beginPath();
+  ctx.arc(photoCX, photoCY, innerSize / 2, 0, Math.PI * 2);
   ctx.clip();
 
   ctx.globalAlpha = 1;
   if (photoImg) {
     const iw    = photoImg.naturalWidth  || photoImg.width  || 1;
     const ih    = photoImg.naturalHeight || photoImg.height || 1;
-    const ratio = Math.max(innerSize / iw, innerSize / ih);
+    const ratio = Math.max(innerSize / iw, innerSize / ih) * photoZoom;
     const dw    = iw * ratio;
     const dh    = ih * ratio;
-    ctx.drawImage(photoImg, innerX + (innerSize - dw) / 2, innerY + (innerSize - dh) / 2, dw, dh);
+    ctx.drawImage(photoImg, innerX + (innerSize - dw) / 2 + photoOffsetX, innerY + (innerSize - dh) / 2 + photoOffsetY, dw, dh);
   } else {
     ctx.fillStyle = '#dde4f0';
     ctx.fillRect(innerX, innerY, innerSize, innerSize);
@@ -313,85 +288,93 @@ export async function renderCardToCanvas(student, template, photoImg, logoImg, f
   }
   ctx.restore(); /* restore-C */
 
-  /* ── 9. Info fields ── */
+  /* ── 5. Info fields ── */
   ctx.globalAlpha = 1; /* RESET */
+  const infoTopY = photoZoneTop + photoSize + 18 * s;
 
-  const infoTopY = photoZoneTop + 6 * s + photoSize + 16 * s;
-
-  const infoRows = [
-    { label: 'Name',          value: student.fullName,                                bold: true  },
-    { label: 'ID Number',     value: student.studentCode,                             bold: false },
-    { label: 'Section',       value: deriveSectionFromClass(student.className),       bold: false },
-  ];
-
-  const rowH     = 18 * s;
-  const baseFontSize = 11.2 * s;
+  const rowH     = 30 * s;
   let   infoY    = infoTopY;
-  const infoStartX = 94 * s;
+  const infoStartX = 46 * s;
 
   ctx.globalAlpha = 1;
-  infoRows.forEach(({ label, value, bold }) => {
-    const rowFontSize = (label === 'Name' || label === 'ID Number' || label === 'Section') ? 11 * s : baseFontSize;
+  /* Student name only — no “Name:” label, slightly larger */
+  ctx.textAlign = 'center';
+  ctx.fillStyle = C.navy;
+  ctx.font = `900 ${19.5 * s}px ${FONT_STACK}`;
+  ctx.fillText(student.fullName, W / 2, infoY);
+  infoY += 38 * s;
+  ctx.textAlign = 'left';
+
+  const restRows = [
+    { label: 'ID No',       value: student.studentCode,                       bold: false },
+    { label: 'Section',     value: deriveSectionFromClass(student.className),   bold: false },
+  ];
+
+  restRows.forEach(({ label, value, bold }) => {
+    const labelFontSize = label === 'ID No' ? 20 * s : 17 * s;
+    const valueFontSize = label === 'ID No' ? 21.5 * s : 17 * s;
     const lText = `${label}: `;
     ctx.fillStyle = C.navy;
-    ctx.font      = `800 ${rowFontSize}px ${FONT_STACK}`;
-    ctx.textAlign = 'left';
+    ctx.font      = `800 ${labelFontSize}px ${FONT_STACK}`;
     ctx.fillText(lText, infoStartX, infoY);
     const lw      = ctx.measureText(lText).width;
 
-    ctx.fillStyle = bold ? C.navy : C.text;
-    ctx.font      = `${bold ? 900 : 700} ${rowFontSize}px ${FONT_STACK}`;
+    ctx.fillStyle = C.navy;
+    ctx.font      = `${bold ? 900 : 800} ${valueFontSize}px ${FONT_STACK}`;
     ctx.fillText(value, infoStartX + lw, infoY);
 
-    infoY += rowH;
+    infoY += label === 'ID No' ? 34 * s : rowH;
   });
 
-  /* ── 10. QR CODE — fixed draw order ── */
-  ctx.globalAlpha = 1; /* CRITICAL RESET */
-
-  const qrPx  = 78 * s;
-  const qrX   = W / 2 - qrPx / 2;
-  const qrY   = infoY - 2 * s;
-  const pad   = 5 * s;
-  const boxR  = 9 * s;
-
-  /* STEP A: Fill white box background FIRST */
-  ctx.fillStyle = '#ffffff';
-  rRect(ctx, qrX - pad, qrY - pad, qrPx + pad * 2, qrPx + pad * 2, boxR);
-  ctx.fill();
-
-  /* STEP B: Draw real QR image ON TOP of white box (scannable) */
-  if (qrImage) {
-    ctx.drawImage(qrImage, qrX, qrY, qrPx, qrPx);
-  } else {
-    // Do not draw pseudo QR in exports; better show explicit unavailable state.
-    ctx.fillStyle = '#b91c1c';
-    ctx.font = `700 ${8.4 * s}px ${FONT_STACK}`;
-    ctx.textAlign = 'center';
-    ctx.fillText('QR unavailable', W / 2, qrY + qrPx / 2);
-  }
-
-  /* STEP C: Draw navy border LAST (on top of cells at the very edge only) */
-  ctx.globalAlpha = 1;
-  ctx.strokeStyle = C.navy;
-  ctx.lineWidth   = 2 * s;
-  rRect(ctx, qrX - pad, qrY - pad, qrPx + pad * 2, qrPx + pad * 2, boxR);
-  ctx.stroke();
-
-  /* "Scan for student profile" — darker/larger so it stays readable after export compression */
-  const scanLabelY = qrY + qrPx + pad + 8 * s;
-  ctx.globalAlpha = 1;
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(W / 2 - 72 * s, scanLabelY - 8 * s, 144 * s, 12 * s);
-  ctx.fillStyle   = '#4b5563';
-  ctx.font        = `500 ${8.2 * s}px ${FONT_STACK}`;
-  ctx.textAlign   = 'center';
-  ctx.fillText('SCAN FOR STUDENT PROFILE', W / 2, scanLabelY);
-
-  /* ── 11. Green footer ── */
+  /* ── 6. QR CODE (below info, above footer) — as large as vertical space allows */
   ctx.globalAlpha = 1;
   const footerH = 44 * s;
   const footerY = H - footerH;
+  const pad   = 6 * s;
+  const boxR  = 10 * s;
+  const gapAfterInfo = 10 * s;
+  const gapAboveFooter = 8 * s;
+  const scanTextH = 11 * s;
+  const labelGapBelowBox = 24 * s;
+  const maxQR   = QR_CARD_PX * s;
+  const minQR   = 72 * s;
+
+  const qrY = infoY + gapAfterInfo;
+  /* Bottom of scan text must sit above footer: qrY + qrPx + pad + labelGap + scanTextH <= footerY - gapAboveFooter */
+  const maxQrPx = footerY - gapAboveFooter - qrY - pad - labelGapBelowBox - scanTextH;
+  const qrPx    = Math.max(0, Math.min(maxQR, maxQrPx));
+  const qrX     = W / 2 - qrPx / 2;
+
+  if (qrPx >= minQR) {
+    ctx.fillStyle = '#ffffff';
+    rRect(ctx, qrX - pad, qrY - pad, qrPx + pad * 2, qrPx + pad * 2, boxR);
+    ctx.fill();
+
+    if (qrImage) {
+      ctx.drawImage(qrImage, qrX, qrY, qrPx, qrPx);
+    } else {
+      ctx.fillStyle = '#b91c1c';
+      ctx.font = `700 ${8.4 * s}px ${FONT_STACK}`;
+      ctx.textAlign = 'center';
+      ctx.fillText('QR unavailable', W / 2, qrY + qrPx / 2);
+    }
+
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = C.navy;
+    ctx.lineWidth   = 2 * s;
+    rRect(ctx, qrX - pad, qrY - pad, qrPx + pad * 2, qrPx + pad * 2, boxR);
+    ctx.stroke();
+
+    const scanLabelY = qrY + qrPx + pad + labelGapBelowBox;
+    ctx.globalAlpha = 1;
+    ctx.fillStyle   = C.sub;
+    ctx.font        = `600 ${6.5 * s}px ${FONT_STACK}`;
+    ctx.textAlign   = 'center';
+    ctx.fillText('SCAN FOR STUDENT PROFILE', W / 2, scanLabelY);
+  }
+
+  /* ── 7. Amber footer ── */
+  ctx.globalAlpha = 1;
   const gg = ctx.createLinearGradient(0, 0, W, 0);
   gg.addColorStop(0, C.amber); gg.addColorStop(1, C.amberLight);
   ctx.fillStyle = gg;
@@ -402,11 +385,6 @@ export async function renderCardToCanvas(student, template, photoImg, logoImg, f
     const fAsp = (footerImg.naturalWidth || 1) / (footerImg.naturalHeight || 1);
     const fw   = Math.min(fh * fAsp, W * 0.72);
     ctx.drawImage(footerImg, W / 2 - fw / 2, footerY + (footerH - fh) / 2, fw, fh);
-  } else {
-    ctx.fillStyle = '#ffffff';
-    ctx.font      = `900 ${13 * s}px ${FONT_STACK}`;
-    ctx.textAlign = 'center';
-    ctx.fillText('Babyeyi · Student ID', W / 2, footerY + footerH / 2 + 5 * s);
   }
 
   ctx.restore(); /* restore-A: card clip */
@@ -449,23 +427,15 @@ function CardLogoImg({ maxWidth = 210, height = 34 }) {
 export function IDCardT2({ student, template, scale = 1 }) {
   const schoolTitle   = (template?.school_name || student.school || 'SCHOOL').toUpperCase();
   const schoolLogoSrc = template?.school_logo_url ? `${UPLOADS_BASE}${template.school_logo_url}` : student.school_logo_full;
-  const qrPayload     = useMemo(() => buildStudentQrPayload(student), [student]);
-  const qrImg         = getQrImageUrl(qrPayload);
-  const web           = formatWebsite(template?.website || student.website) || 'www.wisdomschoolrwanda.rw';
-
-  const cLines = [];
-  const postal = template?.postal_address || student.postal_address;
-  const ph     = template?.school_phone   || student.phone;
-  const em     = template?.school_email   || student.email;
-  if (postal) cLines.push(postal);
-  if (ph)     cLines.push(ph);
-  if (em)     cLines.push(em);
-  if (!cLines.length && student.addressSummary !== '—') cLines.push(student.addressSummary);
+  const schoolPhone   = (template?.school_phone || student.phone || '').trim();
+  const photoOffsetX  = Number(template?.photo_offset_x) || 0;
+  const photoOffsetY  = Number(template?.photo_offset_y) || 0;
+  const photoZoom     = Math.max(0.85, Math.min(2.2, Number(template?.photo_zoom) || 1));
+  const qrImg         = useMemo(() => getQrImageUrl(buildStudentQrPayload(student)), [student?.id]);
 
   const infoRows = [
-    { label:'Name',          value:student.fullName,                                bold:true  },
-    { label:'ID Number',     value:student.studentCode,                             bold:false },
-    { label:'Section',       value:deriveSectionFromClass(student.className),       bold:false },
+    { label:'ID No',       value:student.studentCode,                             bold:false },
+    { label:'Section',     value:deriveSectionFromClass(student.className),       bold:false },
   ];
 
   return (
@@ -477,39 +447,33 @@ export function IDCardT2({ student, template, scale = 1 }) {
       boxShadow:scale>=1?'0 24px 72px rgba(26,53,114,0.28),0 4px 16px rgba(0,0,0,0.15)':'none',
       flexShrink:0,
     }}>
-      {/* Watermark */}
-      <div style={{position:'absolute',top:'35%',left:'50%',transform:'translate(-50%,-50%)',opacity:0.035,zIndex:1,pointerEvents:'none'}}>
-        {schoolLogoSrc ? <img src={schoolLogoSrc} alt="" style={{width:200,height:200,objectFit:'contain'}}/> : <SchoolLogoSVG px={200}/>}
-      </div>
-
-      <div style={{position:'relative',display:'flex',flexDirection:'column',alignItems:'center',height:'100%',zIndex:2,padding:'0 14px'}}>
-        {/* School logo */}
-        <div style={{width:'100%',display:'flex',justifyContent:'center',paddingTop:14,marginBottom:6}}>
-          {schoolLogoSrc ? <img src={schoolLogoSrc} alt="" style={{width:64,height:64,objectFit:'contain',borderRadius:8}}/> : <SchoolLogoSVG px={64}/>}
+      <div style={{position:'relative',display:'flex',flexDirection:'column',alignItems:'center',height:'100%',zIndex:2,padding:'10px 14px 0'}}>
+        {/* School logo + school details */}
+        <div style={{width:78,height:78,marginBottom:6,display:'flex',alignItems:'center',justifyContent:'center'}}>
+          {schoolLogoSrc ? <img src={schoolLogoSrc} alt="" style={{width:78,height:78,objectFit:'contain',borderRadius:14}}/> : <SchoolLogoSVG px={78}/>}
         </div>
+        <div style={{fontSize:18.5,fontWeight:900,color:C.navy,textAlign:'center',lineHeight:1.15,letterSpacing:0.25,marginBottom:2}}>{schoolTitle}</div>
+        {schoolPhone ? (
+          <div style={{fontSize:12.5,fontWeight:700,color:C.sub,textAlign:'center',lineHeight:1.15,marginBottom:18}}>{schoolPhone}</div>
+        ) : (
+          <div style={{marginBottom:12}} />
+        )}
 
-        {/* School name */}
-        <div style={{fontSize:17,fontWeight:900,color:C.navy,textAlign:'center',lineHeight:1.25,letterSpacing:0.2,marginBottom:5}}>{schoolTitle}</div>
-
-        {/* Contact lines */}
-        <div style={{fontSize:9,color:C.sub,textAlign:'center',lineHeight:1.65,marginBottom:4}}>
-          {cLines.map((l,i)=><div key={i}>{l}</div>)}
-          {web && <div>{web}</div>}
-        </div>
-
-        {/* Photo + wings */}
-        <div style={{position:'relative',marginLeft:-7,marginRight:-7,width:'calc(100% + 14px)',height:134,marginTop:4,flexShrink:0}}>
-          <svg viewBox="0 0 306 240" width="100%" height="240"
-            preserveAspectRatio="none"
-            style={{position:'absolute',left:0,top:0,pointerEvents:'none',zIndex:1,overflow:'visible'}}>
-            <path d="M 102 57 Q 50 86 0 160" stroke={C.navy} strokeWidth="3.5" fill="none" strokeLinecap="round"/>
-            <path d="M 204 57 Q 256 86 306 160" stroke={C.navy} strokeWidth="3.5" fill="none" strokeLinecap="round"/>
-          </svg>
-
-          {/* Photo square */}
-          <div style={{position:'absolute',left:'50%',top:0,transform:'translateX(-50%)',width:128,height:128,borderRadius:8,border:`4px solid ${C.navy}`,overflow:'hidden',background:'#f1f5f9',display:'flex',alignItems:'center',justifyContent:'center',zIndex:3,boxSizing:'border-box'}}>
+        {/* Photo */}
+        <div style={{position:'relative',width:172,height:172,marginBottom:8,flexShrink:0}}>
+          <div style={{position:'absolute',left:'50%',top:0,transform:'translateX(-50%)',width:172,height:172,borderRadius:'50%',overflow:'hidden',background:'#f1f5f9',display:'flex',alignItems:'center',justifyContent:'center',zIndex:3,boxSizing:'border-box'}}>
             {student.photo ? (
-              <img src={student.photo} alt="" style={{width:'100%',height:'100%',objectFit:'cover',objectPosition:'center'}}/>
+              <img
+                src={student.photo}
+                alt=""
+                style={{
+                  width: `${photoZoom * 100}%`,
+                  height: `${photoZoom * 100}%`,
+                  objectFit: 'cover',
+                  objectPosition: 'center',
+                  transform: `translate(${photoOffsetX}px, ${photoOffsetY}px)`,
+                }}
+              />
             ) : (
               <div style={{textAlign:'center'}}>
                 <svg width={36} height={36} viewBox="0 0 24 24" fill="none" stroke={C.navy} strokeWidth="1.5">
@@ -521,38 +485,65 @@ export function IDCardT2({ student, template, scale = 1 }) {
           </div>
         </div>
 
-        {/* Info rows */}
-        <div style={{width:'100%',paddingLeft:12,paddingRight:12,paddingTop:10,paddingBottom:4,zIndex:4,position:'relative',flexShrink:0}}>
-          
-          <div style={{width:'fit-content',margin:'0 auto',textAlign:'left'}}>
-            {infoRows.map(({label,value,bold})=>(
-              <div key={label} style={{fontSize:(label==='Name'||label==='ID Number'||label==='Section')?10.6:10.4,color:C.text,marginBottom:4,lineHeight:1.35,textAlign:'left'}}>
-                <span style={{fontWeight:800,color:C.navy}}>{label}: </span>
-                <span style={{fontWeight:bold?900:700,color:bold?C.navy:C.text}}>{value}</span>
-              </div>
-            ))}
+        {/* Student name (no label) + ID / Section */}
+        <div style={{width:'100%',paddingLeft:12,paddingRight:12,paddingTop:0,paddingBottom:2,zIndex:4,position:'relative',flexShrink:0}}>
+          <div style={{width:'100%',maxWidth:288,margin:'0 auto',textAlign:'center'}}>
+            <div style={{fontSize:19,fontWeight:900,color:C.navy,lineHeight:1.2,marginBottom:10,letterSpacing:0.02}}>{student.fullName}</div>
+            <div style={{width:'fit-content',margin:'0 auto',textAlign:'left'}}>
+              {infoRows.map(({label,value,bold})=>(
+                <div
+                  key={label}
+                  style={{
+                    fontSize: label === 'ID No' ? 21 : 17,
+                    color:C.navy,
+                    marginBottom: label === 'ID No' ? 10 : 9,
+                    lineHeight:1.25,
+                    textAlign:'left',
+                  }}
+                >
+                  <span style={{fontWeight:800,color:C.navy}}>{label}: </span>
+                  <span style={{fontWeight:bold?900:800,color:C.navy}}>{value}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
         {/* QR */}
-        <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:1,marginTop:'auto',marginBottom:6,flexShrink:0}}>
-          <div style={{borderRadius:8,border:`2px solid ${C.navy}`,padding:4,background:'#fff',boxShadow:'0 2px 10px rgba(26,53,114,0.12)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+        <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:20,marginTop:4,marginBottom:4,flexShrink:0,zIndex:4}}>
+          <div style={{borderRadius:12,border:`2px solid ${C.navy}`,padding:6,background:'#fff',display:'flex',alignItems:'center',justifyContent:'center'}}>
             {qrImg ? (
-              <img src={qrImg} alt="QR" style={{ width: 78, height: 78, display: 'block', objectFit: 'contain' }} />
+              <img src={qrImg} alt="QR" style={{ width: QR_CARD_PX, height: QR_CARD_PX, display: 'block', objectFit: 'contain' }} />
             ) : (
-              <div style={{ width: 78, height: 78, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#b91c1c', fontSize: 8, fontWeight: 700 }}>
+              <div style={{ width: QR_CARD_PX, height: QR_CARD_PX, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#b91c1c', fontSize: 8, fontWeight: 700 }}>
                 QR unavailable
               </div>
             )}
           </div>
-          <span style={{fontSize:7.9,color:C.sub,letterSpacing:0.35,fontWeight:500,textTransform:'uppercase'}}>Scan for student profile</span>
+          <span style={{fontSize:6.5,color:C.sub,letterSpacing:0.4,fontWeight:600,textTransform:'uppercase',lineHeight:1.35}}>Scan for student profile</span>
         </div>
 
-        {/* Green footer */}
-        <div style={{alignSelf:'stretch',marginLeft:-14,marginRight:-14,width:'calc(100% + 28px)',boxSizing:'border-box',borderTopLeftRadius:14,borderTopRightRadius:14,background:`linear-gradient(90deg,${C.amber},${C.amberLight})`,padding:'8px 10px 10px',marginBottom:0,display:'flex',alignItems:'center',justifyContent:'center',minHeight:44,marginTop:'auto',flexShrink:0,zIndex:4}}>
-          <div style={{width:'100%',maxWidth:280,display:'flex',justifyContent:'center',alignItems:'center'}}>
-            <CardLogoImg maxWidth={190} height={30}/>
-          </div>
+        {/* Amber footer */}
+        <div
+          style={{
+            alignSelf:'stretch',
+            marginLeft:-14,
+            marginRight:-14,
+            width:'calc(100% + 28px)',
+            boxSizing:'border-box',
+            borderTopLeftRadius:14,
+            borderTopRightRadius:14,
+            background:`linear-gradient(90deg,${C.amber},${C.amberLight})`,
+            minHeight:44,
+            marginTop:'auto',
+            flexShrink:0,
+            zIndex:4,
+            display:'flex',
+            alignItems:'center',
+            justifyContent:'center',
+          }}
+        >
+          <CardLogoImg maxWidth={188} height={30}/>
         </div>
       </div>
     </div>
@@ -571,7 +562,6 @@ export function useCardExport(student, template) {
     setReady(false);
     const logoSrc   = template?.school_logo_url ? `${UPLOADS_BASE}${template.school_logo_url}` : student.school_logo_full;
     const footerSrc = `${getBase()}cardlogo-removebg-preview.png`;
-
     Promise.all([
       student.photo ? loadImageCORS(student.photo) : Promise.resolve(null),
       logoSrc       ? loadImageCORS(logoSrc)       : Promise.resolve(null),
@@ -673,6 +663,7 @@ export function CardModal({ student, onClose }) {
   const [tplError,   setTplError]   = useState(null);
   const [busy,       setBusy]       = useState(false);
   const [busyFmt,    setBusyFmt]    = useState(null);
+  const [editor,     setEditor]     = useState({ photo_offset_x: 0, photo_offset_y: 0, photo_zoom: 1 });
 
   useEffect(() => {
     if (!student?.id) return;
@@ -686,7 +677,21 @@ export function CardModal({ student, onClose }) {
     return () => { cancelled = true; };
   }, [student?.id]);
 
-  const { ready, downloadPNG, downloadJPEG, downloadPDF } = useCardExport(student, template);
+  useEffect(() => {
+    // Keep default placement centered for every student card.
+    setEditor({
+      photo_offset_x: 0,
+      photo_offset_y: 0,
+      photo_zoom: 1,
+    });
+  }, [student?.id]);
+
+  const editedTemplate = useMemo(
+    () => ({ ...(template || {}), ...editor }),
+    [template, editor]
+  );
+
+  const { ready, downloadPNG, downloadJPEG, downloadPDF } = useCardExport(student, editedTemplate);
 
   const run = async (fmt, fn) => { setBusy(true); setBusyFmt(fmt); try { await fn(); } finally { setBusy(false); setBusyFmt(null); } };
 
@@ -711,17 +716,51 @@ export function CardModal({ student, onClose }) {
             <p style={{color:C.gold,fontSize:9,fontWeight:800,textTransform:'uppercase',letterSpacing:2,margin:0}}>Portrait template</p>
             <h3 style={{color:'#fff',fontSize:17,fontWeight:900,margin:'4px 0 0'}}>{student.fullName}</h3>
           </div>
-          <button type="button" onClick={onClose} style={{width:34,height:34,borderRadius:10,border:'1px solid rgba(255,255,255,0.2)',background:'transparent',color:'#fff',fontSize:18,cursor:'pointer'}}>×</button>
+          <button type="button" onClick={onClose} aria-label="Close" style={{width:34,height:34,borderRadius:10,border:'1px solid rgba(255,255,255,0.2)',background:'transparent',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+            <X size={18} strokeWidth={2} />
+          </button>
         </div>
 
         {tplLoading && <p style={{color:'rgba(255,255,255,0.6)',fontSize:13}}>Loading card data…</p>}
         {tplError   && <p style={{color:'#f87171',fontSize:13}}>{tplError}</p>}
-        {!ready && !tplLoading && <p style={{color:'rgba(255,255,255,0.4)',fontSize:11,marginBottom:8}}>⏳ Pre-loading images…</p>}
-        {ready  && <p style={{color:'#4ade80',fontSize:11,marginBottom:8}}>✓ Ready — exports are instant</p>}
+        {!ready && !tplLoading && (
+          <p style={{color:'rgba(255,255,255,0.4)',fontSize:11,marginBottom:8,display:'flex',alignItems:'center',gap:8}}>
+            <Loader2 size={14} strokeWidth={2} className="sct2-spin" style={{flexShrink:0}} />
+            Pre-loading images…
+          </p>
+        )}
+        {ready && (
+          <p style={{color:'#4ade80',fontSize:11,marginBottom:8,display:'flex',alignItems:'center',gap:8}}>
+            <Check size={14} strokeWidth={2} style={{flexShrink:0}} />
+            Ready — exports are instant
+          </p>
+        )}
 
         <div style={{display:'flex',justifyContent:'center',overflowX:'auto',paddingBottom:8}}>
           <div style={{width:CARD_PX.w,minHeight:CARD_PX.h}}>
-            <IDCardT2 student={student} template={template} scale={1}/>
+            <IDCardT2 student={student} template={editedTemplate} scale={1}/>
+          </div>
+        </div>
+
+        <div style={{marginTop:10,background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.12)',borderRadius:12,padding:'10px 12px'}}>
+          <div style={{fontSize:10,color:C.gold,fontWeight:800,textTransform:'uppercase',letterSpacing:1.2,marginBottom:8}}>Editor</div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr auto',alignItems:'center',gap:8,marginBottom:8}}>
+            <label style={{fontSize:11,color:'rgba(255,255,255,0.85)'}}>Photo X</label>
+            <input type="range" min={-40} max={40} step={1} value={editor.photo_offset_x} onChange={e=>setEditor(prev=>({...prev,photo_offset_x:Number(e.target.value)}))} />
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr auto',alignItems:'center',gap:8,marginBottom:8}}>
+            <label style={{fontSize:11,color:'rgba(255,255,255,0.85)'}}>Photo Y</label>
+            <input type="range" min={-40} max={40} step={1} value={editor.photo_offset_y} onChange={e=>setEditor(prev=>({...prev,photo_offset_y:Number(e.target.value)}))} />
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr auto',alignItems:'center',gap:8}}>
+            <label style={{fontSize:11,color:'rgba(255,255,255,0.85)'}}>Photo Zoom</label>
+            <input type="range" min={0.85} max={2.2} step={0.01} value={editor.photo_zoom} onChange={e=>setEditor(prev=>({...prev,photo_zoom:Number(e.target.value)}))} />
+          </div>
+          <div style={{marginTop:8,display:'flex',justifyContent:'flex-end'}}>
+            <button type="button" onClick={()=>setEditor({photo_offset_x:0,photo_offset_y:0,photo_zoom:1})}
+              style={{height:30,borderRadius:8,border:'1px solid rgba(255,255,255,0.2)',background:'transparent',color:'#fff',padding:'0 10px',fontSize:10,fontWeight:700,cursor:'pointer'}}>
+              Reset photo
+            </button>
           </div>
         </div>
 
@@ -735,7 +774,14 @@ export function CardModal({ student, onClose }) {
             <button key={fmt} type="button" onClick={fn}
               disabled={busy||tplLoading||(!ready&&fmt!=='SRV')}
               style={{height:40,borderRadius:10,border:outline?`1px solid ${C.gold}`:'none',background:outline?'transparent':bg,color:outline?C.gold:'#fff',fontWeight:800,fontSize:10,letterSpacing:1,cursor:'pointer',opacity:(busy&&busyFmt!==fmt)||(!ready&&fmt!=='SRV')?0.45:1}}>
-              {busy&&busyFmt===fmt?'…':`⬇ ${label}`}
+              {busy && busyFmt === fmt ? (
+                '…'
+              ) : (
+                <span style={{display:'inline-flex',alignItems:'center',justifyContent:'center',gap:6}}>
+                  <Download size={14} strokeWidth={2} />
+                  {label}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -748,6 +794,7 @@ export function CardModal({ student, onClose }) {
    SchoolStudentCardTemplate2 — full admin page
 ══════════════════════════════════════════════════════════════════════ */
 export default function SchoolStudentCardTemplate2() {
+  const navigate = useNavigate();
   const [students,    setStudents]    = useState([]);
   const [loading,     setLoading]     = useState(false);
   const [search,      setSearch]      = useState('');
@@ -815,7 +862,7 @@ export default function SchoolStudentCardTemplate2() {
     setBulkBusy(true); setBulkProg({done:0,total:targets.length});
     try {
       await bulkDownloadZip(targets, null, (done,total)=>setBulkProg({done,total}));
-      showNotif(`✓ Downloaded ${targets.length} cards as ZIP`);
+      showNotif(`Downloaded ${targets.length} cards as ZIP`);
     } catch(e) { showNotif(e.message||'ZIP failed','error'); }
     finally { setBulkBusy(false); setBulkProg({done:0,total:0}); }
   };
@@ -833,34 +880,66 @@ export default function SchoolStudentCardTemplate2() {
 
   return (
     <div style={S.page}>
-      <style>{`*{box-sizing:border-box}::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:rgba(255,255,255,0.03)}::-webkit-scrollbar-thumb{background:rgba(200,168,75,0.3);border-radius:4px}select option{background:#0d1b38;color:#fff}`}</style>
+      <style>{`*{box-sizing:border-box}::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:rgba(255,255,255,0.03)}::-webkit-scrollbar-thumb{background:rgba(200,168,75,0.3);border-radius:4px}select option{background:#0d1b38;color:#fff}@keyframes sct2-spin{to{transform:rotate(360deg)}}.sct2-spin{display:inline-block;animation:sct2-spin 1s linear infinite}`}</style>
 
-      {notif&&<div style={{position:'fixed',top:14,right:14,zIndex:2000,background:notif.type==='error'?'#7f1d1d':'#14532d',border:`1px solid ${notif.type==='error'?'#ef4444':'#22c55e'}`,borderRadius:12,padding:'12px 20px',color:'#fff',fontSize:13,fontWeight:600,maxWidth:380,boxShadow:'0 8px 32px rgba(0,0,0,0.45)'}}>{notif.msg}</div>}
+      {notif&&(
+        <div style={{position:'fixed',top:14,right:14,zIndex:2000,background:notif.type==='error'?'#7f1d1d':'#14532d',border:`1px solid ${notif.type==='error'?'#ef4444':'#22c55e'}`,borderRadius:12,padding:'12px 20px',color:'#fff',fontSize:13,fontWeight:600,maxWidth:380,boxShadow:'0 8px 32px rgba(0,0,0,0.45)',display:'flex',alignItems:'center',gap:10}}>
+          {notif.type==='success' ? <Check size={18} strokeWidth={2} style={{flexShrink:0}} /> : null}
+          <span>{notif.msg}</span>
+        </div>
+      )}
 
       {viewStudent&&<CardModal student={viewStudent} onClose={()=>setViewStudent(null)}/>}
 
       <div style={S.topbar}>
         <div style={{display:'flex',alignItems:'center',gap:12}}>
-          <div style={{width:36,height:36,borderRadius:10,background:`linear-gradient(135deg,${C.navy},${C.navyLight})`,display:'flex',alignItems:'center',justifyContent:'center'}}><span style={{fontSize:18}}>🪪</span></div>
+          <div style={{width:36,height:36,borderRadius:10,background:`linear-gradient(135deg,${C.navy},${C.navyLight})`,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff'}}>
+            <IdCard size={20} strokeWidth={2} />
+          </div>
           <div>
             <div style={{fontSize:8,color:C.gold,fontWeight:800,textTransform:'uppercase',letterSpacing:2}}>Super Admin</div>
             <div style={{fontSize:14,fontWeight:900,letterSpacing:-0.3}}>Student Card · Portrait Template 2</div>
           </div>
         </div>
-        <div style={{fontSize:10,color:'rgba(255,255,255,0.4)'}}>Canvas export · QR fixed · ZIP bulk</div>
+        <div style={{display:'flex',alignItems:'center',gap:12}}>
+          <button
+            type="button"
+            onClick={() => navigate('/superadmin/dashboard')}
+            style={{
+              height:34,
+              borderRadius:10,
+              border:'1px solid rgba(200,168,75,0.35)',
+              background:'linear-gradient(135deg, rgba(200,168,75,0.22), rgba(200,168,75,0.1))',
+              color:C.gold,
+              padding:'0 12px',
+              display:'inline-flex',
+              alignItems:'center',
+              gap:8,
+              fontSize:10.5,
+              fontWeight:800,
+              letterSpacing:0.5,
+              textTransform:'uppercase',
+              cursor:'pointer',
+            }}
+          >
+            <ArrowLeft size={14} strokeWidth={2} />
+            Back to dashboard
+          </button>
+          <div style={{fontSize:10,color:'rgba(255,255,255,0.4)'}}>Canvas export · QR fixed · ZIP bulk</div>
+        </div>
       </div>
 
       <div style={S.wrap}>
         {/* Stats */}
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:14,marginBottom:22}}>
           {[
-            {label:'Students loaded',val:students.length,                      icon:'👥',a:'#1a3572'},
-            {label:'With photos',    val:students.filter(x=>x.photo).length,   icon:'📷',a:'#1e5128'},
-            {label:'Schools',        val:schoolOpts.length,                     icon:'🏫',a:'#7c3aed'},
-            {label:'For ZIP',        val:selected.length||students.length,      icon:'⬇', a:'#c2410c'},
-          ].map(({label,val,icon,a})=>(
+            {label:'Students loaded',val:students.length,                      Icon:Users,a:'#1a3572'},
+            {label:'With photos',    val:students.filter(x=>x.photo).length,   Icon:Camera,a:'#1e5128'},
+            {label:'Schools',        val:schoolOpts.length,                     Icon:School,a:'#7c3aed'},
+            {label:'For ZIP',        val:selected.length||students.length,      Icon:Download, a:'#c2410c'},
+          ].map(({label,val,Icon,a})=>(
             <div key={label} style={{background:`linear-gradient(135deg,${a}45,${a}18)`,border:`1px solid ${a}55`,borderRadius:14,padding:'16px 18px'}}>
-              <div style={{fontSize:22,marginBottom:6}}>{icon}</div>
+              <div style={{marginBottom:6,color:'rgba(255,255,255,0.92)',display:'flex',alignItems:'center'}}><Icon size={22} strokeWidth={1.75} /></div>
               <div style={{fontSize:26,fontWeight:900}}>{val}</div>
               <div style={{fontSize:10,color:'rgba(255,255,255,0.5)',fontWeight:700,textTransform:'uppercase',letterSpacing:1}}>{label}</div>
             </div>
@@ -883,7 +962,9 @@ export default function SchoolStudentCardTemplate2() {
         {/* Search + actions */}
         <div style={{display:'flex',flexWrap:'wrap',gap:12,alignItems:'center',marginBottom:16}}>
           <div style={{position:'relative',flex:1,minWidth:220}}>
-            <span style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)',opacity:0.35}}>🔍</span>
+            <span style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)',opacity:0.35,pointerEvents:'none',display:'flex'}}>
+              <Search size={16} strokeWidth={2} color="rgba(255,255,255,0.9)" />
+            </span>
             <input value={search} onChange={e=>setSearch(e.target.value)} onKeyDown={e=>e.key==='Enter'&&loadStudents()} placeholder="Search name or student code…" style={{...S.sel,width:'100%',paddingLeft:36,height:40,boxSizing:'border-box'}}/>
           </div>
           <button type="button" onClick={loadStudents} disabled={loading} style={S.btn(`linear-gradient(135deg,${C.navy},${C.navyDark})`)}>{loading?'Loading…':'Apply filters'}</button>
@@ -891,7 +972,14 @@ export default function SchoolStudentCardTemplate2() {
           {students.length>0&&(
             <button type="button" onClick={handleBulkZip} disabled={bulkBusy}
               style={{...S.btn(`linear-gradient(135deg,${C.green},${C.greenLight})`),minWidth:190}}>
-              {bulkBusy?`${bulkProg.done}/${bulkProg.total} rendering…`:`⬇ ZIP ${selected.length>0?selected.length:students.length} cards`}
+              {bulkBusy ? (
+                `${bulkProg.done}/${bulkProg.total} rendering…`
+              ) : (
+                <span style={{display:'inline-flex',alignItems:'center',gap:6}}>
+                  <Download size={14} strokeWidth={2} />
+                  ZIP {selected.length>0?selected.length:students.length} cards
+                </span>
+              )}
             </button>
           )}
 
@@ -930,7 +1018,7 @@ export default function SchoolStudentCardTemplate2() {
                   <td style={S.td}><input type="checkbox" checked={selected.includes(st.id)} onChange={()=>toggleOne(st.id)} style={{cursor:'pointer',accentColor:C.gold}}/></td>
                   <td style={S.td}>
                     <div style={{width:40,height:50,borderRadius:8,border:`2px solid ${C.navy}`,overflow:'hidden',background:'#1a2a45',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                      {st.photo?<img src={st.photo} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>:<span style={{opacity:0.4}}>👤</span>}
+                      {st.photo?<img src={st.photo} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>:<span style={{opacity:0.45,display:'flex',alignItems:'center',justifyContent:'center'}}><UserRound size={22} strokeWidth={1.75} color="#93c5fd" /></span>}
                     </div>
                   </td>
                   <td style={S.td}>
@@ -959,7 +1047,7 @@ export default function SchoolStudentCardTemplate2() {
               {students.slice(0,6).map(st=>(
                 <button key={st.id} type="button" onClick={()=>setViewStudent(st)}
                   style={{cursor:'pointer',borderRadius:16,overflow:'hidden',border:'none',padding:0,textAlign:'left',background:'transparent',boxShadow:'0 8px 32px rgba(0,0,0,0.35)'}}>
-                  <div style={{display:'flex',justifyContent:'center',height:272,overflow:'hidden',background:'rgba(0,0,0,0.12)',borderRadius:'16px 16px 0 0',pointerEvents:'none'}}>
+                  <div style={{display:'flex',justifyContent:'center',height:362,overflow:'hidden',background:'rgba(0,0,0,0.12)',borderRadius:'16px 16px 0 0',pointerEvents:'none'}}>
                     <div style={{transform:'scale(0.52)',transformOrigin:'top center'}}>
                       <IDCardT2 student={st} template={null} scale={1}/>
                     </div>
@@ -969,7 +1057,9 @@ export default function SchoolStudentCardTemplate2() {
                       <p style={{margin:0,fontSize:11,fontWeight:800,color:'#fff'}}>{st.fullName}</p>
                       <p style={{margin:0,fontSize:9,color:C.gold,fontFamily:'monospace'}}>{st.studentCode}</p>
                     </div>
-                    <span style={{fontSize:10,color:'rgba(255,255,255,0.35)'}}>Open →</span>
+                    <span style={{fontSize:10,color:'rgba(255,255,255,0.35)',display:'inline-flex',alignItems:'center',gap:4}}>
+                      Open <ChevronRight size={14} strokeWidth={2} />
+                    </span>
                   </div>
                 </button>
               ))}

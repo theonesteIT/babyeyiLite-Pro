@@ -89,7 +89,7 @@ export default function StudentDisciplineModal({ isOpen, onClose, student, acade
                                 <img src={`http://localhost:5100${student.student_photo_url}`} className="w-full h-full object-cover relative z-10" alt="Student" />
                             ) : (
                                 <>
-                                    <span className="relative z-10" style={{ color: "#1E3A5F" }}>{student.first_name?.charAt(0) || <User size={20} />}</span>
+                                    <span className="relative z-10" style={{ color: "#000435" }}>{student.first_name?.charAt(0) || <User size={20} />}</span>
                                     <div className="absolute inset-0 opacity-5" style={{ background: "#FEBF10" }}></div>
                                 </>
                             )}
@@ -101,7 +101,7 @@ export default function StudentDisciplineModal({ isOpen, onClose, student, acade
                                     <span className="w-1 h-1 rounded-full shrink-0" style={{ background: "#FEBF10" }}></span>
                                     UID: {student.student_uid || student.student_code || student.id}
                                 </p>
-                                <p className="text-[8px] text-[#1E3A5F] font-black flex items-center gap-1 uppercase tracking-[0.2em] truncate">
+                                <p className="text-[8px] text-[#000435] font-black flex items-center gap-1 uppercase tracking-[0.2em] truncate">
                                     {student.class_name || 'Unassigned'} Class
                                 </p>
                             </div>
@@ -109,7 +109,7 @@ export default function StudentDisciplineModal({ isOpen, onClose, student, acade
                     </div>
                     <button
                         onClick={onClose}
-                        className="p-2.5 hover:bg-re-bg rounded-xl transition-all text-re-text-muted hover:text-[#1E3A5F] group"
+                        className="p-2.5 hover:bg-re-bg rounded-xl transition-all text-re-text-muted hover:text-[#000435] group"
                     >
                         <X size={18} className="group-hover:rotate-90 transition-transform duration-300" />
                     </button>
@@ -185,7 +185,7 @@ export default function StudentDisciplineModal({ isOpen, onClose, student, acade
 
                     {loading ? (
                         <div className="flex flex-col items-center justify-center py-10 gap-3">
-                            <Loader2 size={24} className="animate-spin text-[#1E3A5F]/30" />
+                            <Loader2 size={24} className="animate-spin text-[#000435]/30" />
                             <p className="text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40">Loading history...</p>
                         </div>
                     ) : logs.length === 0 ? (
@@ -234,7 +234,7 @@ export default function StudentDisciplineModal({ isOpen, onClose, student, acade
                     <button
                         onClick={() => onClose({ openConductMarks: true })}
                         className="h-10 w-full flex items-center justify-center gap-2 text-white rounded-xl font-black text-[9px] uppercase tracking-widest shadow-lg hover:scale-[1.02] active:scale-95 transition-all"
-                        style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)" }}
+                        style={{ background: "linear-gradient(135deg, #000435 0%, #0D2644 100%)" }}
                     >
                         <Activity size={14} /> <span className="tracking-tighter">+/-</span> Conduct Marks
                     </button>

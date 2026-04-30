@@ -46,7 +46,7 @@ export default function RecordPaymentModal({
       <div className="absolute inset-0 bg-black/40 backdrop-blur-md" onClick={() => onClose?.()} />
 
       <div className="absolute inset-x-0 top-10 md:top-16 mx-auto w-[92vw] max-w-xl">
-        <div className="bg-white rounded-[24px] shadow-2xl border border-black/10 overflow-hidden">
+        <div className="bg-white rounded-[24px]  border border-black/10 overflow-hidden">
           <div className="px-5 md:px-6 py-4 border-b border-black/5 flex items-start justify-between gap-4">
             <div className="min-w-0">
               <p className="text-[9px] font-black uppercase tracking-[0.28em] text-re-text-muted/45">
@@ -63,7 +63,7 @@ export default function RecordPaymentModal({
             </div>
             <button
               onClick={() => onClose?.()}
-              className="shrink-0 w-9 h-9 rounded-xl border border-black/10 bg-re-bg shadow-inner flex items-center justify-center hover:bg-white transition-colors"
+              className="shrink-0 w-9 h-9 rounded-xl border border-black/10 bg-white  flex items-center justify-center hover:bg-white transition-colors"
               aria-label="Close modal"
             >
               <X size={16} className="text-slate-500" />
@@ -90,7 +90,7 @@ export default function RecordPaymentModal({
                   onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ''))}
                   inputMode="numeric"
                   placeholder="Amount (RWF)"
-                  className="w-full h-11 rounded-xl bg-re-bg border border-black/5 outline-none pl-9 pr-3 text-[11px] font-black text-re-navy shadow-inner focus:bg-white focus:border-[#1E3A5F]/20 transition-all"
+                  className="w-full h-11 rounded-xl bg-white border border-black/5 outline-none pl-9 pr-3 text-[11px] font-black text-re-navy  focus:bg-white focus:border-[#000435]/20 transition-all"
                   disabled={!student || submitting}
                 />
               </div>
@@ -100,7 +100,7 @@ export default function RecordPaymentModal({
                 <select
                   value={method}
                   onChange={(e) => setMethod(e.target.value)}
-                  className="w-full h-11 rounded-xl bg-re-bg border border-black/5 outline-none pl-9 pr-3 text-[11px] font-black text-re-navy shadow-inner focus:bg-white focus:border-[#1E3A5F]/20 transition-all cursor-pointer"
+                  className="w-full h-11 rounded-xl bg-white border border-black/5 outline-none pl-9 pr-3 text-[11px] font-black text-re-navy  focus:bg-white focus:border-[#000435]/20 transition-all cursor-pointer"
                   disabled={!student || submitting}
                 >
                   {METHODS.map((m) => (
@@ -115,7 +115,7 @@ export default function RecordPaymentModal({
                   type="date"
                   value={paidAt}
                   onChange={(e) => setPaidAt(e.target.value)}
-                  className="w-full h-11 rounded-xl bg-re-bg border border-black/5 outline-none pl-9 pr-3 text-[11px] font-black text-re-navy shadow-inner focus:bg-white focus:border-[#1E3A5F]/20 transition-all"
+                  className="w-full h-11 rounded-xl bg-white border border-black/5 outline-none pl-9 pr-3 text-[11px] font-black text-re-navy  focus:bg-white focus:border-[#000435]/20 transition-all"
                   disabled={!student || submitting}
                 />
               </div>
@@ -126,7 +126,7 @@ export default function RecordPaymentModal({
                   value={student ? `${student.name}` : ''}
                   readOnly
                   placeholder="Student"
-                  className="w-full h-11 rounded-xl bg-re-bg border border-black/5 outline-none pl-9 pr-3 text-[11px] font-black text-re-navy/70 shadow-inner"
+                  className="w-full h-11 rounded-xl bg-white border border-black/5 outline-none pl-9 pr-3 text-[11px] font-black text-re-navy/70 "
                 />
               </div>
             </div>
@@ -137,13 +137,13 @@ export default function RecordPaymentModal({
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 placeholder="Note (optional)"
-                className="w-full min-h-[90px] rounded-xl bg-re-bg border border-black/5 outline-none pl-9 pr-3 py-3 text-[11px] font-bold text-re-navy shadow-inner focus:bg-white focus:border-[#1E3A5F]/20 transition-all resize-none"
+                className="w-full min-h-[90px] rounded-xl bg-white border border-black/5 outline-none pl-9 pr-3 py-3 text-[11px] font-bold text-re-navy  focus:bg-white focus:border-[#000435]/20 transition-all resize-none"
                 disabled={!student || submitting}
               />
             </div>
           </div>
 
-          <div className="px-5 md:px-6 py-4 border-t border-black/5 bg-re-bg/20 flex items-center justify-end gap-2">
+          <div className="px-5 md:px-6 py-4 border-t border-black/5 bg-white/20 flex items-center justify-end gap-2">
             <button
               onClick={() => onClose?.()}
               className="h-10 px-4 rounded-xl bg-white border border-black/5 text-re-navy font-black text-[10px] uppercase tracking-widest hover:bg-re-bg transition-all"
@@ -171,8 +171,8 @@ export default function RecordPaymentModal({
                   setSubmitting(false);
                 }
               }}
-              className="h-10 px-4 rounded-xl text-white font-black text-[10px] uppercase tracking-widest shadow-xl hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:hover:scale-100"
-              style={{ background: 'linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)' }}
+              className="h-10 px-4 rounded-xl text-white font-black text-[10px] uppercase tracking-widest  hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:hover:scale-100"
+              style={{ background: 'linear-gradient(135deg, #000435 0%, #0D2644 100%)' }}
               disabled={!student || submitting || !(Number(amount) > 0)}
             >
               Save payment

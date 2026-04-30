@@ -21,7 +21,7 @@ const SERVICES = [
   { key:"shuleshoe",  Icon:Footprints,  title:"Shoes Voucher",        desc:"Footwear support with voucher options, lookup, delivery and tracking.",                 href:"/services/shoes-voucher",        cta:"Open flow" },
   { key:"uniform",    Icon:Shirt,       title:"Uniform Voucher",     desc:"Ensures students have at least one set of new uniforms at the beginning of each academic year.", href:"/services/uniform-voucher/request", cta:"Open flow" },
   { key:"mybabyeyi",  Icon:User,        title:"My Babyeyi Account",  desc:"Your family dashboard for tracking all services and payments in one place.",              href:"/parents/login",                     cta:"Open Dashboard" },
-  { key:"paidschool", Icon:CreditCard,  title:"Paid at School",      desc:"Pay school fees and requirements through the school portal with just a school code.",    href:"/pay-by-school",                 cta:"Pay by school code" },
+  { key:"paidschool", Icon:CreditCard,  title:"Paid at School",      desc:"Easily pay school fees and school items through the portal using your school code.",    href:"/paid-at-school",                cta:"Pay by school code" },
   { key:"onlineService", Icon:User,      title:"OnlineService",       desc:"Student portal login using student code. Default password is your school name.",             href:"/online-service",                 cta:"Open student login" },
   { key:"papeterie",  Icon:Store,       title:"Shule Papeterie",     desc:"Stationery and learning materials, fast and convenient.",                                  href:"/services/shule-papeterie",       cta:"Open store" },
 ];
@@ -47,7 +47,7 @@ function Navbar({ onServices }) {
           <Link to="/" style={lk}><Home size={14}/>Home</Link>
           <button type="button" onClick={onServices} style={{ ...lk, background:"none", border:"none", cursor:"pointer" }}><LayoutGrid size={14}/>Services</button>
           <Link to="/find-agent" style={lk}><MapPin size={14}/>FindAgent</Link>
-          <Link to="/pay-by-school" style={lk}><CreditCard size={14}/>Pay</Link>
+          <Link to="/paid-at-school" style={lk}><CreditCard size={14}/>Pay</Link>
           <Link to="/dashboard" style={{ ...lk, marginLeft:8, background:AMB, color:NAVY, fontWeight:900 }}>My Account</Link>
         </div>
         {/* Hamburger */}
@@ -62,7 +62,7 @@ function Navbar({ onServices }) {
           {[
             { label:"Home", to:"/", Icon:Home },
             { label:"FindAgent", to:"/find-agent", Icon:MapPin },
-            { label:"Pay", to:"/pay-by-school", Icon:CreditCard },
+            { label:"Pay", to:"/paid-at-school", Icon:CreditCard },
           ].map(({ label, to, Icon:I }) => (
             <Link key={to} to={to} onClick={() => setOpen(false)} style={mlk}><I size={15}/>{label}</Link>
           ))}

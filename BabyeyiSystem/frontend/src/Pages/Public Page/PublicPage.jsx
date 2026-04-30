@@ -226,7 +226,7 @@ function Navbar() {
 
   const links = [
     { label: "Home page", href: "/" },
-    { label: "Pay Fees",  href: "/pay-by-school" },
+    { label: "Pay Fees",  href: "/paid-at-school" },
     { label: "Services",  href: "/services" },
     { label: "Features",  href: "/features" },
     { label: "Schools",   href: "/schools" },
@@ -467,7 +467,7 @@ function AISearchBox() {
             <div className="px-5 py-4 shrink-0 space-y-2.5" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
               {result.data && (() => {
                 const st = String(result.data.student_uid || result.data.student_code || result.data.sdm_code || "").trim();
-                const payHref = st ? `/pay-by-school?code=${encodeURIComponent(st)}` : "/pay-by-school";
+                const payHref = st ? `/paid-at-school?code=${encodeURIComponent(st)}` : "/paid-at-school";
                 const slug = String(result.data.mini_website_slug || "").trim();
                 return (
                   <div className="flex flex-col sm:flex-row gap-2">
@@ -583,7 +583,7 @@ function HeroSection() {
           {/* Hero cards (4 only) */}
           <div className="anim-su4 flex flex-col gap-2.5 sm:gap-3 w-full sm:max-w-[clamp(300px,90vw,490px)]">
             <div className="grid grid-cols-2 gap-2 sm:gap-3">
-              <Link to="/pay-by-school"
+              <Link to="/paid-at-school"
                 className="btn-shine inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-2xl font-black text-amber-400 transition-all active:scale-[.97] hover:shadow-[0_8px_28px_rgba(251,191,36,.4)]"
                 style={{ minHeight: "clamp(44px,5.5vw,56px)", fontSize: "clamp(11px,2.8vw,15px)", background: "#000435" }}>
                 <CreditCard size={14} strokeWidth={2.5} className="shrink-0" /> Pay Fees
@@ -791,7 +791,7 @@ function TestimonialsSection() {
 /* ── Get Started ───────────────────────────────────────────────── */
 function GetStartedSection() {
   const aa = [
-    { Icon: CreditCard,    title: "Pay School Fees",     desc: "Pay fees online using your school code and MTN Mobile Money. No account needed — fast and safe.", cta: "Pay Now",           href: "/pay-by-school" },
+    { Icon: CreditCard,    title: "Pay School Fees",     desc: "Pay fees online using your school code and MTN Mobile Money. No account needed — fast and safe.", cta: "Pay Now",           href: "/paid-at-school" },
     { Icon: Package,       title: "Order a ShuleKit",    desc: "Get your child's school kit — uniforms, shoes, stationery — delivered or collected at school.",    cta: "Shop Services",    href: "/services"      },
     { Icon: Search,        title: "Find a School",       desc: "Search 500+ schools by district, level, or TVET trade. Compare programs, fees, and facilities.",    cta: "Explore Schools",  href: "/schools"       },
     { Icon: GraduationCap, title: "Apply for Admission", desc: "Submit your child's admission application online. Get a reference number instantly.",               cta: "Start Application",href: "/schools"       },
@@ -1000,7 +1000,7 @@ function CTASection() {
 function Footer() {
   const cols = [
     { title: "Platform", links: [{ l: "About Babyeyi", h: "#about" }, { l: "Features", h: "/features", i: true }, { l: "Home page", h: "/", i: true }, { l: "Pricing", h: "#pricing" }] },
-    { title: "Schools",  links: [{ l: "Search Schools", h: "/schools", i: true }, { l: "Pay by School Code", h: "/pay-by-school", i: true }, { l: "Register School", h: "/register", i: true }, { l: "TVET Trades", h: "/schools", i: true }] },
+    { title: "Schools",  links: [{ l: "Search Schools", h: "/schools", i: true }, { l: "Pay by School Code", h: "/paid-at-school", i: true }, { l: "Register School", h: "/register", i: true }, { l: "TVET Trades", h: "/schools", i: true }] },
     { title: "Accounts", links: [{ l: "School Manager Login", h: "/school-manager/login", i: true }, { l: "Parent Login", h: "/parents/login", i: true }, { l: "Staff Login", h: "/login", i: true }, { l: "Services", h: "/services", i: true }] },
     { title: "Support",  links: [{ l: "Help Center", h: "#" }, { l: "Contact Us", h: "#contact" }, { l: "Privacy Policy", h: "#" }, { l: "Terms of Service", h: "#" }] },
   ];

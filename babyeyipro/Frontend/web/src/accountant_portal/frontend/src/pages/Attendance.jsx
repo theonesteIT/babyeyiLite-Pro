@@ -257,7 +257,7 @@ export default function Attendance() {
                                     On file ({rollMeta.recordCount} learners)
                                 </span>
                             ) : (
-                                <span className="rounded-full bg-slate-100 text-slate-700 px-2 py-0.5 font-black uppercase tracking-tighter">
+                                <span className="rounded-full bg-white text-[#000435] px-2 py-0.5 font-black uppercase tracking-tighter">
                                     No teacher roll saved for this date &amp; period yet
                                 </span>
                             )}
@@ -431,7 +431,7 @@ export default function Attendance() {
                                 </button>
                                 <button
                                     onClick={() => handleMarkAll('present')}
-                                    className="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-gray-50 text-gray-600 hover:bg-gray-100 transition-colors"
+                                    className="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-gray-50 text-[#000435] hover:bg-gray-100 transition-colors"
                                 >
                                     Reset to present
                                 </button>
@@ -493,10 +493,10 @@ export default function Attendance() {
                                     <>
                                         {filteredRoster.map((student, idx) => (
                                             <tr key={student.id} className="hover:bg-re-bg/30 transition-colors">
-                                                <td className="border-r border-b border-black/5 px-2 py-3 text-center text-[10px] font-black text-gray-300">
+                                                <td className="border-r border-b border-black/5 px-2 py-3 text-center text-[10px] font-black text-[#000435]">
                                                     {idx + 1}
                                                 </td>
-                                                <td className="border-r border-b border-black/5 px-2 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-widest hidden sm:table-cell">
+                                                <td className="border-r border-b border-black/5 px-2 py-3 text-[10px] font-bold text-[#000435] uppercase tracking-widest hidden sm:table-cell">
                                                     {student.adm}
                                                 </td>
                                                 <td className="border-r border-b border-black/5 px-2 py-3 flex items-center gap-2 sm:gap-3 min-w-0 overflow-hidden">
@@ -523,7 +523,7 @@ export default function Attendance() {
                                                                 className={`text-[7px] px-1.5 py-0.5 rounded-md font-black uppercase tracking-tighter ${
                                                                     student.residency_status === 'BOARDING'
                                                                         ? 'bg-orange-50 text-orange-600 border border-orange-100'
-                                                                        : 'bg-gray-50 text-gray-400 border border-black/5'
+                                                                        : 'bg-gray-50 text-[#000435] border border-black/5'
                                                                 }`}
                                                             >
                                                                 {student.residency_status}
@@ -607,7 +607,7 @@ function OversightStatusPill({ status }) {
         absent: { label: 'Absent', className: 'bg-red-50 text-red-800 ring-red-200' },
         late: { label: 'Late', className: 'bg-orange-50 text-orange-900 ring-orange-200' },
         permission: { label: 'Excused', className: 'bg-blue-50 text-blue-800 ring-blue-200' },
-        unset: { label: 'Not on roll', className: 'bg-slate-100 text-slate-600 ring-slate-200' },
+        unset: { label: 'Not on roll', className: 'bg-white text-[#000435] ring-slate-200' },
     };
     const m = map[status] || map.unset;
     return (

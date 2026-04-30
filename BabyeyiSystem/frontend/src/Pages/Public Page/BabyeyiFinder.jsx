@@ -1080,7 +1080,7 @@ export default function BabyeyiFinder({ school, theme, schoolSlug, openModal = f
     const code = (studentCode || lookupPrefill?.code || "").trim();
     const q = new URLSearchParams();
     if (code) q.set("code", code);
-    navigate(q.toString() ? `/pay-by-school?${q.toString()}` : "/pay-by-school");
+    navigate(q.toString() ? `/paid-at-school?${q.toString()}` : "/paid-at-school");
   };
 
   const handleSearch = async (override = null) => {

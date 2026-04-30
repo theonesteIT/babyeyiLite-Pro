@@ -53,6 +53,23 @@ async function getStudentCardRow(studentId) {
   return rows[0] || null;
 }
 
+/** Public QR profile — include students even when school_id is missing (JOIN would drop them). */
+async function getPublicStudentProfileRow(studentId) {
+  const [rows] = await promisePool.query(
+    `SELECT st.id, st.student_uid, st.student_code, st.first_name, st.last_name, st.birth_year, st.gender,
+            st.class_name, st.academic_year, st.student_photo, st.updated_at AS student_updated_at,
+            sc.id AS school_id, sc.school_name, sc.logo_url, sc.website,
+            sc.phone AS school_phone, sc.email AS school_email, sc.postal_address,
+            sc.province, sc.district, sc.sector
+     FROM students st
+     LEFT JOIN schools sc ON sc.id = st.school_id
+     WHERE st.id = ?
+     LIMIT 1`,
+    [studentId]
+  );
+  return rows[0] || null;
+}
+
 async function getStudentCardPayload(req, studentId) {
   const row = await getStudentCardRow(studentId);
   if (!row) return null;
@@ -99,7 +116,7 @@ router.get('/students/public/:id', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid student id' });
     }
 
-    const row = await getStudentCardRow(studentId);
+    const row = await getPublicStudentProfileRow(studentId);
     if (!row) {
       return res.status(404).json({ success: false, message: 'Student not found' });
     }

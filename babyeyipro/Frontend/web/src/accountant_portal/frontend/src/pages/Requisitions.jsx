@@ -23,17 +23,17 @@ const RequisitionDetailsDrawer = ({ isOpen, req, onClose, onApprove, onReject })
       <div className="fixed inset-y-0 right-0 z-[220] w-full md:w-[420px] bg-white shadow-[-20px_0_60px_-15px_rgba(0,0,0,0.1)] flex flex-col animate-in slide-in-from-right duration-500 ease-out">
         <div className="flex items-center justify-between px-8 py-6 border-b border-black/5 bg-white shrink-0">
           <div className="flex items-center gap-4 min-w-0">
-            <div className="w-14 h-14 rounded-full border border-black/5 bg-slate-50 flex items-center justify-center font-black text-lg shadow-inner relative overflow-hidden shrink-0 text-[#1E3A5F]">
+            <div className="w-14 h-14 rounded-full border border-black/5 bg-white flex items-center justify-center font-black text-lg shadow-inner relative overflow-hidden shrink-0 text-[#000435]">
               <span>{req.dept?.charAt(0) || 'R'}</span>
             </div>
             <div className="min-w-0">
-              <h3 className="font-black text-[#1E3A5F] text-base leading-tight uppercase tracking-tight truncate">{req.dept}</h3>
+              <h3 className="font-black text-[#000435] text-base leading-tight uppercase tracking-tight truncate">{req.dept}</h3>
               <div className="flex flex-col gap-0.5 mt-0.5">
-                <p className="text-[9px] text-slate-400 font-bold flex items-center gap-1 uppercase tracking-widest opacity-60 truncate">
+                <p className="text-[9px] text-[#000435] font-bold flex items-center gap-1 uppercase tracking-widest opacity-60 truncate">
                   <span className="w-1 h-1 rounded-full shrink-0 bg-amber-400" />
                   {req.id} · {req.status}
                 </p>
-                <p className="text-[8px] text-[#1E3A5F] font-black flex items-center gap-1 uppercase tracking-[0.2em] truncate">
+                <p className="text-[8px] text-[#000435] font-black flex items-center gap-1 uppercase tracking-[0.2em] truncate">
                   {req.submitted} · {formatMoneyRWF(req.amount).replace('RWF', '')} RWF
                 </p>
               </div>
@@ -41,7 +41,7 @@ const RequisitionDetailsDrawer = ({ isOpen, req, onClose, onApprove, onReject })
           </div>
           <button
             onClick={onClose}
-            className="p-2.5 hover:bg-slate-50 rounded-xl transition-all text-slate-400 hover:text-[#1E3A5F] group"
+            className="p-2.5 hover:bg-white rounded-xl transition-all text-[#000435] hover:text-[#000435] group"
           >
             <X size={18} className="group-hover:rotate-90 transition-transform duration-300" />
           </button>
@@ -50,7 +50,7 @@ const RequisitionDetailsDrawer = ({ isOpen, req, onClose, onApprove, onReject })
         <div className="flex-1 overflow-y-auto px-8 py-8 space-y-8 custom-scrollbar bg-white">
           <div className="space-y-4">
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] opacity-40">Requisition Details</span>
+              <span className="text-[9px] font-black text-[#000435] uppercase tracking-[0.3em] opacity-40">Requisition Details</span>
               <div className="flex-1 h-px bg-black/5" />
             </div>
             {[
@@ -62,10 +62,10 @@ const RequisitionDetailsDrawer = ({ isOpen, req, onClose, onApprove, onReject })
               <div key={item.label} className="flex items-center justify-between group">
                 <div className="flex items-center gap-2">
                   <item.icon size={11} className="opacity-30 text-amber-500" />
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{item.label}</span>
+                  <span className="text-[10px] font-black text-[#000435] uppercase tracking-widest">{item.label}</span>
                 </div>
                 <div className="flex-1 mx-3 border-b border-dashed border-black/10 group-hover:border-amber-200 transition-colors" />
-                <span className="text-[10px] font-black uppercase tracking-tight text-[#1E3A5F] max-w-[180px] truncate text-right">
+                <span className="text-[10px] font-black uppercase tracking-tight text-[#000435] max-w-[180px] truncate text-right">
                   {item.value}
                 </span>
               </div>
@@ -73,9 +73,9 @@ const RequisitionDetailsDrawer = ({ isOpen, req, onClose, onApprove, onReject })
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <div className="bg-slate-50 rounded-3xl p-5 border border-black/5 shadow-inner relative overflow-hidden group">
+            <div className="bg-white rounded-3xl p-5 border border-black/5 shadow-inner relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-16 h-16 bg-blue-500 opacity-5 rounded-full -mr-6 -mt-6 group-hover:scale-125 transition-transform duration-700" />
-              <p className="text-[8px] text-slate-400 uppercase tracking-[0.2em] font-black mb-1 relative z-10 opacity-60">Status</p>
+              <p className="text-[8px] text-[#000435] uppercase tracking-[0.2em] font-black mb-1 relative z-10 opacity-60">Status</p>
               <div className="flex items-baseline gap-1 relative z-10">
                 <span className={`text-xl font-black tracking-tighter ${
                   req.status === 'approved' ? 'text-emerald-600' : req.status === 'rejected' ? 'text-red-600' : 'text-amber-600'
@@ -84,11 +84,11 @@ const RequisitionDetailsDrawer = ({ isOpen, req, onClose, onApprove, onReject })
                 </span>
               </div>
             </div>
-            <div className="bg-slate-50 rounded-3xl p-5 border border-black/5 shadow-inner relative overflow-hidden group text-right">
+            <div className="bg-white rounded-3xl p-5 border border-black/5 shadow-inner relative overflow-hidden group text-right">
               <div className="absolute top-0 left-0 w-16 h-16 bg-amber-500 opacity-5 rounded-full -ml-6 -mt-6 group-hover:scale-125 transition-transform duration-700" />
-              <p className="text-[8px] text-slate-400 uppercase tracking-[0.2em] font-black mb-1 relative z-10 opacity-60">Amount</p>
+              <p className="text-[8px] text-[#000435] uppercase tracking-[0.2em] font-black mb-1 relative z-10 opacity-60">Amount</p>
               <div className="flex items-baseline gap-1 justify-end relative z-10">
-                <span className="text-xl font-black text-[#1E3A5F] tracking-tighter">
+                <span className="text-xl font-black text-[#000435] tracking-tighter">
                   {formatMoneyRWF(req.amount).replace('RWF', '')}
                 </span>
                 <span className="text-[9px] font-black uppercase tracking-widest ml-1 opacity-60">RWF</span>
@@ -97,12 +97,12 @@ const RequisitionDetailsDrawer = ({ isOpen, req, onClose, onApprove, onReject })
           </div>
         </div>
 
-        <div className="px-8 py-5 border-t border-black/5 bg-slate-50/20">
+        <div className="px-8 py-5 border-t border-black/5 bg-white/20">
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={() => onReject?.(req)}
               disabled={req.status === 'rejected'}
-              className="h-10 w-full flex items-center justify-center gap-2 bg-white border border-black/5 text-red-600 font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-slate-50 transition-all disabled:opacity-40"
+              className="h-10 w-full flex items-center justify-center gap-2 bg-white border border-black/5 text-red-600 font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-white transition-all disabled:opacity-40"
             >
               Reject
             </button>
@@ -110,7 +110,7 @@ const RequisitionDetailsDrawer = ({ isOpen, req, onClose, onApprove, onReject })
               onClick={() => onApprove?.(req)}
               disabled={req.status === 'approved'}
               className="h-10 w-full flex items-center justify-center gap-2 text-white rounded-xl font-black text-[9px] uppercase tracking-widest shadow-lg hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-40 disabled:hover:scale-100"
-              style={{ background: 'linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)' }}
+              style={{ background: 'linear-gradient(135deg, #000435 0%, #0D2644 100%)' }}
             >
               Approve
             </button>
@@ -142,7 +142,7 @@ const AddRequisitionModal = ({ isOpen, onClose, onCreate }) => {
         <div className="relative w-full max-h-[92vh] bg-re-bg rounded-3xl shadow-[0_32px_128px_-15px_rgba(30,58,95,0.35)] border border-white/20 flex flex-col overflow-hidden animate-in zoom-in-95 fade-in duration-500">
           <div
             className="relative z-10 px-5 py-3 shrink-0"
-            style={{ background: 'linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)' }}
+            style={{ background: 'linear-gradient(135deg, #000435 0%, #0D2644 100%)' }}
           >
             <div className="flex items-center justify-between mb-2.5">
               <div className="flex items-center gap-2">
@@ -174,26 +174,26 @@ const AddRequisitionModal = ({ isOpen, onClose, onCreate }) => {
                 value={dept}
                 onChange={(e) => setDept(e.target.value)}
                 placeholder="Department"
-                className="w-full h-9 rounded-lg bg-re-bg px-3 outline-none border border-black/5 focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[9px] sm:text-[10px] font-black uppercase tracking-widest shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.55)] placeholder:text-re-text-muted/40"
+                className="w-full h-9 rounded-lg bg-re-bg px-3 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] sm:text-[10px] font-black uppercase tracking-widest shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.55)] placeholder:text-re-text-muted/40"
               />
               <input
                 value={requester}
                 onChange={(e) => setRequester(e.target.value)}
                 placeholder="Requester"
-                className="w-full h-9 rounded-lg bg-re-bg px-3 outline-none border border-black/5 focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[9px] sm:text-[10px] font-black uppercase tracking-widest shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.55)] placeholder:text-re-text-muted/40"
+                className="w-full h-9 rounded-lg bg-re-bg px-3 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] sm:text-[10px] font-black uppercase tracking-widest shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.55)] placeholder:text-re-text-muted/40"
               />
               <input
                 type="date"
                 value={submitted}
                 onChange={(e) => setSubmitted(e.target.value)}
-                className="w-full h-9 rounded-lg bg-re-bg px-3 outline-none border border-black/5 focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[9px] sm:text-[10px] font-black uppercase tracking-widest shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.55)]"
+                className="w-full h-9 rounded-lg bg-re-bg px-3 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] sm:text-[10px] font-black uppercase tracking-widest shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.55)]"
               />
               <input
                 value={amount}
                 onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ''))}
                 inputMode="numeric"
                 placeholder="Amount (RWF)"
-                className="w-full h-9 rounded-lg bg-re-bg px-3 outline-none border border-black/5 focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[9px] sm:text-[10px] font-black uppercase tracking-widest shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.55)] placeholder:text-re-text-muted/40"
+                className="w-full h-9 rounded-lg bg-re-bg px-3 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] sm:text-[10px] font-black uppercase tracking-widest shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.55)] placeholder:text-re-text-muted/40"
               />
             </div>
 
@@ -201,10 +201,10 @@ const AddRequisitionModal = ({ isOpen, onClose, onCreate }) => {
               value={items}
               onChange={(e) => setItems(e.target.value)}
               placeholder="Items requested"
-              className="w-full min-h-[90px] rounded-lg bg-re-bg px-3 py-2.5 outline-none border border-black/5 focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[9px] sm:text-[10px] font-bold tracking-tight shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.55)] placeholder:text-re-text-muted/40 resize-none"
+              className="w-full min-h-[90px] rounded-lg bg-re-bg px-3 py-2.5 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] sm:text-[10px] font-bold tracking-tight shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.55)] placeholder:text-re-text-muted/40 resize-none"
             />
 
-            <label className="w-full h-9 rounded-lg bg-re-bg border border-black/5 px-3 flex items-center gap-2 cursor-pointer shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.55)] hover:bg-white hover:border-[#1E3A5F]/20 transition-all">
+            <label className="w-full h-9 rounded-lg bg-re-bg border border-black/5 px-3 flex items-center gap-2 cursor-pointer shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.55)] hover:bg-white hover:border-[#000435]/20 transition-all">
               <Upload size={14} className="text-amber-500 opacity-80" />
               <span className="text-[9px] font-black uppercase tracking-widest text-re-text-muted/60 truncate">
                 {attachment ? attachment.name : 'Upload attachment'}
@@ -221,7 +221,7 @@ const AddRequisitionModal = ({ isOpen, onClose, onCreate }) => {
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder="Note (optional)"
-              className="w-full min-h-[80px] rounded-lg bg-re-bg px-3 py-2.5 outline-none border border-black/5 focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[9px] sm:text-[10px] font-bold tracking-tight shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.55)] placeholder:text-re-text-muted/40 resize-none"
+              className="w-full min-h-[80px] rounded-lg bg-re-bg px-3 py-2.5 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] sm:text-[10px] font-bold tracking-tight shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.55)] placeholder:text-re-text-muted/40 resize-none"
             />
             {!!errorMsg && (
               <p className="text-[10px] font-bold text-red-600">{errorMsg}</p>
@@ -279,7 +279,7 @@ const AddRequisitionModal = ({ isOpen, onClose, onCreate }) => {
                   }
                 }}
                 className="h-9 px-6 rounded-lg text-white font-black text-[9px] uppercase tracking-widest shadow-lg hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-60 disabled:hover:scale-100"
-                style={{ background: 'linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)' }}
+                style={{ background: 'linear-gradient(135deg, #000435 0%, #0D2644 100%)' }}
               >
                 {submitting ? 'Submitting…' : 'Submit'}
               </button>
@@ -492,7 +492,7 @@ export default function Requisitions() {
       <div className="relative w-full min-h-[280px] overflow-hidden">
         <div className="absolute inset-0 bg-[#0a192f]/85 z-10 backdrop-blur-[2px]"></div>
         <img src="/teacher.jpg" alt="Hero Background" className="absolute inset-0 w-full h-full object-cover scale-105" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#1E3A5F]/40 via-transparent to-transparent z-10 max-w-[1600px] mx-auto"></div>
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#000435]/40 via-transparent to-transparent z-10 max-w-[1600px] mx-auto"></div>
 
         <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-12 pt-16 pb-24 flex items-center gap-8">
           <div className="hidden md:flex shrink-0 w-24 h-24 rounded-[32px] border border-white/10 bg-white/5 items-center justify-center backdrop-blur-xl shadow-2xl relative overflow-hidden group">
@@ -520,7 +520,7 @@ export default function Requisitions() {
           <div className="grid grid-cols-1 lg:grid-cols-4 border-b border-black/5">
             <div className="lg:col-span-3 grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-black/5">
               {[
-                { label: 'Total value', value: formatMoneyRWF(derived.total).replace('RWF', ''), tone: 'text-[#1E3A5F]' },
+                { label: 'Total value', value: formatMoneyRWF(derived.total).replace('RWF', ''), tone: 'text-[#000435]' },
                 { label: 'Pending', value: String(derived.pending), tone: 'text-amber-600' },
                 { label: 'Approved', value: String(derived.approved), tone: 'text-emerald-600' },
                 { label: 'Rejected', value: String(derived.rejected), tone: 'text-red-500' },
@@ -535,17 +535,17 @@ export default function Requisitions() {
               <button
                 onClick={() => setIsAddOpen(true)}
                 className="w-full h-11 flex items-center justify-center gap-2 text-white rounded-xl font-black text-[9px] uppercase tracking-widest shadow-xl hover:scale-[1.02] active:scale-95 transition-all"
-                style={{ background: 'linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)' }}
+                style={{ background: 'linear-gradient(135deg, #000435 0%, #0D2644 100%)' }}
               >
                 <span>New requisition</span>
               </button>
               <button
                 type="button"
                 onClick={exportPdf}
-                className="w-full h-11 flex items-center justify-center gap-2 bg-white border border-black/5 text-re-text font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg hover:border-[#1E3A5F]/20 hover:shadow-re-soft transition-all group"
+                className="w-full h-11 flex items-center justify-center gap-2 bg-white border border-black/5 text-re-text font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg hover:border-[#000435]/20 hover:shadow-re-soft transition-all group"
               >
-                <Download size={14} className="opacity-60 group-hover:opacity-100 transition-opacity" style={{ color: '#1E3A5F' }} />
-                <span className="group-hover:text-[#1E3A5F]">Export PDF</span>
+                <Download size={14} className="opacity-60 group-hover:opacity-100 transition-opacity" style={{ color: '#000435' }} />
+                <span className="group-hover:text-[#000435]">Export PDF</span>
               </button>
             </div>
           </div>
@@ -558,7 +558,7 @@ export default function Requisitions() {
                 <select
                   value={status}
                   onChange={(e) => setStatus(e.target.value)}
-                  className="w-full h-8 bg-white/80 rounded-lg outline-none border border-black/5 focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[9px] font-black uppercase tracking-widest shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.5)] cursor-pointer appearance-none !pl-[4.6rem] pr-8"
+                  className="w-full h-8 bg-white/80 rounded-lg outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] font-black uppercase tracking-widest shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.5)] cursor-pointer appearance-none !pl-[4.6rem] pr-8"
                 >
                   {['All', 'pending', 'approved', 'rejected'].map((s) => (
                     <option key={s} value={s}>{s}</option>
@@ -567,13 +567,13 @@ export default function Requisitions() {
               </div>
 
               <div className="relative w-[14rem] group">
-                <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-re-text-muted/50 group-focus-within:text-[#1E3A5F] transition-colors z-[1] pointer-events-none" />
+                <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-re-text-muted/50 group-focus-within:text-[#000435] transition-colors z-[1] pointer-events-none" />
                 <input
                   type="text"
                   placeholder="Search ID, dept, requester..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full h-8 bg-white/80 rounded-lg outline-none border border-black/5 focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[9px] font-black uppercase tracking-tight shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.5)] placeholder:text-[#1E3A5F]/30 !pl-8"
+                  className="w-full h-8 bg-white/80 rounded-lg outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] font-black uppercase tracking-tight shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.5)] placeholder:text-[#000435]/30 !pl-8"
                 />
               </div>
             </div>
@@ -583,13 +583,13 @@ export default function Requisitions() {
               onClick={() => fetchRequisitions()}
               className="h-8 w-8 flex items-center justify-center bg-white border border-black/5 rounded-lg hover:bg-re-bg transition-all shadow-sm disabled:opacity-40 shrink-0 ml-auto"
             >
-              <RefreshCw size={12} className="text-[#1E3A5F]" />
+              <RefreshCw size={12} className="text-[#000435]" />
             </button>
               <button
                 type="button"
                 onClick={() => setTeacherOnly((v) => !v)}
                 className={`h-8 px-3 rounded-lg border text-[9px] font-black uppercase tracking-widest shadow-sm transition-all ${
-                  teacherOnly ? 'bg-[#1E3A5F] text-white border-[#1E3A5F]' : 'bg-white text-[#1E3A5F] border-black/10'
+                  teacherOnly ? 'bg-[#000435] text-white border-[#000435]' : 'bg-white text-[#000435] border-black/10'
                 }`}
               >
                 Teacher only
@@ -615,18 +615,18 @@ export default function Requisitions() {
                   return (
                   <tr key={r.id} onClick={() => setDetails(r)} className="hover:bg-re-bg/60 even:bg-re-bg/20 transition-colors cursor-pointer">
                     <td className="px-4 sm:px-6 py-2.5 sm:py-3 border-r border-black/5">
-                      <p className="text-[13px] font-black text-[#1E3A5F] tracking-tight truncate">{r.requester}</p>
-                      <p className="text-[10px] font-bold text-slate-500 mt-0.5 truncate">
+                      <p className="text-[13px] font-black text-[#000435] tracking-tight truncate">{r.requester}</p>
+                      <p className="text-[10px] font-bold text-[#000435] mt-0.5 truncate">
                         {r.description || r.note || 'No description'}
                       </p>
                       <p className="text-[8px] font-bold text-re-text-muted uppercase tracking-widest leading-none mt-1 opacity-50">{r.id}</p>
                     </td>
-                    <td className="hidden md:table-cell px-6 py-3 border-r border-black/5 text-[11px] font-black text-[#1E3A5F]">{r.dept}</td>
-                    <td className="hidden lg:table-cell px-6 py-3 border-r border-black/5 text-[10px] font-bold text-slate-600 max-w-[260px] truncate">
+                    <td className="hidden md:table-cell px-6 py-3 border-r border-black/5 text-[11px] font-black text-[#000435]">{r.dept}</td>
+                    <td className="hidden lg:table-cell px-6 py-3 border-r border-black/5 text-[10px] font-bold text-[#000435] max-w-[260px] truncate">
                       {r.description || r.note || '—'}
                     </td>
-                    <td className="hidden md:table-cell px-6 py-3 border-r border-black/5 text-[10px] font-black text-[#1E3A5F]">{r.submitted}</td>
-                    <td className="px-4 sm:px-6 py-2.5 sm:py-3 border-r border-black/5 text-right text-[12px] font-black text-[#1E3A5F]">
+                    <td className="hidden md:table-cell px-6 py-3 border-r border-black/5 text-[10px] font-black text-[#000435]">{r.submitted}</td>
+                    <td className="px-4 sm:px-6 py-2.5 sm:py-3 border-r border-black/5 text-right text-[12px] font-black text-[#000435]">
                       {formatMoneyRWF(r.amount).replace('RWF', '')}
                     </td>
                     <td className="px-4 sm:px-6 py-2.5 sm:py-3 border-r border-black/5 text-right">
@@ -661,7 +661,7 @@ export default function Requisitions() {
                             updateStatus(r, 'approved');
                           }}
                           className="h-7 px-3 rounded-xl text-white font-black text-[9px] uppercase tracking-widest shadow-sm hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-40 disabled:hover:scale-100"
-                          style={{ background: 'linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)' }}
+                          style={{ background: 'linear-gradient(135deg, #000435 0%, #0D2644 100%)' }}
                           disabled={r.status === 'approved' || isBusy}
                           title="Approve requisition"
                         >
@@ -673,7 +673,7 @@ export default function Requisitions() {
                             e.stopPropagation();
                             await editRequisition(r);
                           }}
-                          className="h-7 px-3 rounded-xl bg-white border border-black/5 text-[#1E3A5F] font-black text-[9px] uppercase tracking-widest shadow-sm hover:bg-re-bg transition-all"
+                          className="h-7 px-3 rounded-xl bg-white border border-black/5 text-[#000435] font-black text-[9px] uppercase tracking-widest shadow-sm hover:bg-re-bg transition-all"
                           disabled={isBusy}
                           title="Edit requisition"
                         >

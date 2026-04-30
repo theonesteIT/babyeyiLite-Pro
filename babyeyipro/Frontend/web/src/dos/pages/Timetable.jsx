@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, BookPlus, CheckCircle2, Edit3, Loader2, Plus, Search, Trash2, X } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { jsPDF } from 'jspdf';
+import { AlertCircle, BookPlus, CheckCircle2, Download, Edit3, Image as ImageIcon, Loader2, Plus, Search, Trash2, X } from 'lucide-react';
 import api from '../services/api';
 
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
@@ -41,8 +42,29 @@ const normalizeTime = (value) => {
   return `${h}:${m}`;
 };
 
+const SUBJECT_PALETTES = [
+  { bg: '#fff1f2', border: '#fecdd3', title: '#9f1239', meta: '#881337' },
+  { bg: '#eff6ff', border: '#bfdbfe', title: '#1d4ed8', meta: '#1e40af' },
+  { bg: '#ecfdf5', border: '#bbf7d0', title: '#047857', meta: '#065f46' },
+  { bg: '#fff7ed', border: '#fed7aa', title: '#c2410c', meta: '#9a3412' },
+  { bg: '#f5f3ff', border: '#ddd6fe', title: '#6d28d9', meta: '#5b21b6' },
+  { bg: '#f0fdfa', border: '#99f6e4', title: '#0f766e', meta: '#115e59' },
+  { bg: '#fefce8', border: '#fde68a', title: '#a16207', meta: '#854d0e' },
+  { bg: '#eef2ff', border: '#c7d2fe', title: '#3730a3', meta: '#312e81' },
+];
+
+const paletteForSubject = (subject = '') => {
+  const value = String(subject || '').trim().toLowerCase();
+  if (!value) return SUBJECT_PALETTES[0];
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
+  return SUBJECT_PALETTES[hash % SUBJECT_PALETTES.length];
+};
+
 export default function Timetable() {
+  const exportRef = useRef(null);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [rows, setRows] = useState([]);
   const [periods, setPeriods] = useState([]);
@@ -110,6 +132,11 @@ export default function Timetable() {
       m.set(key, current);
     }
     return m;
+  }, [rows]);
+
+  const legendSubjects = useMemo(() => {
+    const names = Array.from(new Set(rows.map((row) => String(row.subject_name || '').trim()).filter(Boolean)));
+    return names.sort((a, b) => a.localeCompare(b)).slice(0, 12);
   }, [rows]);
 
   const fetchMeta = async () => {
@@ -278,6 +305,101 @@ export default function Timetable() {
     }
   };
 
+  const renderToCanvas = useCallback(async () => {
+    const node = exportRef.current;
+    if (!node) throw new Error('Timetable grid not ready.');
+    let html2canvas;
+    try {
+      const mod = await import('html2canvas');
+      html2canvas = mod.default || mod;
+    } catch {
+      throw new Error('html2canvas is missing. Install dependency and retry.');
+    }
+
+    const cloned = node.cloneNode(true);
+    const sourceEls = [node, ...node.querySelectorAll('*')];
+    const cloneEls = [cloned, ...cloned.querySelectorAll('*')];
+    sourceEls.forEach((srcEl, idx) => {
+      const destEl = cloneEls[idx];
+      if (!destEl) return;
+      const computed = window.getComputedStyle(srcEl);
+      for (let i = 0; i < computed.length; i += 1) {
+        const prop = computed[i];
+        const value = computed.getPropertyValue(prop);
+        if (value) destEl.style.setProperty(prop, value);
+      }
+      destEl.removeAttribute('class');
+    });
+
+    const wrap = document.createElement('div');
+    wrap.style.position = 'fixed';
+    wrap.style.left = '-100000px';
+    wrap.style.top = '0';
+    wrap.style.width = `${node.offsetWidth}px`;
+    wrap.style.padding = '0';
+    wrap.style.margin = '0';
+    wrap.style.background = '#f4f5f7';
+    wrap.appendChild(cloned);
+    document.body.appendChild(wrap);
+
+    try {
+      return await html2canvas(cloned, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#f4f5f7',
+        logging: false,
+        foreignObjectRendering: true,
+      });
+    } finally {
+      wrap.remove();
+    }
+  }, []);
+
+  const exportAsPng = useCallback(async () => {
+    try {
+      setExporting(true);
+      const canvas = await renderToCanvas();
+      const url = canvas.toDataURL('image/png');
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `dos-timetable-${new Date().toISOString().slice(0, 10)}.png`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setNotice({ type: 'success', text: 'Timetable exported as PNG.' });
+    } catch (err) {
+      setNotice({ type: 'error', text: err.message || 'Failed to export PNG.' });
+    } finally {
+      setExporting(false);
+    }
+  }, [renderToCanvas]);
+
+  const exportAsPdf = useCallback(async () => {
+    try {
+      setExporting(true);
+      const canvas = await renderToCanvas();
+      const img = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const margin = 8;
+      const fitW = pageW - margin * 2;
+      const fitH = pageH - margin * 2;
+      const ratio = Math.min(fitW / canvas.width, fitH / canvas.height);
+      const w = canvas.width * ratio;
+      const h = canvas.height * ratio;
+      const x = (pageW - w) / 2;
+      const y = (pageH - h) / 2;
+      pdf.addImage(img, 'PNG', x, y, w, h, undefined, 'FAST');
+      pdf.save(`dos-timetable-${new Date().toISOString().slice(0, 10)}.pdf`);
+      setNotice({ type: 'success', text: 'Timetable exported as PDF.' });
+    } catch (err) {
+      setNotice({ type: 'error', text: err.message || 'Failed to export PDF.' });
+    } finally {
+      setExporting(false);
+    }
+  }, [renderToCanvas]);
+
   return (
     <div className="bg-re-bg min-h-screen p-3 sm:p-5 lg:p-8">
       <div className="mx-auto max-w-[1420px] space-y-4">
@@ -288,6 +410,14 @@ export default function Timetable() {
               <h1 className="text-xl sm:text-2xl font-black text-re-text tracking-tight mt-1">Modern Weekly Grid</h1>
             </div>
             <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={exportAsPng} disabled={exporting || loading || displayPeriods.length === 0} className="h-11 px-4 rounded-xl border border-black/10 bg-white text-re-text font-black text-[10px] uppercase tracking-widest hover:bg-re-bg transition inline-flex items-center gap-2 disabled:opacity-60">
+                <ImageIcon size={14} className="text-re-orange" />
+                Export PNG
+              </button>
+              <button type="button" onClick={exportAsPdf} disabled={exporting || loading || displayPeriods.length === 0} className="h-11 px-4 rounded-xl border border-black/10 bg-white text-re-text font-black text-[10px] uppercase tracking-widest hover:bg-re-bg transition inline-flex items-center gap-2 disabled:opacity-60">
+                <Download size={14} className="text-re-orange" />
+                Export PDF
+              </button>
               <button type="button" onClick={() => setShowPeriodModal(true)} className="h-11 px-4 rounded-xl border border-black/10 bg-white text-re-text font-black text-[10px] uppercase tracking-widest hover:bg-re-bg transition">
                 Set Break/Lunch/Free
               </button>
@@ -346,7 +476,7 @@ export default function Timetable() {
           ) : displayPeriods.length === 0 ? (
             <div className="py-14 text-center text-sm font-bold text-re-text-muted">No periods configured. Add Break/Lunch/Free or teaching periods.</div>
           ) : (
-            <div className="overflow-x-auto p-3 sm:p-4">
+            <div className="overflow-x-auto p-3 sm:p-4" ref={exportRef}>
               <div className="grid grid-cols-5 gap-3 min-w-[980px]">
                 {WEEK_DAYS.map((day) => (
                   <div key={day} className="bg-[#eef0f4] rounded-2xl border border-black/10 shadow-[0_4px_12px_rgba(15,23,42,0.06)] overflow-hidden">
@@ -358,6 +488,7 @@ export default function Timetable() {
                         const key = `${day}__${normalizeTime(period.start_time)}`;
                         const lesson = (lessonMap.get(key) || [])[0];
                         const pause = isBreakPeriod(period);
+                        const palette = lesson ? paletteForSubject(lesson.subject_name) : null;
                         return (
                           <div
                             key={`${day}-${period.id}`}
@@ -365,9 +496,10 @@ export default function Timetable() {
                               pause
                                 ? 'bg-[#eceff3] border-[#e1e5ea]'
                                 : lesson
-                                  ? 'bg-[#fff7eb] border-[#fde2b7] shadow-[0_2px_6px_rgba(245,158,11,0.16)]'
+                                  ? 'shadow-[0_2px_6px_rgba(15,23,42,0.12)]'
                                   : 'bg-white border-[#e3e7ed] shadow-[0_1px_3px_rgba(15,23,42,0.04)]'
                             }`}
+                            style={lesson ? { backgroundColor: palette.bg, borderColor: palette.border } : undefined}
                           >
                             <div className="flex items-center justify-between">
                               <span className="text-[10px] leading-none font-black uppercase tracking-[0.14em] text-[#b3bac5]">{period.period_name}</span>
@@ -379,8 +511,8 @@ export default function Timetable() {
                               </div>
                             ) : lesson ? (
                               <div className="mt-1.5">
-                                <p className="text-[16px] leading-[1.15] font-black uppercase tracking-tight text-[#0b1f3a] break-words">{lesson.subject_name}</p>
-                                <p className="text-[11px] leading-tight font-bold uppercase tracking-tight text-[#0b1f3a]/85 mt-0.5">{lesson.class_name}</p>
+                                <p className="text-[16px] leading-[1.15] font-black uppercase tracking-tight break-words" style={{ color: palette.title }}>{lesson.subject_name}</p>
+                                <p className="text-[11px] leading-tight font-bold uppercase tracking-tight mt-0.5" style={{ color: palette.meta }}>{lesson.class_name}</p>
                                 <div className="mt-2 flex justify-end gap-1">
                                   <button type="button" onClick={() => openEditTimetable(lesson)} className="p-1.5 rounded-md text-[#d97706] hover:bg-amber-100"><Edit3 size={12} /></button>
                                   <button type="button" onClick={() => deleteTimetableRow(lesson.id)} className="p-1.5 rounded-md text-red-500 hover:bg-red-100"><Trash2 size={12} /></button>
@@ -405,6 +537,25 @@ export default function Timetable() {
             </div>
           )}
         </div>
+        {legendSubjects.length > 0 && (
+          <div className="bg-white rounded-2xl border border-black/5 px-4 sm:px-5 py-4">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <h3 className="text-[11px] font-black uppercase tracking-[0.14em] text-re-text-muted">Course Color Legend</h3>
+              <span className="text-[10px] font-bold text-re-text-muted">{legendSubjects.length} courses</span>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2.5">
+              {legendSubjects.map((subject) => {
+                const palette = paletteForSubject(subject);
+                return (
+                  <div key={subject} className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-[11px] font-bold" style={{ backgroundColor: palette.bg, borderColor: palette.border, color: palette.title }}>
+                    <span className="w-2.5 h-2.5 rounded-full border border-black/10" style={{ backgroundColor: palette.title }} />
+                    <span>{subject}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {showTimetableModal && (

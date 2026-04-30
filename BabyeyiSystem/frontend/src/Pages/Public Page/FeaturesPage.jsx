@@ -42,7 +42,7 @@ function Navbar() {
 
   const links = [
     { label: "Home page", href: "/" },
-    { label: "Pay Fees", href: "/pay-by-school" },
+    { label: "Pay Fees", href: "/paid-at-school" },
     { label: "Services", href: "/services" },
     { label: "Features", href: "/features" },
     { label: "Schools", href: "/schools" },
@@ -119,7 +119,7 @@ function FeaturesHero() {
           <Link to="/register" className="inline-flex w-[220px] sm:w-auto justify-center items-center gap-2 rounded-xl bg-amber-400 px-5 py-3 text-[13px] font-black text-[#000435] hover:bg-amber-300 transition-colors">
             <Building2 size={15} /> Register School
           </Link>
-          <Link to="/pay-by-school" className="inline-flex w-[220px] sm:w-auto justify-center items-center gap-2 rounded-xl border border-white/20 bg-white/5 px-5 py-3 text-[13px] font-black text-white hover:bg-white/10 transition-colors">
+          <Link to="/paid-at-school" className="inline-flex w-[220px] sm:w-auto justify-center items-center gap-2 rounded-xl border border-white/20 bg-white/5 px-5 py-3 text-[13px] font-black text-white hover:bg-white/10 transition-colors">
             <CreditCard size={15} className="text-amber-300" /> Pay Fees
           </Link>
           <Link to="/online-service" className="inline-flex w-[220px] sm:w-auto justify-center items-center gap-2 rounded-xl border border-white/20 bg-white/5 px-5 py-3 text-[13px] font-black text-white hover:bg-white/10 transition-colors">
@@ -198,7 +198,7 @@ function CTASection() {
 function Footer() {
   const cols = [
     { title: "Platform", links: [{ l: "About Babyeyi", h: "#about" }, { l: "Features", h: "/features", i: true }, { l: "Home page", h: "/", i: true }, { l: "Pricing", h: "#pricing" }] },
-    { title: "Schools", links: [{ l: "Search Schools", h: "/schools", i: true }, { l: "Pay by School Code", h: "/pay-by-school", i: true }, { l: "Register School", h: "/register", i: true }, { l: "TVET Trades", h: "/schools", i: true }] },
+    { title: "Schools", links: [{ l: "Search Schools", h: "/schools", i: true }, { l: "Pay by School Code", h: "/paid-at-school", i: true }, { l: "Register School", h: "/register", i: true }, { l: "TVET Trades", h: "/schools", i: true }] },
     { title: "Accounts", links: [{ l: "School Manager Login", h: "/school-manager/login", i: true }, { l: "Parent Login", h: "/parents/login", i: true }, { l: "Staff Login", h: "/login", i: true }, { l: "Services", h: "/services", i: true }] },
     { title: "Support", links: [{ l: "Help Center", h: "#" }, { l: "Contact Us", h: "#contact" }, { l: "Privacy Policy", h: "#" }, { l: "Terms of Service", h: "#" }] },
   ];

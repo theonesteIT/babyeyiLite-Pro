@@ -1,0 +1,2 @@
+# SPA fallback (Netlify / similar): deep links like /v/123 must serve index.html
+/*    /index.html   200

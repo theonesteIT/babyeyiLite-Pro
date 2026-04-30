@@ -448,32 +448,27 @@ router.get('/chat/staff', async (req, res) => {
     const q = `%${trimStr(req.query.q || '').toLowerCase()}%`;
 
     if (identity.is_student_proxy) {
-      const className = trimStr(identity.class_name || req.session?.user?.class_name || '');
-      const classToken = normalizeClassToken(className);
-      if (!classToken) {
-        return res.status(400).json({ success: false, message: 'Student class/stream not set. Update student class first.' });
-      }
       const [rows] = await promisePool.query(
-        `SELECT DISTINCT u.id, u.first_name, u.last_name, u.email, u.photo, 'TEACHER' AS role_code, COALESCE(r.role_name, 'Teacher') AS role_name
-         FROM academic_timetables tt
-         INNER JOIN users u ON u.id = tt.staff_id AND u.school_id = tt.school_id AND u.deleted_at IS NULL
-         LEFT JOIN roles r ON r.id = u.role_id
-         WHERE tt.school_id = ?
-           AND LOWER(
-             REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(tt.class_name, ''), ' ', ''), '-', ''), '_', ''), '/', ''), '.', ''), ',', ''), ':', '')
-           ) = ?
-           AND UPPER(COALESCE(r.role_code, '')) = 'TEACHER'
+        `SELECT u.id, u.first_name, u.last_name, u.email, u.photo, UPPER(r.role_code) AS role_code, r.role_name
+         FROM users u
+         INNER JOIN roles r ON r.id = u.role_id
+         WHERE u.school_id = ? AND u.deleted_at IS NULL
+           AND UPPER(COALESCE(r.role_code, '')) NOT IN ('PARENT','STUDENT')
            AND (
              ? = '%%'
              OR LOWER(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) LIKE ?
              OR LOWER(COALESCE(r.role_name, '')) LIKE ?
              OR LOWER(COALESCE(r.role_code, '')) LIKE ?
            )
-         ORDER BY u.first_name ASC, u.last_name ASC
+         ORDER BY
+           CASE WHEN UPPER(COALESCE(r.role_code, '')) = 'TEACHER' THEN 0 ELSE 1 END,
+           COALESCE(r.role_name, '') ASC,
+           u.first_name ASC,
+           u.last_name ASC
          LIMIT 300`,
-        [schoolId, classToken, q, q, q, q]
+        [schoolId, q, q, q, q]
       );
-      return res.json({ success: true, data: rows });
+      return res.json({ success: true, data: rows || [] });
     }
 
     const roleGroup = String(req.query.role_group || 'all').toLowerCase();

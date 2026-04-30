@@ -6,28 +6,30 @@
   --font-weight-bold: 800;
 
   /* Brand Colors - Clean & Premium */
-  --color-re-orange: #FF8C00;
-  --color-re-orange-light: #FFB800;
-  --color-re-orange-dark: #FF5E00;
+  --color-re-orange: #FEBF10;
+  --color-re-orange-light: #FFD54F;
+  --color-re-orange-dark: #FFB300;
 
-  --color-re-purple: #9D50BB;
-  --color-re-magenta: #6E48AA;
+  --color-re-amber: #FEBF10;
+  --color-re-navy: #000435;
+  --color-re-purple: #000435;
+  --color-re-magenta: #00021A;
 
   /* Backgrounds & Core */
   --color-re-bg: #F8F9FA;
   --color-re-card: #FFFFFF;
   --color-re-row: #FFFFFF;
-  --color-re-text: #0E1F35;
+  --color-re-text: #000435;
   --color-re-text-muted: #6B7280;
 
   /* Supplemental Brand Colors */
-  --color-re-blue: #3B82F6;
+  --color-re-blue: #000435;
   --color-re-emerald: #10B981;
   --color-re-slate: #1E293B;
 
   /* Specific Border Colors from Screenshot */
-  --color-re-border-gold: #FFB800;
-  --color-re-border-purple: #9D50BB;
+  --color-re-border-gold: #FEBF10;
+  --color-re-border-purple: #000435;
   --color-re-border-light: #F1F3F6;
 
   /* Premium Border Radius */
@@ -41,15 +43,64 @@
 }
 
 @layer base {
+
   html,
   body {
     @apply bg-re-bg text-re-text font-sans antialiased;
-    font-family: "Montserrat", system-ui, sans-serif;
+    font-family: "Montserrat", system-ui, sans-serif !important;
+    font-weight: 300 !important;
+    text-transform: capitalize !important;
   }
 
   b,
   strong {
-    font-weight: 800;
+    font-weight: 500 !important;
+  }
+
+  /* Global input styling override */
+  input,
+  select,
+  textarea,
+  button {
+    @apply border border-gray-200 outline-none transition-all;
+    box-shadow: none !important;
+    border-radius: 8px !important;
+    text-transform: capitalize;
+  }
+
+  input:focus,
+  select:focus,
+  textarea:focus {
+    @apply border-re-border-gold ring-1 ring-re-border-gold/50;
+    box-shadow: none !important;
+  }
+}
+
+@layer utilities {
+
+  .shadow,
+  .shadow-sm,
+  .shadow-md,
+  .shadow-lg,
+  .shadow-xl,
+  .shadow-2xl,
+  .shadow-inner {
+    box-shadow: none !important;
+  }
+
+  .font-black,
+  .font-extrabold {
+    font-weight: 500 !important;
+  }
+
+  .font-bold,
+  .font-semibold {
+    font-weight: 400 !important;
+  }
+
+  .font-medium,
+  .font-normal {
+    font-weight: 300 !important;
   }
 }
 

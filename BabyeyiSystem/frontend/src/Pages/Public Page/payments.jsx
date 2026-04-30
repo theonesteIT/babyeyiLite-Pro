@@ -205,6 +205,7 @@ const INCOME_BRACKETS = [
 const MOMO_POLL_INTERVAL_MS = 4_000;
 const MOMO_MAX_POLLS        = 30;
 const DEVICE_INTENT_HISTORY_KEY = 'babyeyi_pay_intent_history_v1';
+const SHULECARD_TOPUP_DRAFT_KEY = 'babyeyi_shulecard_topup_draft';
 
 function readDeviceIntentHistory() {
   try {
@@ -408,6 +409,43 @@ export default function PaymentsPage() {
   // ── Load draft ────────────────────────────────────────────────
   useEffect(() => {
     const st = location.state;
+    if (st?.shulecardTopup) {
+      let draftTopup = null;
+      try {
+        const raw = sessionStorage.getItem(SHULECARD_TOPUP_DRAFT_KEY);
+        if (raw) draftTopup = JSON.parse(raw);
+      } catch (_) {}
+      const amount = Number(st.topupAmountRwf || draftTopup?.amount_rwf || 0);
+      const studentId = Number(st.student?.id || draftTopup?.student_id || 0);
+      const studentName = String(st.student?.name || draftTopup?.student_name || '').trim();
+      if (!amount || !studentId) {
+        setDraft(null);
+        return;
+      }
+      const topupStudent = {
+        student_id: studentId,
+        student_name: studentName || 'Student',
+      };
+      setDraft({
+        shulecardTopupCheckout: true,
+        grandTotal: amount,
+        docLabel: 'ShuleCard Top Up',
+        schoolName: 'Babyeyi',
+        selectedStudent: topupStudent,
+        selectedStudents: [topupStudent],
+        payer: {
+          name: String(draftTopup?.payer_name || 'Parent/Guardian').trim(),
+          phone: String(draftTopup?.payer_phone || '').trim(),
+        },
+        shulecardTopupPayload: draftTopup || {
+          student_id: studentId,
+          amount_rwf: amount,
+          payment_method: st?.paymentMethod || 'momo',
+          note: '',
+        },
+      });
+      return;
+    }
     if (st?.standardKitPay) {
       const p = st.standardKitPay || {};
       setDraft({
@@ -501,8 +539,8 @@ export default function PaymentsPage() {
   }, [location.state]);
 
   useEffect(() => {
-    if (draft?.studentServiceCheckout || draft?.agentShopCheckout || draft?.standardKitCheckout) setPayMethod('momo');
-  }, [draft?.studentServiceCheckout, draft?.agentShopCheckout, draft?.standardKitCheckout]);
+    if (draft?.studentServiceCheckout || draft?.agentShopCheckout || draft?.standardKitCheckout || draft?.shulecardTopupCheckout) setPayMethod('momo');
+  }, [draft?.studentServiceCheckout, draft?.agentShopCheckout, draft?.standardKitCheckout, draft?.shulecardTopupCheckout]);
 
   useEffect(() => {
     if (!draft?.uniformVoucherCheckout || !draft.uniformVoucherPayload?.orderNumber) return;
@@ -612,6 +650,7 @@ export default function PaymentsPage() {
   // ── Derived ───────────────────────────────────────────────────
   const principal = useMemo(() => {
     if (!draft) return 0;
+    if (draft.shulecardTopupCheckout) return Math.max(0, Number(draft.grandTotal || 0));
     if (draft.uniformVoucherCheckout) {
       let g = Number(draft.grandTotal);
       if (Number.isFinite(g) && g >= 100) return Math.max(0, g);
@@ -728,6 +767,7 @@ export default function PaymentsPage() {
 
   const afterSuccessPath = useMemo(() => {
     if (!draft) return '/parents/home';
+    if (draft.shulecardTopupCheckout) return '/parents/shulecard';
     if (draft.studentServiceCheckout) return '/services';
     if (draft.agentShopCheckout) return '/find-agent';
     if (draft.standardKitCheckout) return '/services/standard-shulekit';
@@ -790,6 +830,9 @@ export default function PaymentsPage() {
       body: JSON.stringify({
         school_id:                draft.schoolId,
         babyeyi_id:               draft.babyeyiId,
+        academic_year:            draft.academicYear || draft.selectedStudent?.academic_year || null,
+        term:                     draft.term || null,
+        class_name:               draft.selectedStudent?.class_name || null,
         total_rwf:                totalRwfForIntent,
         status:                   extra.status || 'submitted',
         selected_fee_ids:         draft.selectedFeeIds         || [],
@@ -1162,6 +1205,48 @@ export default function PaymentsPage() {
 
   // ── Main confirm ──────────────────────────────────────────────
   const handleConfirm = async () => {
+    if (draft?.shulecardTopupCheckout) {
+      setSubmitError('');
+      const payload = draft.shulecardTopupPayload || {};
+      const studentId = Number(payload.student_id || draft?.selectedStudent?.student_id || 0);
+      const amountRwf = Math.round(Number(payload.amount_rwf || principal || 0));
+      if (!studentId || !amountRwf || amountRwf < 500) {
+        setSubmitError('Invalid ShuleCard top-up draft. Start again from Parent ShuleCard.');
+        return;
+      }
+      if (payMethod === 'momo' && !isValidMomoPhone(momoPhoneRaw)) {
+        setMomoPhoneError(`"${momoPhoneRaw || '(empty)'}" is not a valid MTN Rwanda number.`);
+        return;
+      }
+      setMomoPhoneError('');
+      setSubmitting(true);
+      try {
+        const res = await fetch(`${API}/parent-portal/shulecard/topups`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            student_id: studentId,
+            amount_rwf: amountRwf,
+            payment_method: payMethod || payload.payment_method || 'momo',
+            note: String(payload.note || '').trim() || null,
+          }),
+        });
+        const j = await res.json().catch(() => ({}));
+        if (!res.ok || !j.success) throw new Error(j.message || 'Top-up request failed');
+        setDoneId(j?.data?.reference_no || `SHC-${Date.now()}`);
+        setInvoiceNo(j?.data?.reference_no || '');
+        setInvoiceStatus('PAID');
+        setDoneMode(payMethod === 'bank' ? 'bank' : payMethod === 'visa' ? 'visa' : 'momo');
+        setShowDoneModal(true);
+        try { sessionStorage.removeItem(SHULECARD_TOPUP_DRAFT_KEY); } catch (_) {}
+      } catch (e) {
+        setSubmitError(e.message || 'Could not complete ShuleCard top-up');
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
     if (draft?.standardKitCheckout) {
       if (payMethod !== 'momo') { setSubmitError('Standard kit payments currently use MTN Mobile Money.'); return; }
       if (!isValidMomoPhone(momoPhoneRaw)) {
@@ -1649,7 +1734,7 @@ export default function PaymentsPage() {
                     ? shuleStep === 'review' && !!shuleOrg && shulePersonalInfoReady && isValidMomoPhone(shuleNotifyPhone)
                     : false)
             : payMethod === 'momo' && (!momoStatus || momoStatus === 'FAILED' || momoStatus === 'TIMEOUT'))
-    : draft?.agentShopCheckout || draft?.standardKitCheckout
+    : draft?.agentShopCheckout || draft?.standardKitCheckout || draft?.shulecardTopupCheckout
       ? !submitting && !doneId && payMethod === 'momo' && (!momoStatus || momoStatus === 'FAILED' || momoStatus === 'TIMEOUT') && principal >= 100
     : !submitting && !doneId && !awaitingBalance &&
       (payMethod === 'momo'

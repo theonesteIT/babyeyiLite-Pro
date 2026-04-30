@@ -170,14 +170,14 @@ export default function PayrollHistory() {
 
   return (
     <div className="min-h-screen bg-re-bg p-4 sm:p-6 space-y-4">
-      <div className="rounded-2xl bg-gradient-to-r from-[#1E3A5F] to-[#0D2644] text-white p-5">
+      <div className="rounded-2xl bg-gradient-to-r from-[#000435] to-[#0D2644] text-white p-5">
         <p className="text-[10px] uppercase tracking-[0.2em] font-black text-amber-300">Accountant Payroll</p>
         <h1 className="text-2xl font-black">Payroll Request Stepper</h1>
       </div>
 
       <div className="bg-white rounded-2xl border border-black/5 p-4">
         <div className="flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-wider">
-          {STEPS.map((s, i) => <span key={s} className={i + 1 === step ? 'text-[#1E3A5F]' : 'text-slate-300'}>{i + 1}. {s}</span>)}
+          {STEPS.map((s, i) => <span key={s} className={i + 1 === step ? 'text-[#000435]' : 'text-[#000435]'}>{i + 1}. {s}</span>)}
         </div>
         {error ? <p className="mt-3 text-red-600 text-xs font-bold">{error}</p> : null}
         {success ? <p className="mt-3 text-emerald-600 text-xs font-bold">{success}</p> : null}
@@ -187,19 +187,19 @@ export default function PayrollHistory() {
             <>
               <div className="flex gap-2">
                 <input value={staffQuery} onChange={(e) => setStaffQuery(e.target.value)} placeholder="Search by full name or staff ID" className="h-10 flex-1 rounded-xl border border-black/10 px-3" />
-                <button onClick={searchStaff} className="h-10 px-4 rounded-xl bg-[#1E3A5F] text-white text-[10px] font-black uppercase inline-flex items-center gap-1"><Search size={12} /> Search</button>
+                <button onClick={searchStaff} className="h-10 px-4 rounded-xl bg-[#000435] text-white text-[10px] font-black uppercase inline-flex items-center gap-1"><Search size={12} /> Search</button>
               </div>
               {staffResults.map((s) => (
-                <button key={s.staffUserId} onClick={() => chooseStaff(s)} className="w-full text-left p-3 rounded-xl border border-black/10 hover:bg-slate-50">
-                  <p className="text-sm font-black text-[#1E3A5F]">{s.fullName}</p>
-                  <p className="text-xs text-slate-500">{s.staffCode} · {s.role} · Suggested: {money(s?.salary?.grossSuggested)}</p>
+                <button key={s.staffUserId} onClick={() => chooseStaff(s)} className="w-full text-left p-3 rounded-xl border border-black/10 hover:bg-white">
+                  <p className="text-sm font-black text-[#000435]">{s.fullName}</p>
+                  <p className="text-xs text-[#000435]">{s.staffCode} · {s.role} · Suggested: {money(s?.salary?.grossSuggested)}</p>
                 </button>
               ))}
             </>
           )}
 
           {step >= 2 && selectedStaff ? (
-            <div className="p-3 rounded-xl border border-black/10 bg-slate-50 text-xs font-bold">
+            <div className="p-3 rounded-xl border border-black/10 bg-white text-xs font-bold">
               {selectedStaff.fullName} · {selectedStaff.staffCode} · {selectedStaff.role}
             </div>
           ) : null}
@@ -245,7 +245,7 @@ export default function PayrollHistory() {
 
         <div className="mt-4 flex justify-between">
           <button onClick={() => setStep((s) => Math.max(1, s - 1))} className="h-9 px-4 rounded-xl border border-black/10 text-[10px] font-black uppercase">Back</button>
-          <button onClick={() => setStep((s) => Math.min(7, s + 1))} className="h-9 px-4 rounded-xl bg-[#1E3A5F] text-white text-[10px] font-black uppercase">Next</button>
+          <button onClick={() => setStep((s) => Math.min(7, s + 1))} className="h-9 px-4 rounded-xl bg-[#000435] text-white text-[10px] font-black uppercase">Next</button>
         </div>
       </div>
 
@@ -258,25 +258,25 @@ export default function PayrollHistory() {
           <input value={filters.month} onChange={(e) => setFilters((p) => ({ ...p, month: e.target.value }))} className="h-9 w-24 rounded-xl border border-black/10 px-3 text-xs font-bold" placeholder="Month" />
           <input value={filters.year} onChange={(e) => setFilters((p) => ({ ...p, year: e.target.value }))} className="h-9 w-28 rounded-xl border border-black/10 px-3 text-xs font-bold" placeholder="Year" />
           <input value={filters.academic_year} onChange={(e) => setFilters((p) => ({ ...p, academic_year: e.target.value }))} className="h-9 rounded-xl border border-black/10 px-3 text-xs font-bold" placeholder="Academic year" />
-          <button onClick={loadRows} className="h-9 px-3 rounded-xl bg-[#1E3A5F] text-white text-[10px] font-black uppercase">Load requests</button>
+          <button onClick={loadRows} className="h-9 px-3 rounded-xl bg-[#000435] text-white text-[10px] font-black uppercase">Load requests</button>
           <button onClick={exportExcel} className="h-9 px-3 rounded-xl border border-black/10 text-[10px] font-black uppercase inline-flex items-center gap-1"><Download size={12} /> Excel</button>
           <button onClick={exportPdf} className="h-9 px-3 rounded-xl border border-black/10 text-[10px] font-black uppercase inline-flex items-center gap-1"><FileText size={12} /> PDF</button>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left">
-            <thead><tr className="text-[10px] uppercase text-slate-500 border-b border-black/10"><th className="py-2">Payroll</th><th>Staff</th><th>Period</th><th>Requested</th><th>Status</th></tr></thead>
+            <thead><tr className="text-[10px] uppercase text-[#000435] border-b border-black/10"><th className="py-2">Payroll</th><th>Staff</th><th>Period</th><th>Requested</th><th>Status</th></tr></thead>
             <tbody>
               {rows.map((r) => (
                 <tr key={r.payrollId} className="border-b border-black/5 text-sm">
-                  <td className="py-2 font-black text-[#1E3A5F]">{r.payrollId}</td>
+                  <td className="py-2 font-black text-[#000435]">{r.payrollId}</td>
                   <td>{r.staffName}</td>
                   <td>{r.month}/{r.year} · {r.term || '-'}</td>
                   <td>{money(r.requestedAmount || r.netSalaryPaid)}</td>
                   <td>{r.paymentStatus}</td>
                 </tr>
               ))}
-              {!rows.length ? <tr><td colSpan={5} className="py-5 text-center text-xs text-slate-400">No payroll requests loaded.</td></tr> : null}
+              {!rows.length ? <tr><td colSpan={5} className="py-5 text-center text-xs text-[#000435]">No payroll requests loaded.</td></tr> : null}
             </tbody>
           </table>
         </div>

@@ -320,7 +320,7 @@ export default function Home() {
       <section>
         <SectionHeading
           title="My children"
-          subtitle="All learners linked to your phone on school records (father or mother line), plus any profiles you add on this device."
+          subtitle="All learners linked to your phone on school records, plus students you add with limited financial access and local profiles."
           action={
             <div className="flex items-center gap-2">
               <button
@@ -339,7 +339,7 @@ export default function Home() {
                 className="inline-flex items-center gap-1.5 text-sm font-bold text-orange-600 hover:text-orange-700"
               >
                 <Plus size={18} strokeWidth={2.5} />
-                Add child
+                Add student
               </button>
             </div>
           }
@@ -378,7 +378,7 @@ export default function Home() {
                 className="mt-6 inline-flex items-center gap-2 rounded-xl bg-orange-500 text-white font-bold px-6 py-3 text-sm shadow-lg shadow-orange-500/20 hover:brightness-105 transition-all"
               >
                 <Plus size={18} />
-                Add child
+                Add student
               </button>
             )}
           </div>
@@ -402,6 +402,11 @@ export default function Home() {
                         {c._local && (
                           <span className="text-[10px] font-bold uppercase tracking-wide text-orange-600 bg-orange-50 border border-orange-100 px-2 py-0.5 rounded-md">
                             Added by you
+                          </span>
+                        )}
+                        {String(c.access_type || "").toUpperCase() === "LIMITED" && (
+                          <span className="text-[10px] font-bold uppercase tracking-wide text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
+                            Limited access
                           </span>
                         )}
                       </div>

@@ -20,6 +20,17 @@ const PAYMENT_STATUSES = [
     { value: 'no_fee_card', label: 'No Babyeyi card' },
 ];
 
+function normalizeUiTerm(v) {
+    const t = String(v || '').trim();
+    const low = t.toLowerCase();
+    if (!t) return '';
+    if (low.includes('annual')) return 'Annual Review';
+    if (/\b1\b/.test(low) || low === 't1') return 'Term 1';
+    if (/\b2\b/.test(low) || low === 't2') return 'Term 2';
+    if (/\b3\b/.test(low) || low === 't3') return 'Term 3';
+    return t;
+}
+
 function formatMoneyRWF(value) {
   const n = Number(value) || 0;
   return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'RWF', maximumFractionDigits: 0 }).format(n);
@@ -34,8 +45,10 @@ function formatCompactMoneyRWF(value) {
 
 const Fees = () => {
     const [searchTerm, setSearchTerm] = useState('');
-    const [selectedTerm, setSelectedTerm] = useState('Term 1');
-    const [selectedYear, setSelectedYear] = useState('2025-2026');
+    const [selectedTerm, setSelectedTerm] = useState('');
+    const [selectedYear, setSelectedYear] = useState('');
+    const [termOptions, setTermOptions] = useState(TERMS);
+    const [yearOptions, setYearOptions] = useState(YEARS);
     const [selectedClass, setSelectedClass] = useState('All Classes');
     const [selectedStatus, setSelectedStatus] = useState('All');
     const [loading, setLoading] = useState(false);
@@ -48,9 +61,11 @@ const Fees = () => {
 
     // Modals
     const [detailsStudent, setDetailsStudent] = useState(null);
+    const [paymentStudent, setPaymentStudent] = useState(null);
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
     const fetchReport = async () => {
+        if (!selectedYear || !selectedTerm) return;
         setLoading(true);
         setError('');
         try {
@@ -109,6 +124,40 @@ const Fees = () => {
     };
 
     useEffect(() => {
+        const loadFeeFilters = async () => {
+            try {
+                const [settingsRes, cardsRes] = await Promise.all([
+                    api.get('/dos/academic-calendar-settings').catch(() => null),
+                    api.get('/accountant/babyeyi-fees').catch(() => null),
+                ]);
+
+                const managerYear = String(settingsRes?.data?.data?.current_academic_year || '').trim();
+                const managerTermsRaw = Array.isArray(settingsRes?.data?.data?.active_terms) ? settingsRes.data.data.active_terms : [];
+                const managerTerms = managerTermsRaw.map(normalizeUiTerm).filter(Boolean);
+
+                const cards = Array.isArray(cardsRes?.data?.data) ? cardsRes.data.data : [];
+                const cardTerms = cards.map((r) => normalizeUiTerm(r.term)).filter(Boolean);
+                const cardYears = cards.map((r) => String(r.academic_year || '').trim()).filter(Boolean);
+
+                const mergedTerms = Array.from(new Set([...managerTerms, ...cardTerms, ...TERMS]));
+                const mergedYears = Array.from(new Set([managerYear, ...cardYears, ...YEARS].filter(Boolean)));
+
+                setTermOptions(mergedTerms.length ? mergedTerms : TERMS);
+                setYearOptions(mergedYears.length ? mergedYears : YEARS);
+
+                const defaultTerm = managerTerms[0] || cardTerms[0] || TERMS[0];
+                const defaultYear = managerYear || cardYears[0] || YEARS[0];
+                setSelectedTerm((p) => p || defaultTerm);
+                setSelectedYear((p) => p || defaultYear);
+            } catch {
+                setSelectedTerm((p) => p || TERMS[0]);
+                setSelectedYear((p) => p || YEARS[0]);
+            }
+        };
+        loadFeeFilters();
+    }, []);
+
+    useEffect(() => {
         fetchReport();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedYear, selectedTerm, selectedClass, selectedStatus]);
@@ -126,6 +175,12 @@ const Fees = () => {
         if (sortBy.key === 'class') return a.class.localeCompare(b.class) * dir;
         return a.name.localeCompare(b.name) * dir;
     });
+
+    const noFeeCardMismatch = useMemo(() => {
+        if (!selectedYear || !selectedTerm || reportRows.length === 0) return false;
+        const rowsWithNoCard = reportRows.filter((r) => String(r.status || '').toLowerCase() === 'no_fee_card').length;
+        return rowsWithNoCard > 0;
+    }, [reportRows, selectedTerm, selectedYear]);
 
     const toggleSort = (key) => {
         setSortBy(prev => ({
@@ -153,8 +208,8 @@ const Fees = () => {
         if (x === 'full_pay' || x === 'full') return 'bg-emerald-50 text-emerald-700 border-emerald-100';
         if (x === 'remain_pay') return 'bg-amber-50 text-amber-700 border-amber-100';
         if (x === 'not_paid') return 'bg-red-50 text-red-700 border-red-100';
-        if (x === 'no_fee_card') return 'bg-slate-50 text-slate-600 border-slate-200';
-        return 'bg-slate-50 text-slate-600 border-slate-200';
+        if (x === 'no_fee_card') return 'bg-white text-[#000435] border-[#000435]';
+        return 'bg-white text-[#000435] border-[#000435]';
     };
 
     const exportFilteredExcel = () => {
@@ -188,10 +243,10 @@ const Fees = () => {
                 <div className="relative w-full min-h-[280px] overflow-hidden">
                     <div className="absolute inset-0 bg-[#0a192f]/85 z-10 backdrop-blur-[2px]"></div>
                     <img src="/teacher.jpg" alt="Hero Background" className="absolute inset-0 w-full h-full object-cover scale-105" />
-                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#1E3A5F]/40 via-transparent to-transparent z-10 max-w-[1600px] mx-auto"></div>
+                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#000435]/40 via-transparent to-transparent z-10 max-w-[1600px] mx-auto"></div>
 
                     <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-12 pt-16 pb-24 flex items-center gap-8">
-                        <div className="hidden md:flex shrink-0 w-24 h-24 rounded-[32px] border border-white/10 bg-white/5 items-center justify-center backdrop-blur-xl shadow-2xl relative overflow-hidden group">
+                        <div className="hidden md:flex shrink-0 w-24 h-24 rounded-[32px] border border-white/10 bg-re-bg/5 items-center justify-center backdrop-blur-xl  relative overflow-hidden group">
                             <div className="absolute inset-0 bg-gradient-to-br from-[#FEBF10]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
                             <Banknote size={40} style={{ color: "#FEBF10" }} className="group-hover:scale-110 transition-transform duration-500" />
                         </div>
@@ -213,7 +268,7 @@ const Fees = () => {
 
                 {/* ── Consolidated High-Fidelity Card ── */}
                 <div className="max-w-[1600px] mx-auto px-6 md:px-12 -mt-24 relative z-20 pb-20">
-                    <div className="bg-white rounded-t-[32px] shadow-2xl border border-black/5 overflow-hidden flex flex-col min-h-[500px]">
+                    <div className="bg-white rounded-t-[32px]  border border-black/5 overflow-hidden flex flex-col min-h-[500px]">
 
                         {/* Stats Header Grid */}
                         <div className="grid grid-cols-1 lg:grid-cols-4 border-b border-black/5">
@@ -226,7 +281,7 @@ const Fees = () => {
                                 ].map((stat, i) => (
                                     <div key={i} className="p-4 sm:p-8 flex flex-col items-center justify-center text-center group hover:bg-re-bg/20 transition-all cursor-default">
                                         <div className="mb-1.5 sm:mb-2 opacity-40 shrink-0">{stat.icon}</div>
-                                        <span className="text-sm sm:text-2xl font-black text-re-text tracking-tighter group-hover:text-[#1E3A5F] transition-colors">
+                                        <span className="text-sm sm:text-2xl font-black text-re-text tracking-tighter group-hover:text-[#000435] transition-colors">
                                             {stat.value}
                                         </span>
                                         <p className="text-[6px] sm:text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] mt-0.5 sm:mt-1 opacity-60">
@@ -248,25 +303,28 @@ const Fees = () => {
                                         const url = `${(import.meta.env.VITE_API_URL || 'http://localhost:5100')}/api/accountant/reports/payments/export.pdf?${params.toString()}`;
                                         window.open(url, '_blank');
                                     }}
-                                    className="w-full h-11 flex items-center justify-center gap-2 text-white rounded-xl font-black text-[9px] uppercase tracking-widest shadow-xl hover:scale-[1.02] active:scale-95 transition-all"
-                                    style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)" }}
+                                    className="w-full h-11 flex items-center justify-center gap-2 text-white rounded-xl font-black text-[9px] uppercase tracking-widest  hover:scale-[1.02] active:scale-95 transition-all"
+                                    style={{ background: "linear-gradient(135deg, #000435 0%, #0D2644 100%)" }}
                                 >
                                     <Printer size={14} />
                                     <span>Print report</span>
                                 </button>
                                 <button
                                     onClick={exportFilteredExcel}
-                                    className="w-full h-11 flex items-center justify-center gap-2 bg-white border border-black/5 text-re-text font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg hover:border-[#1E3A5F]/20 hover:shadow-re-soft transition-all group"
+                                    className="w-full h-11 flex items-center justify-center gap-2 bg-re-bg border border-black/5 text-re-text font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg hover:border-[#000435]/20 hover:-soft transition-all group"
                                 >
                                     <Download size={14} className="text-emerald-600" />
-                                    <span className="group-hover:text-[#1E3A5F] transition-colors">Export Excel</span>
+                                    <span className="group-hover:text-[#000435] transition-colors">Export Excel</span>
                                 </button>
                                 <button
-                                    onClick={() => setIsPaymentModalOpen(true)}
-                                    className="w-full h-11 flex items-center justify-center gap-2 bg-white border border-black/5 text-re-text font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg hover:border-[#1E3A5F]/20 hover:shadow-re-soft transition-all group"
+                                    onClick={() => {
+                                        setPaymentStudent(null);
+                                        setIsPaymentModalOpen(true);
+                                    }}
+                                    className="w-full h-11 flex items-center justify-center gap-2 bg-re-bg border border-black/5 text-re-text font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg hover:border-[#000435]/20 hover:-soft transition-all group"
                                 >
                                     <Plus size={14} className="text-amber-500 group-hover:rotate-90 transition-transform duration-300" />
-                                    <span className="group-hover:text-[#1E3A5F] transition-colors">Record Payment</span>
+                                    <span className="group-hover:text-[#000435] transition-colors">Record Payment</span>
                                 </button>
                             </div>
                         </div>
@@ -276,9 +334,9 @@ const Fees = () => {
                             <div className="flex flex-nowrap items-center gap-2">
                                 <div className="relative w-[10.5rem] shrink-0 group">
                                     <Filter size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-amber-500 z-[1]" />
-                                    <span className="absolute left-7 top-1/2 -translate-y-1/2 text-[8px] font-black uppercase text-slate-400 tracking-[0.2em] z-[1]">Class</span>
+                                    <span className="absolute left-7 top-1/2 -translate-y-1/2 text-[8px] font-black uppercase text-[#000435] tracking-[0.2em] z-[1]">Class</span>
                                     <select 
-                                        className="w-full h-8 bg-white/80 rounded-lg outline-none border border-black/5 focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[9px] font-black uppercase tracking-widest shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.5)] cursor-pointer appearance-none !pl-[4.5rem] pr-8"
+                                        className="w-full h-8 bg-re-bg/80 rounded-lg outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] font-black uppercase tracking-widest  cursor-pointer appearance-none !pl-[4.5rem] pr-8"
                                         value={selectedClass}
                                         onChange={e => setSelectedClass(e.target.value)}
                                         style={{ backgroundImage: `url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%231E3A5F%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.5rem center', backgroundSize: '10px' }}
@@ -294,10 +352,21 @@ const Fees = () => {
                                     <select
                                         value={selectedTerm}
                                         onChange={(e) => setSelectedTerm(e.target.value)}
-                                        className="w-full h-8 bg-white/80 rounded-lg outline-none border border-black/5 focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[9px] font-black uppercase tracking-widest shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.5)] cursor-pointer appearance-none pl-3 pr-8"
+                                        className="w-full h-8 bg-re-bg/80 rounded-lg outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] font-black uppercase tracking-widest  cursor-pointer appearance-none pl-3 pr-8"
                                         style={{ backgroundImage: `url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%231E3A5F%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.5rem center', backgroundSize: '10px' }}
                                     >
-                                        {TERMS.map(t => <option key={t} value={t}>{t}</option>)}
+                                        {termOptions.map(t => <option key={t} value={t}>{t}</option>)}
+                                    </select>
+                                </div>
+
+                                <div className="relative w-[9rem] shrink-0">
+                                    <select
+                                        value={selectedYear}
+                                        onChange={(e) => setSelectedYear(e.target.value)}
+                                        className="w-full h-8 bg-re-bg/80 rounded-lg outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] font-black uppercase tracking-widest  cursor-pointer appearance-none pl-3 pr-8"
+                                        style={{ backgroundImage: `url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%231E3A5F%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.5rem center', backgroundSize: '10px' }}
+                                    >
+                                        {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
                                     </select>
                                 </div>
 
@@ -305,7 +374,7 @@ const Fees = () => {
                                     <select
                                         value={selectedStatus}
                                         onChange={(e) => setSelectedStatus(e.target.value)}
-                                        className="w-full h-8 bg-white/80 rounded-lg outline-none border border-black/5 focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[9px] font-black uppercase tracking-widest shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.5)] cursor-pointer appearance-none pl-3 pr-8"
+                                        className="w-full h-8 bg-re-bg/80 rounded-lg outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] font-black uppercase tracking-widest  cursor-pointer appearance-none pl-3 pr-8"
                                         style={{ backgroundImage: `url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%231E3A5F%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.5rem center', backgroundSize: '10px' }}
                                     >
                                         {PAYMENT_STATUSES.map((s) => (
@@ -315,23 +384,34 @@ const Fees = () => {
                                 </div>
 
                                 <div className="relative w-[14rem] group">
-                                    <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-re-text-muted/50 group-focus-within:text-[#1E3A5F] transition-colors z-[1] pointer-events-none" />
+                                    <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-re-text-muted/50 group-focus-within:text-[#000435] transition-colors z-[1] pointer-events-none" />
                                     <input
                                         type="text"
                                         placeholder="Search learner name or UID..."
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
-                                        className="w-full h-8 bg-white/80 rounded-lg outline-none border border-black/5 focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[9px] font-black uppercase tracking-tight shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.5)] placeholder:text-[#1E3A5F]/30 !pl-8"
+                                        className="w-full h-8 bg-re-bg/80 rounded-lg outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] font-black uppercase tracking-tight  placeholder:text-[#000435]/30 !pl-8"
                                     />
                                 </div>
                             </div>
-                            <button onClick={fetchReport} className="h-8 w-8 flex items-center justify-center bg-white border border-black/5 rounded-lg hover:bg-re-bg transition-all shadow-sm disabled:opacity-40 shrink-0 ml-auto" disabled={loading}>
-                                <RefreshCw size={12} className="text-[#1E3A5F]" />
+                            <button onClick={fetchReport} className="h-8 w-8 flex items-center justify-center bg-re-bg border border-black/5 rounded-lg hover:bg-re-bg transition-all  disabled:opacity-40 shrink-0 ml-auto" disabled={loading}>
+                                <RefreshCw size={12} className="text-[#000435]" />
                             </button>
                         </div>
 
+                        {noFeeCardMismatch && (
+                            <div className="mx-4 mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-amber-800">
+                                    No fee card for selected term/year
+                                </p>
+                                <p className="text-[10px] font-bold text-amber-700 mt-1">
+                                    Some learners show 0 amount because no Babyeyi fee card matches this filter. Change Term/Year or configure cards in Babyeyi fee cards.
+                                </p>
+                            </div>
+                        )}
+
                         {/* Registry Table */}
-                        <div className="overflow-x-auto bg-white flex-1 min-h-[400px]">
+                        <div className="overflow-x-auto bg-re-bg flex-1 min-h-[400px]">
                             {error ? (
                                 <div className="px-6 py-4 text-[11px] font-bold text-red-600">{error}</div>
                             ) : null}
@@ -366,21 +446,21 @@ const Fees = () => {
                                                 {/* Learner */}
                                                 <td className="px-4 sm:px-6 py-2.5 sm:py-3 border-r border-black/5">
                                                     <div className="flex items-center gap-3">
-                                                        <div className="w-9 h-9 rounded-full border border-black/5 bg-slate-100 flex items-center justify-center shadow-inner shrink-0 text-[#1E3A5F]">
+                                                        <div className="w-9 h-9 rounded-full border border-black/5 bg-re-bg flex items-center justify-center  shrink-0 text-[#000435]">
                                                             <User size={16} className="opacity-75" />
                                                         </div>
                                                         <div>
-                                                            <p className="text-[13px] font-black text-[#1E3A5F] tracking-tight truncate group-hover:text-[#1E3A5F] transition-colors">{s.name}</p>
+                                                            <p className="text-[13px] font-black text-[#000435] tracking-tight truncate group-hover:text-[#000435] transition-colors">{s.name}</p>
                                                             <p className="text-[8px] font-bold text-re-text-muted uppercase tracking-widest leading-none mt-1 opacity-50">{s.id}</p>
                                                         </div>
                                                     </div>
                                                 </td>
                                                 {/* Class */}
-                                                <td className="hidden md:table-cell px-6 py-3 border-r border-black/5 font-black text-[#1E3A5F] text-[10px]">
+                                                <td className="hidden md:table-cell px-6 py-3 border-r border-black/5 font-black text-[#000435] text-[10px]">
                                                     <span className="bg-re-bg px-2 py-0.5 rounded-lg border border-black/5">{s.class}</span>
                                                 </td>
                                                 {/* Amount to pay (arrears + term due) */}
-                                                <td className="hidden md:table-cell px-6 py-3 border-r border-black/5 text-right font-black text-[#1E3A5F] text-[11px]">
+                                                <td className="hidden md:table-cell px-6 py-3 border-r border-black/5 text-right font-black text-[#000435] text-[11px]">
                                                     {formatMoneyRWF(s.amountToPay).replace('RWF', '')}
                                                 </td>
                                                 {/* Paid (this term) */}
@@ -389,7 +469,7 @@ const Fees = () => {
                                                 </td>
                                                 {/* Remaining */}
                                                 <td className="px-4 sm:px-6 py-2.5 sm:py-3 border-r border-black/5 text-right">
-                                                    <p className={`text-[13px] font-black ${s.remaining > 0 ? 'text-red-500' : 'text-slate-300'}`}>
+                                                    <p className={`text-[13px] font-black ${s.remaining > 0 ? 'text-red-500' : 'text-[#000435]'}`}>
                                                         {formatMoneyRWF(s.remaining).replace('RWF', '')}
                                                     </p>
                                                 </td>
@@ -401,8 +481,13 @@ const Fees = () => {
                                                 {/* Action */}
                                                 <td className="px-4 sm:px-6 py-2.5 sm:py-3 text-right">
                                                     <button 
-                                                        onClick={(e) => { e.stopPropagation(); setDetailsStudent(s); setIsPaymentModalOpen(true); }}
-                                                        className="h-7 px-3 rounded-xl flex items-center justify-center gap-1.5 bg-white border border-black/5 text-re-text font-black text-[9px] uppercase tracking-widest shadow-sm hover:bg-re-bg hover:text-[#1E3A5F] transition-all ml-auto"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setDetailsStudent(s);
+                                                            setPaymentStudent(s);
+                                                            setIsPaymentModalOpen(true);
+                                                        }}
+                                                        className="h-7 px-3 rounded-xl flex items-center justify-center gap-1.5 bg-re-bg border border-black/5 text-re-text font-black text-[9px] uppercase tracking-widest  hover:bg-re-bg hover:text-[#000435] transition-all ml-auto"
                                                     >
                                                         <CreditCard size={12} className="text-amber-500 transition-colors" />
                                                         <span>Record</span>
@@ -423,14 +508,14 @@ const Fees = () => {
                         </div>
 
                         {/* Footer Summary */}
-                        <div className="flex px-8 py-4 bg-slate-50/50 border-t border-black/5 items-center justify-between">
+                        <div className="flex px-8 py-4 bg-re-bg/50 border-t border-black/5 items-center justify-between">
                             <div className="flex items-center gap-4">
                                 <div className="flex items-center gap-1.5">
                                     <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest italic opacity-60">Verified Records</p>
+                                    <p className="text-[8px] font-black text-[#000435] uppercase tracking-widest italic opacity-60">Verified Records</p>
                                 </div>
                                 <div className="w-px h-3 bg-black/10" />
-                                <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] opacity-40 italic">
+                                <p className="text-[8px] font-black text-[#000435] uppercase tracking-[0.2em] opacity-40 italic">
                                     {filteredLearners.length} Participants · {selectedYear} · {selectedTerm} · {PAYMENT_STATUSES.find((x) => x.value === selectedStatus)?.label || 'All statuses'}
                                 </p>
                             </div>
@@ -443,8 +528,11 @@ const Fees = () => {
             <StudentFeesModal
                 isOpen={!!detailsStudent}
                 onClose={(action) => {
+                    if (action?.recordPayment && detailsStudent) {
+                        setPaymentStudent(detailsStudent);
+                        setIsPaymentModalOpen(true);
+                    }
                     setDetailsStudent(null);
-                    if (action?.recordPayment) setIsPaymentModalOpen(true);
                 }}
                 student={detailsStudent}
                 academicYear={selectedYear}
@@ -464,22 +552,24 @@ const Fees = () => {
                 isOpen={isPaymentModalOpen}
                 onClose={(result) => {
                     setIsPaymentModalOpen(false);
+                    setPaymentStudent(null);
                     if (result?.saved) fetchReport();
                 }}
                 onSave={async ({ amount, method, note }) => {
-                    if (!detailsStudent?.student_id) return;
-                    const totalDue = Number(detailsStudent.amountToPay);
+                    const activeStudent = paymentStudent || detailsStudent;
+                    if (!activeStudent?.student_id) return;
+                    const totalDue = Number(activeStudent.amountToPay);
                     await api.post('/accountant/payments', {
-                        student_id: detailsStudent.student_id,
+                        student_id: activeStudent.student_id,
                         academic_year: selectedYear,
                         term: selectedTerm,
-                        class_name: detailsStudent.class === '—' ? '' : detailsStudent.class,
+                        class_name: activeStudent.class === '—' ? '' : activeStudent.class,
                         total_due: Number.isFinite(totalDue) && totalDue >= 0 ? totalDue : 0,
                         amount_paid: Number(amount),
                         notes: [method, note].filter(Boolean).join(' · '),
                     });
                 }}
-                student={detailsStudent}
+                student={paymentStudent || detailsStudent}
                 academicYear={selectedYear}
                 term={selectedTerm}
             />

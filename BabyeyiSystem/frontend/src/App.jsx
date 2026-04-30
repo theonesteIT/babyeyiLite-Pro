@@ -30,7 +30,7 @@
 //   /school-babyeyi-dashboard  → SchoolBabyeyiDashboard (SCHOOL_ADMIN | SCHOOL_MANAGER)
 //   /accountant/*                → AccountantLayout (ACCOUNTANT) — dashboard, payment, reports
 //   /hod/*                       → HodLayout (HOD) — students, discipline marks settings, reports
-//   /pay-by-school             → PublicPayBySchool (guest: student code → term/year → fees → pay)
+//   /paid-at-school            → PaidAtSchool (guest: student code → term/year → fees → pay)
 //   /babyeyi/verify/:docId     → BabyeyiVerifyPage
 //   /unauthorized              → 403 page
 // ================================================================
@@ -48,7 +48,7 @@ import SchoolPublicRoute from './Pages/Public Page/SchoolPublicRoute';
 import PublicBabyeyiFinder from './Pages/Public Page/PublicBabyeyiFinder';
 import SearchStudent from './Pages/Public Page/SearchStudent';
 import PaymentsPage from './Pages/Public Page/payments';
-import PublicPayBySchool from './Pages/Public Page/PublicPayBySchool';
+import PaidAtSchool from './Pages/Public Page/PaidAtSchool';
 import ShuleKitPay from './Pages/Public Page/ShuleKitPay';
 import InvoiceVerify from './Pages/Public Page/InvoiceVerify';
 import ApplicationStatusTracker from "./Pages/Public Page/ApplicationStatusTracker";
@@ -144,6 +144,7 @@ import ParentClasskitOrder      from './Pages/Parents/ClasskitOrderFlow';
 import ParentOrders             from './Pages/Parents/Orders';
 import QuickPayStudentSelect    from './Pages/Parents/QuickPayStudentSelect';
 import ParentPaymentsReport     from './Pages/Parents/PaymentsReport';
+import ShuleCardData            from './Pages/Parents/ShuleCardData';
 import InvoicesListPage         from './Pages/Shared/InvoicesListPage';
 import { ParentShellProvider } from './context/ParentShellContext';
 import StudentDashboard from './Pages/Student/student_dashboard';
@@ -171,7 +172,8 @@ export default function App() {
           <Route path="/babyeyi-finder" element={<PublicBabyeyiFinder />} />
           <Route path="/public-pay/search-student" element={<SearchStudent />} />
           <Route path="/payments" element={<PaymentsPage />} />
-          <Route path="/pay-by-school" element={<PublicPayBySchool />} />
+          <Route path="/paid-at-school" element={<PaidAtSchool />} />
+          <Route path="/pay-by-school" element={<Navigate to="/paid-at-school" replace />} />
           <Route path="/invoice-verify/:id" element={<InvoiceVerify />} />
           <Route path="/services" element={<ServicePage />} />
           <Route path="/find-agent" element={<FindAgent />} />
@@ -188,6 +190,10 @@ export default function App() {
           <Route path="/services/item/:idOrCode" element={<PublicServiceDetail />} />
           <Route path="/services/checkout" element={<StudentServiceCheckout />} />
           <Route path="/online-service" element={<OnlineService />} />
+          {/* Student QR profile — short URL `/v/:id` encodes reliably in QR images */}
+          <Route path="/v/:studentId" element={<QRStudentsProfile />} />
+          {/* Path-based ID works reliably when QR scanners strip ?query= from URLs */}
+          <Route path="/qr-student-profile/:studentId" element={<QRStudentsProfile />} />
           <Route path="/qr-student-profile" element={<QRStudentsProfile />} />
           <Route path="/track" element={<ApplicationStatusTracker />} />
 
@@ -220,6 +226,7 @@ export default function App() {
             <Route path="classkit" element={<ParentClasskitOrder />} />
             <Route path="orders" element={<ParentOrders />} />
             <Route path="payments-report" element={<ParentPaymentsReport />} />
+            <Route path="shulecard-data" element={<ShuleCardData />} />
           </Route>
           {/* Public school registration (no auth required) */}
           <Route path="/register"           element={<SchoolRegistration />} />

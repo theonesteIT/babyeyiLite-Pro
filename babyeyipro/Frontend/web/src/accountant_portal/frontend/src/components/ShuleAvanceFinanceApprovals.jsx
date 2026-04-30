@@ -47,7 +47,7 @@ function Modal({ open, title, subtitle, children, onClose, wide }) {
           wide ? 'max-w-lg' : 'max-w-md'
         } max-h-[90vh] overflow-hidden flex flex-col`}
       >
-        <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4 bg-gradient-to-r from-[#0f172a] to-[#1e3a5f] text-white">
+        <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4 bg-gradient-to-r from-[#0f172a] to-[#000435] text-white">
           <div>
             <h3 className="text-sm font-black uppercase tracking-wide">{title}</h3>
             {subtitle ? <p className="mt-1 text-[11px] font-semibold text-white/75 leading-snug">{subtitle}</p> : null}
@@ -184,8 +184,8 @@ export default function ShuleAvanceFinanceApprovals() {
     <div className="bg-white rounded-[28px] shadow-2xl border border-black/5 overflow-hidden">
       <div className="px-4 sm:px-8 py-5 border-b border-black/5 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
-          <Building2 size={18} className="text-[#1E3A5F] shrink-0" />
-          <h2 className="text-sm font-black text-[#1E3A5F] uppercase tracking-tight truncate">
+          <Building2 size={18} className="text-[#000435] shrink-0" />
+          <h2 className="text-sm font-black text-[#000435] uppercase tracking-tight truncate">
             ShuleAvance · Accountant Queue
           </h2>
         </div>
@@ -207,14 +207,14 @@ export default function ShuleAvanceFinanceApprovals() {
             setTableFilter('all');
           }}
           className={`rounded-2xl border p-4 text-left transition shadow-sm hover:shadow-md ${
-            tableFilter === 'all' ? 'border-[#1E3A5F] ring-2 ring-[#1E3A5F]/20' : 'border-black/5'
+            tableFilter === 'all' ? 'border-[#000435] ring-2 ring-[#000435]/20' : 'border-black/5'
           }`}
         >
           <div className="flex items-center gap-2 text-slate-500 mb-1">
             <LayoutGrid size={14} />
             <span className="text-[9px] font-black uppercase tracking-widest">Total</span>
           </div>
-          <p className="text-2xl font-black text-[#1E3A5F]">{stats.total}</p>
+          <p className="text-2xl font-black text-[#000435]">{stats.total}</p>
           <p className="text-[10px] font-bold text-slate-400 mt-0.5">All requests</p>
         </button>
         <button
@@ -320,7 +320,7 @@ export default function ShuleAvanceFinanceApprovals() {
                     <tr key={r.id} className="hover:bg-slate-50/80">
                       <td className="px-4 py-3 font-mono font-bold text-slate-700">#{r.id}</td>
                       <td className="px-4 py-3">
-                        <p className="font-bold text-[#1E3A5F]">{r.staff_name || '—'}</p>
+                        <p className="font-bold text-[#000435]">{r.staff_name || '—'}</p>
                         <p className="text-[10px] text-slate-500">{r.submitter_role_code || ''}</p>
                       </td>
                       <td className="px-4 py-3 capitalize text-xs font-semibold">{r.request_type || '—'}</td>
@@ -351,7 +351,7 @@ export default function ShuleAvanceFinanceApprovals() {
                               disabled={busyId === r.id}
                               onClick={() => openSendModal(r)}
                               className="mr-2 inline-flex items-center gap-1 h-9 px-3 rounded-xl text-[10px] font-black uppercase text-white shadow-sm disabled:opacity-50"
-                              style={{ background: 'linear-gradient(135deg,#1E3A5F,#0D2644)' }}
+                              style={{ background: 'linear-gradient(135deg,#000435,#0D2644)' }}
                             >
                               <Send size={14} /> To manager
                             </button>
@@ -383,7 +383,7 @@ export default function ShuleAvanceFinanceApprovals() {
                 >
                   <div className="flex justify-between gap-2">
                     <div>
-                      <p className="font-black text-[#1E3A5F]">{r.staff_name || `User #${r.teacher_user_id}`}</p>
+                      <p className="font-black text-[#000435]">{r.staff_name || `User #${r.teacher_user_id}`}</p>
                       <p className="text-[10px] font-bold text-slate-500">
                         #{r.id} · {r.submitter_role_code || 'Staff'}
                       </p>
@@ -396,7 +396,7 @@ export default function ShuleAvanceFinanceApprovals() {
                       {STATUS_LABEL[r.status]?.label || r.status}
                     </span>
                   </div>
-                  <p className="text-lg font-black text-[#1E3A5F]">{fmtMoney(r.amount_rwf)}</p>
+                  <p className="text-lg font-black text-[#000435]">{fmtMoney(r.amount_rwf)}</p>
                   <p className="text-[11px] text-slate-600 line-clamp-3">{r.purpose}</p>
                   {isTeacherDealRequest(r) ? (
                     <p className="inline-flex rounded-full border px-2 py-0.5 text-[9px] font-black uppercase bg-fuchsia-50 text-fuchsia-800 border-fuchsia-200">
@@ -410,7 +410,7 @@ export default function ShuleAvanceFinanceApprovals() {
                         disabled={busyId === r.id}
                         onClick={() => openSendModal(r)}
                         className="h-11 w-full rounded-xl text-[10px] font-black uppercase text-white"
-                        style={{ background: 'linear-gradient(135deg,#1E3A5F,#0D2644)' }}
+                        style={{ background: 'linear-gradient(135deg,#000435,#0D2644)' }}
                       >
                         Send to school manager
                       </button>
@@ -444,7 +444,7 @@ export default function ShuleAvanceFinanceApprovals() {
         <textarea
           value={noteDraft}
           onChange={(e) => setNoteDraft(e.target.value)}
-          className="w-full min-h-[120px] rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-[#1E3A5F]/30"
+          className="w-full min-h-[120px] rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-[#000435]/30"
           placeholder="Context for the manager (optional but recommended)…"
         />
         <div className="mt-4 flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
@@ -460,7 +460,7 @@ export default function ShuleAvanceFinanceApprovals() {
             disabled={busyId === modal?.row?.id}
             onClick={submitSend}
             className="h-11 px-5 rounded-xl text-xs font-black uppercase text-white disabled:opacity-50"
-            style={{ background: 'linear-gradient(135deg,#1E3A5F,#0D2644)' }}
+            style={{ background: 'linear-gradient(135deg,#000435,#0D2644)' }}
           >
             {busyId === modal?.row?.id ? 'Sending…' : 'Confirm & send'}
           </button>

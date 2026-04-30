@@ -76,7 +76,7 @@ const TopNav = ({ title, onMenuClick }) => {
                         <div className="relative">
                             <div
                                 className="w-8 h-8 rounded-xl text-white flex items-center justify-center font-black text-xs shadow-sm group-hover:scale-105 transition-transform"
-                                style={{ background: 'linear-gradient(135deg,#1E3A5F,#3D5A80)' }}
+                                style={{ background: 'linear-gradient(135deg,#000435,#3D5A80)' }}
                             >
                                 {initials}
                             </div>
@@ -103,7 +103,7 @@ const TopNav = ({ title, onMenuClick }) => {
                                 <div className="flex items-center gap-3">
                                     <div
                                         className="w-9 h-9 rounded-xl text-white flex items-center justify-center font-black text-sm shadow-sm shrink-0"
-                                        style={{ background: 'linear-gradient(135deg,#1E3A5F,#3D5A80)' }}
+                                        style={{ background: 'linear-gradient(135deg,#000435,#3D5A80)' }}
                                     >
                                         {initials}
                                     </div>

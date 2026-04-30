@@ -170,7 +170,7 @@ const LearnersConduct = () => {
     const sortBadge = (key) => {
         if (sortBy.key !== key) return null;
         return (
-            <span className="ml-1 inline-flex items-center text-[9px] font-black text-[#1E3A5F]/70">
+            <span className="ml-1 inline-flex items-center text-[9px] font-black text-[#000435]/70">
                 {sortBy.dir === 'asc' ? '↑' : '↓'}
             </span>
         );
@@ -241,7 +241,7 @@ const LearnersConduct = () => {
             <div className="relative w-full min-h-[280px] overflow-hidden">
                 <div className="absolute inset-0 bg-[#0a192f]/85 z-10 backdrop-blur-[2px]"></div>
                 <img src="/teacher.jpg" alt="Hero Background" className="absolute inset-0 w-full h-full object-cover scale-105" />
-                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#1E3A5F]/40 via-transparent to-transparent z-10 max-w-[1600px] mx-auto"></div>
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#000435]/40 via-transparent to-transparent z-10 max-w-[1600px] mx-auto"></div>
 
                 <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-12 pt-16 pb-24 flex items-center gap-8">
                     <div className="hidden md:flex shrink-0 w-24 h-24 rounded-[32px] border border-white/10 bg-white/5 items-center justify-center backdrop-blur-xl shadow-2xl relative overflow-hidden group">
@@ -275,7 +275,7 @@ const LearnersConduct = () => {
                             ].map((stat, i) => (
                                 <div key={i} className="p-4 sm:p-8 flex flex-col items-center justify-center text-center group hover:bg-re-bg/20 transition-all cursor-default">
                                     <div className="mb-1.5 sm:mb-2 opacity-40 shrink-0">{stat.icon}</div>
-                                    <span className="text-sm sm:text-2xl font-black text-re-text tracking-tighter group-hover:text-[#1E3A5F] transition-colors">
+                                    <span className="text-sm sm:text-2xl font-black text-re-text tracking-tighter group-hover:text-[#000435] transition-colors">
                                         {stat.value}
                                     </span>
                                     <p className="text-[6px] sm:text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] mt-0.5 sm:mt-1 opacity-60">
@@ -290,7 +290,7 @@ const LearnersConduct = () => {
                             <button
                                 onClick={() => exportConductPdf(true)}
                                 className="w-full h-11 flex items-center justify-center gap-2 text-white rounded-xl font-black text-[9px] uppercase tracking-widest shadow-xl hover:scale-[1.02] active:scale-95 transition-all"
-                                style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)" }}
+                                style={{ background: "linear-gradient(135deg, #000435 0%, #0D2644 100%)" }}
                             >
                                 <Printer size={14} />
                                 <span>Print report</span>
@@ -299,10 +299,10 @@ const LearnersConduct = () => {
                             {/* +/- Conduct Marks */}
                             <button
                                 onClick={() => openConductModal(null)}
-                                className="w-full h-11 flex items-center justify-center gap-2 bg-white border border-black/5 text-re-text font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg hover:border-[#1E3A5F]/20 hover:shadow-re-soft transition-all group"
+                                className="w-full h-11 flex items-center justify-center gap-2 bg-white border border-black/5 text-re-text font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg hover:border-[#000435]/20 hover:shadow-re-soft transition-all group"
                             >
-                                <Activity size={14} className="opacity-60 group-hover:opacity-100 transition-opacity" style={{ color: "#1E3A5F" }} />
-                                <span className="tracking-tighter">+/-</span> <span className="group-hover:text-[#1E3A5F]">Conduct Marks</span>
+                                <Activity size={14} className="opacity-60 group-hover:opacity-100 transition-opacity" style={{ color: "#000435" }} />
+                                <span className="tracking-tighter">+/-</span> <span className="group-hover:text-[#000435]">Conduct Marks</span>
                             </button>
                         </div>
                     </div>
@@ -310,7 +310,7 @@ const LearnersConduct = () => {
                     {/* Mobile Summary Bar (Red Text Buttons) */}
                     <div className="lg:hidden flex flex-col bg-white border-b border-black/5 divide-y divide-black/5">
                         <div className="flex items-center justify-between px-6 py-3">
-                            <span className="text-[10px] font-black text-[#1E3A5F] uppercase tracking-widest">{selectedClass}</span>
+                            <span className="text-[10px] font-black text-[#000435] uppercase tracking-widest">{selectedClass}</span>
                             <button
                                 onClick={() => setShowMobileClassModal(true)}
                                 className="text-[9px] font-black text-red-500 uppercase tracking-widest hover:underline"
@@ -319,7 +319,7 @@ const LearnersConduct = () => {
                             </button>
                         </div>
                         <div className="flex items-center justify-between px-6 py-3">
-                            <span className="text-[10px] font-black text-[#1E3A5F] uppercase tracking-widest">{selectedTerm}</span>
+                            <span className="text-[10px] font-black text-[#000435] uppercase tracking-widest">{selectedTerm}</span>
                             <button
                                 onClick={() => setShowMobileTermModal(true)}
                                 className="text-[9px] font-black text-red-500 uppercase tracking-widest hover:underline"
@@ -330,13 +330,13 @@ const LearnersConduct = () => {
                         {/* Mobile Search Area */}
                         <div className="px-6 py-3 bg-re-bg/20">
                             <div className="relative w-full group">
-                                <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-re-text-muted/50 group-focus-within:text-[#1E3A5F] transition-colors z-[1] pointer-events-none" />
+                                <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-re-text-muted/50 group-focus-within:text-[#000435] transition-colors z-[1] pointer-events-none" />
                                 <input
                                     type="text"
                                     placeholder="Search student or UID..."
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="w-full h-10 bg-white rounded-lg outline-none border border-black/5 focus:border-[#1E3A5F]/20 text-[#1E3A5F] text-[10px] font-black uppercase tracking-tight pl-10 pr-4 shadow-[inset_0_2px_8px_rgba(15,23,42,0.04)]"
+                                    className="w-full h-10 bg-white rounded-lg outline-none border border-black/5 focus:border-[#000435]/20 text-[#000435] text-[10px] font-black uppercase tracking-tight pl-10 pr-4 shadow-[inset_0_2px_8px_rgba(15,23,42,0.04)]"
                                 />
                             </div>
                         </div>
@@ -351,7 +351,7 @@ const LearnersConduct = () => {
                                 <Filter size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#FEBF10] z-[1] pointer-events-none" />
                                 <span className="absolute left-7 top-1/2 -translate-y-1/2 text-[8px] font-black uppercase text-re-text-muted tracking-[0.2em] pointer-events-none z-[1]">Class</span>
                                 <select 
-                                    className="w-full h-8 bg-white/80 rounded-lg outline-none border border-black/5 focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[9px] font-black uppercase tracking-widest shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.5)] cursor-pointer appearance-none !pl-[4.5rem] pr-8"
+                                    className="w-full h-8 bg-white/80 rounded-lg outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] font-black uppercase tracking-widest shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.5)] cursor-pointer appearance-none !pl-[4.5rem] pr-8"
                                     value={selectedClass}
                                     onChange={e => setSelectedClass(e.target.value)}
                                     style={{ backgroundImage: `url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236b7280%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.5rem center', backgroundSize: '10px' }}
@@ -367,7 +367,7 @@ const LearnersConduct = () => {
                                 <select
                                     value={selectedYear}
                                     onChange={(e) => setSelectedYear(e.target.value)}
-                                    className="w-full h-8 bg-white/80 rounded-lg outline-none border border-black/5 focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[9px] font-black uppercase tracking-widest shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.5)] cursor-pointer appearance-none pl-3 pr-8"
+                                    className="w-full h-8 bg-white/80 rounded-lg outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] font-black uppercase tracking-widest shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.5)] cursor-pointer appearance-none pl-3 pr-8"
                                     style={{ backgroundImage: `url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236b7280%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.5rem center', backgroundSize: '10px' }}
                                 >
                                     {YEARS.map(year => (
@@ -381,7 +381,7 @@ const LearnersConduct = () => {
                                 <select
                                     value={selectedTerm}
                                     onChange={(e) => setSelectedTerm(e.target.value)}
-                                    className="w-full h-8 bg-white/80 rounded-lg outline-none border border-black/5 focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[9px] font-black uppercase tracking-widest shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.5)] cursor-pointer appearance-none pl-3 pr-8"
+                                    className="w-full h-8 bg-white/80 rounded-lg outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] font-black uppercase tracking-widest shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.5)] cursor-pointer appearance-none pl-3 pr-8"
                                     style={{ backgroundImage: `url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236b7280%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.5rem center', backgroundSize: '10px' }}
                                 >
                                     {TERMS.map(term => (
@@ -392,13 +392,13 @@ const LearnersConduct = () => {
 
                             {/* Search (Compact) */}
                             <div className="relative w-[14rem] group">
-                                <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-re-text-muted/50 group-focus-within:text-[#1E3A5F] transition-colors z-[1] pointer-events-none" />
+                                <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-re-text-muted/50 group-focus-within:text-[#000435] transition-colors z-[1] pointer-events-none" />
                                 <input
                                     type="text"
                                     placeholder="Search student or UID..."
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="w-full h-8 bg-white/80 rounded-lg outline-none border border-black/5 focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[9px] font-black uppercase tracking-tight shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.5)] placeholder:text-[#1E3A5F]/30 !pl-8"
+                                    className="w-full h-8 bg-white/80 rounded-lg outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] font-black uppercase tracking-tight shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.5)] placeholder:text-[#000435]/30 !pl-8"
                                 />
                             </div>
                         </div>
@@ -410,7 +410,7 @@ const LearnersConduct = () => {
                                 disabled={loading}
                                 className="h-8 w-8 flex items-center justify-center bg-white border border-black/5 rounded-lg hover:bg-re-bg transition-all shadow-sm disabled:opacity-40 shrink-0"
                             >
-                                <RefreshCw size={12} className={`text-[#1E3A5F] ${loading ? 'animate-spin' : ''}`} />
+                                <RefreshCw size={12} className={`text-[#000435] ${loading ? 'animate-spin' : ''}`} />
                             </button>
                         </div>
                     </div>
@@ -465,7 +465,7 @@ const LearnersConduct = () => {
                                     <tr>
                                         <td colSpan="5" className="p-12 text-center">
                                             <div className="flex flex-col items-center gap-3">
-                                                <Loader2 size={24} className="animate-spin text-[#1E3A5F]/40" />
+                                                <Loader2 size={24} className="animate-spin text-[#000435]/40" />
                                                 <p className="text-[10px] font-black text-re-text-muted uppercase tracking-widest">Loading Learners...</p>
                                             </div>
                                         </td>
@@ -503,10 +503,10 @@ const LearnersConduct = () => {
                                                             <User size={14} className="sm:w-4 sm:h-4 opacity-75" />
                                                         </div>
                                                         <div>
-                                                            <p className="text-xs sm:text-sm font-black text-re-text tracking-tight uppercase leading-none mb-1 group-hover:text-[#1E3A5F] transition-colors">
+                                                            <p className="text-xs sm:text-sm font-black text-re-text tracking-tight uppercase leading-none mb-1 group-hover:text-[#000435] transition-colors">
                                                                 {studentName}
                                                                 {selectedClass === 'All Classes' && s.class_name && (
-                                                                    <span className="md:hidden text-[9px] text-[#1E3A5F]/50 opacity-80 whitespace-nowrap ml-1 tracking-widest">
+                                                                    <span className="md:hidden text-[9px] text-[#000435]/50 opacity-80 whitespace-nowrap ml-1 tracking-widest">
                                                                         ({s.class_name})
                                                                     </span>
                                                                 )}
@@ -520,7 +520,7 @@ const LearnersConduct = () => {
 
                                                 {/* Class */}
                                                 <td className="hidden md:table-cell px-8 py-5 border-r border-black/5">
-                                                    <p className="text-[10px] font-black text-[#1E3A5F] px-3 py-1 bg-[#1E3A5F]/5 rounded-lg w-fit transition-colors group-hover:bg-[#1E3A5F]/10">{s.class_name || 'Unassigned'}</p>
+                                                    <p className="text-[10px] font-black text-[#000435] px-3 py-1 bg-[#000435]/5 rounded-lg w-fit transition-colors group-hover:bg-[#000435]/10">{s.class_name || 'Unassigned'}</p>
                                                 </td>
 
                                                 {/* Standing */}
@@ -544,7 +544,7 @@ const LearnersConduct = () => {
                                                 {/* Score (Mobile only; desktop has Conduct Standing) */}
                                                 <td className="px-3 sm:px-8 py-3 sm:py-5 border-r border-black/5 text-center md:hidden">
                                                     <div className="flex flex-col items-center justify-center">
-                                                        <span className="text-sm sm:text-base font-black text-[#1E3A5F] tracking-tighter leading-none">{Number(s.discipline_remaining).toFixed(0)}</span>
+                                                        <span className="text-sm sm:text-base font-black text-[#000435] tracking-tighter leading-none">{Number(s.discipline_remaining).toFixed(0)}</span>
                                                         <span className="text-[6px] sm:text-[7px] font-bold text-re-text-muted uppercase tracking-widest opacity-40 leading-none mt-0.5">/ {s.discipline_total}</span>
                                                     </div>
                                                 </td>
@@ -561,7 +561,7 @@ const LearnersConduct = () => {
                                                                 grade: s.class_name || '' 
                                                             });
                                                         }}
-                                                        className="h-8 px-3 sm:px-4 rounded-xl flex items-center justify-center gap-1 sm:gap-2 bg-white border border-black/5 text-re-text font-black text-[9px] uppercase tracking-widest shadow-sm hover:bg-re-bg hover:text-[#1E3A5F] transition-all ml-auto"
+                                                        className="h-8 px-3 sm:px-4 rounded-xl flex items-center justify-center gap-1 sm:gap-2 bg-white border border-black/5 text-re-text font-black text-[9px] uppercase tracking-widest shadow-sm hover:bg-re-bg hover:text-[#000435] transition-all ml-auto"
                                                     >
                                                         <Activity size={12} className="hidden sm:block" />
                                                         <span className="sm:hidden font-black text-[12px] leading-none tracking-tighter mb-0.5">+ / -</span>
@@ -600,15 +600,15 @@ const LearnersConduct = () => {
             <div className="fixed lg:hidden inset-0 z-[200] bg-black/50 flex flex-col justify-end backdrop-blur-sm animate-in fade-in duration-200">
                 <div className="bg-white w-full rounded-t-3xl max-h-[80vh] flex flex-col animate-in slide-in-from-bottom-8 duration-300">
                     <div className="p-4 border-b border-black/5 flex items-center justify-between">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-[#1E3A5F]">Select Class</span>
-                        <button onClick={() => setShowMobileClassModal(false)} className="w-8 h-8 flex items-center justify-center bg-re-bg border border-black/5 rounded-full text-[#1E3A5F] font-black text-xs hover:bg-white shadow-sm transition-all">X</button>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-[#000435]">Select Class</span>
+                        <button onClick={() => setShowMobileClassModal(false)} className="w-8 h-8 flex items-center justify-center bg-re-bg border border-black/5 rounded-full text-[#000435] font-black text-xs hover:bg-white shadow-sm transition-all">X</button>
                     </div>
                     <div className="overflow-y-auto p-4 flex flex-col gap-2">
                         {uniqueClasses.map(cls => (
                             <button
                                 key={cls}
                                 onClick={() => { setSelectedClass(cls); setShowMobileClassModal(false); }}
-                                className={`p-4 rounded-xl text-[10px] font-black tracking-widest text-left border ${selectedClass === cls ? 'bg-[#1E3A5F] text-white border-[#1E3A5F]' : 'bg-white border-black/5 text-[#1E3A5F] hover:bg-re-bg'}`}
+                                className={`p-4 rounded-xl text-[10px] font-black tracking-widest text-left border ${selectedClass === cls ? 'bg-[#000435] text-white border-[#000435]' : 'bg-white border-black/5 text-[#000435] hover:bg-re-bg'}`}
                             >
                                 {cls}
                             </button>
@@ -623,15 +623,15 @@ const LearnersConduct = () => {
             <div className="fixed lg:hidden inset-0 z-[200] bg-black/50 flex flex-col justify-end backdrop-blur-sm animate-in fade-in duration-200">
                 <div className="bg-white w-full rounded-t-3xl max-h-[80vh] flex flex-col animate-in slide-in-from-bottom-8 duration-300">
                     <div className="p-4 border-b border-black/5 flex items-center justify-between">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-[#1E3A5F]">Select Term</span>
-                        <button onClick={() => setShowMobileTermModal(false)} className="w-8 h-8 flex items-center justify-center bg-re-bg border border-black/5 rounded-full text-[#1E3A5F] font-black text-xs hover:bg-white shadow-sm transition-all">X</button>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-[#000435]">Select Term</span>
+                        <button onClick={() => setShowMobileTermModal(false)} className="w-8 h-8 flex items-center justify-center bg-re-bg border border-black/5 rounded-full text-[#000435] font-black text-xs hover:bg-white shadow-sm transition-all">X</button>
                     </div>
                     <div className="overflow-y-auto p-4 flex flex-col gap-2">
                         {TERMS.map(term => (
                             <button
                                 key={term}
                                 onClick={() => { setSelectedTerm(term); setShowMobileTermModal(false); }}
-                                className={`p-4 rounded-xl text-[10px] font-black tracking-widest text-left border ${selectedTerm === term ? 'bg-[#1E3A5F] text-white border-[#1E3A5F]' : 'bg-white border-black/5 text-[#1E3A5F] hover:bg-re-bg'}`}
+                                className={`p-4 rounded-xl text-[10px] font-black tracking-widest text-left border ${selectedTerm === term ? 'bg-[#000435] text-white border-[#000435]' : 'bg-white border-black/5 text-[#000435] hover:bg-re-bg'}`}
                             >
                                 {term}
                             </button>

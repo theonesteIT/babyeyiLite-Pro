@@ -10,6 +10,7 @@ import InvoiceSettings from './pages/InvoiceSettings';
 import Expenses from './pages/Expenses';
 import Requisitions from './pages/Requisitions';
 import PayrollConfig from './pages/PayrollConfig';
+import SalaryPayment from './pages/SalaryPayment';
 import PayrollCenter from './pages/PayrollCenter';
 import StaffPayroll from './pages/StaffPayroll';
 import ShuleAvance from './pages/ShuleAvance';
@@ -60,6 +61,7 @@ function AppContent() {
       <Route path="/payroll" element={<ProtectedRoute title="Payroll Center"><PayrollCenter /></ProtectedRoute>} />
       <Route path="/payroll/history" element={<ProtectedRoute title="Payroll Center"><PayrollCenter /></ProtectedRoute>} />
       <Route path="/payroll/config" element={<ProtectedRoute title="Configure Payroll"><PayrollConfig /></ProtectedRoute>} />
+      <Route path="/payroll/salary-payment" element={<ProtectedRoute title="Salary Payment"><SalaryPayment /></ProtectedRoute>} />
       <Route path="/my-payroll" element={<ProtectedRoute title="My Payroll"><StaffPayroll /></ProtectedRoute>} />
 
       {/* Keep settings route but use a placeholder until wired */}

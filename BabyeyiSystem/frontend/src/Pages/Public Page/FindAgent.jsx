@@ -171,7 +171,7 @@ export default function FindAgent() {
           </Link>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <Link to="/services" style={{ color: "rgba(255,255,255,.86)", textDecoration: "none", fontWeight: 700, fontSize: 14 }}>Services</Link>
-            <Link to="/pay-by-school" style={{ color: "rgba(255,255,255,.86)", textDecoration: "none", fontWeight: 700, fontSize: 14 }}>Pay</Link>
+            <Link to="/paid-at-school" style={{ color: "rgba(255,255,255,.86)", textDecoration: "none", fontWeight: 700, fontSize: 14 }}>Pay</Link>
           </div>
         </div>
       </nav>

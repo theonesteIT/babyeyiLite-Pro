@@ -142,7 +142,7 @@ export default function Timetable() {
                                     <tbody>
                                         {['08:00', '10:00', '12:00', '14:00', '16:00'].map(time => (
                                             <tr key={time}>
-                                                <td className="border-r border-b border-black/5 bg-re-bg p-1 sm:p-4 text-center text-[8px] sm:text-xs font-bold text-gray-400 w-12 sm:w-24 sticky left-0 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                                                <td className="border-r border-b border-black/5 bg-re-bg p-1 sm:p-4 text-center text-[8px] sm:text-xs font-bold text-[#000435] w-12 sm:w-24 sticky left-0 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                                                     {time}
                                                 </td>
                                                 {days.map(day => {
@@ -181,7 +181,7 @@ export default function Timetable() {
                                 </h3>
                                 {todaySchedule.length === 0 ? (
                                     <div className="bg-white rounded-2xl sm:rounded-3xl p-6 sm:p-12 text-center border border-black/5 shadow-sm">
-                                        <div className="w-12 h-12 sm:w-16 sm:h-16 bg-re-bg rounded-xl sm:rounded-2xl mx-auto flex items-center justify-center text-gray-300 mb-4">
+                                        <div className="w-12 h-12 sm:w-16 sm:h-16 bg-re-bg rounded-xl sm:rounded-2xl mx-auto flex items-center justify-center text-[#000435] mb-4">
                                             <Calendar size={20} className="sm:w-6 sm:h-6" />
                                         </div>
                                         <h3 className="text-[10px] sm:text-sm font-black text-re-text tracking-tight uppercase">No periods in this view</h3>
@@ -210,14 +210,14 @@ export default function Timetable() {
                                                 </div>
 
                                                 <div className="space-y-2 sm:space-y-3 relative z-10 border-t border-black/5 pt-3 sm:pt-4">
-                                                    <div className="flex items-center gap-2 sm:gap-3 text-[11px] sm:text-xs font-bold text-gray-600">
-                                                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-re-bg flex items-center justify-center text-gray-400">
+                                                    <div className="flex items-center gap-2 sm:gap-3 text-[11px] sm:text-xs font-bold text-[#000435]">
+                                                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-re-bg flex items-center justify-center text-[#000435]">
                                                             <Clock size={12} className="sm:w-3.5 sm:h-3.5" />
                                                         </div>
                                                         {session.time}
                                                     </div>
-                                                    <div className="flex items-center gap-2 sm:gap-3 text-[11px] sm:text-xs font-bold text-gray-600">
-                                                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-re-bg flex items-center justify-center text-gray-400">
+                                                    <div className="flex items-center gap-2 sm:gap-3 text-[11px] sm:text-xs font-bold text-[#000435]">
+                                                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-re-bg flex items-center justify-center text-[#000435]">
                                                             <MapPin size={12} className="sm:w-3.5 sm:h-3.5" />
                                                         </div>
                                                         {session.room}

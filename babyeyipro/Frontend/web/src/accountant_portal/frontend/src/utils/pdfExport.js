@@ -16,7 +16,7 @@ export const exportTablePDF = async ({
   const contentW = W - margin * 2;
 
   // Portal theme (navy + yellow) to match UI
-  const NAVY = [30, 58, 95];   // #1E3A5F
+  const NAVY = [30, 58, 95];   // #000435
   const YELLOW = [254, 191, 16]; // #FEBF10
 
   let y = 0;
@@ -173,7 +173,7 @@ export const exportStudentDisciplineDetailsPDF = async ({
   const margin = 16;
   const contentW = W - margin * 2;
 
-  const NAVY = [30, 58, 95]; // #1E3A5F
+  const NAVY = [30, 58, 95]; // #000435
   const YELLOW = [254, 191, 16]; // #FEBF10
 
   let y = 0;
@@ -386,7 +386,7 @@ export const exportPermissionDetailsPDF = async ({
   const margin = 16;
   const contentW = W - margin * 2;
 
-  const NAVY = [30, 58, 95]; // #1E3A5F
+  const NAVY = [30, 58, 95]; // #000435
   const YELLOW = [254, 191, 16]; // #FEBF10
 
   let y = 22;

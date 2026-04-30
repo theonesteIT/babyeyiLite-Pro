@@ -51,7 +51,7 @@ const NavItem = ({ icon, name, path, exact, onClose, badgeCount = 0 }) => {
         ${isActive ? 'text-white shadow-sm' : 'text-re-text-muted hover:bg-re-navy/5 hover:text-re-navy'}`
       }
       style={({ isActive }) =>
-        isActive ? { background: 'linear-gradient(135deg,#1E3A5F,#3D5A80)', boxShadow: '0 3px 10px rgba(30,58,95,0.25)' } : {}
+        isActive ? { background: 'linear-gradient(135deg,#000435,#00021A)', boxShadow: '0 3px 10px rgba(0,4,53,0.3)' } : {}
       }
     >
       {({ isActive }) => (
@@ -117,7 +117,7 @@ const ExpandableNavItem = ({ icon, name, subItems, onClose }) => {
 
 // ── Section label ──────────────────────────────────────────────
 const SectionLabel = ({ label }) => (
-  <p className="text-[8px] font-black uppercase tracking-[0.18em] text-re-text-muted/35 px-2.5 pt-2 pb-0.5">
+  <p className="text-[8px] font-black capitalize tracking-[0.18em] text-re-text-muted/35 px-2.5 pt-2 pb-0.5">
     {label}
   </p>
 );
@@ -139,12 +139,11 @@ const Sidebar = ({ onClose }) => {
             </div>
             <div>
               <span
-                className="text-xl font-black tracking-tight leading-none block"
-                style={{ background: 'linear-gradient(135deg,#1E3A5F,#3D5A80)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}
+                className="text-xl font-black tracking-tight leading-none block text-[#000435]"
               >
                 Accounts
               </span>
-              <p className="text-[9px] text-re-navy font-black uppercase tracking-[0.2em] opacity-60 mt-0.5">
+              <p className="text-[9px] text-re-navy font-black capitalize tracking-[0.2em] opacity-60 mt-0.5">
                 Staff Portal
               </p>
             </div>
@@ -159,15 +158,7 @@ const Sidebar = ({ onClose }) => {
         <SectionLabel label="Finance operations" />
         <NavItem icon={Receipt} name="Student Fees" path="/fees" onClose={onClose} />
         <NavItem icon={FileSpreadsheet} name="Babyeyi fee cards" path="/fees/babyeyi-fees" onClose={onClose} />
-        <ExpandableNavItem
-          icon={FileText}
-          name="Invoices"
-          onClose={onClose}
-          subItems={[
-            { name: 'Invoice Registry', path: '/invoices', icon: FileText },
-            { name: 'Configure Invoices', path: '/invoices/settings', icon: Settings },
-          ]}
-        />
+        <NavItem icon={FileText} name="INVOICE REGISTRY" path="/invoices" onClose={onClose} />
         <NavItem icon={Banknote} name="Expenses" path="/expenses" onClose={onClose} />
         <NavItem icon={FileSpreadsheet} name="Requisitions" path="/requisitions" onClose={onClose} />
         <ExpandableNavItem
@@ -186,14 +177,14 @@ const Sidebar = ({ onClose }) => {
         <NavItem icon={Wallet} name="Shule Avance" path="/shule-avance" onClose={onClose} />
         <NavItem icon={MessageSquare} name="Chat Center" path="/chat" onClose={onClose} badgeCount={unreadCount} />
 
-        
+
       </nav>
 
       {/* Bottom Profile */}
       <div className="p-3" style={{ fontFamily: "'Montserrat', sans-serif" }}>
         <div className="rounded-2xl border border-black/5 bg-re-bg shadow-inner p-2 space-y-2">
           <div className="flex items-center justify-between px-1">
-            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-re-text-muted/40">Status</p>
+            <p className="text-[9px] font-black capitalize tracking-[0.2em] text-re-text-muted/40">Status</p>
             <AppStatusBadge status="online" />
           </div>
 
@@ -208,10 +199,10 @@ const Sidebar = ({ onClose }) => {
               }
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-black truncate text-re-navy uppercase tracking-tight">
+              <p className="text-xs font-black truncate text-re-navy capitalize tracking-tight">
                 {staff?.first_name || 'Staff Member'}
               </p>
-              <p className="text-[9px] text-re-text-muted truncate font-bold uppercase tracking-wider opacity-50 mt-0.5">
+              <p className="text-[9px] text-re-text-muted truncate font-bold capitalize tracking-wider opacity-50 mt-0.5">
                 {staff?.role_name || 'Accountant'}
               </p>
             </div>
