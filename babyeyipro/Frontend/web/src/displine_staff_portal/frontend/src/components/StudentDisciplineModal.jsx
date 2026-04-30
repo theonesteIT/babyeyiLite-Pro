@@ -86,7 +86,7 @@ export default function StudentDisciplineModal({ isOpen, onClose, student, acade
                     <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-2xl bg-re-bg border border-black/5 flex items-center justify-center text-re-text font-black text-lg shadow-inner relative overflow-hidden shrink-0">
                             {student.student_photo_url ? (
-                                <img src={`http://localhost:5100${student.student_photo_url}`} className="w-full h-full object-cover relative z-10" alt="Student" />
+                                <img src={`${api.defaults.baseURL.replace('/api', '')}${student.student_photo_url}`} className="w-full h-full object-cover relative z-10" alt="Student" />
                             ) : (
                                 <>
                                     <span className="relative z-10" style={{ color: "#1E3A5F" }}>{student.first_name?.charAt(0) || <User size={20} />}</span>
