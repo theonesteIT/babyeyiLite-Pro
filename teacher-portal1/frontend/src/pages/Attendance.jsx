@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import {
     normalizeGradebookLabel,
@@ -12,6 +13,7 @@ import {
 } from 'lucide-react';
 
 export default function Attendance() {
+    const navigate = useNavigate();
     const [attendanceMode, setAttendanceMode] = useState('student');
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
     const [selectedClass, setSelectedClass] = useState(null);
@@ -343,9 +345,8 @@ export default function Attendance() {
                     </button>
                     <button
                         type="button"
-                        onClick={() => setAttendanceMode('teacher')}
-                        className={`px-4 h-10 rounded-xl text-[10px] font-black uppercase tracking-widest ${attendanceMode === 'teacher' ? 'bg-re-grad-orange text-white' : 'bg-re-bg text-re-text-muted'
-                            }`}
+                        onClick={() => navigate('/teacher-attendance')}
+                        className="px-4 h-10 rounded-xl text-[10px] font-black uppercase tracking-widest bg-re-bg text-re-text-muted transition-colors hover:bg-re-bg/80"
                     >
                         TeacherAttendance
                     </button>

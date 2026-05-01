@@ -122,14 +122,12 @@ const Sidebar = ({ onClose }) => {
         <div className="rounded-2xl bg-gradient-to-br from-[#000435] to-[#0a116b] p-3 shadow-lg relative overflow-hidden">
           <div className="absolute top-0 right-0 w-24 h-24 bg-white/5 rounded-full blur-xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
           <div className="flex items-center gap-3 relative z-10">
-            <div className="bg-white p-2 rounded-xl shadow-md border border-white/20">
-              <img src="/logo.png" alt="Babyeyi" className="w-8 h-8 object-contain" />
-            </div>
+            
             <div>
-              <span className="text-xl font-black text-white tracking-wide block">
+              <span className="text-xl font-black text-center text-white tracking-wide block">
                 Babyeyi
               </span>
-              <span className="text-[10px] font-bold uppercase tracking-widest text-[#f59e0b] bg-[#f59e0b]/10 px-2 py-0.5 rounded-md mt-1 inline-block">
+              <span className="text-[10px] text-center font-bold uppercase tracking-widest text-[#f59e0b] bg-[#f59e0b]/10 px-2 py-0.5 rounded-md mt-1 inline-block">
                 Portal
               </span>
             </div>

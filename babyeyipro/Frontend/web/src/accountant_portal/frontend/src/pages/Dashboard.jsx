@@ -7,7 +7,6 @@ import {
   RefreshCw,
   TrendingDown,
   TrendingUp,
-  Users,
   Wallet,
   X,
 } from 'lucide-react';
@@ -20,7 +19,6 @@ import {
   Tooltip,
   ResponsiveContainer
 } from 'recharts';
-import { PORTAL } from '../config/portal';
 import api from '../services/api';
 
 function formatMoneyRWF(value) {
@@ -41,61 +39,6 @@ function pctDelta(current, previous) {
   if (p <= 0) return null;
   return ((c - p) / p) * 100;
 }
-
-const DonutChart = ({ data = [], size = 140 }) => {
-  if (!data.length) return null;
-
-  const total = data.reduce((sum, item) => sum + item.value, 0);
-  const cx = size / 2;
-  const cy = size / 2;
-  const R = size / 2 - 8;
-  const r = R * 0.58;
-
-  if (total === 0) {
-    return (
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-        <circle cx={cx} cy={cy} r={R} fill="#f1f5f9" stroke="white" strokeWidth="2" />
-        <circle cx={cx} cy={cy} r={r - 4} fill="white" />
-        <text x={cx} y={cy - 4} textAnchor="middle" fontSize="13" fontWeight="900" fill="#1e293b">0</text>
-        <text x={cx} y={cy + 10} textAnchor="middle" fontSize="7" fontWeight="600" fill="#94a3b8">TOTAL</text>
-      </svg>
-    );
-  }
-
-  const slices = data.reduce(
-    (acc, d) => {
-      let a = (d.value / total) * 2 * Math.PI;
-      if (a >= 2 * Math.PI) a = Math.PI * 1.9999;
-      const startAngle = acc.angle;
-      const endAngle = startAngle + a;
-      const x1 = cx + R * Math.cos(startAngle);
-      const y1 = cy + R * Math.sin(startAngle);
-      const x2 = cx + R * Math.cos(endAngle);
-      const y2 = cy + R * Math.sin(endAngle);
-      const xi1 = cx + r * Math.cos(startAngle);
-      const yi1 = cy + r * Math.sin(startAngle);
-      const xi2 = cx + r * Math.cos(endAngle);
-      const yi2 = cy + r * Math.sin(endAngle);
-      const large = a > Math.PI ? 1 : 0;
-
-      acc.slices.push({
-        ...d,
-        path: `M${x1},${y1} A${R},${R} 0 ${large},1 ${x2},${y2} L${xi2},${yi2} A${r},${r} 0 ${large},0 ${xi1},${yi1} Z`,
-      });
-      return { angle: endAngle, slices: acc.slices };
-    },
-    { angle: -Math.PI / 2, slices: [] }
-  ).slices;
-
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      {slices.map((slice, i) => <path key={i} d={slice.path} fill={slice.color} stroke="white" strokeWidth="2" />)}
-      <circle cx={cx} cy={cy} r={r - 4} fill="white" />
-      <text x={cx} y={cy - 4} textAnchor="middle" fontSize="13" fontWeight="900" fill="#1e293b">{total < 1000000 ? formatCompactMoneyRWF(total) : (total / 1000000).toFixed(1) + 'M'}</text>
-      <text x={cx} y={cy + 10} textAnchor="middle" fontSize="7" fontWeight="600" fill="#94a3b8">TOTAL</text>
-    </svg>
-  );
-};
 
 const ModalShell = ({ title, subtitle, onClose, children }) => {
   return createPortal(
@@ -196,7 +139,7 @@ const RechartsTrend = ({ series = [], height = 120, tone = 'navy' }) => {
 const FEE_REPORT_YEAR = '2025-2026';
 const FEE_REPORT_TERM = 'Term 1';
 
-const DONUT_COLORS = ['#000435', '#FEBF10', '#000866', '#FFD54F', '#000C99', '#FFE680', '#0010CC', '#FFF5CC'];
+const CATEGORY_COLORS = ['#000435', '#FEBF10', '#000866', '#FFD54F', '#000C99', '#FFE680', '#0010CC', '#FFF5CC'];
 
 function emptySeries14() {
   const today = new Date();
@@ -413,7 +356,7 @@ export default function Dashboard() {
         if (ymdInMonth(dStr, py, pm)) lastMonthExpenses += amt;
       }
       const expenseCategories = Array.from(catAgg.entries())
-        .map(([label, value], i) => ({ label, value, color: DONUT_COLORS[i % DONUT_COLORS.length] }))
+        .map(([label, value], i) => ({ label, value, color: CATEGORY_COLORS[i % CATEGORY_COLORS.length] }))
         .sort((a, b) => b.value - a.value);
 
       const requisitions = reqRows
@@ -744,23 +687,18 @@ export default function Dashboard() {
               </div>
               <div className="rounded-2xl bg-re-bg border border-black/5  p-5">
                 <p className="text-[9px] font-black capitalize tracking-[0.28em] text-[#000435]/70 mb-4">Expense breakdown</p>
-                <div className="flex items-center gap-4 min-w-0 overflow-hidden">
-                  <div className="shrink-0 flex items-center justify-center">
-                    <DonutChart data={mock.expenseCategories} size={90} />
-                  </div>
-                  <div className="min-w-0 flex-1 space-y-2">
-                    {mock.expenseCategories.map((c) => (
-                      <div key={c.label} className="flex items-center justify-between gap-1 group">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <span className="w-2 h-2 rounded-full shrink-0 " style={{ background: c.color }} />
-                          <p className="text-[9px] font-black text-[#000435] truncate capitalize tracking-tighter group-hover:text-amber-600 transition-colors">{c.label}</p>
-                        </div>
-                        <p className="text-[9px] font-black text-[#000435] shrink-0">
-                          {Math.round((c.value / (expenseTotal || 1)) * 100)}%
-                        </p>
+                <div className="min-w-0 space-y-2">
+                  {mock.expenseCategories.map((c) => (
+                    <div key={c.label} className="flex items-center justify-between gap-1 group">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="w-2 h-2 rounded-full shrink-0 " style={{ background: c.color }} />
+                        <p className="text-[9px] font-black text-[#000435] truncate capitalize tracking-tighter group-hover:text-amber-600 transition-colors">{c.label}</p>
                       </div>
-                    ))}
-                  </div>
+                      <p className="text-[9px] font-black text-[#000435] shrink-0">
+                        {Math.round((c.value / (expenseTotal || 1)) * 100)}%
+                      </p>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>

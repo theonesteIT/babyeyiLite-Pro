@@ -20,7 +20,7 @@ export const PORTAL = {
   emailLabel: 'Work email',
   emailPlaceholder: 'accountant@school.rw',
   profileFallback: 'Accountant',
-  /** Shared hero banner (replace file in public/ if you add a dedicated asset) */
+  /** Shared hero banner — file lives in `frontend/public/teacher.jpg` */
   heroImage: '/teacher.jpg',
   heroImageAlt: 'School',
   searchPlaceholder: 'Search learners, tools…',
