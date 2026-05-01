@@ -177,12 +177,12 @@ const SystemConfiguration = () => {
 
     return (
         <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen">
-            
+
             {/* ── High-Fidelity Hero Section ── */}
-            <div className="relative w-full min-h-[220px] overflow-hidden">
-                <div className="absolute inset-0 bg-[#0a192f]/85 z-10 backdrop-blur-[2px]"></div>
-                <img src="/teacher.jpg" alt="Hero Background" className="absolute inset-0 w-full h-full object-cover scale-105 opacity-40 mix-blend-overlay z-0" />
-                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#1E3A5F]/40 via-transparent to-transparent z-10 max-w-[1600px] mx-auto"></div>
+            <div className="relative w-full min-h-[220px] overflow-hidden bg-[#000435]">
+                <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full border border-white/5 pointer-events-none" />
+                <div className="absolute -top-12 -right-12 w-64 h-64 rounded-full border border-white/5 pointer-events-none" />
+                <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-[#FEBF10]/30 to-transparent pointer-events-none" />
 
                 <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-12 pt-12 pb-16 flex items-center gap-6">
                     <div className="hidden md:flex shrink-0 w-20 h-20 rounded-3xl border border-white/10 bg-white/5 items-center justify-center backdrop-blur-xl shadow-2xl relative overflow-hidden group">
@@ -214,27 +214,24 @@ const SystemConfiguration = () => {
                         </div>
 
                         <div className="flex flex-col space-y-0.5 px-3 mb-6">
-                            <button 
+                            <button
                                 onClick={() => setActiveTab('rfid')}
-                                className={`flex items-center gap-3 px-4 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
-                                    activeTab === 'rfid' ? 'bg-white shadow-sm text-[#1E3A5F] ring-1 ring-black/5' : 'text-re-text-muted hover:text-re-text hover:bg-re-bg'
-                                }`}
+                                className={`flex items-center gap-3 px-4 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === 'rfid' ? 'bg-white shadow-sm text-[#1E3A5F] ring-1 ring-black/5' : 'text-re-text-muted hover:text-re-text hover:bg-re-bg'
+                                    }`}
                             >
                                 <Wifi size={14} className={activeTab === 'rfid' ? "text-[#FEBF10]" : ""} /> Scanner Devices
                             </button>
-                            <button 
+                            <button
                                 onClick={() => setActiveTab('events')}
-                                className={`flex items-center gap-3 px-4 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
-                                    activeTab === 'events' ? 'bg-white shadow-sm text-[#1E3A5F] ring-1 ring-black/5' : 'text-re-text-muted hover:text-re-text hover:bg-re-bg'
-                                }`}
+                                className={`flex items-center gap-3 px-4 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === 'events' ? 'bg-white shadow-sm text-[#1E3A5F] ring-1 ring-black/5' : 'text-re-text-muted hover:text-re-text hover:bg-re-bg'
+                                    }`}
                             >
                                 <Calendar size={14} className={activeTab === 'events' ? "text-[#FEBF10]" : ""} /> Attendance Events
                             </button>
-                            <button 
+                            <button
                                 onClick={() => setActiveTab('preferences')}
-                                className={`flex items-center gap-3 px-4 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
-                                    activeTab === 'preferences' ? 'bg-white shadow-sm text-[#1E3A5F] ring-1 ring-black/5' : 'text-re-text-muted hover:text-re-text hover:bg-re-bg'
-                                }`}
+                                className={`flex items-center gap-3 px-4 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === 'preferences' ? 'bg-white shadow-sm text-[#1E3A5F] ring-1 ring-black/5' : 'text-re-text-muted hover:text-re-text hover:bg-re-bg'
+                                    }`}
                             >
                                 <Globe size={14} className={activeTab === 'preferences' ? "text-[#FEBF10]" : ""} /> Preferences
                             </button>
@@ -251,7 +248,7 @@ const SystemConfiguration = () => {
 
                     {/* Right Output Layout (Content) */}
                     <div className="flex-1 p-5 md:p-8 animate-in fade-in zoom-in-95 duration-300">
-                        
+
                         {/* ── TAB: RFID HARDWARE MATRIX ── */}
                         {activeTab === 'rfid' && (
                             <div className="space-y-6 animate-in slide-in-from-right-4 duration-500">
@@ -260,7 +257,7 @@ const SystemConfiguration = () => {
                                         <h2 className="text-lg md:text-xl font-black text-[#1E3A5F] uppercase tracking-tighter">Scanner Devices</h2>
                                         <p className="text-[9px] font-bold text-re-text-muted uppercase tracking-widest mt-1">Manage where scanners are located</p>
                                     </div>
-                                    <button 
+                                    <button
                                         onClick={() => setIsAddModalOpen(true)}
                                         className="h-9 px-4 rounded-xl flex items-center justify-center gap-1.5 text-white font-black text-[9px] uppercase tracking-widest shadow-md hover:scale-105 active:scale-95 transition-all" style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)" }}
                                     >
@@ -324,8 +321,7 @@ const SystemConfiguration = () => {
                                                             </div>
                                                         </td>
                                                         <td className="px-5 py-3.5">
-                                                            <div className={`inline-flex px-2 py-1 rounded-md text-[8px] font-black uppercase tracking-widest ring-1 ring-inset ${
-                                                                    hw.status === 'Online' ? 'bg-emerald-50 text-emerald-600 ring-emerald-500/20' : 'bg-red-50 text-red-600 ring-red-500/20'
+                                                            <div className={`inline-flex px-2 py-1 rounded-md text-[8px] font-black uppercase tracking-widest ring-1 ring-inset ${hw.status === 'Online' ? 'bg-emerald-50 text-emerald-600 ring-emerald-500/20' : 'bg-red-50 text-red-600 ring-red-500/20'
                                                                 }`}>
                                                                 {hw.status}
                                                             </div>
@@ -377,7 +373,7 @@ const SystemConfiguration = () => {
                                         <h2 className="text-lg md:text-xl font-black text-[#1E3A5F] uppercase tracking-tighter">Attendance Events</h2>
                                         <p className="text-[9px] font-bold text-re-text-muted uppercase tracking-widest mt-1">Define school-wide tracking windows</p>
                                     </div>
-                                    <button 
+                                    <button
                                         onClick={() => {
                                             setEventForm({ event_name: '', start_time: '07:00', end_time: '08:00', late_threshold: '07:15', target_group: 'STUDENTS', residency_filter: 'ALL' });
                                             setIsEventModalOpen(true);
@@ -488,9 +484,9 @@ const SystemConfiguration = () => {
                                     </div>
                                     {[
                                         { icon: <Moon size={14} />, label: "Dark Mode", desc: "Use a darker theme for the interface", active: darkMode, toggle: () => setDarkMode(!darkMode) },
-                                        { icon: <Bell size={14} />, label: "Email Alerts", desc: "Send emails for critical discipline issues", active: true, toggle: () => {} },
-                                        { icon: <Smartphone size={14} />, label: "SMS Absence Alerts", desc: "Message parents when a student is absent", active: false, toggle: () => {} },
-                                        { icon: <HardDrive size={14} />, label: "Daily Backup", desc: "Save all data every night at 3:00 AM", active: true, toggle: () => {} }
+                                        { icon: <Bell size={14} />, label: "Email Alerts", desc: "Send emails for critical discipline issues", active: true, toggle: () => { } },
+                                        { icon: <Smartphone size={14} />, label: "SMS Absence Alerts", desc: "Message parents when a student is absent", active: false, toggle: () => { } },
+                                        { icon: <HardDrive size={14} />, label: "Daily Backup", desc: "Save all data every night at 3:00 AM", active: true, toggle: () => { } }
                                     ].map((pref, i) => (
                                         <div key={i} className="flex items-center justify-between p-4 bg-white border border-black/5 shadow-sm rounded-2xl group">
                                             <div className="flex items-center gap-3">
@@ -502,7 +498,7 @@ const SystemConfiguration = () => {
                                                     <p className="text-[9px] font-bold text-re-text-muted uppercase tracking-wider">{pref.desc}</p>
                                                 </div>
                                             </div>
-                                            <button 
+                                            <button
                                                 onClick={pref.toggle}
                                                 className={`w-10 h-5 rounded-full transition-all relative ${pref.active ? "bg-emerald-500" : "bg-black/10"}`}
                                             >
@@ -542,12 +538,12 @@ const SystemConfiguration = () => {
                                     <label className="text-[9px] font-black text-[#1E3A5F] uppercase tracking-widest ml-1">Device MAC Address / UID</label>
                                     <div className="relative">
                                         <Tag size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#1E3A5F]/40" />
-                                        <input 
+                                        <input
                                             required
                                             placeholder="e.g. 8C:AA:B5:12:34:56"
                                             className="w-full h-12 pl-12 pr-4 bg-re-bg rounded-2xl border border-black/5 focus:ring-2 ring-[#FEBF10]/50 outline-none text-xs font-bold uppercase"
                                             value={newDevice.device_uid}
-                                            onChange={e => setNewDevice({...newDevice, device_uid: e.target.value})}
+                                            onChange={e => setNewDevice({ ...newDevice, device_uid: e.target.value })}
                                         />
                                     </div>
                                 </div>
@@ -556,12 +552,12 @@ const SystemConfiguration = () => {
                                     <label className="text-[9px] font-black text-[#1E3A5F] uppercase tracking-widest ml-1">Custom Label</label>
                                     <div className="relative">
                                         <MapPin size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#1E3A5F]/40" />
-                                        <input 
+                                        <input
                                             required
                                             placeholder="e.g. Main Gate Scanner"
                                             className="w-full h-12 pl-12 pr-4 bg-re-bg rounded-2xl border border-black/5 focus:ring-2 ring-[#FEBF10]/50 outline-none text-xs font-bold"
                                             value={newDevice.device_label}
-                                            onChange={e => setNewDevice({...newDevice, device_label: e.target.value})}
+                                            onChange={e => setNewDevice({ ...newDevice, device_label: e.target.value })}
                                         />
                                     </div>
                                 </div>
@@ -569,10 +565,10 @@ const SystemConfiguration = () => {
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-1.5">
                                         <label className="text-[9px] font-black text-[#1E3A5F] uppercase tracking-widest ml-1">Device Type</label>
-                                        <select 
+                                        <select
                                             className="w-full h-12 px-4 bg-re-bg rounded-2xl border border-black/5 outline-none text-[10px] font-black uppercase tracking-widest cursor-pointer"
                                             value={newDevice.device_type}
-                                            onChange={e => setNewDevice({...newDevice, device_type: e.target.value})}
+                                            onChange={e => setNewDevice({ ...newDevice, device_type: e.target.value })}
                                         >
                                             <option value="GATE_SCANNER">Gate Scanner</option>
                                             <option value="CLASS_READER">Class Reader</option>
@@ -582,11 +578,11 @@ const SystemConfiguration = () => {
                                     </div>
                                     <div className="space-y-1.5">
                                         <label className="text-[9px] font-black text-[#1E3A5F] uppercase tracking-widest ml-1">Scan Purpose</label>
-                                        <input 
+                                        <input
                                             placeholder="e.g. Attendance"
                                             className="w-full h-12 px-4 bg-re-bg rounded-2xl border border-black/5 outline-none text-xs font-bold"
                                             value={newDevice.purpose}
-                                            onChange={e => setNewDevice({...newDevice, purpose: e.target.value})}
+                                            onChange={e => setNewDevice({ ...newDevice, purpose: e.target.value })}
                                         />
                                     </div>
                                 </div>
@@ -596,10 +592,10 @@ const SystemConfiguration = () => {
                                         <label className="text-[9px] font-black text-[#1E3A5F] uppercase tracking-widest ml-1">Associated Pulse</label>
                                         <div className="relative">
                                             <Radio size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#1E3A5F]/40" />
-                                            <select 
+                                            <select
                                                 className="w-full h-11 pl-12 pr-4 bg-re-bg rounded-2xl border border-black/5 outline-none text-[10px] font-black uppercase tracking-widest cursor-pointer appearance-none"
                                                 value={newDevice.mapped_event_id}
-                                                onChange={e => setNewDevice({...newDevice, mapped_event_id: e.target.value})}
+                                                onChange={e => setNewDevice({ ...newDevice, mapped_event_id: e.target.value })}
                                             >
                                                 <option value="">No Pulse</option>
                                                 {events.map(ev => (
@@ -612,10 +608,10 @@ const SystemConfiguration = () => {
                                         <label className="text-[9px] font-black text-[#1E3A5F] uppercase tracking-widest ml-1">Mapped Class</label>
                                         <div className="relative">
                                             <Plus size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#1E3A5F]/40" />
-                                            <select 
+                                            <select
                                                 className="w-full h-11 pl-12 pr-4 bg-re-bg rounded-2xl border border-black/5 outline-none text-[10px] font-black uppercase tracking-widest cursor-pointer appearance-none"
                                                 value={newDevice.mapped_class_id}
-                                                onChange={e => setNewDevice({...newDevice, mapped_class_id: e.target.value})}
+                                                onChange={e => setNewDevice({ ...newDevice, mapped_class_id: e.target.value })}
                                             >
                                                 <option value="">No Class</option>
                                                 {classes.map(c => (
@@ -628,14 +624,14 @@ const SystemConfiguration = () => {
                             </div>
 
                             <div className="flex items-center gap-3 pt-4">
-                                <button 
+                                <button
                                     type="button"
                                     onClick={() => setIsAddModalOpen(false)}
                                     className="flex-1 h-12 rounded-2xl border border-black/5 text-[#1E3A5F] font-black text-[10px] uppercase tracking-widest hover:bg-re-bg transition-all"
                                 >
                                     Cancel
                                 </button>
-                                <button 
+                                <button
                                     type="submit"
                                     disabled={isSaving}
                                     className="flex-[1.5] h-12 rounded-2xl bg-[#1E3A5F] text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-[#1E3A5F]/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"
@@ -670,12 +666,12 @@ const SystemConfiguration = () => {
                         <form onSubmit={handleSaveEvent} className="p-8 space-y-4">
                             <div className="space-y-1.5">
                                 <label className="text-[9px] font-black text-[#1E3A5F] uppercase tracking-widest ml-1">Event Name</label>
-                                <input 
+                                <input
                                     required
                                     placeholder="e.g. Morning Assembly"
                                     className="w-full h-11 px-4 bg-re-bg rounded-2xl border border-black/5 outline-none text-xs font-bold"
                                     value={eventForm.event_name}
-                                    onChange={e => setEventForm({...eventForm, event_name: e.target.value})}
+                                    onChange={e => setEventForm({ ...eventForm, event_name: e.target.value })}
                                 />
                             </div>
 
@@ -683,26 +679,26 @@ const SystemConfiguration = () => {
                                 <div className="space-y-1.5">
                                     <label className="text-[9px] font-black text-[#1E3A5F] uppercase tracking-widest ml-1">Start Time</label>
                                     <input type="time" className="w-full h-11 px-4 bg-re-bg rounded-2xl border border-black/5 outline-none text-xs font-bold"
-                                        value={eventForm.start_time} onChange={e => setEventForm({...eventForm, start_time: e.target.value})} />
+                                        value={eventForm.start_time} onChange={e => setEventForm({ ...eventForm, start_time: e.target.value })} />
                                 </div>
                                 <div className="space-y-1.5">
                                     <label className="text-[9px] font-black text-[#1E3A5F] uppercase tracking-widest ml-1">End Time</label>
                                     <input type="time" className="w-full h-11 px-4 bg-re-bg rounded-2xl border border-black/5 outline-none text-xs font-bold"
-                                        value={eventForm.end_time} onChange={e => setEventForm({...eventForm, end_time: e.target.value})} />
+                                        value={eventForm.end_time} onChange={e => setEventForm({ ...eventForm, end_time: e.target.value })} />
                                 </div>
                             </div>
 
                             <div className="space-y-1.5">
                                 <label className="text-[9px] font-black text-[#1E3A5F] uppercase tracking-widest ml-1">Late Threshold</label>
                                 <input type="time" className="w-full h-11 px-4 bg-re-bg rounded-2xl border border-black/5 outline-none text-xs font-bold"
-                                    value={eventForm.late_threshold} onChange={e => setEventForm({...eventForm, late_threshold: e.target.value})} />
+                                    value={eventForm.late_threshold} onChange={e => setEventForm({ ...eventForm, late_threshold: e.target.value })} />
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1.5">
                                     <label className="text-[9px] font-black text-[#1E3A5F] uppercase tracking-widest ml-1">Target Group</label>
                                     <select className="w-full h-11 px-4 bg-re-bg rounded-2xl border border-black/5 outline-none text-[10px] font-black uppercase tracking-widest cursor-pointer"
-                                        value={eventForm.target_group} onChange={e => setEventForm({...eventForm, target_group: e.target.value})}>
+                                        value={eventForm.target_group} onChange={e => setEventForm({ ...eventForm, target_group: e.target.value })}>
                                         <option value="STUDENTS">Students</option>
                                         <option value="STAFF">Staff</option>
                                         <option value="BOTH">Both</option>
@@ -711,7 +707,7 @@ const SystemConfiguration = () => {
                                 <div className="space-y-1.5">
                                     <label className="text-[9px] font-black text-[#1E3A5F] uppercase tracking-widest ml-1">Residency</label>
                                     <select className="w-full h-11 px-4 bg-re-bg rounded-2xl border border-black/5 outline-none text-[10px] font-black uppercase tracking-widest cursor-pointer"
-                                        value={eventForm.residency_filter} onChange={e => setEventForm({...eventForm, residency_filter: e.target.value})}>
+                                        value={eventForm.residency_filter} onChange={e => setEventForm({ ...eventForm, residency_filter: e.target.value })}>
                                         <option value="ALL">All Students</option>
                                         <option value="BOARDING">Boarding Only</option>
                                         <option value="DAY">Day Students Only</option>

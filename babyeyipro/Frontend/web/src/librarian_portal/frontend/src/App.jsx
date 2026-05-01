@@ -7,7 +7,6 @@ import Login from './pages/Login';
 import Books from './pages/Books';
 import Borrowing from './pages/Borrowing';
 import Returns from './pages/Returns';
-import Members from './pages/Members';
 import Reports from './pages/Reports';
 import ShuleAvance from './pages/ShuleAvance';
 import TichaAI from './pages/TichaAI';
@@ -33,15 +32,25 @@ function AppContent() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/librarian/login" element={<Login />} />
       <Route path="/"             element={<ProtectedRoute title="Library Overview">   <Dashboard />  </ProtectedRoute>} />
+      <Route path="/librarian"    element={<ProtectedRoute title="Library Overview">   <Dashboard />  </ProtectedRoute>} />
       <Route path="/books"        element={<ProtectedRoute title="Book Collection">    <Books />      </ProtectedRoute>} />
+      <Route path="/librarian/books" element={<ProtectedRoute title="Book Collection"> <Books />      </ProtectedRoute>} />
       <Route path="/borrowing"    element={<ProtectedRoute title="Active Loans">       <Borrowing />  </ProtectedRoute>} />
+      <Route path="/librarian/borrowing" element={<ProtectedRoute title="Active Loans"><Borrowing /></ProtectedRoute>} />
       <Route path="/returns"      element={<ProtectedRoute title="Returns History">    <Returns />    </ProtectedRoute>} />
-      <Route path="/members"      element={<ProtectedRoute title="Library Members">    <Members />    </ProtectedRoute>} />
-      <Route path="/reports"      element={<ProtectedRoute title="Library Reports">    <Reports />    </ProtectedRoute>} />
+      <Route path="/librarian/returns" element={<ProtectedRoute title="Returns History"><Returns /></ProtectedRoute>} />
+      <Route path="/reports/*"    element={<ProtectedRoute title="Library Reports">    <Reports />    </ProtectedRoute>} />
+      <Route path="/librarian/reports/*" element={<ProtectedRoute title="Library Reports"><Reports /></ProtectedRoute>} />
+      <Route path="/report/*"     element={<Navigate to="/reports" replace />} />
+      <Route path="/librarian/report/*" element={<Navigate to="/librarian/reports" replace />} />
       <Route path="/shule-avance" element={<ProtectedRoute title="Shule Avance">       <ShuleAvance /></ProtectedRoute>} />
+      <Route path="/librarian/shule-avance" element={<ProtectedRoute title="Shule Avance"><ShuleAvance /></ProtectedRoute>} />
       <Route path="/ticha-ai"     element={<ProtectedRoute title="TichaAI">            <TichaAI />    </ProtectedRoute>} />
+      <Route path="/librarian/ticha-ai" element={<ProtectedRoute title="TichaAI">      <TichaAI />    </ProtectedRoute>} />
       <Route path="/settings"     element={<ProtectedRoute title="Settings">           <FeaturePlaceholders feature="Library Settings" icon="⚙️" /></ProtectedRoute>} />
+      <Route path="/librarian/settings" element={<ProtectedRoute title="Settings">     <FeaturePlaceholders feature="Library Settings" icon="⚙️" /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>
   );

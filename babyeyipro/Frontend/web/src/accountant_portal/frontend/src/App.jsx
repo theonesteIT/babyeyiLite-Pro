@@ -19,6 +19,11 @@ import BabyeyiFees from './pages/BabyeyiFees';
 import './index.css';
 import { PORTAL } from './config/portal';
 
+const ACCOUNTANT_BASENAME =
+  typeof window !== 'undefined' && window.location.pathname.startsWith('/accountant')
+    ? '/accountant'
+    : '/';
+
 // ── Loading screen ────────────────────────────────────────────
 const LoadingScreen = () => (
   <div className="min-h-screen bg-re-bg flex flex-col items-center justify-center gap-4 font-sans">
@@ -76,7 +81,7 @@ function AppContent() {
 function App() {
   return (
     <AuthProvider>
-      <Router>
+      <Router basename={ACCOUNTANT_BASENAME}>
         <AppContent />
       </Router>
     </AuthProvider>

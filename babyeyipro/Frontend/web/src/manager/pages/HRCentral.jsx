@@ -306,6 +306,20 @@ const getNextStaffCode = (roleCode, existingStaff = [], currentStaffId = null) =
     return `${prefix}-${String(maxCodeNumber + 1).padStart(3, '0')}`;
 };
 
+const KNOWN_ROLE_CODES = new Set([
+    'TEACHER',
+    'ACCOUNTANT',
+    'HR',
+    'DOS',
+    'STORE_MANAGER',
+    'LIBRARIAN',
+    'DISCIPLINE',
+    'SECRETARY',
+    'HOD',
+    'SCHOOL_MANAGER',
+    'SCHOOL_DIRECTOR',
+]);
+
 const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaff }) => {
     const isEditMode = !!editingStaff;
     const [step, setStep] = useState(0);
@@ -334,6 +348,7 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
         department: 'Academics',
         sub_department: '',
         role_code: 'TEACHER',
+        custom_role_name: '',
         payroll_basic_salary: '',
         payroll_transport_allowance: '',
         payroll_housing_allowance: '',
@@ -380,6 +395,13 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
                 editingStaff.department === 'Academic Staff'
                     ? 'Academics'
                     : editingStaff.department || 'Administration';
+            const resolvedRoleCode = String(editingStaff.role_code || 'TEACHER').toUpperCase().replace(/\s+/g, '_');
+            const isKnownRole = KNOWN_ROLE_CODES.has(resolvedRoleCode);
+            const resolvedCustomRole = !isKnownRole
+                ? String(editingStaff.role_name || editingStaff.role || editingStaff.jobTitle || resolvedRoleCode)
+                    .replace(/_/g, ' ')
+                    .trim()
+                : '';
             setFormData({
                 full_name: editingStaff.name || '',
                 gender: editingStaff.gender || '',
@@ -399,7 +421,8 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
                 employment_status: editingStaff.employmentStatus || (editingStaff.status === 'Inactive' ? 'Suspended' : 'Active'),
                 department: normalizedDepartment,
                 sub_department: editingStaff.subDepartment || '',
-                role_code: editingStaff.role_code || 'TEACHER',
+                role_code: isKnownRole ? resolvedRoleCode : 'CUSTOM',
+                custom_role_name: resolvedCustomRole,
                 payroll_basic_salary: editingStaff.payrollBasicSalary ?? '',
                 payroll_transport_allowance: editingStaff.payrollTransportAllowance ?? '',
                 payroll_housing_allowance: editingStaff.payrollHousingAllowance ?? '',
@@ -452,6 +475,7 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
                 department: 'Academics',
                 sub_department: '',
                 role_code: defaultRole,
+                custom_role_name: '',
                 payroll_basic_salary: '',
                 payroll_transport_allowance: '',
                 payroll_housing_allowance: '',
@@ -520,6 +544,9 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
             if (formData.employment_type === 'Contract' && !formData.full_contract && !formData.contract_end_date) return 'Contract end date is required unless Full Contract is checked.';
         }
         if (step === 2 && (!formData.department || !formData.role_code)) return 'Department and role are required.';
+        if (step === 2 && formData.role_code === 'CUSTOM' && !String(formData.custom_role_name || '').trim()) {
+            return 'Custom role name is required.';
+        }
         if (step === 4 && formData.account_enabled) {
             if (!formData.username) return 'Username is required when account is enabled.';
             if (!isEditMode && String(formData.password || '').length < 8) return 'Password must be at least 8 characters.';
@@ -565,7 +592,12 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
             employment_status: formData.employment_status,
             department: formData.department,
             sub_department: formData.sub_department || null,
-            role_code: formData.role_code,
+            role_code: formData.role_code === 'CUSTOM'
+                ? String(formData.custom_role_name || '').trim().toUpperCase().replace(/\s+/g, '_')
+                : formData.role_code,
+            role_name: formData.role_code === 'CUSTOM'
+                ? String(formData.custom_role_name || '').trim() || null
+                : null,
             payroll_basic_salary: toNumberOrNull(formData.payroll_basic_salary),
             payroll_transport_allowance: null,
             payroll_housing_allowance: null,
@@ -761,7 +793,7 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
         }
         if (step === 2) {
             return (
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <label className="space-y-1">
                         <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Department</p>
                         <select className={inputCls} value={formData.department} onChange={(e) => setField('department', e.target.value)}>
@@ -777,14 +809,42 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
                         <select className={inputCls} value={formData.role_code} onChange={(e) => {
                             const val = e.target.value;
                             setField('role_code', val);
+                            if (val !== 'CUSTOM') setField('custom_role_name', '');
                             if (!isEditMode) {
                                 setField('staff_id', getNextStaffCode(val, existingStaff));
                             }
                         }}>
-                            <option value="TEACHER">Teacher</option><option value="ACCOUNTANT">Accountant</option><option value="HR">HR</option><option value="DOS">DOS</option>
-                            <option value="STORE_MANAGER">Store Manager</option><option value="LIBRARIAN">Librarian</option><option value="DISCIPLINE">Head of Discipline</option><option value="SECRETARY">Secretary</option><option value="HOD">Staff</option><option value="SCHOOL MANAGER">School Manager</option><option value="SCHOOL DIRECTOR">School Director</option>
+                            <option value="TEACHER">Teacher</option>
+                            <option value="ACCOUNTANT">Accountant</option>
+                            <option value="HR">HR</option>
+                            <option value="DOS">DOS</option>
+                            <option value="STORE_MANAGER">Store Manager</option>
+                            <option value="LIBRARIAN">Librarian</option>
+                            <option value="DISCIPLINE">Head of Discipline</option>
+                            <option value="SECRETARY">Secretary</option>
+                            <option value="HOD">Staff</option>
+                            <option value="SCHOOL_MANAGER">School Manager</option>
+                            <option value="SCHOOL_DIRECTOR">School Director</option>
+                            <option value="CUSTOM">Custom</option>
                         </select>
                     </label>
+                    {formData.role_code === 'CUSTOM' && (
+                        <label className="space-y-1 md:col-span-2">
+                            <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Custom Role Name</p>
+                            <input
+                                className={inputCls}
+                                placeholder="e.g. Welfare Officer, Lab Assistant"
+                                value={formData.custom_role_name}
+                                onChange={(e) => {
+                                    const roleName = e.target.value;
+                                    setField('custom_role_name', roleName);
+                                    if (!isEditMode) {
+                                        setField('staff_id', getNextStaffCode(roleName, existingStaff));
+                                    }
+                                }}
+                            />
+                        </label>
+                    )}
                 </div>
             );
         }
@@ -1235,8 +1295,8 @@ const HRCentral = () => {
                     <div
                         key={n.id}
                         className={`rounded-xl border shadow-xl px-4 py-3 animate-in slide-in-from-right-5 duration-300 ${n.type === 'success'
-                                ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                                : 'bg-rose-50 border-rose-200 text-rose-800'
+                            ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                            : 'bg-rose-50 border-rose-200 text-rose-800'
                             }`}
                     >
                         <p className="text-[10px] font-black uppercase tracking-widest">
@@ -1297,11 +1357,10 @@ const HRCentral = () => {
             )}
 
             {/* ── High-Fidelity Hero Section (Institutional Pattern) ── */}
-            <div className="relative w-full min-h-[220px] overflow-hidden">
-                <div className="absolute inset-0 bg-[#0a192f]/85 z-10 backdrop-blur-[2px]"></div>
-                {/* Fallback image to generic school/dashboard asset or standard teacher asset */}
-                <img src="/teacher.jpg" alt="Hero" className="absolute inset-0 w-full h-full object-cover scale-105 opacity-50  " />
-                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#1E3A5F]/40 via-transparent to-transparent z-10 max-w-[1600px] mx-auto"></div>
+            <div className="relative w-full min-h-[220px] overflow-hidden bg-[#000435]">
+                <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full border border-white/5 pointer-events-none" />
+                <div className="absolute -top-12 -right-12 w-64 h-64 rounded-full border border-white/5 pointer-events-none" />
+                <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-[#FEBF10]/30 to-transparent pointer-events-none" />
 
                 <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-12 pt-12 pb-16 flex items-center gap-8">
                     {/* Big Icon for Desktop */}

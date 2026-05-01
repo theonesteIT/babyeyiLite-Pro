@@ -38,14 +38,14 @@ const EMPTY_STATS = {
 };
 
 const DisciplineReports = () => {
-    const [searchTerm, setSearchTerm]     = useState('');
+    const [searchTerm, setSearchTerm] = useState('');
     const [activeDropdown, setActiveDropdown] = useState(null);
     const [selectedTerm, setSelectedTerm] = useState('Term 1');
     const [selectedYear, setSelectedYear] = useState('2025-2026');
 
     // Conduct Modal State
     const [isConductModalOpen, setIsConductModalOpen] = useState(false);
-    const [conductStudent, setConductStudent]         = useState(null);
+    const [conductStudent, setConductStudent] = useState(null);
 
     const openConductModal = (student = null) => {
         setConductStudent(student);
@@ -53,11 +53,11 @@ const DisciplineReports = () => {
     };
 
     // Data state
-    const [cases, setCases]   = useState([]);
-    const [stats, setStats]   = useState(EMPTY_STATS);
-    const [loading, setLoading]       = useState(true);
+    const [cases, setCases] = useState([]);
+    const [stats, setStats] = useState(EMPTY_STATS);
+    const [loading, setLoading] = useState(true);
     const [statsLoading, setStatsLoading] = useState(true);
-    const [error, setError]           = useState(null);
+    const [error, setError] = useState(null);
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -83,10 +83,10 @@ const DisciplineReports = () => {
             if (summaryRes.data?.success) {
                 const d = summaryRes.data.data;
                 setStats({
-                    caseCount:          d.case_count ?? 0,
-                    studentsAffected:   d.students_affected ?? 0,
-                    totalMarksRemoved:  Number(d.total_marks_removed ?? 0).toFixed(0),
-                    totalMarksDefault:  d.total_marks_default ?? 100,
+                    caseCount: d.case_count ?? 0,
+                    studentsAffected: d.students_affected ?? 0,
+                    totalMarksRemoved: Number(d.total_marks_removed ?? 0).toFixed(0),
+                    totalMarksDefault: d.total_marks_default ?? 100,
                 });
             }
         } catch (e) {
@@ -105,10 +105,10 @@ const DisciplineReports = () => {
     // client-side search filter on fetched cases
     const filteredCases = cases.filter(c => {
         const name = `${c.first_name || ''} ${c.last_name || ''}`.toLowerCase();
-        const cls  = (c.class_name || '').toLowerCase();
+        const cls = (c.class_name || '').toLowerCase();
         const subj = (c.lesson_subject || '').toLowerCase();
         const desc = (c.description || '').toLowerCase();
-        const q    = searchTerm.toLowerCase();
+        const q = searchTerm.toLowerCase();
         return !q || name.includes(q) || cls.includes(q) || subj.includes(q) || desc.includes(q);
     });
 
@@ -127,10 +127,10 @@ const DisciplineReports = () => {
             />
 
             {/* ── High-Fidelity Hero Section ── */}
-            <div className="relative w-full min-h-[280px] overflow-hidden">
-                <div className="absolute inset-0 bg-[#0a192f]/85 z-10 backdrop-blur-[2px]"></div>
-                <img src="/teacher.jpg" alt="Hero Background" className="absolute inset-0 w-full h-full object-cover scale-105" />
-                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#1E3A5F]/40 via-transparent to-transparent z-10 max-w-[1600px] mx-auto"></div>
+            <div className="relative w-full min-h-[280px] overflow-hidden bg-[#000435]">
+                <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full border border-white/5 pointer-events-none" />
+                <div className="absolute -top-12 -right-12 w-64 h-64 rounded-full border border-white/5 pointer-events-none" />
+                <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-[#FEBF10]/30 to-transparent pointer-events-none" />
 
                 <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-12 pt-16 pb-24 flex items-center gap-8">
                     <div className="hidden md:flex shrink-0 w-24 h-24 rounded-[32px] border border-white/10 bg-white/5 items-center justify-center backdrop-blur-xl shadow-2xl relative overflow-hidden group">
@@ -157,10 +157,10 @@ const DisciplineReports = () => {
                     <div className="grid grid-cols-1 lg:grid-cols-4 border-b border-black/5">
                         <div className="lg:col-span-3 grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-black/5">
                             {[
-                                { label: 'Total Cases',         value: statsLoading ? '…' : String(stats.caseCount),        icon: <ShieldAlert size={14} className="text-red-500" /> },
-                                { label: 'Students Affected',   value: statsLoading ? '…' : String(stats.studentsAffected),  icon: <ShieldCheck size={14} className="text-emerald-500" /> },
-                                { label: 'Marks Removed',       value: statsLoading ? '…' : String(stats.totalMarksRemoved), icon: <TrendingDown size={14} /> },
-                                { label: 'Total Mark (default)',value: statsLoading ? '…' : String(stats.totalMarksDefault),  icon: <AlertTriangle size={14} className="text-amber-500" /> },
+                                { label: 'Total Cases', value: statsLoading ? '…' : String(stats.caseCount), icon: <ShieldAlert size={14} className="text-red-500" /> },
+                                { label: 'Students Affected', value: statsLoading ? '…' : String(stats.studentsAffected), icon: <ShieldCheck size={14} className="text-emerald-500" /> },
+                                { label: 'Marks Removed', value: statsLoading ? '…' : String(stats.totalMarksRemoved), icon: <TrendingDown size={14} /> },
+                                { label: 'Total Mark (default)', value: statsLoading ? '…' : String(stats.totalMarksDefault), icon: <AlertTriangle size={14} className="text-amber-500" /> },
                             ].map((stat, i) => (
                                 <div key={i} className="p-4 sm:p-8 flex flex-col items-center justify-center text-center group hover:bg-re-bg/20 transition-all cursor-default">
                                     <div className="mb-1.5 sm:mb-2 opacity-40 shrink-0">{stat.icon}</div>
@@ -246,11 +246,10 @@ const DisciplineReports = () => {
                                     <button
                                         key={term}
                                         onClick={() => setSelectedTerm(term)}
-                                        className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg text-[8px] sm:text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
-                                            selectedTerm === term
-                                            ? 'bg-white text-[#1E3A5F] shadow-sm ring-1 ring-black/5'
-                                            : 'text-re-text-muted hover:text-re-text'
-                                        }`}
+                                        className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg text-[8px] sm:text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${selectedTerm === term
+                                                ? 'bg-white text-[#1E3A5F] shadow-sm ring-1 ring-black/5'
+                                                : 'text-re-text-muted hover:text-re-text'
+                                            }`}
                                     >
                                         {term}
                                     </button>
@@ -367,11 +366,11 @@ const DisciplineReports = () => {
                                                 {/* Action */}
                                                 <td className="px-4 sm:px-8 py-3 sm:py-5 text-right">
                                                     <button
-                                                        onClick={() => openConductModal({ 
-                                                            id: uid, 
+                                                        onClick={() => openConductModal({
+                                                            id: uid,
                                                             dbId: c.student_id,
-                                                            name: studentName, 
-                                                            grade: c.class_name || '' 
+                                                            name: studentName,
+                                                            grade: c.class_name || ''
                                                         })}
                                                         className="h-8 px-4 rounded-xl flex items-center justify-center gap-2 bg-white border border-black/5 text-re-text font-black text-[9px] uppercase tracking-widest shadow-sm hover:bg-re-bg hover:text-[#1E3A5F] transition-all ml-auto"
                                                     >

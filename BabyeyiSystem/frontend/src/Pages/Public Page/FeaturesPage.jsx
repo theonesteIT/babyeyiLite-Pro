@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import babyeyiLogo from "../../assets/1BABYEYI LOGO FINAL.png";
 import {
   GraduationCap,
   Globe,
@@ -32,7 +33,6 @@ import {
 function Navbar() {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const BABYEYI_LOGO_URL = "/1BABYEYI LOGO FINAL.png";
 
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 40);
@@ -52,7 +52,7 @@ function Navbar() {
     <nav className={`fixed inset-x-0 top-0 z-50 border-b-[3px] border-amber-400 transition-all duration-300 ${scrolled ? "bg-[#000435] shadow-xl shadow-black/30" : "bg-[#000435]/88 backdrop-blur-md"}`}>
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 xl:px-10 2xl:px-16 flex items-center justify-between h-14 sm:h-16 xl:h-[68px]">
         <Link to="/" className="flex items-center shrink-0">
-          <img src={BABYEYI_LOGO_URL} alt="Babyeyi logo" className="h-9 sm:h-10 xl:h-11 w-auto object-contain" />
+          <img src={babyeyiLogo} alt="Babyeyi logo" className="h-9 sm:h-10 xl:h-11 w-auto object-contain" />
         </Link>
 
         <div className="hidden lg:flex items-center gap-0.5 xl:gap-1">

@@ -97,6 +97,31 @@ function numberToMonthLabel(n) {
   return labels[idx] || String(n || '');
 }
 
+function normalizePayrollTerm(v) {
+  const raw = String(v || '').trim().toUpperCase().replace(/\s+/g, '');
+  if (!raw) return '';
+  if (raw === 'T1' || raw === 'TERM1') return 'T1';
+  if (raw === 'T2' || raw === 'TERM2') return 'T2';
+  if (raw === 'T3' || raw === 'TERM3') return 'T3';
+  return raw;
+}
+
+function payrollTermKeys(v) {
+  const term = normalizePayrollTerm(v);
+  if (term === 'T1') return ['T1', 'TERM1'];
+  if (term === 'T2') return ['T2', 'TERM2'];
+  if (term === 'T3') return ['T3', 'TERM3'];
+  return [term, term];
+}
+
+function parsePayrollYear(v) {
+  const raw = String(v ?? '').trim();
+  const match = raw.match(/\b(20\d{2}|19\d{2})\b/);
+  if (match) return Number(match[1]);
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : 0;
+}
+
 function parseDateStart(v) {
   if (!v) return null;
   const d = new Date(v);
@@ -2090,8 +2115,9 @@ router.post('/accountant/payroll-requests', requireRole(ACCOUNTANT_WRITE_ROLES),
     const role = String(payload.role || 'STAFF').trim().toUpperCase();
     const department = String(payload.department || role).trim().toUpperCase();
     const month = monthLabelToNumber(payload.month);
-    const term = String(payload.term || '').trim();
-    const year = Number(payload.year || 0);
+    const term = normalizePayrollTerm(payload.term);
+    const [termKeyA, termKeyB] = payrollTermKeys(term);
+    const year = parsePayrollYear(payload.year);
     const amount = toMoney(payload.amount);
     const basic = toMoney(payload.basic);
     const allowances = toMoney(payload.allowances);
@@ -2116,10 +2142,12 @@ router.post('/accountant/payroll-requests', requireRole(ACCOUNTANT_WRITE_ROLES),
       `SELECT r.id, r.status, r.amount, d.final_payable
        FROM payroll_requests r
        LEFT JOIN payroll_details d ON d.request_id = r.id AND d.school_id = r.school_id
-       WHERE r.school_id = ? AND r.staff_user_id = ? AND r.month = ? AND r.term = ? AND r.year = ?
+       WHERE r.school_id = ? AND r.staff_user_id = ? AND r.month = ?
+         AND UPPER(REPLACE(COALESCE(r.term, ''), ' ', '')) IN (?, ?)
+         AND r.year = ?
          AND r.deleted_at IS NULL
        ORDER BY r.id DESC`,
-      [schoolId, staffUserId, month, term, year]
+      [schoolId, staffUserId, month, termKeyA, termKeyB, year]
     );
     const hasPendingOrApproved = (existingRows || []).some((x) => x.status === 'Pending' || x.status === 'Approved');
     if (hasPendingOrApproved) {
@@ -2203,8 +2231,9 @@ router.post('/accountant/payroll-requests/finish-payment', requireRole(ACCOUNTAN
     const payload = req.body || {};
     const staffUserId = Number(payload.staffUserId || 0);
     const month = monthLabelToNumber(payload.month);
-    const term = String(payload.term || '').trim();
-    const year = Number(payload.year || 0);
+    const term = normalizePayrollTerm(payload.term);
+    const [termKeyA, termKeyB] = payrollTermKeys(term);
+    const year = parsePayrollYear(payload.year);
     const amount = toMoney(payload.amount);
 
     if (!staffUserId) return res.status(400).json({ success: false, message: 'staffUserId is required' });
@@ -2219,10 +2248,12 @@ router.post('/accountant/payroll-requests/finish-payment', requireRole(ACCOUNTAN
               d.basic, d.allowances, d.deductions, d.net_salary, d.advance, d.final_payable
        FROM payroll_requests r
        LEFT JOIN payroll_details d ON d.request_id = r.id AND d.school_id = r.school_id
-       WHERE r.school_id = ? AND r.staff_user_id = ? AND r.month = ? AND r.term = ? AND r.year = ?
+       WHERE r.school_id = ? AND r.staff_user_id = ? AND r.month = ?
+         AND UPPER(REPLACE(COALESCE(r.term, ''), ' ', '')) IN (?, ?)
+         AND r.year = ?
          AND r.deleted_at IS NULL
        ORDER BY r.id DESC`,
-      [schoolId, staffUserId, month, term, year]
+      [schoolId, staffUserId, month, termKeyA, termKeyB, year]
     );
     if (!rows.length) {
       await conn.rollback();

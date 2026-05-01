@@ -1,305 +1,390 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-    Calendar, Clock, MapPin, Search, ChevronLeft, ChevronRight, ChevronDown,
-    List, Grid as GridIcon, Filter, Plus, FileText, CheckCircle, RefreshCw
+  Calendar, Clock, MapPin, BookOpen, User, Download, Image as ImageIcon,
+  ChevronLeft, ChevronRight, Grid as GridIcon, List, Loader2,
+  BookMarked, Users, RefreshCw, FileText
 } from 'lucide-react';
 import api from '../services/api';
 
+const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+
+const SUBJECT_COLORS = [
+  { bg: '#eff6ff', border: '#3b82f6', text: '#1d4ed8', glow: 'rgba(59,130,246,0.15)' },
+  { bg: '#f0fdf4', border: '#22c55e', text: '#15803d', glow: 'rgba(34,197,94,0.15)' },
+  { bg: '#fdf4ff', border: '#a855f7', text: '#7e22ce', glow: 'rgba(168,85,247,0.15)' },
+  { bg: '#fff7ed', border: '#f97316', text: '#c2410c', glow: 'rgba(249,115,22,0.15)' },
+  { bg: '#fff1f2', border: '#f43f5e', text: '#be123c', glow: 'rgba(244,63,94,0.15)' },
+  { bg: '#f0fdfa', border: '#14b8a6', text: '#0f766e', glow: 'rgba(20,184,166,0.15)' },
+  { bg: '#fffbeb', border: '#f59e0b', text: '#b45309', glow: 'rgba(245,158,11,0.15)' },
+  { bg: '#f5f3ff', border: '#8b5cf6', text: '#6d28d9', glow: 'rgba(139,92,246,0.15)' },
+];
+
+function getSubjectColor(subject, colorMap) {
+  if (!colorMap[subject]) {
+    const idx = Object.keys(colorMap).length % SUBJECT_COLORS.length;
+    colorMap[subject] = SUBJECT_COLORS[idx];
+  }
+  return colorMap[subject];
+}
+
 export default function Timetable() {
-    const [view, setView] = useState('grid'); // 'grid' or 'list'
-    const [selectedDay, setSelectedDay] = useState('Monday');
-    const [mockSchedule, setMockSchedule] = useState([]);
-    const [filterOptions, setFilterOptions] = useState({ classes: [], terms: [], academicYears: [] });
-    const [selectedClass, setSelectedClass] = useState('');
-    const [selectedTerm, setSelectedTerm] = useState('');
-    const [selectedAcademicYear, setSelectedAcademicYear] = useState('');
-    const [loading, setLoading] = useState(true);
+  const [view, setView] = useState('grid');
+  const [selectedDay, setSelectedDay] = useState(DAYS[new Date().getDay() - 1] || 'Monday');
+  const [schedule, setSchedule] = useState([]);
+  const [filterOptions, setFilterOptions] = useState({ classes: [], terms: [], academicYears: [] });
+  const [selectedClass, setSelectedClass] = useState('');
+  const [selectedTerm, setSelectedTerm] = useState('');
+  const [selectedAcademicYear, setSelectedAcademicYear] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
+  const [colorMap] = useState({});
+  const gridRef = useRef(null);
 
-    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+  useEffect(() => {
+    api.get('/teacher-portal/timetable-filters')
+      .then(res => { if (res.data?.success) setFilterOptions(res.data.data || { classes: [], terms: [], academicYears: [] }); })
+      .catch(() => {});
+  }, []);
 
-    useEffect(() => {
-        const fetchFilterOptions = async () => {
-            try {
-                const res = await api.get('/teacher-portal/timetable-filters');
-                if (res.data?.success) {
-                    setFilterOptions(res.data.data || { classes: [], terms: [], academicYears: [] });
-                }
-            } catch (e) {
-                console.error('Failed to load timetable filters', e);
-            }
-        };
-        fetchFilterOptions();
-    }, []);
+  useEffect(() => {
+    setLoading(true);
+    api.get('/teacher-portal/timetable', {
+      params: {
+        class_name: selectedClass || undefined,
+        term: selectedTerm || undefined,
+        academic_year: selectedAcademicYear || undefined,
+      }
+    })
+      .then(res => { if (res.data?.success) setSchedule(res.data.data || []); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [selectedClass, selectedTerm, selectedAcademicYear]);
 
-    useEffect(() => {
-        const fetchTimetable = async () => {
-            try {
-                setLoading(true);
-                const res = await api.get('/teacher-portal/timetable', {
-                    params: {
-                        class_name: selectedClass || undefined,
-                        term: selectedTerm || undefined,
-                        academic_year: selectedAcademicYear || undefined,
-                    },
-                });
-                if (res.data.success) {
-                    setMockSchedule(res.data.data || []);
-                }
-            } catch (e) {
-                console.error('Failed to load timetable', e);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchTimetable();
-    }, [selectedClass, selectedTerm, selectedAcademicYear]);
+  const allTimes = [...new Set(schedule.map(s => s.time))].sort();
+  const daySchedule = schedule.filter(s => s.day === selectedDay).sort((a, b) => a.time.localeCompare(b.time));
 
-    const todaySchedule = mockSchedule.filter(s => s.day === selectedDay).sort((a, b) => a.time.localeCompare(b.time));
+  const dayIdx = DAYS.indexOf(selectedDay);
+  const prevDay = () => setSelectedDay(DAYS[Math.max(0, dayIdx - 1)]);
+  const nextDay = () => setSelectedDay(DAYS[Math.min(DAYS.length - 1, dayIdx + 1)]);
 
-    const getColorClasses = (color) => {
-        switch (color) {
-            case 'blue': return 'bg-blue-50 text-blue-700 ring-blue-500/20';
-            case 'emerald': return 'bg-emerald-50 text-emerald-700 ring-emerald-500/20';
-            case 'purple': return 'bg-purple-50 text-purple-700 ring-purple-500/20';
-            default: return 'bg-re-orange/5 text-re-orange ring-re-orange/20';
-        }
-    };
+  const handleExportPDF = useCallback(async () => {
+    if (!gridRef.current || exporting) return;
+    setExporting(true);
+    try {
+      const html2canvas = (await import('html2canvas')).default;
+      const { jsPDF } = await import('jspdf');
+      const canvas = await html2canvas(gridRef.current, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({ orientation: 'landscape', unit: 'px', format: [canvas.width / 2, canvas.height / 2] });
+      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width / 2, canvas.height / 2);
+      pdf.save(`timetable-${new Date().toISOString().split('T')[0]}.pdf`);
+    } catch (e) { console.error('PDF export failed', e); }
+    finally { setExporting(false); }
+  }, [exporting]);
 
-    return (
-        <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen pb-12">
+  const handleExportImage = useCallback(async () => {
+    if (!gridRef.current || exporting) return;
+    setExporting(true);
+    try {
+      const html2canvas = (await import('html2canvas')).default;
+      const canvas = await html2canvas(gridRef.current, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+      const link = document.createElement('a');
+      link.download = `timetable-${new Date().toISOString().split('T')[0]}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch (e) { console.error('Image export failed', e); }
+    finally { setExporting(false); }
+  }, [exporting]);
 
-            {/* ── High-Fidelity Hero Section ── */}
-            <div className="relative w-full min-h-[280px] overflow-hidden">
-                <div className="absolute inset-0 bg-orange-950/70 z-10 backdrop-blur-[2px]"></div>
-                {/* Fallback pattern if teacher.jpg isn't perfectly suitable */}
-                <img src="/teacher.jpg" alt="Hero" className="absolute inset-0 w-full h-full object-cover scale-105 opacity-100" />
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent to-transparent z-[5]"></div>
+  const totalPeriods = schedule.length;
+  const uniqueSubjects = [...new Set(schedule.map(s => s.subject))].length;
+  const uniqueClasses = [...new Set(schedule.map(s => s.group).filter(Boolean))].length;
 
-                <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-12 pt-16 pb-24">
-                    <div className="space-y-1">
-                        <div className="flex items-center gap-2 mb-2">
-                            <span className="w-6 h-1 bg-re-orange rounded-full"></span>
-                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/80">Schedular Module</span>
-                        </div>
-                        <h1 className="text-3xl md:text-5xl font-black text-white tracking-tight">
-                            My <span className="text-re-orange">Timetable</span>
-                        </h1>
-                        <p className="text-xs md:text-sm text-white/70 font-bold max-w-xl leading-relaxed">
-                            Navigate your weekly teaching schedule. Plan your classes, monitor practical labs, and sync administrative meetings automatically.
-                        </p>
-                    </div>
+  return (
+    <div style={{ fontFamily: "'Inter', sans-serif" }} className="min-h-screen bg-gray-50 pb-16">
+
+      {/* ── Hero Banner ── */}
+      <div className="relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0c1a2e 100%)', minHeight: 220 }}>
+        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 20% 50%, #f97316 0%, transparent 50%), radial-gradient(circle at 80% 20%, #3b82f6 0%, transparent 40%)' }} />
+        <div className="absolute inset-0" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 md:px-10 pt-10 pb-16">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="h-0.5 w-8 rounded-full bg-orange-400" />
+            <span className="text-orange-400 text-xs font-black uppercase tracking-widest">Schedule Module</span>
+          </div>
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight mb-2">
+            My <span className="text-transparent bg-clip-text" style={{ backgroundImage: 'linear-gradient(90deg, #f97316, #fb923c)' }}>Timetable</span>
+          </h1>
+          <p className="text-white/60 text-sm font-medium max-w-lg">
+            Full weekly teaching schedule — view all assigned classes, subjects, periods, and rooms at a glance.
+          </p>
+          {/* Quick Stats */}
+          <div className="flex gap-4 mt-6 flex-wrap">
+            {[
+              { icon: <BookOpen size={14} />, label: 'Total Periods', val: totalPeriods },
+              { icon: <BookMarked size={14} />, label: 'Subjects', val: uniqueSubjects },
+              { icon: <Users size={14} />, label: 'Classes', val: uniqueClasses },
+            ].map((s, i) => (
+              <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                <span className="text-orange-400">{s.icon}</span>
+                <div>
+                  <div className="text-white font-black text-sm leading-none">{s.val}</div>
+                  <div className="text-white/40 text-[9px] font-bold uppercase tracking-widest mt-0.5">{s.label}</div>
                 </div>
-            </div>
-
-            {/* ── Main Content Area ── */}
-            <div className="relative z-30 max-w-[1600px] mx-auto px-4 md:px-12 -mt-20">
-                <div className="bg-white rounded-t-[2rem] shadow-2xl border border-black/5 overflow-hidden flex flex-col">
-
-                    {/* Header/Controls inside the card */}
-                    <div className="px-6 py-5 border-b border-black/5 flex flex-col xl:flex-row items-center justify-between gap-4 bg-white md:bg-re-bg/20">
-
-                        <div className="flex flex-col sm:flex-row items-center gap-4 w-full xl:w-auto">
-                            {/* View Controls */}
-                            <div className="flex bg-white p-1 rounded-xl shadow-sm border border-black/5 w-full sm:w-auto overflow-x-auto custom-scrollbar">
-                                <button
-                                    onClick={() => setView('grid')}
-                                    className={`flex-1 sm:flex-none flex items-center justify-center gap-2 h-8 sm:h-10 px-3 sm:px-6 rounded-lg text-[8px] sm:text-[10px] font-black uppercase tracking-widest transition-all ${view === 'grid' ? 'bg-re-bg text-re-orange border border-re-orange/10' : 'text-re-text-muted hover:text-re-text hover:bg-re-bg/50'}`}
-                                >
-                                    <Calendar size={12} className="sm:w-3.5 sm:h-3.5" /> Weekly Grid
-                                </button>
-                                <button
-                                    onClick={() => setView('list')}
-                                    className={`flex-1 sm:flex-none flex items-center justify-center gap-2 h-8 sm:h-10 px-3 sm:px-6 rounded-lg text-[8px] sm:text-[10px] font-black uppercase tracking-widest transition-all ${view === 'list' ? 'bg-re-bg text-re-orange border border-re-orange/10' : 'text-re-text-muted hover:text-re-text hover:bg-re-bg/50'}`}
-                                >
-                                    <List size={12} className="sm:w-3.5 sm:h-3.5" /> Daily Agenda
-                                </button>
-                            </div>
-
-                            {/* Day Selector (Mobile/List only) */}
-                            <div className={`w-full sm:w-auto flex items-center gap-1.5 sm:gap-2 ${view === 'grid' ? 'hidden sm:flex' : 'flex'}`}>
-                                <button className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center bg-white border border-black/5 rounded-lg sm:rounded-xl text-re-text-muted hover:text-re-orange hover:bg-re-orange/5 transition-all focus:outline-none">
-                                    <ChevronLeft size={14} className="sm:w-4 sm:h-4" />
-                                </button>
-                                <div className="flex-1 relative">
-                                    <select
-                                        value={selectedDay}
-                                        onChange={(e) => setSelectedDay(e.target.value)}
-                                        className="w-full h-8 sm:h-10 bg-white border border-black/5 rounded-lg sm:rounded-xl text-[8px] sm:text-xs font-black uppercase tracking-widest text-re-text text-center focus:outline-none focus:border-re-orange/30 appearance-none px-2"
-                                    >
-                                        {days.map(d => <option key={d} value={d}>{d}</option>)}
-                                    </select>
-                                    <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 text-re-text-muted opacity-40 pointer-events-none sm:hidden" />
-                                </div>
-                                <button className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center bg-white border border-black/5 rounded-lg sm:rounded-xl text-re-text-muted hover:text-re-orange hover:bg-re-orange/5 transition-all focus:outline-none">
-                                    <ChevronRight size={14} className="sm:w-4 sm:h-4" />
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Actions moved to footer for mobile clarity */}
-                        <div className="hidden xl:flex items-center gap-3 w-full xl:w-auto">
-                            <button className="h-11 px-6 bg-white border border-black/5 text-re-text font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg transition-all flex items-center justify-center gap-2 shadow-sm">
-                                <FileText size={14} className="text-re-orange opacity-70" /> Export PDF
-                            </button>
-                            <button className="h-11 px-6 bg-re-grad-orange text-white font-black text-[9px] uppercase tracking-widest rounded-xl shadow-re-glow hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2">
-                                <Plus size={14} /> Reschedule
-                            </button>
-                        </div>
-                    </div>
-                    <div className="px-6 py-3 border-b border-black/5 bg-white flex flex-col md:flex-row gap-2">
-                        <select
-                            value={selectedClass}
-                            onChange={(e) => setSelectedClass(e.target.value)}
-                            className="h-10 px-3 rounded-xl border border-black/10 text-xs font-bold text-re-text"
-                        >
-                            <option value="">All classes</option>
-                            {filterOptions.classes.map((cls) => (
-                                <option key={cls} value={cls}>{cls}</option>
-                            ))}
-                        </select>
-                        <select
-                            value={selectedTerm}
-                            onChange={(e) => setSelectedTerm(e.target.value)}
-                            className="h-10 px-3 rounded-xl border border-black/10 text-xs font-bold text-re-text"
-                        >
-                            <option value="">All terms</option>
-                            {filterOptions.terms.map((term) => (
-                                <option key={term} value={term}>{term}</option>
-                            ))}
-                        </select>
-                        <select
-                            value={selectedAcademicYear}
-                            onChange={(e) => setSelectedAcademicYear(e.target.value)}
-                            className="h-10 px-3 rounded-xl border border-black/10 text-xs font-bold text-re-text"
-                        >
-                            <option value="">All academic years</option>
-                            {filterOptions.academicYears.map((year) => (
-                                <option key={year} value={year}>{year}</option>
-                            ))}
-                        </select>
-                    </div>
-
-                    {/* Content inside the card */}
-                    <div className="bg-white">
-                        {loading && (
-                            <div className="p-6 text-xs font-bold text-re-text-muted uppercase tracking-widest text-center">
-                                Loading timetable...
-                            </div>
-                        )}
-                        {view === 'grid' ? (
-                            <div className="bg-white shadow-sm border border-black/5 overflow-x-auto custom-scrollbar">
-                                <table className="w-full text-left border-collapse table-fixed">
-                                    <thead>
-                                        <tr>
-                                            <th className="w-12 sm:w-24 border-r border-b border-black/5 bg-re-bg/50 p-1 sm:p-4"></th>
-                                            {days.map(day => (
-                                                <th key={day} className="border-b border-r border-black/5 bg-re-bg/50 p-1 sm:p-4 text-center text-[7px] sm:text-[10px] font-black uppercase tracking-[0.05em] sm:tracking-widest text-re-text-muted">
-                                                    {day.substring(0, 3)}
-                                                </th>
-                                            ))}
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {['08:00', '10:00', '12:00', '14:00', '16:00'].map(time => (
-                                            <tr key={time}>
-                                                <td className="border-r border-b border-black/5 bg-re-bg p-1 sm:p-4 text-center text-[8px] sm:text-xs font-bold text-gray-400 w-12 sm:w-24 sticky left-0 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
-                                                    {time}
-                                                </td>
-                                                {days.map(day => {
-                                                    const session = mockSchedule.find(s => s.day === day && s.time.startsWith(time));
-                                                    return (
-                                                        <td key={`${day}-${time}`} className="border-r border-b border-black/5 h-20 sm:h-32 align-top transition-all">
-                                                            {session && (
-                                                                <div className={`h-full p-1 sm:p-4 flex flex-col gap-0.5 sm:gap-2 ring-1 ring-inset ${getColorClasses(session.color)}`}>
-                                                                    <div className="flex items-center justify-between">
-                                                                        <span className="text-[6px] sm:text-[10px] font-black uppercase tracking-widest opacity-70 truncate">{session.type}</span>
-                                                                        <div className="hidden sm:flex w-5 h-5 rounded-md bg-white/50 items-center justify-center">
-                                                                            <CheckCircle size={10} className="opacity-60" />
-                                                                        </div>
-                                                                    </div>
-                                                                    <div>
-                                                                        <h4 className="text-[8px] sm:text-sm font-black tracking-tight leading-[1] sm:leading-tight truncate sm:whitespace-normal">{session.subject}</h4>
-                                                                        <p className="text-[7px] sm:text-[10px] font-bold opacity-80 mt-0.5 sm:mt-1 truncate">{session.group}</p>
-                                                                    </div>
-                                                                    <div className="mt-auto flex items-center gap-1 text-[7px] sm:text-[9px] font-bold uppercase tracking-widest opacity-80 truncate">
-                                                                        <MapPin size={8} className="sm:w-2.5 sm:h-2.5" /> <span className="truncate">{session.room}</span>
-                                                                    </div>
-                                                                </div>
-                                                            )}
-                                                        </td>
-                                                    );
-                                                })}
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        ) : (
-                            <div className="space-y-4 p-3">
-                                <h3 className="text-sm font-black uppercase tracking-widest text-re-text-muted px-2">
-                                    {selectedDay}'s Classes
-                                </h3>
-                                {todaySchedule.length === 0 ? (
-                                    <div className="bg-white rounded-2xl sm:rounded-3xl p-6 sm:p-12 text-center border border-black/5 shadow-sm">
-                                        <div className="w-12 h-12 sm:w-16 sm:h-16 bg-re-bg rounded-xl sm:rounded-2xl mx-auto flex items-center justify-center text-gray-300 mb-4">
-                                            <Calendar size={20} className="sm:w-6 sm:h-6" />
-                                        </div>
-                                        <h3 className="text-[10px] sm:text-sm font-black text-re-text tracking-tight uppercase">No Classes Scheduled</h3>
-                                        <p className="text-[8px] sm:text-[10px] font-bold text-re-text-muted uppercase tracking-widest mt-2 block">Enjoy your free time!</p>
-                                    </div>
-                                ) : (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
-                                        {todaySchedule.map(session => (
-                                            <div key={session.id} className={`bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-black/5 shadow-lg relative overflow-hidden group hover:-translate-y-1 transition-all duration-300`}>
-                                                <div className={`absolute top-0 right-0 w-16 h-16 sm:w-24 sm:h-24 blur-[30px] sm:blur-[40px] opacity-20 -mr-6 -mt-6 rounded-full ${session.color === 'blue' ? 'bg-blue-500' : session.color === 'emerald' ? 'bg-emerald-500' : 'bg-purple-500'}`}></div>
-
-                                                <div className="flex items-center justify-between mb-3 sm:mb-4 relative z-10">
-                                                    <div className={`px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-[7px] sm:text-[8px] font-black uppercase tracking-widest ring-1 ring-inset ${getColorClasses(session.color)}`}>
-                                                        {session.type}
-                                                    </div>
-                                                    <button className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-re-bg text-re-text-muted flex items-center justify-center hover:bg-re-orange hover:text-white transition-colors">
-                                                        <GridIcon size={10} className="sm:w-3 sm:h-3" />
-                                                    </button>
-                                                </div>
-
-                                                <div className="relative z-10 mb-5 sm:mb-6">
-                                                    <h3 className="text-base sm:text-xl font-black text-re-text tracking-tight">{session.subject}</h3>
-                                                    <p className="text-[10px] sm:text-[11px] font-bold text-re-text-muted uppercase tracking-widest mt-1">{session.group}</p>
-                                                </div>
-
-                                                <div className="space-y-2 sm:space-y-3 relative z-10 border-t border-black/5 pt-3 sm:pt-4">
-                                                    <div className="flex items-center gap-2 sm:gap-3 text-[11px] sm:text-xs font-bold text-gray-600">
-                                                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-re-bg flex items-center justify-center text-gray-400">
-                                                            <Clock size={12} className="sm:w-3.5 sm:h-3.5" />
-                                                        </div>
-                                                        {session.time}
-                                                    </div>
-                                                    <div className="flex items-center gap-2 sm:gap-3 text-[11px] sm:text-xs font-bold text-gray-600">
-                                                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-re-bg flex items-center justify-center text-gray-400">
-                                                            <MapPin size={12} className="sm:w-3.5 sm:h-3.5" />
-                                                        </div>
-                                                        {session.room}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {/* Mobile Actions Footer */}
-                        <div className="xl:hidden px-6 py-5 bg-re-bg/20 border-t border-black/5 flex flex-row items-center gap-3">
-                            <button className="flex-1 h-11 px-6 bg-white border border-black/5 text-re-text font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg transition-all flex items-center justify-center gap-2 shadow-sm">
-                                <FileText size={12} className="text-re-orange opacity-70" /> Export PDF
-                            </button>
-                            <button className="flex-1 h-11 px-6 bg-re-grad-orange text-white font-black text-[9px] uppercase tracking-widest rounded-xl shadow-re-glow hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2">
-                                <Plus size={12} /> Reschedule
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
+              </div>
+            ))}
+          </div>
         </div>
-    );
+      </div>
+
+      {/* ── Main Card ── */}
+      <div className="relative z-20 max-w-7xl mx-auto px-2 sm:px-4 md:px-6 -mt-6">
+        <div className="bg-white rounded-3xl shadow-2xl border border-black/5 overflow-hidden">
+
+          {/* Toolbar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-6 py-4 border-b border-gray-100 bg-gray-50/60">
+            {/* View Toggle */}
+            <div className="flex items-center gap-1 p-1 rounded-2xl bg-white border border-gray-200 w-full sm:w-auto">
+              {[
+                { id: 'grid', icon: <GridIcon size={14} />, label: 'Weekly Grid' },
+                { id: 'list', icon: <List size={14} />, label: 'Daily Agenda' },
+              ].map(v => (
+                <button
+                  key={v.id}
+                  onClick={() => setView(v.id)}
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 h-9 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200"
+                  style={view === v.id
+                    ? { background: 'linear-gradient(135deg, #f97316, #ea580c)', color: '#fff', boxShadow: '0 2px 12px rgba(249,115,22,0.35)' }
+                    : { color: '#94a3b8', background: 'transparent' }
+                  }
+                >
+                  {v.icon} <span className="hidden sm:inline">{v.label}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Export Buttons */}
+            <div className="flex gap-2 w-full sm:w-auto">
+              <button
+                onClick={handleExportPDF}
+                disabled={exporting}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 h-9 px-4 rounded-xl border border-gray-200 bg-white text-xs font-black uppercase tracking-wider text-gray-600 hover:border-orange-300 hover:text-orange-600 transition-all"
+              >
+                {exporting ? <Loader2 size={13} className="animate-spin" /> : <FileText size={13} />}
+                PDF
+              </button>
+              <button
+                onClick={handleExportImage}
+                disabled={exporting}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 h-9 px-4 rounded-xl border border-gray-200 bg-white text-xs font-black uppercase tracking-wider text-gray-600 hover:border-blue-300 hover:text-blue-600 transition-all"
+              >
+                {exporting ? <Loader2 size={13} className="animate-spin" /> : <ImageIcon size={13} />}
+                Image
+              </button>
+              <button
+                onClick={() => { setLoading(true); api.get('/teacher-portal/timetable').then(r => { if (r.data?.success) setSchedule(r.data.data || []); }).finally(() => setLoading(false)); }}
+                className="h-9 w-9 flex items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-400 hover:text-orange-500 hover:border-orange-200 transition-all"
+                title="Refresh"
+              >
+                <RefreshCw size={13} />
+              </button>
+            </div>
+          </div>
+
+          {/* Filters */}
+          <div className="px-4 sm:px-6 py-3 border-b border-gray-100 bg-white flex flex-wrap gap-2">
+            {[
+              { label: 'All Classes', value: selectedClass, setter: setSelectedClass, options: filterOptions.classes },
+              { label: 'All Terms', value: selectedTerm, setter: setSelectedTerm, options: filterOptions.terms },
+              { label: 'All Years', value: selectedAcademicYear, setter: setSelectedAcademicYear, options: filterOptions.academicYears },
+            ].map((f, i) => (
+              <select
+                key={i}
+                value={f.value}
+                onChange={e => f.setter(e.target.value)}
+                className="h-9 px-3 pr-8 rounded-xl border border-gray-200 text-xs font-bold text-gray-700 bg-white focus:outline-none focus:border-orange-300 focus:ring-2 focus:ring-orange-100 transition-all appearance-none"
+                style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center' }}
+              >
+                <option value="">{f.label}</option>
+                {f.options.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+            ))}
+          </div>
+
+          {/* Loading */}
+          {loading && (
+            <div className="flex flex-col items-center justify-center py-20 gap-3">
+              <div className="w-10 h-10 rounded-full border-4 border-orange-100 border-t-orange-500 animate-spin" />
+              <p className="text-xs font-black uppercase tracking-widest text-gray-400">Loading Timetable...</p>
+            </div>
+          )}
+
+          {/* ── WEEKLY GRID VIEW ── */}
+          {!loading && view === 'grid' && (
+            <div ref={gridRef} className="overflow-x-auto custom-scrollbar bg-white" id="timetable-grid">
+              {schedule.length === 0 ? (
+                <EmptyState message="No timetable data found." sub="Try adjusting your filters or contact admin." />
+              ) : (
+                <table className="w-full border-collapse" style={{ minWidth: 640 }}>
+                  <thead>
+                    <tr>
+                      <th className="sticky left-0 z-20 bg-gray-50 border-r border-b border-gray-100 px-3 py-4 text-center" style={{ width: 80, minWidth: 80 }}>
+                        <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">Time</span>
+                      </th>
+                      {DAYS.map(day => (
+                        <th key={day} className="border-r border-b border-gray-100 px-3 py-4 text-center bg-gray-50" style={{ minWidth: 140 }}>
+                          <div className="text-[10px] font-black uppercase tracking-widest text-gray-500">{day.substring(0, 3)}</div>
+                          <div className="text-[8px] text-gray-300 font-bold uppercase tracking-wider mt-0.5">{day}</div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allTimes.map((time, tIdx) => (
+                      <tr key={time} className={tIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'}>
+                        <td className="sticky left-0 z-10 border-r border-b border-gray-100 px-2 py-3 text-center" style={{ background: tIdx % 2 === 0 ? '#fff' : '#f9fafb', minWidth: 80 }}>
+                          <div className="flex flex-col items-center gap-0.5">
+                            <Clock size={10} className="text-gray-300" />
+                            <span className="text-[10px] font-black text-gray-400 tabular-nums">{time}</span>
+                          </div>
+                        </td>
+                        {DAYS.map(day => {
+                          const sessions = schedule.filter(s => s.day === day && s.time === time);
+                          const session = sessions[0];
+                          const color = session ? getSubjectColor(session.subject, colorMap) : null;
+                          return (
+                            <td key={`${day}-${time}`} className="border-r border-b border-gray-100 p-1.5 align-top" style={{ minWidth: 140, height: 100 }}>
+                              {session ? (
+                                <div
+                                  className="h-full rounded-xl p-2.5 flex flex-col gap-1 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 cursor-default relative overflow-hidden"
+                                  style={{ background: color.bg, border: `1.5px solid ${color.border}30` }}
+                                >
+                                  <div className="absolute top-0 left-0 w-1 h-full rounded-l-xl" style={{ background: color.border }} />
+                                  <div className="pl-1.5">
+                                    <div className="text-[10px] font-black uppercase tracking-wide leading-tight truncate" style={{ color: color.text }}>
+                                      {session.subject}
+                                    </div>
+                                    {session.group && (
+                                      <div className="text-[9px] font-bold truncate mt-0.5" style={{ color: color.text + 'aa' }}>
+                                        {session.group}
+                                      </div>
+                                    )}
+                                    <div className="flex items-center gap-1 mt-1.5">
+                                      {session.room && (
+                                        <span className="flex items-center gap-0.5 text-[8px] font-bold px-1.5 py-0.5 rounded-md" style={{ background: color.border + '18', color: color.text }}>
+                                          <MapPin size={7} /> {session.room}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="h-full" />
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
+
+          {/* ── DAILY AGENDA VIEW ── */}
+          {!loading && view === 'list' && (
+            <div>
+              {/* Day Navigator */}
+              <div className="flex items-center gap-2 px-4 sm:px-6 py-4 border-b border-gray-100 bg-white">
+                <button onClick={prevDay} disabled={dayIdx === 0} className="h-9 w-9 flex items-center justify-center rounded-xl border border-gray-200 text-gray-400 hover:border-orange-200 hover:text-orange-500 disabled:opacity-30 transition-all">
+                  <ChevronLeft size={16} />
+                </button>
+                <div className="flex-1 flex gap-1 overflow-x-auto custom-scrollbar">
+                  {DAYS.map(day => (
+                    <button
+                      key={day}
+                      onClick={() => setSelectedDay(day)}
+                      className="flex-shrink-0 px-3 sm:px-4 h-9 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200"
+                      style={selectedDay === day
+                        ? { background: 'linear-gradient(135deg, #f97316, #ea580c)', color: '#fff', boxShadow: '0 2px 12px rgba(249,115,22,0.35)' }
+                        : { background: '#f8fafc', color: '#94a3b8', border: '1px solid #e2e8f0' }
+                      }
+                    >
+                      <span className="hidden sm:inline">{day}</span>
+                      <span className="sm:hidden">{day.substring(0, 3)}</span>
+                    </button>
+                  ))}
+                </div>
+                <button onClick={nextDay} disabled={dayIdx === DAYS.length - 1} className="h-9 w-9 flex items-center justify-center rounded-xl border border-gray-200 text-gray-400 hover:border-orange-200 hover:text-orange-500 disabled:opacity-30 transition-all">
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+
+              <div className="p-4 sm:p-6">
+                {daySchedule.length === 0 ? (
+                  <EmptyState message={`No classes on ${selectedDay}`} sub="You have a free day. Enjoy!" />
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {daySchedule.map((session, idx) => {
+                      const color = getSubjectColor(session.subject, colorMap);
+                      return (
+                        <div
+                          key={session.id || idx}
+                          className="group rounded-2xl p-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl relative overflow-hidden"
+                          style={{ background: '#fff', border: `1.5px solid ${color.border}25`, boxShadow: `0 2px 12px ${color.glow}` }}
+                        >
+                          <div className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl" style={{ background: `linear-gradient(90deg, ${color.border}, ${color.border}80)` }} />
+                          <div className="flex items-start justify-between mb-3 pt-1">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider" style={{ background: color.bg, color: color.text }}>
+                              <BookOpen size={9} /> {session.type || 'Lesson'}
+                            </span>
+                            <span className="flex items-center gap-1 text-[9px] font-black px-2 py-1 rounded-lg" style={{ background: '#f8fafc', color: '#94a3b8' }}>
+                              <Clock size={9} /> {session.time}
+                            </span>
+                          </div>
+                          <h3 className="text-base font-black text-gray-800 tracking-tight leading-tight mb-1" style={{ color: color.text }}>
+                            {session.subject}
+                          </h3>
+                          {session.group && (
+                            <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: color.text + '99' }}>
+                              {session.group}
+                            </p>
+                          )}
+                          <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-100">
+                            {session.room && (
+                              <span className="flex items-center gap-1.5 text-[10px] font-bold text-gray-500">
+                                <MapPin size={10} className="text-gray-400" /> {session.room}
+                              </span>
+                            )}
+                            {session.teacher_name && (
+                              <span className="flex items-center gap-1.5 text-[10px] font-bold text-gray-500">
+                                <User size={10} className="text-gray-400" /> {session.teacher_name}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EmptyState({ message, sub }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-20 gap-3">
+      <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #fff7ed, #fef3c7)' }}>
+        <Calendar size={28} className="text-orange-400" />
+      </div>
+      <p className="text-sm font-black uppercase tracking-widest text-gray-700">{message}</p>
+      {sub && <p className="text-xs font-bold text-gray-400 text-center max-w-xs">{sub}</p>}
+    </div>
+  );
 }

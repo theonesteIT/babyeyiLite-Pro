@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import {
-    Users, Search, Download, Mail, ChevronRight, 
-    ArrowRight, Activity, X, User, Phone, Tag, 
+    Users, Search, Download, Mail, ChevronRight,
+    ArrowRight, Activity, X, User, Phone, Tag,
     Printer, CheckCircle, RefreshCw, Wallet,
     TrendingUp, TrendingDown, Landmark, Filter,
     CircleDollarSign, AlertCircle, MoreVertical, Eye,
@@ -336,16 +336,17 @@ const FeePayments = () => {
 
     return (
         <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen">
-            
-            <StudentModal 
-                student={selectedStudent} 
-                onClose={() => setSelectedStudent(null)} 
+
+            <StudentModal
+                student={selectedStudent}
+                onClose={() => setSelectedStudent(null)}
             />
 
             {/* ── Hero Section ── */}
-            <div className="relative w-full min-h-[280px] overflow-hidden">
-                <div className="absolute inset-0 bg-re-navy/80 z-10 backdrop-blur-[2px]"></div>
-                <img src="/teacher.jpg" alt="Hero" className="absolute inset-0 w-full h-full object-cover scale-105 brightness-50" />
+            <div className="relative w-full min-h-[280px] overflow-hidden bg-[#000435]">
+                <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full border border-white/5 pointer-events-none" />
+                <div className="absolute -top-12 -right-12 w-64 h-64 rounded-full border border-white/5 pointer-events-none" />
+                <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-[#FEBF10]/30 to-transparent pointer-events-none" />
 
                 <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-12 pt-16 pb-24">
                     <div className="space-y-1">
@@ -476,7 +477,7 @@ const FeePayments = () => {
                                     className={`flex items-center justify-center gap-1.5 shrink-0 h-9 px-5 rounded-xl border font-black text-[9px] uppercase tracking-widest transition-all whitespace-nowrap ${selectedClass === cls
                                         ? 'bg-re-navy border-re-navy text-white shadow-re-premium-navy hover:scale-105'
                                         : 'bg-white border-black/5 text-re-text-muted hover:bg-re-bg hover:text-re-text'
-                                    }`}
+                                        }`}
                                 >
                                     {selectedClass === cls && <CheckCircle size={10} className="opacity-80" />}
                                     {cls}
@@ -509,15 +510,15 @@ const FeePayments = () => {
                                     filteredStudents.map((s, idx) => {
                                         const isLastItems = idx >= filteredStudents.length - 2 && filteredStudents.length > 2;
                                         return (
-                                            <tr 
-                                                key={s.id} 
+                                            <tr
+                                                key={s.id}
                                                 onClick={() => setSelectedStudent(s)}
                                                 className="hover:bg-re-bg/60 even:bg-re-bg/20 transition-colors group cursor-pointer"
                                             >
                                                 <td className="px-8 py-5 border-r border-black/5 last:border-r-0">
                                                     <div className="flex items-center gap-4">
                                                         <div className="w-10 h-10 rounded-full bg-re-bg border border-black/5 flex-shrink-0 flex items-center justify-center text-re-navy font-black text-sm relative shadow-inner overflow-hidden group-hover:bg-white transition-colors">
-                                                            <User size={12} className='text-gray-400'/>
+                                                            <User size={12} className='text-gray-400' />
                                                             <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-white border border-black/5 rounded-full flex items-center justify-center">
                                                                 <div className={`w-1.5 h-1.5 ${s.balance === 0 ? 'bg-re-emerald' : 'bg-re-orange'} rounded-full`}></div>
                                                             </div>
@@ -531,7 +532,7 @@ const FeePayments = () => {
                                                 <td className="hidden md:table-cell px-8 py-5 border-r border-black/5">
                                                     <div className="flex flex-col gap-0.5">
                                                         <p className="text-[10px] font-black text-re-navy uppercase tracking-tight">{s.grade}</p>
-                                                            <p className="text-[9px] font-black text-re-gold uppercase italic">{s.stream || '—'}</p>
+                                                        <p className="text-[9px] font-black text-re-gold uppercase italic">{s.stream || '—'}</p>
                                                     </div>
                                                 </td>
                                                 <td className="hidden md:table-cell px-8 py-5 border-r border-black/5 text-re-navy">
@@ -545,14 +546,14 @@ const FeePayments = () => {
                                                 </td>
                                                 <td className="px-8 py-5 text-right relative">
                                                     <div className="flex items-center gap-3 justify-end items-center">
-                                                        <button 
+                                                        <button
                                                             className="w-8 h-8 rounded-lg flex items-center justify-center text-re-text-muted hover:bg-re-bg hover:text-re-gold transition-all border border-transparent hover:border-black/5"
                                                             onClick={(e) => { e.stopPropagation(); }}
                                                         >
                                                             <Mail size={14} />
                                                         </button>
                                                         <div className="relative">
-                                                            <button 
+                                                            <button
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
                                                                     setOpenDropdownId(openDropdownId === s.id ? null : s.id);
@@ -596,7 +597,7 @@ const FeePayments = () => {
                                 <p className="text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 italic">Ledger Synchronized</p>
                             </div>
                             <div className="w-px h-3 bg-black/10"></div>
-                                                    <p className="text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 italic">Displaying {filteredStudents.length} Records · {selectedTerm} · {selectedYear}</p>
+                            <p className="text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 italic">Displaying {filteredStudents.length} Records · {selectedTerm} · {selectedYear}</p>
                         </div>
                         <div className="flex items-center gap-1.5">
                             <button className="h-8 px-4 rounded-lg bg-white border border-black/5 text-[9px] font-black text-re-text-muted tracking-tighter opacity-40 hover:opacity-100 transition-all font-mono italic">Prev_set</button>

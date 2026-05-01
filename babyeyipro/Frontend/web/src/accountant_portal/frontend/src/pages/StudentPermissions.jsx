@@ -326,10 +326,8 @@ export default function StudentPermissions() {
             {PermissionDetailsModal}
             
             {/* ── Hero Section ── */}
-            <div className="relative w-full min-h-[280px] overflow-hidden">
-                <div className="absolute inset-0 bg-[#0a192f]/75 z-10 backdrop-blur-[2px]"></div>
-                <img src="/teacher.jpg" alt="Hero" className="absolute inset-0 w-full h-full object-cover scale-105 opacity-60 z-0" />
-                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#000435]/40 via-transparent to-transparent z-10 max-w-[1600px] mx-auto"></div>
+            <div className="relative w-full min-h-[280px] overflow-hidden bg-[#000435]">
+                
                 
                 <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-12 pt-12 pb-24 flex items-center gap-8">
                     <div className="space-y-1">

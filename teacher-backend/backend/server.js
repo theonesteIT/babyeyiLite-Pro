@@ -73,6 +73,7 @@ const PORT = process.env.PORT || 5100;
   'uploads/requirement-images',     // Super Admin catalog requirement images
   'uploads/service-icons',          // Super Admin voucher / student service icons
   'uploads/temp',
+  'uploads/library-covers',
 ].forEach(dir => {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
@@ -591,6 +592,8 @@ const dosAcademicRoutes = require('./BabyeyiRoutes/dosAcademic');
 console.log('  ✅  dosAcademic.js');
 const studentTransferRoutes = require('./BabyeyiRoutes/studentTransfer');
 console.log('  ✅  studentTransfer.js');
+const libraryRoutes = require('./BabyeyiRoutes/library');
+console.log('  ✅  library.js');
 const parentPortalRoutes     = require('./BabyeyiRoutes/parentPortal');
 const schoolClassesRouter    = require('./BabyeyiRoutes/schoolClasses');
 const studentPermissionsRoutes = require('./BabyeyiRoutes/studentPermissions');
@@ -656,6 +659,9 @@ console.log('  ✅  /api/momo/*');
 
 app.use('/api/public/public-pay', publicPaySchoolFlowRoutes);
 console.log('  ✅  /api/public/public-pay/*');
+// Library (books, borrowings, /students/search, /staff/search) — mount early so routes are not lost behind other /api routers
+app.use('/api', libraryRoutes);
+console.log('  ✅  /api/books · /api/borrowings · /students/search (early mount)');
 // Parent portal MUST be registered before the alias mount below, otherwise
 // POST /api/parent-portal/public/babyeyi-finder/student-lookup is swallowed by
 // the babyeyi-pay router (no POST /student-lookup there) → 404.
@@ -698,6 +704,7 @@ console.log('  ✅  /api/iot/*');
 app.use('/api', studentPermissionsRoutes);
 console.log('  ✅  /api/permissions/*');
 app.use('/api', studentTransferRoutes);
+// libraryRoutes mounted early (after public-pay) — see above
 // parentPortalRoutes mounted earlier (before /api/parent-portal/public/babyeyi-finder alias)
 // ─────────────────────────────────────────────────────────────
 

@@ -53,8 +53,18 @@ async function getStudentCardRow(studentId) {
   return rows[0] || null;
 }
 
-/** Public QR profile — include students even when school_id is missing (JOIN would drop them). */
-async function getPublicStudentProfileRow(studentId) {
+/**
+ * Public QR profile — accepts EITHER:
+ *   - numeric DB id  (e.g. 893)      ← legacy cards
+ *   - student_code string (e.g. 150010001) ← cards printed after the fix
+ * No login required.
+ */
+async function getPublicStudentProfileRow(identifier) {
+  // If the identifier is purely numeric treat it as the DB primary key first,
+  // but also fall back to student_code so old cards still work.
+  const asNum = Number(identifier);
+  const isNumericId = Number.isInteger(asNum) && asNum > 0 && String(identifier).trim() === String(asNum);
+
   const [rows] = await promisePool.query(
     `SELECT st.id, st.student_uid, st.student_code, st.first_name, st.last_name, st.birth_year, st.gender,
             st.class_name, st.academic_year, st.student_photo, st.updated_at AS student_updated_at,
@@ -63,9 +73,9 @@ async function getPublicStudentProfileRow(studentId) {
             sc.province, sc.district, sc.sector
      FROM students st
      LEFT JOIN schools sc ON sc.id = st.school_id
-     WHERE st.id = ?
+     WHERE ${isNumericId ? 'st.id = ? OR st.student_code = ?' : 'st.student_code = ? OR st.student_uid = ?'}
      LIMIT 1`,
-    [studentId]
+    isNumericId ? [asNum, String(identifier).trim()] : [String(identifier).trim(), String(identifier).trim()]
   );
   return rows[0] || null;
 }
@@ -109,14 +119,15 @@ async function getStudentCardPayload(req, studentId) {
 }
 
 // Public profile lookup for QR page (no login required).
+// Accepts numeric DB id OR student_code string (e.g. 150010001).
 router.get('/students/public/:id', async (req, res) => {
   try {
-    const studentId = Number(req.params.id);
-    if (!studentId) {
-      return res.status(400).json({ success: false, message: 'Invalid student id' });
+    const identifier = String(req.params.id || '').trim();
+    if (!identifier) {
+      return res.status(400).json({ success: false, message: 'Invalid student id or code' });
     }
 
-    const row = await getPublicStudentProfileRow(studentId);
+    const row = await getPublicStudentProfileRow(identifier);
     if (!row) {
       return res.status(404).json({ success: false, message: 'Student not found' });
     }

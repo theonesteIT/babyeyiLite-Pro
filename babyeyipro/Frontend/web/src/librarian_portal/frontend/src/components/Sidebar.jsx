@@ -2,9 +2,9 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
-  LayoutDashboard, BookOpen, BookMarked, Users, RotateCcw,
+  LayoutDashboard, BookOpen, BookMarked, RotateCcw,
   Wallet, User, LogOut, Wifi, WifiOff, RefreshCw, ChevronDown, MessageSquare,
-  Library, BarChart2, Settings, DollarSign,
+  Library, BarChart2, Settings, DollarSign, AlertTriangle, Layers,
 } from 'lucide-react';
 import useChatUnread from '../../../../shared/hooks/useChatUnread';
 
@@ -110,26 +110,34 @@ const Sidebar = ({ onClose }) => {
 
       {/* Nav */}
       <nav className="flex-1 px-2 py-1 overflow-y-auto space-y-0.5" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-        <NavItem icon={LayoutDashboard} name="Dashboard"     path="/"           exact onClose={onClose} />
+        <NavItem icon={LayoutDashboard} name="Dashboard"     path="/librarian"           exact onClose={onClose} />
 
         <SectionLabel label="Catalogue" />
-        <NavItem icon={BookOpen}   name="Books"            path="/books"       onClose={onClose} />
-        <NavItem icon={Users}      name="Members"          path="/members"     onClose={onClose} />
+        <NavItem icon={BookOpen}   name="Books"            path="/librarian/books"       onClose={onClose} />
 
         <SectionLabel label="Circulation" />
-        <NavItem icon={BookMarked} name="Borrowing"        path="/borrowing"   onClose={onClose} />
-        <NavItem icon={RotateCcw}  name="Returns"          path="/returns"     onClose={onClose} />
+        <NavItem icon={BookMarked} name="Borrowing"        path="/librarian/borrowing"   onClose={onClose} />
+        <NavItem icon={RotateCcw}  name="Returns"          path="/librarian/returns"     onClose={onClose} />
 
         <SectionLabel label="Reports" />
-        <NavItem icon={BarChart2}  name="Library Reports"  path="/reports"     onClose={onClose} />
+        <ExpandableNavItem
+          icon={BarChart2}
+          name="Reports"
+          onClose={onClose}
+          subItems={[
+            { name: 'Overview', path: '/librarian/reports', icon: BarChart2 },
+            { name: 'Overdue', path: '/librarian/reports/overdue', icon: AlertTriangle },
+            { name: 'Book stock', path: '/librarian/reports/circulation', icon: Layers },
+          ]}
+        />
 
         <SectionLabel label="Services" />
-        <NavItem icon={DollarSign} name="My Payroll" path="/my-payroll" onClose={onClose} />
-        <NavItem icon={Wallet}     name="Shule Avance"     path="/shule-avance" onClose={onClose} />
-        <NavItem icon={MessageSquare} name="Chat Center"   path="/chat" onClose={onClose} badgeCount={unreadCount} />
+        <NavItem icon={DollarSign} name="My Payroll" path="/librarian/my-payroll" onClose={onClose} />
+        <NavItem icon={Wallet}     name="Shule Avance"     path="/librarian/shule-avance" onClose={onClose} />
+        <NavItem icon={MessageSquare} name="Chat Center"   path="/librarian/chat" onClose={onClose} badgeCount={unreadCount} />
 
         <SectionLabel label="System" />
-        <NavItem icon={Settings}   name="Settings"         path="/settings"    onClose={onClose} />
+        <NavItem icon={Settings}   name="Settings"         path="/librarian/settings"    onClose={onClose} />
       </nav>
 
       {/* Profile footer */}

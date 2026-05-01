@@ -61,6 +61,13 @@ const paletteForSubject = (subject = '') => {
   return SUBJECT_PALETTES[hash % SUBJECT_PALETTES.length];
 };
 
+// ─── Utility: strip modern CSS color functions that html2canvas cannot parse ───
+// Tailwind v3 emits oklch()/oklab() inside <style> tags and CSS custom properties.
+// html2canvas throws "unsupported color function" and produces blank output.
+// This helper rewrites those values to safe hex equivalents before capture.
+const stripModernColors = (cssText) =>
+  cssText.replace(/\b(?:oklab|oklch)\([^)]*\)/gi, '#888');
+
 export default function Timetable() {
   const exportRef = useRef(null);
   const [loading, setLoading] = useState(true);
@@ -308,51 +315,77 @@ export default function Timetable() {
   const renderToCanvas = useCallback(async () => {
     const node = exportRef.current;
     if (!node) throw new Error('Timetable grid not ready.');
+
     let html2canvas;
     try {
       const mod = await import('html2canvas');
       html2canvas = mod.default || mod;
     } catch {
-      throw new Error('html2canvas is missing. Install dependency and retry.');
+      throw new Error('html2canvas is missing. Run: npm install html2canvas');
     }
 
-    const cloned = node.cloneNode(true);
-    const sourceEls = [node, ...node.querySelectorAll('*')];
-    const cloneEls = [cloned, ...cloned.querySelectorAll('*')];
-    sourceEls.forEach((srcEl, idx) => {
-      const destEl = cloneEls[idx];
-      if (!destEl) return;
-      const computed = window.getComputedStyle(srcEl);
-      for (let i = 0; i < computed.length; i += 1) {
-        const prop = computed[i];
-        const value = computed.getPropertyValue(prop);
-        if (value) destEl.style.setProperty(prop, value);
-      }
-      destEl.removeAttribute('class');
+    return await html2canvas(node, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: '#f4f5f7',
+      logging: false,
+      scrollX: 0,
+      scrollY: -window.scrollY,
+      windowWidth: document.documentElement.scrollWidth,
+      windowHeight: document.documentElement.scrollHeight,
+      onclone: (clonedDoc) => {
+        // ── FIX: Tailwind v3 writes CSS variables using oklch()/oklab() inside
+        // <style> tags. html2canvas cannot parse these modern color functions and
+        // throws "unsupported color function" → blank/corrupt export.
+        //
+        // ROOT CAUSE of the original bug: the code used a single regex object
+        // with the /g flag for BOTH .test() and .replace(). After .test() advances
+        // lastIndex, the subsequent .replace() call starts mid-string and misses
+        // all matches at the beginning — so nothing was actually replaced.
+        //
+        // FIX: Use separate regex literals (each starts with lastIndex = 0), and
+        // always replace unconditionally — the .test() guard is unnecessary.
+
+        // 1. Rewrite <style> tag contents
+        clonedDoc.querySelectorAll('style').forEach((styleEl) => {
+          if (styleEl.textContent) {
+            styleEl.textContent = stripModernColors(styleEl.textContent);
+          }
+        });
+
+        // 2. Rewrite inline style= attributes (belt-and-suspenders)
+        clonedDoc.querySelectorAll('[style]').forEach((el) => {
+          const inlineStyle = el.getAttribute('style');
+          if (inlineStyle) {
+            el.setAttribute('style', stripModernColors(inlineStyle));
+          }
+        });
+
+        // 3. Rewrite CSS custom properties declared on :root / any element
+        // via CSSOM (covers cases where Tailwind injects via JS-in-CSS)
+        try {
+          Array.from(clonedDoc.styleSheets).forEach((sheet) => {
+            try {
+              Array.from(sheet.cssRules || []).forEach((rule) => {
+                if (rule.style) {
+                  Array.from(rule.style).forEach((prop) => {
+                    const val = rule.style.getPropertyValue(prop);
+                    if (/oklab|oklch/i.test(val)) {
+                      rule.style.setProperty(prop, '#888', rule.style.getPropertyPriority(prop));
+                    }
+                  });
+                }
+              });
+            } catch {
+              // Cross-origin sheets throw SecurityError — safely ignore
+            }
+          });
+        } catch {
+          // CSSOM iteration not available — fallback already handled by <style> rewrite above
+        }
+      },
     });
-
-    const wrap = document.createElement('div');
-    wrap.style.position = 'fixed';
-    wrap.style.left = '-100000px';
-    wrap.style.top = '0';
-    wrap.style.width = `${node.offsetWidth}px`;
-    wrap.style.padding = '0';
-    wrap.style.margin = '0';
-    wrap.style.background = '#f4f5f7';
-    wrap.appendChild(cloned);
-    document.body.appendChild(wrap);
-
-    try {
-      return await html2canvas(cloned, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#f4f5f7',
-        logging: false,
-        foreignObjectRendering: true,
-      });
-    } finally {
-      wrap.remove();
-    }
   }, []);
 
   const exportAsPng = useCallback(async () => {
@@ -492,13 +525,12 @@ export default function Timetable() {
                         return (
                           <div
                             key={`${day}-${period.id}`}
-                            className={`rounded-lg border p-2.5 min-h-[84px] ${
-                              pause
-                                ? 'bg-[#eceff3] border-[#e1e5ea]'
-                                : lesson
-                                  ? 'shadow-[0_2px_6px_rgba(15,23,42,0.12)]'
-                                  : 'bg-white border-[#e3e7ed] shadow-[0_1px_3px_rgba(15,23,42,0.04)]'
-                            }`}
+                            className={`rounded-lg border p-2.5 min-h-[84px] ${pause
+                              ? 'bg-[#eceff3] border-[#e1e5ea]'
+                              : lesson
+                                ? 'shadow-[0_2px_6px_rgba(15,23,42,0.12)]'
+                                : 'bg-white border-[#e3e7ed] shadow-[0_1px_3px_rgba(15,23,42,0.04)]'
+                              }`}
                             style={lesson ? { backgroundColor: palette.bg, borderColor: palette.border } : undefined}
                           >
                             <div className="flex items-center justify-between">

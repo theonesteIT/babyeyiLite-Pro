@@ -9,18 +9,23 @@ export default function Attendance() {
   const [tab, setTab] = useState('class');
 
   return (
-    <div className="min-h-screen space-y-4 bg-re-bg pb-10">
-      <div className="relative overflow-hidden rounded-3xl border border-black/5 bg-white">
-        <img src="/teacher.jpg" alt="Attendance banner" className="h-44 w-full object-cover" />
-        <div className="absolute inset-0 bg-black/50" />
-        <div className="absolute inset-0 p-6 text-white">
-          <p className="text-[11px] font-black uppercase tracking-[0.2em]">Attendance Module</p>
-          <h1 className="mt-2 text-2xl font-black md:text-4xl">DOS Smart Attendance Dashboard</h1>
-          <p className="mt-2 max-w-2xl text-xs font-semibold text-white/85 md:text-sm">
+    <div className="min-h-screen space-y-4 bg-re-bg pb-10" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+      {/* ── Hero Banner ── */}
+      <section className="relative p-7 md:p-10 text-white overflow-hidden min-h-[200px] flex items-center bg-[#000435]">
+        <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full border border-white/5 pointer-events-none" />
+        <div className="absolute -top-12 -right-12 w-64 h-64 rounded-full border border-white/5 pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-[#FEBF10]/30 to-transparent pointer-events-none" />
+        <div className="relative z-10 max-w-5xl w-full">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="h-0.5 w-6 rounded-full bg-[#FEBF10]" />
+            <p className="text-[10px] font-black capitalize tracking-widest text-[#FEBF10]/80">Attendance Module</p>
+          </div>
+          <h1 className="text-2xl md:text-3xl font-black tracking-tight">DOS Smart Attendance Dashboard</h1>
+          <p className="text-xs font-bold text-white/60 max-w-xl mt-2">
             Class period attendance, student entry/exit, and teacher manual + RFID + class check-in in one workflow.
           </p>
         </div>
-      </div>
+      </section>
 
       <div className="flex flex-wrap gap-2 rounded-2xl border border-black/10 bg-white p-2">
         <button type="button" onClick={() => setTab('class')} className={`h-10 rounded-xl px-4 text-xs font-black uppercase tracking-widest ${tab === 'class' ? 'bg-re-grad-orange text-white' : 'bg-re-bg text-re-text'}`}>

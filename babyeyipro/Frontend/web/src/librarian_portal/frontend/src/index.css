@@ -79,6 +79,13 @@
     @apply shadow-[0_12px_45px_-12px_#9D50BB66];
   }
 
+  .required-input {
+    @apply border border-black/5 rounded-xl transition-colors;
+  }
+  .required-input.required-input--error {
+    @apply border-red-500 ring-1 ring-red-500/30 bg-red-50/30;
+  }
+
   .icon-circle {
     @apply w-12 h-12 rounded-full flex items-center justify-center font-bold text-white shadow-sm;
   }

@@ -539,8 +539,24 @@ export default function PaymentsPage() {
   }, [location.state]);
 
   useEffect(() => {
-    if (draft?.studentServiceCheckout || draft?.agentShopCheckout || draft?.standardKitCheckout || draft?.shulecardTopupCheckout) setPayMethod('momo');
-  }, [draft?.studentServiceCheckout, draft?.agentShopCheckout, draft?.standardKitCheckout, draft?.shulecardTopupCheckout]);
+    if (
+      draft?.studentServiceCheckout ||
+      draft?.agentShopCheckout ||
+      draft?.standardKitCheckout ||
+      draft?.shulecardTopupCheckout ||
+      draft?.shulecardTopupPublicFallback ||
+      draft?.forcePayMethod === 'momo'
+    ) {
+      setPayMethod('momo');
+    }
+  }, [
+    draft?.studentServiceCheckout,
+    draft?.agentShopCheckout,
+    draft?.standardKitCheckout,
+    draft?.shulecardTopupCheckout,
+    draft?.shulecardTopupPublicFallback,
+    draft?.forcePayMethod,
+  ]);
 
   useEffect(() => {
     if (!draft?.uniformVoucherCheckout || !draft.uniformVoucherPayload?.orderNumber) return;
@@ -1837,6 +1853,22 @@ export default function PaymentsPage() {
           {(draft?.studentServiceCheckout || draft?.uniformVoucherCheckout) && draft?.payer?.name && (
             <div style={{ fontSize: 12, color: C.am100, marginTop: 3 }}>
               Payer: <strong>{draft.payer.name}</strong>
+            </div>
+          )}
+          {draft?.shulecardTopupPublicFallback && (
+            <div
+              style={{
+                marginTop: 10,
+                border: `1px solid ${C.am300}`,
+                background: C.am50,
+                color: C.db900,
+                borderRadius: 8,
+                padding: "9px 11px",
+                fontSize: 12,
+                fontWeight: 700,
+              }}
+            >
+              Public ShuleCard fallback mode: you were redirected because parent login session was not found for direct wallet top-up.
             </div>
           )}
         </div>

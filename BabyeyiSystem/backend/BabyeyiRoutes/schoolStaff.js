@@ -25,15 +25,19 @@ const { computeProAccessEffective } = require('../utils/schoolSubscription');
 const router = express.Router();
 
 const CREATOR_ROLES = ['SCHOOL_ADMIN', 'SCHOOL_MANAGER', 'DOS'];
+const STAFF_CARD_ROLES = ['SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER', 'DOS'];
 const CREATABLE_ROLE_CODES = [
   'TEACHER', 'ACCOUNTANT', 'HOD', 'DOS',
   'GATE_OFFICER', 'LIBRARIAN', 'STORE_MANAGER',
-  'SECRETARY', 'HR', 'DISCIPLINE',
+  'SECRETARY', 'HR', 'DISCIPLINE', 'SCHOOL_MANAGER', 'SCHOOL_DIRECTOR',
 ];
 const ROLE_CODE_ALIASES = {
   DISCIPLINE: ['DISCIPLINE_STAFF', 'HOD'],
   STORE_MANAGER: ['STOREKEEPER'],
+  SCHOOL_MANAGER: ['SCHOOL MANAGER'],
+  SCHOOL_DIRECTOR: ['SCHOOL DIRECTOR'],
 };
+const CUSTOM_ROLE_CODE_RE = /^[A-Z][A-Z0-9_]{1,63}$/;
 
 const STAFF_ID_DIR = path.join(__dirname, '..', 'uploads', 'staff-identity-photos');
 if (!fs.existsSync(STAFF_ID_DIR)) {
@@ -176,6 +180,24 @@ function trimStr(v) {
   return String(v).trim();
 }
 
+function normalizeCustomRoleCode(raw) {
+  const normalized = String(raw || '')
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .replace(/_+/g, '_');
+  return normalized;
+}
+
+function roleCodeToName(roleCode) {
+  return String(roleCode || '')
+    .split('_')
+    .filter(Boolean)
+    .map((s) => s.charAt(0) + s.slice(1).toLowerCase())
+    .join(' ') || 'Custom Role';
+}
+
 function candidateRoleCodes(roleCode) {
   const base = String(roleCode || '').toUpperCase();
   if (!base) return [];
@@ -195,6 +217,63 @@ async function findActiveRoleByCode(conn, roleCode) {
     if (row?.id) return row;
   }
   return null;
+}
+
+async function resolveStaffAssignableRole(conn, rawRoleCode, customRoleName = '') {
+  const incoming = trimStr(rawRoleCode).toUpperCase();
+  const normalizedCustom = normalizeCustomRoleCode(customRoleName);
+  const roleCode = incoming === 'CUSTOM' ? normalizedCustom : incoming;
+
+  if (!roleCode) {
+    return { ok: false, message: 'Role is required.' };
+  }
+
+  if (CREATABLE_ROLE_CODES.includes(roleCode)) {
+    const roleRow = await findActiveRoleByCode(conn, roleCode);
+    if (roleRow) return { ok: true, roleRow };
+
+    // Self-heal missing/inactive system roles so role assignment never blocks HR.
+    const codes = candidateRoleCodes(roleCode);
+    for (const code of codes) {
+      const [[inactiveRow]] = await conn.query(
+        'SELECT id FROM roles WHERE UPPER(role_code) = ? LIMIT 1',
+        [code]
+      );
+      if (inactiveRow?.id) {
+        await conn.query(
+          'UPDATE roles SET is_active = 1, role_name = COALESCE(NULLIF(role_name, \'\'), ?), updated_at = NOW() WHERE id = ?',
+          [roleCodeToName(roleCode), inactiveRow.id]
+        );
+        return { ok: true, roleRow: { id: inactiveRow.id, role_code: roleCode } };
+      }
+    }
+
+    const [insertedRole] = await conn.query(
+      `INSERT INTO roles (role_name, role_code, description, permissions, is_active, is_system_role)
+       VALUES (?, ?, ?, ?, 1, 1)`,
+      [roleCodeToName(roleCode), roleCode, 'System staff role auto-created from HR Center', '[]']
+    );
+    return { ok: true, roleRow: { id: insertedRole.insertId, role_code: roleCode } };
+  }
+
+  // Do not allow assigning non-creatable system roles via this endpoint.
+  const existing = await findActiveRoleByCode(conn, roleCode);
+  if (existing) {
+    return { ok: false, message: `Role must be one of: ${CREATABLE_ROLE_CODES.join(', ')} or a new custom role.` };
+  }
+
+  if (!CUSTOM_ROLE_CODE_RE.test(roleCode)) {
+    return { ok: false, message: 'Custom role format is invalid.' };
+  }
+
+  const roleName = roleCodeToName(roleCode);
+
+  const [inserted] = await conn.query(
+    `INSERT INTO roles (role_name, role_code, description, permissions, is_active, is_system_role)
+     VALUES (?, ?, ?, ?, 1, 0)`,
+    [roleName || 'Custom Role', roleCode, 'Custom role created from HR Center', '[]']
+  );
+  return { ok: true, roleRow: { id: inserted.insertId, role_code: roleCode } };
 }
 
 async function ensureStaffIdentityColumns() {
@@ -283,6 +362,20 @@ async function getStaffRowForSchool(schoolId, userId) {
     [userId, schoolId]
   );
   return rows[0] || null;
+}
+
+function resolveRequesterRole(req) {
+  return String(
+    req.user?.role_code ||
+    req.session?.user?.role?.code ||
+    req.session?.user?.role_code ||
+    req.session?.roleCode ||
+    ''
+  ).toUpperCase();
+}
+
+function isSchoolScopedRole(roleCode) {
+  return roleCode === 'SCHOOL_ADMIN' || roleCode === 'SCHOOL_MANAGER' || roleCode === 'DOS';
 }
 
 async function sendStaffCredentialsEmail({
@@ -409,6 +502,229 @@ router.get('/school/staff', requireRole(CREATOR_ROLES), async (req, res) => {
 });
 
 // ════════════════════════════════════════════════════════════════
+// GET /api/staff/filters/roles
+// Used by Super Admin staff card template page
+// ════════════════════════════════════════════════════════════════
+router.get('/staff/filters/roles', requireRole(STAFF_CARD_ROLES), async (req, res) => {
+  try {
+    const roleCode = resolveRequesterRole(req);
+    const where = ['u.deleted_at IS NULL', 'sc.deleted_at IS NULL'];
+    const params = [];
+
+    const requestedSchoolId = Number(req.query.school_id || 0);
+    if (isSchoolScopedRole(roleCode)) {
+      const ownSchoolId = resolveSchoolId(req);
+      if (!ownSchoolId) {
+        return res.status(400).json({ success: false, message: 'School not found in session.' });
+      }
+      where.push('st.school_id = ?');
+      params.push(Number(ownSchoolId));
+    } else if (requestedSchoolId > 0) {
+      where.push('st.school_id = ?');
+      params.push(requestedSchoolId);
+    }
+
+    const [rows] = await promisePool.query(
+      `SELECT DISTINCT UPPER(r.role_code) AS role_code
+       FROM staff st
+       INNER JOIN users u ON u.id = st.user_id
+       INNER JOIN roles r ON r.id = u.role_id
+       INNER JOIN schools sc ON sc.id = st.school_id
+       WHERE ${where.join(' AND ')}
+       ORDER BY UPPER(r.role_code) ASC`,
+      params
+    );
+
+    return res.json({ success: true, data: rows.map((r) => r.role_code).filter(Boolean) });
+  } catch (err) {
+    console.error('GET /api/staff/filters/roles:', err);
+    return res.status(500).json({ success: false, message: 'Failed to load staff roles' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+// GET /api/staff
+// Super Admin: cross-school filters
+// School roles: automatically restricted to own school
+// ════════════════════════════════════════════════════════════════
+router.get('/staff', requireRole(STAFF_CARD_ROLES), async (req, res) => {
+  try {
+    const roleCode = resolveRequesterRole(req);
+    const {
+      province = '',
+      district = '',
+      sector = '',
+      school_id = '',
+      role = '',
+      q = '',
+      limit = '100',
+    } = req.query || {};
+
+    const where = ['u.deleted_at IS NULL', 'sc.deleted_at IS NULL'];
+    const params = [];
+
+    if (province) { where.push('sc.province = ?'); params.push(String(province).trim()); }
+    if (district) { where.push('sc.district = ?'); params.push(String(district).trim()); }
+    if (sector) { where.push('sc.sector = ?'); params.push(String(sector).trim()); }
+
+    const requestedSchoolId = Number(school_id || 0);
+    if (isSchoolScopedRole(roleCode)) {
+      const ownSchoolId = resolveSchoolId(req);
+      if (!ownSchoolId) {
+        return res.status(400).json({ success: false, message: 'School not found in session.' });
+      }
+      where.push('st.school_id = ?');
+      params.push(Number(ownSchoolId));
+    } else if (requestedSchoolId > 0) {
+      where.push('st.school_id = ?');
+      params.push(requestedSchoolId);
+    }
+
+    if (role) {
+      where.push('UPPER(r.role_code) = ?');
+      params.push(String(role).trim().toUpperCase());
+    }
+    if (q) {
+      const like = `%${String(q).trim()}%`;
+      where.push(
+        `(u.first_name LIKE ? OR u.last_name LIKE ? OR CONCAT(u.first_name, ' ', u.last_name) LIKE ? OR st.staff_id LIKE ? OR u.user_uid LIKE ? OR st.full_name LIKE ?)`
+      );
+      params.push(like, like, like, like, like, like);
+    }
+
+    const maxLimit = Math.min(Math.max(Number(limit) || 100, 1), 500);
+
+    const [rows] = await promisePool.query(
+      `SELECT
+         u.id,
+         u.user_uid,
+         u.first_name,
+         u.last_name,
+         u.phone,
+         u.email,
+         u.photo AS photo_url,
+         u.is_active,
+         u.created_at,
+         st.school_id,
+         st.staff_id AS staff_code,
+         st.full_name,
+         st.gender,
+         st.job_title,
+         st.department,
+         st.employment_status,
+         r.role_code,
+         r.role_name,
+         sc.school_name,
+         sc.logo_url,
+         sc.phone AS school_phone,
+         sc.email AS school_email,
+         sc.website AS school_website,
+         sc.postal_address,
+         sc.province,
+         sc.district,
+         sc.sector
+       FROM staff st
+       INNER JOIN users u ON u.id = st.user_id
+       INNER JOIN roles r ON r.id = u.role_id
+       INNER JOIN schools sc ON sc.id = st.school_id
+       WHERE ${where.join(' AND ')}
+       ORDER BY sc.school_name ASC, u.first_name ASC, u.last_name ASC
+       LIMIT ?`,
+      [...params, maxLimit]
+    );
+
+    const data = rows.map((row) => ({
+      ...row,
+      code: row.staff_code || row.user_uid || `STF-${row.id}`,
+      role: row.role_name || row.role_code || row.job_title || '-',
+      status:
+        String(row.employment_status || '').trim() ||
+        (Number(row.is_active) === 1 ? 'Active' : 'Inactive'),
+    }));
+
+    return res.json({ success: true, data });
+  } catch (err) {
+    console.error('GET /api/staff:', err);
+    return res.status(500).json({ success: false, message: 'Failed to load staff list' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+// GET /api/staff/public/:id
+// Public profile lookup for QR scans (no login required)
+// Accepts staff_id/code OR numeric user id
+// ════════════════════════════════════════════════════════════════
+router.get('/staff/public/:id', async (req, res) => {
+  try {
+    const rawId = String(req.params.id || '').trim();
+    if (!rawId) {
+      return res.status(400).json({ success: false, message: 'Invalid staff id' });
+    }
+
+    const asNum = Number(rawId);
+    const isNumericId = Number.isInteger(asNum) && asNum > 0 && String(asNum) === rawId;
+
+    const [rows] = await promisePool.query(
+      `SELECT
+         u.id,
+         u.user_uid,
+         u.first_name,
+         u.last_name,
+         u.phone,
+         u.email,
+         u.photo AS photo_url,
+         u.is_active,
+         u.created_at,
+         st.school_id,
+         st.staff_id AS staff_code,
+         st.full_name,
+         st.gender,
+         st.job_title,
+         st.department,
+         st.employment_status,
+         r.role_code,
+         r.role_name,
+         sc.school_name,
+         sc.logo_url,
+         sc.phone AS school_phone,
+         sc.email AS school_email,
+         sc.website AS school_website,
+         sc.postal_address,
+         sc.province,
+         sc.district,
+         sc.sector
+       FROM staff st
+       INNER JOIN users u ON u.id = st.user_id AND u.deleted_at IS NULL
+       INNER JOIN roles r ON r.id = u.role_id
+       LEFT JOIN schools sc ON sc.id = st.school_id
+       WHERE ${isNumericId ? '(u.id = ? OR st.staff_id = ? OR u.user_uid = ?)' : '(st.staff_id = ? OR u.user_uid = ?)'}
+       LIMIT 1`,
+      isNumericId ? [asNum, rawId, rawId] : [rawId, rawId]
+    );
+
+    const row = rows[0];
+    if (!row) {
+      return res.status(404).json({ success: false, message: 'Staff member not found' });
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        ...row,
+        code: row.staff_code || row.user_uid || `STF-${row.id}`,
+        role: row.role_name || row.role_code || row.job_title || '-',
+        status:
+          String(row.employment_status || '').trim() ||
+          (Number(row.is_active) === 1 ? 'Active' : 'Inactive'),
+      },
+    });
+  } catch (err) {
+    console.error('GET /api/staff/public/:id:', err);
+    return res.status(500).json({ success: false, message: 'Failed to load public staff profile' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
 // POST /api/school/staff
 // Body: first_name, last_name, email, username, password? (omit = auto-generate & email),
 //       phone?, role_code, staff_id?
@@ -428,6 +744,7 @@ router.post('/school/staff', requireRole(CREATOR_ROLES), async (req, res) => {
     const username = trimStr(body.username);
     let password = body.password != null ? String(body.password) : '';
     const phone = trimStr(body.phone) || null;
+    const customRoleName = trimStr(body.custom_role_name || body.role_name || body.job_title);
     const roleCode = trimStr(body.role_code).toUpperCase();
     const staffIdLabel = trimStr(body.staff_id) || null;
     const fullName = trimStr(body.full_name) || `${firstName} ${lastName}`.trim();
@@ -481,17 +798,11 @@ router.post('/school/staff', requireRole(CREATOR_ROLES), async (req, res) => {
     if (autoPassword) {
       password = generateStaffPassword();
     }
-    if (!CREATABLE_ROLE_CODES.includes(roleCode)) {
-      return res.status(400).json({
-        success: false,
-        message: `Role must be one of: ${CREATABLE_ROLE_CODES.join(', ')}`,
-      });
+    const roleResolution = await resolveStaffAssignableRole(conn, roleCode, customRoleName);
+    if (!roleResolution.ok) {
+      return res.status(400).json({ success: false, message: roleResolution.message });
     }
-
-    const roleRow = await findActiveRoleByCode(conn, roleCode);
-    if (!roleRow) {
-      return res.status(400).json({ success: false, message: 'Unknown or inactive role.' });
-    }
+    const roleRow = roleResolution.roleRow;
 
     const [[dupEmail]] = await conn.query(
       'SELECT id FROM users WHERE LOWER(email) = ? AND deleted_at IS NULL LIMIT 1',
@@ -684,6 +995,7 @@ router.patch('/school/staff/:userId', requireRole(CREATOR_ROLES), async (req, re
     const password = body.password !== undefined ? String(body.password || '').trim() : undefined;
     const isActive = body.is_active !== undefined ? !!body.is_active : undefined;
     const roleCode = body.role_code != null ? trimStr(body.role_code).toUpperCase() : null;
+    const customRoleName = trimStr(body.custom_role_name || body.role_name || body.job_title);
 
     const updates = [];
     const params = [];
@@ -729,11 +1041,11 @@ router.patch('/school/staff/:userId', requireRole(CREATOR_ROLES), async (req, re
       params.push(isActive ? 1 : 0);
     }
     if (roleCode) {
-      if (!CREATABLE_ROLE_CODES.includes(roleCode)) {
-        return res.status(400).json({ success: false, message: 'Invalid role.' });
+      const roleResolution = await resolveStaffAssignableRole(promisePool, roleCode, customRoleName);
+      if (!roleResolution.ok) {
+        return res.status(400).json({ success: false, message: roleResolution.message });
       }
-      const rr = await findActiveRoleByCode(promisePool, roleCode);
-      if (!rr) return res.status(400).json({ success: false, message: 'Unknown role.' });
+      const rr = roleResolution.roleRow;
       updates.push('role_id = ?');
       params.push(rr.id);
     }

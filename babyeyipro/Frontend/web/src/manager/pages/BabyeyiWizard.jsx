@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { 
-    School, BookOpen, Landmark, PenTool, Layers, 
-    Users, Eye, ChevronRight, ChevronLeft, CheckCircle2, 
-    Plus, ShieldCheck, CreditCard, X, MoveRight, 
+import {
+    School, BookOpen, Landmark, PenTool, Layers,
+    Users, Eye, ChevronRight, ChevronLeft, CheckCircle2,
+    Plus, ShieldCheck, CreditCard, X, MoveRight,
     HelpCircle, Settings, Upload, Search, Download,
     Mail, MessageSquare, MoreVertical, Trash2, Edit3,
     Clock, Tag, CircleDollarSign, Send, FileText, Printer,
@@ -16,7 +16,7 @@ const OfficialDocView = ({ doc, onClose }) => {
     return createPortal(
         <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-re-navy/80 backdrop-blur-md p-4 sm:p-6 overflow-y-auto custom-scrollbar">
             <div className="relative w-full max-w-2xl h-auto max-h-[92vh] bg-white rounded-2xl shadow-3xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-500">
-                
+
                 {/* TOOLBAR - Compact */}
                 <div className="sticky top-0 z-20 bg-re-navy px-5 py-2.5 flex items-center justify-between text-white shrink-0 shadow-lg">
                     <div className="flex items-center gap-3">
@@ -41,7 +41,7 @@ const OfficialDocView = ({ doc, onClose }) => {
 
                 {/* PAPER BODY - Reduced Scale */}
                 <div className="flex-1 bg-white p-8 relative overflow-y-auto custom-scrollbar">
-                    
+
                     {/* MINISTERIAL HEADER - Compact */}
                     <div className="flex items-center justify-between mb-8 gap-4 border-b border-re-navy pb-6">
                         <div className="w-16 h-16 border border-black/5 flex items-center justify-center p-1.5 rounded-lg bg-re-bg">
@@ -62,7 +62,7 @@ const OfficialDocView = ({ doc, onClose }) => {
 
                     {/* DOCUMENT CONTENT */}
                     <div className="space-y-8 font-serif text-re-navy">
-                        
+
                         <div className="p-4 bg-re-bg/20 rounded-xl border border-re-navy/5 text-center">
                             <p className="text-[7px] font-black text-re-gold uppercase tracking-widest mb-1">Administrative Authorization</p>
                             <p className="text-[11px] font-bold opacity-80 leading-relaxed italic">Fee parameters for: <strong className="not-italic text-re-navy font-black">{doc.class}</strong></p>
@@ -141,7 +141,7 @@ const BabyeyiCard = ({ record, onView, onEdit, onSend, onDownloadPDF }) => {
         <div className="group relative bg-white rounded-[24px] border border-re-navy/5 hover:border-re-gold/40 hover:shadow-[0_24px_64px_-16px_rgba(30,58,95,0.1)] transition-all duration-300 overflow-hidden flex flex-col h-full">
             {/* Top Status Belt */}
             <div className={`h-1 w-full ${isApproved ? 'bg-gradient-to-r from-emerald-400 to-teal-400' : 'bg-gradient-to-r from-re-gold to-orange-400'}`} />
-            
+
             <div className="p-4 flex flex-col h-full">
                 {/* Header Information */}
                 <div className="flex items-start justify-between gap-2 mb-3">
@@ -158,15 +158,15 @@ const BabyeyiCard = ({ record, onView, onEdit, onSend, onDownloadPDF }) => {
                                     Term 01 · 24/25
                                 </span>
                                 <div className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-widest bg-re-bg border border-black/5`}>
-                                   <div className={`w-1.5 h-1.5 rounded-full ${isApproved ? 'bg-emerald-500' : 'bg-re-gold'}`} />
-                                   <span className={isApproved ? 'text-emerald-600' : 'text-re-gold'}>{record.status}</span>
+                                    <div className={`w-1.5 h-1.5 rounded-full ${isApproved ? 'bg-emerald-500' : 'bg-re-gold'}`} />
+                                    <span className={isApproved ? 'text-emerald-600' : 'text-re-gold'}>{record.status}</span>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    
+
                     <div className="relative">
-                        <button 
+                        <button
                             onClick={(e) => { e.stopPropagation(); setOpenDropdown(!openDropdown); }}
                             className="w-7 h-7 rounded-lg flex items-center justify-center text-re-navy/20 hover:bg-re-bg hover:text-re-gold transition-all"
                         >
@@ -200,28 +200,28 @@ const BabyeyiCard = ({ record, onView, onEdit, onSend, onDownloadPDF }) => {
                     <div className="p-2.5 bg-re-bg/50 border border-black/5 rounded-xl transition-all">
                         <p className="text-[10px] font-black uppercase tracking-wider text-re-text-muted/70 mb-0.5">Settlement Bank</p>
                         <div className="flex items-center gap-1.5 min-w-0">
-                           <Landmark size={12} className="text-re-gold shrink-0" />
-                           <p className="text-xs font-black text-re-navy truncate tracking-tight">{record.bank || 'Bank of Kigali'}</p>
+                            <Landmark size={12} className="text-re-gold shrink-0" />
+                            <p className="text-xs font-black text-re-navy truncate tracking-tight">{record.bank || 'Bank of Kigali'}</p>
                         </div>
                     </div>
                 </div>
 
                 {/* Footer Action Bar - WhatsApp Optimized */}
                 <div className="mt-auto pt-3 border-t border-black/5 flex items-center gap-2">
-                    <button 
-                        onClick={() => onView(record)} 
+                    <button
+                        onClick={() => onView(record)}
                         className="flex-1 h-9 bg-re-navy text-white rounded-xl font-black text-xs uppercase tracking-wider shadow-lg shadow-re-navy/10 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 group/btn"
                     >
                         <Eye size={14} className="group-hover/btn:text-re-gold" /> View Doc
                     </button>
-                    <button 
+                    <button
                         onClick={() => onSend(record.id)}
                         className="w-9 h-9 border border-black/5 text-[#25D366] rounded-xl flex items-center justify-center hover:bg-[#25D366] hover:text-white transition-all shadow-sm group/wa"
                         title="WhatsApp Sync"
                     >
-                        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" className="group-hover/wa:scale-110 transition-transform"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" className="group-hover/wa:scale-110 transition-transform"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" /></svg>
                     </button>
-                    <button 
+                    <button
                         onClick={() => onDownloadPDF(record.id)}
                         className="w-9 h-9 bg-re-bg border border-black/5 text-rose-500 rounded-xl flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all shadow-sm"
                         title="Legacy PDF"
@@ -250,7 +250,7 @@ const BabyeyiWizardModal = ({ onClose, editingDoc = null }) => {
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 sm:p-6 overflow-hidden">
             <div className="absolute inset-0 bg-re-navy/60 backdrop-blur-xl animate-in fade-in duration-500" onClick={onClose} />
             <div className="relative w-full max-w-4xl max-h-[92vh] bg-re-bg rounded-[32px] shadow-[0_32px_128px_-15px_rgba(30,58,95,0.4)] border border-white/20 flex flex-col overflow-hidden animate-in zoom-in-95 fade-in duration-500 delay-150">
-                
+
                 {/* Header */}
                 <div className="relative z-10 bg-re-grad-navy px-6 py-4 shrink-0">
                     <div className="flex items-center justify-between mb-4">
@@ -274,10 +274,9 @@ const BabyeyiWizardModal = ({ onClose, editingDoc = null }) => {
                             {STEPS.map((step, idx) => (
                                 <div key={step.id} className="flex items-center shrink-0">
                                     <button onClick={() => setCurrentStep(step.id)} className={`flex items-center gap-2 transition-all outline-none ${currentStep === step.id ? 'opacity-100' : 'opacity-30 hover:opacity-60'}`}>
-                                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center border transition-all ${
-                                            currentStep === step.id ? 'bg-re-gold border-re-gold text-re-navy shadow-[0_0_15px_rgba(254,191,16,0.2)]' : 
-                                            currentStep > step.id ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-white/5 border-white/10 text-white'
-                                        }`}>
+                                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center border transition-all ${currentStep === step.id ? 'bg-re-gold border-re-gold text-re-navy shadow-[0_0_15px_rgba(254,191,16,0.2)]' :
+                                                currentStep > step.id ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-white/5 border-white/10 text-white'
+                                            }`}>
                                             {currentStep > step.id ? <CheckCircle2 size={14} /> : <step.icon size={12} />}
                                         </div>
                                         <div className="text-left hidden lg:block">
@@ -296,11 +295,11 @@ const BabyeyiWizardModal = ({ onClose, editingDoc = null }) => {
                 <div className="flex-1 overflow-y-auto custom-scrollbar bg-re-bg/50 px-8 py-8">
                     <div className="max-w-3xl mx-auto space-y-6">
                         <div className="animate-in slide-in-from-bottom-2 duration-500">
-                             <div className="flex items-center gap-2 mb-1">
+                            <div className="flex items-center gap-2 mb-1">
                                 <span className="w-5 h-0.5 bg-re-gold rounded-full" />
                                 <p className="text-[7px] font-black text-re-gold uppercase tracking-[0.3em]">Operational Phase</p>
                             </div>
-                            <h2 className="text-lg font-black text-re-navy tracking-tighter uppercase">{STEPS[currentStep-1].label}</h2>
+                            <h2 className="text-lg font-black text-re-navy tracking-tighter uppercase">{STEPS[currentStep - 1].label}</h2>
                         </div>
                         <div className="bg-white rounded-[20px] shadow-sm border border-black/5 p-6 min-h-[300px]">
                             {currentStep === 1 && <StepComponents.Step1 />}
@@ -314,8 +313,8 @@ const BabyeyiWizardModal = ({ onClose, editingDoc = null }) => {
                 {/* Footer */}
                 <div className="bg-white border-t border-black/5 px-8 py-3 items-center justify-between shrink-0 hidden sm:flex">
                     <div className="flex items-center gap-2">
-                         <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-                         <p className="text-[7px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-30 italic">Cloud Synchronized</p>
+                        <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                        <p className="text-[7px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-30 italic">Cloud Synchronized</p>
                     </div>
                     <div className="flex items-center gap-2">
                         <button onClick={onClose} className="h-9 px-4 rounded-lg border border-black/5 text-re-navy font-black text-[9px] uppercase tracking-widest hover:bg-re-bg transition-all">Cancel</button>
@@ -368,22 +367,23 @@ const BabyeyiRegistry = () => {
         alert(`Generating Official PDF for ${id}... [Secure Process]`);
     };
 
-    const filteredRecords = records.filter(r => 
-        r.staff.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    const filteredRecords = records.filter(r =>
+        r.staff.toLowerCase().includes(searchTerm.toLowerCase()) ||
         r.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
         r.class.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     return (
         <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen">
-            
+
             {showWizard && <BabyeyiWizardModal editingDoc={editingDoc} onClose={() => { setShowWizard(false); setEditingDoc(null); }} />}
             {viewingDoc && <OfficialDocView doc={viewingDoc} onClose={() => setViewingDoc(null)} />}
 
             {/* Hero Section - Compactified */}
-            <div className="relative w-full h-[220px] overflow-hidden">
-                <div className="absolute inset-0 bg-re-navy/85 z-10 backdrop-blur-[1px] transition-all"></div>
-                <img src="/teacher.jpg" alt="Hero" className="absolute inset-0 w-full h-full object-cover scale-105" />
+            <div className="relative w-full h-[220px] overflow-hidden bg-[#000435]">
+                <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full border border-white/5 pointer-events-none" />
+                <div className="absolute -top-12 -right-12 w-64 h-64 rounded-full border border-white/5 pointer-events-none" />
+                <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-[#FEBF10]/30 to-transparent pointer-events-none" />
                 <div className="relative z-20 max-w-[1600px] mx-auto px-12 h-full flex items-center justify-between">
                     <div className="pb-4">
                         <div className="flex items-center gap-2 mb-2 mt-4">
@@ -399,7 +399,7 @@ const BabyeyiRegistry = () => {
             {/* Dashboard Content */}
             <div className="max-w-[1600px] mx-auto px-12 -mt-10 relative z-20 pb-20">
                 <div className="bg-white rounded-t-[40px] shadow-2xl border border-black/5 overflow-hidden flex flex-col min-h-[600px]">
-                    
+
                     {/* Controls - Specialized Technical Sizing */}
                     <div className="px-8 py-4 border-b border-black/5 flex items-center gap-6 bg-white/50">
                         <div className="relative flex-1 group">
@@ -413,8 +413,8 @@ const BabyeyiRegistry = () => {
                             />
                         </div>
                         <div className="flex items-center gap-3">
-                            <button 
-                                onClick={() => setShowWizard(true)} 
+                            <button
+                                onClick={() => setShowWizard(true)}
                                 className="h-10 px-6 bg-re-gold text-re-navy rounded-xl font-black text-[9px] uppercase tracking-widest shadow-re-premium hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
                             >
                                 <Plus size={14} /> create new babyeyi
@@ -429,10 +429,10 @@ const BabyeyiRegistry = () => {
                         ) : (
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3  gap-4">
                                 {filteredRecords.map((r) => (
-                                    <BabyeyiCard 
-                                        key={r.id} 
-                                        record={r} 
-                                        onView={setViewingDoc} 
+                                    <BabyeyiCard
+                                        key={r.id}
+                                        record={r}
+                                        onView={setViewingDoc}
                                         onEdit={(doc) => { setEditingDoc(doc); setShowWizard(true); }}
                                         onSend={handleSendToParent}
                                         onDownloadPDF={handleDownloadPDF}
@@ -440,7 +440,7 @@ const BabyeyiRegistry = () => {
                                 ))}
                             </div>
                         )}
-                        
+
                         {filteredRecords.length === 0 && !loading && (
                             <div className="text-center py-24 opacity-40">
                                 <BookOpen size={48} className="mx-auto mb-4" />

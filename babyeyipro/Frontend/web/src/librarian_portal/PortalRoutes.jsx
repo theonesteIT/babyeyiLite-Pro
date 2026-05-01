@@ -6,7 +6,6 @@ import Dashboard from './frontend/src/pages/Dashboard'
 import Books from './frontend/src/pages/Books'
 import Borrowing from './frontend/src/pages/Borrowing'
 import Returns from './frontend/src/pages/Returns'
-import Members from './frontend/src/pages/Members'
 import Reports from './frontend/src/pages/Reports'
 import StaffPayroll from './frontend/src/pages/StaffPayroll'
 import ShuleAvance from './frontend/src/pages/ShuleAvance'
@@ -39,8 +38,8 @@ function LibrarianRoutesInner() {
       <Route path="books" element={<ProtectedRoute title="Book Collection"><Books /></ProtectedRoute>} />
       <Route path="borrowing" element={<ProtectedRoute title="Active Loans"><Borrowing /></ProtectedRoute>} />
       <Route path="returns" element={<ProtectedRoute title="Returns History"><Returns /></ProtectedRoute>} />
-      <Route path="members" element={<ProtectedRoute title="Library Members"><Members /></ProtectedRoute>} />
-      <Route path="reports" element={<ProtectedRoute title="Library Reports"><Reports /></ProtectedRoute>} />
+      <Route path="reports/*" element={<ProtectedRoute title="Library Reports"><Reports /></ProtectedRoute>} />
+      <Route path="report/*" element={<Navigate to="/librarian/reports" replace />} />
       <Route path="my-payroll" element={<ProtectedRoute title="My Payroll"><StaffPayroll /></ProtectedRoute>} />
       <Route path="payroll" element={<Navigate to="my-payroll" replace />} />
       <Route path="shule-avance" element={<ProtectedRoute title="Shule Avance"><ShuleAvance /></ProtectedRoute>} />

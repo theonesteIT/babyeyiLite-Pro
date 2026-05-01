@@ -118,10 +118,10 @@ const StudentModal = ({ student, onClose }) => {
                             <span className="text-[9px] font-black text-re-text-muted uppercase tracking-[0.3em] opacity-40">Performance Trajectory</span>
                             <div className="flex-1 h-px bg-black/5" />
                         </div>
-                        
+
                         <div className="bg-re-bg/20 p-5 rounded-2xl border border-black/5 h-[220px] relative">
                             <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart 
+                                <AreaChart
                                     data={[
                                         { name: 'Start', score: Math.max(0, t1 - 10) },
                                         { name: 'Term 1', score: Number(t1.toFixed(1)) },
@@ -132,40 +132,40 @@ const StudentModal = ({ student, onClose }) => {
                                 >
                                     <defs>
                                         <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor={strokeColor} stopOpacity={0.6}/>
-                                            <stop offset="95%" stopColor={strokeColor} stopOpacity={0}/>
+                                            <stop offset="5%" stopColor={strokeColor} stopOpacity={0.6} />
+                                            <stop offset="95%" stopColor={strokeColor} stopOpacity={0} />
                                         </linearGradient>
                                     </defs>
-                                    <XAxis 
-                                        dataKey="name" 
-                                        axisLine={false} 
-                                        tickLine={false} 
-                                        tick={{ fontSize: 9, fill: '#9ca3af', fontWeight: 900, textTransform: 'uppercase' }} 
-                                        dy={10} 
+                                    <XAxis
+                                        dataKey="name"
+                                        axisLine={false}
+                                        tickLine={false}
+                                        tick={{ fontSize: 9, fill: '#9ca3af', fontWeight: 900, textTransform: 'uppercase' }}
+                                        dy={10}
                                         padding={{ left: 10, right: 10 }}
                                     />
-                                    <YAxis 
-                                        domain={['dataMin - 5', 'dataMax + 5']} 
-                                        axisLine={false} 
+                                    <YAxis
+                                        domain={['dataMin - 5', 'dataMax + 5']}
+                                        axisLine={false}
                                         tickLine={false}
                                         tick={{ fontSize: 9, fill: '#9ca3af', fontWeight: 900 }}
                                         tickFormatter={(val) => `${val}%`}
                                         width={40}
                                     />
-                                    <RechartsTooltip 
+                                    <RechartsTooltip
                                         cursor={{ stroke: 'rgba(0,0,0,0.05)', strokeWidth: 2, strokeDasharray: '3 3' }}
                                         contentStyle={{ backgroundColor: strokeColor, color: '#fff', borderRadius: '12px', border: 'none', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.2)', fontSize: '12px', fontWeight: '900', padding: '8px 12px' }}
                                         itemStyle={{ color: '#fff' }}
                                         formatter={(value) => [`${value}%`, 'Score']}
                                         labelStyle={{ display: 'none' }}
                                     />
-                                    <Area 
-                                        type="monotone" 
-                                        dataKey="score" 
-                                        stroke={strokeColor} 
+                                    <Area
+                                        type="monotone"
+                                        dataKey="score"
+                                        stroke={strokeColor}
                                         strokeWidth={4}
-                                        fillOpacity={1} 
-                                        fill="url(#colorScore)" 
+                                        fillOpacity={1}
+                                        fill="url(#colorScore)"
                                         dot={{ r: 4, strokeWidth: 2.5, fill: '#fff', stroke: strokeColor }}
                                         activeDot={{ r: 6.5, strokeWidth: 0, fill: strokeColor }}
                                     />
@@ -220,7 +220,7 @@ const ClassAcademicReport = () => {
     const { className } = useParams();
     const decodedClassName = decodeURIComponent(className);
     const navigate = useNavigate();
-    
+
     const [searchTerm, setSearchTerm] = useState('');
     const [activeDropdown, setActiveDropdown] = useState(null);
     const [selectedStudent, setSelectedStudent] = useState(null);
@@ -230,7 +230,7 @@ const ClassAcademicReport = () => {
 
     const filteredAnalytics = React.useMemo(() => {
         return MOCK_STUDENTS.filter(stu =>
-            stu.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+            stu.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             stu.id.toLowerCase().includes(searchTerm.toLowerCase())
         );
     }, [searchTerm]);
@@ -238,34 +238,34 @@ const ClassAcademicReport = () => {
     return (
         <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen">
             <StudentModal student={selectedStudent} onClose={() => setSelectedStudent(null)} />
-            
+
             {/* ── High-Fidelity Hero Section ── */}
-            <div className="relative w-full min-h-[280px] overflow-hidden">
-                <div className="absolute inset-0 bg-[#0a192f]/85 z-10 backdrop-blur-[2px]"></div>
-                <img src="/teacher.jpg" alt="Hero Background" className="absolute inset-0 w-full h-full object-cover scale-105" />
-                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#1E3A5F]/40 via-transparent to-transparent z-10 max-w-[1600px] mx-auto"></div>
+            <div className="relative w-full min-h-[280px] overflow-hidden bg-[#000435]">
+                <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full border border-white/5 pointer-events-none" />
+                <div className="absolute -top-12 -right-12 w-64 h-64 rounded-full border border-white/5 pointer-events-none" />
+                <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-[#FEBF10]/30 to-transparent pointer-events-none" />
 
                 <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-12 pt-20 pb-24 flex items-center gap-8">
-                    <button 
+                    <button
                         onClick={() => navigate(h('/reports/academic'))}
                         className="absolute top-8 left-6 md:left-12 flex items-center gap-2 text-white/60 hover:text-white transition-colors font-bold uppercase tracking-widest text-[10px]"
                     >
                         <ArrowLeft size={14} /> Back to Global Reports
                     </button>
-                        <div className="hidden md:flex shrink-0 w-24 h-24 rounded-[32px] border border-white/10 bg-white/5 items-center justify-center backdrop-blur-xl shadow-2xl relative overflow-hidden group">
-                            <div className="absolute inset-0 bg-gradient-to-br from-[#FEBF10]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
-                            <BookOpen size={40} style={{ color: "#FEBF10" }} className="group-hover:scale-110 transition-transform duration-500" />
-                        </div>
-
-                        <div className="space-y-1">
-                            <div className="flex items-center gap-2 mb-2">
-                                <span className="w-6 h-1 rounded-full animate-pulse" style={{ background: "#FEBF10" }}></span>
-                                <p className="text-[10px] font-black uppercase tracking-[0.3em]" style={{ color: "#FEBF10" }}>Class Intel Overview</p>
-                            </div>
-                            <h1 className="text-2xl sm:text-4xl md:text-5xl font-black text-white tracking-tighter leading-none mb-2 uppercase">{decodedClassName} <span style={{ color: "#FEBF10" }}>Analytics</span></h1>
-                            <p className="text-[8px] sm:text-[10px] md:text-xs font-bold text-white/40 max-w-lg leading-relaxed uppercase tracking-widest italic opacity-60">Student-level academic performance mapping</p>
-                        </div>
+                    <div className="hidden md:flex shrink-0 w-24 h-24 rounded-[32px] border border-white/10 bg-white/5 items-center justify-center backdrop-blur-xl shadow-2xl relative overflow-hidden group">
+                        <div className="absolute inset-0 bg-gradient-to-br from-[#FEBF10]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
+                        <BookOpen size={40} style={{ color: "#FEBF10" }} className="group-hover:scale-110 transition-transform duration-500" />
                     </div>
+
+                    <div className="space-y-1">
+                        <div className="flex items-center gap-2 mb-2">
+                            <span className="w-6 h-1 rounded-full animate-pulse" style={{ background: "#FEBF10" }}></span>
+                            <p className="text-[10px] font-black uppercase tracking-[0.3em]" style={{ color: "#FEBF10" }}>Class Intel Overview</p>
+                        </div>
+                        <h1 className="text-2xl sm:text-4xl md:text-5xl font-black text-white tracking-tighter leading-none mb-2 uppercase">{decodedClassName} <span style={{ color: "#FEBF10" }}>Analytics</span></h1>
+                        <p className="text-[8px] sm:text-[10px] md:text-xs font-bold text-white/40 max-w-lg leading-relaxed uppercase tracking-widest italic opacity-60">Student-level academic performance mapping</p>
+                    </div>
+                </div>
             </div>
 
             {/* ── Consolidated High-Fidelity Card ── */}
@@ -285,7 +285,7 @@ const ClassAcademicReport = () => {
                                 </div>
                                 <p className="text-[6px] sm:text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] mt-0.5 sm:mt-1 opacity-60">Class GPA</p>
                             </div>
-                            
+
                             {[
                                 { label: 'Pass Rate', value: MOCK_STATS.passRate, icon: <CheckCircle size={14} className="mb-2" /> },
                                 { label: 'Head Teacher', value: MOCK_STATS.headTeacher, icon: <User size={14} className="mb-2" /> },
@@ -303,14 +303,14 @@ const ClassAcademicReport = () => {
 
                         {/* Actions */}
                         <div className="hidden lg:flex flex-col border-l border-black/5 bg-re-bg/30 p-6 justify-center gap-3 relative">
-                            <button 
+                            <button
                                 className="w-full h-11 px-4 flex items-center justify-center gap-2 text-white rounded-xl font-black text-[9px] uppercase tracking-widest shadow-xl hover:scale-[1.02] active:scale-95 transition-all whitespace-nowrap"
                                 style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)" }}
                             >
                                 <Download size={14} className="opacity-70" />
                                 <span>Class Roster PDF</span>
                             </button>
-                            <button 
+                            <button
                                 className="w-full h-11 px-4 flex items-center justify-center gap-2 bg-white border border-black/5 text-re-text font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg transition-all hover:shadow-sm whitespace-nowrap"
                             >
                                 <Download size={14} style={{ color: "#FEBF10" }} />
@@ -321,7 +321,7 @@ const ClassAcademicReport = () => {
 
                     {/* ERP Diagnostics Layer */}
                     <div className="grid grid-cols-1 xl:grid-cols-3 border-b border-black/5 divide-y xl:divide-y-0 xl:divide-x divide-black/5 bg-white">
-                        
+
                         {/* Subject Mastery Panel */}
                         <div className="xl:col-span-2 p-6 md:p-8 bg-re-bg/20">
                             <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1E3A5F] mb-4">Subject Mastery Matrix</h3>
@@ -336,7 +336,7 @@ const ClassAcademicReport = () => {
                                             <p className="text-xl font-black text-re-text tracking-tighter">{sub.avg}%</p>
                                         </div>
                                         <div className="w-full h-1 bg-black/5 rounded-full mt-3 overflow-hidden">
-                                           <div className="h-full" style={{ width: `${sub.avg}%`, background: sub.status === 'Weak' ? '#ef4444' : '#1E3A5F' }}></div>
+                                            <div className="h-full" style={{ width: `${sub.avg}%`, background: sub.status === 'Weak' ? '#ef4444' : '#1E3A5F' }}></div>
                                         </div>
                                     </div>
                                 ))}
@@ -351,8 +351,8 @@ const ClassAcademicReport = () => {
                             </div>
                             <div className="space-y-2">
                                 {atRiskStudents.map(stu => (
-                                    <div 
-                                        key={stu.id} 
+                                    <div
+                                        key={stu.id}
                                         onClick={() => setSelectedStudent(stu)}
                                         className="bg-white p-3 rounded-lg border border-red-100 flex items-center justify-between shadow-sm group hover:border-red-200 transition-colors cursor-pointer"
                                     >
@@ -397,8 +397,8 @@ const ClassAcademicReport = () => {
                             </thead>
                             <tbody className="divide-y divide-black/5">
                                 {filteredAnalytics.map((stu) => (
-                                    <tr 
-                                        key={stu.id} 
+                                    <tr
+                                        key={stu.id}
                                         onClick={() => setSelectedStudent(stu)}
                                         className="hover:bg-re-bg/60 even:bg-re-bg/20 transition-colors group cursor-pointer"
                                     >
@@ -430,12 +430,12 @@ const ClassAcademicReport = () => {
                                         </td>
                                         <td className="hidden xl:table-cell px-6 py-5">
                                             <div className="flex items-center gap-1.5 ">
-                                                {stu.attendance.includes('Critical') ? <AlertTriangle size={10} className="text-red-500"/> : <CheckCircle size={10} className="text-emerald-500 opacity-30" />}
+                                                {stu.attendance.includes('Critical') ? <AlertTriangle size={10} className="text-red-500" /> : <CheckCircle size={10} className="text-emerald-500 opacity-30" />}
                                                 <p className={`text-[9px] font-bold uppercase tracking-tight ${stu.attendance.includes('Critical') ? 'text-red-600' : 'text-re-text'}`}>{stu.attendance}</p>
                                             </div>
                                         </td>
                                         <td className="px-4 sm:px-8 py-3 sm:py-5 text-right">
-                                            <button 
+                                            <button
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     setSelectedStudent(stu);

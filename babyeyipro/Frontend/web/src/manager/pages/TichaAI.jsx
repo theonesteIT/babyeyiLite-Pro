@@ -67,15 +67,15 @@ const TichaAI = () => {
   return (
     <div className="relative w-full bg-re-bg min-h-screen">
       {/* ── High-Fidelity Hero Section ── */}
-      <div className="relative w-full min-h-[140px] md:min-h-[200px] overflow-hidden">
-        <div className="absolute inset-0 bg-[#0a192f]/90 z-10 backdrop-blur-[2px]"></div>
-        <img src="/teacher.jpg" alt="Hero" className="absolute inset-0 w-full h-full object-cover scale-105" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#1E3A5F]/40 via-transparent to-transparent z-10 max-w-[1600px] mx-auto"></div>
+      <div className="relative w-full min-h-[140px] md:min-h-[200px] overflow-hidden bg-[#000435]">
+        <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full border border-white/5 pointer-events-none" />
+        <div className="absolute -top-12 -right-12 w-64 h-64 rounded-full border border-white/5 pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-[#FEBF10]/30 to-transparent pointer-events-none" />
 
         <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-12 pt-8 md:pt-12 pb-10 md:pb-16 flex items-center gap-6">
           <div className="hidden md:flex shrink-0 w-24 h-24 rounded-[32px] border border-white/10 bg-white/5 items-center justify-center backdrop-blur-xl shadow-2xl relative overflow-hidden group">
-              <div className="absolute inset-0 bg-gradient-to-br from-[#1E3A5F]/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
-              <Sparkles size={40} style={{ color: "#FEBF10" }} className="group-hover:scale-110 transition-transform duration-500" />
+            <div className="absolute inset-0 bg-gradient-to-br from-[#1E3A5F]/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
+            <Sparkles size={40} style={{ color: "#FEBF10" }} className="group-hover:scale-110 transition-transform duration-500" />
           </div>
 
           <div className="space-y-1">
@@ -178,13 +178,13 @@ const TichaAI = () => {
                 <div className="max-w-4xl mx-auto space-y-6 md:space-y-8">
                   {messages.map((msg, i) => (
                     <div key={i} className={`flex items-start gap-3 md:gap-4 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                      <div 
+                      <div
                         className={`w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center shrink-0 shadow-lg border border-white/10 ${msg.role === 'user' ? 'text-[#1E3A5F]' : 'text-white'}`}
                         style={{ background: msg.role === 'user' ? '#FEBF10' : 'linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)' }}
                       >
                         {msg.role === 'user' ? <User size={14} /> : <Bot size={16} />}
                       </div>
-                      <div 
+                      <div
                         className={`p-4 md:p-5 rounded-[24px] shadow-sm leading-relaxed max-w-[88%] md:max-w-[75%] text-[13px] md:text-sm font-bold border ${msg.role === 'user' ? 'bg-[#FEBF10]/10 text-[#1E3A5F] rounded-tr-none border-[#FEBF10]/20' : 'bg-white text-re-text rounded-tl-none border-black/5'}`}
                       >
                         {msg.content}
@@ -277,7 +277,7 @@ const TichaAI = () => {
                 )}
               </div>
             </div>
-            
+
             {/* Promo Card */}
             <div className="relative rounded-[32px] p-8 text-white shadow-xl overflow-hidden group cursor-pointer" style={{ background: 'linear-gradient(135deg, #1E3A5F 0%, #0a192f 100%)' }}>
               <div className="relative z-10 flex flex-col gap-4">

@@ -1,5 +1,19 @@
 import api from './api';
 
+const fileToPhotoJsonPayload = async (file) => {
+    if (!(file instanceof File)) return null;
+    const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(new Error('Failed to read image file.'));
+        reader.readAsDataURL(file);
+    });
+    const comma = dataUrl.indexOf(',');
+    const photoBase64 = comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl;
+    const mimeType = file.type && file.type.startsWith('image/') ? file.type : 'image/jpeg';
+    return { photoBase64, mimeType };
+};
+
 const staffService = {
     /**
      * Fetch staff for the school
@@ -32,7 +46,19 @@ const staffService = {
      */
     updateStaff: async (staffId, staffData) => {
         try {
-            const response = await api.patch(`/school/staff/${staffId}`, staffData);
+            let response;
+            try {
+                // Newer backend variants use PATCH.
+                response = await api.patch(`/school/staff/${staffId}`, staffData);
+            } catch (patchError) {
+                const status = patchError?.response?.status;
+                // Older backend variants use PUT for this endpoint.
+                if (status === 404 || status === 405) {
+                    response = await api.put(`/school/staff/${staffId}`, staffData);
+                } else {
+                    throw patchError;
+                }
+            }
             return response.data;
         } catch (error) {
             console.error('Error updating staff:', error);
@@ -45,12 +71,40 @@ const staffService = {
      */
     updateStaffPhoto: async (staffId, formData) => {
         try {
-            const response = await api.post(
-                `/school/staff/${staffId}/photo`,
-                formData,
-                { headers: { 'Content-Type': undefined } }   // let axios auto-set multipart/form-data + boundary
-            );
-            return response.data;
+            const photoFile = formData instanceof FormData ? formData.get('photo') : null;
+            if (!(photoFile instanceof File)) {
+                throw new Error('No photo file provided.');
+            }
+            const jsonPayload = await fileToPhotoJsonPayload(photoFile);
+
+            // Stable path first: JSON payload avoids multipart stream/parser issues.
+            try {
+                const response = await api.post(`/school/staff/${staffId}/photo`, jsonPayload);
+                return response.data;
+            } catch (jsonError) {
+                const status = jsonError?.response?.status;
+                const msg = String(jsonError?.response?.data?.message || '').toLowerCase();
+
+                // Same endpoint might expect multipart field instead of JSON.
+                const expectsMultipartOnPhotoRoute =
+                    msg.includes('no image uploaded') ||
+                    msg.includes('multipart') ||
+                    msg.includes('photo upload failed') ||
+                    msg.includes('unexpected end of form') ||
+                    msg.includes('unexpected field');
+
+                if (expectsMultipartOnPhotoRoute) {
+                    const response = await api.post(`/school/staff/${staffId}/photo`, formData);
+                    return response.data;
+                }
+
+                // Alternate backend route fallback.
+                if (status === 404 || status === 405) {
+                    const response = await api.put(`/school/staff/${staffId}/identity/photo`, formData);
+                    return response.data;
+                }
+                throw jsonError;
+            }
         } catch (error) {
             console.error('Error updating staff photo:', error);
             throw error;

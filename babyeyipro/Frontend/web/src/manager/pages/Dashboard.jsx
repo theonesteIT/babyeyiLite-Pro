@@ -15,18 +15,18 @@ import api from '../services/api';
 // ================================================================
 const Badge = ({ status }) => {
     const tone = {
-      critical: 'bg-red-100 text-red-700 border-red-200',
-      warning: 'bg-amber-100 text-amber-700 border-amber-200',
-      good: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-      approved: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-      pending: 'bg-amber-100 text-amber-700 border-amber-200',
-      rejected: 'bg-red-100 text-red-700 border-red-200',
+        critical: 'bg-red-100 text-red-700 border-red-200',
+        warning: 'bg-amber-100 text-amber-700 border-amber-200',
+        good: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+        approved: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+        pending: 'bg-amber-100 text-amber-700 border-amber-200',
+        rejected: 'bg-red-100 text-red-700 border-red-200',
     };
     const cls = tone[status?.toLowerCase()] || 'bg-slate-100 text-slate-600 border-slate-200';
     return (
-      <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider border ${cls}`}>
-        {status}
-      </span>
+        <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider border ${cls}`}>
+            {status}
+        </span>
     );
 };
 
@@ -225,7 +225,7 @@ function getCurrentAcademicYear() {
     const month = now.getMonth();
     return month >= 7 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
 }
-  
+
 function getCurrentTerm() {
     const month = new Date().getMonth() + 1;
     if (month <= 4) return 'Term 2';
@@ -559,11 +559,10 @@ const Dashboard = () => {
             <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
 
             {/* HERO */}
-            <section className="relative p-7 md:p-10 text-white overflow-hidden min-h-[230px] flex items-center" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-                <div className="absolute inset-0 z-0">
-                    <img src="/teacher.jpg" className="w-full h-full object-cover shadow-2xl" alt="School hero" />
-                    <div className="absolute inset-0 bg-black/50 backdrop-blur-[1px]"></div>
-                </div>
+            <section className="relative p-7 md:p-10 text-white overflow-hidden min-h-[230px] flex items-center bg-[#000435]" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+                <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full border border-white/5 pointer-events-none" />
+                <div className="absolute -top-12 -right-12 w-64 h-64 rounded-full border border-white/5 pointer-events-none" />
+                <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-[#FEBF10]/30 to-transparent pointer-events-none" />
                 <div className="relative z-10 max-w-4xl">
                     <h1 className="text-2xl md:text-3xl font-black tracking-tight mb-2" style={{ fontFamily: "'Montserrat', sans-serif" }}>
                         Welcome back, <span style={{ color: "#FEBF10" }}>School Manager</span>
@@ -582,14 +581,14 @@ const Dashboard = () => {
                         <div className="bg-white rounded-[24px] shadow-2xl border border-black/5 overflow-hidden grid grid-cols-2">
                             {[
                                 { label: 'Total Students', value: stats.core[0].value, onClick: () => window.location.assign('/students') },
-                                { 
-                                    label: `EXPECTANCY: ${stats.termFinance.expected > 1000000 ? (stats.termFinance.expected / 1000000).toFixed(1) + 'M' : stats.termFinance.expected.toLocaleString()} RWF`, 
-                                    value: `${stats.termFinance.collected > 1000000 ? (stats.termFinance.collected / 1000000).toFixed(1) + 'M' : stats.termFinance.collected.toLocaleString()} RWF`, 
-                                    onClick: () => window.location.assign('/finance/payments'), 
-                                    sub: `COLLECTED: ${stats.termFinance.collected > 1000000 ? (stats.termFinance.collected/1000000).toFixed(1)+'M' : stats.termFinance.collected.toLocaleString()} | DEBITS: ${stats.termFinance.outstanding > 1000000 ? (stats.termFinance.outstanding/1000000).toFixed(1)+'M' : stats.termFinance.outstanding.toLocaleString()}`,
+                                {
+                                    label: `EXPECTANCY: ${stats.termFinance.expected > 1000000 ? (stats.termFinance.expected / 1000000).toFixed(1) + 'M' : stats.termFinance.expected.toLocaleString()} RWF`,
+                                    value: `${stats.termFinance.collected > 1000000 ? (stats.termFinance.collected / 1000000).toFixed(1) + 'M' : stats.termFinance.collected.toLocaleString()} RWF`,
+                                    onClick: () => window.location.assign('/finance/payments'),
+                                    sub: `COLLECTED: ${stats.termFinance.collected > 1000000 ? (stats.termFinance.collected / 1000000).toFixed(1) + 'M' : stats.termFinance.collected.toLocaleString()} | DEBITS: ${stats.termFinance.outstanding > 1000000 ? (stats.termFinance.outstanding / 1000000).toFixed(1) + 'M' : stats.termFinance.outstanding.toLocaleString()}`,
                                     smallText: true
                                 },
-                                { label: 'Active permissions', value: disDerived.activePermissions, onClick: () => {} },
+                                { label: 'Active permissions', value: disDerived.activePermissions, onClick: () => { } },
                             ].map((stat, i) => (
                                 <button
                                     key={stat.label}

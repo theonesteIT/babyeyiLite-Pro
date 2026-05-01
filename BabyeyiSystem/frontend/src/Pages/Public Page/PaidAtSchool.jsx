@@ -175,7 +175,7 @@ function NavBtns({ onBack, onNext, nextLabel = "Continue", nextDisabled = false,
 /* ═══════════════════════════════════════════════════════════════
    MAIN COMPONENT
 ═══════════════════════════════════════════════════════════════ */
-export default function PublicPayBySchool() {
+export default function PublicPayBySchool({ includeRequirements = false }) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const classkitIntent = searchParams.get("intent") === "classkit" || String(searchParams.get("service") || "").toLowerCase() === "shulekit";
@@ -203,6 +203,7 @@ export default function PublicPayBySchool() {
   const [pricingErr, setPricingErr] = useState("");
   const [pricingData, setPricingData] = useState(null);
   const [feeSel, setFeeSel] = useState(() => new Set());
+  const [reqSel, setReqSel] = useState(() => new Set());
   /** RWF already paid at school counter — only for selected "School counter" (pasreq) lines; keys are String(fee id) e.g. pasreq:12 */
   const [schoolCounterPaidByFeeId, setSchoolCounterPaidByFeeId] = useState({});
 
@@ -315,6 +316,11 @@ export default function PublicPayBySchool() {
         setPricingData(j.data);
         setSchoolCounterPaidByFeeId({});
         setFeeSel(new Set(j.data.school_fees?.map(f => normFeeId(f.id)).filter(x => x !== "" && x != null) || []));
+        setReqSel(
+          includeRequirements
+            ? new Set((j.data.requirements || []).map((r) => normReqId(r.babyeyi_requirement_id)).filter(Boolean))
+            : new Set()
+        );
         
       })
       .catch(e => { if (!cancelled) setPricingErr(e.message || "Failed to load fees"); })
@@ -323,8 +329,9 @@ export default function PublicPayBySchool() {
   }, [school?.id, selectedCombo?.babyeyi_id]);
 
   useEffect(() => {
-    setPayScope("tuition_school");
-  }, [selectedCombo?.babyeyi_id]);
+    if (includeRequirements) setPayScope("both");
+    else setPayScope("tuition_school");
+  }, [selectedCombo?.babyeyi_id, includeRequirements]);
 
   const schoolCounterCreditsRwf = useMemo(() => {
     const out = {};
@@ -361,26 +368,35 @@ export default function PublicPayBySchool() {
       return s + Math.max(0, owed - cred);
     }, 0);
   }, [pricingData, feeSel, schoolCounterCreditsRwf]);
-  const reqTotal = 0;
+  const reqTotal = useMemo(() => {
+    if (!includeRequirements || !pricingData?.requirements) return 0;
+    return pricingData.requirements
+      .filter((r) => reqSel.has(normReqId(r.babyeyi_requirement_id)))
+      .reduce((s, r) => s + Number(r.line_total_rwf ?? r.price ?? 0), 0);
+  }, [includeRequirements, pricingData, reqSel]);
   const grand = Math.round((feeTotal + reqTotal) * 100) / 100;
 
   const effectiveFeeIds = useMemo(() => {
     return Array.from(feeSel).map((x) => normFeeId(x)).filter((x) => x !== "" && x != null);
   }, [feeSel]);
 
-  const effectiveReqIds = [];
+  const effectiveReqIds = includeRequirements
+    ? Array.from(reqSel).map((x) => normReqId(x)).filter(Boolean)
+    : [];
 
   const enteredAmount = parseFloat(String(amountInput).replace(/,/g, "")) || 0;
   const amountOverSel = enteredAmount > grand + 1.5;
   const minPayAmount = useMemo(() => {
-    // Step 4 rule: minimum should follow selected requirements/items first,
-    // not force full combined (tuition + requirements) payment.
-    if (reqTotal > 0) return Math.round(reqTotal * 100) / 100;
-    if (feeTotal > 0) return Math.round(feeTotal * 100) / 100;
-    return Math.round(grand * 100) / 100;
-  }, [feeTotal, reqTotal, grand]);
+    if (payScope === "requirements_only") return Math.round(reqTotal * 100) / 100;
+    if (payScope === "both") return Math.round(grand * 100) / 100;
+    return Math.round(feeTotal * 100) / 100;
+  }, [payScope, feeTotal, reqTotal, grand]);
 
-  const allocationNote = null;
+  const allocationNote = useMemo(() => {
+    if (payScope !== "requirements_only") return null;
+    if (enteredAmount <= reqTotal + 1e-6) return null;
+    return "You pay this for requirement selected and others Goes to school fees";
+  }, [payScope, enteredAmount, reqTotal]);
 
   const amountValid = enteredAmount + 1e-6 >= minPayAmount && !amountOverSel && enteredAmount <= grand + 1.5;
 
@@ -433,6 +449,16 @@ export default function PublicPayBySchool() {
   }, [student, pricingData]);
 
   const toggleFee = (id) => { const fid = normFeeId(id); setFeeSel(prev => { const n = new Set(prev); n.has(fid) ? n.delete(fid) : n.add(fid); return n; }); };
+  const toggleReq = (id) => {
+    const rid = normReqId(id);
+    if (!rid) return;
+    setReqSel((prev) => {
+      const n = new Set(prev);
+      if (n.has(rid)) n.delete(rid);
+      else n.add(rid);
+      return n;
+    });
+  };
 
   const continueToPayment = () => {
     setPayErr("");
@@ -727,7 +753,11 @@ export default function PublicPayBySchool() {
               <div key={stepKey} className="step-in">
                 <div className="mb-5">
                   <h2 className="font-black text-white text-[18px] sm:text-[20px] mb-1">Select what to pay</h2>
-                  <p className="text-white/45 text-[13px]">Choose Tuition &amp; Paid at School items only. Total updates instantly.</p>
+                  <p className="text-white/45 text-[13px]">
+                    {includeRequirements
+                      ? "Choose Tuition, Paid at School items, and Requirements. Total updates instantly."
+                      : "Choose Tuition & Paid at School items only. Total updates instantly."}
+                  </p>
                 </div>
 
                 {/* Combo selector */}
@@ -820,6 +850,56 @@ export default function PublicPayBySchool() {
                       </div>
                     )}
 
+                    {/* Requirements */}
+                    {includeRequirements && (pricingData.requirements || []).length > 0 && (
+                      <div className="mb-4">
+                        <p className="text-[10px] font-black uppercase tracking-[.1em] text-white/35 mb-3 flex items-center gap-2">
+                          <Wallet size={12}/> Requirements
+                        </p>
+                        <div className="space-y-2">
+                          {pricingData.requirements.map((r) => {
+                            const rid = normReqId(r.babyeyi_requirement_id);
+                            if (!rid) return null;
+                            const selected = reqSel.has(rid);
+                            const lineAmount = Math.round(Number(r.line_total_rwf ?? r.price ?? 0) * 100) / 100;
+                            return (
+                              <div
+                                key={String(rid)}
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => toggleReq(rid)}
+                                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleReq(rid); } }}
+                                className={`flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
+                                  selected ? "border-amber-400/40 bg-amber-400/8" : "border-white/10 bg-white/3 hover:border-white/20"
+                                }`}
+                              >
+                                <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 border-2 transition-all ${
+                                  selected ? "bg-amber-400 border-amber-400" : "border-white/25 bg-transparent"
+                                }`}>
+                                  {selected && <Check size={11} className="text-[#000435]" strokeWidth={3}/>}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-semibold text-white text-[13px]">{r.requirement_name || r.name || "Requirement item"}</p>
+                                  {(r.quantity_value != null || r.unit_price_rwf != null) ? (
+                                    <p className="text-[10px] text-white/35 mt-1">
+                                      {Number(r.unit_price_rwf || 0).toLocaleString()} RWF × {Number(r.quantity_value ?? 1)} = {lineAmount.toLocaleString()} RWF
+                                    </p>
+                                  ) : null}
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <span className="font-black text-[13px] font-mono text-amber-400">{lineAmount.toLocaleString()} RWF</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div className="mt-3 p-3.5 rounded-xl border border-amber-400/30 bg-amber-400/7 flex items-center justify-between">
+                          <p className="text-[12px] font-black text-white">Total Requirements</p>
+                          <p className="font-black text-[16px] font-mono text-amber-400">{reqTotal.toLocaleString()} RWF</p>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Grand total */}
                     <div className="p-4 rounded-xl border-2 border-amber-400/40 bg-amber-400/6">
                       <div className="flex items-center justify-between">
@@ -856,14 +936,46 @@ export default function PublicPayBySchool() {
                   {feeTotal > 0 && (
                     <button
                       type="button"
-                      onClick={() => { setPayScope("tuition_school"); setAmountInput(String(Math.round(feeTotal * 100) / 100)); }}
+                      onClick={() => {
+                        setPayScope("tuition_school");
+                        setAmountInput(String(Math.round(feeTotal * 100) / 100));
+                      }}
                       className={`text-left rounded-xl border px-4 py-3 transition-all ${
                         payScope === "tuition_school" ? "border-amber-400 bg-amber-400/10" : "border-white/12 bg-white/4 hover:border-white/25"
                       }`}
                     >
-                      <p className="text-[11px] font-black uppercase tracking-[.08em] text-white/40">Paid at school items</p>
+                      <p className="text-[11px] font-black uppercase tracking-[.08em] text-white/40">Tuition + Paid at school</p>
                       <p className="text-[15px] font-black text-amber-400 font-mono mt-0.5">{Math.round(feeTotal * 100) / 100} RWF</p>
-                     
+                    </button>
+                  )}
+                  {includeRequirements && reqTotal > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPayScope("requirements_only");
+                        setAmountInput(String(Math.round(reqTotal * 100) / 100));
+                      }}
+                      className={`text-left rounded-xl border px-4 py-3 transition-all ${
+                        payScope === "requirements_only" ? "border-amber-400 bg-amber-400/10" : "border-white/12 bg-white/4 hover:border-white/25"
+                      }`}
+                    >
+                      <p className="text-[11px] font-black uppercase tracking-[.08em] text-white/40">Requirements only</p>
+                      <p className="text-[15px] font-black text-amber-400 font-mono mt-0.5">{Math.round(reqTotal * 100) / 100} RWF</p>
+                    </button>
+                  )}
+                  {includeRequirements && grand > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPayScope("both");
+                        setAmountInput(String(Math.round(grand * 100) / 100));
+                      }}
+                      className={`text-left rounded-xl border px-4 py-3 transition-all ${
+                        payScope === "both" ? "border-amber-400 bg-amber-400/10" : "border-white/12 bg-white/4 hover:border-white/25"
+                      }`}
+                    >
+                      <p className="text-[11px] font-black uppercase tracking-[.08em] text-white/40">Tuition + Paid at school + Requirements</p>
+                      <p className="text-[15px] font-black text-amber-400 font-mono mt-0.5">{Math.round(grand * 100) / 100} RWF</p>
                     </button>
                   )}
                   
@@ -871,7 +983,7 @@ export default function PublicPayBySchool() {
 
               
 
-                <Field label="Amount (RWF)" required error={amountOverSel ? `Cannot exceed ${grand.toLocaleString()} RWF (selected items total).` : enteredAmount > 0 && enteredAmount + 1e-6 < minPayAmount ? `Enter at least ${minPayAmount.toLocaleString()} RWF for selected requirements/items.` : ""}>
+                <Field label="Amount (RWF)" required error={amountOverSel ? `Cannot exceed ${grand.toLocaleString()} RWF (selected items total).` : enteredAmount > 0 && enteredAmount + 1e-6 < minPayAmount ? `Enter at least ${minPayAmount.toLocaleString()} RWF for selected option.` : ""}>
                   <div className={`flex items-center gap-2.5 rounded-xl border transition-all h-14 px-4 ${
                     amountOverSel ? "border-red-400/50 bg-red-400/5"
                     : amountValid && enteredAmount > 0 ? "border-emerald-400/50 bg-emerald-400/5"
@@ -1020,7 +1132,7 @@ export default function PublicPayBySchool() {
           Need a different learner?{" "}
           <button type="button" onClick={() => {
             setCatalog(null); setStudent(null); setTermPick(""); setYearPick(""); setPricingData(null);
-            setAmountInput(""); setCatalogErr(""); setComboIndex(0); goStep(1);
+            setAmountInput(""); setCatalogErr(""); setComboIndex(0); setReqSel(new Set()); goStep(1);
           }} className="text-amber-400/70 hover:text-amber-400 transition-colors font-bold">Start over</button>
           {" · "}
           <Link to="/schools" className="text-amber-400/70 hover:text-amber-400 transition-colors font-bold">Browse schools</Link>

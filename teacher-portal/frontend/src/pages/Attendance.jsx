@@ -94,6 +94,7 @@ export default function Attendance() {
     const fetchLessons = async () => {
         setLoading(true);
         try {
+            // User requested to fetch ALL periods always, regardless of the selected date.
             const res = await api.get('/teacher-portal/timetable');
             setLessons(res.data?.success ? (res.data.data || []) : []);
         } catch (err) {
@@ -103,6 +104,7 @@ export default function Attendance() {
             setLoading(false);
         }
     };
+
 
     const fetchRosterAndSaved = async () => {
         if (!selectedClass || !selectedLesson) return;
@@ -209,10 +211,10 @@ export default function Attendance() {
             }
 
             const records = roster.map(s => ({ student_id: s.id, status: s.status, remarks: s.remarks || '' }));
-            const res = await api.post('/teacher-portal/attendance', { 
-                records, 
-                date: selectedDate, 
-                timetable_id: selectedLesson.id 
+            const res = await api.post('/teacher-portal/attendance', {
+                records,
+                date: selectedDate,
+                timetable_id: selectedLesson.id
             });
             if (res.data.success) {
                 alert(
@@ -334,18 +336,16 @@ export default function Attendance() {
                     <button
                         type="button"
                         onClick={() => setAttendanceMode('student')}
-                        className={`px-4 h-10 rounded-xl text-[10px] font-black uppercase tracking-widest ${
-                            attendanceMode === 'student' ? 'bg-re-grad-orange text-white' : 'bg-re-bg text-re-text-muted'
-                        }`}
+                        className={`px-4 h-10 rounded-xl text-[10px] font-black uppercase tracking-widest ${attendanceMode === 'student' ? 'bg-re-grad-orange text-white' : 'bg-re-bg text-re-text-muted'
+                            }`}
                     >
                         StudentAttendance
                     </button>
                     <button
                         type="button"
                         onClick={() => setAttendanceMode('teacher')}
-                        className={`px-4 h-10 rounded-xl text-[10px] font-black uppercase tracking-widest ${
-                            attendanceMode === 'teacher' ? 'bg-re-grad-orange text-white' : 'bg-re-bg text-re-text-muted'
-                        }`}
+                        className={`px-4 h-10 rounded-xl text-[10px] font-black uppercase tracking-widest ${attendanceMode === 'teacher' ? 'bg-re-grad-orange text-white' : 'bg-re-bg text-re-text-muted'
+                            }`}
                     >
                         TeacherAttendance
                     </button>
@@ -519,73 +519,119 @@ export default function Attendance() {
                         </div>
                     </div>
 
-                    {/* Mobile: period chips for selected date */}
-                    <div className="lg:hidden border-b border-black/5 bg-re-bg/30 px-3 py-3 space-y-2">
-                        <div className="flex items-center justify-between gap-2">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-re-text">
-                                {getDayName(selectedDate)}
-                                <span className="text-re-text-muted font-bold normal-case"> · select a period</span>
-                            </p>
-                            {selectedLesson && (
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setSelectedLesson(null);
-                                        setIsClassSelected(false);
-                                    }}
-                                    className="text-[8px] font-black text-re-orange uppercase tracking-widest"
-                                >
-                                    Clear
-                                </button>
-                            )}
+                    {/* ── Period Picker — visible on all screen sizes ── */}
+                    <div className="border-b border-black/5 bg-gradient-to-b from-re-bg/40 to-white/60 px-4 py-4 space-y-3">
+                        {/* Header row */}
+                        <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2">
+                                <span className="w-5 h-5 rounded-lg bg-re-orange/10 flex items-center justify-center">
+                                    <Clock size={11} className="text-re-orange" />
+                                </span>
+                                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-re-text">
+                                    {getDayName(selectedDate)}
+                                    <span className="text-re-text-muted font-bold normal-case ml-1">
+                                        — {periodOptions.length} period{periodOptions.length !== 1 ? 's' : ''} today
+                                    </span>
+                                </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                {classOptionsFromLessons.length > 1 && (
+                                    <select
+                                        value={selectedClassFilter}
+                                        onChange={(e) => {
+                                            setSelectedClassFilter(e.target.value);
+                                            setSelectedLesson(null);
+                                            setIsClassSelected(false);
+                                        }}
+                                        className="h-8 rounded-xl border border-black/10 px-2.5 text-[10px] font-black uppercase tracking-widest bg-white"
+                                    >
+                                        <option value="">All classes</option>
+                                        {classOptionsFromLessons.map((cn) => (
+                                            <option key={cn} value={cn}>{cn}</option>
+                                        ))}
+                                    </select>
+                                )}
+                                {selectedLesson && (
+                                    <button
+                                        type="button"
+                                        onClick={() => { setSelectedLesson(null); setIsClassSelected(false); }}
+                                        className="h-8 px-3 rounded-xl bg-re-orange/10 text-re-orange text-[9px] font-black uppercase tracking-widest hover:bg-re-orange/20 transition-colors"
+                                    >
+                                        Clear
+                                    </button>
+                                )}
+                            </div>
                         </div>
-                        <div className="flex gap-2">
-                            <select
-                                value={selectedClassFilter}
-                                onChange={(e) => {
-                                    setSelectedClassFilter(e.target.value);
-                                    setSelectedLesson(null);
-                                    setIsClassSelected(false);
-                                }}
-                                className="h-9 rounded-xl border border-black/10 px-3 text-[10px] font-black uppercase tracking-widest bg-white"
-                            >
-                                <option value="">All classes</option>
-                                {classOptionsFromLessons.map((className) => (
-                                    <option key={className} value={className}>{className}</option>
-                                ))}
-                            </select>
-                        </div>
+
+                        {/* Period cards grid */}
                         {loading && lessons.length === 0 ? (
-                            <p className="text-[10px] font-bold text-re-text-muted text-center py-3">Loading timetable…</p>
+                            <div className="flex items-center justify-center gap-2 py-6 text-[10px] font-black text-re-text-muted uppercase tracking-widest">
+                                <div className="w-4 h-4 border-2 border-re-orange border-t-transparent rounded-full animate-spin" />
+                                Loading schedule…
+                            </div>
                         ) : periodOptions.length > 0 ? (
-                            <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-thin">
-                                {periodOptions.map((lesson) => {
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
+                                {periodOptions.map((lesson, idx) => {
                                     const active = selectedLesson?.id === lesson.id;
+                                    const palette = [
+                                        { border: '#f97316', bg: 'rgba(249,115,22,0.08)' },
+                                        { border: '#6366f1', bg: 'rgba(99,102,241,0.08)' },
+                                        { border: '#10b981', bg: 'rgba(16,185,129,0.08)' },
+                                        { border: '#3b82f6', bg: 'rgba(59,130,246,0.08)' },
+                                        { border: '#a855f7', bg: 'rgba(168,85,247,0.08)' },
+                                        { border: '#ef4444', bg: 'rgba(239,68,68,0.08)' },
+                                    ];
+                                    const c = palette[idx % palette.length];
                                     return (
                                         <button
                                             key={lesson.id}
                                             type="button"
                                             onClick={() => selectLesson(lesson)}
-                                            className={`shrink-0 max-w-[200px] text-left rounded-2xl border px-3 py-2 transition-all ${
-                                                active
-                                                    ? 'border-re-orange bg-white shadow-md ring-1 ring-re-orange/20'
-                                                    : 'border-black/5 bg-white/80 hover:border-re-orange/30'
-                                            }`}
+                                            className={`relative text-left rounded-2xl border p-3 transition-all duration-200 overflow-hidden ${active
+                                                ? 'border-re-orange bg-white shadow-lg ring-2 ring-re-orange/20 scale-[1.01]'
+                                                : 'border-black/[0.07] bg-white hover:shadow-md hover:border-re-orange/30 hover:scale-[1.005]'
+                                                }`}
                                         >
-                                            <span className="block text-[9px] font-black text-re-text uppercase truncate">{lesson.subject}</span>
-                                            <span className="block text-[7px] font-bold text-re-text-muted uppercase tracking-tighter truncate">
-                                                {lessonClassDisplay(lesson)} · {lesson.time}
-                                            </span>
+                                            <span
+                                                className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-2xl"
+                                                style={{ backgroundColor: active ? '#f97316' : c.border }}
+                                            />
+                                            {active && (
+                                                <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-re-orange animate-pulse" />
+                                            )}
+                                            <div className="pl-2">
+                                                <p className="text-[11px] font-black text-re-text uppercase tracking-tight truncate leading-tight">
+                                                    {lesson.subject}
+                                                </p>
+                                                <p className="text-[9px] font-bold text-re-text-muted uppercase tracking-widest truncate mt-0.5">
+                                                    {lessonClassDisplay(lesson)}
+                                                </p>
+                                                <span
+                                                    className="mt-1.5 inline-block text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-tight"
+                                                    style={{ backgroundColor: active ? '#fff7ed' : c.bg, color: active ? '#f97316' : c.border }}
+                                                >
+                                                    {lesson.day} · {lesson.time}
+                                                </span>
+                                            </div>
                                         </button>
                                     );
                                 })}
                             </div>
                         ) : (
-                            <p className="text-[10px] font-bold text-re-text-muted text-center py-3 leading-relaxed">
-                                No periods for this class/date in your timetable. Change class or date to try another day.
-                            </p>
+                            <div className="flex flex-col items-center justify-center py-8 gap-2">
+                                <div className="w-10 h-10 rounded-full bg-re-bg flex items-center justify-center mb-1">
+                                    <Calendar size={18} className="text-re-text-muted opacity-40" />
+                                </div>
+                                <p className="text-[10px] font-black text-re-text-muted uppercase tracking-widest text-center">
+                                    No periods scheduled
+                                </p>
+                                <p className="text-[9px] font-bold text-re-text-muted text-center max-w-[240px] leading-relaxed">
+                                    No timetable entries found for {getDayName(selectedDate)}. Try a different date.
+                                </p>
+                            </div>
                         )}
                     </div>
+
 
                     {/* Bulk Actions Section */}
                     {isClassSelected && (
@@ -604,13 +650,12 @@ export default function Attendance() {
 
                     {/* Collapsible Mobile Bulk Actions Toolbar */}
                     <div
-                        className={`px-4 py-3 bg-white border-b border-black/5 items-center justify-between overflow-x-auto gap-4 transition-all duration-300 animate-in slide-in-from-top-2 ${
-                            !isClassSelected
-                                ? 'hidden'
-                                : showBulkActions
-                                    ? 'flex'
-                                    : 'hidden lg:flex'
-                        }`}
+                        className={`px-4 py-3 bg-white border-b border-black/5 items-center justify-between overflow-x-auto gap-4 transition-all duration-300 animate-in slide-in-from-top-2 ${!isClassSelected
+                            ? 'hidden'
+                            : showBulkActions
+                                ? 'flex'
+                                : 'hidden lg:flex'
+                            }`}
                     >
                         <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-re-text-muted shrink-0">
                             <Filter size={12} /> Bulk Actions
@@ -725,34 +770,34 @@ export default function Attendance() {
                                                 <td className="border-b border-black/5 px-2 py-3">
                                                     <div className="flex flex-col gap-2">
                                                         <div className="flex items-center justify-center gap-2">
-                                                        <StatusButton
-                                                            active={student.status === 'present'}
-                                                            onClick={() => handleStatusChange(student.id, 'present')}
-                                                            baseColor="emerald"
-                                                            icon={<Check size={12} />}
-                                                            label="Present"
-                                                        />
-                                                        <StatusButton
-                                                            active={student.status === 'absent'}
-                                                            onClick={() => handleStatusChange(student.id, 'absent')}
-                                                            baseColor="red"
-                                                            icon={<X size={12} />}
-                                                            label="Absent"
-                                                        />
-                                                        <StatusButton
-                                                            active={student.status === 'late'}
-                                                            onClick={() => handleStatusChange(student.id, 'late')}
-                                                            baseColor="orange"
-                                                            icon={<Clock size={12} />}
-                                                            label="Late"
-                                                        />
-                                                        <StatusButton
-                                                            active={student.status === 'permission'}
-                                                            onClick={() => handleStatusChange(student.id, 'permission')}
-                                                            baseColor="blue"
-                                                            icon={<FileText size={12} />}
-                                                            label="Excused"
-                                                        />
+                                                            <StatusButton
+                                                                active={student.status === 'present'}
+                                                                onClick={() => handleStatusChange(student.id, 'present')}
+                                                                baseColor="emerald"
+                                                                icon={<Check size={12} />}
+                                                                label="Present"
+                                                            />
+                                                            <StatusButton
+                                                                active={student.status === 'absent'}
+                                                                onClick={() => handleStatusChange(student.id, 'absent')}
+                                                                baseColor="red"
+                                                                icon={<X size={12} />}
+                                                                label="Absent"
+                                                            />
+                                                            <StatusButton
+                                                                active={student.status === 'late'}
+                                                                onClick={() => handleStatusChange(student.id, 'late')}
+                                                                baseColor="orange"
+                                                                icon={<Clock size={12} />}
+                                                                label="Late"
+                                                            />
+                                                            <StatusButton
+                                                                active={student.status === 'permission'}
+                                                                onClick={() => handleStatusChange(student.id, 'permission')}
+                                                                baseColor="blue"
+                                                                icon={<FileText size={12} />}
+                                                                label="Excused"
+                                                            />
                                                         </div>
                                                         <input
                                                             type="text"
@@ -876,57 +921,57 @@ export default function Attendance() {
                     </div>
                 )}
             </div>
-                {attendanceMode === 'student' && (
-                    <>
-                        {/* Mobile floating chart toggle */}
-                        <button
-                            type="button"
-                            onClick={() => setShowMobileChartPanel((v) => !v)}
-                            className="lg:hidden fixed bottom-24 right-4 z-[120] w-12 h-12 rounded-full bg-re-grad-orange text-white shadow-re-glow flex items-center justify-center"
-                            aria-label="Toggle attendance charts"
-                        >
-                            <BarChart2 size={18} />
-                        </button>
+            {attendanceMode === 'student' && (
+                <>
+                    {/* Mobile floating chart toggle */}
+                    <button
+                        type="button"
+                        onClick={() => setShowMobileChartPanel((v) => !v)}
+                        className="lg:hidden fixed bottom-24 right-4 z-[120] w-12 h-12 rounded-full bg-re-grad-orange text-white shadow-re-glow flex items-center justify-center"
+                        aria-label="Toggle attendance charts"
+                    >
+                        <BarChart2 size={18} />
+                    </button>
 
-                        {/* Mobile chart panel */}
-                        {showMobileChartPanel && (
-                            <div className="lg:hidden fixed bottom-40 right-3 left-3 z-[120] bg-white border border-black/10 rounded-2xl shadow-2xl p-3 space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <h3 className="text-[10px] font-black uppercase tracking-widest text-re-text">Attendance Charts</h3>
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowMobileChartPanel(false)}
-                                        className="text-re-text-muted"
-                                    >
-                                        <X size={14} />
-                                    </button>
-                                </div>
-                                <div className="text-[10px] font-bold text-re-text-muted">
-                                    Daily items: {dailySummary.length} · Weekly records: {weeklySummary?.rows?.length || 0}
-                                </div>
+                    {/* Mobile chart panel */}
+                    {showMobileChartPanel && (
+                        <div className="lg:hidden fixed bottom-40 right-3 left-3 z-[120] bg-white border border-black/10 rounded-2xl shadow-2xl p-3 space-y-3">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-[10px] font-black uppercase tracking-widest text-re-text">Attendance Charts</h3>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowMobileChartPanel(false)}
+                                    className="text-re-text-muted"
+                                >
+                                    <X size={14} />
+                                </button>
                             </div>
-                        )}
-                    </>
-                )}
+                            <div className="text-[10px] font-bold text-re-text-muted">
+                                Daily items: {dailySummary.length} · Weekly records: {weeklySummary?.rows?.length || 0}
+                            </div>
+                        </div>
+                    )}
+                </>
+            )}
 
-                {/* Student drawer modal */}
-                {selectedStudentDetails && (
-                    <>
-                        <div
-                            className="fixed inset-0 z-[150] bg-black/15 backdrop-blur-[1px]"
-                            onClick={() => setSelectedStudent(null)}
-                        />
-                        <div className="fixed inset-y-0 right-0 z-[151] w-full sm:max-w-md md:max-w-lg bg-white/98 shadow-2xl border-l border-black/10 overflow-y-auto rounded-l-3xl">
-                            <div className="sticky top-0 z-10 bg-white/95 backdrop-blur border-b border-black/5 px-4 sm:px-5 py-4">
-                                <div className="flex items-center justify-between">
-                                    <h3 className="text-sm font-black uppercase tracking-widest text-re-text">Student Attendance</h3>
-                                    <button onClick={() => setSelectedStudent(null)} className="text-re-text-muted hover:text-re-text transition-colors">
-                                        <X size={16} />
-                                    </button>
-                                </div>
-                                <p className="text-[10px] font-bold text-re-text-muted mt-1 uppercase tracking-wider">Quick details and mark actions</p>
+            {/* Student drawer modal */}
+            {selectedStudentDetails && (
+                <>
+                    <div
+                        className="fixed inset-0 z-[150] bg-black/15 backdrop-blur-[1px]"
+                        onClick={() => setSelectedStudent(null)}
+                    />
+                    <div className="fixed inset-y-0 right-0 z-[151] w-full sm:max-w-md md:max-w-lg bg-white/98 shadow-2xl border-l border-black/10 overflow-y-auto rounded-l-3xl">
+                        <div className="sticky top-0 z-10 bg-white/95 backdrop-blur border-b border-black/5 px-4 sm:px-5 py-4">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-sm font-black uppercase tracking-widest text-re-text">Student Attendance</h3>
+                                <button onClick={() => setSelectedStudent(null)} className="text-re-text-muted hover:text-re-text transition-colors">
+                                    <X size={16} />
+                                </button>
                             </div>
-                            <div className="p-4 sm:p-5">
+                            <p className="text-[10px] font-bold text-re-text-muted mt-1 uppercase tracking-wider">Quick details and mark actions</p>
+                        </div>
+                        <div className="p-4 sm:p-5">
                             <div className="space-y-2 mb-4 bg-re-bg/40 border border-black/5 rounded-2xl p-3">
                                 <p className="text-xs font-black text-re-text">{selectedStudentDetails.name}</p>
                                 <p className="text-[10px] font-bold text-re-text-muted">ID: {selectedStudentDetails.adm}</p>
@@ -965,11 +1010,11 @@ export default function Attendance() {
                                     Cancel
                                 </button>
                             </div>
-                            </div>
                         </div>
-                    </>
-                )}
-            </div>
+                    </div>
+                </>
+            )}
+        </div>
     );
 }
 

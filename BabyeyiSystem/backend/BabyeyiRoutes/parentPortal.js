@@ -24,6 +24,13 @@ const { getBabyeyiFinderDiscoveryPayload } = require('./babyeyiFinderDiscovery')
 const { applyRememberMeToSession } = require('../utils/sessionRememberMe');
 
 const router = express.Router();
+router.use((req, res, next) => {
+  // Parent portal screens need fresh payloads while switching students/filters.
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+  next();
+});
 
 const checkPhoneLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -723,6 +730,29 @@ async function resolveParentStudentAccess(parentPhone, studentId) {
   const accessType = official ? 'FULL' : (st.access_type || null);
   if (!accessType) return null;
   return { ...st, access_type: accessType, officially_linked: official };
+}
+
+async function resolveParentStudentAccessByRef(parentPhone, studentRefRaw) {
+  const studentRef = String(studentRefRaw || '').trim();
+  if (!studentRef) return null;
+  const [rows] = await promisePool.query(
+    `SELECT s.id, s.student_code, s.student_uid, s.sdm_code, s.first_name, s.last_name, s.school_id, s.class_name,
+            s.father_phone, s.mother_phone, sc.school_name, sa.access_type
+     FROM students s
+     LEFT JOIN schools sc ON sc.id = s.school_id
+     LEFT JOIN student_access sa ON sa.student_id = s.id AND sa.parent_phone = ?
+     WHERE CAST(s.id AS CHAR) = ? OR s.student_code = ? OR s.student_uid = ? OR s.sdm_code = ?
+     ORDER BY CASE WHEN CAST(s.id AS CHAR) = ? THEN 0 WHEN s.student_code = ? THEN 1 WHEN s.student_uid = ? THEN 2 ELSE 3 END
+     LIMIT 20`,
+    [parentPhone, studentRef, studentRef, studentRef, studentRef, studentRef, studentRef, studentRef]
+  );
+  for (const st of rows || []) {
+    const official = studentRowOwnedByPhone(st, parentPhone);
+    const accessType = official ? 'FULL' : (st.access_type || null);
+    if (!accessType) continue;
+    return { ...st, access_type: accessType, officially_linked: official };
+  }
+  return null;
 }
 
 // ── POST /api/parent-portal/check-phone ─────────────────────────
@@ -2017,9 +2047,12 @@ router.get('/parent-portal/shulecard/students', async (req, res) => {
         school_id: c.school_id,
         school_name: c.school_name,
         access_type: accessType,
+        can_view_financials: accessType === 'FULL',
+        can_set_daily_limit: accessType === 'FULL',
+        can_fund: !!accessType,
         wallet: {
-          balance_rwf: Number(w?.balance_rwf || 0),
-          daily_limit_rwf: Number(w?.daily_limit_rwf || 5000),
+          balance_rwf: accessType === 'FULL' ? Number(w?.balance_rwf || 0) : null,
+          daily_limit_rwf: accessType === 'FULL' ? Number(w?.daily_limit_rwf || 5000) : null,
           updated_at: w?.updated_at || null,
         },
       });
@@ -2149,6 +2182,12 @@ router.patch('/parent-portal/shulecard/daily-limit', authLimiter, async (req, re
     }
     const st = await resolveParentStudentAccess(parentPhone, studentId);
     if (!st) return res.status(403).json({ success: false, message: 'No access to this student' });
+    if (st.access_type !== 'FULL') {
+      return res.status(403).json({
+        success: false,
+        message: 'Daily limit can only be set for your officially linked children',
+      });
+    }
     await promisePool.query(
       `INSERT INTO parent_shulecard_wallets
         (parent_portal_account_id, parent_phone, student_id, balance_rwf, daily_limit_rwf)
@@ -2997,6 +3036,623 @@ router.get('/parent-portal/loan-repayments/:id/receipt', async (req, res) => {
   } catch (err) {
     console.error('[parent-portal/loan-repayments/:id/receipt]', err);
     return res.status(500).json({ success: false, message: 'Failed to load receipt detail' });
+  }
+});
+
+function normalizeWeekday(v) {
+  const s = String(v || '').trim().toLowerCase();
+  if (!s) return '';
+  const map = {
+    mon: 'Monday', monday: 'Monday',
+    tue: 'Tuesday', tues: 'Tuesday', tuesday: 'Tuesday',
+    wed: 'Wednesday', wednesday: 'Wednesday',
+    thu: 'Thursday', thur: 'Thursday', thurs: 'Thursday', thursday: 'Thursday',
+    fri: 'Friday', friday: 'Friday',
+    sat: 'Saturday', saturday: 'Saturday',
+    sun: 'Sunday', sunday: 'Sunday',
+  };
+  return map[s] || '';
+}
+
+function dayNameFromDate(v) {
+  if (!v) return '';
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-US', { weekday: 'long' });
+}
+
+// ── Parent child details filters (attendance/discipline) ──────────
+router.get('/parent-portal/student-details/filters', async (req, res) => {
+  try {
+    const role = (req.session?.user?.role?.code || req.session?.roleCode || '').toUpperCase();
+    const parentPhone = normalizePhone(req.session?.user?.parent_phone || '');
+    if (role !== 'PARENT' || !parentPhone) {
+      return res.status(401).json({ success: false, message: 'Not authenticated as parent' });
+    }
+
+    const studentRef = String(req.query?.student_ref || req.query?.student_id || '').trim();
+    if (!studentRef) return res.status(400).json({ success: false, message: 'student_ref is required' });
+    const st = await resolveParentStudentAccessByRef(parentPhone, studentRef);
+    if (!st) return res.status(403).json({ success: false, message: 'No access to this student' });
+    const studentId = Number(st.id);
+
+    const [yearsRows] = await promisePool.query(
+      `SELECT DISTINCT academic_year FROM students WHERE id = ? AND academic_year IS NOT NULL AND TRIM(academic_year) <> ''
+       UNION DISTINCT
+       SELECT DISTINCT academic_year FROM dos_student_academic_records WHERE student_id = ? AND academic_year IS NOT NULL AND TRIM(academic_year) <> ''
+       UNION DISTINCT
+       SELECT DISTINCT academic_year FROM discipline_cases WHERE student_id = ? AND academic_year IS NOT NULL AND TRIM(academic_year) <> ''
+       UNION DISTINCT
+       SELECT DISTINCT academic_year FROM attendance_class WHERE id IN (
+         SELECT DISTINCT attendance_id FROM attendance_class_details WHERE student_id = ?
+       )
+       UNION DISTINCT
+       SELECT DISTINCT tt.academic_year
+       FROM academic_attendance_logs al
+       INNER JOIN academic_attendance_records ar ON ar.log_id = al.id
+       INNER JOIN academic_timetables tt ON tt.id = al.timetable_id AND tt.school_id = al.school_id
+       WHERE ar.student_id = ? AND tt.academic_year IS NOT NULL AND TRIM(tt.academic_year) <> ''
+       ) AND academic_year IS NOT NULL AND TRIM(academic_year) <> ''`,
+      [studentId, studentId, studentId, studentId, studentId]
+    ).catch(() => [[]]);
+
+    const [termsRows] = await promisePool.query(
+      `SELECT DISTINCT term FROM dos_student_academic_records WHERE student_id = ? AND term IS NOT NULL AND TRIM(term) <> ''
+       UNION DISTINCT
+       SELECT DISTINCT term FROM discipline_cases WHERE student_id = ? AND term IS NOT NULL AND TRIM(term) <> ''
+       UNION DISTINCT
+       SELECT DISTINCT term FROM attendance_class WHERE id IN (
+         SELECT DISTINCT attendance_id FROM attendance_class_details WHERE student_id = ?
+       )
+       UNION DISTINCT
+       SELECT DISTINCT tt.term
+       FROM academic_attendance_logs al
+       INNER JOIN academic_attendance_records ar ON ar.log_id = al.id
+       INNER JOIN academic_timetables tt ON tt.id = al.timetable_id AND tt.school_id = al.school_id
+       WHERE ar.student_id = ? AND tt.term IS NOT NULL AND TRIM(tt.term) <> ''
+       ) AND term IS NOT NULL AND TRIM(term) <> ''`,
+      [studentId, studentId, studentId, studentId]
+    ).catch(() => [[]]);
+
+    const years = Array.from(new Set((yearsRows || []).map((r) => String(r.academic_year || '').trim()).filter(Boolean)));
+    const terms = Array.from(new Set((termsRows || []).map((r) => String(r.term || '').trim()).filter(Boolean)));
+    const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+    return res.json({ success: true, data: { academic_years: years, terms, weekdays } });
+  } catch (err) {
+    console.error('[parent-portal/student-details/filters]', err);
+    return res.status(500).json({ success: false, message: 'Failed to load filters' });
+  }
+});
+
+// ── Parent child details academics (mock marks as requested) ─────
+router.get('/parent-portal/student-details/academics', async (req, res) => {
+  try {
+    const role = (req.session?.user?.role?.code || req.session?.roleCode || '').toUpperCase();
+    const parentPhone = normalizePhone(req.session?.user?.parent_phone || '');
+    if (role !== 'PARENT' || !parentPhone) {
+      return res.status(401).json({ success: false, message: 'Not authenticated as parent' });
+    }
+
+    const studentRef = String(req.query?.student_ref || req.query?.student_id || '').trim();
+    if (!studentRef) return res.status(400).json({ success: false, message: 'student_ref is required' });
+    const st = await resolveParentStudentAccessByRef(parentPhone, studentRef);
+    if (!st) return res.status(403).json({ success: false, message: 'No access to this student' });
+    const studentId = Number(st.id);
+
+    const academicYear = String(req.query?.academic_year || '').trim();
+    const term = String(req.query?.term || '').trim();
+
+    // Mocked data by request (can be replaced later with real gradebook matrix).
+    const mockSubjects = [
+      { subject: 'Mathematics', score: 84, max: 100, remark: 'Good progress' },
+      { subject: 'English', score: 88, max: 100, remark: 'Very good' },
+      { subject: 'Science', score: 82, max: 100, remark: 'Consistent' },
+      { subject: 'Social Studies', score: 86, max: 100, remark: 'Improving' },
+      { subject: 'Kinyarwanda', score: 91, max: 100, remark: 'Excellent' },
+    ];
+    const avg = Math.round((mockSubjects.reduce((s, x) => s + x.score, 0) / mockSubjects.length) * 10) / 10;
+    const classSize = 45;
+    const rank = Math.max(1, Math.round((100 - avg) / 6));
+
+    return res.json({
+      success: true,
+      data: {
+        student: {
+          id: st.id,
+          first_name: st.first_name,
+          last_name: st.last_name,
+          class_name: st.class_name,
+          school_name: st.school_name,
+        },
+        academic_year: academicYear || null,
+        term: term || null,
+        overall_gpa_percent: avg,
+        class_rank: `${rank} of ${classSize}`,
+        subjects: mockSubjects,
+      },
+    });
+  } catch (err) {
+    console.error('[parent-portal/student-details/academics]', err);
+    return res.status(500).json({ success: false, message: 'Failed to load academics' });
+  }
+});
+
+// ── Parent attendance proxy (DOS class-period schema) ─────────────
+// Returns the same contract shape DOS uses: { periods, roster, ... }.
+router.get('/parent-portal/student-details/attendance-dos-proxy', async (req, res) => {
+  try {
+    const role = (req.session?.user?.role?.code || req.session?.roleCode || '').toUpperCase();
+    const parentPhone = normalizePhone(req.session?.user?.parent_phone || '');
+    if (role !== 'PARENT' || !parentPhone) {
+      return res.status(401).json({ success: false, message: 'Not authenticated as parent' });
+    }
+
+    const studentRef = String(req.query?.student_ref || req.query?.student_id || '').trim();
+    if (!studentRef) return res.status(400).json({ success: false, message: 'student_ref is required' });
+    const st = await resolveParentStudentAccessByRef(parentPhone, studentRef);
+    if (!st) return res.status(403).json({ success: false, message: 'No access to this student' });
+    const studentId = Number(st.id);
+
+    const toSqlDateLocal = (v) => {
+      const d = v ? new Date(v) : new Date();
+      if (Number.isNaN(d.getTime())) return new Date().toISOString().slice(0, 10);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    };
+    const date = toSqlDateLocal(req.query?.date);
+    const selectedDay = dayNameFromDate(date);
+    const className = String(st.class_name || '').trim();
+    const term = String(req.query?.term || '').trim();
+    const academicYear = String(req.query?.academic_year || '').trim();
+    if (!className) {
+      return res.status(400).json({ success: false, message: 'Student class is not configured' });
+    }
+
+    // Timetable rows for period metadata (same style as DOS payload fields).
+    let ttSql = `
+      SELECT id, subject_name, start_time, end_time, day_of_week,
+             TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))) AS teacher_name
+      FROM academic_timetables t
+      LEFT JOIN users u ON u.id = t.staff_id
+      WHERE t.school_id = ? AND t.class_name = ? AND t.day_of_week = ?
+    `;
+    const ttParams = [st.school_id, className, selectedDay];
+    if (term) {
+      ttSql += ' AND t.term = ?';
+      ttParams.push(term);
+    }
+    if (academicYear) {
+      ttSql += ' AND t.academic_year = ?';
+      ttParams.push(academicYear);
+    }
+    ttSql += ' ORDER BY t.start_time ASC';
+    const [ttRows] = await promisePool.query(ttSql, ttParams).catch(() => [[]]);
+
+    let classSql = `
+      SELECT ac.attendance_date, ac.term, ac.academic_year, d.period, d.status, d.remarks
+      FROM attendance_class_details d
+      INNER JOIN attendance_class ac ON ac.id = d.attendance_id
+      WHERE d.student_id = ? AND ac.attendance_date = ?
+    `;
+    const classParams = [studentId, date];
+    if (term) {
+      classSql += ' AND ac.term = ?';
+      classParams.push(term);
+    }
+    if (academicYear) {
+      classSql += ' AND ac.academic_year = ?';
+      classParams.push(academicYear);
+    }
+    classSql += ' ORDER BY d.period ASC';
+    const [detailRows] = await promisePool.query(classSql, classParams).catch(() => [[]]);
+
+    const uniqueStarts = Array.from(
+      new Set((ttRows || []).map((r) => String(r.start_time || '').trim()).filter(Boolean))
+    ).sort();
+    const periodByStart = new Map(uniqueStarts.map((start, idx) => [start, `P${idx + 1}`]));
+    const periodCodes = Array.from(
+      new Set([
+        ...(detailRows || []).map((r) => String(r.period || '').trim()).filter(Boolean),
+        ...(ttRows || []).map((r) => periodByStart.get(String(r.start_time || '').trim()) || '').filter(Boolean),
+      ])
+    ).sort((a, b) => {
+      const na = Number(String(a).replace(/[^\d]/g, ''));
+      const nb = Number(String(b).replace(/[^\d]/g, ''));
+      if (Number.isFinite(na) && Number.isFinite(nb)) return na - nb;
+      return String(a).localeCompare(String(b));
+    });
+
+    const ttByPeriod = new Map();
+    for (const r of ttRows || []) {
+      const p = periodByStart.get(String(r.start_time || '').trim());
+      if (!p || ttByPeriod.has(p)) continue;
+      ttByPeriod.set(p, r);
+    }
+    const periods = periodCodes.map((p) => {
+      const meta = ttByPeriod.get(p);
+      return {
+        period: p,
+        subject: meta?.subject_name || '',
+        start_time: meta?.start_time || null,
+        end_time: meta?.end_time || null,
+        day_of_week: selectedDay || meta?.day_of_week || null,
+        timetable_id: meta?.id || null,
+        teacher_name: meta?.teacher_name || '',
+      };
+    });
+
+    const statusByPeriod = new Map((detailRows || []).map((r) => [String(r.period || '').trim(), r]));
+    const periodStatuses = {};
+    const remarksLines = [];
+    for (const p of periodCodes) {
+      const row = statusByPeriod.get(p);
+      periodStatuses[p] = row?.status || 'NotMarked';
+      if (row?.remarks) remarksLines.push(`${p}: ${row.remarks}`);
+    }
+    const [[stCode]] = await promisePool.query(
+      `SELECT student_uid FROM students WHERE id = ? LIMIT 1`,
+      [studentId]
+    ).catch(() => [[null]]);
+    const roster = [{
+      student_id: studentId,
+      student_uid: stCode?.student_uid || null,
+      student_name: `${st.first_name || ''} ${st.last_name || ''}`.trim() || 'Student',
+      period_statuses: periodStatuses,
+      remarks: remarksLines.join(' | '),
+    }];
+
+    return res.json({
+      success: true,
+      data: {
+        class_name: className,
+        term: term || null,
+        academic_year: academicYear || null,
+        date,
+        selected_day: selectedDay,
+        timetable_mode: 'parent_proxy',
+        periods,
+        roster,
+      },
+    });
+  } catch (err) {
+    console.error('[parent-portal/student-details/attendance-dos-proxy]', err);
+    return res.status(500).json({ success: false, message: 'Failed to load DOS attendance proxy' });
+  }
+});
+
+// ── Parent-native attendance API (class period + entry/exit) ──────
+router.get('/parent-portal/student-attendance', async (req, res) => {
+  try {
+    const role = (req.session?.user?.role?.code || req.session?.roleCode || '').toUpperCase();
+    const parentPhone = normalizePhone(req.session?.user?.parent_phone || '');
+    if (role !== 'PARENT' || !parentPhone) {
+      return res.status(401).json({ success: false, message: 'Not authenticated as parent' });
+    }
+
+    const studentRef = String(req.query?.student_ref || req.query?.student_id || '').trim();
+    if (!studentRef) return res.status(400).json({ success: false, message: 'student_ref is required' });
+    const st = await resolveParentStudentAccessByRef(parentPhone, studentRef);
+    if (!st) return res.status(403).json({ success: false, message: 'No access to this student' });
+    const studentId = Number(st.id);
+
+    const type = String(req.query?.type || 'class').trim().toLowerCase(); // class | entry_exit
+    const academicYear = String(req.query?.academic_year || '').trim();
+    const term = String(req.query?.term || '').trim();
+    const specificDate = String(req.query?.date || '').trim();
+    const weekday = normalizeWeekday(req.query?.weekday);
+
+    const summarizeClass = (rows) => {
+      const s = { present: 0, absent: 0, late: 0, excused: 0, other: 0, total: rows.length };
+      for (const r of rows) {
+        const k = String(r.status || '').trim().toLowerCase();
+        if (k === 'present') s.present += 1;
+        else if (k === 'absent') s.absent += 1;
+        else if (k === 'late') s.late += 1;
+        else if (k === 'excused') s.excused += 1;
+        else s.other += 1;
+      }
+      return s;
+    };
+    const summarizeEntryExit = (rows) => {
+      const s = { present: 0, absent: 0, late: 0, missing: 0, other: 0, total: rows.length };
+      for (const r of rows) {
+        const inS = String(r.status_in || '').trim().toLowerCase();
+        const outS = String(r.status_out || '').trim().toLowerCase();
+        const key = inS || outS;
+        if (key === 'present') s.present += 1;
+        else if (key === 'absent') s.absent += 1;
+        else if (key === 'late') s.late += 1;
+        else if (key === 'missing') s.missing += 1;
+        else s.other += 1;
+      }
+      return s;
+    };
+
+    if (type === 'entry_exit') {
+      let sql = `
+        SELECT attendance_date, check_in, check_out, status_in, status_out, source_in, source_out, notes
+        FROM attendance_student
+        WHERE student_id = ?
+      `;
+      const params = [studentId];
+      if (specificDate) {
+        sql += ' AND attendance_date = ?';
+        params.push(specificDate);
+      }
+      sql += ' ORDER BY attendance_date DESC LIMIT 365';
+      const [rows] = await promisePool.query(sql, params).catch(() => [[]]);
+      const filtered = (rows || []).filter((r) => !weekday || dayNameFromDate(r.attendance_date) === weekday);
+      return res.json({
+        success: true,
+        data: { type: 'entry_exit', student_id: studentId, rows: filtered, summary: summarizeEntryExit(filtered) },
+      });
+    }
+
+    let classSql = `
+      SELECT ac.attendance_date, ac.term, ac.academic_year, d.period, d.status, d.remarks
+      FROM attendance_class_details d
+      INNER JOIN attendance_class ac ON ac.id = d.attendance_id
+      WHERE d.student_id = ?
+    `;
+    const classParams = [studentId];
+    if (academicYear) {
+      classSql += ' AND ac.academic_year = ?';
+      classParams.push(academicYear);
+    }
+    if (term) {
+      classSql += ' AND ac.term = ?';
+      classParams.push(term);
+    }
+    if (specificDate) {
+      classSql += ' AND ac.attendance_date = ?';
+      classParams.push(specificDate);
+    }
+    classSql += ' ORDER BY ac.attendance_date DESC, d.period ASC LIMIT 1000';
+    const [classRows] = await promisePool.query(classSql, classParams).catch(() => [[]]);
+    let filtered = (classRows || []).filter((r) => !weekday || dayNameFromDate(r.attendance_date) === weekday);
+
+    // DOS-compatible fallback: if no attendance_class rows exist, read teacher attendance logs.
+    if (!filtered.length) {
+      let fallbackSql = `
+        SELECT
+          al.record_date AS attendance_date,
+          tt.term,
+          tt.academic_year,
+          COALESCE(NULLIF(TRIM(tt.start_time), ''), 'Period') AS period,
+          NULLIF(TRIM(tt.subject_name), '') AS course_name,
+          CASE
+            WHEN LOWER(TRIM(ar.status)) IN ('present', 'on_time', 'ontime') THEN 'Present'
+            WHEN LOWER(TRIM(ar.status)) IN ('late') THEN 'Late'
+            WHEN LOWER(TRIM(ar.status)) IN ('absent', 'missing') THEN 'Absent'
+            WHEN LOWER(TRIM(ar.status)) IN ('excused') THEN 'Excused'
+            ELSE 'NotMarked'
+          END AS status,
+          ar.remarks
+        FROM academic_attendance_logs al
+        INNER JOIN academic_attendance_records ar ON ar.log_id = al.id
+        INNER JOIN academic_timetables tt ON tt.id = al.timetable_id AND tt.school_id = al.school_id
+        WHERE ar.student_id = ?
+      `;
+      const fallbackParams = [studentId];
+      if (academicYear) {
+        fallbackSql += ' AND tt.academic_year = ?';
+        fallbackParams.push(academicYear);
+      }
+      if (term) {
+        fallbackSql += ' AND tt.term = ?';
+        fallbackParams.push(term);
+      }
+      if (specificDate) {
+        fallbackSql += ' AND al.record_date = ?';
+        fallbackParams.push(specificDate);
+      }
+      fallbackSql += ' ORDER BY al.record_date DESC, tt.start_time ASC LIMIT 1000';
+      const [fallbackRows] = await promisePool.query(fallbackSql, fallbackParams).catch(() => [[]]);
+      filtered = (fallbackRows || []).filter((r) => !weekday || dayNameFromDate(r.attendance_date) === weekday);
+    }
+
+    // Attach course name for class-period rows by mapping timetable day + period.
+    if (type === 'class' && filtered.length) {
+      const [ttRows] = await promisePool.query(
+        `SELECT day_of_week, start_time, subject_name
+         FROM academic_timetables
+         WHERE school_id = ? AND class_name = ?
+           ${term ? 'AND term = ?' : ''}
+           ${academicYear ? 'AND academic_year = ?' : ''}
+         ORDER BY day_of_week ASC, start_time ASC`,
+        [
+          st.school_id,
+          st.class_name || '',
+          ...(term ? [term] : []),
+          ...(academicYear ? [academicYear] : []),
+        ]
+      ).catch(() => [[]]);
+      const dayBuckets = new Map();
+      for (const r of ttRows || []) {
+        const day = String(r.day_of_week || '').trim();
+        if (!day) continue;
+        if (!dayBuckets.has(day)) dayBuckets.set(day, []);
+        dayBuckets.get(day).push(r);
+      }
+      const subjectByDayPeriod = new Map();
+      const subjectByDayTime = new Map();
+      for (const [day, rows] of dayBuckets.entries()) {
+        const sorted = [...rows].sort((a, b) => String(a.start_time || '').localeCompare(String(b.start_time || '')));
+        sorted.forEach((r, idx) => {
+          const subject = r.subject_name || '';
+          const timeRaw = String(r.start_time || '').trim();
+          const hhmm = timeRaw ? timeRaw.slice(0, 5) : '';
+          subjectByDayPeriod.set(`${day}:P${idx + 1}`, subject);
+          if (hhmm) subjectByDayTime.set(`${day}:${hhmm}`, subject);
+        });
+      }
+      filtered = filtered.map((r) => {
+        const day = dayNameFromDate(r.attendance_date);
+        const periodRaw = String(r.period || '').trim();
+        const periodUpper = periodRaw.toUpperCase();
+        const hhmm = periodRaw.length >= 5 ? periodRaw.slice(0, 5) : '';
+        const fromTime = hhmm ? subjectByDayTime.get(`${day}:${hhmm}`) : null;
+        const fromOrdinal = /^P\d+$/.test(periodUpper) ? subjectByDayPeriod.get(`${day}:${periodUpper}`) : null;
+        const resolvedCourse = r.course_name || fromTime || fromOrdinal || null;
+        return { ...r, course_name: resolvedCourse };
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: { type: 'class', student_id: studentId, class_name: st.class_name || '', rows: filtered, summary: summarizeClass(filtered) },
+    });
+  } catch (err) {
+    console.error('[parent-portal/student-attendance]', err);
+    return res.status(500).json({ success: false, message: 'Failed to load parent attendance' });
+  }
+});
+
+// ── Parent-native discipline API (from discipline_cases table) ────
+router.get('/parent-portal/student-discipline', async (req, res) => {
+  try {
+    const role = (req.session?.user?.role?.code || req.session?.roleCode || '').toUpperCase();
+    const parentPhone = normalizePhone(req.session?.user?.parent_phone || '');
+    if (role !== 'PARENT' || !parentPhone) {
+      return res.status(401).json({ success: false, message: 'Not authenticated as parent' });
+    }
+
+    const studentRef = String(req.query?.student_ref || req.query?.student_id || '').trim();
+    if (!studentRef) return res.status(400).json({ success: false, message: 'student_ref is required' });
+    const st = await resolveParentStudentAccessByRef(parentPhone, studentRef);
+    if (!st) return res.status(403).json({ success: false, message: 'No access to this student' });
+    const studentId = Number(st.id);
+
+    const academicYear = String(req.query?.academic_year || '').trim();
+    const term = String(req.query?.term || '').trim();
+    const specificDate = String(req.query?.date || '').trim();
+    const weekday = normalizeWeekday(req.query?.weekday);
+
+    const loadRows = async ({ strictSchool = true } = {}) => {
+      let sql = `
+        SELECT id, student_id, action, marks, reason, notes, action_date, previous_marks, new_marks, created_at
+        FROM discipline_mark_logs
+        WHERE student_id = ? AND undone_at IS NULL
+      `;
+      const params = [studentId];
+      if (strictSchool) {
+        sql += ' AND school_id = ?';
+        params.push(st.school_id);
+      }
+      if (specificDate) {
+        sql += ' AND (DATE(action_date) = DATE(?) OR DATE(created_at) = DATE(?))';
+        params.push(specificDate, specificDate);
+      }
+      sql += ' ORDER BY created_at DESC LIMIT 500';
+      const [rows] = await promisePool.query(sql, params).catch(() => [[]]);
+      return (rows || []).filter((r) => !weekday || dayNameFromDate(r.action_date || r.created_at) === weekday);
+    };
+
+    let filtered = await loadRows({ strictSchool: true });
+    // Legacy compatibility: older discipline rows may have missing/mismatched school_id.
+    if (!filtered.length) {
+      filtered = await loadRows({ strictSchool: false });
+    }
+
+    // Student-id migration compatibility:
+    // If discipline was recorded under an older student_id, recover using stable student references.
+    if (!filtered.length) {
+      const stCode = String(st.student_code || '').trim();
+      const stUid = String(st.student_uid || '').trim();
+      const stSdm = String(st.sdm_code || '').trim();
+      if (stCode || stUid || stSdm) {
+        const loadByStudentRef = async ({ strictSchool = true } = {}) => {
+          let sql = `
+            SELECT c.id, c.student_id, c.action, c.marks, c.reason, c.notes, c.action_date, c.previous_marks, c.new_marks, c.created_at
+            FROM discipline_mark_logs c
+            INNER JOIN students s ON s.id = c.student_id
+            WHERE c.undone_at IS NULL AND (
+              (? <> '' AND s.student_code = ?)
+              OR (? <> '' AND s.student_uid = ?)
+              OR (? <> '' AND s.sdm_code = ?)
+            )
+          `;
+          const params = [stCode, stCode, stUid, stUid, stSdm, stSdm];
+          if (strictSchool) {
+            sql += ' AND c.school_id = ?';
+            params.push(st.school_id);
+          }
+          if (specificDate) {
+            sql += ' AND (DATE(c.action_date) = DATE(?) OR DATE(c.created_at) = DATE(?))';
+            params.push(specificDate, specificDate);
+          }
+          sql += ' ORDER BY c.created_at DESC LIMIT 500';
+          const [rows] = await promisePool.query(sql, params).catch(() => [[]]);
+          return (rows || []).filter((r) => !weekday || dayNameFromDate(r.action_date || r.created_at) === weekday);
+        };
+
+        filtered = await loadByStudentRef({ strictSchool: true });
+        if (!filtered.length) {
+          filtered = await loadByStudentRef({ strictSchool: false });
+        }
+      }
+    }
+    
+    // If discipline_mark_logs is empty, fallback to legacy discipline_cases
+    if (!filtered.length) {
+      const loadLegacyCases = async () => {
+        let sql = `
+          SELECT id, student_id, academic_year, term, class_name,
+                 lesson_subject AS case_name, lesson_subject, description,
+                 marks_deducted AS marks_removed, marks_deducted, marks_remaining_after, created_at
+          FROM discipline_cases
+          WHERE student_id = ?
+        `;
+        const params = [studentId];
+        if (academicYear) { sql += ' AND academic_year = ?'; params.push(academicYear); }
+        if (term) { sql += ' AND term = ?'; params.push(term); }
+        sql += ' ORDER BY created_at DESC LIMIT 500';
+        const [rows] = await promisePool.query(sql, params).catch(() => [[]]);
+        return rows || [];
+      };
+      filtered = await loadLegacyCases();
+      if (!filtered.length && (academicYear || term)) {
+         // try without term filtering
+         let sql2 = `
+           SELECT id, student_id, academic_year, term, class_name,
+                  lesson_subject AS case_name, lesson_subject, description,
+                  marks_deducted AS marks_removed, marks_deducted, marks_remaining_after, created_at
+           FROM discipline_cases
+           WHERE student_id = ? ORDER BY created_at DESC LIMIT 500
+         `;
+         const [rows2] = await promisePool.query(sql2, [studentId]).catch(() => [[]]);
+         filtered = rows2 || [];
+      }
+    }
+
+    const marksDeductedTotal = filtered.reduce((sum, r) => sum + (r.action === 'remove' || !r.action ? Number(r.marks || r.marks_deducted || 0) : 0), 0);
+    const marksRemainingLatest = filtered.length ? Number(filtered[0]?.new_marks || filtered[0]?.marks_remaining_after || 0) : 0;
+    const [[defMarksRow]] = await promisePool.query(
+      `SELECT default_marks FROM school_discipline_default_marks WHERE school_id = ? LIMIT 1`,
+      [st.school_id]
+    ).catch(() => [[null]]);
+    const disciplineDefaultMarks = defMarksRow?.default_marks != null ? Number(defMarksRow.default_marks) : 40;
+
+    return res.json({
+      success: true,
+      data: {
+        student_id: studentId,
+        class_name: st.class_name || '',
+        rows: filtered,
+        summary: {
+          cases_count: filtered.length,
+          marks_deducted_total: marksDeductedTotal,
+          marks_remaining_latest: marksRemainingLatest,
+          discipline_default_marks: disciplineDefaultMarks,
+        },
+      },
+    });
+  } catch (err) {
+    console.error('[parent-portal/student-discipline]', err);
+    return res.status(500).json({ success: false, message: 'Failed to load parent discipline' });
   }
 });
 

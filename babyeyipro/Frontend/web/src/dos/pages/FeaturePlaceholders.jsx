@@ -11,25 +11,22 @@ import {
 
 const FeaturePlaceholders = ({ feature = 'Module', icon = '🚀' }) => {
   return (
-    <div className="relative w-full bg-re-bg min-h-[85vh]">
-      {/* ── High-Fidelity Hero Section ── */}
-      <div className="relative w-full min-h-[140px] md:min-h-[200px] overflow-hidden">
-        <div className="absolute inset-0 bg-re-purple/70 z-10 backdrop-blur-[2px]"></div>
-        <img src="/teacher.jpg" alt="Hero" className="absolute inset-0 w-full h-full object-cover scale-105 grayscale" />
-
-        <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-12 pt-8 md:pt-12 pb-10 md:pb-16">
-          <div className="space-y-1 text-center md:text-left">
-            <div className="flex items-center justify-center md:justify-start gap-2 mb-1">
-              <span className="w-4 h-1 bg-white/40 rounded-full"></span>
-              <p className="text-[9px] font-black text-white/40 uppercase tracking-[0.3em]">Module Intelligence</p>
-            </div>
-            <h1 className="text-3xl md:text-5xl font-black text-white tracking-tighter leading-none mb-1 mt-1 uppercase">
-              {feature} <span className="text-white/30">System</span>
-            </h1>
-            <p className="text-[10px] md:text-sm font-bold text-white/30 max-w-lg leading-relaxed uppercase tracking-widest italic opacity-60">Phase 3: Integration & Professional Testing</p>
+    <div className="relative w-full bg-re-bg min-h-[85vh]" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+      {/* ── Hero Banner ── */}
+      <section className="relative p-7 md:p-10 text-white overflow-hidden min-h-[200px] flex items-center bg-[#000435]">
+        <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full border border-white/5 pointer-events-none" />
+        <div className="absolute -top-12 -right-12 w-64 h-64 rounded-full border border-white/5 pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-[#FEBF10]/30 to-transparent pointer-events-none" />
+        <div className="relative z-10 max-w-5xl w-full text-center md:text-left">
+          <div className="flex items-center justify-center md:justify-start gap-2 mb-2">
+            <span className="h-0.5 w-6 rounded-full bg-[#FEBF10]" />
+            <p className="text-[10px] font-black capitalize tracking-widest text-[#FEBF10]/80">Module Intelligence</p>
           </div>
+          <h1 className="text-2xl md:text-3xl font-black tracking-tight">{feature} <span className="text-white/30">System</span></h1>
+          <p className="text-xs font-bold text-white/50 max-w-xl mt-2">Phase 3: Integration &amp; Professional Testing</p>
         </div>
-      </div>
+      </section>
+
 
       {/* ── Overlapping Card ── */}
       <div className="max-w-[1600px] mx-auto px-4 md:px-12 -mt-10 md:-mt-12 relative z-20 pb-20">

@@ -636,6 +636,30 @@ router.get('/attendance-module/class-period', requireTeacherRole, async (req, re
                 return true;
             });
         }
+
+        // If teacher marked a period that is not part of the selected-day timetable slots,
+        // keep it visible in DOS by extending the periods list with those captured period keys.
+        const existingPeriods = new Set(periods.map((p) => p.period));
+        const extraPeriods = Array.from(
+            new Set((detailRows || []).map((r) => String(r.period || '').trim()).filter(Boolean))
+        ).filter((p) => !existingPeriods.has(p));
+        for (const p of extraPeriods) {
+            periods.push({
+                period: p,
+                subject: 'Recorded',
+                start_time: null,
+                end_time: null,
+                day_of_week: dayName,
+                timetable_id: null,
+                teacher_name: '',
+            });
+        }
+        periods.sort((a, b) => {
+            const na = Number(String(a.period || '').replace(/[^\d]/g, ''));
+            const nb = Number(String(b.period || '').replace(/[^\d]/g, ''));
+            if (Number.isFinite(na) && Number.isFinite(nb)) return na - nb;
+            return String(a.period || '').localeCompare(String(b.period || ''));
+        });
         const byKey = new Map(detailRows.map((r) => [`${r.student_id}:${r.period}`, r]));
         const roster = students.map((s) => {
             const periodStatuses = {};

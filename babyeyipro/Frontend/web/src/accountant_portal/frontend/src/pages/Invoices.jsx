@@ -81,7 +81,7 @@ function mapApiRowToInvoice(row) {
   const items = Array.isArray(ap.items) && ap.items.length
     ? ap.items.map((it, idx) => ({
       id: String(it.id || `l${idx}`),
-      name: it.name || '—',
+      name: it.name || 'ΓÇö',
       qty: Number(it.qty) || 0,
       unitPrice: Number(it.unitPrice ?? it.unit_price) || 0,
     }))
@@ -104,7 +104,7 @@ function mapApiRowToInvoice(row) {
     dueDate: toYmd(row.invoice_due_at) || toYmd(row.created_at),
     status: displayStatus,
     billTo: {
-      name: row.student_name || row.payer_name || '—',
+      name: row.student_name || row.payer_name || 'ΓÇö',
       metaLines: metaLines.length ? metaLines : [row.payer_phone || row.payer_email || ''].filter(Boolean),
     },
     items,
@@ -217,7 +217,7 @@ function exportInvoicePdf({ invoice, config }) {
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(15, 23, 42);
   doc.setFontSize(10);
-  doc.text(invoice.billTo?.name || '—', margin, y); y += 14;
+  doc.text(invoice.billTo?.name || 'ΓÇö', margin, y); y += 14;
   doc.setTextColor(100, 116, 139);
   doc.setFontSize(9.5);
   const lines = (invoice.billTo?.metaLines || []).filter(Boolean);
@@ -261,8 +261,8 @@ function exportInvoicePdf({ invoice, config }) {
       doc.rect(tableX, y - 12, tableW, 20, 'F');
     }
 
-    const name = String(it.name || '—');
-    const qty = String(it.qty ?? '—');
+    const name = String(it.name || 'ΓÇö');
+    const qty = String(it.qty ?? 'ΓÇö');
     const unit = formatMoneyRWF(Number(it.unitPrice) || 0).replace('RWF', '').trim();
     const amount = formatMoneyRWF((Number(it.qty) || 0) * (Number(it.unitPrice) || 0)).replace('RWF', '').trim();
 
@@ -311,8 +311,8 @@ function exportInvoicePdf({ invoice, config }) {
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(15, 23, 42);
   doc.setFontSize(9.5);
-  doc.text(`Bank account: ${config.bankAccount || '—'}`, margin, y); y += 12;
-  doc.text(`Mobile money: ${config.momoNumber || '—'}`, margin, y); y += 14;
+  doc.text(`Bank account: ${config.bankAccount || 'ΓÇö'}`, margin, y); y += 12;
+  doc.text(`Mobile money: ${config.momoNumber || 'ΓÇö'}`, margin, y); y += 14;
 
   doc.setTextColor(100, 116, 139);
   doc.setFontSize(9);
@@ -549,7 +549,7 @@ function NewInvoiceModal({ open, onClose, onCreate, config }) {
             className="h-9 px-4 rounded-lg text-white font-black text-[9px] uppercase tracking-widest shadow-lg hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-60"
             style={{ background: 'linear-gradient(135deg, #000435 0%, #0D2644 100%)' }}
           >
-            {submitting ? 'Saving…' : 'Create invoice'}
+            {submitting ? 'SavingΓÇª' : 'Create invoice'}
           </button>
         </div>
       </div>
@@ -863,7 +863,7 @@ export default function Invoices() {
                   {!derived.filtered.length && (
                     <tr>
                       <td colSpan={6} className="px-6 py-16 text-center text-[10px] font-bold text-[#000435] uppercase tracking-widest">
-                        {loading ? 'Loading invoices…' : 'No invoices yet. Create one or refresh after payments are recorded in Babyeyi.'}
+                        {loading ? 'Loading invoicesΓÇª' : 'No invoices yet. Create one or refresh after payments are recorded in Babyeyi.'}
                       </td>
                     </tr>
                   )}
@@ -892,8 +892,8 @@ export default function Invoices() {
                               <User size={13} className="text-amber-500" />
                             </div>
                             <div className="min-w-0">
-                              <p className="text-[11px] font-black text-[#000435] truncate">{r.billTo?.name || '—'}</p>
-                              <p className="text-[8px] font-bold text-re-text-muted uppercase tracking-widest opacity-40 truncate">{(r.billTo?.metaLines || []).join(' · ')}</p>
+                              <p className="text-[11px] font-black text-[#000435] truncate">{r.billTo?.name || 'ΓÇö'}</p>
+                              <p className="text-[8px] font-bold text-re-text-muted uppercase tracking-widest opacity-40 truncate">{(r.billTo?.metaLines || []).join(' ┬╖ ')}</p>
                             </div>
                           </div>
                         </td>
@@ -979,7 +979,7 @@ export default function Invoices() {
                 </div>
                 <div className="w-px h-3 bg-black/10" />
                 <p className="text-[8px] font-black text-[#000435] uppercase tracking-[0.2em] opacity-40 italic">
-                  {derived.stats.count} Records · Filter: {statusFilter}
+                  {derived.stats.count} Records ┬╖ Filter: {statusFilter}
                 </p>
               </div>
               <div className="hidden sm:flex items-center gap-2 text-[8px] font-black uppercase tracking-widest text-[#000435] opacity-60">
@@ -1001,4 +1001,3 @@ export default function Invoices() {
     </>
   );
 }
-

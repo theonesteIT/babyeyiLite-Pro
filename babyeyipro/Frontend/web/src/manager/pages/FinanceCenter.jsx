@@ -492,13 +492,14 @@ export default function FinanceCenter() {
         onCancel={() => setDecisionModal({ open: false, kind: 'expense', row: null, decision: '', note: '' })}
         onConfirm={submitExpenseDecision}
       />
-      <section className="relative min-h-[220px] overflow-hidden">
-        <div className="absolute inset-0 bg-[#0a192f]/85 z-10" />
-        <img src="/teacher.jpg" alt="Finance background" className="absolute inset-0 h-full w-full object-cover" />
+      <section className="relative min-h-[220px] overflow-hidden bg-[#000435]">
+        <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full border border-white/5 pointer-events-none" />
+        <div className="absolute -top-12 -right-12 w-64 h-64 rounded-full border border-white/5 pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-[#FEBF10]/30 to-transparent pointer-events-none" />
         <div className="relative z-20 max-w-[1500px] mx-auto px-4 md:px-8 py-12 text-white">
-          <p className="text-[10px] uppercase tracking-[0.3em] font-black text-[#FEBF10]">School Manager</p>
-          <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tight mt-2">Finance approvals & reports</h1>
-          <p className="text-[11px] md:text-sm font-bold text-white/70 mt-2 max-w-3xl">Approve or reject expense and requisition requests, review payroll reports, and monitor staff/student attendance with term, date and academic-year filters.</p>
+          <p className="text-[10px] uppercase text-center tracking-[0.3em] font-black text-[#FEBF10]">School Manager</p>
+          <h1 className="text-2xl md:text-2xl text-center font-black uppercase tracking-tight mt-2">Finance approvals & reports</h1>
+          
         </div>
       </section>
 
@@ -543,37 +544,36 @@ export default function FinanceCenter() {
               <div className="flex flex-wrap gap-2">
                 {(activeTab === 'expenses'
                   ? [
-                      ['all', 'All'],
-                      ['pending', 'Pending only'],
-                      ['approved', 'Approved'],
-                      ['rejected', 'Rejected'],
-                    ]
+                    ['all', 'All'],
+                    ['pending', 'Pending only'],
+                    ['approved', 'Approved'],
+                    ['rejected', 'Rejected'],
+                  ]
                   : [
-                      ['all', 'All'],
-                      ['pending', 'Pending only'],
-                      ['approved', 'Approved'],
-                      ['rejected', 'Rejected'],
-                    ]).map(([value, label]) => {
-                  const current = activeTab === 'expenses' ? expenseStatusFilter : requisitionStatusFilter;
-                  const onPick = () =>
-                    activeTab === 'expenses'
-                      ? setExpenseStatusFilter(value)
-                      : setRequisitionStatusFilter(value);
-                  return (
-                    <button
-                      key={`${activeTab}-${value}`}
-                      type="button"
-                      onClick={onPick}
-                      className={`h-8 px-3 rounded-xl text-[10px] font-black uppercase tracking-wider border ${
-                        current === value
-                          ? 'bg-[#1E3A5F] text-white border-[#1E3A5F]'
-                          : 'bg-white text-slate-600 border-black/10 hover:bg-slate-50'
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
+                    ['all', 'All'],
+                    ['pending', 'Pending only'],
+                    ['approved', 'Approved'],
+                    ['rejected', 'Rejected'],
+                  ]).map(([value, label]) => {
+                    const current = activeTab === 'expenses' ? expenseStatusFilter : requisitionStatusFilter;
+                    const onPick = () =>
+                      activeTab === 'expenses'
+                        ? setExpenseStatusFilter(value)
+                        : setRequisitionStatusFilter(value);
+                    return (
+                      <button
+                        key={`${activeTab}-${value}`}
+                        type="button"
+                        onClick={onPick}
+                        className={`h-8 px-3 rounded-xl text-[10px] font-black uppercase tracking-wider border ${current === value
+                            ? 'bg-[#1E3A5F] text-white border-[#1E3A5F]'
+                            : 'bg-white text-slate-600 border-black/10 hover:bg-slate-50'
+                          }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
               </div>
             )}
 

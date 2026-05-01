@@ -14,6 +14,7 @@ import StaffPayroll from './frontend/src/pages/StaffPayroll'
 import ShuleAvance from './frontend/src/pages/ShuleAvance'
 import FeaturePlaceholders from './frontend/src/pages/FeaturePlaceholders'
 import BabyeyiFees from './frontend/src/pages/BabyeyiFees'
+import SalaryPayment from './frontend/src/pages/SalaryPayment'
 import ChatCenter from '../shared/pages/ChatCenter'
 
 function LoadingScreen() {
@@ -52,6 +53,7 @@ function AccountantRoutesInner() {
       <Route path="payroll" element={<Navigate to="payroll/history" replace />} />
       <Route path="payroll/history" element={<ProtectedRoute title="Payroll History"><PayrollHistory /></ProtectedRoute>} />
       <Route path="payroll/config" element={<ProtectedRoute title="Configure Payroll"><PayrollConfig /></ProtectedRoute>} />
+      <Route path="payroll/salary-payment" element={<ProtectedRoute title="Salary Payment"><SalaryPayment /></ProtectedRoute>} />
       <Route path="my-payroll" element={<ProtectedRoute title="My Payroll"><StaffPayroll /></ProtectedRoute>} />
       <Route path="chat" element={<ProtectedRoute title="Chat center"><ChatCenter /></ProtectedRoute>} />
 

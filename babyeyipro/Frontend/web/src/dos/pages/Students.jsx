@@ -282,25 +282,23 @@ const Students = () => {
                 </div>, document.body
             )}
 
-            {/* ── High-Fidelity Hero Section (ShuleAvance Pattern) ── */}
-            <div className="relative w-full min-h-[280px] overflow-hidden">
-                <div className="absolute inset-0 bg-orange-950/70 z-10 backdrop-blur-[2px]"></div>
-                <img src="/teacher.jpg" alt="Hero" className="absolute inset-0 w-full h-full object-cover scale-105" />
-
-                <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-12 pt-16 pb-24">
-                    <div className="space-y-1">
-                        <div className="flex items-center gap-2 mb-2">
-                            <span className="w-6 h-1 bg-re-orange rounded-full"></span>
-                            <p className="text-[10px] font-black text-re-orange uppercase tracking-[0.3em]">Institutional Repository</p>
-                        </div>
-                        <h1 className="text-2xl sm:text-4xl md:text-5xl font-black text-white tracking-tighter leading-none mb-2 mt-2 uppercase">Students <span className="text-re-orange">List</span></h1>
-                        <p className="text-[8px] sm:text-[10px] md:text-sm font-bold text-white/40 max-w-lg leading-relaxed uppercase tracking-widest italic opacity-60">Professional Academic & Behavioral Analytics View</p>
+            {/* ── Hero Banner ── */}
+            <section className="relative p-7 md:p-10 text-white overflow-hidden min-h-[200px] flex items-center bg-[#000435]">
+                <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full border border-white/5 pointer-events-none" />
+                <div className="absolute -top-12 -right-12 w-64 h-64 rounded-full border border-white/5 pointer-events-none" />
+                <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-[#FEBF10]/30 to-transparent pointer-events-none" />
+                <div className="relative z-10 max-w-5xl w-full">
+                    <div className="flex items-center gap-2 mb-2">
+                        <span className="h-0.5 w-6 rounded-full bg-[#FEBF10]" />
+                        <p className="text-[10px] font-black capitalize tracking-widest text-[#FEBF10]/80">Institutional Repository</p>
                     </div>
+                    <h1 className="text-2xl md:text-3xl font-black tracking-tight">Students <span className="text-[#FEBF10]">List</span></h1>
+                    <p className="text-xs font-bold text-white/60 max-w-xl mt-2">Professional Academic & Behavioral Analytics View.</p>
                 </div>
-            </div>
+            </section>
 
             {/* ── Consolidated High-Fidelity Card (Dashboard Stats Style) ── */}
-            <div className="max-w-[1600px] mx-auto px-6 md:px-12 -mt-24 relative z-20 pb-20">
+            <div className="max-w-[1600px] mx-auto px-6 md:px-12 -mt-10 relative z-20 pb-20">
                 <div className="bg-white rounded-t-[32px] shadow-2xl border border-black/5 overflow-hidden flex flex-col">
 
                     {/* Top Layer: Stats Grid + Actions (Dashboard Style) */}

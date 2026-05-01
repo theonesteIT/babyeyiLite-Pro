@@ -47,7 +47,9 @@ const STAFF_LIST_ROLES = ['SCHOOL_ADMIN', 'SCHOOL_MANAGER', 'DOS', 'TEACHER', 'H
 const CREATABLE_ROLE_CODES = [
   'TEACHER', 'ACCOUNTANT', 'HOD', 'DOS',
   'GATE_OFFICER', 'LIBRARIAN', 'STORE_MANAGER',
+  'SCHOOL_MANAGER', 'SCHOOL_DIRECTOR',
 ];
+const CUSTOM_ROLE_CODE_RE = /^[A-Z][A-Z0-9_]{1,63}$/;
 
 function resolveSchoolId(req) {
   return (
@@ -72,6 +74,23 @@ function generateRandomPassword(length = 10) {
 function trimStr(v) {
   if (v === undefined || v === null) return '';
   return String(v).trim();
+}
+
+function normalizeCustomRoleCode(raw) {
+  return String(raw || '')
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .replace(/_+/g, '_');
+}
+
+function roleCodeToName(roleCode) {
+  return String(roleCode || '')
+    .split('_')
+    .filter(Boolean)
+    .map((part) => part.charAt(0) + part.slice(1).toLowerCase())
+    .join(' ') || 'Custom Role';
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -141,7 +160,9 @@ router.post('/school/staff',
     const email = trimStr(body.email).toLowerCase();
     let username = trimStr(body.username);
     const phone = trimStr(body.phone) || null;
-    const roleCode = trimStr(body.role_code).toUpperCase();
+    const incomingRoleCode = trimStr(body.role_code).toUpperCase();
+    const customRoleName = trimStr(body.custom_role_name || body.role_name || body.job_title);
+    const roleCode = incomingRoleCode === 'CUSTOM' ? normalizeCustomRoleCode(customRoleName) : incomingRoleCode;
     const rfidUid = trimStr(body.rfid_uid) || null;
     const fingerprintId = trimStr(body.fingerprint_id) || null;
     const identityRemarks = trimStr(body.identity_remarks) || null;
@@ -178,11 +199,8 @@ router.post('/school/staff',
     if (username.length < 3) {
       return res.status(400).json({ success: false, message: 'Username must be at least 3 characters.' });
     }
-    if (!CREATABLE_ROLE_CODES.includes(roleCode)) {
-      return res.status(400).json({
-        success: false,
-        message: `Role must be one of: ${CREATABLE_ROLE_CODES.join(', ')}`,
-      });
+    if (!roleCode) {
+      return res.status(400).json({ success: false, message: 'Role is required.' });
     }
 
     // Biometric Uniqueness Check
@@ -199,10 +217,56 @@ router.post('/school/staff',
       if (dupFpStud) return res.status(409).json({ success: false, message: 'This Fingerprint ID is reserved by a student.' });
     }
 
-    const [[roleRow]] = await conn.query(
-      'SELECT id FROM roles WHERE UPPER(role_code) = ? AND is_active = 1 LIMIT 1',
-      [roleCode]
-    );
+    let roleRow = null;
+    if (CREATABLE_ROLE_CODES.includes(roleCode)) {
+      const [[knownRoleRow]] = await conn.query(
+        'SELECT id FROM roles WHERE UPPER(role_code) = ? AND is_active = 1 LIMIT 1',
+        [roleCode]
+      );
+      if (knownRoleRow?.id) {
+        roleRow = knownRoleRow;
+      } else {
+        const [[inactiveRoleRow]] = await conn.query(
+          'SELECT id, is_system_role FROM roles WHERE UPPER(role_code) = ? LIMIT 1',
+          [roleCode]
+        );
+        if (inactiveRoleRow?.id) {
+          await conn.query(
+            'UPDATE roles SET is_active = 1, role_name = COALESCE(NULLIF(role_name, \'\'), ?), updated_at = NOW() WHERE id = ?',
+            [roleCodeToName(roleCode), inactiveRoleRow.id]
+          );
+          roleRow = { id: inactiveRoleRow.id };
+        } else {
+          const [insertedRole] = await conn.query(
+            `INSERT INTO roles (role_name, role_code, description, permissions, is_active, is_system_role)
+             VALUES (?, ?, ?, ?, 1, 1)`,
+            [roleCodeToName(roleCode), roleCode, 'System staff role auto-created from HR Center', '[]']
+          );
+          roleRow = { id: insertedRole.insertId };
+        }
+      }
+    } else {
+      const [[existingNonCreatable]] = await conn.query(
+        'SELECT id FROM roles WHERE UPPER(role_code) = ? AND is_active = 1 LIMIT 1',
+        [roleCode]
+      );
+      if (existingNonCreatable) {
+        return res.status(400).json({
+          success: false,
+          message: `Role must be one of: ${CREATABLE_ROLE_CODES.join(', ')} or a new custom role.`,
+        });
+      }
+      if (!CUSTOM_ROLE_CODE_RE.test(roleCode)) {
+        return res.status(400).json({ success: false, message: 'Custom role format is invalid.' });
+      }
+      const roleName = roleCodeToName(roleCode);
+      const [inserted] = await conn.query(
+        `INSERT INTO roles (role_name, role_code, description, permissions, is_active, is_system_role)
+         VALUES (?, ?, ?, ?, 1, 0)`,
+        [roleName || 'Custom Role', roleCode, 'Custom role created from HR Center', '[]']
+      );
+      roleRow = { id: inserted.insertId };
+    }
     if (!roleRow) {
       return res.status(400).json({ success: false, message: 'Unknown or inactive role.' });
     }

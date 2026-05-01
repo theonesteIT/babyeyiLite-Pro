@@ -1,34 +1,10 @@
-import { useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  BookOpen, BookMarked, RotateCcw, Users, AlertTriangle,
+  BookOpen, BookMarked, RotateCcw, AlertTriangle,
   ArrowRight, TrendingUp, Activity, CheckCircle, MessageSquare,
 } from 'lucide-react';
-
-// ── Inline mock snapshots ────────────────────────────────────
-const TOTAL_TITLES = 12;
-const TOTAL_COPIES = 239;
-const AVAILABLE = 182;
-const ACTIVE_LOANS = 8;
-const OVERDUE = 4;
-const TOTAL_MEMBERS = 12;
-
-const RECENT_LOANS = [
-  { id: 'LN006', book: 'Physics S6',          borrower: 'Mukamana Diane',    class: 'S6 PCM', due: '2025-04-24', overdue: false },
-  { id: 'LN007', book: 'A Long Way Gone',      borrower: 'Ms. Umubyeyi Claire', class: 'Staff', due: '2025-04-23', overdue: false },
-  { id: 'LN002', book: 'Mathematics S5',       borrower: 'Niyonkuru Alice',   class: 'S5 MCE', due: '2025-04-19', overdue: false },
-  { id: 'LN001', book: 'Biology Form 4',       borrower: 'Uwimana Jean',      class: 'S4 PCB', due: '2025-04-15', overdue: true },
-  { id: 'LN005', book: 'Chemistry S4',         borrower: 'Nkurunziza Patrick', class: 'S4 PCB', due: '2025-04-16', overdue: true },
-  { id: 'LN003', book: 'Things Fall Apart',    borrower: 'Mr. Habimana Eric', class: 'Staff',  due: '2025-04-11', overdue: true },
-];
-
-const TOP_BOOKS = [
-  { title: 'Biology Form 4',         borrows: 5 },
-  { title: 'Mathematics S5',         borrows: 4 },
-  { title: 'Chemistry S4',           borrows: 4 },
-  { title: 'English Grammar In Use', borrows: 3 },
-  { title: 'Physics S6',             borrows: 3 },
-];
+import api from '../services/api';
 
 const StatCard = ({ icon: Icon, label, value, accent, to }) => (
   <div className="bg-white border border-black/5 rounded-[24px] shadow-2xl p-5 flex flex-col gap-3 hover:bg-re-bg/20 transition-all group">
@@ -46,6 +22,40 @@ const StatCard = ({ icon: Icon, label, value, accent, to }) => (
 );
 
 export default function Dashboard() {
+  const [dash, setDash] = useState(null);
+  const [recent, setRecent] = useState([]);
+
+  const load = useCallback(async () => {
+    try {
+      const [dRes, bRes] = await Promise.all([
+        api.get('/library/dashboard'),
+        api.get('/borrowings', { params: { status: 'active' } }),
+      ]);
+      setDash(dRes.data?.data || null);
+      const rows = bRes.data?.data || [];
+      const sorted = [...rows].sort((a, b) => new Date(b.borrow_date) - new Date(a.borrow_date));
+      setRecent(sorted.slice(0, 6));
+    } catch {
+      setDash(null);
+      setRecent([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const TOTAL_TITLES = dash?.total_titles ?? 0;
+  const TOTAL_COPIES = dash?.total_copies ?? 0;
+  const AVAILABLE = dash?.available_copies ?? 0;
+  const BORROWED_COPIES = dash?.borrowed_copies ?? 0;
+  const ACTIVE_LOANS = dash?.active_loans ?? 0;
+  const OVERDUE = dash?.overdue_loans ?? 0;
+  const TOP_BOOKS = dash?.top_borrowed || [];
+  const otherShelf = Math.max(0, TOTAL_COPIES - AVAILABLE - BORROWED_COPIES);
+
+  const pct = (num, den) => (den > 0 ? Math.round((num / den) * 100) : 0);
+
   return (
     <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen" style={{ fontFamily: "'Montserrat', sans-serif" }}>
       {/* Hero banner */}
@@ -65,7 +75,7 @@ export default function Dashboard() {
             <h1 className="text-2xl sm:text-4xl md:text-5xl font-black text-white tracking-tighter leading-none uppercase">
               Library <span style={{ color: '#FEBF10' }}>Overview</span>
             </h1>
-            <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest italic opacity-60">Books · Borrowing · Members · Activity</p>
+            <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest italic opacity-60">Books · Borrowing · Returns · Activity</p>
           </div>
         </div>
       </div>
@@ -75,10 +85,10 @@ export default function Dashboard() {
 
         {/* KPI cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard icon={BookOpen}   label="Total Titles"   value={TOTAL_TITLES}  accent="#1E3A5F"  to="/books" />
-          <StatCard icon={Activity}   label="Total Copies"   value={TOTAL_COPIES}  accent="#FEBF10"  to="/books" />
-          <StatCard icon={BookMarked} label="Active Loans"   value={ACTIVE_LOANS}  accent="#3B82F6"  to="/borrowing" />
-          <StatCard icon={AlertTriangle} label="Overdue"     value={OVERDUE}       accent="#ef4444"  to="/borrowing" />
+          <StatCard icon={BookOpen}   label="Total Titles"   value={TOTAL_TITLES}  accent="#1E3A5F"  to="/librarian/books" />
+          <StatCard icon={Activity}   label="Total Copies"   value={TOTAL_COPIES}  accent="#FEBF10"  to="/librarian/books" />
+          <StatCard icon={BookMarked} label="Active Loans"   value={ACTIVE_LOANS}  accent="#3B82F6"  to="/librarian/borrowing" />
+          <StatCard icon={AlertTriangle} label="Overdue"     value={OVERDUE}       accent="#ef4444"  to="/librarian/borrowing" />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -95,9 +105,9 @@ export default function Dashboard() {
               </div>
               <div className="space-y-3">
                 {[
-                  { label: 'Available',   value: AVAILABLE,                         color: '#10b981', pct: Math.round(AVAILABLE / TOTAL_COPIES * 100) },
-                  { label: 'On loan',     value: ACTIVE_LOANS,                      color: '#3B82F6', pct: Math.round(ACTIVE_LOANS / TOTAL_COPIES * 100) },
-                  { label: 'Unavailable', value: TOTAL_COPIES - AVAILABLE - ACTIVE_LOANS, color: '#e2e8f0', pct: Math.round((TOTAL_COPIES - AVAILABLE - ACTIVE_LOANS) / TOTAL_COPIES * 100) },
+                  { label: 'Available',   value: AVAILABLE,     color: '#10b981', pct: pct(AVAILABLE, TOTAL_COPIES) },
+                  { label: 'On loan',     value: BORROWED_COPIES, color: '#3B82F6', pct: pct(BORROWED_COPIES, TOTAL_COPIES) },
+                  { label: 'Other / hold', value: otherShelf,   color: '#e2e8f0', pct: pct(otherShelf, TOTAL_COPIES) },
                 ].map(s => (
                   <div key={s.label}>
                     <div className="flex justify-between items-center mb-1">
@@ -121,17 +131,20 @@ export default function Dashboard() {
                 <TrendingUp size={13} className="text-amber-500" /> Most borrowed
               </h3>
               <div className="space-y-3">
-                {TOP_BOOKS.map((b, i) => (
-                  <div key={b.title} className="flex items-center gap-3">
+                {TOP_BOOKS.length === 0 && (
+                  <p className="text-[11px] font-bold text-slate-400 py-2">No borrowing history yet.</p>
+                )}
+                {TOP_BOOKS.slice(0, 8).map((b, i) => (
+                  <div key={`${b.title}-${i}`} className="flex items-center gap-3">
                     <span className="text-[10px] font-black text-slate-300 w-4 shrink-0">{i + 1}</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-[11px] font-black text-slate-800 truncate">{b.title}</p>
                     </div>
-                    <span className="text-[9px] font-black text-[#1E3A5F] bg-re-bg px-2 py-0.5 rounded-lg border border-black/5 shrink-0">{b.borrows}×</span>
+                    <span className="text-[9px] font-black text-[#1E3A5F] bg-re-bg px-2 py-0.5 rounded-lg border border-black/5 shrink-0">{b.borrow_count ?? 0}×</span>
                   </div>
                 ))}
               </div>
-              <Link to="/books" className="mt-4 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-[#1E3A5F] hover:gap-2.5 transition-all">
+              <Link to="/librarian/books" className="mt-4 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-[#1E3A5F] hover:gap-2.5 transition-all">
                 Full catalogue <ArrowRight size={10} />
               </Link>
             </div>
@@ -145,41 +158,44 @@ export default function Dashboard() {
                 <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
                   <BookMarked size={13} className="text-blue-500" /> Recent / Active Loans
                 </h3>
-                <Link to="/borrowing" className="text-[9px] font-black text-[#1E3A5F] uppercase hover:underline">All loans</Link>
+                <Link to="/librarian/borrowing" className="text-[9px] font-black text-[#1E3A5F] uppercase hover:underline">All loans</Link>
               </div>
               <div className="divide-y divide-black/5">
-                {RECENT_LOANS.map(l => (
+                {(recent.length ? recent : []).map((l) => (
                   <div key={l.id} className={`flex items-center gap-4 px-6 py-4 hover:bg-re-bg/60 transition-all group ${l.overdue ? 'border-l-4 border-red-400' : ''}`}>
                     <div className={`w-9 h-9 rounded-xl border border-black/5 flex items-center justify-center shrink-0 text-[#1E3A5F] font-black group-hover:bg-[#1E3A5F] group-hover:text-white transition-all ${l.overdue ? 'bg-red-50 border-red-100' : 'bg-slate-50'}`}>
                       <BookMarked size={14} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-black text-slate-800 text-[11px] tracking-tight truncate">{l.book}</p>
-                      <p className="text-[9px] text-re-text-muted font-bold uppercase tracking-widest mt-0.5">{l.borrower} · {l.class}</p>
+                      <p className="font-black text-slate-800 text-[11px] tracking-tight truncate">{l.book_title}</p>
+                      <p className="text-[9px] text-re-text-muted font-bold uppercase tracking-widest mt-0.5">{l.borrower_name} · {l.borrower_detail}</p>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className={`text-[11px] font-black ${l.overdue ? 'text-red-500' : 'text-slate-600'}`}>Due {l.due}</p>
+                      <p className={`text-[11px] font-black ${l.overdue ? 'text-red-500' : 'text-slate-600'}`}>Due {l.return_date}</p>
                       {l.overdue && <p className="text-[8px] font-black text-red-400 uppercase tracking-widest">Overdue</p>}
                     </div>
                   </div>
                 ))}
+                {recent.length === 0 && (
+                  <p className="px-6 py-8 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">No active loans</p>
+                )}
               </div>
-              <Link to="/borrowing" className="block p-4 bg-slate-50/50 border-t border-black/5 text-center text-[9px] font-black text-slate-400 uppercase tracking-widest hover:text-[#1E3A5F] transition-all">
+              <Link to="/librarian/borrowing" className="block p-4 bg-slate-50/50 border-t border-black/5 text-center text-[9px] font-black text-slate-400 uppercase tracking-widest hover:text-[#1E3A5F] transition-all">
                 Manage all loans →
               </Link>
             </div>
 
-            {/* Members + CTA row */}
+            {/* Insights + CTA row */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="bg-white border border-black/5 rounded-[24px] shadow-2xl p-6">
                 <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
-                  <Users size={13} className="text-[#1E3A5F]" /> Members
+                  <AlertTriangle size={13} className="text-[#1E3A5F]" /> Borrower insights
                 </h3>
                 <div className="space-y-3">
                   {[
-                    { label: 'Total members', value: TOTAL_MEMBERS, color: '#1E3A5F' },
-                    { label: 'With books out', value: ACTIVE_LOANS, color: '#f59e0b' },
-                    { label: 'Overdue borrowers', value: OVERDUE, color: '#ef4444' },
+                    { label: 'Unique borrowers (est.)', value: ACTIVE_LOANS, color: '#1E3A5F' },
+                    { label: 'Active loan rows', value: ACTIVE_LOANS, color: '#f59e0b' },
+                    { label: 'Overdue loans', value: OVERDUE, color: '#ef4444' },
                   ].map(s => (
                     <div key={s.label} className="flex items-center justify-between py-1.5 border-b border-black/5 last:border-0">
                       <span className="text-[10px] font-bold text-slate-500">{s.label}</span>
@@ -187,8 +203,8 @@ export default function Dashboard() {
                     </div>
                   ))}
                 </div>
-                <Link to="/members" className="mt-4 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-[#1E3A5F] hover:gap-2.5 transition-all">
-                  View members <ArrowRight size={10} />
+                <Link to="/librarian/reports/overdue" className="mt-4 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-[#1E3A5F] hover:gap-2.5 transition-all">
+                  Open overdue report <ArrowRight size={10} />
                 </Link>
               </div>
 
@@ -201,10 +217,12 @@ export default function Dashboard() {
                   <div>
                     <h4 className="font-black text-xs tracking-widest uppercase" style={{ color: '#FEBF10' }}>Next action</h4>
                     <p className="text-[10px] text-white font-bold leading-snug mt-2 opacity-80">
-                      {OVERDUE} books are overdue. Follow up with borrowers and process any returns at the desk.
+                      {OVERDUE > 0
+                        ? `${OVERDUE} loan(s) overdue. Follow up with borrowers and process returns at the desk.`
+                        : 'No overdue loans right now. Great work keeping circulation on track.'}
                     </p>
                   </div>
-                  <Link to="/borrowing" className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest hover:gap-2.5 transition-all" style={{ color: '#FEBF10' }}>
+                  <Link to="/librarian/borrowing" className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest hover:gap-2.5 transition-all" style={{ color: '#FEBF10' }}>
                     View overdue loans <ArrowRight size={12} />
                   </Link>
                 </div>

@@ -189,15 +189,20 @@ function IDCard({ student, template, scale = 1 }) {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         position: 'relative', zIndex: 2,
       }}>
-        <div style={{ display:'flex', alignItems:'center', gap: 10*scale }}>
-          {schoolLogoSrc ? (
-            <img src={schoolLogoSrc} alt="" style={{ width: 52 * scale, height: 52 * scale, objectFit: 'contain', borderRadius: 8 * scale }} />
-          ) : (
-            <SchoolLogoSVG size={52 * scale} />
-          )}
-        </div>
+        <div style={{ width: 56 * scale }} />
 
         <div style={{ textAlign:'center', flex:1 }}>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 6 * scale }}>
+            {schoolLogoSrc ? (
+              <img
+                src={schoolLogoSrc}
+                alt=""
+                style={{ width: 52 * scale, height: 52 * scale, objectFit: 'contain', borderRadius: 8 * scale }}
+              />
+            ) : (
+              <SchoolLogoSVG size={52 * scale} />
+            )}
+          </div>
           <div style={{
             fontSize: 18 * scale, fontWeight: 900, color: G.white,
             letterSpacing: 2 * scale, textTransform: 'uppercase',

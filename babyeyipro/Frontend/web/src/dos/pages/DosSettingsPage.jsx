@@ -57,13 +57,28 @@ export default function DosSettingsPage() {
   };
 
   return (
-    <>
-      <div className="mb-6 sm:mb-8">
-        <h1 className="text-2xl font-black tracking-tight text-[#1A1200] sm:text-3xl">Settings</h1>
-        <p className="mt-1 max-w-xl text-sm text-slate-600">
-          Default total marks used to calculate remaining marks automatically for academic progress.
-        </p>
-      </div>
+    <div className="min-h-screen bg-re-bg" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+      {/* ── Hero Banner ── */}
+      <section className="relative p-7 md:p-10 text-white overflow-hidden min-h-[180px] flex items-center bg-[#000435]">
+        <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full border border-white/5 pointer-events-none" />
+        <div className="absolute -top-12 -right-12 w-64 h-64 rounded-full border border-white/5 pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-[#FEBF10]/30 to-transparent pointer-events-none" />
+        <div className="relative z-10 max-w-5xl w-full">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="h-0.5 w-6 rounded-full bg-[#FEBF10]" />
+            <p className="text-[10px] font-black capitalize tracking-widest text-[#FEBF10]/80">Configuration</p>
+          </div>
+          <h1 className="text-2xl md:text-3xl font-black tracking-tight">DOS Settings</h1>
+          <p className="text-xs font-bold text-white/60 max-w-xl mt-2">
+            Default total marks used to calculate remaining marks automatically for academic progress.
+          </p>
+        </div>
+      </section>
+
+      <div className="max-w-[1400px] mx-auto px-4 md:px-10 py-8">
+        <div className="mb-6 sm:mb-8">
+          <h2 className="text-[10px] font-black text-[#000435] capitalize tracking-[0.22em]">Settings Panel</h2>
+        </div>
 
       <div className="mx-auto max-w-lg rounded-3xl border border-[#FDEAA0]/80 bg-white p-5 shadow-xl shadow-[#FDEAA0]/15 sm:p-8">
         <div className="mb-5 flex items-center gap-3">
@@ -119,7 +134,7 @@ export default function DosSettingsPage() {
           </form>
         )}
       </div>
-    </>
+      </div>
+    </div>
   );
 }
-

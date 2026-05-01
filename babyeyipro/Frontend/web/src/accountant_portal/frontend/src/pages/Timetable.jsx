@@ -45,7 +45,7 @@ export default function Timetable() {
         <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen pb-12">
 
             {/* ── High-Fidelity Hero Section ── */}
-            <div className="relative w-full min-h-[280px] overflow-hidden">
+            <div className="relative w-full min-h-[280px] overflow-hidden bg-[#000435]">
                 <div className="absolute inset-0 bg-orange-950/70 z-10 backdrop-blur-[2px]"></div>
                 <img src={PORTAL.heroImage} alt="" className="absolute inset-0 w-full h-full object-cover scale-105 opacity-100" />
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent to-transparent z-[5]"></div>

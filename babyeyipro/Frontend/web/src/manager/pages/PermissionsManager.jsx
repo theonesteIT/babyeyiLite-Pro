@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
-import { 
-    ShieldCheck, Calendar, Clock, User, Filter, 
-    Plus, Search, CheckCircle, XCircle, ChevronDown, 
+import {
+    ShieldCheck, Calendar, Clock, User, Filter,
+    Plus, Search, CheckCircle, XCircle, ChevronDown,
     ChevronUp, Loader2, MessageSquare, AlertCircle, FileText
 } from 'lucide-react';
 
@@ -13,7 +13,7 @@ export default function PermissionsManager() {
     const [isSaving, setIsSaving] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [activeFilter, setActiveFilter] = useState('ALL'); // ALL, PENDING, APPROVED, REJECTED
-    
+
     // Students for the dropdown
     const [students, setStudents] = useState([]);
     const [studentSearch, setStudentSearch] = useState('');
@@ -87,8 +87,8 @@ export default function PermissionsManager() {
     };
 
     const filteredPermissions = permissions.filter(p => {
-        const matchesSearch = `${p.first_name} ${p.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                             p.student_uid.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesSearch = `${p.first_name} ${p.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            p.student_uid.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesFilter = activeFilter === 'ALL' || p.status === activeFilter;
         return matchesSearch && matchesFilter;
     });
@@ -106,13 +106,13 @@ export default function PermissionsManager() {
 
     return (
         <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen pb-12">
-            
+
             {/* ── Hero Section ── */}
-            <div className="relative w-full min-h-[280px] overflow-hidden">
-                <div className="absolute inset-0 bg-[#0a192f]/75 z-10 backdrop-blur-[2px]"></div>
-                <img src="/teacher.jpg" alt="Hero" className="absolute inset-0 w-full h-full object-cover scale-105 opacity-60 z-0" />
-                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#1E3A5F]/40 via-transparent to-transparent z-10 max-w-[1600px] mx-auto"></div>
-                
+            <div className="relative w-full min-h-[280px] overflow-hidden bg-[#000435]">
+                <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full border border-white/5 pointer-events-none" />
+                <div className="absolute -top-12 -right-12 w-64 h-64 rounded-full border border-white/5 pointer-events-none" />
+                <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-[#FEBF10]/30 to-transparent pointer-events-none" />
+
                 <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-12 pt-12 pb-24 flex items-center gap-8">
                     <div className="space-y-1">
                         <div className="flex items-center gap-2 mb-1">
@@ -132,7 +132,7 @@ export default function PermissionsManager() {
             {/* ── Main Dashboard ── */}
             <div className="max-w-[1600px] mx-auto px-6 -mt-20 relative z-20 pb-20">
                 <div className="bg-white rounded-t-[32px] shadow-2xl border border-black/5 overflow-hidden flex flex-col min-h-[600px]">
-                    
+
                     {/* Top Layer: Stats Grid */}
                     <div className="grid grid-cols-1 lg:grid-cols-4 border-b border-black/5">
                         <div className="lg:col-span-3 grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-black/5">
@@ -158,7 +158,7 @@ export default function PermissionsManager() {
 
                         {/* Right Side Actions Section (Desktop) */}
                         <div className="hidden lg:flex flex-col border-l border-black/5 bg-re-bg/30 p-6 justify-center gap-3 relative">
-                            <button 
+                            <button
                                 onClick={() => setIsModalOpen(true)}
                                 className="w-full h-11 flex items-center justify-center gap-2 text-white rounded-xl font-black text-[9px] uppercase tracking-widest shadow-xl hover:scale-[1.02] active:scale-95 transition-all"
                                 style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)" }}
@@ -174,12 +174,11 @@ export default function PermissionsManager() {
                         <div className="flex items-center gap-3 w-full lg:w-auto">
                             <div className="flex bg-white rounded-xl p-1 shadow-sm border border-black/5">
                                 {['ALL', 'PENDING', 'APPROVED', 'REJECTED'].map(f => (
-                                    <button 
+                                    <button
                                         key={f}
                                         onClick={() => setActiveFilter(f)}
-                                        className={`px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
-                                            activeFilter === f ? 'bg-[#1E3A5F] text-white shadow-md' : 'text-re-text-muted hover:bg-re-bg'
-                                        }`}
+                                        className={`px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${activeFilter === f ? 'bg-[#1E3A5F] text-white shadow-md' : 'text-re-text-muted hover:bg-re-bg'
+                                            }`}
                                     >
                                         {f}
                                     </button>
@@ -190,7 +189,7 @@ export default function PermissionsManager() {
                         <div className="flex items-center gap-3 w-full lg:w-auto">
                             <div className="relative flex-1 lg:w-80 group">
                                 <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-re-text-muted transition-colors group-focus-within:text-[#1E3A5F]" />
-                                <input 
+                                <input
                                     type="text"
                                     placeholder="Search by student or ID..."
                                     className="w-full h-11 pl-11 pr-4 bg-white border border-black/5 rounded-xl shadow-inner text-xs font-bold outline-none focus:ring-2 ring-[#1E3A5F]/10"
@@ -223,7 +222,7 @@ export default function PermissionsManager() {
                                     {filteredPermissions.map(p => {
                                         const now = new Date();
                                         const active = p.status === 'APPROVED' && now >= new Date(p.starts_at) && now <= new Date(p.ends_at);
-                                        
+
                                         return (
                                             <tr key={p.id} className="hover:bg-re-bg/20 transition-colors group">
                                                 <td className="px-6 py-4">
@@ -257,11 +256,10 @@ export default function PermissionsManager() {
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <div className="flex items-center gap-2">
-                                                        <span className={`px-2 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest ring-1 ${
-                                                            p.status === 'PENDING' ? 'bg-orange-50 text-orange-600 ring-orange-500/20' :
-                                                            p.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-600 ring-emerald-500/20' :
-                                                            'bg-red-50 text-red-600 ring-red-500/20'
-                                                        }`}>
+                                                        <span className={`px-2 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest ring-1 ${p.status === 'PENDING' ? 'bg-orange-50 text-orange-600 ring-orange-500/20' :
+                                                                p.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-600 ring-emerald-500/20' :
+                                                                    'bg-red-50 text-red-600 ring-red-500/20'
+                                                            }`}>
                                                             {p.status}
                                                         </span>
                                                         {active && (
@@ -274,13 +272,13 @@ export default function PermissionsManager() {
                                                 <td className="px-6 py-4 text-right">
                                                     {p.status === 'PENDING' && (
                                                         <div className="flex items-center justify-end gap-2">
-                                                            <button 
+                                                            <button
                                                                 onClick={() => handleStatusUpdate(p.id, 'APPROVED')}
                                                                 className="h-8 w-8 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center hover:bg-emerald-500 hover:text-white transition-all shadow-sm"
                                                             >
                                                                 <CheckCircle size={14} />
                                                             </button>
-                                                            <button 
+                                                            <button
                                                                 onClick={() => handleStatusUpdate(p.id, 'REJECTED')}
                                                                 className="h-8 w-8 bg-red-50 text-red-600 rounded-lg flex items-center justify-center hover:bg-red-500 hover:text-white transition-all shadow-sm"
                                                             >
@@ -332,11 +330,11 @@ export default function PermissionsManager() {
                                         <div className="absolute left-4 top-1/2 -translate-y-1/2 text-re-text-muted">
                                             <Search size={14} />
                                         </div>
-                                        <select 
+                                        <select
                                             required
                                             className="w-full h-12 pl-12 pr-4 bg-re-bg rounded-2xl border border-black/5 outline-none text-[11px] font-semibold appearance-none cursor-pointer"
                                             value={form.student_id}
-                                            onChange={e => setForm({...form, student_id: e.target.value})}
+                                            onChange={e => setForm({ ...form, student_id: e.target.value })}
                                         >
                                             <option value="">Choose Student From Registry...</option>
                                             {students.map(s => (
@@ -350,20 +348,20 @@ export default function PermissionsManager() {
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-1.5">
                                         <label className="text-[9px] font-black text-[#1E3A5F] uppercase tracking-widest ml-1">From</label>
-                                        <input 
+                                        <input
                                             required type="datetime-local"
                                             className="w-full h-12 px-4 bg-re-bg rounded-2xl border border-black/5 outline-none text-[10px] font-bold uppercase"
                                             value={form.starts_at}
-                                            onChange={e => setForm({...form, starts_at: e.target.value})}
+                                            onChange={e => setForm({ ...form, starts_at: e.target.value })}
                                         />
                                     </div>
                                     <div className="space-y-1.5">
                                         <label className="text-[9px] font-black text-[#1E3A5F] uppercase tracking-widest ml-1">To</label>
-                                        <input 
+                                        <input
                                             required type="datetime-local"
                                             className="w-full h-12 px-4 bg-re-bg rounded-2xl border border-black/5 outline-none text-[10px] font-bold uppercase"
                                             value={form.ends_at}
-                                            onChange={e => setForm({...form, ends_at: e.target.value})}
+                                            onChange={e => setForm({ ...form, ends_at: e.target.value })}
                                         />
                                     </div>
                                 </div>
@@ -372,12 +370,11 @@ export default function PermissionsManager() {
                                     <label className="text-[9px] font-black text-[#1E3A5F] uppercase tracking-widest ml-1">Leave Type</label>
                                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                                         {['MEDICAL', 'FAMILY', 'OFFICIAL', 'OTHER'].map(type => (
-                                            <button 
+                                            <button
                                                 key={type} type="button"
-                                                onClick={() => setForm({...form, permission_type: type})}
-                                                className={`py-2 rounded-xl text-[8px] font-black uppercase tracking-widest transition-all border ${
-                                                    form.permission_type === type ? 'bg-[#1E3A5F] text-white border-[#1E3A5F]' : 'bg-re-bg border-black/5 text-re-text-muted hover:border-[#1E3A5F]/30'
-                                                }`}
+                                                onClick={() => setForm({ ...form, permission_type: type })}
+                                                className={`py-2 rounded-xl text-[8px] font-black uppercase tracking-widest transition-all border ${form.permission_type === type ? 'bg-[#1E3A5F] text-white border-[#1E3A5F]' : 'bg-re-bg border-black/5 text-re-text-muted hover:border-[#1E3A5F]/30'
+                                                    }`}
                                             >
                                                 {type}
                                             </button>
@@ -387,30 +384,30 @@ export default function PermissionsManager() {
 
                                 <div className="space-y-1.5">
                                     <label className="text-[9px] font-black text-[#1E3A5F] uppercase tracking-widest ml-1">Reason / Remarks</label>
-                                    <textarea 
+                                    <textarea
                                         className="w-full h-24 p-4 bg-re-bg rounded-2xl border border-black/5 outline-none text-xs font-semibold resize-none"
                                         placeholder="Enter detailed reason for permission..."
                                         value={form.reason}
-                                        onChange={e => setForm({...form, reason: e.target.value})}
+                                        onChange={e => setForm({ ...form, reason: e.target.value })}
                                     />
                                 </div>
                             </div>
 
                             <div className="flex items-center gap-3 pt-6">
-                                <button 
+                                <button
                                     type="button"
                                     onClick={() => setIsModalOpen(false)}
                                     className="flex-1 h-13 rounded-2xl border border-black/5 text-re-text font-black text-[10px] uppercase tracking-[0.2em] hover:bg-re-bg transition-all"
                                 >
                                     Cancel
                                 </button>
-                                <button 
+                                <button
                                     type="submit"
                                     disabled={isSaving}
                                     className="flex-[2] h-13 rounded-2xl text-white font-black text-[10px] uppercase tracking-[0.2em] shadow-xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"
                                     style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)" }}
                                 >
-                                    {isSaving ? <Loader2 size={16} className="animate-spin" /> : <ShieldCheck size={16} style={{ color: "#FEBF10" }} />} 
+                                    {isSaving ? <Loader2 size={16} className="animate-spin" /> : <ShieldCheck size={16} style={{ color: "#FEBF10" }} />}
                                     Register Permission
                                 </button>
                             </div>

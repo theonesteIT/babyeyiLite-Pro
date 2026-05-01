@@ -66,9 +66,7 @@ export default function DisciplineConfig() {
             
             {/* ── High-Fidelity Hero Section ── */}
             <div className="relative w-full min-h-[160px] overflow-hidden">
-                <div className="absolute inset-0 bg-[#0a192f]/85 z-10 backdrop-blur-[2px]"></div>
-                <img src="/teacher.jpg" alt="Hero" className="absolute inset-0 w-full h-full object-cover scale-105 opacity-30 mix-blend-overlay z-0" />
-                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#000435]/40 via-transparent to-transparent z-10 max-w-[1600px] mx-auto"></div>
+                
 
                 <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-10 pt-10 pb-12 flex items-center gap-5 text-white">
                     <div className="hidden md:flex shrink-0 w-14 h-14 rounded-xl border border-white/10 bg-white/5 items-center justify-center backdrop-blur-xl shadow-2xl relative overflow-hidden group">

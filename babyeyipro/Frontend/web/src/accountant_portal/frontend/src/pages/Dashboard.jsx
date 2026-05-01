@@ -503,11 +503,10 @@ export default function Dashboard() {
       <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
 
       {/* ── Hero banner ── */}
-      <section className="relative p-7 md:p-10 text-white overflow-hidden min-h-[230px] flex items-center">
-        <div className="absolute inset-0 z-0">
-          <img src={PORTAL.heroImage} alt={PORTAL.heroImageAlt || ''} className="w-full h-full object-cover " />
-          <div className="absolute inset-0 bg-black/55 backdrop-blur-[1px]" />
-        </div>
+      <section className="relative p-7 md:p-10 text-white overflow-hidden min-h-[230px] flex items-center bg-[#000435]">
+        <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full border border-white/5 pointer-events-none" />
+        <div className="absolute -top-12 -right-12 w-64 h-64 rounded-full border border-white/5 pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-[#FEBF10]/30 to-transparent pointer-events-none" />
 
         <div className="relative z-10 max-w-5xl w-full">
           <div className="flex flex-wrap items-center justify-between gap-6">

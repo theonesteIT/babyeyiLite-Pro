@@ -43,19 +43,19 @@ const NavItem = ({ icon: Icon, name, path, exact, onClose, badgeCount = 0 }) => 
     end={exact}
     onClick={onClose}
     className={({ isActive }) =>
-      `relative flex items-center gap-2 px-2.5 py-1.5 rounded-xl transition-all duration-200 group text-[11px] font-bold
-      ${isActive ? 'text-white shadow-sm' : 'text-re-text-muted hover:bg-re-navy/5 hover:text-re-navy'}`
+      `relative flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl transition-all duration-200 group text-[12px] font-black uppercase tracking-[0.08em] border
+      ${isActive ? 'text-white shadow-sm border-amber-300/40' : 'text-[#000435]/65 hover:bg-[#000435]/5 hover:text-[#000435] border-transparent'}`
     }
     style={({ isActive }) =>
-      isActive ? { background: 'linear-gradient(135deg,#1E3A5F,#3D5A80)', boxShadow: '0 3px 10px rgba(30,58,95,0.25)' } : {}
+      isActive ? { background: 'linear-gradient(135deg,#000435,#00021A)', boxShadow: '0 8px 20px rgba(0,4,53,0.28)' } : {}
     }
   >
     {({ isActive }) => (
       <>
-        <Icon size={13} className={isActive ? 'text-white' : 'text-re-text-muted/50 group-hover:text-re-navy transition-colors'} />
-        <span>{name}</span>
+        <Icon size={14} className={isActive ? 'text-amber-300' : 'text-[#000435]/45 group-hover:text-[#000435] transition-colors'} />
+        <span className="truncate">{name}</span>
         {badgeCount > 0 && (
-          <span className="ml-auto text-[10px] leading-none px-1.5 py-1 rounded-full bg-red-100 text-red-700">
+          <span className="ml-auto text-[10px] leading-none px-1.5 py-1 rounded-full bg-amber-100 text-[#000435] border border-amber-300/40">
             {badgeCount > 99 ? '99+' : badgeCount}
           </span>
         )}
@@ -86,16 +86,16 @@ const ExpandableNavItem = ({ icon: Icon, name, subItems, onClose }) => {
     <div>
       <button
         onClick={() => setOpen(o => !o)}
-        className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl transition-all text-[11px] font-bold group
-          ${isAnyActive ? 'text-re-navy bg-re-navy/10' : 'text-re-text-muted hover:bg-re-navy/5 hover:text-re-navy'}`}
+        className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl transition-all text-[12px] font-black uppercase tracking-[0.08em] group border
+          ${isAnyActive ? 'text-white bg-[#000435] border-amber-300/40' : 'text-[#000435]/65 hover:bg-[#000435]/5 hover:text-[#000435] border-transparent'}`}
       >
-        <Icon size={13} className={`${isAnyActive ? 'text-re-navy' : 'text-re-text-muted/50 group-hover:text-re-navy'} transition-colors`} />
+        <Icon size={14} className={`${isAnyActive ? 'text-amber-300' : 'text-[#000435]/45 group-hover:text-[#000435]'} transition-colors`} />
         <span className="flex-1 text-left">{name}</span>
-        <ChevronDown size={11} className={`transition-transform duration-300 opacity-40 ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown size={12} className={`transition-transform duration-300 opacity-60 ${open ? 'rotate-180' : ''}`} />
       </button>
 
       {open && (
-        <div className="ml-4 mt-0.5 space-y-0.5 border-l-2 border-re-navy/10 pl-2.5">
+        <div className="ml-4 mt-1 space-y-1 border-l-2 border-amber-300/40 pl-3">
           {subItems.map(sub => {
             const subActive = pathMatches(sub.path);
             return (
@@ -104,10 +104,10 @@ const ExpandableNavItem = ({ icon: Icon, name, subItems, onClose }) => {
               to={h(sub.path)}
               end={sub.path === '/finance'}
               onClick={onClose}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all
-                ${subActive ? 'text-re-navy bg-re-navy/10' : 'text-re-text-muted hover:text-re-navy hover:bg-re-navy/5'}`}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-[0.07em] transition-all border
+                ${subActive ? 'text-[#000435] bg-amber-50 border-amber-300/40' : 'text-[#000435]/60 hover:text-[#000435] hover:bg-[#000435]/5 border-transparent'}`}
             >
-              <sub.icon size={11} className={subActive ? 'text-re-navy' : 'text-re-text-muted/40'} />
+              <sub.icon size={11} className={subActive ? 'text-amber-600' : 'text-[#000435]/40'} />
               {sub.name}
             </NavLink>
             );
@@ -120,7 +120,7 @@ const ExpandableNavItem = ({ icon: Icon, name, subItems, onClose }) => {
 
 // ── Section label ──────────────────────────────────────────────
 const SectionLabel = ({ label }) => (
-  <p className="text-[8px] font-black uppercase tracking-[0.18em] text-re-text-muted/35 px-2.5 pt-2 pb-0.5">
+  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#000435]/35 px-3.5 pt-3 pb-1">
     {label}
   </p>
 );
@@ -141,23 +141,23 @@ const Sidebar = ({ onClose }) => {
   );
 
   return (
-    <div className="flex flex-col h-full bg-white border-r border-black/5 shadow-sm">
+    <div className="flex flex-col h-full min-w-[300px] bg-white border-r border-black/5 shadow-sm">
 
       {/* Brand card — premium feel */}
-      <div className="p-3">
-        <div className="rounded-2xl  bg-re-bg shadow-inner p-3 space-y-1">
+      <div className="p-4">
+        <div className="rounded-3xl bg-white border border-[#000435]/10 shadow-[0_10px_30px_-16px_rgba(0,4,53,.45)] p-4 space-y-1">
           <div className="flex items-center gap-3">
-            <div className="bg-re-navy/10 p-2.5 rounded-2xl shadow-inner text-re-navy">
+            <div className="bg-[#000435]/10 p-3 rounded-2xl shadow-inner text-[#000435] border border-amber-300/30">
               <School size={22} />
             </div>
             <div>
               <span
                 className="text-xl font-black tracking-tight leading-none block"
-                style={{ background: 'linear-gradient(135deg,#1E3A5F,#3D5A80)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}
+                style={{ background: 'linear-gradient(135deg,#000435,#142f63)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}
               >
                 Babyeyi
               </span>
-              <p className="text-[9px] text-re-navy font-black uppercase tracking-[0.2em] opacity-60 mt-0.5">
+              <p className="text-[9px] text-[#000435] font-black uppercase tracking-[0.22em] opacity-60 mt-0.5">
                 Manager Portal
               </p>
             </div>
@@ -166,7 +166,7 @@ const Sidebar = ({ onClose }) => {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-2 py-1 overflow-y-auto space-y-0.5">
+      <nav className="flex-1 px-3 py-2 overflow-y-auto space-y-1">
         <NavItem icon={LayoutDashboard} name="Dashboard" path="/" exact onClose={onClose} />
         <SectionLabel label="School admin" />
         {canAccessSchoolConsole && (
@@ -246,29 +246,29 @@ const Sidebar = ({ onClose }) => {
       </nav>
 
       {/* Bottom card — premium feel */}
-      <div className="p-3">
-        <div className="rounded-2xl border border-black/5 bg-re-bg shadow-inner p-2 space-y-2">
+      <div className="p-4">
+        <div className="rounded-3xl border border-[#000435]/10 bg-white shadow-[0_10px_30px_-16px_rgba(0,4,53,.45)] p-3 space-y-2">
 
           <div className="flex items-center justify-between px-1">
-            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-re-text-muted/40">Status</p>
+            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#000435]/40">Status</p>
             <AppStatusBadge status="online" />
           </div>
 
           <div className="h-px bg-black/5 mx-1" />
 
           {/* Manager profile */}
-          <div className="flex items-center gap-2.5 px-2 py-1.5 bg-white rounded-xl border border-black/5 shadow-sm">
-            <div className="w-8 h-8 rounded-xl overflow-hidden bg-re-navy/10 flex items-center justify-center shrink-0">
+          <div className="flex items-center gap-2.5 px-2.5 py-2 bg-white rounded-2xl border border-black/5 shadow-sm">
+            <div className="w-8 h-8 rounded-xl overflow-hidden bg-[#000435]/10 flex items-center justify-center shrink-0">
               {manager?.photo
                 ? <img src={manager.photo} alt={manager.full_name} className="w-full h-full object-cover" />
-                : <User size={16} className="text-re-navy" />
+                : <User size={16} className="text-[#000435]" />
               }
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-black truncate text-re-navy uppercase tracking-tight">
+              <p className="text-xs font-black truncate text-[#000435] uppercase tracking-tight">
                 {manager?.first_name || 'Manager'}
               </p>
-              <p className="text-[9px] text-re-text-muted truncate font-bold uppercase tracking-wider opacity-50 mt-0.5">
+              <p className="text-[9px] text-[#000435]/55 truncate font-bold uppercase tracking-wider opacity-70 mt-0.5">
                 {manager?.school?.name || 'School Principal'}
               </p>
             </div>

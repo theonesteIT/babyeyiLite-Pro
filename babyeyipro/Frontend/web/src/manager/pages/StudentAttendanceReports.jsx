@@ -95,11 +95,11 @@ const StudentAttendanceReports = () => {
 
     return (
         <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen">
-            
-            <div className="relative w-full min-h-[280px] overflow-hidden">
-                <div className="absolute inset-0 bg-[#0a192f]/85 z-10 backdrop-blur-[2px]" />
-                <img src="/teacher.jpg" alt="" className="absolute inset-0 w-full h-full object-cover scale-105" />
-                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#1E3A5F]/40 via-transparent to-transparent z-10 max-w-[1600px] mx-auto" />
+
+            <div className="relative w-full min-h-[280px] overflow-hidden bg-[#000435]">
+                <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full border border-white/5 pointer-events-none" />
+                <div className="absolute -top-12 -right-12 w-64 h-64 rounded-full border border-white/5 pointer-events-none" />
+                <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-[#FEBF10]/30 to-transparent pointer-events-none" />
 
                 <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-12 pt-16 pb-24 flex items-center gap-8">
                     <div className="hidden md:flex shrink-0 w-24 h-24 rounded-[32px] border border-white/10 bg-white/5 items-center justify-center backdrop-blur-xl shadow-2xl relative overflow-hidden group">
@@ -134,7 +134,7 @@ const StudentAttendanceReports = () => {
                                 </div>
                                 <p className="text-[6px] sm:text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] mt-0.5 sm:mt-1 opacity-60">Global presence</p>
                             </div>
-                            
+
                             {[
                                 { label: 'Chronic absentees', value: stats.chronicAbsentees, icon: <AlertTriangle size={14} className="mb-2" /> },
                                 { label: 'Strongest class', value: stats.mostPresentClass, icon: <Users size={14} className="mb-2" /> },
@@ -164,7 +164,7 @@ const StudentAttendanceReports = () => {
                                 Refresh
                             </button>
                             <div className="relative">
-                                <button 
+                                <button
                                     onClick={() => setActiveDropdown(activeDropdown === 'export' ? null : 'export')}
                                     className="w-full h-11 flex items-center justify-center gap-2 text-white rounded-xl font-black text-[9px] uppercase tracking-widest shadow-xl hover:scale-[1.02] active:scale-95 transition-all"
                                     style={{ background: 'linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)' }}
@@ -190,7 +190,7 @@ const StudentAttendanceReports = () => {
                             </div>
 
                             <div className="relative">
-                                <button 
+                                <button
                                     onClick={() => setActiveDropdown(activeDropdown === 'generate' ? null : 'generate')}
                                     className="w-full h-11 flex items-center justify-center gap-2 bg-white border border-black/5 text-re-text font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg hover:shadow-re-soft transition-all opacity-60 cursor-not-allowed"
                                     disabled
@@ -214,7 +214,7 @@ const StudentAttendanceReports = () => {
                                 className="w-full h-10 sm:h-11 bg-re-bg rounded-xl pl-11 pr-4 font-extrabold outline-none border border-transparent focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-re-text text-sm sm:text-xs tracking-tight shadow-inner"
                             />
                         </div>
-                        
+
                         <div className="flex items-center gap-2 w-full md:w-auto">
                             <select
                                 value={selectedYear}
@@ -233,11 +233,10 @@ const StudentAttendanceReports = () => {
                                         key={term}
                                         type="button"
                                         onClick={() => setSelectedTerm(term)}
-                                        className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg text-[8px] sm:text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
-                                            selectedTerm === term 
-                                            ? 'bg-white text-[#1E3A5F] shadow-sm ring-1 ring-black/5' 
-                                            : 'text-re-text-muted hover:text-re-text'
-                                        }`}
+                                        className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg text-[8px] sm:text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${selectedTerm === term
+                                                ? 'bg-white text-[#1E3A5F] shadow-sm ring-1 ring-black/5'
+                                                : 'text-re-text-muted hover:text-re-text'
+                                            }`}
                                     >
                                         {term}
                                     </button>
@@ -285,49 +284,48 @@ const StudentAttendanceReports = () => {
                                     </tr>
                                 ) : (
                                     filteredAnalytics.map((cls) => (
-                                    <tr key={cls.id} className="hover:bg-re-bg/60 even:bg-re-bg/20 transition-colors group cursor-default">
-                                        <td className="px-4 sm:px-8 py-3 sm:py-5 border-r border-black/5 last:border-r-0">
-                                            <div className="flex items-center gap-3 sm:gap-4">
-                                                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-re-bg border border-black/5 flex-shrink-0 flex items-center justify-center text-re-text-muted transition-colors relative shadow-inner overflow-hidden group-hover:bg-white">
-                                                    <BookOpen size={12} className="sm:w-3.5 sm:h-3.5 opacity-40 text-re-text-muted" />
+                                        <tr key={cls.id} className="hover:bg-re-bg/60 even:bg-re-bg/20 transition-colors group cursor-default">
+                                            <td className="px-4 sm:px-8 py-3 sm:py-5 border-r border-black/5 last:border-r-0">
+                                                <div className="flex items-center gap-3 sm:gap-4">
+                                                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-re-bg border border-black/5 flex-shrink-0 flex items-center justify-center text-re-text-muted transition-colors relative shadow-inner overflow-hidden group-hover:bg-white">
+                                                        <BookOpen size={12} className="sm:w-3.5 sm:h-3.5 opacity-40 text-re-text-muted" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs sm:text-sm font-black text-re-text tracking-tight uppercase leading-none mb-1 group-hover:text-[#1E3A5F] transition-colors">{cls.class}</p>
+                                                        <p className="text-[7px] sm:text-[9px] font-bold text-re-text-muted opacity-40 uppercase tracking-widest leading-none">Timetable: {cls.headTeacher}</p>
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <p className="text-xs sm:text-sm font-black text-re-text tracking-tight uppercase leading-none mb-1 group-hover:text-[#1E3A5F] transition-colors">{cls.class}</p>
-                                                    <p className="text-[7px] sm:text-[9px] font-bold text-re-text-muted opacity-40 uppercase tracking-widest leading-none">Timetable: {cls.headTeacher}</p>
+                                            </td>
+                                            <td className="hidden md:table-cell px-8 py-5">
+                                                <div className="flex flex-col gap-0.5">
+                                                    <div className="flex items-center gap-2">
+                                                        <p className="text-[10px] font-black text-re-text uppercase tracking-tight">{cls.absences} absent marks</p>
+                                                        {cls.trend === 'up' ? <TrendingDown size={10} className="text-emerald-500" /> : <Activity size={10} className="text-red-500" />}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        </td>
-                                        <td className="hidden md:table-cell px-8 py-5">
-                                            <div className="flex flex-col gap-0.5">
-                                                <div className="flex items-center gap-2">
-                                                    <p className="text-[10px] font-black text-re-text uppercase tracking-tight">{cls.absences} absent marks</p>
-                                                    {cls.trend === 'up' ? <TrendingDown size={10} className="text-emerald-500" /> : <Activity size={10} className="text-red-500" />}
+                                            </td>
+                                            <td className="hidden md:table-cell px-8 py-5">
+                                                <div className="space-y-1.5 max-w-[120px]">
+                                                    <div className="flex items-center justify-between">
+                                                        <p className="text-[9px] font-black text-re-text">{cls.presenceRate}% present</p>
+                                                    </div>
+                                                    <div className="w-full h-1.5 bg-black/5 rounded-full overflow-hidden">
+                                                        <div className="h-full" style={{ width: `${cls.presenceRate}%`, background: cls.presenceRate >= 95 ? 'linear-gradient(135deg, #1E3A5F 0%, #3D5A80 100%)' : (cls.presenceRate >= 85 ? '#FEBF10' : '#ef4444') }} />
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        </td>
-                                        <td className="hidden md:table-cell px-8 py-5">
-                                            <div className="space-y-1.5 max-w-[120px]">
-                                                <div className="flex items-center justify-between">
-                                                    <p className="text-[9px] font-black text-re-text">{cls.presenceRate}% present</p>
+                                            </td>
+                                            <td className="hidden md:table-cell px-8 py-5">
+                                                <div className={`inline-flex px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest ring-1 ring-inset ${cls.status === 'Exceptional' ? 'bg-emerald-50 text-emerald-600 ring-emerald-500/20' :
+                                                        cls.status === 'Expected' ? 'bg-blue-50 text-blue-600 ring-blue-500/20' :
+                                                            'bg-red-50 text-red-600 ring-red-500/20'
+                                                    }`}>
+                                                    {cls.status}
                                                 </div>
-                                                <div className="w-full h-1.5 bg-black/5 rounded-full overflow-hidden">
-                                                    <div className="h-full" style={{ width: `${cls.presenceRate}%`, background: cls.presenceRate >= 95 ? 'linear-gradient(135deg, #1E3A5F 0%, #3D5A80 100%)' : (cls.presenceRate >= 85 ? '#FEBF10' : '#ef4444') }} />
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="hidden md:table-cell px-8 py-5">
-                                            <div className={`inline-flex px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest ring-1 ring-inset ${
-                                                    cls.status === 'Exceptional' ? 'bg-emerald-50 text-emerald-600 ring-emerald-500/20' :
-                                                    cls.status === 'Expected' ? 'bg-blue-50 text-blue-600 ring-blue-500/20' :
-                                                    'bg-red-50 text-red-600 ring-red-500/20'
-                                                }`}>
-                                                {cls.status}
-                                            </div>
-                                        </td>
-                                        <td className="px-4 sm:px-8 py-3 sm:py-5 text-right">
-                                            <span className="text-[9px] font-bold text-re-text-muted uppercase">—</span>
-                                        </td>
-                                    </tr>
+                                            </td>
+                                            <td className="px-4 sm:px-8 py-3 sm:py-5 text-right">
+                                                <span className="text-[9px] font-bold text-re-text-muted uppercase">—</span>
+                                            </td>
+                                        </tr>
                                     ))
                                 )}
                             </tbody>

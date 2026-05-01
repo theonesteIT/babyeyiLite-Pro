@@ -131,19 +131,30 @@ export default function TeacherRequisitionReports() {
   };
 
   return (
-    <div className="animate-in fade-in duration-500 bg-re-bg min-h-screen p-5 md:p-8">
-      <div className="max-w-[1500px] mx-auto space-y-4">
-        <div className="bg-white border border-black/5 rounded-2xl p-4 md:p-6 flex flex-wrap items-center justify-between gap-3">
+    <div className="min-h-screen bg-re-bg" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+      {/* ── Hero Banner ── */}
+      <section className="relative p-7 md:p-10 text-white overflow-hidden min-h-[180px] flex items-center bg-[#000435]">
+        <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full border border-white/5 pointer-events-none" />
+        <div className="absolute -top-12 -right-12 w-64 h-64 rounded-full border border-white/5 pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-[#FEBF10]/30 to-transparent pointer-events-none" />
+        <div className="relative z-10 max-w-5xl w-full flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">DOS reports</p>
-            <h1 className="text-xl font-black text-[#1E3A5F]">Teacher Requisitions Report</h1>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="h-0.5 w-6 rounded-full bg-[#FEBF10]" />
+              <p className="text-[10px] font-black capitalize tracking-widest text-[#FEBF10]/80">DOS Reports</p>
+            </div>
+            <h1 className="text-2xl md:text-3xl font-black tracking-tight">Teacher Requisitions Report</h1>
+            <p className="text-xs font-bold text-white/60 max-w-xl mt-2">Filter, review and export all teacher requisition records.</p>
           </div>
-          <div className="flex gap-2">
-            <button onClick={load} className="h-9 px-3 rounded-xl border border-black/10 bg-white text-[10px] font-black uppercase tracking-wider text-slate-600 flex items-center gap-1"><RefreshCw size={13} />Refresh</button>
-            <button onClick={exportExcel} className="h-9 px-3 rounded-xl border border-black/10 bg-white text-[10px] font-black uppercase tracking-wider text-slate-600 flex items-center gap-1"><Download size={13} />Excel</button>
-            <button onClick={exportPdf} className="h-9 px-3 rounded-xl border border-black/10 bg-white text-[10px] font-black uppercase tracking-wider text-slate-600 flex items-center gap-1"><Download size={13} />PDF</button>
+          <div className="flex gap-2 items-center">
+            <button onClick={load} className="h-9 px-3 rounded-xl border border-white/20 bg-white/10 text-[10px] font-black uppercase tracking-wider text-white flex items-center gap-1 hover:bg-white/15 transition-all"><RefreshCw size={13} />Refresh</button>
+            <button onClick={exportExcel} className="h-9 px-3 rounded-xl border border-[#FEBF10]/40 bg-[#FEBF10]/15 text-[10px] font-black uppercase tracking-wider text-[#FEBF10] flex items-center gap-1"><Download size={13} />Excel</button>
+            <button onClick={exportPdf} className="h-9 px-3 rounded-xl border border-[#FEBF10]/40 bg-[#FEBF10]/15 text-[10px] font-black uppercase tracking-wider text-[#FEBF10] flex items-center gap-1"><Download size={13} />PDF</button>
           </div>
         </div>
+      </section>
+
+      <div className="animate-in fade-in duration-500 max-w-[1500px] mx-auto px-4 md:px-8 py-6 space-y-4">
 
         <div className="bg-white border border-black/5 rounded-2xl p-4 flex flex-wrap gap-2 items-center">
           <select value={status} onChange={(e) => setStatus(e.target.value)} className="h-9 rounded-xl border border-black/10 px-3 text-[10px] font-black uppercase text-slate-600">
@@ -214,6 +225,7 @@ export default function TeacherRequisitionReports() {
           )}
         </div>
       </div>
+
       {toast ? (
         <div className="fixed right-4 top-4 z-[260]">
           <div className="max-w-[360px] px-3 py-2 rounded-xl border shadow-lg flex items-start gap-2 bg-red-50 border-red-200 text-red-700">

@@ -224,6 +224,31 @@ async function findStudentInSchool(schoolId, raw) {
   return rows[0] || null;
 }
 
+/** Learner lookup by full/partial name in one school. */
+async function findStudentByNameInSchool(schoolId, rawName) {
+  const name = trimStr(rawName);
+  if (!name || name.length < 2) return null;
+  const like = `%${name}%`;
+  const [rows] = await db.promisePool.query(
+    `SELECT s.id, s.school_id, s.student_uid, s.student_code, s.sdm_code,
+            s.first_name, s.last_name, s.class_name, s.academic_year,
+            sc.school_name, sc.school_code
+     FROM students s
+     LEFT JOIN schools sc ON sc.id = s.school_id
+     WHERE s.school_id = ?
+       AND (
+         CONCAT(TRIM(COALESCE(s.first_name, '')), ' ', TRIM(COALESCE(s.last_name, ''))) LIKE ?
+         OR CONCAT(TRIM(COALESCE(s.last_name, '')), ' ', TRIM(COALESCE(s.first_name, ''))) LIKE ?
+         OR TRIM(COALESCE(s.first_name, '')) LIKE ?
+         OR TRIM(COALESCE(s.last_name, '')) LIKE ?
+       )
+     ORDER BY s.id ASC
+     LIMIT 1`,
+    [schoolId, like, like, like, like]
+  );
+  return rows[0] || null;
+}
+
 function discoveryPayload() {
   return {
     service: 'public_pay_by_school',
@@ -602,10 +627,11 @@ router.post('/search-student', flowLimiter, async (req, res) => {
       req.body?.student_uid ??
       req.body?.sdm_code ??
       req.body?.sdmCode;
-    if (!schoolCode || !trimStr(raw)) {
+    const studentName = trimStr(req.body?.student_name ?? req.body?.studentName ?? req.body?.name);
+    if (!schoolCode || (!trimStr(raw) && !studentName)) {
       return res.status(400).json({
         success: false,
-        message: 'school_code and one of code, student_uid, or sdm_code are required',
+        message: 'school_code and one of code/student_uid/sdm_code/student_name are required',
       });
     }
 
@@ -614,11 +640,15 @@ router.post('/search-student', flowLimiter, async (req, res) => {
       return res.status(404).json({ success: false, message: 'School not found for this code' });
     }
 
-    const st = await findStudentInSchool(school.id, raw);
+    const st = trimStr(raw)
+      ? await findStudentInSchool(school.id, raw)
+      : await findStudentByNameInSchool(school.id, studentName);
     if (!st) {
       return res.status(404).json({
         success: false,
-        message: 'No student matched in this school for that code',
+        message: trimStr(raw)
+          ? 'No student matched in this school for that code'
+          : 'No student matched in this school for that name',
         data: { school: { id: school.id, school_name: school.school_name, school_code: school.school_code } },
       });
     }
@@ -654,7 +684,7 @@ router.post('/search-student', flowLimiter, async (req, res) => {
       if (pr.ok) pricing = pr.data;
     }
 
-    const studentName = `${trimStr(st.first_name)} ${trimStr(st.last_name)}`.trim();
+    const resolvedStudentName = `${trimStr(st.first_name)} ${trimStr(st.last_name)}`.trim();
 
     return res.json({
       success: true,
@@ -677,7 +707,7 @@ router.post('/search-student', flowLimiter, async (req, res) => {
           post_intent: '/api/public/babyeyi-pay/intent',
           selected_student: {
             student_id: st.id,
-            student_name: studentName || 'Student',
+            student_name: resolvedStudentName || 'Student',
             student_uid: st.student_uid,
             student_code: st.student_code || null,
           },
@@ -688,7 +718,7 @@ router.post('/search-student', flowLimiter, async (req, res) => {
             status: 'draft',
             selected_student: {
               student_id: st.id,
-              student_name: studentName || 'Student',
+              student_name: resolvedStudentName || 'Student',
               student_uid: st.student_uid,
               student_code: st.student_code || null,
             },

@@ -129,17 +129,31 @@ export default function DosReportsPage() {
   );
 
   return (
-    <>
-      <div className="mb-6 sm:mb-8">
-        <div className="inline-flex items-center gap-2 rounded-full bg-[#FFFBE8] px-3 py-1 text-xs font-bold text-[#7A5C00] ring-1 ring-[#FDEAA0]">
-          <FileBarChart size={14} className="text-[#B88A00]" />
-          DOS reports
+    <div className="min-h-screen bg-re-bg" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+      {/* ── Hero Banner ── */}
+      <section className="relative p-7 md:p-10 text-white overflow-hidden min-h-[180px] flex items-center bg-[#000435]">
+        <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full border border-white/5 pointer-events-none" />
+        <div className="absolute -top-12 -right-12 w-64 h-64 rounded-full border border-white/5 pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-[#FEBF10]/30 to-transparent pointer-events-none" />
+        <div className="relative z-10 max-w-5xl w-full">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="h-0.5 w-6 rounded-full bg-[#FEBF10]" />
+            <p className="text-[10px] font-black capitalize tracking-widest text-[#FEBF10]/80">Academic Reports</p>
+          </div>
+          <h1 className="text-2xl md:text-3xl font-black tracking-tight">DOS Reports</h1>
+          <p className="text-xs font-bold text-white/60 max-w-xl mt-2">
+            Totals by year, term, status &amp; class — filter a period to see counts and marks.
+          </p>
         </div>
-        <h1 className="mt-3 text-2xl font-black tracking-tight text-[#1A1200] sm:text-3xl">Totals by year, term, status & class</h1>
-        <p className="mt-1 max-w-2xl text-sm text-slate-600">
-          Filter a period, then see counts and total marks obtained/remaining by status and by class.
-        </p>
-      </div>
+      </section>
+
+      <div className="max-w-[1500px] mx-auto px-4 md:px-10 py-8 space-y-6">
+        <div className="mb-6 sm:mb-8">
+          <div className="inline-flex items-center gap-2 rounded-full bg-[#FFFBE8] px-3 py-1 text-xs font-bold text-[#7A5C00] ring-1 ring-[#FDEAA0]">
+            <FileBarChart size={14} className="text-[#B88A00]" />
+            DOS reports
+          </div>
+        </div>
 
       <div className="mb-6 rounded-3xl border border-[#FDEAA0]/80 bg-white p-4 shadow-md shadow-[#FDEAA0]/10 sm:p-6">
         <div className="flex flex-wrap items-end gap-4">
@@ -351,7 +365,8 @@ export default function DosReportsPage() {
           <Loader2 className="inline animate-spin w-8 h-8 text-[#B88A00]" /> Loading report…
         </div>
       )}
-    </>
+      </div>
+    </div>
   );
 }
 

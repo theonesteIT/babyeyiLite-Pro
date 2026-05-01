@@ -238,6 +238,7 @@ const NAV = [
   { id: 'teacher-deal-products', icon: Package, label: 'Teacher Deal Products' },
   { id: 'school-students-card', icon: IdCard, label: 'School Students Card' },
   { id: 'student-card-template-2', icon: LayoutTemplate, label: 'Student Card Template 2' },
+  { id: 'school-staff-card-template', icon: IdCard, label: 'School Staff Card Template' },
   // { id: 'activity',   icon: Activity,   label: 'Activity Log' },
   { id: 'settings',   icon: Settings,   label: 'Settings' },
 ];
@@ -324,6 +325,7 @@ function Sidebar({ page, onChange, online, user, navigate }) {
           const isTeacherDealProducts = item.id === 'teacher-deal-products';
           const isSchoolStudentsCard = item.id === 'school-students-card';
           const isStudentCardTemplate2 = item.id === 'student-card-template-2';
+          const isSchoolStaffCardTemplate = item.id === 'school-staff-card-template';
           return (
             <button key={item.id}
               onClick={() => {
@@ -353,6 +355,8 @@ function Sidebar({ page, onChange, online, user, navigate }) {
                   navigate('/superadmin/school-students-card');
                 } else if (isStudentCardTemplate2) {
                   navigate('/superadmin/student-card-template-2');
+                } else if (isSchoolStaffCardTemplate) {
+                  navigate('/superadmin/school-staff-card-template');
                 } else if (isRequirementsPrices) {
                   navigate('/manage-requirements-prices');
                 } else if (isPricesList) {
@@ -3695,6 +3699,9 @@ export default function SuperAdminDashboard() {
                 const isShuleAvanceOrgs = item.id === 'shule-avance-orgs';
                 const isShuleAvanceTeacher = item.id === 'shule-avance-teacher';
                 const isTeacherDealProducts = item.id === 'teacher-deal-products';
+                const isSchoolStudentsCard = item.id === 'school-students-card';
+                const isStudentCardTemplate2 = item.id === 'student-card-template-2';
+                const isSchoolStaffCardTemplate = item.id === 'school-staff-card-template';
                 return (
                   <button key={item.id}
                     onClick={() => {
@@ -3709,6 +3716,9 @@ export default function SuperAdminDashboard() {
                       else if (isShuleAvanceOrgs) { navigate('/superadmin/shule-avance-organizations'); }
                       else if (isShuleAvanceTeacher) { navigate('/superadmin/shule-avance-teacher'); }
                       else if (isTeacherDealProducts) { navigate('/superadmin/teacher-deal-products'); }
+                      else if (isSchoolStudentsCard) { navigate('/superadmin/school-students-card'); }
+                      else if (isStudentCardTemplate2) { navigate('/superadmin/student-card-template-2'); }
+                      else if (isSchoolStaffCardTemplate) { navigate('/superadmin/school-staff-card-template'); }
                       else if (isRequirementsPrices) { navigate('/manage-requirements-prices'); }
                       else if (isPricesList) { navigate('/requirement-prices-list'); }
                       else if (isInvoices) { navigate('/invoices'); }

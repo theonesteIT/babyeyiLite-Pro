@@ -58,7 +58,7 @@ export default function RecordMarks() {
             });
 
             if (!assessmentRes.data.success) {
-                 return alert('Failed to create assessment framework.');
+                return alert('Failed to create assessment framework.');
             }
             const assessment_id = assessmentRes.data.assessment_id;
 
@@ -109,10 +109,10 @@ export default function RecordMarks() {
         <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen pb-12">
 
             {/* ── High-Fidelity Hero Section ── */}
-            <div className="relative w-full min-h-[300px] overflow-hidden">
-                <div className="absolute inset-0 bg-orange-950/70 z-10 backdrop-blur-[2px]"></div>
-                <img src="/teacher.jpg" alt="Hero" className="absolute inset-0 w-full h-full object-cover scale-105 opacity-100" />
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent to-transparent z-[5]"></div>
+            <div className="relative w-full min-h-[300px] overflow-hidden bg-[#000435]">
+                <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full border border-white/5 pointer-events-none" />
+                <div className="absolute -top-12 -right-12 w-64 h-64 rounded-full border border-white/5 pointer-events-none" />
+                <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-[#FEBF10]/30 to-transparent pointer-events-none" />
 
                 <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-12 pt-16 pb-24">
                     <div className="space-y-1">
@@ -220,7 +220,7 @@ export default function RecordMarks() {
                             </div>
 
                             {/* Desktop Save Records */}
-                            <button 
+                            <button
                                 onClick={handleSave}
                                 className="hidden lg:flex h-10 px-6 bg-re-grad-orange text-white text-nowrap     font-black text-[9px] uppercase tracking-widest rounded-xl hover:shadow-re-glow transition-all items-center gap-2 active:scale-95"
                             >
@@ -300,60 +300,60 @@ export default function RecordMarks() {
                                         </tr>
                                     ) : (
                                         filteredMarks.map((m, idx) => {
-                                        const total = calculateTotal(m);
-                                        const grade = calculateGrade(total);
-                                        return (
-                                            <tr key={m.id} className="hover:bg-re-bg/30 transition-colors group">
-                                                <td className="border-r border-b border-black/5 px-2 sm:px-4 py-4 text-center text-[10px] font-black text-gray-300">
-                                                    {idx + 1}
-                                                </td>
-                                                <td className="border-r border-b border-black/5 px-2 sm:px-4 py-4 min-w-0 overflow-hidden">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-8 h-8 rounded-full bg-re-bg flex-shrink-0 flex items-center justify-center font-black text-[10px] text-gray-400 border border-black/5 group-hover:bg-white transition-colors">
-                                                            <User size={14} className="opacity-40" />
+                                            const total = calculateTotal(m);
+                                            const grade = calculateGrade(total);
+                                            return (
+                                                <tr key={m.id} className="hover:bg-re-bg/30 transition-colors group">
+                                                    <td className="border-r border-b border-black/5 px-2 sm:px-4 py-4 text-center text-[10px] font-black text-gray-300">
+                                                        {idx + 1}
+                                                    </td>
+                                                    <td className="border-r border-b border-black/5 px-2 sm:px-4 py-4 min-w-0 overflow-hidden">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-8 h-8 rounded-full bg-re-bg flex-shrink-0 flex items-center justify-center font-black text-[10px] text-gray-400 border border-black/5 group-hover:bg-white transition-colors">
+                                                                <User size={14} className="opacity-40" />
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <h4 className="text-[11px] font-black text-re-text truncate block">{m.name}</h4>
+                                                                <p className="text-[9px] font-bold text-re-text-muted uppercase tracking-widest opacity-40">{m.adm}</p>
+                                                            </div>
                                                         </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <h4 className="text-[11px] font-black text-re-text truncate block">{m.name}</h4>
-                                                            <p className="text-[9px] font-bold text-re-text-muted uppercase tracking-widest opacity-40">{m.adm}</p>
+                                                    </td>
+                                                    <td className="border-r border-b border-black/5 px-1 sm:px-4 py-4">
+                                                        <input
+                                                            type="number"
+                                                            value={m.cat1}
+                                                            onChange={(e) => handleMarkChange(m.id, 'cat1', e.target.value)}
+                                                            className="w-full min-w-[50px] h-10 bg-re-bg/50 border border-transparent rounded-xl text-center font-black text-sm text-re-text focus:bg-white focus:border-re-orange/30 focus:shadow-re-glow transition-all px-1"
+                                                        />
+                                                    </td>
+                                                    <td className="border-r border-b border-black/5 px-1 sm:px-4 py-4">
+                                                        <input
+                                                            type="number"
+                                                            value={m.cat2}
+                                                            onChange={(e) => handleMarkChange(m.id, 'cat2', e.target.value)}
+                                                            className="w-full min-w-[50px] h-10 bg-re-bg/50 border border-transparent rounded-xl text-center font-black text-sm text-re-text focus:bg-white focus:border-re-orange/30 focus:shadow-re-glow transition-all px-1"
+                                                        />
+                                                    </td>
+                                                    <td className="border-r border-b border-black/5 px-1 sm:px-4 py-4">
+                                                        <input
+                                                            type="number"
+                                                            value={m.exam}
+                                                            onChange={(e) => handleMarkChange(m.id, 'exam', e.target.value)}
+                                                            className="w-full min-w-[50px] h-10 bg-re-bg/50 border border-transparent rounded-xl text-center font-black text-sm text-re-text focus:bg-white focus:border-re-orange/30 focus:shadow-re-glow transition-all px-1"
+                                                        />
+                                                    </td>
+                                                    <td className="border-r border-b border-black/5 px-1 sm:px-4 py-4 text-center">
+                                                        <span className="text-sm font-black text-re-text tracking-tighter">{total}</span>
+                                                    </td>
+                                                    <td className="border-b border-black/5 px-1 sm:px-4 py-4 text-center">
+                                                        <div className={`inline-flex h-7 w-7 flex items-center justify-center px-1 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ring-1 ring-inset ${grade.color}`}>
+                                                            {grade.label}
                                                         </div>
-                                                    </div>
-                                                </td>
-                                                <td className="border-r border-b border-black/5 px-1 sm:px-4 py-4">
-                                                    <input
-                                                        type="number"
-                                                        value={m.cat1}
-                                                        onChange={(e) => handleMarkChange(m.id, 'cat1', e.target.value)}
-                                                        className="w-full min-w-[50px] h-10 bg-re-bg/50 border border-transparent rounded-xl text-center font-black text-sm text-re-text focus:bg-white focus:border-re-orange/30 focus:shadow-re-glow transition-all px-1"
-                                                    />
-                                                </td>
-                                                <td className="border-r border-b border-black/5 px-1 sm:px-4 py-4">
-                                                    <input
-                                                        type="number"
-                                                        value={m.cat2}
-                                                        onChange={(e) => handleMarkChange(m.id, 'cat2', e.target.value)}
-                                                        className="w-full min-w-[50px] h-10 bg-re-bg/50 border border-transparent rounded-xl text-center font-black text-sm text-re-text focus:bg-white focus:border-re-orange/30 focus:shadow-re-glow transition-all px-1"
-                                                    />
-                                                </td>
-                                                <td className="border-r border-b border-black/5 px-1 sm:px-4 py-4">
-                                                    <input
-                                                        type="number"
-                                                        value={m.exam}
-                                                        onChange={(e) => handleMarkChange(m.id, 'exam', e.target.value)}
-                                                        className="w-full min-w-[50px] h-10 bg-re-bg/50 border border-transparent rounded-xl text-center font-black text-sm text-re-text focus:bg-white focus:border-re-orange/30 focus:shadow-re-glow transition-all px-1"
-                                                    />
-                                                </td>
-                                                <td className="border-r border-b border-black/5 px-1 sm:px-4 py-4 text-center">
-                                                    <span className="text-sm font-black text-re-text tracking-tighter">{total}</span>
-                                                </td>
-                                                <td className="border-b border-black/5 px-1 sm:px-4 py-4 text-center">
-                                                    <div className={`inline-flex h-7 w-7 flex items-center justify-center px-1 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ring-1 ring-inset ${grade.color}`}>
-                                                        {grade.label}
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })
-                                )}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
+                                    )}
                                 </tbody>
                             </table>
                         </div>

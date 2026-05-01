@@ -1,17 +1,16 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, BookOpen, BookMarked, RotateCcw, Users, MessageSquare, DollarSign } from 'lucide-react';
+import { LayoutDashboard, BookOpen, BookMarked, RotateCcw, MessageSquare, DollarSign } from 'lucide-react';
 import useChatUnread from '../../../../shared/hooks/useChatUnread';
 
 const BottomNav = () => {
   const unreadCount = useChatUnread();
   const navItems = [
-    { icon: LayoutDashboard, name: 'Home',      path: '/',          exact: true },
-    { icon: BookOpen,        name: 'Books',     path: '/books'                  },
-    { icon: BookMarked,      name: 'Borrow',    path: '/borrowing'              },
-    { icon: RotateCcw,       name: 'Returns',   path: '/returns'                },
-    { icon: Users,           name: 'Members',   path: '/members'                },
-    { icon: DollarSign,      name: 'Payroll',   path: '/payroll'                },
-    { icon: MessageSquare,   name: 'Chat',      path: '/chat', badgeCount: unreadCount },
+    { icon: LayoutDashboard, name: 'Home',      path: '/librarian',          exact: true },
+    { icon: BookOpen,        name: 'Books',     path: '/librarian/books'                  },
+    { icon: BookMarked,      name: 'Borrow',    path: '/librarian/borrowing'              },
+    { icon: RotateCcw,       name: 'Returns',   path: '/librarian/returns'                },
+    { icon: DollarSign,      name: 'Payroll',   path: '/librarian/payroll'                },
+    { icon: MessageSquare,   name: 'Chat',      path: '/librarian/chat', badgeCount: unreadCount },
   ];
   return (
     <div className="lg:hidden fixed bottom-0 left-0 right-0 z-[100] bg-white border-t border-black/5 pb-safe">

@@ -42,6 +42,8 @@ let io = null;
 
 // ── FIX: Trust reverse proxy (nginx) so cookies work over HTTPS ──
 app.set('trust proxy', 1);
+// Disable ETag-based conditional responses so API calls return fresh 200 payloads.
+app.set('etag', false);
 
 // ============================================================
 // UPLOAD DIRECTORIES
@@ -61,6 +63,7 @@ app.set('trust proxy', 1);
   'uploads/standard-shule-kits',
   'uploads/uniform-vouchers',
   'uploads/temp',
+  'uploads/library-covers',
 ].forEach(dir => {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
@@ -811,6 +814,8 @@ const shuleAvanceServicesRoutes = require('./BabyeyiRoutes/shuleAvanceServices')
 console.log('  ✅  shuleAvanceServices.js');
 const studentTransferRoutes = require('./BabyeyiRoutes/studentTransfer');
 console.log('  ✅  studentTransfer.js');
+const libraryRoutes = require('./BabyeyiRoutes/library');
+console.log('  ✅  library.js (GET /api/books, borrowings, …)');
 const parentPortalRoutes = require('./BabyeyiRoutes/parentPortal');
 console.log('  ✅  parentPortal.js');
 const onlineServiceRoutes = require('./BabyeyiRoutes/onlineServiceRoutes');
@@ -880,6 +885,9 @@ console.log('  ✅  /api/momo/*');
 
 app.use('/api/public/public-pay', publicPaySchoolFlowRoutes);
 console.log('  ✅  /api/public/public-pay/*');
+// Library API — mount before parent portal, chat, portal ops, etc. so /api/books and /api/students/search resolve
+app.use('/api', libraryRoutes);
+console.log('  ✅  /api/books · /api/borrowings · /students/search (early mount)');
 app.use('/api', parentPortalRoutes);
 console.log('  ✅  /api/parent-portal/* (early — before babyeyi-finder alias)');
 app.use('/api', onlineServiceRoutes);
@@ -914,6 +922,7 @@ app.use('/api/services', shuleAvanceServicesRoutes);
 console.log('  ✅  /api/services/shule-avance/*');
 app.use('/api', studentTransferRoutes);
 console.log('  ✅  /api/student-transfers/*');
+// libraryRoutes mounted early (after public-pay)
 
 if (locationRoutes) {
   app.use('/api/locations', locationRoutes);
