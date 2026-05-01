@@ -1080,6 +1080,39 @@ export default function PaymentsPage() {
     }
   }, []);
 
+  const pollShulecardTopupMomoStatus = useCallback(async (topupId, count) => {
+    if (count >= MOMO_MAX_POLLS) { setMomoStatus('TIMEOUT'); setSubmitting(false); return; }
+    try {
+      const res = await fetch(`${API}/parent-portal/shulecard/topups/${encodeURIComponent(topupId)}/pay-status`, {
+        credentials: 'include',
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) throw new Error(json.message || 'Could not check payment status');
+      const status = String(json?.data?.status || '').toUpperCase();
+      if (status === 'SUCCESSFUL') {
+        setMomoStatus('SUCCESSFUL');
+        setInvoiceStatus('PAID');
+        setDoneId(json?.data?.reference_no || `SHC-${topupId}`);
+        setInvoiceNo(json?.data?.reference_no || '');
+        setDoneMode('momo');
+        setShowDoneModal(true);
+        setSubmitting(false);
+        try { sessionStorage.removeItem(SHULECARD_TOPUP_DRAFT_KEY); } catch (_) {}
+        return;
+      }
+      if (status === 'FAILED') {
+        setMomoStatus('FAILED');
+        setSubmitting(false);
+        return;
+      }
+      setMomoPollCount(count + 1);
+      pollTimerRef.current = setTimeout(() => pollShulecardTopupMomoStatus(topupId, count + 1), MOMO_POLL_INTERVAL_MS);
+    } catch {
+      setMomoPollCount(count + 1);
+      pollTimerRef.current = setTimeout(() => pollShulecardTopupMomoStatus(topupId, count + 1), MOMO_POLL_INTERVAL_MS * 2);
+    }
+  }, []);
+
   const handleUniformVoucherConfirm = useCallback(async () => {
     if (!draft?.uniformVoucherCheckout || !draft?.uniformVoucherPayload) return;
     setSubmitError('');
@@ -1236,6 +1269,7 @@ export default function PaymentsPage() {
       }
       setMomoPhoneError('');
       setSubmitting(true);
+      setSubmitError('');
       try {
         const res = await fetch(`${API}/parent-portal/shulecard/topups`, {
           method: 'POST',
@@ -1246,12 +1280,34 @@ export default function PaymentsPage() {
             amount_rwf: amountRwf,
             payment_method: payMethod || payload.payment_method || 'momo',
             note: String(payload.note || '').trim() || null,
+            momo_phone: payMethod === 'momo' ? momoPhoneRaw : undefined,
           }),
         });
         const j = await res.json().catch(() => ({}));
         if (!res.ok || !j.success) throw new Error(j.message || 'Top-up request failed');
-        setDoneId(j?.data?.reference_no || `SHC-${Date.now()}`);
-        setInvoiceNo(j?.data?.reference_no || '');
+        const data = j?.data || {};
+        const mtnSt = String(data.mtn_status || 'PENDING').toUpperCase();
+        if (payMethod === 'momo') {
+          setMomoStatus(mtnSt);
+          setMomoReferenceId(data.payment_ref || data.reference_no || '');
+          if (mtnSt === 'SUCCESSFUL') {
+            setDoneId(data.reference_no || `SHC-${Date.now()}`);
+            setInvoiceNo(data.reference_no || '');
+            setInvoiceStatus('PAID');
+            setDoneMode('momo');
+            setShowDoneModal(true);
+            try { sessionStorage.removeItem(SHULECARD_TOPUP_DRAFT_KEY); } catch (_) {}
+            setSubmitting(false);
+            return;
+          }
+          const topupId = Number(data.topup_id || 0);
+          if (!topupId) throw new Error('Top-up was created but no id was returned for payment status check.');
+          setMomoPollCount(0);
+          pollTimerRef.current = setTimeout(() => pollShulecardTopupMomoStatus(topupId, 0), MOMO_POLL_INTERVAL_MS);
+          return;
+        }
+        setDoneId(data.reference_no || `SHC-${Date.now()}`);
+        setInvoiceNo(data.reference_no || '');
         setInvoiceStatus('PAID');
         setDoneMode(payMethod === 'bank' ? 'bank' : payMethod === 'visa' ? 'visa' : 'momo');
         setShowDoneModal(true);
@@ -1259,7 +1315,7 @@ export default function PaymentsPage() {
       } catch (e) {
         setSubmitError(e.message || 'Could not complete ShuleCard top-up');
       } finally {
-        setSubmitting(false);
+        if (!pollTimerRef.current) setSubmitting(false);
       }
       return;
     }
@@ -1764,6 +1820,8 @@ export default function PaymentsPage() {
             : payMethod === 'bank'
               ? bankAccountHolder.trim() && bankAccountNumber.trim() && bankPaymentRef.trim()
               : true);
+  const showMomoUnavailableBanner = payMethod === 'momo'
+    && /mtn momo is not configured|temporarily unavailable|service unavailable/i.test(String(submitError || ''));
 
   const label = useMemo(() => {
     if (!draft) return '';
@@ -2717,6 +2775,15 @@ export default function PaymentsPage() {
             : payMethod === 'loan' ? (pageTab === 'shuleavance' ? 'Send ShuleAvance Request' : 'Send Loan Request')
             : 'Confirm & Record Intent'}
         </button>
+        )}
+
+        {showMomoUnavailableBanner && (
+          <div style={{ background: C.am50, border: `1px solid ${C.am200}`, borderRadius: 8, padding: "10px 14px", display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 12 }}>
+            <AlertCircle size={15} color={C.am600} style={{ flexShrink: 0, marginTop: 1 }} />
+            <div style={{ fontSize: 13, color: C.navy, fontWeight: 700 }}>
+              MoMo payment is temporarily unavailable. Please try again later or use another method.
+            </div>
+          </div>
         )}
 
         {submitError && (

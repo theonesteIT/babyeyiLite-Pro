@@ -105,6 +105,54 @@ function normalizePhone(raw) {
   return null;
 }
 
+function toMsisdn250(raw) {
+  const local = normalizePhone(raw);
+  if (!local) return null;
+  return `250${local.slice(1)}`;
+}
+
+async function startInternalMomoRequestToPay({
+  phoneMsisdn250,
+  amountRwf,
+  externalId,
+  payerMessage,
+  payeeNote,
+}) {
+  const port = process.env.PORT || 8080;
+  const res = await fetch(`http://127.0.0.1:${port}/api/momo/request-to-pay`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      phone: phoneMsisdn250,
+      amount: Number(amountRwf || 0),
+      external_id: externalId,
+      payer_message: payerMessage,
+      payee_note: payeeNote,
+    }),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    const err = new Error(json.message || `MoMo initiation failed (HTTP ${res.status})`);
+    err.httpStatus = res.status >= 400 && res.status < 600 ? res.status : 502;
+    err.gateway = json;
+    throw err;
+  }
+  return json;
+}
+
+async function pollInternalMomoStatus(referenceId) {
+  const port = process.env.PORT || 8080;
+  const res = await fetch(`http://127.0.0.1:${port}/api/momo/status/${encodeURIComponent(referenceId)}`);
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    const err = new Error(json.message || `MoMo status failed (HTTP ${res.status})`);
+    err.httpStatus = res.status >= 400 && res.status < 600 ? res.status : 502;
+    err.gateway = json;
+    throw err;
+  }
+  return json;
+}
+
 function parseRequirementQuantity(raw) {
   if (raw == null || raw === '') return 1;
   const s = String(raw).trim();
@@ -462,6 +510,9 @@ async function ensureShulecardTables() {
         KEY idx_pst_created (created_at)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
+    await promisePool.query(`ALTER TABLE parent_shulecard_topups ADD COLUMN payment_ref VARCHAR(80) NULL`).catch(() => {});
+    await promisePool.query(`ALTER TABLE parent_shulecard_topups ADD COLUMN provider_response JSON NULL`).catch(() => {});
+    await promisePool.query(`ALTER TABLE parent_shulecard_topups ADD COLUMN paid_at DATETIME NULL`).catch(() => {});
     await promisePool.query(`
       CREATE TABLE IF NOT EXISTS parent_shulecard_spending_events (
         id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -2077,15 +2128,23 @@ router.post('/parent-portal/shulecard/topups', authLimiter, async (req, res) => 
     const amount = Math.floor(Number(req.body?.amount_rwf || 0));
     const paymentMethod = String(req.body?.payment_method || 'momo').trim().toLowerCase();
     const note = String(req.body?.note || '').trim().slice(0, 255);
+    const momoPhoneRaw = String(req.body?.momo_phone || '').trim();
+    const momoMsisdn = paymentMethod === 'momo' ? toMsisdn250(momoPhoneRaw || parentPhone) : null;
     if (!studentId) return res.status(400).json({ success: false, message: 'student_id is required' });
     if (!Number.isFinite(amount) || amount < 500 || amount > 5_000_000) {
       return res.status(400).json({ success: false, message: 'Amount must be between 500 and 5,000,000 RWF' });
+    }
+    if (paymentMethod === 'momo' && !momoMsisdn) {
+      return res.status(400).json({ success: false, message: 'Enter a valid Rwanda MTN number.' });
     }
     const st = await resolveParentStudentAccess(parentPhone, studentId);
     if (!st) return res.status(403).json({ success: false, message: 'No access to this student' });
     const conn = await promisePool.getConnection();
     let nextBalance = 0;
     const referenceNo = `SC-${Date.now()}-${Math.floor(Math.random() * 9000 + 1000)}`;
+    let topupId = 0;
+    let momoStatusUpper = null;
+    let momoPaymentRef = null;
     try {
       await conn.beginTransaction();
       await conn.query(
@@ -2095,23 +2154,66 @@ router.post('/parent-portal/shulecard/topups', authLimiter, async (req, res) => 
          ON DUPLICATE KEY UPDATE parent_portal_account_id = VALUES(parent_portal_account_id)`,
         [parentPortalAccountId || null, parentPhone, studentId]
       );
-      await conn.query(
-        `UPDATE parent_shulecard_wallets
-         SET balance_rwf = balance_rwf + ?
-         WHERE parent_phone = ? AND student_id = ?`,
-        [amount, parentPhone, studentId]
-      );
-      const [[wallet]] = await conn.query(
-        `SELECT balance_rwf, daily_limit_rwf FROM parent_shulecard_wallets WHERE parent_phone = ? AND student_id = ? LIMIT 1`,
-        [parentPhone, studentId]
-      );
-      nextBalance = Number(wallet?.balance_rwf || 0);
-      await conn.query(
-        `INSERT INTO parent_shulecard_topups
-          (parent_portal_account_id, parent_phone, student_id, amount_rwf, payment_method, note, status, reference_no)
-         VALUES (?, ?, ?, ?, ?, ?, 'completed', ?)`,
-        [parentPortalAccountId || null, parentPhone, studentId, amount, paymentMethod, note || null, referenceNo]
-      );
+      if (paymentMethod === 'momo') {
+        const [ins] = await conn.query(
+          `INSERT INTO parent_shulecard_topups
+            (parent_portal_account_id, parent_phone, student_id, amount_rwf, payment_method, note, status, reference_no)
+           VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)`,
+          [parentPortalAccountId || null, parentPhone, studentId, amount, paymentMethod, note || null, referenceNo]
+        );
+        topupId = Number(ins?.insertId || 0);
+        const externalId = `pst-${topupId}-${Date.now()}`.slice(0, 64);
+        const momo = await startInternalMomoRequestToPay({
+          phoneMsisdn250: momoMsisdn,
+          amountRwf: Math.round(amount),
+          externalId,
+          payerMessage: `ShuleCard top-up ${amount.toLocaleString()} RWF`.slice(0, 120),
+          payeeNote: `Ref ${referenceNo}`,
+        });
+        const providerPayload = momo && typeof momo === 'object' ? momo : {};
+        momoPaymentRef = String(momo.referenceId || '').trim() || null;
+        momoStatusUpper = String(momo.status || 'PENDING').toUpperCase();
+        if (!momoStatusUpper) momoStatusUpper = 'PENDING';
+        await conn.query(
+          `UPDATE parent_shulecard_topups
+           SET payment_ref = ?, provider_response = ?, status = ?
+           WHERE id = ?`,
+          [momoPaymentRef, JSON.stringify({ mtn: providerPayload }), momoStatusUpper === 'SUCCESSFUL' ? 'completed' : 'pending', topupId]
+        );
+        if (momoStatusUpper === 'SUCCESSFUL') {
+          await conn.query(
+            `UPDATE parent_shulecard_wallets
+             SET balance_rwf = balance_rwf + ?
+             WHERE parent_phone = ? AND student_id = ?`,
+            [amount, parentPhone, studentId]
+          );
+          const [[wallet]] = await conn.query(
+            `SELECT balance_rwf FROM parent_shulecard_wallets WHERE parent_phone = ? AND student_id = ? LIMIT 1`,
+            [parentPhone, studentId]
+          );
+          nextBalance = Number(wallet?.balance_rwf || 0);
+          await conn.query(`UPDATE parent_shulecard_topups SET paid_at = NOW() WHERE id = ?`, [topupId]);
+        }
+      } else {
+        await conn.query(
+          `UPDATE parent_shulecard_wallets
+           SET balance_rwf = balance_rwf + ?
+           WHERE parent_phone = ? AND student_id = ?`,
+          [amount, parentPhone, studentId]
+        );
+        const [[wallet]] = await conn.query(
+          `SELECT balance_rwf, daily_limit_rwf FROM parent_shulecard_wallets WHERE parent_phone = ? AND student_id = ? LIMIT 1`,
+          [parentPhone, studentId]
+        );
+        nextBalance = Number(wallet?.balance_rwf || 0);
+        const [ins] = await conn.query(
+          `INSERT INTO parent_shulecard_topups
+            (parent_portal_account_id, parent_phone, student_id, amount_rwf, payment_method, note, status, reference_no, paid_at)
+           VALUES (?, ?, ?, ?, ?, ?, 'completed', ?, NOW())`,
+          [parentPortalAccountId || null, parentPhone, studentId, amount, paymentMethod, note || null, referenceNo]
+        );
+        topupId = Number(ins?.insertId || 0);
+      }
       await conn.commit();
     } catch (e) {
       await conn.rollback();
@@ -2128,7 +2230,7 @@ router.post('/parent-portal/shulecard/topups', authLimiter, async (req, res) => 
       endpoint: '/api/parent-portal/shulecard/topups',
       payload: { amount_rwf: amount, payment_method: paymentMethod, reference_no: referenceNo },
     }).catch(() => {});
-    if (st.access_type === 'LIMITED') {
+    if ((paymentMethod !== 'momo' || momoStatusUpper === 'SUCCESSFUL') && st.access_type === 'LIMITED') {
       const studentName = `${st.first_name || ''} ${st.last_name || ''}`.trim() || 'your child';
       const targets = [normalizePhone(st.father_phone), normalizePhone(st.mother_phone)]
         .filter(Boolean)
@@ -2152,17 +2254,135 @@ router.post('/parent-portal/shulecard/topups', authLimiter, async (req, res) => 
     }
     return res.status(201).json({
       success: true,
-      message: 'Top-up completed successfully',
+      message: paymentMethod === 'momo'
+        ? (momoStatusUpper === 'SUCCESSFUL' ? 'Payment successful' : 'MoMo prompt sent. Please approve on your phone.')
+        : 'Top-up completed successfully',
       data: {
+        topup_id: topupId,
         student_id: studentId,
         amount_rwf: amount,
-        balance_rwf: nextBalance,
+        balance_rwf: momoStatusUpper === 'SUCCESSFUL' || paymentMethod !== 'momo' ? nextBalance : null,
         reference_no: referenceNo,
+        mtn_status: paymentMethod === 'momo' ? (momoStatusUpper || 'PENDING') : 'SUCCESSFUL',
+        payment_ref: paymentMethod === 'momo' ? momoPaymentRef : null,
       },
     });
   } catch (err) {
     console.error('[parent-portal/shulecard/topups]', err);
-    return res.status(500).json({ success: false, message: 'Failed to complete top-up' });
+    return res.status(Number(err?.httpStatus || 500)).json({
+      success: false,
+      message: err?.message || 'Failed to complete top-up',
+    });
+  }
+});
+
+router.get('/parent-portal/shulecard/topups/:id/pay-status', authLimiter, async (req, res) => {
+  const conn = await promisePool.getConnection();
+  try {
+    await ensureShulecardTables();
+    const role = (req.session?.user?.role?.code || req.session?.roleCode || '').toUpperCase();
+    const parentPhone = normalizePhone(req.session?.user?.parent_phone || '');
+    if (role !== 'PARENT' || !parentPhone) return res.status(401).json({ success: false, message: 'Not authenticated as parent' });
+    const topupId = Number(req.params?.id || 0);
+    if (!topupId) return res.status(400).json({ success: false, message: 'Invalid top-up id' });
+
+    const [[topup]] = await conn.query(
+      `SELECT id, parent_phone, student_id, amount_rwf, payment_method, status, reference_no, payment_ref, provider_response
+       FROM parent_shulecard_topups
+       WHERE id = ? AND parent_phone = ?
+       LIMIT 1`,
+      [topupId, parentPhone]
+    );
+    if (!topup) return res.status(404).json({ success: false, message: 'Top-up not found' });
+
+    if (String(topup.payment_method || '').toLowerCase() !== 'momo') {
+      const [[wallet]] = await conn.query(
+        `SELECT balance_rwf FROM parent_shulecard_wallets WHERE parent_phone = ? AND student_id = ? LIMIT 1`,
+        [parentPhone, Number(topup.student_id || 0)]
+      );
+      return res.json({ success: true, data: { status: 'SUCCESSFUL', reference_no: topup.reference_no, balance_rwf: Number(wallet?.balance_rwf || 0) } });
+    }
+
+    let mapped = String(topup.status || '').toUpperCase();
+    let providerObj = {};
+    try {
+      providerObj = topup.provider_response ? JSON.parse(topup.provider_response) : {};
+    } catch (_) {
+      providerObj = {};
+    }
+    const paymentRef = String(topup.payment_ref || providerObj?.mtn?.referenceId || '').trim();
+    if (paymentRef) {
+      try {
+        const statusPayload = await pollInternalMomoStatus(paymentRef);
+        mapped = String(statusPayload?.status || mapped || 'PENDING').toUpperCase() || 'PENDING';
+        providerObj = { ...(providerObj || {}), mtn: statusPayload };
+      } catch (_) {}
+    }
+    if (!mapped) mapped = 'PENDING';
+
+    if (mapped === 'SUCCESSFUL' || mapped === 'FAILED') {
+      await conn.beginTransaction();
+      const [[locked]] = await conn.query(
+        `SELECT id, status, amount_rwf, student_id FROM parent_shulecard_topups WHERE id = ? FOR UPDATE`,
+        [topupId]
+      );
+      if (locked) {
+        const lockedStatus = String(locked.status || '').toLowerCase();
+        if (mapped === 'SUCCESSFUL' && lockedStatus !== 'completed') {
+          await conn.query(
+            `UPDATE parent_shulecard_wallets
+             SET balance_rwf = balance_rwf + ?
+             WHERE parent_phone = ? AND student_id = ?`,
+            [Number(locked.amount_rwf || 0), parentPhone, Number(locked.student_id || 0)]
+          );
+          await conn.query(
+            `UPDATE parent_shulecard_topups
+             SET status = 'completed', provider_response = ?, paid_at = NOW()
+             WHERE id = ?`,
+            [JSON.stringify(providerObj), topupId]
+          );
+        } else if (mapped === 'FAILED' && lockedStatus !== 'completed') {
+          await conn.query(
+            `UPDATE parent_shulecard_topups
+             SET status = 'failed', provider_response = ?
+             WHERE id = ?`,
+            [JSON.stringify(providerObj), topupId]
+          );
+        }
+      }
+      await conn.commit();
+    }
+
+    const [[wallet]] = await conn.query(
+      `SELECT balance_rwf FROM parent_shulecard_wallets WHERE parent_phone = ? AND student_id = ? LIMIT 1`,
+      [parentPhone, Number(topup.student_id || 0)]
+    );
+    return res.json({
+      success: true,
+      data: {
+        status: mapped,
+        reference_no: topup.reference_no,
+        payment_ref: paymentRef || null,
+        balance_rwf: mapped === 'SUCCESSFUL' ? Number(wallet?.balance_rwf || 0) : null,
+        ...(process.env.NODE_ENV !== 'production'
+          ? {
+              debug_gateway_status: String(
+                providerObj?.mtn?.status
+                || providerObj?.mtn?.reason
+                || providerObj?.mtn?.message
+                || providerObj?.mtn?.detail
+                || ''
+              ).trim() || null,
+            }
+          : {}),
+      },
+    });
+  } catch (err) {
+    try { await conn.rollback(); } catch (_) {}
+    console.error('[parent-portal/shulecard/topups/:id/pay-status]', err);
+    return res.status(500).json({ success: false, message: err.message || 'Status check failed' });
+  } finally {
+    conn.release();
   }
 });
 
