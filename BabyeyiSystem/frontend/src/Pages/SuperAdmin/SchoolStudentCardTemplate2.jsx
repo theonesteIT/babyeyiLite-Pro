@@ -447,9 +447,15 @@ function CardLogoImg({ maxWidth = 210, height = 34 }) {
 ══════════════════════════════════════════════════════════════════════ */
 export function IDCardT2({ student, template, scale = 1 }) {
   const schoolTitle = (template?.school_name || student.school || 'SCHOOL').toUpperCase();
-  const logoCandidates = useMemo(() => getShuleCardLogoCandidates(), []);
+  const logoCandidates = useMemo(() => {
+    const schoolLogoSrc = template?.school_logo_url
+      ? `${UPLOADS_BASE}${template.school_logo_url}`
+      : student?.school_logo_full;
+    return schoolLogoSrc ? [schoolLogoSrc, ...getShuleCardLogoCandidates()] : getShuleCardLogoCandidates();
+  }, [template?.school_logo_url, student?.school_logo_full]);
   const [logoTry, setLogoTry] = useState(0);
   const logoSrc = logoCandidates[Math.min(logoTry, logoCandidates.length - 1)];
+  useEffect(() => { setLogoTry(0); }, [logoCandidates]);
   const schoolPhone = (template?.school_phone || student.phone || '').trim();
   const photoOffsetX = Number(template?.photo_offset_x) || 0;
   const photoOffsetY = Number(template?.photo_offset_y) || 0;

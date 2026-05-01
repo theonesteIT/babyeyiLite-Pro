@@ -280,6 +280,9 @@ async function ensureStaffIdentityColumns() {
   await promisePool.query('ALTER TABLE users ADD COLUMN rfid_uid VARCHAR(64) NULL').catch(() => {});
   await promisePool.query('ALTER TABLE users ADD COLUMN fingerprint_id VARCHAR(128) NULL').catch(() => {});
   await promisePool.query('ALTER TABLE users ADD COLUMN identity_remarks VARCHAR(512) NULL').catch(() => {});
+  await promisePool.query('ALTER TABLE users MODIFY COLUMN rfid_uid VARCHAR(64) NULL').catch(() => {});
+  await promisePool.query('ALTER TABLE users MODIFY COLUMN fingerprint_id VARCHAR(128) NULL').catch(() => {});
+  await promisePool.query('ALTER TABLE users MODIFY COLUMN identity_remarks VARCHAR(512) NULL').catch(() => {});
 }
 
 async function ensureStaffProfessionalColumns() {
@@ -1175,27 +1178,27 @@ router.put('/school/staff/:userId/identity', requireRole(CREATOR_ROLES), async (
     }
 
     const body = req.body || {};
-    const rfid = trimStr(body.rfid_uid || body.rfidUid);
-    const fp = trimStr(body.fingerprint_id || body.fingerprintId);
+    const rfid = trimStr(body.rfid_uid || body.rfidUid) || null;
+    const fp = trimStr(body.fingerprint_id || body.fingerprintId) || null;
     const remarks = trimStr(body.identity_remarks || body.identityRemarks);
 
-    if (!rfid || !fp) {
-      return res.status(400).json({ success: false, message: 'RFID UID and Fingerprint ID are required.' });
+    if (rfid) {
+      const [[dupR]] = await promisePool.query(
+        `SELECT id FROM users WHERE school_id = ? AND rfid_uid = ? AND id != ? AND deleted_at IS NULL LIMIT 1`,
+        [schoolId, rfid, userId]
+      );
+      if (dupR) {
+        return res.status(409).json({ success: false, message: 'This RFID is already assigned at your school.' });
+      }
     }
-
-    const [[dupR]] = await promisePool.query(
-      `SELECT id FROM users WHERE school_id = ? AND rfid_uid = ? AND id != ? AND deleted_at IS NULL LIMIT 1`,
-      [schoolId, rfid, userId]
-    );
-    if (dupR) {
-      return res.status(409).json({ success: false, message: 'This RFID is already assigned at your school.' });
-    }
-    const [[dupF]] = await promisePool.query(
-      `SELECT id FROM users WHERE school_id = ? AND fingerprint_id = ? AND id != ? AND deleted_at IS NULL LIMIT 1`,
-      [schoolId, fp, userId]
-    );
-    if (dupF) {
-      return res.status(409).json({ success: false, message: 'This fingerprint ID is already assigned at your school.' });
+    if (fp) {
+      const [[dupF]] = await promisePool.query(
+        `SELECT id FROM users WHERE school_id = ? AND fingerprint_id = ? AND id != ? AND deleted_at IS NULL LIMIT 1`,
+        [schoolId, fp, userId]
+      );
+      if (dupF) {
+        return res.status(409).json({ success: false, message: 'This fingerprint ID is already assigned at your school.' });
+      }
     }
 
     await promisePool.query(

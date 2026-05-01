@@ -606,21 +606,8 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
     [stopCamera]
   );
 
-  const validateIdentityPayload = useCallback(() => {
-    const rfid = identityRfid.trim();
-    const fid = identityFingerprint.trim();
-    if (!rfid) return "RFID UID Code is required.";
-    if (!fid) return "Fingerprint ID is required.";
-    return null;
-  }, [identityRfid, identityFingerprint]);
-
   const doSaveIdentity = useCallback(async () => {
     if (!selectedStudent) return;
-    const verr = validateIdentityPayload();
-    if (verr) {
-      setStep3Error(verr);
-      return;
-    }
 
     setSavingIdentity(true);
     setStep3Error(null);
@@ -678,7 +665,6 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
     onSaved,
     selectedStudent,
     toast,
-    validateIdentityPayload,
   ]);
 
   // Cleanup camera on close
@@ -1054,7 +1040,7 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
                         <div className="min-w-0">
                           <p className="text-[12px] font-black text-slate-900">Current photo</p>
                           <p className="text-[11px] text-slate-600 mt-1">
-                            {studentPhotoUrl ? "Existing photo found for this student." : "No photo saved yet. Add one to continue."}
+                            {studentPhotoUrl ? "Existing photo found for this student." : "No photo saved yet. You can skip photo and continue."}
                           </p>
                         </div>
                       </div>
@@ -1282,7 +1268,7 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
                         <div className="min-w-0">
                           <p className="text-sm font-black text-slate-900">Ready to continue</p>
                           <p className="text-[11px] text-slate-500 mt-1">
-                            Save the approved image to this student&apos;s profile, then assign RFID and fingerprint IDs.
+                            Save an approved image if available, or continue without photo and assign credentials later.
                           </p>
                         </div>
                         <div className="shrink-0">
@@ -1334,7 +1320,7 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
                 <>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="rounded-2xl border border-slate-200 bg-white p-3">
-                      <Field label="RFID UID Code" hint="required">
+                      <Field label="RFID UID Code" hint="optional">
                         <input
                           value={identityRfid}
                           onChange={(e) => setIdentityRfid(e.target.value)}
@@ -1344,7 +1330,7 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
                       </Field>
                     </div>
                     <div className="rounded-2xl border border-slate-200 bg-white p-3">
-                      <Field label="Fingerprint ID" hint="required">
+                      <Field label="Fingerprint ID" hint="optional">
                         <input
                           value={identityFingerprint}
                           onChange={(e) => setIdentityFingerprint(e.target.value)}
@@ -1375,7 +1361,7 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
                           Assign credentials
                         </p>
                         <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
-                          RFID UID and Fingerprint ID are validated to prevent duplicates across the school.
+                          RFID UID and Fingerprint ID are optional. If provided, they are validated to prevent duplicates across the school.
                         </p>
 
                         <div className="mt-2 flex flex-wrap gap-2">
@@ -1450,8 +1436,7 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
                     return;
                   }
                   if (step === 2 && !photoSaved) {
-                    setSearchError("Please save the approved photo before assigning credentials.");
-                    return;
+                    setSearchError(null);
                   }
                   setSearchError(null);
                   setStep((s) => Math.min(3, s + 1));

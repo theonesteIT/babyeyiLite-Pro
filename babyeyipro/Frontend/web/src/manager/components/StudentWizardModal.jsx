@@ -208,7 +208,7 @@ export default function StudentWizardModal({ open, onClose, session, toast, onSu
     { id: 1, label: "Identity", icon: Users },
     { id: 2, label: "Residence", icon: MapPin },
     { id: 3, label: "Parents", icon: Users },
-    { id: 4, label: "Credentials", icon: Fingerprint },
+    { id: 4, label: "Credentials (Optional)", icon: Fingerprint },
   ];
 
   const { manager } = useAuth();
@@ -515,10 +515,16 @@ export default function StudentWizardModal({ open, onClose, session, toast, onSu
 
                       {step === 4 && (
                         <div className="space-y-3 animate-in slide-in-from-right-4">
+                          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
+                            <p className="text-[9px] font-black text-amber-800 uppercase tracking-wider">Optional step</p>
+                            <p className="text-[10px] text-amber-700 mt-1">
+                              Profile photo, RFID UID, fingerprint ID, and remarks are optional. You can save now and edit these fields later anytime.
+                            </p>
+                          </div>
                           <div className="flex flex-col sm:flex-row gap-4">
                             {/* Photo Upload Section */}
                             <div className="w-full sm:w-1/3 flex flex-col items-center">
-                              <label className="text-[8px] font-black text-[#1E3A5F] uppercase tracking-[0.2em] mb-1.5 self-start opacity-80">Profile Portrait</label>
+                              <label className="text-[8px] font-black text-[#1E3A5F] uppercase tracking-[0.2em] mb-1.5 self-start opacity-80">Profile Portrait (Optional)</label>
                               <div className="relative group cursor-pointer w-28 h-28 rounded-2xl overflow-hidden border-2 border-dashed border-[#1E3A5F]/20 hover:border-re-gold transition-colors bg-re-bg flex flex-col justify-center items-center">
                                 <input type="file" disabled={loading} accept="image/png, image/jpeg" className="absolute inset-0 opacity-0 cursor-pointer z-10" onChange={handlePhotoChange} />
                                 {(photoPreview || editStudent?.student_photo_url) ? (
@@ -534,21 +540,21 @@ export default function StudentWizardModal({ open, onClose, session, toast, onSu
 
                             {/* Biometrics Section */}
                             <div className="w-full sm:w-2/3 space-y-3">
-                              <FormField label="RFID Gateway Tag UID">
+                              <FormField label="RFID Gateway Tag UID (Optional)">
                                 <div className="relative">
                                   <CreditCard className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#1E3A5F]/30" size={16} />
                                   <input type="text" className={`${inputCls} pl-10`} placeholder="Scan or enter RFID..." value={form.rfid_uid} onChange={e => set("rfid_uid", e.target.value)} disabled={loading} />
                                 </div>
                               </FormField>
                               
-                              <FormField label="Biometric Fingerprint ID">
+                              <FormField label="Biometric Fingerprint ID (Optional)">
                                 <div className="relative">
                                   <Fingerprint className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#1E3A5F]/30" size={16} />
                                   <input type="text" className={`${inputCls} pl-10`} placeholder="Enter generated FP ID..." value={form.fingerprint_id} onChange={e => set("fingerprint_id", e.target.value)} disabled={loading} />
                                 </div>
                               </FormField>
 
-                              <FormField label="Access / Identity Remarks">
+                              <FormField label="Access / Identity Remarks (Optional)">
                                 <div className="relative">
                                   <FileText className="absolute left-3.5 top-3.5 text-[#1E3A5F]/30" size={16} />
                                   <textarea className={`${inputCls} pl-10 py-3 resize-none h-20 min-h-[80px]`} placeholder="Special access instructions..." value={form.identity_remarks} onChange={e => set("identity_remarks", e.target.value)} disabled={loading} />

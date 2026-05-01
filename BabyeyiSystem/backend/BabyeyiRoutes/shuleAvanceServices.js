@@ -317,20 +317,18 @@ async function parseCreateBody(req, maps) {
       vendorLabel = cat.label;
     }
   } else {
-    if (!cashoutsBySlug.size) {
-      return { error: 'No cashout types are configured' };
-    }
+    // Removed strict cashout category validation per user request
     cashoutCategorySlug = String(
-      req.body?.cashout_category || req.body?.cashout_category_slug || ''
+      req.body?.cashout_category || req.body?.cashout_category_slug || 'general'
     ).trim();
-    if (!cashoutsBySlug.has(cashoutCategorySlug)) {
-      return { error: 'Select a valid cashout type' };
-    }
-    const co = cashoutsBySlug.get(cashoutCategorySlug);
+    
     cashoutReason = String(req.body?.reason || req.body?.cashout_reason || req.body?.purpose || '').trim();
     if (!cashoutReason) {
       return { error: 'reason is required for cashout requests' };
     }
+    
+    // Get label if exists, otherwise fallback
+    const co = cashoutsBySlug.has(cashoutCategorySlug) ? cashoutsBySlug.get(cashoutCategorySlug) : { label: 'General Cashout' };
     purpose = `Cashout [${co.label}]: ${cashoutReason}`;
     details = String(req.body?.description || '').trim() || null;
   }

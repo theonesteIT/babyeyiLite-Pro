@@ -656,6 +656,44 @@ router.get('/verify', (req, res) => {
 });
 
 // ============================================================
+// POST /api/auth/sso-verify  — Teacher portal SSO bridge
+// NOTE:
+// - Main authentication remains cookie/session-based.
+// - We validate that an active session already exists and belongs to a TEACHER.
+// - `sso_token` is accepted for compatibility with frontend handoff flow.
+// ============================================================
+router.post('/sso-verify', (req, res) => {
+  const ssoToken = String(req.body?.sso_token || '').trim();
+  if (!ssoToken) {
+    return res.status(400).json({ success: false, message: 'sso_token is required' });
+  }
+
+  if (!req.session?.userId || !req.session?.user) {
+    return res.status(401).json({
+      success: false,
+      message: 'No active authenticated session found for SSO',
+    });
+  }
+
+  const roleCode = String(
+    req.session?.user?.role?.code || req.session?.roleCode || ''
+  ).toUpperCase();
+  if (roleCode !== 'TEACHER') {
+    return res.status(403).json({
+      success: false,
+      message: 'This SSO endpoint is only available for teacher sessions',
+    });
+  }
+
+  return res.json({
+    success: true,
+    message: 'SSO session verified',
+    user: req.session.user,
+    data: req.session.user,
+  });
+});
+
+// ============================================================
 // POST /api/auth/signup-super-admin  — first-time only
 // ============================================================
 router.post('/signup-super-admin', async (req, res) => {

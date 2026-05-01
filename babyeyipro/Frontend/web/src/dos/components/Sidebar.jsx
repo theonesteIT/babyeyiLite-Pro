@@ -164,6 +164,7 @@ const Sidebar = ({ onClose }) => {
         )}
         <NavItem icon={Calendar} name="Timetable" path="/timetable" onClose={onClose} />
         <NavItem icon={ClipboardCheck} name="Attendance" path="/attendance" onClose={onClose} />
+        <NavItem icon={ClipboardCheck} name="TeacherPeriod Attendance" path="/teacher-period-attendance" onClose={onClose} />
         <ExpandableNavItem
           icon={ClipboardList}
           name="Marks"

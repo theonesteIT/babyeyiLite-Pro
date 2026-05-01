@@ -111,10 +111,6 @@ export default function StaffIdentityModal({ open, onClose, staffList, creatorRo
     if (!selected) return;
     const r = rfid.trim();
     const f = fp.trim();
-    if (!r || !f) {
-      toast?.("RFID and fingerprint ID are required.", "error");
-      return;
-    }
     setBusy(true);
     try {
       const res = await fetch(`${API}/api/school/staff/${selected.id}/identity`, {
@@ -122,8 +118,8 @@ export default function StaffIdentityModal({ open, onClose, staffList, creatorRo
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          rfid_uid: r,
-          fingerprint_id: f,
+          rfid_uid: r || null,
+          fingerprint_id: f || null,
           identity_remarks: remarks.trim() || undefined,
         }),
       });
@@ -246,15 +242,13 @@ export default function StaffIdentityModal({ open, onClose, staffList, creatorRo
                 {busy ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
                 Save photo & continue
               </button>
-              {selected?.photo && (
-                <button
-                  type="button"
-                  onClick={() => setStep(3)}
-                  className="w-full py-2.5 rounded-2xl border border-amber-200 text-amber-900 font-bold text-xs"
-                >
-                  Photo on file — continue to RFID / fingerprint
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => setStep(3)}
+                className="w-full py-2.5 rounded-2xl border border-amber-200 text-amber-900 font-bold text-xs"
+              >
+                Skip photo — continue to RFID / fingerprint
+              </button>
             </div>
           )}
 
@@ -276,7 +270,7 @@ export default function StaffIdentityModal({ open, onClose, staffList, creatorRo
               )}
               <div className="grid gap-3">
                 <div>
-                  <label className="text-[10px] font-black uppercase text-gray-500">RFID UID</label>
+                  <label className="text-[10px] font-black uppercase text-gray-500">RFID UID (optional)</label>
                   <div className="relative mt-1">
                     <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
                     <input
@@ -288,7 +282,7 @@ export default function StaffIdentityModal({ open, onClose, staffList, creatorRo
                   </div>
                 </div>
                 <div>
-                  <label className="text-[10px] font-black uppercase text-gray-500">Fingerprint ID</label>
+                  <label className="text-[10px] font-black uppercase text-gray-500">Fingerprint ID (optional)</label>
                   <div className="relative mt-1">
                     <Fingerprint className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
                     <input

@@ -124,7 +124,82 @@ async function ensureDosTables() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS school_teacher_period_settings (
+      school_id INT UNSIGNED NOT NULL PRIMARY KEY,
+      academic_year VARCHAR(32) NOT NULL,
+      term VARCHAR(32) NOT NULL,
+      late_threshold_minutes INT UNSIGNED NOT NULL DEFAULT 10,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      updated_by_user_id INT UNSIGNED NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+  await promisePool.query('ALTER TABLE users ADD COLUMN rfid_uid VARCHAR(64) NULL').catch(() => {});
+  await promisePool.query('ALTER TABLE users ADD COLUMN fingerprint_id VARCHAR(128) NULL').catch(() => {});
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS teacher_period_attendance (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      school_id INT UNSIGNED NOT NULL,
+      teacher_id INT UNSIGNED NOT NULL,
+      class_name VARCHAR(120) NOT NULL,
+      subject_name VARCHAR(255) NOT NULL,
+      day_of_week ENUM('Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday') NOT NULL,
+      period_date DATE NOT NULL,
+      start_time VARCHAR(10) NOT NULL,
+      end_time VARCHAR(10) NOT NULL,
+      entry_time DATETIME NULL,
+      exit_time DATETIME NULL,
+      status ENUM('ON_TIME','LATE','BEFORE') NULL,
+      exit_status ENUM('ON_TIME','BEFORE') NULL,
+      late_minutes INT UNSIGNED NOT NULL DEFAULT 0,
+      scan_source VARCHAR(64) NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_teacher_period (school_id, teacher_id, period_date, class_name, subject_name, start_time, end_time),
+      KEY idx_tpa_school_date (school_id, period_date),
+      KEY idx_tpa_teacher_date (school_id, teacher_id, period_date)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+  await promisePool.query(
+    "ALTER TABLE teacher_period_attendance MODIFY COLUMN status ENUM('ON_TIME','LATE','BEFORE') NULL"
+  ).catch(() => {});
+  await promisePool.query(
+    "ALTER TABLE teacher_period_attendance ADD COLUMN exit_status ENUM('ON_TIME','BEFORE') NULL"
+  ).catch(() => {});
+
   tablesReady = true;
+}
+
+function dayOfWeekName(d = new Date()) {
+  return ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][d.getDay()];
+}
+
+function timeToMins(t) {
+  const [hh, mm] = String(t || '00:00').slice(0, 5).split(':').map(Number);
+  return (Number.isFinite(hh) ? hh : 0) * 60 + (Number.isFinite(mm) ? mm : 0);
+}
+
+function toDateSql(d = new Date()) {
+  return d.toISOString().slice(0, 10);
+}
+
+async function getTeacherPeriodSettings(schoolId) {
+  const [[settings]] = await promisePool.query(
+    `SELECT academic_year, term, late_threshold_minutes
+     FROM school_teacher_period_settings
+     WHERE school_id = ?
+     LIMIT 1`,
+    [schoolId]
+  );
+  if (settings) return settings;
+
+  const calendar = await getAcademicCalendarSettings(schoolId);
+  return {
+    academic_year: calendar.current_academic_year || '2025-2026',
+    term: Array.isArray(calendar.active_terms) && calendar.active_terms.length ? calendar.active_terms[0] : 'Term 1',
+    late_threshold_minutes: 10,
+  };
 }
 
 async function getTotalMarksForSchool(schoolId) {
@@ -1451,6 +1526,375 @@ router.delete('/dos/calendar/periods/:id', requireRole(DOS_ACADEMIC_ADMIN), asyn
   } catch (err) {
     console.error('DELETE /dos/calendar/periods/:id:', err);
     return res.status(500).json({ success: false, message: 'Failed to delete period' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+// TEACHER PERIOD ATTENDANCE (RFID / CARD TAP)
+// ════════════════════════════════════════════════════════════════
+router.get('/dos/teacher-period/settings', requireRole(DOS_DASHBOARD_ROLES), async (req, res) => {
+  try {
+    await ensureDosTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'Invalid session' });
+    const settings = await getTeacherPeriodSettings(schoolId);
+    return res.json({ success: true, data: settings });
+  } catch (err) {
+    console.error('GET /dos/teacher-period/settings:', err);
+    return res.status(500).json({ success: false, message: 'Failed to load teacher period settings' });
+  }
+});
+
+router.put('/dos/teacher-period/settings', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureDosTables();
+    const schoolId = resolveSchoolId(req);
+    const userId = resolveUserId(req);
+    if (!schoolId || !userId) return res.status(400).json({ success: false, message: 'Invalid session' });
+
+    const academicYear = trimStr(req.body?.academic_year);
+    const term = trimStr(req.body?.term);
+    const lateThreshold = Number(req.body?.late_threshold_minutes);
+    if (!academicYear || !term) {
+      return res.status(400).json({ success: false, message: 'academic_year and term are required' });
+    }
+    if (Number.isNaN(lateThreshold) || lateThreshold < 0 || lateThreshold > 120) {
+      return res.status(400).json({ success: false, message: 'late_threshold_minutes must be between 0 and 120' });
+    }
+
+    await promisePool.query(
+      `INSERT INTO school_teacher_period_settings (school_id, academic_year, term, late_threshold_minutes, updated_by_user_id)
+       VALUES (?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE
+         academic_year = VALUES(academic_year),
+         term = VALUES(term),
+         late_threshold_minutes = VALUES(late_threshold_minutes),
+         updated_by_user_id = VALUES(updated_by_user_id)`,
+      [schoolId, academicYear, term, lateThreshold, userId]
+    );
+
+    return res.json({ success: true, message: 'Teacher period settings saved' });
+  } catch (err) {
+    console.error('PUT /dos/teacher-period/settings:', err);
+    return res.status(500).json({ success: false, message: 'Failed to save teacher period settings' });
+  }
+});
+
+router.get('/dos/teacher-period/teachers', requireRole(DOS_DASHBOARD_ROLES), async (req, res) => {
+  try {
+    await ensureDosTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'Invalid session' });
+
+    const [rows] = await promisePool.query(
+      `SELECT
+         u.id AS teacher_id,
+         st.id AS staff_row_id,
+         TRIM(CONCAT(COALESCE(u.first_name,''), ' ', COALESCE(u.last_name,''))) AS teacher_name,
+         st.staff_id AS teacher_uid,
+         u.rfid_uid AS card_uid,
+         r.role_code
+       FROM staff st
+       INNER JOIN users u ON u.id = st.user_id
+       INNER JOIN roles r ON r.id = u.role_id
+       WHERE st.school_id = ?
+         AND u.deleted_at IS NULL
+         AND u.is_active = 1
+         AND r.role_code IN ('TEACHER', 'HOD', 'DOS')
+       ORDER BY teacher_name ASC`,
+      [schoolId]
+    );
+
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('GET /dos/teacher-period/teachers:', err);
+    return res.status(500).json({ success: false, message: 'Failed to load teachers' });
+  }
+});
+
+router.get('/dos/teacher-period/timetable', requireRole(DOS_DASHBOARD_ROLES), async (req, res) => {
+  try {
+    await ensureDosTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'Invalid session' });
+    const settings = await getTeacherPeriodSettings(schoolId);
+    const day = trimStr(req.query.day) || dayOfWeekName();
+
+    const [rows] = await promisePool.query(
+      `SELECT
+         tt.id,
+         tt.class_name,
+         tt.subject_name,
+         tt.staff_id AS teacher_id,
+         tt.day_of_week,
+         tt.start_time,
+         tt.end_time,
+         TRIM(CONCAT(COALESCE(u.first_name,''), ' ', COALESCE(u.last_name,''))) AS teacher_name
+       FROM academic_timetables tt
+       INNER JOIN users u ON u.id = tt.staff_id
+       WHERE tt.school_id = ?
+         AND tt.day_of_week = ?
+       ORDER BY tt.start_time ASC, tt.class_name ASC`,
+      [schoolId, day]
+    );
+
+    return res.json({ success: true, data: rows, meta: { day, ...settings } });
+  } catch (err) {
+    console.error('GET /dos/teacher-period/timetable:', err);
+    return res.status(500).json({ success: false, message: 'Failed to load timetable' });
+  }
+});
+
+router.get('/dos/teacher-period/logs', requireRole(DOS_DASHBOARD_ROLES), async (req, res) => {
+  try {
+    await ensureDosTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'Invalid session' });
+    const date = trimStr(req.query.date);
+    const teacherId = Number(req.query.teacher_id || 0);
+    const status = trimStr(req.query.status).toUpperCase();
+    const className = trimStr(req.query.class_name);
+    const where = ['tpa.school_id = ?'];
+    const params = [schoolId];
+    if (date) {
+      where.push('tpa.period_date = ?');
+      params.push(date);
+    }
+    if (teacherId && !Number.isNaN(teacherId)) {
+      where.push('tpa.teacher_id = ?');
+      params.push(teacherId);
+    }
+    if (status && ['ON_TIME', 'LATE', 'BEFORE'].includes(status)) {
+      if (status === 'BEFORE') {
+        where.push("tpa.exit_status = 'BEFORE'");
+      } else {
+        where.push('tpa.status = ?');
+        params.push(status);
+      }
+    }
+    if (className) {
+      where.push('LOWER(TRIM(tpa.class_name)) = LOWER(TRIM(?))');
+      params.push(className);
+    }
+
+    const [rows] = await promisePool.query(
+      `SELECT
+         tpa.id,
+         tpa.teacher_id,
+         tpa.class_name,
+         tpa.subject_name,
+         tpa.day_of_week,
+         tpa.period_date,
+         tpa.start_time,
+         tpa.end_time,
+         TIME_FORMAT(tpa.entry_time, '%H:%i') AS entry_time,
+         TIME_FORMAT(tpa.exit_time, '%H:%i') AS exit_time,
+         tpa.status,
+         tpa.exit_status,
+         tpa.scan_source,
+         tpa.late_minutes,
+         TRIM(CONCAT(COALESCE(u.first_name,''), ' ', COALESCE(u.last_name,''))) AS teacher_name
+       FROM teacher_period_attendance tpa
+       INNER JOIN users u ON u.id = tpa.teacher_id AND u.school_id = tpa.school_id
+       WHERE ${where.join(' AND ')}
+       ORDER BY tpa.period_date DESC, tpa.start_time ASC, teacher_name ASC`,
+      params
+    );
+
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('GET /dos/teacher-period/logs:', err);
+    return res.status(500).json({ success: false, message: 'Failed to load logs' });
+  }
+});
+
+router.delete('/dos/teacher-period/logs/:id', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureDosTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'Invalid session' });
+    const id = Number(req.params.id);
+    if (!id || Number.isNaN(id)) return res.status(400).json({ success: false, message: 'Invalid log id' });
+    const [del] = await promisePool.query(
+      'DELETE FROM teacher_period_attendance WHERE id = ? AND school_id = ?',
+      [id, schoolId]
+    );
+    if (!del.affectedRows) return res.status(404).json({ success: false, message: 'Attendance log not found' });
+    return res.json({ success: true, message: 'Attendance log deleted' });
+  } catch (err) {
+    console.error('DELETE /dos/teacher-period/logs/:id:', err);
+    return res.status(500).json({ success: false, message: 'Failed to delete attendance log' });
+  }
+});
+
+router.post('/dos/teacher-period/scan', async (req, res) => {
+  try {
+    await ensureDosTables();
+    const { card_uid, cardUID, deviceID, device_id, timestamp } = req.body || {};
+    const cardUid = trimStr(card_uid || cardUID);
+    if (!cardUid) return res.status(400).json({ success: false, message: 'card_uid is required' });
+
+    const now = timestamp ? new Date(timestamp) : new Date();
+    const date = toDateSql(now);
+    const day = dayOfWeekName(now);
+    const nowHm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+    const [[teacher]] = await promisePool.query(
+      `SELECT st.school_id, u.id AS teacher_id, st.id AS staff_row_id,
+              TRIM(CONCAT(COALESCE(u.first_name,''), ' ', COALESCE(u.last_name,''))) AS teacher_name
+       FROM staff st
+       INNER JOIN users u ON u.id = st.user_id
+       WHERE UPPER(TRIM(COALESCE(u.rfid_uid, ''))) = UPPER(TRIM(?))
+       LIMIT 1`,
+      [cardUid]
+    );
+    if (!teacher) {
+      return res.status(404).json({ success: false, message: 'Card not registered', code: 'UNKNOWN_CARD' });
+    }
+
+    const schoolId = teacher.school_id;
+    const settings = await getTeacherPeriodSettings(schoolId);
+    const lateThreshold = Number(settings.late_threshold_minutes || 10);
+
+    const [slots] = await promisePool.query(
+      `SELECT id, class_name, subject_name, day_of_week, start_time, end_time, staff_id
+       FROM academic_timetables
+       WHERE school_id = ?
+         AND staff_id = ?
+         AND day_of_week = ?
+         AND term = ?
+         AND academic_year = ?
+       ORDER BY start_time ASC`,
+      [schoolId, teacher.teacher_id, day, settings.term, settings.academic_year]
+    );
+
+    const currentSlot = (slots || []).find((s) => {
+      const start = timeToMins(s.start_time);
+      const end = timeToMins(s.end_time);
+      const cur = timeToMins(nowHm);
+      return cur >= start && cur <= end;
+    });
+
+    if (!currentSlot) {
+      return res.status(200).json({
+        success: false,
+        code: 'NO_CLASS_ASSIGNED',
+        message: 'No class assigned now',
+        data: { teacher: teacher.teacher_name, card_uid: cardUid, day, time: nowHm, ...settings },
+      });
+    }
+
+    const startHm = String(currentSlot.start_time).slice(0, 5);
+    const endHm = String(currentSlot.end_time).slice(0, 5);
+    const [[existing]] = await promisePool.query(
+      `SELECT id, entry_time, exit_time, status, late_minutes
+       FROM teacher_period_attendance
+       WHERE school_id = ? AND teacher_id = ? AND period_date = ?
+         AND class_name = ? AND subject_name = ? AND start_time = ? AND end_time = ?
+       LIMIT 1`,
+      [schoolId, teacher.teacher_id, date, currentSlot.class_name, currentSlot.subject_name, currentSlot.start_time, currentSlot.end_time]
+    );
+
+    const source = trimStr(device_id || deviceID) || 'RFID_DEVICE';
+    if (!existing) {
+      const lateMinutes = Math.max(0, timeToMins(nowHm) - timeToMins(startHm));
+      const status = lateMinutes > lateThreshold ? 'LATE' : 'ON_TIME';
+      const [ins] = await promisePool.query(
+        `INSERT INTO teacher_period_attendance
+         (school_id, teacher_id, class_name, subject_name, day_of_week, period_date, start_time, end_time, entry_time, status, late_minutes, scan_source)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [schoolId, teacher.teacher_id, currentSlot.class_name, currentSlot.subject_name, day, date, currentSlot.start_time, currentSlot.end_time, now, status, lateMinutes, source]
+      );
+      return res.json({
+        success: true,
+        action: 'entry',
+        message: status === 'LATE' ? 'Late entry recorded' : 'Entry recorded',
+        data: {
+          id: ins.insertId,
+          teacher_id: teacher.teacher_id,
+          teacher_name: teacher.teacher_name,
+          class_name: currentSlot.class_name,
+          subject_name: currentSlot.subject_name,
+          period: `${startHm}-${endHm}`,
+          start_time: startHm,
+          end_time: endHm,
+          day_of_week: day,
+          date,
+          entry_time: nowHm,
+          exit_time: null,
+          status,
+          late_minutes: lateMinutes,
+          scan_source: source,
+          late_threshold_minutes: lateThreshold,
+          term: settings.term,
+          academic_year: settings.academic_year,
+        },
+      });
+    }
+
+    if (!existing.exit_time) {
+      const exitIsBefore = timeToMins(nowHm) < timeToMins(endHm);
+      const exitStatus = exitIsBefore ? 'BEFORE' : 'ON_TIME';
+      await promisePool.query(
+        'UPDATE teacher_period_attendance SET exit_time = ?, exit_status = ?, scan_source = ? WHERE id = ?',
+        [now, exitStatus, source, existing.id]
+      );
+      return res.json({
+        success: true,
+        action: 'exit',
+        message: exitIsBefore ? 'Exit recorded before period ended' : 'Exit recorded',
+        data: {
+          id: existing.id,
+          teacher_id: teacher.teacher_id,
+          teacher_name: teacher.teacher_name,
+          class_name: currentSlot.class_name,
+          subject_name: currentSlot.subject_name,
+          period: `${startHm}-${endHm}`,
+          start_time: startHm,
+          end_time: endHm,
+          day_of_week: day,
+          date,
+          entry_time: existing.entry_time ? new Date(existing.entry_time).toISOString().slice(11, 16) : null,
+          exit_time: nowHm,
+          status: existing.status,
+          exit_status: exitStatus,
+          scan_source: source,
+          late_minutes: Number(existing.late_minutes || 0),
+          late_threshold_minutes: lateThreshold,
+          term: settings.term,
+          academic_year: settings.academic_year,
+        },
+      });
+    }
+
+    return res.json({
+      success: true,
+      action: 'duplicate',
+      code: 'PERIOD_ATTENDANCE_COMPLETED',
+      message: 'you doneee your all attendance for this period',
+      data: {
+        id: existing.id,
+        teacher_id: teacher.teacher_id,
+        teacher_name: teacher.teacher_name,
+        class_name: currentSlot.class_name,
+        subject_name: currentSlot.subject_name,
+        period: `${startHm}-${endHm}`,
+        start_time: startHm,
+        end_time: endHm,
+        day_of_week: day,
+        date,
+        status: existing.status,
+        exit_status: existing.exit_status || null,
+        scan_source: existing.scan_source || source,
+        late_minutes: Number(existing.late_minutes || 0),
+        late_threshold_minutes: lateThreshold,
+        term: settings.term,
+        academic_year: settings.academic_year,
+      },
+    });
+  } catch (err) {
+    console.error('POST /dos/teacher-period/scan:', err);
+    return res.status(500).json({ success: false, message: 'Failed to process scan' });
   }
 });
 

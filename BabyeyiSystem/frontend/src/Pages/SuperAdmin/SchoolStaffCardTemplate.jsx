@@ -277,7 +277,7 @@ export async function renderStaffCardToCanvas(staff, template, photoImg, logoImg
 
   /* Teal ring around photo */
   ctx.globalAlpha = 1;
-  ctx.strokeStyle = C.teal;
+  ctx.strokeStyle = C.amber;
   ctx.lineWidth = 3.5 * s;
   ctx.beginPath();
   ctx.arc(photoCX, photoCY, photoHalf + 4 * s, 0, Math.PI * 2);
@@ -327,7 +327,7 @@ export async function renderStaffCardToCanvas(staff, template, photoImg, logoImg
   const infoRows = [
     { label: 'ID No', value: staff.staffCode },
     { label: 'Role', value: staff.role },
-    { label: 'Dept', value: staff.department !== '-' ? staff.department : null },
+    { label: 'Department', value: staff.department !== '-' ? staff.department : null },
   ].filter(r => r.value && r.value !== '-');
 
   infoRows.forEach(({ label, value }) => {
@@ -439,7 +439,7 @@ export function IDCardStaff({ staff, template, scale = 1 }) {
   const infoRows = [
     { label: 'ID No', value: staff.staffCode },
     { label: 'Role', value: staff.role },
-    { label: 'Dept', value: staff.department !== '-' ? staff.department : null },
+    { label: 'Department', value: staff.department !== '-' ? staff.department : null },
   ].filter(r => r.value && r.value !== '-');
 
   return (
@@ -451,9 +451,6 @@ export function IDCardStaff({ staff, template, scale = 1 }) {
       boxShadow: scale >= 1 ? '0 24px 72px rgba(26,53,114,0.28),0 4px 16px rgba(0,0,0,0.15)' : 'none',
       flexShrink: 0,
     }}>
-      {/* Teal top stripe */}
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 8, background: `linear-gradient(90deg,${C.teal},#00897b)`, zIndex: 3 }} />
-
       <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', zIndex: 2, padding: '16px 14px 0', paddingTop: 16 }}>
         {/* School logo */}
         <div style={{ width: 86, height: 86, marginBottom: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -477,7 +474,7 @@ export function IDCardStaff({ staff, template, scale = 1 }) {
 
         {/* Photo */}
         <div style={{ position: 'relative', width: 172, height: 172, marginBottom: 12, flexShrink: 0 }}>
-          <div style={{ position: 'absolute', left: '50%', top: 0, transform: 'translateX(-50%)', width: 172, height: 172, borderRadius: '50%', border: `3.5px solid ${C.teal}`, overflow: 'hidden', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3, boxSizing: 'border-box' }}>
+          <div style={{ position: 'absolute', left: '50%', top: 0, transform: 'translateX(-50%)', width: 172, height: 172, borderRadius: '50%', border: `3.5px solid ${C.amber}`, overflow: 'hidden', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3, boxSizing: 'border-box' }}>
             {staff.photo ? (
               <img src={staff.photo} alt="" style={{ width: `${photoZoom * 100}%`, height: `${photoZoom * 100}%`, objectFit: 'cover', objectPosition: 'center', transform: `translate(${photoOffsetX}px, ${photoOffsetY}px)` }} />
             ) : (
@@ -904,7 +901,7 @@ export default function SchoolStaffCardTemplate() {
                 <th style={S.th}><input type="checkbox" checked={allSel} onChange={toggleAll} style={{ cursor: 'pointer', accentColor: '#4db6ac' }} /></th>
                 <th style={S.th}>Photo</th>
                 <th style={S.th}>Staff</th>
-                <th style={S.th}>Role / Dept</th>
+                <th style={S.th}>Role / Department</th>
                 <th style={S.th}>Status</th>
                 <th style={S.th}>School</th>
                 <th style={{ ...S.th, textAlign: 'right' }}>Actions</th>

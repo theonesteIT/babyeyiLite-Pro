@@ -11,6 +11,7 @@ import EnglishClub from './pages/EnglishClub'
 import Students from './pages/Students'
 import Timetable from './pages/Timetable'
 import Attendance from './pages/Attendance'
+import TeacherClassPeriodEntryExit from './pages/AttendanceModule/TeacherClassPeriodEntryExit'
 import RecordMarks from './pages/RecordMarks'
 import ViewMarks from './pages/ViewMarks'
 import AcademicPlanning from './pages/AcademicPlanning'
@@ -77,6 +78,14 @@ function DosRoutesInner() {
       />
       <Route path="timetable" element={<ProtectedRoute title="Timetable"><Timetable /></ProtectedRoute>} />
       <Route path="attendance" element={<ProtectedRoute title="Attendance"><Attendance /></ProtectedRoute>} />
+      <Route
+        path="teacher-period-attendance"
+        element={
+          <ProtectedRoute title="TeacherPeriod Attendance">
+            <TeacherClassPeriodEntryExit />
+          </ProtectedRoute>
+        }
+      />
       <Route path="my-payroll" element={<ProtectedRoute title="My Payroll"><StaffPayroll /></ProtectedRoute>} />
       <Route path="payroll" element={<Navigate to="my-payroll" replace />} />
       <Route path="marks/view" element={<ProtectedRoute title="View Student Marks"><ViewMarks /></ProtectedRoute>} />

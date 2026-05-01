@@ -176,7 +176,7 @@ export default function StaffSmartAccessPage({ portalBase = '/manager', accent =
         setInstruction(`Card scanned: ${uid}`)
         const ok = await patchIdentity(st.id, {
           rfid_uid: uid,
-          fingerprint_id: st.fingerprint_id || fpManual || 'pending',
+          fingerprint_id: st.fingerprint_id || fpManual || null,
         })
         if (ok) setBanner({ type: 'ok', text: `RFID saved for ${staffName(st)}` })
         return
@@ -187,7 +187,7 @@ export default function StaffSmartAccessPage({ portalBase = '/manager', accent =
         setFpManual(id)
         setInstruction(`Fingerprint ID: ${id}`)
         const cur = selectedRef.current
-        const rfid = (cur?.rfid_uid || rfidManual || cardUid || '').trim() || 'pending'
+        const rfid = (cur?.rfid_uid || rfidManual || cardUid || '').trim() || null
         const ok = await patchIdentity(st.id, { rfid_uid: rfid, fingerprint_id: id })
         if (ok) setBanner({ type: 'ok', text: `Fingerprint saved for ${staffName(st)}` })
         return
@@ -332,13 +332,9 @@ export default function StaffSmartAccessPage({ portalBase = '/manager', accent =
     if (!selected?.id) return
     const r = (rfidManual || cardUid).trim()
     const f = (fpManual || fpId).trim()
-    if (!r || !f) {
-      setBanner({ type: 'error', text: 'Enter RFID UID and fingerprint ID (or use the USB device).' })
-      return
-    }
     const ok = await patchIdentity(selected.id, {
-      rfid_uid: r,
-      fingerprint_id: f,
+      rfid_uid: r || null,
+      fingerprint_id: f || null,
       identity_remarks: remarks.trim() || undefined,
     })
     if (ok) setBanner({ type: 'ok', text: 'Identity saved.' })
@@ -595,7 +591,7 @@ export default function StaffSmartAccessPage({ portalBase = '/manager', accent =
               <div className="grid md:grid-cols-2 gap-4 mb-6">
                 <div>
                   <label className="text-[10px] font-bold text-slate-500 flex items-center gap-1">
-                    <CreditCard size={12} /> RFID UID
+                    <CreditCard size={12} /> RFID UID (optional)
                   </label>
                   <input
                     value={rfidManual}
@@ -606,7 +602,7 @@ export default function StaffSmartAccessPage({ portalBase = '/manager', accent =
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-slate-500 flex items-center gap-1">
-                    <Fingerprint size={12} /> Fingerprint ID
+                    <Fingerprint size={12} /> Fingerprint ID (optional)
                   </label>
                   <input
                     value={fpManual}

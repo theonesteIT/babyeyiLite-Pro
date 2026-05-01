@@ -220,7 +220,7 @@ function IDCard({ student, template, scale = 1 }) {
           <div style={{
             fontSize: 13 * scale, fontWeight: 700, color: G.white,
             letterSpacing: 4 * scale, textTransform: 'uppercase',
-            marginTop: 5 * scale, borderTop: '1px solid rgba(200,168,75,0.4)',
+            marginTop: 5 * scale,
             paddingTop: 5 * scale,
           }}>
             STUDENT ID CARD
@@ -239,7 +239,7 @@ function IDCard({ student, template, scale = 1 }) {
         <div style={{
           width: 130 * scale, minWidth: 130 * scale,
           height: 158 * scale,
-          border: `${3*scale}px solid ${G.navy}`,
+          border: `${3*scale}px solid #FFBF00`,
           borderRadius: 8 * scale,
           overflow: 'hidden',
           background: '#e8edf5',
@@ -849,7 +849,7 @@ export default function SchoolStudentsCard() {
                   <td style={s.td}>
                     <div style={{
                       width:40, height:50, borderRadius:6,
-                      border:`2px solid ${G.navy}`,
+                      border:'2px solid #FFBF00',
                       overflow:'hidden', background:'#1a2a45',
                       display:'flex', alignItems:'center', justifyContent:'center',
                     }}>

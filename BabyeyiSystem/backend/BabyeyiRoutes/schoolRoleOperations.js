@@ -394,7 +394,7 @@ router.use(async (_req, res, next) => {
 router.post('/gate_attendance', async (req, res, next) => {
   try {
     const deviceID = cleanOptional(req.body?.deviceID || req.body?.device_id, 80);
-    const validDevice = /^ATT[_-]?[A-Za-z0-9]{2,}$/i.test(String(deviceID || ''));
+    const validDevice = /^(ATT|CLASSATT)[_-]?[A-Za-z0-9]{2,}$/i.test(String(deviceID || ''));
     const sendResult = async (status, payload, meta = {}) => {
       await logGateAttendanceEvent({
         schoolId: meta.schoolId ?? null,
@@ -420,6 +420,187 @@ router.post('/gate_attendance', async (req, res, next) => {
     }
     const cardUID = normalizeUid(req.body?.cardUID || req.body?.card_uid);
     if (!cardUID) return sendResult(400, { success: false, code: 'INVALID_CARD', message: 'cardUID is required.' });
+
+    // CLASSATT_* readers: use DOS teacher period attendance flow
+    if (/^CLASSATT[_-]?[A-Za-z0-9]{2,}$/i.test(String(deviceID || ''))) {
+      await promisePool.query(`
+        CREATE TABLE IF NOT EXISTS school_teacher_period_settings (
+          school_id INT UNSIGNED NOT NULL PRIMARY KEY,
+          academic_year VARCHAR(32) NOT NULL,
+          term VARCHAR(32) NOT NULL,
+          late_threshold_minutes INT UNSIGNED NOT NULL DEFAULT 10,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          updated_by_user_id INT UNSIGNED NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      `);
+      await promisePool.query(`
+        CREATE TABLE IF NOT EXISTS teacher_period_attendance (
+          id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+          school_id INT UNSIGNED NOT NULL,
+          teacher_id INT UNSIGNED NOT NULL,
+          class_name VARCHAR(120) NOT NULL,
+          subject_name VARCHAR(255) NOT NULL,
+          day_of_week ENUM('Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday') NOT NULL,
+          period_date DATE NOT NULL,
+          start_time VARCHAR(10) NOT NULL,
+          end_time VARCHAR(10) NOT NULL,
+          entry_time DATETIME NULL,
+          exit_time DATETIME NULL,
+          status ENUM('ON_TIME','LATE','BEFORE') NULL,
+          exit_status ENUM('ON_TIME','BEFORE') NULL,
+          late_minutes INT UNSIGNED NOT NULL DEFAULT 0,
+          scan_source VARCHAR(64) NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          UNIQUE KEY uq_teacher_period (school_id, teacher_id, period_date, class_name, subject_name, start_time, end_time),
+          KEY idx_tpa_school_date (school_id, period_date),
+          KEY idx_tpa_teacher_date (school_id, teacher_id, period_date)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      `);
+
+      const [[teacher]] = await promisePool.query(
+        `SELECT st.school_id, u.id AS teacher_id,
+                TRIM(CONCAT(COALESCE(u.first_name,''), ' ', COALESCE(u.last_name,''))) AS teacher_name
+         FROM staff st
+         INNER JOIN users u ON u.id = st.user_id
+         WHERE UPPER(TRIM(COALESCE(u.rfid_uid, ''))) = ?
+         LIMIT 1`,
+        [cardUID]
+      );
+      if (!teacher) {
+        return sendResult(404, {
+          success: false,
+          code: 'UNKNOWN_CARD',
+          message: 'Card not registered',
+          data: { card_uid: cardUID, device_id: deviceID },
+        }, { cardUid: cardUID });
+      }
+
+      const schoolId = Number(teacher.school_id || 0);
+      const { dateStr, mins } = currentSchoolDateAndMinutes();
+      const nowHm = `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
+      const day = new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: process.env.SCHOOL_TIMEZONE || 'Africa/Kigali' }).format(new Date());
+
+      const [[ctx]] = await promisePool.query(
+        'SELECT academic_year, term FROM school_active_academic_context WHERE school_id = ? LIMIT 1',
+        [schoolId]
+      ).catch(() => [[null]]);
+      const [[setRow]] = await promisePool.query(
+        'SELECT academic_year, term, late_threshold_minutes FROM school_teacher_period_settings WHERE school_id = ? LIMIT 1',
+        [schoolId]
+      );
+      const settings = {
+        academic_year: setRow?.academic_year || ctx?.academic_year || '2025-2026',
+        term: setRow?.term || ctx?.term || 'Term 1',
+        late_threshold_minutes: Number(setRow?.late_threshold_minutes || 10),
+      };
+
+      const [slots] = await promisePool.query(
+        `SELECT id, class_name, subject_name, start_time, end_time
+         FROM academic_timetables
+         WHERE school_id = ? AND staff_id = ? AND day_of_week = ? AND term = ? AND academic_year = ?
+         ORDER BY start_time ASC`,
+        [schoolId, teacher.teacher_id, day, settings.term, settings.academic_year]
+      );
+      const toMins = (t) => {
+        const [h, m] = String(t || '00:00').slice(0, 5).split(':').map(Number);
+        return (Number.isFinite(h) ? h : 0) * 60 + (Number.isFinite(m) ? m : 0);
+      };
+      const current = (slots || []).find((s) => mins >= toMins(s.start_time) && mins <= toMins(s.end_time));
+      if (!current) {
+        return sendResult(200, {
+          success: false,
+          code: 'NO_CLASS_ASSIGNED',
+          message: 'No class assigned now',
+          data: { teacher: teacher.teacher_name, day, time: nowHm, ...settings },
+        }, { schoolId, cardUid: cardUID, attendanceDate: dateStr, personType: 'STAFF', personId: teacher.teacher_id });
+      }
+
+      const startHm = String(current.start_time).slice(0, 5);
+      const endHm = String(current.end_time).slice(0, 5);
+      const [[existing]] = await promisePool.query(
+        `SELECT id, entry_time, exit_time, status, exit_status, late_minutes
+         FROM teacher_period_attendance
+         WHERE school_id = ? AND teacher_id = ? AND period_date = ?
+           AND class_name = ? AND subject_name = ? AND start_time = ? AND end_time = ?
+         LIMIT 1`,
+        [schoolId, teacher.teacher_id, dateStr, current.class_name, current.subject_name, current.start_time, current.end_time]
+      );
+
+      if (!existing) {
+        const lateMinutes = Math.max(0, toMins(nowHm) - toMins(startHm));
+        const status = lateMinutes > settings.late_threshold_minutes ? 'LATE' : 'ON_TIME';
+        const [ins] = await promisePool.query(
+          `INSERT INTO teacher_period_attendance
+           (school_id, teacher_id, class_name, subject_name, day_of_week, period_date, start_time, end_time, entry_time, status, late_minutes, scan_source)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?, ?)`,
+          [schoolId, teacher.teacher_id, current.class_name, current.subject_name, day, dateStr, current.start_time, current.end_time, status, lateMinutes, deviceID]
+        );
+        return sendResult(200, {
+          success: true,
+          action: 'entry',
+          code: status === 'LATE' ? 'LATE_ENTRY' : 'ENTRY_RECORDED',
+          message: status === 'LATE' ? 'Late entry recorded' : 'Entry recorded',
+          data: {
+            id: ins.insertId,
+            teacher_id: teacher.teacher_id,
+            teacher_name: teacher.teacher_name,
+            class_name: current.class_name,
+            subject_name: current.subject_name,
+            period: `${startHm}-${endHm}`,
+            start_time: startHm,
+            end_time: endHm,
+            date: dateStr,
+            entry_time: nowHm,
+            exit_time: null,
+            status,
+            exit_status: null,
+            late_minutes: lateMinutes,
+            term: settings.term,
+            academic_year: settings.academic_year,
+          },
+        }, { schoolId, cardUid: cardUID, attendanceDate: dateStr, personType: 'STAFF', personId: teacher.teacher_id, sessionType: 'class_entry' });
+      }
+
+      if (!existing.exit_time) {
+        const exitStatus = toMins(nowHm) < toMins(endHm) ? 'BEFORE' : 'ON_TIME';
+        await promisePool.query(
+          'UPDATE teacher_period_attendance SET exit_time = NOW(), exit_status = ?, scan_source = ? WHERE id = ?',
+          [exitStatus, deviceID, existing.id]
+        );
+        return sendResult(200, {
+          success: true,
+          action: 'exit',
+          code: exitStatus === 'BEFORE' ? 'EARLY_EXIT' : 'EXIT_RECORDED',
+          message: exitStatus === 'BEFORE' ? 'Exit recorded before period ended' : 'Exit recorded',
+          data: {
+            id: existing.id,
+            teacher_id: teacher.teacher_id,
+            teacher_name: teacher.teacher_name,
+            class_name: current.class_name,
+            subject_name: current.subject_name,
+            period: `${startHm}-${endHm}`,
+            start_time: startHm,
+            end_time: endHm,
+            date: dateStr,
+            entry_time: existing.entry_time ? String(existing.entry_time).slice(11, 16) : null,
+            exit_time: nowHm,
+            status: existing.status,
+            exit_status: exitStatus,
+            late_minutes: Number(existing.late_minutes || 0),
+            term: settings.term,
+            academic_year: settings.academic_year,
+          },
+        }, { schoolId, cardUid: cardUID, attendanceDate: dateStr, personType: 'STAFF', personId: teacher.teacher_id, sessionType: 'class_exit' });
+      }
+
+      return sendResult(200, {
+        success: true,
+        action: 'duplicate',
+        code: 'PERIOD_ATTENDANCE_COMPLETED',
+        message: 'you doneee your all attendance for this period',
+      }, { schoolId, cardUid: cardUID, attendanceDate: dateStr, personType: 'STAFF', personId: teacher.teacher_id, sessionType: 'class_done' });
+    }
 
     const [studentRows] = await promisePool.query(
       `SELECT s.id, s.school_id, CONCAT(COALESCE(s.first_name, ''), ' ', COALESCE(s.last_name, '')) AS person_name, s.student_uid AS person_ref
