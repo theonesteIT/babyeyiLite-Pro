@@ -897,8 +897,12 @@ function PartnersSection() {
                   alt={p.name}
                   className={`partner-logo-light max-h-full w-auto${p.emphasize ? " partner-logo-emphasis" : ""}`}
                   style={{
-                    height: p.emphasize ? "clamp(48px, 12vw, 84px)" : "clamp(34px, 9vw, 56px)",
-                    maxHeight: p.emphasize ? "84px" : "56px",
+                    height: p.name === "Iconic"
+                      ? "clamp(74px, 18vw, 126px)"
+                      : p.emphasize
+                        ? "clamp(48px, 12vw, 84px)"
+                        : "clamp(34px, 9vw, 56px)",
+                    maxHeight: p.name === "Iconic" ? "126px" : (p.emphasize ? "84px" : "56px"),
                     width: "auto",
                     maxWidth: "min(100%, 220px)",
                     objectFit: "contain",
