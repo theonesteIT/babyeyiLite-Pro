@@ -1,11 +1,13 @@
 import { NavLink } from 'react-router-dom';
 import {
     LayoutDashboard, Users, Calendar,
-    ClipboardCheck, DollarSign, MessageSquare
+    ClipboardCheck, DollarSign, MessageSquare, LogOut
 } from 'lucide-react';
 import useChatUnread from '../hooks/useChatUnread';
+import { useAuth } from '../context/AuthContext';
 
 const BottomNav = () => {
+    const { logout } = useAuth();
     const unreadCount = useChatUnread();
     const navItems = [
         { icon: LayoutDashboard, name: 'Home', path: '/', exact: true },
@@ -13,20 +15,45 @@ const BottomNav = () => {
         { icon: Calendar, name: 'Timetable', path: '/timetable' },
         { icon: ClipboardCheck, name: 'Attendance', path: '/attendance' },
         { icon: DollarSign, name: 'Payroll', path: '/payroll' },
-        { icon: MessageSquare, name: 'Chat', path: '/chat', badgeCount: unreadCount },
     ];
 
     return (
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-[100] bg-white/90 backdrop-blur-xl border-t border-black/5 pb-safe shadow-[0_-8px_30px_rgb(0,0,0,0.04)]">
-            <div className="flex items-center justify-around h-[68px] px-2">
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-[100] flex flex-col bg-white/90 backdrop-blur-xl border-t border-black/5 pb-safe shadow-[0_-8px_30px_rgb(0,0,0,0.04)]">
+            <div className="flex items-center justify-between gap-3 border-b border-black/[0.06] px-3 py-2">
+                <button
+                    type="button"
+                    onClick={() => logout()}
+                    className="inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-black uppercase tracking-wide text-slate-600 transition-colors hover:bg-red-50 hover:text-red-600 active:scale-[0.98]"
+                >
+                    <LogOut className="h-4 w-4 shrink-0" strokeWidth={2.25} />
+                    Logout
+                </button>
+                <NavLink
+                    to="/chat"
+                    className={({ isActive }) =>
+                        `relative inline-flex items-center justify-center rounded-xl p-2 transition-colors active:scale-[0.98] ${
+                            isActive ? 'bg-[#000435]/10 text-[#000435]' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+                        }`
+                    }
+                    aria-label="Chat"
+                >
+                    <MessageSquare className="h-6 w-6" strokeWidth={2} />
+                    {unreadCount > 0 && (
+                        <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full bg-red-500 border-2 border-white text-white text-[9px] font-black leading-none flex items-center justify-center shadow-sm">
+                            {unreadCount > 99 ? '99+' : unreadCount}
+                        </span>
+                    )}
+                </NavLink>
+            </div>
+            <div className="flex h-[68px] items-stretch gap-x-1 px-1.5 sm:gap-x-1.5 sm:px-2">
                 {navItems.map((item) => (
                     <NavLink
                         key={item.path}
                         to={item.path}
                         end={item.exact}
                         className={({ isActive }) => `
-              relative flex flex-col items-center justify-center flex-1 h-full gap-1 transition-all duration-300
-              ${isActive ? 'text-[#000435] scale-105' : 'text-slate-400 hover:text-slate-600'}
+              relative flex min-w-0 flex-1 basis-0 flex-col items-center justify-center gap-0.5 py-1 transition-all duration-300
+              ${isActive ? 'text-[#000435]' : 'text-slate-400 hover:text-slate-600'}
             `}
                     >
                         {({ isActive }) => (
@@ -34,15 +61,15 @@ const BottomNav = () => {
                                 {isActive && (
                                     <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 rounded-b-full bg-[#f59e0b]" />
                                 )}
-                                <div className={`relative p-1.5 rounded-xl transition-all ${isActive ? 'bg-[#000435]/5' : ''}`}>
-                                    <item.icon size={22} strokeWidth={isActive ? 2.5 : 2} className={isActive ? 'text-[#000435]' : ''} />
-                                    {item.badgeCount > 0 && (
-                                        <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-red-500 border-2 border-white text-white text-[9px] font-black leading-none flex items-center justify-center shadow-sm">
-                                            {item.badgeCount > 99 ? '99+' : item.badgeCount}
-                                        </span>
-                                    )}
+                                <div className={`relative shrink-0 rounded-xl p-1 sm:p-1.5 transition-all ${isActive ? 'bg-[#000435]/5' : ''}`}>
+                                    <item.icon
+                                        className={`h-5 w-5 shrink-0 sm:h-[22px] sm:w-[22px] ${isActive ? 'text-[#000435]' : ''}`}
+                                        strokeWidth={isActive ? 2.5 : 2}
+                                    />
                                 </div>
-                                <span className={`text-[9px] font-black uppercase tracking-wider transition-all ${isActive ? 'text-[#f59e0b]' : 'text-slate-400'}`}>
+                                <span
+                                    className={`max-w-full text-center text-[7px] font-black uppercase leading-tight tracking-tight transition-all min-[400px]:text-[8px] sm:text-[9px] ${isActive ? 'text-[#f59e0b]' : 'text-slate-400'}`}
+                                >
                                     {item.name}
                                 </span>
                             </>

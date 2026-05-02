@@ -74,7 +74,7 @@ const Login = () => {
                {/* ── Left: Image / Branding Panel ── */}
                <div className="flex w-full h-40 md:h-auto md:w-1/2 relative overflow-hidden group/image shrink-0">
                   <img
-                     src="/teacher.jpg"
+                     src="/teacher.png"
                      alt="Shule Teacher"
                      className="w-full h-full object-cover transition-transform duration-[2000ms] group-hover/image:scale-110"
                   />
@@ -108,7 +108,7 @@ const Login = () => {
                   {/* Header */}
                   <div className="flex flex-col items-center mb-5">
                      <div className="bg-white p-2.5 rounded-full login-float border border-orange-100 shadow-inner">
-                        <img src="/logo.png" alt="Babyeyi" className="w-7 h-7 object-contain" />
+                        <img src="/favicon.ico" alt="Babyeyi" className="w-7 h-7 object-contain" />
                      </div>
                      <h1 className="text-xl font-black mt-2 text-re-text tracking-tight uppercase">Shule Teacher</h1>
                      <p className="text-xs text-center text-re-text-muted">The Babyeyi Educational Hub — Authorize your session</p>

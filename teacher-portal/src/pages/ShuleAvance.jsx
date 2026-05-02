@@ -131,7 +131,12 @@ export default function ShuleAvance() {
    const [applyMode, setApplyMode] = useState('direct'); // 'direct' | 'invoice'
    const [selectedBillKey, setSelectedBillKey] = useState(null);
    const [wizardStep, setWizardStep] = useState(1);
-   const [showBalances, setShowBalances] = useState(false);
+   /** Eye toggle: false masks amounts as ****** (for shared screens); default true so payroll loads visible */
+   const [showBalances, setShowBalances] = useState(true);
+
+   /** From HR / staff payroll (manager-configured); drives Payroll Balance card */
+   const [payrollSalary, setPayrollSalary] = useState(null);
+   const [payrollLoading, setPayrollLoading] = useState(true);
 
    // Form State
    const [amount, setAmount] = useState('');
@@ -187,20 +192,36 @@ export default function ShuleAvance() {
       if (!silent) setLoading(true);
       else setRefreshing(true);
       setError(null);
+      setPayrollLoading(true);
       try {
-         const [reqRes] = await Promise.all([
+         const [reqRes, payrollRes] = await Promise.all([
             api.get('/services/shule-avance/applicant/my-requests'),
+            api.get('/teacher-portal/staff/payroll/my').catch(() => ({ data: { success: false } })),
             loadCatalog(),
             loadTeacherDealProducts(),
          ]);
          if (reqRes.data?.success) setRows(Array.isArray(reqRes.data.data) ? reqRes.data.data : []);
          else setRows([]);
+
+         const cs = payrollRes?.data?.success ? payrollRes.data?.data?.currentSalary : null;
+         if (cs && typeof cs === 'object') {
+            const basic = Number(cs.basic) || 0;
+            const allowances = Number(cs.allowances) || 0;
+            const gross = basic + allowances;
+            const net = Number(cs.net) || 0;
+            const deductionsTotal = Math.max(0, gross - net);
+            setPayrollSalary({ net, gross, allowancesTotal: allowances, basic });
+         } else {
+            setPayrollSalary(null);
+         }
       } catch (e) {
          setError(e.response?.data?.message || 'Could not load ShuleAvance requests.');
          setRows([]);
+         setPayrollSalary(null);
       } finally {
          setLoading(false);
          setRefreshing(false);
+         setPayrollLoading(false);
       }
    }, [loadCatalog, loadTeacherDealProducts]);
 
@@ -376,19 +397,19 @@ export default function ShuleAvance() {
    };
 
    const renderBalanceCard = () => {
-      const active = rows.filter(r => r.status === 'approved');
-      const totalActiveBorrowed = active.reduce((s, r) => s + (Number(r?.amount_rwf) || 0), 0);
-      const totalActiveDeduction = active.reduce((s, r) => s + (Number(r?.amount_rwf) / (Number(r?.repayment_term_months) || 1)), 0);
-      
       const nextPayroll = (() => {
          const d = new Date();
          d.setMonth(d.getMonth() + 1);
+         d.setDate(1);
          return d.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
       })();
 
-      const totalHistory = rows.reduce((s, r) => s + Number(r.amount_rwf || 0), 0);
-      const mockBaseSalary = 350000;
-      const payrollBalance = mockBaseSalary - totalActiveDeduction;
+      const { net, gross, deductionsTotal } = payrollSalary || {};
+      const fmt = (n) => {
+         if (payrollLoading) return '…';
+         if (!Number.isFinite(n)) return '—';
+         return Math.round(n).toLocaleString();
+      };
 
       return (
          <div className="relative -mx-4 rounded-none sm:rounded-[24px] overflow-hidden border-y sm:border border-white/10 bg-[linear-gradient(145deg,#0E1F35,#1B3354)] text-white p-5 shadow-none md:shadow-[0_18px_45px_-22px_rgba(14,31,53,0.9)]">
@@ -397,25 +418,35 @@ export default function ShuleAvance() {
  
             <div className="flex justify-between items-start relative z-10 mb-1">
                <p className="text-sm font-semibold text-white">Payroll Balance</p>
-               <button onClick={() => setShowBalances(!showBalances)} className="p-1 hover:bg-white/10 rounded-full transition-colors text-white/40">
+               <button type="button" onClick={() => setShowBalances(!showBalances)} className="p-1 hover:bg-white/10 rounded-full transition-colors text-white/40" aria-label={showBalances ? 'Hide amounts' : 'Show amounts'}>
                   {showBalances ? <EyeOff size={14} /> : <Eye size={14} />}
                </button>
             </div>
-            <p className="text-3xl font-black tracking-tight mt-1 relative z-10">
-               {showBalances ? Math.round(payrollBalance).toLocaleString() : '******'} <span className="font-black">RWF</span>
+            <p className="text-3xl font-black tracking-tight mt-1 relative z-10 min-h-[2.25rem] flex items-baseline gap-1 flex-wrap">
+               {payrollLoading ? (
+                  <Loader2 className="h-8 w-8 animate-spin text-white/50" aria-hidden />
+               ) : (
+                  <>
+                     <span>{showBalances ? fmt(net) : '******'}</span>
+                     <span className="font-black">RWF</span>
+                  </>
+               )}
             </p>
 
             <div className="mt-5 pt-4 border-t border-white/10 flex relative z-10">
                <div className="flex-1 pr-4 border-r border-white/10">
                   <p className="text-sm font-semibold text-white">Actual Payroll</p>
                   <p className="text-sm font-semibold text-white">
-                     {showBalances ? mockBaseSalary.toLocaleString() : '******'} <span className="text-sm font-black">RWF</span>
+                     {payrollLoading ? '…' : (showBalances ? fmt(gross) : '******')} {!payrollLoading && <span className="text-sm font-black">RWF</span>}
                   </p>
+                  {!payrollLoading && payrollSalary != null && Number.isFinite(payrollSalary.allowancesTotal) && payrollSalary.allowancesTotal > 0 && (
+                     <p className="text-[10px] font-semibold text-white/45 mt-0.5">incl. {Math.round(payrollSalary.allowancesTotal).toLocaleString()} RWF allowances</p>
+                  )}
                </div>
                <div className="flex-1 pl-4">
                   <p className="text-sm font-semibold text-white">Deduction</p>
                   <p className="text-sm font-semibold text-white">
-                     {showBalances ? Math.round(totalActiveDeduction).toLocaleString() : '******'} <span className="text-sm font-black text-white">RWF</span>
+                     {payrollLoading ? '…' : (showBalances ? fmt(deductionsTotal) : '******')} {!payrollLoading && <span className="text-sm font-black text-white">RWF</span>}
                   </p>
                </div>
             </div>

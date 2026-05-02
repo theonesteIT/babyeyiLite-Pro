@@ -267,9 +267,10 @@ export default function Attendance() {
 
             {/* ── High-Fidelity Hero Section ── */}
             <div className="relative w-full min-h-[300px] overflow-hidden">
-                <div className="absolute inset-0  bg-orange-950/70 z-10 backdrop-blur-[2px]"></div>
+                <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(8,17,31,0.92),rgba(18,35,58,0.84),rgba(33,49,74,0.78))] z-10 backdrop-blur-[2px]"></div>
+                <div className="absolute inset-0 z-10 bg-[radial-gradient(circle_at_top_right,rgba(255,140,0,0.20),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(255,184,0,0.10),transparent_24%)]"></div>
                 {/* Fallback pattern */}
-                <img src="/teacher.jpg" alt="" className="absolute inset-0 w-full h-full object-cover scale-105 opacity-100" />
+                <img src="/teacher.png" alt="" className="absolute inset-0 w-full h-full object-cover scale-105 opacity-100" />
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent to-transparent z-[5]"></div>
 
                 <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-12 pt-16 pb-24">
@@ -281,9 +282,7 @@ export default function Attendance() {
                         <h1 className="text-2xl md:text-5xl font-black text-white tracking-tight">
                             Daily Attendance
                         </h1>
-                        <p className="text-[10px] md:text-sm text-white/70 font-bold max-w-xl leading-relaxed">
-                            Log attendance and manage behavioral records precisely. Use fast toggles to mark students absent, late, or excused.
-                        </p>
+                     
                     </div>
 
                 </div>
@@ -349,7 +348,7 @@ export default function Attendance() {
                                 <ChevronRight size={20} />
                             </button>
                         </div>
-                        <p className="text-[9px] font-bold text-re-text-muted leading-snug">
+                        <p className="text-[14px]  font-bold text-re-text-muted leading-snug">
                             Use arrows or the calendar to move to another day, then choose a period below.
                         </p>
                     </div>

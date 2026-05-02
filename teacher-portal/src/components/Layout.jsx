@@ -42,7 +42,7 @@ const DashboardLayout = ({ children, title }) => {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
         <TopNav title={title} onMenuClick={() => setIsSidebarOpen(true)} showMenuButton={!isChatPage} />
 
-        <main ref={mainRef} className={`flex-1 overflow-y-auto relative scroll-smooth ${!isChatPage ? 'pb-[68px] lg:pb-0' : ''}`}>
+        <main ref={mainRef} className={`flex-1 overflow-y-auto relative scroll-smooth ${!isChatPage ? 'pb-[112px] lg:pb-0' : ''}`}>
           <div className="relative z-10 w-full animate-[fadeIn_.3s_ease-out]">
             {children}
           </div>

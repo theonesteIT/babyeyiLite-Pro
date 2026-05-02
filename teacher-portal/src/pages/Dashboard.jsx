@@ -57,7 +57,7 @@ const Dashboard = () => {
       {/* HERO */}
       <section className="relative p-7 md:p-10 text-white overflow-hidden min-h-[230px] flex items-center">
         <div className="absolute inset-0 z-0">
-          <img src="/teacher.jpg" alt="" className="w-full h-full object-cover shadow-2xl" />
+          <img src="/teacher.png" alt="" className="w-full h-full object-cover shadow-2xl" />
           <div className="absolute inset-0 bg-black/50 backdrop-blur-[1px]"></div>
         </div>
 
@@ -262,11 +262,7 @@ const Dashboard = () => {
                 ))}
                 {schedule.length === 0 && (
                   <div className="p-10 flex flex-col items-center justify-center text-center animate-in fade-in duration-500">
-                    <img 
-                      src="/no_schedure_vector.png" 
-                      alt="No schedule" 
-                      className="w-32 h-32 object-contain mb-4 opacity-80" 
-                    />
+                   
                     <p className="text-sm  text-re-text-muted">
                       No classes scheduled for today.
                     </p>
