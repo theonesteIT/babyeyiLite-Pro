@@ -92,10 +92,10 @@ const Dashboard = () => {
                     ${i % 2 === 0 ? 'border-r' : ''} 
                     ${i < 2 ? 'border-b' : ''}`}
                   >
-                    <span className="text-xl md:text-2xl font-bold text-re-text">
+                    <span className="text-2xl md:text-3xl font-bold text-re-text">
                       {stat.value}
                     </span>
-                    <p className="text-xs font-medium text-re-text-muted mt-1 opacity-60">
+                    <p className="text-[16px] font-medium text-re-text-muted mt-1 opacity-60">
                       {displayLabel}
                     </p>
                   </div>
@@ -109,7 +109,7 @@ const Dashboard = () => {
             </h3>
 
             <div className="bg-white rounded-xl md:rounded-[24px] shadow-lg md:shadow-sm border border-black/5 p-0 md:p-5 md:space-y-4">
-              <h3 className="text-sm hidden md:block font-bold text-re-text opacity-80">
+              <h3 className="text-[16px] hidden md:block font-bold text-re-text opacity-80">
                 Quick Access Tools
               </h3>
 
@@ -122,19 +122,19 @@ const Dashboard = () => {
                         {React.cloneElement(tool.icon, { size: 16 })}
                       </div>
                       <div>
-                        <h4 className="text-sm text-re-text">
+                        <h4 className="text-[20px] text-re-text">
                           {tool.title}
                         </h4>
-                        <p className="text-[10px] hidden md:block text-re-text-muted pr-2">
+                        <p className="text-[12px] hidden md:block text-re-text-muted pr-2">
                           {tool.desc}
                         </p>
                       </div>
 
                       <Link
                         to={tool.path}
-                        className="flex items-center gap-1 text-re-orange font-bold text-[10px] group-hover:gap-2 transition-all ml-auto md:ml-0"
+                        className="flex items-center text-[14px] gap-1 text-re-orange font-bold text-[10px] group-hover:gap-2 transition-all ml-auto md:ml-0"
                       >
-                        <span className='hidden md:block'> Open Tool </span>  <ChevronRight size={18} className='block md:hidden' /> <ArrowRight className='hidden md:block' size={11} />
+                        <span className='hidden md:block '> Open Tool </span>  <ChevronRight size={18} className='block md:hidden' /> <ArrowRight className='hidden md:block' size={11} />
                       </Link>
                     </div>
 
@@ -200,7 +200,7 @@ const Dashboard = () => {
             <div className="bg-white rounded-xl md:rounded-[24px] shadow-lg md:shadow-2xl border border-black/5 p-0 md:p-5">
               <div className="hidden md:flex items-center gap-2 mb-4">
                 <span className="w-0.5 h-3 bg-re-purple rounded-full"></span>
-                <h3 className="text-xs font-bold text-re-text opacity-70">Today's Schedule</h3>
+                <h3 className="text-[16px] font-bold text-re-text opacity-70">Today's Schedule</h3>
               </div>
 
               {/* Desktop Schedule */}
@@ -227,7 +227,7 @@ const Dashboard = () => {
                 {schedule.length === 0 && (
                   <div className="py-6 flex flex-col items-center justify-center text-center">
                     
-                    <p className="text-[10px] font-bold text-re-text-muted opacity-60">
+                    <p className="text-[13px] font-bold text-re-text-muted opacity-60">
                       No classes scheduled.
                     </p>
                   </div>
@@ -263,7 +263,7 @@ const Dashboard = () => {
                 {schedule.length === 0 && (
                   <div className="p-10 flex flex-col items-center justify-center text-center animate-in fade-in duration-500">
                    
-                    <p className="text-sm  text-re-text-muted">
+                    <p className="text-[16px]  text-re-text-muted">
                       No classes scheduled for today.
                     </p>
                   </div>
@@ -271,7 +271,7 @@ const Dashboard = () => {
               </div>
 
               <div className="p-4 md:p-0 md:mt-4 text-center border-t md:border-t-0 border-black/5">
-                <Link to="/timetable" className="text-re-orange font-bold text-[10px] hover:underline opacity-80 block w-full">
+                <Link to="/timetable" className="text-re-orange  text-[13px] font-bold text-[10px] hover:underline opacity-80 block w-full">
                   View Full Timetable
                 </Link>
               </div>

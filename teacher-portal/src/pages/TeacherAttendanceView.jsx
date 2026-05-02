@@ -4,7 +4,8 @@ import {
   CheckCircle2, Clock, XCircle, AlertTriangle, Bell, Calendar,
   ChevronRight, TrendingUp, Zap, BookOpen, ArrowRight,
   BarChart2, User, Radio, Activity, ChevronDown, ChevronLeft,
-  Layers, Timer, Target, Flame, Star, Award, X, Info
+  Layers, Timer, Target, Flame, Star, Award, X, Info,
+  DoorOpen, Hourglass,
 } from "lucide-react";
 import api from "../services/api";
 
@@ -658,7 +659,9 @@ export default function TeacherViewAttendance() {
                 {/* Entry / Exit times row */}
                 <div className="tv-today-grid" style={{ display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:12 }}>
                   <div style={{ background:"rgba(255,255,255,0.07)",borderRadius:14,padding:"12px 14px",border:"1px solid rgba(255,255,255,0.1)" }}>
-                    <p style={{ color:"rgba(255,255,255,0.4)",fontSize:9,fontWeight:800,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:4 }}>🕒 Entry</p>
+                    <p style={{ color:"rgba(255,255,255,0.4)",fontSize:9,fontWeight:800,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:4,display:"flex",alignItems:"center",gap:5 }}>
+                      <Clock size={11} color="rgba(255,255,255,0.45)" strokeWidth={2.25} aria-hidden /> Entry
+                    </p>
                     <p style={{ color:todayGate?.entry_time?"#6ee7b7":"rgba(255,255,255,0.3)",fontSize:17,fontWeight:900,fontFamily:"'DM Mono',monospace",lineHeight:1 }}>
                       {fmt12(todayGate?.entry_time)}
                     </p>
@@ -667,13 +670,17 @@ export default function TeacherViewAttendance() {
                     )}
                   </div>
                   <div style={{ background:"rgba(255,255,255,0.07)",borderRadius:14,padding:"12px 14px",border:"1px solid rgba(255,255,255,0.1)" }}>
-                    <p style={{ color:"rgba(255,255,255,0.4)",fontSize:9,fontWeight:800,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:4 }}>🚪 Exit</p>
+                    <p style={{ color:"rgba(255,255,255,0.4)",fontSize:9,fontWeight:800,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:4,display:"flex",alignItems:"center",gap:5 }}>
+                      <DoorOpen size={11} color="rgba(255,255,255,0.45)" strokeWidth={2.25} aria-hidden /> Exit
+                    </p>
                     <p style={{ color:todayGate?.exit_time?"#93c5fd":"rgba(255,255,255,0.3)",fontSize:17,fontWeight:900,fontFamily:"'DM Mono',monospace",lineHeight:1 }}>
                       {fmt12(todayGate?.exit_time)}
                     </p>
                   </div>
                   <div style={{ background:"rgba(255,255,255,0.07)",borderRadius:14,padding:"12px 14px",border:"1px solid rgba(255,255,255,0.1)" }}>
-                    <p style={{ color:"rgba(255,255,255,0.4)",fontSize:9,fontWeight:800,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:4 }}>📚 Periods</p>
+                    <p style={{ color:"rgba(255,255,255,0.4)",fontSize:9,fontWeight:800,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:4,display:"flex",alignItems:"center",gap:5 }}>
+                      <BookOpen size={11} color="rgba(255,255,255,0.45)" strokeWidth={2.25} aria-hidden /> Periods
+                    </p>
                     <p style={{ color:"#fff",fontSize:17,fontWeight:900,fontFamily:"'DM Mono',monospace",lineHeight:1 }}>{periodsDone}/{periods.length}</p>
                     <p style={{ color:"rgba(255,255,255,0.4)",fontSize:10,fontWeight:700,marginTop:3 }}>done</p>
                   </div>
@@ -682,12 +689,12 @@ export default function TeacherViewAttendance() {
                 {/* Period mini chips */}
                 <div style={{ display:"flex",gap:8,flexWrap:"wrap" }}>
                   {[
-                    { label:`✔ ${periodsDone} Done`,    color:"#6ee7b7",  bg:"rgba(16,185,129,0.15)",  border:"rgba(16,185,129,0.3)"  },
-                    { label:`⏰ ${periodsLate} Late`,    color:AMBER,      bg:`rgba(245,158,11,0.14)`,  border:`rgba(245,158,11,0.3)`  },
-                    { label:`⏳ ${periodsUpcoming} Upcoming`, color:"#93c5fd",  bg:"rgba(96,165,250,0.14)", border:"rgba(96,165,250,0.3)" },
-                  ].map(c=>(
-                    <span key={c.label} style={{ fontSize:11,fontWeight:800,color:c.color,background:c.bg,border:`1.5px solid ${c.border}`,borderRadius:99,padding:"4px 10px" }}>
-                      {c.label}
+                    { key:"done", Icon: CheckCircle2, text:`${periodsDone} Done`,    color:"#6ee7b7",  bg:"rgba(16,185,129,0.15)",  border:"rgba(16,185,129,0.3)"  },
+                    { key:"late", Icon: Clock,         text:`${periodsLate} Late`,    color:AMBER,      bg:`rgba(245,158,11,0.14)`,  border:`rgba(245,158,11,0.3)`  },
+                    { key:"up",   Icon: Hourglass,    text:`${periodsUpcoming} Upcoming`, color:"#93c5fd",  bg:"rgba(96,165,250,0.14)", border:"rgba(96,165,250,0.3)" },
+                  ].map(({ key, Icon, text, ...c })=>(
+                    <span key={key} style={{ fontSize:11,fontWeight:800,color:c.color,background:c.bg,border:`1.5px solid ${c.border}`,borderRadius:99,padding:"4px 10px",display:"inline-flex",alignItems:"center",gap:5 }}>
+                      <Icon size={12} strokeWidth={2.5} aria-hidden />{text}
                     </span>
                   ))}
                 </div>
@@ -717,7 +724,12 @@ export default function TeacherViewAttendance() {
                 <p style={{ fontSize:12,fontWeight:700,color:"rgba(255,255,255,0.7)",margin:0 }}>
                   This week: <span style={{ color:consistency>=80?"#6ee7b7":consistency>=60?AMBER:"#f87171",fontWeight:900 }}>{consistency}% on time</span>
                 </p>
-                {lateThisWeek>0&&<span style={{ fontSize:11,color:"rgba(255,255,255,0.4)",marginLeft:"auto" }}>⚠ {lateThisWeek} late period{lateThisWeek>1?"s":""}</span>}
+                {lateThisWeek>0&&(
+                  <span style={{ fontSize:11,color:"rgba(255,255,255,0.4)",marginLeft:"auto",display:"inline-flex",alignItems:"center",gap:4 }}>
+                    <AlertTriangle size={12} color="rgba(255,255,255,0.45)" strokeWidth={2.25} aria-hidden />
+                    {lateThisWeek} late period{lateThisWeek>1?"s":""}
+                  </span>
+                )}
               </div>
             )}
 

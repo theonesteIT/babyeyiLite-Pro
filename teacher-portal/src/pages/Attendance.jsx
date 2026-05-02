@@ -267,11 +267,10 @@ export default function Attendance() {
 
             {/* ── High-Fidelity Hero Section ── */}
             <div className="relative w-full min-h-[300px] overflow-hidden">
-                <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(8,17,31,0.92),rgba(18,35,58,0.84),rgba(33,49,74,0.78))] z-10 backdrop-blur-[2px]"></div>
-                <div className="absolute inset-0 z-10 bg-[radial-gradient(circle_at_top_right,rgba(255,140,0,0.20),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(255,184,0,0.10),transparent_24%)]"></div>
+               
                 {/* Fallback pattern */}
                 <img src="/teacher.png" alt="" className="absolute inset-0 w-full h-full object-cover scale-105 opacity-100" />
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent to-transparent z-[5]"></div>
+                <div className="absolute inset-0 bg-black/50 backdrop-blur-[1px]"></div>
 
                 <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-12 pt-16 pb-24">
                     <div className="space-y-1">

@@ -499,24 +499,24 @@ export default function Dashboard() {
               {/* column header */}
               <div className="px-5 py-4 border-b border-black/5 bg-re-bg/60 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Banknote size={15} className="text-[#000435]" />
-                  <h3 className="text-[10px] font-black text-[#000435] capitalize tracking-[0.22em]">Fee Collections</h3>
+                  <Banknote size={17} className="text-[#000435]" />
+                  <h3 className="text-xs md:text-[13px] font-black text-[#000435] capitalize tracking-[0.18em]">Fee Collections</h3>
                 </div>
-                <span className="text-[9px] font-black capitalize tracking-widest text-[#000435]">Live</span>
+                <span className="text-[11px] font-black capitalize tracking-widest text-[#000435]">Live</span>
               </div>
 
               {/* Today collections — hero stat */}
               <button
                 type="button"
                 onClick={() => setModal('collections')}
-                className="p-5 border-b border-gray-100 flex flex-col items-start text-left w-full hover:bg-white/60 transition-all active:scale-[0.99]"
+                className="p-5 md:p-6 border-b border-gray-100 flex flex-col items-start text-left w-full hover:bg-white/60 transition-all active:scale-[0.99]"
               >
-                <span className="text-[9px] font-black capitalize tracking-[0.28em] text-[#000435]/70">Today's collections</span>
-                <span className="text-2xl font-black tracking-tighter text-[#000435] mt-1">
+                <span className="text-[11px] font-black capitalize tracking-[0.22em] text-[#000435]/70">Today's collections</span>
+                <span className="text-3xl md:text-4xl font-black tracking-tighter text-[#000435] mt-1.5">
                   {formatCompactMoneyRWF(mock.todayCollections)}
-                  <span className="text-sm font-bold text-[#000435] ml-1">RWF</span>
+                  <span className="text-base md:text-lg font-bold text-[#000435] ml-1.5">RWF</span>
                 </span>
-                <div className="mt-2 flex items-center gap-1 text-[9px] font-black capitalize tracking-widest text-[#000435]/60">
+                <div className="mt-2 flex items-center gap-1 text-[11px] font-black capitalize tracking-widest text-[#000435]/60">
                   View breakdown ↓
                 </div>
               </button>
@@ -524,27 +524,27 @@ export default function Dashboard() {
               {/* Month collections + outstanding — hint cells like discipline attendance */}
               <div className="grid grid-cols-2 flex-1">
                 {/* Month collections */}
-                <div className="p-4 flex flex-col items-center justify-center text-center border-r border-gray-100">
-                  <span className="text-xl font-black tracking-tighter text-[#000435]">
+                <div className="p-4 md:p-5 flex flex-col items-center justify-center text-center border-r border-gray-100">
+                  <span className="text-2xl md:text-3xl font-black tracking-tighter text-[#000435]">
                     {formatCompactMoneyRWF(mock.monthCollections)}
                   </span>
-                  <p className="text-[9px] font-black text-[#000435] capitalize tracking-widest mt-1 opacity-70">Month (MTD)</p>
+                  <p className="text-[11px] font-black text-[#000435] capitalize tracking-widest mt-1.5 opacity-70">Month (MTD)</p>
                   {kpis.collectionsDelta != null && (
-                    <p className={`text-[9px] font-black mt-1 ${kpis.collectionsDelta >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                    <p className={`text-[11px] font-black mt-1 ${kpis.collectionsDelta >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
                       {kpis.collectionsDelta >= 0 ? '▲' : '▼'} {Math.abs(kpis.collectionsDelta).toFixed(1)}% vs last mo.
                     </p>
                   )}
                 </div>
 
                 {/* Outstanding + top debtor hints — all in one cell */}
-                <div className="p-3.5 flex flex-col justify-center items-center text-center">
-                  <span className="text-lg font-black tracking-tighter text-[#000435] leading-none">
+                <div className="p-3.5 md:p-4 flex flex-col justify-center items-center text-center">
+                  <span className="text-xl md:text-2xl font-black tracking-tighter text-[#000435] leading-none">
                     {formatCompactMoneyRWF(mock.outstanding)}
                   </span>
-                  <p className="text-[9px] font-black text-[#000435] capitalize tracking-widest mt-1 opacity-70">Outstanding</p>
+                  <p className="text-[11px] font-black text-[#000435] capitalize tracking-widest mt-1.5 opacity-70">Outstanding</p>
                   <div className="w-full h-px bg-re-bg my-2" />
                   {/* hint: learners owing + top debtor — like attendance "Absent / Missed" */}
-                  <div className="flex flex-col gap-1 text-[8.5px] font-bold text-[#000435] w-full bg-re-bg rounded-lg py-1.5 px-2 border border-[#000435]">
+                  <div className="flex flex-col gap-1.5 text-[10px] font-bold text-[#000435] w-full bg-re-bg rounded-lg py-2 px-2.5 border border-[#000435]">
                     <button
                       type="button"
                       onClick={() => setModal('debtors')}
@@ -575,25 +575,25 @@ export default function Dashboard() {
               {/* column header */}
               <div className="px-5 py-4 border-b border-black/5 bg-re-bg/60 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <TrendingDown size={15} className="text-amber-500" />
-                  <h3 className="text-[10px] font-black text-[#000435] capitalize tracking-[0.22em]">Costs & Cashflow</h3>
+                  <TrendingDown size={17} className="text-amber-500" />
+                  <h3 className="text-xs md:text-[13px] font-black text-[#000435] capitalize tracking-[0.18em]">Costs & Cashflow</h3>
                 </div>
-                <span className="text-[9px] font-black capitalize tracking-widest text-[#000435]">MTD</span>
+                <span className="text-[11px] font-black capitalize tracking-widest text-[#000435]">MTD</span>
               </div>
 
               {/* Expenses MTD — hero stat */}
               <button
                 type="button"
                 onClick={() => setModal('expenses')}
-                className="p-5 border-b border-gray-100 flex flex-col items-start text-left w-full hover:bg-white/60 transition-all active:scale-[0.99]"
+                className="p-5 md:p-6 border-b border-gray-100 flex flex-col items-start text-left w-full hover:bg-white/60 transition-all active:scale-[0.99]"
               >
-                <span className="text-[9px] font-black capitalize tracking-[0.28em] text-[#000435]/70">Expenses (MTD)</span>
-                <span className="text-2xl font-black tracking-tighter text-[#000435] mt-1">
+                <span className="text-[11px] font-black capitalize tracking-[0.22em] text-[#000435]/70">Expenses (MTD)</span>
+                <span className="text-3xl md:text-4xl font-black tracking-tighter text-[#000435] mt-1.5">
                   {formatCompactMoneyRWF(mock.monthExpenses)}
-                  <span className="text-sm font-bold text-[#000435] ml-1">RWF</span>
+                  <span className="text-base md:text-lg font-bold text-[#000435] ml-1.5">RWF</span>
                 </span>
                 {kpis.expensesDelta != null && (
-                  <p className={`text-[9px] font-black mt-1 ${kpis.expensesDelta <= 0 ? 'text-emerald-500' : 'text-amber-600'}`}>
+                  <p className={`text-[11px] font-black mt-1 ${kpis.expensesDelta <= 0 ? 'text-emerald-500' : 'text-amber-600'}`}>
                     {kpis.expensesDelta <= 0 ? '▼' : '▲'} {Math.abs(kpis.expensesDelta).toFixed(1)}% vs last mo.
                   </p>
                 )}
@@ -602,24 +602,24 @@ export default function Dashboard() {
               {/* Net cashflow + payroll hints — analogous to discipline "standing + permissions" */}
               <div className="grid grid-cols-2 flex-1">
                 {/* Net cashflow */}
-                <div className="p-4 flex flex-col items-center justify-center text-center border-r border-gray-100">
-                  <span className={`text-xl font-black tracking-tighter ${kpis.netCashflow >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                <div className="p-4 md:p-5 flex flex-col items-center justify-center text-center border-r border-gray-100">
+                  <span className={`text-2xl md:text-3xl font-black tracking-tighter ${kpis.netCashflow >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                     {kpis.netCashflow >= 0 ? '+' : ''}{formatCompactMoneyRWF(kpis.netCashflow)}
                   </span>
-                  <p className="text-[9px] font-black text-[#000435] capitalize tracking-widest mt-1 opacity-70">Net Cashflow</p>
-                  <p className={`text-[9px] font-black mt-1 ${kpis.netCashflow >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                  <p className="text-[11px] font-black text-[#000435] capitalize tracking-widest mt-1.5 opacity-70">Net Cashflow</p>
+                  <p className={`text-[11px] font-black mt-1 ${kpis.netCashflow >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
                     {kpis.netCashflow >= 0 ? 'Surplus' : 'Deficit'}
                   </p>
                 </div>
 
                 {/* Payroll hints in single cell */}
-                <div className="p-3.5 flex flex-col justify-center items-center text-center">
-                  <span className="text-lg font-black tracking-tighter text-[#000435] leading-none">
+                <div className="p-3.5 md:p-4 flex flex-col justify-center items-center text-center">
+                  <span className="text-xl md:text-2xl font-black tracking-tighter text-[#000435] leading-none">
                     {formatCompactMoneyRWF(mock.payroll.totalDue)}
                   </span>
-                  <p className="text-[9px] font-black text-[#000435] capitalize tracking-widest mt-1 opacity-70">Payroll Due</p>
+                  <p className="text-[11px] font-black text-[#000435] capitalize tracking-widest mt-1.5 opacity-70">Payroll Due</p>
                   <div className="w-full h-px bg-re-bg my-2" />
-                  <div className="flex flex-col gap-1 text-[8.5px] font-bold text-[#000435] w-full bg-re-bg rounded-lg py-1.5 px-2 border border-[#000435]">
+                  <div className="flex flex-col gap-1.5 text-[10px] font-bold text-[#000435] w-full bg-re-bg rounded-lg py-2 px-2.5 border border-[#000435]">
                     <button
                       type="button"
                       onClick={() => navigate('/payroll/history')}
@@ -671,30 +671,30 @@ export default function Dashboard() {
           <div className="bg-white border border-black/5 rounded-[24px]  p-5 md:p-6 lg:col-span-2">
             <div className="flex items-center justify-between gap-3 mb-4">
               <div className="flex items-center gap-2">
-                <TrendingUp size={16} className="text-[#000435]" />
-                <h3 className="text-[11px] font-black text-[#000435] capitalize tracking-[0.2em]">Collections trend</h3>
+                <TrendingUp size={18} className="text-[#000435]" />
+                <h3 className="text-sm md:text-[15px] font-black text-[#000435] capitalize tracking-[0.16em]">Collections trend</h3>
               </div>
-              <span className="text-[9px] font-black capitalize tracking-widest text-[#000435]">Last 14 days</span>
+              <span className="text-[11px] font-black capitalize tracking-widest text-[#000435]">Last 14 days</span>
             </div>
             <RechartsTrend series={mock.payments14} />
 
             <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="rounded-2xl bg-re-bg border border-black/5  p-5 flex flex-col items-center">
-                <p className="text-[9px] font-black capitalize tracking-[0.28em] text-[#000435]/70 mb-4 w-full">Expenses trend</p>
+                <p className="text-[11px] font-black capitalize tracking-[0.22em] text-[#000435]/70 mb-4 w-full">Expenses trend</p>
                 <div className="w-full">
                   <RechartsTrend series={mock.expenses14} tone="amber" height={100} />
                 </div>
               </div>
               <div className="rounded-2xl bg-re-bg border border-black/5  p-5">
-                <p className="text-[9px] font-black capitalize tracking-[0.28em] text-[#000435]/70 mb-4">Expense breakdown</p>
+                <p className="text-[11px] font-black capitalize tracking-[0.22em] text-[#000435]/70 mb-4">Expense breakdown</p>
                 <div className="min-w-0 space-y-2">
                   {mock.expenseCategories.map((c) => (
                     <div key={c.label} className="flex items-center justify-between gap-1 group">
                       <div className="flex items-center gap-1.5 min-w-0">
                         <span className="w-2 h-2 rounded-full shrink-0 " style={{ background: c.color }} />
-                        <p className="text-[9px] font-black text-[#000435] truncate capitalize tracking-tighter group-hover:text-amber-600 transition-colors">{c.label}</p>
+                        <p className="text-[11px] font-black text-[#000435] truncate capitalize tracking-tighter group-hover:text-amber-600 transition-colors">{c.label}</p>
                       </div>
-                      <p className="text-[9px] font-black text-[#000435] shrink-0">
+                      <p className="text-[11px] font-black text-[#000435] shrink-0">
                         {Math.round((c.value / (expenseTotal || 1)) * 100)}%
                       </p>
                     </div>
@@ -708,12 +708,12 @@ export default function Dashboard() {
           <div className="bg-white border border-black/5 rounded-[24px]  p-5 md:p-6">
             <div className="flex items-center justify-between gap-3 mb-4">
               <div className="flex items-center gap-2">
-                <Wallet size={16} className="text-[#000435]" />
-                <h3 className="text-[11px] font-black text-[#000435] capitalize tracking-[0.2em]">Top debtors</h3>
+                <Wallet size={18} className="text-[#000435]" />
+                <h3 className="text-sm md:text-[15px] font-black text-[#000435] capitalize tracking-[0.16em]">Top debtors</h3>
               </div>
               <button
                 onClick={() => setModal('debtors')}
-                className="text-[9px] font-black capitalize tracking-widest text-[#000435]/60 hover:text-[#000435] transition-colors flex items-center gap-1"
+                className="text-[11px] font-black capitalize tracking-widest text-[#000435]/60 hover:text-[#000435] transition-colors flex items-center gap-1"
               >
                 All <ArrowRight size={11} />
               </button>
@@ -723,20 +723,20 @@ export default function Dashboard() {
               <table className="w-full text-left">
                 <thead className="bg-white">
                   <tr>
-                    <th className="px-4 py-3 text-[9px] font-black capitalize tracking-[0.24em] text-[#000435]/70">Learner</th>
-                    <th className="px-4 py-3 text-right text-[9px] font-black capitalize tracking-[0.24em] text-[#000435]/70">Balance</th>
+                    <th className="px-4 py-3 text-[11px] font-black capitalize tracking-[0.18em] text-[#000435]/70">Learner</th>
+                    <th className="px-4 py-3 text-right text-[11px] font-black capitalize tracking-[0.18em] text-[#000435]/70">Balance</th>
                   </tr>
                 </thead>
                 <tbody>
                   {mock.debtors.slice(0, 5).map((d, i) => (
                     <tr key={d.student_id ?? d.name ?? i} className="border-t border-black/5 hover:bg-white/40 transition-colors group">
                       <td className="px-4 py-2.5">
-                        <p className="text-[10px] font-black text-[#000435]">{d.name}</p>
-                        <p className="text-[9px] font-bold text-[#000435]">{d.cls}</p>
+                        <p className="text-xs font-black text-[#000435]">{d.name}</p>
+                        <p className="text-[11px] font-bold text-[#000435]">{d.cls}</p>
                       </td>
                       <td className="px-4 py-2.5 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          <span className="text-[10px] font-black text-[#000435]">{formatCompactMoneyRWF(d.balance)}</span>
+                          <span className="text-xs font-black text-[#000435]">{formatCompactMoneyRWF(d.balance)}</span>
                           <button
                             title="Send Reminder"
                             className="p-1 rounded-md bg-amber-50 text-amber-600 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-amber-100"
@@ -761,15 +761,15 @@ export default function Dashboard() {
                   <div className="w-6 h-6 rounded-lg bg-re-bg/10 flex items-center justify-center">
                     <TrendingUp size={12} className="text-white" />
                   </div>
-                  <span className="text-[10px] font-black capitalize tracking-[0.15em]">Send reminder to parents</span>
+                  <span className="text-xs font-black capitalize tracking-[0.12em]">Send reminder to parents</span>
                 </div>
                 <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
               </button>
 
               <div className="mt-2.5 rounded-2xl bg-re-bg border border-black/5  p-3.5 flex justify-between items-center">
                 <div>
-                  <p className="text-[8px] font-black capitalize tracking-[0.2em] text-[#000435]">Payroll Status</p>
-                  <p className="text-[10px] font-bold text-[#000435] mt-0.5">Approvals due by {mock.payroll.dueDate}</p>
+                  <p className="text-[11px] font-black capitalize tracking-[0.16em] text-[#000435]">Payroll Status</p>
+                  <p className="text-xs font-bold text-[#000435] mt-0.5">Approvals due by {mock.payroll.dueDate}</p>
                 </div>
                 <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
               </div>

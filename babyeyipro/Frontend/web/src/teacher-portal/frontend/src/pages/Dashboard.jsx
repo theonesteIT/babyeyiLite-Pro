@@ -79,14 +79,14 @@ const Dashboard = () => {
               {stats.map((stat, i) => (
                 <div
                   key={i}
-                  className={`p-5 flex flex-col items-center justify-center text-center border-gray-100 
+                  className={`p-5 md:p-6 flex flex-col items-center justify-center text-center border-gray-100 
                   ${i % 2 === 0 ? 'border-r' : ''} 
                   ${i < 2 ? 'border-b' : ''}`}
                 >
-                  <span className="text-xl md:text-2xl font-black text-re-text">
+                  <span className="text-2xl md:text-3xl font-black text-re-text leading-tight">
                     {stat.value}
                   </span>
-                  <p className="text-[9px] font-black text-re-text-muted uppercase tracking-widest mt-1 opacity-60">
+                  <p className="text-[11px] md:text-xs font-black text-re-text-muted uppercase tracking-widest mt-2 opacity-60 leading-snug px-1">
                     {stat.label}
                   </p>
                 </div>
@@ -94,34 +94,34 @@ const Dashboard = () => {
             </div>
 
             {/* TOOLS */}
-            <div className="bg-white rounded-[24px] shadow-sm border border-black/5 p-5 space-y-4">
-              <h3 className="text-sm font-black text-re-text uppercase opacity-80">
+            <div className="bg-white rounded-[24px] shadow-sm border border-black/5 p-5 md:p-6 space-y-5">
+              <h3 className="text-base md:text-lg font-black text-re-text uppercase opacity-80 tracking-tight">
                 Quick Access Tools
               </h3>
 
-              <div className="grid grid-cols-1 divide-y-2 divide-gray-200 md:divide-y-0 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 divide-y-2 divide-gray-200 md:divide-y-0 md:grid-cols-2 gap-3 md:gap-4">
                 {quickTools.map((tool, i) => (
-                  <div key={i} className="p-2.5 md:rounded-lg hover:bg-re-bg transition-all group">
+                  <div key={i} className="p-2.5 md:p-3 md:rounded-lg hover:bg-re-bg transition-all group">
 
-                    <div className="space-y-2">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center bg-re-bg shadow-inner ${tool.color}`}>
-                        {React.cloneElement(tool.icon, { size: 16 })}
+                    <div className="space-y-2.5">
+                      <div className={`w-9 h-9 md:w-10 md:h-10 rounded-lg flex items-center justify-center bg-re-bg shadow-inner ${tool.color}`}>
+                        {React.cloneElement(tool.icon, { size: 18 })}
                       </div>
 
                       <div>
-                        <h4 className="text-sm font-black text-re-text">
+                        <h4 className="text-[15px] md:text-base font-black text-re-text">
                           {tool.title}
                         </h4>
-                        <p className="text-[10px] text-re-text-muted font-bold opacity-60 leading-snug pr-2">
+                        <p className="text-xs md:text-[13px] text-re-text-muted font-bold opacity-60 leading-snug pr-2 mt-0.5">
                           {tool.desc}
                         </p>
                       </div>
 
                       <Link
                         to={tool.path}
-                        className="flex items-center gap-1 text-re-orange font-black text-[9px] uppercase tracking-widest group-hover:gap-2 transition-all"
+                        className="flex items-center gap-1 text-re-orange font-black text-[11px] uppercase tracking-widest group-hover:gap-2 transition-all"
                       >
-                        Open Tool <ArrowRight size={11} />
+                        Open Tool <ArrowRight size={12} />
                       </Link>
                     </div>
 
@@ -136,27 +136,27 @@ const Dashboard = () => {
           <div className="space-y-5 lg:sticky lg:top-20 h-fit">
 
             {/* Today's Schedule Card */}
-            <div className="bg-white rounded-[24px] shadow-2xl border border-black/5 p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <span className="w-0.5 h-3 bg-re-purple rounded-full"></span>
-                <h3 className="text-xs font-black text-re-text uppercase tracking-widest opacity-70">Today's Schedule</h3>
+            <div className="bg-white rounded-[24px] shadow-2xl border border-black/5 p-5 md:p-6">
+              <div className="flex items-center gap-2 mb-5">
+                <span className="w-0.5 h-4 bg-re-purple rounded-full"></span>
+                <h3 className="text-sm md:text-base font-black text-re-text uppercase tracking-widest opacity-70">Today's Schedule</h3>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 {schedule.map((item, i) => (
-                  <div key={i} className={`flex items-start gap-3 p-2 rounded-lg transition-all
+                  <div key={i} className={`flex items-start gap-3 p-2.5 rounded-lg transition-all
                     ${item.active ? 'bg-orange-50/50 border-b shadow-inner border-orange-100' : 'hover:bg-re-bg'}`}>
 
-                    <span className={`text-[8px] font-black min-w-[32px] pt-0.5
+                    <span className={`text-[10px] md:text-[11px] font-black min-w-[36px] pt-0.5 tabular-nums
                       ${item.active ? 'text-re-orange' : 'text-re-text-muted opacity-40'}`}>
                       {item.time}
                     </span>
 
-                    <div>
-                      <p className="font-black text-re-text text-xs leading-none tracking-tight">
+                    <div className="min-w-0">
+                      <p className="font-black text-re-text text-sm md:text-[15px] leading-tight tracking-tight">
                         {item.title}
                       </p>
-                      <p className="text-[8px] text-re-text-muted font-bold uppercase tracking-widest opacity-40 mt-1">
+                      <p className="text-[10px] md:text-[11px] text-re-text-muted font-bold uppercase tracking-widest opacity-40 mt-1">
                         {item.room}
                       </p>
                     </div>
@@ -164,8 +164,8 @@ const Dashboard = () => {
                 ))}
               </div>
 
-              <div className="mt-4 text-center">
-                <button className="text-re-orange font-black text-[8px] uppercase tracking-widest hover:underline opacity-80">
+              <div className="mt-5 text-center">
+                <button type="button" className="text-re-orange font-black text-[10px] md:text-[11px] uppercase tracking-widest hover:underline opacity-80">
                   View Full Timetable
                 </button>
               </div>
