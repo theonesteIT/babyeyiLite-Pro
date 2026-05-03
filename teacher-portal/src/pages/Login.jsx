@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Mail, Lock, Eye, EyeOff, AlertCircle, RefreshCw, ChevronRight, ArrowLeft, Building } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, AlertCircle, RefreshCw, ChevronRight, ArrowLeft } from 'lucide-react';
 
 const STAFF_LOGIN_PREFS_KEY = 'babyeyi_staff_login_prefs';
 
@@ -23,7 +23,6 @@ function loadStaffLoginPrefs() {
 const Login = () => {
    const [prefs] = useState(() => loadStaffLoginPrefs());
    const [identifier, setIdentifier] = useState(prefs.identifier);
-   const [schoolCode, setSchoolCode] = useState(prefs.schoolCode);
    const [password, setPassword] = useState('');
    const [rememberMe, setRememberMe] = useState(!!prefs.remember);
    const [showPassword, setShowPassword] = useState(false);
@@ -44,7 +43,7 @@ const Login = () => {
       setError(null);
       setLoading(true);
 
-      const result = await login(identifier, password, { schoolCode, rememberMe });
+      const result = await login(identifier, password, { schoolCode: '', rememberMe });
       if (result.success) {
          navigate('/');
       } else {
@@ -55,62 +54,62 @@ const Login = () => {
 
    if (authLoading) {
       return (
-         <div className="min-h-screen bg-re-bg flex items-center justify-center">
-            <RefreshCw className="animate-spin text-re-orange w-8 h-8" />
+         <div className="min-h-screen flex items-center justify-center bg-[#000435] md:bg-slate-100">
+            <RefreshCw className="animate-spin w-8 h-8 text-white/85 md:text-[#000435]" />
          </div>
       );
    }
 
    return (
-      <div className="flex min-h-screen bg-re-bg font-sans overflow-hidden relative">
-         {/* Background glows */}
-         <div className="absolute top-0 right-0 w-96 h-96 bg-re-orange/10 blur-3xl -mr-48 -mt-48 rounded-full pointer-events-none"></div>
-         <div className="absolute bottom-0 left-0 w-96 h-96 bg-re-orange/10 blur-3xl -ml-48 -mb-48 rounded-full pointer-events-none"></div>
-
+      <div className="flex min-h-screen min-h-[100svh] font-sans overflow-hidden relative text-[#000435] bg-[#000435] md:bg-slate-100">
          <div className="w-full flex items-center justify-center p-0 md:p-8 z-10">
-            <div className="group bg-white flex flex-col md:flex-row shadow-2xl md:rounded-0 w-full md:max-w-4xl overflow-hidden h-full md:max-h-[520px]">
+            <div className="group bg-white flex flex-col md:flex-row shadow-2xl md:rounded-2xl w-full md:max-w-4xl overflow-hidden h-full md:max-h-[520px] border border-white/10">
 
                {/* ── Left: Image / Branding Panel ── */}
-               <div className="flex w-full h-40 md:h-auto md:w-1/2 relative overflow-hidden group/image shrink-0">
+               <div className="flex w-full h-[clamp(11.75rem,48vw,16rem)] md:h-auto md:min-h-[280px] md:w-1/2 md:flex-1 relative overflow-hidden group/image shrink-0 bg-white">
                   <img
                      src="/teacher.png"
                      alt="Shule Teacher"
-                     className="w-full h-full object-cover transition-transform duration-[2000ms] group-hover/image:scale-110"
+                     className="w-full h-full object-cover object-[center_22%] md:object-center transition-transform duration-[2000ms] md:group-hover/image:scale-110"
                   />
-                  {/* Overlays */}
-                  <div className="absolute inset-0 bg-orange-950/50 backdrop-blur-[1.5px]"></div>
-                  <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-black/20 to-black/60 z-10 pointer-events-none"></div>
+                  {/* Very light tint so the photo stays clearly visible */}
+                  <div className="absolute inset-0 bg-gradient-to-b from-orange-950/10 via-transparent to-black/15 z-10 pointer-events-none"></div>
 
-                  {/* Branding text */}
-                  <div className="absolute inset-0 p-6 md:p-12 flex flex-col justify-between text-white z-20">
-                     <div className="space-y-1 md:space-y-2 login-fade-pulse">
-                        <span className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] md:tracking-[0.4em] text-orange-300 underline decoration-orange-400 underline-offset-8">
-                           Educators' Workspace
+                  {/* Mobile only: Educators' label on image */}
+                  <div className="absolute inset-0 z-20 flex md:hidden flex-col text-white p-4 pb-4 pointer-events-none">
+                     <div className="flex flex-1 flex-col items-center justify-end">
+                        <span className="text-[10px] font-black uppercase tracking-[0.35em] text-amber-400 text-center">
+                           Educators&apos; Workspace
                         </span>
-                        <h1 className="text-3xl md:text-6xl font-black tracking-tight">ShuleTicha</h1>
-                     </div>
-
-                     <div className="hidden md:flex flex-col space-y-6 login-fade-pulse">
-                        <p className="text-xl font-light leading-relaxed text-white/90 max-w-xs">
-                           Empowering <span className="font-black text-orange-300 italic">Teachers</span> with smarter classroom tools.
-                        </p>
-                        <div className="inline-flex items-center gap-3 px-4 py-2 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 shadow-xl self-start">
-                           <div className="w-2.5 h-2.5 bg-orange-400 rounded-full animate-pulse" style={{ boxShadow: '0 0 10px rgba(251,146,60,0.6)' }}></div>
-                           <span className="text-[10px] font-black uppercase tracking-widest text-white/90">Shule Teacher | Secure</span>
-                        </div>
                      </div>
                   </div>
                </div>
 
                {/* ── Right: Form Panel ── */}
                <div className="p-6 md:p-10 w-full md:w-1/2 flex flex-col justify-center">
-                  {/* Header */}
-                  <div className="flex flex-col items-center mb-5">
-                     <div className="bg-white p-2.5 rounded-full login-float border border-orange-100 shadow-inner">
-                        <img src="/logo.png" alt="ShuleTicha" className="w-7 h-7 object-contain" />
+                  {/* Header — Babyeyi logo (right column only; full photo visible on the left) */}
+                  <div className="flex flex-col items-center mb-6 text-center">
+                     <div
+                        className="w-[88px] h-[88px] md:w-24 md:h-24 rounded-3xl flex items-center justify-center border-2 border-white/20 ring-2 ring-amber-400/35 ring-offset-2 ring-offset-white login-float shrink-0"
+                        style={{
+                           background: '#000435',
+                           boxShadow: '0 12px 36px rgba(0, 4, 53, 0.45), 0 4px 12px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255,255,255,0.06)',
+                        }}
+                     >
+                        <img
+                           src="/babyeyilogo.png"
+                           alt="Babyeyi"
+                           className="w-[62px] h-[62px] md:w-[70px] md:h-[70px] max-w-[calc(100%-12px)] object-contain select-none"
+                           style={{ filter: 'drop-shadow(0 2px 8px rgba(0, 0, 0, 0.35))' }}
+                           draggable={false}
+                        />
                      </div>
-                     <h1 className="text-xl font-black mt-2 text-re-text tracking-tight uppercase">ShuleTicha</h1>
-                     <p className="text-[11px] text-center font-bold text-re-text-muted opacity-60">The ShuleTicha Educational Hub — Authorize your session</p>
+                     <h1 className="text-[28px] md:text-[32px] font-extrabold mt-5 tracking-tight leading-none" style={{ color: '#000435' }}>
+                        ShuleTicha
+                     </h1>
+                     <p className="mt-2 text-[10px] font-black uppercase tracking-[0.38em] text-amber-500">
+                        Educators&apos; Workspace
+                     </p>
                   </div>
 
                   {/* Error */}
@@ -121,95 +120,85 @@ const Login = () => {
                   )}
 
                   {/* Form */}
-                  <form onSubmit={handleSubmit} className="space-y-3">
-                     {/* Identifier — same as main Babyeyi login */}
+                  <div className="mb-5">
+                     <h2 className="text-xl font-bold text-gray-900 tracking-tight">Welcome back</h2>
+                     <p className="text-[15px] text-gray-400 mt-1">Sign in to your teacher account to continue</p>
+                  </div>
+
+                  <form onSubmit={handleSubmit} className="space-y-4">
+                     {/* Email or Username — LoginFix-style field */}
                      <div>
-                        <label className="text-[11px] font-black text-re-text-muted uppercase tracking-widest ml-1 opacity-70">
-                           Email or username
+                        <label className="block text-[12px] font-semibold text-gray-700 uppercase tracking-wide mb-1.5">
+                           Email or Username
                         </label>
-                        <div className="flex items-center bg-re-bg border border-black/5 rounded-xl overflow-hidden mt-1 shadow-inner focus-within:ring-2 transition-all" style={{ '--tw-ring-color': 'rgba(255,140,0,0.35)' }}>
-                           <Mail className="text-re-text-muted/40 w-4 h-4 ml-3 mr-2 shrink-0" />
+                        <div className="group flex items-center rounded-xl border-[1.5px] border-gray-200 bg-gray-50 overflow-hidden transition-all focus-within:border-amber-500 focus-within:bg-amber-50/60 focus-within:shadow-[0_0_0_3px_rgba(245,158,11,0.12)]">
+                           <span className="w-10 flex items-center justify-center shrink-0 text-gray-300 group-focus-within:text-amber-500 transition-colors">
+                              <Mail className="w-[15px] h-[15px]" />
+                           </span>
                            <input
                               type="text"
                               autoComplete="username"
                               value={identifier}
                               onChange={e => setIdentifier(e.target.value)}
-                              placeholder="teacher@school.rw"
-                              className="w-full p-2.5 bg-transparent outline-none text-xs font-bold text-re-text"
+                              placeholder="Enter your email..."
+                              className="w-full py-3 pr-3 bg-transparent outline-none text-[13.5px] text-gray-900 placeholder:text-gray-300 font-normal"
                               required
                            />
                         </div>
                      </div>
 
-                     {/* School code — same payload as BabyeyiSystem/frontend */}
-                     <div>
-                        <label className="text-[11px] font-black text-re-text-muted uppercase tracking-widest ml-1 opacity-70">
-                           School code
-                        </label>
-                        <div className="flex items-center bg-re-bg border border-black/5 rounded-xl overflow-hidden mt-1 shadow-inner focus-within:ring-2 transition-all" style={{ '--tw-ring-color': 'rgba(255,140,0,0.35)' }}>
-                           <Building className="text-re-text-muted/40 w-4 h-4 ml-3 mr-2 shrink-0" />
-                           <input
-                              type="text"
-                              value={schoolCode}
-                              onChange={e => setSchoolCode(e.target.value)}
-                              placeholder="e.g. 04001 (directory code)"
-                              className="w-full p-2.5 bg-transparent outline-none text-xs font-bold text-re-text uppercase"
-                           />
-                        </div>
-                        <p className="text-[9px] font-bold text-re-text-muted/70 mt-1 ml-1">
-                           Enter your school&apos;s code if you have one — it helps match your account to the right school.
-                        </p>
-                     </div>
-
                      {/* Password */}
                      <div>
-                        <label className="text-[11px] font-black text-re-text-muted uppercase tracking-widest ml-1 opacity-70">
+                        <label className="block text-[12px] font-semibold text-gray-700 uppercase tracking-wide mb-1.5">
                            Password
                         </label>
-                        <div className="flex items-center bg-re-bg border border-black/5 rounded-xl overflow-hidden mt-1 shadow-inner focus-within:ring-2 transition-all" style={{ '--tw-ring-color': 'rgba(255,140,0,0.35)' }}>
-                           <Lock className="text-re-text-muted/40 w-4 h-4 ml-3 mr-2 shrink-0" />
+                        <div className="group flex items-center rounded-xl border-[1.5px] border-gray-200 bg-gray-50 overflow-hidden transition-all focus-within:border-amber-500 focus-within:bg-amber-50/60 focus-within:shadow-[0_0_0_3px_rgba(245,158,11,0.12)]">
+                           <span className="w-10 flex items-center justify-center shrink-0 text-gray-300 group-focus-within:text-amber-500 transition-colors">
+                              <Lock className="w-[15px] h-[15px]" />
+                           </span>
                            <input
                               type={showPassword ? 'text' : 'password'}
                               value={password}
                               onChange={e => setPassword(e.target.value)}
-                              placeholder="••••••••"
-                              className="w-full p-2.5 bg-transparent outline-none text-xs font-bold text-re-text"
+                              placeholder="Enter your password..."
+                              className="w-full py-3 bg-transparent outline-none text-[13.5px] text-gray-900 placeholder:text-gray-300 font-normal"
                               required
                            />
                            <button
                               type="button"
                               onClick={() => setShowPassword(!showPassword)}
-                              className="text-re-text-muted/40 hover:text-re-orange mr-3 transition-colors"
+                              className="w-10 flex items-center justify-center shrink-0 text-gray-300 hover:text-amber-500 transition-colors"
+                              aria-label={showPassword ? 'Hide password' : 'Show password'}
                            >
-                              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                              {showPassword ? <EyeOff className="w-[15px] h-[15px]" /> : <Eye className="w-[15px] h-[15px]" />}
                            </button>
                         </div>
                      </div>
 
                      {/* Remember + forgot */}
-                     <div className="flex items-center justify-between gap-2">
+                     <div className="flex items-center justify-between gap-2 pt-1">
                         <label className="flex items-center gap-2 cursor-pointer select-none">
                            <input
                               type="checkbox"
                               checked={rememberMe}
                               onChange={e => setRememberMe(e.target.checked)}
-                              className="rounded border-black/20 text-re-orange focus:ring-re-orange"
+                              className="rounded border-gray-300 w-[15px] h-[15px] accent-amber-500"
                            />
-                           <span className="text-[10px] font-black text-re-text-muted uppercase tracking-wider">Remember me</span>
+                           <span className="text-[12.5px] font-medium text-gray-500">Remember me</span>
                         </label>
-                        <button type="button" className="text-[10px] font-black hover:underline uppercase tracking-wider shrink-0" style={{ color: '#FF8C00' }}>
+                        <button type="button" className="text-[12.5px] font-semibold text-amber-500 hover:opacity-70 shrink-0 whitespace-nowrap">
                            Forgot Password?
                         </button>
                      </div>
 
-                     {/* Submit — explicit inline style so it's always visible regardless of Tailwind resolution */}
+                     {/* Submit — amber gradient */}
                      <button
                         type="submit"
                         disabled={loading}
-                        className="w-full text-white py-3 text-xs rounded-2xl font-black transition-all disabled:opacity-60 flex justify-center items-center gap-2 group/btn uppercase tracking-widest"
+                        className="w-full text-white py-3.5 rounded-xl font-bold text-[13px] uppercase tracking-[0.13em] transition-all disabled:opacity-55 disabled:cursor-not-allowed flex justify-center items-center gap-2 group/btn relative overflow-hidden hover:-translate-y-0.5 hover:shadow-[0_8px_28px_rgba(245,158,11,0.4)] active:translate-y-0"
                         style={{
-                           background: 'linear-gradient(135deg, #FF8C00 0%, #FF5E00 100%)',
-                           boxShadow: '0 4px 15px rgba(255,140,0,0.35)',
+                           background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
+                           boxShadow: '0 4px 20px rgba(245,158,11,0.35), 0 1px 4px rgba(217,119,6,0.25)',
                         }}
                      >
                         {loading ? (
@@ -262,11 +251,6 @@ const Login = () => {
         }
         .login-shake { animation: loginShake 0.4s ease-in-out; }
 
-        @keyframes loginFadePulse {
-          0%, 100% { opacity: 0.5; transform: translateY(2px); }
-          50%       { opacity: 1;   transform: translateY(0px); }
-        }
-        .login-fade-pulse { animation: loginFadePulse 4s ease-in-out infinite; }
       `}</style>
       </div>
    );
