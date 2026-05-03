@@ -116,11 +116,9 @@ const Dashboard = () => {
 
         <div className="relative z-10 max-w-4xl">
           <h1 className="text-2xl md:text-3xl font-black tracking-tight mb-2">
-            Welcome, {teacher?.first_name || 'Team'} 👋
+            Welcome, {teacher?.first_name || 'Team'} 
           </h1>
-          <p className="text-sm md:text-base font-bold opacity-90 max-w-2xl">
-            {PORTAL.brandLine} — align behaviour with attendance, timetables, and marks in one workspace.
-          </p>
+         
         </div>
       </section>
 

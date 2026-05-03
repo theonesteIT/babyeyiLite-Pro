@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Bell, CalendarDays, CheckCheck, CreditCard, FileText,
   GraduationCap, KeyRound, LayoutDashboard, LogOut,
-  MessageSquare, Moon, Paperclip, Reply, Send, Sun, Trash2,
+  Moon, Sun,
   UserCircle2, TrendingUp, Download, AlertTriangle, CheckCircle2,
   Clock, ChevronRight, X, Filter, BarChart3, Shield,
   Wallet, BookOpen, Award, Activity, ArrowUpRight,
@@ -11,7 +11,6 @@ import {
   ZapIcon, Star, Target,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import StudentChat from './studentChat';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5100';
 const TIMETABLE_DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
@@ -317,23 +316,8 @@ export default function StudentDashboard() {
   const [pwdSuccess, setPwdSuccess] = useState('');
   const [pwdForm,    setPwdForm]    = useState({ currentPassword:'', newPassword:'', confirmPassword:'' });
 
-  /* chat */
-  const [staff,         setStaff]         = useState([]);
-  const [threads,       setThreads]       = useState([]);
-  const [activeThreadId,setActiveThreadId]= useState(null);
-  const [messages,      setMessages]      = useState([]);
-  const [chatText,      setChatText]      = useState('');
-  const [replyTarget,   setReplyTarget]   = useState(null);
-  const [chatFile,      setChatFile]      = useState(null);
-  const [uploading,     setUploading]     = useState(false);
-  const [chatInfo,      setChatInfo]      = useState('');
-  const [chatError,     setChatError]     = useState('');
-  const [staffSearch,   setStaffSearch]   = useState('');
   const [timetableSelDay, setTimetableSelDay] = useState(() => new Date().toLocaleDateString('en-GB', { weekday:'long' }));
   const [timetableViewMode, setTimetableViewMode] = useState('day');
-  const msgEndRef = useRef(null);
-
-  const activeThread = useMemo(() => threads.find(t => Number(t.id) === Number(activeThreadId)) || null, [threads, activeThreadId]);
   const user         = auth.user || {};
   const mustChange   = !!user?.force_password_change;
   const currentNow   = new Date();
@@ -405,42 +389,6 @@ export default function StudentDashboard() {
     })();
   }, [auth.loading, auth.isLoggedIn, year, term]);
 
-  /* ── scroll messages to bottom ── */
-  useEffect(() => { msgEndRef.current?.scrollIntoView({ behavior:'smooth' }); }, [messages]);
-
-  /* ── chat load ── */
-  useEffect(() => {
-    if (page !== 'chat') return;
-    (async () => {
-      setChatError('');
-      try {
-        const schoolId = Number(dash.profile?.school_id || user?.school_id || user?.school?.id || 0);
-        if (!schoolId) return;
-        const [sr, tr] = await Promise.all([
-          apiGet('/api/chat/staff', { school_id: schoolId }),
-          apiGet('/api/chat/threads', { school_id: schoolId }),
-        ]);
-        setStaff(Array.isArray(sr.data) ? sr.data : []);
-        const ts = Array.isArray(tr.data) ? tr.data : [];
-        setThreads(ts);
-        if (ts.length && !activeThreadId) setActiveThreadId(Number(ts[0].id));
-      } catch(e) { setChatError(e.message||'Chat unavailable'); }
-    })();
-  }, [page]);
-
-  /* ── load messages ── */
-  useEffect(() => {
-    if (page !== 'chat' || !activeThreadId) return;
-    (async () => {
-      try {
-        const schoolId = Number(dash.profile?.school_id || user?.school_id || user?.school?.id || 0);
-        if (!schoolId) return;
-        const res = await apiGet(`/api/chat/threads/${activeThreadId}/messages`, { school_id: schoolId });
-        setMessages(Array.isArray(res.data) ? res.data : []);
-      } catch { setMessages([]); }
-    })();
-  }, [page, activeThreadId]);
-
   const logout = async () => { await auth.logout(); navigate('/online-service', { replace:true }); };
 
   const changePwd = async (e) => {
@@ -462,64 +410,6 @@ export default function StudentDashboard() {
     } catch { setPwdError('Cannot reach server.'); } finally { setPwdLoading(false); }
   };
 
-  const sendChat = async () => {
-    setChatError(''); setChatInfo('');
-    const schoolId = Number(dash.profile?.school_id || user?.school_id || user?.school?.id || 0);
-    if (!schoolId || !activeThreadId || (!chatText.trim() && !chatFile)) return;
-    try {
-      let attachment = null;
-      if (chatFile) {
-        setUploading(true);
-        const fd = new FormData(); fd.append('file', chatFile);
-        const ur = await fetch(`${API}/api/chat/uploads`, { method:'POST', credentials:'include', body:fd });
-        const uj = await ur.json().catch(() => ({}));
-        setUploading(false);
-        if (!ur.ok || !uj.success) throw new Error(uj.message||'Upload failed');
-        attachment = uj.data?.url || null;
-      }
-      const sr = await fetch(`${API}/api/chat/threads/${activeThreadId}/messages?school_id=${schoolId}`, {
-        method:'POST', credentials:'include',
-        headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify({ school_id:schoolId, body:chatText.trim(), attachment_url:attachment, reply_to_message_id: replyTarget?.id||null }),
-      });
-      const sj = await sr.json().catch(() => ({}));
-      if (!sr.ok || !sj.success) throw new Error(sj.message||'Failed to send');
-      setChatText(''); setReplyTarget(null); setChatFile(null);
-      const mr = await apiGet(`/api/chat/threads/${activeThreadId}/messages`, { school_id:schoolId });
-      setMessages(Array.isArray(mr.data) ? mr.data : []);
-      const tr = await apiGet('/api/chat/threads', { school_id:schoolId });
-      setThreads(Array.isArray(tr.data) ? tr.data : []);
-      setChatInfo('Message sent.');
-    } catch(e) { setUploading(false); setChatError(e.message||'Send failed'); }
-  };
-
-  const deleteThread = async (id) => {
-    const schoolId = Number(dash.profile?.school_id || user?.school_id || user?.school?.id || 0);
-    try {
-      await fetch(`${API}/api/chat/threads/${id}?school_id=${schoolId}`, { method:'DELETE', credentials:'include' });
-      const tr = await apiGet('/api/chat/threads', { school_id:schoolId });
-      const ts = Array.isArray(tr.data) ? tr.data : [];
-      setThreads(ts);
-      if (Number(activeThreadId) === Number(id)) setActiveThreadId(ts[0]?.id ? Number(ts[0].id) : null);
-    } catch {}
-  };
-
-  const createThread = async (staffId) => {
-    const schoolId = Number(dash.profile?.school_id || user?.school_id || user?.school?.id || 0);
-    try {
-      const res = await fetch(`${API}/api/chat/threads`, {
-        method:'POST', credentials:'include',
-        headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify({ school_id:schoolId, participant_user_id:Number(staffId) }),
-      });
-      const j = await res.json().catch(() => ({}));
-      if (!res.ok || !j.success) throw new Error(j.message);
-      setActiveThreadId(Number(j.data?.thread_id||0)||null);
-      const tr = await apiGet('/api/chat/threads', { school_id:schoolId });
-      setThreads(Array.isArray(tr.data) ? tr.data : []);
-    } catch(e) { setChatError(e.message||'Could not open chat'); }
-  };
-
   /* ── derived stats ── */
   const feesPct      = dash.fees.total_due > 0 ? Math.round((dash.fees.total_paid / dash.fees.total_due) * 100) : 0;
   const discScore    = Number(dash.discipline?.current_marks || 0);
@@ -536,16 +426,6 @@ export default function StudentDashboard() {
     return rows.map(r => Number(r.amount_paid||0));
   }, [dash.fees]);
 
-  const filteredStaff = useMemo(() => {
-    const q = staffSearch.trim().toLowerCase();
-    if (!q) return staff;
-    return staff.filter((s) => {
-      const fullName = `${s.first_name || ''} ${s.last_name || ''}`.trim().toLowerCase();
-      const role = String(s.role_code || '').toLowerCase().replace(/_/g, ' ');
-      return fullName.includes(q) || role.includes(q);
-    });
-  }, [staff, staffSearch]);
-
   /* ── nav items ── */
   const NAV = [
     { id:'dashboard',  label:'Dashboard',  Icon:LayoutDashboard },
@@ -554,7 +434,6 @@ export default function StudentDashboard() {
     { id:'discipline', label:'Discipline', Icon:Shield          },
     { id:'fees',       label:'Fees',       Icon:Wallet          },
     { id:'timetable',  label:'Timetable',  Icon:Calendar        },
-    { id:'chat',       label:'Chat',       Icon:MessageSquare   },
     { id:'profile',    label:'Profile',    Icon:UserCircle2     },
     { id:'security',   label:'Security',   Icon:KeyRound        },
   ];
@@ -1110,9 +989,6 @@ export default function StudentDashboard() {
     );
   };
 
-  /* ─────────────────── PAGE: CHAT ─────────────────── */
-  const PageChat = () => <StudentChat />;
-
   /* ─────────────────── PAGE: SECURITY ─────────────────── */
   const PageSecurity = () => (
     <Section title="Change Password" subtitle="Keep your account secure" icon={KeyRound} dark={dark}>
@@ -1140,7 +1016,6 @@ export default function StudentDashboard() {
     discipline: PageDiscipline(),
     fees:       PageFees(),
     timetable:  PageTimetable(),
-    chat:       PageChat(),
     profile:    PageProfile(),
     security:   PageSecurity(),
   };
@@ -1181,9 +1056,6 @@ export default function StudentDashboard() {
                 onMouseLeave={e => { if(page!==id){ e.currentTarget.style.background='transparent'; }}}>
                   <Icon size={16}/>
                   {label}
-                  {id==='chat' && dash.messages?.unread_count > 0 && (
-                    <span style={{ marginLeft:'auto', fontSize:9, background:B.amber, color:B.navy, borderRadius:999, padding:'1px 7px', fontWeight:900 }}>{dash.messages.unread_count}</span>
-                  )}
                 </button>
               ))}
             </nav>
@@ -1266,10 +1138,6 @@ export default function StudentDashboard() {
       {/* ─── MOBILE BOTTOM NAV ─── */}
       {mobile && (
         <>
-          <button onClick={() => setPage('chat')} style={{ position:'fixed', right:14, bottom:84, width:52, height:52, borderRadius:'50%', border:'none', background:B.navy, color:B.amber, display:'flex', alignItems:'center', justifyContent:'center', boxShadow:`0 8px 24px ${B.navy}80`, zIndex:60, cursor:'pointer' }}>
-            <MessageSquare size={20}/>
-            {dash.messages?.unread_count > 0 && <span style={{ position:'absolute', top:-2, right:-2, width:16, height:16, borderRadius:'50%', background:B.amber, color:B.navy, fontSize:8, fontWeight:900, display:'flex', alignItems:'center', justifyContent:'center' }}>{dash.messages.unread_count}</span>}
-          </button>
           <div style={{ position:'fixed', left:0, right:0, bottom:0, background: dark?'rgba(6,13,36,0.98)':'rgba(255,255,255,0.98)', borderTop:`1px solid ${panelBdr}`, display:'grid', gridTemplateColumns:'repeat(5,1fr)', padding:'6px 8px', paddingBottom:`calc(6px + env(safe-area-inset-bottom, 0px))`, gap:4, zIndex:55, backdropFilter:'blur(12px)' }}>
             {MOB_NAV.map(({ id, label, Icon }) => (
               <button key={id} onClick={() => setPage(id)} style={{ border:'none', background: page===id ? `${B.amber}18` : 'transparent', color: page===id ? B.amber : sub, borderRadius:12, minHeight:54, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:3, fontSize:10, fontWeight: page===id?900:600, cursor:'pointer', fontFamily:"'Montserrat',sans-serif", transition:'all 0.15s' }}>

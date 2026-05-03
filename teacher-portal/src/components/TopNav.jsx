@@ -95,6 +95,8 @@ const TopNav = ({ title, onMenuClick, showMenuButton = true }) => {
                     {(() => {
                         if (location.pathname === '/ticha-ai') return 'Ticha AI - Assistant Engine';
                         if (location.pathname === '/shule-avance') return 'Ticha Avance';
+                        if (location.pathname === '/ticha-deals/tracking') return 'Deal tracking';
+                        if (location.pathname === '/ticha-deals/pay') return 'Pay deal';
                         if (location.pathname.startsWith('/ticha-deals/') && location.hash === '#checkout') return 'Checkout Details';
                         return title || 'Dashboard';
                     })()}
@@ -130,9 +132,23 @@ const TopNav = ({ title, onMenuClick, showMenuButton = true }) => {
                 </div>
             </div>
 
-            {/* Right side */}
-            <div className={`flex items-center gap-2 shrink-0 transition-all duration-300 ease-in-out ${scrolled ? 'scale-95 origin-right' : 'scale-100 origin-right'} ${!isHome ? 'hidden md:flex' : 'flex'}`}>
+            {/* Right side — mobile always shows quick log out; md+ shows full controls */}
+            <div className={`flex items-center gap-1.5 sm:gap-2 shrink-0 transition-all duration-300 ease-in-out ${scrolled ? 'scale-95 origin-right' : 'scale-100 origin-right'}`}>
+                <button
+                    type="button"
+                    onClick={logout}
+                    className={`lg:hidden inline-flex items-center gap-1 rounded-full border px-2 py-1.5 text-[11px] font-bold tracking-tight transition-all active:scale-[0.98] shrink-0 ${
+                        isHome && !scrolled
+                            ? 'border-white/30 bg-white/15 text-white hover:bg-white/25'
+                            : 'border-slate-200/90 bg-white text-slate-700 shadow-sm hover:border-red-200 hover:bg-red-50 hover:text-red-600'
+                    }`}
+                    aria-label="Log out"
+                >
+                    <LogOut size={14} strokeWidth={2.5} className="shrink-0" />
+                    <span className="hidden min-[380px]:inline">Log out</span>
+                </button>
 
+                <div className={`flex items-center gap-1 sm:gap-2 ${!isHome ? 'hidden md:flex' : 'flex'}`}>
                 {/* Notification bell */}
                 <button className={`relative p-2 rounded-xl transition-all group ${iconThemeCls}`}>
                     <Bell size={17} />
@@ -218,6 +234,7 @@ const TopNav = ({ title, onMenuClick, showMenuButton = true }) => {
                             </div>
                         </div>
                     )}
+                </div>
                 </div>
             </div>
         </header>

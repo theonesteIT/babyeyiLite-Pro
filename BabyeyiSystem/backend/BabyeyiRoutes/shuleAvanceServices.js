@@ -1,6 +1,7 @@
 'use strict';
 
 const express = require('express');
+const crypto = require('crypto');
 const { promisePool } = require('../config/database');
 const fs = require('fs');
 const path = require('path');
@@ -667,6 +668,674 @@ router.delete('/shule-avance/admin/teacher-deal-products/:id', requireLoggedIn, 
   }
 });
 
+// ── Teacher Deal → main site MTN MoMo (payments.jsx bridge; public payload + execute) ──
+let teacherDealPayTokenReady = false;
+async function ensureTeacherDealPayTokensTable() {
+  if (teacherDealPayTokenReady) return;
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS shule_avance_teacher_deal_pay_tokens (
+      token VARCHAR(64) NOT NULL PRIMARY KEY,
+      payload_json LONGTEXT NOT NULL,
+      teacher_user_id INT UNSIGNED NOT NULL,
+      consumed TINYINT(1) NOT NULL DEFAULT 0,
+      expires_at DATETIME NOT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_expires (expires_at),
+      KEY idx_teacher (teacher_user_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+  teacherDealPayTokenReady = true;
+}
+
+function normalizeRwPhoneDeal(raw) {
+  let v = String(raw || '').trim().replace(/[\s\-()]/g, '');
+  if (v.startsWith('+250')) v = `0${v.slice(4)}`;
+  else if (v.startsWith('250') && v.length === 12) v = `0${v.slice(3)}`;
+  if (/^[27]\d{8}$/.test(v)) v = `0${v}`;
+  if (/^07[2389]\d{7}$/.test(v)) return v;
+  return null;
+}
+
+function toMsisdn250Deal(raw) {
+  const local = normalizeRwPhoneDeal(raw);
+  if (!local) return null;
+  return `250${local.slice(1)}`;
+}
+
+/** Map MTN GET requesttopay status to success / fail / still waiting (202 RTP is only "prompt sent"). */
+function classifyTeacherDealMtnStatus(stData, mtnMomo) {
+  if (stData && stData.mtnNotFound) {
+    return { kind: 'pending', providerStatus: 'PENDING' };
+  }
+  const raw = mtnMomo.mapMtnStatusToUpper(stData && stData.status);
+  const s = String(raw || '').toUpperCase();
+  if (['SUCCESSFUL', 'SUCCESS', 'COMPLETED'].includes(s)) {
+    return { kind: 'ok', providerStatus: s };
+  }
+  if (['FAILED', 'REJECTED', 'CANCELLED'].includes(s)) {
+    return { kind: 'fail', providerStatus: s };
+  }
+  return { kind: 'pending', providerStatus: s || 'PENDING' };
+}
+
+function stripTeacherDealMtnPendingFields(payload) {
+  const p = { ...payload };
+  delete p.mtn_pending_reference_id;
+  delete p.mtn_pending_external_id;
+  delete p.mtn_pending_started_at;
+  return p;
+}
+
+router.get('/shule-avance/public/teacher-deal-pay-payload', async (req, res) => {
+  try {
+    await ensureTeacherDealPayTokensTable();
+    const token = String(req.query.token || '').trim();
+    if (!token) return res.status(400).json({ success: false, message: 'token is required' });
+    const [[row]] = await promisePool.query(
+      `SELECT payload_json, consumed, expires_at FROM shule_avance_teacher_deal_pay_tokens WHERE token = ?`,
+      [token]
+    );
+    if (!row) return res.status(404).json({ success: false, message: 'Invalid or expired link' });
+    if (new Date(row.expires_at) < new Date()) {
+      return res.status(410).json({ success: false, message: 'This payment link has expired' });
+    }
+    let payload;
+    try {
+      payload = JSON.parse(row.payload_json);
+    } catch {
+      return res.status(500).json({ success: false, message: 'Invalid payment data' });
+    }
+    return res.json({ success: true, data: payload });
+  } catch (error) {
+    console.error('[teacher-deal-pay-payload]', error.message);
+    res.status(500).json({ success: false, message: 'Could not load payment' });
+  }
+});
+
+let teacherDealAltIntentReady = false;
+async function ensureTeacherDealAltIntentsTable() {
+  if (teacherDealAltIntentReady) return;
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS shule_avance_teacher_deal_pay_alt_intents (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      token VARCHAR(64) NOT NULL,
+      channel VARCHAR(32) NOT NULL,
+      payload_json LONGTEXT NOT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_token (token),
+      KEY idx_created (created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+  teacherDealAltIntentReady = true;
+}
+
+/** Non-MTN channels: records payer intent (bank / visa / airtel follow-up) without consuming the pay token */
+router.post('/shule-avance/public/teacher-deal-pay-alt-intent', async (req, res) => {
+  try {
+    await ensureTeacherDealPayTokensTable();
+    await ensureTeacherDealAltIntentsTable();
+    const token = String(req.body.token || '').trim();
+    const channel = String(req.body.channel || '').trim().toLowerCase();
+    const allowed = ['airtel_money', 'bank_transfer', 'visa_card'];
+    if (!token || !allowed.includes(channel)) {
+      return res.status(400).json({
+        success: false,
+        message: 'token and channel (airtel_money | bank_transfer | visa_card) are required',
+      });
+    }
+    const [[row]] = await promisePool.query(
+      `SELECT expires_at, consumed FROM shule_avance_teacher_deal_pay_tokens WHERE token = ?`,
+      [token]
+    );
+    if (!row) return res.status(404).json({ success: false, message: 'Invalid payment token' });
+    if (new Date(row.expires_at) < new Date()) {
+      return res.status(410).json({ success: false, message: 'This payment link has expired' });
+    }
+    if (Number(row.consumed)) {
+      return res.status(409).json({
+        success: false,
+        message: 'This session was already used for an MTN payment.',
+      });
+    }
+    const payload = {
+      ...req.body,
+      channel,
+      recorded_at: new Date().toISOString(),
+    };
+    await promisePool.query(
+      `INSERT INTO shule_avance_teacher_deal_pay_alt_intents (token, channel, payload_json) VALUES (?,?,?)`,
+      [token, channel, JSON.stringify(payload)]
+    );
+    return res.json({
+      success: true,
+      message: 'Preference recorded. Complete the steps shown for your chosen method.',
+    });
+  } catch (error) {
+    console.error('[teacher-deal-pay-alt-intent]', error.message);
+    res.status(500).json({ success: false, message: error.message || 'Failed to save' });
+  }
+});
+
+router.post('/shule-avance/public/teacher-deal-pay-momo', async (req, res) => {
+  let mtnMomo = null;
+  let mtnRequireErr = null;
+  try {
+    mtnMomo = require('./mtnMomoCollection');
+  } catch (e) {
+    mtnRequireErr = e;
+    console.error('[teacher-deal-pay-momo] require mtnMomoCollection failed:', e && e.message);
+  }
+  if (!mtnMomo || !mtnMomo.mtnMomoEnabled || !mtnMomo.mtnMomoEnabled()) {
+    const detail = mtnRequireErr
+      ? `Could not load MTN module: ${mtnRequireErr.message}`
+      : typeof mtnMomo?.mtnMomoDisabledReason === 'function'
+        ? mtnMomo.mtnMomoDisabledReason()
+        : '';
+    return res.status(503).json({
+      success: false,
+      message: 'Mobile Money collection is not available right now.',
+      detail:
+        detail ||
+        'Set MTN_MOMO_SUBSCRIPTION_KEY, MTN_MOMO_API_USER, MTN_MOMO_API_KEY on the API server (same as main Babyeyi payments page).',
+    });
+  }
+  try {
+    await ensureTeacherDealPayTokensTable();
+    const token = String(req.body.token || '').trim();
+    const momoPhoneRaw = String(req.body.momo_phone || '').trim();
+    const msisdn = toMsisdn250Deal(momoPhoneRaw);
+    if (!token || !msisdn) {
+      return res.status(400).json({ success: false, message: 'Valid payment token and MTN Rwanda phone are required' });
+    }
+
+    const conn = await promisePool.getConnection();
+    try {
+      await conn.beginTransaction();
+      const [[row]] = await conn.query(
+        `SELECT payload_json, consumed, expires_at FROM shule_avance_teacher_deal_pay_tokens WHERE token = ? LIMIT 1`,
+        [token]
+      );
+      if (!row) {
+        await conn.rollback();
+        return res.status(404).json({ success: false, message: 'Invalid payment token' });
+      }
+      if (new Date(row.expires_at) < new Date()) {
+        await conn.rollback();
+        return res.status(410).json({ success: false, message: 'This payment link has expired' });
+      }
+      let payload;
+      try {
+        payload = JSON.parse(row.payload_json);
+      } catch {
+        await conn.rollback();
+        return res.status(500).json({ success: false, message: 'Invalid payment data' });
+      }
+
+      const amount = Math.round(Number(payload.amount_rwf));
+      if (!amount || amount < 100) {
+        await conn.rollback();
+        return res.status(400).json({ success: false, message: 'Invalid amount' });
+      }
+
+      if (Number(row.consumed)) {
+        await conn.rollback();
+        return res.status(409).json({ success: false, message: 'This payment session was already completed' });
+      }
+
+      // Idempotent: same session may re-hit POST while MTN RTP is still pending on the phone
+      if (payload.mtn_pending_reference_id) {
+        let stData;
+        try {
+          stData = await mtnMomo.getRequestToPayStatus(payload.mtn_pending_reference_id);
+        } catch (gateErr) {
+          await conn.rollback();
+          return res.json({
+            success: true,
+            data: {
+              phase: 'awaiting_device',
+              mtn_status: 'PENDING',
+              mtn_reference_id: payload.mtn_pending_reference_id,
+              order_number: payload.mtn_pending_external_id,
+              amount_rwf: amount,
+              status_check_deferred: true,
+              message:
+                'Could not refresh payment status yet. Approve the MTN MoMo prompt on your phone if you still see it.',
+            },
+          });
+        }
+
+        const cls = classifyTeacherDealMtnStatus(stData, mtnMomo);
+        if (cls.kind === 'ok') {
+          const orderNumber = String(payload.mtn_pending_external_id || '').trim();
+          const clean = stripTeacherDealMtnPendingFields(payload);
+          await conn.query(
+            `UPDATE shule_avance_teacher_deal_pay_tokens SET consumed = 1, payload_json = ? WHERE token = ?`,
+            [JSON.stringify(clean), token]
+          );
+          await conn.commit();
+          return res.json({
+            success: true,
+            data: {
+              phase: 'complete',
+              mtn_status: 'SUCCESSFUL',
+              order_number: orderNumber,
+              amount_rwf: amount,
+              message: 'Payment successful.',
+            },
+          });
+        }
+        if (cls.kind === 'pending') {
+          await conn.rollback();
+          return res.json({
+            success: true,
+            data: {
+              phase: 'awaiting_device',
+              mtn_status: 'PENDING',
+              mtn_reference_id: payload.mtn_pending_reference_id,
+              order_number: payload.mtn_pending_external_id,
+              amount_rwf: amount,
+              message: 'Request sent to your phone. Approve the MTN MoMo prompt to complete payment.',
+            },
+          });
+        }
+        // Failed / rejected on device — clear pending so a new RTP can be created
+        payload = stripTeacherDealMtnPendingFields(payload);
+        await conn.query(
+          `UPDATE shule_avance_teacher_deal_pay_tokens SET payload_json = ? WHERE token = ?`,
+          [JSON.stringify(payload), token]
+        );
+      }
+
+      const externalId = `td-${token.slice(0, 10)}-${Date.now()}`.slice(0, 64);
+      const mtn = await mtnMomo.requestToPay({
+        amount,
+        currency: 'RWF',
+        externalId,
+        msisdn250: msisdn,
+        payerMessage: String(payload.product_name || 'Teacher deal').slice(0, 80),
+        payeeNote: `Teacher deal - ${String(payload.payer_name || '').slice(0, 60)}`,
+      });
+
+      const refId = mtn.referenceId;
+      const nextPayload = {
+        ...payload,
+        mtn_pending_reference_id: refId,
+        mtn_pending_external_id: externalId,
+        mtn_pending_started_at: new Date().toISOString(),
+      };
+      await conn.query(
+        `UPDATE shule_avance_teacher_deal_pay_tokens SET payload_json = ? WHERE token = ?`,
+        [JSON.stringify(nextPayload), token]
+      );
+      await conn.commit();
+
+      return res.json({
+        success: true,
+        data: {
+          phase: 'awaiting_device',
+          mtn_status: 'PENDING',
+          mtn_reference_id: refId,
+          order_number: externalId,
+          amount_rwf: amount,
+          message: 'Request sent to your phone. Approve the MTN MoMo prompt to complete payment.',
+        },
+      });
+    } catch (e) {
+      await conn.rollback();
+      throw e;
+    } finally {
+      conn.release();
+    }
+  } catch (error) {
+    const mtnStatus = error.mtnStatus;
+    const mtnBody = error.mtnBody;
+    console.error('[teacher-deal-pay-momo]', error.message, mtnStatus != null ? `(MTN HTTP ${mtnStatus})` : '', mtnBody || '');
+
+    let detail = '';
+    if (mtnBody != null && typeof mtnBody === 'object') {
+      try {
+        detail = JSON.stringify(mtnBody).slice(0, 600);
+      } catch (_) {
+        detail = '';
+      }
+    } else if (typeof mtnBody === 'string') {
+      detail = mtnBody.slice(0, 600);
+    }
+
+    const body = {
+      success: false,
+      message: error.message || 'Payment failed',
+      ...(detail ? { detail } : {}),
+    };
+    // MoMo API returned 4xx/5xx — surface as 502 so clients know upstream payment provider failed
+    if (mtnStatus >= 400 && mtnStatus < 600) {
+      return res.status(502).json(body);
+    }
+    res.status(500).json(body);
+  }
+});
+
+/** Poll MTN until the customer approves — token stays unconsumed until SUCCESSFUL. */
+router.post('/shule-avance/public/teacher-deal-pay-momo-status', async (req, res) => {
+  let mtnMomo = null;
+  try {
+    mtnMomo = require('./mtnMomoCollection');
+  } catch (e) {
+    console.error('[teacher-deal-pay-momo-status] require mtnMomoCollection failed:', e && e.message);
+  }
+  if (!mtnMomo || !mtnMomo.mtnMomoEnabled || !mtnMomo.mtnMomoEnabled()) {
+    return res.status(503).json({
+      success: false,
+      message: 'Mobile Money collection is not available right now.',
+      detail: typeof mtnMomo?.mtnMomoDisabledReason === 'function' ? mtnMomo.mtnMomoDisabledReason() : '',
+    });
+  }
+  try {
+    await ensureTeacherDealPayTokensTable();
+    const token = String(req.body.token || '').trim();
+    const referenceId = String(req.body.reference_id || '').trim().toLowerCase();
+    if (!token || !referenceId) {
+      return res.status(400).json({ success: false, message: 'token and reference_id are required' });
+    }
+
+    const [[row]] = await promisePool.query(
+      `SELECT payload_json, consumed, expires_at FROM shule_avance_teacher_deal_pay_tokens WHERE token = ? LIMIT 1`,
+      [token]
+    );
+    if (!row) {
+      return res.status(404).json({ success: false, message: 'Invalid payment token' });
+    }
+    if (new Date(row.expires_at) < new Date()) {
+      return res.status(410).json({ success: false, message: 'This payment link has expired' });
+    }
+
+    let payload;
+    try {
+      payload = JSON.parse(row.payload_json);
+    } catch {
+      return res.status(500).json({ success: false, message: 'Invalid payment data' });
+    }
+
+    const expected = String(payload.mtn_pending_reference_id || '').trim().toLowerCase();
+    if (!expected || expected !== referenceId) {
+      return res.status(403).json({ success: false, message: 'Invalid reference for this payment session' });
+    }
+
+    const amount = Math.round(Number(payload.amount_rwf));
+    const orderNumber = String(payload.mtn_pending_external_id || '').trim();
+
+    if (Number(row.consumed)) {
+      return res.json({
+        success: true,
+        data: {
+          phase: 'complete',
+          mtn_status: 'SUCCESSFUL',
+          already_finalized: true,
+          order_number: orderNumber,
+          amount_rwf: amount,
+          message: 'Payment already recorded.',
+        },
+      });
+    }
+
+    let stData;
+    try {
+      stData = await mtnMomo.getRequestToPayStatus(referenceId);
+    } catch (gateErr) {
+      const mtnStatus = gateErr.mtnStatus;
+      const msg = String(gateErr.message || '');
+      const transient =
+        !!gateErr.networkError
+        || mtnStatus === 429
+        || (mtnStatus >= 500 && mtnStatus < 600)
+        || /timeout|ECONNRESET|ENOTFOUND|ETIMEDOUT|ECONNREFUSED|socket/i.test(msg);
+      if (transient) {
+        return res.json({
+          success: true,
+          data: {
+            phase: 'awaiting_device',
+            mtn_status: 'PENDING',
+            status_check_deferred: true,
+            message: 'Could not reach MTN yet; payment may still complete on your phone.',
+          },
+        });
+      }
+      return res.status(502).json({
+        success: false,
+        message: gateErr.message || 'MTN status check failed',
+      });
+    }
+
+    const cls = classifyTeacherDealMtnStatus(stData, mtnMomo);
+    if (cls.kind === 'ok') {
+      const clean = stripTeacherDealMtnPendingFields(payload);
+      await promisePool.query(
+        `UPDATE shule_avance_teacher_deal_pay_tokens SET consumed = 1, payload_json = ? WHERE token = ?`,
+        [JSON.stringify(clean), token]
+      );
+      return res.json({
+        success: true,
+        data: {
+          phase: 'complete',
+          mtn_status: 'SUCCESSFUL',
+          order_number: orderNumber,
+          amount_rwf: amount,
+          message: 'Payment successful.',
+        },
+      });
+    }
+
+    if (cls.kind === 'fail') {
+      const clean = stripTeacherDealMtnPendingFields(payload);
+      await promisePool.query(
+        `UPDATE shule_avance_teacher_deal_pay_tokens SET payload_json = ? WHERE token = ?`,
+        [JSON.stringify(clean), token]
+      );
+      return res.json({
+        success: true,
+        data: {
+          phase: 'failed',
+          mtn_status: cls.providerStatus,
+          payment_failed: true,
+          order_number: orderNumber,
+          message: 'This payment was declined or cancelled on the phone. You can try again.',
+        },
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        phase: 'awaiting_device',
+        mtn_status: 'PENDING',
+        message: 'Waiting for approval on your phone.',
+      },
+    });
+  } catch (error) {
+    console.error('[teacher-deal-pay-momo-status]', error.message);
+    res.status(500).json({ success: false, message: error.message || 'Status check failed' });
+  }
+});
+
+const TEACHER_DEAL_PORTAL_ROLES = ['SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER', 'AGENT'];
+
+function requireTeacherDealPortal(req, res, next) {
+  const userId = resolveUserId(req);
+  if (!userId) {
+    return res.status(401).json({ success: false, message: 'Not authenticated' });
+  }
+  const rc = toRoleCode(req);
+  if (!TEACHER_DEAL_PORTAL_ROLES.includes(rc)) {
+    return res.status(403).json({ success: false, message: 'Forbidden' });
+  }
+  req.teacherDealPortal = { userId, roleCode: rc };
+  next();
+}
+
+function parseJsonSafe(s, fallback = {}) {
+  try {
+    return typeof s === 'string' ? JSON.parse(s) : s && typeof s === 'object' ? s : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function teacherDealPayloadMatchesAgent(payload, agentRow) {
+  if (!agentRow) return false;
+  const prov = String(payload.province || '').trim();
+  const dist = String(payload.district || '').trim();
+  const sec = String(payload.sector || '').trim();
+  if (!prov || !dist) return false;
+  if (String(agentRow.province || '').trim() !== prov || String(agentRow.district || '').trim() !== dist) {
+    return false;
+  }
+  if (Number(agentRow.all_sectors) === 1) return true;
+  let sectors = [];
+  try {
+    sectors =
+      typeof agentRow.sectors_json === 'string'
+        ? JSON.parse(agentRow.sectors_json || '[]')
+        : agentRow.sectors_json || [];
+  } catch {
+    sectors = [];
+  }
+  if (!Array.isArray(sectors)) sectors = [];
+  if (!sec) return true;
+  return sectors.map((x) => String(x).trim()).includes(sec);
+}
+
+/**
+ * Super Admin / Full Controller: all teacher-deal pay sessions & alt-payment intents.
+ * Agent: same rows filtered by province/district (+ optional sector) vs agent profile.
+ */
+router.get('/shule-avance/portal/teacher-deal-payment-requests', requireTeacherDealPortal, async (req, res) => {
+  try {
+    await ensureTeacherDealPayTokensTable();
+    await ensureTeacherDealAltIntentsTable();
+
+    const { userId, roleCode } = req.teacherDealPortal || {};
+    let agentProfile = null;
+    if (roleCode === 'AGENT') {
+      const [[row]] = await promisePool.query(
+        `SELECT province, district, all_sectors, sectors_json
+         FROM field_agent_profiles WHERE user_id = ? LIMIT 1`,
+        [userId]
+      );
+      agentProfile = row || null;
+    }
+
+    const [tokenRows] = await promisePool.query(
+      `SELECT token, payload_json, teacher_user_id, consumed, expires_at, created_at
+       FROM shule_avance_teacher_deal_pay_tokens
+       ORDER BY created_at DESC
+       LIMIT 400`
+    );
+
+    const [intentRows] = await promisePool.query(
+      `SELECT id, token, channel, payload_json, created_at
+       FROM shule_avance_teacher_deal_pay_alt_intents
+       ORDER BY created_at DESC
+       LIMIT 400`
+    );
+
+    const teacherIds = [...new Set(tokenRows.map((r) => Number(r.teacher_user_id)).filter(Boolean))];
+    let teacherMap = {};
+    if (teacherIds.length) {
+      const [uRows] = await promisePool.query(
+        `SELECT id, first_name, last_name, email FROM users WHERE id IN (${teacherIds.map(() => '?').join(',')})`,
+        teacherIds
+      );
+      teacherMap = Object.fromEntries(
+        uRows.map((u) => [
+          u.id,
+          {
+            id: u.id,
+            name: `${u.first_name || ''} ${u.last_name || ''}`.trim(),
+            email: u.email || null,
+          },
+        ])
+      );
+    }
+
+    const schoolIds = [];
+    for (const r of tokenRows) {
+      const p = parseJsonSafe(r.payload_json);
+      if (p.school_id) schoolIds.push(Number(p.school_id));
+    }
+    const uniqSchools = [...new Set(schoolIds.filter(Boolean))];
+    let schoolMap = {};
+    if (uniqSchools.length) {
+      const [sRows] = await promisePool.query(
+        `SELECT id, school_name FROM schools WHERE id IN (${uniqSchools.map(() => '?').join(',')})`,
+        uniqSchools
+      );
+      schoolMap = Object.fromEntries(sRows.map((s) => [s.id, s.school_name]));
+    }
+
+    const out = [];
+
+    for (const r of tokenRows) {
+      const p = parseJsonSafe(r.payload_json);
+      const row = {
+        kind: 'pay_session',
+        token: r.token,
+        created_at: r.created_at,
+        expires_at: r.expires_at,
+        consumed: !!Number(r.consumed),
+        amount_rwf: p.amount_rwf != null ? Number(p.amount_rwf) : null,
+        product_name: p.product_name || null,
+        deal_product_id: p.deal_product_id || null,
+        payer_name: p.payer_name || null,
+        payer_phone: p.payer_phone || p.payer_msisdn || null,
+        province: p.province || null,
+        district: p.district || null,
+        sector: p.sector || null,
+        delivery_method: p.delivery_method || null,
+        agent_user_id: p.agent_user_id || null,
+        school_id: p.school_id || null,
+        school_name: p.school_id ? schoolMap[Number(p.school_id)] || null : null,
+        teacher: teacherMap[r.teacher_user_id] || null,
+        mtn_status: p.mtn_status || p.mtn_last_status || null,
+      };
+      if (roleCode === 'AGENT') {
+        if (!agentProfile || !teacherDealPayloadMatchesAgent(p, agentProfile)) continue;
+      }
+      out.push(row);
+    }
+
+    for (const r of intentRows) {
+      const p = parseJsonSafe(r.payload_json);
+      const row = {
+        kind: 'payment_intent',
+        intent_id: r.id,
+        channel: r.channel || p.channel || null,
+        token: r.token,
+        created_at: r.created_at,
+        payer_hint: p.account_holder || p.phone || p.cardholder || null,
+        bank_name: p.bank_name || null,
+        bank_code: p.bank_code || null,
+        babyeyi_account_number: p.babyeyi_account_number || null,
+        province: p.province || null,
+        district: p.district || null,
+        sector: p.sector || null,
+        transfer_note: p.transfer_note || null,
+        bank_reference: p.bank_reference || null,
+      };
+      if (roleCode === 'AGENT') {
+        if (!agentProfile || !teacherDealPayloadMatchesAgent(p, agentProfile)) continue;
+      }
+      out.push(row);
+    }
+
+    out.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+    return res.json({ success: true, data: out });
+  } catch (error) {
+    console.error('[teacher-deal-payment-requests]', error.message);
+    res.status(500).json({ success: false, message: error.message || 'Failed to load requests' });
+  }
+});
+
 router.use(authGuard);
 router.use(async (_req, res, next) => {
   try {
@@ -688,6 +1357,91 @@ router.get('/shule-avance/teacher/my-requests', requireRole(APPLICANT_ROLES), ha
 router.post('/shule-avance/teacher/requests', requireRole(APPLICANT_ROLES), handleApplicantCreate);
 router.put('/shule-avance/teacher/requests/:id', requireRole(APPLICANT_ROLES), handleApplicantUpdate);
 router.delete('/shule-avance/teacher/requests/:id', requireRole(APPLICANT_ROLES), handleApplicantDelete);
+
+/** Creates a one-time token; teacher portal redirects to main app /payments?tdt=... */
+router.post('/shule-avance/applicant/teacher-deal-pay-token', requireRole(APPLICANT_ROLES), async (req, res) => {
+  try {
+    await ensureTeacherDealPayTokensTable();
+    const body = req.body || {};
+    const dealProductId = parseInt(body.deal_product_id, 10);
+    const qty = Math.max(1, parseInt(body.quantity, 10) || 1);
+    const agentUserId = body.agent_user_id != null ? parseInt(body.agent_user_id, 10) : null;
+    const payerName = String(body.payer_name || '').trim();
+    const payerPhone = String(body.payer_phone || '').trim();
+    const province = String(body.province || '').trim();
+    const district = String(body.district || '').trim();
+    const sector = String(body.sector || '').trim();
+    const deliveryMethod = String(body.delivery_method || '').trim();
+    const homeLocation = String(body.home_location || '').trim();
+    const village = String(body.village || '').trim();
+    const cell = String(body.cell || '').trim();
+    const streetNumber = String(body.street_number || '').trim();
+
+    if (!dealProductId || !payerName || !payerPhone) {
+      return res.status(400).json({ success: false, message: 'deal_product_id, payer_name, and payer_phone are required' });
+    }
+    const msisdn = toMsisdn250Deal(payerPhone);
+    if (!msisdn) {
+      return res.status(400).json({ success: false, message: 'Enter a valid Rwanda MTN number for the payer' });
+    }
+
+    const [[product]] = await promisePool.query(
+      `SELECT id, name, price_rwf, image_url FROM shule_avance_teacher_deal_products
+       WHERE id = ? AND deleted_at IS NULL AND is_active = 1 LIMIT 1`,
+      [dealProductId]
+    );
+    if (!product) {
+      return res.status(404).json({ success: false, message: 'Deal product not found' });
+    }
+
+    const amount_rwf = Math.round(Number(product.price_rwf) * qty);
+    if (amount_rwf < 100) {
+      return res.status(400).json({ success: false, message: 'Invalid amount' });
+    }
+
+    const token = crypto.randomBytes(24).toString('hex');
+    const expiresAt = new Date(Date.now() + 20 * 60 * 1000);
+
+    const payload = {
+      deal_product_id: dealProductId,
+      product_name: product.name,
+      quantity: qty,
+      amount_rwf,
+      image_url: product.image_url || null,
+      agent_user_id: Number.isFinite(agentUserId) ? agentUserId : null,
+      payer_name: payerName,
+      payer_phone: payerPhone,
+      payer_msisdn: msisdn,
+      province,
+      district,
+      sector,
+      delivery_method: deliveryMethod,
+      home_location: homeLocation || null,
+      village: village || null,
+      cell: cell || null,
+      street_number: streetNumber || null,
+      teacher_user_id: req.ctx.userId,
+      school_id: req.ctx.schoolId,
+    };
+
+    await promisePool.query(
+      `INSERT INTO shule_avance_teacher_deal_pay_tokens (token, payload_json, teacher_user_id, expires_at)
+       VALUES (?,?,?,?)`,
+      [token, JSON.stringify(payload), req.ctx.userId, expiresAt]
+    );
+
+    return res.json({
+      success: true,
+      data: {
+        token,
+        expires_at: expiresAt.toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error('[teacher-deal-pay-token]', error.message);
+    res.status(500).json({ success: false, message: 'Could not start payment session' });
+  }
+});
 
 // Accountant: finance queue (all school requests from staff)
 router.get('/shule-avance/finance/requests', requireRole(ROLE_ACCOUNTANT), async (req, res) => {

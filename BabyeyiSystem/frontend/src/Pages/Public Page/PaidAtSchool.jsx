@@ -326,7 +326,7 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
       .catch(e => { if (!cancelled) setPricingErr(e.message || "Failed to load fees"); })
       .finally(() => { if (!cancelled) setPricingLoading(false); });
     return () => { cancelled = true; };
-  }, [school?.id, selectedCombo?.babyeyi_id]);
+  }, [school?.id, selectedCombo?.babyeyi_id, includeRequirements]);
 
   useEffect(() => {
     if (includeRequirements) setPayScope("both");

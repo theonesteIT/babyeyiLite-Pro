@@ -5,7 +5,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Search, Send, Paperclip, Smile, Phone, Video,
   Info, X, Check, CheckCheck, Circle, MoreVertical, Pin,
@@ -16,7 +16,7 @@ import {
 import {
   getSessionMe, getThreads, getMessages, markRead, sendMessage,
   getStaff, createDirectThread,
-  uploadAttachment, socketUrl,
+  uploadAttachment, socketUrl, getChatSchools,
 } from "../services/chatApi";
 
 /* ─── helpers ────────────────────────────────────────────────── */
@@ -56,6 +56,25 @@ function lastSeenText(ts) {
   if (hrs < 24) return `Away · ${hrs}h ago`;
   const days = Math.floor(hrs / 24);
   return `Away · ${days}d ago`;
+}
+
+/** Whether this message was sent by the current session (student user, parent phone, or student proxy). */
+function messageIsFromMe(m, me) {
+  if (!m || !me) return false;
+  if (Number(m.sender_user_id) > 0 && Number(me.id) > 0 && Number(m.sender_user_id) === Number(me.id)) {
+    return true;
+  }
+  if (String(m.sender_type || "").toUpperCase() === "PARENT") {
+    const sp = String(m.sender_parent_phone || "").trim();
+    if (!sp) return false;
+    if (sp.toLowerCase().startsWith("student:")) {
+      const sid = Number(sp.split(":")[1] || 0);
+      return sid > 0 && Number(me.student_id || 0) === sid;
+    }
+    const phones = [me.parent_phone, me.phone].filter(Boolean).map((p) => String(p).trim());
+    return phones.some((p) => p === sp);
+  }
+  return false;
 }
 
 /* ─── Avatar ─────────────────────────────────────────────────── */
@@ -223,10 +242,13 @@ function MessageBubble({ m, mine, showSender, prevMine, onReply }) {
 /* ═══════════════════════════════════════════════════════════════
    MAIN COMPONENT
 ═══════════════════════════════════════════════════════════════ */
-export default function StudentChat() {
+export default function StudentChat({
+  dashboardBackPath = "/online-service/dashboard",
+  audienceSubtitle = "Stay connected with your teachers",
+} = {}) {
   const navigate = useNavigate();
-  const location = useLocation();
   const [me, setMe] = useState(null);
+  const [chatSessionLoading, setChatSessionLoading] = useState(true);
   const [threads, setThreads] = useState([]);
   const [activeThread, setActiveThread] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -249,17 +271,35 @@ export default function StudentChat() {
   const [mobileView, setMobileView] = useState("list"); // list | chat
   const msgListRef = useRef(null);
   const socketRef = useRef(null);
-  const schoolId = me?.school_id || me?.schoolId || 1;
+  const [resolvedSchoolId, setResolvedSchoolId] = useState(null);
 
-  const dashPath = useMemo(() => {
-    const p = String(location.pathname || "").replace(/\/+$/, "");
-    if (p.endsWith("/chat")) return p.slice(0, -5) || "/student";
-    return "/student";
-  }, [location.pathname]);
+  const schoolId = resolvedSchoolId || Number(me?.school_id || me?.schoolId || 0) || null;
 
-  /* load session */
+  const dashPath = dashboardBackPath;
+
+  /* load session + school (parents may not have school_id on session; use /chat/schools) */
   useEffect(() => {
-    getSessionMe().then(setMe).catch(() => {});
+    let cancelled = false;
+    (async () => {
+      try {
+        const m = await getSessionMe();
+        if (cancelled) return;
+        setMe(m);
+        let sid = Number(m?.school_id || m?.schoolId || 0);
+        if (!sid) {
+          const schools = await getChatSchools().catch(() => []);
+          sid = Number(schools[0]?.id || 0);
+        }
+        if (!cancelled && sid) setResolvedSchoolId(sid);
+      } catch {
+        if (!cancelled) setMe(null);
+      } finally {
+        if (!cancelled) setChatSessionLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const refreshThreads = useCallback(async () => {
@@ -450,7 +490,7 @@ export default function StudentChat() {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-xl font-black text-[#000435]">Chat</h2>
-            <p className="text-xs text-slate-500 font-medium">Stay connected with your teachers</p>
+            <p className="text-xs text-slate-500 font-medium">{audienceSubtitle}</p>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => setDark(d => !d)} className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600 hover:bg-slate-200 transition">
@@ -589,9 +629,7 @@ export default function StudentChat() {
             {(() => {
               let prevDay = "", prevMine = null, prevSender = null;
               return messages.map((m, i) => {
-                const mine = m.sender_type !== "PARENT" && Number(m.sender_user_id) !== Number(me?.id)
-                  ? false
-                  : m.sender_type === "PARENT" || Number(m.sender_user_id) === Number(me?.id);
+                const mine = messageIsFromMe(m, me);
                 const dayLabel = formatDayLabel(m.created_at);
                 const showDay = dayLabel !== prevDay;
                 const showSender = !mine && m.sender_name !== prevSender;
@@ -722,6 +760,34 @@ export default function StudentChat() {
       </div>
     </div>
   );
+
+  if (chatSessionLoading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#f1f4fb] gap-3" style={{ fontFamily: "'Plus Jakarta Sans', 'Segoe UI', sans-serif" }}>
+        <div className="w-10 h-10 border-2 border-[#000435] border-t-transparent rounded-full animate-spin" />
+        <p className="text-sm font-semibold text-slate-600">Loading messages…</p>
+      </div>
+    );
+  }
+
+  if (!schoolId) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#f1f4fb] p-6 text-center" style={{ fontFamily: "'Plus Jakarta Sans', 'Segoe UI', sans-serif" }}>
+        <MessageSquare className="w-14 h-14 text-slate-300 mb-2" />
+        <p className="text-lg font-black text-[#000435]">No school linked for chat</p>
+        <p className="text-sm text-slate-500 mt-2 max-w-md">
+          We could not match your account to a school. Add your child in Parent portal or ensure your phone matches the school record.
+        </p>
+        <button
+          type="button"
+          onClick={() => navigate(dashPath)}
+          className="mt-6 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#000435] text-white text-sm font-bold"
+        >
+          <ArrowLeft size={14} /> Back
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen flex flex-col bg-[#f1f4fb]" style={{ fontFamily: "'Plus Jakarta Sans', 'Segoe UI', sans-serif" }}>

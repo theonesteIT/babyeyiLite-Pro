@@ -67,11 +67,18 @@ export default function TichaDeals() {
             <ShoppingBag size={28} className="text-[#f59e0b]" />
           </div>
           <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight mb-2">
-            Teacher <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#f59e0b] to-[#fbbf24]">Deals</span>
+            TichaDeals
           </h1>
           <p className="text-white/70 text-xs md:text-sm font-bold max-w-sm px-4">
             Exclusive discounts and credit purchases directly from your payroll.
           </p>
+          <button
+            type="button"
+            onClick={() => navigate('/ticha-deals/tracking')}
+            className="mt-5 text-[10px] font-black uppercase tracking-widest text-amber-300/95 hover:text-white underline underline-offset-4 decoration-amber-400/80"
+          >
+            Track my deal requests
+          </button>
         </div>
       </div>
 

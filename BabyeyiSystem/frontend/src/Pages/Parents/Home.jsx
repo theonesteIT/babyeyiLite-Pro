@@ -25,6 +25,7 @@ import {
   ArrowUpRight,
   ShieldCheck,
   BookOpen,
+  MessageSquare,
 } from "lucide-react";
 import AddChildModal from "../../components/Parents/AddChildModal";
 import { useMergedParentChildren } from "../../hooks/useMergedParentChildren";
@@ -83,6 +84,12 @@ function ChildrenSkeleton() {
 }
 
 const quickActions = [
+  {
+    to: "/parents/chat",
+    title: "School chat",
+    desc: "Message teachers and school staff",
+    icon: MessageSquare,
+  },
   {
     to: "/parents/orders",
     title: "Order history",
@@ -473,7 +480,7 @@ export default function Home() {
 
       {/* Quick actions */}
       <section>
-        <SectionHeading title="Quick actions" subtitle="Payments, Classkit, and school discovery." />
+        <SectionHeading title="Quick actions" subtitle="Chat with school staff, payments, Classkit, and discovery." />
         <div className="space-y-3">
           {quickActions.map((action) => {
             const Icon = action.icon;

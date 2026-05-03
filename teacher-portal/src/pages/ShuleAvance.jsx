@@ -38,7 +38,8 @@ import {
    Upload,
    ChevronDown,
    AlertTriangle,
-   User
+   User,
+   ArrowLeft,
 } from 'lucide-react';
 import ShuleAvanceRepaymentCalculator from '../components/ShuleAvanceRepaymentCalculator';
 
@@ -603,22 +604,77 @@ export default function ShuleAvance() {
 
          {/* ── Modals ── */}
          {showApplyModal && createPortal(
-            <div className="fixed inset-0 z-[230] flex items-end sm:items-center justify-center bg-black/75 p-0 sm:p-4">
-               <div className="w-full sm:max-w-[500px] rounded-t-[22px] sm:rounded-[24px] shadow-2xl  max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-300">
-                  <div className="relative z-10 bg-[linear-gradient(145deg,#0E1F35,#1B3354)] px-6 py-6 shrink-0">
-                     <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                           <div>
-                              <h1 className="text-lg  text-white">{applyMode === 'invoice' ? 'Pay Invoice' : 'New Cashout Request'}</h1>
-                           </div>
+            <div className="fixed inset-0 z-[300] flex items-end sm:items-center justify-center bg-black/75 p-0 sm:p-4 max-sm:pb-[env(safe-area-inset-bottom,0px)]">
+               <div className="w-full sm:max-w-[500px] rounded-t-[22px] sm:rounded-[24px] shadow-2xl max-h-[min(100svh,100dvh)] sm:max-h-[92vh] flex flex-col min-h-0 overflow-hidden animate-in zoom-in-95 duration-300">
+                  {(() => {
+                     const applyCanAdvance =
+                        (applyMode === 'invoice' && wizardStep < 2) || (applyMode === 'direct' && wizardStep < 2);
+                     const handleApplyBack = () => (wizardStep === 1 ? closeFlow() : setWizardStep(wizardStep - 1));
+                     const handleApplyPrimary = () => {
+                        if (applyCanAdvance) setWizardStep(wizardStep + 1);
+                        else if (applyMode === 'invoice') submitInvoiceWizard();
+                        else submitRequest({ customTerm: 1 });
+                     };
+                     return (
+                  <div className="relative z-10 bg-[linear-gradient(145deg,#0E1F35,#1B3354)] px-4 sm:px-6 pt-[max(0.75rem,env(safe-area-inset-top))] sm:pt-6 pb-4 shrink-0 border-b border-white/5">
+                     <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-4 sm:hidden" />
+                     <div className="flex items-start gap-2 sm:gap-3">
+                        <div className="shrink-0 pt-0.5 lg:hidden">
+                           <button
+                              type="button"
+                              onClick={handleApplyBack}
+                              className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/12 border border-white/20 text-white shadow-sm hover:bg-white/20 active:scale-[0.97]"
+                              aria-label={wizardStep === 1 ? 'Close' : 'Back'}
+                           >
+                              <ArrowLeft size={18} strokeWidth={2.25} />
+                           </button>
                         </div>
-                        <button onClick={closeFlow} className="p-2 bg-white/10 hover:bg-white/20 rounded-xl text-white/70 transition-all group">
-                           <X size={18} className="group-hover:rotate-90 transition-transform" />
-                        </button>
+                        <div className="min-w-0 flex-1">
+                           <p className="text-[9px] font-black uppercase tracking-[0.2em] text-amber-400/90 mb-0.5">
+                              Step {wizardStep} of 2 · {applyMode === 'invoice' ? 'Invoice' : 'Cashout'}
+                           </p>
+                           <h1 className="text-base sm:text-lg font-black text-white leading-snug break-words">
+                              {applyMode === 'invoice' ? 'Pay Invoice' : 'New Cashout Request'}
+                           </h1>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
+                           <div className="flex items-center gap-1 lg:hidden">
+                              {applyCanAdvance ? (
+                                 <button
+                                    type="button"
+                                    onClick={() => setWizardStep(wizardStep + 1)}
+                                    className="inline-flex items-center justify-center gap-0.5 rounded-xl bg-gradient-to-b from-amber-400 to-amber-500 px-2.5 py-2 min-h-[38px] max-w-[7rem] text-[10px] font-black uppercase tracking-wide text-[#0E1F35] shadow-md ring-1 ring-amber-300/60 active:scale-[0.98]"
+                                 >
+                                    Next
+                                    <ChevronRight size={14} strokeWidth={2.5} />
+                                 </button>
+                              ) : (
+                                 <button
+                                    type="button"
+                                    onClick={handleApplyPrimary}
+                                    disabled={submitting}
+                                    className="inline-flex items-center justify-center gap-1 rounded-xl bg-re-orange px-2.5 py-2 min-h-[38px] max-w-[7.5rem] text-[10px] font-black uppercase tracking-wide text-white shadow-lg shadow-re-orange/25 ring-1 ring-white/20 active:scale-[0.98] disabled:opacity-45"
+                                 >
+                                    {submitting ? <Loader2 size={14} className="animate-spin shrink-0" /> : <CheckCircle size={14} className="shrink-0" />}
+                                    <span className="truncate">{submitting ? '…' : 'Confirm'}</span>
+                                 </button>
+                              )}
+                           </div>
+                           <button
+                              type="button"
+                              onClick={closeFlow}
+                              className="p-2 bg-white/10 hover:bg-white/20 rounded-xl text-white/70 transition-all group shrink-0"
+                              aria-label="Close"
+                           >
+                              <X size={18} className="group-hover:rotate-90 transition-transform" />
+                           </button>
+                        </div>
                      </div>
                   </div>
+                     );
+                  })()}
 
-                  <div className="flex-1 overflow-y-auto px-6 py-6 bg-white space-y-6">
+                  <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 sm:px-6 py-5 sm:py-6 bg-white space-y-6 pb-10 lg:pb-6 [-webkit-overflow-scrolling:touch]">
                      {error && <div className="flex items-start gap-2 rounded-xl bg-red-50 border border-red-100 p-4 animate-in fade-in"><AlertTriangle size={16} className="text-red-500 mt-0.5 shrink-0" /><p className="text-xs font-bold text-red-800">{error}</p></div>}
                      
                      {applyMode === 'invoice' ? (
@@ -701,12 +757,29 @@ export default function ShuleAvance() {
                      )}
                   </div>
 
-                  <div className="p-6 border-t border-black/5 flex items-center justify-between gap-4 shrink-0 bg-white">
-                     <button onClick={() => wizardStep === 1 ? closeFlow() : setWizardStep(wizardStep - 1)} className="px-6 py-2.5 rounded-xl border border-black/5 font-black text-[11px] uppercase tracking-widest hover:bg-re-bg transition-all text-re-text-muted">Back</button>
+                  <div className="hidden lg:flex p-6 border-t border-black/5 items-center justify-between gap-4 shrink-0 bg-white">
+                     <button
+                        type="button"
+                        onClick={() => (wizardStep === 1 ? closeFlow() : setWizardStep(wizardStep - 1))}
+                        className="px-6 py-2.5 rounded-xl border border-black/5 font-black text-[11px] uppercase tracking-widest hover:bg-re-bg transition-all text-re-text-muted"
+                     >
+                        Back
+                     </button>
                      {(applyMode === 'invoice' && wizardStep < 2) || (applyMode === 'direct' && wizardStep < 2) ? (
-                        <button onClick={() => setWizardStep(wizardStep + 1)} className="flex-1 px-8 py-3 rounded-xl bg-[#0E1F35] text-white font-black text-[11px] uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all">Review Request</button>
+                        <button
+                           type="button"
+                           onClick={() => setWizardStep(wizardStep + 1)}
+                           className="flex-1 px-8 py-3 rounded-xl bg-[#0E1F35] text-white font-black text-[11px] uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all"
+                        >
+                           Review Request
+                        </button>
                      ) : (
-                        <button onClick={applyMode === 'invoice' ? submitInvoiceWizard : () => submitRequest({ customTerm: 1 })} disabled={submitting} className="flex-1 px-8 py-3 rounded-xl bg-re-orange text-white font-black text-[11px] uppercase tracking-widest shadow-xl shadow-re-orange/20 flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50">
+                        <button
+                           type="button"
+                           onClick={applyMode === 'invoice' ? submitInvoiceWizard : () => submitRequest({ customTerm: 1 })}
+                           disabled={submitting}
+                           className="flex-1 px-8 py-3 rounded-xl bg-re-orange text-white font-black text-[11px] uppercase tracking-widest shadow-xl shadow-re-orange/20 flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50"
+                        >
                            {submitting ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={16} />}
                            {submitting ? 'Submitting...' : 'Confirm & Request'}
                         </button>

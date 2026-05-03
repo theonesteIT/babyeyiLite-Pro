@@ -1,14 +1,10 @@
 import { NavLink } from 'react-router-dom';
 import {
     LayoutDashboard, Users, Calendar,
-    ClipboardCheck, DollarSign, MessageSquare, LogOut
+    ClipboardCheck, DollarSign,
 } from 'lucide-react';
-import useChatUnread from '../hooks/useChatUnread';
-import { useAuth } from '../context/AuthContext';
 
 const BottomNav = () => {
-    const { logout } = useAuth();
-    const unreadCount = useChatUnread();
     const navItems = [
         { icon: LayoutDashboard, name: 'Home', path: '/', exact: true },
         { icon: Users, name: 'Students', path: '/students' },
@@ -19,32 +15,6 @@ const BottomNav = () => {
 
     return (
         <div className="lg:hidden fixed bottom-0 left-0 right-0 z-[100] flex flex-col bg-white/90 backdrop-blur-xl border-t border-black/5 pb-safe shadow-[0_-8px_30px_rgb(0,0,0,0.04)]">
-            <div className="flex items-center justify-between gap-3 border-b border-black/[0.06] px-3 py-2">
-                <button
-                    type="button"
-                    onClick={() => logout()}
-                    className="inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-black uppercase tracking-wide text-slate-600 transition-colors hover:bg-red-50 hover:text-red-600 active:scale-[0.98]"
-                >
-                    <LogOut className="h-4 w-4 shrink-0" strokeWidth={2.25} />
-                    Logout
-                </button>
-                <NavLink
-                    to="/chat"
-                    className={({ isActive }) =>
-                        `relative inline-flex items-center justify-center rounded-xl p-2 transition-colors active:scale-[0.98] ${
-                            isActive ? 'bg-[#000435]/10 text-[#000435]' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
-                        }`
-                    }
-                    aria-label="Chat"
-                >
-                    <MessageSquare className="h-6 w-6" strokeWidth={2} />
-                    {unreadCount > 0 && (
-                        <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full bg-red-500 border-2 border-white text-white text-[9px] font-black leading-none flex items-center justify-center shadow-sm">
-                            {unreadCount > 99 ? '99+' : unreadCount}
-                        </span>
-                    )}
-                </NavLink>
-            </div>
             <div className="flex h-[68px] items-stretch gap-x-1 px-1.5 sm:gap-x-1.5 sm:px-2">
                 {navItems.map((item) => (
                     <NavLink

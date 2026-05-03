@@ -10,7 +10,7 @@ import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import QRCodeStyling from 'qr-code-styling';
 import babyeyiLogo from '../../assets/1BABYEYI LOGO FINAL.png';
-import { useLocation, useNavigate, Link } from 'react-router-dom';
+import { useLocation, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { STUDENT_SERVICE_CHECKOUT_KEY } from './StudentServiceCheckout';
 import { UNIFORM_VOUCHER_CHECKOUT_KEY } from './UniformVoucherCheckout';
 import {
@@ -338,6 +338,7 @@ function MethodBtn({ id, label, Icon, selected, disabled, onClick }) {
 export default function PaymentsPage() {
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [draft, setDraft] = useState(null);
 
   // Payment method
@@ -403,6 +404,7 @@ export default function PaymentsPage() {
     draft?.schoolId && draft?.babyeyiId
     && !draft?.studentServiceCheckout && !draft?.agentShopCheckout
     && !draft?.standardKitCheckout && !draft?.uniformVoucherCheckout
+    && !draft?.teacherDealCheckout
   );
   const feeLikeTabs = schoolFeesCheckout || draft?.extendedPaymentTabs || draft?.uniformVoucherCheckout;
 
@@ -538,9 +540,49 @@ export default function PaymentsPage() {
     } catch (_) {}
   }, [location.state]);
 
+  const teacherDealTokenLoadedRef = useRef(false);
+  useEffect(() => {
+    const tdt = searchParams.get('tdt');
+    if (!tdt || teacherDealTokenLoadedRef.current) return;
+    teacherDealTokenLoadedRef.current = true;
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch(`${API}/services/shule-avance/public/teacher-deal-pay-payload?token=${encodeURIComponent(tdt)}`);
+        const j = await r.json().catch(() => ({}));
+        if (cancelled || !j.success || !j.data) {
+          teacherDealTokenLoadedRef.current = false;
+          return;
+        }
+        const p = j.data;
+        setDraft({
+          teacherDealCheckout: true,
+          grandTotal: Math.max(0, Number(p.amount_rwf) || 0),
+          docLabel: p.product_name || 'Teacher deal',
+          schoolName: 'Babyeyi',
+          payer: {
+            name: String(p.payer_name || '').trim(),
+            phone: String(p.payer_phone || '').trim(),
+          },
+          teacherDealToken: tdt,
+          teacherDealPayload: p,
+        });
+        setMomoPhoneRaw(String(p.payer_phone || '').trim());
+        setPayMethod('momo');
+        setSearchParams({}, { replace: true });
+      } catch {
+        teacherDealTokenLoadedRef.current = false;
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams, setSearchParams]);
+
   useEffect(() => {
     if (
       draft?.studentServiceCheckout ||
+      draft?.teacherDealCheckout ||
       draft?.agentShopCheckout ||
       draft?.standardKitCheckout ||
       draft?.shulecardTopupCheckout ||
@@ -551,6 +593,7 @@ export default function PaymentsPage() {
     }
   }, [
     draft?.studentServiceCheckout,
+    draft?.teacherDealCheckout,
     draft?.agentShopCheckout,
     draft?.standardKitCheckout,
     draft?.shulecardTopupCheckout,
@@ -674,6 +717,7 @@ export default function PaymentsPage() {
       if (alt != null && alt >= 100) return alt;
       return Math.max(0, Number.isFinite(g) ? g : 0);
     }
+    if (draft.teacherDealCheckout) return Math.max(0, Number(draft.grandTotal || 0));
     if (draft.studentServiceCheckout) return Math.max(0, Number(draft.grandTotal || 0));
     // Public pay-by-school already captures an explicit "pay now" amount.
     // Keep that amount instead of recomputing from all selected lines.
@@ -707,6 +751,7 @@ export default function PaymentsPage() {
     && !draft?.agentShopCheckout
     && !draft?.standardKitCheckout
     && !draft?.uniformVoucherCheckout
+    && !draft?.teacherDealCheckout
   );
   const invoicePdfHref = isSchoolFeesIntent
     ? `${API}/public/babyeyi-pay/invoice/${Number(doneId)}.pdf?invoice_no=${encodeURIComponent(invoiceNo)}`
@@ -995,6 +1040,65 @@ export default function PaymentsPage() {
     }
   }, []);
 
+  const pollTeacherDealMomoStatus = useCallback(async (referenceId, count) => {
+    const tdt = draft?.teacherDealToken;
+    if (!tdt || !referenceId) {
+      setSubmitting(false);
+      return;
+    }
+    if (count >= MOMO_MAX_POLLS) {
+      setMomoStatus('TIMEOUT');
+      setSubmitting(false);
+      setSubmitError('No confirmation from MTN in time. If you already paid, wait a few minutes or contact support.');
+      return;
+    }
+    try {
+      const res = await fetch(`${API}/services/shule-avance/public/teacher-deal-pay-momo-status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: tdt, reference_id: referenceId }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) {
+        setMomoPollCount(count + 1);
+        pollTimerRef.current = setTimeout(
+          () => pollTeacherDealMomoStatus(referenceId, count + 1),
+          MOMO_POLL_INTERVAL_MS * 2
+        );
+        return;
+      }
+      const d = json.data || {};
+      if (d.phase === 'complete' || String(d.mtn_status || '').toUpperCase() === 'SUCCESSFUL') {
+        setMomoStatus('SUCCESSFUL');
+        setMomoReferenceId(d.order_number || '');
+        setDoneId(d.order_number || 'TD');
+        setInvoiceNo(d.order_number || '');
+        setInvoiceStatus('PAID');
+        setDoneMode('momo');
+        setShowDoneModal(true);
+        setSubmitting(false);
+        return;
+      }
+      if (d.payment_failed || d.phase === 'failed') {
+        setMomoStatus('FAILED');
+        setSubmitting(false);
+        setSubmitError(d.message || 'Payment was not completed on the phone.');
+        return;
+      }
+      setMomoPollCount(count + 1);
+      pollTimerRef.current = setTimeout(
+        () => pollTeacherDealMomoStatus(referenceId, count + 1),
+        MOMO_POLL_INTERVAL_MS
+      );
+    } catch {
+      setMomoPollCount(count + 1);
+      pollTimerRef.current = setTimeout(
+        () => pollTeacherDealMomoStatus(referenceId, count + 1),
+        MOMO_POLL_INTERVAL_MS * 2
+      );
+    }
+  }, [draft?.teacherDealToken]);
+
   const pollShopMomoStatus = useCallback(async (batchRef, count) => {
     if (count >= MOMO_MAX_POLLS) { setMomoStatus('TIMEOUT'); setSubmitting(false); return; }
     try {
@@ -1212,6 +1316,52 @@ export default function PaymentsPage() {
   }, [visaCardHolder, visaCardNumber, visaExpiry, visaCvv]);
 
   // ── Student service MoMo ──────────────────────────────────────
+  const handleTeacherDealConfirm = useCallback(async () => {
+    if (!draft?.teacherDealCheckout || !draft?.teacherDealToken) return;
+    setSubmitError('');
+    if (!isValidMomoPhone(momoPhoneRaw)) {
+      setMomoPhoneError(`"${momoPhoneRaw || '(empty)'}" is not a valid MTN Rwanda number.`);
+      return;
+    }
+    setMomoPhoneError('');
+    setSubmitting(true);
+    setMomoPollCount(0);
+    try {
+      const res = await fetch(`${API}/services/shule-avance/public/teacher-deal-pay-momo`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: draft.teacherDealToken, momo_phone: momoPhoneRaw }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || !j.success) throw new Error(j.message || 'Payment could not start.');
+      const data = j.data || {};
+      if (data.phase === 'complete' && String(data.mtn_status || '').toUpperCase() === 'SUCCESSFUL') {
+        setMomoStatus('SUCCESSFUL');
+        setMomoReferenceId(data.order_number || '');
+        setDoneId(data.order_number || 'TD');
+        setInvoiceNo(data.order_number || '');
+        setInvoiceStatus('PAID');
+        setDoneMode('momo');
+        setShowDoneModal(true);
+        setSubmitting(false);
+        return;
+      }
+      const mtnRef = data.mtn_reference_id;
+      if (mtnRef && (data.phase === 'awaiting_device' || String(data.mtn_status || '').toUpperCase() === 'PENDING')) {
+        setMomoStatus('PENDING');
+        setMomoReferenceId(data.order_number || '');
+        pollTimerRef.current = setTimeout(() => pollTeacherDealMomoStatus(mtnRef, 0), MOMO_POLL_INTERVAL_MS);
+        return;
+      }
+      throw new Error('Unexpected payment response. Please try again.');
+    } catch (e) {
+      setSubmitError(e.message || 'Payment failed');
+      setMomoStatus('FAILED');
+    } finally {
+      if (!pollTimerRef.current) setSubmitting(false);
+    }
+  }, [draft, momoPhoneRaw, pollTeacherDealMomoStatus]);
+
   const handleStudentServiceConfirm = useCallback(async () => {
     if (!draft?.studentServiceCheckout || !draft?.studentServicePayload) return;
     setSubmitError('');
@@ -1317,6 +1467,14 @@ export default function PaymentsPage() {
       } finally {
         if (!pollTimerRef.current) setSubmitting(false);
       }
+      return;
+    }
+    if (draft?.teacherDealCheckout) {
+      if (payMethod !== 'momo') {
+        setSubmitError('Teacher deal checkout uses MTN Mobile Money.');
+        return;
+      }
+      await handleTeacherDealConfirm();
       return;
     }
     if (draft?.standardKitCheckout) {
@@ -1772,7 +1930,11 @@ export default function PaymentsPage() {
     && (shuleOrgDisbursementType !== 'PERSONAL_ACCOUNT' || !!String(shulePersonalAccount || '').trim())
     && (shuleOrgDisbursementType !== 'OTHER' || !!String(shuleOtherDisbursement || '').trim());
 
-  const canSubmit = draft?.studentServiceCheckout
+  const canSubmit = draft?.teacherDealCheckout
+    ? !submitting && !doneId && principal >= 100
+        && payMethod === 'momo'
+        && (!momoStatus || momoStatus === 'FAILED' || momoStatus === 'TIMEOUT')
+    : draft?.studentServiceCheckout
     ? !submitting && !doneId && principal >= 100 && (
         !draft.extendedPaymentTabs
           ? payMethod === 'momo' && (!momoStatus || momoStatus === 'FAILED' || momoStatus === 'TIMEOUT')
@@ -1825,6 +1987,10 @@ export default function PaymentsPage() {
 
   const label = useMemo(() => {
     if (!draft) return '';
+    if (draft.teacherDealCheckout) {
+      const p = draft.teacherDealPayload;
+      return p?.product_name ? `${p.product_name} · Teacher deal` : 'Teacher deal · Babyeyi';
+    }
     if (draft.studentServiceCheckout) {
       const p   = draft.studentServicePayload;
       if (!p) return `${draft.docLabel || 'Service'} · Babyeyi`;

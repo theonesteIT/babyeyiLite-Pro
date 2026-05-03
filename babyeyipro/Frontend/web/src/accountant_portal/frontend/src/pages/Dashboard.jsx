@@ -9,6 +9,10 @@ import {
   TrendingUp,
   Wallet,
   X,
+  Shield,
+  Users,
+  Gavel,
+  CalendarDays,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -207,6 +211,12 @@ export default function Dashboard() {
       learnersOwing: 0,
       payroll: { staffCount: 0, dueDate: '—', totalDue: 0, processed: 0 },
       collectionsLog: [],
+      disciplineSnapshot: {
+        casesThisMonth: 0,
+        studentsAffectedThisMonth: 0,
+        marksDeductedThisMonth: 0,
+        casesLast30Days: 0,
+      },
     };
   }, []);
 
@@ -252,6 +262,13 @@ export default function Dashboard() {
         return;
       }
       const ov = overviewRes.data?.data || {};
+      const ds = ov.discipline_snapshot || {};
+      const disciplineSnapshot = {
+        casesThisMonth: Number(ds.cases_this_month || 0),
+        studentsAffectedThisMonth: Number(ds.students_affected_this_month || 0),
+        marksDeductedThisMonth: Number(ds.marks_deducted_this_month || 0),
+        casesLast30Days: Number(ds.cases_last_30_days || 0),
+      };
       const payments = Array.isArray(paymentsRes.data?.data) ? paymentsRes.data.data : [];
       const expenseRows = expensesRes.data?.success && Array.isArray(expensesRes.data.data) ? expensesRes.data.data : [];
       const reqRows = requisitionsRes.data?.success && Array.isArray(requisitionsRes.data.data) ? requisitionsRes.data.data : [];
@@ -414,6 +431,7 @@ export default function Dashboard() {
         learnersOwing,
         payroll: { staffCount, dueDate, totalDue, processed },
         collectionsLog: collectionsLog.slice(0, 24),
+        disciplineSnapshot,
       });
       setLiveOk(true);
     } catch (e) {
@@ -661,6 +679,75 @@ export default function Dashboard() {
 
         </div>
 
+        {/* Discipline — school snapshot (from /api/accountant/overview, same DB as HOD / DOS) */}
+        <div className="mt-5 bg-white rounded-[24px] border border-black/5 overflow-hidden">
+          <div className="px-5 py-4 border-b border-black/5 bg-re-bg/60 flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <Shield size={17} className="text-[#000435] shrink-0" />
+              <h3 className="text-xs md:text-[13px] font-black text-[#000435] capitalize tracking-[0.18em] truncate">
+                Discipline · School snapshot
+              </h3>
+            </div>
+            <span className="text-[11px] font-black text-[#000435]/60 capitalize tracking-widest text-right">
+              Cases & marks (live)
+            </span>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4">
+            {[
+              {
+                label: 'Cases (this month)',
+                value: mock.disciplineSnapshot?.casesThisMonth ?? 0,
+                sub: 'Recorded incidents',
+                Icon: Gavel,
+              },
+              {
+                label: 'Students involved',
+                value: mock.disciplineSnapshot?.studentsAffectedThisMonth ?? 0,
+                sub: 'Distinct learners',
+                Icon: Users,
+              },
+              {
+                label: 'Marks deducted (MTD)',
+                value:
+                  Number(mock.disciplineSnapshot?.marksDeductedThisMonth || 0) % 1 === 0
+                    ? String(Math.round(mock.disciplineSnapshot.marksDeductedThisMonth))
+                    : Number(mock.disciplineSnapshot?.marksDeductedThisMonth || 0).toFixed(1),
+                sub: 'From case log',
+                Icon: Shield,
+              },
+              {
+                label: 'Cases (30 days)',
+                value: mock.disciplineSnapshot?.casesLast30Days ?? 0,
+                sub: 'Rolling window',
+                Icon: CalendarDays,
+              },
+            ].map((cell, idx) => {
+              const br =
+                'border-black/5 ' +
+                (idx < 2 ? 'border-b ' : '') +
+                (idx % 2 === 0 ? 'border-r ' : '') +
+                'md:border-b-0 ' +
+                (idx < 3 ? 'md:border-r ' : '');
+              return (
+              <div
+                key={cell.label}
+                className={`p-4 md:p-5 flex flex-col items-center justify-center text-center ${br}`}
+              >
+                <div className="w-9 h-9 rounded-xl bg-[#000435]/5 flex items-center justify-center mb-2">
+                  <cell.Icon size={18} className="text-[#000435]" strokeWidth={2.2} />
+                </div>
+                <span className="text-2xl md:text-3xl font-black tracking-tighter text-[#000435] tabular-nums">
+                  {cell.value}
+                </span>
+                <p className="text-[11px] font-black text-[#000435] capitalize tracking-widest mt-1.5 opacity-80">
+                  {cell.label}
+                </p>
+                <p className="text-[10px] font-bold text-[#000435]/50 mt-0.5">{cell.sub}</p>
+              </div>
+            );
+            })}
+          </div>
+        </div>
 
         {/* ══════════════════════════════════════════════════════════════
             SECONDARY ROW — Collections trend chart + Top debtors table

@@ -8,7 +8,17 @@ const router = express.Router();
 const LIBRARY_ROLES = ['LIBRARIAN', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER'];
 const STOCK_ROLES = ['STORE_MANAGER', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER'];
 const GATE_ROLES = ['GATE_OFFICER', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER'];
-const GATE_ATTENDANCE_ADMIN_ROLES = ['GATE_OFFICER', 'DOS', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER'];
+/** Discipline portal (HOD / DISCIPLINE / DISCIPLINE_STAFF / TEACHER) uses same gate UI as DOS — must be allowed here. */
+const GATE_ATTENDANCE_ADMIN_ROLES = [
+  'GATE_OFFICER',
+  'DOS',
+  'SCHOOL_ADMIN',
+  'SCHOOL_MANAGER',
+  'HOD',
+  'DISCIPLINE',
+  'DISCIPLINE_STAFF',
+  'TEACHER',
+];
 
 let tablesReady = false;
 

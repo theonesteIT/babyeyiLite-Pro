@@ -7,6 +7,8 @@ import Login from './pages/Login';
 import ShuleAvance from './pages/ShuleAvance';
 import TichaDeals from './pages/TichaDeals';
 import TichaDealDetails from './pages/TichaDealDetails';
+import TichaDealPayments from './pages/TichaDealPayments';
+import TrackingTichaDeals from './pages/TrackingTichaDeals';
 import TichaAI from './pages/TichaAI';
 import EnglishClub from './pages/EnglishClub';
 import Students from './pages/Students';
@@ -50,6 +52,8 @@ function AppContent() {
       <Route path="/" element={<ProtectedRoute title="Dashboard">         <Dashboard />                                                    </ProtectedRoute>} />
       <Route path="/shule-avance" element={<ProtectedRoute title="Shule Avance">    <ShuleAvance />                                                  </ProtectedRoute>} />
       <Route path="/ticha-deals" element={<ProtectedRoute title="Ticha Deals">      <TichaDeals />                                                   </ProtectedRoute>} />
+      <Route path="/ticha-deals/tracking" element={<ProtectedRoute title="Deal tracking"> <TrackingTichaDeals />                                  </ProtectedRoute>} />
+      <Route path="/ticha-deals/pay" element={<ProtectedRoute title="Pay deal">       <TichaDealPayments />                                           </ProtectedRoute>} />
       <Route path="/ticha-deals/:id" element={<ProtectedRoute title="Deal Details"> <TichaDealDetails />                                             </ProtectedRoute>} />
       <Route path="/ticha-ai" element={<ProtectedRoute title="TichaAI">           <TichaAI />                                                      </ProtectedRoute>} />
       <Route path="/english-club" element={<ProtectedRoute title="English Club">      <EnglishClub />                                                  </ProtectedRoute>} />

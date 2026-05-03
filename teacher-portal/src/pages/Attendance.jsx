@@ -25,7 +25,6 @@ export default function Attendance() {
     const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(false);
     const [roster, setRoster] = useState([]);
-    const [selectedStudents, setSelectedStudents] = useState([]);
     const [dailySummary, setDailySummary] = useState([]);
     const [weeklySummary, setWeeklySummary] = useState(null);
     const [selectedStudent, setSelectedStudent] = useState(null);
@@ -221,24 +220,7 @@ export default function Attendance() {
 
     const handleMarkAll = (status) => {
         const resolved = status === 'none' ? 'absent' : status;
-        setRoster((prev) =>
-            prev.map((student) => {
-                if (selectedStudents.length && !selectedStudents.includes(student.id)) return student;
-                return { ...student, status: resolved };
-            })
-        );
-    };
-
-    const toggleStudentSelect = (id) => {
-        setSelectedStudents((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-    };
-
-    const toggleSelectAll = () => {
-        if (selectedStudents.length === filteredRoster.length) {
-            setSelectedStudents([]);
-        } else {
-            setSelectedStudents(filteredRoster.map((s) => s.id));
-        }
+        setRoster((prev) => prev.map((student) => ({ ...student, status: resolved })));
     };
 
     const searchNorm = searchQuery.trim().toLowerCase();
@@ -622,48 +604,67 @@ export default function Attendance() {
                         </div>
                     </div>
 
-                    <div className={`${!isClassSelected ? 'hidden lg:block' : 'block'} bg-white overflow-x-auto custom-scrollbar min-h-[120px]`}>
+                    <div className={`${!isClassSelected ? 'hidden lg:block' : 'block'} bg-white overflow-x-auto lg:overflow-x-auto max-lg:overflow-x-hidden custom-scrollbar min-h-[120px]`}>
                         {isClassSelected && (
-                            <div className="lg:hidden px-6 py-3 bg-white border-b border-black/5 flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <div className="w-1.5 h-1.5 bg-re-orange rounded-full"></div>
-                                    <span className="text-[9px] font-black text-re-text uppercase tracking-widest">
-                                        {selectedLesson
-                                            ? `${selectedLesson.subject} @ ${lessonClassDisplay(selectedLesson)}`
-                                            : 'Attendance Record'}
-                                    </span>
+                            <div className="lg:hidden border-b border-black/5 bg-white">
+                                <div className="px-4 pt-3 pb-2 flex items-center justify-between gap-2 border-b border-black/5">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                        <div className="w-1.5 h-1.5 bg-re-orange rounded-full shrink-0" />
+                                        <span className="text-[9px] font-black text-re-text uppercase tracking-widest truncate">
+                                            {selectedLesson
+                                                ? `${selectedLesson.subject} @ ${lessonClassDisplay(selectedLesson)}`
+                                                : 'Attendance Record'}
+                                        </span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setIsClassSelected(false);
+                                            setSelectedLesson(null);
+                                        }}
+                                        className="text-[8px] font-black text-re-orange uppercase tracking-widest hover:underline shrink-0"
+                                    >
+                                        Change Period
+                                    </button>
                                 </div>
-                                <button
-                                    onClick={() => {
-                                        setIsClassSelected(false);
-                                        setSelectedLesson(null);
-                                    }}
-                                    className="text-[8px] font-black text-re-orange uppercase tracking-widest hover:underline"
-                                >
-                                    Change Period
-                                </button>
+                                <div className="px-3 py-3 bg-gradient-to-b from-re-bg/40 to-white space-y-2">
+                                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-re-text-muted text-center">
+                                        Status legend — tap a matching icon per student
+                                    </p>
+                                    <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2.5">
+                                        <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-emerald-700">
+                                            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-sm shrink-0" aria-hidden><Check size={16} strokeWidth={3} /></span>
+                                            Present
+                                        </span>
+                                        <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-red-600">
+                                            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-white border-2 border-red-500 text-red-600 shrink-0" aria-hidden><X size={16} strokeWidth={3} /></span>
+                                            Absent
+                                        </span>
+                                        <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-orange-600">
+                                            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-white border-2 border-orange-500 text-orange-600 shrink-0" aria-hidden><Clock size={16} /></span>
+                                            Late
+                                        </span>
+                                        <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-blue-600">
+                                            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-white border-2 border-blue-500 text-blue-600 shrink-0" aria-hidden><FileText size={15} /></span>
+                                            Excused
+                                        </span>
+                                    </div>
+                                </div>
                             </div>
                         )}
-                        <table className="w-full text-left border-collapse min-w-full sm:min-w-[800px]">
+                        <table className="w-full text-left border-collapse table-fixed max-lg:w-full lg:min-w-[720px]">
                             <thead>
                                 <tr>
-                                    <th className="border-b border-r border-black/5 bg-re-bg/50 px-2 py-3 text-center">
-                                        <input
-                                            type="checkbox"
-                                            checked={filteredRoster.length > 0 && selectedStudents.length === filteredRoster.length}
-                                            onChange={toggleSelectAll}
-                                        />
-                                    </th>
-                                    <th className="border-b border-r border-black/5 bg-re-bg/50 px-2 py-3 text-center text-[7px] sm:text-[9px] font-black uppercase tracking-widest text-re-text-muted w-8 sm:w-12">#</th>
-                                    <th className="border-b border-r border-black/5 bg-re-bg/50 px-4 py-3 text-left text-[7px] sm:text-[9px] font-black uppercase tracking-widest text-re-text-muted w-24 hidden sm:table-cell">Roll No</th>
-                                    <th className="border-b border-r border-black/5 bg-re-bg/50 px-4 py-3 text-left text-[7px] sm:text-[9px] font-black uppercase tracking-widest text-re-text-muted">Student Details</th>
-                                    <th className="border-b border-black/5 bg-re-bg/50 px-4 py-3 text-center text-[7px] sm:text-[9px] font-black uppercase tracking-widest text-re-text-muted w-[180px] sm:w-[280px]">Status</th>
+                                    <th className="border-b border-r border-black/5 bg-re-bg/50 px-1.5 sm:px-2 py-3 text-center text-[7px] sm:text-[9px] font-black uppercase tracking-widest text-re-text-muted w-[2.25rem] sm:w-12">#</th>
+                                    <th className="border-b border-r border-black/5 bg-re-bg/50 px-2 sm:px-4 py-3 text-left text-[7px] sm:text-[9px] font-black uppercase tracking-widest text-re-text-muted w-24 hidden sm:table-cell">Roll No</th>
+                                    <th className="border-b border-r border-black/5 bg-re-bg/50 px-2 sm:px-4 py-3 text-left text-[7px] sm:text-[9px] font-black uppercase tracking-widest text-re-text-muted max-lg:w-[38%] lg:w-auto">Student</th>
+                                    <th className="border-b border-black/5 bg-re-bg/50 px-2 sm:px-4 py-3 text-center text-[7px] sm:text-[9px] font-black uppercase tracking-widest text-re-text-muted max-lg:w-[52%] lg:min-w-[280px]">Status</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {loading ? (
                                     <tr>
-                                        <td colSpan="5" className="p-12 text-center">
+                                        <td colSpan="4" className="p-12 text-center">
                                             <div className="w-8 h-8 border-4 border-re-orange border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
                                             <p className="text-[10px] font-black text-re-text-muted uppercase tracking-widest">Fetching Central Registry...</p>
                                         </td>
@@ -675,21 +676,14 @@ export default function Attendance() {
                                                 key={student.id}
                                                 className="hover:bg-re-bg/30 transition-colors"
                                             >
-                                                <td className="border-r border-b border-black/5 px-2 py-3 text-center">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={selectedStudents.includes(student.id)}
-                                                        onChange={() => toggleStudentSelect(student.id)}
-                                                        onClick={(e) => e.stopPropagation()}
-                                                    />
-                                                </td>
                                                 <td className="border-r border-b border-black/5 px-2 py-3 text-center text-[10px] font-black text-gray-300">
                                                     {idx + 1}
                                                 </td>
                                                 <td className="border-r border-b border-black/5 px-2 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-widest hidden sm:table-cell">
                                                     {student.adm}
                                                 </td>
-                                                <td className="border-r border-b border-black/5 px-2 py-3 flex items-center gap-2 sm:gap-3 min-w-0 overflow-hidden">
+                                                <td className="border-r border-b border-black/5 px-2 py-3 min-w-0 align-middle">
+                                                    <div className="flex items-center gap-2 sm:gap-3 min-w-0 overflow-hidden">
                                                     <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-re-bg border border-black/5 flex-shrink-0 flex items-center justify-center text-re-text-muted transition-colors relative shadow-inner overflow-hidden group-hover:bg-white">
                                                         <User size={12} className="sm:w-3.5 sm:h-3.5 opacity-40 text-re-text-muted" />
                                                         <div className="absolute -bottom-1 -right-1 w-2.5 h-2.5 sm:w-3 h-3 bg-white border border-black/5 rounded-full flex items-center justify-center">
@@ -709,7 +703,8 @@ export default function Attendance() {
                                                         }}
                                                     >
                                                         <h4 className="text-[11px] sm:text-xs font-black tracking-tight text-re-text truncate block">{student.name}</h4>
-                                                        <div className="flex items-center gap-2">
+                                                        <p className="sm:hidden text-[9px] font-mono font-bold text-re-text-muted/90 truncate">{student.adm}</p>
+                                                        <div className="flex items-center gap-2 flex-wrap">
                                                             <span className="text-[8px] sm:text-[9px] font-bold text-re-text-muted uppercase tracking-widest">{student.gender}</span>
                                                             {student.active_permission && (
                                                                 <span className="text-[7px] px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded-md font-black uppercase tracking-tighter border border-blue-100 flex items-center gap-1">
@@ -721,36 +716,37 @@ export default function Attendance() {
                                                             </span>
                                                         </div>
                                                     </div>
+                                                    </div>
                                                 </td>
-                                                <td className="border-b border-black/5 px-2 py-3">
-                                                    <div className="flex flex-col gap-2">
-                                                        <div className="flex items-center justify-center gap-2">
+                                                <td className="border-b border-black/5 px-1.5 sm:px-3 py-2 sm:py-3 align-top">
+                                                    <div className="flex flex-col gap-2 min-w-0">
+                                                        <div className="grid grid-cols-4 gap-1 sm:flex sm:flex-wrap sm:items-center sm:justify-center sm:gap-2">
                                                             <StatusButton
                                                                 active={student.status === 'present'}
                                                                 onClick={() => handleStatusChange(student.id, 'present')}
                                                                 baseColor="emerald"
-                                                                icon={<Check size={12} />}
+                                                                icon={<Check size={14} className="sm:w-3 sm:h-3" />}
                                                                 label="Present"
                                                             />
                                                             <StatusButton
                                                                 active={student.status === 'absent'}
                                                                 onClick={() => handleStatusChange(student.id, 'absent')}
                                                                 baseColor="red"
-                                                                icon={<X size={12} />}
+                                                                icon={<X size={14} className="sm:w-3 sm:h-3" />}
                                                                 label="Absent"
                                                             />
                                                             <StatusButton
                                                                 active={student.status === 'late'}
                                                                 onClick={() => handleStatusChange(student.id, 'late')}
                                                                 baseColor="orange"
-                                                                icon={<Clock size={12} />}
+                                                                icon={<Clock size={14} className="sm:w-3 sm:h-3" />}
                                                                 label="Late"
                                                             />
                                                             <StatusButton
                                                                 active={student.status === 'permission'}
                                                                 onClick={() => handleStatusChange(student.id, 'permission')}
                                                                 baseColor="blue"
-                                                                icon={<FileText size={12} />}
+                                                                icon={<FileText size={13} className="sm:w-3 sm:h-3" />}
                                                                 label="Excused"
                                                             />
                                                         </div>
@@ -764,8 +760,8 @@ export default function Attendance() {
                                                                     )
                                                                 )
                                                             }
-                                                            placeholder="Remarks (optional)"
-                                                            className="w-full h-8 rounded-lg border border-black/10 px-2 text-[10px]"
+                                                            placeholder="Remarks"
+                                                            className="w-full min-h-[36px] sm:h-8 rounded-lg border border-black/10 px-2 text-[10px] sm:text-[10px] placeholder:text-re-text-muted/50"
                                                         />
                                                     </div>
                                                 </td>
@@ -773,14 +769,14 @@ export default function Attendance() {
                                         ))}
                                         {filteredRoster.length === 0 && roster.length > 0 && searchNorm && (
                                             <tr>
-                                                <td colSpan="5" className="p-8 text-center text-sm font-bold text-re-text-muted">
+                                                <td colSpan="4" className="p-8 text-center text-sm font-bold text-re-text-muted">
                                                     No students match your search. Clear the search box to see the full class list.
                                                 </td>
                                             </tr>
                                         )}
                                         {filteredRoster.length === 0 && roster.length === 0 && !loading && isClassSelected && (
                                             <tr>
-                                                <td colSpan="5" className="p-8 text-center text-sm font-bold text-re-text-muted leading-relaxed max-w-md mx-auto">
+                                                <td colSpan="4" className="p-8 text-center text-sm font-bold text-re-text-muted leading-relaxed max-w-md mx-auto">
                                                     No students were returned for class <span className="text-re-text">{selectedClass}</span>. Usually this means the class name on the timetable does not exactly match the class name on student records—ask your manager to align them—or there are no students enrolled in this class.
                                                 </td>
                                             </tr>
@@ -934,24 +930,24 @@ export default function Attendance() {
 
 // ── Helpers ────────────────────────────────────────────────────────
 
-const StatusButton = ({ active, onClick, baseColor, icon, label, isMobile }) => {
+const StatusButton = ({ active, onClick, baseColor, icon, label }) => {
 
     const colors = {
         emerald: {
-            active: 'bg-emerald-500 text-white ring-emerald-500/30 hover:bg-emerald-600',
-            inactive: 'bg-white text-emerald-600 border-black/5 hover:bg-emerald-50 ring-black/5'
+            active: 'bg-emerald-500 text-white ring-emerald-500/30 hover:bg-emerald-600 border-emerald-600',
+            inactive: 'bg-white text-emerald-600 border-emerald-200 hover:bg-emerald-50 ring-black/5'
         },
         red: {
-            active: 'bg-red-500 text-white ring-red-500/30 hover:bg-red-600',
-            inactive: 'bg-white text-red-600 border-black/5 hover:bg-red-50 ring-black/5'
+            active: 'bg-red-500 text-white ring-red-500/30 hover:bg-red-600 border-red-600',
+            inactive: 'bg-white text-red-600 border-red-200 hover:bg-red-50 ring-black/5'
         },
         orange: {
-            active: 'bg-orange-500 text-white ring-orange-500/30 hover:bg-orange-600',
-            inactive: 'bg-white text-orange-600 border-black/5 hover:bg-orange-50 ring-black/5'
+            active: 'bg-orange-500 text-white ring-orange-500/30 hover:bg-orange-600 border-orange-600',
+            inactive: 'bg-white text-orange-600 border-orange-200 hover:bg-orange-50 ring-black/5'
         },
         blue: {
-            active: 'bg-blue-500 text-white ring-blue-500/30 hover:bg-blue-600',
-            inactive: 'bg-white text-blue-600 border-black/5 hover:bg-blue-50 ring-black/5'
+            active: 'bg-blue-500 text-white ring-blue-500/30 hover:bg-blue-600 border-blue-600',
+            inactive: 'bg-white text-blue-600 border-blue-200 hover:bg-blue-50 ring-black/5'
         }
     };
 
@@ -959,16 +955,19 @@ const StatusButton = ({ active, onClick, baseColor, icon, label, isMobile }) => 
 
     return (
         <button
+            type="button"
             onClick={onClick}
             title={label}
+            aria-label={label}
             className={`
-                flex items-center justify-center transition-all duration-200 ring-2 ring-transparent gap-1
-                h-7 w-7 sm:w-auto sm:h-8 px-1.5 sm:px-2 rounded-full xl:rounded-lg border text-[8px] font-black uppercase tracking-widest
-                ${active ? theme.active + ' shadow-md scale-[1.02]' : theme.inactive}
+                flex items-center justify-center transition-all duration-200 ring-2 ring-transparent gap-0.5
+                min-h-[42px] min-w-0 w-full sm:min-w-0 sm:w-auto h-9 sm:h-8 px-0 sm:px-2 rounded-xl sm:rounded-lg border-2 sm:border text-[7px] sm:text-[8px] font-black uppercase tracking-tighter sm:tracking-widest
+                max-lg:aspect-square max-lg:max-h-[44px] max-lg:max-w-[44px] max-lg:mx-auto
+                ${active ? theme.active + ' shadow-md sm:scale-[1.02]' : theme.inactive}
             `}
         >
             {icon}
-            <span className="hidden xl:inline">{label}</span>
+            <span className="hidden lg:inline">{label}</span>
         </button>
     );
 };

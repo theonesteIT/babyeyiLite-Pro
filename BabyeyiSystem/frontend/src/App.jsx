@@ -132,6 +132,7 @@ import QRStudentsProfile from './Pages/SuperAdmin/QRStudentProfile';
 import QRStaffProfile from './Pages/SuperAdmin/QRStaffProfile';
 import ShuleAvanceTeacher from './Pages/SuperAdmin/ShuleAvanceTeacher';
 import TeacherDealProducts from './Pages/SuperAdmin/TeacherDealProducts';
+import TichaDealRequest from './Pages/SuperAdmin/TichaDealRequest';
 import ShuleAvancePartnerDashboard from './Pages/ShuleAvance/ShuleAvancePartnerDashboard';
 import BabyeyiVerifyPage        from './Pages/School Manager/components/BabyeyiVerifyPage';
 import ParentLogin              from './Pages/Parents/ParentLogin';
@@ -150,6 +151,7 @@ import QuickPayStudentSelect    from './Pages/Parents/QuickPayStudentSelect';
 import ParentPaymentsReport     from './Pages/Parents/PaymentsReport';
 import ShuleCardData            from './Pages/Parents/ShuleCardData';
 import ParentStudentDetails     from './Pages/Parents/ParentStudentDetails';
+import ParentSchoolChat         from './Pages/Parents/ParentSchoolChat';
 import InvoicesListPage         from './Pages/Shared/InvoicesListPage';
 import { ParentShellProvider } from './context/ParentShellContext';
 import StudentDashboard from './Pages/Student/student_dashboard';
@@ -179,7 +181,7 @@ export default function App() {
           <Route path="/payments" element={<PaymentsPage />} />
           <Route path="/paid-at-school" element={<PaidAtSchool />} />
           <Route path="/combined-tution-requrement" element={<CombinedTutionRequrement />} />
-          <Route path="/pay-by-school" element={<Navigate to="/paid-at-school" replace />} />
+          <Route path="/pay-by-school" element={<Navigate to="/combined-tution-requrement" replace />} />
           <Route path="/invoice-verify/:id" element={<InvoiceVerify />} />
           <Route path="/services" element={<ServicePage />} />
           <Route path="/find-agent" element={<FindAgent />} />
@@ -238,6 +240,7 @@ export default function App() {
             <Route path="payments-report" element={<ParentPaymentsReport />} />
             <Route path="shulecard-data" element={<ShuleCardData />} />
             <Route path="student-details/:studentId" element={<ParentStudentDetails />} />
+            <Route path="chat" element={<ParentSchoolChat />} />
           </Route>
           {/* Public school registration (no auth required) */}
           <Route path="/register"           element={<SchoolRegistration />} />
@@ -338,6 +341,11 @@ export default function App() {
               <TeacherDealProducts />
             </ProtectedRoute>
           } />
+          <Route path="/superadmin/ticha-deal-requests" element={
+            <ProtectedRoute role={['SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER']}>
+              <TichaDealRequest />
+            </ProtectedRoute>
+          } />
           <Route path="/superadmin/school-students-card" element={
             <ProtectedRoute role={['SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER']}>
               <SchoolStudentsCard />
@@ -376,6 +384,7 @@ export default function App() {
             <Route path="shop-orders" element={<AgentShopOrdersPage />} />
             <Route path="standard-kit-requests" element={<AgentStandardKitRequestsPage />} />
             <Route path="uniform-voucher-orders" element={<AgentUniformVoucherOrdersPage />} />
+            <Route path="ticha-deal-requests" element={<TichaDealRequest />} />
           </Route>
 
           {/* ── NESA Admin ─────────────────────────────────────── */}

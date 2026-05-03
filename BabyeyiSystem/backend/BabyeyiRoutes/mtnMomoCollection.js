@@ -9,12 +9,12 @@
  * Use the Collection product subscription key + API user + API key that belong to the SAME environment
  * as MTN_MOMO_BASE_URL. Do not use sandbox keys against proxy.momoapi.mtn.co.rw (typical 401/403).
  *
- * Env (all required to enable):
- *   MTN_MOMO_BASE_URL           — https://proxy.momoapi.mtn.co.rw (production RW) or sandbox collection host if testing sandbox
- *   MTN_MOMO_SUBSCRIPTION_KEY   — Ocp-Apim-Subscription-Key for Collection on that host
- *   MTN_MOMO_API_USER           — API User UUID (Basic auth user for /collection/token/)
- *   MTN_MOMO_API_KEY            — API Key (Basic auth password)
- *   MTN_MOMO_TARGET_ENVIRONMENT   — mtnrwanda (must match portal / product)
+ * Env (all required to enable) — also accepts same names as `momoRoutes.js` / legacy `.env`:
+ *   MTN_MOMO_BASE_URL or MOMO_BASE_URL
+ *   MTN_MOMO_SUBSCRIPTION_KEY or MOMO_SUBSCRIPTION_KEY
+ *   MTN_MOMO_API_USER or MOMO_API_USER_ID
+ *   MTN_MOMO_API_KEY or MOMO_API_KEY
+ *   MTN_MOMO_TARGET_ENVIRONMENT or MOMO_ENVIRONMENT (default mtnrwanda)
  *
  * Per payment: new X-Reference-Id (UUID) + unique externalId — these are NOT the API User.
  * The API User + API Key are one merchant credential pair from the portal; tokens are auto-fetched and cached until expiry.
@@ -28,11 +28,22 @@
 const axios = require('axios');
 const crypto = require('crypto');
 
-const MTN_MOMO_BASE_URL = String(process.env.MTN_MOMO_BASE_URL || 'https://proxy.momoapi.mtn.co.rw').replace(/\/+$/, '');
-const MTN_MOMO_SUBSCRIPTION_KEY = String(process.env.MTN_MOMO_SUBSCRIPTION_KEY || '').trim();
-const MTN_MOMO_API_USER = String(process.env.MTN_MOMO_API_USER || '').trim();
-const MTN_MOMO_API_KEY = String(process.env.MTN_MOMO_API_KEY || '').trim();
-const MTN_MOMO_TARGET_ENVIRONMENT = String(process.env.MTN_MOMO_TARGET_ENVIRONMENT || 'mtnrwanda').trim();
+const MTN_MOMO_BASE_URL = String(
+  process.env.MTN_MOMO_BASE_URL || process.env.MOMO_BASE_URL || 'https://proxy.momoapi.mtn.co.rw'
+).replace(/\/+$/, '');
+/** Prefer MTN_MOMO_*; fall back to MOMO_* so one `.env` works with both this module and `momoRoutes.js` */
+const MTN_MOMO_SUBSCRIPTION_KEY = String(
+  process.env.MTN_MOMO_SUBSCRIPTION_KEY || process.env.MOMO_SUBSCRIPTION_KEY || ''
+).trim();
+const MTN_MOMO_API_USER = String(
+  process.env.MTN_MOMO_API_USER || process.env.MOMO_API_USER_ID || ''
+).trim();
+const MTN_MOMO_API_KEY = String(
+  process.env.MTN_MOMO_API_KEY || process.env.MOMO_API_KEY || ''
+).trim();
+const MTN_MOMO_TARGET_ENVIRONMENT = String(
+  process.env.MTN_MOMO_TARGET_ENVIRONMENT || process.env.MOMO_ENVIRONMENT || 'mtnrwanda'
+).trim();
 const MTN_MOMO_CURRENCY = String(process.env.MTN_MOMO_CURRENCY || 'RWF').trim();
 /** e.g. https://hosomobile.rw — if set, after successful requesttopay we POST to …/api/v1/momopay/pay (see Postman) */
 const MTN_MOMO_HOSO_PAY_BASE = String(process.env.MTN_MOMO_HOSO_PAY_BASE || '').trim().replace(/\/+$/, '');
@@ -81,6 +92,26 @@ function rejectPollResponseIfHtmlBlock(res, label) {
 
 function mtnMomoEnabled() {
   return !!(MTN_MOMO_SUBSCRIPTION_KEY && MTN_MOMO_API_USER && MTN_MOMO_API_KEY);
+}
+
+/** Human-readable hint for 503 responses when collection is disabled */
+function mtnMomoDisabledReason() {
+  if (mtnMomoEnabled()) return '';
+  const missing = [];
+  const hasSub = !!(process.env.MTN_MOMO_SUBSCRIPTION_KEY || process.env.MOMO_SUBSCRIPTION_KEY);
+  const hasUser = !!(process.env.MTN_MOMO_API_USER || process.env.MOMO_API_USER_ID);
+  const hasKey = !!(process.env.MTN_MOMO_API_KEY || process.env.MOMO_API_KEY);
+  if (!hasSub) missing.push('MTN_MOMO_SUBSCRIPTION_KEY or MOMO_SUBSCRIPTION_KEY');
+  if (!hasUser) missing.push('MTN_MOMO_API_USER or MOMO_API_USER_ID');
+  if (!hasKey) missing.push('MTN_MOMO_API_KEY or MOMO_API_KEY');
+  return missing.length ? `missing env: ${missing.join(', ')}` : '';
+}
+
+if (!mtnMomoEnabled()) {
+  console.warn(
+    '[mtnMomo] Collection API disabled until MTN credentials are set (%s). Same requirement as public payments.jsx MoMo.',
+    mtnMomoDisabledReason() || 'check module load'
+  );
 }
 
 if (
@@ -195,6 +226,19 @@ function extractMtnError(payload) {
 }
 
 /**
+ * MTN's edge/WAF often returns HTTP 400 on non-ASCII in payerMessage / payeeNote
+ * (same as `momoRoutes.js` toAsciiSafe — e.g. middle dot ·, em dash, accents).
+ */
+function toAsciiSafeMomoMsg(str, fallback) {
+  const s = String(str || '')
+    .replace(/[^\x20-\x7E]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 140);
+  return s || fallback;
+}
+
+/**
  * Initiates Request to Pay — customer receives MTN MoMo prompt on handset.
  * @returns {{ referenceId: string, statusCode: number }}
  */
@@ -214,8 +258,8 @@ async function requestToPay({
       partyIdType: 'MSISDN',
       partyId: String(msisdn250).replace(/\D/g, ''),
     },
-    payerMessage: String(payerMessage || 'School payment').slice(0, 140),
-    payeeNote: String(payeeNote || 'Babyeyi').slice(0, 140),
+    payerMessage: toAsciiSafeMomoMsg(payerMessage, 'School payment'),
+    payeeNote: toAsciiSafeMomoMsg(payeeNote, 'Babyeyi'),
   };
 
   let lastStatus;
@@ -330,8 +374,8 @@ async function notifyHosomobileMomopay({
     amount: String(amount),
     currency: currency || MTN_MOMO_CURRENCY,
     payer: { partyIdType: 'MSISDN', partyId: phone },
-    payerMessage: String(payerMessage || 'Payment').slice(0, 140),
-    payeeNote: String(payeeNote || 'Babyeyi').slice(0, 140),
+    payerMessage: toAsciiSafeMomoMsg(payerMessage, 'Payment'),
+    payeeNote: toAsciiSafeMomoMsg(payeeNote, 'Babyeyi'),
   };
   try {
     const { status, data } = await axios.post(
@@ -466,6 +510,7 @@ function mapMtnStatusToUpper(raw) {
 
 module.exports = {
   mtnMomoEnabled,
+  mtnMomoDisabledReason,
   requestToPay,
   getRequestToPayStatus,
   mapMtnStatusToUpper,

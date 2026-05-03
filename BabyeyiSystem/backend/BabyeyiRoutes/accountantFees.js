@@ -404,6 +404,41 @@ router.get('/accountant/overview', requireRole(ACCOUNTANT_ONLY), async (req, res
       });
     }
 
+    /** Head-of-discipline-style snapshot (read-only for finance dashboard). */
+    let discipline_snapshot = {
+      cases_this_month: 0,
+      students_affected_this_month: 0,
+      marks_deducted_this_month: 0,
+      cases_last_30_days: 0,
+    };
+    try {
+      const [[mtd]] = await promisePool.query(
+        `SELECT
+           COUNT(*) AS case_count,
+           COUNT(DISTINCT student_id) AS students_affected,
+           COALESCE(SUM(marks_deducted), 0) AS marks_deducted
+         FROM discipline_cases
+         WHERE school_id = ?
+           AND created_at >= DATE_FORMAT(CURDATE(), '%Y-%m-01')`,
+        [schoolId],
+      );
+      const [[d30]] = await promisePool.query(
+        `SELECT COUNT(*) AS c
+         FROM discipline_cases
+         WHERE school_id = ?
+           AND created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)`,
+        [schoolId],
+      );
+      discipline_snapshot = {
+        cases_this_month: Number(mtd?.case_count || 0),
+        students_affected_this_month: Number(mtd?.students_affected || 0),
+        marks_deducted_this_month: Number(Number(mtd?.marks_deducted || 0).toFixed(2)),
+        cases_last_30_days: Number(d30?.c || 0),
+      };
+    } catch (discErr) {
+      console.warn('[accountant/overview] discipline_snapshot skipped:', discErr.message);
+    }
+
     return res.json({
       success: true,
       data: {
@@ -415,6 +450,7 @@ router.get('/accountant/overview', requireRole(ACCOUNTANT_ONLY), async (req, res
           student_count: Number(r.student_count || 0),
         })),
         collections_last_14_days,
+        discipline_snapshot,
       },
     });
   } catch (err) {

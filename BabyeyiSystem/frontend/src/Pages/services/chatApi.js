@@ -16,6 +16,12 @@ export async function getSessionMe() {
   return res?.data?.data || null;
 }
 
+/** Schools the current user may use for chat (parents may have several via linked phone). */
+export async function getChatSchools() {
+  const res = await api.get("/chat/schools");
+  return res?.data?.data || [];
+}
+
 export async function getThreads(schoolId) {
   const res = await api.get("/chat/threads", { params: { school_id: schoolId } });
   return res?.data?.data || [];

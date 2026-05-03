@@ -11,6 +11,7 @@ import {
   ShoppingBag,
   PackageCheck,
   Shirt,
+  Receipt,
   Menu,
   MapPinned,
   Wifi,
@@ -92,6 +93,7 @@ export default function AgentLayout() {
     { to: "/agent/uniform-voucher-orders", label: "Uniform vouchers", icon: Shirt },
     { to: "/agent/services", label: "Services revenue", icon: Layers },
     { to: "/agent/school-fees", label: "School fees", icon: Wallet },
+    { to: "/agent/ticha-deal-requests", label: "Ticha Deal requests", icon: Receipt },
     { to: "/agent/reports", label: "Reports", icon: FileBarChart },
   ];
 

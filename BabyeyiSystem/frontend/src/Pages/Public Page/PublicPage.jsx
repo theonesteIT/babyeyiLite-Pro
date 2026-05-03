@@ -27,6 +27,9 @@ import AitelLogo from "../../assets/PartnersLogo/Aitel.png";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5100";
 
+/** Full checkout: tuition + requirement items + paid-at-school lines (`PaidAtSchool` with `includeRequirements`). Not the narrow `/paid-at-school` wizard. */
+const PUBLIC_COMBINED_PAY_PATH = "/combined-tution-requrement";
+
 /** Logos in `src/assets/partner/` */
 function partnersFromAssetsFolder() {
   const mods = import.meta.glob("../../assets/partner/*.{png,jpg,jpeg,svg,webp}", { eager: true });
@@ -226,7 +229,7 @@ function Navbar() {
 
   const links = [
     { label: "Home page", href: "/" },
-    { label: "Pay Fees",  href: "/combined-tution-requrement" },
+    { label: "Pay Fees",  href: PUBLIC_COMBINED_PAY_PATH },
     { label: "Services",  href: "/services" },
     { label: "Features",  href: "/features" },
     { label: "Schools",   href: "/schools" },
@@ -359,10 +362,10 @@ function AISearchBox() {
       const r = await fetch(`${API_BASE}/api/public/student-code-lookup`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: q }) });
       const j = await r.json().catch(() => ({}));
       if (!r.ok || j.success === false) { setErr(j.message || "Lookup failed."); return; }
-      if (j.found) { setResult({ data: j.data }); return; }
+      if (j.found) { setResult({ data: j.data, lookupCode: q }); return; }
       const sr = await fetch(`${API_BASE}/api/public/public-pay/school-catalog`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ school_code: q }) });
       const sj = await sr.json().catch(() => ({}));
-      if (sr.ok && sj.success && sj.data?.school) { setResult({ school: sj.data }); return; }
+      if (sr.ok && sj.success && sj.data?.school) { setResult({ school: sj.data, lookupCode: q }); return; }
       setResult({ notFound: true });
     } catch { setErr("Network error — check your connection."); }
     finally { setLoading(false); }
@@ -474,8 +477,8 @@ function AISearchBox() {
               {result.data && (() => {
                 const st = String(result.data.student_uid || result.data.student_code || result.data.sdm_code || "").trim();
                 const payHref = st
-                  ? `/combined-tution-requrement?code=${encodeURIComponent(st)}`
-                  : "/combined-tution-requrement";
+                  ? `${PUBLIC_COMBINED_PAY_PATH}?code=${encodeURIComponent(st)}`
+                  : PUBLIC_COMBINED_PAY_PATH;
                 const slug = String(result.data.mini_website_slug || "").trim();
                 return (
                   <div className="flex flex-col sm:flex-row gap-2">
@@ -496,6 +499,24 @@ function AISearchBox() {
                         Mini-website not published yet
                       </div>
                     )}
+                  </div>
+                );
+              })()}
+              {result.school && !result.data && (() => {
+                const code = String(result.lookupCode || "").trim();
+                const payHref = code
+                  ? `${PUBLIC_COMBINED_PAY_PATH}?code=${encodeURIComponent(code)}`
+                  : PUBLIC_COMBINED_PAY_PATH;
+                return (
+                  <div className="flex flex-col gap-2">
+                    <Link to={payHref} onClick={() => setResult(null)}
+                      className="btn-shine inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-[13px] font-black text-[#000435] transition-colors"
+                      style={{ background: "linear-gradient(135deg,#FBBF24,#F59E0B)" }}>
+                      <CreditCard size={15} strokeWidth={2.5} /> Pay fees (full checkout)
+                    </Link>
+                    <p className="text-[11px] text-white/45 text-center leading-snug px-1">
+                      Tuition, school requirements, and paid-at-school items — use your student code when asked.
+                    </p>
                   </div>
                 );
               })()}
@@ -591,7 +612,7 @@ function HeroSection() {
           {/* Hero cards (4 only) */}
           <div className="anim-su4 flex flex-col gap-2.5 sm:gap-3 w-full sm:max-w-[clamp(300px,90vw,490px)]">
             <div className="grid grid-cols-2 gap-2 sm:gap-3">
-              <Link to="/combined-tution-requrement"
+              <Link to={PUBLIC_COMBINED_PAY_PATH}
                 className="btn-shine inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-2xl font-black text-amber-400 transition-all active:scale-[.97] hover:shadow-[0_8px_28px_rgba(251,191,36,.4)]"
                 style={{ minHeight: "clamp(44px,5.5vw,56px)", fontSize: "clamp(11px,2.8vw,15px)", background: "#000435" }}>
                 <CreditCard size={14} strokeWidth={2.5} className="shrink-0" /> Pay Fees
@@ -799,7 +820,7 @@ function TestimonialsSection() {
 /* ── Get Started ───────────────────────────────────────────────── */
 function GetStartedSection() {
   const aa = [
-    { Icon: CreditCard,    title: "Pay School Fees",     desc: "Pay fees online using your school code and MTN Mobile Money. No account needed — fast and safe.", cta: "Pay Now",           href: "/combined-tution-requrement" },
+    { Icon: CreditCard,    title: "Pay School Fees",     desc: "Tuition, requirements, and paid-at-school lines — one checkout. MTN MoMo. No account needed.", cta: "Pay Now",           href: PUBLIC_COMBINED_PAY_PATH },
     { Icon: Package,       title: "Order a ShuleKit",    desc: "Get your child's school kit — uniforms, shoes, stationery — delivered or collected at school.",    cta: "Shop Services",    href: "/services"      },
     { Icon: Search,        title: "Find a School",       desc: "Search 500+ schools by district, level, or TVET trade. Compare programs, fees, and facilities.",    cta: "Explore Schools",  href: "/schools"       },
     { Icon: GraduationCap, title: "Apply for Admission", desc: "Submit your child's admission application online. Get a reference number instantly.",               cta: "Start Application",href: "/schools"       },
@@ -1012,7 +1033,7 @@ function CTASection() {
 function Footer() {
   const cols = [
     { title: "Platform", links: [{ l: "About Babyeyi", h: "#about" }, { l: "Features", h: "/features", i: true }, { l: "Home page", h: "/", i: true }, { l: "Pricing", h: "#pricing" }] },
-    { title: "Schools",  links: [{ l: "Search Schools", h: "/schools", i: true }, { l: "Pay by School Code", h: "/combined-tution-requrement", i: true }, { l: "Register School", h: "/register", i: true }, { l: "TVET Trades", h: "/schools", i: true }] },
+    { title: "Schools",  links: [{ l: "Search Schools", h: "/schools", i: true }, { l: "Pay by School Code", h: PUBLIC_COMBINED_PAY_PATH, i: true }, { l: "Register School", h: "/register", i: true }, { l: "TVET Trades", h: "/schools", i: true }] },
     { title: "Accounts", links: [{ l: "School Manager Login", h: "/school-manager/login", i: true }, { l: "Parent Login", h: "/parents/login", i: true }, { l: "Staff Login", h: "/login", i: true }, { l: "Services", h: "/services", i: true }] },
     { title: "Support",  links: [{ l: "Help Center", h: "#" }, { l: "Contact Us", h: "#contact" }, { l: "Privacy Policy", h: "#" }, { l: "Terms of Service", h: "#" }] },
   ];

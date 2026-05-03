@@ -27,6 +27,16 @@ const DOS_DASHBOARD_ROLES = ['DOS', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER', 'ACCOUNTAN
 const REGISTRY_READ_ROLES = ['DOS', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER', 'TEACHER', 'HOD', 'ACCOUNTANT'];
 /** Timetables, subjects catalogue, teaching staff — school academic leads */
 const DOS_ACADEMIC_ADMIN = ['DOS', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER'];
+/** Gate logs filters — discipline portal roles need read access too. */
+const DOS_ACADEMIC_CALENDAR_GET = [
+  'DOS',
+  'SCHOOL_ADMIN',
+  'SCHOOL_MANAGER',
+  'HOD',
+  'DISCIPLINE',
+  'DISCIPLINE_STAFF',
+  'TEACHER',
+];
 
 function resolveSchoolId(req) {
   return (
@@ -479,7 +489,7 @@ router.put('/dos/settings', requireRole(DOS_ONLY), async (req, res) => {
 // GET /api/dos/academic-calendar-settings
 // PUT /api/dos/academic-calendar-settings
 // ════════════════════════════════════════════════════════════════
-router.get('/dos/academic-calendar-settings', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+router.get('/dos/academic-calendar-settings', requireRole(DOS_ACADEMIC_CALENDAR_GET), async (req, res) => {
   try {
     const schoolId = resolveSchoolId(req);
     if (!schoolId) return res.status(400).json({ success: false, message: 'School not found in session.' });

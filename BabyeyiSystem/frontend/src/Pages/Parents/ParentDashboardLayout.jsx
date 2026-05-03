@@ -18,6 +18,7 @@ import {
   LogOut,
   LifeBuoy,
   ClipboardList,
+  MessageSquare,
   FileText,
   Sun,
   Moon,
@@ -30,6 +31,7 @@ import babyeyiLogo from "../../assets/1BABYEYI LOGO FINAL.png";
 
 const navItemsDesktop = [
   { to: "/parents/home", end: true, label: "Home", Icon: Home },
+  { to: "/parents/chat", label: "School chat", Icon: MessageSquare },
   { to: "/parents/services", label: "Services", Icon: LayoutGrid },
   { to: "/parents/orders", label: "Orders", Icon: ClipboardList },
   { to: "/parents/payments-report", label: "Payments", Icon: FileText },
@@ -42,6 +44,7 @@ const navItemsDesktop = [
 /** Mobile: keep 6 tabs — Orders accessible via footer + Home */
 const navItemsMobile = [
   { to: "/parents/home", end: true, label: "Home", Icon: Home },
+  { to: "/parents/chat", label: "Chat", Icon: MessageSquare },
   { to: "/parents/services", label: "Services", Icon: LayoutGrid },
   { to: "/parents/payments-report", label: "Payments", Icon: FileText },
   { to: "/parents/shop", label: "Shop", Icon: ShoppingBag },
@@ -61,7 +64,8 @@ export default function ParentDashboardLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [studentCode, setStudentCode] = useState("");
-  const hideGlobalHero = /^\/parents\/classkit/.test(location.pathname);
+  const hideGlobalHero =
+    /^\/parents\/classkit/.test(location.pathname) || /^\/parents\/chat/.test(location.pathname);
 
   const {
     resolvedTheme,
