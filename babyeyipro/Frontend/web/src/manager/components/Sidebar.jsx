@@ -193,7 +193,7 @@ const Sidebar = ({ onClose }) => {
 
         <SectionLabel label="Services" />
         <NavItem icon={DollarSign} name="My Payroll" path="/my-payroll" onClose={onClose} />
-        <NavItem icon={Wallet} name="Shule Avance" path="/avance" onClose={onClose} />
+        <NavItem icon={Wallet} name="Teacher Avance" path="/avance" onClose={onClose} />
 
         <SectionLabel label="Operational Tools" />
         <NavItem icon={MessageSquare} name="TichaAI" path="/manager-ai" onClose={onClose} />

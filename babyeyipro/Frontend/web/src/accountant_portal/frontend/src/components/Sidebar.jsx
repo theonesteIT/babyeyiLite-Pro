@@ -174,7 +174,7 @@ const Sidebar = ({ onClose }) => {
 
         <SectionLabel label="Services" />
         <NavItem icon={DollarSign} name="My Payroll" path="/my-payroll" onClose={onClose} />
-        <NavItem icon={Wallet} name="Shule Avance" path="/shule-avance" onClose={onClose} />
+        <NavItem icon={Wallet} name="Teacher Avance" path="/shule-avance" onClose={onClose} />
         <NavItem icon={MessageSquare} name="Chat Center" path="/chat" onClose={onClose} badgeCount={unreadCount} />
 
 

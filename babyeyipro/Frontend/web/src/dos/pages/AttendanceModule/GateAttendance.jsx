@@ -243,11 +243,15 @@ export default function GateAttendance() {
 
   useEffect(() => {
     // Live refresh so Arduino scans appear automatically on Gate dashboard + Today Log.
+    // While on Settings, do not poll — the burst of GETs every few seconds hits API rate limits
+    // and blocks PUT /gate/attendance/settings ("Too many requests — please slow down").
+    if (page === 'settings') return undefined;
+    const intervalMs = page === 'gate' ? 2500 : 5000;
     const timer = setInterval(() => {
       loadGateData({ silent: true });
-    }, 2500);
+    }, intervalMs);
     return () => clearInterval(timer);
-  }, [loadGateData]);
+  }, [loadGateData, page]);
 
   const processTap = useCallback(async (rawUID) => {
     const uid = rawUID.trim().toUpperCase();
@@ -489,7 +493,7 @@ export default function GateAttendance() {
             SETTINGS PAGE
         ════════════════════════════════════ */}
         {page === 'settings' && (
-          <SettingsPage settings={settings} setSettings={setSettings} savingSettings={savingSettings} setSavingSettings={setSavingSettings} onReload={loadGateData} />
+          <SettingsPage settings={settings} setSettings={setSettings} savingSettings={savingSettings} setSavingSettings={setSavingSettings} />
         )}
       </div>
     </div>
@@ -915,7 +919,7 @@ function TodayLogPage({ records, todayLog, onReload }) {
 // ─────────────────────────────────────────────
 //  SETTINGS PAGE (DOS / School Manager)
 // ─────────────────────────────────────────────
-function SettingsPage({ settings, setSettings, savingSettings, setSavingSettings, onReload }) {
+function SettingsPage({ settings, setSettings, savingSettings, setSavingSettings }) {
   const handleTimePartChange = (key, part, value) => {
     const parts = to24HourParts(local[key]);
     const next = {
@@ -946,10 +950,17 @@ function SettingsPage({ settings, setSettings, savingSettings, setSavingSettings
       setLocal(normalized);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
-      if (typeof onReload === 'function') await onReload();
+      // Do not call loadGateData here — it fires several GETs and often triggers 429 after PUT.
+      // Server response already updates timing state above.
     } catch (error) {
       console.error('Failed to save gate attendance settings:', error);
-      alert(error?.response?.data?.message || 'Failed to save gate attendance settings.');
+      const status = error?.response?.status;
+      const msg = error?.response?.data?.message;
+      const detail =
+        status === 429
+          ? 'The server is limiting requests. Stay on this page and try Save again in a few seconds.'
+          : msg || 'Failed to save gate attendance settings.';
+      alert(detail);
     } finally {
       setSavingSettings(false);
     }
