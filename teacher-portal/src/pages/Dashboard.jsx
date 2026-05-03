@@ -54,36 +54,41 @@ const Dashboard = () => {
   return (
     <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen">
 
-      {/* HERO — same visual language as Login.jsx left panel (#000435, teacher.png, blobs, gradients) */}
-      <section className="relative min-h-[260px] md:min-h-[300px] overflow-hidden bg-[#000435] text-white flex items-center">
-        {/* Ambient blobs (match Login lp-blob) */}
+      {/* HERO — brand orange #FF8C00 + photo scrims */}
+      <section
+        className="relative min-h-[260px] md:min-h-[300px] overflow-hidden text-white flex items-center"
+        style={{
+          background: 'linear-gradient(165deg, #FFA033 0%, #FF8C00 45%, #E67300 100%)',
+        }}
+      >
+        {/* Ambient glows */}
         <div
           className="pointer-events-none absolute -left-20 -top-24 h-[420px] w-[420px] rounded-full blur-[90px]"
-          style={{ background: 'radial-gradient(circle, rgba(245,158,11,0.22) 0%, transparent 70%)' }}
+          style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.35) 0%, rgba(255,140,0,0.22) 38%, transparent 70%)' }}
           aria-hidden
         />
         <div
           className="pointer-events-none absolute -bottom-16 right-5 h-[320px] w-[320px] rounded-full blur-[90px]"
-          style={{ background: 'radial-gradient(circle, rgba(245,158,11,0.14) 0%, transparent 70%)' }}
+          style={{ background: 'radial-gradient(circle, rgba(255,200,100,0.35) 0%, rgba(255,140,0,0.18) 45%, transparent 70%)' }}
           aria-hidden
         />
         <div
           className="pointer-events-none absolute left-[52%] top-[42%] h-40 w-40 rounded-full blur-[90px]"
-          style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.06) 0%, transparent 70%)' }}
+          style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.12) 0%, transparent 70%)' }}
           aria-hidden
         />
 
-        {/* Decorative dots — same spirit as Login lp-dots */}
+        {/* Decorative dots */}
         <div
-          className="pointer-events-none absolute top-10 right-8 z-[2] hidden sm:grid grid-cols-5 gap-2 opacity-[0.18]"
+          className="pointer-events-none absolute top-10 right-8 z-[2] hidden sm:grid grid-cols-5 gap-2 opacity-25"
           aria-hidden
         >
           {Array.from({ length: 25 }).map((_, i) => (
-            <span key={i} className="h-[3px] w-[3px] rounded-full bg-amber-500" />
+            <span key={i} className="h-[3px] w-[3px] rounded-full bg-white" />
           ))}
         </div>
 
-        {/* Teacher image + Login-style overlays (lp-img-overlay-1 / lp-img-overlay-2) */}
+        {/* Teacher image + scrims tuned for #FF8C00 hero */}
         <div className="absolute inset-0 z-[1]">
           <img
             src="/teacher.png"
@@ -94,21 +99,21 @@ const Dashboard = () => {
             className="absolute inset-0 z-[2]"
             style={{
               background:
-                'linear-gradient(180deg, rgba(0,4,53,0.45) 0%, rgba(0,4,53,0.1) 40%, rgba(0,4,53,0.75) 100%)',
+                'linear-gradient(180deg, rgba(140,60,0,0.48) 0%, rgba(255,140,0,0.14) 42%, rgba(55,28,0,0.76) 100%)',
             }}
           />
           <div
             className="absolute inset-0 z-[2]"
             style={{
               background:
-                'linear-gradient(90deg, rgba(0,4,53,0.15) 0%, rgba(0,4,53,0.05) 60%, rgba(0,4,53,0) 100%)',
+                'linear-gradient(90deg, rgba(160,70,0,0.36) 0%, rgba(255,140,0,0.1) 58%, transparent 100%)',
             }}
           />
         </div>
 
-        {/* Secure pill — aligned with Login lp-pill */}
-        <div className="absolute top-6 left-6 z-10 hidden md:flex items-center gap-2 rounded-full border border-amber-400/25 bg-[#000435]/55 px-4 py-1.5 text-[10px] font-semibold font-montserrat  text-[20px] tracking-[0.14em] text-white/90 backdrop-blur-md">
-          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500 shadow-[0_0_0_0_rgba(245,158,11,0.5)]" />
+        {/* Secure pill */}
+        <div className="absolute top-6 left-6 z-10 hidden md:flex items-center gap-2 rounded-full border border-white/25 bg-black/25 px-4 py-1.5 text-[10px] font-semibold tracking-[0.14em] text-white/95 backdrop-blur-md">
+          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-white shadow-[0_0_12px_rgba(255,255,255,0.85)]" />
           ShuleTicha · Secure
         </div>
 

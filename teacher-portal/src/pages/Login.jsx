@@ -31,7 +31,6 @@ const Login = () => {
    const { login, teacher, loading: authLoading } = useAuth();
    const navigate = useNavigate();
 
-   // ── Auto-redirect if already logged in (e.g. via SSO) ────────────
    useEffect(() => {
       if (!authLoading && teacher) {
          navigate('/', { replace: true });
@@ -54,85 +53,86 @@ const Login = () => {
 
    if (authLoading) {
       return (
-         <div className="min-h-screen flex items-center justify-center bg-[#000435] md:bg-slate-100">
-            <RefreshCw className="animate-spin w-8 h-8 text-white/85 md:text-[#000435]" />
+         <div className="min-h-screen flex items-center justify-center bg-slate-100">
+            <RefreshCw className="animate-spin w-8 h-8 text-[#000435]" />
          </div>
       );
    }
 
    return (
-      <div className="flex min-h-screen min-h-[100svh] font-sans overflow-hidden relative text-[#000435] bg-[#000435] md:bg-slate-100">
+      <div className="flex min-h-screen min-h-[100svh] font-sans overflow-hidden relative text-[#000435] bg-slate-100">
          <div className="w-full flex items-center justify-center p-0 md:p-8 z-10">
-            <div className="group bg-white flex flex-col md:flex-row shadow-2xl md:rounded-2xl w-full md:max-w-4xl overflow-hidden h-full md:max-h-[520px] border border-white/10">
+            <div className="group bg-white flex flex-col shadow-2xl md:rounded-2xl w-full md:max-w-4xl overflow-hidden md:h-auto md:max-h-[min(92vh,780px)] border border-white/10">
 
-               {/* ── Left: Image / Branding Panel ── */}
-               <div className="flex w-full h-[clamp(11.75rem,48vw,16rem)] md:h-auto md:min-h-[280px] md:w-1/2 md:flex-1 relative overflow-hidden group/image shrink-0 bg-white">
+               {/* ── Full-width brand bar (desktop + mobile) ── */}
+               <header className="flex w-full shrink-0 items-center gap-3 bg-[#000435] px-4 py-3 md:px-6 md:py-3.5 border-b border-white/10">
+                  <img
+                     src="/babyeyiLogo.png"
+                     alt="Babyeyi"
+                     className="h-8 w-auto max-w-[140px] md:h-9 md:max-w-[160px] object-contain object-left select-none"
+                     draggable={false}
+                  />
+               </header>
+
+               {/* ── Row: image | form ── */}
+               <div className="flex min-h-0 flex-1 flex-col md:flex-row md:items-stretch">
+
+               {/* ── Left: Image ── */}
+               <div className="group/image relative flex h-[clamp(10rem,36vw,13.5rem)] w-full shrink-0 overflow-hidden bg-white md:h-auto md:min-h-[220px] md:w-1/2 md:flex-1">
                   <img
                      src="/teacher.png"
                      alt="Shule Teacher"
-                     className="w-full h-full object-cover object-[center_22%] md:object-center transition-transform duration-[2000ms] md:group-hover/image:scale-110"
+                     className="h-full w-full object-cover object-[center_22%] transition-transform duration-[2000ms] md:object-center md:group-hover/image:scale-110"
                   />
-                  {/* Very light tint so the photo stays clearly visible */}
-                  <div className="absolute inset-0 bg-gradient-to-b from-orange-950/10 via-transparent to-black/15 z-10 pointer-events-none"></div>
-
-                  {/* Mobile only: Educators' label on image */}
-                  <div className="absolute inset-0 z-20 flex md:hidden flex-col text-white p-4 pb-4 pointer-events-none">
-                     <div className="flex flex-1 flex-col items-center justify-end">
-                        <span className="text-[10px] font-black uppercase tracking-[0.35em] text-amber-400 text-center">
-                           Educators&apos; Workspace
-                        </span>
-                     </div>
-                  </div>
+                  <div className="pointer-events-none absolute inset-0 z-10 bg-gradient-to-b from-orange-950/10 via-transparent to-black/15"></div>
                </div>
 
-               {/* ── Right: Form Panel ── */}
-               <div className="p-6 md:p-10 w-full md:w-1/2 flex flex-col justify-center">
-                  {/* Header — Babyeyi logo (right column only; full photo visible on the left) */}
-                  <div className="flex flex-col items-center mb-6 text-center">
-                     <div
-                        className="w-[88px] h-[88px] md:w-24 md:h-24 rounded-3xl flex items-center justify-center border-2 border-white/20 ring-2 ring-amber-400/35 ring-offset-2 ring-offset-white login-float shrink-0"
-                        style={{
-                           background: '#000435',
-                           boxShadow: '0 12px 36px rgba(0, 4, 53, 0.45), 0 4px 12px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255,255,255,0.06)',
-                        }}
-                     >
+               {/* ── Right: Form ── */}
+               <div
+                  className="
+                  flex min-h-0 w-full flex-col md:w-1/2 md:flex-1
+                  overflow-y-auto overscroll-contain max-h-[calc(100svh-1rem)] md:overflow-visible md:max-h-none
+                  px-6 pt-5 pb-5 md:px-8 md:pt-6 md:pb-5
+               "
+               >
+
+                  {/* Title row — Babyeyi is in top bar */}
+                  <div className="mb-3 shrink-0 text-center flex flex-col items-center">
+                     <h1 className="m-0 mt-0 flex justify-center">
                         <img
-                           src="/babyeyilogo.png"
-                           alt="Babyeyi"
-                           className="w-[62px] h-[62px] md:w-[70px] md:h-[70px] max-w-[calc(100%-12px)] object-contain select-none"
-                           style={{ filter: 'drop-shadow(0 2px 8px rgba(0, 0, 0, 0.35))' }}
+                           src="/ShuleTichaLogo.png"
+                           alt="ShuleTicha"
+                           className="h-10 w-auto max-w-[min(100%,300px)] md:h-12 object-contain object-center select-none"
                            draggable={false}
                         />
-                     </div>
-                     <h1 className="text-[28px] md:text-[32px] font-extrabold mt-5 tracking-tight leading-none" style={{ color: '#000435' }}>
-                        ShuleTicha
                      </h1>
-                     <p className="mt-2 text-[10px] font-black uppercase tracking-[0.38em] text-amber-500">
+                     <p className="mt-1.5 text-[9.5px] font-black uppercase tracking-[0.38em] text-[#FF8C00]">
                         Educators&apos; Workspace
                      </p>
                   </div>
 
                   {/* Error */}
                   {error && (
-                     <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-600 rounded-xl px-4 py-2 mb-3 text-[11px] font-bold login-shake">
+                     <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-600 rounded-xl px-4 py-2 mb-3 text-[11px] font-bold login-shake shrink-0">
                         <AlertCircle size={14} className="shrink-0" /> {error}
                      </div>
                   )}
 
-                  {/* Form */}
-                  <div className="mb-5">
-                     <h2 className="text-xl font-bold text-gray-900 tracking-tight">Welcome back</h2>
-                     <p className="text-[15px] text-gray-400 mt-1">Sign in to your teacher account to continue</p>
+                  {/* Welcome copy */}
+                  <div className="mb-4 shrink-0">
+                     <h2 className="text-[18px] md:text-[19px] font-bold text-gray-900 tracking-tight">Welcome back</h2>
+                     <p className="text-[13.5px] text-gray-400 mt-0.5">Sign in to your teacher account to continue</p>
                   </div>
 
-                  <form onSubmit={handleSubmit} className="space-y-4">
-                     {/* Email or Username — LoginFix-style field */}
+                  {/* Form */}
+                  <form onSubmit={handleSubmit} className="space-y-3.5 shrink-0">
+                     {/* Email or Username */}
                      <div>
-                        <label className="block text-[12px] font-semibold text-gray-700 uppercase tracking-wide mb-1.5">
+                        <label className="block text-[11.5px] font-semibold text-gray-700 uppercase tracking-wide mb-1.5">
                            Email or Username
                         </label>
-                        <div className="group flex items-center rounded-xl border-[1.5px] border-gray-200 bg-gray-50 overflow-hidden transition-all focus-within:border-amber-500 focus-within:bg-amber-50/60 focus-within:shadow-[0_0_0_3px_rgba(245,158,11,0.12)]">
-                           <span className="w-10 flex items-center justify-center shrink-0 text-gray-300 group-focus-within:text-amber-500 transition-colors">
+                        <div className="group flex items-center rounded-xl border-[1.5px] border-gray-200 bg-gray-50 overflow-hidden transition-all focus-within:border-[#FF8C00] focus-within:bg-orange-50/60 focus-within:shadow-[0_0_0_3px_rgba(255,140,0,0.15)]">
+                           <span className="w-10 flex items-center justify-center shrink-0 text-gray-300 group-focus-within:text-[#FF8C00] transition-colors">
                               <Mail className="w-[15px] h-[15px]" />
                            </span>
                            <input
@@ -141,7 +141,7 @@ const Login = () => {
                               value={identifier}
                               onChange={e => setIdentifier(e.target.value)}
                               placeholder="Enter your email..."
-                              className="w-full py-3 pr-3 bg-transparent outline-none text-[13.5px] text-gray-900 placeholder:text-gray-300 font-normal"
+                              className="w-full py-2.5 pr-3 bg-transparent outline-none text-[13.5px] text-gray-900 placeholder:text-gray-300 font-normal"
                               required
                            />
                         </div>
@@ -149,11 +149,11 @@ const Login = () => {
 
                      {/* Password */}
                      <div>
-                        <label className="block text-[12px] font-semibold text-gray-700 uppercase tracking-wide mb-1.5">
+                        <label className="block text-[11.5px] font-semibold text-gray-700 uppercase tracking-wide mb-1.5">
                            Password
                         </label>
-                        <div className="group flex items-center rounded-xl border-[1.5px] border-gray-200 bg-gray-50 overflow-hidden transition-all focus-within:border-amber-500 focus-within:bg-amber-50/60 focus-within:shadow-[0_0_0_3px_rgba(245,158,11,0.12)]">
-                           <span className="w-10 flex items-center justify-center shrink-0 text-gray-300 group-focus-within:text-amber-500 transition-colors">
+                        <div className="group flex items-center rounded-xl border-[1.5px] border-gray-200 bg-gray-50 overflow-hidden transition-all focus-within:border-[#FF8C00] focus-within:bg-orange-50/60 focus-within:shadow-[0_0_0_3px_rgba(255,140,0,0.15)]">
+                           <span className="w-10 flex items-center justify-center shrink-0 text-gray-300 group-focus-within:text-[#FF8C00] transition-colors">
                               <Lock className="w-[15px] h-[15px]" />
                            </span>
                            <input
@@ -161,13 +161,13 @@ const Login = () => {
                               value={password}
                               onChange={e => setPassword(e.target.value)}
                               placeholder="Enter your password..."
-                              className="w-full py-3 bg-transparent outline-none text-[13.5px] text-gray-900 placeholder:text-gray-300 font-normal"
+                              className="w-full py-2.5 bg-transparent outline-none text-[13.5px] text-gray-900 placeholder:text-gray-300 font-normal"
                               required
                            />
                            <button
                               type="button"
                               onClick={() => setShowPassword(!showPassword)}
-                              className="w-10 flex items-center justify-center shrink-0 text-gray-300 hover:text-amber-500 transition-colors"
+                              className="w-10 flex items-center justify-center shrink-0 text-gray-300 hover:text-[#FF8C00] transition-colors"
                               aria-label={showPassword ? 'Hide password' : 'Show password'}
                            >
                               {showPassword ? <EyeOff className="w-[15px] h-[15px]" /> : <Eye className="w-[15px] h-[15px]" />}
@@ -176,29 +176,29 @@ const Login = () => {
                      </div>
 
                      {/* Remember + forgot */}
-                     <div className="flex items-center justify-between gap-2 pt-1">
+                     <div className="flex items-center justify-between gap-2 pt-0.5">
                         <label className="flex items-center gap-2 cursor-pointer select-none">
                            <input
                               type="checkbox"
                               checked={rememberMe}
                               onChange={e => setRememberMe(e.target.checked)}
-                              className="rounded border-gray-300 w-[15px] h-[15px] accent-amber-500"
+                              className="rounded border-gray-300 w-[15px] h-[15px] accent-[#FF8C00]"
                            />
-                           <span className="text-[12.5px] font-medium text-gray-500">Remember me</span>
+                           <span className="text-[12px] font-medium text-gray-500">Remember me</span>
                         </label>
-                        <button type="button" className="text-[12.5px] font-semibold text-amber-500 hover:opacity-70 shrink-0 whitespace-nowrap">
+                        <button type="button" className="text-[12px] font-semibold text-[#FF8C00] hover:opacity-70 shrink-0 whitespace-nowrap">
                            Forgot Password?
                         </button>
                      </div>
 
-                     {/* Submit — amber gradient */}
+                     {/* Submit */}
                      <button
                         type="submit"
                         disabled={loading}
-                        className="w-full text-white py-3.5 rounded-xl font-bold text-[13px] uppercase tracking-[0.13em] transition-all disabled:opacity-55 disabled:cursor-not-allowed flex justify-center items-center gap-2 group/btn relative overflow-hidden hover:-translate-y-0.5 hover:shadow-[0_8px_28px_rgba(245,158,11,0.4)] active:translate-y-0"
+                        className="w-full text-white py-3 rounded-xl font-bold text-[13px] uppercase tracking-[0.13em] transition-all disabled:opacity-55 disabled:cursor-not-allowed flex justify-center items-center gap-2 group/btn relative overflow-hidden hover:-translate-y-0.5 hover:shadow-[0_8px_28px_rgba(255,140,0,0.45)] active:translate-y-0"
                         style={{
-                           background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
-                           boxShadow: '0 4px 20px rgba(245,158,11,0.35), 0 1px 4px rgba(217,119,6,0.25)',
+                           background: 'linear-gradient(135deg, #FF8C00 0%, #E67300 100%)',
+                           boxShadow: '0 4px 20px rgba(255,140,0,0.4), 0 1px 4px rgba(230,115,0,0.3)',
                         }}
                      >
                         {loading ? (
@@ -213,14 +213,13 @@ const Login = () => {
                   </form>
 
                   {/* Footer */}
-                  <div className="mt-5 pt-4 border-t border-black/5 text-center flex flex-col gap-3">
+                  <div className="mt-4 pt-3.5 border-t border-black/5 text-center flex flex-col gap-2 shrink-0">
                      <p className="text-[11px] text-re-text-muted opacity-50 font-bold">
                         Trouble signing in?{' '}
                         <button className="font-black hover:underline" style={{ color: '#FF8C00' }}>Contact Administrator</button>
                      </p>
-                     
-                     <div className="pt-2">
-                        <a 
+                     <div className="pt-1">
+                        <a
                            href={`${import.meta.env.VITE_MAIN_PLATFORM_URL || 'http://localhost:5174'}/login`}
                            className="inline-flex items-center gap-2 text-[10px] font-black text-re-orange hover:underline uppercase tracking-widest"
                         >
@@ -230,28 +229,22 @@ const Login = () => {
                      </div>
                   </div>
 
-                  <p className="text-center text-[9px] text-re-text-muted mt-4 uppercase tracking-widest font-black opacity-30">
+                  <p className="text-center text-[9px] text-re-text-muted mt-3 uppercase tracking-widest font-black opacity-30 shrink-0">
                      © 2026 Babyeyi Systems • Rwandan National Education Portal
                   </p>
+               </div>
                </div>
             </div>
          </div>
 
          <style>{`
-        @keyframes loginFloat {
-          0%, 100% { transform: translateY(0px); }
-          50%       { transform: translateY(-8px); }
-        }
-        .login-float { animation: loginFloat 4s ease-in-out infinite; }
-
-        @keyframes loginShake {
-          0%, 100% { transform: translateX(0); }
-          25%       { transform: translateX(-5px); }
-          75%       { transform: translateX(5px); }
-        }
-        .login-shake { animation: loginShake 0.4s ease-in-out; }
-
-      `}</style>
+            @keyframes loginShake {
+               0%, 100% { transform: translateX(0); }
+               25%       { transform: translateX(-5px); }
+               75%       { transform: translateX(5px); }
+            }
+            .login-shake { animation: loginShake 0.4s ease-in-out; }
+         `}</style>
       </div>
    );
 };
