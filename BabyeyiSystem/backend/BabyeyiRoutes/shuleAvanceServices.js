@@ -9,6 +9,14 @@ const {
   ensureShuleAvanceTeacherCatalogTable,
   fetchActiveCatalogMaps,
 } = require('./shuleAvanceCatalogStore');
+const {
+  ensureWebPushTable,
+  upsertSubscription,
+  removeSubscription,
+  sendWebPushToUser,
+  getVapidPublicKey,
+  isWebPushConfigured,
+} = require('./webPushSubscriptions');
 
 const router = express.Router();
 
@@ -1340,6 +1348,7 @@ router.use(authGuard);
 router.use(async (_req, res, next) => {
   try {
     await ensureTable();
+    await ensureWebPushTable();
     next();
   } catch (error) {
     console.error('[shule-avance] ensureTable failed:', error.message);
@@ -1352,6 +1361,43 @@ router.get('/shule-avance/applicant/my-requests', requireRole(APPLICANT_ROLES), 
 router.post('/shule-avance/applicant/requests', requireRole(APPLICANT_ROLES), handleApplicantCreate);
 router.put('/shule-avance/applicant/requests/:id', requireRole(APPLICANT_ROLES), handleApplicantUpdate);
 router.delete('/shule-avance/applicant/requests/:id', requireRole(APPLICANT_ROLES), handleApplicantDelete);
+
+router.get('/shule-avance/applicant/push/vapid-key', requireRole(APPLICANT_ROLES), (req, res) => {
+  const ok = isWebPushConfigured();
+  const publicKey = getVapidPublicKey();
+  res.json({
+    success: ok && !!publicKey,
+    configured: ok && !!publicKey,
+    publicKey: ok ? publicKey : null,
+    message: ok ? undefined : 'Server Web Push (VAPID) is not configured',
+  });
+});
+
+router.post('/shule-avance/applicant/push/subscribe', requireRole(APPLICANT_ROLES), async (req, res) => {
+  try {
+    if (!isWebPushConfigured()) {
+      return res.status(503).json({ success: false, message: 'Web Push is not configured on this server' });
+    }
+    const userId = req.ctx.userId;
+    await upsertSubscription(userId, req.body);
+    res.json({ success: true, message: 'Push subscription saved' });
+  } catch (error) {
+    console.error('[shule-avance] push subscribe:', error.message);
+    const status = error.status === 400 ? 400 : 500;
+    res.status(status).json({ success: false, message: error.message || 'Failed to save subscription' });
+  }
+});
+
+router.post('/shule-avance/applicant/push/unsubscribe', requireRole(APPLICANT_ROLES), async (req, res) => {
+  try {
+    const endpoint = req.body?.endpoint;
+    await removeSubscription(req.ctx.userId, endpoint);
+    res.json({ success: true, message: 'Subscription removed' });
+  } catch (error) {
+    console.error('[shule-avance] push unsubscribe:', error.message);
+    res.status(500).json({ success: false, message: 'Failed to remove subscription' });
+  }
+});
 
 router.get('/shule-avance/teacher/my-requests', requireRole(APPLICANT_ROLES), handleApplicantList);
 router.post('/shule-avance/teacher/requests', requireRole(APPLICANT_ROLES), handleApplicantCreate);
@@ -1523,6 +1569,16 @@ router.patch('/shule-avance/finance/invoice-requests/:id/send-to-manager', requi
     const note = String(req.body?.note || req.body?.comment || '').trim();
     if (!id) return res.status(400).json({ success: false, message: 'Invalid request id' });
 
+    const [before] = await promisePool.query(
+      `SELECT teacher_user_id FROM shule_avance_requests
+       WHERE id = ? AND school_id = ? AND status = ? LIMIT 1`,
+      [id, schoolId, STATUS.PENDING_ACCOUNTANT]
+    );
+    if (!before?.length) {
+      return res.status(400).json({ success: false, message: 'Request not found or already handled' });
+    }
+    const teacherUserId = Number(before[0].teacher_user_id);
+
     const [result] = await promisePool.query(
       `UPDATE shule_avance_requests
        SET status = ?, accountant_note = ?, accountant_reviewed_at = NOW(), accountant_reviewed_by = ?
@@ -1533,6 +1589,17 @@ router.patch('/shule-avance/finance/invoice-requests/:id/send-to-manager', requi
       return res.status(400).json({ success: false, message: 'Request not found or already handled' });
     }
     res.json({ success: true, message: 'Request sent to school manager for decision' });
+
+    if (Number.isFinite(teacherUserId) && teacherUserId > 0) {
+      setImmediate(() => {
+        sendWebPushToUser(teacherUserId, {
+          title: 'Ticha Avance',
+          body: `Request #${id} was sent to your school manager for review.`,
+          tag: `sa-${id}-to-manager`,
+          url: '/shule-avance',
+        }).catch((e) => console.warn('[shule-avance] web push send:', e.message));
+      });
+    }
   } catch (error) {
     console.error('[shule-avance] finance send-to-manager:', error.message);
     res.status(500).json({ success: false, message: 'Failed to send request to manager' });
@@ -1638,6 +1705,16 @@ router.patch('/shule-avance/manager/invoice-requests/:id/decision', requireRole(
       return res.status(400).json({ success: false, message: 'decision must be approved or rejected' });
     }
 
+    const [before] = await promisePool.query(
+      `SELECT teacher_user_id FROM shule_avance_requests
+       WHERE id = ? AND school_id = ? AND status = ? LIMIT 1`,
+      [id, schoolId, STATUS.SENT_TO_MANAGER]
+    );
+    if (!before?.length) {
+      return res.status(400).json({ success: false, message: 'Request not found or already handled' });
+    }
+    const teacherUserId = Number(before[0].teacher_user_id);
+
     const nextStatus = decision === 'approved' ? STATUS.APPROVED : STATUS.REJECTED_BY_MANAGER;
     const [result] = await promisePool.query(
       `UPDATE shule_avance_requests
@@ -1649,6 +1726,28 @@ router.patch('/shule-avance/manager/invoice-requests/:id/decision', requireRole(
       return res.status(400).json({ success: false, message: 'Request not found or already handled' });
     }
     res.json({ success: true, message: decision === 'approved' ? 'Request approved' : 'Request rejected' });
+
+    if (Number.isFinite(teacherUserId) && teacherUserId > 0) {
+      if (decision === 'approved') {
+        setImmediate(() => {
+          sendWebPushToUser(teacherUserId, {
+            title: 'Ticha Avance',
+            body: `Request #${id} was approved by your school manager.`,
+            tag: `sa-${id}-approved`,
+            url: '/shule-avance',
+          }).catch((e) => console.warn('[shule-avance] web push send:', e.message));
+        });
+      } else if (decision === 'rejected') {
+        setImmediate(() => {
+          sendWebPushToUser(teacherUserId, {
+            title: 'Ticha Avance',
+            body: `Request #${id} was not approved by your school manager.`,
+            tag: `sa-${id}-rejected`,
+            url: '/shule-avance',
+          }).catch((e) => console.warn('[shule-avance] web push send:', e.message));
+        });
+      }
+    }
   } catch (error) {
     console.error('[shule-avance] manager decision:', error.message);
     res.status(500).json({ success: false, message: 'Failed to save manager decision' });

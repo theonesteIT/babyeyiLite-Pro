@@ -1,4 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import {
+   getTeacherPortalPushState,
+   subscribeTeacherPortalPush,
+   unsubscribeTeacherPortalPush,
+   isWebPushEnvironmentSupported,
+} from '../utils/webPushTeacherPortal';
 import { createPortal } from 'react-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -40,6 +46,7 @@ import {
    AlertTriangle,
    User,
    ArrowLeft,
+   Bell,
 } from 'lucide-react';
 import ShuleAvanceRepaymentCalculator from '../components/ShuleAvanceRepaymentCalculator';
 
@@ -113,6 +120,62 @@ function formatMoney(n) {
    return `${Math.round(v).toLocaleString()} RWF`;
 }
 
+const STATUS_SNAPSHOT_KEY_PREFIX = 'shule_avance_req_status';
+
+function readStatusSnapshot(userId) {
+   if (userId == null || userId === '') return {};
+   try {
+      const raw = sessionStorage.getItem(`${STATUS_SNAPSHOT_KEY_PREFIX}_${userId}`);
+      return raw ? JSON.parse(raw) : {};
+   } catch {
+      return {};
+   }
+}
+
+function writeStatusSnapshot(userId, map) {
+   if (userId == null || userId === '') return;
+   try {
+      sessionStorage.setItem(`${STATUS_SNAPSHOT_KEY_PREFIX}_${userId}`, JSON.stringify(map));
+   } catch {
+      /* quota / private mode */
+   }
+}
+
+/** Emit in-app alerts when a request moves through accountant → manager → approval */
+function computeStatusTransitionAlerts(prevMap, rows) {
+   const alerts = [];
+   for (const r of rows) {
+      const id = String(r.id);
+      const was = prevMap[id];
+      const now = r.status;
+      if (was === undefined || was === now) continue;
+
+      if (was === 'pending_accountant' && now === 'sent_to_manager') {
+         alerts.push({
+            key: `${id}-pending_to_manager`,
+            variant: 'info',
+            title: 'Sent to school manager',
+            message: `Finance approved and forwarded your request (#${id}) to your school manager.`,
+         });
+      } else if (was === 'sent_to_manager' && now === 'approved') {
+         alerts.push({
+            key: `${id}-manager_approved`,
+            variant: 'success',
+            title: 'Request approved',
+            message: `Your school manager approved Ticha Avance request #${id}.`,
+         });
+      } else if (was === 'sent_to_manager' && now === 'rejected_by_manager') {
+         alerts.push({
+            key: `${id}-manager_rejected`,
+            variant: 'reject',
+            title: 'Request not approved',
+            message: `Your school manager did not approve Ticha Avance request #${id}.`,
+         });
+      }
+   }
+   return alerts;
+}
+
 export default function ShuleAvance() {
    const { teacher } = useAuth();
    const [rows, setRows] = useState([]);
@@ -154,6 +217,27 @@ export default function ShuleAvance() {
 
    const [detailRow, setDetailRow] = useState(null);
    const [editRow, setEditRow] = useState(null);
+   const [statusAlerts, setStatusAlerts] = useState([]);
+   const [pushUi, setPushUi] = useState({
+      supported: false,
+      permission: 'default',
+      subscribed: false,
+   });
+   const [pushBusy, setPushBusy] = useState(false);
+   const [pushHint, setPushHint] = useState(null);
+
+   const refreshPushState = useCallback(async () => {
+      const s = await getTeacherPortalPushState();
+      setPushUi({
+         supported: s.supported,
+         permission: s.permission,
+         subscribed: s.subscribed,
+      });
+   }, []);
+
+   useEffect(() => {
+      refreshPushState();
+   }, [refreshPushState]);
 
    const selectedDealProducts = useMemo(
       () => dealProducts.filter((p) => selectedDealProductIds.includes(Number(p.id))),
@@ -201,8 +285,32 @@ export default function ShuleAvance() {
             loadCatalog(),
             loadTeacherDealProducts(),
          ]);
-         if (reqRes.data?.success) setRows(Array.isArray(reqRes.data.data) ? reqRes.data.data : []);
-         else setRows([]);
+         const reqOk = reqRes.data?.success === true;
+         const rawList = reqRes.data?.data;
+         const rowsData = reqOk && Array.isArray(rawList) ? rawList : [];
+         if (reqOk) {
+            const uid = teacher?.id;
+            const prevMap = readStatusSnapshot(uid);
+            const nextMap = Object.fromEntries(rowsData.map((r) => [String(r.id), r.status]));
+            const newAlerts = computeStatusTransitionAlerts(prevMap, rowsData);
+            writeStatusSnapshot(uid, nextMap);
+            setRows(rowsData);
+            if (newAlerts.length) {
+               setStatusAlerts((prev) => {
+                  const seen = new Set(prev.map((a) => a.key));
+                  const merged = [...prev];
+                  for (const a of newAlerts) {
+                     if (!seen.has(a.key)) {
+                        seen.add(a.key);
+                        merged.unshift(a);
+                     }
+                  }
+                  return merged.slice(0, 8);
+               });
+            }
+         } else {
+            setRows([]);
+         }
 
          const cs = payrollRes?.data?.success ? payrollRes.data?.data?.currentSalary : null;
          if (cs && typeof cs === 'object') {
@@ -224,16 +332,22 @@ export default function ShuleAvance() {
          setRefreshing(false);
          setPayrollLoading(false);
       }
-   }, [loadCatalog, loadTeacherDealProducts]);
+   }, [loadCatalog, loadTeacherDealProducts, teacher?.id]);
 
    useEffect(() => {
       load(false);
    }, [load]);
 
    useEffect(() => {
-      const id = window.setInterval(() => load(true), 120000);
+      const hasWorkflow =
+         rows.length > 0 &&
+         rows.some(
+            (r) => r.status === 'pending_accountant' || r.status === 'sent_to_manager'
+         );
+      const ms = hasWorkflow ? 45000 : 120000;
+      const id = window.setInterval(() => load(true), ms);
       return () => window.clearInterval(id);
-   }, [load]);
+   }, [load, rows]);
 
    const filtered = useMemo(() => {
       return rows.filter((r) => {
@@ -492,8 +606,145 @@ export default function ShuleAvance() {
          </button>
       );
    };
+   const dismissStatusAlert = (key) => {
+      setStatusAlerts((prev) => prev.filter((a) => a.key !== key));
+   };
+
+   const handleEnablePush = async () => {
+      setPushBusy(true);
+      setPushHint(null);
+      try {
+         await subscribeTeacherPortalPush(api);
+         await refreshPushState();
+      } catch (e) {
+         setPushHint(e.response?.data?.message || e.message || 'Could not enable notifications.');
+      } finally {
+         setPushBusy(false);
+      }
+   };
+
+   const handleDisablePush = async () => {
+      setPushBusy(true);
+      setPushHint(null);
+      try {
+         await unsubscribeTeacherPortalPush(api);
+         await refreshPushState();
+      } catch (e) {
+         setPushHint(e.response?.data?.message || e.message || 'Could not turn off notifications.');
+      } finally {
+         setPushBusy(false);
+      }
+   };
+
+   const renderWebPushCard = () => {
+      if (!isWebPushEnvironmentSupported()) {
+         return (
+            <div className="rounded-2xl border border-black/5 bg-white/90 p-4 text-xs font-semibold text-re-text-muted">
+               Browser push notifications are not supported on this device.
+            </div>
+         );
+      }
+      const denied = pushUi.permission === 'denied';
+      const subscribed = pushUi.subscribed;
+
+      return (
+         <div className="rounded-2xl border border-re-orange/15 bg-white p-4 shadow-sm">
+            <div className="flex items-start gap-3">
+               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-re-orange/10 text-re-orange">
+                  <Bell size={18} aria-hidden />
+               </div>
+               <div className="min-w-0 flex-1">
+                  <p className="text-xs font-black uppercase tracking-wide text-re-text">Browser alerts</p>
+                  <p className="mt-1 text-[11px] font-semibold leading-snug text-re-text-muted">
+                     {denied
+                        ? 'Notifications are blocked for this site. Enable them in your browser settings to receive Ticha Avance updates.'
+                        : subscribed
+                          ? 'You will receive system notifications when finance forwards your request or when your manager approves.'
+                          : 'Turn on to get notified when your request is sent to your manager or approved — even when this tab is closed.'}
+                  </p>
+                  {pushHint ? (
+                     <p className="mt-2 text-[11px] font-semibold text-amber-700">{pushHint}</p>
+                  ) : null}
+                  <div className="mt-3 flex flex-wrap gap-2">
+                     {!denied && subscribed ? (
+                        <button
+                           type="button"
+                           disabled={pushBusy}
+                           onClick={handleDisablePush}
+                           className="inline-flex items-center gap-1.5 rounded-xl border border-black/10 bg-white px-3 py-2 text-[10px] font-black uppercase tracking-wide text-re-text hover:bg-re-bg disabled:opacity-50"
+                        >
+                           {pushBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
+                           Turn off
+                        </button>
+                     ) : null}
+                     {!denied && !subscribed ? (
+                        <button
+                           type="button"
+                           disabled={pushBusy}
+                           onClick={handleEnablePush}
+                           className="inline-flex items-center gap-1.5 rounded-xl bg-re-orange px-3 py-2 text-[10px] font-black uppercase tracking-wide text-white shadow-sm hover:opacity-95 disabled:opacity-50"
+                        >
+                           {pushBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin text-white" aria-hidden /> : null}
+                           Enable notifications
+                        </button>
+                     ) : null}
+                  </div>
+               </div>
+            </div>
+         </div>
+      );
+   };
+
    return (
       <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen">
+         {statusAlerts.length > 0 && (
+            <div
+               className="fixed top-[max(0.75rem,env(safe-area-inset-top))] left-4 right-4 z-[200] flex flex-col gap-2 max-w-lg mx-auto md:left-auto md:right-6 md:mx-0 pointer-events-none"
+               role="region"
+               aria-label="Ticha Avance updates"
+            >
+               {statusAlerts.map((a) => {
+                  const isSuccess = a.variant === 'success';
+                  const isReject = a.variant === 'reject';
+                  return (
+                     <div
+                        key={a.key}
+                        className={`pointer-events-auto flex gap-3 rounded-2xl border p-4 shadow-[0_14px_40px_-12px_rgba(14,31,53,0.35)] ${
+                           isSuccess
+                              ? 'border-emerald-200 bg-emerald-50/95 backdrop-blur-sm'
+                              : isReject
+                                ? 'border-red-200 bg-red-50/95 backdrop-blur-sm'
+                                : 'border-sky-200 bg-sky-50/95 backdrop-blur-sm'
+                        }`}
+                     >
+                        <div
+                           className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+                              isSuccess
+                                 ? 'bg-emerald-100 text-emerald-700'
+                                 : isReject
+                                   ? 'bg-red-100 text-red-700'
+                                   : 'bg-sky-100 text-sky-700'
+                           }`}
+                        >
+                           {isSuccess ? <CheckCircle2 size={20} /> : isReject ? <XCircle size={20} /> : <Send size={20} />}
+                        </div>
+                        <div className="min-w-0 flex-1 pt-0.5">
+                           <p className="text-sm font-black text-re-text leading-tight">{a.title}</p>
+                           <p className="mt-0.5 text-xs font-semibold text-re-text-muted leading-snug">{a.message}</p>
+                        </div>
+                        <button
+                           type="button"
+                           onClick={() => dismissStatusAlert(a.key)}
+                           className="shrink-0 rounded-lg p-1.5 text-re-text-muted hover:bg-black/5 hover:text-re-text transition-colors"
+                           aria-label="Dismiss notification"
+                        >
+                           <X size={16} />
+                        </button>
+                     </div>
+                  );
+               })}
+            </div>
+         )}
          {/* ── Main Content Grid ── */}
           <div className="max-w-[1600px] mx-auto px-4 md:px-12 md:pt-6 pb-20 relative z-20">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -503,6 +754,7 @@ export default function ShuleAvance() {
                    <div className="lg:hidden space-y-4">
                       {renderBalanceCard()}
                       {renderRequestButton(true)}
+                      {renderWebPushCard()}
                    </div>
 
                    <div className="bg-white rounded-2xl md:rounded-[32px] md:shadow-2xl border-y md:border border-black/5 p-0 md:p-8 relative overflow-hidden">
@@ -572,6 +824,7 @@ export default function ShuleAvance() {
                    <div className="hidden lg:block space-y-2">
                       {renderBalanceCard()}
                       {renderRequestButton(false)}
+                      {renderWebPushCard()}
                    </div>
 
                    <div className="md:space-y-2">
