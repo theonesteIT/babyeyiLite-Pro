@@ -22,7 +22,7 @@ const SERVICES = [
   { key:"uniform",    Icon:Shirt,       title:"Uniform Voucher",     desc:"Ensures students have at least one set of new uniforms at the beginning of each academic year.", href:"/services/uniform-voucher/request", cta:"Open flow" },
   { key:"mybabyeyi",  Icon:User,        title:"My Babyeyi Account",  desc:"Your family dashboard for tracking all services and payments in one place.",              href:"#",                     cta:"Coming soon", soon:true },
   { key:"paidschool", Icon:CreditCard,  title:"Paid at School",      desc:"Easily pay school fees and school items through the portal using your school code.",    href:"/paid-at-school",                cta:"Pay by school code" },
-  { key:"requirementsOnly", Icon:Layers, title:"Requirements Only",   desc:"Pay only school requirements using the custom ShuleKit step-by-step flow until final payment.", href:"/services/shulekit-pay", cta:"Pay Requirements" },
+  { key:"requirementsOnly", Icon:Layers, title:"Requirements Only",   desc:"Pay only school requirements using the custom ShuleKiti", href:"/services/shulekit-pay", cta:"Pay Requirements" },
   { key:"papeterie",  Icon:Store,       title:"Shule Papeterie",     desc:"Stationery and learning materials, fast and convenient.",                                  href:"#",       cta:"Coming soon", soon:true },
 ];
 

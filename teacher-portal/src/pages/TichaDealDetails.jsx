@@ -60,29 +60,28 @@ function ModalShell({
    * shrink to content on short steps so header + body + footer stay on screen.
    */
   const panelCls = footer
-    ? 'relative w-full sm:max-w-lg flex flex-col min-h-0 h-auto max-h-[min(100svh,100dvh)] sm:max-h-[min(92vh,880px)] bg-white rounded-t-[28px] sm:rounded-[24px] shadow-2xl overflow-hidden'
-    : 'relative w-full sm:max-w-lg flex flex-col min-h-0 max-h-[min(96svh,100dvh)] sm:max-h-[90vh] bg-white rounded-t-[28px] sm:rounded-[24px] shadow-2xl overflow-hidden';
+    ? 'relative w-full max-w-lg flex flex-col min-h-0 h-auto max-h-[min(88svh,100dvh)] sm:max-h-[min(92vh,880px)] bg-white rounded-[24px] shadow-2xl overflow-hidden mx-auto'
+    : 'relative w-full max-w-lg flex flex-col min-h-0 max-h-[min(90svh,100dvh)] sm:max-h-[90vh] bg-white rounded-[24px] shadow-2xl overflow-hidden mx-auto';
 
   return (
     <div
-      className="fixed inset-0 z-[300] flex items-end sm:items-center justify-center p-0 sm:p-4 max-sm:pb-[env(safe-area-inset-bottom,0px)]"
+      className="fixed inset-0 z-[300] flex items-center justify-center p-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))] pt-[max(1rem,env(safe-area-inset-top,0px))]"
       style={{ fontFamily: PAGE_FONT_FAMILY }}
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-[#000435]/90 backdrop-blur-md" onClick={onClose} />
+      <div className="absolute inset-0 z-0 bg-[#000435]/90 backdrop-blur-md" onClick={onClose} />
 
       {/* Modal */}
-      <div className={panelCls}
-        style={{ animation: 'modalSlide 0.35s cubic-bezier(.22,1,.36,1) both' }}>
+      <div
+        className={`${panelCls} z-10`}
+        style={{ animation: 'modalSlide 0.35s cubic-bezier(.22,1,.36,1) both' }}
+      >
 
         {/* Header */}
         <div
           className="flex-shrink-0 px-4 sm:px-6 pt-[max(0.75rem,env(safe-area-inset-top))] sm:pt-6 pb-3 sm:pb-4 border-b border-slate-100"
           style={{ background: 'linear-gradient(135deg, #000435 0%, #001080 100%)' }}
         >
-          {/* Handle bar */}
-          <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-3 sm:mb-5 sm:hidden" />
-
           {/* Title + controls: stacked on mobile with a wide action strip (44px+ targets); lg+ title left / actions right */}
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between lg:gap-4">
             <div className="min-w-0 flex-1">

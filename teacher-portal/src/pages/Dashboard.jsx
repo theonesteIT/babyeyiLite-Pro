@@ -54,18 +54,69 @@ const Dashboard = () => {
   return (
     <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen">
 
-      {/* HERO */}
-      <section className="relative p-7 md:p-10 text-white overflow-hidden min-h-[230px] flex items-center">
-        <div className="absolute inset-0 z-0">
-          <img src="/teacher.png" alt="" className="w-full h-full object-cover shadow-2xl" />
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-[1px]"></div>
+      {/* HERO — same visual language as Login.jsx left panel (#000435, teacher.png, blobs, gradients) */}
+      <section className="relative min-h-[260px] md:min-h-[300px] overflow-hidden bg-[#000435] text-white flex items-center">
+        {/* Ambient blobs (match Login lp-blob) */}
+        <div
+          className="pointer-events-none absolute -left-20 -top-24 h-[420px] w-[420px] rounded-full blur-[90px]"
+          style={{ background: 'radial-gradient(circle, rgba(245,158,11,0.22) 0%, transparent 70%)' }}
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute -bottom-16 right-5 h-[320px] w-[320px] rounded-full blur-[90px]"
+          style={{ background: 'radial-gradient(circle, rgba(245,158,11,0.14) 0%, transparent 70%)' }}
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute left-[52%] top-[42%] h-40 w-40 rounded-full blur-[90px]"
+          style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.06) 0%, transparent 70%)' }}
+          aria-hidden
+        />
+
+        {/* Decorative dots — same spirit as Login lp-dots */}
+        <div
+          className="pointer-events-none absolute top-10 right-8 z-[2] hidden sm:grid grid-cols-5 gap-2 opacity-[0.18]"
+          aria-hidden
+        >
+          {Array.from({ length: 25 }).map((_, i) => (
+            <span key={i} className="h-[3px] w-[3px] rounded-full bg-amber-500" />
+          ))}
         </div>
 
-        <div className="relative z-10 max-w-4xl">
-          <h1 className="text-2xl md:text-3xl font-bold mb-2">
-            Welcome back, {teacher?.first_name || 'Main'}
+        {/* Teacher image + Login-style overlays (lp-img-overlay-1 / lp-img-overlay-2) */}
+        <div className="absolute inset-0 z-[1]">
+          <img
+            src="/teacher.png"
+            alt=""
+            className="h-full w-full object-cover object-top block transition-transform duration-[8s] ease-in-out hover:scale-[1.04]"
+          />
+          <div
+            className="absolute inset-0 z-[2]"
+            style={{
+              background:
+                'linear-gradient(180deg, rgba(0,4,53,0.45) 0%, rgba(0,4,53,0.1) 40%, rgba(0,4,53,0.75) 100%)',
+            }}
+          />
+          <div
+            className="absolute inset-0 z-[2]"
+            style={{
+              background:
+                'linear-gradient(90deg, rgba(0,4,53,0.15) 0%, rgba(0,4,53,0.05) 60%, rgba(0,4,53,0) 100%)',
+            }}
+          />
+        </div>
+
+        {/* Secure pill — aligned with Login lp-pill */}
+        <div className="absolute top-6 left-6 z-10 hidden md:flex items-center gap-2 rounded-full border border-amber-400/25 bg-[#000435]/55 px-4 py-1.5 text-[10px] font-semibold font-montserrat  text-[20px] tracking-[0.14em] text-white/90 backdrop-blur-md">
+          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500 shadow-[0_0_0_0_rgba(245,158,11,0.5)]" />
+          ShuleTicha · Secure
+        </div>
+
+        <div className="relative z-10 w-full px-7 pb-10 pt-14 md:px-10 md:pb-12 md:pt-12 max-w-4xl">
+          <h1 className="font-sans text-2xl md:text-3xl font-extrabold mb-2 tracking-tight drop-shadow-md">
+            Welcome back, {teacher?.first_name || 'Teacher'}
           </h1>
-          <p className="text-sm md:text-base font-bold opacity-90 max-w-2xl">
+          <p className="text-sm md:text-base font-semibold text-white/90 max-w-2xl drop-shadow">
             Ready to inspire your students today?
           </p>
         </div>
