@@ -87,7 +87,7 @@ const Login = () => {
                         <span className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] md:tracking-[0.4em] text-orange-300 underline decoration-orange-400 underline-offset-8">
                            Educators' Workspace
                         </span>
-                        <h1 className="text-3xl md:text-6xl font-black tracking-tight">Babyeyi</h1>
+                        <h1 className="text-3xl md:text-6xl font-black tracking-tight">ShuleTicha</h1>
                      </div>
 
                      <div className="hidden md:flex flex-col space-y-6 login-fade-pulse">
@@ -107,10 +107,10 @@ const Login = () => {
                   {/* Header */}
                   <div className="flex flex-col items-center mb-5">
                      <div className="bg-white p-2.5 rounded-full login-float border border-orange-100 shadow-inner">
-                        <img src="/logo.png" alt="Babyeyi" className="w-7 h-7 object-contain" />
+                        <img src="/logo.png" alt="ShuleTicha" className="w-7 h-7 object-contain" />
                      </div>
-                     <h1 className="text-xl font-black mt-2 text-re-text tracking-tight uppercase">Shule Teacher</h1>
-                     <p className="text-[11px] text-center font-bold text-re-text-muted opacity-60">The Babyeyi Educational Hub — Authorize your session</p>
+                     <h1 className="text-xl font-black mt-2 text-re-text tracking-tight uppercase">ShuleTicha</h1>
+                     <p className="text-[11px] text-center font-bold text-re-text-muted opacity-60">The ShuleTicha Educational Hub — Authorize your session</p>
                   </div>
 
                   {/* Error */}
