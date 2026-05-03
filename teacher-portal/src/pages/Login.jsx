@@ -78,11 +78,11 @@ const Login = () => {
                <div className="flex min-h-0 flex-1 flex-col md:flex-row md:items-stretch">
 
                {/* ── Left: Image ── */}
-               <div className="group/image relative flex h-[clamp(10rem,36vw,13.5rem)] w-full shrink-0 overflow-hidden bg-white md:h-auto md:min-h-[220px] md:w-1/2 md:flex-1">
+               <div className="group/image relative z-0 flex h-[clamp(10rem,36vw,13.5rem)] w-full shrink-0 overflow-hidden bg-white md:h-auto md:min-h-[220px] md:w-1/2 md:flex-1">
                   <img
                      src="/teacher.png"
                      alt="Shule Teacher"
-                     className="h-full w-full object-cover object-[center_22%] transition-transform duration-[2000ms] md:object-center md:group-hover/image:scale-110"
+                     className="h-full w-full object-cover object-[center_22%] transition-transform duration-[2000ms] [transform:translateZ(0)] md:object-center md:group-hover/image:scale-110"
                   />
                   <div className="pointer-events-none absolute inset-0 z-10 bg-gradient-to-b from-orange-950/10 via-transparent to-black/15"></div>
                </div>
