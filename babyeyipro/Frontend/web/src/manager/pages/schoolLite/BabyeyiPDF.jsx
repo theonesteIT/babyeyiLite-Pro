@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from "react";
-import { buildWordDocHTML } from "./BabyeyiList";
+import { buildWordDocHTML, babyeyiDocHtml2CanvasOptions, addCanvasToPdfAndSave } from "./BabyeyiList";
 import { getLegacyBabyeyiUI, getParentMessageForDisplay, getStatusLabelSafe } from '../../schoolLiteSupport/i18n/index.js';
 import { API_BASE, SERVER_BASE as ASSET_BASE, FRONTEND_ORIGIN } from '../../lib/schoolLiteApi';
 
@@ -271,24 +271,8 @@ export default function BabyeyiPdf() {
       host.appendChild(root); document.body.appendChild(host);
       try {
         await new Promise(r => setTimeout(r, 500));
-        const canvas = await window.html2canvas(root, { scale:2, useCORS:true, backgroundColor:"#fff", logging:false, windowWidth:794 });
-        const { jsPDF } = window.jspdf;
-        const pdf = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
-        const pW=210, pH=297; const imgH=(canvas.height/canvas.width)*pW;
-        if (imgH<=pH) { pdf.addImage(canvas.toDataURL("image/jpeg",0.95),"JPEG",0,0,pW,imgH); }
-        else {
-          let yPos=0, page=0;
-          while (yPos<imgH) {
-            if (page>0) pdf.addPage();
-            const srcYPx=Math.floor((yPos/imgH)*canvas.height); const sliceHPx=Math.min(Math.ceil((pH/imgH)*canvas.height),canvas.height-srcYPx);
-            if (sliceHPx<=0) break;
-            const sl=document.createElement("canvas"); sl.width=canvas.width; sl.height=sliceHPx;
-            sl.getContext("2d").drawImage(canvas,0,srcYPx,canvas.width,sliceHPx,0,0,canvas.width,sliceHPx);
-            pdf.addImage(sl.toDataURL("image/jpeg",0.95),"JPEG",0,0,pW,(sliceHPx/canvas.height)*imgH);
-            yPos+=pH; page++;
-          }
-        }
-        pdf.save(`Babyeyi-${rec.docId||rec.class}-${rec.term}${lang!=="en"?`-${lang.toUpperCase()}`:"" }.pdf`);
+        const canvas = await window.html2canvas(root, babyeyiDocHtml2CanvasOptions("__bp__"));
+        addCanvasToPdfAndSave(canvas, `Babyeyi-${rec.docId||rec.class}-${rec.term}${lang!=="en"?`-${lang.toUpperCase()}`:"" }.pdf`);
       } finally { document.body.removeChild(host); document.head.removeChild(style); }
     } catch (e) { alert("PDF error: " + e.message); }
     finally { setDownloading(false); }
@@ -308,7 +292,7 @@ export default function BabyeyiPdf() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#000435] gap-4 p-6" style={{ fontFamily: FONT }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap');`}</style>
       <div className="text-5xl">⚠️</div>
-      <p className="text-red-400 font-black text-lg">Failed to load document</p>
+      <p className="text-red-400 font-semibold text-lg">Failed to load document</p>
       <p className="text-white/40 text-[13px] text-center max-w-sm">{error}</p>
     </div>
   );
@@ -325,16 +309,16 @@ export default function BabyeyiPdf() {
 
       {/* Top bar */}
       <div className="max-w-4xl mx-auto mb-5">
-        <div className="rounded-2xl bg-[#000435] border-2 border-amber-400/25 px-4 py-3.5 flex items-center justify-between gap-3 flex-wrap shadow-xl">
+        <div className="rounded-2xl bg-[#000435] border-2 border-amber-400/25 px-4 py-3.5 flex items-center justify-between gap-3 flex-wrap shadow-sm">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-9 h-9 bg-amber-400/12 border border-amber-400/20 rounded-xl flex items-center justify-center text-lg shrink-0">📄</div>
             <div className="min-w-0">
-              <p className="text-white font-black text-[13px] truncate">
+              <p className="text-white font-semibold text-[13px] truncate">
                 {rec.schoolName} — {rec.class} · {rec.term} · {rec.academicYear}
               </p>
               <div className="flex items-center gap-2 mt-0.5">
-                {rec.docId && <span className="text-[9px] font-mono font-black bg-amber-400/10 text-amber-400 px-2 py-0.5 rounded border border-amber-400/20">{rec.docId}</span>}
-                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black border ${st.bg} ${st.text} ${st.border}`}>
+                {rec.docId && <span className="text-[9px] font-mono font-semibold bg-amber-400/10 text-amber-400 px-2 py-0.5 rounded border border-amber-400/20">{rec.docId}</span>}
+                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-semibold border ${st.bg} ${st.text} ${st.border}`}>
                   <span className={`w-1.5 h-1.5 rounded-full inline-block ${st.dot}`}/> {statusLabel}
                 </span>
               </div>
@@ -358,7 +342,7 @@ export default function BabyeyiPdf() {
 
       {/* Document */}
       <div className="max-w-4xl mx-auto">
-        <div className="bg-white shadow-2xl rounded-2xl overflow-hidden border border-amber-400/20">
+        <div className="bg-white shadow-sm rounded-2xl overflow-hidden border border-amber-400/20">
           <WordDocView
             rec={rec} schoolLogoB64={schoolLogoB64} otherLogoB64={otherLogoB64}
             sigB64={sigB64} stampB64={stampB64} qrB64={qrB64} vUrl={vUrl}

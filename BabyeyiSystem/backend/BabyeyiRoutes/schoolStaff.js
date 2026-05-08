@@ -25,14 +25,18 @@ const { computeProAccessEffective } = require('../utils/schoolSubscription');
 const router = express.Router();
 
 const CREATOR_ROLES = ['SCHOOL_ADMIN', 'SCHOOL_MANAGER', 'DOS'];
+/** Smart Access + staff directory: elevated roles scope with `school_id` query / header. */
+const SMART_ACCESS_STAFF_ROLES = [...CREATOR_ROLES, 'SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER'];
 const STAFF_CARD_ROLES = ['SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER', 'DOS'];
 const CREATABLE_ROLE_CODES = [
   'TEACHER', 'ACCOUNTANT', 'HOD', 'DOS',
-  'GATE_OFFICER', 'LIBRARIAN', 'STORE_MANAGER',
+  'GATE_OFFICER', 'GATE_KEEPER', 'LIBRARIAN', 'STORE_MANAGER',
   'SECRETARY', 'HR', 'DISCIPLINE', 'SCHOOL_MANAGER', 'SCHOOL_DIRECTOR',
 ];
 const ROLE_CODE_ALIASES = {
   DISCIPLINE: ['DISCIPLINE_STAFF', 'HOD'],
+  GATE_KEEPER: ['GATE_OFFICER'],
+  GATE_OFFICER: ['GATE_KEEPER'],
   STORE_MANAGER: ['STOREKEEPER'],
   SCHOOL_MANAGER: ['SCHOOL MANAGER'],
   SCHOOL_DIRECTOR: ['SCHOOL DIRECTOR'],
@@ -330,9 +334,19 @@ async function ensureStaffProfessionalColumns() {
 }
 
 async function ensureProSchoolForStaffFeature(req, res) {
-  const schoolId = resolveSchoolId(req);
+  const role = resolveRequesterRole(req);
+  const elevated = role === 'SUPER_ADMIN' || role === 'FULL_SYSTEM_CONTROLLER';
+  let schoolId = resolveSchoolId(req);
+  if (elevated) {
+    const raw = req.query.school_id ?? req.headers['x-babyeyi-school-id'];
+    const id = Number(raw);
+    if (Number.isFinite(id) && id > 0) schoolId = id;
+  }
   if (!schoolId) {
-    res.status(400).json({ success: false, message: 'School not found in session.' });
+    res.status(400).json({
+      success: false,
+      message: elevated ? 'school_id is required (query or X-Babyeyi-School-Id header).' : 'School not found in session.',
+    });
     return null;
   }
   const [[schoolRow]] = await promisePool.query(
@@ -341,7 +355,7 @@ async function ensureProSchoolForStaffFeature(req, res) {
     [schoolId]
   );
   const isPro = computeProAccessEffective(schoolRow || null);
-  if (!isPro) {
+  if (!isPro && !elevated) {
     res.status(403).json({
       success: false,
       code: 'PRO_REQUIRED',
@@ -428,7 +442,7 @@ async function sendStaffCredentialsEmail({
 // ════════════════════════════════════════════════════════════════
 // GET /api/school/staff
 // ════════════════════════════════════════════════════════════════
-router.get('/school/staff', requireRole(CREATOR_ROLES), async (req, res) => {
+router.get('/school/staff', requireRole(SMART_ACCESS_STAFF_ROLES), async (req, res) => {
   try {
     await ensureStaffIdentityColumns();
     await ensureStaffProfessionalColumns();
@@ -1161,7 +1175,7 @@ router.delete('/school/staff/:userId', requireRole(CREATOR_ROLES), async (req, r
 // ════════════════════════════════════════════════════════════════
 // PUT /api/school/staff/:userId/identity
 // ════════════════════════════════════════════════════════════════
-router.put('/school/staff/:userId/identity', requireRole(CREATOR_ROLES), async (req, res) => {
+router.put('/school/staff/:userId/identity', requireRole(SMART_ACCESS_STAFF_ROLES), async (req, res) => {
   try {
     await ensureStaffIdentityColumns();
     const ctx = await ensureProSchoolForStaffFeature(req, res);
@@ -1244,7 +1258,7 @@ router.post(
       next();
     });
   },
-  requireRole(CREATOR_ROLES),
+  requireRole(SMART_ACCESS_STAFF_ROLES),
   async (req, res) => {
     try {
       const ctx = await ensureProSchoolForStaffFeature(req, res);

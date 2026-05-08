@@ -3,8 +3,8 @@ const { promisePool } = require('../config/database');
 const { requireRole } = require('../middleware/deoAuth');
 
 const router = express.Router();
-const SCHOOL_ROLES = ['SCHOOL_ADMIN', 'SCHOOL_MANAGER', 'DOS', 'REGISTRAR', 'HOD', 'TEACHER'];
-const APPROVAL_ROLES = ['SCHOOL_ADMIN', 'SCHOOL_MANAGER', 'DOS', 'REGISTRAR'];
+const SCHOOL_ROLES = ['SCHOOL_ADMIN', 'SCHOOL_MANAGER', 'DOS', 'REGISTRAR', 'HOD', 'TEACHER', 'DISCIPLINE', 'DISCIPLINE_STAFF'];
+const APPROVAL_ROLES = ['SCHOOL_ADMIN', 'SCHOOL_MANAGER', 'DOS', 'REGISTRAR', 'HOD', 'DISCIPLINE', 'DISCIPLINE_STAFF'];
 
 let tablesReady = false;
 
@@ -31,6 +31,11 @@ async function ensureStudentPermissionTables() {
       INDEX idx_perm_status (status)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
+  await promisePool.query(`ALTER TABLE student_permissions ADD COLUMN actual_out_at DATETIME NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE student_permissions ADD COLUMN actual_return_at DATETIME NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE student_permissions ADD COLUMN gate_scan_state ENUM('NOT_USED','OUT','BACK','EXCEEDED') NOT NULL DEFAULT 'NOT_USED'`).catch(() => {});
+  await promisePool.query(`ALTER TABLE student_permissions ADD COLUMN exceeded_minutes INT UNSIGNED NOT NULL DEFAULT 0`).catch(() => {});
+  await promisePool.query(`ALTER TABLE student_permissions ADD COLUMN last_gate_action_at DATETIME NULL`).catch(() => {});
 
   tablesReady = true;
   console.log('✅ Student Permission Tables Verified');
@@ -107,7 +112,7 @@ router.post('/permissions', requireRole(SCHOOL_ROLES), async (req, res) => {
     }
 
     // Default status to APPROVED if the user has approval role, else PENDING
-    const userRole = req.user?.role_code || req.session?.user?.role_code;
+    const userRole = String(req.user?.role_code || req.session?.user?.role_code || '').toUpperCase();
     const initialStatus = APPROVAL_ROLES.includes(userRole) ? 'APPROVED' : 'PENDING';
     const approvedBy = initialStatus === 'APPROVED' ? userId : null;
 
@@ -155,6 +160,50 @@ router.patch('/permissions/:id/status', requireRole(APPROVAL_ROLES), async (req,
   } catch (err) {
     console.error('PATCH /api/permissions/status:', err);
     res.status(500).json({ success: false, message: 'Failed to update permission' });
+  }
+});
+
+// PUT /api/permissions/:id
+router.put('/permissions/:id', requireRole(SCHOOL_ROLES), async (req, res) => {
+  try {
+    await ensureStudentPermissionTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'Invalid session' });
+
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid permission id' });
+
+    const { starts_at, ends_at, reason, permission_type } = req.body || {};
+    if (!starts_at || !ends_at) {
+      return res.status(400).json({ success: false, message: 'starts_at and ends_at are required' });
+    }
+
+    const [[existing]] = await promisePool.query(
+      `SELECT id, status FROM student_permissions WHERE id = ? AND school_id = ? LIMIT 1`,
+      [id, schoolId]
+    );
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Permission record not found' });
+    }
+    if (String(existing.status || '').toUpperCase() === 'CANCELLED') {
+      return res.status(400).json({ success: false, message: 'Cancelled permission cannot be edited' });
+    }
+
+    const safeType = ['MEDICAL', 'FAMILY', 'OFFICIAL', 'OTHER'].includes(String(permission_type || '').toUpperCase())
+      ? String(permission_type || '').toUpperCase()
+      : 'OTHER';
+
+    await promisePool.query(
+      `UPDATE student_permissions
+       SET starts_at = ?, ends_at = ?, reason = ?, permission_type = ?
+       WHERE id = ? AND school_id = ?`,
+      [starts_at, ends_at, reason || null, safeType, id, schoolId]
+    );
+
+    return res.json({ success: true, message: 'Permission updated successfully' });
+  } catch (err) {
+    console.error('PUT /api/permissions/:id:', err);
+    return res.status(500).json({ success: false, message: 'Failed to update permission' });
   }
 });
 

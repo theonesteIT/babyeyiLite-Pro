@@ -7,6 +7,7 @@ import { Link } from 'react-router-dom';
 import {
   Shield, Power, Lock, Unlock, Users, UserPlus, RefreshCw,
   AlertTriangle, CheckCircle, Loader2, Building2, Layers, DollarSign, FileText,
+  GraduationCap, Fingerprint,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import LogoutButton from '../Auth/LogoutButton';
@@ -359,6 +360,20 @@ export default function SuperAdministratorControl() {
             >
               <FileText className="h-3.5 w-3.5" />
               Prices list
+            </Link>
+            <Link
+              to="/superadmin/smart-access/students"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-amber-400/35 bg-amber-500/10 px-3 py-1.5 text-[11px] font-semibold text-amber-100 hover:bg-amber-500/15"
+            >
+              <GraduationCap className="h-3.5 w-3.5 text-amber-300" />
+              Student Smart Access
+            </Link>
+            <Link
+              to="/superadmin/smart-access/staff"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-amber-400/35 bg-amber-500/10 px-3 py-1.5 text-[11px] font-semibold text-amber-100 hover:bg-amber-500/15"
+            >
+              <Fingerprint className="h-3.5 w-3.5 text-amber-300" />
+              Staff Smart Access
             </Link>
           </div>
         </div>

@@ -6,26 +6,15 @@ import { useState, useEffect } from "react";
 import { BABYEYI_FONT_STACK } from '../../schoolLiteSupport/babyeyiDashboardTheme';
 import {
   FileText, CheckCircle, Clock, XCircle, AlertTriangle, TrendingUp,
-  Activity, BarChart3, ArrowUpRight, ChevronRight, Building2,
+  Activity, BarChart3, ArrowUpRight, ChevronRight,
   DollarSign, BookOpen, Award, Zap
 } from "lucide-react";
 import { StatCard, LineAreaChart, DonutChart, HBarChart, ModernBarChart, Badge } from "./UI";
 import { API_BASE } from '../../lib/schoolLiteApi';
 
-function formatSchoolOwnershipLabel(raw) {
-  const o = String(raw || "").trim();
-  if (!o) return "";
-  const l = o.toLowerCase();
-  if (l.includes("aided")) return "Government Aided";
-  if (l === "private") return "Private";
-  if (l.includes("government")) return "Public (Government)";
-  return o;
-}
-
 export default function DashboardPage({ setTab, toast, t, session }) {
   const [loading, setLoading] = useState(true);
   const [stats,   setStats]   = useState(null);
-  const [schoolMeta, setSchoolMeta] = useState(null);
 
   const schoolId = session?.schoolId ?? null;
 
@@ -115,28 +104,6 @@ export default function DashboardPage({ setTab, toast, t, session }) {
     fetchData();
   }, [schoolId, toast]);
 
-  useEffect(() => {
-    if (!schoolId) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch(`${API_BASE}/babyeyi/school-info`, { credentials: "include" });
-        const json = await res.json().catch(() => ({}));
-        if (!res.ok || json.success === false || cancelled) return;
-        const s = json.data?.school;
-        if (s) {
-          setSchoolMeta({
-            ownership: s.ownership || "",
-            category:  s.category  || "",
-          });
-        }
-      } catch (_) {
-        if (!cancelled) setSchoolMeta(null);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [schoolId]);
-
   if (loading) return (
     <div className="flex items-center justify-center py-20">
       <div className="w-10 h-10 rounded-full border-4 border-amber-200 animate-spin" style={{ borderTopColor: "#FEBF10" }}/>
@@ -147,130 +114,6 @@ export default function DashboardPage({ setTab, toast, t, session }) {
 
   return (
     <div className="space-y-5 anim" style={{ fontFamily: BABYEYI_FONT_STACK }}>
-
-      {/* Hero Banner — dark navy + amber (matches school manager shell) */}
-      <div
-        className="relative overflow-hidden rounded-3xl p-6 sm:p-8 text-white shadow-2xl"
-        style={{
-          background: "linear-gradient(155deg, #0a1628 0%, #0f2744 42%, #152a45 100%)",
-          border: "1px solid rgba(251, 191, 36, 0.22)",
-          boxShadow:
-            "0 24px 48px -12px rgba(10, 22, 40, 0.55), inset 0 1px 0 rgba(255,255,255,0.06)",
-        }}
-      >
-        <div
-          className="pointer-events-none absolute -top-28 -right-20 h-72 w-72 rounded-full opacity-[0.14]"
-          style={{ background: "radial-gradient(circle, #FEBF10 0%, transparent 68%)" }}
-        />
-        <div
-          className="pointer-events-none absolute inset-0 opacity-[0.35]"
-          style={{
-            backgroundImage:
-              "linear-gradient(115deg, transparent 0%, rgba(254,191,16,0.04) 38%, transparent 62%)",
-          }}
-        />
-        <div
-          className="pointer-events-none absolute bottom-0 left-0 right-0 h-px opacity-60"
-          style={{ background: "linear-gradient(90deg, transparent, rgba(254,191,16,0.45), transparent)" }}
-        />
-
-        <div className="relative">
-          <div className="mb-4 flex flex-wrap items-center gap-2">
-            <time
-              dateTime={new Date().toISOString().slice(0, 10)}
-              className="inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[11px] font-semibold tracking-wide sm:text-xs"
-              style={{
-                background: "rgba(254, 191, 16, 0.1)",
-                border: "1px solid rgba(254, 191, 16, 0.35)",
-                color: "#FFEFC2",
-                letterSpacing: "0.02em",
-              }}
-            >
-              <span
-                className="h-1.5 w-1.5 shrink-0 rounded-full"
-                style={{
-                  background: "#FEBF10",
-                  boxShadow: "0 0 0 2px rgba(254,191,16,0.35), 0 0 10px rgba(254,191,16,0.55)",
-                }}
-              />
-              {new Date().toLocaleDateString("en-US", {
-                weekday: "long",
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              })}
-            </time>
-          </div>
-
-          <div className="mb-5 max-w-2xl">
-            <h2
-              className="text-2xl font-black tracking-tight sm:text-3xl sm:leading-tight"
-              style={{
-                fontFamily: BABYEYI_FONT_STACK,
-                letterSpacing: "-0.03em",
-                color: "#F8FAFC",
-                textShadow: "0 1px 2px rgba(0,0,0,0.2)",
-              }}
-            >
-              School Babyeyi Portal
-            </h2>
-            <div
-              className="mt-3 h-1 w-14 rounded-full sm:w-16"
-              style={{ background: "linear-gradient(90deg, #FEBF10, rgba(254,191,16,0.35))" }}
-            />
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            {schoolMeta?.ownership && (
-              <span
-                className="flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold"
-                style={{
-                  background: "rgba(15, 23, 42, 0.55)",
-                  borderColor: "rgba(251, 191, 36, 0.28)",
-                  color: "#E2E8F0",
-                }}
-              >
-                <Building2 className="h-3.5 w-3.5 shrink-0" style={{ color: "#FEBF10" }} />
-                {formatSchoolOwnershipLabel(schoolMeta.ownership)}
-              </span>
-            )}
-            <span
-              className="flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold"
-              style={{
-                background: "rgba(254, 191, 16, 0.12)",
-                borderColor: "rgba(254, 191, 16, 0.32)",
-                color: "#FFFBEB",
-              }}
-            >
-              <FileText className="h-3.5 w-3.5 shrink-0" style={{ color: "#FEBF10" }} /> {stats.total} Babyeyi
-            </span>
-            <span
-              className="flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold"
-              style={{
-                background: "rgba(254, 191, 16, 0.08)",
-                borderColor: "rgba(254, 191, 16, 0.22)",
-                color: "#FEF3C7",
-              }}
-            >
-              <CheckCircle className="h-3.5 w-3.5 shrink-0" style={{ color: "#FCD34D" }} />
-              {stats.complianceRate}% Compliant
-            </span>
-            {stats.exceeded > 0 && (
-              <span
-                className="flex animate-pulse items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold"
-                style={{
-                  background: "rgba(254, 191, 16, 0.14)",
-                  borderColor: "rgba(251, 146, 60, 0.45)",
-                  color: "#FFFBEB",
-                }}
-              >
-                <AlertTriangle className="h-3.5 w-3.5 shrink-0" style={{ color: "#FBBF24" }} />
-                {stats.exceeded} Exceed NESA Limit
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
@@ -298,7 +141,7 @@ export default function DashboardPage({ setTab, toast, t, session }) {
                   style={{ background: "#FFF3CC", color: "#B88A00" }}>{card.trend}</span>
               )}
             </div>
-            <p className="text-2xl font-black" style={{ color: "#1A1200" }}>{card.value}</p>
+            <p className="text-2xl font-semibold" style={{ color: "#1A1200" }}>{card.value}</p>
             <p className="text-[10px] font-semibold mt-0.5" style={{ color: "#B88A00" }}>{card.label}</p>
             <p className="text-[9px] mt-0.5" style={{ color: "#94a3b8" }}>{card.sub}</p>
           </button>
@@ -314,7 +157,7 @@ export default function DashboardPage({ setTab, toast, t, session }) {
             <AlertTriangle className="w-5 h-5"/>
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="font-black text-sm">⚠️ NESA Limit Violation Detected</h3>
+            <h3 className="font-semibold text-sm flex items-center gap-2"><AlertTriangle className="w-4 h-4 shrink-0" /> NESA Limit Violation Detected</h3>
             <p className="text-red-100 text-xs">{stats.exceeded} Babyeyi exceed national fee limits. Review and submit increase requests.</p>
           </div>
           <button onClick={() => setTab("babyeyi")}
@@ -368,7 +211,7 @@ export default function DashboardPage({ setTab, toast, t, session }) {
           </div>
           <div className="mt-4 rounded-xl p-2.5 text-center border"
             style={{ background: "#FFFBE8", borderColor: "#FEBF10" }}>
-            <p className="text-sm font-black" style={{ color: "#B88A00" }}>{stats.complianceRate}%</p>
+            <p className="text-sm font-semibold" style={{ color: "#B88A00" }}>{stats.complianceRate}%</p>
             <p className="text-[10px]" style={{ color: "#7A5C00" }}>Compliance Rate</p>
           </div>
         </div>
@@ -418,7 +261,7 @@ export default function DashboardPage({ setTab, toast, t, session }) {
                   <p className="text-[10px] text-slate-400">{b.year} · {b.category}</p>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="text-sm font-black text-slate-800">RWF {(b.totalFee/1000).toFixed(0)}K</p>
+                  <p className="text-sm font-semibold text-slate-800">RWF {(b.totalFee/1000).toFixed(0)}K</p>
                   <Badge status={b.status}/>
                 </div>
               </div>

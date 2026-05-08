@@ -18,9 +18,9 @@ function CustomTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   return (
     <div className="rounded-xl border border-black/10 bg-white px-3 py-2 shadow-lg text-xs">
-      <p className="font-black text-re-text mb-1">{label}</p>
+      <p className="font-medium text-re-text mb-1">{label}</p>
       {payload.map((p) => (
-        <p key={p.name} style={{ color: p.color }} className="font-bold">
+        <p key={p.name} style={{ color: p.color }} className="font-medium">
           {p.name}: {p.value}
         </p>
       ))}
@@ -62,7 +62,7 @@ export default function ConductReports() {
   useEffect(() => { load(); }, [load]);
 
   const field =
-    'rounded-xl border border-black/10 bg-re-bg px-3 py-2 text-xs font-bold text-re-text shadow-inner focus:border-re-orange/40 focus:outline-none focus:ring-2 focus:ring-re-orange/20';
+    'rounded-xl border border-black/10 bg-re-bg px-3 py-2 text-xs font-medium text-re-text shadow-inner focus:border-re-orange/40 focus:outline-none focus:ring-2 focus:ring-re-orange/20';
 
   const byClass = (data?.by_class || []).map((r) => ({
     ...r,
@@ -77,11 +77,11 @@ export default function ConductReports() {
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-re-text-muted mb-1 flex items-center gap-2">
+          <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-re-text-muted mb-1 flex items-center gap-2">
             <FileBarChart size={14} className="text-re-orange" /> Reports
           </p>
-          <h1 className="text-2xl md:text-3xl font-black text-re-text tracking-tight">Conduct summary</h1>
-          <p className="mt-2 text-sm text-re-text-muted font-bold max-w-xl">
+          <h1 className="text-2xl md:text-3xl font-medium text-re-text tracking-tight">Conduct summary</h1>
+          <p className="mt-2 text-sm text-re-text-muted font-medium max-w-xl">
             Term view of discipline cases and marks removed — aligned with SmartEducationSystem HoD reporting.
           </p>
         </div>
@@ -89,7 +89,7 @@ export default function ConductReports() {
           type="button"
           onClick={load}
           disabled={loading}
-          className="inline-flex items-center gap-2 rounded-xl border border-black/10 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-re-text hover:bg-re-bg"
+          className="inline-flex items-center gap-2 rounded-xl border border-black/10 bg-white px-4 py-2 text-[10px] font-medium uppercase tracking-widest text-re-text hover:bg-re-bg"
         >
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
           Refresh
@@ -100,13 +100,13 @@ export default function ConductReports() {
       <div className="rounded-[24px] border border-black/5 bg-white p-4 md:p-5 shadow-sm mb-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md">
           <div>
-            <label className="mb-1 block text-[9px] font-black uppercase text-re-text-muted">Year</label>
+            <label className="mb-1 block text-[9px] font-medium uppercase text-re-text-muted">Year</label>
             <select className={`w-full ${field}`} value={academicYear} onChange={(e) => setAcademicYear(e.target.value)}>
               {ACADEMIC_YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-[9px] font-black uppercase text-re-text-muted">Term</label>
+            <label className="mb-1 block text-[9px] font-medium uppercase text-re-text-muted">Term</label>
             <select className={`w-full ${field}`} value={term} onChange={(e) => setTerm(e.target.value)}>
               {TERMS.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
@@ -115,14 +115,14 @@ export default function ConductReports() {
       </div>
 
       {error && (
-        <div className="mb-4 flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-950">
+        <div className="mb-4 flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-950">
           <AlertCircle size={18} className="shrink-0" />
           {error}
         </div>
       )}
 
       {loading && !data ? (
-        <div className="flex justify-center py-20 text-re-text-muted font-bold">
+        <div className="flex justify-center py-20 text-re-text-muted font-medium">
           <Loader2 className="animate-spin text-re-orange w-8 h-8" />
         </div>
       ) : data ? (
@@ -136,8 +136,8 @@ export default function ConductReports() {
               { label: 'Marks removed', value: totalMarksRemoved },
             ].map((card) => (
               <div key={card.label} className="rounded-2xl border border-black/5 bg-white p-4 shadow-sm">
-                <p className="text-[9px] font-black uppercase text-re-text-muted mb-1">{card.label}</p>
-                <p className="text-xl font-black text-re-text">{card.value}</p>
+                <p className="text-[9px] font-medium uppercase text-re-text-muted mb-1">{card.label}</p>
+                <p className="text-xl font-medium text-re-text">{card.value}</p>
               </div>
             ))}
           </div>
@@ -146,8 +146,8 @@ export default function ConductReports() {
           {byClass.length > 0 && (
             <div className="rounded-[24px] border border-black/5 bg-white p-5 shadow-sm mb-6">
               <div className="mb-4">
-                <p className="text-[9px] font-black uppercase tracking-widest text-re-text-muted mb-0.5">Visual breakdown</p>
-                <h2 className="text-sm font-black text-re-text">Cases per class</h2>
+                <p className="text-[9px] font-medium uppercase tracking-widest text-re-text-muted mb-0.5">Visual breakdown</p>
+                <h2 className="text-sm font-medium text-re-text">Cases per class</h2>
               </div>
               <div style={{ height: Math.max(220, byClass.length * 44) }}>
                 <ResponsiveContainer width="100%" height="100%">
@@ -175,7 +175,7 @@ export default function ConductReports() {
 
               {/* Marks removed mini chart */}
               <div className="mt-6 mb-2">
-                <p className="text-[9px] font-black uppercase tracking-widest text-re-text-muted mb-0.5">Marks removed per class</p>
+                <p className="text-[9px] font-medium uppercase tracking-widest text-re-text-muted mb-0.5">Marks removed per class</p>
               </div>
               <div style={{ height: Math.max(220, byClass.length * 44) }}>
                 <ResponsiveContainer width="100%" height="100%">
@@ -202,11 +202,11 @@ export default function ConductReports() {
           {/* Per-class table */}
           <div className="rounded-[24px] border border-black/5 bg-white overflow-hidden shadow-sm">
             <div className="px-4 py-3 border-b border-black/5 bg-re-bg">
-              <h2 className="text-[10px] font-black uppercase tracking-widest text-re-text-muted">Detail by class</h2>
+              <h2 className="text-[10px] font-medium uppercase tracking-widest text-re-text-muted">Detail by class</h2>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="text-[9px] font-black uppercase text-re-text-muted border-b border-black/5">
+                <thead className="text-[9px] font-medium uppercase text-re-text-muted border-b border-black/5">
                   <tr>
                     <th className="text-left px-4 py-2">Class</th>
                     <th className="text-right px-4 py-2">Cases</th>
@@ -217,7 +217,7 @@ export default function ConductReports() {
                 <tbody className="divide-y divide-black/5">
                   {byClass.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="px-4 py-8 text-center text-re-text-muted font-bold">
+                      <td colSpan={4} className="px-4 py-8 text-center text-re-text-muted font-medium">
                         No cases in this period.
                       </td>
                     </tr>
@@ -228,9 +228,9 @@ export default function ConductReports() {
                       const barColor = pct > 66 ? '#FF5E00' : pct > 33 ? '#FF8C00' : '#22c55e';
                       return (
                         <tr key={`${row.class_name}-${i}`} className="hover:bg-re-bg/40">
-                          <td className="px-4 py-2 font-bold text-re-text">{row.class_name}</td>
-                          <td className="px-4 py-2 text-right font-black">{row.case_count}</td>
-                          <td className="px-4 py-2 text-right font-bold text-re-orange">
+                          <td className="px-4 py-2 font-medium text-re-text">{row.class_name}</td>
+                          <td className="px-4 py-2 text-right font-medium">{row.case_count}</td>
+                          <td className="px-4 py-2 text-right font-medium text-re-orange">
                             {Number(row.marks_removed || 0).toFixed(2)}
                           </td>
                           <td className="px-4 py-2">
@@ -241,7 +241,7 @@ export default function ConductReports() {
                                   style={{ width: `${pct}%`, background: barColor }}
                                 />
                               </div>
-                              <span className="text-[9px] font-black text-re-text-muted w-8 text-right">{pct}%</span>
+                              <span className="text-[9px] font-medium text-re-text-muted w-8 text-right">{pct}%</span>
                             </div>
                           </td>
                         </tr>
@@ -255,7 +255,7 @@ export default function ConductReports() {
         </>
       ) : null}
 
-      <p className="text-center text-[9px] text-re-text-muted font-black uppercase tracking-widest mt-10 opacity-40">
+      <p className="text-center text-[9px] text-re-text-muted font-medium uppercase tracking-widest mt-10 opacity-40">
         {PORTAL.roleLabel} · {PORTAL.brandLine}
       </p>
     </div>

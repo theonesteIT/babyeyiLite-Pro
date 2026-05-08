@@ -15,6 +15,8 @@ import ConductOverview from './pages/ConductOverview'
 import StaffPayroll from './pages/StaffPayroll'
 import DisciplineSettings from './pages/DisciplineSettings'
 import SetDisciplineMarks from './pages/SetDisciplineMarks'
+import Permission from './pages/Permission'
+import Requisitions from './pages/Requisitions'
 import ChatCenter from '../shared/pages/ChatCenter'
 import { PORTAL } from './config/portal'
 
@@ -48,6 +50,8 @@ function DisciplineRoutesInner() {
       <Route path="students" element={<ProtectedRoute title="Students"><Students /></ProtectedRoute>} />
       <Route path="timetable" element={<ProtectedRoute title="Timetable"><Timetable /></ProtectedRoute>} />
       <Route path="attendance" element={<ProtectedRoute title="Attendance"><Attendance /></ProtectedRoute>} />
+      <Route path="permission" element={<ProtectedRoute title="Permission"><Permission /></ProtectedRoute>} />
+      <Route path="requisitions" element={<ProtectedRoute title="Requisitions"><Requisitions /></ProtectedRoute>} />
       <Route path="my-payroll" element={<ProtectedRoute title="My Payroll"><StaffPayroll /></ProtectedRoute>} />
       <Route path="payroll" element={<Navigate to="my-payroll" replace />} />
       <Route path="marks/view" element={<ProtectedRoute title="View Student Marks"><ViewMarks /></ProtectedRoute>} />

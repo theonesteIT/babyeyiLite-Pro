@@ -115,20 +115,20 @@ const BookModal = ({ book, onClose, onSaved }) => {
       <div className="bg-white w-full sm:max-w-lg rounded-t-[32px] sm:rounded-[28px] shadow-2xl flex flex-col max-h-[92vh]">
         <div className="flex items-center justify-between px-6 py-5 border-b border-black/5 shrink-0">
           <div>
-            <p className="text-[9px] font-black uppercase tracking-[0.3em] opacity-40">{isEdit ? 'Edit book' : 'Add book'}</p>
-            <h3 className="font-black text-[#1E3A5F] text-base mt-0.5">{isEdit ? form.title || 'Edit' : 'New catalogue entry'}</h3>
+            <p className="text-[9px] font-semibold uppercase tracking-[0.3em] opacity-40">{isEdit ? 'Edit book' : 'Add book'}</p>
+            <h3 className="font-semibold text-[#1E3A5F] text-base mt-0.5">{isEdit ? form.title || 'Edit' : 'New catalogue entry'}</h3>
           </div>
           <button type="button" onClick={onClose} className="p-2 hover:bg-slate-50 rounded-xl text-slate-400 hover:rotate-90 transition-all"><X size={18} /></button>
         </div>
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-3">
-          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Required</p>
+          <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-400">Required</p>
           {[
             { label: 'Book Title', key: 'title', placeholder: 'Book title', req: true },
             { label: 'ISBN / Book Code', key: 'isbn', placeholder: '978-…', req: true },
             { label: 'Author', key: 'author', placeholder: 'Author name', req: true },
           ].map((f) => (
             <div key={f.key}>
-              <label className="text-[9px] font-black uppercase tracking-widest text-re-text-muted/50 block mb-1">{f.label} *</label>
+              <label className="text-[9px] font-semibold uppercase tracking-widest text-re-text-muted/50 block mb-1">{f.label} *</label>
               <input
                 type="text"
                 value={form[f.key]}
@@ -140,7 +140,7 @@ const BookModal = ({ book, onClose, onSaved }) => {
             </div>
           ))}
           <div>
-            <label className="text-[9px] font-black uppercase tracking-widest text-re-text-muted/50 block mb-1">Category *</label>
+            <label className="text-[9px] font-semibold uppercase tracking-widest text-re-text-muted/50 block mb-1">Category *</label>
             <select
               value={form.category}
               onChange={(e) => set('category', e.target.value)}
@@ -151,7 +151,7 @@ const BookModal = ({ book, onClose, onSaved }) => {
             {fieldError('category') && <p className="text-[10px] text-red-500 font-bold mt-0.5">{fieldError('category')}</p>}
           </div>
           <div>
-            <label className="text-[9px] font-black uppercase tracking-widest text-re-text-muted/50 block mb-1">Quantity *</label>
+            <label className="text-[9px] font-semibold uppercase tracking-widest text-re-text-muted/50 block mb-1">Quantity *</label>
             <input
               type="number"
               min={1}
@@ -163,7 +163,7 @@ const BookModal = ({ book, onClose, onSaved }) => {
             {fieldError('quantity') && <p className="text-[10px] text-red-500 font-bold mt-0.5">{fieldError('quantity')}</p>}
           </div>
           <div>
-            <label className="text-[9px] font-black uppercase tracking-widest text-re-text-muted/50 block mb-1">Shelf Location *</label>
+            <label className="text-[9px] font-semibold uppercase tracking-widest text-re-text-muted/50 block mb-1">Shelf Location *</label>
             <input
               type="text"
               value={form.shelf_location}
@@ -174,7 +174,7 @@ const BookModal = ({ book, onClose, onSaved }) => {
             {fieldError('shelf_location') && <p className="text-[10px] text-red-500 font-bold mt-0.5">{fieldError('shelf_location')}</p>}
           </div>
           <div>
-            <label className="text-[9px] font-black uppercase tracking-widest text-re-text-muted/50 block mb-1">Condition *</label>
+            <label className="text-[9px] font-semibold uppercase tracking-widest text-re-text-muted/50 block mb-1">Condition *</label>
             <select
               value={form.condition}
               onChange={(e) => set('condition', e.target.value)}
@@ -185,7 +185,7 @@ const BookModal = ({ book, onClose, onSaved }) => {
             {fieldError('condition') && <p className="text-[10px] text-red-500 font-bold mt-0.5">{fieldError('condition')}</p>}
           </div>
 
-          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 pt-2">Optional</p>
+          <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-400 pt-2">Optional</p>
           {[
             { label: 'Publisher', key: 'publisher', ph: 'Publisher' },
             { label: 'Year of Publication', key: 'year', ph: '2024', type: 'number' },
@@ -193,7 +193,7 @@ const BookModal = ({ book, onClose, onSaved }) => {
             { label: 'Language', key: 'language', ph: 'English' },
           ].map((f) => (
             <div key={f.key}>
-              <label className="text-[9px] font-black uppercase tracking-widest text-re-text-muted/50 block mb-1">{f.label}</label>
+              <label className="text-[9px] font-semibold uppercase tracking-widest text-re-text-muted/50 block mb-1">{f.label}</label>
               <input
                 type={f.type || 'text'}
                 value={form[f.key]}
@@ -204,7 +204,7 @@ const BookModal = ({ book, onClose, onSaved }) => {
             </div>
           ))}
           <div>
-            <label className="text-[9px] font-black uppercase tracking-widest text-re-text-muted/50 block mb-1">Description</label>
+            <label className="text-[9px] font-semibold uppercase tracking-widest text-re-text-muted/50 block mb-1">Description</label>
             <textarea
               value={form.description}
               onChange={(e) => set('description', e.target.value)}
@@ -214,7 +214,7 @@ const BookModal = ({ book, onClose, onSaved }) => {
             />
           </div>
           <div>
-            <label className="text-[9px] font-black uppercase tracking-widest text-re-text-muted/50 block mb-1">Cover Image</label>
+            <label className="text-[9px] font-semibold uppercase tracking-widest text-re-text-muted/50 block mb-1">Cover Image</label>
             <input
               type="file"
               accept="image/jpeg,image/png,image/webp"
@@ -224,12 +224,12 @@ const BookModal = ({ book, onClose, onSaved }) => {
           </div>
         </div>
         <div className="bg-white border-t border-black/5 px-6 py-4 flex items-center justify-between shrink-0">
-          <button type="button" onClick={onClose} className="h-9 px-4 rounded-lg border border-black/5 text-[#1E3A5F] font-black text-[9px] uppercase tracking-widest hover:bg-re-bg transition-all">Cancel</button>
+          <button type="button" onClick={onClose} className="h-9 px-4 rounded-lg border border-black/5 text-[#1E3A5F] font-semibold text-[9px] uppercase tracking-widest hover:bg-re-bg transition-all">Cancel</button>
           <button
             type="button"
             disabled={saving}
             onClick={handleSubmit}
-            className="h-9 px-6 rounded-lg text-white font-black text-[9px] uppercase tracking-widest shadow-lg hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50"
+            className="h-9 px-6 rounded-lg text-white font-semibold text-[9px] uppercase tracking-widest shadow-lg hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50"
             style={{ background: 'linear-gradient(135deg,#1E3A5F 0%,#0D2644 100%)' }}
           >
             <Save size={12} className="inline mr-1" />{saving ? 'Saving…' : isEdit ? 'Update' : 'Add book'}
@@ -269,9 +269,9 @@ const QrModal = ({ bookId, onClose }) => {
   return createPortal(
     <div className="fixed inset-0 z-[240] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={onClose} role="presentation">
       <div className="bg-white rounded-[24px] shadow-2xl p-6 max-w-xs w-full text-center" onClick={(e) => e.stopPropagation()}>
-        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-3">Book QR</p>
+        <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-400 mb-3">Book QR</p>
         {src ? <img src={src} alt="QR" className="mx-auto w-48 h-48 object-contain" /> : <p className="text-sm text-slate-500">Could not load QR</p>}
-        <button type="button" onClick={onClose} className="mt-4 h-9 px-6 rounded-xl border border-black/5 font-black text-[10px] uppercase">Close</button>
+        <button type="button" onClick={onClose} className="mt-4 h-9 px-6 rounded-xl border border-black/5 font-semibold text-[10px] uppercase">Close</button>
       </div>
     </div>,
     document.body
@@ -336,7 +336,7 @@ const Books = () => {
   }, [books, sortBy]);
 
   const toggleSort = (k) => setSortBy((p) => ({ key: k, dir: p.key === k ? (p.dir === 'asc' ? 'desc' : 'asc') : 'asc' }));
-  const sortBadge = (k) => sortBy.key === k ? <span className="ml-1 text-[9px] font-black">{sortBy.dir === 'asc' ? '↑' : '↓'}</span> : null;
+  const sortBadge = (k) => sortBy.key === k ? <span className="ml-1 text-[9px] font-semibold">{sortBy.dir === 'asc' ? '↑' : '↓'}</span> : null;
 
   const exportPDF = () => {
     const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
@@ -424,30 +424,28 @@ const Books = () => {
   return (
     <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen" style={{ fontFamily: "'Montserrat', sans-serif" }}>
 
-      <div className="relative w-full min-h-[220px] sm:min-h-[280px] overflow-hidden">
-        <div className="absolute inset-0 bg-[#0a192f]/85 z-10 backdrop-blur-[2px]" />
-        <img src="/teacher.jpg" alt="" className="absolute inset-0 w-full h-full object-cover scale-105" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#1E3A5F]/40 via-transparent to-transparent z-10" />
-        <div className="relative z-20 max-w-[1600px] mx-auto px-4 sm:px-6 md:px-12 pt-12 sm:pt-16 pb-16 sm:pb-24 flex items-center gap-6 sm:gap-8">
-          <div className="hidden sm:flex shrink-0 w-20 h-20 sm:w-24 sm:h-24 rounded-[32px] border border-white/10 bg-white/5 items-center justify-center backdrop-blur-xl shadow-2xl relative overflow-hidden group">
-            <BookOpen size={36} style={{ color: '#FEBF10' }} className="sm:w-10 sm:h-10 group-hover:scale-110 transition-transform duration-500" />
-          </div>
-          <div className="space-y-1 min-w-0">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="w-6 h-1 rounded-full animate-pulse shrink-0" style={{ background: '#FEBF10' }} />
-              <p className="text-[10px] font-black uppercase tracking-[0.3em] truncate" style={{ color: '#FEBF10' }}>Library Catalogue</p>
+      <div className="relative w-full min-h-[200px] sm:min-h-[220px] overflow-hidden bg-[#c87800]">
+        <div className="absolute -top-28 -right-28 w-[22rem] h-[22rem] rounded-full border border-white/[0.07] pointer-events-none" aria-hidden />
+        <div className="absolute -top-14 -right-14 w-[15rem] h-[15rem] rounded-full border border-white/[0.06] pointer-events-none" aria-hidden />
+        <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-[#FEBF10]/30 to-transparent pointer-events-none" aria-hidden />
+
+        <div className="relative z-10 max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-12 pt-10 sm:pt-12 pb-20 sm:pb-24 flex items-center justify-between">
+          <div className="space-y-1 max-w-3xl">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="w-5 h-1 rounded-full bg-[#FEBF10]" aria-hidden />
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#FEBF10]">Library Catalogue</p>
             </div>
-            <h1 className="text-xl sm:text-4xl md:text-5xl font-black text-white tracking-tighter leading-none mb-2 mt-2 uppercase">
-              Book <span style={{ color: '#FEBF10' }}>Collection</span>
+            <h1 className="text-xl md:text-2xl font-semibold text-white tracking-tight leading-none mb-1 mt-1 uppercase">
+              Book Collection
             </h1>
-            <p className="text-[9px] sm:text-xs font-bold text-white/40 max-w-lg leading-relaxed uppercase tracking-widest italic opacity-60">
+            <p className="text-[10px] sm:text-[11px] font-medium text-white/60 tracking-wider">
               Live API · Barcode/QR · Bulk CSV
             </p>
           </div>
         </div>
       </div>
 
-      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 md:px-12 -mt-16 sm:-mt-24 relative z-20 pb-16 sm:pb-20">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 md:px-12 -mt-12 sm:-mt-16 relative z-20 pb-16 sm:pb-20">
         <div className="bg-white rounded-t-[28px] sm:rounded-t-[32px] shadow-2xl border border-black/5 overflow-hidden flex flex-col min-h-[480px]">
 
           <div className="grid grid-cols-1 lg:grid-cols-4 border-b border-black/5">
@@ -460,28 +458,28 @@ const Books = () => {
               ].map((stat, i) => (
                 <div key={i} className="p-4 sm:p-8 flex flex-col items-center justify-center text-center group hover:bg-re-bg/20 transition-all">
                   <div className="mb-1.5 sm:mb-2 opacity-40 shrink-0">{stat.icon}</div>
-                  <span className="text-lg sm:text-2xl font-black text-re-text tracking-tighter group-hover:text-[#1E3A5F] transition-colors">{stat.value}</span>
-                  <p className="text-[6px] sm:text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] mt-0.5 sm:mt-1 opacity-60">{stat.label}</p>
+                  <span className="text-lg sm:text-2xl font-semibold text-re-text tracking-tighter group-hover:text-[#1E3A5F] transition-colors">{stat.value}</span>
+                  <p className="text-[6px] sm:text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.2em] mt-0.5 sm:mt-1 opacity-60">{stat.label}</p>
                 </div>
               ))}
             </div>
             <div className="flex flex-col border-t lg:border-t-0 lg:border-l border-black/5 bg-re-bg/30 p-4 sm:p-6 justify-center gap-2 sm:gap-3">
               <button type="button" onClick={exportPDF}
-                className="w-full h-10 sm:h-11 flex items-center justify-center gap-2 text-white rounded-xl font-black text-[8px] sm:text-[9px] uppercase tracking-widest shadow-xl hover:scale-[1.02] active:scale-95 transition-all"
+                className="w-full h-10 sm:h-11 flex items-center justify-center gap-2 text-white rounded-xl font-semibold text-[8px] sm:text-[9px] uppercase tracking-widest shadow-xl hover:scale-[1.02] active:scale-95 transition-all"
                 style={{ background: 'linear-gradient(135deg,#1E3A5F 0%,#0D2644 100%)' }}>
                 <Printer size={14} /><span>Print catalogue</span>
               </button>
               <button type="button" onClick={() => setModal({})}
-                className="w-full h-10 sm:h-11 flex items-center justify-center gap-2 bg-white border border-black/5 text-re-text font-black text-[8px] sm:text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg hover:border-[#1E3A5F]/20 transition-all group">
+                className="w-full h-10 sm:h-11 flex items-center justify-center gap-2 bg-white border border-black/5 text-re-text font-semibold text-[8px] sm:text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg hover:border-[#1E3A5F]/20 transition-all group">
                 <Plus size={14} className="text-amber-500 group-hover:rotate-90 transition-transform duration-300" />
                 <span className="group-hover:text-[#1E3A5F] transition-colors">Add book</span>
               </button>
               <div className="flex flex-col sm:flex-row gap-2">
                 <button type="button" onClick={downloadCsvTemplate}
-                  className="flex-1 h-9 flex items-center justify-center gap-1.5 rounded-xl border border-black/5 text-[8px] font-black uppercase tracking-widest text-[#1E3A5F] hover:bg-white">
+                  className="flex-1 h-9 flex items-center justify-center gap-1.5 rounded-xl border border-black/5 text-[8px] font-semibold uppercase tracking-widest text-[#1E3A5F] hover:bg-white">
                   <Download size={12} /> Template
                 </button>
-                <label className="flex-1 h-9 flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-[#1E3A5F]/30 text-[8px] font-black uppercase tracking-widest text-[#1E3A5F] cursor-pointer hover:bg-white">
+                <label className="flex-1 h-9 flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-[#1E3A5F]/30 text-[8px] font-semibold uppercase tracking-widest text-[#1E3A5F] cursor-pointer hover:bg-white">
                   <Upload size={12} /> {bulkBusy ? '…' : 'CSV'}
                   <input ref={csvRef} type="file" accept=".csv,text/csv" className="hidden" disabled={bulkBusy}
                     onChange={(e) => onBulkCsv(e.target.files?.[0])} />
@@ -498,20 +496,20 @@ const Books = () => {
             <div className="relative w-full sm:w-[8rem] shrink-0">
               <Filter size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-amber-500 z-[1] pointer-events-none" />
               <select value={category} onChange={(e) => setCategory(e.target.value)}
-                className="w-full h-9 sm:h-8 bg-white/80 rounded-lg outline-none border border-black/5 focus:border-[#1E3A5F]/20 text-[#1E3A5F] text-[9px] font-black uppercase tracking-widest shadow-[inset_0_2px_8px_rgba(15,23,42,0.06)] cursor-pointer appearance-none pl-8 pr-6">
+                className="w-full h-9 sm:h-8 bg-white/80 rounded-lg outline-none border border-black/5 focus:border-[#1E3A5F]/20 text-[#1E3A5F] text-[9px] font-semibold uppercase tracking-widest shadow-[inset_0_2px_8px_rgba(15,23,42,0.06)] cursor-pointer appearance-none pl-8 pr-6">
                 {CATEGORIES.map((g) => <option key={g}>{g}</option>)}
               </select>
             </div>
             <div className="relative w-full sm:w-[8rem] shrink-0">
               <select value={stockFilter} onChange={(e) => setStockFilter(e.target.value)}
-                className="w-full h-9 sm:h-8 bg-white/80 rounded-lg outline-none border border-black/5 focus:border-[#1E3A5F]/20 text-[#1E3A5F] text-[9px] font-black uppercase tracking-widest shadow-[inset_0_2px_8px_rgba(15,23,42,0.06)] cursor-pointer appearance-none pl-3 pr-6">
+                className="w-full h-9 sm:h-8 bg-white/80 rounded-lg outline-none border border-black/5 focus:border-[#1E3A5F]/20 text-[#1E3A5F] text-[9px] font-semibold uppercase tracking-widest shadow-[inset_0_2px_8px_rgba(15,23,42,0.06)] cursor-pointer appearance-none pl-3 pr-6">
                 {['All', 'Available', 'Out', 'Low'].map((s) => <option key={s}>{s}</option>)}
               </select>
             </div>
             <div className="relative flex-1 min-w-[200px] group">
               <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-re-text-muted/50 group-focus-within:text-[#1E3A5F] transition-colors z-[1] pointer-events-none" />
               <input type="text" placeholder="Search title, author, ISBN…" value={search} onChange={(e) => setSearch(e.target.value)}
-                className="w-full h-9 sm:h-8 bg-white/80 rounded-lg outline-none border border-black/5 focus:border-[#1E3A5F]/20 text-[#1E3A5F] text-[9px] font-black uppercase tracking-tight shadow-[inset_0_2px_8px_rgba(15,23,42,0.06)] placeholder:text-[#1E3A5F]/30 pl-8" />
+                className="w-full h-9 sm:h-8 bg-white/80 rounded-lg outline-none border border-black/5 focus:border-[#1E3A5F]/20 text-[#1E3A5F] text-[9px] font-semibold uppercase tracking-tight shadow-[inset_0_2px_8px_rgba(15,23,42,0.06)] placeholder:text-[#1E3A5F]/30 pl-8" />
             </div>
             <button type="button" onClick={loadBooks} className="h-9 sm:h-8 w-full sm:w-9 flex items-center justify-center bg-white border border-black/5 rounded-lg hover:bg-re-bg transition-all shadow-sm shrink-0">
               <RefreshCw size={12} className={`text-[#1E3A5F] ${loading ? 'animate-spin' : ''}`} />
@@ -522,13 +520,13 @@ const Books = () => {
             <table className="w-full text-left border-collapse min-w-[640px]">
               <thead>
                 <tr className="bg-re-bg/20 border-b border-black/5">
-                  <th onClick={() => toggleSort('title')} className="px-3 sm:px-6 py-2.5 sm:py-3 text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5 cursor-pointer">Book {sortBadge('title')}</th>
-                  <th className="hidden md:table-cell px-6 py-3 text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Category</th>
-                  <th className="hidden lg:table-cell px-4 py-3 text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">ISBN</th>
-                  <th onClick={() => toggleSort('quantity')} className="hidden md:table-cell px-6 py-3 text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5 cursor-pointer text-right">Copies {sortBadge('quantity')}</th>
-                  <th onClick={() => toggleSort('available')} className="px-3 sm:px-6 py-2.5 sm:py-3 text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5 cursor-pointer text-right">Avail. {sortBadge('available')}</th>
-                  <th className="hidden sm:table-cell px-4 py-3 text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Shelf</th>
-                  <th className="px-3 sm:px-6 py-2.5 sm:py-3 text-right text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40">Actions</th>
+                  <th onClick={() => toggleSort('title')} className="px-3 sm:px-6 py-2.5 sm:py-3 text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5 cursor-pointer">Book {sortBadge('title')}</th>
+                  <th className="hidden md:table-cell px-6 py-3 text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Category</th>
+                  <th className="hidden lg:table-cell px-4 py-3 text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">ISBN</th>
+                  <th onClick={() => toggleSort('quantity')} className="hidden md:table-cell px-6 py-3 text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5 cursor-pointer text-right">Copies {sortBadge('quantity')}</th>
+                  <th onClick={() => toggleSort('available')} className="px-3 sm:px-6 py-2.5 sm:py-3 text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5 cursor-pointer text-right">Avail. {sortBadge('available')}</th>
+                  <th className="hidden sm:table-cell px-4 py-3 text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Shelf</th>
+                  <th className="px-3 sm:px-6 py-2.5 sm:py-3 text-right text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.2em] opacity-40">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/5">
@@ -540,20 +538,20 @@ const Books = () => {
                           <BookOpen size={14} className="opacity-60 sm:w-[15px] sm:h-[15px]" />
                         </div>
                         <div className="min-w-0">
-                          <p className="text-[12px] sm:text-[13px] font-black text-[#1E3A5F] tracking-tight truncate">{b.title}</p>
+                          <p className="text-[12px] sm:text-[13px] font-semibold text-[#1E3A5F] tracking-tight truncate">{b.title}</p>
                           <p className="text-[7px] sm:text-[8px] font-bold text-re-text-muted uppercase tracking-widest opacity-50 mt-0.5 truncate">{b.author} · #{b.id}</p>
                         </div>
                       </div>
                     </td>
                     <td className="hidden md:table-cell px-6 py-3 border-r border-black/5">
-                      <span className="bg-re-bg px-2 py-0.5 rounded-lg border border-black/5 text-[10px] font-black text-[#1E3A5F]">{b.category}</span>
+                      <span className="bg-re-bg px-2 py-0.5 rounded-lg border border-black/5 text-[10px] font-semibold text-[#1E3A5F]">{b.category}</span>
                     </td>
                     <td className="hidden lg:table-cell px-4 py-3 border-r border-black/5 font-mono text-[10px] font-bold text-slate-600">{b.isbn}</td>
-                    <td className="hidden md:table-cell px-6 py-3 border-r border-black/5 text-right font-black text-[#1E3A5F] text-[11px]">{b.quantity}</td>
+                    <td className="hidden md:table-cell px-6 py-3 border-r border-black/5 text-right font-semibold text-[#1E3A5F] text-[11px]">{b.quantity}</td>
                     <td className="px-3 sm:px-6 py-2.5 sm:py-3 border-r border-black/5 text-right">
-                      <span className={`text-[12px] sm:text-[13px] font-black ${(b.available_quantity || 0) === 0 ? 'text-red-500' : (b.available_quantity || 0) < 3 ? 'text-amber-500' : 'text-emerald-600'}`}>{b.available_quantity}</span>
+                      <span className={`text-[12px] sm:text-[13px] font-semibold ${(b.available_quantity || 0) === 0 ? 'text-red-500' : (b.available_quantity || 0) < 3 ? 'text-amber-500' : 'text-emerald-600'}`}>{b.available_quantity}</span>
                     </td>
-                    <td className="hidden sm:table-cell px-4 py-3 border-r border-black/5 font-black text-[#1E3A5F] text-[10px]">
+                    <td className="hidden sm:table-cell px-4 py-3 border-r border-black/5 font-semibold text-[#1E3A5F] text-[10px]">
                       <span className="bg-re-bg px-2 py-0.5 rounded-lg border border-black/5">{b.shelf_location}</span>
                     </td>
                     <td className="px-2 sm:px-6 py-2.5 sm:py-3 text-right">
@@ -566,7 +564,7 @@ const Books = () => {
                           className="h-7 w-7 rounded-xl flex items-center justify-center bg-white border border-black/5 text-slate-500 hover:text-[#1E3A5F] shadow-sm">
                           <Hash size={12} />
                         </button>
-                        <button type="button" onClick={(e) => { e.stopPropagation(); setModal(b); }} className="h-7 px-2 sm:px-3 rounded-xl flex items-center gap-1 bg-white border border-black/5 text-[#1E3A5F] font-black text-[8px] sm:text-[9px] uppercase tracking-widest shadow-sm hover:bg-re-bg">
+                        <button type="button" onClick={(e) => { e.stopPropagation(); setModal(b); }} className="h-7 px-2 sm:px-3 rounded-xl flex items-center gap-1 bg-white border border-black/5 text-[#1E3A5F] font-semibold text-[8px] sm:text-[9px] uppercase tracking-widest shadow-sm hover:bg-re-bg">
                           <Edit2 size={11} className="text-amber-500" /><span className="hidden xs:inline">Edit</span>
                         </button>
                         <button type="button" onClick={(e) => { e.stopPropagation(); setDeleteConfirm(b); }} className="h-7 w-7 rounded-xl flex items-center justify-center bg-white border border-black/5 text-slate-300 hover:text-red-500 hover:bg-red-50 shadow-sm">
@@ -577,7 +575,7 @@ const Books = () => {
                   </tr>
                 ))}
                 {!loading && filtered.length === 0 && (
-                  <tr><td colSpan={7} className="px-6 py-8 text-center text-[10px] font-black text-re-text-muted uppercase tracking-widest opacity-50">No books found</td></tr>
+                  <tr><td colSpan={7} className="px-6 py-8 text-center text-[10px] font-semibold text-re-text-muted uppercase tracking-widest opacity-50">No books found</td></tr>
                 )}
               </tbody>
             </table>
@@ -587,9 +585,9 @@ const Books = () => {
             <div className="flex flex-wrap items-center gap-3 sm:gap-4">
               <div className="flex items-center gap-1.5">
                 <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest italic opacity-60">Catalogue</p>
+                <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-widest italic opacity-60">Catalogue</p>
               </div>
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] opacity-40 italic">{filtered.length} titles · {stats.available} copies available</p>
+              <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-[0.2em] opacity-40 italic">{filtered.length} titles · {stats.available} copies available</p>
             </div>
           </div>
         </div>
@@ -607,11 +605,11 @@ const Books = () => {
         <div className="fixed inset-0 z-[230] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-[24px] shadow-2xl p-8 max-w-sm w-full text-center">
             <div className="w-12 h-12 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-4"><Trash2 size={20} className="text-red-500" /></div>
-            <h3 className="font-black text-[#1E3A5F] mb-2">Remove &quot;{deleteConfirm.title}&quot;?</h3>
+            <h3 className="font-semibold text-[#1E3A5F] mb-2">Remove &quot;{deleteConfirm.title}&quot;?</h3>
             <p className="text-[11px] font-bold text-slate-400 mb-6">This cannot be undone. Active loans block deletion.</p>
             <div className="flex gap-3">
-              <button type="button" onClick={() => setDeleteConfirm(null)} className="flex-1 py-2.5 rounded-xl border border-black/5 font-black text-[10px] uppercase tracking-widest text-slate-500 hover:bg-slate-50">Cancel</button>
-              <button type="button" onClick={handleDelete} className="flex-1 py-2.5 rounded-xl bg-red-500 text-white font-black text-[10px] uppercase hover:bg-red-600">Remove</button>
+              <button type="button" onClick={() => setDeleteConfirm(null)} className="flex-1 py-2.5 rounded-xl border border-black/5 font-semibold text-[10px] uppercase tracking-widest text-slate-500 hover:bg-slate-50">Cancel</button>
+              <button type="button" onClick={handleDelete} className="flex-1 py-2.5 rounded-xl bg-red-500 text-white font-semibold text-[10px] uppercase hover:bg-red-600">Remove</button>
             </div>
           </div>
         </div>, document.body

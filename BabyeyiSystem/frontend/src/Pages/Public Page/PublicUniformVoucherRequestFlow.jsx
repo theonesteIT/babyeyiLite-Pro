@@ -49,7 +49,6 @@ function imgSrc(url) {
 const FontLoader = () => (
   <style>{`
     @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
-    @keyframes pulseAmber{0%,100%{box-shadow:0 0 0 0 rgba(251,191,36,.35)}50%{box-shadow:0 0 0 7px rgba(251,191,36,0)}}
     @keyframes stepIn{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:translateX(0)}}
     .spin-anim{animation:spin .9s linear infinite}
     .step-in{animation:stepIn .32s cubic-bezier(.22,1,.36,1) both}
@@ -58,36 +57,31 @@ const FontLoader = () => (
 
 function StepIndicator({ current }) {
   return (
-    <div className="flex items-center gap-0 w-full">
+    <div className="flex items-center w-full">
       {UNIFORM_STEPS.map((s, i) => {
         const done = current > s.id;
         const active = current === s.id;
         return (
           <div key={s.id} className="flex items-center flex-1 min-w-0">
             <div className="flex flex-col items-center gap-1.5 flex-shrink-0">
-              <div
-                className={`relative w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center font-black text-[12px] transition-all duration-300 ${
-                  done
-                    ? "bg-amber-400 text-[#000435] shadow-md shadow-amber-400/30"
-                    : active
-                      ? "bg-[#000435] border-2 border-amber-400 text-amber-400 shadow-lg shadow-amber-400/15"
-                      : "bg-white/5 border border-white/15 text-white/30"
-                }`}
-                style={active ? { animation: "pulseAmber 2.2s ease-in-out infinite" } : {}}
-              >
-                {done ? <Check size={15} strokeWidth={3} /> : <s.icon size={14} />}
+              <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center transition-all duration-300 border-2 ${
+                done
+                  ? "bg-amber-400 border-amber-400 text-white shadow-md shadow-amber-200"
+                  : active
+                  ? "bg-white border-amber-400 text-amber-500 shadow-sm"
+                  : "bg-white border-gray-200 text-gray-400"
+              }`}>
+                {done ? <Check size={14} strokeWidth={3} /> : <s.icon size={14} />}
               </div>
-              <span
-                className={`text-[8px] sm:text-[9px] font-black uppercase tracking-[.06em] text-center leading-none hidden xs:block max-w-[56px] truncate ${
-                  done ? "text-amber-400" : active ? "text-white" : "text-white/30"
-                }`}
-              >
+              <span className={`text-[8px] sm:text-[9px] font-black uppercase tracking-[.06em] text-center leading-none max-w-[56px] truncate ${
+                done ? "text-amber-500" : active ? "text-[#000435]" : "text-gray-400"
+              }`}>
                 {s.short}
               </span>
             </div>
             {i < UNIFORM_STEPS.length - 1 && (
-              <div className="flex-1 h-0.5 mx-0.5 sm:mx-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.1)" }}>
-                <div className="h-full rounded-full bg-amber-400 transition-all duration-500" style={{ width: done ? "100%" : active ? "50%" : "0%" }} />
+              <div className="flex-1 h-0.5 mx-0.5 sm:mx-1.5 rounded-full overflow-hidden bg-gray-200">
+                <div className="h-full rounded-full bg-amber-400 transition-all duration-500" style={{ width: done ? "100%" : "0%" }} />
               </div>
             )}
           </div>
@@ -100,12 +94,12 @@ function StepIndicator({ current }) {
 function Field({ label, required, hint, children }) {
   return (
     <div>
-      <label className="block text-[10px] font-black uppercase tracking-[.1em] text-white/40 mb-2">
+      <label className="block text-[10px] font-black uppercase tracking-[.1em] text-gray-400 mb-2">
         {label}
-        {required && <span className="text-amber-400 ml-0.5">*</span>}
+        {required && <span className="text-amber-500 ml-0.5">*</span>}
       </label>
       {children}
-      {hint && <p className="text-[11px] text-white/35 mt-1.5">{hint}</p>}
+      {hint && <p className="text-[11px] text-gray-400 mt-1.5">{hint}</p>}
     </div>
   );
 }
@@ -117,25 +111,25 @@ function Select({ value, onChange, children, disabled = false }) {
         value={value}
         onChange={onChange}
         disabled={disabled}
-        className={`w-full h-12 rounded-xl border border-white/15 bg-white/5 text-white text-[13px] font-bold px-4 outline-none appearance-none transition-all ${
-          disabled ? "opacity-60 cursor-not-allowed" : "hover:border-white/25 focus:border-amber-400 focus:bg-amber-400/5 cursor-pointer"
+        className={`w-full h-12 rounded-xl border border-gray-200 bg-white text-[#000435] text-[13px] font-bold px-4 outline-none appearance-none transition-all ${
+          disabled ? "opacity-50 cursor-not-allowed bg-gray-50" : "hover:border-gray-300 focus:border-amber-400 focus:bg-amber-50 cursor-pointer"
         }`}
       >
         {children}
       </select>
-      <ChevronRight size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none rotate-90" />
+      <ChevronRight size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none rotate-90" />
     </div>
   );
 }
 
 function NavBtns({ onBack, onNext, nextLabel = "Continue", nextDisabled = false, nextLoading = false }) {
   return (
-    <div className="flex items-center gap-3 pt-5 mt-1 border-t border-white/8">
+    <div className="flex items-center gap-3 pt-5 mt-1 border-t border-gray-100">
       {onBack && (
         <button
           type="button"
           onClick={onBack}
-          className="flex items-center gap-2 px-4 py-3 rounded-xl border border-white/15 text-white/60 font-bold text-[13px] hover:border-white/30 hover:text-white transition-all min-h-[48px]"
+          className="flex items-center gap-2 px-4 py-3 rounded-xl border border-gray-200 text-gray-500 font-bold text-[13px] hover:border-gray-300 hover:text-[#000435] transition-all min-h-[48px]"
         >
           <ArrowLeft size={15} /> Back
         </button>
@@ -145,7 +139,7 @@ function NavBtns({ onBack, onNext, nextLabel = "Continue", nextDisabled = false,
         onClick={onNext}
         disabled={nextDisabled || nextLoading}
         className={`flex-1 sm:flex-none sm:ml-auto flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-black text-[14px] min-h-[48px] transition-all ${
-          nextDisabled || nextLoading ? "bg-white/8 text-white/25 cursor-not-allowed" : "bg-amber-400 text-[#000435] hover:bg-amber-300 shadow-xl shadow-amber-400/20 active:scale-[.98]"
+          nextDisabled || nextLoading ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-[#000435] text-white hover:bg-[#000635] shadow-lg active:scale-[.98]"
         }`}
       >
         {nextLoading && <Loader2 size={16} className="spin-anim" />}
@@ -156,11 +150,11 @@ function NavBtns({ onBack, onNext, nextLabel = "Continue", nextDisabled = false,
 }
 
 const inp =
-  "w-full h-12 rounded-xl border border-white/15 bg-white/5 text-white text-[14px] font-semibold px-4 outline-none placeholder:text-white/25 hover:border-white/25 focus:border-amber-400 focus:bg-amber-400/5";
+  "w-full h-12 rounded-xl border border-gray-200 bg-white text-[#000435] text-[14px] font-semibold px-4 outline-none placeholder:text-gray-400 hover:border-gray-300 focus:border-amber-400 focus:bg-amber-50";
 
 /** Taller on mobile (touch + iOS 16px avoids zoom-on-focus) */
 const inpStudentCode =
-  "w-full flex-1 min-h-[52px] rounded-xl border border-white/15 bg-white/5 text-white font-semibold px-4 py-3.5 outline-none text-[16px] leading-snug sm:min-h-12 sm:h-12 sm:py-0 sm:text-[14px] placeholder:text-white/25 hover:border-white/25 focus:border-amber-400 focus:bg-amber-400/5";
+  "w-full flex-1 min-h-[52px] rounded-xl border border-gray-200 bg-white text-[#000435] font-semibold px-4 py-3.5 outline-none text-[16px] leading-snug sm:min-h-12 sm:h-12 sm:py-0 sm:text-[14px] placeholder:text-gray-400 hover:border-gray-300 focus:border-amber-400 focus:bg-amber-50";
 
 /** Compact header actions — single row on mobile + desktop */
 const headerBtnBase =
@@ -173,6 +167,12 @@ export default function PublicUniformVoucherRequestFlow() {
   const uniformResumeAppliedRef = useRef(false);
   const [step, setStep] = useState(0);
   const [studentCode, setStudentCode] = useState("");
+  useEffect(() => {
+    const fromUrl = String(searchParams.get("code") || "").trim();
+    if (!fromUrl) return;
+    setStudentCode(fromUrl);
+  }, [searchParams]);
+
   const [lookupErr, setLookupErr] = useState("");
   const [lookupLoading, setLookupLoading] = useState(false);
   const [student, setStudent] = useState(null);
@@ -612,10 +612,10 @@ export default function PublicUniformVoucherRequestFlow() {
   const stepDisplay = step + 1;
 
   return (
-    <div className="min-h-screen bg-[#000435]" style={{ fontFamily: FONT }}>
+    <div className="min-h-screen bg-gray-50" style={{ fontFamily: FONT }}>
       <FontLoader />
 
-      <div className="sticky top-0 z-20 bg-[#000435]/95 backdrop-blur-xl border-b-[3px] border-amber-400">
+      <div className="sticky top-0 z-20 bg-white border-b border-gray-100 shadow-sm">
         <div className="max-w-4xl mx-auto px-2 sm:px-6 py-2 sm:py-2.5">
           <div className="flex flex-wrap sm:flex-nowrap items-center gap-x-1.5 gap-y-1.5 sm:gap-2 min-w-0">
             <img
@@ -626,7 +626,7 @@ export default function PublicUniformVoucherRequestFlow() {
             <Link
               to="/services"
               title="Back to services"
-              className={`${headerBtnBase} bg-white/8 border border-white/18 text-white/90 hover:bg-white/12 hover:border-white/28`}
+              className={`${headerBtnBase} bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-[#000435]`}
             >
               <ArrowLeft size={12} className="shrink-0 sm:w-[14px] sm:h-[14px]" aria-hidden />
               <span className="text-center truncate max-[380px]:hidden">Back to services</span>
@@ -635,46 +635,45 @@ export default function PublicUniformVoucherRequestFlow() {
             <Link
               to="/services/uniform-voucher/track"
               title="Track order"
-              className={`${headerBtnBase} bg-amber-400 text-[#000435] border border-amber-400 shadow-sm shadow-amber-400/25 hover:bg-amber-300`}
+              className={`${headerBtnBase} bg-amber-400 text-[#000435] border border-amber-400 shadow-sm shadow-amber-200 hover:bg-amber-300`}
             >
               <ClipboardList size={12} className="shrink-0 sm:w-[14px] sm:h-[14px]" aria-hidden />
               <span className="text-center truncate max-[380px]:hidden">Track order</span>
               <span className="text-center hidden max-[380px]:inline">Track</span>
             </Link>
             <div
-              className="flex items-center gap-0.5 sm:gap-1 text-amber-400 shrink-0 ml-auto pl-0.5"
+              className="flex items-center gap-0.5 sm:gap-1 text-[#000435] shrink-0 ml-auto pl-0.5"
               title="Secure checkout"
               aria-label="Secure checkout"
             >
-              <ShieldCheck size={12} className="shrink-0 sm:w-[14px] sm:h-[14px]" aria-hidden />
+              <ShieldCheck size={12} className="shrink-0 sm:w-[14px] sm:h-[14px] text-amber-500" aria-hidden />
               <span className="text-[8px] sm:text-[10px] font-bold leading-none whitespace-nowrap max-[320px]:sr-only">Secure</span>
             </div>
           </div>
         </div>
+        <div className="h-[3px] bg-amber-400" />
       </div>
 
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-        <div className="mb-7 sm:mb-8">
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-400/10 border border-amber-400/25 px-3 py-1.5 mb-4">
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
+        <div className="mb-7 sm:mb-8 text-center">
+          <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200 px-3.5 py-1.5 mb-4">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-            <span className="text-[10px] font-black uppercase tracking-[.12em] text-amber-400">Babyeyi Services</span>
+            <span className="text-[10px] font-black uppercase tracking-[.12em] text-amber-600">Babyeyi Services</span>
           </div>
-          <h1 className="font-black text-white text-[24px] sm:text-[28px] tracking-tight leading-tight mb-2">
-            Uniform Voucher <span className="text-amber-400">Service</span>
+          <h1 className="font-black text-[#000435] text-[24px] sm:text-[28px] tracking-tight leading-tight mb-2">
+            Uniform Voucher <span className="text-amber-500">Service</span>
           </h1>
-          
         </div>
 
-        <div className="rounded-2xl xl:rounded-3xl bg-white/4 border border-amber-400/20 overflow-hidden shadow-2xl shadow-black/30">
-          <div className="px-5 sm:px-6 py-5 border-b border-white/8 bg-[#000435]/50">
+        <div className="rounded-2xl bg-white border border-gray-100 overflow-hidden shadow-lg">
+          <div className="px-5 sm:px-8 py-5 border-b-2 border-amber-400">
             <StepIndicator current={stepDisplay} />
           </div>
 
-          <div className="px-5 sm:px-6 py-6">
+          <div className="px-5 sm:px-8 py-6">
             {step === 0 && (
               <div className="step-in">
-                <h2 className="font-black text-white text-[18px] sm:text-[20px] mb-1"> Enter Student Code</h2>
-                
+                <h2 className="font-black text-[#000435] text-[18px] sm:text-[20px] mb-1">Enter Student Code</h2>
                 <form onSubmit={onLookup}>
                   <Field label="">
                     <div className="flex flex-col sm:flex-row gap-2.5 sm:items-stretch">
@@ -689,21 +688,21 @@ export default function PublicUniformVoucherRequestFlow() {
                       <button
                         type="submit"
                         disabled={lookupLoading}
-                        className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-amber-400 text-[#000435] font-black text-[14px] min-h-[52px] sm:min-h-[48px] w-full sm:w-auto hover:bg-amber-300 disabled:opacity-50 shrink-0"
+                        className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-amber-400 text-[#000435] font-black text-[14px] min-h-[52px] sm:min-h-[48px] w-full sm:w-auto hover:bg-amber-300 disabled:opacity-50 shrink-0 shadow-sm"
                       >
                         {lookupLoading ? <Loader2 size={18} className="spin-anim" /> : <Search size={18} />}
-                       Find
+                        Find
                       </button>
                     </div>
                   </Field>
-                  {lookupErr && <p className="text-[13px] text-red-400 mt-3 font-semibold">{lookupErr}</p>}
+                  {lookupErr && <p className="text-[13px] text-red-500 mt-3 font-semibold">{lookupErr}</p>}
                 </form>
               </div>
             )}
 
             {step === 1 && student && (
               <div className="step-in">
-                <h2 className="font-black text-white text-[18px] sm:text-[20px] mb-3">Student &amp; school</h2>
+                <h2 className="font-black text-[#000435] text-[18px] sm:text-[20px] mb-3">Student &amp; school</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-6">
                   {[
                     ["Full name", student.full_name || `${student.first_name} ${student.last_name}`],
@@ -717,13 +716,13 @@ export default function PublicUniformVoucherRequestFlow() {
                     ["Father", student.parent_guardian?.father_name || "—"],
                     ["Mother", student.parent_guardian?.mother_name || "—"],
                   ].map(([k, v]) => (
-                    <div key={k} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
-                      <p className="text-[10px] font-black uppercase text-white/35 mb-1">{k}</p>
-                      <p className="text-[13px] font-bold text-white">{v || "—"}</p>
+                    <div key={k} className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-2.5">
+                      <p className="text-[10px] font-black uppercase text-gray-400 mb-1">{k}</p>
+                      <p className="text-[13px] font-bold text-[#000435]">{v || "—"}</p>
                     </div>
                   ))}
                 </div>
-                <h2 className="font-black text-white text-[18px] sm:text-[20px] mb-3">Choose uniform type</h2>
+                <h2 className="font-black text-[#000435] text-[18px] sm:text-[20px] mb-3">Choose uniform type</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2">
                   {[
                     { id: "school", title: "School uniform", sub: "Shirt, trousers, skirt, sweater…", Icon: Shirt },
@@ -738,21 +737,21 @@ export default function PublicUniformVoucherRequestFlow() {
                       }}
                       className={`text-left rounded-2xl border-2 p-4 transition-all touch-manipulation ${
                         uniformType === id
-                          ? "border-amber-400 bg-amber-400/10 shadow-lg shadow-amber-400/15"
-                          : "border-white/12 bg-white/5 hover:border-amber-400/45"
+                          ? "border-amber-400 bg-amber-50 shadow-sm"
+                          : "border-gray-200 bg-gray-50 hover:border-amber-300"
                       }`}
                     >
-                      <Icon size={22} className="text-amber-400" />
-                      <p className="mt-3 font-black text-white text-[15px]">{title}</p>
-                      <p className="mt-1 text-[12px] text-white/45">{sub}</p>
+                      <Icon size={22} className="text-amber-500" />
+                      <p className="mt-3 font-black text-[#000435] text-[15px]">{title}</p>
+                      <p className="mt-1 text-[12px] text-gray-400">{sub}</p>
                     </button>
                   ))}
                 </div>
-                <div className="flex items-center gap-3 pt-5 mt-2 border-t border-white/8">
+                <div className="flex items-center gap-3 pt-5 mt-2 border-t border-gray-100">
                   <button
                     type="button"
                     onClick={() => setStep(0)}
-                    className="flex items-center gap-2 px-4 py-3 rounded-xl border border-white/15 text-white/60 font-bold text-[13px] hover:border-white/30 hover:text-white transition-all min-h-[48px]"
+                    className="flex items-center gap-2 px-4 py-3 rounded-xl border border-gray-200 text-gray-500 font-bold text-[13px] hover:border-gray-300 hover:text-[#000435] transition-all min-h-[48px]"
                   >
                     <ArrowLeft size={15} /> Back
                   </button>
@@ -762,11 +761,11 @@ export default function PublicUniformVoucherRequestFlow() {
 
             {step === 2 && uniformType && (
               <div className="step-in">
-                <h2 className="font-black text-white text-[18px] sm:text-[20px] mb-1">Select items</h2>
-                <p className="text-white/45 text-[13px] mb-4">Pick only what you need — one piece or a full set.</p>
+                <h2 className="font-black text-[#000435] text-[18px] sm:text-[20px] mb-1">Select items</h2>
+                <p className="text-gray-400 text-[13px] mb-4">Pick only what you need — one piece or a full set.</p>
                 {itemsLoading ? (
                   <div className="flex justify-center py-16">
-                    <Loader2 className="spin-anim text-amber-400" size={36} />
+                    <Loader2 className="spin-anim text-amber-500" size={36} />
                   </div>
                 ) : (
                   <div className="flex flex-col gap-3">
@@ -777,45 +776,45 @@ export default function PublicUniformVoucherRequestFlow() {
                         <div
                           key={it.id}
                           className={`rounded-2xl border-2 p-3 sm:p-4 transition-all ${
-                            L.sel ? "border-amber-400 bg-amber-400/10" : "border-white/12 bg-white/5"
+                            L.sel ? "border-amber-400 bg-amber-50" : "border-gray-200 bg-gray-50"
                           }`}
                         >
                           <div className="flex gap-3 flex-wrap sm:flex-nowrap">
-                            <div className="w-[72px] h-[72px] sm:w-20 sm:h-20 shrink-0 rounded-xl bg-white/10 overflow-hidden flex items-center justify-center">
+                            <div className="w-[72px] h-[72px] sm:w-20 sm:h-20 shrink-0 rounded-xl bg-gray-100 overflow-hidden flex items-center justify-center">
                               {src ? (
                                 <img src={src} alt="" className="w-full h-full object-cover" />
                               ) : (
-                                <Shirt size={28} className="text-white/35" />
+                                <Shirt size={28} className="text-gray-400" />
                               )}
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex flex-wrap items-start justify-between gap-2">
                                 <div>
-                                  <p className="font-black text-white text-[15px]">{it.name}</p>
+                                  <p className="font-black text-[#000435] text-[15px]">{it.name}</p>
                                   {it.description && (
-                                    <p className="text-[12px] text-white/45 mt-1 leading-snug">{it.description}</p>
+                                    <p className="text-[12px] text-gray-400 mt-1 leading-snug">{it.description}</p>
                                   )}
                                 </div>
-                                <label className="flex items-center gap-2 text-[12px] font-bold text-amber-400 cursor-pointer shrink-0">
+                                <label className="flex items-center gap-2 text-[12px] font-bold text-amber-500 cursor-pointer shrink-0">
                                   <input
                                     type="checkbox"
                                     checked={L.sel}
                                     onChange={(e) => setLine(it, { sel: e.target.checked })}
-                                    className="h-4 w-4 rounded border-white/30 accent-amber-400"
+                                    className="h-4 w-4 rounded border-gray-300 accent-amber-400"
                                   />
                                   Select
                                 </label>
                               </div>
-                              <p className="mt-2 font-black text-amber-400 text-[16px]">{frw(it.price_rwf)}</p>
+                              <p className="mt-2 font-black text-amber-500 text-[16px]">{frw(it.price_rwf)}</p>
                               {it.stock_qty != null && (
-                                <p className={`text-[11px] mt-1 ${it.stock_qty < 5 ? "text-red-400" : "text-white/40"}`}>
+                                <p className={`text-[11px] mt-1 ${it.stock_qty < 5 ? "text-red-500" : "text-gray-400"}`}>
                                   Stock: {it.stock_qty}
                                 </p>
                               )}
                             </div>
                           </div>
                           {L.sel && (
-                            <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-white/10">
+                            <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-gray-100">
                               <Field label="Size">
                                 <select
                                   value={L.size}
@@ -823,9 +822,7 @@ export default function PublicUniformVoucherRequestFlow() {
                                   className={`${inp} cursor-pointer appearance-none`}
                                 >
                                   {(it.sizes || []).map((s) => (
-                                    <option key={s} value={s} className="bg-[#000435]">
-                                      {s}
-                                    </option>
+                                    <option key={s} value={s}>{s}</option>
                                   ))}
                                 </select>
                               </Field>
@@ -837,9 +834,7 @@ export default function PublicUniformVoucherRequestFlow() {
                                     className={`${inp} cursor-pointer appearance-none`}
                                   >
                                     {(it.colors || []).map((s) => (
-                                      <option key={s} value={s} className="bg-[#000435]">
-                                        {s}
-                                      </option>
+                                      <option key={s} value={s}>{s}</option>
                                     ))}
                                   </select>
                                 </Field>
@@ -863,7 +858,7 @@ export default function PublicUniformVoucherRequestFlow() {
                     })}
                   </div>
                 )}
-                {submitErr && <p className="text-[13px] text-red-400 mt-3">{submitErr}</p>}
+                {submitErr && <p className="text-[13px] text-red-500 mt-3">{submitErr}</p>}
                 <NavBtns
                   onBack={() => setStep(1)}
                   onNext={() => selectedLines.length && setStep(3)}
@@ -875,8 +870,8 @@ export default function PublicUniformVoucherRequestFlow() {
 
             {step === 3 && (
               <div className="step-in">
-                <h2 className="font-black text-white text-[18px] sm:text-[20px] mb-2 leading-tight">Find your agent</h2>
-                <p className="text-white/45 text-[12px] sm:text-[13px] mb-4 leading-relaxed max-w-prose">
+                <h2 className="font-black text-[#000435] text-[18px] sm:text-[20px] mb-2 leading-tight">Find your agent</h2>
+                <p className="text-gray-400 text-[12px] sm:text-[13px] mb-4 leading-relaxed max-w-prose">
                   Choose province and district that match your school. Add sector if you know it — then we list agents for that area.
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-3 mb-4">
@@ -884,9 +879,7 @@ export default function PublicUniformVoucherRequestFlow() {
                     <Select value={locProvince} onChange={(e) => setLocProvince(e.target.value)} disabled={geoLoading}>
                       <option value="">Choose…</option>
                       {provinces.map((p) => (
-                        <option key={p} value={p} className="bg-[#000435]">
-                          {p}
-                        </option>
+                        <option key={p} value={p}>{p}</option>
                       ))}
                     </Select>
                   </Field>
@@ -894,9 +887,7 @@ export default function PublicUniformVoucherRequestFlow() {
                     <Select value={locDistrict} onChange={(e) => setLocDistrict(e.target.value)} disabled={!locProvince || geoLoading}>
                       <option value="">Choose…</option>
                       {districts.map((d) => (
-                        <option key={d} value={d} className="bg-[#000435]">
-                          {d}
-                        </option>
+                        <option key={d} value={d}>{d}</option>
                       ))}
                     </Select>
                   </Field>
@@ -905,9 +896,7 @@ export default function PublicUniformVoucherRequestFlow() {
                       <Select value={locSector} onChange={(e) => setLocSector(e.target.value)} disabled={!locDistrict || geoLoading}>
                         <option value="">Any sector in district</option>
                         {sectors.map((s) => (
-                          <option key={s} value={s} className="bg-[#000435]">
-                            {s}
-                          </option>
+                          <option key={s} value={s}>{s}</option>
                         ))}
                       </Select>
                     </Field>
@@ -916,30 +905,30 @@ export default function PublicUniformVoucherRequestFlow() {
 
                 {agentsLoading && (
                   <div className="flex justify-center py-10 sm:py-8">
-                    <Loader2 className="spin-anim text-amber-400" size={34} />
+                    <Loader2 className="spin-anim text-amber-500" size={34} />
                   </div>
                 )}
                 {!agentsLoading && locProvince && locDistrict && (
                   <div className="space-y-3 mb-6">
                     {agents.length === 0 ? (
-                      <p className="text-[13px] sm:text-[14px] text-white/45 leading-relaxed px-0.5">
+                      <p className="text-[13px] sm:text-[14px] text-gray-400 leading-relaxed px-0.5">
                         No agents match this location. Try another sector or contact support.
                       </p>
                     ) : (
                       <>
                         <div
-                          className="rounded-2xl border border-amber-400/35 bg-gradient-to-br from-amber-400/12 to-amber-400/5 px-3.5 py-3.5 sm:px-4 sm:py-4 mb-1"
+                          className="rounded-2xl border border-amber-200 bg-amber-50 px-3.5 py-3.5 sm:px-4 sm:py-4 mb-1"
                           role="status"
                         >
                           <div className="flex gap-2.5 sm:gap-3">
-                            <div className="flex h-10 w-10 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-xl bg-amber-400/20 border border-amber-400/35">
-                              <MapPin className="text-amber-300" size={20} strokeWidth={2.25} />
+                            <div className="flex h-10 w-10 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-xl bg-amber-100 border border-amber-200">
+                              <MapPin className="text-amber-500" size={20} strokeWidth={2.25} />
                             </div>
                             <div className="min-w-0 flex-1">
-                              <p className="font-black text-white text-[13px] sm:text-[14px] leading-snug">
+                              <p className="font-black text-[#000435] text-[13px] sm:text-[14px] leading-snug">
                                 Select the agent you want
                               </p>
-                              <p className="text-white/55 text-[12px] sm:text-[13px] mt-1 leading-relaxed">
+                              <p className="text-gray-400 text-[12px] sm:text-[13px] mt-1 leading-relaxed">
                                 Based on your location, tap one agent below to continue.
                               </p>
                             </div>
@@ -954,18 +943,18 @@ export default function PublicUniformVoucherRequestFlow() {
                             type="button"
                             onClick={() => setSelectedAgent(a)}
                             className={`w-full min-h-[52px] text-left rounded-xl border px-3.5 py-3.5 sm:px-4 sm:py-4 transition-all touch-manipulation active:scale-[0.99] ${
-                              sel ? "border-amber-400 bg-amber-400/10 ring-1 ring-amber-400/30" : "border-white/12 bg-white/5 hover:border-amber-400/40"
+                              sel ? "border-amber-400 bg-amber-50 ring-1 ring-amber-300" : "border-gray-200 bg-gray-50 hover:border-amber-300"
                             }`}
                           >
-                            <p className="font-black text-white text-[14px] sm:text-[15px] leading-snug break-words">
+                            <p className="font-black text-[#000435] text-[14px] sm:text-[15px] leading-snug break-words">
                               {a.full_name || `${a.first_name || ""} ${a.last_name || ""}`.trim()}
                             </p>
-                            <p className="text-[11px] sm:text-[12px] text-amber-200/85 mt-1.5 leading-snug">
+                            <p className="text-[11px] sm:text-[12px] text-amber-600/85 mt-1.5 leading-snug">
                               {a.district}
                               {a.all_sectors ? " · All sectors" : Array.isArray(a.sectors) && a.sectors.length ? ` · ${a.sectors.join(", ")}` : ""}
                             </p>
                             {(a.phone || a.email) && (
-                              <p className="text-[11px] sm:text-[12px] text-white/45 mt-1.5 break-all">
+                              <p className="text-[11px] sm:text-[12px] text-gray-400 mt-1.5 break-all">
                                 {a.phone}
                                 {a.email ? ` · ${a.email}` : ""}
                               </p>
@@ -985,8 +974,8 @@ export default function PublicUniformVoucherRequestFlow() {
 
             {step === 4 && (
               <div className="step-in">
-                <h2 className="font-black text-white text-[18px] sm:text-[20px] mb-1">Delivery</h2>
-                <p className="text-white/45 text-[13px] mb-4">After your agent, choose how uniforms reach the family.</p>
+                <h2 className="font-black text-[#000435] text-[18px] sm:text-[20px] mb-1">Delivery</h2>
+                <p className="text-gray-400 text-[13px] mb-4">After your agent, choose how uniforms reach the family.</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                   {[
                     { id: "school", label: "Deliver to school", Icon: Building2, note: student?.school_name || "School address on file" },
@@ -997,22 +986,22 @@ export default function PublicUniformVoucherRequestFlow() {
                       type="button"
                       onClick={() => setDeliveryMethod(id)}
                       className={`rounded-xl border-2 p-4 text-left transition-all ${
-                        deliveryMethod === id ? "border-amber-400 bg-amber-400/10" : "border-white/12 bg-white/5 hover:border-white/25"
+                        deliveryMethod === id ? "border-amber-400 bg-amber-50" : "border-gray-200 bg-gray-50 hover:border-gray-300"
                       }`}
                     >
-                      <Icon size={20} className="text-amber-400" />
-                      <p className="font-black text-[13px] text-white mt-2">{label}</p>
-                      <p className="text-[11px] text-white/40">{note}</p>
+                      <Icon size={20} className="text-amber-500" />
+                      <p className="font-black text-[13px] text-[#000435] mt-2">{label}</p>
+                      <p className="text-[11px] text-gray-400">{note}</p>
                     </button>
                   ))}
                 </div>
                 {deliveryMethod === "school" && student && (
-                  <div className="rounded-xl border border-amber-400/25 bg-amber-400/6 p-4 text-[13px] text-white/80 mb-4">
-                    <p className="font-black text-white">{student.school_name}</p>
-                    <p className="mt-1">
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-[13px] text-[#000435] mb-4">
+                    <p className="font-black text-[#000435]">{student.school_name}</p>
+                    <p className="mt-1 text-gray-500">
                       {student.school_district || student.district} · {student.school_sector || student.sector}
                     </p>
-                    <p className="mt-2 text-[12px] text-white/45">Uniforms are batched for school delivery where the programme allows.</p>
+                    <p className="mt-2 text-[12px] text-gray-400">Uniforms are batched for school delivery where the programme allows.</p>
                   </div>
                 )}
                 {deliveryMethod === "home" && (
@@ -1058,63 +1047,63 @@ export default function PublicUniformVoucherRequestFlow() {
 
             {step === 5 && (
               <div className="step-in">
-                <h2 className="font-black text-white text-[18px] sm:text-[20px] mb-4">Order summary</h2>
-                <div className="rounded-xl border border-amber-400/25 bg-amber-400/6 p-4 mb-4 space-y-2 text-[13px]">
+                <h2 className="font-black text-[#000435] text-[18px] sm:text-[20px] mb-4">Order summary</h2>
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 mb-4 space-y-2 text-[13px]">
                   <div className="flex justify-between gap-2">
-                    <span className="text-white/45">Student</span>
-                    <span className="text-white font-bold text-right">
+                    <span className="text-gray-400">Student</span>
+                    <span className="text-[#000435] font-bold text-right">
                       {student?.full_name} · {student?.student_code || student?.student_uid}
                     </span>
                   </div>
                   <div className="flex justify-between gap-2">
-                    <span className="text-white/45">School</span>
-                    <span className="text-white font-bold text-right">{student?.school_name}</span>
+                    <span className="text-gray-400">School</span>
+                    <span className="text-[#000435] font-bold text-right">{student?.school_name}</span>
                   </div>
                   <div className="flex justify-between gap-2">
-                    <span className="text-white/45">Agent</span>
-                    <span className="text-white font-bold text-right">
+                    <span className="text-gray-400">Agent</span>
+                    <span className="text-[#000435] font-bold text-right">
                       {selectedAgent?.full_name ||
                         `${selectedAgent?.first_name || ""} ${selectedAgent?.last_name || ""}`.trim() ||
                         "—"}
                     </span>
                   </div>
                   <div className="flex justify-between gap-2">
-                    <span className="text-white/45">Uniform type</span>
-                    <span className="text-white font-bold capitalize">{uniformType}</span>
+                    <span className="text-gray-400">Uniform type</span>
+                    <span className="text-[#000435] font-bold capitalize">{uniformType}</span>
                   </div>
                 </div>
-                <div className="rounded-xl border border-white/10 bg-white/5 p-4 mb-4">
-                  <p className="text-[10px] font-black uppercase text-white/35 mb-3">Items</p>
+                <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 mb-4">
+                  <p className="text-[10px] font-black uppercase text-gray-400 mb-3">Items</p>
                   {items
                     .filter((it) => lineFor(it).sel)
                     .map((it) => {
                       const L = lineFor(it);
                       return (
-                        <div key={it.id} className="flex justify-between gap-2 py-2 border-b border-white/8 last:border-0 text-[13px]">
-                          <span className="text-white/90">
+                        <div key={it.id} className="flex justify-between gap-2 py-2 border-b border-gray-100 last:border-0 text-[13px]">
+                          <span className="text-[#000435]">
                             {it.name} · {L.size}
                             {L.color ? ` · ${L.color}` : ""} × {L.qty}
                           </span>
-                          <span className="font-bold text-amber-400 shrink-0">{frw(Number(it.price_rwf) * L.qty)}</span>
+                          <span className="font-bold text-amber-500 shrink-0">{frw(Number(it.price_rwf) * L.qty)}</span>
                         </div>
                       );
                     })}
                 </div>
-                <div className="rounded-xl border border-amber-400/30 bg-amber-400/8 p-4 space-y-2">
-                  <div className="flex justify-between text-white/85 text-[13px]">
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-2">
+                  <div className="flex justify-between text-[#000435] text-[13px]">
                     <span>Subtotal</span>
                     <span className="font-bold">{frw(subtotal)}</span>
                   </div>
-                  <div className="flex justify-between text-white/85 text-[13px]">
+                  <div className="flex justify-between text-[#000435] text-[13px]">
                     <span>Delivery</span>
                     <span className="font-bold">{frw(deliveryFee)}</span>
                   </div>
-                  <div className="flex justify-between pt-2 border-t border-amber-400/25 font-black text-white text-[18px]">
+                  <div className="flex justify-between pt-2 border-t border-amber-200 font-black text-[#000435] text-[18px]">
                     <span>Total</span>
-                    <span className="text-amber-400">{frw(total)}</span>
+                    <span className="text-amber-500">{frw(total)}</span>
                   </div>
                 </div>
-                {submitErr && <p className="text-[13px] text-red-400 mt-3">{submitErr}</p>}
+                {submitErr && <p className="text-[13px] text-red-500 mt-3">{submitErr}</p>}
                 <NavBtns onBack={() => setStep(4)} onNext={() => setStep(6)} nextLabel="Confirm & continue" />
               </div>
             )}
@@ -1122,19 +1111,19 @@ export default function PublicUniformVoucherRequestFlow() {
             {step === 6 && (
               <div className="step-in">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-400/15 border border-amber-400/40">
-                    <CreditCard className="text-amber-400" size={22} />
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-100 border border-amber-200">
+                    <CreditCard className="text-amber-500" size={22} />
                   </div>
                   <div>
-                    <h2 className="font-black text-white text-[18px] sm:text-[20px]">Payment</h2>
-                    <p className="text-white/45 text-[13px]">We create your order, then open secure MTN MoMo.</p>
+                    <h2 className="font-black text-[#000435] text-[18px] sm:text-[20px]">Payment</h2>
+                    <p className="text-gray-400 text-[13px]">We create your order, then open secure MTN MoMo.</p>
                   </div>
                 </div>
-                <div className="rounded-xl border border-white/10 bg-white/5 p-4 mb-4 text-[14px] text-white/85">
+                <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 mb-4 text-[14px] text-[#000435]">
                   <p>
-                    Amount due: <span className="font-black text-amber-400">{frw(total)}</span>
+                    Amount due: <span className="font-black text-amber-500">{frw(total)}</span>
                   </p>
-                  <p className="text-[12px] text-white/45 mt-2">Confirm who pays — the next screen starts MTN MoMo for this amount.</p>
+                  <p className="text-[12px] text-gray-400 mt-2">Confirm who pays — the next screen starts MTN MoMo for this amount.</p>
                 </div>
                 <div className="grid sm:grid-cols-2 gap-3 mb-4">
                   <Field label="Payer full name">
@@ -1144,12 +1133,12 @@ export default function PublicUniformVoucherRequestFlow() {
                     <input value={payerPhone} onChange={(e) => setPayerPhone(e.target.value)} placeholder="07…" className={inp} />
                   </Field>
                 </div>
-                {submitErr && <p className="text-[13px] text-red-400 mb-3">{submitErr}</p>}
+                {submitErr && <p className="text-[13px] text-red-500 mb-3">{submitErr}</p>}
                 <div className="flex flex-col sm:flex-row gap-3 pt-2">
                   <button
                     type="button"
                     onClick={() => setStep(5)}
-                    className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-white/15 text-white/60 font-bold text-[13px] min-h-[48px] hover:text-white"
+                    className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-gray-200 text-gray-500 font-bold text-[13px] min-h-[48px] hover:text-[#000435] hover:border-gray-300"
                   >
                     <ArrowLeft size={15} /> Back
                   </button>
@@ -1157,7 +1146,7 @@ export default function PublicUniformVoucherRequestFlow() {
                     type="button"
                     disabled={orderBusy}
                     onClick={goPay}
-                    className="flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-amber-400 text-[#000435] font-black text-[14px] min-h-[48px] hover:bg-amber-300 disabled:opacity-60"
+                    className="flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-[#000435] text-white font-black text-[14px] min-h-[48px] hover:bg-[#000630] shadow-lg disabled:opacity-60"
                   >
                     {orderBusy ? <Loader2 size={18} className="spin-anim" /> : <Truck size={18} />}
                     Create order &amp; pay

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Loader2, Wallet, Clock, CheckCircle2, XCircle, Bell } from 'lucide-react';
+import { Loader2, Wallet, Clock, CheckCircle2, XCircle, Bell, Landmark } from 'lucide-react';
+import ManagerOchreHeroShell from '../../manager/components/ManagerOchreHeroShell';
 
 const fmt = (v) => `${new Intl.NumberFormat('en-RW', { maximumFractionDigits: 0 }).format(Number(v) || 0)} RWF`;
 
@@ -13,7 +14,7 @@ function StatusChip({ status }) {
   return <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase border ${map[status] || map.Pending}`}>{status}</span>;
 }
 
-export default function StaffPayroll({ apiClient, endpoint = '/staff/payroll/my' }) {
+export default function StaffPayroll({ apiClient, endpoint = '/staff/payroll/my', layout = 'page', useManagerHero = false }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -41,9 +42,11 @@ export default function StaffPayroll({ apiClient, endpoint = '/staff/payroll/my'
   const paidTotal = useMemo(() => history.filter((h) => h.status === 'Paid').reduce((s, h) => s + Number(h.paid || 0), 0), [history]);
   const pendingCount = useMemo(() => history.filter((h) => h.status === 'Pending').length, [history]);
 
+  const isEmbedded = layout === 'embedded';
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
+      <div className={isEmbedded ? 'flex items-center justify-center py-16' : 'min-h-screen bg-slate-100 flex items-center justify-center'}>
         <Loader2 size={28} className="animate-spin text-[#000435]" />
       </div>
     );
@@ -51,20 +54,89 @@ export default function StaffPayroll({ apiClient, endpoint = '/staff/payroll/my'
 
   if (error) {
     return (
-      <div className="min-h-screen bg-slate-100 p-6">
+      <div className={isEmbedded ? 'p-2' : 'min-h-screen bg-slate-100 p-6'}>
         <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">{error}</div>
       </div>
     );
   }
 
+  if (useManagerHero && !isEmbedded) {
+    const subtitle = [data?.staff?.fullName || 'Staff', [data?.staff?.staffCode, data?.staff?.role, data?.staff?.department].filter(Boolean).join(' · ')].filter(Boolean).join(' · ');
+    return (
+      <div style={{ fontFamily: "'Montserrat', sans-serif" }}>
+        <ManagerOchreHeroShell
+          outerClassName="min-h-screen bg-slate-100 pb-10"
+          eyebrow="School manager"
+          title="My payroll"
+          subtitle={subtitle}
+          HeroIcon={Wallet}
+          kpiTiles={[
+            { key: 'net', label: 'Current net', value: fmt(data?.currentSalary?.net), icon: Wallet },
+            { key: 'paid', label: 'Paid total', value: fmt(paidTotal), icon: CheckCircle2 },
+            { key: 'pend', label: 'Pending requests', value: String(pendingCount), icon: Clock },
+            { key: 'adv', label: 'Advance remaining', value: fmt(data?.advance?.remaining), icon: Landmark },
+          ]}
+          overlapClassName="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 -mt-4 sm:-mt-5 pt-2 relative z-20 mb-6"
+          pageBody={(
+            <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pb-8">
+              <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm">
+                <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                  <p className="font-black text-[#000435]">Payroll History</p>
+                  <Bell size={14} className="text-slate-400" />
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-50 text-[10px] uppercase tracking-widest text-slate-400">
+                      <tr>
+                        <th className="px-4 py-3 text-left">Period</th>
+                        <th className="px-4 py-3 text-left">Net</th>
+                        <th className="px-4 py-3 text-left">Paid</th>
+                        <th className="px-4 py-3 text-left">Status</th>
+                        <th className="px-4 py-3 text-left">Audit</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {history.length === 0 ? (
+                        <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400">No payroll records yet.</td></tr>
+                      ) : history.map((row) => (
+                        <tr key={row.id}>
+                          <td className="px-4 py-3">
+                            <p className="font-bold text-[#000435]">{row.month} {row.year}</p>
+                            <p className="text-[10px] text-slate-400">{row.term}</p>
+                          </td>
+                          <td className="px-4 py-3 font-semibold">{fmt(row.net)}</td>
+                          <td className="px-4 py-3 font-black text-blue-700">{fmt(row.paid)}</td>
+                          <td className="px-4 py-3"><StatusChip status={row.status} /></td>
+                          <td className="px-4 py-3 text-xs text-slate-500">
+                            {row.status === 'Paid' ? <span className="inline-flex items-center gap-1"><CheckCircle2 size={12} /> Paid</span> : row.status === 'Rejected' ? <span className="inline-flex items-center gap-1"><XCircle size={12} /> Rejected</span> : <span className="inline-flex items-center gap-1"><Clock size={12} /> Waiting</span>}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+        />
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-slate-100 p-4 sm:p-6 space-y-4" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+    <div
+      className={isEmbedded ? 'space-y-4' : 'min-h-screen bg-slate-100 p-4 sm:p-6 space-y-4'}
+      style={{ fontFamily: "'Montserrat', sans-serif" }}
+    >
+      {!isEmbedded && (
       <div className="rounded-2xl bg-[#000435] text-white p-5">
         <p className="text-[10px] uppercase tracking-widest text-amber-400 font-black">My Payroll</p>
         <h1 className="text-xl font-black mt-1">{data?.staff?.fullName || 'Staff'}</h1>
         <p className="text-xs text-slate-300">{data?.staff?.staffCode} · {data?.staff?.role} · {data?.staff?.department}</p>
       </div>
+      )}
 
+      {!useManagerHero && (
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           <p className="text-[10px] uppercase tracking-wider text-slate-400 font-black">Current Net</p>
@@ -83,6 +155,7 @@ export default function StaffPayroll({ apiClient, endpoint = '/staff/payroll/my'
           <p className="text-lg font-black text-orange-700">{fmt(data?.advance?.remaining)}</p>
         </div>
       </div>
+      )}
 
       <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
         <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">

@@ -116,9 +116,9 @@ export default function GradebookColumns({ embedded = false }) {
           <div className="flex items-center gap-2 text-re-navy">
             <Table2 className={`${embedded ? 'w-6 h-6' : 'w-7 h-7'}`} />
             {embedded ? (
-              <h2 className="text-lg font-black tracking-tight text-[#1E3A5F] uppercase">Gradebook columns</h2>
+              <h2 className="text-lg font-semibold tracking-tight text-[#1E3A5F] uppercase">Gradebook columns</h2>
             ) : (
-              <h1 className="text-xl md:text-2xl font-black tracking-tight">Gradebook columns</h1>
+              <h1 className="text-xl md:text-2xl font-semibold tracking-tight">Gradebook columns</h1>
             )}
           </div>
           <p className={`text-re-text-muted mt-1 max-w-xl ${embedded ? 'text-[11px]' : 'text-sm'}`}>
@@ -128,7 +128,7 @@ export default function GradebookColumns({ embedded = false }) {
         <button
           type="button"
           onClick={load}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-black/10 text-xs font-black uppercase tracking-widest hover:bg-re-bg transition-colors"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-black/10 text-xs font-semibold uppercase tracking-widest hover:bg-re-bg transition-colors"
         >
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
           Refresh
@@ -136,10 +136,10 @@ export default function GradebookColumns({ embedded = false }) {
       </div>
 
       <form onSubmit={handleAdd} className="rounded-2xl border border-black/5 bg-re-bg/40 p-4 md:p-6 space-y-4">
-        <h2 className="text-sm font-black uppercase tracking-widest text-re-navy">Add column</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-widest text-re-navy">Add column</h2>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <div className="sm:col-span-2">
-            <label className="text-[10px] font-black uppercase tracking-widest text-re-text-muted block mb-1">Label</label>
+            <label className="text-[10px] font-semibold uppercase tracking-widest text-re-text-muted block mb-1">Label</label>
             <input
               className={operationsInnerFieldCls}
               placeholder="e.g. CAT 1"
@@ -148,7 +148,7 @@ export default function GradebookColumns({ embedded = false }) {
             />
           </div>
           <div>
-            <label className="text-[10px] font-black uppercase tracking-widest text-re-text-muted block mb-1">Slug (optional)</label>
+            <label className="text-[10px] font-semibold uppercase tracking-widest text-re-text-muted block mb-1">Slug (optional)</label>
             <input
               className={operationsInnerFieldMonoCls}
               placeholder="auto from label"
@@ -157,7 +157,7 @@ export default function GradebookColumns({ embedded = false }) {
             />
           </div>
           <div>
-            <label className="text-[10px] font-black uppercase tracking-widest text-re-text-muted block mb-1">Sort order</label>
+            <label className="text-[10px] font-semibold uppercase tracking-widest text-re-text-muted block mb-1">Sort order</label>
             <input
               type="number"
               className={operationsInnerFieldCls}
@@ -166,7 +166,7 @@ export default function GradebookColumns({ embedded = false }) {
             />
           </div>
           <div>
-            <label className="text-[10px] font-black uppercase tracking-widest text-re-text-muted block mb-1">Default max score</label>
+            <label className="text-[10px] font-semibold uppercase tracking-widest text-re-text-muted block mb-1">Default max score</label>
             <input
               type="number"
               className={operationsInnerFieldCls}
@@ -179,7 +179,7 @@ export default function GradebookColumns({ embedded = false }) {
         <button
           type="submit"
           disabled={adding}
-          className="inline-flex items-center gap-2 h-11 px-5 rounded-xl bg-re-navy text-white text-xs font-black uppercase tracking-widest disabled:opacity-50"
+          className="inline-flex items-center gap-2 h-11 px-5 rounded-xl bg-re-navy text-white text-xs font-semibold uppercase tracking-widest disabled:opacity-50"
         >
           {adding ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
           Add column
@@ -188,13 +188,13 @@ export default function GradebookColumns({ embedded = false }) {
 
       <div className="rounded-2xl border border-black/5 bg-white shadow-sm overflow-hidden">
         <div className="px-4 py-3 border-b border-black/5 bg-re-bg/30 flex items-center justify-between">
-          <h2 className="text-xs font-black uppercase tracking-widest text-re-text-muted">Configured columns</h2>
+          <h2 className="text-xs font-semibold uppercase tracking-widest text-re-text-muted">Configured columns</h2>
           {loading && <Loader2 size={16} className="animate-spin text-re-navy" />}
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="text-[10px] font-black uppercase tracking-widest text-re-text-muted border-b border-black/5">
+              <tr className="text-[10px] font-semibold uppercase tracking-widest text-re-text-muted border-b border-black/5">
                 <th className="px-4 py-3">Label</th>
                 <th className="px-4 py-3">Slug</th>
                 <th className="px-4 py-3 w-24">Order</th>
@@ -241,7 +241,7 @@ export default function GradebookColumns({ embedded = false }) {
                       type="button"
                       onClick={() => handleUpdate(row)}
                       disabled={savingId === row.id}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-wider"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-semibold uppercase tracking-wider"
                     >
                       <Save size={12} />
                       {savingId === row.id ? '…' : 'Save'}
@@ -249,7 +249,7 @@ export default function GradebookColumns({ embedded = false }) {
                     <button
                       type="button"
                       onClick={() => handleDelete(row)}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-red-50 text-red-600 text-[10px] font-black uppercase tracking-wider"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-red-50 text-red-600 text-[10px] font-semibold uppercase tracking-wider"
                     >
                       <Trash2 size={12} />
                     </button>

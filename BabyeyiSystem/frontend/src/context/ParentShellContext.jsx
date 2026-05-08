@@ -157,9 +157,32 @@ export function ParentShellProvider({ children }) {
         title: item.title,
         body: item.body,
         createdAt: item.createdAt || new Date().toISOString(),
-        read: false,
+        read: item.read ?? false,
+        resumeUrl: item.resumeUrl,
+        shareUrl: item.shareUrl ?? item.resumeUrl,
+        kind: item.kind,
       };
       const next = [row, ...prev];
+      saveNotifications(next);
+      return next;
+    });
+  }, []);
+
+  const upsertNotification = useCallback((item) => {
+    const id = item.id || `n-${Date.now()}`;
+    setNotifications((prev) => {
+      const rest = prev.filter((n) => String(n.id) !== String(id));
+      const row = {
+        id,
+        title: item.title || "Notification",
+        body: item.body || "",
+        createdAt: item.createdAt || new Date().toISOString(),
+        read: item.read ?? false,
+        resumeUrl: item.resumeUrl,
+        shareUrl: item.shareUrl ?? item.resumeUrl,
+        kind: item.kind,
+      };
+      const next = [row, ...rest];
       saveNotifications(next);
       return next;
     });
@@ -178,6 +201,7 @@ export function ParentShellProvider({ children }) {
       markNotificationRead,
       markAllNotificationsRead,
       addNotification,
+      upsertNotification,
     }),
     [
       themeMode,
@@ -190,6 +214,7 @@ export function ParentShellProvider({ children }) {
       markNotificationRead,
       markAllNotificationsRead,
       addNotification,
+      upsertNotification,
     ]
   );
 

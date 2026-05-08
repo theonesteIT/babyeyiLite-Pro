@@ -61,8 +61,10 @@ export function AuthProvider({ children }) {
   const logout = useCallback(async () => {
     try {
       await fetch(`${API}/api/session/logout`, {
-        method:      'POST',
+        method: 'POST',
         credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
       });
     } catch { /* ignore network errors on logout */ }
     setUser(false);

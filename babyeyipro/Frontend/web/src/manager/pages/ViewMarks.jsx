@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
+import { useAcademic } from '../context/AcademicContext';
 import {
     TrendingUp, Search, ChevronDown,
     Download, CheckCircle, BarChart2,
@@ -8,14 +9,21 @@ import {
 } from 'lucide-react';
 
 export default function ViewMarks() {
+    const academic = useAcademic();
     const [selectedClass, setSelectedClass] = useState('Senior 3A');
     const [isClassSelected, setIsClassSelected] = useState(window.innerWidth >= 1024);
     const [showMobileFilters, setShowMobileFilters] = useState(false);
     const [selectedSubject, setSelectedSubject] = useState('Mathematics');
-    const [selectedTerm, setSelectedTerm] = useState('Term 1');
+    const [selectedTerm, setSelectedTerm] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(false);
     const [marks, setMarks] = useState([]);
+
+    useEffect(() => {
+        if (!academic.loading && academic.currentTerm) {
+            setSelectedTerm(prev => prev || academic.currentTerm);
+        }
+    }, [academic.loading, academic.currentTerm]);
 
     useEffect(() => {
         if (isClassSelected) {
@@ -71,7 +79,7 @@ export default function ViewMarks() {
         <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen pb-12">
 
             {/* ── High-Fidelity Hero Section ── */}
-            <div className="relative w-full min-h-[300px] overflow-hidden bg-[#000435]">
+            <div className="relative w-full min-h-[300px] overflow-hidden bg-[#c87800]">
                 <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full border border-white/5 pointer-events-none" />
                 <div className="absolute -top-12 -right-12 w-64 h-64 rounded-full border border-white/5 pointer-events-none" />
                 <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-[#FEBF10]/30 to-transparent pointer-events-none" />
@@ -80,9 +88,9 @@ export default function ViewMarks() {
                     <div className="space-y-1">
                         <div className="flex items-center gap-2 mb-2">
                             <span className="w-6 h-1 bg-re-orange rounded-full"></span>
-                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/80">Performance Analytics</span>
+                            <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/80">Performance Analytics</span>
                         </div>
-                        <h1 className="text-3xl md:text-5xl font-black text-white tracking-tight">
+                        <h1 className="text-2xl md:text-3xl font-semibold text-white tracking-tight" style={{ fontFamily: "'Montserrat', sans-serif" }}>
                             View Marks
                         </h1>
                         <p className="text-xs md:text-sm text-white/70 font-bold max-w-xl leading-relaxed uppercase tracking-widest opacity-60">
@@ -95,7 +103,7 @@ export default function ViewMarks() {
 
             {/* ── Main Content Area ── */}
             <div className="relative z-30 max-w-[1600px] mx-auto px-2 md:px-6 -mt-16">
-                <div className="bg-white rounded-t-[2.5rem] shadow-2xl border border-black/5 overflow-hidden flex flex-col">
+                <div className="bg-white rounded-t-[2.5rem] shadow-sm border border-black/10 overflow-hidden flex flex-col">
 
                     {/* Integrated Stats Grid */}
                     <div className={`${!isClassSelected ? 'hidden lg:grid' : 'grid'} grid-cols-2 lg:grid-cols-3 divide-x divide-y lg:divide-y-0 divide-black/5 border-b border-black/5`}>
@@ -106,8 +114,8 @@ export default function ViewMarks() {
                         ].map((s, i) => (
                             <div key={i} className="p-4 sm:p-8 flex flex-col items-center justify-center text-center group hover:bg-re-bg/20 transition-all">
                                 <div className="text-re-orange opacity-40 mb-1.5 sm:mb-2">{s.icon}</div>
-                                <div className="text-sm sm:text-2xl font-black text-re-text tracking-tighter group-hover:text-re-orange">{s.value}</div>
-                                <div className="text-[6px] sm:text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] mt-0.5 opacity-60">{s.label}</div>
+                                <div className="text-sm sm:text-2xl font-semibold text-re-text tracking-tighter group-hover:text-re-orange">{s.value}</div>
+                                <div className="text-[6px] sm:text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.2em] mt-0.5 opacity-60">{s.label}</div>
                             </div>
                         ))}
                     </div>
@@ -121,7 +129,7 @@ export default function ViewMarks() {
                                 <select
                                     value={selectedClass}
                                     readOnly
-                                    className="w-full pl-9 pr-4 h-10 bg-white border border-black/5 rounded-xl text-[10px] font-black uppercase tracking-widest text-re-text appearance-none focus:outline-none"
+                                    className="w-full pl-9 pr-4 h-10 bg-white border border-black/5 rounded-xl text-[10px] font-semibold uppercase tracking-widest text-re-text appearance-none focus:outline-none"
                                 >
                                     <option>{selectedClass}</option>
                                 </select>
@@ -131,7 +139,7 @@ export default function ViewMarks() {
                             {/* Mobile Filter Toggle */}
                             <button
                                 onClick={() => setShowMobileFilters(!showMobileFilters)}
-                                className="lg:hidden w-full flex justify-between items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all"
+                                className="lg:hidden w-full flex justify-between items-center gap-2 text-[10px] font-semibold uppercase tracking-widest transition-all"
                             >
                                 <div className="flex items-center gap-2">
                                     <Filter size={14} className="text-re-orange" /> show filters
@@ -147,7 +155,7 @@ export default function ViewMarks() {
                                 <select
                                     value={selectedSubject}
                                     onChange={(e) => setSelectedSubject(e.target.value)}
-                                    className="w-full pl-9 pr-4 h-10 bg-white border border-black/5 rounded-xl text-[10px] font-black uppercase tracking-widest text-re-text appearance-none focus:outline-none focus:border-re-orange/20"
+                                    className="w-full pl-9 pr-4 h-10 bg-white border border-black/5 rounded-xl text-[10px] font-semibold uppercase tracking-widest text-re-text appearance-none focus:outline-none focus:border-re-orange/20"
                                 >
                                     <option>Mathematics</option>
                                     <option>Chemistry</option>
@@ -167,7 +175,7 @@ export default function ViewMarks() {
                                 />
                             </div>
 
-                            <button className="w-full lg:w-auto h-10 px-5 bg-re-bg border border-black/5 text-re-text font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-white transition-all flex items-center justify-center gap-2">
+                            <button className="w-full lg:w-auto h-10 px-5 bg-re-bg border border-black/5 text-re-text font-medium text-[9px] uppercase tracking-widest rounded-xl hover:bg-white transition-all flex items-center justify-center gap-2">
                                 <Printer size={14} /> Export PDF
                             </button>
                         </div>
@@ -176,10 +184,10 @@ export default function ViewMarks() {
                     {/* Mobile Class Selection Gatekeeper */}
                     {!isClassSelected && (
                         <div className="lg:hidden p-6 bg-re-bg/20 flex flex-col items-center justify-center text-center py-12 animate-in fade-in zoom-in-95 duration-500">
-                            <div className="w-16 h-16 bg-white rounded-[2rem] shadow-xl flex items-center justify-center text-re-orange mb-6 border border-black/5 animate-bounce">
+                            <div className="w-16 h-16 bg-white rounded-[2rem] shadow-sm flex items-center justify-center text-re-orange mb-6 border border-black/5 animate-bounce">
                                 <Award size={32} />
                             </div>
-                            <h2 className="text-xl font-black text-re-text tracking-tighter uppercase mb-2">Select Class</h2>
+                            <h2 className="text-xl font-semibold text-re-text tracking-tighter uppercase mb-2">Select Class</h2>
                             <p className="text-[10px] text-re-text-muted font-bold uppercase tracking-widest leading-relaxed mb-8 max-w-[240px]">Choose a class to view academic performance marks.</p>
 
                             <div className="grid grid-cols-2 gap-3 w-full max-w-sm">
@@ -193,7 +201,7 @@ export default function ViewMarks() {
                                         className="h-16 flex items-center justify-center gap-2.5 bg-white border border-black/5 rounded-2xl shadow-sm hover:border-re-orange/30 hover:bg-re-orange/5 transition-all group active:scale-95 px-4"
                                     >
                                         <div className="flex flex-col items-center gap-0.5">
-                                            <span className="text-[10px] font-black text-re-text group-hover:text-re-orange uppercase">{cls}</span>
+                                            <span className="text-[10px] font-semibold text-re-text group-hover:text-re-orange uppercase">{cls}</span>
                                             <span className="text-[7px] font-bold text-re-text-muted uppercase tracking-widest opacity-40 italic">Performance</span>
                                         </div>
                                         <ChevronDown size={14} className="text-re-text-muted -rotate-90" />
@@ -210,11 +218,11 @@ export default function ViewMarks() {
                                 <div className="lg:hidden px-6 py-3 bg-white border-b border-black/5 flex items-center justify-between">
                                     <div className="flex items-center gap-2">
                                         <div className="w-1.5 h-1.5 bg-re-orange rounded-full"></div>
-                                        <span className="text-[9px] font-black text-re-text uppercase tracking-widest">{selectedClass} Performance</span>
+                                        <span className="text-[9px] font-semibold text-re-text uppercase tracking-widest">{selectedClass} Performance</span>
                                     </div>
                                     <button
                                         onClick={() => setIsClassSelected(false)}
-                                        className="text-[8px] font-black text-re-orange uppercase tracking-widest hover:underline"
+                                        className="text-[8px] font-semibold text-re-orange uppercase tracking-widest hover:underline"
                                     >
                                         Change Class
                                     </button>
@@ -223,13 +231,13 @@ export default function ViewMarks() {
                             <table className="w-full text-left border-collapse min-w-full sm:min-w-[900px]">
                                 <thead>
                                     <tr>
-                                        <th className="bg-re-bg/50 border-b border-r border-black/5 px-2 sm:px-4 py-4 text-[7px] sm:text-[9px] font-black uppercase tracking-widest text-re-text-muted w-10 text-center">Rank</th>
-                                        <th className="bg-re-bg/50 border-b border-r border-black/5 px-2 sm:px-4 py-4 text-[7px] sm:text-[9px] font-black uppercase tracking-widest text-re-text-muted">Student Details</th>
-                                        <th className="bg-re-bg/50 border-b border-r border-black/5 px-1 sm:px-4 py-4 text-[7px] sm:text-[9px] font-black uppercase tracking-widest text-re-text-muted w-12 text-center">Trend</th>
-                                        <th className="bg-re-bg/50 border-b border-r border-black/5 px-1 sm:px-4 py-4 text-[7px] sm:text-[9px] font-black uppercase tracking-widest text-re-text-muted w-24 text-center">Assessment</th>
-                                        <th className="bg-re-bg/50 border-b border-r border-black/5 px-4 py-4 text-[7px] sm:text-[9px] font-black uppercase tracking-widest text-re-text-muted w-24 text-center hidden sm:table-cell">Performance Bar</th>
-                                        <th className="bg-re-bg/50 border-b border-r border-black/5 px-1 sm:px-4 py-4 text-[7px] sm:text-[9px] font-black uppercase tracking-widest text-re-text-muted w-16 text-center">Final Mark</th>
-                                        <th className="bg-re-bg/50 border-b border-black/5 px-1 sm:px-4 py-4 text-[7px] sm:text-[9px] font-black uppercase tracking-widest text-re-text-muted w-16 text-center">Grade</th>
+                                        <th className="bg-re-bg/50 border-b border-r border-black/5 px-2 sm:px-4 py-4 text-[7px] sm:text-[9px] font-semibold uppercase tracking-widest text-re-text-muted w-10 text-center">Rank</th>
+                                        <th className="bg-re-bg/50 border-b border-r border-black/5 px-2 sm:px-4 py-4 text-[7px] sm:text-[9px] font-semibold uppercase tracking-widest text-re-text-muted">Student Details</th>
+                                        <th className="bg-re-bg/50 border-b border-r border-black/5 px-1 sm:px-4 py-4 text-[7px] sm:text-[9px] font-semibold uppercase tracking-widest text-re-text-muted w-12 text-center">Trend</th>
+                                        <th className="bg-re-bg/50 border-b border-r border-black/5 px-1 sm:px-4 py-4 text-[7px] sm:text-[9px] font-semibold uppercase tracking-widest text-re-text-muted w-24 text-center">Assessment</th>
+                                        <th className="bg-re-bg/50 border-b border-r border-black/5 px-4 py-4 text-[7px] sm:text-[9px] font-semibold uppercase tracking-widest text-re-text-muted w-24 text-center hidden sm:table-cell">Performance Bar</th>
+                                        <th className="bg-re-bg/50 border-b border-r border-black/5 px-1 sm:px-4 py-4 text-[7px] sm:text-[9px] font-semibold uppercase tracking-widest text-re-text-muted w-16 text-center">Final Mark</th>
+                                        <th className="bg-re-bg/50 border-b border-black/5 px-1 sm:px-4 py-4 text-[7px] sm:text-[9px] font-semibold uppercase tracking-widest text-re-text-muted w-16 text-center">Grade</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-black/5">
@@ -238,16 +246,16 @@ export default function ViewMarks() {
                                         const grade = calculateGrade(total);
                                         return (
                                             <tr key={m.id} className="hover:bg-re-bg/30 transition-colors group">
-                                                <td className="border-r border-b border-black/5 px-2 sm:px-4 py-4 text-center text-[10px] font-black text-re-text-muted/40 font-mono">
+                                                <td className="border-r border-b border-black/5 px-2 sm:px-4 py-4 text-center text-[10px] font-semibold text-re-text-muted/40 font-mono">
                                                     {(idx + 1).toString().padStart(2, '0')}
                                                 </td>
                                                 <td className="border-r border-b border-black/5 px-2 sm:px-4 py-4 min-w-0 overflow-hidden">
                                                     <div className="flex items-center gap-3">
-                                                        <div className="w-8 h-8 rounded-full bg-re-bg flex-shrink-0 flex items-center justify-center font-black text-[10px] text-gray-400 border border-black/5 group-hover:bg-white transition-colors">
+                                                        <div className="w-8 h-8 rounded-full bg-re-bg flex-shrink-0 flex items-center justify-center font-semibold text-[10px] text-gray-400 border border-black/5 group-hover:bg-white transition-colors">
                                                             <User size={14} className="opacity-40" />
                                                         </div>
                                                         <div className="flex-1 min-w-0">
-                                                            <h4 className="text-[11px] font-black text-re-text truncate block">{m.name}</h4>
+                                                            <h4 className="text-[11px] font-semibold text-re-text truncate block">{m.name}</h4>
                                                             <p className="text-[9px] font-bold text-re-text-muted uppercase tracking-widest opacity-40">{m.adm}</p>
                                                         </div>
                                                     </div>
@@ -261,7 +269,7 @@ export default function ViewMarks() {
                                                 </td>
                                                 <td className="border-r border-b border-black/5 px-1 sm:px-4 py-4 text-center">
                                                     <div className="flex flex-col items-center">
-                                                        <span className="text-[10px] font-black text-re-text">{m.cat1 + m.cat2 + m.exam}/100</span>
+                                                        <span className="text-[10px] font-semibold text-re-text">{m.cat1 + m.cat2 + m.exam}/100</span>
                                                         <span className="text-[7px] font-bold text-re-text-muted uppercase tracking-[0.1em] opacity-40">Weighted Avg</span>
                                                     </div>
                                                 </td>
@@ -274,10 +282,10 @@ export default function ViewMarks() {
                                                     </div>
                                                 </td>
                                                 <td className="border-r border-b border-black/5 px-1 sm:px-4 py-4 text-center">
-                                                    <span className="text-sm font-black text-re-text tracking-tighter">{total}</span>
+                                                    <span className="text-sm font-semibold text-re-text tracking-tighter">{total}</span>
                                                 </td>
                                                 <td className="border-b border-black/5 px-1 sm:px-4 py-4 text-center">
-                                                    <div className={`inline-flex h-7 w-7 flex items-center justify-center px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ring-1 ring-inset ${grade.color}`}>
+                                                    <div className={`inline-flex h-7 w-7 flex items-center justify-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold uppercase tracking-widest ring-1 ring-inset ${grade.color}`}>
                                                         {grade.label}
                                                     </div>
                                                 </td>
@@ -290,11 +298,11 @@ export default function ViewMarks() {
 
                         {/* Footer */}
                         <div className="px-6 py-5 bg-re-bg/10 border-t border-black/5 flex flex-col sm:flex-row items-center justify-between gap-4">
-                            <div className="flex items-center gap-4 text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 italic">
+                            <div className="flex items-center gap-4 text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.2em] opacity-40 italic">
                                 Report Generated: {new Date().toLocaleDateString()}
                             </div>
                             <div className="flex items-center gap-2 w-full sm:w-auto">
-                                <button className="w-full sm:w-auto h-10 px-6 rounded-2xl bg-re-grad-orange text-white text-[10px] font-black shadow-re-glow tracking-widest uppercase active:scale-95 transition-all">Generate Report Cards</button>
+                                <button className="w-full sm:w-auto h-10 px-6 rounded-2xl bg-re-grad-orange text-white text-[10px] font-semibold shadow-re-glow tracking-widest uppercase active:scale-95 transition-all">Generate Report Cards</button>
                             </div>
                         </div>
                     </div>

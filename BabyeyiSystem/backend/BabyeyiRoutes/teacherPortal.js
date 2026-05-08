@@ -1,4 +1,6 @@
 const express = require('express');
+const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
 const { promisePool } = require('../config/database');
 const {
   ensureSchoolGradebookSchema,
@@ -11,6 +13,8 @@ const {
 } = require('../utils/gradebookLabels');
 
 const router = express.Router();
+const USSD_AUTO_APPROVAL_RATIO = 0.4;
+const USSD_SESSION_TTL_MINUTES = Math.max(5, Number(process.env.TEACHER_USSD_SESSION_TTL_MINUTES || 30));
 
 function requireTeacherRole(req, res, next) {
     if (!req.session?.userId) {
@@ -31,6 +35,289 @@ function resolveSchoolId(req) {
 
 function resolveUserId(req) {
     return req.session?.userId || req.session?.user?.id || req.user?.id || null;
+}
+
+function hashToken(raw) {
+    return crypto.createHash('sha256').update(String(raw || ''), 'utf8').digest('hex');
+}
+
+function readBearerToken(req) {
+    const auth = String(req.headers?.authorization || '').trim();
+    if (auth.toLowerCase().startsWith('bearer ')) return auth.slice(7).trim();
+    return '';
+}
+
+function toMoney(v) {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+}
+
+function parseJsonList(raw) {
+    if (Array.isArray(raw)) return raw;
+    if (typeof raw !== 'string' || !raw.trim()) return [];
+    try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (_) {
+        return [];
+    }
+}
+
+let avanceUssdTablesReady = false;
+async function ensureTeacherAvanceUssdTables() {
+    if (avanceUssdTablesReady) return;
+    await promisePool.query(`
+      CREATE TABLE IF NOT EXISTS teacher_avance_ussd_sessions (
+        id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        token_hash CHAR(64) NOT NULL,
+        teacher_user_id INT UNSIGNED NOT NULL,
+        school_id INT UNSIGNED NOT NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        last_used_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        expires_at DATETIME NOT NULL,
+        revoked_at DATETIME NULL,
+        UNIQUE KEY uq_teacher_ussd_token_hash (token_hash),
+        KEY idx_teacher_ussd_actor (teacher_user_id, school_id),
+        KEY idx_teacher_ussd_expiry (expires_at)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+    await promisePool.query(`
+      CREATE TABLE IF NOT EXISTS shule_avance_requests (
+        id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        school_id INT UNSIGNED NOT NULL,
+        teacher_user_id INT UNSIGNED NOT NULL,
+        amount_rwf DECIMAL(14,2) NOT NULL,
+        purpose TEXT NOT NULL,
+        repayment_term_months INT UNSIGNED NOT NULL,
+        vendor_label VARCHAR(160) NULL,
+        details TEXT NULL,
+        invoice_file_name VARCHAR(255) NULL,
+        status VARCHAR(40) NOT NULL DEFAULT 'pending_accountant',
+        accountant_note TEXT NULL,
+        manager_feedback TEXT NULL,
+        submitted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        accountant_reviewed_at DATETIME NULL,
+        accountant_reviewed_by INT UNSIGNED NULL,
+        manager_reviewed_at DATETIME NULL,
+        manager_reviewed_by INT UNSIGNED NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        request_type VARCHAR(20) NOT NULL DEFAULT 'service',
+        service_category VARCHAR(64) NULL,
+        cashout_reason TEXT NULL,
+        cashout_category_slug VARCHAR(64) NULL,
+        deal_product_ids_json TEXT NULL,
+        deal_products_snapshot_json LONGTEXT NULL,
+        deal_products_total_rwf DECIMAL(14,2) NULL,
+        KEY idx_sa_school (school_id),
+        KEY idx_sa_teacher (teacher_user_id),
+        KEY idx_sa_status (status),
+        KEY idx_sa_submitted (submitted_at)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+    const cols = [
+        ['cashout_month_key', 'VARCHAR(7) NULL'],
+        ['net_salary_baseline_rwf', 'DECIMAL(14,2) NULL'],
+        ['auto_approval_limit_rwf', 'DECIMAL(14,2) NULL'],
+        ['monthly_requested_total_rwf', 'DECIMAL(14,2) NULL'],
+        ['monthly_remaining_net_rwf', 'DECIMAL(14,2) NULL'],
+        ['auto_approved', 'TINYINT(1) NOT NULL DEFAULT 0'],
+        ['auto_approved_at', 'DATETIME NULL'],
+    ];
+    for (const [name, def] of cols) {
+        try {
+            await promisePool.query(`ALTER TABLE shule_avance_requests ADD COLUMN ${name} ${def}`);
+        } catch (e) {
+            if (e.code !== 'ER_DUP_FIELDNAME') {
+                console.warn(`[teacher-portal/ussd] ALTER add ${name}:`, e.message);
+            }
+        }
+    }
+    avanceUssdTablesReady = true;
+}
+
+async function getTeacherNetSalaryFromStaff(schoolId, userId) {
+    const [[row]] = await promisePool.query(
+        `SELECT payroll_basic_salary, payroll_transport_allowance, payroll_housing_allowance,
+                payroll_meal_allowance, payroll_other_allowances, payroll_tax_percent,
+                payroll_pension_amount, payroll_other_deductions
+         FROM staff
+         WHERE school_id = ? AND user_id = ?
+         LIMIT 1`,
+        [schoolId, userId]
+    );
+    if (!row) return 0;
+    const basic = toMoney(row.payroll_basic_salary);
+    const allowances =
+        toMoney(row.payroll_transport_allowance) +
+        toMoney(row.payroll_housing_allowance) +
+        toMoney(row.payroll_meal_allowance) +
+        parseJsonList(row.payroll_other_allowances).reduce((sum, item) => sum + toMoney(item?.amount), 0);
+    const gross = basic + allowances;
+    const tax = (gross * toMoney(row.payroll_tax_percent)) / 100;
+    const pension = toMoney(row.payroll_pension_amount);
+    const others = parseJsonList(row.payroll_other_deductions).reduce((sum, item) => sum + toMoney(item?.amount), 0);
+    return Math.max(0, gross - tax - pension - others);
+}
+
+function monthKeyNow() {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    return `${y}-${m}`;
+}
+
+async function getTeacherMonthlyCashoutPolicy(schoolId, userId, netSalary, monthKey = monthKeyNow()) {
+    const [rows] = await promisePool.query(
+        `SELECT
+            COALESCE(
+              MIN(
+                CASE
+                  WHEN COALESCE(cashout_month_key, DATE_FORMAT(submitted_at, '%Y-%m')) = ?
+                  THEN net_salary_baseline_rwf
+                  ELSE NULL
+                END
+              ),
+              0
+            ) AS baseline_snapshot,
+            COALESCE(
+              SUM(
+                CASE
+                  WHEN COALESCE(cashout_month_key, DATE_FORMAT(submitted_at, '%Y-%m')) = ?
+                   AND LOWER(COALESCE(status, '')) NOT IN ('rejected_by_accountant', 'rejected_by_manager', 'cancelled')
+                  THEN amount_rwf
+                  ELSE 0
+                END
+              ),
+              0
+            ) AS monthly_requested_total,
+            COALESCE(
+              SUM(
+                CASE
+                  WHEN COALESCE(cashout_month_key, DATE_FORMAT(submitted_at, '%Y-%m')) = ?
+                   AND auto_approved = 1
+                   AND LOWER(COALESCE(status, '')) NOT IN ('rejected_by_accountant', 'rejected_by_manager', 'cancelled')
+                  THEN amount_rwf
+                  ELSE 0
+                END
+              ),
+              0
+            ) AS monthly_auto_approved_total
+         FROM shule_avance_requests
+         WHERE school_id = ? AND teacher_user_id = ? AND request_type = 'cashout'`,
+        [monthKey, monthKey, monthKey, schoolId, userId]
+    );
+    const stats = rows?.[0] || {};
+    const baseline = Math.max(0, toMoney(stats.baseline_snapshot) || toMoney(netSalary));
+    const autoApprovalLimit = Math.floor(baseline * USSD_AUTO_APPROVAL_RATIO);
+    const monthlyRequestedTotal = toMoney(stats.monthly_requested_total);
+    const monthlyAutoApprovedTotal = toMoney(stats.monthly_auto_approved_total);
+    return {
+        month_key: monthKey,
+        baseline_net_salary: Math.round(baseline),
+        monthly_requested_total: Math.round(monthlyRequestedTotal),
+        monthly_remaining_net: Math.max(0, Math.round(baseline - monthlyRequestedTotal)),
+        auto_approval_ratio: USSD_AUTO_APPROVAL_RATIO,
+        auto_approval_limit: autoApprovalLimit,
+        auto_approval_used: Math.round(monthlyAutoApprovedTotal),
+        auto_approval_remaining: Math.max(0, Math.round(autoApprovalLimit - monthlyAutoApprovedTotal)),
+    };
+}
+
+async function requireUssdTeacherSession(req, res, next) {
+    try {
+        await ensureTeacherAvanceUssdTables();
+        const token =
+            String(req.body?.access_token || req.query?.access_token || readBearerToken(req) || '').trim();
+        if (!token) {
+            return res.status(401).json({ success: false, message: 'access_token is required' });
+        }
+        const tokenHash = hashToken(token);
+        const [[sessionRow]] = await promisePool.query(
+            `SELECT id, teacher_user_id, school_id, expires_at, revoked_at
+             FROM teacher_avance_ussd_sessions
+             WHERE token_hash = ?
+             LIMIT 1`,
+            [tokenHash]
+        );
+        if (!sessionRow || sessionRow.revoked_at) {
+            return res.status(401).json({ success: false, message: 'Invalid session token' });
+        }
+        if (new Date(sessionRow.expires_at) <= new Date()) {
+            return res.status(401).json({ success: false, message: 'Session token expired. Login again.' });
+        }
+        await promisePool.query(
+            `UPDATE teacher_avance_ussd_sessions
+             SET last_used_at = NOW()
+             WHERE id = ?`,
+            [sessionRow.id]
+        );
+        req.ussdAuth = {
+            sessionId: Number(sessionRow.id),
+            userId: Number(sessionRow.teacher_user_id),
+            schoolId: Number(sessionRow.school_id),
+        };
+        next();
+    } catch (err) {
+        console.error('[teacher-portal/avance/ussd auth]:', err.message);
+        return res.status(500).json({ success: false, message: 'Failed to authenticate USSD session' });
+    }
+}
+
+function inferTermFromMonth(terms = [], date = new Date()) {
+    const month = date.getMonth() + 1;
+    if (!Array.isArray(terms) || !terms.length) return 'Term 1';
+    if (terms.length >= 3) {
+        if (month >= 9 && month <= 12) return terms[0];
+        if (month >= 1 && month <= 4) return terms[1] || terms[0];
+        return terms[2] || terms[terms.length - 1];
+    }
+    if (terms.length === 2) return month >= 9 || month <= 2 ? terms[0] : terms[1];
+    return terms[0];
+}
+
+function inferAcademicYearFromDate(date = new Date()) {
+    const y = date.getFullYear();
+    const m = date.getMonth() + 1;
+    return m >= 9 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
+}
+
+async function getSchoolAcademicCalendarSettings(schoolId) {
+    const [[row]] = await promisePool.query(
+        `SELECT current_academic_year, active_terms_json
+         FROM school_academic_settings
+         WHERE school_id = ?
+         LIMIT 1`,
+        [schoolId]
+    ).catch(() => [[null]]);
+    let terms = ['Term 1', 'Term 2', 'Term 3'];
+    try {
+        if (row?.active_terms_json) {
+            const parsed = Array.isArray(row.active_terms_json)
+                ? row.active_terms_json
+                : JSON.parse(row.active_terms_json);
+            if (Array.isArray(parsed) && parsed.length) {
+                terms = parsed.map((x) => String(x || '').trim()).filter(Boolean);
+            }
+        }
+    } catch (_) {}
+    return {
+        current_academic_year: String(row?.current_academic_year || '').trim(),
+        active_terms: terms,
+    };
+}
+
+async function resolveAcademicContext(schoolId, academicYearRaw, termRaw) {
+    const explicitYear = String(academicYearRaw || '').trim();
+    const explicitTerm = String(termRaw || '').trim();
+    if (explicitYear && explicitTerm) {
+        return { academicYear: explicitYear, term: explicitTerm };
+    }
+    const calendar = await getSchoolAcademicCalendarSettings(schoolId);
+    return {
+        academicYear: explicitYear || calendar.current_academic_year || inferAcademicYearFromDate(),
+        term: explicitTerm || inferTermFromMonth(calendar.active_terms),
+    };
 }
 
 function getRoleCode(req) {
@@ -485,12 +772,13 @@ router.get('/attendance-module/class-period', requireTeacherRole, async (req, re
         const userId = resolveUserId(req);
         if (!schoolId) return res.status(400).json({ success: false, message: 'No school linked' });
         const className = normalizeGradebookLabel(req.query.class_name || '');
-        const term = String(req.query.term || '').trim();
-        const academicYear = String(req.query.academic_year || '').trim();
+        const termQ = String(req.query.term || '').trim();
+        const academicYearQ = String(req.query.academic_year || '').trim();
         const date = toSqlDate(req.query.date);
-        if (!className || !term || !academicYear) {
-            return res.status(400).json({ success: false, message: 'class_name, term and academic_year are required' });
+        if (!className) {
+            return res.status(400).json({ success: false, message: 'class_name is required' });
         }
+        const { term, academicYear } = await resolveAcademicContext(schoolId, academicYearQ, termQ);
         const dayName = toDayName(date);
         const wide = isSchoolWideTimetableRole(req);
         let [ttRows] = await promisePool.query(
@@ -701,25 +989,26 @@ router.post('/attendance-module/class-period', requireTeacherRole, async (req, r
     try {
         const schoolId = resolveSchoolId(req);
         const userId = resolveUserId(req);
-        const { class_name, term, academic_year, date, records } = req.body || {};
+        const { class_name, term: termRaw, academic_year: academicYearRaw, date, records } = req.body || {};
         const className = normalizeGradebookLabel(class_name || '');
         const recordDate = toSqlDate(date);
-        if (!schoolId || !className || !term || !academic_year || !Array.isArray(records)) {
+        if (!schoolId || !className || !Array.isArray(records)) {
             return res.status(400).json({ success: false, message: 'Invalid payload' });
         }
+        const { term, academicYear } = await resolveAcademicContext(schoolId, academicYearRaw, termRaw);
         await conn.beginTransaction();
         const [existing] = await conn.query(
             `SELECT id FROM attendance_class
              WHERE school_id = ? AND class_id = ? AND attendance_date = ? AND term = ? AND academic_year = ?
              LIMIT 1`,
-            [schoolId, className, recordDate, term, academic_year]
+            [schoolId, className, recordDate, term, academicYear]
         );
         let attendanceId = existing[0]?.id;
         if (!attendanceId) {
             const [ins] = await conn.query(
                 `INSERT INTO attendance_class (school_id, class_id, attendance_date, term, academic_year, created_by_user_id)
                  VALUES (?, ?, ?, ?, ?, ?)`,
-                [schoolId, className, recordDate, term, academic_year, userId]
+                [schoolId, className, recordDate, term, academicYear, userId]
             );
             attendanceId = ins.insertId;
         } else {
@@ -2052,6 +2341,7 @@ router.get('/staff/payroll/my', requireTeacherRole, async (req, res) => {
             .reduce((sum, item) => sum + toMoney(item?.amount), 0);
         const deductions = tax + pension + otherDeductions;
         const net = Math.max(0, gross - deductions);
+        const monthlyCashoutPolicy = await getTeacherMonthlyCashoutPolicy(schoolId, teacherUserId, net);
 
         const teacherStaffCode = String(teacherRow.user_uid || '').trim();
         const [payRows] = await promisePool.query(
@@ -2158,6 +2448,8 @@ router.get('/staff/payroll/my', requireTeacherRole, async (req, res) => {
                     rssb: pension,
                     tax,
                     net,
+                    monthlyCashoutBaselineNet: monthlyCashoutPolicy.baseline_net_salary,
+                    monthlyCashoutRemainingNet: monthlyCashoutPolicy.monthly_remaining_net,
                 },
                 advance: {
                     totalLoan,
@@ -2166,6 +2458,7 @@ router.get('/staff/payroll/my', requireTeacherRole, async (req, res) => {
                     monthlyDeduction,
                     disbursedDate: firstDisbursed,
                     expectedEndDate: null,
+                    cashoutPolicy: monthlyCashoutPolicy,
                 },
                 history,
                 notifications: [],
@@ -2174,6 +2467,213 @@ router.get('/staff/payroll/my', requireTeacherRole, async (req, res) => {
     } catch (err) {
         console.error('[teacher-portal/staff/payroll/my GET]:', err.message);
         return res.status(500).json({ success: false, message: 'Failed to load staff payroll' });
+    }
+});
+
+// POST /api/teacher-portal/avance/ussd/login
+// Body: { identifier, password, school_code? } — identifier matches staff.staff_id (HR Central / HRCentral staff code), user_uid, or staff.username
+router.post('/avance/ussd/login', async (req, res) => {
+    try {
+        await ensureTeacherAvanceUssdTables();
+        const identifier = String(req.body?.identifier || req.body?.teacher_code || req.body?.staff_code || '').trim().toLowerCase();
+        const password = String(req.body?.password || '');
+        const schoolCode = String(req.body?.school_code || '').trim().toUpperCase();
+        if (!identifier || !password) {
+            return res.status(400).json({ success: false, message: 'identifier and password are required' });
+        }
+
+        const [rows] = await promisePool.query(
+            `SELECT
+                u.id, u.user_uid, u.password_hash, u.is_active, u.deleted_at,
+                u.first_name, u.last_name, u.email,
+                r.role_code,
+                st.staff_id, st.username AS staff_username, st.account_enabled,
+                COALESCE(st.school_id, u.school_id) AS school_id,
+                sc.school_code, sc.school_name
+             FROM users u
+             LEFT JOIN roles r ON r.id = u.role_id
+             LEFT JOIN staff st ON st.user_id = u.id
+             LEFT JOIN schools sc ON sc.id = COALESCE(st.school_id, u.school_id)
+             WHERE u.deleted_at IS NULL
+               AND (
+                 LOWER(TRIM(COALESCE(st.staff_id, ''))) = ?
+                 OR LOWER(TRIM(COALESCE(u.user_uid, ''))) = ?
+                 OR LOWER(TRIM(COALESCE(st.username, ''))) = ?
+               )
+               ${schoolCode ? 'AND UPPER(TRIM(COALESCE(sc.school_code, ""))) = ?' : ''}
+             LIMIT 1`,
+            schoolCode ? [identifier, identifier, identifier, schoolCode] : [identifier, identifier, identifier]
+        );
+        const teacher = rows[0];
+        if (!teacher) {
+            return res.status(401).json({ success: false, message: 'Invalid teacher/staff code or password' });
+        }
+        if (String(teacher.role_code || '').toUpperCase() !== 'TEACHER') {
+            return res.status(403).json({ success: false, message: 'Only TEACHER accounts are allowed on this endpoint' });
+        }
+        if (!teacher.is_active || Number(teacher.account_enabled || 1) === 0) {
+            return res.status(403).json({ success: false, message: 'Teacher account is inactive' });
+        }
+        if (!teacher.school_id) {
+            return res.status(400).json({ success: false, message: 'Teacher account is not linked to a school' });
+        }
+        const ok = await bcrypt.compare(password, String(teacher.password_hash || ''));
+        if (!ok) {
+            return res.status(401).json({ success: false, message: 'Invalid teacher/staff code or password' });
+        }
+
+        const rawToken = crypto.randomBytes(32).toString('hex');
+        const tokenHash = hashToken(rawToken);
+        const ttl = Number.isFinite(USSD_SESSION_TTL_MINUTES) ? USSD_SESSION_TTL_MINUTES : 30;
+        await promisePool.query(
+            `INSERT INTO teacher_avance_ussd_sessions (token_hash, teacher_user_id, school_id, expires_at)
+             VALUES (?, ?, ?, DATE_ADD(NOW(), INTERVAL ? MINUTE))`,
+            [tokenHash, teacher.id, teacher.school_id, ttl]
+        );
+        const netSalary = await getTeacherNetSalaryFromStaff(teacher.school_id, teacher.id);
+        const monthlyCashoutPolicy = await getTeacherMonthlyCashoutPolicy(
+            Number(teacher.school_id),
+            Number(teacher.id),
+            netSalary
+        );
+        return res.json({
+            success: true,
+            message: 'Teacher login successful',
+            data: {
+                access_token: rawToken,
+                token_type: 'Bearer',
+                expires_in_minutes: ttl,
+                teacher: {
+                    id: Number(teacher.id),
+                    code: teacher.staff_id || teacher.user_uid || `STF-${teacher.id}`,
+                    full_name: `${teacher.first_name || ''} ${teacher.last_name || ''}`.trim(),
+                    email: teacher.email || null,
+                    school_id: Number(teacher.school_id),
+                    school_code: teacher.school_code || null,
+                    school_name: teacher.school_name || null,
+                },
+                avance_policy: {
+                    ...monthlyCashoutPolicy,
+                    net_salary: Math.round(netSalary),
+                },
+            },
+        });
+    } catch (err) {
+        console.error('[teacher-portal/avance/ussd login]:', err.message);
+        return res.status(500).json({ success: false, message: 'Failed to sign in teacher' });
+    }
+});
+
+// POST /api/teacher-portal/avance/ussd/cashout-request
+// Body: { access_token, amount_requested, reason, cashout_category_slug? }
+router.post('/avance/ussd/cashout-request', requireUssdTeacherSession, async (req, res) => {
+    try {
+        await ensureTeacherAvanceUssdTables();
+        const { userId, schoolId } = req.ussdAuth;
+        const amountRequested = Number(req.body?.amount_requested ?? req.body?.amount);
+        const reason = String(req.body?.reason || '').trim();
+        const cashoutCategorySlug = String(req.body?.cashout_category_slug || req.body?.cashout_category || 'general').trim() || 'general';
+        if (!Number.isFinite(amountRequested) || amountRequested <= 0) {
+            return res.status(400).json({ success: false, message: 'amount_requested must be greater than 0' });
+        }
+        if (!reason) {
+            return res.status(400).json({ success: false, message: 'reason is required' });
+        }
+
+        const netSalary = await getTeacherNetSalaryFromStaff(schoolId, userId);
+        const policy = await getTeacherMonthlyCashoutPolicy(schoolId, userId, netSalary);
+        const autoApproved = policy.baseline_net_salary > 0 && amountRequested <= policy.auto_approval_remaining;
+        const status = autoApproved ? 'approved' : 'pending_accountant';
+        const amount = Number(amountRequested.toFixed(2));
+        const purpose = `Cashout [${cashoutCategorySlug}]: ${reason}`;
+        const requestedTotalAfter = Math.round(policy.monthly_requested_total + amount);
+        const remainingAfter = Math.max(0, Math.round(policy.baseline_net_salary - requestedTotalAfter));
+        const [ins] = await promisePool.query(
+            `INSERT INTO shule_avance_requests
+             (school_id, teacher_user_id, amount_rwf, purpose, repayment_term_months, status, request_type, cashout_reason, cashout_category_slug, submitted_at,
+              cashout_month_key, net_salary_baseline_rwf, auto_approval_limit_rwf, monthly_requested_total_rwf, monthly_remaining_net_rwf,
+              auto_approved, auto_approved_at)
+             VALUES (?, ?, ?, ?, 1, ?, 'cashout', ?, ?, NOW(), ?, ?, ?, ?, ?, ?, ?)` ,
+            [
+                schoolId, userId, amount, purpose, status, reason, cashoutCategorySlug,
+                policy.month_key,
+                policy.baseline_net_salary,
+                policy.auto_approval_limit,
+                requestedTotalAfter,
+                remainingAfter,
+                autoApproved ? 1 : 0,
+                autoApproved ? new Date() : null,
+            ]
+        );
+
+        return res.status(201).json({
+            success: true,
+            message: autoApproved
+                ? 'Cashout auto-approved (<= 40% of monthly baseline net salary)'
+                : 'Cashout request submitted to accountant and manager workflow',
+            data: {
+                request_id: Number(ins.insertId),
+                status,
+                amount_rwf: amount,
+                auto_approved: autoApproved,
+                requested_at: new Date().toISOString(),
+                net_salary: Math.round(netSalary),
+                month_key: policy.month_key,
+                baseline_net_salary: policy.baseline_net_salary,
+                monthly_requested_total_before: policy.monthly_requested_total,
+                monthly_requested_total_after: requestedTotalAfter,
+                monthly_remaining_net_after: remainingAfter,
+                auto_approval_limit: policy.auto_approval_limit,
+                auto_approval_used_before: policy.auto_approval_used,
+                auto_approval_remaining_before: policy.auto_approval_remaining,
+                auto_approval_remaining_after: Math.max(0, Math.round(policy.auto_approval_remaining - (autoApproved ? amount : 0))),
+            },
+        });
+    } catch (err) {
+        console.error('[teacher-portal/avance/ussd cashout-request]:', err.message);
+        return res.status(500).json({ success: false, message: 'Failed to create cashout request' });
+    }
+});
+
+// GET /api/teacher-portal/avance/ussd/requests
+// Query: access_token
+router.get('/avance/ussd/requests', requireUssdTeacherSession, async (req, res) => {
+    try {
+        const { userId, schoolId } = req.ussdAuth;
+        const [rows] = await promisePool.query(
+            `SELECT
+                id, amount_rwf, status, request_type, cashout_reason, cashout_category_slug,
+                submitted_at, accountant_note, manager_feedback
+             FROM shule_avance_requests
+             WHERE school_id = ? AND teacher_user_id = ?
+             ORDER BY id DESC
+             LIMIT 200`,
+            [schoolId, userId]
+        );
+        const data = (rows || []).map((r) => ({
+            request_id: Number(r.id),
+            request_type: String(r.request_type || '').toLowerCase(),
+            amount_rwf: Number(r.amount_rwf || 0),
+            status: String(r.status || ''),
+            reason: r.cashout_reason || null,
+            cashout_category_slug: r.cashout_category_slug || null,
+            submitted_at: r.submitted_at || null,
+            accountant_note: r.accountant_note || null,
+            manager_feedback: r.manager_feedback || null,
+        }));
+        const netSalary = await getTeacherNetSalaryFromStaff(schoolId, userId);
+        const monthlyCashoutPolicy = await getTeacherMonthlyCashoutPolicy(schoolId, userId, netSalary);
+        return res.json({
+            success: true,
+            data,
+            summary: {
+                generated_at: new Date().toISOString(),
+                monthly_cashout_policy: monthlyCashoutPolicy,
+            },
+        });
+    } catch (err) {
+        console.error('[teacher-portal/avance/ussd requests]:', err.message);
+        return res.status(500).json({ success: false, message: 'Failed to load requests' });
     }
 });
 

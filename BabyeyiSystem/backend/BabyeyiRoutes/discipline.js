@@ -14,7 +14,8 @@ const { promisePool } = require('../config/database');
 const { requireRole } = require('../middleware/deoAuth');
 
 const router = express.Router();
-const HOD_ONLY = ['HOD'];
+const DISCIPLINE_WRITE_ROLES = ['HOD', 'DOS', 'SCHOOL_MANAGER', 'SCHOOL_ADMIN', 'MANAGER', 'DISCIPLINE', 'DISCIPLINE_STAFF'];
+const DISCIPLINE_READ_ROLES = ['HOD', 'DOS', 'SCHOOL_MANAGER', 'SCHOOL_ADMIN', 'MANAGER', 'ACCOUNTANT', 'DISCIPLINE', 'DISCIPLINE_STAFF'];
 
 function resolveSchoolId(req) {
   return (
@@ -34,7 +35,20 @@ function trimStr(v) {
   return String(v).trim();
 }
 
+function schoolDateOnly(date = new Date()) {
+  const tz = process.env.SCHOOL_TIMEZONE || 'Africa/Kigali';
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const get = (type) => parts.find((p) => p.type === type)?.value || '00';
+  return `${get('year')}-${get('month')}-${get('day')}`;
+}
+
 let tablesReady = false;
+let permissionColumnsReady = false;
 async function ensureDisciplineTables() {
   if (tablesReady) return;
   await promisePool.query(`
@@ -98,6 +112,15 @@ async function ensureDisciplineTables() {
   tablesReady = true;
 }
 
+async function ensurePermissionTrackingColumns() {
+  if (permissionColumnsReady) return;
+  await promisePool.query(`ALTER TABLE student_permissions ADD COLUMN actual_out_at DATETIME NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE student_permissions ADD COLUMN actual_return_at DATETIME NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE student_permissions ADD COLUMN gate_scan_state ENUM('NOT_USED','OUT','BACK','EXCEEDED') NOT NULL DEFAULT 'NOT_USED'`).catch(() => {});
+  await promisePool.query(`ALTER TABLE student_permissions ADD COLUMN exceeded_minutes INT UNSIGNED NOT NULL DEFAULT 0`).catch(() => {});
+  permissionColumnsReady = true;
+}
+
 async function getTotalMarksForSchool(schoolId) {
   const [[row]] = await promisePool.query(
     'SELECT total_marks FROM school_discipline_settings WHERE school_id = ? LIMIT 1',
@@ -122,10 +145,63 @@ async function getDefaultMarksForSchool(schoolId) {
   return { default_marks: 40, last_updated: null, updated_by: null };
 }
 
+function inferTermFromMonth(terms = [], date = new Date()) {
+  const month = date.getMonth() + 1;
+  if (!Array.isArray(terms) || !terms.length) return 'Term 1';
+  if (terms.length >= 3) {
+    if (month >= 9 && month <= 12) return terms[0];
+    if (month >= 1 && month <= 4) return terms[1] || terms[0];
+    return terms[2] || terms[terms.length - 1];
+  }
+  if (terms.length === 2) return month >= 9 || month <= 2 ? terms[0] : terms[1];
+  return terms[0];
+}
+
+function inferAcademicYearFromDate(date = new Date()) {
+  const y = date.getFullYear();
+  const m = date.getMonth() + 1;
+  return m >= 9 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
+}
+
+async function resolveAcademicContext(schoolId, academicYearRaw, termRaw) {
+  const explicitYear = trimStr(academicYearRaw);
+  const explicitTerm = trimStr(termRaw);
+  if (explicitYear && explicitTerm) {
+    return { academicYear: explicitYear, term: explicitTerm };
+  }
+
+  const [[row]] = await promisePool.query(
+    `SELECT current_academic_year, active_terms_json
+     FROM school_academic_settings
+     WHERE school_id = ?
+     LIMIT 1`,
+    [schoolId]
+  ).catch(() => [[null]]);
+
+  let terms = ['Term 1', 'Term 2', 'Term 3'];
+  if (row?.active_terms_json) {
+    try {
+      const parsed = Array.isArray(row.active_terms_json)
+        ? row.active_terms_json
+        : JSON.parse(row.active_terms_json);
+      if (Array.isArray(parsed) && parsed.length) {
+        terms = parsed.map((x) => trimStr(x)).filter(Boolean);
+      }
+    } catch (_) {
+      /* ignore parse errors and keep defaults */
+    }
+  }
+
+  return {
+    academicYear: explicitYear || trimStr(row?.current_academic_year) || inferAcademicYearFromDate(),
+    term: explicitTerm || inferTermFromMonth(terms),
+  };
+}
+
 // ════════════════════════════════════════════════════════════════
 // GET /api/discipline/settings
 // ════════════════════════════════════════════════════════════════
-router.get('/discipline/settings', requireRole(HOD_ONLY), async (req, res) => {
+router.get('/discipline/settings', requireRole(DISCIPLINE_READ_ROLES), async (req, res) => {
   try {
     await ensureDisciplineTables();
     const schoolId = resolveSchoolId(req);
@@ -145,7 +221,7 @@ router.get('/discipline/settings', requireRole(HOD_ONLY), async (req, res) => {
 // PUT /api/discipline/settings/default-marks
 // body: { default_marks, apply_to: 'new'|'all', confirmed_overwrite?: boolean }
 // ════════════════════════════════════════════════════════════════
-router.put('/discipline/settings/default-marks', requireRole(HOD_ONLY), async (req, res) => {
+router.put('/discipline/settings/default-marks', requireRole(DISCIPLINE_WRITE_ROLES), async (req, res) => {
   try {
     await ensureDisciplineTables();
     const schoolId = resolveSchoolId(req);
@@ -212,7 +288,7 @@ router.put('/discipline/settings/default-marks', requireRole(HOD_ONLY), async (r
 // GET /api/discipline/students
 // query: ?query=&page=&limit=
 // ════════════════════════════════════════════════════════════════
-router.get('/discipline/students', requireRole(HOD_ONLY), async (req, res) => {
+router.get('/discipline/students', requireRole(DISCIPLINE_READ_ROLES), async (req, res) => {
   try {
     await ensureDisciplineTables();
     const schoolId = resolveSchoolId(req);
@@ -290,7 +366,7 @@ router.get('/discipline/students', requireRole(HOD_ONLY), async (req, res) => {
 // ════════════════════════════════════════════════════════════════
 // GET /api/discipline/students/:studentId/logs
 // ════════════════════════════════════════════════════════════════
-router.get('/discipline/students/:studentId/logs', requireRole(HOD_ONLY), async (req, res) => {
+router.get('/discipline/students/:studentId/logs', requireRole(DISCIPLINE_READ_ROLES), async (req, res) => {
   try {
     await ensureDisciplineTables();
     const schoolId = resolveSchoolId(req);
@@ -332,7 +408,7 @@ router.get('/discipline/students/:studentId/logs', requireRole(HOD_ONLY), async 
 // POST /api/discipline/students/:studentId/marks
 // body: { action: add|remove, marks, reason, date?, notes? }
 // ════════════════════════════════════════════════════════════════
-router.post('/discipline/students/:studentId/marks', requireRole(HOD_ONLY), async (req, res) => {
+router.post('/discipline/students/:studentId/marks', requireRole(DISCIPLINE_WRITE_ROLES), async (req, res) => {
   const conn = await promisePool.getConnection();
   try {
     await ensureDisciplineTables();
@@ -413,7 +489,7 @@ router.post('/discipline/students/:studentId/marks', requireRole(HOD_ONLY), asyn
 // ════════════════════════════════════════════════════════════════
 // POST /api/discipline/students/:studentId/undo-last-action
 // ════════════════════════════════════════════════════════════════
-router.post('/discipline/students/:studentId/undo-last-action', requireRole(HOD_ONLY), async (req, res) => {
+router.post('/discipline/students/:studentId/undo-last-action', requireRole(DISCIPLINE_WRITE_ROLES), async (req, res) => {
   const conn = await promisePool.getConnection();
   try {
     await ensureDisciplineTables();
@@ -481,7 +557,7 @@ router.post('/discipline/students/:studentId/undo-last-action', requireRole(HOD_
 // ════════════════════════════════════════════════════════════════
 // PUT /api/discipline/settings
 // ════════════════════════════════════════════════════════════════
-router.put('/discipline/settings', requireRole(HOD_ONLY), async (req, res) => {
+router.put('/discipline/settings', requireRole(DISCIPLINE_WRITE_ROLES), async (req, res) => {
   try {
     await ensureDisciplineTables();
     const schoolId = resolveSchoolId(req);
@@ -512,7 +588,7 @@ router.put('/discipline/settings', requireRole(HOD_ONLY), async (req, res) => {
 // ════════════════════════════════════════════════════════════════
 // GET /api/discipline/students-summary
 // ════════════════════════════════════════════════════════════════
-router.get('/discipline/students-summary', requireRole(HOD_ONLY), async (req, res) => {
+router.get('/discipline/students-summary', requireRole(DISCIPLINE_READ_ROLES), async (req, res) => {
   try {
     await ensureDisciplineTables();
     const schoolId = resolveSchoolId(req);
@@ -520,16 +596,10 @@ router.get('/discipline/students-summary', requireRole(HOD_ONLY), async (req, re
       return res.status(400).json({ success: false, message: 'School not found in session.' });
     }
 
-    const academicYear = trimStr(req.query.academic_year || req.query.year || '');
-    const term = trimStr(req.query.term || '');
+    const academicYearQ = trimStr(req.query.academic_year || req.query.year || '');
+    const termQ = trimStr(req.query.term || '');
     const className = trimStr(req.query.class_name || req.query.class || '');
-
-    if (!academicYear || !term) {
-      return res.status(400).json({
-        success: false,
-        message: 'academic_year and term are required to show discipline marks.',
-      });
-    }
+    const { academicYear, term } = await resolveAcademicContext(schoolId, academicYearQ, termQ);
 
     const totalMarks = await getTotalMarksForSchool(schoolId);
 
@@ -596,7 +666,7 @@ router.get('/discipline/students-summary', requireRole(HOD_ONLY), async (req, re
 // ════════════════════════════════════════════════════════════════
 // POST /api/discipline/cases
 // ════════════════════════════════════════════════════════════════
-router.post('/discipline/cases', requireRole(HOD_ONLY), async (req, res) => {
+router.post('/discipline/cases', requireRole(DISCIPLINE_WRITE_ROLES), async (req, res) => {
   try {
     await ensureDisciplineTables();
     const schoolId = resolveSchoolId(req);
@@ -607,17 +677,17 @@ router.post('/discipline/cases', requireRole(HOD_ONLY), async (req, res) => {
 
     const body = req.body || {};
     const studentId = Number(body.student_id);
-    const academicYear = trimStr(body.academic_year);
-    const term = trimStr(body.term);
+    const { academicYear, term } = await resolveAcademicContext(
+      schoolId,
+      body.academic_year || body.year || '',
+      body.term || ''
+    );
     const lessonSubject = trimStr(body.lesson_subject || body.lesson || body.case_lesson);
     const description = trimStr(body.description) || null;
     const marksDeducted = Number(body.marks_deducted);
 
     if (!studentId || Number.isNaN(studentId)) {
       return res.status(400).json({ success: false, message: 'student_id is required.' });
-    }
-    if (!academicYear || !term) {
-      return res.status(400).json({ success: false, message: 'academic_year and term are required.' });
     }
     if (!lessonSubject) {
       return res.status(400).json({ success: false, message: 'lesson_subject (case lesson) is required.' });
@@ -690,7 +760,7 @@ router.post('/discipline/cases', requireRole(HOD_ONLY), async (req, res) => {
 // ════════════════════════════════════════════════════════════════
 // GET /api/discipline/cases
 // ════════════════════════════════════════════════════════════════
-router.get('/discipline/cases', requireRole(HOD_ONLY), async (req, res) => {
+router.get('/discipline/cases', requireRole(DISCIPLINE_READ_ROLES), async (req, res) => {
   try {
     await ensureDisciplineTables();
     const schoolId = resolveSchoolId(req);
@@ -698,10 +768,11 @@ router.get('/discipline/cases', requireRole(HOD_ONLY), async (req, res) => {
       return res.status(400).json({ success: false, message: 'School not found in session.' });
     }
 
-    const academicYear = trimStr(req.query.academic_year || '');
-    const term = trimStr(req.query.term || '');
+    const academicYearQ = trimStr(req.query.academic_year || '');
+    const termQ = trimStr(req.query.term || '');
     const className = trimStr(req.query.class_name || '');
     const limit = Math.min(500, Math.max(10, Number(req.query.limit) || 200));
+    const { academicYear, term } = await resolveAcademicContext(schoolId, academicYearQ, termQ);
 
     let sql = `
       SELECT
@@ -725,14 +796,10 @@ router.get('/discipline/cases', requireRole(HOD_ONLY), async (req, res) => {
     `;
     const params = [schoolId];
 
-    if (academicYear) {
-      sql += ' AND c.academic_year = ?';
-      params.push(academicYear);
-    }
-    if (term) {
-      sql += ' AND c.term = ?';
-      params.push(term);
-    }
+    sql += ' AND c.academic_year = ?';
+    params.push(academicYear);
+    sql += ' AND c.term = ?';
+    params.push(term);
     if (className) {
       sql += ' AND c.class_name = ?';
       params.push(className);
@@ -752,7 +819,7 @@ router.get('/discipline/cases', requireRole(HOD_ONLY), async (req, res) => {
 // ════════════════════════════════════════════════════════════════
 // GET /api/discipline/report-summary
 // ════════════════════════════════════════════════════════════════
-router.get('/discipline/report-summary', requireRole(HOD_ONLY), async (req, res) => {
+router.get('/discipline/report-summary', requireRole(DISCIPLINE_READ_ROLES), async (req, res) => {
   try {
     await ensureDisciplineTables();
     const schoolId = resolveSchoolId(req);
@@ -760,21 +827,14 @@ router.get('/discipline/report-summary', requireRole(HOD_ONLY), async (req, res)
       return res.status(400).json({ success: false, message: 'School not found in session.' });
     }
 
-    const academicYear = trimStr(req.query.academic_year || '');
-    const term = trimStr(req.query.term || '');
+    const academicYearQ = trimStr(req.query.academic_year || '');
+    const termQ = trimStr(req.query.term || '');
+    const { academicYear, term } = await resolveAcademicContext(schoolId, academicYearQ, termQ);
 
     const totalMarks = await getTotalMarksForSchool(schoolId);
 
-    let caseWhere = 'WHERE school_id = ?';
-    const caseParams = [schoolId];
-    if (academicYear) {
-      caseWhere += ' AND academic_year = ?';
-      caseParams.push(academicYear);
-    }
-    if (term) {
-      caseWhere += ' AND term = ?';
-      caseParams.push(term);
-    }
+    let caseWhere = 'WHERE school_id = ? AND academic_year = ? AND term = ?';
+    const caseParams = [schoolId, academicYear, term];
 
     const [[agg]] = await promisePool.query(
       `SELECT
@@ -799,6 +859,8 @@ router.get('/discipline/report-summary', requireRole(HOD_ONLY), async (req, res)
     return res.json({
       success: true,
       data: {
+        academic_year: academicYear,
+        term,
         total_marks_default: totalMarks,
         case_count: Number(agg?.case_count || 0),
         students_affected: Number(agg?.students_affected || 0),
@@ -809,6 +871,109 @@ router.get('/discipline/report-summary', requireRole(HOD_ONLY), async (req, res)
   } catch (err) {
     console.error('GET /discipline/report-summary:', err);
     return res.status(500).json({ success: false, message: 'Failed to load report summary' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+// GET /api/discipline/permissions/exceeded-report
+// query: period=today|week|month|all
+// ════════════════════════════════════════════════════════════════
+router.get('/discipline/permissions/exceeded-report', requireRole(DISCIPLINE_READ_ROLES), async (req, res) => {
+  try {
+    await ensureDisciplineTables();
+    await ensurePermissionTrackingColumns();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) {
+      return res.status(400).json({ success: false, message: 'School not found in session.' });
+    }
+
+    const period = trimStr(req.query.period || 'month').toLowerCase();
+    const today = schoolDateOnly();
+    let whereDateSql = '';
+    const whereParams = [schoolId];
+    if (period === 'today') {
+      whereDateSql = ' AND DATE(p.actual_return_at) = ?';
+      whereParams.push(today);
+    } else if (period === 'week') {
+      whereDateSql = ' AND p.actual_return_at >= DATE_SUB(?, INTERVAL 6 DAY)';
+      whereParams.push(`${today} 23:59:59`);
+    } else if (period === 'month') {
+      whereDateSql = ' AND p.actual_return_at >= DATE_SUB(?, INTERVAL 29 DAY)';
+      whereParams.push(`${today} 23:59:59`);
+    }
+
+    const getTotal = async (rangeSql = '', rangeParams = []) => {
+      const [[row]] = await promisePool.query(
+        `SELECT
+           COUNT(*) AS exceeded_count,
+           COALESCE(SUM(exceeded_minutes), 0) AS exceeded_minutes_total
+         FROM student_permissions
+         WHERE school_id = ?
+           AND gate_scan_state = 'EXCEEDED'
+           AND actual_return_at IS NOT NULL
+           ${rangeSql}`,
+        [schoolId, ...rangeParams]
+      );
+      return {
+        exceeded_count: Number(row?.exceeded_count || 0),
+        exceeded_minutes_total: Number(row?.exceeded_minutes_total || 0),
+      };
+    };
+
+    const totalsToday = await getTotal(' AND DATE(actual_return_at) = ?', [today]);
+    const totalsWeek = await getTotal(' AND actual_return_at >= DATE_SUB(?, INTERVAL 6 DAY)', [`${today} 23:59:59`]);
+    const totalsMonth = await getTotal(' AND actual_return_at >= DATE_SUB(?, INTERVAL 29 DAY)', [`${today} 23:59:59`]);
+
+    const [rows] = await promisePool.query(
+      `SELECT
+         s.id AS student_id,
+         s.student_uid,
+         s.student_code,
+         s.class_name,
+         TRIM(CONCAT(COALESCE(s.first_name,''), ' ', COALESCE(s.last_name,''))) AS student_name,
+         COUNT(*) AS exceeded_count,
+         COALESCE(SUM(p.exceeded_minutes), 0) AS exceeded_minutes_total,
+         MAX(p.exceeded_minutes) AS max_exceeded_minutes,
+         MAX(p.actual_return_at) AS last_exceeded_at
+       FROM student_permissions p
+       INNER JOIN students s ON s.id = p.student_id AND s.school_id = p.school_id
+       WHERE p.school_id = ?
+         AND p.gate_scan_state = 'EXCEEDED'
+         AND p.actual_return_at IS NOT NULL
+         ${whereDateSql}
+       GROUP BY s.id, s.student_uid, s.student_code, s.class_name, s.first_name, s.last_name
+       ORDER BY exceeded_minutes_total DESC, exceeded_count DESC, student_name ASC
+       LIMIT 300`,
+      whereParams
+    );
+
+    const data = (rows || []).map((r) => ({
+      student_id: r.student_id,
+      student_uid: r.student_uid || null,
+      student_code: r.student_code || null,
+      class_name: r.class_name || null,
+      student_name: r.student_name || `Student ${r.student_id}`,
+      exceeded_count: Number(r.exceeded_count || 0),
+      exceeded_minutes_total: Number(r.exceeded_minutes_total || 0),
+      exceeded_hours_total: Number((Number(r.exceeded_minutes_total || 0) / 60).toFixed(2)),
+      exceeded_days_total: Number((Number(r.exceeded_minutes_total || 0) / 1440).toFixed(2)),
+      max_exceeded_minutes: Number(r.max_exceeded_minutes || 0),
+      last_exceeded_at: r.last_exceeded_at || null,
+    }));
+
+    return res.json({
+      success: true,
+      data,
+      totals: {
+        today: totalsToday,
+        week: totalsWeek,
+        month: totalsMonth,
+      },
+      meta: { period, as_of_date: today },
+    });
+  } catch (err) {
+    console.error('GET /discipline/permissions/exceeded-report:', err);
+    return res.status(500).json({ success: false, message: 'Failed to load exceeded permission report.' });
   }
 });
 

@@ -15,14 +15,14 @@ export const Empty = ({ msg = "No data found", icon: Icon = Building2 }) => (
     <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-slate-100 flex items-center justify-center">
       <Icon className="w-8 h-8 text-slate-300"/>
     </div>
-    <p className="text-sm font-semibold text-slate-400">{msg}</p>
+    <p className="text-sm font-medium text-slate-400">{msg}</p>
   </div>
 );
 
 export const Toast = ({ toasts, remove }) => (
   <div className="fixed bottom-4 right-4 z-[200] space-y-2 pointer-events-none max-w-[calc(100vw-2rem)]">
     {toasts.map(t => (
-      <div key={t.id} className={`pointer-events-auto flex items-start gap-3 px-4 py-3 rounded-2xl shadow-2xl border w-80
+      <div key={t.id} className={`pointer-events-auto flex items-start gap-3 px-4 py-3 rounded-2xl shadow-sm border w-80
         ${t.type==="success"?"bg-emerald-50 border-emerald-200 text-emerald-800":
           t.type==="error"?"bg-red-50 border-red-200 text-red-800":
           t.type==="warning"?"bg-amber-50 border-amber-200 text-amber-800":
@@ -42,18 +42,18 @@ export const Toast = ({ toasts, remove }) => (
 
 export const StatCard = ({ icon: Icon, label, value, sub, color="blue", alert, onClick, trend, badge }) => (
   <div onClick={onClick}
-    className={`bg-gradient-to-br ${GRAD[color]} rounded-2xl p-4 shadow-lg hover:scale-[1.02] active:scale-95 transition-all ${onClick?"cursor-pointer":""} relative overflow-hidden select-none`}>
+    className={`bg-gradient-to-br ${GRAD[color]} rounded-2xl p-4 shadow-lg active:scale-[0.99] transition-all ${onClick?"cursor-pointer":""} relative overflow-hidden select-none`}>
     <div className="absolute inset-0 opacity-10" style={{backgroundImage:"radial-gradient(circle at 80% 20%,white 0%,transparent 60%)"}}/>
     <div className="relative">
       <div className="flex items-start justify-between mb-2">
         <div className="p-2 rounded-xl bg-white/20"><Icon className="w-5 h-5 text-white"/></div>
-        {alert && <span className="text-[10px] font-black bg-white/30 text-white px-1.5 py-0.5 rounded-full animate-pulse">!</span>}
-        {trend && <span className="text-[10px] font-bold text-white/80 flex items-center gap-0.5"><TrendingUp className="w-3 h-3"/>{trend}</span>}
+        {alert && <span className="text-[10px] font-medium bg-white/30 text-white px-1.5 py-0.5 rounded-full animate-pulse">!</span>}
+        {trend && <span className="text-[10px] font-semibold text-white/80 flex items-center gap-0.5"><TrendingUp className="w-3 h-3"/>{trend}</span>}
       </div>
-      <div className="text-2xl font-black text-white mb-0.5">{value??'—'}</div>
-      <div className="text-xs font-semibold text-white/80">{label}</div>
+      <div className="text-2xl font-medium text-white mb-0.5 tabular-nums">{value??'—'}</div>
+      <div className="text-xs font-medium text-white/85">{label}</div>
       {sub && <div className="text-[10px] text-white/60 mt-0.5">{sub}</div>}
-      {badge && <div className="mt-1.5"><span className="text-[10px] bg-white/25 text-white px-2 py-0.5 rounded-full font-bold">{badge}</span></div>}
+      {badge && <div className="mt-1.5"><span className="text-[10px] bg-white/25 text-white px-2 py-0.5 rounded-full font-semibold">{badge}</span></div>}
     </div>
   </div>
 );
@@ -78,14 +78,14 @@ export const Badge = ({ status }) => {
   };
   const cls = map[status?.toLowerCase()?.replace(/ /g,"_")] || "bg-slate-100 text-slate-600 border-slate-200";
   const label = status?.replace(/_/g," ").replace(/\b\w/g,c=>c.toUpperCase()) || "—";
-  return <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-semibold border ${cls}`}>{label}</span>;
+  return <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-medium border ${cls}`}>{label}</span>;
 };
 
 export const Modal = ({ title, onClose, children, size="max-w-2xl" }) => (
   <div className="fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
-    <div className={`bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full ${size} max-h-[94vh] flex flex-col border border-slate-100`}>
+    <div className={`bg-white rounded-t-3xl sm:rounded-3xl shadow-sm w-full ${size} max-h-[94vh] flex flex-col border border-slate-100`}>
       <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0 bg-gradient-to-r from-slate-50 to-white rounded-t-3xl">
-        <h3 className="text-base font-black text-slate-800">{title}</h3>
+        <h3 className="text-base font-semibold text-slate-800">{title}</h3>
         <button onClick={onClose} className="text-slate-400 hover:text-slate-700 p-1.5 rounded-xl hover:bg-slate-100 transition-all"><X className="w-4 h-4"/></button>
       </div>
       <div className="overflow-y-auto flex-1 p-6">{children}</div>
@@ -208,11 +208,11 @@ export const HBarChart = ({ data=[], valueKey="value", labelKey="label" }) => {
         const c=d.color||colors[i%colors.length];
         return (
           <div key={i} className="flex items-center gap-3">
-            <div className="w-5 h-5 rounded-md flex items-center justify-center text-[9px] font-black text-white shrink-0" style={{background:c}}>{i+1}</div>
+            <div className="w-5 h-5 rounded-md flex items-center justify-center text-[9px] font-semibold text-white shrink-0" style={{background:c}}>{i+1}</div>
             <div className="flex-1 min-w-0">
               <div className="flex justify-between items-center mb-1">
                 <span className="text-xs font-semibold text-slate-800 truncate">{d[labelKey]}</span>
-                <span className="text-xs font-black ml-2 shrink-0" style={{color:c}}>{d[valueKey]}</span>
+                <span className="text-xs font-semibold ml-2 shrink-0" style={{color:c}}>{d[valueKey]}</span>
               </div>
               <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
                 <div className="h-full rounded-full transition-all duration-700" style={{width:`${pct}%`,background:`linear-gradient(90deg,${c},${c}88)`}}/>

@@ -127,7 +127,7 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
             <>
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-white/95 backdrop-blur-md" onClick={() => setSuccess(false)} />
-                    <div className="relative bg-white w-full max-w-sm rounded-[2rem] shadow-2xl overflow-hidden text-center p-8 border border-[#FEBF10]/10">
+                    <div className="relative bg-white w-full max-w-sm rounded-[2rem] shadow-sm overflow-hidden text-center p-8 border border-[#FEBF10]/10">
                         <div className="mb-6 relative">
                             <div className="w-20 h-20 bg-[#FEBF10]/10 rounded-full mx-auto flex items-center justify-center relative z-10">
                                 <CheckCircle size={40} className="text-[#FEBF10]" />
@@ -135,17 +135,17 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
                             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 bg-[#FEBF10]/10 rounded-full animate-pulse z-0" />
                         </div>
 
-                        <h3 className="text-xl font-black text-gray-900 mb-2 mt-4 tracking-tight">Marks Recorded!</h3>
+                        <h3 className="text-xl font-medium text-gray-900 mb-2 mt-4 tracking-tight">Marks Recorded!</h3>
                         <p className="text-xs text-gray-500 mb-6 leading-relaxed px-4">
                             The conduct points have been successfully assigned to {student?.name}.
                         </p>
 
                         <div className="bg-gray-50 rounded-2xl p-4 mb-6 space-y-2 border border-black/5">
-                            <div className="flex justify-between items-center text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                            <div className="flex justify-between items-center text-[10px] font-medium text-gray-400 uppercase tracking-widest">
                                 <span>Total Adjustments</span>
                                 <span className="text-gray-500">{totalQty} actions</span>
                             </div>
-                            <div className="flex justify-between items-center text-[10px] font-black text-gray-400 uppercase tracking-widest pt-1 border-t border-black/5">
+                            <div className="flex justify-between items-center text-[10px] font-medium text-gray-400 uppercase tracking-widest pt-1 border-t border-black/5">
                                 <span>Net Points Impact</span>
                                 <span className={totalPoints >= 0 ? "text-emerald-500" : "text-red-500"}>
                                     {totalPoints > 0 ? '+' : ''}{totalPoints} Pts
@@ -161,13 +161,13 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
                                     setNote('');
                                     setSuccess(false);
                                 }}
-                                className="w-full py-4 bg-[#FEBF10] text-[#000435] rounded-2xl text-xs font-black shadow-md shadow-[#FEBF10]/20 hover:scale-[1.02] active:scale-95 transition-all"
+                                className="w-full py-4 bg-[#FEBF10] text-[#000435] rounded-2xl text-xs font-medium shadow-md shadow-[#FEBF10]/20 active:scale-95 transition-all"
                             >
                                 Add More Marks
                             </button>
                             <button
                                 onClick={onClose}
-                                className="w-full py-4 bg-white border border-black/5 text-gray-500 rounded-2xl text-xs font-black hover:bg-re-bg active:scale-95 transition-all"
+                                className="w-full py-4 bg-white border border-black/5 text-gray-500 rounded-2xl text-xs font-medium hover:bg-re-bg active:scale-95 transition-all"
                             >
                                 Close
                             </button>
@@ -215,9 +215,9 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
 
                 {/* Search dropdown */}
                 {showSearch && search.length > 0 && (
-                    <div className="absolute left-4 right-4 z-20 mt-1 bg-white border border-black/5 rounded-xl shadow-2xl overflow-hidden max-h-56 overflow-y-auto">
+                    <div className="absolute left-4 right-4 z-20 mt-1 bg-white border border-black/5 rounded-xl shadow-sm overflow-hidden max-h-56 overflow-y-auto">
                         {filtered.length === 0 ? (
-                            <div className="flex items-center gap-2 px-4 py-3 text-xs font-bold text-gray-400">
+                            <div className="flex items-center gap-2 px-4 py-3 text-xs font-medium text-gray-400">
                                 <AlertCircle size={13} /> No criteria found
                             </div>
                         ) : filtered.map(p => (
@@ -233,7 +233,7 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
                                     <p className="text-xs font-semibold text-gray-900 truncate">{p.name}</p>
                                     <p className="text-[10px] text-gray-400">{p.category}</p>
                                 </div>
-                                <span className={`text-xs font-black shrink-0 ${p.points < 0 ? 'text-red-500' : 'text-emerald-500'}`}>
+                                <span className={`text-xs font-medium shrink-0 ${p.points < 0 ? 'text-red-500' : 'text-emerald-500'}`}>
                                     {p.points > 0 ? '+' : ''}{p.points} Pts
                                 </span>
                             </button>
@@ -250,12 +250,12 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
                             <Activity size={24} className="text-gray-300" />
                         </div>
                         <div>
-                            <p className="text-xs font-black text-gray-400 uppercase tracking-widest">No Criteria Added</p>
-                            <p className="text-[11px] font-bold text-gray-300 mt-0.5">Search or browse to assign marks</p>
+                            <p className="text-xs font-medium text-gray-400 uppercase tracking-widest">No Criteria Added</p>
+                            <p className="text-[11px] font-medium text-gray-300 mt-0.5">Search or browse to assign marks</p>
                         </div>
                         <button
                             onClick={() => setShowBrowser(true)}
-                            className="mt-2 flex items-center justify-center gap-2 px-6 py-2.5 bg-[#FEBF10]/10 text-[#000435] rounded-xl text-xs font-bold hover:bg-[#FEBF10]/20 transition-all border border-[#FEBF10]/20"
+                            className="mt-2 flex items-center justify-center gap-2 px-6 py-2.5 bg-[#FEBF10]/10 text-[#000435] rounded-xl text-xs font-medium hover:bg-[#FEBF10]/20 transition-all border border-[#FEBF10]/20"
                         >
                             <Plus size={14} /> Add Criteria
                         </button>
@@ -264,9 +264,9 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
                     <>
                         <div className="rounded-xl border border-black/5 overflow-hidden">
                             <div className="grid grid-cols-12 bg-re-bg px-3 py-2 border-b border-black/5">
-                                <span className="col-span-6 text-[9px] font-black text-gray-400 uppercase tracking-widest">Criteria</span>
-                                <span className="col-span-3 text-[9px] font-black text-gray-400 uppercase tracking-widest text-center">Occurrences</span>
-                                <span className="col-span-3 text-[9px] font-black text-gray-400 uppercase tracking-widest text-right">Points</span>
+                                <span className="col-span-6 text-[9px] font-medium text-gray-400 uppercase tracking-widest">Criteria</span>
+                                <span className="col-span-3 text-[9px] font-medium text-gray-400 uppercase tracking-widest text-center">Occurrences</span>
+                                <span className="col-span-3 text-[9px] font-medium text-gray-400 uppercase tracking-widest text-right">Points</span>
                             </div>
                             {rows.map((row, i) => (
                                 <div key={row.id} className={`grid grid-cols-12 items-center px-3 py-2.5 border-b border-black/5 last:border-0 ${i % 2 === 0 ? 'bg-white' : 'bg-re-bg/20'}`}>
@@ -275,21 +275,21 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
                                             {row.points < 0 ? <Minus size={10} className="text-red-500" /> : <Plus size={10} className="text-emerald-500" />}
                                         </div>
                                         <div className="min-w-0">
-                                            <p className="text-xs font-bold text-gray-900 truncate leading-tight">{row.name}</p>
-                                            <p className="text-[9px] font-bold text-gray-400 truncate">{row.category}</p>
+                                            <p className="text-xs font-medium text-gray-900 truncate leading-tight">{row.name}</p>
+                                            <p className="text-[9px] font-medium text-gray-400 truncate">{row.category}</p>
                                         </div>
                                     </div>
                                     <div className="col-span-3 flex items-center justify-center gap-1">
                                         <button onClick={() => updateQty(row.id, -1)} className="w-5 h-5 rounded-md bg-re-bg hover:bg-gray-200 flex items-center justify-center transition border border-black/5">
                                             <Minus size={10} className="text-gray-600" />
                                         </button>
-                                        <span className="w-5 text-center text-xs font-black text-gray-900">{row.qty}</span>
+                                        <span className="w-5 text-center text-xs font-medium text-gray-900">{row.qty}</span>
                                         <button onClick={() => updateQty(row.id, +1)} className="w-5 h-5 rounded-md bg-re-bg hover:bg-[#FEBF10]/10 flex items-center justify-center transition border border-black/5">
                                             <Plus size={10} className="text-gray-600" />
                                         </button>
                                     </div>
                                     <div className="col-span-3 flex items-center justify-end gap-2">
-                                        <span className={`text-xs font-black ${row.points < 0 ? 'text-red-500' : 'text-emerald-500'}`}>
+                                        <span className={`text-xs font-medium ${row.points < 0 ? 'text-red-500' : 'text-emerald-500'}`}>
                                             {(row.points * row.qty) > 0 ? '+' : ''}{(row.points * row.qty)}
                                         </span>
                                         <button onClick={() => removeRow(row.id)} className="p-1.5 hover:bg-red-50 text-red-400 hover:text-red-600 rounded-lg transition shrink-0">
@@ -302,17 +302,17 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
 
                         <button
                             onClick={() => setShowBrowser(true)}
-                            className="w-full mt-3 flex items-center justify-center gap-2 py-3 border-2 border-dashed border-black/10 rounded-xl text-gray-400 hover:text-[#FEBF10] hover:border-[#FEBF10]/30 hover:bg-[#FEBF10]/5 transition-all font-bold text-xs"
+                            className="w-full mt-3 flex items-center justify-center gap-2 py-3 border-2 border-dashed border-black/10 rounded-xl text-gray-400 hover:text-[#FEBF10] hover:border-[#FEBF10]/30 hover:bg-[#FEBF10]/5 transition-all font-medium text-xs"
                         >
                             <Plus size={14} /> Add another criteria
                         </button>
 
                         {/* Quick Overview */}
                         <div className="mt-3 flex items-center justify-between bg-re-bg px-4 py-3 border border-black/5 rounded-xl">
-                            <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
+                            <span className="text-[10px] font-medium text-gray-500 uppercase tracking-widest">
                                 Net Point Impact ({totalQty} actions)
                             </span>
-                            <span className={`text-sm font-black ${totalPoints > 0 ? 'text-emerald-500' : totalPoints < 0 ? 'text-red-500' : 'text-gray-900'}`}>
+                            <span className={`text-sm font-medium ${totalPoints > 0 ? 'text-emerald-500' : totalPoints < 0 ? 'text-red-500' : 'text-gray-900'}`}>
                                 {totalPoints > 0 ? '+' : ''}{totalPoints} Pts
                             </span>
                         </div>
@@ -325,7 +325,7 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
                 <button
                     onClick={() => setMobileStep('summary')}
                     disabled={rows.length === 0}
-                    className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-black transition active:scale-95 ${rows.length > 0 ? 'bg-[#FEBF10] text-[#000435] shadow-md shadow-[#FEBF10]/30 hover:scale-[1.02]' : 'bg-re-bg text-gray-400 cursor-not-allowed'
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium transition active:scale-95 ${rows.length > 0 ? 'bg-[#FEBF10] text-[#000435] shadow-md shadow-[#FEBF10]/30' : 'bg-re-bg text-gray-400 cursor-not-allowed'
                         }`}
                 >
                     <span className="uppercase tracking-widest text-[10px]">Continue to Assignment</span>
@@ -342,7 +342,7 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
 
                 {/* Student Picker */}
                 <div>
-                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1.5 block">
+                    <label className="text-[10px] font-medium text-gray-500 uppercase tracking-widest mb-1.5 block">
                         Target Student
                     </label>
                     <div
@@ -354,17 +354,17 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
                         <div className="w-1 h-10 bg-[#FEBF10] shrink-0" />
                         {student ? (
                             <div className="flex items-center ml-2 mr-1.5 shrink-0 w-6 h-6 bg-re-bg rounded-full border border-black/5 justify-center">
-                                <span className="text-[8px] font-black">{student.name.charAt(0)}</span>
+                                <span className="text-[8px] font-medium">{student.name.charAt(0)}</span>
                             </div>
                         ) : (
                             <User className="text-gray-400 w-4 h-4 ml-3 mr-2 shrink-0" />
                         )}
 
                         <div className="flex-1 py-2 px-1 flex flex-col justify-center">
-                            <span className={`text-xs ${student ? 'text-gray-900 font-bold' : 'text-gray-400 font-medium'}`}>
+                            <span className={`text-xs ${student ? 'text-gray-900 font-medium' : 'text-gray-400 font-medium'}`}>
                                 {student?.name || 'Select student...'}
                             </span>
-                            {student && <span className="text-[9px] font-bold text-gray-400">{student.id} · {student.grade}</span>}
+                            {student && <span className="text-[9px] font-medium text-gray-400">{student.id} · {student.grade}</span>}
                         </div>
 
                         {!initialStudent && (student
@@ -376,13 +376,13 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
 
                 {/* Note */}
                 <div>
-                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1 block">
+                    <label className="text-[10px] font-medium text-gray-500 uppercase tracking-widest mb-1 block">
                         Review Context <span className="text-gray-300 font-normal lowercase">(optional)</span>
                     </label>
                     <textarea
                         value={note} onChange={e => setNote(e.target.value)}
                         placeholder="Add specific context to this conduct update..." rows={3}
-                        className="w-full px-3 py-2 text-xs font-bold text-gray-700 border border-black/5 rounded-xl bg-white outline-none focus:ring-2 focus:ring-orange-500/30 resize-none shadow-sm"
+                        className="w-full px-3 py-2 text-xs font-medium text-gray-700 border border-black/5 rounded-xl bg-white outline-none focus:ring-2 focus:ring-orange-500/30 resize-none shadow-sm"
                     />
                 </div>
             </div>
@@ -425,7 +425,7 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
                         }
                     }}
                     disabled={!canSubmit || submitting}
-                    className={`w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-[10px] uppercase tracking-widest font-black transition-all ${canSubmit && !submitting ? 'bg-[#FEBF10] text-[#000435] shadow-md shadow-[#FEBF10]/30 hover:scale-[1.02] active:scale-95' : 'bg-re-bg text-gray-400 cursor-not-allowed border border-black/5'
+                    className={`w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-[10px] uppercase tracking-widest font-medium transition-all ${canSubmit && !submitting ? 'bg-[#FEBF10] text-[#000435] shadow-md shadow-[#FEBF10]/30 active:scale-95' : 'bg-re-bg text-gray-400 cursor-not-allowed border border-black/5'
                         }`}
                 >
                     {submitting ? <Loader2 size={15} className="animate-spin" /> : <Activity size={15} />}
@@ -439,15 +439,15 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
     const BrowserOverlay = showBrowser && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowBrowser(false)} />
-            <div className="relative bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden max-h-[80vh] flex flex-col">
+            <div className="relative bg-white w-full max-w-lg rounded-2xl shadow-sm overflow-hidden max-h-[80vh] flex flex-col">
                 <div className="px-5 py-4 border-b border-black/5 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-xl bg-re-bg flex items-center justify-center text-[#FEBF10]">
                             <Grid size={16} />
                         </div>
                         <div>
-                            <p className="text-sm font-black text-gray-900 tracking-tight">Full Catalogue</p>
-                            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Browse Criteria</p>
+                            <p className="text-sm font-medium text-gray-900 tracking-tight">Full Catalogue</p>
+                            <p className="text-[9px] font-medium text-gray-400 uppercase tracking-widest">Browse Criteria</p>
                         </div>
                     </div>
                     <button onClick={() => setShowBrowser(false)} className="p-2 hover:bg-re-bg rounded-xl transition">
@@ -458,10 +458,10 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
                     {CATALOGUE.map(c => (
                         <button key={c.id} onClick={() => { addCriteria(c); setShowBrowser(false); }} className="w-full flex items-center justify-between px-4 py-3 border border-black/5 rounded-xl hover:bg-re-bg hover:border-[#FEBF10]/20 transition-all text-left">
                             <div>
-                                <p className="text-xs font-bold text-gray-900">{c.name}</p>
-                                <p className="text-[10px] font-bold text-gray-400">{c.category}</p>
+                                <p className="text-xs font-medium text-gray-900">{c.name}</p>
+                                <p className="text-[10px] font-medium text-gray-400">{c.category}</p>
                             </div>
-                            <span className={`text-xs font-black ${c.points > 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                            <span className={`text-xs font-medium ${c.points > 0 ? 'text-emerald-500' : 'text-red-500'}`}>
                                 {c.points > 0 ? '+' : ''}{c.points} Pts
                             </span>
                         </button>
@@ -474,7 +474,7 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
     const StudentPickerOverlay = showStudents && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowStudents(false)} />
-            <div className="relative bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden max-h-[80vh] flex flex-col">
+            <div className="relative bg-white w-full max-w-md rounded-2xl shadow-sm overflow-hidden max-h-[80vh] flex flex-col">
                 {/* Header */}
                 <div className="px-5 py-4 border-b border-black/5 flex items-center justify-between relative z-10 bg-[#000435]">
                     <div className="flex items-center gap-3">
@@ -482,8 +482,8 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
                             <Users size={16} />
                         </div>
                         <div>
-                            <p className="text-[11px] font-black text-white uppercase tracking-widest leading-none">Select Student</p>
-                            <p className="text-[7px] font-bold text-white/40 uppercase tracking-tight mt-0.5">Search Registry</p>
+                            <p className="text-[11px] font-medium text-white uppercase tracking-widest leading-none">Select Student</p>
+                            <p className="text-[7px] font-medium text-white/40 uppercase tracking-tight mt-0.5">Search Registry</p>
                         </div>
                     </div>
                     <button onClick={() => setShowStudents(false)} className="p-1.5 bg-white/5 hover:bg-white/10 rounded-xl transition-all text-white/40 hover:text-[#FEBF10] group">
@@ -515,18 +515,18 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
                     {pickerLoading ? (
                         <div className="flex flex-col items-center justify-center py-10 gap-3">
                             <Loader2 size={22} className="animate-spin text-[#000435]/40" />
-                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Fetching Registry...</p>
+                            <p className="text-[10px] font-medium text-gray-400 uppercase tracking-widest">Fetching Registry...</p>
                         </div>
                     ) : pickerStudents.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-10 gap-2 text-center">
                             <div className="w-12 h-12 bg-re-bg rounded-2xl flex items-center justify-center border border-black/5">
                                 <Users size={20} className="text-gray-300" />
                             </div>
-                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                            <p className="text-[10px] font-medium text-gray-400 uppercase tracking-widest">
                                 {pickerSearch ? 'No results found' : 'No students in registry'}
                             </p>
                             {pickerSearch && (
-                                <p className="text-[9px] text-gray-300 font-bold">Try a different search term</p>
+                                <p className="text-[9px] text-gray-300 font-medium">Try a different search term</p>
                             )}
                         </div>
                     ) : (
@@ -536,12 +536,12 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
                                 onClick={() => { setStudent(s); setShowStudents(false); }}
                                 className="w-full flex items-center gap-3 px-4 py-3 border border-black/5 rounded-xl hover:bg-re-bg hover:border-[#000435]/20 transition-all text-left group"
                             >
-                                <div className="w-8 h-8 rounded-lg bg-[#000435]/5 border border-[#000435]/10 flex items-center justify-center font-black text-[10px] text-[#000435] shrink-0">
+                                <div className="w-8 h-8 rounded-lg bg-[#000435]/5 border border-[#000435]/10 flex items-center justify-center font-medium text-[10px] text-[#000435] shrink-0">
                                     {s.name.charAt(0)}
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-xs font-bold text-gray-900 truncate group-hover:text-[#000435] transition-colors">{s.name}</p>
-                                    <p className="text-[10px] font-bold text-gray-400">{s.id} · {s.grade}</p>
+                                    <p className="text-xs font-medium text-gray-900 truncate group-hover:text-[#000435] transition-colors">{s.name}</p>
+                                    <p className="text-[10px] font-medium text-gray-400">{s.id} · {s.grade}</p>
                                 </div>
                                 <ChevronRight size={14} className="text-gray-300 group-hover:text-[#000435] transition-colors" />
                             </button>
@@ -565,7 +565,7 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
                 <div className="flex items-center justify-between px-4 py-3 shrink-0 bg-[#000435] shadow-md">
                     <div className="flex items-center gap-2">
                         {mobileStep === 'summary' ? (
-                            <button onClick={() => setMobileStep('items')} className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-white/70 hover:text-white transition">
+                            <button onClick={() => setMobileStep('items')} className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-widest text-white/70 hover:text-white transition">
                                 <div className="p-1.5 bg-white/10 rounded-lg border border-white/20"><ArrowLeft size={13} className="text-white" /></div>
                                 Back
                             </button>
@@ -575,8 +575,8 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
                                     <Activity size={15} />
                                 </div>
                                 <div>
-                                    <span className="text-[11px] font-black uppercase tracking-widest text-white leading-none block">Conduct Marks</span>
-                                    <span className="text-[7px] font-bold text-white/40 uppercase tracking-tight">Assign +/- Points</span>
+                                    <span className="text-[11px] font-medium uppercase tracking-widest text-white leading-none block">Conduct Marks</span>
+                                    <span className="text-[7px] font-medium text-white/40 uppercase tracking-tight">Assign +/- Points</span>
                                 </div>
                             </div>
                         )}
@@ -600,8 +600,8 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
                                 <Activity size={18} />
                             </div>
                             <div>
-                                <h2 className="text-[11px] font-black text-white uppercase tracking-widest leading-tight">Assign Conduct Marks</h2>
-                                <p className="text-[7px] font-bold text-white/40 uppercase tracking-tight mt-0.5">Update Disciplinary & Academic Records</p>
+                                <h2 className="text-[11px] font-medium text-white uppercase tracking-widest leading-tight">Assign Conduct Marks</h2>
+                                <p className="text-[7px] font-medium text-white/40 uppercase tracking-tight mt-0.5">Update Disciplinary & Academic Records</p>
                             </div>
                         </div>
                         <button onClick={onClose} className="p-1.5 bg-white/5 hover:bg-white/10 rounded-xl transition-all text-white/40 hover:text-[#FEBF10] group">

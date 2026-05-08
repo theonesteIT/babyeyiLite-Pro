@@ -252,8 +252,8 @@ function WebsitePreview({ form }) {
         <div className="flex items-center gap-2">
           {logoSrc
             ? <img src={logoSrc} className="h-8 w-8 rounded-full object-cover border-2 border-white/30" alt="logo" />
-            : <div className="w-8 h-8 rounded-full flex items-center justify-center font-black text-sm" style={{ background: t === "minimal" ? P : A, color: t === "minimal" ? "#fff" : "#000" }}>{nm[0]}</div>}
-          <span className="font-black text-sm" style={{ color: t === "minimal" ? P : "#fff" }}>{nm}</span>
+            : <div className="w-8 h-8 rounded-full flex items-center justify-center font-semibold text-sm" style={{ background: t === "minimal" ? P : A, color: t === "minimal" ? "#fff" : "#000" }}>{nm[0]}</div>}
+          <span className="font-semibold text-sm" style={{ color: t === "minimal" ? P : "#fff" }}>{nm}</span>
         </div>
         <button className="text-xs font-bold px-3 py-1.5 rounded-full" style={{ background: t === "minimal" ? P : A, color: t === "minimal" ? "#fff" : "#000" }}>Apply Now</button>
       </nav>
@@ -262,7 +262,7 @@ function WebsitePreview({ form }) {
         <div style={{ ...heroSty(), minHeight: 240, position: "relative", overflow: "hidden" }} className="flex items-center px-6 py-10">
           {coverSrc && <img src={coverSrc} alt="" className="absolute inset-0 w-full h-full object-cover opacity-30" />}
           <div className="relative flex-1 max-w-lg">
-            <h1 className="font-black mb-3 leading-tight text-2xl" style={{ color: HTC }}>{nm}</h1>
+            <h1 className="font-semibold mb-3 leading-tight text-2xl" style={{ color: HTC }}>{nm}</h1>
             <p className="text-sm mb-5 opacity-90" style={{ color: t === "minimal" ? "#555" : "rgba(255,255,255,.85)" }}>
               {form.vision || "Shaping tomorrow's leaders with excellence."}
             </p>
@@ -276,7 +276,7 @@ function WebsitePreview({ form }) {
           <div className="grid md:grid-cols-2 gap-6 items-center max-w-3xl mx-auto">
             <div>
               <div className="text-xs font-bold tracking-widest mb-2" style={{ color: A }}>ABOUT US</div>
-              <h2 className="text-lg font-black mb-3" style={{ color: isDk ? "#fff" : P }}>Who We Are</h2>
+              <h2 className="text-lg font-semibold mb-3" style={{ color: isDk ? "#fff" : P }}>Who We Are</h2>
               <p className="text-gray-500 text-xs leading-relaxed mb-3">{form.mission || "We are dedicated to nurturing the next generation."}</p>
               <div className="flex flex-wrap gap-2">
                 {(form.coreValues || []).map(v => (
@@ -308,7 +308,7 @@ function WebsitePreview({ form }) {
       )}
 
       <div className="px-6 py-4 bg-gray-900 text-center">
-        <div className="text-white font-black text-sm">{nm}</div>
+        <div className="text-white font-semibold text-sm">{nm}</div>
         <div className="text-gray-500 text-xs mt-1">© {new Date().getFullYear()} · Powered by <span style={{ color: A }}>babyeyi.rw</span></div>
       </div>
     </div>
@@ -403,13 +403,13 @@ function S1Connected({ form, set }) {
                 });
                 setNewACode(""); setNewAFull("");
               }}
-              className="w-full px-4 py-2 rounded-xl bg-purple-600 text-white font-black text-xs hover:bg-purple-500 transition-colors">
+              className="w-full px-4 py-2 rounded-xl bg-purple-600 text-white font-semibold text-xs hover:bg-purple-500 transition-colors">
               + Add Custom A-Level Combination
             </button>
             {customCombos.length > 0 && (
               <div className="flex flex-wrap gap-2 pt-1">
                 {customCombos.map(c => (
-                  <span key={c.code} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-black border" style={{ background: "#fff", borderColor: "#e9d5ff", color: "#6d28d9" }}>
+                  <span key={c.code} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold border" style={{ background: "#fff", borderColor: "#e9d5ff", color: "#6d28d9" }}>
                     {c.code}
                     <button type="button" onClick={() => { const code = String(c.code).toUpperCase(); set(f => ({ ...f, aLevelCombinations: (f.aLevelCombinations || []).filter(x => String((x && x.code) || "").toUpperCase() !== code) })); }} className="text-purple-700 hover:text-purple-900 bg-purple-50 rounded-lg px-2 py-0.5">✕</button>
                   </span>
@@ -439,14 +439,14 @@ function S1Connected({ form, set }) {
               <Inp value={newTrade} onChange={e => setNewTrade(e.target.value)} placeholder="Custom trade (e.g. Robotics)" />
               <button type="button"
                 onClick={() => { const t = String(newTrade).trim(); if (!t) return; set(f => ({ ...f, tvetTrades: Array.from(new Set([...(f.tvetTrades || []), t])) })); setNewTrade(""); }}
-                className="px-4 py-2 rounded-xl bg-orange-500 text-white font-black text-xs hover:bg-orange-400 transition-colors">
+                className="px-4 py-2 rounded-xl bg-orange-500 text-white font-semibold text-xs hover:bg-orange-400 transition-colors">
                 Add
               </button>
             </div>
             {customTrades.length > 0 && (
               <div className="flex flex-wrap gap-2">
                 {customTrades.map(t => (
-                  <span key={t} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-black border" style={{ background: "#fff", borderColor: "#fed7aa", color: "#c2410c" }}>
+                  <span key={t} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold border" style={{ background: "#fff", borderColor: "#fed7aa", color: "#c2410c" }}>
                     {t}
                     <button type="button" onClick={() => set(f => ({ ...f, tvetTrades: (f.tvetTrades || []).filter(x => x !== t) }))} className="text-orange-800 hover:text-orange-950 bg-orange-50 rounded-lg px-2 py-0.5">✕</button>
                   </span>
@@ -463,7 +463,7 @@ function S1Connected({ form, set }) {
         <div className="flex gap-2 mb-3">
           {["primary","other"].map(tab => (
             <button key={tab} type="button" onClick={() => setIntlTab(tab)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-black border capitalize ${intlTab === tab ? (tab === "primary" ? "bg-emerald-500 text-white border-emerald-500" : "bg-amber-500 text-white border-amber-500") : (tab === "primary" ? "bg-white text-emerald-700 border-emerald-200 hover:border-emerald-400" : "bg-white text-amber-800 border-amber-200 hover:border-amber-400")}`}>
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold border capitalize ${intlTab === tab ? (tab === "primary" ? "bg-emerald-500 text-white border-emerald-500" : "bg-amber-500 text-white border-amber-500") : (tab === "primary" ? "bg-white text-emerald-700 border-emerald-200 hover:border-emerald-400" : "bg-white text-amber-800 border-amber-200 hover:border-amber-400")}`}>
               {tab}
             </button>
           ))}
@@ -477,7 +477,7 @@ function S1Connected({ form, set }) {
               set(f => ({ ...f, [key]: Array.from(new Set([...(f[key] || []), v])) }));
               setIntlInput("");
             }}
-            className="px-4 py-2 rounded-xl bg-slate-900 text-white font-black text-xs hover:bg-slate-800 transition-colors">
+            className="px-4 py-2 rounded-xl bg-slate-900 text-white font-semibold text-xs hover:bg-slate-800 transition-colors">
             Add
           </button>
         </div>
@@ -488,7 +488,7 @@ function S1Connected({ form, set }) {
             return items.length === 0
               ? <p className="text-xs text-gray-500">No items yet.</p>
               : items.map(x => (
-                <span key={x} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-black border" style={{ background: "#fff", borderColor: "#e5e7eb", color: "#111827" }}>
+                <span key={x} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold border" style={{ background: "#fff", borderColor: "#e5e7eb", color: "#111827" }}>
                   {x}
                   <button type="button" onClick={() => set(f => ({ ...f, [key]: (f[key] || []).filter(i => i !== x) }))} className="text-gray-700 hover:text-gray-950 bg-gray-100 rounded-lg px-2 py-0.5">✕</button>
                 </span>
@@ -623,7 +623,7 @@ function S5Connected({ form, set }) {
       <div className="bg-white border border-gray-100 rounded-3xl overflow-hidden shadow-sm">
         <div className="px-5 py-4 bg-gradient-to-r from-gray-900 to-gray-800 flex items-start justify-between gap-3">
           <div>
-            <h4 className="text-white font-black text-sm">Leadership Team</h4>
+            <h4 className="text-white font-semibold text-sm">Leadership Team</h4>
             <p className="text-gray-400 text-xs mt-0.5">Optional: add none, one, or more leaders.</p>
           </div>
           <button
@@ -809,7 +809,7 @@ function S6({ form, set, schoolId }) {
             <div className="border-2 border-amber-200 rounded-2xl p-4 bg-amber-50/20">
               <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
                 <div>
-                  <h4 className="font-black text-gray-900 text-sm">{ad.title}</h4>
+                  <h4 className="font-semibold text-gray-900 text-sm">{ad.title}</h4>
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
                     {ad.date && <span className="text-xs text-gray-500 flex items-center gap-1"><Calendar size={9} />{ad.date}</span>}
                     <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">{ad.category}</span>
@@ -945,7 +945,7 @@ function S8({ form, set }) {
           <button
             type="button"
             onClick={addCustomProgram}
-            className="px-3 py-2 rounded-xl bg-amber-400 text-gray-900 text-xs font-black hover:bg-amber-300 transition-colors"
+            className="px-3 py-2 rounded-xl bg-amber-400 text-gray-900 text-xs font-semibold hover:bg-amber-300 transition-colors"
           >
             Add
           </button>
@@ -971,7 +971,7 @@ function S8({ form, set }) {
               <div className="flex items-center gap-2">
                 <span className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: "rgba(31,41,55,0.08)", color: fl.color }}><fl.icon size={16} /></span>
                 <div>
-                  <h4 className="font-black text-gray-900 text-sm">{data.label || fl.label}</h4>
+                  <h4 className="font-semibold text-gray-900 text-sm">{data.label || fl.label}</h4>
                   <p className="text-xs text-gray-500">Total: <span className="font-bold" style={{ color: fl.color }}>{data.currency} {total(aL).toLocaleString()}/term</span></p>
                 </div>
               </div>
@@ -1005,7 +1005,7 @@ function S8({ form, set }) {
               <button type="button" onClick={() => addI(aL)} className="flex items-center gap-2 text-xs font-bold text-amber-600 hover:text-amber-800 pt-1"><Plus size={12} />Add Fee Item</button>
               <div className="flex items-center justify-between pt-3 border-t border-gray-100">
                 <span className="text-xs font-bold text-gray-600">Total / Term</span>
-                <span className="text-sm font-black" style={{ color: fl.color }}>{data.currency} {total(aL).toLocaleString()}</span>
+                <span className="text-sm font-semibold" style={{ color: fl.color }}>{data.currency} {total(aL).toLocaleString()}</span>
               </div>
               <div className="pt-2"><Lbl>Notes</Lbl><Txta rows={2} value={data.notes || ""} onChange={e => updF(aL, "notes", e.target.value)} placeholder="e.g. 10% discount for siblings…" /></div>
             </div>
@@ -1049,7 +1049,7 @@ function S9({ form, set }) {
       {activeTab === "template" && (
         <div>
           <div className="mb-5">
-            <h3 className="font-black text-[#1F2937] text-base mb-1" style={serifFont}>
+            <h3 className="font-semibold text-[#1F2937] text-base mb-1" style={serifFont}>
               Choose Your <em style={{ color: "#FBBF24" }}>Template</em>
             </h3>
             <p className="text-xs text-gray-400" style={syneFont}>Select the visual style for your school website</p>
@@ -1087,7 +1087,7 @@ function S9({ form, set }) {
                     )}
                     {/* Badge */}
                     {meta.badge && (
-                      <div className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-full text-[9px] font-black" style={{ background: "#FBBF24", color: "#1F2937" }}>
+                      <div className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-full text-[9px] font-semibold" style={{ background: "#FBBF24", color: "#1F2937" }}>
                         {meta.badge}
                       </div>
                     )}
@@ -1095,7 +1095,7 @@ function S9({ form, set }) {
 
                   {/* Label */}
                   <div className="px-2.5 py-2" style={{ background: isSelected ? "#1F2937" : "white" }}>
-                    <div className="text-xs font-black leading-tight" style={{ color: isSelected ? "#FBBF24" : "#1F2937", ...syneFont }}>{meta.label}</div>
+                    <div className="text-xs font-semibold leading-tight" style={{ color: isSelected ? "#FBBF24" : "#1F2937", ...syneFont }}>{meta.label}</div>
                   </div>
                 </button>
               );
@@ -1108,7 +1108,7 @@ function S9({ form, set }) {
                 <Eye size={14} color="#1F2937" />
               </div>
               <div>
-                <div className="text-xs font-black text-[#1F2937]" style={syneFont}>{TEMPLATE_PREVIEWS[selectedTemplate]?.label || selectedTemplate}</div>
+                <div className="text-xs font-semibold text-[#1F2937]" style={syneFont}>{TEMPLATE_PREVIEWS[selectedTemplate]?.label || selectedTemplate}</div>
                 <div className="text-[10px] text-gray-400" style={syneFont}>Active template</div>
               </div>
               <div className="ml-auto">
@@ -1123,7 +1123,7 @@ function S9({ form, set }) {
       {activeTab === "color" && (
         <div>
           <div className="mb-5">
-            <h3 className="font-black text-[#1F2937] text-base mb-1" style={serifFont}>
+            <h3 className="font-semibold text-[#1F2937] text-base mb-1" style={serifFont}>
               Pick Your <em style={{ color: "#FBBF24" }}>Color Theme</em>
             </h3>
             <p className="text-xs text-gray-400" style={syneFont}>Colors define your school's identity</p>
@@ -1140,7 +1140,7 @@ function S9({ form, set }) {
                     <div className="w-5 h-5 rounded-full border border-white/20 shadow-sm" style={{ background: t.p }} />
                     <div className="w-5 h-5 rounded-full border border-white/20 shadow-sm" style={{ background: t.a }} />
                   </div>
-                  <div className="text-[9px] font-black text-center leading-tight" style={{ color: isSelected ? "#FBBF24" : "#374151", ...syneFont }}>{t.name}</div>
+                  <div className="text-[9px] font-semibold text-center leading-tight" style={{ color: isSelected ? "#FBBF24" : "#374151", ...syneFont }}>{t.name}</div>
                   {isSelected && <div className="w-4 h-4 rounded-full flex items-center justify-center" style={{ background: "#FBBF24" }}><Check size={8} color="#1F2937" strokeWidth={3} /></div>}
                 </button>
               );
@@ -1156,7 +1156,7 @@ function S9({ form, set }) {
                 <div className="px-4 py-3 flex items-center gap-3" style={{ background: t.p }}>
                   <div className="w-7 h-7 rounded-xl bg-white/20 flex items-center justify-center"><div className="w-3 h-3 rounded-full" style={{ background: t.a }} /></div>
                   <div className="flex-1"><div className="h-2 rounded-full bg-white/50 w-32 mb-1" /><div className="h-1.5 rounded-full bg-white/25 w-20" /></div>
-                  <div className="px-3 py-1 rounded-lg text-[10px] font-black" style={{ background: t.a, color: "#1F2937" }}>Apply</div>
+                  <div className="px-3 py-1 rounded-lg text-[10px] font-semibold" style={{ background: t.a, color: "#1F2937" }}>Apply</div>
                 </div>
                 <div className="p-4 bg-white">
                   <div className="flex gap-3">
@@ -1168,9 +1168,9 @@ function S9({ form, set }) {
                     <div className="w-16 h-14 rounded-xl flex-shrink-0" style={{ background: `${t.p}15` }} />
                   </div>
                   <div className="flex gap-2 mt-3">
-                    <div className="px-3 py-1.5 rounded-lg text-[9px] font-black text-white" style={{ background: t.p }}>Primary</div>
-                    <div className="px-3 py-1.5 rounded-lg text-[9px] font-black" style={{ background: t.a, color: "#1F2937" }}>Accent</div>
-                    <div className="px-3 py-1.5 rounded-lg text-[9px] font-black" style={{ background: t.s || "#F3F4F6", color: t.p }}>Secondary</div>
+                    <div className="px-3 py-1.5 rounded-lg text-[9px] font-semibold text-white" style={{ background: t.p }}>Primary</div>
+                    <div className="px-3 py-1.5 rounded-lg text-[9px] font-semibold" style={{ background: t.a, color: "#1F2937" }}>Accent</div>
+                    <div className="px-3 py-1.5 rounded-lg text-[9px] font-semibold" style={{ background: t.s || "#F3F4F6", color: t.p }}>Secondary</div>
                   </div>
                 </div>
               </div>
@@ -1180,7 +1180,7 @@ function S9({ form, set }) {
           {/* Custom color pickers */}
           {form.colorTheme === "custom" && (
             <div className="rounded-2xl p-4 border" style={{ background: "#1F2937", borderColor: "rgba(251,191,36,0.2)" }}>
-              <div className="text-xs font-black text-amber-400 mb-3 uppercase tracking-widest" style={syneFont}>Custom Colors</div>
+              <div className="text-xs font-semibold text-amber-400 mb-3 uppercase tracking-widest" style={syneFont}>Custom Colors</div>
               <div className="grid grid-cols-3 gap-3">
                 {["primary", "secondary", "accent"].map(k => (
                   <div key={k}>
@@ -1207,7 +1207,7 @@ function S9({ form, set }) {
       {activeTab === "sections" && (
         <div>
           <div className="mb-5">
-            <h3 className="font-black text-[#1F2937] text-base mb-1" style={serifFont}>
+            <h3 className="font-semibold text-[#1F2937] text-base mb-1" style={serifFont}>
               Page <em style={{ color: "#FBBF24" }}>Sections</em>
             </h3>
             <p className="text-xs text-gray-400" style={syneFont}>Toggle which sections appear on your school website</p>
@@ -1248,14 +1248,14 @@ function S9({ form, set }) {
                   <span className="text-base flex-shrink-0">{sec.icon}</span>
                   <span className="text-xs font-bold flex-1 leading-tight" style={{ color: isActive ? "#FBBF24" : "#374151", ...syneFont }}>{sec.label}</span>
                   {isActive && <div className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "#FBBF24" }}><Check size={8} color="#1F2937" strokeWidth={3} /></div>}
-                  {isCore && isActive && <div className="text-[9px] font-black px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ background: "rgba(251,191,36,0.2)", color: "#FBBF24", ...syneFont }}>Fixed</div>}
+                  {isCore && isActive && <div className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ background: "rgba(251,191,36,0.2)", color: "#FBBF24", ...syneFont }}>Fixed</div>}
                 </button>
               );
             })}
           </div>
 
           <div className="mt-4 flex items-center gap-3 px-4 py-3 rounded-2xl" style={{ background: "rgba(251,191,36,0.07)", border: "1px solid rgba(251,191,36,0.2)" }}>
-            <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 font-black text-sm" style={{ background: "#FBBF24", color: "#1F2937", ...syneFont }}>
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 font-semibold text-sm" style={{ background: "#FBBF24", color: "#1F2937", ...syneFont }}>
               {(form.sections || ALL_SECTIONS.map(s => s.id)).length}
             </div>
             <p className="text-xs text-[#1F2937] font-semibold" style={syneFont}>sections active on your website</p>
@@ -1266,7 +1266,7 @@ function S9({ form, set }) {
       {activeTab === "news" && (
         <div>
           <div className="mb-5">
-            <h3 className="font-black text-[#1F2937] text-base mb-1" style={serifFont}>
+            <h3 className="font-semibold text-[#1F2937] text-base mb-1" style={serifFont}>
               School <em style={{ color: "#FBBF24" }}>News</em>
             </h3>
             <p className="text-xs text-gray-400" style={syneFont}>
@@ -1287,7 +1287,7 @@ function S9({ form, set }) {
                 socialLabel: "",
               }],
             }))}
-            className="mb-4 flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black border-2 border-dashed transition-all"
+            className="mb-4 flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold border-2 border-dashed transition-all"
             style={{ borderColor: "#FBBF24", color: "#1F2937", background: "rgba(251,191,36,0.08)", ...syneFont }}
           >
             <Plus size={14} /> Add news story
@@ -1296,7 +1296,7 @@ function S9({ form, set }) {
             {(form.newsItems || []).map((item, idx) => (
               <div key={item.id || idx} className="rounded-2xl border border-gray-200 p-4 space-y-3" style={{ background: "#FAFAFA" }}>
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-black text-[#1F2937]" style={syneFont}>Story {idx + 1}</span>
+                  <span className="text-xs font-semibold text-[#1F2937]" style={syneFont}>Story {idx + 1}</span>
                   <button
                     type="button"
                     onClick={() => set(f => ({ ...f, newsItems: (f.newsItems || []).filter((_, i) => i !== idx) }))}
@@ -1431,7 +1431,7 @@ function S11Connected({ form, miniId, saving, saveErr, onSave, onPublish, canPub
         <div className="bg-gray-900 px-5 py-4 flex items-center justify-between">
           <div><h4 className="font-bold text-white text-sm">Profile Completeness</h4><p className="text-gray-400 text-xs mt-0.5">{done} of {checks.length} sections</p></div>
           <div className="w-12 h-12 rounded-full flex items-center justify-center border-4" style={{ borderColor: pct === 100 ? "#22c55e" : "#FBBF24" }}>
-            <span className="font-black text-xs" style={{ color: pct === 100 ? "#22c55e" : "#FBBF24" }}>{pct}%</span>
+            <span className="font-semibold text-xs" style={{ color: pct === 100 ? "#22c55e" : "#FBBF24" }}>{pct}%</span>
           </div>
         </div>
         <div className="h-1.5 bg-gray-100">
@@ -1452,11 +1452,11 @@ function S11Connected({ form, miniId, saving, saveErr, onSave, onPublish, canPub
 
       {form.name && (
         <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl p-4 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-amber-400 flex items-center justify-center font-black text-gray-900 text-lg flex-shrink-0 overflow-hidden">
+          <div className="w-12 h-12 rounded-2xl bg-amber-400 flex items-center justify-center font-semibold text-gray-900 text-lg flex-shrink-0 overflow-hidden">
             {logoSrc ? <img src={logoSrc} className="w-full h-full object-cover" alt="logo" /> : form.name[0]}
           </div>
           <div className="flex-1 min-w-0">
-            <h4 className="font-black text-white text-sm truncate">{form.name}</h4>
+            <h4 className="font-semibold text-white text-sm truncate">{form.name}</h4>
             <p className="text-gray-400 text-xs mt-0.5">{form.district ? `${form.district}, ${form.province}` : "Rwanda"}</p>
             <div className="font-mono text-xs text-amber-400 mt-1 truncate">babyeyi.rw/school/{slug}</div>
           </div>
@@ -1475,7 +1475,7 @@ function S11Connected({ form, miniId, saving, saveErr, onSave, onPublish, canPub
         <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-50 border border-amber-200">
           <AlertCircle size={14} className="text-amber-600 flex-shrink-0 mt-0.5" />
           <div className="min-w-0">
-            <div className="text-xs font-black text-amber-800">Publishing locked</div>
+            <div className="text-xs font-semibold text-amber-800">Publishing locked</div>
             <div className="text-xs text-amber-700 mt-0.5 leading-relaxed">Complete: <span className="font-bold">{missing.join(", ")}</span>.</div>
           </div>
         </div>
@@ -1571,7 +1571,7 @@ function SchoolsList({ onSelect }) {
         <div className="mb-8 flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-amber-400 flex items-center justify-center text-2xl flex-shrink-0">🎓</div>
           <div>
-            <h1 className="text-xl sm:text-2xl font-black text-white" style={syneFont}>School Mini-Websites</h1>
+            <h1 className="text-xl sm:text-2xl font-semibold text-white" style={syneFont}>School Mini-Websites</h1>
             <p className="text-gray-400 text-sm mt-0.5" style={syneFont}>Select a school to create or edit its website</p>
           </div>
         </div>
@@ -1589,13 +1589,13 @@ function SchoolsList({ onSelect }) {
                 className="bg-white/5 border border-white/10 rounded-2xl p-4 text-left hover:bg-white/10 hover:border-amber-400/40 transition-all group">
                 <div className="flex items-start justify-between mb-3">
                   <div className="w-12 h-12 rounded-xl overflow-hidden bg-gray-800 flex-shrink-0 border border-white/10">
-                    {logoSrc ? <img src={logoSrc} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-xl font-black text-gray-400">{s.school_name?.[0] || "S"}</div>}
+                    {logoSrc ? <img src={logoSrc} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-xl font-semibold text-gray-400">{s.school_name?.[0] || "S"}</div>}
                   </div>
                   <span className={`text-xs font-bold px-2 py-1 rounded-full ${isLive ? "bg-green-500/20 text-green-400 border border-green-500/30" : hasMini ? "bg-amber-500/20 text-amber-400 border border-amber-500/30" : "bg-gray-700 text-gray-400 border border-gray-600"}`} style={syneFont}>
                     {isLive ? "● Live" : hasMini ? "Draft" : "No site"}
                   </span>
                 </div>
-                <h3 className="font-black text-white text-sm mb-1 group-hover:text-amber-300 transition-colors" style={syneFont}>{s.school_name}</h3>
+                <h3 className="font-semibold text-white text-sm mb-1 group-hover:text-amber-300 transition-colors" style={syneFont}>{s.school_name}</h3>
                 <p className="text-gray-500 text-xs" style={syneFont}>{s.district}, {s.province}</p>
                 {s.slug && <p className="text-amber-400/60 text-xs font-mono mt-1.5 truncate">/{s.slug}</p>}
               </button>
@@ -1753,21 +1753,21 @@ export default function App({ initialSchoolId, initialSchoolName, initialStep = 
       <FontLoader />
       <div className="max-w-sm w-full text-center">
         <div className="relative mb-8">
-          <div className="w-28 h-28 rounded-3xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center mx-auto text-5xl shadow-2xl shadow-amber-400/30">🎓</div>
+          <div className="w-28 h-28 rounded-3xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center mx-auto text-5xl shadow-sm shadow-amber-400/30">🎓</div>
           <div className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-green-400 flex items-center justify-center shadow-lg"><Check size={15} className="text-white" /></div>
         </div>
         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/20 border border-green-500/30 mb-4">
           <div className="w-2 h-2 rounded-full bg-green-400" /><span className="text-green-400 text-xs font-bold" style={syneFont}>LIVE & PUBLISHED</span>
         </div>
-        <h1 className="text-3xl font-black text-white mb-2" style={serifFont}>{form.name || "Your School"}</h1>
+        <h1 className="text-3xl font-semibold text-white mb-2" style={serifFont}>{form.name || "Your School"}</h1>
         <p className="text-gray-400 mb-5 text-sm" style={syneFont}>Your school is now live 🇷🇼</p>
         <div className="bg-white/5 border border-white/10 rounded-2xl p-4 mb-5">
           <div className="text-gray-500 text-xs mb-1" style={syneFont}>Your website</div>
           <div className="font-mono text-sm font-bold text-amber-400">babyeyi.rw/school/{form.name?.toLowerCase().replace(/\s+/g, "-") || "your-school"}</div>
         </div>
         <div className="flex gap-3">
-          {!initialSchoolId && <button onClick={() => setView("list")} className="flex-1 py-3 rounded-2xl bg-white/10 text-white font-black hover:bg-white/20 text-sm" style={syneFont}>← All Schools</button>}
-          <button onClick={() => { setPublished(false); setStep(1); }} className="flex-1 py-3 rounded-2xl bg-amber-400 text-gray-900 font-black hover:bg-amber-300 text-sm" style={syneFont}>Edit Site</button>
+          {!initialSchoolId && <button onClick={() => setView("list")} className="flex-1 py-3 rounded-2xl bg-white/10 text-white font-semibold hover:bg-white/20 text-sm" style={syneFont}>← All Schools</button>}
+          <button onClick={() => { setPublished(false); setStep(1); }} className="flex-1 py-3 rounded-2xl bg-amber-400 text-gray-900 font-semibold hover:bg-amber-300 text-sm" style={syneFont}>Edit Site</button>
         </div>
       </div>
     </div>
@@ -1785,7 +1785,7 @@ export default function App({ initialSchoolId, initialSchoolName, initialStep = 
             <button onClick={() => setView("list")} className="w-7 h-7 rounded-xl bg-amber-400 flex items-center justify-center text-sm flex-shrink-0 hover:bg-amber-300 transition-all" title="Back">🎓</button>
           )}
           <div className="min-w-0">
-            <div className="font-black text-white text-sm leading-none truncate" style={syneFont}>{form.name || initialSchoolName || "School"}</div>
+            <div className="font-semibold text-white text-sm leading-none truncate" style={syneFont}>{form.name || initialSchoolName || "School"}</div>
             <div className="text-gray-500 text-xs mt-0.5" style={syneFont}>Mini-Website</div>
           </div>
         </div>
@@ -1881,7 +1881,7 @@ export default function App({ initialSchoolId, initialSchoolName, initialStep = 
                     {cur && <cur.icon size={15} className="text-gray-900" />}
                   </div>
                   <div className="min-w-0">
-                    <h2 className="text-white font-black text-sm truncate" style={syneFont}>{TITLES[step - 1]}</h2>
+                    <h2 className="text-white font-semibold text-sm truncate" style={syneFont}>{TITLES[step - 1]}</h2>
                     <p className="text-gray-400 text-xs mt-0.5 truncate" style={syneFont}>{SUBS[step - 1]}</p>
                   </div>
                 </div>
@@ -1893,11 +1893,11 @@ export default function App({ initialSchoolId, initialSchoolName, initialStep = 
                     <ChevronLeft size={14} /> Back
                   </button>
                   {step < STEPS.length
-                    ? <button onClick={() => setStep(step + 1)} className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-amber-400 text-gray-900 font-black text-sm hover:bg-amber-300 transition-all shadow-lg shadow-amber-100" style={syneFont}>
+                    ? <button onClick={() => setStep(step + 1)} className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-amber-400 text-gray-900 font-semibold text-sm hover:bg-amber-300 transition-all shadow-lg shadow-amber-100" style={syneFont}>
                         Continue <ChevronRight size={14} />
                       </button>
                     : <button onClick={handlePublish} disabled={saving || !publishState.canPublish}
-                        className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-green-500 text-white font-black text-sm hover:bg-green-600 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed" style={syneFont}>
+                        className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-green-500 text-white font-semibold text-sm hover:bg-green-600 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed" style={syneFont}>
                         <Send size={14} /> {saving ? "Publishing…" : "Publish"}
                       </button>
                   }

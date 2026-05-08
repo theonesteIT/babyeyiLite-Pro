@@ -8,30 +8,23 @@ import {
   ShieldCheck,
   Cpu
 } from 'lucide-react';
+import DosOchreHero from '../components/DosOchreHero';
 
 const FeaturePlaceholders = ({ feature = 'Module', icon = '🚀' }) => {
   return (
-    <div className="relative w-full bg-re-bg min-h-[85vh]" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-      {/* ── Hero Banner ── */}
-      <section className="relative p-7 md:p-10 text-white overflow-hidden min-h-[200px] flex items-center bg-[#000435]">
-        <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full border border-white/5 pointer-events-none" />
-        <div className="absolute -top-12 -right-12 w-64 h-64 rounded-full border border-white/5 pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-[#FEBF10]/30 to-transparent pointer-events-none" />
-        <div className="relative z-10 max-w-5xl w-full text-center md:text-left">
-          <div className="flex items-center justify-center md:justify-start gap-2 mb-2">
-            <span className="h-0.5 w-6 rounded-full bg-[#FEBF10]" />
-            <p className="text-[10px] font-black capitalize tracking-widest text-[#FEBF10]/80">Module Intelligence</p>
-          </div>
-          <h1 className="text-2xl md:text-3xl font-black tracking-tight">{feature} <span className="text-white/30">System</span></h1>
-          <p className="text-xs font-bold text-white/50 max-w-xl mt-2">Phase 3: Integration &amp; Professional Testing</p>
-        </div>
-      </section>
-
+    <div className="relative w-full bg-re-bg min-h-[85vh] font-sans">
+      <DosOchreHero
+        eyebrow="DOS workspace"
+        titleLine={feature}
+        titleAccent="module"
+        subtitle="Coming soon · integration and QA in progress."
+        icon={Sparkles}
+      />
 
       {/* ── Overlapping Card ── */}
-      <div className="max-w-[1600px] mx-auto px-4 md:px-12 -mt-10 md:-mt-12 relative z-20 pb-20">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 -mt-4 sm:-mt-5 md:-mt-6 pt-2 relative z-20 pb-20">
         <div className="max-w-4xl mx-auto">
-          <div className="bg-white rounded-[24px] shadow-2xl border border-black/5 overflow-hidden flex flex-col items-center p-8 md:p-12 text-center">
+          <div className="bg-white rounded-[24px] shadow-sm border border-black/10 overflow-hidden flex flex-col items-center p-8 md:p-12 text-center">
 
             {/* Aesthetic Status Frame */}
             <div className="relative mb-8">

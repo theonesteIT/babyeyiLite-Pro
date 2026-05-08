@@ -30,7 +30,6 @@ const FontLoader = () => (
     @keyframes stepIn{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:translateX(0)}}
     @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
     @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
-    @keyframes pulseAmber{0%,100%{box-shadow:0 0 0 0 rgba(251,191,36,.35)}50%{box-shadow:0 0 0 7px rgba(251,191,36,0)}}
     @keyframes toastSlideIn{from{opacity:0;transform:translateX(calc(100% + 24px))}to{opacity:1;transform:translateX(0)}}
     @keyframes toastProgress{from{transform:scaleX(1)}to{transform:scaleX(0)}}
     .step-in{animation:stepIn .32s cubic-bezier(.22,1,.36,1) both}
@@ -52,30 +51,29 @@ const STEPS = [
 
 function StepIndicator({ current }) {
   return (
-    <div className="flex items-center gap-0 w-full">
+    <div className="flex items-center w-full">
       {STEPS.map((s, i) => {
         const done = current > s.id;
         const active = current === s.id;
         return (
           <div key={s.id} className="flex items-center flex-1 min-w-0">
             <div className="flex flex-col items-center gap-1.5 flex-shrink-0">
-              <div
-                className={`relative w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center font-black text-[12px] transition-all duration-300 ${
-                  done ? "bg-amber-400 text-[#000435] shadow-md shadow-amber-400/30"
-                    : active ? "bg-[#000435] border-2 border-amber-400 text-amber-400 shadow-lg shadow-amber-400/15"
-                    : "bg-white/5 border border-white/15 text-white/30"
-                }`}
-                style={active ? { animation: "pulseAmber 2.2s ease-in-out infinite" } : {}}
-              >
-                {done ? <Check size={15} strokeWidth={3} /> : <s.icon size={14} />}
+              <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center transition-all duration-300 border-2 ${
+                done
+                  ? "bg-amber-400 border-amber-400 text-white shadow-md shadow-amber-200"
+                  : active
+                  ? "bg-white border-amber-400 text-amber-500 shadow-sm"
+                  : "bg-white border-gray-200 text-gray-400"
+              }`}>
+                {done ? <Check size={14} strokeWidth={3} /> : <s.icon size={14} />}
               </div>
-              <span className={`text-[8px] sm:text-[9px] font-black uppercase tracking-[.06em] text-center leading-none hidden xs:block max-w-[56px] truncate ${
-                done ? "text-amber-400" : active ? "text-white" : "text-white/30"
+              <span className={`text-[8px] sm:text-[9px] font-black uppercase tracking-[.06em] text-center leading-none max-w-[56px] truncate ${
+                done ? "text-amber-500" : active ? "text-[#000435]" : "text-gray-400"
               }`}>{s.short}</span>
             </div>
             {i < STEPS.length - 1 && (
-              <div className="flex-1 h-0.5 mx-0.5 sm:mx-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.1)" }}>
-                <div className="h-full rounded-full bg-amber-400 transition-all duration-500" style={{ width: done ? "100%" : active ? "50%" : "0%" }} />
+              <div className="flex-1 h-0.5 mx-0.5 sm:mx-1.5 rounded-full overflow-hidden bg-gray-200">
+                <div className="h-full rounded-full bg-amber-400 transition-all duration-500" style={{ width: done ? "100%" : "0%" }} />
               </div>
             )}
           </div>
@@ -252,12 +250,12 @@ function pickPreferredModelForPackage(voucher, shoeState) {
 function Field({ label, required, error, hint, children }) {
   return (
     <div>
-      <label className="block text-[10px] font-black uppercase tracking-[.1em] text-white/40 mb-2">
-        {label}{required && <span className="text-amber-400 ml-0.5">*</span>}
+      <label className="block text-[10px] font-black uppercase tracking-[.1em] text-gray-400 mb-2">
+        {label}{required && <span className="text-amber-500 ml-0.5">*</span>}
       </label>
       {children}
-      {error && <p className="text-[11px] text-red-400 font-semibold mt-1.5">{error}</p>}
-      {hint && !error && <p className="text-[11px] text-white/35 mt-1.5">{hint}</p>}
+      {error && <p className="text-[11px] text-red-500 font-semibold mt-1.5">{error}</p>}
+      {hint && !error && <p className="text-[11px] text-gray-400 mt-1.5">{hint}</p>}
     </div>
   );
 }
@@ -303,9 +301,9 @@ function Input({ value, onChange, placeholder, type = "text", icon: Icon, classN
   const [focused, setFocused] = useState(false);
   return (
     <div className={`flex items-center gap-2.5 rounded-xl border transition-all ${
-      focused ? "border-amber-400 bg-amber-400/5 shadow-lg shadow-amber-400/10" : "border-white/15 bg-white/5 hover:border-white/25"
+      focused ? "border-amber-400 bg-amber-50 shadow-sm" : "border-gray-200 bg-white hover:border-gray-300"
     } px-3.5 h-12`}>
-      {Icon && <Icon size={15} className={focused ? "text-amber-400" : "text-white/35"} />}
+      {Icon && <Icon size={15} className={focused ? "text-amber-500" : "text-gray-400"} />}
       <input
         type={type}
         value={value}
@@ -317,7 +315,7 @@ function Input({ value, onChange, placeholder, type = "text", icon: Icon, classN
           setFocused(false);
           onBlurProp?.(e);
         }}
-        className={`flex-1 bg-transparent text-white text-[14px] font-semibold placeholder:text-white/25 outline-none ${className}`}
+        className={`flex-1 bg-transparent text-[#000435] text-[14px] font-semibold placeholder:text-gray-400 outline-none ${className}`}
       />
     </div>
   );
@@ -330,13 +328,13 @@ function Select({ value, onChange, children, disabled = false }) {
         value={value}
         onChange={onChange}
         disabled={disabled}
-        className={`w-full h-12 rounded-xl border border-white/15 bg-white/5 text-white text-[13px] font-bold px-4 outline-none appearance-none transition-all ${
-          disabled ? "opacity-60 cursor-not-allowed" : "hover:border-white/25 focus:border-amber-400 focus:bg-amber-400/5 cursor-pointer"
+        className={`w-full h-12 rounded-xl border border-gray-200 bg-white text-[#000435] text-[13px] font-bold px-4 outline-none appearance-none transition-all ${
+          disabled ? "opacity-50 cursor-not-allowed bg-gray-50" : "hover:border-gray-300 focus:border-amber-400 focus:bg-amber-50 cursor-pointer"
         }`}
       >
         {children}
       </select>
-      <ChevronRight size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none rotate-90" />
+      <ChevronRight size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none rotate-90" />
     </div>
   );
 }
@@ -400,12 +398,12 @@ function ShoeImageLightbox({ preview, onClose }) {
 
 function NavBtns({ onBack, onNext, nextLabel = "Continue", nextDisabled = false, nextLoading = false }) {
   return (
-    <div className="flex items-center gap-3 pt-5 mt-1 border-t border-white/8">
+    <div className="flex items-center gap-3 pt-5 mt-1 border-t border-gray-100">
       {onBack && (
         <button
           type="button"
           onClick={onBack}
-          className="flex items-center gap-2 px-4 py-3 rounded-xl border border-white/15 text-white/60 font-bold text-[13px] hover:border-white/30 hover:text-white transition-all min-h-[48px]"
+          className="flex items-center gap-2 px-4 py-3 rounded-xl border border-gray-200 text-gray-500 font-bold text-[13px] hover:border-gray-300 hover:text-[#000435] transition-all min-h-[48px]"
         >
           <ArrowLeft size={15} /> Back
         </button>
@@ -416,8 +414,8 @@ function NavBtns({ onBack, onNext, nextLabel = "Continue", nextDisabled = false,
         disabled={nextDisabled || nextLoading}
         className={`flex-1 sm:flex-none sm:ml-auto flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-black text-[14px] min-h-[48px] transition-all ${
           nextDisabled || nextLoading
-            ? "bg-white/8 text-white/25 cursor-not-allowed"
-            : "bg-amber-400 text-[#000435] hover:bg-amber-300 shadow-xl shadow-amber-400/20 active:scale-[.98]"
+            ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+            : "bg-[#000435] text-white hover:bg-[#000635] shadow-lg active:scale-[.98]"
         }`}
       >
         {nextLoading && <Loader2 size={16} className="spin-anim" />}
@@ -452,6 +450,12 @@ export default function PublicShoesVoucherFlow() {
   const [defaultServiceId, setDefaultServiceId] = useState(null);
 
   const [studentCode, setStudentCode] = useState("");
+  useEffect(() => {
+    const fromUrl = String(searchParams.get("code") || "").trim();
+    if (!fromUrl) return;
+    setStudentCode(fromUrl);
+  }, [searchParams]);
+
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quoteErr, setQuoteErr] = useState("");
   const [quote, setQuote] = useState(null);
@@ -951,7 +955,7 @@ export default function PublicShoesVoucherFlow() {
   };
 
   return (
-    <div className="min-h-screen bg-[#000435]" style={{ fontFamily: FONT }}>
+    <div className="min-h-screen bg-gray-50" style={{ fontFamily: FONT }}>
       <FontLoader />
 
       <SizeUnavailableToast
@@ -962,47 +966,49 @@ export default function PublicShoesVoucherFlow() {
 
       <ShoeImageLightbox preview={shoeImagePreview} onClose={closeShoePreview} />
 
-      <div className="sticky top-0 z-20 bg-[#000435]/95 backdrop-blur-xl border-b-[3px] border-amber-400">
+      <div className="sticky top-0 z-20 bg-white border-b border-gray-100 shadow-sm">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center gap-3">
-          <Link to="/services" className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/6 border border-white/12 text-white/60 font-bold text-[12px] hover:bg-white/10 hover:text-white transition-all">
+          <Link to="/services" className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-600 font-bold text-[12px] hover:bg-gray-50 hover:text-[#000435] transition-all">
             <ArrowLeft size={14} /> Services
           </Link>
           <div className="flex items-center gap-2 ml-1">
-            <Footprints size={14} className="text-amber-400" />
-            <span className="font-black text-[12px] sm:text-[13px] text-white/90 uppercase tracking-widest">Shoes Voucher</span>
+            <div className="w-8 h-8 rounded-xl bg-amber-400 flex items-center justify-center shadow-sm shadow-amber-200">
+              <Footprints size={15} className="text-[#000435]" />
+            </div>
           </div>
-          <div className="flex items-center gap-1.5 ml-auto text-[11px] font-bold text-amber-400">
-            <ShieldCheck size={14} />
+          <div className="flex items-center gap-1.5 ml-auto text-[12px] font-bold text-[#000435]">
+            <ShieldCheck size={15} className="text-amber-500" />
             <span className="hidden sm:inline">Secure</span>
           </div>
         </div>
+        <div className="h-[3px] bg-amber-400" />
       </div>
 
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-        <div className="mb-7 sm:mb-8">
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-400/10 border border-amber-400/25 px-3 py-1.5 mb-4">
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
+        <div className="mb-7 sm:mb-8 text-center">
+          <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200 px-3.5 py-1.5 mb-4">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-            <span className="text-[10px] font-black uppercase tracking-[.12em] text-amber-400">Babyeyi Services</span>
+            <span className="text-[10px] font-black uppercase tracking-[.12em] text-amber-600">Babyeyi Services</span>
           </div>
-          <h1 className="font-black text-white text-[24px] sm:text-[28px] tracking-tight leading-tight mb-2">
-            Shoes Voucher <span className="text-amber-400">Service</span>
+          <h1 className="font-black text-[#000435] text-[24px] sm:text-[28px] tracking-tight leading-tight mb-2">
+            Shoes Voucher <span className="text-amber-500">Service</span>
           </h1>
-          <p className="text-white/45 text-[13px] sm:text-[14px] max-w-lg">
+          <p className="text-gray-400 text-[13px] sm:text-[14px] max-w-lg mx-auto">
             Enter student code, choose shoe details and package, pick your local agent, then delivery and payment — same secure checkout as school fees.
           </p>
         </div>
 
-        <div className="rounded-2xl xl:rounded-3xl bg-white/4 border border-amber-400/20 overflow-hidden shadow-2xl shadow-black/30">
-          <div className="px-5 sm:px-6 py-5 border-b border-white/8 bg-[#000435]/50">
+        <div className="rounded-2xl bg-white border border-gray-100 overflow-hidden shadow-lg">
+          <div className="px-5 sm:px-8 py-5 border-b-2 border-amber-400">
             <StepIndicator current={step} />
           </div>
 
-          <div className="px-5 sm:px-6 py-6">
+          <div className="px-5 sm:px-8 py-6">
             {/* Step 1 */}
             {step === 1 && (
               <div key={stepKey} className="step-in">
-                <h2 className="font-black text-white text-[18px] sm:text-[20px] mb-1.5">Student lookup</h2>
-                <p className="text-white/45 text-[13px] mb-5">Official student code, UID, or SDM ID.</p>
+                <h2 className="font-black text-[#000435] text-[18px] sm:text-[20px] mb-1.5">Student lookup</h2>
+                <p className="text-gray-400 text-[13px] mb-5">Official student code, UID, or SDM ID.</p>
                 {catalogLoading && (
                   <div className="flex justify-center py-10">
                     <Loader2 className="spin-anim text-amber-400" size={36} />
@@ -1045,19 +1051,19 @@ export default function PublicShoesVoucherFlow() {
             {/* Step 2 */}
             {step === 2 && (
               <div key={stepKey} className="step-in">
-                <h2 className="font-black text-white text-[18px] sm:text-[20px] mb-1">Shoe details</h2>
-                <p className="text-white/45 text-[13px] mb-5">Size, gender, category, and quantity. You will choose the shoe model in the next step after picking a package.</p>
-                <div className="rounded-xl border border-amber-400/25 bg-amber-400/8 p-4 mb-5 fade-in">
+                <h2 className="font-black text-[#000435] text-[18px] sm:text-[20px] mb-1">Shoe details</h2>
+                <p className="text-gray-400 text-[13px] mb-5">Size, gender, category, and quantity. You will choose the shoe model in the next step after picking a package.</p>
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 mb-5 fade-in">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-amber-400/20 border border-amber-400/30 flex items-center justify-center font-black text-[13px] text-amber-400">
+                    <div className="w-10 h-10 rounded-xl bg-amber-100 border border-amber-200 flex items-center justify-center font-black text-[13px] text-amber-600">
                       {`${student.first_name || " "}`[0]}
                       {`${student.last_name || " "}`[0]}
                     </div>
                     <div>
-                      <p className="font-black text-white text-[15px]">
+                      <p className="font-black text-[#000435] text-[15px]">
                         {student.first_name} {student.last_name}
                       </p>
-                      <p className="text-[12px] text-white/45">
+                      <p className="text-[12px] text-gray-400">
                         {student.school_name || "—"} · {student.class_name || "—"}
                       </p>
                     </div>
@@ -1125,15 +1131,15 @@ export default function PublicShoesVoucherFlow() {
             {/* Step 3 */}
             {step === 3 && (
               <div key={stepKey} className="step-in">
-                <h2 className="font-black text-white text-[18px] sm:text-[20px] mb-1">Package, price &amp; model</h2>
-                {quoteErr && <p className="text-[13px] text-red-400 mb-3">{quoteErr}</p>}
+                <h2 className="font-black text-[#000435] text-[18px] sm:text-[20px] mb-1">Package, price &amp; model</h2>
+                {quoteErr && <p className="text-[13px] text-red-500 mb-3">{quoteErr}</p>}
                 {priceQuoteLoading ? (
                   <div className="flex justify-center py-16">
-                    <Loader2 className="spin-anim text-amber-400" size={36} />
+                    <Loader2 className="spin-anim text-amber-500" size={36} />
                   </div>
                 ) : (
                   <>
-                    <p className="text-[10px] font-black uppercase tracking-[.1em] text-white/35 mb-2">1 · Shoes model</p>
+                    <p className="text-[10px] font-black uppercase tracking-[.1em] text-gray-400 mb-2">1 · Shoes model</p>
                     <Field label="Shoes Model" required>
                       <Select
                         value={selectedShoesModelSlug || ""}
@@ -1154,23 +1160,23 @@ export default function PublicShoesVoucherFlow() {
                       </Select>
                     </Field>
                     {!selectedShoesModelSlug && (
-                      <p className="text-[12px] text-amber-200/85 mb-4 font-semibold">
+                      <p className="text-[12px] text-amber-700 mb-4 font-semibold">
                         Select Mentor, Bata Toughes, or Crabkids to see shoes your school listed for that line (same assignment as Super Admin → Shoes Voucher).
                       </p>
                     )}
 
                     {selectedShoesModelSlug && packagesForStep3.length === 0 && (
-                      <p className="text-[13px] text-white/45 mb-4 rounded-xl border border-white/10 bg-white/5 px-3 py-3">
+                      <p className="text-[13px] text-gray-400 mb-4 rounded-xl border border-gray-200 bg-gray-50 px-3 py-3">
                         No shoes are available for this model yet. Ask your administrator to publish shoe packages and assign a Shoes Model, or try another model.
                       </p>
                     )}
 
                     {packagesForStep3.length > 0 && (
                       <>
-                        <p className="text-[10px] font-black uppercase tracking-[.1em] text-white/35 mb-2 mt-1">2 · Available shoes</p>
-                        <p className="text-[12px] text-white/40 mb-3">
+                        <p className="text-[10px] font-black uppercase tracking-[.1em] text-gray-400 mb-2 mt-1">2 · Available shoes</p>
+                        <p className="text-[12px] text-gray-400 mb-3">
                           Use the checkboxes to add shoes to your package — you can select{" "}
-                          <span className="text-amber-400/95 font-bold">multiple</span>. Quantity from the previous step applies to each selected line.
+                          <span className="text-amber-500 font-bold">multiple</span>. Quantity from the previous step applies to each selected line.
                         </p>
                         <div className="flex flex-col gap-3 mb-4">
                           {packagesForStep3.map((v) => {
@@ -1182,8 +1188,8 @@ export default function PublicShoesVoucherFlow() {
                                 key={v.id}
                                 className={`flex flex-row gap-3 sm:gap-4 rounded-2xl border-2 p-3 sm:p-3.5 transition-all touch-manipulation ${
                                   sel
-                                    ? "border-amber-400 bg-amber-400/10 shadow-lg shadow-amber-400/12 ring-1 ring-amber-400/15"
-                                    : "border-white/12 bg-white/5 hover:border-amber-400/40"
+                                    ? "border-amber-400 bg-amber-50 shadow-sm"
+                                    : "border-gray-200 bg-gray-50 hover:border-amber-300"
                                 }`}
                               >
                                 <button
@@ -1191,7 +1197,7 @@ export default function PublicShoesVoucherFlow() {
                                   onClick={() =>
                                     setShoeImagePreview({ src: packageHeroImage(v), label: v.name })
                                   }
-                                  className="group relative w-[88px] h-[88px] sm:w-[100px] sm:h-[100px] shrink-0 rounded-xl bg-white/10 overflow-hidden ring-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#000435]"
+                                  className="group relative w-[88px] h-[88px] sm:w-[100px] sm:h-[100px] shrink-0 rounded-xl bg-gray-100 overflow-hidden ring-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
                                   aria-label={`Enlarge photo: ${v.name}`}
                                   title="Tap to enlarge"
                                 >
@@ -1215,13 +1221,13 @@ export default function PublicShoesVoucherFlow() {
                                   </span>
                                 </button>
                                 <div className="flex-1 min-w-0 flex flex-col justify-center gap-1 pr-1">
-                                  <p className="font-black text-white text-[14px] sm:text-[15px] leading-snug">{v.name}</p>
+                                  <p className="font-black text-[#000435] text-[14px] sm:text-[15px] leading-snug">{v.name}</p>
                                   {v.short_tagline ? (
-                                    <p className="text-[11px] font-bold text-amber-400/80 truncate">{v.short_tagline}</p>
+                                    <p className="text-[11px] font-bold text-amber-600/80 truncate">{v.short_tagline}</p>
                                   ) : null}
-                                  <p className="text-[13px] sm:text-[14px] font-black text-amber-400 tabular-nums">
+                                  <p className="text-[13px] sm:text-[14px] font-black text-amber-500 tabular-nums">
                                     Price: {frw(v.price_from)}
-                                    {q > 1 ? <span className="text-white/45 font-semibold text-[12px]"> × {q} = {frw(lineTotal)}</span> : null}
+                                    {q > 1 ? <span className="text-gray-400 font-semibold text-[12px]"> × {q} = {frw(lineTotal)}</span> : null}
                                   </p>
                                 </div>
                                 <label className="flex flex-col items-center justify-center gap-1.5 shrink-0 cursor-pointer select-none min-w-[72px]">
@@ -1232,9 +1238,9 @@ export default function PublicShoesVoucherFlow() {
                                       togglePackageSelect(v);
                                       setQuoteErr("");
                                     }}
-                                    className="h-5 w-5 rounded border-2 border-white/35 bg-[#000435] text-amber-400 focus:ring-2 focus:ring-amber-400/50 focus:ring-offset-0 focus:ring-offset-transparent cursor-pointer accent-amber-400"
+                                    className="h-5 w-5 rounded border-2 border-gray-300 bg-white text-amber-400 focus:ring-2 focus:ring-amber-400/50 cursor-pointer accent-amber-400"
                                   />
-                                  <span className="text-[10px] font-black uppercase tracking-[.08em] text-white/50">Select</span>
+                                  <span className="text-[10px] font-black uppercase tracking-[.08em] text-gray-400">Select</span>
                                 </label>
                               </div>
                             );
@@ -1242,26 +1248,26 @@ export default function PublicShoesVoucherFlow() {
                         </div>
 
                         {selectedPackages.length > 0 && (
-                          <div className="rounded-xl border border-amber-400/30 bg-amber-400/6 p-4 mb-3 space-y-3">
-                            <p className="text-[10px] font-black uppercase tracking-[.12em] text-amber-400/95">Selected items</p>
+                          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 mb-3 space-y-3">
+                            <p className="text-[10px] font-black uppercase tracking-[.12em] text-amber-600">Selected items</p>
                             <ul className="space-y-2">
                               {selectedPackages.map((p) => {
                                 const q = Math.max(1, Number(shoe.quantity || 1));
                                 const lineTot = Math.max(0, Number(p.price_from || 0)) * q;
                                 return (
-                                  <li key={p.id} className="flex justify-between gap-3 text-[13px] text-white/90">
+                                  <li key={p.id} className="flex justify-between gap-3 text-[13px] text-[#000435]">
                                     <span className="flex items-start gap-2 min-w-0">
-                                      <Check className="text-amber-400 shrink-0 mt-0.5" size={16} strokeWidth={2.5} aria-hidden />
+                                      <Check className="text-amber-500 shrink-0 mt-0.5" size={16} strokeWidth={2.5} aria-hidden />
                                       <span className="leading-snug">{p.name}</span>
                                     </span>
-                                    <span className="font-bold text-amber-400/95 tabular-nums shrink-0">{frw(lineTot)}</span>
+                                    <span className="font-bold text-amber-500 tabular-nums shrink-0">{frw(lineTot)}</span>
                                   </li>
                                 );
                               })}
                             </ul>
-                            <div className="border-t border-amber-400/25 pt-3 flex flex-col xs:flex-row xs:items-center xs:justify-between gap-1">
-                              <span className="text-[13px] font-black text-white">Total</span>
-                              <span className="text-[18px] font-black text-amber-400 tabular-nums">{frw(baseAmount)}</span>
+                            <div className="border-t border-amber-200 pt-3 flex flex-col xs:flex-row xs:items-center xs:justify-between gap-1">
+                              <span className="text-[13px] font-black text-[#000435]">Total</span>
+                              <span className="text-[18px] font-black text-amber-500 tabular-nums">{frw(baseAmount)}</span>
                             </div>
                           </div>
                         )}
@@ -1270,10 +1276,10 @@ export default function PublicShoesVoucherFlow() {
 
                     {selectedPackages.length === 1 && modelOptionsForSelected.length > 1 && (
                       <>
-                        <p className="text-[10px] font-black uppercase tracking-[.1em] text-white/35 mb-2">
+                        <p className="text-[10px] font-black uppercase tracking-[.1em] text-gray-400 mb-2">
                           3 · Choose shoe style
                         </p>
-                        <p className="text-[12px] text-white/40 mb-3">Tap the style that matches this package.</p>
+                        <p className="text-[12px] text-gray-400 mb-3">Tap the style that matches this package.</p>
                         <div className="grid sm:grid-cols-3 gap-3 mb-6">
                           {modelOptionsForSelected.map((m) => {
                             const sel = shoe.preferredModel === m.id;
@@ -1283,15 +1289,15 @@ export default function PublicShoesVoucherFlow() {
                                 type="button"
                                 onClick={() => setShoe((p) => ({ ...p, preferredModel: m.id }))}
                                 className={`rounded-xl border-2 text-left overflow-hidden transition-all ${
-                                  sel ? "border-amber-400 bg-amber-400/10 shadow-lg shadow-amber-400/10" : "border-white/12 bg-white/5 hover:border-white/25"
+                                  sel ? "border-amber-400 bg-amber-50 shadow-sm" : "border-gray-200 bg-gray-50 hover:border-gray-300"
                                 }`}
                               >
-                                <div className="aspect-[4/3] bg-white/10 overflow-hidden">
+                                <div className="aspect-[4/3] bg-gray-100 overflow-hidden">
                                   <img src={m.src} alt={`${m.name} shoe`} className="w-full h-full object-cover" loading="lazy" />
                                 </div>
                                 <div className="p-3">
-                                  <p className="font-black text-white text-[13px]">{m.name}</p>
-                                  <p className="text-[11px] text-white/40">{m.blurb}</p>
+                                  <p className="font-black text-[#000435] text-[13px]">{m.name}</p>
+                                  <p className="text-[11px] text-gray-400">{m.blurb}</p>
                                 </div>
                               </button>
                             );
@@ -1344,8 +1350,8 @@ export default function PublicShoesVoucherFlow() {
             {/* Step 4 — Agent */}
             {step === 4 && (
               <div key={stepKey} className="step-in">
-                <h2 className="font-black text-white text-[18px] sm:text-[20px] mb-1">Find your agent</h2>
-                <p className="text-white/45 text-[13px] mb-5">
+                <h2 className="font-black text-[#000435] text-[18px] sm:text-[20px] mb-1">Find your agent</h2>
+                <p className="text-gray-400 text-[13px] mb-5">
                   Match province and district to your school. Sector is optional — leave it blank to see all agents in the district.
                 </p>
                 <div className="grid sm:grid-cols-2 gap-3 mb-4">
@@ -1353,9 +1359,7 @@ export default function PublicShoesVoucherFlow() {
                     <Select value={locProvince} onChange={(e) => setLocProvince(e.target.value)} disabled={geoLoading}>
                       <option value="">Choose…</option>
                       {provinces.map((p) => (
-                        <option key={p} value={p}>
-                          {p}
-                        </option>
+                        <option key={p} value={p}>{p}</option>
                       ))}
                     </Select>
                   </Field>
@@ -1363,9 +1367,7 @@ export default function PublicShoesVoucherFlow() {
                     <Select value={locDistrict} onChange={(e) => setLocDistrict(e.target.value)} disabled={!locProvince || geoLoading}>
                       <option value="">Choose…</option>
                       {districts.map((d) => (
-                        <option key={d} value={d}>
-                          {d}
-                        </option>
+                        <option key={d} value={d}>{d}</option>
                       ))}
                     </Select>
                   </Field>
@@ -1373,9 +1375,7 @@ export default function PublicShoesVoucherFlow() {
                     <Select value={locSector} onChange={(e) => setLocSector(e.target.value)} disabled={!locDistrict || geoLoading}>
                       <option value="">Any sector in district</option>
                       {sectors.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
+                        <option key={s} value={s}>{s}</option>
                       ))}
                     </Select>
                   </Field>
@@ -1383,13 +1383,13 @@ export default function PublicShoesVoucherFlow() {
 
                 {agentsLoading && (
                   <div className="flex justify-center py-8">
-                    <Loader2 className="spin-anim text-amber-400" size={32} />
+                    <Loader2 className="spin-anim text-amber-500" size={32} />
                   </div>
                 )}
                 {!agentsLoading && locProvince && locDistrict && (
                   <div className="space-y-2 mb-6">
                     {agents.length === 0 ? (
-                      <p className="text-[13px] text-white/40">No agents match this location. Try another sector or contact support.</p>
+                      <p className="text-[13px] text-gray-400">No agents match this location. Try another sector or contact support.</p>
                     ) : (
                       agents.map((a) => {
                         const sel = selectedAgent?.id === a.id;
@@ -1399,16 +1399,16 @@ export default function PublicShoesVoucherFlow() {
                             type="button"
                             onClick={() => setSelectedAgent(a)}
                             className={`w-full text-left rounded-xl border px-4 py-3 transition-all ${
-                              sel ? "border-amber-400 bg-amber-400/10" : "border-white/12 bg-white/5 hover:border-white/25"
+                              sel ? "border-amber-400 bg-amber-50" : "border-gray-200 bg-gray-50 hover:border-gray-300"
                             }`}
                           >
-                            <p className="font-black text-white">{a.full_name || `${a.first_name} ${a.last_name}`}</p>
-                            <p className="text-[11px] text-amber-200/80 mt-1">
+                            <p className="font-black text-[#000435]">{a.full_name || `${a.first_name} ${a.last_name}`}</p>
+                            <p className="text-[11px] text-amber-600/80 mt-1">
                               {a.district}
                               {a.all_sectors ? " · All sectors" : Array.isArray(a.sectors) && a.sectors.length ? ` · ${a.sectors.join(", ")}` : ""}
                             </p>
                             {(a.phone || a.email) && (
-                              <p className="text-[11px] text-white/45 mt-1">
+                              <p className="text-[11px] text-gray-400 mt-1">
                                 {a.phone}
                                 {a.email ? ` · ${a.email}` : ""}
                               </p>
@@ -1427,8 +1427,8 @@ export default function PublicShoesVoucherFlow() {
             {/* Step 5 — Delivery */}
             {step === 5 && (
               <div key={stepKey} className="step-in">
-                <h2 className="font-black text-white text-[18px] sm:text-[20px] mb-1">Collection or delivery</h2>
-                <p className="text-white/45 text-[13px] mb-5">After your agent, choose how shoes reach the family.</p>
+                <h2 className="font-black text-[#000435] text-[18px] sm:text-[20px] mb-1">Collection or delivery</h2>
+                <p className="text-gray-400 text-[13px] mb-5">After your agent, choose how shoes reach the family.</p>
                 <div className="grid sm:grid-cols-3 gap-3 mb-5">
                   {[
                     { id: "school_collection", label: "At school", Icon: Building2, desc: "Deliver to school" },
@@ -1445,12 +1445,12 @@ export default function PublicShoesVoucherFlow() {
                       type="button"
                       onClick={() => setDelivery((p) => ({ ...p, method: normalizeMethod(o.id) }))}
                       className={`rounded-xl border-2 p-4 text-left transition-all ${
-                        delivery.method === normalizeMethod(o.id) ? "border-amber-400 bg-amber-400/10" : "border-white/12 bg-white/5"
+                        delivery.method === normalizeMethod(o.id) ? "border-amber-400 bg-amber-50" : "border-gray-200 bg-gray-50"
                       }`}
                     >
-                      <o.Icon size={20} className="text-amber-400" />
-                      <p className="font-black text-[13px] text-white mt-2">{o.label}</p>
-                      <p className="text-[11px] text-white/40">{o.desc}</p>
+                      <o.Icon size={20} className="text-amber-500" />
+                      <p className="font-black text-[13px] text-[#000435] mt-2">{o.label}</p>
+                      <p className="text-[11px] text-gray-400">{o.desc}</p>
                     </button>
                   ))}
                 </div>
@@ -1475,23 +1475,23 @@ export default function PublicShoesVoucherFlow() {
             {/* Step 6 — Review */}
             {step === 6 && (
               <div key={stepKey} className="step-in">
-                <h2 className="font-black text-white text-[18px] sm:text-[20px] mb-4">Review</h2>
-                <div className="rounded-xl border border-amber-400/25 bg-amber-400/6 p-4 mb-4 space-y-2 text-[13px]">
+                <h2 className="font-black text-[#000435] text-[18px] sm:text-[20px] mb-4">Review</h2>
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 mb-4 space-y-2 text-[13px]">
                   <div className="flex justify-between gap-2">
-                    <span className="text-white/45">Student</span>
-                    <span className="text-white font-bold text-right">
+                    <span className="text-gray-400">Student</span>
+                    <span className="text-[#000435] font-bold text-right">
                       {student.first_name} {student.last_name}
                     </span>
                   </div>
                   <div className="flex justify-between gap-2 items-start">
-                    <span className="text-white/45 shrink-0">Shoes</span>
-                    <span className="text-white font-bold text-right max-w-[65%] text-[12px] leading-snug">
+                    <span className="text-gray-400 shrink-0">Shoes</span>
+                    <span className="text-[#000435] font-bold text-right max-w-[65%] text-[12px] leading-snug">
                       {selectedPackages.map((p) => p.name).join(" · ")}
                     </span>
                   </div>
                   <div className="flex justify-between gap-2 items-start">
-                    <span className="text-white/45 shrink-0">Styles</span>
-                    <span className="text-white font-bold text-right max-w-[65%] text-[12px] leading-snug">
+                    <span className="text-gray-400 shrink-0">Styles</span>
+                    <span className="text-[#000435] font-bold text-right max-w-[65%] text-[12px] leading-snug">
                       {selectedPackages.length === 1
                         ? modelOptionsForSelected.find((x) => x.id === shoe.preferredModel)?.name || shoe.preferredModel || "—"
                         : selectedPackages
@@ -1504,22 +1504,22 @@ export default function PublicShoesVoucherFlow() {
                     </span>
                   </div>
                   <div className="flex justify-between gap-2">
-                    <span className="text-white/45">Category / size</span>
-                    <span className="text-white font-bold text-right">
+                    <span className="text-gray-400">Category / size</span>
+                    <span className="text-[#000435] font-bold text-right">
                       {shoe.category} · {shoe.size}
                     </span>
                   </div>
                   <div className="flex justify-between gap-2">
-                    <span className="text-white/45">Agent</span>
-                    <span className="text-white font-bold text-right">{selectedAgent?.full_name}</span>
+                    <span className="text-gray-400">Agent</span>
+                    <span className="text-[#000435] font-bold text-right">{selectedAgent?.full_name}</span>
                   </div>
                   <div className="flex justify-between gap-2">
-                    <span className="text-white/45">Delivery</span>
-                    <span className="text-white font-bold text-right">{delivery.method.replace(/_/g, " ")}</span>
+                    <span className="text-gray-400">Delivery</span>
+                    <span className="text-[#000435] font-bold text-right">{delivery.method.replace(/_/g, " ")}</span>
                   </div>
-                  <div className="border-t border-amber-400/20 pt-3 mt-2 flex justify-between items-center">
-                    <span className="font-black text-white">Total</span>
-                    <span className="font-black text-amber-400 text-[20px]">{frw(total)}</span>
+                  <div className="border-t border-amber-200 pt-3 mt-2 flex justify-between items-center">
+                    <span className="font-black text-[#000435]">Total</span>
+                    <span className="font-black text-amber-500 text-[20px]">{frw(total)}</span>
                   </div>
                 </div>
                 <NavBtns

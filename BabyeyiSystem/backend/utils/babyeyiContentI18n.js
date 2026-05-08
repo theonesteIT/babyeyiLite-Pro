@@ -325,6 +325,167 @@ async function buildAndPersistContentI18n(bid, { query, fetchLeaders }) {
   return bundle;
 }
 
+function emptyTriplet(en = "") {
+  const e = String(en ?? "");
+  return { en: e, rw: "", fr: "" };
+}
+
+/** Keep stored rw/fr when re-aligning to current English source rows. */
+function mergeTripletPreserve(oldT, freshT) {
+  const o = oldT && typeof oldT === "object" ? oldT : {};
+  const f = freshT && typeof freshT === "object" ? freshT : emptyTriplet();
+  return {
+    en: f.en != null ? String(f.en) : "",
+    rw: o.rw != null && String(o.rw).trim() !== "" ? String(o.rw) : f.rw != null ? String(f.rw) : "",
+    fr: o.fr != null && String(o.fr).trim() !== "" ? String(o.fr) : f.fr != null ? String(f.fr) : "",
+  };
+}
+
+/**
+ * Build a v3 bundle skeleton from current English DB rows (no machine translation).
+ */
+function buildFreshV3BundleFromContext(ctx) {
+  return {
+    v: 3,
+    sourceLang: "en",
+    generatedAt: new Date().toISOString(),
+    status: "complete",
+    parentMessage: emptyTriplet(ctx.parentMessage),
+    payments: (ctx.payments || []).map((p) => ({
+      name: emptyTriplet(p.name),
+    })),
+    requirements: (ctx.requirements || []).map((r) => ({
+      item: emptyTriplet(r.item),
+      description: emptyTriplet(r.description || ""),
+    })),
+    classNotes: (ctx.classNotes || []).map((c) => ({
+      item: emptyTriplet(c.item),
+      details: emptyTriplet(c.details || ""),
+    })),
+    otherInfos: (ctx.otherInfos || []).map((c) => ({
+      item: emptyTriplet(c.item),
+      details: emptyTriplet(""),
+    })),
+    leaders: (ctx.leaders || []).map((l) => ({
+      role: emptyTriplet(l.role || l.leader_role || ""),
+    })),
+  };
+}
+
+function mergeOldBundleIntoFresh(fresh, old) {
+  if (!old || old.v !== 3) return fresh;
+  fresh.parentMessage = mergeTripletPreserve(old.parentMessage, fresh.parentMessage);
+  for (let i = 0; i < fresh.payments.length; i++) {
+    if (old.payments?.[i]?.name) {
+      fresh.payments[i].name = mergeTripletPreserve(old.payments[i].name, fresh.payments[i].name);
+    }
+  }
+  for (let i = 0; i < fresh.requirements.length; i++) {
+    if (old.requirements?.[i]) {
+      const o = old.requirements[i];
+      fresh.requirements[i] = {
+        item: mergeTripletPreserve(o.item, fresh.requirements[i].item),
+        description: mergeTripletPreserve(o.description, fresh.requirements[i].description),
+      };
+    }
+  }
+  for (let i = 0; i < fresh.classNotes.length; i++) {
+    if (old.classNotes?.[i]) {
+      const o = old.classNotes[i];
+      fresh.classNotes[i] = {
+        item: mergeTripletPreserve(o.item, fresh.classNotes[i].item),
+        details: mergeTripletPreserve(o.details, fresh.classNotes[i].details),
+      };
+    }
+  }
+  for (let i = 0; i < fresh.otherInfos.length; i++) {
+    if (old.otherInfos?.[i]) {
+      const o = old.otherInfos[i];
+      fresh.otherInfos[i] = {
+        item: mergeTripletPreserve(o.item, fresh.otherInfos[i].item),
+        details: mergeTripletPreserve(o.details || emptyTriplet(""), fresh.otherInfos[i].details),
+      };
+    }
+  }
+  for (let i = 0; i < fresh.leaders.length; i++) {
+    if (old.leaders?.[i]?.role) {
+      fresh.leaders[i].role = mergeTripletPreserve(old.leaders[i].role, fresh.leaders[i].role);
+    }
+  }
+  return fresh;
+}
+
+/**
+ * Apply manager Kinyarwanda overrides. Only fields present in `patches` are updated.
+ * @param {object} patches
+ * @param {string} [patches.parentMessage]
+ * @param {Array<{index:number,name?:string}>} [patches.payments]
+ * @param {Array<{index:number,item?:string,description?:string}>} [patches.requirements]
+ * @param {Array<{index:number,item?:string,details?:string}>} [patches.classNotes]
+ * @param {Array<{index:number,item?:string}>} [patches.otherInfos]
+ * @param {Array<{index:number,role?:string}>} [patches.leaders]
+ */
+function applyRwPatches(bundle, patches) {
+  if (!patches || typeof patches !== "object") return;
+  if (patches.parentMessage !== undefined && patches.parentMessage !== null) {
+    if (!bundle.parentMessage || typeof bundle.parentMessage !== "object") {
+      bundle.parentMessage = emptyTriplet();
+    }
+    bundle.parentMessage.rw = String(patches.parentMessage);
+  }
+  if (Array.isArray(patches.payments)) {
+    for (const p of patches.payments) {
+      const i = Number(p.index);
+      if (!Number.isFinite(i) || i < 0 || !bundle.payments[i]) continue;
+      if (p.name !== undefined) bundle.payments[i].name.rw = String(p.name);
+    }
+  }
+  if (Array.isArray(patches.requirements)) {
+    for (const p of patches.requirements) {
+      const i = Number(p.index);
+      if (!Number.isFinite(i) || i < 0 || !bundle.requirements[i]) continue;
+      if (p.item !== undefined) bundle.requirements[i].item.rw = String(p.item);
+      if (p.description !== undefined) bundle.requirements[i].description.rw = String(p.description);
+    }
+  }
+  if (Array.isArray(patches.classNotes)) {
+    for (const p of patches.classNotes) {
+      const i = Number(p.index);
+      if (!Number.isFinite(i) || i < 0 || !bundle.classNotes[i]) continue;
+      if (p.item !== undefined) bundle.classNotes[i].item.rw = String(p.item);
+      if (p.details !== undefined) bundle.classNotes[i].details.rw = String(p.details);
+    }
+  }
+  if (Array.isArray(patches.otherInfos)) {
+    for (const p of patches.otherInfos) {
+      const i = Number(p.index);
+      if (!Number.isFinite(i) || i < 0 || !bundle.otherInfos[i]) continue;
+      if (p.item !== undefined) bundle.otherInfos[i].item.rw = String(p.item);
+    }
+  }
+  if (Array.isArray(patches.leaders)) {
+    for (const p of patches.leaders) {
+      const i = Number(p.index);
+      if (!Number.isFinite(i) || i < 0 || !bundle.leaders[i]) continue;
+      if (p.role !== undefined) bundle.leaders[i].role.rw = String(p.role);
+    }
+  }
+}
+
+/**
+ * Merge persisted content_i18n with current English rows, then apply RW edits.
+ */
+function mergeRwPatchesIntoContentI18nBundle(existingRaw, ctx, patches) {
+  const fresh = buildFreshV3BundleFromContext(ctx);
+  const old = parseContentI18n(existingRaw);
+  let bundle = mergeOldBundleIntoFresh(fresh, old);
+  applyRwPatches(bundle, patches);
+  bundle.generatedAt = new Date().toISOString();
+  bundle.status = "manual";
+  if (bundle.errors) delete bundle.errors;
+  return bundle;
+}
+
 module.exports = {
   LANGS,
   normalizeLang,
@@ -336,4 +497,6 @@ module.exports = {
   mergeLocalizedBabyeyiPayload,
   mergeClassRequirementsFromI18n,
   buildAndPersistContentI18n,
+  mergeRwPatchesIntoContentI18nBundle,
+  buildFreshV3BundleFromContext,
 };

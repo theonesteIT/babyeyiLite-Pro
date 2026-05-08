@@ -177,9 +177,9 @@ export function useLocationCascade(province, district, sector, cell) {
 }
 
 
-const inputCls = "w-full h-9 bg-re-bg rounded-lg px-3 outline-none border border-transparent focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-re-text text-[9px] sm:text-[10px] font-black tracking-tight shadow-inner placeholder:text-re-text-muted/40";
+const inputCls = "w-full h-9 bg-re-bg rounded-lg px-3 outline-none border border-transparent focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-re-text text-[9px] sm:text-[10px] font-semibold tracking-tight shadow-inner placeholder:text-re-text-muted/40";
 const selectCls = `${inputCls} cursor-pointer appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236b7280%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:10px_10px] bg-no-repeat bg-[position:right_1rem_center] pr-10`;
-const labelCls = "block text-[9px] font-black text-[#1E3A5F] uppercase tracking-[0.2em] mb-1.5 opacity-80";
+const labelCls = "block text-[9px] font-semibold text-[#1E3A5F] uppercase tracking-[0.2em] mb-1.5 opacity-80";
 
 function FormField({ label, required, children }) {
   return (
@@ -371,7 +371,7 @@ export default function StudentWizardModal({ open, onClose, session, toast, onSu
                             <Settings size={16} className="animate-spin-slow" />
                         </div>
                         <div>
-                            <h1 className="text-[11px] font-black text-white uppercase tracking-widest leading-none">{isEdit ? 'Refine Institutional Record' : 'Register Student Identity'}</h1>
+                            <h1 className="text-[11px] font-semibold text-white uppercase tracking-widest leading-none">{isEdit ? 'Refine Institutional Record' : 'Register Student Identity'}</h1>
                             <p className="text-[7px] font-bold text-white/40 uppercase tracking-tight mt-1">{session?.schoolName || "Global Registry"} · Wizard</p>
                         </div>
                     </div>
@@ -393,8 +393,8 @@ export default function StudentWizardModal({ open, onClose, session, toast, onSu
                                         {step > s.id ? <CheckCircle2 size={12} /> : <s.icon size={10} />}
                                     </div>
                                     <div className="text-left hidden lg:block">
-                                        <p className={`text-[6px] font-black uppercase tracking-widest leading-none mb-0.5 text-white/40`}>Phase 0{s.id}</p>
-                                        <p className="text-[8px] font-black text-white tracking-tight">{s.label}</p>
+                                        <p className={`text-[6px] font-semibold uppercase tracking-widest leading-none mb-0.5 text-white/40`}>Phase 0{s.id}</p>
+                                        <p className="text-[8px] font-semibold text-white tracking-tight">{s.label}</p>
                                     </div>
                                 </button>
                                 {idx < STEPS.length - 1 && <div className="w-3 h-px bg-white/10 mx-1.5" />}
@@ -423,9 +423,9 @@ export default function StudentWizardModal({ open, onClose, session, toast, onSu
                               <div role="switch" onClick={() => set("autoId", !form.autoId)} className={`w-12 h-6 rounded-full transition-colors relative cursor-pointer ${form.autoId ? "bg-[#1E3A5F]" : "bg-black/10"}`}>
                                 <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform ${form.autoId ? "translate-x-6 bg-re-gold" : "translate-x-0.5"}`} />
                               </div>
-                              <span className="text-[10px] font-black text-re-text uppercase tracking-widest">Auto-Gen ID</span>
+                              <span className="text-[10px] font-semibold text-re-text uppercase tracking-widest">Auto-Gen ID</span>
                             </label>
-                            <input type="text" placeholder={form.autoId ? "Assign automatically generated UID..." : "Enter strict student ID"} value={form.student_uid} onChange={e => set("student_uid", e.target.value)} disabled={form.autoId} className="w-full sm:flex-1 h-10 rounded-xl border border-transparent bg-white px-4 text-[10px] font-black uppercase tracking-widest text-[#1E3A5F] placeholder:text-re-text-muted/40 disabled:bg-re-bg disabled:opacity-50 focus:border-[#1E3A5F]/20 focus:shadow-inner outline-none transition-all shadow-sm" />
+                            <input type="text" placeholder={form.autoId ? "Assign automatically generated UID..." : "Enter strict student ID"} value={form.student_uid} onChange={e => set("student_uid", e.target.value)} disabled={form.autoId} className="w-full sm:flex-1 h-10 rounded-xl border border-transparent bg-white px-4 text-[10px] font-semibold uppercase tracking-widest text-[#1E3A5F] placeholder:text-re-text-muted/40 disabled:bg-re-bg disabled:opacity-50 focus:border-[#1E3A5F]/20 focus:shadow-inner outline-none transition-all shadow-sm" />
                           </div>
 
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -480,8 +480,8 @@ export default function StudentWizardModal({ open, onClose, session, toast, onSu
                                 <MapPin size={14} className="text-[#1E3A5F]" />
                               </div>
                               <div>
-                                <h3 className="text-[11px] sm:text-xs font-black uppercase tracking-tight text-[#1E3A5F]">Residence Details</h3>
-                                <p className="text-[8px] sm:text-[9px] uppercase font-black text-re-text-muted mt-0.5 opacity-60 tracking-widest">Geographic location tracking</p>
+                                <h3 className="text-[11px] sm:text-xs font-semibold uppercase tracking-tight text-[#1E3A5F]">Residence Details</h3>
+                                <p className="text-[8px] sm:text-[9px] uppercase font-semibold text-re-text-muted mt-0.5 opacity-60 tracking-widest">Geographic location tracking</p>
                               </div>
                             </div>
                             
@@ -499,13 +499,13 @@ export default function StudentWizardModal({ open, onClose, session, toast, onSu
                       {step === 3 && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 animate-in slide-in-from-right-4">
                           <div className="rounded-lg border border-black/5 bg-re-bg/30 p-4 space-y-3 shadow-sm">
-                            <p className="text-[9px] font-black text-[#1E3A5F] uppercase tracking-widest border-b border-black/10 pb-2">Father / Guardian Details</p>
+                            <p className="text-[9px] font-semibold text-[#1E3A5F] uppercase tracking-widest border-b border-black/10 pb-2">Father / Guardian Details</p>
                             <input type="text" className={inputCls} placeholder="Full name" value={form.father_full_name} onChange={e => set("father_full_name", e.target.value)} />
                             <input type="tel" className={inputCls} placeholder="Phone: 07xxxxxxxx" value={form.father_phone} onChange={e => set("father_phone", e.target.value)} />
                             <input type="email" className={inputCls} placeholder="Email" value={form.father_email} onChange={e => set("father_email", e.target.value)} />
                           </div>
                           <div className="rounded-lg border border-black/5 bg-re-bg/30 p-4 space-y-3 shadow-sm">
-                            <p className="text-[10px] font-black text-[#1E3A5F] uppercase tracking-widest border-b border-black/10 pb-2">Mother / Guardian Details</p>
+                            <p className="text-[10px] font-semibold text-[#1E3A5F] uppercase tracking-widest border-b border-black/10 pb-2">Mother / Guardian Details</p>
                             <input type="text" className={inputCls} placeholder="Full name" value={form.mother_full_name} onChange={e => set("mother_full_name", e.target.value)} />
                             <input type="tel" className={inputCls} placeholder="Phone: 07xxxxxxxx" value={form.mother_phone} onChange={e => set("mother_phone", e.target.value)} />
                             <input type="email" className={inputCls} placeholder="Email" value={form.mother_email} onChange={e => set("mother_email", e.target.value)} />
@@ -516,7 +516,7 @@ export default function StudentWizardModal({ open, onClose, session, toast, onSu
                       {step === 4 && (
                         <div className="space-y-3 animate-in slide-in-from-right-4">
                           <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
-                            <p className="text-[9px] font-black text-amber-800 uppercase tracking-wider">Optional step</p>
+                            <p className="text-[9px] font-semibold text-amber-800 uppercase tracking-wider">Optional step</p>
                             <p className="text-[10px] text-amber-700 mt-1">
                               Profile photo, RFID UID, fingerprint ID, and remarks are optional. You can save now and edit these fields later anytime.
                             </p>
@@ -524,7 +524,7 @@ export default function StudentWizardModal({ open, onClose, session, toast, onSu
                           <div className="flex flex-col sm:flex-row gap-4">
                             {/* Photo Upload Section */}
                             <div className="w-full sm:w-1/3 flex flex-col items-center">
-                              <label className="text-[8px] font-black text-[#1E3A5F] uppercase tracking-[0.2em] mb-1.5 self-start opacity-80">Profile Portrait (Optional)</label>
+                              <label className="text-[8px] font-semibold text-[#1E3A5F] uppercase tracking-[0.2em] mb-1.5 self-start opacity-80">Profile Portrait (Optional)</label>
                               <div className="relative group cursor-pointer w-28 h-28 rounded-2xl overflow-hidden border-2 border-dashed border-[#1E3A5F]/20 hover:border-re-gold transition-colors bg-re-bg flex flex-col justify-center items-center">
                                 <input type="file" disabled={loading} accept="image/png, image/jpeg" className="absolute inset-0 opacity-0 cursor-pointer z-10" onChange={handlePhotoChange} />
                                 {(photoPreview || editStudent?.student_photo_url) ? (
@@ -572,18 +572,18 @@ export default function StudentWizardModal({ open, onClose, session, toast, onSu
             <div className="bg-white border-t border-black/5 px-5 sm:px-6 py-2 flex items-center justify-between shrink-0 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
                 <div className="flex items-center gap-2">
                      <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-                     <p className="text-[7px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-30 italic hidden sm:block">Automated Validation Active</p>
+                     <p className="text-[7px] font-semibold text-re-text-muted uppercase tracking-[0.2em] opacity-30 italic hidden sm:block">Automated Validation Active</p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <button type="button" onClick={step === 1 ? onClose : prevStep} disabled={loading} className="h-9 px-4 rounded-lg border border-black/5 text-re-navy font-black text-[9px] uppercase tracking-widest hover:bg-re-bg transition-all active:scale-95 disabled:opacity-50">
+                    <button type="button" onClick={step === 1 ? onClose : prevStep} disabled={loading} className="h-9 px-4 rounded-lg border border-black/5 text-re-navy font-medium text-[9px] uppercase tracking-widest hover:bg-re-bg transition-all active:scale-95 disabled:opacity-50">
                       {step === 1 ? "Cancel" : "Back"}
                     </button>
                     {step < 4 ? (
-                      <button type="button" onClick={nextStep} disabled={loading} className="h-9 px-6 rounded-lg bg-re-grad-navy text-white font-black text-[9px] uppercase tracking-widest shadow-re-premium-navy hover:scale-[1.02] active:scale-95 transition-all flex items-center gap-1.5 disabled:opacity-50">
+                      <button type="button" onClick={nextStep} disabled={loading} className="h-9 px-6 rounded-lg bg-re-grad-navy text-white font-medium text-[9px] uppercase tracking-widest shadow-re-premium-navy active:scale-95 transition-all flex items-center gap-1.5 disabled:opacity-50">
                           Continue <ChevronRight size={14} />
                       </button>
                     ) : (
-                      <button type="button" onClick={handleSubmit} disabled={loading} className="h-9 px-6 rounded-lg bg-re-gold text-[#1E3A5F] font-black text-[9px] uppercase tracking-widest shadow-md shadow-re-gold/30 hover:scale-[1.02] active:scale-95 transition-all flex items-center gap-1.5 overflow-hidden relative disabled:opacity-50">
+                      <button type="button" onClick={handleSubmit} disabled={loading} className="h-9 px-6 rounded-lg bg-re-gold text-[#1E3A5F] font-medium text-[9px] uppercase tracking-widest shadow-md shadow-re-gold/30 active:scale-95 transition-all flex items-center gap-1.5 overflow-hidden relative disabled:opacity-50">
                         {loading ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
                         {loading ? "Transmitting..." : isEdit ? "Save Profile" : "Register Now"}
                       </button>

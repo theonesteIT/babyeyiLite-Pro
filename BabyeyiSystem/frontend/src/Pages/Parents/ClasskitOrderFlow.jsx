@@ -2,8 +2,8 @@
 // ClasskitOrderFlow.jsx — Shulekit / Classkit multi-step order (demo)
 // ================================================================
 
-import { useState, useMemo, useEffect } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useState, useMemo, useEffect, useRef } from "react";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
   Home as HomeIcon,
@@ -20,10 +20,19 @@ import {
   Plus,
 } from "lucide-react";
 import AddChildModal from "../../components/Parents/AddChildModal";
+import ClasskitShareOtpPanel from "../../components/Parents/ClasskitShareOtpPanel";
 import { useMergedParentChildren } from "../../hooks/useMergedParentChildren";
 import { normalizeChildForUi } from "../../utils/parentLocalChildren";
 import { useParentShell } from "../../context/ParentShellContext";
-import { addParentOrder } from "../../utils/parentOrderHistory";
+import { upsertParentKitOrder } from "../../utils/parentOrderHistory";
+import {
+  buildPaymentsStateFromResumePayload,
+  encodeKitResumePayload,
+  minimalResumePayload,
+  resolveResumePayload,
+  saveResumePayloadToDisk,
+  stripResumeHashFromUrl,
+} from "../../utils/kitOrderResume";
 import { useAuth } from "../../context/AuthContext";
 
 const STEPS = [
@@ -48,8 +57,11 @@ export default function ClasskitOrderFlow() {
   const auth = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const { merged, loading, error, refreshLocal } = useMergedParentChildren();
-  const { addNotification } = useParentShell();
+  const { upsertNotification } = useParentShell();
+
+  const kitLabelUi = searchParams.get("kit") === "shule" ? "shulekit" : "classkit";
 
   const [step, setStep] = useState(1);
   const [addOpen, setAddOpen] = useState(false);
@@ -65,6 +77,172 @@ export default function ClasskitOrderFlow() {
   const [matchedFromPublicDraft, setMatchedFromPublicDraft] = useState(false);
   const [quickPreselectApplied, setQuickPreselectApplied] = useState(false);
   const [quickPaySkipApplied, setQuickPaySkipApplied] = useState(false);
+  const [guestShareCheckout, setGuestShareCheckout] = useState(() => {
+    try {
+      return sessionStorage.getItem("by_ck_guest_share") === "1";
+    } catch {
+      return false;
+    }
+  });
+  const [cksGateOpen, setCksGateOpen] = useState(false);
+  const [cksGateBundle, setCksGateBundle] = useState(null);
+
+  const resumeTokenRef = useRef(null);
+  const applyingResumeRef = useRef(false);
+  const persistSkipRef = useRef(false);
+  const pendingResumeSelectionRef = useRef(null);
+  const kitResumeAppliedRef = useRef(false);
+
+  /** @returns {string} Stable token per in-progress kit order */
+  const ensureResumeToken = () => {
+    if (!resumeTokenRef.current)
+      resumeTokenRef.current = `ck-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    return resumeTokenRef.current;
+  };
+
+  /** Same-tab encoded resume (#d=) or ?resume= localStorage */
+  const [resumeEntry] = useState(() =>
+    typeof window !== "undefined"
+      ? resolveResumePayload(new URLSearchParams(window.location.search), window.location.hash)
+      : null,
+  );
+  const kitResumePayload = resumeEntry?.payload && resumeEntry.payload.phase !== "payment" ? resumeEntry.payload : null;
+
+  useEffect(() => {
+    if (!resumeEntry || resumeEntry.source !== "encoded") return;
+    stripResumeHashFromUrl();
+  }, [resumeEntry]);
+
+  const payerMemo = useMemo(
+    () => ({
+      name: auth.user?.full_name || auth.user?.first_name || "Parent",
+      phone: auth.user?.parent_phone || null,
+      email: auth.user?.email || auth.user?.father_email || auth.user?.mother_email || null,
+    }),
+    [auth.user],
+  );
+
+  useEffect(() => {
+    const plainCksStart = typeof window !== "undefined" ? String(new URLSearchParams(window.location.search).get("cks") || "").trim() : "";
+    if (plainCksStart) return;
+    if (!resumeEntry?.payload || resumeEntry.payload.phase !== "payment") return;
+    let cancelled = false;
+    (async () => {
+      try {
+        let useGuestPricing = guestShareCheckout;
+        try {
+          useGuestPricing = useGuestPricing || sessionStorage.getItem("by_ck_guest_share") === "1";
+        } catch {
+          /* ignore */
+        }
+        const st = await buildPaymentsStateFromResumePayload(resumeEntry.payload, API, payerMemo, {
+          useGuestShare: useGuestPricing,
+        });
+        if (cancelled || !st) return;
+        try {
+          sessionStorage.setItem("babyeyi_pay_draft", JSON.stringify(st));
+        } catch {
+          /* ignore */
+        }
+        navigate("/payments", { state: st, replace: true });
+      } catch {
+        applyingResumeRef.current = false;
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [resumeEntry, payerMemo, navigate, guestShareCheckout]);
+
+  useEffect(() => {
+    const raw = String(searchParams.get("cks") || "").trim();
+    if (!raw) return undefined;
+
+    /** No ref gate: React Strict Mode remount leaves ref=true and skips this effect forever — /start never runs. */
+    const ac = new AbortController();
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const r = await fetch(`${API}/api/public/classkit-share/start`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token: raw }),
+          signal: ac.signal,
+        });
+        const j = await r.json().catch(() => ({}));
+        if (cancelled) return;
+        if (!r.ok || !j.success) {
+          navigate("/parents/services", { replace: true });
+          return;
+        }
+        if (!j.otp_required) {
+          try {
+            sessionStorage.setItem("by_ck_guest_share", "1");
+          } catch {
+            /* ignore */
+          }
+          setGuestShareCheckout(true);
+          setCksGateOpen(false);
+          const sid = Number(j.student_id);
+          if (Number.isFinite(sid) && sid > 0) {
+            setSelectedChild({
+              id: sid,
+              first_name: "Student",
+              last_name: "",
+              school_id: null,
+              _guest_ck: true,
+            });
+            applyServerSnapshotSelections(j.snapshot);
+          }
+          const qs = new URLSearchParams(location.search);
+          qs.delete("cks");
+          navigate(
+            {
+              pathname: location.pathname,
+              search: qs.toString() ? `?${qs.toString()}` : "",
+              hash: location.hash || "",
+            },
+            { replace: true },
+          );
+          return;
+        }
+        setCksGateBundle({
+          token: raw,
+          gate: {
+            masked_email: j.masked_email,
+            phone_tail: j.phone_tail,
+            channels: j.channels || {},
+            otp_ttl_minutes: j.otp_ttl_minutes,
+          },
+        });
+        setCksGateOpen(true);
+      } catch (e) {
+        if (e?.name === "AbortError") return;
+        if (!cancelled) navigate("/parents/services", { replace: true });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      ac.abort();
+    };
+  }, [searchParams, navigate, location.pathname, location.search, location.hash]);
+
+  function applyServerSnapshotSelections(snapshot) {
+    const snap = snapshot && typeof snapshot === "object" ? snapshot : {};
+    if (snap.delivery === "home" || snap.delivery === "school") setDelivery(snap.delivery);
+    if (snap.payment === "loan" || snap.payment === "momo") setPayment(snap.payment);
+    const stp = Number(snap.step);
+    if (Number.isFinite(stp)) setStep(Math.min(4, Math.max(2, stp)));
+    pendingResumeSelectionRef.current = {
+      feeIds: Array.isArray(snap.feeIds) ? snap.feeIds : [],
+      reqIds: Array.isArray(snap.reqIds) ? snap.reqIds : [],
+    };
+    persistSkipRef.current = true;
+    applyingResumeRef.current = true;
+  }
 
   useEffect(() => {
     if (step >= 2 && step <= 4 && !selectedChild) setStep(1);
@@ -78,9 +256,11 @@ export default function ClasskitOrderFlow() {
     childUi?.grade_label ||
     childUi?.displayGrade ||
     "P4";
+  const effectiveKitUi = kitResumePayload?.kitLabel === "shulekit" || kitLabelUi === "shulekit";
+  const displayKitTier = effectiveKitUi ? "ShuleKit" : "ClassKit";
   const kitTitle = gradeLabel.match(/^P/i)
-    ? `Primary ${gradeLabel.replace(/^P/i, "")} Classkit`
-    : `${gradeLabel} Classkit`;
+    ? `Primary ${gradeLabel.replace(/^P/i, "")} ${displayKitTier}`
+    : `${gradeLabel} ${displayKitTier}`;
   const feeLines = pricingData?.school_fees || [];
   const reqLines = pricingData?.requirements || [];
   const feeSelectedRows = feeLines.filter((f) => selectedItems.has(makeFeeId(f.id)));
@@ -92,6 +272,9 @@ export default function ClasskitOrderFlow() {
   }, [feeSelectedRows, reqSelectedRows]);
   const deliveryFee = delivery === "home" ? HOME_DELIVERY_FEE : 0;
   const grandTotal = subtotal + deliveryFee;
+  const cksQuery = String(searchParams.get("cks") || "").trim();
+  /** After open: /start runs; Strict Mode-safe (no stale ref). Until OTP modal opens or guest unlocks — avoid empty child list UX. */
+  const awaitingShareBootstrap = Boolean(cksQuery) && !guestShareCheckout && !cksGateOpen;
   const isQuickPayFlow = !!location?.state?.fromQuickPay;
   const filteredChildren = useMemo(() => {
     const q = String(childQuery || "").trim().toLowerCase();
@@ -168,7 +351,9 @@ export default function ClasskitOrderFlow() {
     }
     try {
       sessionStorage.removeItem("babyeyi_quickpay_selected_student_id");
-    } catch {}
+    } catch {
+      /* ignore quota / privacy mode */
+    }
     setQuickPreselectApplied(true);
   }, [merged, location?.state, quickPreselectApplied]);
 
@@ -201,6 +386,29 @@ export default function ClasskitOrderFlow() {
     setQuickPaySkipApplied(true);
   }, [isQuickPayFlow, quickPaySkipApplied, selectedChild, pricingData]);
 
+  useEffect(() => {
+    if (!kitResumePayload || kitResumeAppliedRef.current || !Array.isArray(merged) || merged.length === 0) return;
+    const sid = Number(kitResumePayload.studentId);
+    if (!Number.isFinite(sid) || sid <= 0) return;
+    const child = merged.find((c) => String(c?.id) === String(sid));
+    if (!child) return;
+    if (resumeEntry?.token) resumeTokenRef.current = resumeEntry.token;
+    kitResumeAppliedRef.current = true;
+    applyingResumeRef.current = true;
+    persistSkipRef.current = true;
+    setSelectedChild(child);
+    const st = Number(kitResumePayload.step);
+    setStep(Number.isFinite(st) ? Math.min(4, Math.max(2, st)) : 2);
+    setDelivery(kitResumePayload.delivery === "home" ? "home" : "school");
+    setPayment(kitResumePayload.payment === "loan" ? "loan" : "momo");
+    pendingResumeSelectionRef.current = {
+      feeIds: kitResumePayload.feeIds || [],
+      reqIds: kitResumePayload.reqIds || [],
+    };
+  }, [kitResumePayload, merged, resumeEntry?.token]);
+
+  const selectionFingerprint = useMemo(() => [...selectedItems].sort().join("|"), [selectedItems]);
+
   const toggleItem = (idKey) => {
     setSelectedItems((prev) => {
       const next = new Set(prev);
@@ -220,7 +428,11 @@ export default function ClasskitOrderFlow() {
         return;
       }
       const studentId = Number(selectedChild?.id);
-      const isSchoolChild = Number.isFinite(studentId) && studentId > 0 && !!selectedChild?.school_id;
+      const allowGuestPricing = guestShareCheckout && selectedChild._guest_ck;
+      const isSchoolChild =
+        Number.isFinite(studentId) &&
+        studentId > 0 &&
+        (!!selectedChild?.school_id || allowGuestPricing);
       if (!isSchoolChild) {
         setPricingData(null);
         setSelectedItems(new Set());
@@ -230,7 +442,11 @@ export default function ClasskitOrderFlow() {
       setPricingLoading(true);
       setPricingError(null);
       try {
-        const res = await fetch(`${API}/api/parent-portal/classkit-pricing?student_id=${encodeURIComponent(studentId)}`, {
+        const pricingUrl =
+          guestShareCheckout
+            ? `${API}/api/public/classkit-share/pricing?student_id=${encodeURIComponent(studentId)}`
+            : `${API}/api/parent-portal/classkit-pricing?student_id=${encodeURIComponent(studentId)}`;
+        const res = await fetch(pricingUrl, {
           credentials: "include",
         });
         const json = await res.json().catch(() => ({}));
@@ -247,8 +463,22 @@ export default function ClasskitOrderFlow() {
           school_fees: json.data?.school_fees || [],
           requirements: json.data?.requirements || [],
           totals: json.data?.totals || {},
+          student: json.data?.student || null,
         };
         setPricingData(data);
+        if (selectedChild?._guest_ck && data.student) {
+          const s = data.student;
+          setSelectedChild({
+            ...selectedChild,
+            id: Number(s.id) || studentId,
+            school_id: s.school_id,
+            first_name: s.first_name,
+            last_name: s.last_name,
+            class_name: s.class_name,
+            academic_year: s.academic_year,
+            _guest_ck: false,
+          });
+        }
         const all = new Set();
         data.school_fees.forEach((f) => all.add(makeFeeId(f.id)));
         data.requirements.forEach((r) => all.add(makeReqId(r.babyeyi_requirement_id)));
@@ -267,7 +497,119 @@ export default function ClasskitOrderFlow() {
     return () => {
       cancelled = true;
     };
-  }, [selectedChild]);
+  }, [selectedChild, guestShareCheckout]);
+
+  useEffect(() => {
+    const pend = pendingResumeSelectionRef.current;
+    if (!pend || !pricingData?.babyeyi) return;
+    const feeSet = new Set((pend.feeIds || []).map((x) => Number(x)).filter(Number.isFinite));
+    const reqSet = new Set((pend.reqIds || []).map((x) => parseInt(String(x), 10)).filter((n) => Number.isFinite(n) && n > 0));
+    const next = new Set();
+    (pricingData.school_fees || []).forEach((f) => {
+      const id = Number(f.id);
+      if (feeSet.has(id)) next.add(makeFeeId(f.id));
+    });
+    (pricingData.requirements || []).forEach((r) => {
+      const id = Number(r.babyeyi_requirement_id);
+      if (reqSet.has(id)) next.add(makeReqId(r.babyeyi_requirement_id));
+    });
+    if (next.size > 0) setSelectedItems(next);
+    pendingResumeSelectionRef.current = null;
+    applyingResumeRef.current = false;
+    persistSkipRef.current = false;
+  }, [pricingData]);
+
+  useEffect(() => {
+    if (persistSkipRef.current || applyingResumeRef.current) return;
+    if (step < 2 || !selectedChild || !pricingData?.babyeyi) return;
+    const sid = Number(selectedChild.id);
+    if (!Number.isFinite(sid) || sid <= 0) return;
+    const t = window.setTimeout(() => {
+      void (async () => {
+      if (persistSkipRef.current || applyingResumeRef.current) return;
+      const feeIds = feeSelectedRows.map((f) => f.id);
+      const reqIds = reqSelectedRows.map((r) => r.babyeyi_requirement_id);
+      const token = ensureResumeToken();
+      const minimal = minimalResumePayload({
+        kitLabel: effectiveKitUi ? "shulekit" : "classkit",
+        phase: "kit",
+        step,
+        studentId: sid,
+        feeIds,
+        reqIds,
+        delivery,
+        payment,
+      });
+      saveResumePayloadToDisk(token, minimal);
+      const origin = typeof window !== "undefined" ? window.location.origin : "";
+      const enc = encodeKitResumePayload(minimal);
+      const qs = new URLSearchParams();
+      qs.set("resume", token);
+      if (effectiveKitUi) qs.set("kit", "shule");
+      const resumeUrlSameDevice = `${origin}/parents/classkit?${qs.toString()}`;
+      let cksTok = "";
+      if (!guestShareCheckout) {
+        try {
+          const resReg = await fetch(`${API}/api/parent-portal/classkit-share-token`, {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ student_id: sid, snapshot: minimal }),
+          });
+          const jr = await resReg.json().catch(() => ({}));
+          if (resReg.ok && jr.success && jr.data?.token) cksTok = String(jr.data.token);
+        } catch {
+          /* ignore */
+        }
+      }
+      const shareUrlPortable = cksTok
+        ? `${origin}/parents/classkit?${[
+            effectiveKitUi ? "kit=shule" : "",
+            `cks=${encodeURIComponent(cksTok)}`,
+          ].filter(Boolean).join("&")}`
+        : `${origin}/parents/classkit${effectiveKitUi ? "?kit=shule" : ""}#d=${enc}`;
+      upsertParentKitOrder({
+        id: `ord-${token}`,
+        resumeToken: token,
+        type: effectiveKitUi ? "shulekit" : "classkit",
+        status: "incomplete",
+        childName: `${childUi?.first_name || ""} ${childUi?.last_name || ""}`.trim(),
+        kitTitle,
+        totalRwf: grandTotal,
+        delivery,
+        payment,
+        resumePayload: minimal,
+      });
+      upsertNotification({
+        id: `incomplete-kit-${token}`,
+        kind: "incomplete_kit_order",
+        title: `Incomplete ${displayKitTier} order`,
+        body: `You have not finished yet. Continue here, copy the link for later, or share on WhatsApp.`,
+        resumeUrl: resumeUrlSameDevice,
+        shareUrl: shareUrlPortable,
+        createdAt: new Date().toISOString(),
+        read: false,
+      });
+      })();
+    }, 420);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- feeSelections reflected in selectionFingerprint + debounced snapshot
+  }, [
+    step,
+    delivery,
+    payment,
+    selectedChild?.id,
+    pricingData?.babyeyi?.id,
+    selectionFingerprint,
+    effectiveKitUi,
+    displayKitTier,
+    kitTitle,
+    grandTotal,
+    childUi?.first_name,
+    childUi?.last_name,
+    upsertNotification,
+    guestShareCheckout,
+  ]);
 
   const goBack = () => {
     if (step <= 1) {
@@ -277,7 +619,7 @@ export default function ClasskitOrderFlow() {
     setStep((s) => s - 1);
   };
 
-  const completeOrder = () => {
+  const completeOrder = async () => {
     if (!childUi || !pricingData?.babyeyi || grandTotal <= 0) return;
     const childName = `${childUi.first_name} ${childUi.last_name}`.trim();
     const selectedFeeIds = feeSelectedRows.map((f) => f.id);
@@ -296,21 +638,69 @@ export default function ClasskitOrderFlow() {
       academic_year: childUi.academic_year || null,
       school_name: childUi.school_name || pricingData?.student?.school_name || null,
     };
-    addParentOrder({
-      type: "classkit",
-      status: "pending",
+    const token = ensureResumeToken();
+    const minimalPay = minimalResumePayload({
+      kitLabel: effectiveKitUi ? "shulekit" : "classkit",
+      phase: "payment",
+      step: 4,
+      studentId: Number(selectedChild.id),
+      feeIds: selectedFeeIds,
+      reqIds: selectedReqIds,
+      delivery,
+      payment,
+    });
+    saveResumePayloadToDisk(token, minimalPay);
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const encPay = encodeKitResumePayload(minimalPay);
+    const qsDev = new URLSearchParams();
+    qsDev.set("resume", token);
+    if (effectiveKitUi) qsDev.set("kit", "shule");
+    const resumeUrlSameDevice = `${origin}/parents/classkit?${qsDev.toString()}`;
+    let shareUrlPortable = `${origin}/parents/classkit${effectiveKitUi ? "?kit=shule" : ""}#d=${encPay}`;
+    if (!guestShareCheckout) {
+      try {
+        const resReg = await fetch(`${API}/api/parent-portal/classkit-share-token`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ student_id: Number(selectedChild.id), snapshot: minimalPay }),
+        });
+        const jr = await resReg.json().catch(() => ({}));
+        if (resReg.ok && jr.success && jr.data?.token) {
+          shareUrlPortable = `${origin}/parents/classkit?${[
+            effectiveKitUi ? "kit=shule" : "",
+            `cks=${encodeURIComponent(jr.data.token)}`,
+          ].filter(Boolean).join("&")}`;
+        }
+      } catch {
+        /* keep hash fallback */
+      }
+    }
+
+    upsertParentKitOrder({
+      id: `ord-${token}`,
+      resumeToken: token,
+      type: effectiveKitUi ? "shulekit" : "classkit",
+      status: "pending_payment",
       childName,
       kitTitle,
       totalRwf: grandTotal,
       delivery,
       payment,
+      resumePayload: minimalPay,
     });
-    addNotification({
-      id: `notif-order-${Date.now()}`,
-      title: "Classkit order saved",
-      body: `${kitTitle} for ${childName} — ${grandTotal.toLocaleString()} RWF (${delivery === "school" ? "school" : "home"} delivery, ${payment === "loan" ? "loan" : "Mobile Money"}).`,
+
+    upsertNotification({
+      id: `incomplete-kit-${token}`,
+      kind: "incomplete_kit_order",
+      title: `${displayKitTier} — payment not completed`,
+      body: `Continue to pay (${grandTotal.toLocaleString()} RWF). Anyone with your link can open checkout on this browser — keep it private if you prefer.`,
+      resumeUrl: resumeUrlSameDevice,
+      shareUrl: shareUrlPortable,
       createdAt: new Date().toISOString(),
+      read: false,
     });
+
     navigate("/payments", {
       state: {
         schoolId: pricingData.babyeyi.school_id,
@@ -324,6 +714,7 @@ export default function ClasskitOrderFlow() {
         pricingSnapshot: pricingData,
         payer,
         selectedStudent,
+        classkitGuestCheckout: guestShareCheckout,
       },
     });
   };
@@ -366,7 +757,9 @@ export default function ClasskitOrderFlow() {
     </div>
   );
 
-  const HeaderBar = ({ title, subtitle, icon: Icon = BookOpen }) => (
+  const HeaderBar = ({ title, subtitle, icon }) => {
+    const TopIcon = icon || BookOpen;
+    return (
     <div
       className="-mx-4 sm:-mx-6 px-4 sm:px-6 pt-2 pb-6 mb-4 text-white rounded-b-3xl"
       style={{ background: "linear-gradient(135deg, #ea580c 0%, #f97316 50%, #fb923c 100%)" }}
@@ -383,7 +776,7 @@ export default function ClasskitOrderFlow() {
           </button>
           <div className="flex gap-3 min-w-0">
             <div className="w-11 h-11 rounded-xl bg-white/20 flex items-center justify-center shrink-0 border border-white/25">
-              <Icon className="w-6 h-6 text-white" />
+              <TopIcon className="w-6 h-6 text-white" />
             </div>
             <div className="min-w-0">
               <h1 className="text-lg sm:text-xl font-extrabold leading-tight">{title}</h1>
@@ -400,24 +793,68 @@ export default function ClasskitOrderFlow() {
         </Link>
       </div>
     </div>
-  );
+    );
+  };
 
   return (
-    <div className="-mx-4 sm:-mx-6 -mt-2">
+    <>
+      {cksGateOpen && cksGateBundle ? (
+        <ClasskitShareOtpPanel
+          apiBase={API}
+          plainToken={cksGateBundle.token}
+          gate={cksGateBundle.gate}
+          onVerified={(payload) => {
+            try {
+              sessionStorage.setItem("by_ck_guest_share", "1");
+            } catch {
+              /* ignore */
+            }
+            setGuestShareCheckout(true);
+            setCksGateOpen(false);
+            const sid = Number(payload.student_id);
+            if (Number.isFinite(sid) && sid > 0) {
+              setSelectedChild({
+                id: sid,
+                first_name: "Student",
+                last_name: "",
+                school_id: null,
+                _guest_ck: true,
+              });
+              applyServerSnapshotSelections(payload.snapshot);
+            }
+            const qs = new URLSearchParams(location.search);
+            qs.delete("cks");
+            navigate(
+              {
+                pathname: location.pathname,
+                search: qs.toString() ? `?${qs.toString()}` : "",
+                hash: location.hash || "",
+              },
+              { replace: true },
+            );
+          }}
+          onDismiss={() => navigate("/parents/services")}
+        />
+      ) : null}
+      <div className="-mx-4 sm:-mx-6 -mt-2">
       {step === 1 && (
         <HeaderBar
-          title="Order Classkit"
-          subtitle="Educational supplies for your child's success."
+          title={`Order ${displayKitTier}`}
+          subtitle={`Educational supplies for your child's success (${displayKitTier}).`}
         />
       )}
       {step === 2 && (
         <HeaderBar
-          title="Classkit selection"
+          title={`${displayKitTier} selection`}
           subtitle={childUi ? `Educational supplies for ${childUi.first_name} ${childUi.last_name}` : "Review your package"}
         />
       )}
       {step === 3 && (
-        <HeaderBar title="Delivery options" subtitle="Choose where to receive the classkit." icon={Truck} />
+        <HeaderBar
+          title="Delivery options"
+          subtitle={`Choose where to receive the ${displayKitTier.toLowerCase()}.`}
+          icon={Truck}
+        />
       )}
       {step === 4 && (
         <HeaderBar title="Payment options" subtitle="Choose how you want to pay." icon={Wallet} />
@@ -429,8 +866,17 @@ export default function ClasskitOrderFlow() {
       <div className="px-4 sm:px-6 max-w-3xl mx-auto pb-8">
         {step < 5 && <Stepper />}
 
-        {/* Step 1 — select child */}
-        {step === 1 && (
+        {/* Step 1 — select child (skipped messaging while shared link handshake runs) */}
+        {step === 1 && awaitingShareBootstrap && (
+          <div className="rounded-2xl border border-slate-100 bg-white p-12 text-center shadow-sm">
+            <p className="font-extrabold text-slate-900 text-base">Verifying your shared ClassKit link…</p>
+            <p className="text-sm text-slate-500 mt-3 max-w-sm mx-auto leading-relaxed">
+              If verification is needed, you&apos;ll see a secure code prompt. Keep this tab open.
+            </p>
+          </div>
+        )}
+
+        {step === 1 && !awaitingShareBootstrap && (
           <>
             {matchedFromPublicDraft && selectedChild && (
               <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 mb-3">
@@ -883,6 +1329,7 @@ export default function ClasskitOrderFlow() {
       </div>
 
       <AddChildModal open={addOpen} onClose={() => setAddOpen(false)} onSaved={refreshLocal} />
-    </div>
+      </div>
+    </>
   );
 }

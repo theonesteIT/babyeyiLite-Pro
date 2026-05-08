@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   Upload, Plus, Users, Loader2, CheckCircle2, AlertTriangle,
   Search, RefreshCw, Pencil, Trash2, FileSpreadsheet, FileText,
@@ -233,7 +233,7 @@ function StudentDetailModal({ student, onClose, onEdit }) {
     <div className="mb-4">
       <div className="flex items-center gap-2 mb-2">
         <Icon className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{title}</p>
+        <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">{title}</p>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">{children}</div>
     </div>
@@ -241,7 +241,7 @@ function StudentDetailModal({ student, onClose, onEdit }) {
 
   const Field = ({ label, value, warn }) => (
     <div className={`rounded-xl border px-3 py-2.5 sm:py-2 ${warn ? "border-red-200 bg-red-50" : "border-slate-100 bg-slate-50"}`}>
-      <p className={`text-[9px] uppercase tracking-widest font-black mb-0.5 ${warn ? "text-red-500" : "text-slate-400"}`}>{label}</p>
+      <p className={`text-[9px] uppercase tracking-widest font-semibold mb-0.5 ${warn ? "text-red-500" : "text-slate-400"}`}>{label}</p>
       <p className={`text-xs font-semibold break-words ${warn ? "text-red-700" : "text-slate-800"}`}>
         {value || (warn ? "⚠ Missing" : "—")}
       </p>
@@ -255,12 +255,12 @@ function StudentDetailModal({ student, onClose, onEdit }) {
       onClick={e => e.target === e.currentTarget && onClose()}
     >
       <div
-        className="w-full max-w-2xl sm:rounded-3xl bg-white shadow-2xl overflow-hidden flex flex-col min-h-0 h-full sm:h-auto sm:max-h-[90vh] max-h-[100dvh]"
+        className="w-full max-w-2xl sm:rounded-3xl bg-white shadow-sm overflow-hidden flex flex-col min-h-0 h-full sm:h-auto sm:max-h-[90vh] max-h-[100dvh]"
         onClick={e => e.stopPropagation()}
       >
         <div className="px-4 sm:px-5 py-3 sm:py-4 bg-gradient-to-r from-slate-900 to-slate-800 flex items-start sm:items-center justify-between gap-3 shrink-0 pt-[max(0.75rem,env(safe-area-inset-top))] sm:pt-4">
           <div className="min-w-0 flex-1">
-            <p className="text-white font-black text-sm sm:text-base">Student Profile</p>
+            <p className="text-white font-semibold text-sm sm:text-base">Student Profile</p>
             <p className="text-amber-300 text-[10px] sm:text-[11px] font-mono mt-0.5 break-words">
               {student.student_code || student.student_uid} · {student.first_name} {student.last_name}
             </p>
@@ -269,7 +269,7 @@ function StudentDetailModal({ student, onClose, onEdit }) {
             <button
               type="button"
               onClick={() => { onClose(); onEdit(student); }}
-              className="inline-flex items-center gap-1.5 px-3 py-2 min-h-[44px] sm:min-h-0 rounded-xl bg-amber-400 text-[11px] font-black text-slate-900 hover:bg-amber-300 touch-manipulation"
+              className="inline-flex items-center gap-1.5 px-3 py-2 min-h-[44px] sm:min-h-0 rounded-xl bg-amber-400 text-[11px] font-semibold text-slate-900 hover:bg-amber-300 touch-manipulation"
             >
               <Pencil className="w-3 h-3" /> Edit
             </button>
@@ -295,7 +295,7 @@ function StudentDetailModal({ student, onClose, onEdit }) {
                 )}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-black text-slate-700 uppercase tracking-wider">Identity Credentials</p>
+                <p className="text-xs font-semibold text-slate-700 uppercase tracking-wider">Identity Credentials</p>
                 <p className="text-[11px] text-slate-600 mt-1">
                   RFID UID: <span className="font-mono font-semibold text-slate-800">{student.rfid_uid || "—"}</span>
                 </p>
@@ -367,7 +367,7 @@ function StepIndicator({ step, totalSteps = 3 }) {
           return (
             <div key={label} className="flex items-start flex-1 min-w-0 last:flex-none">
               <div className="flex flex-col items-center gap-1.5 w-full max-w-[6.5rem] mx-auto">
-                <div className={`w-9 h-9 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-[11px] sm:text-[10px] font-black transition-all shrink-0
+                <div className={`w-9 h-9 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-[11px] sm:text-[10px] font-semibold transition-all shrink-0
                   ${done   ? "bg-emerald-500 text-white shadow-sm shadow-emerald-400/50"
                   : active ? "bg-amber-400  text-slate-900 shadow-sm shadow-amber-400/60 ring-2 ring-amber-200"
                   :          "bg-slate-100  text-slate-400"}`}>
@@ -398,7 +398,7 @@ function StepIndicator({ step, totalSteps = 3 }) {
 // ════════════════════════════════════════════════════════════════
 const inputCls = "w-full min-h-[44px] rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-base sm:text-sm text-slate-800 placeholder:text-slate-300 focus:border-amber-400 focus:ring-2 focus:ring-amber-200/60 outline-none transition-all";
 const selectCls = `${inputCls} cursor-pointer`;
-const labelCls = "block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1";
+const labelCls = "block text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-1";
 
 function FormField({ label, required, children }) {
   return (
@@ -658,7 +658,7 @@ function StudentWizardModal({ open, onClose, session, toast, onSuccess, editStud
       onClick={e => { if (e.target === e.currentTarget && !loading) onClose(); }}
     >
       <div
-        className="bg-white w-full max-w-xl flex flex-col overflow-hidden shadow-2xl rounded-t-[1.35rem] sm:rounded-3xl
+        className="bg-white w-full max-w-xl flex flex-col overflow-hidden shadow-sm rounded-t-[1.35rem] sm:rounded-3xl
           h-[100dvh] max-h-[100dvh] sm:h-auto sm:max-h-[min(95vh,900px)]"
         onClick={e => e.stopPropagation()}
       >
@@ -670,7 +670,7 @@ function StudentWizardModal({ open, onClose, session, toast, onSuccess, editStud
               <Users size={18} className="text-slate-900" />
             </div>
             <div className="min-w-0">
-              <h2 className="text-sm sm:text-base font-black text-white truncate">
+              <h2 className="text-sm sm:text-base font-semibold text-white truncate">
                 {isEdit ? "Edit Student" : "Register New Student"}
               </h2>
               <p className="text-[10px] text-amber-300 font-medium mt-0.5 truncate">
@@ -823,7 +823,7 @@ function StudentWizardModal({ open, onClose, session, toast, onSuccess, editStud
                     <MapPin className="w-5 h-5 text-slate-900" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h3 className="text-sm font-black text-slate-900 tracking-tight">Residence</h3>
+                    <h3 className="text-sm font-semibold text-slate-900 tracking-tight">Residence</h3>
                     <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
                       Where the student lives. Choose Province first — lower levels load automatically.
                     </p>
@@ -919,7 +919,7 @@ function StudentWizardModal({ open, onClose, session, toast, onSuccess, editStud
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Father */}
               <div className="rounded-2xl border border-slate-200 bg-white p-3 space-y-2.5">
-                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Father (optional)</p>
+                <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">Father (optional)</p>
                 <input
                   type="text"
                   className={inputCls}
@@ -944,7 +944,7 @@ function StudentWizardModal({ open, onClose, session, toast, onSuccess, editStud
               </div>
               {/* Mother */}
               <div className="rounded-2xl border border-slate-200 bg-white p-3 space-y-2.5">
-                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Mother (optional)</p>
+                <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">Mother (optional)</p>
                 <input
                   type="text"
                   className={inputCls}
@@ -988,7 +988,7 @@ function StudentWizardModal({ open, onClose, session, toast, onSuccess, editStud
                 type="button"
                 onClick={nextStep}
                 disabled={loading}
-                className="inline-flex items-center justify-center gap-1.5 min-h-[48px] sm:min-h-0 px-5 py-3 sm:py-2 rounded-xl bg-amber-400 text-sm sm:text-xs font-black text-slate-900 hover:bg-amber-300 transition-all touch-manipulation w-full sm:w-auto"
+                className="inline-flex items-center justify-center gap-1.5 min-h-[48px] sm:min-h-0 px-5 py-3 sm:py-2 rounded-xl bg-amber-400 text-sm sm:text-xs font-semibold text-slate-900 hover:bg-amber-300 transition-all touch-manipulation w-full sm:w-auto"
               >
                 Next <ChevronRight className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
               </button>
@@ -998,7 +998,7 @@ function StudentWizardModal({ open, onClose, session, toast, onSuccess, editStud
                 type="button"
                 onClick={handleSubmit}
                 disabled={loading}
-                className="inline-flex items-center justify-center gap-2 min-h-[48px] sm:min-h-0 px-5 py-3 sm:py-2 rounded-xl bg-emerald-600 text-sm sm:text-xs font-black text-white hover:bg-emerald-500 disabled:opacity-60 transition-all touch-manipulation w-full sm:w-auto"
+                className="inline-flex items-center justify-center gap-2 min-h-[48px] sm:min-h-0 px-5 py-3 sm:py-2 rounded-xl bg-emerald-600 text-sm sm:text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-60 transition-all touch-manipulation w-full sm:w-auto"
               >
                 {loading
                   ? <><Loader2 className="w-4 h-4 sm:w-3.5 sm:h-3.5 animate-spin" /> Saving…</>
@@ -1073,7 +1073,7 @@ function ImportCard({ toast, onImported }) {
           <Upload className="w-5 h-5 text-slate-900" />
         </div>
         <div className="min-w-0">
-          <p className="text-sm font-black text-slate-800">Bulk import from Excel</p>
+          <p className="text-sm font-semibold text-slate-800">Bulk import from Excel</p>
           <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
             <span className="font-semibold text-amber-700">1.</span> Class &amp; academic year for this batch ·{" "}
             <span className="font-semibold text-amber-700">2.</span> Excel file · <span className="font-semibold text-amber-700">3.</span> Import. Urubuto / custom columns supported.
@@ -1083,7 +1083,7 @@ function ImportCard({ toast, onImported }) {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
         <div>
-          <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Class / stream <span className="text-red-500">*</span></label>
+          <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Class / stream <span className="text-red-500">*</span></label>
           <input
             type="text"
             value={importClass}
@@ -1093,7 +1093,7 @@ function ImportCard({ toast, onImported }) {
           />
         </div>
         <div>
-          <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Academic year <span className="text-red-500">*</span></label>
+          <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Academic year <span className="text-red-500">*</span></label>
           <input
             type="text"
             value={importYear}
@@ -1123,7 +1123,7 @@ function ImportCard({ toast, onImported }) {
           type="button"
           onClick={handleImport}
           disabled={!canImport || busy}
-          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 text-[11px] font-black text-amber-300 hover:bg-slate-800 disabled:opacity-50 transition-all min-h-[44px] touch-manipulation"
+          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 text-[11px] font-semibold text-amber-300 hover:bg-slate-800 disabled:opacity-50 transition-all min-h-[44px] touch-manipulation"
         >
           {busy
             ? <><Loader2 className="w-3 h-3 animate-spin" /> Importing…</>
@@ -1166,12 +1166,12 @@ function BulkDeleteModal({ count, onCancel, onConfirm, loading }) {
       style={{ background: "rgba(2,6,23,0.75)", backdropFilter: "blur(6px)" }}
       onClick={e => e.target === e.currentTarget && !loading && onCancel()}
     >
-      <div className="w-full max-w-sm rounded-t-3xl sm:rounded-3xl bg-white shadow-2xl overflow-hidden max-h-[90dvh] sm:max-h-none" onClick={e => e.stopPropagation()}>
+      <div className="w-full max-w-sm rounded-t-3xl sm:rounded-3xl bg-white shadow-sm overflow-hidden max-h-[90dvh] sm:max-h-none" onClick={e => e.stopPropagation()}>
         <div className="px-5 pt-[max(1.25rem,env(safe-area-inset-top))] sm:pt-5 pb-4">
           <div className="w-10 h-10 rounded-2xl bg-red-100 flex items-center justify-center mb-3">
             <Trash2 className="w-5 h-5 text-red-600" />
           </div>
-          <p className="text-sm font-black text-slate-900">Delete selected students?</p>
+          <p className="text-sm font-semibold text-slate-900">Delete selected students?</p>
           <p className="text-xs text-slate-500 mt-1">
             <span className="font-semibold text-slate-700">{count}</span>
             {" "}student{count === 1 ? "" : "s"} will be permanently removed. This cannot be undone.
@@ -1190,7 +1190,7 @@ function BulkDeleteModal({ count, onCancel, onConfirm, loading }) {
             type="button"
             onClick={onConfirm}
             disabled={loading}
-            className="flex-1 min-h-[48px] py-3 sm:py-2 rounded-xl bg-red-600 text-sm sm:text-xs font-black text-white hover:bg-red-500 disabled:opacity-60 inline-flex items-center justify-center gap-1.5 touch-manipulation"
+            className="flex-1 min-h-[48px] py-3 sm:py-2 rounded-xl bg-red-600 text-sm sm:text-xs font-semibold text-white hover:bg-red-500 disabled:opacity-60 inline-flex items-center justify-center gap-1.5 touch-manipulation"
           >
             {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
             {loading ? "Deleting…" : "Delete"}
@@ -1209,12 +1209,12 @@ function DeleteAllStudentsModal({ schoolName, phrase, onPhraseChange, onCancel, 
       style={{ background: "rgba(2,6,23,0.75)", backdropFilter: "blur(6px)" }}
       onClick={e => e.target === e.currentTarget && !loading && onCancel()}
     >
-      <div className="w-full max-w-md rounded-t-3xl sm:rounded-3xl bg-white shadow-2xl overflow-hidden max-h-[90dvh] sm:max-h-none flex flex-col min-h-0" onClick={e => e.stopPropagation()}>
+      <div className="w-full max-w-md rounded-t-3xl sm:rounded-3xl bg-white shadow-sm overflow-hidden max-h-[90dvh] sm:max-h-none flex flex-col min-h-0" onClick={e => e.stopPropagation()}>
         <div className="px-5 pt-[max(1.25rem,env(safe-area-inset-top))] sm:pt-5 pb-4 overflow-y-auto">
           <div className="w-10 h-10 rounded-2xl bg-red-100 flex items-center justify-center mb-3">
             <AlertTriangle className="w-5 h-5 text-red-600" />
           </div>
-          <p className="text-sm font-black text-slate-900">Delete every student?</p>
+          <p className="text-sm font-semibold text-slate-900">Delete every student?</p>
           <p className="text-xs text-slate-500 mt-1 leading-relaxed">
             <span className="font-semibold text-red-700">All students</span> for{" "}
             <span className="font-semibold text-slate-700">{schoolName || "this school"}</span> will be permanently removed. This cannot be undone.
@@ -1244,7 +1244,7 @@ function DeleteAllStudentsModal({ schoolName, phrase, onPhraseChange, onCancel, 
             type="button"
             onClick={onConfirm}
             disabled={loading || !ok}
-            className="flex-1 min-h-[48px] py-3 sm:py-2 rounded-xl bg-red-600 text-sm sm:text-xs font-black text-white hover:bg-red-500 disabled:opacity-50 inline-flex items-center justify-center gap-1.5 touch-manipulation"
+            className="flex-1 min-h-[48px] py-3 sm:py-2 rounded-xl bg-red-600 text-sm sm:text-xs font-semibold text-white hover:bg-red-500 disabled:opacity-50 inline-flex items-center justify-center gap-1.5 touch-manipulation"
           >
             {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
             {loading ? "Deleting…" : "Delete all"}
@@ -1262,12 +1262,12 @@ function DeleteModal({ student, onCancel, onConfirm, loading }) {
       className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center p-0 sm:p-4"
       style={{ background: "rgba(2,6,23,0.75)", backdropFilter: "blur(6px)" }}
     >
-      <div className="w-full max-w-sm rounded-t-3xl sm:rounded-3xl bg-white shadow-2xl overflow-hidden max-h-[90dvh] sm:max-h-none">
+      <div className="w-full max-w-sm rounded-t-3xl sm:rounded-3xl bg-white shadow-sm overflow-hidden max-h-[90dvh] sm:max-h-none">
         <div className="px-5 pt-[max(1.25rem,env(safe-area-inset-top))] sm:pt-5 pb-4">
           <div className="w-10 h-10 rounded-2xl bg-red-100 flex items-center justify-center mb-3">
             <Trash2 className="w-5 h-5 text-red-600" />
           </div>
-          <p className="text-sm font-black text-slate-900">Delete Student?</p>
+          <p className="text-sm font-semibold text-slate-900">Delete Student?</p>
           <p className="text-xs text-slate-500 mt-1">
             <span className="font-semibold text-slate-700">{student.first_name} {student.last_name}</span>
             {" "}({student.student_code || student.student_uid}) will be permanently removed. This cannot be undone.
@@ -1286,7 +1286,7 @@ function DeleteModal({ student, onCancel, onConfirm, loading }) {
             type="button"
             onClick={onConfirm}
             disabled={loading}
-            className="flex-1 min-h-[48px] py-3 sm:py-2 rounded-xl bg-red-600 text-sm sm:text-xs font-black text-white hover:bg-red-500 disabled:opacity-60 inline-flex items-center justify-center gap-1.5 touch-manipulation"
+            className="flex-1 min-h-[48px] py-3 sm:py-2 rounded-xl bg-red-600 text-sm sm:text-xs font-semibold text-white hover:bg-red-500 disabled:opacity-60 inline-flex items-center justify-center gap-1.5 touch-manipulation"
           >
             {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
             {loading ? "Deleting…" : "Delete"}
@@ -1313,21 +1313,27 @@ function StudentMobileCard({ student: s, hasMissing, selected, onToggleSelect, o
           className="mt-1 w-4 h-4 rounded border-slate-300 text-amber-600 focus:ring-amber-400 shrink-0 touch-manipulation"
           aria-label={`Select ${s.first_name} ${s.last_name}`}
         />
-        <div className="w-11 h-11 rounded-xl overflow-hidden border border-slate-200 bg-slate-50 shrink-0 flex items-center justify-center">
+        <div className="w-11 h-11 rounded-xl overflow-hidden border border-slate-200 bg-slate-50 shrink-0 flex items-center justify-center shadow-inner">
           {photoUrl ? (
-            <img src={photoUrl} alt={`${s.first_name} ${s.last_name}`} className="w-full h-full object-cover" />
+            <img
+              src={photoUrl}
+              alt={`${s.first_name} ${s.last_name}`}
+              className="w-full h-full object-cover [transform:translateZ(0)]"
+              decoding="async"
+              loading="lazy"
+            />
           ) : (
             <User className="w-5 h-5 text-slate-300" />
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[15px] font-black text-slate-900 leading-snug">
+          <p className="text-[15px] font-semibold text-slate-900 leading-snug">
             {s.first_name} {s.last_name}
           </p>
           <p className="text-[12px] font-mono font-semibold text-slate-600 mt-1 flex flex-wrap items-center gap-1.5">
             <span>{s.student_code || s.student_uid}</span>
             {hasMissing && (
-              <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-200 text-amber-800 text-[9px] font-black" title="Some residence fields are missing">!</span>
+              <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-200 text-amber-800 text-[9px] font-semibold" title="Some residence fields are missing">!</span>
             )}
           </p>
         </div>
@@ -1363,36 +1369,36 @@ function StudentMobileCard({ student: s, hasMissing, selected, onToggleSelect, o
       </div>
       <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2.5 text-[12px]">
         <div className="min-w-0">
-          <dt className="text-[9px] font-black uppercase tracking-wider text-slate-400">SDM ID</dt>
+          <dt className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">SDM ID</dt>
           <dd className="font-mono text-slate-700 truncate mt-0.5">{s.sdm_code || "—"}</dd>
         </div>
         <div className="min-w-0">
-          <dt className="text-[9px] font-black uppercase tracking-wider text-slate-400">Class</dt>
+          <dt className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">Class</dt>
           <dd className="text-slate-800 font-semibold truncate mt-0.5">{s.class_name || "—"}</dd>
         </div>
         <div className="min-w-0">
-          <dt className="text-[9px] font-black uppercase tracking-wider text-slate-400">Acad. year</dt>
+          <dt className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">Acad. year</dt>
           <dd className="text-slate-700 mt-0.5">{s.academic_year || "—"}</dd>
         </div>
         <div className="min-w-0">
-          <dt className="text-[9px] font-black uppercase tracking-wider text-slate-400">Birth</dt>
+          <dt className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">Birth</dt>
           <dd className="text-slate-700 mt-0.5">{s.birth_year || "—"}</dd>
         </div>
         <div className="min-w-0">
-          <dt className="text-[9px] font-black uppercase tracking-wider text-slate-400">RFID UID</dt>
+          <dt className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">RFID UID</dt>
           <dd className="font-mono text-slate-700 truncate mt-0.5">{s.rfid_uid || "—"}</dd>
         </div>
         <div className="min-w-0">
-          <dt className="text-[9px] font-black uppercase tracking-wider text-slate-400">Fingerprint</dt>
+          <dt className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">Fingerprint</dt>
           <dd className="font-mono text-slate-700 truncate mt-0.5">{s.fingerprint_id || "—"}</dd>
         </div>
         <div className="col-span-2 min-w-0">
-          <dt className="text-[9px] font-black uppercase tracking-wider text-slate-400">Residence</dt>
+          <dt className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">Residence</dt>
           <dd className="text-slate-600 mt-0.5 leading-snug break-words">{residence}</dd>
         </div>
         {(s.father_full_name || s.father_phone || s.father_email) && (
           <div className="col-span-2 min-w-0">
-            <dt className="text-[9px] font-black uppercase tracking-wider text-slate-400">Father</dt>
+            <dt className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">Father</dt>
             <dd className="text-slate-700 mt-0.5 text-[11px] leading-snug break-words">
               {s.father_full_name || "—"}
               {s.father_phone ? <span className="block font-mono text-[10px] text-slate-600">{s.father_phone}</span> : null}
@@ -1402,7 +1408,7 @@ function StudentMobileCard({ student: s, hasMissing, selected, onToggleSelect, o
         )}
         {(s.mother_full_name || s.mother_phone || s.mother_email) && (
           <div className="col-span-2 min-w-0">
-            <dt className="text-[9px] font-black uppercase tracking-wider text-slate-400">Mother</dt>
+            <dt className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">Mother</dt>
             <dd className="text-slate-700 mt-0.5 text-[11px] leading-snug break-words">
               {s.mother_full_name || "—"}
               {s.mother_phone ? <span className="block font-mono text-[10px] text-slate-600">{s.mother_phone}</span> : null}
@@ -1412,6 +1418,187 @@ function StudentMobileCard({ student: s, hasMissing, selected, onToggleSelect, o
         )}
       </dl>
     </article>
+  );
+}
+
+/** Ochre hero + overlapping white KPI panel (responsive). */
+function StudentsInstitutionalHeader({
+  schoolName,
+  rows,
+  stats,
+  statsBusy,
+  filterClass,
+  onClassChange,
+  filterYearTrimmed,
+  searchActive,
+  onAdd,
+  rightHeaderAction,
+  children,
+}) {
+  const incompleteOnPage = useMemo(() => {
+    let incomplete = 0;
+    for (const s of rows) {
+      if (parseMissingFields(s.import_missing_fields).length) incomplete++;
+    }
+    return incomplete;
+  }, [rows]);
+
+  const registryClassKeys = useMemo(() => (stats.classes || []).map((r) => r.class_name), [stats.classes]);
+  const fcTrim = filterClass.trim();
+  const unknownClassPick = fcTrim !== "" && !registryClassKeys.includes(fcTrim);
+
+  const nf = (n) => {
+    if (statsBusy) return "…";
+    const v = Number(n ?? 0);
+    return Number.isFinite(v) ? v.toLocaleString() : "0";
+  };
+
+  const classLabelShort = fcTrim || "All classes";
+  const allRosterLabel = nf(stats.rosterAllClasses ?? stats.total);
+
+  const Kpi = ({ icon: Icon, iconWrapClass, label, value, sub }) => (
+    <div className="rounded-2xl border border-slate-200/90 bg-gradient-to-b from-white to-slate-50/90 p-3 sm:p-4 shadow-sm shadow-slate-900/5 min-h-[96px] sm:min-h-[104px] flex flex-col justify-between">
+      <div className="flex items-center gap-2 min-w-0">
+        <span className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${iconWrapClass}`}>
+          <Icon className="h-4 w-4 shrink-0" aria-hidden />
+        </span>
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 truncate">{label}</span>
+      </div>
+      <div className="min-w-0">
+        <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-slate-900 leading-none tracking-tight">{value}</p>
+        {sub ? <p className="text-[10px] text-slate-500 mt-1.5 leading-snug line-clamp-2">{sub}</p> : null}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="relative mb-1">
+      <div
+        className="relative overflow-hidden rounded-2xl sm:rounded-[1.85rem] bg-gradient-to-br from-[#b5842a] via-[#cf9f2e] to-[#926b16] px-4 sm:px-8 pt-6 sm:pt-9 pb-20 sm:pb-28 text-white shadow-lg shadow-amber-900/25"
+        aria-label="Students list banner"
+      >
+        <div className="pointer-events-none absolute -right-20 -top-28 size-72 rounded-full border-[3px] border-white/14 sm:size-[22rem]" />
+        <div className="pointer-events-none absolute -right-6 top-6 size-[13.5rem] rounded-full border-2 border-white/12 sm:size-64 sm:top-10" />
+        <div className="pointer-events-none absolute right-[14%] bottom-2 size-32 rounded-full border border-white/10 opacity-50 sm:size-44" />
+
+        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0 max-w-3xl">
+            <div className="flex items-center gap-2 text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.2em] text-white/85">
+              <span className="h-px w-6 shrink-0 bg-white/55 sm:w-9" aria-hidden />
+              Institutional repository
+            </div>
+            <h1 className="mt-3 text-[1.625rem] sm:text-[2.125rem] md:text-4xl font-semibold tracking-[0.06em] text-white leading-[1.1] uppercase">
+              Students list
+            </h1>
+            <p className="mt-2.5 max-w-xl text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.16em] text-white/85 leading-relaxed">
+              Professional academic & behavioral analytics view
+            </p>
+            {schoolName ? <p className="mt-3 truncate text-[13px] font-semibold text-white/95 sm:text-sm">{schoolName}</p> : null}
+          </div>
+          <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+            <button
+              type="button"
+              onClick={onAdd}
+              className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-2xl bg-white px-5 text-sm font-semibold text-amber-900 shadow-md shadow-amber-950/20 transition-colors hover:bg-amber-50 touch-manipulation active:scale-[0.99]"
+            >
+              <Plus className="size-4 shrink-0" aria-hidden />
+              Add Student
+            </button>
+            {rightHeaderAction ? (
+              <div className="flex flex-col gap-2 sm:flex-row [&_a]:rounded-2xl [&_button]:min-h-[48px] [&_button]:rounded-2xl">
+                {rightHeaderAction}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      <div className="relative z-10 -mt-14 px-1 sm:-mt-[4.25rem] sm:px-0">
+        <div className="mx-auto max-w-full overflow-hidden rounded-t-[1.35rem] sm:rounded-t-[1.75rem] rounded-b-2xl sm:rounded-b-[1.75rem] border border-slate-200/95 bg-white shadow-sm shadow-slate-900/[0.11]">
+          <div className="border-b border-slate-100 px-3 py-4 sm:px-6 sm:py-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-5">
+              <div className="min-w-0 flex-1">
+                <label
+                  htmlFor="student-registry-class"
+                  className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500"
+                >
+                  <ListFilter className="size-3.5 shrink-0 opacity-70" aria-hidden />
+                  Select class (roll total)
+                </label>
+                <select
+                  id="student-registry-class"
+                  value={filterClass}
+                  onChange={(e) => onClassChange(e.target.value)}
+                  className="min-h-[48px] w-full rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2.5 text-[15px] sm:text-sm font-semibold text-slate-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100 touch-manipulation sm:max-w-md"
+                >
+                  <option value="">All classes · {statsBusy ? "…" : allRosterLabel} enrolled</option>
+                  {(stats.classes || []).map((row) => (
+                    <option key={row.class_name} value={row.class_name}>
+                      {row.class_name} ({Number(row.count || 0).toLocaleString()})
+                    </option>
+                  ))}
+                  {unknownClassPick ? (
+                    <option value={fcTrim}>{fcTrim} ({statsBusy ? "…" : nf(stats.total)})</option>
+                  ) : null}
+                </select>
+              </div>
+              <div className="sm:pb-0.5 sm:text-right">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Academic year scope</p>
+                <p className="mt-1 text-[12px] font-bold text-slate-700">{filterYearTrimmed || "Any year"}</p>
+              </div>
+            </div>
+
+            <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
+              <Kpi
+                icon={User}
+                iconWrapClass="bg-sky-100 text-sky-700"
+                label="Total boys"
+                value={nf(stats.male)}
+                sub={`${classLabelShort}${filterYearTrimmed ? ` · ${filterYearTrimmed}` : ""}${searchActive ? " · search filter" : ""}`}
+              />
+              <Kpi
+                icon={User}
+                iconWrapClass="bg-rose-100 text-rose-700"
+                label="Total girls"
+                value={nf(stats.female)}
+                sub={`${classLabelShort}${filterYearTrimmed ? ` · ${filterYearTrimmed}` : ""}`}
+              />
+              <Kpi
+                icon={Users}
+                iconWrapClass="bg-amber-100 text-amber-900"
+                label={fcTrim ? `Total · ${fcTrim}` : "Total enrollment"}
+                value={nf(stats.total)}
+                sub={fcTrim ? "Students in selected class" : "All classes matching search / year"}
+              />
+            </div>
+
+            {(stats.unspecified > 0 && !statsBusy) || incompleteOnPage > 0 ? (
+              <div className="mt-4 space-y-2">
+                {stats.unspecified > 0 ? (
+                  <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-[11px] leading-snug text-slate-600">
+                    <AlertTriangle className="size-4 shrink-0 text-amber-600" aria-hidden />
+                    <span>
+                      <span className="font-semibold tabular-nums">{stats.unspecified}</span>
+                      {" "}student{stats.unspecified === 1 ? "" : "s"} with gender not set in registry (included in totals above).
+                    </span>
+                  </div>
+                ) : null}
+                {incompleteOnPage > 0 ? (
+                  <div className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-200 bg-amber-50/90 px-3 py-2.5 text-[11px] leading-snug text-amber-950">
+                    <AlertTriangle className="size-4 shrink-0 text-amber-600" aria-hidden />
+                    <span>
+                      <span className="font-semibold tabular-nums">{incompleteOnPage}</span>
+                      {" "}on this results page still need residence / import details completed.
+                    </span>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+          {children}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1441,9 +1628,60 @@ export default function StudentsPage({ session, toast, rightHeaderAction = null 
   const [pageSize,    setPageSize]    = useState(20);
   const [total,       setTotal]       = useState(0);
   const [totalPages,  setTotalPages]  = useState(1);
+  const [registryStats, setRegistryStats] = useState({
+    male: 0,
+    female: 0,
+    total: 0,
+    unspecified: 0,
+    rosterAllClasses: 0,
+    classes: [],
+  });
+  const [statsBusy, setStatsBusy] = useState(false);
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const skipLoadAfterPageReset = useRef(false);
   const prevFiltersRef = useRef({ d: "", fc: "", fy: "" });
+
+  const loadRegistryStats = useCallback(async () => {
+    setStatsBusy(true);
+    try {
+      const params = new URLSearchParams();
+      if (debouncedSearch.trim()) params.set("q", debouncedSearch.trim());
+      if (filterYear.trim()) params.set("academic_year", filterYear.trim());
+      if (filterClass.trim()) params.set("class_name", filterClass.trim());
+      const res = await fetch(`${API}/api/students/registry-stats?${params}`, { credentials: "include" });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok && json.success) {
+        setRegistryStats({
+          male: Number(json.male ?? 0),
+          female: Number(json.female ?? 0),
+          total: Number(json.total ?? 0),
+          unspecified: Number(json.unspecified ?? 0),
+          rosterAllClasses: Number(json.rosterAllClasses ?? json.total ?? 0),
+          classes: Array.isArray(json.classes) ? json.classes : [],
+        });
+      } else {
+        setRegistryStats({
+          male: 0,
+          female: 0,
+          total: 0,
+          unspecified: 0,
+          rosterAllClasses: 0,
+          classes: [],
+        });
+      }
+    } catch {
+      setRegistryStats({
+        male: 0,
+        female: 0,
+        total: 0,
+        unspecified: 0,
+        rosterAllClasses: 0,
+        classes: [],
+      });
+    } finally {
+      setStatsBusy(false);
+    }
+  }, [debouncedSearch, filterYear, filterClass]);
 
   // ── Load students ──────────────────────────────────────────────
   const loadStudents = useCallback(async (q = "", pg = page, ps = pageSize, fc = filterClass, fy = filterYear) => {
@@ -1469,8 +1707,9 @@ export default function StudentsPage({ session, toast, rightHeaderAction = null 
     } finally {
       setLoading(false);
     }
+    void loadRegistryStats();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, pageSize, filterClass, filterYear]);
+  }, [page, pageSize, filterClass, filterYear, loadRegistryStats]);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 350);
@@ -1620,43 +1859,27 @@ export default function StudentsPage({ session, toast, rightHeaderAction = null 
   const selectedCount = selectedIds.size;
 
   return (
-    <div className="min-h-[100dvh] min-h-screen w-full min-w-0 overflow-x-hidden bg-gradient-to-br from-slate-50 via-amber-50/30 to-slate-100 pb-[env(safe-area-inset-bottom,0px)]">
+    <div className="min-h-[100dvh] min-h-screen w-full min-w-0 overflow-x-hidden bg-gradient-to-br from-slate-50 via-amber-50/25 to-slate-100 pb-[env(safe-area-inset-bottom,0px)]">
       <div className="max-w-6xl mx-auto w-full min-w-0 px-3 sm:px-4 py-3 sm:py-5">
 
-        {/* Page header */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-5">
-          <div className="min-w-0">
-            <h1 className="text-lg sm:text-base font-black text-slate-900 flex items-center gap-2">
-              <span className="inline-flex items-center justify-center w-9 h-9 sm:w-7 sm:h-7 rounded-xl bg-slate-900 text-amber-300 shrink-0">
-                <Users className="w-[18px] h-[18px] sm:w-4 sm:h-4" />
-              </span>
-              Students
-            </h1>
-            <p className="text-[12px] sm:text-[11px] text-slate-500 mt-1 sm:mt-0.5 truncate">
-              {session?.schoolName || "Your School"} · {total} registered
-            </p>
+        <StudentsInstitutionalHeader
+          schoolName={session?.schoolName}
+          rows={rows}
+          stats={registryStats}
+          statsBusy={statsBusy}
+          filterClass={filterClass}
+          onClassChange={setFilterClass}
+          filterYearTrimmed={filterYear.trim()}
+          searchActive={!!debouncedSearch.trim()}
+          onAdd={openAdd}
+          rightHeaderAction={rightHeaderAction}
+        >
+          <div className="border-t border-slate-100 bg-slate-50/45 px-3 py-4 sm:px-5">
+            <ImportCard toast={toast} onImported={() => loadStudents(debouncedSearch, 1, pageSize)} />
           </div>
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
-            <button
-              type="button"
-              onClick={openAdd}
-              className="inline-flex items-center justify-center gap-2 min-h-[48px] sm:min-h-0 w-full sm:w-auto px-5 sm:px-4 py-3 sm:py-2 rounded-2xl bg-amber-400 text-sm sm:text-xs font-black text-slate-900 shadow shadow-amber-300/50 hover:bg-amber-300 transition-all touch-manipulation active:scale-[0.99]"
-            >
-              <Plus className="w-4 h-4 sm:w-3.5 sm:h-3.5" /> Add Student
-            </button>
-            {rightHeaderAction}
-          </div>
-        </div>
-
-        {/* Import */}
-        <div className="mb-4">
-          <ImportCard toast={toast} onImported={() => loadStudents(debouncedSearch, 1, pageSize)} />
-        </div>
-
-        {/* Table card */}
-        <div className="rounded-2xl sm:rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden max-w-full min-w-0">
-          {/* Toolbar */}
-          <div className="px-3 sm:px-4 py-3 border-b border-slate-100 flex flex-col gap-3">
+          <div className="border-t border-slate-100 bg-white overflow-hidden max-w-full min-w-0">
+            {/* Toolbar */}
+            <div className="px-3 sm:px-4 py-3 border-b border-slate-100 flex flex-col gap-3 bg-white">
             {/* Search — full width; text-base on small screens reduces iOS zoom on focus */}
             <div className="relative w-full">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -1670,26 +1893,16 @@ export default function StudentsPage({ session, toast, rightHeaderAction = null 
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-end gap-2">
-              <div className="min-w-0 lg:flex-1 lg:max-w-[11rem]">
-                <label className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">
-                  <ListFilter className="w-3.5 h-3.5 shrink-0" /> Class
+            <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] lg:flex lg:flex-wrap lg:items-end gap-2">
+              <div className="min-w-0 lg:flex-1 lg:max-w-[16rem]">
+                <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1">
+                  Academic year filter
                 </label>
-                <input
-                  type="text"
-                  value={filterClass}
-                  onChange={e => setFilterClass(e.target.value)}
-                  placeholder="e.g. P1"
-                  className="w-full min-h-[44px] sm:min-h-0 rounded-xl border border-slate-200 px-3 py-2.5 sm:py-2 text-base sm:text-xs text-slate-700 focus:border-amber-400 focus:ring-2 focus:ring-amber-200 outline-none"
-                />
-              </div>
-              <div className="min-w-0 lg:flex-1 lg:max-w-[13rem]">
-                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Academic year</label>
                 <input
                   type="text"
                   value={filterYear}
                   onChange={e => setFilterYear(e.target.value)}
-                  placeholder="e.g. 2024–2025"
+                  placeholder="e.g. 2024–2025 · leave empty for all years"
                   className="w-full min-h-[44px] sm:min-h-0 rounded-xl border border-slate-200 px-3 py-2.5 sm:py-2 text-base sm:text-xs text-slate-700 focus:border-amber-400 focus:ring-2 focus:ring-amber-200 outline-none"
                 />
               </div>
@@ -1697,9 +1910,9 @@ export default function StudentsPage({ session, toast, rightHeaderAction = null 
                 <button
                   type="button"
                   onClick={() => { setFilterClass(""); setFilterYear(""); }}
-                  className="text-[12px] sm:text-[11px] font-bold text-amber-700 hover:text-amber-800 underline-offset-2 hover:underline py-2 sm:py-0 sm:self-end touch-manipulation min-h-[44px] sm:min-h-0 flex items-center sm:col-span-2 lg:col-span-1"
+                  className="text-[12px] sm:text-[11px] font-bold text-amber-700 hover:text-amber-800 underline-offset-2 hover:underline py-2 sm:py-0 sm:self-end touch-manipulation min-h-[44px] sm:min-h-0 flex items-center"
                 >
-                  Clear filters
+                  Clear class & year
                 </button>
               )}
             </div>
@@ -1758,7 +1971,7 @@ export default function StudentsPage({ session, toast, rightHeaderAction = null 
               <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-3">
                 <Users className="w-6 h-6 text-slate-300" />
               </div>
-              <p className="text-sm font-black text-slate-400">No students found</p>
+              <p className="text-sm font-semibold text-slate-400">No students found</p>
               <p className="text-[11px] text-slate-400 mt-1">
                 {search || filterClass.trim() || filterYear.trim()
                   ? "Try different search or filters."
@@ -1803,21 +2016,21 @@ export default function StudentsPage({ session, toast, rightHeaderAction = null 
                         aria-label="Select all students on this page"
                       />
                     </th>
-                    <th className="px-3 sm:px-4 py-3 text-left font-black whitespace-nowrap">Photo</th>
-                    <th className="px-3 sm:px-4 py-3 text-left font-black whitespace-nowrap">Student ID</th>
-                    <th className="px-3 sm:px-4 py-3 text-left font-black whitespace-nowrap">SDM ID</th>
-                    <th className="px-3 sm:px-4 py-3 text-left font-black">Name</th>
-                    <th className="px-3 sm:px-4 py-3 text-left font-black whitespace-nowrap">Class</th>
-                    <th className="px-3 sm:px-4 py-3 text-left font-black whitespace-nowrap">Acad. year</th>
-                    <th className="px-3 sm:px-4 py-3 text-left font-black whitespace-nowrap">RFID UID</th>
-                    <th className="px-3 sm:px-4 py-3 text-left font-black whitespace-nowrap">Fingerprint</th>
-                    <th className="px-3 sm:px-4 py-3 text-left font-black whitespace-nowrap">Gender</th>
-                    <th className="px-3 sm:px-4 py-3 text-left font-black whitespace-nowrap">Birth</th>
-                    <th className="px-3 sm:px-4 py-3 text-left font-black">Residence</th>
-                    <th className="px-3 sm:px-4 py-3 text-left font-black">Father</th>
-                    <th className="px-3 sm:px-4 py-3 text-left font-black">Mother</th>
-                    <th className="px-3 sm:px-4 py-3 text-left font-black whitespace-nowrap">Registered</th>
-                    <th className="px-3 sm:px-4 py-3 text-right font-black whitespace-nowrap">Actions</th>
+                    <th className="px-3 sm:px-4 py-3 text-left font-semibold whitespace-nowrap">Photo</th>
+                    <th className="px-3 sm:px-4 py-3 text-left font-semibold whitespace-nowrap">Student ID</th>
+                    <th className="px-3 sm:px-4 py-3 text-left font-semibold whitespace-nowrap">SDM ID</th>
+                    <th className="px-3 sm:px-4 py-3 text-left font-semibold">Name</th>
+                    <th className="px-3 sm:px-4 py-3 text-left font-semibold whitespace-nowrap">Class</th>
+                    <th className="px-3 sm:px-4 py-3 text-left font-semibold whitespace-nowrap">Acad. year</th>
+                    <th className="px-3 sm:px-4 py-3 text-left font-semibold whitespace-nowrap">RFID UID</th>
+                    <th className="px-3 sm:px-4 py-3 text-left font-semibold whitespace-nowrap">Fingerprint</th>
+                    <th className="px-3 sm:px-4 py-3 text-left font-semibold whitespace-nowrap">Gender</th>
+                    <th className="px-3 sm:px-4 py-3 text-left font-semibold whitespace-nowrap">Birth</th>
+                    <th className="px-3 sm:px-4 py-3 text-left font-semibold">Residence</th>
+                    <th className="px-3 sm:px-4 py-3 text-left font-semibold">Father</th>
+                    <th className="px-3 sm:px-4 py-3 text-left font-semibold">Mother</th>
+                    <th className="px-3 sm:px-4 py-3 text-left font-semibold whitespace-nowrap">Registered</th>
+                    <th className="px-3 sm:px-4 py-3 text-right font-semibold whitespace-nowrap">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
@@ -1835,11 +2048,17 @@ export default function StudentsPage({ session, toast, rightHeaderAction = null 
                           />
                         </td>
                         <td className="px-3 sm:px-4 py-3">
-                          <div className="w-9 h-9 rounded-lg overflow-hidden border border-slate-200 bg-slate-50 flex items-center justify-center">
+                          <div className="w-11 h-11 rounded-lg overflow-hidden border border-slate-200 bg-slate-50 flex items-center justify-center shadow-inner">
                             {resolveMediaUrl(s.student_photo_url) ? (
-                              <img src={resolveMediaUrl(s.student_photo_url)} alt={`${s.first_name} ${s.last_name}`} className="w-full h-full object-cover" />
+                              <img
+                                src={resolveMediaUrl(s.student_photo_url)}
+                                alt={`${s.first_name} ${s.last_name}`}
+                                className="w-full h-full object-cover [transform:translateZ(0)]"
+                                decoding="async"
+                                loading="lazy"
+                              />
                             ) : (
-                              <User className="w-4 h-4 text-slate-300" />
+                              <User className="w-5 h-5 text-slate-300" />
                             )}
                           </div>
                         </td>
@@ -1848,7 +2067,7 @@ export default function StudentsPage({ session, toast, rightHeaderAction = null 
                             {s.student_code || s.student_uid}
                           </span>
                           {hasMissing && (
-                            <span className="ml-1 inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-amber-200 text-amber-700 text-[8px] font-black" title="Some residence fields are missing">!</span>
+                            <span className="ml-1 inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-amber-200 text-amber-700 text-[8px] font-semibold" title="Some residence fields are missing">!</span>
                           )}
                         </td>
                         <td className="px-3 sm:px-4 py-3 text-slate-600 font-mono text-[11px] whitespace-nowrap">
@@ -1975,6 +2194,8 @@ export default function StudentsPage({ session, toast, rightHeaderAction = null 
             </div>
           )}
         </div>
+        </StudentsInstitutionalHeader>
+
       </div>
 
       {/* Modals */}

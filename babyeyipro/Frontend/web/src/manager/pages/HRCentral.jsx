@@ -66,12 +66,12 @@ const StaffModal = ({ staff, onClose }) => {
                 {/* Drawer Header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-black/5 bg-white shrink-0">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-re-bg border border-black/5 flex items-center justify-center text-re-text font-black text-base shadow-inner relative overflow-hidden">
+                        <div className="w-10 h-10 rounded-xl bg-re-bg border border-black/5 flex items-center justify-center text-re-text font-semibold text-base shadow-inner relative overflow-hidden">
                             <span className="relative z-10" style={{ color: "#1E3A5F" }}>{staff.name?.charAt(0)}</span>
                             <div className="absolute inset-0 opacity-5" style={{ background: "#FEBF10" }}></div>
                         </div>
                         <div>
-                            <h3 className="font-black text-re-text text-sm leading-tight uppercase tracking-tight">{staff.name}</h3>
+                            <h3 className="font-semibold text-re-text text-sm leading-tight uppercase tracking-tight">{staff.name}</h3>
                             <p className="text-[8px] text-re-text-muted font-bold flex items-center gap-1 uppercase tracking-widest mt-0.5 opacity-40">
                                 <span className="w-1 h-1 rounded-full" style={{ background: "#FEBF10" }}></span>
                                 Staff ID: {staff.id}
@@ -95,7 +95,7 @@ const StaffModal = ({ staff, onClose }) => {
                             <ShieldCheck size={14} />
                         </div>
                         <div>
-                            <p className="text-[10px] font-black text-re-text uppercase tracking-widest">{staff.status || 'Standard'} Personnel Rating</p>
+                            <p className="text-[10px] font-semibold text-re-text uppercase tracking-widest">{staff.status || 'Standard'} Personnel Rating</p>
                             <p className="text-[9px] text-re-text/40 font-bold uppercase tracking-tight leading-none mt-0.5">Performance aligned with Core Values</p>
                         </div>
                     </div>
@@ -104,18 +104,18 @@ const StaffModal = ({ staff, onClose }) => {
                     <div className="grid grid-cols-2 gap-4">
                         <div className="bg-re-bg rounded-3xl p-5 border border-black/5 shadow-inner relative overflow-hidden group">
                             <div className="absolute top-0 right-0 w-16 h-16 bg-re-grad-purple opacity-5 rounded-full -mr-6 -mt-6 group-hover:scale-125 transition-transform duration-700" />
-                            <p className="text-[8px] text-re-text-muted uppercase tracking-[0.2em] font-black mb-1 relative z-10 opacity-60">Evaluation Score</p>
+                            <p className="text-[8px] text-re-text-muted uppercase tracking-[0.2em] font-semibold mb-1 relative z-10 opacity-60">Evaluation Score</p>
                             <div className="flex items-baseline gap-1 relative z-10">
-                                <span className="text-2xl font-black text-re-text tracking-tighter">{staff.evaluation || 85}</span>
-                                <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: "#FEBF10" }}>%</span>
+                                <span className="text-2xl font-semibold text-re-text tracking-tighter">{staff.evaluation || 85}</span>
+                                <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "#FEBF10" }}>%</span>
                             </div>
                         </div>
                         <div className="bg-re-bg rounded-3xl p-5 border border-black/5 shadow-inner relative overflow-hidden group text-right">
                             <div className="absolute top-0 left-0 w-16 h-16 opacity-5 rounded-full -ml-6 -mt-6 group-hover:scale-125 transition-transform duration-700" style={{ background: "#FEBF10" }} />
-                            <p className="text-[8px] text-re-text-muted uppercase tracking-[0.2em] font-black mb-1 relative z-10 opacity-60">Attendance</p>
+                            <p className="text-[8px] text-re-text-muted uppercase tracking-[0.2em] font-semibold mb-1 relative z-10 opacity-60">Attendance</p>
                             <div className="flex items-baseline gap-1 justify-end relative z-10">
-                                <span className="text-2xl font-black text-re-text tracking-tighter">{staff.attendance || 90}</span>
-                                <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: "#FEBF10" }}>%</span>
+                                <span className="text-2xl font-semibold text-re-text tracking-tighter">{staff.attendance || 90}</span>
+                                <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "#FEBF10" }}>%</span>
                             </div>
                         </div>
                     </div>
@@ -181,17 +181,17 @@ const StaffModal = ({ staff, onClose }) => {
                         ].map((group) => (
                             <div key={group.section} className="space-y-2">
                                 <div className="flex items-center gap-2 mb-1">
-                                    <span className="text-[9px] font-black text-re-text-muted uppercase tracking-[0.3em] opacity-40">{group.section}</span>
+                                    <span className="text-[9px] font-semibold text-re-text-muted uppercase tracking-[0.3em] opacity-40">{group.section}</span>
                                     <div className="flex-1 h-px bg-black/5" />
                                 </div>
                                 {group.rows.map((item, i) => (
                                     <div key={`${group.section}-${i}`} className="flex items-center justify-between group">
                                         <div className="flex items-center gap-2">
                                             <item.icon size={11} className="opacity-30" style={{ color: "#FEBF10" }} />
-                                            <span className="text-[10px] font-black text-re-text-muted uppercase tracking-widest">{item.label}</span>
+                                            <span className="text-[10px] font-semibold text-re-text-muted uppercase tracking-widest">{item.label}</span>
                                         </div>
                                         <div className="flex-1 mx-3 border-b border-dashed border-black/10 group-hover:border-[#FEBF10]/30 transition-colors" />
-                                        <span className="text-[10px] font-black text-re-text uppercase tracking-tight text-right truncate max-w-[170px]" title={String(item.value || 'N/A')}>{item.value || 'N/A'}</span>
+                                        <span className="text-[10px] font-semibold text-re-text uppercase tracking-tight text-right truncate max-w-[170px]" title={String(item.value || 'N/A')}>{item.value || 'N/A'}</span>
                                     </div>
                                 ))}
                             </div>
@@ -199,21 +199,21 @@ const StaffModal = ({ staff, onClose }) => {
 
                         <div className="rounded-2xl border border-[#1E3A5F]/15 bg-[#1E3A5F]/5 p-3">
                             <div className="flex items-center gap-2 mb-2">
-                                <span className="text-[9px] font-black text-[#1E3A5F] uppercase tracking-[0.25em]">Payroll Summary</span>
+                                <span className="text-[9px] font-semibold text-[#1E3A5F] uppercase tracking-[0.25em]">Payroll Summary</span>
                                 <div className="flex-1 h-px bg-[#1E3A5F]/15" />
                             </div>
                             <div className="grid grid-cols-3 gap-2">
                                 <div className="bg-white rounded-xl border border-black/5 p-2">
-                                    <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Gross</p>
-                                    <p className="text-[10px] font-black text-re-text">{formatRwf(gross)}</p>
+                                    <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Gross</p>
+                                    <p className="text-[10px] font-semibold text-re-text">{formatRwf(gross)}</p>
                                 </div>
                                 <div className="bg-white rounded-xl border border-black/5 p-2">
-                                    <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Tax</p>
-                                    <p className="text-[10px] font-black text-re-text">{taxPercent > 0 ? `${taxPercent}% (${formatRwf(taxAmount)})` : 'Not set'}</p>
+                                    <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Tax</p>
+                                    <p className="text-[10px] font-semibold text-re-text">{taxPercent > 0 ? `${taxPercent}% (${formatRwf(taxAmount)})` : 'Not set'}</p>
                                 </div>
                                 <div className="bg-white rounded-xl border border-black/5 p-2">
-                                    <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Net</p>
-                                    <p className="text-[10px] font-black text-re-text">{formatRwf(net)}</p>
+                                    <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Net</p>
+                                    <p className="text-[10px] font-semibold text-re-text">{formatRwf(net)}</p>
                                 </div>
                             </div>
                         </div>
@@ -222,7 +222,7 @@ const StaffModal = ({ staff, onClose }) => {
                     {/* Behavioral Activity Log (HR History) */}
                     <div>
                         <div className="flex items-center gap-2 mb-4">
-                            <span className="text-[9px] font-black text-re-text-muted uppercase tracking-[0.3em] opacity-40">Personnel Activity Log</span>
+                            <span className="text-[9px] font-semibold text-re-text-muted uppercase tracking-[0.3em] opacity-40">Personnel Activity Log</span>
                             <div className="flex-1 h-px bg-black/5" />
                         </div>
 
@@ -238,7 +238,7 @@ const StaffModal = ({ staff, onClose }) => {
                                     </div>
                                     <div className="min-w-0">
                                         <div className="flex items-center gap-2 mb-0.5">
-                                            <span className="text-[8px] font-black uppercase tracking-widest text-re-text">{log.type}</span>
+                                            <span className="text-[8px] font-semibold uppercase tracking-widest text-re-text">{log.type}</span>
                                             <span className="w-1 h-1 bg-black/10 rounded-full"></span>
                                             <span className="text-[8px] font-bold text-re-text-muted opacity-40 uppercase">{log.date}</span>
                                         </div>
@@ -254,16 +254,16 @@ const StaffModal = ({ staff, onClose }) => {
                 <div className="px-6 py-4 border-t border-black/5 bg-re-bg/20 flex flex-col gap-2.5">
                     <button
                         onClick={() => onClose()}
-                        className="h-10 w-full flex items-center justify-center gap-2 text-white rounded-xl font-black text-[9px] uppercase tracking-widest shadow-xl hover:scale-[1.02] active:scale-95 transition-all"
+                        className="h-10 w-full flex items-center justify-center gap-2 text-white rounded-xl font-medium text-[9px] uppercase tracking-widest shadow-sm active:scale-95 transition-all"
                         style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)" }}
                     >
                         <FileSignature size={14} /> Request Formal Appraisal
                     </button>
                     <div className="grid grid-cols-2 gap-2.5">
-                        <button className="h-10 flex items-center justify-center gap-2 bg-white border border-black/5 text-re-text font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg transition-all">
+                        <button className="h-10 flex items-center justify-center gap-2 bg-white border border-black/5 text-re-text font-medium text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg transition-all">
                             <Mail size={14} style={{ color: "#FEBF10" }} /> Send Notice
                         </button>
-                        <button className="h-10 flex items-center justify-center gap-2 bg-white border border-black/5 text-re-text font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg transition-all">
+                        <button className="h-10 flex items-center justify-center gap-2 bg-white border border-black/5 text-re-text font-medium text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg transition-all">
                             <Printer size={14} style={{ color: "#FEBF10" }} /> Print HR File
                         </button>
                     </div>
@@ -665,7 +665,7 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
         }
     };
 
-    const inputCls = 'w-full h-9 bg-re-bg/80 border border-black/5 rounded-xl px-3 text-[10px] font-black outline-none focus:ring-1 ring-re-navy/10 transition-all shadow-inner';
+    const inputCls = 'w-full h-9 bg-re-bg/80 border border-black/5 rounded-xl px-3 text-[10px] font-semibold outline-none focus:ring-1 ring-re-navy/10 transition-all shadow-inner';
     const inputClsWithError = (field) => `${inputCls} ${fieldErrors[field] ? 'border-red-400 focus:border-red-500 ring-red-200' : ''}`;
     const parseAmount = (v) => {
         const n = Number(v);
@@ -699,35 +699,35 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                         <label className="space-y-1">
-                            <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Full Name</p>
+                            <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Full Name</p>
                             <input className={inputCls} placeholder="e.g. Juma Ally" value={formData.full_name} onChange={(e) => setField('full_name', e.target.value)} />
                         </label>
                         <label className="space-y-1">
-                            <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Gender</p>
+                            <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Gender</p>
                             <select className={inputCls} value={formData.gender} onChange={(e) => setField('gender', e.target.value)}><option value="">Select gender</option><option>Male</option><option>Female</option></select>
                         </label>
                         <label className="space-y-1">
-                            <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Date of Birth</p>
+                            <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Date of Birth</p>
                             <input type="date" className={inputCls} value={formData.date_of_birth} onChange={(e) => setField('date_of_birth', e.target.value)} />
                         </label>
                         <label className="space-y-1">
-                            <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">National ID / Passport</p>
+                            <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">National ID / Passport</p>
                             <input className={inputClsWithError('national_id')} placeholder="ID or Passport Number" value={formData.national_id} onChange={(e) => setField('national_id', e.target.value)} />
                             {fieldErrors.national_id && <p className="text-[9px] font-bold text-red-600">{fieldErrors.national_id}</p>}
                         </label>
                         <label className="space-y-1">
-                            <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Phone Number</p>
+                            <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Phone Number</p>
                             <input className={inputClsWithError('phone')} placeholder="e.g. 07XXXXXXXX" value={formData.phone} onChange={(e) => setField('phone', e.target.value)} />
                             {fieldErrors.phone && <p className="text-[9px] font-bold text-red-600">{fieldErrors.phone}</p>}
                         </label>
                         <label className="space-y-1">
-                            <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Email Address</p>
+                            <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Email Address</p>
                             <input type="email" className={inputClsWithError('email')} placeholder="e.g. name@gmail.com" value={formData.email} onChange={(e) => setField('email', e.target.value)} />
                             {fieldErrors.email && <p className="text-[9px] font-bold text-red-600">{fieldErrors.email}</p>}
                         </label>
                     </div>
                     <label className="space-y-1">
-                        <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Address</p>
+                        <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Address</p>
                         <input className={inputCls} placeholder="e.g. Kigali, Gasabo, Kimironko" value={formData.address} onChange={(e) => setField('address', e.target.value)} />
                     </label>
                 </div>
@@ -737,29 +737,29 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
             return (
                 <div className="grid grid-cols-2 gap-3">
                     <label className="space-y-1">
-                        <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Staff ID / Code (Auto Generated)</p>
+                        <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Staff ID / Code (Auto Generated)</p>
                         <input className={`${inputCls} bg-black/5 opacity-80 cursor-not-allowed`} placeholder="e.g. TR-007" value={formData.staff_id} readOnly />
                     </label>
                     <label className="space-y-1">
-                        <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Employment Type</p>
+                        <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Employment Type</p>
                         <select className={inputCls} value={formData.employment_type} onChange={(e) => setField('employment_type', e.target.value)}><option>Full-time</option><option>Part-time</option><option>Contract</option><option>Temporary</option></select>
                     </label>
                     <label className="space-y-1">
-                        <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Job Title / Position</p>
+                        <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Job Title / Position</p>
                         <input className={inputCls} placeholder="e.g. Teacher, Accountant, DOS" value={formData.job_title} onChange={(e) => setField('job_title', e.target.value)} />
                     </label>
                     <label className="space-y-1">
-                        <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Date of Employment</p>
+                        <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Date of Employment</p>
                         <input type="date" className={inputCls} value={formData.date_of_employment} onChange={(e) => setField('date_of_employment', e.target.value)} />
                     </label>
                     {formData.employment_type === 'Contract' && (
                         <label className="space-y-1">
-                            <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Contract Start Date</p>
+                            <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Contract Start Date</p>
                             <input type="date" className={inputCls} value={formData.contract_start_date} onChange={(e) => setField('contract_start_date', e.target.value)} />
                         </label>
                     )}
                     {formData.employment_type === 'Contract' && (
-                        <label className="col-span-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#1E3A5F] bg-[#1E3A5F]/5 border border-[#1E3A5F]/15 rounded-xl px-3 py-2">
+                        <label className="col-span-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-[#1E3A5F] bg-[#1E3A5F]/5 border border-[#1E3A5F]/15 rounded-xl px-3 py-2">
                             <input
                                 type="checkbox"
                                 checked={!!formData.full_contract}
@@ -774,7 +774,7 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
                     )}
                     {formData.employment_type === 'Contract' && (
                         <label className="space-y-1">
-                            <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Contract End Date</p>
+                            <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Contract End Date</p>
                             <input
                                 type="date"
                                 className={`${inputCls} ${formData.full_contract ? 'opacity-60 cursor-not-allowed bg-slate-100' : ''}`}
@@ -785,7 +785,7 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
                         </label>
                     )}
                     <label className="space-y-1">
-                        <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Employment Status</p>
+                        <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Employment Status</p>
                         <select className={inputCls} value={formData.employment_status} onChange={(e) => setField('employment_status', e.target.value)}><option>Active</option><option>On Leave</option><option>Suspended</option></select>
                     </label>
                 </div>
@@ -795,17 +795,17 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
             return (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <label className="space-y-1">
-                        <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Department</p>
+                        <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Department</p>
                         <select className={inputCls} value={formData.department} onChange={(e) => setField('department', e.target.value)}>
                             <option>Academics</option><option>Administration</option><option>Finance</option><option>Discipline</option><option>HR</option><option>Library</option><option>Store</option>
                         </select>
                     </label>
                     <label className="space-y-1">
-                        <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Sub-department (Optional)</p>
+                        <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Sub-department (Optional)</p>
                         <input className={inputCls} placeholder="e.g. Secondary Section, Accounts Unit" value={formData.sub_department} onChange={(e) => setField('sub_department', e.target.value)} />
                     </label>
                     <label className="space-y-1">
-                        <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Role Assignment</p>
+                        <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Role Assignment</p>
                         <select className={inputCls} value={formData.role_code} onChange={(e) => {
                             const val = e.target.value;
                             setField('role_code', val);
@@ -821,6 +821,7 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
                             <option value="STORE_MANAGER">Store Manager</option>
                             <option value="LIBRARIAN">Librarian</option>
                             <option value="DISCIPLINE">Head of Discipline</option>
+                            <option value="GATE_KEEPER">Gate Keeper</option>
                             <option value="SECRETARY">Secretary</option>
                             <option value="HOD">Staff</option>
                             <option value="SCHOOL_MANAGER">School Manager</option>
@@ -830,7 +831,7 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
                     </label>
                     {formData.role_code === 'CUSTOM' && (
                         <label className="space-y-1 md:col-span-2">
-                            <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Custom Role Name</p>
+                            <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Custom Role Name</p>
                             <input
                                 className={inputCls}
                                 placeholder="e.g. Welfare Officer, Lab Assistant"
@@ -853,55 +854,55 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
                 <div className="space-y-3">
                     <div className="grid grid-cols-2 gap-3">
                         <label className="space-y-1">
-                            <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Basic Salary (Amount)</p>
+                            <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Basic Salary (Amount)</p>
                             <input type="number" className={inputCls} placeholder="0" value={formData.payroll_basic_salary} onChange={(e) => setField('payroll_basic_salary', e.target.value)} />
                         </label>
                         <label className="space-y-1">
-                            <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Tax (%) Optional</p>
+                            <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Tax (%) Optional</p>
                             <input type="number" className={inputCls} placeholder="e.g. 30" value={formData.payroll_tax_percent} onChange={(e) => setField('payroll_tax_percent', e.target.value)} />
                         </label>
                         <label className="space-y-1">
-                            <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Payment Frequency</p>
+                            <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Payment Frequency</p>
                             <select className={inputCls} value={formData.payroll_payment_frequency} onChange={(e) => setField('payroll_payment_frequency', e.target.value)}><option>Monthly</option><option>Weekly</option></select>
                         </label>
                         <label className="space-y-1">
-                            <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Payment Method</p>
+                            <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Payment Method</p>
                             <select className={inputCls} value={formData.payroll_payment_method} onChange={(e) => setField('payroll_payment_method', e.target.value)}><option>Bank Transfer</option><option>Mobile Money</option></select>
                         </label>
                         {formData.payroll_payment_method === 'Bank Transfer' ? (
                             <label className="space-y-1">
-                                <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Bank Name</p>
+                                <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Bank Name</p>
                                 <input className={inputCls} placeholder="Bank Name" value={formData.payroll_bank_name} onChange={(e) => setField('payroll_bank_name', e.target.value)} />
                             </label>
                         ) : (
                             <label className="space-y-1">
-                                <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Mobile Money Phone</p>
+                                <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Mobile Money Phone</p>
                                 <input className={inputCls} placeholder="250..." value={formData.payroll_mobile_money_phone} onChange={(e) => setField('payroll_mobile_money_phone', e.target.value)} />
                             </label>
                         )}
                         {formData.payroll_payment_method === 'Bank Transfer' ? (
                             <label className="space-y-1">
-                                <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Account Number</p>
+                                <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Account Number</p>
                                 <input className={inputCls} placeholder="Account Number" value={formData.payroll_account_number} onChange={(e) => setField('payroll_account_number', e.target.value)} />
                             </label>
                         ) : null}
                         {formData.employment_type === 'Part-time' ? (
                             <label className="space-y-1">
-                                <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Part-time Rate (Optional)</p>
+                                <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Part-time Rate (Optional)</p>
                                 <input type="number" className={inputCls} placeholder="0" value={formData.payroll_part_time_rate} onChange={(e) => setField('payroll_part_time_rate', e.target.value)} />
                             </label>
                         ) : null}
                         {formData.employment_type === 'Part-time' ? (
                             <label className="space-y-1">
-                                <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">Rate Unit</p>
+                                <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Rate Unit</p>
                                 <select className={inputCls} value={formData.payroll_part_time_unit} onChange={(e) => setField('payroll_part_time_unit', e.target.value)}><option value="hour">Per Hour</option><option value="session">Per Session</option></select>
                             </label>
                         ) : null}
                     </div>
                     <div className="border border-black/5 rounded-xl p-3 space-y-2">
                         <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-black uppercase tracking-widest">Allowances (Add Many)</span>
-                            <button type="button" onClick={() => setField('payroll_other_allowances', [...formData.payroll_other_allowances, { label: '', amount: '' }])} className="text-[9px] font-black uppercase">Add</button>
+                            <span className="text-[10px] font-semibold uppercase tracking-widest">Allowances (Add Many)</span>
+                            <button type="button" onClick={() => setField('payroll_other_allowances', [...formData.payroll_other_allowances, { label: '', amount: '' }])} className="text-[9px] font-semibold uppercase">Add</button>
                         </div>
                         {formData.payroll_other_allowances.map((item, idx) => (
                             <div key={`allow-${idx}`} className="grid grid-cols-5 gap-2">
@@ -913,8 +914,8 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
                     </div>
                     <div className="border border-black/5 rounded-xl p-3 space-y-2">
                         <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-black uppercase tracking-widest">Other Deductions (Optional)</span>
-                            <button type="button" onClick={() => setField('payroll_other_deductions', [...formData.payroll_other_deductions, { label: '', amount: '' }])} className="text-[9px] font-black uppercase">Add</button>
+                            <span className="text-[10px] font-semibold uppercase tracking-widest">Other Deductions (Optional)</span>
+                            <button type="button" onClick={() => setField('payroll_other_deductions', [...formData.payroll_other_deductions, { label: '', amount: '' }])} className="text-[9px] font-semibold uppercase">Add</button>
                         </div>
                         {formData.payroll_other_deductions.map((item, idx) => (
                             <div key={`ded-${idx}`} className="grid grid-cols-5 gap-2">
@@ -925,7 +926,7 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
                         ))}
                     </div>
                     <div className="border border-black/5 rounded-xl p-3 space-y-2">
-                        <label className="flex items-center gap-2 text-[10px] font-black uppercase"><input type="checkbox" checked={formData.allow_advance} onChange={(e) => setField('allow_advance', e.target.checked)} /> Allow Advance / Loan</label>
+                        <label className="flex items-center gap-2 text-[10px] font-semibold uppercase"><input type="checkbox" checked={formData.allow_advance} onChange={(e) => setField('allow_advance', e.target.checked)} /> Allow Advance / Loan</label>
                         {formData.allow_advance && (
                             <div className="grid grid-cols-3 gap-3">
                                 <input type="number" className={inputCls} placeholder="Max Advance Limit" value={formData.max_advance_limit} onChange={(e) => setField('max_advance_limit', e.target.value)} />
@@ -935,8 +936,8 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
                         )}
                     </div>
                     <div className="border border-[#1E3A5F]/20 bg-[#1E3A5F]/5 rounded-xl p-3">
-                        <p className="text-[9px] font-black uppercase tracking-widest text-[#1E3A5F] mb-2">Auto Payroll Calculation</p>
-                        <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-[9px] font-black uppercase tracking-wider">
+                        <p className="text-[9px] font-semibold uppercase tracking-widest text-[#1E3A5F] mb-2">Auto Payroll Calculation</p>
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-[9px] font-semibold uppercase tracking-wider">
                             <div className="bg-white rounded-lg border border-black/5 p-2">
                                 <p className="text-re-text-muted text-[8px]">Gross</p>
                                 <p>{formatRwf(grossSalary)} RWF</p>
@@ -965,7 +966,7 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
         if (step === 4) {
             return (
                 <div className="space-y-3">
-                    <label className="flex items-center gap-2 text-[10px] font-black uppercase"><input type="checkbox" checked={formData.account_enabled} onChange={(e) => setField('account_enabled', e.target.checked)} /> Create Login Account</label>
+                    <label className="flex items-center gap-2 text-[10px] font-semibold uppercase"><input type="checkbox" checked={formData.account_enabled} onChange={(e) => setField('account_enabled', e.target.checked)} /> Create Login Account</label>
                     <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">
                             <input className={inputClsWithError('username')} placeholder="Username" value={formData.username} onChange={(e) => setField('username', e.target.value)} />
@@ -976,7 +977,7 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
                         <input className={inputCls} placeholder="RFID UID (Optional)" value={formData.rfid_uid} onChange={(e) => setField('rfid_uid', e.target.value)} />
                         <input className={inputCls} placeholder="Fingerprint ID (Optional)" value={formData.fingerprint_id} onChange={(e) => setField('fingerprint_id', e.target.value)} />
                     </div>
-                    <textarea className="w-full min-h-[70px] bg-re-bg/80 border border-black/5 rounded-xl p-3 text-[10px] font-black outline-none" placeholder="Identity remarks" value={formData.identity_remarks} onChange={(e) => setField('identity_remarks', e.target.value)} />
+                    <textarea className="w-full min-h-[70px] bg-re-bg/80 border border-black/5 rounded-xl p-3 text-[10px] font-semibold outline-none" placeholder="Identity remarks" value={formData.identity_remarks} onChange={(e) => setField('identity_remarks', e.target.value)} />
                 </div>
             );
         }
@@ -994,17 +995,17 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
     return createPortal(
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
             <div className="fixed inset-0 bg-[#0a192f]/70 backdrop-blur-sm animate-in fade-in duration-300" onClick={onClose} />
-            <div className="relative bg-white w-full max-w-3xl rounded-[2rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 border border-white/10 flex flex-col max-h-[92vh]">
+            <div className="relative bg-white w-full max-w-3xl rounded-[2rem] shadow-sm overflow-hidden animate-in zoom-in-95 duration-300 border border-white/10 flex flex-col max-h-[92vh]">
                 <div className="px-6 py-3 flex items-center justify-between shadow-md shrink-0" style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)" }}>
                     <div className="flex items-center gap-2">
                         <UserPlus size={14} className="text-re-gold" />
-                        <h3 className="text-[10px] font-black text-white uppercase tracking-widest">{isEditMode ? 'Edit Staff' : 'Add New Staff'} - HR Central</h3>
+                        <h3 className="text-[10px] font-semibold text-white uppercase tracking-widest">{isEditMode ? 'Edit Staff' : 'Add New Staff'} - HR Central</h3>
                     </div>
                     <button onClick={onClose} className="text-white/70 hover:text-re-gold"><X size={14} /></button>
                 </div>
                 <div className="px-5 py-3 bg-re-bg/30 border-b border-black/5 grid grid-cols-2 md:grid-cols-6 gap-2">
                     {HIRE_STEPS.map((label, i) => (
-                        <button key={label} type="button" onClick={() => setStep(i)} className={`h-8 rounded-lg text-[8px] font-black uppercase tracking-widest border ${i === step ? 'bg-[#1E3A5F] text-white border-[#1E3A5F]' : i < step ? 'bg-[#1E3A5F]/10 text-[#1E3A5F] border-[#1E3A5F]/30' : 'bg-white text-re-text-muted border-black/10'}`}>
+                        <button key={label} type="button" onClick={() => setStep(i)} className={`h-8 rounded-lg text-[8px] font-semibold uppercase tracking-widest border ${i === step ? 'bg-[#1E3A5F] text-white border-[#1E3A5F]' : i < step ? 'bg-[#1E3A5F]/10 text-[#1E3A5F] border-[#1E3A5F]/30' : 'bg-white text-re-text-muted border-black/10'}`}>
                             {label}
                         </button>
                     ))}
@@ -1012,18 +1013,18 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
                 <form id="hr-staff-stepper-form" onSubmit={onSubmit} className="p-5 space-y-4 overflow-y-auto">
                     {error && (
                         <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-rose-700">Action failed</p>
+                            <p className="text-[10px] font-semibold uppercase tracking-widest text-rose-700">Action failed</p>
                             <p className="text-[11px] font-bold text-rose-800 mt-0.5">{error}</p>
                         </div>
                     )}
                     {section()}
                 </form>
                 <div className="px-5 py-3 bg-white border-t border-black/5 flex items-center justify-between">
-                    <button type="button" onClick={step === 0 ? onClose : () => setStep((s) => Math.max(0, s - 1))} className="h-9 px-4 rounded-lg border border-black/10 text-[9px] font-black uppercase tracking-widest text-[#1E3A5F]">Back</button>
+                    <button type="button" onClick={step === 0 ? onClose : () => setStep((s) => Math.max(0, s - 1))} className="h-9 px-4 rounded-lg border border-black/10 text-[9px] font-semibold uppercase tracking-widest text-[#1E3A5F]">Back</button>
                     {step < HIRE_STEPS.length - 1 ? (
-                        <button type="button" onClick={onNext} className="h-9 px-5 rounded-lg bg-re-grad-navy text-white font-black text-[9px] uppercase tracking-widest flex items-center gap-1">Next <ChevronRight size={12} /></button>
+                        <button type="button" onClick={onNext} className="h-9 px-5 rounded-lg bg-re-grad-navy text-white font-medium text-[9px] uppercase tracking-widest flex items-center gap-1">Next <ChevronRight size={12} /></button>
                     ) : (
-                        <button type="submit" form="hr-staff-stepper-form" disabled={isSubmitting} className="h-9 px-5 rounded-lg bg-re-gold text-[#1E3A5F] font-black text-[9px] uppercase tracking-widest flex items-center gap-1 disabled:opacity-60">
+                        <button type="submit" form="hr-staff-stepper-form" disabled={isSubmitting} className="h-9 px-5 rounded-lg bg-re-gold text-[#1E3A5F] font-medium text-[9px] uppercase tracking-widest flex items-center gap-1 disabled:opacity-60">
                             {isSubmitting ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />} {isSubmitting ? 'Saving...' : 'Review & Save'}
                         </button>
                     )}
@@ -1294,12 +1295,12 @@ const HRCentral = () => {
                 {notifications.map((n) => (
                     <div
                         key={n.id}
-                        className={`rounded-xl border shadow-xl px-4 py-3 animate-in slide-in-from-right-5 duration-300 ${n.type === 'success'
+                        className={`rounded-xl border shadow-sm px-4 py-3 animate-in slide-in-from-right-5 duration-300 ${n.type === 'success'
                             ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
                             : 'bg-rose-50 border-rose-200 text-rose-800'
                             }`}
                     >
-                        <p className="text-[10px] font-black uppercase tracking-widest">
+                        <p className="text-[10px] font-semibold uppercase tracking-widest">
                             {n.type === 'success' ? 'Success' : 'Action Failed'}
                         </p>
                         <p className="text-[11px] font-bold mt-0.5 tracking-tight">{n.message}</p>
@@ -1324,10 +1325,10 @@ const HRCentral = () => {
             {showAllDeptsModal && createPortal(
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in" onClick={() => setShowAllDeptsModal(false)} />
-                    <div className="relative bg-white w-full max-w-sm rounded-[2rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+                    <div className="relative bg-white w-full max-w-sm rounded-[2rem] shadow-sm overflow-hidden animate-in zoom-in-95 duration-200">
                         <div className="px-6 py-5 border-b border-black/5 flex items-center justify-between">
                             <div>
-                                <h3 className="text-sm font-black text-re-text uppercase tracking-widest">Select Department</h3>
+                                <h3 className="text-sm font-semibold text-re-text uppercase tracking-widest">Select Department</h3>
                                 <p className="text-[10px] text-re-text-muted font-bold mt-0.5">Filter the staff overview</p>
                             </div>
                             <button onClick={() => setShowAllDeptsModal(false)} className="w-8 h-8 flex items-center justify-center rounded-xl bg-re-bg text-re-text-muted hover:bg-black/10 transition-colors">
@@ -1342,7 +1343,7 @@ const HRCentral = () => {
                                         setSelectedDept(dept);
                                         setShowAllDeptsModal(false);
                                     }}
-                                    className={`h-12 flex items-center gap-2 px-4 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all ${selectedDept === dept
+                                    className={`h-12 flex items-center gap-2 px-4 rounded-xl border text-[10px] font-semibold uppercase tracking-widest transition-all ${selectedDept === dept
                                         ? 'bg-re-navy/10 border-re-navy/30 text-re-navy ring-1 ring-re-navy/30'
                                         : 'bg-white border-black/5 text-re-text-muted hover:border-black/10'
                                         }`}
@@ -1357,7 +1358,7 @@ const HRCentral = () => {
             )}
 
             {/* ── High-Fidelity Hero Section (Institutional Pattern) ── */}
-            <div className="relative w-full min-h-[220px] overflow-hidden bg-[#000435]">
+            <div className="relative w-full min-h-[220px] overflow-hidden bg-[#c87800]">
                 <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full border border-white/5 pointer-events-none" />
                 <div className="absolute -top-12 -right-12 w-64 h-64 rounded-full border border-white/5 pointer-events-none" />
                 <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-[#FEBF10]/30 to-transparent pointer-events-none" />
@@ -1367,17 +1368,17 @@ const HRCentral = () => {
                     <div className="space-y-1">
                         <div className="flex items-center gap-2 mb-1">
                             <span className="w-5 h-1 rounded-full animate-pulse" style={{ background: "#FEBF10" }}></span>
-                            <p className="text-[9px] font-black uppercase tracking-[0.3em]" style={{ color: "#FEBF10" }}>Organizational Resource</p>
+                            <p className="text-[9px] font-semibold uppercase tracking-[0.3em]" style={{ color: "#FEBF10" }}>Organizational Resource</p>
                         </div>
-                        <h1 className="text-xl sm:text-3xl md:text-3xl font-black text-white tracking-tighter leading-none mb-1 mt-1 uppercase">HR <span style={{ color: "#FEBF10" }}>Central</span></h1>
-                        <p className="text-[8px] sm:text-[9px] md:text-[11px] font-bold text-white/40 max-w-lg leading-relaxed uppercase tracking-widest italic opacity-60">Professional Personnel & Leadership Management Engine</p>
+                        <h1 className="text-2xl md:text-3xl font-semibold text-white tracking-tight leading-none mb-1 mt-1 uppercase" style={{ fontFamily: "'Montserrat', sans-serif" }}>HR Central</h1>
+                        <p className="text-[10px] font-medium text-white/60 max-w-lg leading-relaxed uppercase tracking-widest" style={{ fontFamily: "'Montserrat', sans-serif" }}>Professional Personnel & Leadership Management Engine</p>
                     </div>
                 </div>
             </div>
 
             {/* ── Consolidated High-Fidelity Card (Dashboard Stats Style) ── */}
-            <div className="max-w-[1600px] mx-auto px-6 md:px-12 -mt-24 relative z-20 pb-20">
-                <div className="bg-white rounded-t-[32px] shadow-2xl border border-black/5 overflow-hidden flex flex-col">
+            <div className="max-w-[1600px] mx-auto px-6 md:px-12 -mt-4 sm:-mt-5 md:-mt-6 pt-2 relative z-20 pb-20">
+                <div className="bg-white rounded-t-[32px] shadow-sm border border-black/10 overflow-hidden flex flex-col">
 
                     {/* Top Layer: Stats Grid + Actions (Dashboard Style) */}
                     <div className={`${!isDeptSelected ? 'hidden md:grid' : 'grid'} grid-cols-1 lg:grid-cols-4 border-b border-black/5`}>
@@ -1398,14 +1399,14 @@ const HRCentral = () => {
                                     <div className="mb-1 sm:mb-1.5 opacity-40 shrink-0" style={{ color: "#FEBF10" }}>
                                         {stat.icon}
                                     </div>
-                                    <span className="text-sm sm:text-xl font-black text-re-text tracking-tighter group-hover:text-[#1E3A5F] transition-colors">
+                                    <span className="text-sm sm:text-xl font-semibold text-re-text tracking-tighter group-hover:text-[#1E3A5F] transition-colors">
                                         {stat.value}
                                     </span>
-                                    <p className="text-[6px] sm:text-[7px] font-black text-re-text-muted uppercase tracking-[0.2em] mt-0.5 opacity-60">
+                                    <p className="text-[6px] sm:text-[7px] font-semibold text-re-text-muted uppercase tracking-[0.2em] mt-0.5 opacity-60">
                                         {stat.label}
                                     </p>
                                     {stat.subValue && (
-                                        <p className="text-[6px] sm:text-[7px] font-black uppercase tracking-widest mt-0.5 opacity-30" style={{ color: "#1E3A5F" }}>
+                                        <p className="text-[6px] sm:text-[7px] font-semibold uppercase tracking-widest mt-0.5 opacity-30" style={{ color: "#1E3A5F" }}>
                                             {stat.subValue}
                                         </p>
                                     )}
@@ -1419,7 +1420,7 @@ const HRCentral = () => {
                             <div className="relative">
                                 <button
                                     onClick={() => setActiveDropdown(activeDropdown === 'export' ? null : 'export')}
-                                    className="w-full h-11 flex items-center justify-center gap-2 text-white rounded-xl font-black text-[9px] uppercase tracking-widest shadow-xl hover:scale-[1.02] active:scale-95 transition-all"
+                                    className="w-full h-11 flex items-center justify-center gap-2 text-white rounded-xl font-medium text-[9px] uppercase tracking-widest shadow-sm active:scale-95 transition-all"
                                     style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)" }}
                                 >
                                     <Download size={14} />
@@ -1430,11 +1431,11 @@ const HRCentral = () => {
                                 {activeDropdown === 'export' && (
                                     <>
                                         <div className="fixed inset-0 z-[40]" onClick={() => setActiveDropdown(null)} />
-                                        <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-black/5 shadow-2xl rounded-2xl overflow-hidden py-1 z-[50] animate-in slide-in-from-top-2 duration-200">
-                                            <button className="w-full text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-re-text hover:bg-re-bg transition-colors flex items-center gap-2.5">
+                                        <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-black/10 shadow-md rounded-2xl overflow-hidden py-1 z-[50] animate-in slide-in-from-top-2 duration-200">
+                                            <button className="w-full text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-re-text hover:bg-re-bg transition-colors flex items-center gap-2.5">
                                                 <FileText size={14} style={{ color: "#FEBF10" }} /> Export into PDF
                                             </button>
-                                            <button className="w-full text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-re-text hover:bg-re-bg transition-colors flex items-center gap-2.5 border-t border-black/5">
+                                            <button className="w-full text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-re-text hover:bg-re-bg transition-colors flex items-center gap-2.5 border-t border-black/5">
                                                 <FileSpreadsheet size={14} style={{ color: "#FEBF10" }} /> Export into Excel
                                             </button>
                                         </div>
@@ -1446,7 +1447,7 @@ const HRCentral = () => {
                             <div className="relative">
                                 <button
                                     onClick={() => setActiveDropdown(activeDropdown === 'actions' ? null : 'actions')}
-                                    className="w-full h-11 flex items-center justify-center gap-2 bg-white border border-black/5 text-re-text font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg hover:shadow-re-soft transition-all"
+                                    className="w-full h-11 flex items-center justify-center gap-2 bg-white border border-black/5 text-re-text font-medium text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg hover:shadow-re-soft transition-all"
                                 >
                                     <ShieldCheck size={14} style={{ color: "#FEBF10" }} />
                                     <span>HR Actions</span>
@@ -1456,14 +1457,14 @@ const HRCentral = () => {
                                 {activeDropdown === 'actions' && (
                                     <>
                                         <div className="fixed inset-0 z-[40]" onClick={() => setActiveDropdown(null)} />
-                                        <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-black/5 shadow-2xl rounded-2xl overflow-hidden py-1 z-[50] animate-in slide-in-from-top-2 duration-200">
+                                        <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-black/10 shadow-md rounded-2xl overflow-hidden py-1 z-[50] animate-in slide-in-from-top-2 duration-200">
                                             <button
                                                 onClick={() => { setShowHireModal(true); setActiveDropdown(null); }}
-                                                className="w-full text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-[#1E3A5F] hover:bg-re-navy/5 transition-colors flex items-center gap-2.5"
+                                                className="w-full text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-[#1E3A5F] hover:bg-re-navy/5 transition-colors flex items-center gap-2.5"
                                             >
                                                 <UserPlus size={14} /> Hire New Staff
                                             </button>
-                                            <button className="w-full text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-re-text hover:bg-re-bg transition-colors flex items-center gap-2.5 border-t border-black/5">
+                                            <button className="w-full text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-re-text hover:bg-re-bg transition-colors flex items-center gap-2.5 border-t border-black/5">
                                                 <Upload size={14} style={{ color: "#FEBF10" }} /> Import Roster
                                             </button>
                                         </div>
@@ -1474,7 +1475,7 @@ const HRCentral = () => {
                             {/* Direct CTA: Add New Staff */}
                             <button
                                 onClick={() => { setShowHireModal(true); setActiveDropdown(null); }}
-                                className="w-full h-11 flex items-center justify-center gap-2 rounded-xl font-black text-[9px] uppercase tracking-widest text-[#1E3A5F] border border-[#FEBF10]/40 bg-[#FEBF10]/15 hover:bg-[#FEBF10]/25 transition-all"
+                                className="w-full h-11 flex items-center justify-center gap-2 rounded-xl font-medium text-[9px] uppercase tracking-widest text-[#1E3A5F] border border-[#FEBF10]/40 bg-[#FEBF10]/15 hover:bg-[#FEBF10]/25 transition-all"
                             >
                                 <UserPlus size={14} />
                                 Add New Staff
@@ -1497,14 +1498,14 @@ const HRCentral = () => {
                         <div className="flex items-center gap-2 w-full md:w-auto">
                             <button
                                 onClick={() => { setShowHireModal(true); setActiveDropdown(null); }}
-                                className="h-9 sm:h-10 px-3 sm:px-5 bg-[#FEBF10]/15 border border-[#FEBF10]/40 rounded-xl flex items-center gap-1.5 sm:gap-2 text-[#1E3A5F] font-black text-[8px] sm:text-[9px] uppercase tracking-widest hover:bg-[#FEBF10]/25 transition-all shadow-sm whitespace-nowrap"
+                                className="h-9 sm:h-10 px-3 sm:px-5 bg-[#FEBF10]/15 border border-[#FEBF10]/40 rounded-xl flex items-center gap-1.5 sm:gap-2 text-[#1E3A5F] font-semibold text-[8px] sm:text-[9px] uppercase tracking-widest hover:bg-[#FEBF10]/25 transition-all shadow-sm whitespace-nowrap"
                             >
                                 <UserPlus size={13} />
                                 Add New Staff
                             </button>
                             <button
                                 onClick={() => setShowDeptFilter(!showDeptFilter)}
-                                className="h-9 sm:h-10 px-3 sm:px-5 bg-white border border-black/5 rounded-xl flex items-center gap-1.5 sm:gap-2 text-re-text-muted font-black text-[8px] sm:text-[9px] uppercase tracking-widest hover:bg-re-bg transition-all shadow-sm whitespace-nowrap"
+                                className="h-9 sm:h-10 px-3 sm:px-5 bg-white border border-black/5 rounded-xl flex items-center gap-1.5 sm:gap-2 text-re-text-muted font-semibold text-[8px] sm:text-[9px] uppercase tracking-widest hover:bg-re-bg transition-all shadow-sm whitespace-nowrap"
                             >
                                 <Filter size={13} style={{ color: "#FEBF10" }} />
                                 Filter By Dept
@@ -1519,8 +1520,8 @@ const HRCentral = () => {
                             {/* All Depts Option */}
                             <button
                                 onClick={() => setSelectedDept('All Departments')}
-                                className={`flex items-center justify-center gap-1.5 shrink-0 h-7 sm:h-9 px-3 sm:px-5 rounded-lg sm:rounded-xl border font-black text-[7px] sm:text-[9px] uppercase tracking-widest transition-all whitespace-nowrap ${selectedDept === 'All Departments'
-                                    ? 'text-white shadow-xl hover:scale-105'
+                                className={`flex items-center justify-center gap-1.5 shrink-0 h-7 sm:h-9 px-3 sm:px-5 rounded-lg sm:rounded-xl border font-medium text-[7px] sm:text-[9px] uppercase tracking-widest transition-all whitespace-nowrap ${selectedDept === 'All Departments'
+                                    ? 'text-white shadow-sm'
                                     : 'bg-white border-black/5 text-re-text-muted hover:bg-re-bg hover:text-re-text'
                                     }`}
                                 style={selectedDept === 'All Departments' ? { background: "#1E3A5F", borderColor: "#1E3A5F" } : {}}
@@ -1534,8 +1535,8 @@ const HRCentral = () => {
                                 <button
                                     key={dept}
                                     onClick={() => setSelectedDept(dept)}
-                                    className={`flex items-center justify-center gap-1.5 shrink-0 h-7 sm:h-9 px-3 sm:px-5 rounded-lg sm:rounded-xl border font-black text-[7px] sm:text-[9px] uppercase tracking-widest transition-all whitespace-nowrap ${idx > 1 ? 'hidden md:flex' : ''} ${selectedDept === dept
-                                        ? 'text-white shadow-xl hover:scale-105'
+                                    className={`flex items-center justify-center gap-1.5 shrink-0 h-7 sm:h-9 px-3 sm:px-5 rounded-lg sm:rounded-xl border font-medium text-[7px] sm:text-[9px] uppercase tracking-widest transition-all whitespace-nowrap ${idx > 1 ? 'hidden md:flex' : ''} ${selectedDept === dept
+                                        ? 'text-white shadow-sm'
                                         : 'bg-white border-black/5 text-re-text-muted hover:bg-re-bg hover:text-re-text'
                                         }`}
                                     style={selectedDept === dept ? { background: "#1E3A5F", borderColor: "#1E3A5F" } : {}}
@@ -1548,7 +1549,7 @@ const HRCentral = () => {
                             {/* More Trigger for Mobile */}
                             <button
                                 onClick={() => setShowAllDeptsModal(true)}
-                                className="md:hidden flex items-center justify-center gap-1.5 shrink-0 h-7 px-3 rounded-lg border border-black/5 bg-white font-black text-[7px] uppercase tracking-widest transition-all shadow-sm active:scale-95"
+                                className="md:hidden flex items-center justify-center gap-1.5 shrink-0 h-7 px-3 rounded-lg border border-black/5 bg-white font-semibold text-[7px] uppercase tracking-widest transition-all shadow-sm active:scale-95"
                                 style={{ color: "#FEBF10" }}
                             >
                                 <Plus size={10} /> More
@@ -1559,10 +1560,10 @@ const HRCentral = () => {
                     {/* Bottom Layer: Selection Gatekeeper or Records Repository */}
                     {!isDeptSelected && (
                         <div className="md:hidden p-4 sm:p-6 bg-re-bg/20 flex flex-col items-center justify-center text-center py-8 sm:py-12 animate-in fade-in zoom-in-95 duration-500">
-                            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white rounded-2xl sm:rounded-[2rem] shadow-xl flex items-center justify-center mb-4 sm:mb-6 border border-black/5 animate-bounce" style={{ color: "#FEBF10" }}>
+                            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white rounded-2xl sm:rounded-[2rem] shadow-sm flex items-center justify-center mb-4 sm:mb-6 border border-black/5 animate-bounce" style={{ color: "#FEBF10" }}>
                                 <Briefcase size={24} className="sm:w-8 sm:h-8" />
                             </div>
-                            <h2 className="text-lg sm:text-xl font-black text-re-text tracking-tighter uppercase mb-1 sm:mb-2">Select a Division</h2>
+                            <h2 className="text-lg sm:text-xl font-semibold text-re-text tracking-tighter uppercase mb-1 sm:mb-2">Select a Division</h2>
                             <p className="text-[8px] sm:text-[10px] text-re-text-muted font-bold uppercase tracking-widest leading-relaxed mb-6 sm:mb-8 max-w-[200px] sm:max-w-[240px]">Select a specific institutional department to view personnel.</p>
 
                             <div className="grid grid-cols-2 gap-2 sm:gap-3 w-full max-w-sm">
@@ -1576,7 +1577,7 @@ const HRCentral = () => {
                                         className="h-14 sm:h-16 flex  items-center justify-center gap-2.5 sm:gap-2 bg-white border border-black/5 rounded-xl sm:rounded-2xl shadow-sm transition-all group active:scale-95"
                                     >
                                         <div className="flex flex-col items-center gap-0.5">
-                                            <span className="text-[9px] sm:text-[10px] font-black text-re-text group-hover:text-[#1E3A5F] uppercase">{dept}</span>
+                                            <span className="text-[9px] sm:text-[10px] font-semibold text-re-text group-hover:text-[#1E3A5F] uppercase">{dept}</span>
                                             <span className="text-[6px] sm:text-[7px] font-bold text-re-text-muted uppercase tracking-widest opacity-40 italic">View Roster</span>
                                         </div>
                                         <ChevronRight size={14} className="text-re-text-muted" />
@@ -1588,7 +1589,7 @@ const HRCentral = () => {
                                         setSelectedDept('All Departments');
                                         setIsDeptSelected(true);
                                     }}
-                                    className="col-span-2 h-12 sm:h-14 text-white rounded-xl sm:rounded-2xl font-black text-[8px] sm:text-[9px] uppercase tracking-widest shadow-xl hover:scale-105 active:scale-95 transition-all mt-1 sm:mt-2"
+                                    className="col-span-2 h-12 sm:h-14 text-white rounded-xl sm:rounded-2xl font-semibold text-[8px] sm:text-[9px] uppercase tracking-widest shadow-sm active:scale-95 transition-all mt-1 sm:mt-2"
                                     style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)" }}
                                 >
                                     View All Personnel
@@ -1602,11 +1603,11 @@ const HRCentral = () => {
                             <div className="md:hidden px-6 py-3 bg-white border-b border-black/5 flex items-center justify-between">
                                 <div className="flex items-center gap-2">
                                     <div className="w-1.5 h-1.5 rounded-full" style={{ background: "#FEBF10" }}></div>
-                                    <span className="text-[9px] font-black text-re-text uppercase tracking-widest">{selectedDept} Roster</span>
+                                    <span className="text-[9px] font-semibold text-re-text uppercase tracking-widest">{selectedDept} Roster</span>
                                 </div>
                                 <button
                                     onClick={() => setIsDeptSelected(false)}
-                                    className="text-[8px] font-black uppercase tracking-widest hover:underline"
+                                    className="text-[8px] font-semibold uppercase tracking-widest hover:underline"
                                     style={{ color: "#FEBF10" }}
                                 >
                                     Change Dept
@@ -1616,11 +1617,11 @@ const HRCentral = () => {
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-re-bg/20 border-b border-black/5">
-                                    <th className="px-4 sm:px-8 py-2.5 sm:py-3 text-[7px] sm:text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5 last:border-r-0">Personnel Info</th>
-                                    <th className="hidden md:table-cell px-8 py-3 text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Designation</th>
-                                    <th className="hidden md:table-cell px-8 py-3 text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Reliability</th>
-                                    <th className="hidden md:table-cell px-8 py-3 text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Performance</th>
-                                    <th className="px-4 sm:px-8 py-2.5 sm:py-3 text-[7px] sm:text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 text-right">Records</th>
+                                    <th className="px-4 sm:px-8 py-2.5 sm:py-3 text-[7px] sm:text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5 last:border-r-0">Personnel Info</th>
+                                    <th className="hidden md:table-cell px-8 py-3 text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Designation</th>
+                                    <th className="hidden md:table-cell px-8 py-3 text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Reliability</th>
+                                    <th className="hidden md:table-cell px-8 py-3 text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Performance</th>
+                                    <th className="px-4 sm:px-8 py-2.5 sm:py-3 text-[7px] sm:text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.2em] opacity-40 text-right">Records</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-black/5">
@@ -1628,7 +1629,7 @@ const HRCentral = () => {
                                     <tr>
                                         <td colSpan="5" className="p-12 text-center">
                                             <div className="w-8 h-8 border-4 border-re-navy border-t-transparent rounded-full animate-spin mx-auto mb-4" style={{ borderColor: "#1E3A5F #0000 0000 0000" }}></div>
-                                            <p className="text-[10px] font-black text-re-text-muted uppercase tracking-widest">Querying Personnel DB...</p>
+                                            <p className="text-[10px] font-semibold text-re-text-muted uppercase tracking-widest">Querying Personnel DB...</p>
                                         </td>
                                     </tr>
                                 ) : (
@@ -1658,14 +1659,14 @@ const HRCentral = () => {
                                                                 </div>
                                                             </div>
                                                             <div>
-                                                                <p className="text-[11px] font-black text-re-text tracking-tight uppercase leading-none mb-0.5 group-hover:text-[#1E3A5F] transition-colors">{s.name}</p>
+                                                                <p className="text-[11px] font-semibold text-re-text tracking-tight uppercase leading-none mb-0.5 group-hover:text-[#1E3A5F] transition-colors">{s.name}</p>
                                                                 <p className="text-[7px] sm:text-[8px] font-bold text-re-text-muted opacity-30 uppercase tracking-widest leading-none font-mono italic">{s.id}</p>
                                                             </div>
                                                         </div>
                                                     </td>
                                                     <td className="hidden md:table-cell px-8 py-5">
                                                         <div className="flex flex-col gap-0.5">
-                                                            <p className="text-[10px] font-black text-re-text uppercase tracking-tight truncate max-w-[150px]">{s.role}</p>
+                                                            <p className="text-[10px] font-semibold text-re-text uppercase tracking-tight truncate max-w-[150px]">{s.role}</p>
                                                             <div className="flex items-center gap-2">
                                                                 <p className="text-[9px] font-bold text-re-text-muted opacity-50 uppercase tracking-widest">{s.department}</p>
                                                                 {(s.rfid_uid || s.fingerprint_id) && (
@@ -1680,7 +1681,7 @@ const HRCentral = () => {
                                                     <td className="hidden md:table-cell px-8 py-5">
                                                         <div className="space-y-1.5 max-w-[100px]">
                                                             <div className="flex items-center justify-between">
-                                                                <p className="text-[9px] font-black text-re-text">{s.attendance}% Present</p>
+                                                                <p className="text-[9px] font-semibold text-re-text">{s.attendance}% Present</p>
                                                             </div>
                                                             <div className="w-full h-1 bg-black/5 rounded-full overflow-hidden">
                                                                 <div className="h-full" style={{ width: `${s.attendance}%`, background: s.attendance >= 95 ? "linear-gradient(135deg, #1E3A5F 0%, #3D5A80 100%)" : "#FEBF10" }}></div>
@@ -1688,7 +1689,7 @@ const HRCentral = () => {
                                                         </div>
                                                     </td>
                                                     <td className="hidden md:table-cell px-8 py-5">
-                                                        <div className={`inline-flex px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest ring-1 ring-inset ${s.status === 'Exceptional' ? 'bg-emerald-50 text-emerald-600 ring-emerald-500/20' :
+                                                        <div className={`inline-flex px-3 py-1.5 rounded-lg text-[8px] font-semibold uppercase tracking-widest ring-1 ring-inset ${s.status === 'Exceptional' ? 'bg-emerald-50 text-emerald-600 ring-emerald-500/20' :
                                                             s.status === 'Expected' ? 'bg-blue-50 text-blue-600 ring-blue-500/20' :
                                                                 'bg-re-navy/5 text-re-navy ring-re-navy/20'
                                                             }`} style={s.status !== 'Exceptional' && s.status !== 'Expected' ? { color: "#1E3A5F" } : {}}>
@@ -1723,23 +1724,23 @@ const HRCentral = () => {
                                                                             onClick={(e) => { e.stopPropagation(); setOpenDropdownId(null); }}
                                                                         />
                                                                         <div
-                                                                            className={`absolute right-0 ${isLastItems ? 'bottom-full mb-2 origin-bottom-right' : 'top-full mt-2 origin-top-right'} w-48 bg-white border border-black/5 shadow-2xl rounded-2xl z-[50] overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-150`}
+                                                                            className={`absolute right-0 ${isLastItems ? 'bottom-full mb-2 origin-bottom-right' : 'top-full mt-2 origin-top-right'} w-48 bg-white border border-black/10 shadow-md rounded-2xl z-[50] overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-150`}
                                                                             onClick={(e) => e.stopPropagation()}
                                                                         >
                                                                             <button
-                                                                                className="w-full text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-[#1E3A5F] hover:bg-re-navy/5 transition-colors flex items-center gap-2.5"
+                                                                                className="w-full text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-[#1E3A5F] hover:bg-re-navy/5 transition-colors flex items-center gap-2.5"
                                                                                 onClick={() => { setSelectedStaff(s); setOpenDropdownId(null); }}
                                                                             >
                                                                                 <Eye size={13} /> View Full File
                                                                             </button>
                                                                             <button
-                                                                                className="w-full text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-emerald-600 hover:bg-emerald-50 transition-colors flex items-center gap-2.5 border-t border-black/5"
+                                                                                className="w-full text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-emerald-600 hover:bg-emerald-50 transition-colors flex items-center gap-2.5 border-t border-black/5"
                                                                                 onClick={() => openEditModal(s)}
                                                                             >
                                                                                 <Edit3 size={13} /> Edit Staff
                                                                             </button>
                                                                             <button
-                                                                                className="w-full text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-re-text hover:bg-re-bg transition-colors flex items-center gap-2.5 border-t border-black/5"
+                                                                                className="w-full text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-re-text hover:bg-re-bg transition-colors flex items-center gap-2.5 border-t border-black/5"
                                                                                 onClick={() => handleResendInvite(s.real_id || s.id)}
                                                                                 disabled={isActionLoading}
                                                                             >
@@ -1747,7 +1748,7 @@ const HRCentral = () => {
                                                                                 Resend Invitation
                                                                             </button>
                                                                             <button
-                                                                                className="w-full text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-indigo-700 hover:bg-indigo-50 transition-colors flex items-center gap-2.5 border-t border-black/5"
+                                                                                className="w-full text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-indigo-700 hover:bg-indigo-50 transition-colors flex items-center gap-2.5 border-t border-black/5"
                                                                                 onClick={() => handleToggleActive(s.real_id || s.id, s.status !== 'Inactive')}
                                                                                 disabled={isActionLoading}
                                                                             >
@@ -1755,7 +1756,7 @@ const HRCentral = () => {
                                                                                 {s.status === 'Inactive' ? 'Activate Staff' : 'Deactivate Staff'}
                                                                             </button>
                                                                             <button
-                                                                                className="w-full text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2.5 border-t border-black/5"
+                                                                                className="w-full text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2.5 border-t border-black/5"
                                                                                 onClick={() => handleDeleteStaff(s.real_id || s.id, s.name)}
                                                                                 disabled={isActionLoading}
                                                                             >
@@ -1763,13 +1764,13 @@ const HRCentral = () => {
                                                                                 Delete Staff
                                                                             </button>
                                                                             <button
-                                                                                className="w-full text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-re-text hover:bg-re-bg transition-colors flex items-center gap-2.5 border-t border-black/5"
+                                                                                className="w-full text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-re-text hover:bg-re-bg transition-colors flex items-center gap-2.5 border-t border-black/5"
                                                                                 onClick={() => setOpenDropdownId(null)}
                                                                             >
                                                                                 <FileSignature size={13} className="text-re-text-muted" /> Add Appraisal
                                                                             </button>
                                                                             <button
-                                                                                className="w-full text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-re-text hover:bg-re-bg transition-colors flex items-center gap-2.5 border-t border-black/5"
+                                                                                className="w-full text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-re-text hover:bg-re-bg transition-colors flex items-center gap-2.5 border-t border-black/5"
                                                                                 onClick={() => setOpenDropdownId(null)}
                                                                             >
                                                                                 <Printer size={13} className="text-re-text-muted" /> Export Profile
@@ -1785,7 +1786,7 @@ const HRCentral = () => {
                                         })}
                                         {filteredStaff.length === 0 && (
                                             <tr>
-                                                <td colSpan="5" className="p-12 text-center text-[10px] font-black text-re-text-muted uppercase tracking-widest italic opacity-40">No personnel records found matching your criteria.</td>
+                                                <td colSpan="5" className="p-12 text-center text-[10px] font-semibold text-re-text-muted uppercase tracking-widest italic opacity-40">No personnel records found matching your criteria.</td>
                                             </tr>
                                         )}
                                     </>
@@ -1799,17 +1800,17 @@ const HRCentral = () => {
                         <div className="flex items-center gap-3 sm:gap-4">
                             <div className="hidden xs:flex items-center gap-2">
                                 <div className="w-1 h-1 rounded-full animate-pulse" style={{ background: "#FEBF10" }}></div>
-                                <p className="text-[6px] sm:text-[7px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 italic whitespace-nowrap">HR Database Sync</p>
+                                <p className="text-[6px] sm:text-[7px] font-semibold text-re-text-muted uppercase tracking-[0.2em] opacity-40 italic whitespace-nowrap">HR Database Sync</p>
                             </div>
                             <div className="hidden xs:block w-px h-3 bg-black/10"></div>
-                            <p className="text-[6px] sm:text-[7px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 italic whitespace-nowrap">Displaying {filteredStaff.length} Records</p>
+                            <p className="text-[6px] sm:text-[7px] font-semibold text-re-text-muted uppercase tracking-[0.2em] opacity-40 italic whitespace-nowrap">Displaying {filteredStaff.length} Records</p>
                         </div>
 
                         <div className="flex items-center gap-1 sm:gap-1.5">
-                            <button className="h-7 sm:h-7.5 px-2 sm:px-3 rounded-lg bg-white border border-black/5 text-[7px] sm:text-[8px] font-black text-re-text-muted tracking-tighter opacity-40 hover:opacity-100 transition-all font-mono italic">Prev_set</button>
-                            <div className="h-7 sm:h-7.5 px-3 sm:px-4 rounded-lg flex items-center justify-center bg-white border border-black/5 text-[7px] sm:text-[8px] font-black text-re-text tracking-tighter">Page 01</div>
+                            <button className="h-7 sm:h-7.5 px-2 sm:px-3 rounded-lg bg-white border border-black/5 text-[7px] sm:text-[8px] font-semibold text-re-text-muted tracking-tighter opacity-40 hover:opacity-100 transition-all font-mono italic">Prev_set</button>
+                            <div className="h-7 sm:h-7.5 px-3 sm:px-4 rounded-lg flex items-center justify-center bg-white border border-black/5 text-[7px] sm:text-[8px] font-semibold text-re-text tracking-tighter">Page 01</div>
                             <button
-                                className="h-7 sm:h-7.5 px-3 sm:px-4 rounded-lg text-white text-[7px] sm:text-[8px] font-black shadow-xl tracking-tighter"
+                                className="h-7 sm:h-7.5 px-3 sm:px-4 rounded-lg text-white text-[7px] sm:text-[8px] font-semibold shadow-sm tracking-tighter"
                                 style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)" }}
                             >
                                 Next_set
@@ -1820,10 +1821,10 @@ const HRCentral = () => {
 
                 {/* Brand/System Metadata */}
                 <div className="flex flex-col md:flex-row items-center justify-between mt-8 px-4 gap-4">
-                    <p className="text-[7px] text-re-text-muted font-black uppercase tracking-[0.3em] opacity-30 italic">Developed & Engineered by Babyeyi Intelligence Systems</p>
+                    <p className="text-[7px] text-re-text-muted font-semibold uppercase tracking-[0.3em] opacity-30 italic">Developed & Engineered by Babyeyi Intelligence Systems</p>
                     <div className="flex items-center gap-4 opacity-20">
-                        <span className="text-[8px] font-black text-re-text uppercase tracking-widest">HR Module</span>
-                        <span className="text-[8px] font-black text-re-text uppercase tracking-widest">v1.2.0-Reloaded</span>
+                        <span className="text-[8px] font-semibold text-re-text uppercase tracking-widest">HR Module</span>
+                        <span className="text-[8px] font-semibold text-re-text uppercase tracking-widest">v1.2.0-Reloaded</span>
                     </div>
                 </div>
             </div>

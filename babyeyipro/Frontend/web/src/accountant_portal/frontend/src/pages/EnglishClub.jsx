@@ -56,10 +56,10 @@ const EnglishClub = () => {
           <div className="space-y-1">
             <div className="flex items-center gap-2 mb-1">
               <span className="w-4 h-1 bg-white/40 rounded-full"></span>
-              <p className="text-[9px] font-black text-white/50 uppercase tracking-[0.3em]">Professional reading</p>
+              <p className="text-[9px] font-medium text-white/50 uppercase tracking-[0.3em]">Professional reading</p>
             </div>
-            <h1 className="text-3xl md:text-5xl font-black text-white tracking-tighter leading-none mb-1 mt-1">English <span className="text-white/40">Club</span></h1>
-            <p className="text-[10px] md:text-sm font-bold text-white/40 max-w-lg leading-relaxed uppercase tracking-widest italic opacity-60">Articles and media for staff—communication skills matter in {PORTAL.brandLine}.</p>
+            <h1 className="text-3xl md:text-5xl font-medium text-white tracking-tighter leading-none mb-1 mt-1">English <span className="text-white/40">Club</span></h1>
+            <p className="text-[10px] md:text-sm font-medium text-white/40 max-w-lg leading-relaxed uppercase tracking-widest italic opacity-60">Articles and media for staff—communication skills matter in {PORTAL.brandLine}.</p>
           </div>
         </div>
       </div>
@@ -80,7 +80,7 @@ const EnglishClub = () => {
                   placeholder="Search resources by title or topic..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full h-11 bg-re-bg rounded-xl pl-11 pr-4 font-bold outline-none border border-black/5 focus:border-re-purple/20 transition-all text-re-text text-xs tracking-tight"
+                  className="w-full h-11 bg-re-bg rounded-xl pl-11 pr-4 font-medium outline-none border border-black/5 focus:border-re-purple/20 transition-all text-re-text text-xs tracking-tight"
                 />
               </div>
 
@@ -89,7 +89,7 @@ const EnglishClub = () => {
                   <button
                     key={f}
                     onClick={() => setFilter(f)}
-                    className={`px-5 py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all whitespace-nowrap border-2 ${filter === f ? 'bg-re-grad-purple border-transparent text-white shadow-re-premium-purple' : 'bg-re-bg border-transparent text-re-text-muted/60 hover:bg-white hover:border-black/10'}`}
+                    className={`px-5 py-2.5 rounded-xl font-medium text-[9px] uppercase tracking-widest transition-all whitespace-nowrap border-2 ${filter === f ? 'bg-re-grad-purple border-transparent text-white shadow-re-premium-purple' : 'bg-re-bg border-transparent text-re-text-muted/60 hover:bg-white hover:border-black/10'}`}
                   >
                     {f === 'all' ? 'All' : f + 's'}
                   </button>
@@ -121,7 +121,7 @@ const EnglishClub = () => {
                       )}
 
                       {/* Micro Label Type */}
-                      <div className="absolute top-3 right-3 px-2 py-1 rounded-lg bg-white/90 backdrop-blur-md shadow-sm text-[7px] font-black uppercase tracking-widest text-re-text-muted">
+                      <div className="absolute top-3 right-3 px-2 py-1 rounded-lg bg-white/90 backdrop-blur-md shadow-sm text-[7px] font-medium uppercase tracking-widest text-re-text-muted">
                         {res.content_type}
                       </div>
 
@@ -139,17 +139,17 @@ const EnglishClub = () => {
                       <div className="flex-1 space-y-1.5 mb-4">
                         <div className="flex items-center gap-2">
                           <span className="w-1 h-3 bg-re-purple rounded-full"></span>
-                          <p className="text-[8px] font-black text-re-purple uppercase tracking-widest opacity-60">Verified Content</p>
+                          <p className="text-[8px] font-medium text-re-purple uppercase tracking-widest opacity-60">Verified Content</p>
                         </div>
-                        <h4 className="text-sm font-black text-re-text tracking-tight uppercase leading-tight line-clamp-1">{res.title}</h4>
-                        <p className="text-[10px] text-re-text-muted font-bold leading-relaxed line-clamp-2 opacity-60 italic">{res.description}</p>
+                        <h4 className="text-sm font-medium text-re-text tracking-tight uppercase leading-tight line-clamp-1">{res.title}</h4>
+                        <p className="text-[10px] text-re-text-muted font-medium leading-relaxed line-clamp-2 opacity-60 italic">{res.description}</p>
                       </div>
 
                       <a
                         href={res.resource_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="w-full py-3 bg-re-bg group-hover:bg-re-grad-purple rounded-xl text-re-text group-hover:text-white font-black text-[9px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all"
+                        className="w-full py-3 bg-re-bg group-hover:bg-re-grad-purple rounded-xl text-re-text group-hover:text-white font-medium text-[9px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all"
                       >
                         Examine Resource
                         <ChevronRight size={12} />
@@ -161,10 +161,10 @@ const EnglishClub = () => {
                 <div className="col-span-full py-20 text-center space-y-5 bg-white rounded-[24px] border border-black/5 flex flex-col items-center">
                   <img src="/undraw_no-data_ig65 (1).svg" alt="No data" className="w-32 opacity-20 grayscale" />
                   <div className="space-y-1">
-                    <h3 className="text-base font-black text-re-text uppercase tracking-tight">Zero trace of activity</h3>
-                    <p className="text-[9px] text-re-text-muted font-bold uppercase tracking-widest opacity-40">No matching educational assets found.</p>
+                    <h3 className="text-base font-medium text-re-text uppercase tracking-tight">Zero trace of activity</h3>
+                    <p className="text-[9px] text-re-text-muted font-medium uppercase tracking-widest opacity-40">No matching educational assets found.</p>
                   </div>
-                  <button onClick={() => { setFilter('all'); setSearchTerm(''); }} className="text-re-purple font-black text-[9px] uppercase tracking-widest hover:underline px-6 py-2 rounded-lg bg-re-bg">Clear Filters</button>
+                  <button onClick={() => { setFilter('all'); setSearchTerm(''); }} className="text-re-purple font-medium text-[9px] uppercase tracking-widest hover:underline px-6 py-2 rounded-lg bg-re-bg">Clear Filters</button>
                 </div>
               )}
             </div>
@@ -177,22 +177,22 @@ const EnglishClub = () => {
             <div className="bg-white rounded-[24px] shadow-sm border border-black/5 p-5 pt-4">
               <div className="flex items-center gap-2 mb-4">
                 <span className="w-0.5 h-3 bg-re-purple rounded-full"></span>
-                <h3 className="text-[9px] font-black text-re-text uppercase tracking-widest opacity-40">Mastery Stats</h3>
+                <h3 className="text-[9px] font-medium text-re-text uppercase tracking-widest opacity-40">Mastery Stats</h3>
               </div>
 
               <div className="space-y-4">
                 <div className="p-4 rounded-xl bg-re-bg/50 border border-black/5">
-                  <p className="text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] mb-1">Weekly Goals</p>
+                  <p className="text-[8px] font-medium text-re-text-muted uppercase tracking-[0.2em] mb-1">Weekly Goals</p>
                   <div className="flex items-end justify-between">
-                    <p className="text-xl font-black text-re-text tracking-tighter">12 / 20</p>
-                    <p className="text-[9px] font-bold text-emerald-500 uppercase">On Track</p>
+                    <p className="text-xl font-medium text-re-text tracking-tighter">12 / 20</p>
+                    <p className="text-[9px] font-medium text-emerald-500 uppercase">On Track</p>
                   </div>
                   <div className="w-full h-1 bg-black/5 rounded-full mt-2 overflow-hidden">
                     <div className="h-full bg-re-grad-purple w-[60%]"></div>
                   </div>
                 </div>
 
-                <button className="w-full py-3 rounded-xl border border-dashed border-re-purple/20 text-[9px] font-black text-re-purple uppercase tracking-widest hover:bg-re-purple/5 transition-all">
+                <button className="w-full py-3 rounded-xl border border-dashed border-re-purple/20 text-[9px] font-medium text-re-purple uppercase tracking-widest hover:bg-re-purple/5 transition-all">
                   View Pedagogy Roadmap
                 </button>
               </div>
@@ -205,8 +205,8 @@ const EnglishClub = () => {
                   <Sparkles size={16} />
                 </div>
                 <div>
-                  <h4 className="font-black text-[10px] tracking-widest uppercase opacity-90">Expert Webinar</h4>
-                  <p className="text-[9px] text-white font-bold leading-snug mt-1 opacity-80 uppercase tracking-tight">
+                  <h4 className="font-medium text-[10px] tracking-widest uppercase opacity-90">Expert Webinar</h4>
+                  <p className="text-[9px] text-white font-medium leading-snug mt-1 opacity-80 uppercase tracking-tight">
                     Deep dive into advanced English pedagogy tomorrow at 2PM.
                   </p>
                 </div>
@@ -214,7 +214,7 @@ const EnglishClub = () => {
               <div className="absolute -bottom-10 -right-10 w-24 h-24 bg-white/20 rounded-full blur-2xl group-hover:scale-150 transition-transform"></div>
             </div>
 
-            <p className="text-center text-[7px] text-re-text-muted font-black uppercase tracking-[0.2em] opacity-30 italic">Continuous Professional Development System</p>
+            <p className="text-center text-[7px] text-re-text-muted font-medium uppercase tracking-[0.2em] opacity-30 italic">Continuous Professional Development System</p>
           </div>
 
         </div>

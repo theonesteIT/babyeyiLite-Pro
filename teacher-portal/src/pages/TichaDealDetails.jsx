@@ -610,7 +610,6 @@ function DirectPayModal({ open, onClose, product, quantity, teacher }) {
       onClose={handleClose}
       title={stepTitles[step - 1]}
       subtitle={stepSubtitles[step - 1]}
-      suppressFooterOnMobile
       headerLeading={(
         <MobileHeaderBack
           onClick={() => {
@@ -623,17 +622,8 @@ function DirectPayModal({ open, onClose, product, quantity, teacher }) {
           }}
         />
       )}
-      headerActions={(
-        <MobileHeaderContinue
-          onClick={goNext}
-          disabled={submitting}
-          loading={submitting}
-          label={step === TOTAL_STEPS ? 'Pay' : 'Continue'}
-        />
-      )}
       footer={(
         <NavBtns
-          hidePrimaryOnMobile
           hideBackOnMobile
           onBack={
             step > 1
@@ -1184,7 +1174,6 @@ function AvanceModal({ open, onClose, product, quantity, monthlyRatePercent = 3.
       onClose={handleClose}
       title={stepTitles[step - 1]}
       subtitle={`Step ${step} of ${TOTAL_STEPS} · Ticha Avance`}
-      suppressFooterOnMobile
       headerLeading={(
         <MobileHeaderBack
           onClick={() => {
@@ -1197,19 +1186,8 @@ function AvanceModal({ open, onClose, product, quantity, monthlyRatePercent = 3.
           }}
         />
       )}
-      headerActions={(
-        <MobileHeaderContinue
-          onClick={goNext}
-          disabled={submitting}
-          loading={submitting}
-          label={
-            step === 1 ? 'Review' : step === TOTAL_STEPS ? 'Submit' : 'Continue'
-          }
-        />
-      )}
       footer={(
         <NavBtns
-          hidePrimaryOnMobile
           hideBackOnMobile
           onBack={
             step > 1

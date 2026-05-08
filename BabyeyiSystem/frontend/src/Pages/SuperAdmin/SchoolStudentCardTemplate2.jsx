@@ -75,6 +75,27 @@ function getShuleCardLogoCandidates() {
   ];
 }
 
+/** Primary school logo URL from template API or student row — same logic as on-screen preview. */
+function resolveSchoolLogoPrimary(template, student) {
+  const raw = template?.school_logo_url;
+  if (raw != null && String(raw).trim() !== '') {
+    const u = String(raw).trim();
+    if (/^https?:\/\//i.test(u)) return u;
+    const base = String(UPLOADS_BASE || '').replace(/\/$/, '');
+    return `${base}${u.startsWith('/') ? u : `/${u}`}`;
+  }
+  return student?.school_logo_full || null;
+}
+
+/**
+ * School logo at top of card, then Shule fallbacks (matches IDCardT2 <img> chain).
+ * Footer strip still uses getShuleCardLogoCandidates() only.
+ */
+function buildSchoolLogoCandidates(template, student) {
+  const primary = resolveSchoolLogoPrimary(template, student);
+  return primary ? [primary, ...getShuleCardLogoCandidates()] : getShuleCardLogoCandidates();
+}
+
 /** Absolute https origin — required or phone scanners open only the bare domain (broken QR payload). */
 function normalizeSiteOrigin() {
   let o = String(PUBLIC_SITE || '').trim().replace(/\/$/, '');
@@ -447,12 +468,10 @@ function CardLogoImg({ maxWidth = 210, height = 34 }) {
 ══════════════════════════════════════════════════════════════════════ */
 export function IDCardT2({ student, template, scale = 1 }) {
   const schoolTitle = (template?.school_name || student.school || 'SCHOOL').toUpperCase();
-  const logoCandidates = useMemo(() => {
-    const schoolLogoSrc = template?.school_logo_url
-      ? `${UPLOADS_BASE}${template.school_logo_url}`
-      : student?.school_logo_full;
-    return schoolLogoSrc ? [schoolLogoSrc, ...getShuleCardLogoCandidates()] : getShuleCardLogoCandidates();
-  }, [template?.school_logo_url, student?.school_logo_full]);
+  const logoCandidates = useMemo(
+    () => buildSchoolLogoCandidates(template, student),
+    [template?.school_logo_url, student?.school_logo_full]
+  );
   const [logoTry, setLogoTry] = useState(0);
   const logoSrc = logoCandidates[Math.min(logoTry, logoCandidates.length - 1)];
   useEffect(() => { setLogoTry(0); }, [logoCandidates]);
@@ -597,14 +616,24 @@ export function useCardExport(student, template) {
     setReady(false);
     Promise.all([
       student.photo ? loadImageCORS(student.photo) : Promise.resolve(null),
-      loadFirstAvailableImage(getShuleCardLogoCandidates()),
+      loadFirstAvailableImage(buildSchoolLogoCandidates(template, student)),
       loadFirstAvailableImage(getShuleCardLogoCandidates()),
       loadImageCORS(getQrImageUrl(buildStudentQrPayload(student))),
     ]).then(([photo, logo, footer, qr]) => {
       refs.current = { photo, logo, footer, qr };
       setReady(true);
     });
-  }, [student?.id, student?.photo, student?.studentCode, student?.fullName, student?.className, student?.school, student?.registrationYear]);
+  }, [
+    student?.id,
+    student?.photo,
+    student?.studentCode,
+    student?.fullName,
+    student?.className,
+    student?.school,
+    student?.school_logo_full,
+    student?.registrationYear,
+    template?.school_logo_url,
+  ]);
 
   const getCanvas = useCallback(() =>
     renderCardToCanvas(student, template, refs.current.photo, refs.current.logo, refs.current.footer, refs.current.qr),
@@ -651,9 +680,8 @@ export async function bulkDownloadZip(students, template, onProgress) {
   const folder = zip.folder('student-cards');
   const BATCH = 4;
 
-  const logoSrc = template?.school_logo_url ? `${UPLOADS_BASE}${template.school_logo_url}` : students[0]?.school_logo_full;
   const [logoImg, footerImg] = await Promise.all([
-    logoSrc ? loadImageCORS(logoSrc) : Promise.resolve(null),
+    loadFirstAvailableImage(buildSchoolLogoCandidates(template, students[0])),
     loadFirstAvailableImage(getShuleCardLogoCandidates()),
   ]);
 

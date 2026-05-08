@@ -1,730 +1,637 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
 import {
-    Settings, Wifi, Calendar, Globe, Bell, Smartphone, Moon, Sun,
-    Save, HardDrive, Plus, ShieldCheck, MapPin, Tag, RefreshCw, X, Radio, Watch, Loader2
+    Settings, Calendar, Globe, Bell, Smartphone, Moon,
+    Save, HardDrive, Plus, ShieldCheck, RefreshCw, X, Watch, Loader2,
+    ChevronLeft, ChevronRight, Trash2, Clock, Users, BookOpen
 } from 'lucide-react';
 
-const SystemConfiguration = () => {
-    const [activeTab, setActiveTab] = useState('rfid'); // 'rfid', 'preferences', 'events'
-    const [darkMode, setDarkMode] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
-    const [isSaving, setIsSaving] = useState(false);
-    const [error, setError] = useState(null);
-    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-    const [isEventModalOpen, setIsEventModalOpen] = useState(false);
+// ─── constants ────────────────────────────────────────────────
+const EVENT_TYPES = [
+    { value: 'HOLIDAY',   label: 'Holiday',   color: '#ef4444' },
+    { value: 'EXAM',      label: 'Exam',      color: '#8b5cf6' },
+    { value: 'SPORT',     label: 'Sport',     color: '#10b981' },
+    { value: 'CEREMONY',  label: 'Ceremony',  color: '#FEBF10' },
+    { value: 'MEETING',   label: 'Meeting',   color: '#3b82f6' },
+    { value: 'TERM',      label: 'Term',      color: '#1E3A5F' },
+    { value: 'OTHER',     label: 'Other',     color: '#64748b' },
+];
+const typeColor  = (t) => EVENT_TYPES.find(e => e.value === t)?.color || '#64748b';
+const typeLabel  = (t) => EVENT_TYPES.find(e => e.value === t)?.label || t;
 
-    // New Device Form State
-    const [newDevice, setNewDevice] = useState({
-        device_uid: '',
-        device_label: '',
-        device_type: 'GATE_SCANNER',
-        purpose: '',
-        mapped_event_id: '',
-        mapped_class_id: ''
+const MONTHS = ['January','February','March','April','May','June',
+                'July','August','September','October','November','December'];
+const DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+// ─── helpers ──────────────────────────────────────────────────
+function calendarGrid(year, month) {
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const cells = [];
+    for (let i = 0; i < firstDay; i++) cells.push(null);
+    for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+    return cells;
+}
+
+// ─── sub-components ───────────────────────────────────────────
+const Field = ({ label, children }) => (
+    <div className="space-y-1.5">
+        <label className="text-[9px] font-semibold text-[#1E3A5F] uppercase tracking-widest ml-1">{label}</label>
+        {children}
+    </div>
+);
+
+const inputCls = 'w-full h-11 px-4 bg-slate-50 rounded-2xl border border-black/5 focus:ring-2 ring-[#FEBF10]/50 outline-none text-xs font-bold';
+const selectCls = `${inputCls} cursor-pointer`;
+
+// ── MODAL wrapper ──────────────────────────────────────────────
+const Modal = ({ title, subtitle, icon: Icon, onClose, children }) => (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-[#0a192f]/60 backdrop-blur-sm animate-in fade-in duration-300">
+        <div className="bg-white rounded-[32px] shadow-sm border border-black/10 w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="p-6 bg-gradient-to-br from-[#1E3A5F] to-[#0D2644] text-white">
+                <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center">
+                            <Icon size={16} style={{ color: '#FEBF10' }} />
+                        </div>
+                        <h3 className="text-sm font-semibold uppercase tracking-widest">{title}</h3>
+                    </div>
+                    <button onClick={onClose} className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all">
+                        <X size={15} />
+                    </button>
+                </div>
+                <p className="text-[10px] font-bold text-white/50 uppercase tracking-widest">{subtitle}</p>
+            </div>
+            <div className="p-6">{children}</div>
+        </div>
+    </div>
+);
+
+// ─── ATTENDANCE EVENTS TAB ─────────────────────────────────────
+const AttendanceEvents = () => {
+    const [events, setEvents]     = useState([]);
+    const [loading, setLoading]   = useState(false);
+    const [saving, setSaving]     = useState(false);
+    const [modal, setModal]       = useState(false);
+    const [form, setForm]         = useState({
+        event_name: '', start_time: '07:00', end_time: '08:00',
+        late_threshold: '07:15', target_group: 'STUDENTS', residency_filter: 'ALL',
     });
 
-    // RFID Configurations from Backend
-    const [rfidModules, setRfidModules] = useState([]);
-    const [events, setEvents] = useState([]);
-    const [classes, setClasses] = useState([]);
-    const [selectedEvent, setSelectedEvent] = useState(null);
-    const [academicYear, setAcademicYear] = useState('2025-2026');
-    const [activeTerms, setActiveTerms] = useState(['Term 1', 'Term 2', 'Term 3']);
-
-    const [eventForm, setEventForm] = useState({
-        event_name: '',
-        start_time: '07:00',
-        end_time: '08:00',
-        late_threshold: '07:15',
-        target_group: 'STUDENTS',
-        residency_filter: 'ALL'
-    });
-
-    const fetchDevices = async () => {
-        setIsLoading(true);
-        setError(null);
-        try {
-            const res = await api.get('/iot/devices');
-            if (res.data.success) {
-                setRfidModules(res.data.data);
-            }
-        } catch (err) {
-            console.error('Failed to fetch devices:', err);
-            setError('Could not load hardware modules');
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const fetchEvents = async () => {
-        setIsLoading(true);
+    const load = useCallback(async () => {
+        setLoading(true);
         try {
             const res = await api.get('/iot/events');
-            if (res.data.success) {
-                setEvents(res.data.data);
-            }
-        } catch (err) {
-            console.error('Failed to fetch events:', err);
-        } finally {
-            setIsLoading(false);
-        }
-    };
+            if (res.data?.success) setEvents(res.data.data || []);
+        } catch (e) { console.error(e); }
+        finally { setLoading(false); }
+    }, []);
 
-    const fetchClasses = async () => {
-        try {
-            const res = await api.get('/dos/registry/classes');
-            if (res.data.success) {
-                setClasses(res.data.data);
-            }
-        } catch (err) {
-            console.error('Failed to fetch classes:', err);
-        }
-    };
+    useEffect(() => { load(); }, [load]);
 
-    const fetchAcademicSettings = async () => {
-        try {
-            const res = await api.get('/dos/academic-calendar-settings');
-            if (res.data?.success) {
-                const data = res.data.data || {};
-                setAcademicYear(data.current_academic_year || '2025-2026');
-                setActiveTerms(Array.isArray(data.active_terms) && data.active_terms.length ? data.active_terms : ['Term 1', 'Term 2', 'Term 3']);
-            }
-        } catch (err) {
-            console.error('Failed to fetch academic settings:', err);
-        }
-    };
-
-    useEffect(() => {
-        if (activeTab === 'rfid') {
-            fetchDevices();
-            fetchEvents();
-            fetchClasses();
-        } else if (activeTab === 'events') {
-            fetchEvents();
-        } else if (activeTab === 'preferences') {
-            fetchAcademicSettings();
-        }
-    }, [activeTab]);
-
-    const handleSaveAcademicSettings = async () => {
-        setIsSaving(true);
-        try {
-            const terms = activeTerms.map((t) => String(t).trim()).filter(Boolean);
-            const res = await api.put('/dos/academic-calendar-settings', {
-                current_academic_year: academicYear,
-                active_terms: terms,
-            });
-            if (res.data?.success) {
-                alert('Academic settings saved.');
-            }
-        } catch (err) {
-            console.error('Failed to save academic settings:', err);
-            alert(err.response?.data?.message || 'Failed to save academic settings');
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
-    const handleAddDevice = async (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        setIsSaving(true);
+        setSaving(true);
         try {
-            const res = await api.post('/iot/devices', newDevice);
-            if (res.data.success) {
-                setIsAddModalOpen(false);
-                setNewDevice({ device_uid: '', device_label: '', device_type: 'GATE_SCANNER', purpose: '', mapped_event_id: '', mapped_class_id: '' });
-                fetchDevices();
-            }
-        } catch (err) {
-            console.error('Failed to add device:', err);
-            alert(err.response?.data?.message || 'Failed to register device');
-        } finally {
-            setIsSaving(false);
-        }
+            const res = await api.post('/iot/events', form);
+            if (res.data?.success) { setModal(false); load(); }
+            else alert(res.data?.message || 'Failed to save event');
+        } catch (err) { alert(err.response?.data?.message || 'Failed to save event'); }
+        finally { setSaving(false); }
     };
 
-    const handleSaveEvent = async (e) => {
-        e.preventDefault();
-        setIsSaving(true);
+    const handleDelete = async (id) => {
+        if (!window.confirm('Delete this attendance event?')) return;
         try {
-            const res = await api.post('/iot/events', eventForm);
-            if (res.data.success) {
-                setIsEventModalOpen(false);
-                fetchEvents();
-            }
-        } catch (err) {
-            console.error('Failed to save event:', err);
-            alert('Failed to save event');
-        } finally {
-            setIsSaving(false);
-        }
+            await api.delete(`/iot/events/${id}`);
+            load();
+        } catch (e) { console.error(e); }
     };
-
-    const handleDeleteEvent = async (id) => {
-        if (!window.confirm('Are you sure you want to delete this event?')) return;
-        try {
-            const res = await api.delete(`/iot/events/${id}`);
-            if (res.data.success) {
-                fetchEvents();
-            }
-        } catch (err) {
-            console.error('Failed to delete event:', err);
-        }
-    };
-
-    const locations = ['Main Entrance', 'P6 Block A', 'P5 Block B', 'Media Center', 'Cafeteria', 'Staff Lounge', 'Sports Complex'];
 
     return (
-        <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen">
+        <div className="space-y-5">
+            <div className="flex items-center justify-between">
+                <div>
+                    <h2 className="text-xl font-semibold text-[#1E3A5F] uppercase tracking-tighter">Attendance Events</h2>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Define school-wide tracking time windows</p>
+                </div>
+                <button onClick={() => { setForm({ event_name:'', start_time:'07:00', end_time:'08:00', late_threshold:'07:15', target_group:'STUDENTS', residency_filter:'ALL' }); setModal(true); }}
+                    className="h-9 px-4 rounded-xl flex items-center gap-1.5 text-white font-medium text-[9px] uppercase tracking-widest shadow-md active:scale-95 transition-all"
+                    style={{ background: 'linear-gradient(135deg,#1E3A5F,#0D2644)' }}>
+                    <Plus size={14} style={{ color: '#FEBF10' }} /> Create Event
+                </button>
+            </div>
 
-            {/* ── High-Fidelity Hero Section ── */}
-            <div className="relative w-full min-h-[220px] overflow-hidden bg-[#000435]">
+            {loading ? (
+                <div className="py-12 flex items-center justify-center">
+                    <Loader2 size={24} className="animate-spin text-[#1E3A5F]" />
+                </div>
+            ) : events.length === 0 ? (
+                <div className="py-14 text-center rounded-2xl border border-dashed border-black/10 bg-slate-50/50">
+                    <Watch size={32} className="mx-auto mb-3 text-slate-200" />
+                    <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">No attendance events defined yet</p>
+                    <p className="text-[9px] text-slate-300 font-bold mt-1">Click "Create Event" to add the first time window</p>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {events.map(ev => (
+                        <div key={ev.id} className="bg-white border border-black/5 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
+                            <button onClick={() => handleDelete(ev.id)} className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-red-50 text-red-400 hover:text-red-600">
+                                <Trash2 size={13} />
+                            </button>
+                            <div className="flex items-start gap-4">
+                                <div className="w-11 h-11 rounded-xl bg-[#1E3A5F]/8 flex items-center justify-center shrink-0 border border-black/5">
+                                    <Clock size={18} className="text-[#1E3A5F]" />
+                                </div>
+                                <div className="flex-1 min-w-0 pr-6">
+                                    <h3 className="text-xs font-semibold text-[#1E3A5F] uppercase tracking-tight truncate">{ev.event_name}</h3>
+                                    <div className="flex flex-wrap items-center gap-3 mt-1.5">
+                                        <span className="flex items-center gap-1 text-[9px] font-bold text-slate-500">
+                                            <Clock size={9} /> {ev.start_time} – {ev.end_time}
+                                        </span>
+                                        <span className="flex items-center gap-1 text-[9px] font-bold text-amber-600">
+                                            <ShieldCheck size={9} /> Late: {ev.late_threshold}
+                                        </span>
+                                    </div>
+                                    <div className="flex flex-wrap gap-1.5 mt-2.5">
+                                        <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-600 text-[8px] font-semibold uppercase tracking-widest">{ev.target_group}</span>
+                                        <span className="px-2 py-0.5 rounded bg-slate-50 text-slate-500 text-[8px] font-semibold uppercase tracking-widest">{ev.residency_filter}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* Modal */}
+            {modal && (
+                <Modal title="New Attendance Event" subtitle="Define a tracking window for gate scans" icon={Watch} onClose={() => setModal(false)}>
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <Field label="Event Name">
+                            <input required placeholder="e.g. Morning Assembly" className={inputCls}
+                                value={form.event_name} onChange={e => setForm({ ...form, event_name: e.target.value })} />
+                        </Field>
+                        <div className="grid grid-cols-2 gap-3">
+                            <Field label="Start Time">
+                                <input type="time" className={inputCls} value={form.start_time} onChange={e => setForm({ ...form, start_time: e.target.value })} />
+                            </Field>
+                            <Field label="End Time">
+                                <input type="time" className={inputCls} value={form.end_time} onChange={e => setForm({ ...form, end_time: e.target.value })} />
+                            </Field>
+                        </div>
+                        <Field label="Late After">
+                            <input type="time" className={inputCls} value={form.late_threshold} onChange={e => setForm({ ...form, late_threshold: e.target.value })} />
+                        </Field>
+                        <div className="grid grid-cols-2 gap-3">
+                            <Field label="Target Group">
+                                <select className={selectCls} value={form.target_group} onChange={e => setForm({ ...form, target_group: e.target.value })}>
+                                    <option value="STUDENTS">Students</option>
+                                    <option value="STAFF">Staff</option>
+                                    <option value="BOTH">Both</option>
+                                </select>
+                            </Field>
+                            <Field label="Residency">
+                                <select className={selectCls} value={form.residency_filter} onChange={e => setForm({ ...form, residency_filter: e.target.value })}>
+                                    <option value="ALL">All</option>
+                                    <option value="BOARDING">Boarding</option>
+                                    <option value="DAY">Day Students</option>
+                                </select>
+                            </Field>
+                        </div>
+                        <div className="flex gap-3 pt-2">
+                            <button type="button" onClick={() => setModal(false)} className="flex-1 h-11 rounded-2xl border border-black/5 text-[#1E3A5F] font-medium text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all">Cancel</button>
+                            <button type="submit" disabled={saving} className="flex-[1.5] h-11 rounded-2xl bg-[#1E3A5F] text-white font-medium text-[10px] uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
+                                {saving ? <Loader2 size={15} className="animate-spin text-[#FEBF10]" /> : <Save size={15} style={{ color: '#FEBF10' }} />}
+                                Save Event
+                            </button>
+                        </div>
+                    </form>
+                </Modal>
+            )}
+        </div>
+    );
+};
+
+// ─── CALENDAR TAB ──────────────────────────────────────────────
+const SchoolCalendar = () => {
+    const today = new Date();
+    const [year,  setYear]  = useState(today.getFullYear());
+    const [month, setMonth] = useState(today.getMonth());
+    const [events, setEvents]  = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [saving,  setSaving]  = useState(false);
+    const [modal,   setModal]   = useState(false);
+    const [selected, setSelected] = useState(null); // day clicked
+    const [form, setForm] = useState({ title: '', event_date: '', end_date: '', event_type: 'OTHER', description: '', color: '#1E3A5F' });
+
+    const load = useCallback(async () => {
+        setLoading(true);
+        try {
+            const res = await api.get('/school/calendar-events', { params: { year, month: month + 1 } });
+            if (res.data?.success) setEvents(res.data.data || []);
+        } catch (e) { console.error(e); }
+        finally { setLoading(false); }
+    }, [year, month]);
+
+    useEffect(() => { load(); }, [load]);
+
+    const prevMonth = () => { if (month === 0) { setYear(y => y - 1); setMonth(11); } else setMonth(m => m - 1); };
+    const nextMonth = () => { if (month === 11) { setYear(y => y + 1); setMonth(0); } else setMonth(m => m + 1); };
+
+    const cells = calendarGrid(year, month);
+    const pad = (n) => String(n).padStart(2, '0');
+    const toDateStr = (d) => `${year}-${pad(month + 1)}-${pad(d)}`;
+
+    const dayEvents = (d) => {
+        if (!d) return [];
+        const ds = toDateStr(d);
+        return events.filter(ev => {
+            const s = ev.event_date?.slice(0, 10);
+            const e = ev.end_date?.slice(0, 10) || s;
+            return ds >= s && ds <= e;
+        });
+    };
+
+    const handleDayClick = (d) => {
+        if (!d) return;
+        setSelected(d);
+        const ds = toDateStr(d);
+        setForm({ title: '', event_date: ds, end_date: '', event_type: 'OTHER', description: '', color: '#1E3A5F' });
+        setModal(true);
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setSaving(true);
+        try {
+            const payload = { ...form };
+            if (!payload.end_date) delete payload.end_date;
+            const res = await api.post('/school/calendar-events', payload);
+            if (res.data?.success) { setModal(false); load(); }
+            else alert(res.data?.message || 'Failed');
+        } catch (err) { alert(err.response?.data?.message || 'Failed to save event'); }
+        finally { setSaving(false); }
+    };
+
+    const handleDelete = async (id, e) => {
+        e.stopPropagation();
+        if (!window.confirm('Delete this event?')) return;
+        try { await api.delete(`/school/calendar-events/${id}`); load(); }
+        catch (err) { console.error(err); }
+    };
+
+    const isToday = (d) => d && today.getFullYear() === year && today.getMonth() === month && today.getDate() === d;
+
+    return (
+        <div className="space-y-5">
+            {/* Header */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    <h2 className="text-xl font-semibold text-[#1E3A5F] uppercase tracking-tighter">School Calendar</h2>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Manage school activities, events &amp; holidays</p>
+                </div>
+                <button onClick={() => { setForm({ title:'', event_date:toDateStr(today.getDate()), end_date:'', event_type:'OTHER', description:'', color:'#1E3A5F' }); setModal(true); }}
+                    className="h-9 px-4 rounded-xl flex items-center gap-1.5 text-white font-medium text-[9px] uppercase tracking-widest shadow-md active:scale-95 transition-all"
+                    style={{ background: 'linear-gradient(135deg,#1E3A5F,#0D2644)' }}>
+                    <Plus size={14} style={{ color: '#FEBF10' }} /> Add Event
+                </button>
+            </div>
+
+            {/* Event type legend */}
+            <div className="flex flex-wrap gap-2">
+                {EVENT_TYPES.map(t => (
+                    <span key={t.value} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-semibold uppercase tracking-widest border"
+                        style={{ background: `${t.color}12`, color: t.color, borderColor: `${t.color}30` }}>
+                        <span className="w-1.5 h-1.5 rounded-full" style={{ background: t.color }} />
+                        {t.label}
+                    </span>
+                ))}
+            </div>
+
+            {/* Calendar nav */}
+            <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+                    <button onClick={prevMonth} className="w-8 h-8 rounded-xl border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-all">
+                        <ChevronLeft size={15} className="text-slate-600" />
+                    </button>
+                    <div className="text-center">
+                        <p className="text-base font-semibold text-[#1E3A5F] uppercase tracking-wide">{MONTHS[month]} {year}</p>
+                        {loading && <Loader2 size={12} className="animate-spin text-slate-300 mx-auto mt-0.5" />}
+                    </div>
+                    <button onClick={nextMonth} className="w-8 h-8 rounded-xl border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-all">
+                        <ChevronRight size={15} className="text-slate-600" />
+                    </button>
+                </div>
+
+                {/* Day header */}
+                <div className="grid grid-cols-7 bg-slate-50 border-b border-slate-100">
+                    {DAYS.map(d => (
+                        <div key={d} className="py-2 text-center text-[9px] font-semibold text-slate-400 uppercase tracking-widest">{d}</div>
+                    ))}
+                </div>
+
+                {/* Grid */}
+                <div className="grid grid-cols-7">
+                    {cells.map((day, i) => {
+                        const evs = dayEvents(day);
+                        const todayFlag = isToday(day);
+                        return (
+                            <div
+                                key={i}
+                                onClick={() => day && handleDayClick(day)}
+                                className={`min-h-[72px] border-b border-r border-slate-100 p-1.5 transition-colors ${day ? 'cursor-pointer hover:bg-slate-50/80' : 'bg-slate-50/30'} ${todayFlag ? 'bg-amber-50/60' : ''}`}
+                            >
+                                {day && (
+                                    <>
+                                        <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-[11px] font-semibold mb-1 ${todayFlag ? 'bg-[#1E3A5F] text-white' : 'text-slate-600'}`}>
+                                            {day}
+                                        </span>
+                                        <div className="space-y-0.5">
+                                            {evs.slice(0, 2).map(ev => (
+                                                <div key={ev.id}
+                                                    className="flex items-center gap-1 px-1 py-0.5 rounded text-[8px] font-semibold truncate group/ev"
+                                                    style={{ background: `${typeColor(ev.event_type)}18`, color: typeColor(ev.event_type) }}>
+                                                    <span className="truncate flex-1">{ev.title}</span>
+                                                    <button onClick={(e) => handleDelete(ev.id, e)} className="opacity-0 group-hover/ev:opacity-100 shrink-0">×</button>
+                                                </div>
+                                            ))}
+                                            {evs.length > 2 && (
+                                                <span className="text-[8px] font-semibold text-slate-400">+{evs.length - 2} more</span>
+                                            )}
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {/* Upcoming events list */}
+            {events.length > 0 && (
+                <div>
+                    <h3 className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-3">This Month — {events.length} Event{events.length !== 1 ? 's' : ''}</h3>
+                    <div className="space-y-2">
+                        {events.map(ev => (
+                            <div key={ev.id} className="flex items-center gap-3 bg-white border border-slate-100 rounded-xl px-4 py-3 shadow-sm hover:shadow-md transition-all group">
+                                <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: typeColor(ev.event_type) }} />
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-[11px] font-semibold text-slate-800 truncate">{ev.title}</p>
+                                    <p className="text-[9px] text-slate-400 font-bold">
+                                        {ev.event_date?.slice(0, 10)}{ev.end_date ? ` → ${ev.end_date.slice(0, 10)}` : ''} · <span style={{ color: typeColor(ev.event_type) }}>{typeLabel(ev.event_type)}</span>
+                                    </p>
+                                </div>
+                                {ev.description && <p className="text-[9px] text-slate-400 font-bold hidden md:block truncate max-w-[200px]">{ev.description}</p>}
+                                <button onClick={(e) => handleDelete(ev.id, e)} className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-red-50 text-red-400 hover:text-red-600 transition-all">
+                                    <Trash2 size={12} />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Modal */}
+            {modal && (
+                <Modal title="Add School Event" subtitle="Create a calendar activity or holiday" icon={Calendar} onClose={() => setModal(false)}>
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <Field label="Event Title">
+                            <input required placeholder="e.g. National Exam Week" className={inputCls}
+                                value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} />
+                        </Field>
+                        <div className="grid grid-cols-2 gap-3">
+                            <Field label="Start Date">
+                                <input type="date" required className={inputCls}
+                                    value={form.event_date} onChange={e => setForm({ ...form, event_date: e.target.value })} />
+                            </Field>
+                            <Field label="End Date (optional)">
+                                <input type="date" className={inputCls}
+                                    value={form.end_date} onChange={e => setForm({ ...form, end_date: e.target.value })} />
+                            </Field>
+                        </div>
+                        <Field label="Event Type">
+                            <select className={selectCls} value={form.event_type} onChange={e => setForm({ ...form, event_type: e.target.value, color: typeColor(e.target.value) })}>
+                                {EVENT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                            </select>
+                        </Field>
+                        <Field label="Description (optional)">
+                            <textarea rows={2} placeholder="Short description…"
+                                className="w-full px-4 py-3 bg-slate-50 rounded-2xl border border-black/5 focus:ring-2 ring-[#FEBF10]/50 outline-none text-xs font-bold resize-none"
+                                value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
+                        </Field>
+                        <div className="flex gap-3 pt-2">
+                            <button type="button" onClick={() => setModal(false)} className="flex-1 h-11 rounded-2xl border border-black/5 text-[#1E3A5F] font-medium text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all">Cancel</button>
+                            <button type="submit" disabled={saving} className="flex-[1.5] h-11 rounded-2xl bg-[#1E3A5F] text-white font-medium text-[10px] uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
+                                {saving ? <Loader2 size={15} className="animate-spin text-[#FEBF10]" /> : <Save size={15} style={{ color: '#FEBF10' }} />}
+                                Save Event
+                            </button>
+                        </div>
+                    </form>
+                </Modal>
+            )}
+        </div>
+    );
+};
+
+// ─── PREFERENCES TAB ───────────────────────────────────────────
+const Preferences = () => {
+    const [academicYear,  setAcademicYear]  = useState('2025-2026');
+    const [activeTerms,   setActiveTerms]   = useState(['Term 1','Term 2','Term 3']);
+    const [termDates,     setTermDates]     = useState([]);
+    const [darkMode,      setDarkMode]      = useState(false);
+    const [isSaving,      setIsSaving]      = useState(false);
+
+    useEffect(() => {
+        (async () => {
+            try {
+                const res = await api.get('/dos/academic-calendar-settings');
+                if (res.data?.success) {
+                    const d = res.data.data || {};
+                    const terms = Array.isArray(d.active_terms) && d.active_terms.length ? d.active_terms : ['Term 1','Term 2','Term 3'];
+                    setAcademicYear(d.current_academic_year || '2025-2026');
+                    setActiveTerms(terms);
+                    const saved = Array.isArray(d.term_dates) ? d.term_dates : [];
+                    setTermDates(terms.map(n => saved.find(x => x.name === n) || { name: n, start: '', end: '' }));
+                }
+            } catch (_) {}
+        })();
+    }, []);
+
+    const setTermDate = (termName, field, value) => {
+        setTermDates(prev => {
+            const idx = prev.findIndex(d => d.name === termName);
+            if (idx === -1) return [...prev, { name: termName, start: field==='start'?value:'', end: field==='end'?value:'' }];
+            return prev.map((d, i) => i === idx ? { ...d, [field]: value } : d);
+        });
+    };
+
+    const handleActiveTermsChange = (checked, term) => {
+        const next = checked ? [...new Set([...activeTerms, term])] : activeTerms.filter(x => x !== term);
+        setActiveTerms(next);
+        setTermDates(prev => next.map(n => prev.find(d => d.name === n) || { name: n, start: '', end: '' }));
+    };
+
+    const handleSave = async () => {
+        setIsSaving(true);
+        try {
+            const terms = activeTerms.map(t => String(t).trim()).filter(Boolean);
+            await api.put('/dos/academic-calendar-settings', {
+                current_academic_year: academicYear,
+                active_terms: terms,
+                term_dates: termDates.filter(d => d.name && d.start && d.end),
+            });
+            alert('Academic settings saved.');
+        } catch (err) { alert(err.response?.data?.message || 'Failed to save'); }
+        finally { setIsSaving(false); }
+    };
+
+    return (
+        <div className="space-y-5">
+            <div>
+                <h2 className="text-xl font-semibold text-[#1E3A5F] uppercase tracking-tighter">System Preferences</h2>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Manage academic settings and notifications</p>
+            </div>
+
+            {/* Academic Calendar */}
+            <div className="bg-white border border-black/5 rounded-2xl p-5 shadow-sm space-y-4">
+                <div className="flex items-center gap-2 mb-1">
+                    <BookOpen size={14} className="text-[#FEBF10]" />
+                    <h3 className="text-[10px] font-semibold uppercase tracking-widest text-[#1E3A5F]">Academic Calendar</h3>
+                </div>
+                <div className="grid md:grid-cols-2 gap-4">
+                    <Field label="Current Academic Year">
+                        <input value={academicYear} onChange={e => setAcademicYear(e.target.value)} placeholder="2025-2026" className={inputCls} />
+                    </Field>
+                    <Field label="Active Terms">
+                        <div className="flex gap-3 h-11 items-center pl-3">
+                            {['Term 1','Term 2','Term 3'].map(term => (
+                                <label key={term} className="inline-flex items-center gap-1.5 text-[11px] font-semibold cursor-pointer">
+                                    <input type="checkbox" checked={activeTerms.includes(term)} onChange={e => handleActiveTermsChange(e.target.checked, term)} className="accent-[#1E3A5F]" />
+                                    {term}
+                                </label>
+                            ))}
+                        </div>
+                    </Field>
+                </div>
+                {activeTerms.length > 0 && (
+                    <div className="space-y-2 pt-1">
+                        <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-widest">Term Start &amp; End Dates</p>
+                        {activeTerms.map(term => {
+                            const cfg = termDates.find(d => d.name === term) || { start: '', end: '' };
+                            return (
+                                <div key={term} className="flex flex-col sm:flex-row sm:items-center gap-2 p-3 bg-slate-50 rounded-xl border border-black/5">
+                                    <span className="text-[10px] font-semibold text-[#1E3A5F] uppercase w-16 shrink-0">{term}</span>
+                                    <input type="date" value={cfg.start} onChange={e => setTermDate(term,'start',e.target.value)} className="flex-1 h-9 px-3 rounded-xl border border-black/10 text-[11px] font-bold text-[#1E3A5F] outline-none focus:ring-2 ring-[#FEBF10]/40" />
+                                    <span className="text-slate-400 font-semibold text-xs shrink-0">→</span>
+                                    <input type="date" value={cfg.end} onChange={e => setTermDate(term,'end',e.target.value)} className="flex-1 h-9 px-3 rounded-xl border border-black/10 text-[11px] font-bold text-[#1E3A5F] outline-none focus:ring-2 ring-[#FEBF10]/40" />
+                                    {cfg.start && cfg.end && <span className="px-2 py-1 bg-emerald-50 text-emerald-700 text-[8px] font-semibold rounded-lg border border-emerald-100 shrink-0">✓ Set</span>}
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+                <button type="button" disabled={isSaving} onClick={handleSave}
+                    className="h-10 px-4 rounded-xl bg-[#1E3A5F] text-white font-medium text-[10px] uppercase tracking-widest inline-flex items-center gap-2 active:scale-95 transition-all">
+                    {isSaving ? <Loader2 size={14} className="animate-spin text-[#FEBF10]" /> : <Save size={14} style={{ color:'#FEBF10' }} />}
+                    Save Academic Calendar
+                </button>
+            </div>
+
+            {/* Toggles */}
+            <div className="space-y-2">
+                {[
+                    { icon: <Moon size={14}/>,       label:'Dark Mode',         desc:'Use a darker theme',                           active: darkMode, toggle:()=>setDarkMode(!darkMode) },
+                    { icon: <Bell size={14}/>,        label:'Email Alerts',      desc:'Send emails for critical discipline issues',   active: true,     toggle:()=>{} },
+                    { icon: <Smartphone size={14}/>,  label:'SMS Absence Alerts',desc:'Message parents when a student is absent',     active: false,    toggle:()=>{} },
+                    { icon: <HardDrive size={14}/>,   label:'Daily Backup',      desc:'Save all data every night at 3:00 AM',         active: true,     toggle:()=>{} },
+                ].map((p, i) => (
+                    <div key={i} className="flex items-center justify-between p-4 bg-white border border-black/5 rounded-2xl shadow-sm">
+                        <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${p.active ? 'bg-[#1E3A5F] text-white' : 'bg-slate-100 text-[#1E3A5F]/40'}`}>{p.icon}</div>
+                            <div>
+                                <p className="text-[10px] font-semibold uppercase tracking-widest text-[#1E3A5F]">{p.label}</p>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{p.desc}</p>
+                            </div>
+                        </div>
+                        <button onClick={p.toggle} className={`w-10 h-5 rounded-full relative transition-all ${p.active ? 'bg-emerald-500' : 'bg-black/10'}`}>
+                            <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-all ${p.active ? 'left-5' : 'left-0.5'}`} />
+                        </button>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+// ─── MAIN PAGE ─────────────────────────────────────────────────
+const TABS = [
+    { id: 'events',   label: 'Attendance Events', icon: Watch },
+    { id: 'calendar', label: 'School Calendar',   icon: Calendar },
+    { id: 'prefs',    label: 'Preferences',        icon: Globe },
+];
+
+const SystemConfiguration = () => {
+    const [activeTab, setActiveTab] = useState('events');
+
+    return (
+        <div className="animate-in fade-in duration-700 bg-slate-50/60 min-h-screen">
+            {/* Hero */}
+            <div className="relative w-full overflow-hidden bg-[#c87800]">
                 <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full border border-white/5 pointer-events-none" />
-                <div className="absolute -top-12 -right-12 w-64 h-64 rounded-full border border-white/5 pointer-events-none" />
                 <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-[#FEBF10]/30 to-transparent pointer-events-none" />
-
-                <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-12 pt-12 pb-16 flex items-center gap-6">
-                    <div className="hidden md:flex shrink-0 w-20 h-20 rounded-3xl border border-white/10 bg-white/5 items-center justify-center backdrop-blur-xl shadow-2xl relative overflow-hidden group">
-                        <div className="absolute inset-0 bg-gradient-to-br from-[#FEBF10]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
-                        <Settings size={40} style={{ color: "#FEBF10" }} className="group-hover:rotate-90 transition-transform duration-700" />
+                <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-12 pt-10 pb-16 flex items-center gap-5">
+                    <div className="hidden md:flex shrink-0 w-16 h-16 rounded-2xl border border-white/10 bg-white/5 items-center justify-center backdrop-blur-xl">
+                        <Settings size={32} style={{ color: '#FEBF10' }} />
                     </div>
-
-                    <div className="space-y-1">
-                        <div className="flex items-center gap-2 mb-1.5">
-                            <span className="w-5 h-1 rounded-full animate-pulse" style={{ background: "#FEBF10" }}></span>
-                            <p className="text-[9px] font-black uppercase tracking-[0.2em]" style={{ color: "#FEBF10" }}>Settings Dashboard</p>
-                        </div>
-                        <h1 className="text-xl sm:text-3xl md:text-4xl font-black text-white tracking-tighter leading-none mb-1.5 uppercase">System <span style={{ color: "#FEBF10" }}>Configuration</span></h1>
-                        <p className="text-[10px] md:text-xs font-medium text-white/60 max-w-lg leading-relaxed uppercase tracking-widest italic">Manage devices, school terms, and settings</p>
+                    <div>
+                        <p className="text-[9px] font-semibold uppercase tracking-[0.2em] mb-1" style={{ color:'#FEBF10' }}>Settings Dashboard</p>
+                        <h1 className="text-2xl md:text-3xl font-semibold text-white tracking-tight uppercase" style={{ fontFamily: "'Montserrat', sans-serif" }}>System Configuration</h1>
+                        <p className="text-[10px] font-medium text-white/60 uppercase tracking-widest mt-1" style={{ fontFamily: "'Montserrat', sans-serif" }}>Events, school calendar &amp; preferences</p>
                     </div>
                 </div>
             </div>
 
-            {/* ── Interactive Command Center Console ── */}
-            <div className="max-w-[1600px] mx-auto px-6 md:px-12 -mt-16 relative z-20 pb-16">
-                <div className="bg-white rounded-t-3xl shadow-2xl border border-black/5 overflow-hidden flex flex-col md:flex-row min-h-[500px]">
+            {/* Panel */}
+            <div className="max-w-[1600px] mx-auto px-4 md:px-8 -mt-10 relative z-20 pb-16">
+                <div className="bg-white rounded-t-3xl shadow-sm border border-slate-100 overflow-hidden flex flex-col md:flex-row min-h-[500px]">
 
-                    {/* Left Sidebar Layout (Navigation) */}
-                    <div className="w-full md:w-56 lg:w-64 bg-re-bg/30 border-r border-black/5 flex flex-col pt-5 shrink-0 relative">
+                    {/* Sidebar nav */}
+                    <div className="w-full md:w-56 lg:w-60 bg-slate-50/60 border-r border-black/5 flex flex-col pt-5 shrink-0">
                         <div className="px-5 mb-4">
-                            <h3 className="text-[9px] font-black uppercase tracking-[0.2em] text-[#1E3A5F]/50 flex items-center gap-1.5">
-                                <HardDrive size={12} /> Settings Menu
-                            </h3>
+                            <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[#1E3A5F]/50 flex items-center gap-1.5">
+                                <HardDrive size={11} /> Settings Menu
+                            </p>
                         </div>
-
                         <div className="flex flex-col space-y-0.5 px-3 mb-6">
-                            <button
-                                onClick={() => setActiveTab('rfid')}
-                                className={`flex items-center gap-3 px-4 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === 'rfid' ? 'bg-white shadow-sm text-[#1E3A5F] ring-1 ring-black/5' : 'text-re-text-muted hover:text-re-text hover:bg-re-bg'
-                                    }`}
-                            >
-                                <Wifi size={14} className={activeTab === 'rfid' ? "text-[#FEBF10]" : ""} /> Scanner Devices
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('events')}
-                                className={`flex items-center gap-3 px-4 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === 'events' ? 'bg-white shadow-sm text-[#1E3A5F] ring-1 ring-black/5' : 'text-re-text-muted hover:text-re-text hover:bg-re-bg'
-                                    }`}
-                            >
-                                <Calendar size={14} className={activeTab === 'events' ? "text-[#FEBF10]" : ""} /> Attendance Events
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('preferences')}
-                                className={`flex items-center gap-3 px-4 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === 'preferences' ? 'bg-white shadow-sm text-[#1E3A5F] ring-1 ring-black/5' : 'text-re-text-muted hover:text-re-text hover:bg-re-bg'
-                                    }`}
-                            >
-                                <Globe size={14} className={activeTab === 'preferences' ? "text-[#FEBF10]" : ""} /> Preferences
-                            </button>
+                            {TABS.map(t => {
+                                const T = t.icon;
+                                const active = activeTab === t.id;
+                                return (
+                                    <button key={t.id} onClick={() => setActiveTab(t.id)}
+                                        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl font-medium text-[10px] uppercase tracking-widest transition-all ${active ? 'bg-white shadow-sm text-[#1E3A5F] ring-1 ring-black/5' : 'text-slate-500 hover:text-[#1E3A5F] hover:bg-white/60'}`}>
+                                        <T size={13} className={active ? 'text-[#FEBF10]' : ''} />
+                                        {t.label}
+                                    </button>
+                                );
+                            })}
                         </div>
-
                         <div className="px-5 mt-auto pb-6 hidden md:block">
-                            <div className="bg-white border border-black/5 p-3 rounded-2xl shadow-inner text-center">
-                                <Watch size={16} className="mx-auto mb-1.5 opacity-20 text-[#1E3A5F]" />
-                                <p className="text-[8px] font-black uppercase tracking-widest text-re-text-muted">System Status</p>
-                                <p className="text-[10px] font-black uppercase tracking-tight text-emerald-500 mt-1">Online</p>
+                            <div className="bg-white border border-black/5 p-3 rounded-2xl text-center">
+                                <p className="text-[8px] font-semibold uppercase tracking-widest text-slate-400">System Status</p>
+                                <p className="text-[10px] font-semibold uppercase tracking-tight text-emerald-500 mt-0.5">Online</p>
                             </div>
                         </div>
                     </div>
 
-                    {/* Right Output Layout (Content) */}
+                    {/* Content */}
                     <div className="flex-1 p-5 md:p-8 animate-in fade-in zoom-in-95 duration-300">
-
-                        {/* ── TAB: RFID HARDWARE MATRIX ── */}
-                        {activeTab === 'rfid' && (
-                            <div className="space-y-6 animate-in slide-in-from-right-4 duration-500">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <h2 className="text-lg md:text-xl font-black text-[#1E3A5F] uppercase tracking-tighter">Scanner Devices</h2>
-                                        <p className="text-[9px] font-bold text-re-text-muted uppercase tracking-widest mt-1">Manage where scanners are located</p>
-                                    </div>
-                                    <button
-                                        onClick={() => setIsAddModalOpen(true)}
-                                        className="h-9 px-4 rounded-xl flex items-center justify-center gap-1.5 text-white font-black text-[9px] uppercase tracking-widest shadow-md hover:scale-105 active:scale-95 transition-all" style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)" }}
-                                    >
-                                        <Plus size={14} style={{ color: "#FEBF10" }} /> Add Scanner
-                                    </button>
-                                </div>
-
-                                <div className="bg-white border border-black/5 rounded-2xl overflow-hidden shadow-sm relative min-h-[200px]">
-                                    {isLoading && (
-                                        <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] z-30 flex items-center justify-center">
-                                            <Loader2 size={24} className="text-[#1E3A5F] animate-spin" />
-                                        </div>
-                                    )}
-
-                                    {error ? (
-                                        <div className="p-12 text-center">
-                                            <p className="text-[10px] font-black text-red-500 uppercase tracking-widest">{error}</p>
-                                            <button onClick={fetchDevices} className="mt-4 text-[9px] font-black text-[#FEBF10] uppercase tracking-widest flex items-center gap-2 mx-auto">
-                                                <RefreshCw size={12} /> Retry
-                                            </button>
-                                        </div>
-                                    ) : rfidModules.length === 0 && !isLoading ? (
-                                        <div className="p-12 text-center">
-                                            <div className="w-12 h-12 bg-re-bg rounded-2xl flex items-center justify-center mx-auto mb-4 border border-black/5">
-                                                <Wifi size={24} className="text-[#1E3A5F]/20" />
-                                            </div>
-                                            <p className="text-[10px] font-black text-re-text-muted uppercase tracking-widest">No hardware modules registered yet</p>
-                                        </div>
-                                    ) : (
-                                        <table className="w-full text-left border-collapse">
-                                            <thead>
-                                                <tr className="bg-re-bg/50 border-b border-black/5">
-                                                    <th className="px-5 py-3 text-[9px] font-black text-re-text-muted uppercase tracking-[0.2em]">Scanner UID</th>
-                                                    <th className="px-5 py-3 text-[9px] font-black text-re-text-muted uppercase tracking-[0.2em]">Label / Purpose</th>
-                                                    <th className="px-5 py-3 text-[9px] font-black text-re-text-muted uppercase tracking-[0.2em]">Status</th>
-                                                    <th className="px-5 py-3 text-[9px] font-black text-re-text-muted uppercase tracking-[0.2em]">Mapping</th>
-                                                    <th className="px-5 py-3 text-[9px] font-black text-re-text-muted uppercase tracking-[0.2em] text-right">Config</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-black/5 bg-white">
-                                                {rfidModules.map((hw) => (
-                                                    <tr key={hw.id} className="hover:bg-re-bg/20 transition-colors group">
-                                                        <td className="px-5 py-3.5">
-                                                            <div className="flex items-center gap-3">
-                                                                <div className="w-8 h-8 rounded-lg bg-re-bg border border-black/5 flex-shrink-0 flex items-center justify-center shadow-inner relative">
-                                                                    <Radio size={14} className="text-[#1E3A5F] opacity-70" />
-                                                                    {hw.status === 'Online' && (
-                                                                        <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white animate-pulse"></span>
-                                                                    )}
-                                                                </div>
-                                                                <div>
-                                                                    <p className="text-[11px] font-black text-re-text uppercase tracking-tight">{hw.device_uid}</p>
-                                                                    <p className="text-[8px] font-bold text-re-text-muted uppercase tracking-widest">{hw.device_type?.replace('_', ' ')}</p>
-                                                                </div>
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-5 py-3.5">
-                                                            <div className="space-y-1">
-                                                                <p className="text-[10px] font-black text-[#1E3A5F] uppercase tracking-tight">{hw.device_label || 'Unnamed Device'}</p>
-                                                                <p className="text-[8px] font-black text-blue-600/70 uppercase tracking-widest opacity-75">{hw.purpose || 'Global Access'}</p>
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-5 py-3.5">
-                                                            <div className={`inline-flex px-2 py-1 rounded-md text-[8px] font-black uppercase tracking-widest ring-1 ring-inset ${hw.status === 'Online' ? 'bg-emerald-50 text-emerald-600 ring-emerald-500/20' : 'bg-red-50 text-red-600 ring-red-500/20'
-                                                                }`}>
-                                                                {hw.status}
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-5 py-3.5">
-                                                            <div className="flex flex-col gap-1.5">
-                                                                {hw.mapped_event_id && (
-                                                                    <div className="flex items-center gap-2">
-                                                                        <span className="w-2 h-2 rounded-full bg-[#FEBF10]"></span>
-                                                                        <p className="text-[10px] font-black text-[#1E3A5F] uppercase tracking-tight">
-                                                                            Pulse: {events.find(e => e.id === hw.mapped_event_id)?.event_name || 'Event'}
-                                                                        </p>
-                                                                    </div>
-                                                                )}
-                                                                {hw.mapped_class_id && (
-                                                                    <div className="flex items-center gap-2">
-                                                                        <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                                                                        <p className="text-[10px] font-black text-[#1E3A5F] uppercase tracking-tight">
-                                                                            Class: {(() => {
-                                                                                const c = classes.find(c => c.id === hw.mapped_class_id);
-                                                                                return c ? `${c.group_name} ${c.stream_name || ''}` : `Class #${hw.mapped_class_id}`;
-                                                                            })()}
-                                                                        </p>
-                                                                    </div>
-                                                                )}
-                                                                {!hw.mapped_event_id && !hw.mapped_class_id && (
-                                                                    <p className="text-[9px] font-bold text-re-text-muted uppercase italic">Unmapped / General</p>
-                                                                )}
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-5 py-3.5 text-right">
-                                                            <button className="h-7 px-3 rounded-lg border border-black/5 text-re-text font-black text-[9px] uppercase tracking-widest hover:bg-re-bg transition-colors shadow-sm bg-white">Setup</button>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-
-
-                        {/* ── TAB: ATTENDANCE EVENTS ── */}
-                        {activeTab === 'events' && (
-                            <div className="space-y-6 animate-in slide-in-from-right-4 duration-500">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <h2 className="text-lg md:text-xl font-black text-[#1E3A5F] uppercase tracking-tighter">Attendance Events</h2>
-                                        <p className="text-[9px] font-bold text-re-text-muted uppercase tracking-widest mt-1">Define school-wide tracking windows</p>
-                                    </div>
-                                    <button
-                                        onClick={() => {
-                                            setEventForm({ event_name: '', start_time: '07:00', end_time: '08:00', late_threshold: '07:15', target_group: 'STUDENTS', residency_filter: 'ALL' });
-                                            setIsEventModalOpen(true);
-                                        }}
-                                        className="h-9 px-4 rounded-xl flex items-center justify-center gap-1.5 text-white font-black text-[9px] uppercase tracking-widest shadow-md hover:scale-105 active:scale-95 transition-all" style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)" }}
-                                    >
-                                        <Plus size={14} style={{ color: "#FEBF10" }} /> Create Event
-                                    </button>
-                                </div>
-
-                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                    {events.map((event) => (
-                                        <div key={event.id} className="bg-white border border-black/5 p-5 rounded-2xl shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
-                                            <div className="absolute top-0 right-0 p-3 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                                                <button onClick={() => handleDeleteEvent(event.id)} className="text-red-500 hover:text-red-700 p-1">
-                                                    <X size={14} />
-                                                </button>
-                                            </div>
-                                            <div className="flex items-start gap-4">
-                                                <div className="w-12 h-12 rounded-xl bg-re-bg flex items-center justify-center shrink-0 border border-black/5">
-                                                    <Watch size={20} className="text-[#1E3A5F]" />
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <h3 className="text-xs font-black text-[#1E3A5F] uppercase tracking-tight truncate">{event.event_name}</h3>
-                                                    <div className="flex items-center gap-3 mt-1.5">
-                                                        <div className="flex items-center gap-1 text-[9px] font-bold text-re-text-muted">
-                                                            <Calendar size={10} /> {event.start_time} - {event.end_time}
-                                                        </div>
-                                                        <div className="flex items-center gap-1 text-[9px] font-bold text-orange-500">
-                                                            <ShieldCheck size={10} /> Late: {event.late_threshold}
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex items-center gap-2 mt-3 mb-1">
-                                                        <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-600 text-[8px] font-black uppercase tracking-widest">
-                                                            {event.target_group}
-                                                        </span>
-                                                        <span className="px-2 py-0.5 rounded bg-gray-50 text-gray-600 text-[8px] font-black uppercase tracking-widest">
-                                                            {event.residency_filter} RESIDENCY
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                    {events.length === 0 && !isLoading && (
-                                        <div className="col-span-full py-12 text-center bg-re-bg/20 rounded-2xl border border-dashed border-black/10">
-                                            <p className="text-[10px] font-black text-re-text-muted uppercase tracking-widest">No attendance events defined yet</p>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-
-
-                        {/* ── TAB: PREFERENCES ── */}
-                        {activeTab === 'preferences' && (
-                            <div className="space-y-6 animate-in slide-in-from-right-4 duration-500">
-                                <div>
-                                    <h2 className="text-lg md:text-xl font-black text-[#1E3A5F] uppercase tracking-tighter">System Preferences</h2>
-                                    <p className="text-[9px] font-bold text-re-text-muted uppercase tracking-widest mt-1">Manage notifications and features</p>
-                                </div>
-
-                                <div className="space-y-3">
-                                    <div className="p-4 bg-white border border-black/5 shadow-sm rounded-2xl">
-                                        <h3 className="text-[10px] font-black uppercase tracking-widest text-[#1E3A5F] mb-3">Academic Calendar</h3>
-                                        <div className="grid md:grid-cols-2 gap-3">
-                                            <div>
-                                                <label className="block text-[9px] font-black uppercase tracking-widest text-re-text-muted mb-1">Current Academic Year</label>
-                                                <input
-                                                    value={academicYear}
-                                                    onChange={(e) => setAcademicYear(e.target.value)}
-                                                    placeholder="2025-2026"
-                                                    className="w-full h-10 rounded-xl border border-black/10 px-3 text-xs font-bold"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="block text-[9px] font-black uppercase tracking-widest text-re-text-muted mb-1">Active Terms</label>
-                                                <div className="flex gap-2">
-                                                    {['Term 1', 'Term 2', 'Term 3'].map((term) => {
-                                                        const checked = activeTerms.includes(term);
-                                                        return (
-                                                            <label key={term} className="inline-flex items-center gap-1 text-[10px] font-black">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={checked}
-                                                                    onChange={(e) => {
-                                                                        setActiveTerms((prev) => e.target.checked ? [...new Set([...prev, term])] : prev.filter((x) => x !== term));
-                                                                    }}
-                                                                />
-                                                                {term}
-                                                            </label>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="mt-3">
-                                            <button
-                                                type="button"
-                                                disabled={isSaving}
-                                                onClick={handleSaveAcademicSettings}
-                                                className="h-10 px-4 rounded-xl bg-[#1E3A5F] text-white font-black text-[10px] uppercase tracking-widest inline-flex items-center gap-2"
-                                            >
-                                                {isSaving ? <Loader2 size={14} className="animate-spin text-[#FEBF10]" /> : <Save size={14} style={{ color: "#FEBF10" }} />}
-                                                Save Academic Calendar
-                                            </button>
-                                        </div>
-                                    </div>
-                                    {[
-                                        { icon: <Moon size={14} />, label: "Dark Mode", desc: "Use a darker theme for the interface", active: darkMode, toggle: () => setDarkMode(!darkMode) },
-                                        { icon: <Bell size={14} />, label: "Email Alerts", desc: "Send emails for critical discipline issues", active: true, toggle: () => { } },
-                                        { icon: <Smartphone size={14} />, label: "SMS Absence Alerts", desc: "Message parents when a student is absent", active: false, toggle: () => { } },
-                                        { icon: <HardDrive size={14} />, label: "Daily Backup", desc: "Save all data every night at 3:00 AM", active: true, toggle: () => { } }
-                                    ].map((pref, i) => (
-                                        <div key={i} className="flex items-center justify-between p-4 bg-white border border-black/5 shadow-sm rounded-2xl group">
-                                            <div className="flex items-center gap-3">
-                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${pref.active ? "bg-[#1E3A5F] text-white" : "bg-re-bg text-[#1E3A5F]/40"}`}>
-                                                    {pref.icon}
-                                                </div>
-                                                <div>
-                                                    <h3 className="text-[10px] font-black uppercase tracking-widest text-[#1E3A5F]">{pref.label}</h3>
-                                                    <p className="text-[9px] font-bold text-re-text-muted uppercase tracking-wider">{pref.desc}</p>
-                                                </div>
-                                            </div>
-                                            <button
-                                                onClick={pref.toggle}
-                                                className={`w-10 h-5 rounded-full transition-all relative ${pref.active ? "bg-emerald-500" : "bg-black/10"}`}
-                                            >
-                                                <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-all ${pref.active ? "left-5" : "left-0.5"}`}></span>
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
+                        {activeTab === 'events'   && <AttendanceEvents />}
+                        {activeTab === 'calendar' && <SchoolCalendar />}
+                        {activeTab === 'prefs'    && <Preferences />}
                     </div>
                 </div>
             </div>
-            {/* ── ADD DEVICE MODAL ── */}
-            {isAddModalOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#0a192f]/60 backdrop-blur-sm animate-in fade-in duration-300">
-                    <div className="bg-white rounded-[32px] shadow-2xl border border-black/5 w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-300">
-                        <div className="p-8 bg-gradient-to-br from-[#1E3A5F] to-[#0D2644] text-white">
-                            <div className="flex items-center justify-between mb-2">
-                                <div className="flex items-center gap-2">
-                                    <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center backdrop-blur-md">
-                                        <Wifi size={18} style={{ color: "#FEBF10" }} />
-                                    </div>
-                                    <h3 className="text-sm font-black uppercase tracking-widest">Register Hardware</h3>
-                                </div>
-                                <button onClick={() => setIsAddModalOpen(false)} className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-all">
-                                    <X size={16} />
-                                </button>
-                            </div>
-                            <p className="text-[10px] font-bold text-white/60 uppercase tracking-widest">Add new NodeMCU scanner to the network</p>
-                        </div>
-
-                        <form onSubmit={handleAddDevice} className="p-8 space-y-6">
-                            <div className="space-y-4">
-                                <div className="space-y-1.5">
-                                    <label className="text-[9px] font-black text-[#1E3A5F] uppercase tracking-widest ml-1">Device MAC Address / UID</label>
-                                    <div className="relative">
-                                        <Tag size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#1E3A5F]/40" />
-                                        <input
-                                            required
-                                            placeholder="e.g. 8C:AA:B5:12:34:56"
-                                            className="w-full h-12 pl-12 pr-4 bg-re-bg rounded-2xl border border-black/5 focus:ring-2 ring-[#FEBF10]/50 outline-none text-xs font-bold uppercase"
-                                            value={newDevice.device_uid}
-                                            onChange={e => setNewDevice({ ...newDevice, device_uid: e.target.value })}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="space-y-1.5">
-                                    <label className="text-[9px] font-black text-[#1E3A5F] uppercase tracking-widest ml-1">Custom Label</label>
-                                    <div className="relative">
-                                        <MapPin size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#1E3A5F]/40" />
-                                        <input
-                                            required
-                                            placeholder="e.g. Main Gate Scanner"
-                                            className="w-full h-12 pl-12 pr-4 bg-re-bg rounded-2xl border border-black/5 focus:ring-2 ring-[#FEBF10]/50 outline-none text-xs font-bold"
-                                            value={newDevice.device_label}
-                                            onChange={e => setNewDevice({ ...newDevice, device_label: e.target.value })}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1.5">
-                                        <label className="text-[9px] font-black text-[#1E3A5F] uppercase tracking-widest ml-1">Device Type</label>
-                                        <select
-                                            className="w-full h-12 px-4 bg-re-bg rounded-2xl border border-black/5 outline-none text-[10px] font-black uppercase tracking-widest cursor-pointer"
-                                            value={newDevice.device_type}
-                                            onChange={e => setNewDevice({ ...newDevice, device_type: e.target.value })}
-                                        >
-                                            <option value="GATE_SCANNER">Gate Scanner</option>
-                                            <option value="CLASS_READER">Class Reader</option>
-                                            <option value="LIBRARY_GATE">Library Gate</option>
-                                            <option value="POS_SCANNER">POS Scanner</option>
-                                        </select>
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label className="text-[9px] font-black text-[#1E3A5F] uppercase tracking-widest ml-1">Scan Purpose</label>
-                                        <input
-                                            placeholder="e.g. Attendance"
-                                            className="w-full h-12 px-4 bg-re-bg rounded-2xl border border-black/5 outline-none text-xs font-bold"
-                                            value={newDevice.purpose}
-                                            onChange={e => setNewDevice({ ...newDevice, purpose: e.target.value })}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1.5">
-                                        <label className="text-[9px] font-black text-[#1E3A5F] uppercase tracking-widest ml-1">Associated Pulse</label>
-                                        <div className="relative">
-                                            <Radio size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#1E3A5F]/40" />
-                                            <select
-                                                className="w-full h-11 pl-12 pr-4 bg-re-bg rounded-2xl border border-black/5 outline-none text-[10px] font-black uppercase tracking-widest cursor-pointer appearance-none"
-                                                value={newDevice.mapped_event_id}
-                                                onChange={e => setNewDevice({ ...newDevice, mapped_event_id: e.target.value })}
-                                            >
-                                                <option value="">No Pulse</option>
-                                                {events.map(ev => (
-                                                    <option key={ev.id} value={ev.id}>{ev.event_name}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label className="text-[9px] font-black text-[#1E3A5F] uppercase tracking-widest ml-1">Mapped Class</label>
-                                        <div className="relative">
-                                            <Plus size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#1E3A5F]/40" />
-                                            <select
-                                                className="w-full h-11 pl-12 pr-4 bg-re-bg rounded-2xl border border-black/5 outline-none text-[10px] font-black uppercase tracking-widest cursor-pointer appearance-none"
-                                                value={newDevice.mapped_class_id}
-                                                onChange={e => setNewDevice({ ...newDevice, mapped_class_id: e.target.value })}
-                                            >
-                                                <option value="">No Class</option>
-                                                {classes.map(c => (
-                                                    <option key={c.id} value={c.id}>{c.group_name} {c.stream_name || ''}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center gap-3 pt-4">
-                                <button
-                                    type="button"
-                                    onClick={() => setIsAddModalOpen(false)}
-                                    className="flex-1 h-12 rounded-2xl border border-black/5 text-[#1E3A5F] font-black text-[10px] uppercase tracking-widest hover:bg-re-bg transition-all"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={isSaving}
-                                    className="flex-[1.5] h-12 rounded-2xl bg-[#1E3A5F] text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-[#1E3A5F]/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"
-                                >
-                                    {isSaving ? <Loader2 size={16} className="animate-spin text-[#FEBF10]" /> : <Save size={16} style={{ color: "#FEBF10" }} />}
-                                    Save Registry
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
-            {/* ── ATTENDANCE EVENT MODAL ── */}
-            {isEventModalOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#0a192f]/60 backdrop-blur-sm animate-in fade-in duration-300">
-                    <div className="bg-white rounded-[32px] shadow-2xl border border-black/5 w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-300">
-                        <div className="p-8 bg-gradient-to-br from-[#1E3A5F] to-[#0D2644] text-white">
-                            <div className="flex items-center justify-between mb-2">
-                                <div className="flex items-center gap-2">
-                                    <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center backdrop-blur-md">
-                                        <Watch size={18} style={{ color: "#FEBF10" }} />
-                                    </div>
-                                    <h3 className="text-sm font-black uppercase tracking-widest">New Event</h3>
-                                </div>
-                                <button onClick={() => setIsEventModalOpen(false)} className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-all">
-                                    <X size={16} />
-                                </button>
-                            </div>
-                            <p className="text-[10px] font-bold text-white/60 uppercase tracking-widest">Define tracking window for scans</p>
-                        </div>
-
-                        <form onSubmit={handleSaveEvent} className="p-8 space-y-4">
-                            <div className="space-y-1.5">
-                                <label className="text-[9px] font-black text-[#1E3A5F] uppercase tracking-widest ml-1">Event Name</label>
-                                <input
-                                    required
-                                    placeholder="e.g. Morning Assembly"
-                                    className="w-full h-11 px-4 bg-re-bg rounded-2xl border border-black/5 outline-none text-xs font-bold"
-                                    value={eventForm.event_name}
-                                    onChange={e => setEventForm({ ...eventForm, event_name: e.target.value })}
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1.5">
-                                    <label className="text-[9px] font-black text-[#1E3A5F] uppercase tracking-widest ml-1">Start Time</label>
-                                    <input type="time" className="w-full h-11 px-4 bg-re-bg rounded-2xl border border-black/5 outline-none text-xs font-bold"
-                                        value={eventForm.start_time} onChange={e => setEventForm({ ...eventForm, start_time: e.target.value })} />
-                                </div>
-                                <div className="space-y-1.5">
-                                    <label className="text-[9px] font-black text-[#1E3A5F] uppercase tracking-widest ml-1">End Time</label>
-                                    <input type="time" className="w-full h-11 px-4 bg-re-bg rounded-2xl border border-black/5 outline-none text-xs font-bold"
-                                        value={eventForm.end_time} onChange={e => setEventForm({ ...eventForm, end_time: e.target.value })} />
-                                </div>
-                            </div>
-
-                            <div className="space-y-1.5">
-                                <label className="text-[9px] font-black text-[#1E3A5F] uppercase tracking-widest ml-1">Late Threshold</label>
-                                <input type="time" className="w-full h-11 px-4 bg-re-bg rounded-2xl border border-black/5 outline-none text-xs font-bold"
-                                    value={eventForm.late_threshold} onChange={e => setEventForm({ ...eventForm, late_threshold: e.target.value })} />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1.5">
-                                    <label className="text-[9px] font-black text-[#1E3A5F] uppercase tracking-widest ml-1">Target Group</label>
-                                    <select className="w-full h-11 px-4 bg-re-bg rounded-2xl border border-black/5 outline-none text-[10px] font-black uppercase tracking-widest cursor-pointer"
-                                        value={eventForm.target_group} onChange={e => setEventForm({ ...eventForm, target_group: e.target.value })}>
-                                        <option value="STUDENTS">Students</option>
-                                        <option value="STAFF">Staff</option>
-                                        <option value="BOTH">Both</option>
-                                    </select>
-                                </div>
-                                <div className="space-y-1.5">
-                                    <label className="text-[9px] font-black text-[#1E3A5F] uppercase tracking-widest ml-1">Residency</label>
-                                    <select className="w-full h-11 px-4 bg-re-bg rounded-2xl border border-black/5 outline-none text-[10px] font-black uppercase tracking-widest cursor-pointer"
-                                        value={eventForm.residency_filter} onChange={e => setEventForm({ ...eventForm, residency_filter: e.target.value })}>
-                                        <option value="ALL">All Students</option>
-                                        <option value="BOARDING">Boarding Only</option>
-                                        <option value="DAY">Day Students Only</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center gap-3 pt-4">
-                                <button type="button" onClick={() => setIsEventModalOpen(false)} className="flex-1 h-12 rounded-2xl border border-black/5 text-[#1E3A5F] font-black text-[10px] uppercase tracking-widest hover:bg-re-bg transition-all">Cancel</button>
-                                <button type="submit" disabled={isSaving} className="flex-[1.5] h-12 rounded-2xl bg-[#1E3A5F] text-white font-black text-[10px] uppercase tracking-widest shadow-lg hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2">
-                                    {isSaving ? <Loader2 size={16} className="animate-spin text-[#FEBF10]" /> : <Save size={16} style={{ color: "#FEBF10" }} />} Save Event
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };

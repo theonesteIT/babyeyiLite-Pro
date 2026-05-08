@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Loader2, RefreshCw, Settings2 } from 'lucide-react';
 import disciplineService from '../services/disciplineService';
+import DisciplineOchreHero from '../components/DisciplineOchreHero';
 
 const APPLY_TARGETS = [
   { value: 'new', label: 'New students only' },
@@ -86,8 +87,15 @@ export default function DisciplineSettings() {
   };
 
   return (
-    <div className="min-h-screen bg-re-bg p-4 md:p-6">
+    <div className="min-h-screen bg-re-bg pb-10">
       <Toast toast={toast} />
+      <DisciplineOchreHero
+        eyebrow="Module configuration"
+        titleLine="Discipline"
+        titleAccent="settings"
+        subtitle="Configure default discipline marks and apply rules with a cleaner manager-style experience."
+        icon={Settings2}
+      />
 
       {confirmOpen && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
@@ -127,16 +135,16 @@ export default function DisciplineSettings() {
         </div>
       )}
 
-      <div className="max-w-4xl mx-auto space-y-5">
-        <div className="rounded-2xl bg-white border border-black/5 p-5 md:p-6 shadow-sm">
+      <div className="max-w-4xl mx-auto px-4 md:px-6 -mt-4 sm:-mt-5 md:-mt-6 pt-2 relative z-20 space-y-5">
+        <div className="rounded-2xl bg-white border border-black/10 p-5 md:p-6 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center">
                 <Settings2 size={18} />
               </div>
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-re-text-muted">Discipline module</p>
-                <h1 className="text-lg md:text-xl font-black text-re-text">Default Discipline Marks</h1>
+                <p className="text-[10px] font-medium uppercase tracking-[0.15em] text-re-text-muted">Discipline module</p>
+                <h1 className="text-lg md:text-xl font-semibold text-re-text">Default Discipline Marks</h1>
               </div>
             </div>
             <button

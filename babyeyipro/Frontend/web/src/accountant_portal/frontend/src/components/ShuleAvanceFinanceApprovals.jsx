@@ -43,13 +43,13 @@ function Modal({ open, title, subtitle, children, onClose, wide }) {
         onClick={onClose}
       />
       <div
-        className={`relative z-10 w-full animate-in fade-in zoom-in-95 duration-200 rounded-t-[24px] bg-white shadow-2xl sm:rounded-2xl border border-slate-200/80 ${
+        className={`relative z-10 w-full animate-in fade-in zoom-in-95 duration-200 rounded-t-[24px] bg-white shadow-sm sm:rounded-2xl border border-slate-200/80 ${
           wide ? 'max-w-lg' : 'max-w-md'
         } max-h-[90vh] overflow-hidden flex flex-col`}
       >
         <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4 bg-gradient-to-r from-[#0f172a] to-[#000435] text-white">
           <div>
-            <h3 className="text-sm font-black uppercase tracking-wide">{title}</h3>
+            <h3 className="text-sm font-medium uppercase tracking-wide">{title}</h3>
             {subtitle ? <p className="mt-1 text-[11px] font-semibold text-white/75 leading-snug">{subtitle}</p> : null}
           </div>
           <button
@@ -181,18 +181,18 @@ export default function ShuleAvanceFinanceApprovals() {
   };
 
   return (
-    <div className="bg-white rounded-[28px] shadow-2xl border border-black/5 overflow-hidden">
+    <div className="bg-white rounded-[28px] shadow-sm border border-black/5 overflow-hidden">
       <div className="px-4 sm:px-8 py-5 border-b border-black/5 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
           <Building2 size={18} className="text-[#000435] shrink-0" />
-          <h2 className="text-sm font-black text-[#000435] uppercase tracking-tight truncate">
+          <h2 className="text-sm font-medium text-[#000435] uppercase tracking-tight truncate">
             ShuleAvance · Accountant Queue
           </h2>
         </div>
         <button
           type="button"
           onClick={load}
-          className="inline-flex items-center gap-2 h-9 px-3 rounded-xl border border-black/5 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50"
+          className="inline-flex items-center gap-2 h-9 px-3 rounded-xl border border-black/5 text-[10px] font-medium uppercase tracking-widest text-slate-600 hover:bg-slate-50"
         >
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
           Refresh
@@ -212,10 +212,10 @@ export default function ShuleAvanceFinanceApprovals() {
         >
           <div className="flex items-center gap-2 text-slate-500 mb-1">
             <LayoutGrid size={14} />
-            <span className="text-[9px] font-black uppercase tracking-widest">Total</span>
+            <span className="text-[9px] font-medium uppercase tracking-widest">Total</span>
           </div>
-          <p className="text-2xl font-black text-[#000435]">{stats.total}</p>
-          <p className="text-[10px] font-bold text-slate-400 mt-0.5">All requests</p>
+          <p className="text-2xl font-medium text-[#000435]">{stats.total}</p>
+          <p className="text-[10px] font-medium text-slate-400 mt-0.5">All requests</p>
         </button>
         <button
           type="button"
@@ -226,10 +226,10 @@ export default function ShuleAvanceFinanceApprovals() {
         >
           <div className="flex items-center gap-2 text-emerald-700 mb-1">
             <CheckCircle2 size={14} />
-            <span className="text-[9px] font-black uppercase tracking-widest">Approved</span>
+            <span className="text-[9px] font-medium uppercase tracking-widest">Approved</span>
           </div>
-          <p className="text-2xl font-black text-emerald-700">{stats.approved}</p>
-          <p className="text-[10px] font-bold text-slate-400 mt-0.5">Final approval</p>
+          <p className="text-2xl font-medium text-emerald-700">{stats.approved}</p>
+          <p className="text-[10px] font-medium text-slate-400 mt-0.5">Final approval</p>
         </button>
         <button
           type="button"
@@ -240,10 +240,10 @@ export default function ShuleAvanceFinanceApprovals() {
         >
           <div className="flex items-center gap-2 text-red-700 mb-1">
             <Ban size={14} />
-            <span className="text-[9px] font-black uppercase tracking-widest">Rejected</span>
+            <span className="text-[9px] font-medium uppercase tracking-widest">Rejected</span>
           </div>
-          <p className="text-2xl font-black text-red-700">{stats.rejected}</p>
-          <p className="text-[10px] font-bold text-slate-400 mt-0.5">Finance or manager</p>
+          <p className="text-2xl font-medium text-red-700">{stats.rejected}</p>
+          <p className="text-[10px] font-medium text-slate-400 mt-0.5">Finance or manager</p>
         </button>
         <button
           type="button"
@@ -253,20 +253,20 @@ export default function ShuleAvanceFinanceApprovals() {
           }`}
         >
           <div className="flex items-center gap-2 text-amber-800 mb-1">
-            <span className="text-[9px] font-black uppercase tracking-widest">Action</span>
+            <span className="text-[9px] font-medium uppercase tracking-widest">Action</span>
           </div>
-          <p className="text-2xl font-black text-amber-800">{stats.needsAction}</p>
-          <p className="text-[10px] font-bold text-slate-400 mt-0.5">Awaiting you</p>
+          <p className="text-2xl font-medium text-amber-800">{stats.needsAction}</p>
+          <p className="text-[10px] font-medium text-slate-400 mt-0.5">Awaiting you</p>
         </button>
       </div>
 
       {msg ? (
-        <div className="mx-4 sm:mx-8 mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] font-bold text-emerald-900">
+        <div className="mx-4 sm:mx-8 mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] font-medium text-emerald-900">
           {msg}
         </div>
       ) : null}
       {err ? (
-        <div className="mx-4 sm:mx-8 mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[11px] font-bold text-red-700">
+        <div className="mx-4 sm:mx-8 mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[11px] font-medium text-red-700">
           {err}
         </div>
       ) : null}
@@ -275,12 +275,12 @@ export default function ShuleAvanceFinanceApprovals() {
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex items-center gap-2 text-slate-600">
             <Filter size={16} />
-            <span className="text-[10px] font-black uppercase tracking-widest">Filter list</span>
+            <span className="text-[10px] font-medium uppercase tracking-widest">Filter list</span>
           </div>
           <select
             value={tableFilter}
             onChange={(e) => setTableFilter(e.target.value)}
-            className="w-full sm:w-auto min-w-[200px] rounded-xl border border-black/10 bg-white px-3 py-2.5 text-xs font-bold text-slate-800"
+            className="w-full sm:w-auto min-w-[200px] rounded-xl border border-black/10 bg-white px-3 py-2.5 text-xs font-medium text-slate-800"
           >
             <option value="pending_accountant">Needs my action (pending)</option>
             <option value="all">All statuses</option>
@@ -293,10 +293,10 @@ export default function ShuleAvanceFinanceApprovals() {
         {loading ? (
           <div className="flex items-center justify-center gap-2 py-12 text-slate-400">
             <Loader2 className="animate-spin" size={20} />
-            <span className="text-[11px] font-black uppercase tracking-widest">Loading...</span>
+            <span className="text-[11px] font-medium uppercase tracking-widest">Loading...</span>
           </div>
         ) : filteredRows.length === 0 ? (
-          <p className="text-center text-[12px] font-bold text-slate-400 py-10">
+          <p className="text-center text-[12px] font-medium text-slate-400 py-10">
             No requests in this view.
           </p>
         ) : (
@@ -304,7 +304,7 @@ export default function ShuleAvanceFinanceApprovals() {
             {/* Desktop table */}
             <div className="hidden md:block overflow-x-auto rounded-2xl border border-black/5">
               <table className="w-full text-left text-sm">
-                <thead className="bg-slate-50 text-[10px] font-black uppercase tracking-wider text-slate-500">
+                <thead className="bg-slate-50 text-[10px] font-medium uppercase tracking-wider text-slate-500">
                   <tr>
                     <th className="px-4 py-3">ID</th>
                     <th className="px-4 py-3">Staff</th>
@@ -318,25 +318,25 @@ export default function ShuleAvanceFinanceApprovals() {
                 <tbody className="divide-y divide-black/5">
                   {filteredRows.map((r) => (
                     <tr key={r.id} className="hover:bg-slate-50/80">
-                      <td className="px-4 py-3 font-mono font-bold text-slate-700">#{r.id}</td>
+                      <td className="px-4 py-3 font-mono font-medium text-slate-700">#{r.id}</td>
                       <td className="px-4 py-3">
-                        <p className="font-bold text-[#000435]">{r.staff_name || '—'}</p>
+                        <p className="font-medium text-[#000435]">{r.staff_name || '—'}</p>
                         <p className="text-[10px] text-slate-500">{r.submitter_role_code || ''}</p>
                       </td>
                       <td className="px-4 py-3 capitalize text-xs font-semibold">{r.request_type || '—'}</td>
-                      <td className="px-4 py-3 font-black">{fmtMoney(r.amount_rwf)}</td>
+                      <td className="px-4 py-3 font-medium">{fmtMoney(r.amount_rwf)}</td>
                       <td className="px-4 py-3">
                         {isTeacherDealRequest(r) ? (
-                          <span className="inline-flex rounded-full border px-2 py-0.5 text-[9px] font-black uppercase bg-fuchsia-50 text-fuchsia-800 border-fuchsia-200">
+                          <span className="inline-flex rounded-full border px-2 py-0.5 text-[9px] font-medium uppercase bg-fuchsia-50 text-fuchsia-800 border-fuchsia-200">
                             Teacher Deals
                           </span>
                         ) : (
-                          <span className="text-[10px] font-bold text-slate-300">—</span>
+                          <span className="text-[10px] font-medium text-slate-300">—</span>
                         )}
                       </td>
                       <td className="px-4 py-3">
                         <span
-                          className={`inline-flex rounded-full border px-2 py-0.5 text-[9px] font-black uppercase ${
+                          className={`inline-flex rounded-full border px-2 py-0.5 text-[9px] font-medium uppercase ${
                             STATUS_LABEL[r.status]?.cls || 'bg-slate-100 text-slate-700'
                           }`}
                         >
@@ -350,7 +350,7 @@ export default function ShuleAvanceFinanceApprovals() {
                               type="button"
                               disabled={busyId === r.id}
                               onClick={() => openSendModal(r)}
-                              className="mr-2 inline-flex items-center gap-1 h-9 px-3 rounded-xl text-[10px] font-black uppercase text-white shadow-sm disabled:opacity-50"
+                              className="mr-2 inline-flex items-center gap-1 h-9 px-3 rounded-xl text-[10px] font-medium uppercase text-white shadow-sm disabled:opacity-50"
                               style={{ background: 'linear-gradient(135deg,#000435,#0D2644)' }}
                             >
                               <Send size={14} /> To manager
@@ -359,13 +359,13 @@ export default function ShuleAvanceFinanceApprovals() {
                               type="button"
                               disabled={busyId === r.id}
                               onClick={() => openRejectModal(r)}
-                              className="inline-flex items-center gap-1 h-9 px-3 rounded-xl text-[10px] font-black uppercase text-red-600 border border-red-200 bg-red-50"
+                              className="inline-flex items-center gap-1 h-9 px-3 rounded-xl text-[10px] font-medium uppercase text-red-600 border border-red-200 bg-red-50"
                             >
                               <XCircle size={14} /> Reject
                             </button>
                           </>
                         ) : (
-                          <span className="text-[10px] font-bold text-slate-400">—</span>
+                          <span className="text-[10px] font-medium text-slate-400">—</span>
                         )}
                       </td>
                     </tr>
@@ -383,23 +383,23 @@ export default function ShuleAvanceFinanceApprovals() {
                 >
                   <div className="flex justify-between gap-2">
                     <div>
-                      <p className="font-black text-[#000435]">{r.staff_name || `User #${r.teacher_user_id}`}</p>
-                      <p className="text-[10px] font-bold text-slate-500">
+                      <p className="font-medium text-[#000435]">{r.staff_name || `User #${r.teacher_user_id}`}</p>
+                      <p className="text-[10px] font-medium text-slate-500">
                         #{r.id} · {r.submitter_role_code || 'Staff'}
                       </p>
                     </div>
                     <span
-                      className={`h-fit text-[9px] font-black uppercase px-2 py-1 rounded-full border ${
+                      className={`h-fit text-[9px] font-medium uppercase px-2 py-1 rounded-full border ${
                         STATUS_LABEL[r.status]?.cls || 'bg-slate-100'
                       }`}
                     >
                       {STATUS_LABEL[r.status]?.label || r.status}
                     </span>
                   </div>
-                  <p className="text-lg font-black text-[#000435]">{fmtMoney(r.amount_rwf)}</p>
+                  <p className="text-lg font-medium text-[#000435]">{fmtMoney(r.amount_rwf)}</p>
                   <p className="text-[11px] text-slate-600 line-clamp-3">{r.purpose}</p>
                   {isTeacherDealRequest(r) ? (
-                    <p className="inline-flex rounded-full border px-2 py-0.5 text-[9px] font-black uppercase bg-fuchsia-50 text-fuchsia-800 border-fuchsia-200">
+                    <p className="inline-flex rounded-full border px-2 py-0.5 text-[9px] font-medium uppercase bg-fuchsia-50 text-fuchsia-800 border-fuchsia-200">
                       Teacher Deals
                     </p>
                   ) : null}
@@ -409,7 +409,7 @@ export default function ShuleAvanceFinanceApprovals() {
                         type="button"
                         disabled={busyId === r.id}
                         onClick={() => openSendModal(r)}
-                        className="h-11 w-full rounded-xl text-[10px] font-black uppercase text-white"
+                        className="h-11 w-full rounded-xl text-[10px] font-medium uppercase text-white"
                         style={{ background: 'linear-gradient(135deg,#000435,#0D2644)' }}
                       >
                         Send to school manager
@@ -418,7 +418,7 @@ export default function ShuleAvanceFinanceApprovals() {
                         type="button"
                         disabled={busyId === r.id}
                         onClick={() => openRejectModal(r)}
-                        className="h-11 w-full rounded-xl text-[10px] font-black uppercase text-red-600 border border-red-200 bg-white"
+                        className="h-11 w-full rounded-xl text-[10px] font-medium uppercase text-red-600 border border-red-200 bg-white"
                       >
                         Reject request
                       </button>
@@ -438,7 +438,7 @@ export default function ShuleAvanceFinanceApprovals() {
         subtitle="Add an optional note for the school manager and the requester. This is stored on the request."
         wide
       >
-        <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
+        <label className="block text-[10px] font-medium uppercase tracking-widest text-slate-500 mb-2">
           Note / description
         </label>
         <textarea
@@ -451,7 +451,7 @@ export default function ShuleAvanceFinanceApprovals() {
           <button
             type="button"
             onClick={closeModal}
-            className="h-11 px-4 rounded-xl border border-slate-200 text-xs font-black uppercase text-slate-700"
+            className="h-11 px-4 rounded-xl border border-slate-200 text-xs font-medium uppercase text-slate-700"
           >
             Cancel
           </button>
@@ -459,7 +459,7 @@ export default function ShuleAvanceFinanceApprovals() {
             type="button"
             disabled={busyId === modal?.row?.id}
             onClick={submitSend}
-            className="h-11 px-5 rounded-xl text-xs font-black uppercase text-white disabled:opacity-50"
+            className="h-11 px-5 rounded-xl text-xs font-medium uppercase text-white disabled:opacity-50"
             style={{ background: 'linear-gradient(135deg,#000435,#0D2644)' }}
           >
             {busyId === modal?.row?.id ? 'Sending…' : 'Confirm & send'}
@@ -474,7 +474,7 @@ export default function ShuleAvanceFinanceApprovals() {
         subtitle="The reason is visible to the staff member on their Shule Avance dashboard."
         wide
       >
-        <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
+        <label className="block text-[10px] font-medium uppercase tracking-widest text-slate-500 mb-2">
           Reason (optional)
         </label>
         <textarea
@@ -487,7 +487,7 @@ export default function ShuleAvanceFinanceApprovals() {
           <button
             type="button"
             onClick={closeModal}
-            className="h-11 px-4 rounded-xl border border-slate-200 text-xs font-black uppercase text-slate-700"
+            className="h-11 px-4 rounded-xl border border-slate-200 text-xs font-medium uppercase text-slate-700"
           >
             Cancel
           </button>
@@ -495,7 +495,7 @@ export default function ShuleAvanceFinanceApprovals() {
             type="button"
             disabled={busyId === modal?.row?.id}
             onClick={submitReject}
-            className="h-11 px-5 rounded-xl text-xs font-black uppercase text-white bg-red-600 hover:bg-red-700 disabled:opacity-50"
+            className="h-11 px-5 rounded-xl text-xs font-medium uppercase text-white bg-red-600 hover:bg-red-700 disabled:opacity-50"
           >
             {busyId === modal?.row?.id ? 'Saving…' : 'Confirm rejection'}
           </button>

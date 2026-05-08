@@ -9,10 +9,7 @@ import {
   TrendingUp,
   Wallet,
   X,
-  Shield,
-  Users,
-  Gavel,
-  CalendarDays,
+  Coins,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -24,6 +21,7 @@ import {
   ResponsiveContainer
 } from 'recharts';
 import api from '../services/api';
+import { h } from '../utils/href';
 
 function formatMoneyRWF(value) {
   const n = Number(value) || 0;
@@ -52,8 +50,8 @@ const ModalShell = ({ title, subtitle, onClose, children }) => {
         <div className="bg-white rounded-[24px]  border border-black/10 overflow-hidden">
           <div className="px-5 md:px-6 py-4 border-b border-black/5 flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <p className="text-[9px] font-black capitalize tracking-[0.28em] text-re-text-muted/45">{subtitle}</p>
-              <h3 className="text-base md:text-lg font-black text-re-navy tracking-tight truncate">{title}</h3>
+              <p className="text-[9px] font-medium capitalize tracking-[0.28em] text-re-text-muted/45">{subtitle}</p>
+              <h3 className="text-base md:text-lg font-medium text-re-navy tracking-tight truncate">{title}</h3>
             </div>
             <button
               onClick={onClose}
@@ -78,8 +76,8 @@ function ChartTooltip({ active, payload }) {
     const data = payload[0].payload;
     return (
       <div className="bg-white/95 backdrop-blur-md border border-black/5  p-2.5 rounded-xl z-50">
-        <p className="text-[10px] font-black text-[#000435] capitalize tracking-[0.2em]">{data.label || 'Day'}</p>
-        <p className="text-xs font-black text-[#000435] mt-1">{formatMoneyRWF(payload[0].value)}</p>
+        <p className="text-[10px] font-medium text-[#000435] capitalize tracking-[0.2em]">{data.label || 'Day'}</p>
+        <p className="text-xs font-medium text-[#000435] mt-1">{formatMoneyRWF(payload[0].value)}</p>
       </div>
     );
   }
@@ -140,8 +138,19 @@ const RechartsTrend = ({ series = [], height = 120, tone = 'navy' }) => {
   );
 };
 
-const FEE_REPORT_YEAR = '2025-2026';
-const FEE_REPORT_TERM = 'Term 1';
+const TERMS = ['Term 1', 'Term 2', 'Term 3', 'Annual Review'];
+const YEARS = ['2026-2027', '2025-2026', '2024-2025', '2023-2024', '2022-2023'];
+
+function normalizeUiTerm(v) {
+  const t = String(v || '').trim();
+  const low = t.toLowerCase();
+  if (!t) return '';
+  if (low.includes('annual')) return 'Annual Review';
+  if (/\b1\b/.test(low) || low === 't1') return 'Term 1';
+  if (/\b2\b/.test(low) || low === 't2') return 'Term 2';
+  if (/\b3\b/.test(low) || low === 't3') return 'Term 3';
+  return t;
+}
 
 const CATEGORY_COLORS = ['#000435', '#FEBF10', '#000866', '#FFD54F', '#000C99', '#FFE680', '#0010CC', '#FFF5CC'];
 
@@ -191,6 +200,7 @@ export default function Dashboard() {
   const [liveData, setLiveData] = useState(null);
   const [liveOk, setLiveOk] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState(null);
 
   const fallbackBase = useMemo(() => {
     const z = emptySeries14();
@@ -211,12 +221,8 @@ export default function Dashboard() {
       learnersOwing: 0,
       payroll: { staffCount: 0, dueDate: '—', totalDue: 0, processed: 0 },
       collectionsLog: [],
-      disciplineSnapshot: {
-        casesThisMonth: 0,
-        studentsAffectedThisMonth: 0,
-        marksDeductedThisMonth: 0,
-        casesLast30Days: 0,
-      },
+      feeReportYear: '',
+      feeReportTerm: '',
     };
   }, []);
 
@@ -236,7 +242,26 @@ export default function Dashboard() {
 
     setRefreshing(true);
     setLiveOk(false);
+    setLoadError(null);
     try {
+      const [settingsRes, cardsRes] = await Promise.all([
+        api.get('/dos/academic-calendar-settings').catch(() => null),
+        api.get('/accountant/babyeyi-fees').catch(() => null),
+      ]);
+
+      const managerYear = String(settingsRes?.data?.data?.current_academic_year || '').trim();
+      const managerTermsRaw = Array.isArray(settingsRes?.data?.data?.active_terms)
+        ? settingsRes.data.data.active_terms
+        : [];
+      const managerTerms = managerTermsRaw.map(normalizeUiTerm).filter(Boolean);
+
+      const cards = Array.isArray(cardsRes?.data?.data) ? cardsRes.data.data : [];
+      const cardTerms = cards.map((r) => normalizeUiTerm(r.term)).filter(Boolean);
+      const cardYears = cards.map((r) => String(r.academic_year || '').trim()).filter(Boolean);
+
+      const feeReportYear = managerYear || cardYears[0] || YEARS[0];
+      const feeReportTerm = managerTerms[0] || cardTerms[0] || TERMS[0];
+
       const [
         overviewRes,
         paymentsRes,
@@ -253,22 +278,17 @@ export default function Dashboard() {
         api.get('/accountant/payroll/config'),
         api.get('/accountant/payroll/runs', { params: { limit: 8 } }),
         api.get('/accountant/reports/payments', {
-          params: { academic_year: FEE_REPORT_YEAR, term: FEE_REPORT_TERM },
+          params: { academic_year: feeReportYear, term: feeReportTerm },
         }),
       ]);
 
       if (!overviewRes.data?.success) {
         setLiveOk(false);
+        setLiveData(null);
+        setLoadError(overviewRes.data?.message || 'School finance overview is unavailable.');
         return;
       }
       const ov = overviewRes.data?.data || {};
-      const ds = ov.discipline_snapshot || {};
-      const disciplineSnapshot = {
-        casesThisMonth: Number(ds.cases_this_month || 0),
-        studentsAffectedThisMonth: Number(ds.students_affected_this_month || 0),
-        marksDeductedThisMonth: Number(ds.marks_deducted_this_month || 0),
-        casesLast30Days: Number(ds.cases_last_30_days || 0),
-      };
       const payments = Array.isArray(paymentsRes.data?.data) ? paymentsRes.data.data : [];
       const expenseRows = expensesRes.data?.success && Array.isArray(expensesRes.data.data) ? expensesRes.data.data : [];
       const reqRows = requisitionsRes.data?.success && Array.isArray(requisitionsRes.data.data) ? requisitionsRes.data.data : [];
@@ -341,7 +361,7 @@ export default function Dashboard() {
         due: reminderLabelFromFeeStatus(d.feeStatus),
       }));
 
-      const payments14 = Array.isArray(ov.collections_last_14_days)
+      const payments14 = Array.isArray(ov.collections_last_14_days) && ov.collections_last_14_days.length
         ? ov.collections_last_14_days.map((x) => ({
           label: toLabel(String(x.date || '').slice(0, 10)),
           value: Number(x.total_paid || 0),
@@ -431,13 +451,15 @@ export default function Dashboard() {
         learnersOwing,
         payroll: { staffCount, dueDate, totalDue, processed },
         collectionsLog: collectionsLog.slice(0, 24),
-        disciplineSnapshot,
+        feeReportYear,
+        feeReportTerm,
       });
       setLiveOk(true);
     } catch (e) {
       console.warn('[Dashboard] Live accountant data unavailable:', e.message);
       setLiveData(null);
       setLiveOk(false);
+      setLoadError(e?.response?.data?.message || e.message || 'Could not reach the finance server.');
     } finally {
       setRefreshing(false);
     }
@@ -459,51 +481,187 @@ export default function Dashboard() {
 
   const expenseTotal = useMemo(() => mock.expenseCategories.reduce((s, c) => s + c.value, 0), [mock.expenseCategories]);
 
+  const dashHeroStats = useMemo(
+    () => [
+      {
+        label: "Today's collections",
+        value: `${formatCompactMoneyRWF(mock.todayCollections)} RWF`,
+        subValue: refreshing ? 'Refreshing…' : !liveOk ? 'Limited connectivity' : null,
+        icon: Wallet,
+        onClick: () => setModal('collections'),
+      },
+      {
+        label: 'Month collections (MTD)',
+        value: `${formatCompactMoneyRWF(mock.monthCollections)} RWF`,
+        subValue:
+          kpis.collectionsDelta != null
+            ? `${kpis.collectionsDelta >= 0 ? '▲' : '▼'} ${Math.abs(kpis.collectionsDelta).toFixed(1)}% vs last month`
+            : null,
+        icon: TrendingUp,
+        onClick: () => setModal('collections'),
+      },
+      {
+        label: 'Outstanding fees',
+        value: `${formatCompactMoneyRWF(mock.outstanding)} RWF`,
+        subValue: `${mock.learnersOwing} learners owing`,
+        icon: Banknote,
+        onClick: () => setModal('debtors'),
+      },
+      {
+        label: 'Net cashflow (MTD)',
+        value: `${kpis.netCashflow >= 0 ? '+' : ''}${formatCompactMoneyRWF(kpis.netCashflow)} RWF`,
+        subValue: kpis.netCashflow >= 0 ? 'Surplus' : 'Deficit',
+        icon: Coins,
+        onClick: () => setModal('expenses'),
+      },
+    ],
+    [mock, kpis, refreshing, liveOk],
+  );
+
   return (
-    <div className="relative w-full bg-re-bg min-h-[85vh]" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-      <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <div className="animate-in fade-in duration-500 bg-re-bg min-h-full pb-24 lg:pb-10 relative w-full">
+      {/* Hero — ochre institutional band (manager dashboard pattern) */}
+      <div className="relative w-full min-h-[200px] sm:min-h-[220px] overflow-hidden bg-[#c87800]">
+        <div className="absolute -top-28 -right-28 w-[22rem] h-[22rem] rounded-full border border-white/[0.07] pointer-events-none" aria-hidden />
+        <div className="absolute -top-14 -right-14 w-[15rem] h-[15rem] rounded-full border border-white/[0.06] pointer-events-none" aria-hidden />
+        <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-[#FEBF10]/30 to-transparent pointer-events-none" aria-hidden />
 
-      {/* ── Hero banner ── */}
-      <section className="relative p-7 md:p-10 text-white overflow-hidden min-h-[230px] flex items-center bg-[#000435]">
-        <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full border border-white/5 pointer-events-none" />
-        <div className="absolute -top-12 -right-12 w-64 h-64 rounded-full border border-white/5 pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-[#FEBF10]/30 to-transparent pointer-events-none" />
-
-        <div className="relative z-10 max-w-5xl w-full">
-          <div className="flex flex-wrap items-center justify-between gap-6">
-            <div className="flex flex-col gap-1">
-              <h1 className="text-2xl md:text-3xl font-black tracking-tight">
-                Accounts Dashboard
-              </h1>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
-                <p className="text-[10px] font-black capitalize tracking-widest text-white/80">
-                  {new Date().getFullYear()} · {new Date().toLocaleString(undefined, { month: 'long' })} · Fees · Expenses · Requisitions · Payroll
-                </p>
+        <div className="relative z-10 max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-12 pt-10 sm:pt-12 pb-20 sm:pb-24">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between max-w-4xl lg:max-w-none">
+            <div className="space-y-1 max-w-3xl">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="w-5 h-1 rounded-full bg-[#FEBF10]" aria-hidden />
               </div>
+              <h1
+                className="text-xl md:text-2xl font-semibold text-white tracking-tight leading-none mb-1 mt-1 uppercase"
+                style={{ fontFamily: "'Montserrat', sans-serif" }}
+              >
+                Accountant dashboard
+              </h1>
+              <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.16em] text-white/85 max-w-xl leading-relaxed">
+                Fees · invoicing · expenses · payroll — same command layout as manager
+              </p>
             </div>
-
-            <div className="flex items-center gap-3">
-              <div className="flex bg-re-bg/10 backdrop-blur-md rounded-xl border border-white/20 px-3 py-2">
-                <span className="text-[10px] font-black capitalize tracking-widest text-white/90">
+            <div className="flex flex-wrap items-center gap-3 shrink-0">
+              <div className="flex bg-white/10 backdrop-blur-md rounded-xl border border-white/20 px-3 py-2">
+                <span className="text-[10px] font-medium uppercase tracking-widest text-white/90">
                   {refreshing ? 'Updating…' : liveOk ? 'Live data' : 'Offline'}
                 </span>
               </div>
               <button
                 type="button"
                 onClick={() => loadDashboard()}
-                className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-re-bg/10 px-4 py-2.5 text-[10px] font-black capitalize tracking-widest text-white backdrop-blur-sm hover:bg-white/15 transition-all active:scale-95 disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-xl border border-[#FEBF10]/35 bg-[#FEBF10]/15 px-4 py-2.5 text-[10px] font-medium uppercase tracking-widest text-white hover:bg-[#FEBF10]/25 transition-all active:scale-95 disabled:opacity-60"
                 title="Refresh"
                 disabled={refreshing}
               >
                 <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
+                Refresh
               </button>
             </div>
           </div>
         </div>
-      </section>
+      </div>
 
-      <div className="max-w-[1600px] mx-auto px-4 md:px-12 -mt-10 md:-mt-12 relative z-20 pb-24">
+      {/* Overlapping KPI strip */}
+      <div className="acct-shell-standard mb-6 sm:mb-8">
+        <div className="acct-panel-sheet overflow-hidden flex flex-col">
+          <div className="grid grid-cols-1 lg:grid-cols-4 border-b border-black/5">
+            <div className="lg:col-span-3 grid grid-cols-2 xl:grid-cols-4 divide-x divide-y lg:divide-y-0 divide-black/5">
+              {dashHeroStats.map((stat) => (
+                <button
+                  key={stat.label}
+                  type="button"
+                  onClick={stat.onClick}
+                  className="p-4 sm:p-5 flex flex-col items-center justify-center text-center group hover:bg-re-bg/40 transition-all cursor-pointer min-h-[7.5rem]"
+                >
+                  <div className="mb-1 sm:mb-1.5 opacity-40 shrink-0" style={{ color: '#FEBF10' }}>
+                    <stat.icon size={12} className="mb-1.5 mx-auto" strokeWidth={2} aria-hidden />
+                  </div>
+                  <span className="text-sm sm:text-xl font-semibold text-re-text tracking-tight group-hover:text-[#1E3A5F] transition-colors tabular-nums">
+                    {stat.value}
+                  </span>
+                  <p className="text-[7px] sm:text-[8px] font-medium text-re-text-muted uppercase tracking-[0.16em] mt-0.5 opacity-70">
+                    {stat.label}
+                  </p>
+                  {stat.subValue && (
+                    <p
+                      className={`text-[6px] sm:text-[7px] font-medium uppercase tracking-widest mt-1 opacity-85 max-w-[11rem] ${String(stat.subValue).startsWith('▼') || String(stat.subValue) === 'Deficit' ? 'text-rose-600' : 'text-[#1E3A5F]'}`}
+                    >
+                      {stat.subValue}
+                    </p>
+                  )}
+                </button>
+              ))}
+            </div>
+            <div className="hidden lg:flex flex-col border-t lg:border-t-0 lg:border-l border-black/5 bg-re-bg/30 p-6 justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => navigate(h('/fees'))}
+                className="w-full h-11 flex items-center justify-center gap-2 text-white rounded-xl font-medium text-[9px] uppercase tracking-widest border border-black/10 shadow-sm active:scale-95 transition-all"
+                style={{ background: 'linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)' }}
+              >
+                Student fees
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate(h('/expenses'))}
+                className="w-full h-11 flex items-center justify-center gap-2 bg-white border border-black/10 text-re-text font-medium text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg transition-all"
+              >
+                School expenses
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate(h('/invoices'))}
+                className="w-full h-11 flex items-center justify-center gap-2 rounded-xl font-medium text-[9px] uppercase tracking-widest text-[#1E3A5F] border border-[#FEBF10]/40 bg-[#FEBF10]/15 hover:bg-[#FEBF10]/25 transition-all"
+              >
+                Invoice registry
+              </button>
+            </div>
+            <div className="lg:hidden grid grid-cols-3 gap-2 p-4 border-t border-black/5 bg-white">
+              <button
+                type="button"
+                onClick={() => navigate(h('/fees'))}
+                className="h-10 rounded-xl text-[9px] font-medium uppercase tracking-widest text-white border border-black/10 shadow-sm active:scale-[0.98]"
+                style={{ background: 'linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)' }}
+              >
+                Fees
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate(h('/expenses'))}
+                className="h-10 rounded-xl text-[9px] font-medium uppercase tracking-widest text-[#1E3A5F] border border-black/10 bg-white"
+              >
+                Expenses
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate(h('/invoices'))}
+                className="h-10 rounded-xl text-[9px] font-medium uppercase tracking-widest text-[#1E3A5F] border border-[#FEBF10]/40 bg-[#FEBF10]/15"
+              >
+                Invoices
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-[1600px] mx-auto px-4 md:px-10 relative z-10 pb-24">
+        {loadError && (
+          <div
+            role="alert"
+            className="mb-4 rounded-2xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-[11px] font-medium text-[#000435]"
+          >
+            {loadError}{' '}
+            <button
+              type="button"
+              onClick={() => loadDashboard()}
+              className="ml-1 underline font-medium text-amber-800 hover:text-amber-950"
+            >
+              Retry
+            </button>
+          </div>
+        )}
 
         {/* ══════════════════════════════════════════════════════════════
             PRIMARY STATS GRID  —  4 cols: [fees col] [costs col]
@@ -513,14 +671,18 @@ export default function Dashboard() {
 
           {/* ── LEFT column (span 2): Fee Collection stats ── */}
           <div className="lg:col-span-2">
-            <div className="bg-white rounded-[24px]  border border-black/5 overflow-hidden h-full flex flex-col">
+            <div className="bg-white rounded-[24px] border border-black/10 overflow-hidden h-full flex flex-col shadow-sm transition-all">
               {/* column header */}
-              <div className="px-5 py-4 border-b border-black/5 bg-re-bg/60 flex items-center justify-between">
+              <div className="px-5 py-4 border-b border-[#000435]/10 bg-gradient-to-r from-[#000435]/[0.03] to-amber-100/30 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Banknote size={17} className="text-[#000435]" />
-                  <h3 className="text-xs md:text-[13px] font-black text-[#000435] capitalize tracking-[0.18em]">Fee Collections</h3>
+                  <h3 className="text-xs md:text-[13px] font-medium text-[#000435] capitalize tracking-[0.18em]">Fee Collections</h3>
                 </div>
-                <span className="text-[11px] font-black capitalize tracking-widest text-[#000435]">Live</span>
+                <span className="text-[10px] font-medium capitalize tracking-widest text-[#000435]/70 text-right max-w-[12rem] truncate" title={mock.feeReportYear && mock.feeReportTerm ? `${mock.feeReportYear} · ${mock.feeReportTerm}` : ''}>
+                  {liveOk && mock.feeReportYear && mock.feeReportTerm
+                    ? `${mock.feeReportYear} · ${mock.feeReportTerm}`
+                    : 'Live'}
+                </span>
               </div>
 
               {/* Today collections — hero stat */}
@@ -529,12 +691,12 @@ export default function Dashboard() {
                 onClick={() => setModal('collections')}
                 className="p-5 md:p-6 border-b border-gray-100 flex flex-col items-start text-left w-full hover:bg-white/60 transition-all active:scale-[0.99]"
               >
-                <span className="text-[11px] font-black capitalize tracking-[0.22em] text-[#000435]/70">Today's collections</span>
-                <span className="text-3xl md:text-4xl font-black tracking-tighter text-[#000435] mt-1.5">
+                <span className="text-[11px] font-medium capitalize tracking-[0.22em] text-[#000435]/70">Today's collections</span>
+                <span className="text-3xl md:text-4xl font-medium tracking-tighter text-[#000435] mt-1.5">
                   {formatCompactMoneyRWF(mock.todayCollections)}
-                  <span className="text-base md:text-lg font-bold text-[#000435] ml-1.5">RWF</span>
+                  <span className="text-base md:text-lg font-medium text-[#000435] ml-1.5">RWF</span>
                 </span>
-                <div className="mt-2 flex items-center gap-1 text-[11px] font-black capitalize tracking-widest text-[#000435]/60">
+                <div className="mt-2 flex items-center gap-1 text-[11px] font-medium capitalize tracking-widest text-[#000435]/60">
                   View breakdown ↓
                 </div>
               </button>
@@ -543,12 +705,12 @@ export default function Dashboard() {
               <div className="grid grid-cols-2 flex-1">
                 {/* Month collections */}
                 <div className="p-4 md:p-5 flex flex-col items-center justify-center text-center border-r border-gray-100">
-                  <span className="text-2xl md:text-3xl font-black tracking-tighter text-[#000435]">
+                  <span className="text-2xl md:text-3xl font-medium tracking-tighter text-[#000435]">
                     {formatCompactMoneyRWF(mock.monthCollections)}
                   </span>
-                  <p className="text-[11px] font-black text-[#000435] capitalize tracking-widest mt-1.5 opacity-70">Month (MTD)</p>
+                  <p className="text-[11px] font-medium text-[#000435] capitalize tracking-widest mt-1.5 opacity-70">Month (MTD)</p>
                   {kpis.collectionsDelta != null && (
-                    <p className={`text-[11px] font-black mt-1 ${kpis.collectionsDelta >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                    <p className={`text-[11px] font-medium mt-1 ${kpis.collectionsDelta >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
                       {kpis.collectionsDelta >= 0 ? '▲' : '▼'} {Math.abs(kpis.collectionsDelta).toFixed(1)}% vs last mo.
                     </p>
                   )}
@@ -556,13 +718,13 @@ export default function Dashboard() {
 
                 {/* Outstanding + top debtor hints — all in one cell */}
                 <div className="p-3.5 md:p-4 flex flex-col justify-center items-center text-center">
-                  <span className="text-xl md:text-2xl font-black tracking-tighter text-[#000435] leading-none">
+                  <span className="text-xl md:text-2xl font-medium tracking-tighter text-[#000435] leading-none">
                     {formatCompactMoneyRWF(mock.outstanding)}
                   </span>
-                  <p className="text-[11px] font-black text-[#000435] capitalize tracking-widest mt-1.5 opacity-70">Outstanding</p>
+                  <p className="text-[11px] font-medium text-[#000435] capitalize tracking-widest mt-1.5 opacity-70">Outstanding</p>
                   <div className="w-full h-px bg-re-bg my-2" />
                   {/* hint: learners owing + top debtor — like attendance "Absent / Missed" */}
-                  <div className="flex flex-col gap-1.5 text-[10px] font-bold text-[#000435] w-full bg-re-bg rounded-lg py-2 px-2.5 border border-[#000435]">
+                  <div className="flex flex-col gap-1.5 text-[10px] font-medium text-[#000435] w-full bg-re-bg rounded-lg py-2 px-2.5 border border-[#000435]">
                     <button
                       type="button"
                       onClick={() => setModal('debtors')}
@@ -570,7 +732,7 @@ export default function Dashboard() {
                       title="View debtors"
                     >
                       <span className="capitalize tracking-widest group-hover:text-[#000435] transition-colors">Owing</span>
-                      <span className="font-black text-amber-600 group-hover:text-amber-700 transition-colors">{mock.learnersOwing} learners</span>
+                      <span className="font-medium text-amber-600 group-hover:text-amber-700 transition-colors">{mock.learnersOwing} learners</span>
                     </button>
                     <button
                       type="button"
@@ -579,7 +741,7 @@ export default function Dashboard() {
                       title="Send fee reminders"
                     >
                       <span className="capitalize tracking-widest group-hover:text-[#000435] transition-colors">Reminders</span>
-                      <span className="font-black text-red-500 group-hover:text-red-600 transition-colors">{mock.reminders.length} due</span>
+                      <span className="font-medium text-red-500 group-hover:text-red-600 transition-colors">{mock.reminders.length} due</span>
                     </button>
                   </div>
                 </div>
@@ -589,14 +751,14 @@ export default function Dashboard() {
 
           {/* ── CENTER column (span 2): Cost & Financial Health stats ── */}
           <div className="lg:col-span-2">
-            <div className="bg-white rounded-[24px]  border border-black/5 overflow-hidden h-full flex flex-col">
+            <div className="bg-white rounded-[24px] border border-black/10 overflow-hidden h-full flex flex-col shadow-sm transition-all">
               {/* column header */}
-              <div className="px-5 py-4 border-b border-black/5 bg-re-bg/60 flex items-center justify-between">
+              <div className="px-5 py-4 border-b border-[#000435]/10 bg-gradient-to-r from-[#000435]/[0.03] to-amber-100/30 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <TrendingDown size={17} className="text-amber-500" />
-                  <h3 className="text-xs md:text-[13px] font-black text-[#000435] capitalize tracking-[0.18em]">Costs & Cashflow</h3>
+                  <h3 className="text-xs md:text-[13px] font-medium text-[#000435] capitalize tracking-[0.18em]">Costs & Cashflow</h3>
                 </div>
-                <span className="text-[11px] font-black capitalize tracking-widest text-[#000435]">MTD</span>
+                <span className="text-[11px] font-medium capitalize tracking-widest text-[#000435]">MTD</span>
               </div>
 
               {/* Expenses MTD — hero stat */}
@@ -605,13 +767,13 @@ export default function Dashboard() {
                 onClick={() => setModal('expenses')}
                 className="p-5 md:p-6 border-b border-gray-100 flex flex-col items-start text-left w-full hover:bg-white/60 transition-all active:scale-[0.99]"
               >
-                <span className="text-[11px] font-black capitalize tracking-[0.22em] text-[#000435]/70">Expenses (MTD)</span>
-                <span className="text-3xl md:text-4xl font-black tracking-tighter text-[#000435] mt-1.5">
+                <span className="text-[11px] font-medium capitalize tracking-[0.22em] text-[#000435]/70">Expenses (MTD)</span>
+                <span className="text-3xl md:text-4xl font-medium tracking-tighter text-[#000435] mt-1.5">
                   {formatCompactMoneyRWF(mock.monthExpenses)}
-                  <span className="text-base md:text-lg font-bold text-[#000435] ml-1.5">RWF</span>
+                  <span className="text-base md:text-lg font-medium text-[#000435] ml-1.5">RWF</span>
                 </span>
                 {kpis.expensesDelta != null && (
-                  <p className={`text-[11px] font-black mt-1 ${kpis.expensesDelta <= 0 ? 'text-emerald-500' : 'text-amber-600'}`}>
+                  <p className={`text-[11px] font-medium mt-1 ${kpis.expensesDelta <= 0 ? 'text-emerald-500' : 'text-amber-600'}`}>
                     {kpis.expensesDelta <= 0 ? '▼' : '▲'} {Math.abs(kpis.expensesDelta).toFixed(1)}% vs last mo.
                   </p>
                 )}
@@ -621,53 +783,53 @@ export default function Dashboard() {
               <div className="grid grid-cols-2 flex-1">
                 {/* Net cashflow */}
                 <div className="p-4 md:p-5 flex flex-col items-center justify-center text-center border-r border-gray-100">
-                  <span className={`text-2xl md:text-3xl font-black tracking-tighter ${kpis.netCashflow >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                  <span className={`text-2xl md:text-3xl font-medium tracking-tighter ${kpis.netCashflow >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                     {kpis.netCashflow >= 0 ? '+' : ''}{formatCompactMoneyRWF(kpis.netCashflow)}
                   </span>
-                  <p className="text-[11px] font-black text-[#000435] capitalize tracking-widest mt-1.5 opacity-70">Net Cashflow</p>
-                  <p className={`text-[11px] font-black mt-1 ${kpis.netCashflow >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                  <p className="text-[11px] font-medium text-[#000435] capitalize tracking-widest mt-1.5 opacity-70">Net Cashflow</p>
+                  <p className={`text-[11px] font-medium mt-1 ${kpis.netCashflow >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
                     {kpis.netCashflow >= 0 ? 'Surplus' : 'Deficit'}
                   </p>
                 </div>
 
                 {/* Payroll hints in single cell */}
                 <div className="p-3.5 md:p-4 flex flex-col justify-center items-center text-center">
-                  <span className="text-xl md:text-2xl font-black tracking-tighter text-[#000435] leading-none">
+                  <span className="text-xl md:text-2xl font-medium tracking-tighter text-[#000435] leading-none">
                     {formatCompactMoneyRWF(mock.payroll.totalDue)}
                   </span>
-                  <p className="text-[11px] font-black text-[#000435] capitalize tracking-widest mt-1.5 opacity-70">Payroll Due</p>
+                  <p className="text-[11px] font-medium text-[#000435] capitalize tracking-widest mt-1.5 opacity-70">Payroll Due</p>
                   <div className="w-full h-px bg-re-bg my-2" />
-                  <div className="flex flex-col gap-1.5 text-[10px] font-bold text-[#000435] w-full bg-re-bg rounded-lg py-2 px-2.5 border border-[#000435]">
+                  <div className="flex flex-col gap-1.5 text-[10px] font-medium text-[#000435] w-full bg-re-bg rounded-lg py-2 px-2.5 border border-[#000435]">
                     <button
                       type="button"
-                      onClick={() => navigate('/payroll/history')}
+                      onClick={() => navigate(h('/payroll/history'))}
                       className="flex justify-between items-center text-left w-full bg-re-bg hover:bg-white px-2.5 py-2 rounded-xl border border-black/5 transition-all group"
                     >
                       <span className="capitalize tracking-widest text-[#000435] group-hover:text-[#000435]">Processed</span>
                       <div className="flex items-center gap-2">
-                        <span className="font-black text-[#000435]">{mock.payroll.processed}/{mock.payroll.staffCount}</span>
+                        <span className="font-medium text-[#000435]">{mock.payroll.processed}/{mock.payroll.staffCount}</span>
                         <ArrowRight size={10} className="text-[#000435] group-hover:text-[#000435]" />
                       </div>
                     </button>
                     <button
                       type="button"
-                      onClick={() => navigate('/requisitions')}
+                      onClick={() => navigate(h('/requisitions'))}
                       className="flex justify-between items-center text-left w-full bg-re-bg hover:bg-white px-2.5 py-2 rounded-xl border border-black/5 transition-all group"
                     >
                       <span className="capitalize tracking-widest text-[#000435] group-hover:text-[#000435]">Requisitions</span>
                       <div className="flex items-center gap-2">
-                        <span className="font-black text-amber-600 group-hover:text-amber-700">{mock.requisitions.length}</span>
+                        <span className="font-medium text-amber-600 group-hover:text-amber-700">{mock.requisitions.length}</span>
                         <ArrowRight size={10} className="text-[#000435] group-hover:text-[#000435]" />
                       </div>
                     </button>
                     <button
                       type="button"
-                      onClick={() => navigate('/expenses')}
+                      onClick={() => navigate(h('/expenses'))}
                       className="flex justify-between items-center text-left w-full bg-re-bg hover:bg-white px-2.5 py-2 rounded-xl border border-black/5 transition-all group"
                     >
                       <span className="capitalize tracking-widest text-[#000435] group-hover:text-[#000435]">Bills Due</span>
                       <div className="flex items-center gap-2">
-                        <span className="font-black text-red-500 group-hover:text-red-600">{mock.billsDue.length}</span>
+                        <span className="font-medium text-red-500 group-hover:text-red-600">{mock.billsDue.length}</span>
                         <ArrowRight size={10} className="text-[#000435] group-hover:text-[#000435]" />
                       </div>
                     </button>
@@ -679,109 +841,39 @@ export default function Dashboard() {
 
         </div>
 
-        {/* Discipline — school snapshot (from /api/accountant/overview, same DB as HOD / DOS) */}
-        <div className="mt-5 bg-white rounded-[24px] border border-black/5 overflow-hidden">
-          <div className="px-5 py-4 border-b border-black/5 bg-re-bg/60 flex items-center justify-between flex-wrap gap-2">
-            <div className="flex items-center gap-2 min-w-0">
-              <Shield size={17} className="text-[#000435] shrink-0" />
-              <h3 className="text-xs md:text-[13px] font-black text-[#000435] capitalize tracking-[0.18em] truncate">
-                Discipline · School snapshot
-              </h3>
-            </div>
-            <span className="text-[11px] font-black text-[#000435]/60 capitalize tracking-widest text-right">
-              Cases & marks (live)
-            </span>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4">
-            {[
-              {
-                label: 'Cases (this month)',
-                value: mock.disciplineSnapshot?.casesThisMonth ?? 0,
-                sub: 'Recorded incidents',
-                Icon: Gavel,
-              },
-              {
-                label: 'Students involved',
-                value: mock.disciplineSnapshot?.studentsAffectedThisMonth ?? 0,
-                sub: 'Distinct learners',
-                Icon: Users,
-              },
-              {
-                label: 'Marks deducted (MTD)',
-                value:
-                  Number(mock.disciplineSnapshot?.marksDeductedThisMonth || 0) % 1 === 0
-                    ? String(Math.round(mock.disciplineSnapshot.marksDeductedThisMonth))
-                    : Number(mock.disciplineSnapshot?.marksDeductedThisMonth || 0).toFixed(1),
-                sub: 'From case log',
-                Icon: Shield,
-              },
-              {
-                label: 'Cases (30 days)',
-                value: mock.disciplineSnapshot?.casesLast30Days ?? 0,
-                sub: 'Rolling window',
-                Icon: CalendarDays,
-              },
-            ].map((cell, idx) => {
-              const br =
-                'border-black/5 ' +
-                (idx < 2 ? 'border-b ' : '') +
-                (idx % 2 === 0 ? 'border-r ' : '') +
-                'md:border-b-0 ' +
-                (idx < 3 ? 'md:border-r ' : '');
-              return (
-              <div
-                key={cell.label}
-                className={`p-4 md:p-5 flex flex-col items-center justify-center text-center ${br}`}
-              >
-                <div className="w-9 h-9 rounded-xl bg-[#000435]/5 flex items-center justify-center mb-2">
-                  <cell.Icon size={18} className="text-[#000435]" strokeWidth={2.2} />
-                </div>
-                <span className="text-2xl md:text-3xl font-black tracking-tighter text-[#000435] tabular-nums">
-                  {cell.value}
-                </span>
-                <p className="text-[11px] font-black text-[#000435] capitalize tracking-widest mt-1.5 opacity-80">
-                  {cell.label}
-                </p>
-                <p className="text-[10px] font-bold text-[#000435]/50 mt-0.5">{cell.sub}</p>
-              </div>
-            );
-            })}
-          </div>
-        </div>
-
         {/* ══════════════════════════════════════════════════════════════
             SECONDARY ROW — Collections trend chart + Top debtors table
         ══════════════════════════════════════════════════════════════ */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mt-5">
 
           {/* Collections trend: spans 2 cols */}
-          <div className="bg-white border border-black/5 rounded-[24px]  p-5 md:p-6 lg:col-span-2">
+          <div className="bg-white rounded-[24px] p-5 md:p-6 lg:col-span-2 shadow-sm border border-black/10">
             <div className="flex items-center justify-between gap-3 mb-4">
               <div className="flex items-center gap-2">
                 <TrendingUp size={18} className="text-[#000435]" />
-                <h3 className="text-sm md:text-[15px] font-black text-[#000435] capitalize tracking-[0.16em]">Collections trend</h3>
+                <h3 className="text-sm md:text-[15px] font-medium text-[#000435] capitalize tracking-[0.16em]">Collections trend</h3>
               </div>
-              <span className="text-[11px] font-black capitalize tracking-widest text-[#000435]">Last 14 days</span>
+              <span className="text-[11px] font-medium capitalize tracking-widest text-[#000435]">Last 14 days</span>
             </div>
             <RechartsTrend series={mock.payments14} />
 
             <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div className="rounded-2xl bg-re-bg border border-black/5  p-5 flex flex-col items-center">
-                <p className="text-[11px] font-black capitalize tracking-[0.22em] text-[#000435]/70 mb-4 w-full">Expenses trend</p>
+              <div className="rounded-2xl bg-gradient-to-br from-white to-[#f7f9ff] border border-[#000435]/10 p-5 flex flex-col items-center">
+                <p className="text-[11px] font-medium capitalize tracking-[0.22em] text-[#000435]/70 mb-4 w-full">Expenses trend</p>
                 <div className="w-full">
                   <RechartsTrend series={mock.expenses14} tone="amber" height={100} />
                 </div>
               </div>
-              <div className="rounded-2xl bg-re-bg border border-black/5  p-5">
-                <p className="text-[11px] font-black capitalize tracking-[0.22em] text-[#000435]/70 mb-4">Expense breakdown</p>
+              <div className="rounded-2xl bg-gradient-to-br from-white to-[#fff9ea] border border-amber-200/70 p-5">
+                <p className="text-[11px] font-medium capitalize tracking-[0.22em] text-[#000435]/70 mb-4">Expense breakdown</p>
                 <div className="min-w-0 space-y-2">
                   {mock.expenseCategories.map((c) => (
                     <div key={c.label} className="flex items-center justify-between gap-1 group">
                       <div className="flex items-center gap-1.5 min-w-0">
                         <span className="w-2 h-2 rounded-full shrink-0 " style={{ background: c.color }} />
-                        <p className="text-[11px] font-black text-[#000435] truncate capitalize tracking-tighter group-hover:text-amber-600 transition-colors">{c.label}</p>
+                        <p className="text-[11px] font-medium text-[#000435] truncate capitalize tracking-tighter group-hover:text-amber-600 transition-colors">{c.label}</p>
                       </div>
-                      <p className="text-[11px] font-black text-[#000435] shrink-0">
+                      <p className="text-[11px] font-medium text-[#000435] shrink-0">
                         {Math.round((c.value / (expenseTotal || 1)) * 100)}%
                       </p>
                     </div>
@@ -792,15 +884,15 @@ export default function Dashboard() {
           </div>
 
           {/* Top debtors: 1 col */}
-          <div className="bg-white border border-black/5 rounded-[24px]  p-5 md:p-6">
+          <div className="bg-white rounded-[24px] p-5 md:p-6 shadow-sm border border-black/10">
             <div className="flex items-center justify-between gap-3 mb-4">
               <div className="flex items-center gap-2">
                 <Wallet size={18} className="text-[#000435]" />
-                <h3 className="text-sm md:text-[15px] font-black text-[#000435] capitalize tracking-[0.16em]">Top debtors</h3>
+                <h3 className="text-sm md:text-[15px] font-medium text-[#000435] capitalize tracking-[0.16em]">Top debtors</h3>
               </div>
               <button
                 onClick={() => setModal('debtors')}
-                className="text-[11px] font-black capitalize tracking-widest text-[#000435]/60 hover:text-[#000435] transition-colors flex items-center gap-1"
+                className="text-[11px] font-medium capitalize tracking-widest text-[#000435]/60 hover:text-[#000435] transition-colors flex items-center gap-1"
               >
                 All <ArrowRight size={11} />
               </button>
@@ -810,20 +902,20 @@ export default function Dashboard() {
               <table className="w-full text-left">
                 <thead className="bg-white">
                   <tr>
-                    <th className="px-4 py-3 text-[11px] font-black capitalize tracking-[0.18em] text-[#000435]/70">Learner</th>
-                    <th className="px-4 py-3 text-right text-[11px] font-black capitalize tracking-[0.18em] text-[#000435]/70">Balance</th>
+                    <th className="px-4 py-3 text-[11px] font-medium capitalize tracking-[0.18em] text-[#000435]/70">Learner</th>
+                    <th className="px-4 py-3 text-right text-[11px] font-medium capitalize tracking-[0.18em] text-[#000435]/70">Balance</th>
                   </tr>
                 </thead>
                 <tbody>
                   {mock.debtors.slice(0, 5).map((d, i) => (
                     <tr key={d.student_id ?? d.name ?? i} className="border-t border-black/5 hover:bg-white/40 transition-colors group">
                       <td className="px-4 py-2.5">
-                        <p className="text-xs font-black text-[#000435]">{d.name}</p>
-                        <p className="text-[11px] font-bold text-[#000435]">{d.cls}</p>
+                        <p className="text-xs font-medium text-[#000435]">{d.name}</p>
+                        <p className="text-[11px] font-medium text-[#000435]">{d.cls}</p>
                       </td>
                       <td className="px-4 py-2.5 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          <span className="text-xs font-black text-[#000435]">{formatCompactMoneyRWF(d.balance)}</span>
+                          <span className="text-xs font-medium text-[#000435]">{formatCompactMoneyRWF(d.balance)}</span>
                           <button
                             title="Send Reminder"
                             className="p-1 rounded-md bg-amber-50 text-amber-600 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-amber-100"
@@ -842,21 +934,21 @@ export default function Dashboard() {
             <div className="mt-4">
               <button
                 onClick={() => setModal('reminders')}
-                className="w-full h-12 flex items-center justify-between px-5 rounded-2xl bg-[#000435] text-white  -900/10 hover:bg-[#2A4B7C]  transition-all active:scale-[0.98] group"
+                className="w-full h-12 flex items-center justify-between px-5 rounded-2xl bg-gradient-to-r from-[#000435] to-[#00107a] text-white hover:to-[#000435] transition-all active:scale-[0.98] group border border-amber-300/40"
               >
                 <div className="flex items-center gap-3">
                   <div className="w-6 h-6 rounded-lg bg-re-bg/10 flex items-center justify-center">
                     <TrendingUp size={12} className="text-white" />
                   </div>
-                  <span className="text-xs font-black capitalize tracking-[0.12em]">Send reminder to parents</span>
+                  <span className="text-xs font-medium capitalize tracking-[0.12em]">Send reminder to parents</span>
                 </div>
                 <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
               </button>
 
               <div className="mt-2.5 rounded-2xl bg-re-bg border border-black/5  p-3.5 flex justify-between items-center">
                 <div>
-                  <p className="text-[11px] font-black capitalize tracking-[0.16em] text-[#000435]">Payroll Status</p>
-                  <p className="text-xs font-bold text-[#000435] mt-0.5">Approvals due by {mock.payroll.dueDate}</p>
+                  <p className="text-[11px] font-medium capitalize tracking-[0.16em] text-[#000435]">Payroll Status</p>
+                  <p className="text-xs font-medium text-[#000435] mt-0.5">Approvals due by {mock.payroll.dueDate}</p>
                 </div>
                 <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
               </div>
@@ -872,22 +964,22 @@ export default function Dashboard() {
             <table className="w-full text-left">
               <thead className="bg-re-bg">
                 <tr>
-                  <th className="px-4 py-3 text-[9px] font-black capitalize tracking-[0.24em] text-re-text-muted/60">Learner</th>
-                  <th className="px-4 py-3 text-[9px] font-black capitalize tracking-[0.24em] text-re-text-muted/60">Class</th>
-                  <th className="px-4 py-3 text-[9px] font-black capitalize tracking-[0.24em] text-re-text-muted/60">Overdue</th>
-                  <th className="px-4 py-3 text-right text-[9px] font-black capitalize tracking-[0.24em] text-re-text-muted/60">Balance</th>
+                  <th className="px-4 py-3 text-[9px] font-medium capitalize tracking-[0.24em] text-re-text-muted/60">Learner</th>
+                  <th className="px-4 py-3 text-[9px] font-medium capitalize tracking-[0.24em] text-re-text-muted/60">Class</th>
+                  <th className="px-4 py-3 text-[9px] font-medium capitalize tracking-[0.24em] text-re-text-muted/60">Overdue</th>
+                  <th className="px-4 py-3 text-right text-[9px] font-medium capitalize tracking-[0.24em] text-re-text-muted/60">Balance</th>
                 </tr>
               </thead>
               <tbody>
                 {mock.debtors.map((d, i) => (
                   <tr key={d.student_id ?? d.name ?? i} className="border-t border-black/5 hover:bg-re-bg/40 transition-colors">
                     <td className="px-4 py-3">
-                      <p className="text-[11px] font-black text-re-navy">{d.name}</p>
-                      <p className="text-[9px] font-bold text-re-text-muted/60">{d.phone ? d.phone : 'No phone on file'}</p>
+                      <p className="text-[11px] font-medium text-re-navy">{d.name}</p>
+                      <p className="text-[9px] font-medium text-re-text-muted/60">{d.phone ? d.phone : 'No phone on file'}</p>
                     </td>
-                    <td className="px-4 py-3 text-[11px] font-black text-re-navy">{d.cls}</td>
-                    <td className="px-4 py-3 text-[11px] font-black text-re-navy">{d.daysOverdue} days</td>
-                    <td className="px-4 py-3 text-right text-[11px] font-black text-re-navy">{formatMoneyRWF(d.balance)}</td>
+                    <td className="px-4 py-3 text-[11px] font-medium text-re-navy">{d.cls}</td>
+                    <td className="px-4 py-3 text-[11px] font-medium text-re-navy">{d.daysOverdue} days</td>
+                    <td className="px-4 py-3 text-right text-[11px] font-medium text-re-navy">{formatMoneyRWF(d.balance)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -902,19 +994,19 @@ export default function Dashboard() {
             <table className="w-full text-left">
               <thead className="bg-re-bg">
                 <tr>
-                  <th className="px-4 py-3 text-[9px] font-black capitalize tracking-[0.24em] text-re-text-muted/60">Department</th>
-                  <th className="px-4 py-3 text-[9px] font-black capitalize tracking-[0.24em] text-re-text-muted/60">Requester</th>
-                  <th className="px-4 py-3 text-[9px] font-black capitalize tracking-[0.24em] text-re-text-muted/60">Submitted</th>
-                  <th className="px-4 py-3 text-right text-[9px] font-black capitalize tracking-[0.24em] text-re-text-muted/60">Amount</th>
+                  <th className="px-4 py-3 text-[9px] font-medium capitalize tracking-[0.24em] text-re-text-muted/60">Department</th>
+                  <th className="px-4 py-3 text-[9px] font-medium capitalize tracking-[0.24em] text-re-text-muted/60">Requester</th>
+                  <th className="px-4 py-3 text-[9px] font-medium capitalize tracking-[0.24em] text-re-text-muted/60">Submitted</th>
+                  <th className="px-4 py-3 text-right text-[9px] font-medium capitalize tracking-[0.24em] text-re-text-muted/60">Amount</th>
                 </tr>
               </thead>
               <tbody>
                 {mock.requisitions.map((r, i) => (
                   <tr key={i} className="border-t border-black/5 hover:bg-re-bg/40 transition-colors">
-                    <td className="px-4 py-3 text-[11px] font-black text-re-navy">{r.dept}</td>
-                    <td className="px-4 py-3 text-[11px] font-bold text-re-navy">{r.requester}</td>
-                    <td className="px-4 py-3 text-[11px] font-bold text-re-text-muted/80">{r.submitted}</td>
-                    <td className="px-4 py-3 text-right text-[11px] font-black text-re-navy">{formatMoneyRWF(r.amount)}</td>
+                    <td className="px-4 py-3 text-[11px] font-medium text-re-navy">{r.dept}</td>
+                    <td className="px-4 py-3 text-[11px] font-medium text-re-navy">{r.requester}</td>
+                    <td className="px-4 py-3 text-[11px] font-medium text-re-text-muted/80">{r.submitted}</td>
+                    <td className="px-4 py-3 text-right text-[11px] font-medium text-re-navy">{formatMoneyRWF(r.amount)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -929,19 +1021,19 @@ export default function Dashboard() {
             <table className="w-full text-left">
               <thead className="bg-re-bg">
                 <tr>
-                  <th className="px-4 py-3 text-[9px] font-black capitalize tracking-[0.24em] text-re-text-muted/60">Vendor</th>
-                  <th className="px-4 py-3 text-[9px] font-black capitalize tracking-[0.24em] text-re-text-muted/60">Category</th>
-                  <th className="px-4 py-3 text-[9px] font-black capitalize tracking-[0.24em] text-re-text-muted/60">Due</th>
-                  <th className="px-4 py-3 text-right text-[9px] font-black capitalize tracking-[0.24em] text-re-text-muted/60">Amount</th>
+                  <th className="px-4 py-3 text-[9px] font-medium capitalize tracking-[0.24em] text-re-text-muted/60">Vendor</th>
+                  <th className="px-4 py-3 text-[9px] font-medium capitalize tracking-[0.24em] text-re-text-muted/60">Category</th>
+                  <th className="px-4 py-3 text-[9px] font-medium capitalize tracking-[0.24em] text-re-text-muted/60">Due</th>
+                  <th className="px-4 py-3 text-right text-[9px] font-medium capitalize tracking-[0.24em] text-re-text-muted/60">Amount</th>
                 </tr>
               </thead>
               <tbody>
                 {mock.billsDue.map((b, i) => (
                   <tr key={i} className="border-t border-black/5 hover:bg-re-bg/40 transition-colors">
-                    <td className="px-4 py-3 text-[11px] font-black text-re-navy">{b.vendor}</td>
-                    <td className="px-4 py-3 text-[11px] font-bold text-re-navy">{b.category}</td>
-                    <td className="px-4 py-3 text-[11px] font-bold text-re-text-muted/80">{b.due}</td>
-                    <td className="px-4 py-3 text-right text-[11px] font-black text-re-navy">{formatMoneyRWF(b.amount)}</td>
+                    <td className="px-4 py-3 text-[11px] font-medium text-re-navy">{b.vendor}</td>
+                    <td className="px-4 py-3 text-[11px] font-medium text-re-navy">{b.category}</td>
+                    <td className="px-4 py-3 text-[11px] font-medium text-re-text-muted/80">{b.due}</td>
+                    <td className="px-4 py-3 text-right text-[11px] font-medium text-re-navy">{formatMoneyRWF(b.amount)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -956,19 +1048,19 @@ export default function Dashboard() {
             <table className="w-full text-left">
               <thead className="bg-re-bg">
                 <tr>
-                  <th className="px-4 py-3 text-[9px] font-black capitalize tracking-[0.24em] text-re-text-muted/60">Learner</th>
-                  <th className="px-4 py-3 text-[9px] font-black capitalize tracking-[0.24em] text-re-text-muted/60">Class</th>
-                  <th className="px-4 py-3 text-[9px] font-black capitalize tracking-[0.24em] text-re-text-muted/60">Due</th>
-                  <th className="px-4 py-3 text-right text-[9px] font-black capitalize tracking-[0.24em] text-re-text-muted/60">Balance</th>
+                  <th className="px-4 py-3 text-[9px] font-medium capitalize tracking-[0.24em] text-re-text-muted/60">Learner</th>
+                  <th className="px-4 py-3 text-[9px] font-medium capitalize tracking-[0.24em] text-re-text-muted/60">Class</th>
+                  <th className="px-4 py-3 text-[9px] font-medium capitalize tracking-[0.24em] text-re-text-muted/60">Due</th>
+                  <th className="px-4 py-3 text-right text-[9px] font-medium capitalize tracking-[0.24em] text-re-text-muted/60">Balance</th>
                 </tr>
               </thead>
               <tbody>
                 {mock.reminders.map((r, i) => (
                   <tr key={i} className="border-t border-black/5 hover:bg-re-bg/40 transition-colors">
-                    <td className="px-4 py-3 text-[11px] font-black text-re-navy">{r.name}</td>
-                    <td className="px-4 py-3 text-[11px] font-bold text-re-navy">{r.cls}</td>
-                    <td className="px-4 py-3 text-[11px] font-bold text-re-text-muted/80">{r.due}</td>
-                    <td className="px-4 py-3 text-right text-[11px] font-black text-re-navy">{formatMoneyRWF(r.balance)}</td>
+                    <td className="px-4 py-3 text-[11px] font-medium text-re-navy">{r.name}</td>
+                    <td className="px-4 py-3 text-[11px] font-medium text-re-navy">{r.cls}</td>
+                    <td className="px-4 py-3 text-[11px] font-medium text-re-text-muted/80">{r.due}</td>
+                    <td className="px-4 py-3 text-right text-[11px] font-medium text-re-navy">{formatMoneyRWF(r.balance)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -981,22 +1073,22 @@ export default function Dashboard() {
         <ModalShell title="Expenses (MTD)" subtitle="Breakdown · live" onClose={() => setModal(null)}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="rounded-2xl bg-re-bg border border-black/5  p-5">
-              <p className="text-[9px] font-black capitalize tracking-[0.28em] text-re-text-muted/45">Total</p>
-              <p className="text-2xl font-black text-re-navy mt-1">{formatMoneyRWF(mock.monthExpenses)}</p>
+              <p className="text-[9px] font-medium capitalize tracking-[0.28em] text-re-text-muted/45">Total</p>
+              <p className="text-2xl font-medium text-re-navy mt-1">{formatMoneyRWF(mock.monthExpenses)}</p>
               <div className="mt-4 space-y-2">
                 {mock.expenseCategories.map((c) => (
                   <div key={c.label} className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
                       <span className="w-3 h-3 rounded-full" style={{ background: c.color }} />
-                      <p className="text-[11px] font-black text-re-navy">{c.label}</p>
+                      <p className="text-[11px] font-medium text-re-navy">{c.label}</p>
                     </div>
-                    <p className="text-[11px] font-black text-re-navy">{formatMoneyRWF(c.value)}</p>
+                    <p className="text-[11px] font-medium text-re-navy">{formatMoneyRWF(c.value)}</p>
                   </div>
                 ))}
               </div>
             </div>
             <div className="rounded-2xl bg-re-bg border border-black/5  p-5">
-              <p className="text-[9px] font-black capitalize tracking-[0.28em] text-re-text-muted/45">Expenses trend (14 days)</p>
+              <p className="text-[9px] font-medium capitalize tracking-[0.28em] text-re-text-muted/45">Expenses trend (14 days)</p>
               <div className="mt-3">
                 <RechartsTrend series={mock.expenses14} tone="amber" height={100} />
               </div>
@@ -1014,8 +1106,8 @@ export default function Dashboard() {
               { k: 'Due date', v: mock.payroll.dueDate },
             ].map((s) => (
               <div key={s.k} className="rounded-2xl bg-re-bg border border-black/5  p-5">
-                <p className="text-[9px] font-black capitalize tracking-[0.28em] text-re-text-muted/45">{s.k}</p>
-                <p className="text-lg font-black text-re-navy mt-1">{s.v}</p>
+                <p className="text-[9px] font-medium capitalize tracking-[0.28em] text-re-text-muted/45">{s.k}</p>
+                <p className="text-lg font-medium text-re-navy mt-1">{s.v}</p>
               </div>
             ))}
           </div>
@@ -1028,27 +1120,27 @@ export default function Dashboard() {
             <table className="w-full text-left">
               <thead className="bg-re-bg border-b border-black/5">
                 <tr>
-                  <th className="px-4 py-3 text-[9px] font-black capitalize tracking-[0.24em] text-re-text-muted/60">Learner</th>
-                  <th className="px-4 py-3 text-[9px] font-black capitalize tracking-[0.24em] text-re-text-muted/60">Class</th>
-                  <th className="px-4 py-3 text-[9px] font-black capitalize tracking-[0.24em] text-re-text-muted/60">Channel</th>
-                  <th className="px-4 py-3 text-[9px] font-black capitalize tracking-[0.24em] text-re-text-muted/60">When</th>
-                  <th className="px-4 py-3 text-right text-[9px] font-black capitalize tracking-[0.24em] text-re-text-muted/60">Collected</th>
-                  <th className="px-4 py-3 text-right text-[9px] font-black capitalize tracking-[0.24em] text-re-text-muted/60">Remaining</th>
+                  <th className="px-4 py-3 text-[9px] font-medium capitalize tracking-[0.24em] text-re-text-muted/60">Learner</th>
+                  <th className="px-4 py-3 text-[9px] font-medium capitalize tracking-[0.24em] text-re-text-muted/60">Class</th>
+                  <th className="px-4 py-3 text-[9px] font-medium capitalize tracking-[0.24em] text-re-text-muted/60">Channel</th>
+                  <th className="px-4 py-3 text-[9px] font-medium capitalize tracking-[0.24em] text-re-text-muted/60">When</th>
+                  <th className="px-4 py-3 text-right text-[9px] font-medium capitalize tracking-[0.24em] text-re-text-muted/60">Collected</th>
+                  <th className="px-4 py-3 text-right text-[9px] font-medium capitalize tracking-[0.24em] text-re-text-muted/60">Remaining</th>
                 </tr>
               </thead>
               <tbody>
                 {mock.collectionsLog.map((c, i) => (
                   <tr key={i} className="border-t border-black/5 hover:bg-re-bg/40 transition-colors">
-                    <td className="px-4 py-3 text-[11px] font-black text-re-navy">{c.name}</td>
-                    <td className="px-4 py-3 text-[11px] font-bold text-re-navy">{c.cls}</td>
+                    <td className="px-4 py-3 text-[11px] font-medium text-re-navy">{c.name}</td>
+                    <td className="px-4 py-3 text-[11px] font-medium text-re-navy">{c.cls}</td>
                     <td className="px-4 py-3">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-lg text-[9px] font-black capitalize tracking-wider border bg-re-bg text-[#000435] border-[#000435]">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-lg text-[9px] font-medium capitalize tracking-wider border bg-re-bg text-[#000435] border-[#000435]">
                         {c.channel}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-[10px] font-bold text-re-text-muted/80">{c.time}</td>
-                    <td className="px-4 py-3 text-right text-[11px] font-black text-emerald-600">{formatMoneyRWF(c.amount)}</td>
-                    <td className="px-4 py-3 text-right text-[11px] font-black">
+                    <td className="px-4 py-3 text-[10px] font-medium text-re-text-muted/80">{c.time}</td>
+                    <td className="px-4 py-3 text-right text-[11px] font-medium text-emerald-600">{formatMoneyRWF(c.amount)}</td>
+                    <td className="px-4 py-3 text-right text-[11px] font-medium">
                       {c.remaining === 0
                         ? <span className="text-emerald-500">Cleared</span>
                         : <span className="text-amber-600">{formatMoneyRWF(c.remaining)}</span>

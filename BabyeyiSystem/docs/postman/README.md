@@ -1,56 +1,45 @@
-# Babyeyi Postman Pack
+# Babyeyi Postman pack
 
-This folder contains a ready-to-import Postman setup for the Babyeyi backend.
+Ready-to-import Postman setup for the `BabyeyiSystem/backend` API.
 
 ## Files
 
-- `BabyeyiSystem.postman_collection.json` — full organized collection of API endpoints
-- `BabyeyiSystem.local.postman_environment.json` — local environment variables
+- `BabyeyiSystem.postman_collection.json` — organized collection (Postman v2.1)
+- `BabyeyiSystem.local.postman_environment.json` — local environment variables (`baseUrl`, `password`, etc.)
 
-## Import steps
+If import ever fails, ensure the collection file is **single JSON** (one top-level object). Backup copies from repair merges may appear as `*.broken-backup`, `*.pre-ussd-merge`, etc.
 
-1. Open Postman.
-2. Click **Import**.
-3. Import both JSON files in this folder.
-4. Select environment **BabyeyiSystem Local**.
-5. Set correct values for:
-   - `identifier`
-   - `password`
-   - `schoolCode` (required for school roles)
+## Import
 
-## First run order (important)
+1. Open Postman → **Import** → select both JSON files in this folder.
+2. Select environment **BabyeyiSystem Local** (or your copy).
+3. Set variables to match your machine/account:
+   - `baseUrl` (e.g. `http://localhost:5100`)
+   - `identifier` / `email` (depends on request; collection uses both in places)
+   - `password` — default in env is `ChangeMe123!` for quick testing; use a real password for live accounts
+   - `schoolCode` when the route expects it
 
-1. Run `POST /api/auth/login`.
-2. Run `GET /api/session/me` to confirm session is active.
-3. Run any protected endpoint (example: `GET /api/students`).
+## First run (session cookie)
 
-> The backend uses session cookie (`babyeyi_sid`), so login must run first in the same Postman session.
+Most school/admin routes use session cookies (`babyeyi_sid`).
 
-## Notes for form-data endpoints
+1. Run **`01 - Auth & Session`** → `POST /api/auth/login` (or the login variant that matches the folder instructions).
+2. Run `GET /api/session/me` to confirm the session.
+3. Call protected endpoints in other folders.
 
-Some endpoints are intentionally created without sample form body because files are required.
-In Postman, set **Body -> form-data** and add fields manually.
+**Parent portal** and some flows use their own login routes (see folder descriptions inside the collection, e.g. parent portal / public pay sections).
 
-Common file endpoints:
+## Teacher Avance (USSD)
 
-- `/api/public/schools/register`
-- `/api/public/schools/claim`
-- `/api/schools`
-- `/api/schools/:id/logo`
-- `/api/schools/:id/signature`
-- `/api/schools/:id/stamp`
-- `/api/students/import`
-- `/api/babyeyi/upload-asset`
-- `/api/district/babyeyi/deo-assets`
-- `/api/fee-limits` (regulation PDF)
-- `/api/requirement-prices/requirements/:id/image`
-- `/api/mini-websites/gallery-images`
-- `/api/admissions/forms/:formId/apply` (dynamic fields like `q_1`, `q_2`, ...)
+Folder **`Teacher Avance USSD`**: set **`teacherStaffId`** to the **Staff ID / Code** from Manager **HR Central** (HRCentral — the value stored as `staff.staff_id`), plus **`password`**, **`schoolCode`**. Login stores **`ussdAccessToken`** for the other USSD requests.
 
-## Keep it updated
+## Form-data / uploads
+
+Some requests need **Body → form-data** and real files (imports, logos, etc.). Add fields manually in Postman when the request has no sample body.
+
+## Keeping it updated
 
 When new backend routes are added, update:
 
-1. `docs/API_REFERENCE.md`
-2. this Postman collection
-
+1. `docs/API_REFERENCE.md` (if present/maintained)
+2. This Postman collection

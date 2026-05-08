@@ -550,14 +550,14 @@ export default function SmartSchoolHardwarePage({ portalBase = '/manager', accen
           <Shield className="w-12 h-12 text-[#1E3A5F]" />
         </div>
         <div>
-          <h1 className="text-xl font-black text-re-text uppercase tracking-tight">Smart access hardware</h1>
+          <h1 className="text-xl font-semibold text-re-text uppercase tracking-tight">Smart access hardware</h1>
           <p className="text-sm text-re-text-muted mt-2 leading-relaxed">
             This workspace is available only for Babyeyi Pro schools (or accounts with the school console permission).
           </p>
         </div>
         <Link
           to={h('/')}
-          className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-white text-sm font-black uppercase tracking-widest shadow-lg"
+          className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-white text-sm font-semibold uppercase tracking-widest shadow-lg"
           style={{ background: 'linear-gradient(135deg,#1E3A5F,#0D2644)' }}
         >
           Back to dashboard
@@ -586,8 +586,8 @@ export default function SmartSchoolHardwarePage({ portalBase = '/manager', accen
               <img src="/favicon.svg" alt="" className="w-8 h-8 opacity-95" />
             </div>
             <div className="min-w-0">
-              <p className={`text-[10px] font-black uppercase tracking-[0.35em] ${goldText} mb-1`}>Babyeyi Pro · Hardware</p>
-              <h1 className="text-2xl md:text-4xl font-black text-white tracking-tight leading-tight">
+              <p className={`text-[10px] font-semibold uppercase tracking-[0.35em] ${goldText} mb-1`}>Babyeyi Pro · Hardware</p>
+              <h1 className="text-2xl md:text-4xl font-semibold text-white tracking-tight leading-tight">
                 Smart School <span className={goldText}>Access</span>
               </h1>
               <p className="text-xs md:text-sm text-white/55 font-bold mt-2 max-w-xl leading-relaxed">
@@ -596,10 +596,10 @@ export default function SmartSchoolHardwarePage({ portalBase = '/manager', accen
             </div>
           </div>
           <div className="flex flex-wrap gap-2 shrink-0">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 border border-white/15 text-[10px] font-black text-white/90 uppercase tracking-wider">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 border border-white/15 text-[10px] font-semibold text-white/90 uppercase tracking-wider">
               <Usb size={12} /> Web Serial
             </span>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 border border-white/15 text-[10px] font-black text-white/90 uppercase tracking-wider">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 border border-white/15 text-[10px] font-semibold text-white/90 uppercase tracking-wider">
               <Radio size={12} /> 115200 baud
             </span>
           </div>
@@ -626,16 +626,16 @@ export default function SmartSchoolHardwarePage({ portalBase = '/manager', accen
         )}
 
         {/* Step 1 — class + search */}
-        <div className="bg-white rounded-[1.75rem] border border-black/5 shadow-xl shadow-black/5 p-6 md:p-8 space-y-6">
+        <div className="bg-white rounded-[1.75rem] border border-black/5 shadow-sm shadow-black/5 p-6 md:p-8 space-y-6">
           <div className="flex flex-col lg:flex-row lg:items-end gap-6">
             <div className="flex-1 space-y-2 min-w-0">
-              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-re-text-muted">Step 1 — Class</label>
+              <label className="text-[10px] font-semibold uppercase tracking-[0.2em] text-re-text-muted">Step 1 — Class</label>
               <div className="relative">
                 <button
                   type="button"
                   disabled={classesLoading || classes.length === 0}
                   onClick={() => classes.length && setClassOpen((o) => !o)}
-                  className="w-full flex items-center justify-between gap-3 px-4 py-3.5 rounded-2xl border border-black/10 bg-re-bg/80 text-left font-black text-sm text-re-text hover:border-[#1E3A5F]/30 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="w-full flex items-center justify-between gap-3 px-4 py-3.5 rounded-2xl border border-black/10 bg-re-bg/80 text-left font-semibold text-sm text-re-text hover:border-[#1E3A5F]/30 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <span className="flex items-center gap-2 min-w-0">
                     <GraduationCap size={18} className="text-[#1E3A5F] shrink-0" />
@@ -672,7 +672,7 @@ export default function SmartSchoolHardwarePage({ portalBase = '/manager', accen
                 {classOpen && classes.length > 0 && (
                   <>
                     <button type="button" className="fixed inset-0 z-40 cursor-default" aria-label="Close" onClick={() => setClassOpen(false)} />
-                    <div className="absolute z-50 mt-2 w-full max-h-56 overflow-y-auto rounded-2xl border border-black/10 bg-white shadow-2xl py-1">
+                    <div className="absolute z-50 mt-2 w-full max-h-56 overflow-y-auto rounded-2xl border border-black/10 bg-white shadow-sm py-1">
                       {classes.map((c) => (
                         <button
                           key={c}
@@ -694,7 +694,7 @@ export default function SmartSchoolHardwarePage({ portalBase = '/manager', accen
               </div>
             </div>
             <div className="flex-1 space-y-2 min-w-0">
-              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-re-text-muted">Search by name or student code</label>
+              <label className="text-[10px] font-semibold uppercase tracking-[0.2em] text-re-text-muted">Search by name or student code</label>
               <div className="relative">
                 <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-re-text-muted/50" />
                 <input
@@ -713,11 +713,11 @@ export default function SmartSchoolHardwarePage({ portalBase = '/manager', accen
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="bg-re-bg/90 border-b border-black/5">
-                    <th className="px-4 py-3 font-black text-[10px] uppercase tracking-wider text-re-text-muted">Student</th>
-                    <th className="px-4 py-3 font-black text-[10px] uppercase tracking-wider text-re-text-muted">Code</th>
-                    <th className="px-4 py-3 font-black text-[10px] uppercase tracking-wider text-re-text-muted hidden sm:table-cell">RFID UID</th>
-                    <th className="px-4 py-3 font-black text-[10px] uppercase tracking-wider text-re-text-muted hidden md:table-cell">Fingerprint</th>
-                    <th className="px-4 py-3 font-black text-[10px] uppercase tracking-wider text-re-text-muted text-right">Action</th>
+                    <th className="px-4 py-3 font-medium text-[10px] uppercase tracking-wider text-re-text-muted">Student</th>
+                    <th className="px-4 py-3 font-medium text-[10px] uppercase tracking-wider text-re-text-muted">Code</th>
+                    <th className="px-4 py-3 font-medium text-[10px] uppercase tracking-wider text-re-text-muted hidden sm:table-cell">RFID UID</th>
+                    <th className="px-4 py-3 font-medium text-[10px] uppercase tracking-wider text-re-text-muted hidden md:table-cell">Fingerprint</th>
+                    <th className="px-4 py-3 font-medium text-[10px] uppercase tracking-wider text-re-text-muted text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -743,7 +743,7 @@ export default function SmartSchoolHardwarePage({ portalBase = '/manager', accen
                   ) : (
                     filteredLocal.map((s) => (
                       <tr key={s.id} className="border-b border-black/[0.04] hover:bg-re-bg/40 transition-colors">
-                        <td className="px-4 py-3 font-black text-re-text">{studentDisplayName(s)}</td>
+                        <td className="px-4 py-3 font-semibold text-re-text">{studentDisplayName(s)}</td>
                         <td className="px-4 py-3 font-mono text-xs text-re-text-muted">{s.student_uid || s.student_code || '—'}</td>
                         <td className="px-4 py-3 font-mono text-xs hidden sm:table-cell">{s.rfid_uid || '—'}</td>
                         <td className="px-4 py-3 font-mono text-xs hidden md:table-cell">{s.fingerprint_id || '—'}</td>
@@ -751,7 +751,7 @@ export default function SmartSchoolHardwarePage({ portalBase = '/manager', accen
                           <button
                             type="button"
                             onClick={() => openModal(s)}
-                            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-white text-[10px] font-black uppercase tracking-widest ${navyBtn}`}
+                            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-white text-[10px] font-semibold uppercase tracking-widest ${navyBtn}`}
                           >
                             <IdCard size={14} />
                             Assign card
@@ -772,14 +772,14 @@ export default function SmartSchoolHardwarePage({ portalBase = '/manager', accen
         createPortal(
           <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 sm:p-6">
             <button type="button" className="absolute inset-0 bg-[#0A192F]/70 backdrop-blur-md" onClick={closeModal} aria-label="Close" />
-            <div className="relative w-full max-w-lg bg-white rounded-[1.75rem] shadow-2xl border border-black/5 overflow-hidden animate-in zoom-in-95 duration-200 max-h-[min(92vh,880px)] flex flex-col">
+            <div className="relative w-full max-w-lg bg-white rounded-[1.75rem] shadow-sm border border-black/10 overflow-hidden animate-in zoom-in-95 duration-200 max-h-[min(92vh,880px)] flex flex-col">
               <div
                 className="px-6 py-4 flex items-start justify-between gap-3 text-white shrink-0"
                 style={{ background: 'linear-gradient(135deg,#1E3A5F 0%,#0D2644 100%)' }}
               >
                 <div className="min-w-0">
-                  <p className="text-[10px] font-black uppercase tracking-[0.25em] opacity-80">Assign to</p>
-                  <p className="text-lg font-black truncate">{studentDisplayName(selected)}</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.25em] opacity-80">Assign to</p>
+                  <p className="text-lg font-semibold truncate">{studentDisplayName(selected)}</p>
                   <p className="text-[11px] font-mono opacity-80 mt-0.5">
                     {selected.student_uid || selected.student_code || '—'} · {classLabel(selected)}
                     {selected.sdm_code ? ` · SDMS ${selected.sdm_code}` : ''}
@@ -792,14 +792,14 @@ export default function SmartSchoolHardwarePage({ portalBase = '/manager', accen
 
               <div className="p-6 space-y-5 overflow-y-auto min-h-0">
                 <div className="rounded-2xl border border-[#1E3A5F]/15 bg-re-bg/70 p-4 space-y-3">
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-re-text-muted flex items-center gap-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-re-text-muted flex items-center gap-2">
                     <ArrowRightLeft size={14} className="text-[#1E3A5F]" />
                     Switch learner — USB stays connected
                   </p>
                   <div className="flex flex-col gap-3">
                     <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
                       <div>
-                        <label className="text-[9px] font-black uppercase tracking-wider text-re-text-muted">Class</label>
+                        <label className="text-[9px] font-semibold uppercase tracking-wider text-re-text-muted">Class</label>
                         <select
                           value={modalClassScope}
                           onChange={(e) => {
@@ -822,14 +822,14 @@ export default function SmartSchoolHardwarePage({ portalBase = '/manager', accen
                         type="button"
                         disabled={!modalClassScope || modalRosterLoading}
                         onClick={loadModalClassRoster}
-                        className={`mt-0 sm:mt-5 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-white shadow-md disabled:opacity-45 disabled:cursor-not-allowed ${navyBtn}`}
+                        className={`mt-0 sm:mt-5 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-semibold uppercase tracking-widest text-white shadow-md disabled:opacity-45 disabled:cursor-not-allowed ${navyBtn}`}
                       >
                         {modalRosterLoading ? <Loader2 size={14} className="animate-spin" /> : <Users size={14} />}
                         Load class
                       </button>
                     </div>
                     <div>
-                      <label className="text-[9px] font-black uppercase tracking-wider text-re-text-muted">
+                      <label className="text-[9px] font-semibold uppercase tracking-wider text-re-text-muted">
                         {modalClassScope && modalClassRosterFetched ? 'Filter class list (optional)' : 'Search (whole school)'}
                       </label>
                       <div className="relative mt-1">
@@ -870,7 +870,7 @@ export default function SmartSchoolHardwarePage({ portalBase = '/manager', accen
                           <Users size={18} />
                         </div>
                         <div className="min-w-0">
-                          <p className="text-[12px] font-black text-re-text">Load this class first</p>
+                          <p className="text-[12px] font-semibold text-re-text">Load this class first</p>
                           <p className="text-[11px] text-re-text-muted mt-1 leading-relaxed">
                             Choose a class above, then tap <span className="font-bold text-re-text/80">Load class</span> to list students. You can then switch between them while the device stays connected.
                           </p>
@@ -894,19 +894,19 @@ export default function SmartSchoolHardwarePage({ portalBase = '/manager', accen
                           return (
                             <div key={s.id} className="flex items-center gap-2 px-3 py-2.5">
                               <div className="flex-1 min-w-0">
-                                <p className="font-black text-re-text text-[12px] truncate">{studentDisplayName(s)}</p>
+                                <p className="font-semibold text-re-text text-[12px] truncate">{studentDisplayName(s)}</p>
                                 <p className="font-mono text-[10px] text-re-text-muted truncate">
                                   {s.student_uid || s.student_code || '—'} · {s.class_name || '—'}
                                   {s.sdm_code ? ` · SDMS ${s.sdm_code}` : ''}
                                 </p>
                               </div>
                               {isSel ? (
-                                <span className="shrink-0 text-[9px] font-black uppercase tracking-wide text-emerald-600">Current</span>
+                                <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wide text-emerald-600">Current</span>
                               ) : (
                                 <button
                                   type="button"
                                   onClick={() => switchToStudent(s)}
-                                  className="shrink-0 px-3 py-1.5 rounded-lg text-white text-[9px] font-black uppercase tracking-wide shadow-sm"
+                                  className="shrink-0 px-3 py-1.5 rounded-lg text-white text-[9px] font-semibold uppercase tracking-wide shadow-sm"
                                   style={{ background: 'linear-gradient(135deg,#1E3A5F,#0D2644)' }}
                                 >
                                   Switch
@@ -929,19 +929,19 @@ export default function SmartSchoolHardwarePage({ portalBase = '/manager', accen
                         return (
                           <div key={s.id} className="flex items-center gap-2 px-3 py-2.5">
                             <div className="flex-1 min-w-0">
-                              <p className="font-black text-re-text text-[12px] truncate">{studentDisplayName(s)}</p>
+                              <p className="font-semibold text-re-text text-[12px] truncate">{studentDisplayName(s)}</p>
                               <p className="font-mono text-[10px] text-re-text-muted truncate">
                                 {s.student_uid || s.student_code || '—'} · {s.class_name || '—'}
                                 {s.sdm_code ? ` · SDMS ${s.sdm_code}` : ''}
                               </p>
                             </div>
                             {isSel ? (
-                              <span className="shrink-0 text-[9px] font-black uppercase tracking-wide text-emerald-600">Current</span>
+                              <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wide text-emerald-600">Current</span>
                             ) : (
                               <button
                                 type="button"
                                 onClick={() => switchToStudent(s)}
-                                className="shrink-0 px-3 py-1.5 rounded-lg text-white text-[9px] font-black uppercase tracking-wide shadow-sm"
+                                className="shrink-0 px-3 py-1.5 rounded-lg text-white text-[9px] font-semibold uppercase tracking-wide shadow-sm"
                                 style={{ background: 'linear-gradient(135deg,#1E3A5F,#0D2644)' }}
                               >
                                 Switch
@@ -959,7 +959,7 @@ export default function SmartSchoolHardwarePage({ portalBase = '/manager', accen
                     type="button"
                     onClick={connectSerial}
                     disabled={serialStatus === 'connected'}
-                    className={`flex-1 min-w-[140px] inline-flex items-center justify-center gap-2 py-3 rounded-xl text-white text-[11px] font-black uppercase tracking-widest disabled:opacity-50 ${navyBtn}`}
+                    className={`flex-1 min-w-[140px] inline-flex items-center justify-center gap-2 py-3 rounded-xl text-white text-[11px] font-semibold uppercase tracking-widest disabled:opacity-50 ${navyBtn}`}
                   >
                     <Usb size={16} />
                     {serialStatus === 'connected' ? 'Connected' : 'Connect device'}
@@ -968,7 +968,7 @@ export default function SmartSchoolHardwarePage({ portalBase = '/manager', accen
                     <button
                       type="button"
                       onClick={disconnectSerial}
-                      className="px-4 py-3 rounded-xl border border-black/10 text-[11px] font-black uppercase tracking-widest text-re-text-muted hover:bg-re-bg"
+                      className="px-4 py-3 rounded-xl border border-black/10 text-[11px] font-semibold uppercase tracking-widest text-re-text-muted hover:bg-re-bg"
                     >
                       Disconnect
                     </button>
@@ -1002,7 +1002,7 @@ export default function SmartSchoolHardwarePage({ portalBase = '/manager', accen
                       </div>
                       <div className="flex-1 min-w-0 pt-0.5">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-[0.12em] bg-red-600 text-white shadow-sm">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[9px] font-semibold uppercase tracking-[0.12em] bg-red-600 text-white shadow-sm">
                             {identityConflict.kind === 'fingerprint' ? 'Fingerprint taken' : 'Card already taken'}
                           </span>
                           <span className="text-[9px] font-bold text-red-700/80 uppercase tracking-wider">Conflict</span>
@@ -1022,7 +1022,7 @@ export default function SmartSchoolHardwarePage({ portalBase = '/manager', accen
                 )}
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-wider text-re-text-muted flex items-center gap-1">
+                  <label className="text-[10px] font-semibold uppercase tracking-wider text-re-text-muted flex items-center gap-1">
                     <Radio size={12} /> Card UID
                   </label>
                   <input
@@ -1033,7 +1033,7 @@ export default function SmartSchoolHardwarePage({ portalBase = '/manager', accen
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-wider text-re-text-muted flex items-center gap-1">
+                  <label className="text-[10px] font-semibold uppercase tracking-wider text-re-text-muted flex items-center gap-1">
                     <Fingerprint size={12} /> Fingerprint ID
                   </label>
                   <input
@@ -1049,7 +1049,7 @@ export default function SmartSchoolHardwarePage({ portalBase = '/manager', accen
                     type="button"
                     onClick={enrollFp}
                     disabled={serialStatus !== 'connected' || apiBusy}
-                    className="inline-flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-[#1E3A5F]/20 text-[#1E3A5F] text-[11px] font-black uppercase tracking-widest hover:bg-re-navy/5 disabled:opacity-40"
+                    className="inline-flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-[#1E3A5F]/20 text-[#1E3A5F] text-[11px] font-semibold uppercase tracking-widest hover:bg-re-navy/5 disabled:opacity-40"
                   >
                     <Fingerprint size={16} />
                     Enroll fingerprint
@@ -1058,7 +1058,7 @@ export default function SmartSchoolHardwarePage({ portalBase = '/manager', accen
                     type="button"
                     onClick={deleteFpHardware}
                     disabled={serialStatus !== 'connected' || apiBusy}
-                    className="inline-flex items-center justify-center gap-2 py-3 rounded-xl border border-red-200 text-red-700 text-[11px] font-black uppercase tracking-widest hover:bg-red-50 disabled:opacity-40"
+                    className="inline-flex items-center justify-center gap-2 py-3 rounded-xl border border-red-200 text-red-700 text-[11px] font-semibold uppercase tracking-widest hover:bg-red-50 disabled:opacity-40"
                   >
                     <Trash2 size={16} />
                     Delete on device
@@ -1069,7 +1069,7 @@ export default function SmartSchoolHardwarePage({ portalBase = '/manager', accen
                   type="button"
                   onClick={clearFpRecord}
                   disabled={apiBusy || !selected.fingerprint_id}
-                  className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-re-text-muted border border-dashed border-black/15 hover:bg-re-bg disabled:opacity-40"
+                  className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-xl text-[10px] font-semibold uppercase tracking-widest text-re-text-muted border border-dashed border-black/15 hover:bg-re-bg disabled:opacity-40"
                 >
                   <Cpu size={14} />
                   Clear fingerprint from student record

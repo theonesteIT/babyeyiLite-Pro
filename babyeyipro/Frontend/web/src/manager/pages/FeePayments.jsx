@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useAcademic } from '../context/AcademicContext';
 import { createPortal } from 'react-dom';
 import {
     Users, Search, Download, Mail, ChevronRight,
@@ -48,12 +49,12 @@ const StudentModal = ({ student, onClose }) => {
                 {/* Drawer Header */}
                 <div className="flex items-center justify-between px-8 py-6 border-b border-black/5 bg-white shrink-0">
                     <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-re-bg border border-black/5 flex items-center justify-center text-re-navy font-black text-lg shadow-inner relative overflow-hidden">
+                        <div className="w-12 h-12 rounded-2xl bg-re-bg border border-black/5 flex items-center justify-center text-re-navy font-semibold text-lg shadow-inner relative overflow-hidden">
                             <span className="relative z-10">{student.name.charAt(0)}</span>
                             <div className="absolute inset-0 bg-re-grad-navy opacity-5"></div>
                         </div>
                         <div>
-                            <h3 className="font-black text-re-navy text-base leading-tight uppercase tracking-tight">{student.name}</h3>
+                            <h3 className="font-semibold text-re-navy text-base leading-tight uppercase tracking-tight">{student.name}</h3>
                             <p className="text-[9px] text-re-text-muted font-bold flex items-center gap-1 uppercase tracking-widest mt-0.5 opacity-40">
                                 <span className="w-1 h-1 bg-re-gold rounded-full"></span>
                                 Ledger ID: {student.id}
@@ -77,7 +78,7 @@ const StudentModal = ({ student, onClose }) => {
                             <ShieldCheck size={14} />
                         </div>
                         <div>
-                            <p className={`text-[10px] font-black uppercase tracking-widest ${student.balance === 0 ? 'text-re-emerald' : 'text-re-navy'}`}>
+                            <p className={`text-[10px] font-semibold uppercase tracking-widest ${student.balance === 0 ? 'text-re-emerald' : 'text-re-navy'}`}>
                                 {student.balance === 0 ? 'Fully Settled' : 'Outstanding Liability'}
                             </p>
                             <p className="text-[9px] text-re-navy/40 font-bold uppercase tracking-tight leading-none mt-0.5">
@@ -90,16 +91,16 @@ const StudentModal = ({ student, onClose }) => {
                     <div className="grid grid-cols-2 gap-4">
                         <div className="bg-re-bg rounded-3xl p-5 border border-black/5 shadow-inner relative overflow-hidden group">
                             <div className="absolute top-0 right-0 w-16 h-16 bg-re-grad-navy opacity-5 rounded-full -mr-6 -mt-6 group-hover:scale-125 transition-transform duration-700" />
-                            <p className="text-[8px] text-re-navy uppercase tracking-[0.2em] font-black mb-1 relative z-10 opacity-60">Total Paid</p>
+                            <p className="text-[8px] text-re-navy uppercase tracking-[0.2em] font-semibold mb-1 relative z-10 opacity-60">Total Paid</p>
                             <div className="flex items-baseline gap-1 relative z-10">
-                                <span className="text-xl font-black text-re-navy tracking-tighter">RWF {student.paid.toLocaleString()}</span>
+                                <span className="text-xl font-semibold text-re-navy tracking-tighter">RWF {student.paid.toLocaleString()}</span>
                             </div>
                         </div>
                         <div className="bg-re-bg rounded-3xl p-5 border border-black/5 shadow-inner relative overflow-hidden group text-right">
                             <div className="absolute top-0 left-0 w-16 h-16 bg-re-grad-gold opacity-5 rounded-full -ml-6 -mt-6 group-hover:scale-125 transition-transform duration-700" />
-                            <p className="text-[8px] text-re-navy uppercase tracking-[0.2em] font-black mb-1 relative z-10 opacity-60">Balance Due</p>
+                            <p className="text-[8px] text-re-navy uppercase tracking-[0.2em] font-semibold mb-1 relative z-10 opacity-60">Balance Due</p>
                             <div className="flex items-baseline gap-1 justify-end relative z-10">
-                                <span className="text-xl font-black text-re-orange tracking-tighter">RWF {student.balance.toLocaleString()}</span>
+                                <span className="text-xl font-semibold text-re-orange tracking-tighter">RWF {student.balance.toLocaleString()}</span>
                             </div>
                         </div>
                     </div>
@@ -107,7 +108,7 @@ const StudentModal = ({ student, onClose }) => {
                     {/* Detailed Info Matrix */}
                     <div className="space-y-4">
                         <div className="flex items-center gap-2 mb-2">
-                            <span className="text-[9px] font-black text-re-text-muted uppercase tracking-[0.3em] opacity-40">Financial Context</span>
+                            <span className="text-[9px] font-semibold text-re-text-muted uppercase tracking-[0.3em] opacity-40">Financial Context</span>
                             <div className="flex-1 h-px bg-black/5" />
                         </div>
                         {[
@@ -120,10 +121,10 @@ const StudentModal = ({ student, onClose }) => {
                             <div key={i} className="flex items-center justify-between group">
                                 <div className="flex items-center gap-2">
                                     <item.icon size={11} className="text-re-gold opacity-60" />
-                                    <span className="text-[10px] font-black text-re-text-muted uppercase tracking-widest">{item.label}</span>
+                                    <span className="text-[10px] font-semibold text-re-text-muted uppercase tracking-widest">{item.label}</span>
                                 </div>
                                 <div className="flex-1 mx-3 border-b border-dashed border-black/10 group-hover:border-re-gold/30 transition-colors" />
-                                <span className="text-[10px] font-black text-re-navy uppercase tracking-tight">{item.value}</span>
+                                <span className="text-[10px] font-semibold text-re-navy uppercase tracking-tight">{item.value}</span>
                             </div>
                         ))}
                     </div>
@@ -131,7 +132,7 @@ const StudentModal = ({ student, onClose }) => {
                     {/* Transaction Activity Log (Mirroring Activity Log pattern) */}
                     <div>
                         <div className="flex items-center gap-2 mb-4">
-                            <span className="text-[9px] font-black text-re-text-muted uppercase tracking-[0.3em] opacity-40">Transaction Audit Trail</span>
+                            <span className="text-[9px] font-semibold text-re-text-muted uppercase tracking-[0.3em] opacity-40">Transaction Audit Trail</span>
                             <div className="flex-1 h-px bg-black/5" />
                         </div>
 
@@ -147,7 +148,7 @@ const StudentModal = ({ student, onClose }) => {
                                     </div>
                                     <div className="min-w-0">
                                         <div className="flex items-center gap-2 mb-0.5">
-                                            <span className="text-[8px] font-black uppercase tracking-widest text-re-navy">{log.type}</span>
+                                            <span className="text-[8px] font-semibold uppercase tracking-widest text-re-navy">{log.type}</span>
                                             <span className="w-1 h-1 bg-black/10 rounded-full"></span>
                                             <span className="text-[8px] font-bold text-re-text-muted opacity-40 uppercase">{log.date}</span>
                                         </div>
@@ -161,14 +162,14 @@ const StudentModal = ({ student, onClose }) => {
 
                 {/* Drawer Footer (Actions) */}
                 <div className="px-8 py-6 border-t border-black/5 bg-re-bg/20 flex flex-col gap-3">
-                    <button className="h-12 w-full flex items-center justify-center gap-2 bg-re-grad-navy text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-re-premium-navy hover:scale-[1.02] active:scale-95 transition-all">
+                    <button className="h-12 w-full flex items-center justify-center gap-2 bg-re-grad-navy text-white rounded-2xl font-medium text-[10px] uppercase tracking-widest shadow-re-premium-navy active:scale-95 transition-all">
                         <Wallet size={15} /> Record New Payment
                     </button>
                     <div className="grid grid-cols-2 gap-3">
-                        <button className="h-12 flex items-center justify-center gap-2 bg-white border border-black/5 text-re-navy font-black text-[10px] uppercase tracking-widest rounded-2xl hover:bg-re-bg transition-all">
+                        <button className="h-12 flex items-center justify-center gap-2 bg-white border border-black/5 text-re-navy font-medium text-[10px] uppercase tracking-widest rounded-2xl hover:bg-re-bg transition-all">
                             <Printer size={15} className="text-re-gold" /> Statement
                         </button>
-                        <button className="h-12 flex items-center justify-center gap-2 bg-white border border-black/5 text-re-navy font-black text-[10px] uppercase tracking-widest rounded-2xl hover:bg-re-bg transition-all">
+                        <button className="h-12 flex items-center justify-center gap-2 bg-white border border-black/5 text-re-navy font-medium text-[10px] uppercase tracking-widest rounded-2xl hover:bg-re-bg transition-all">
                             <Mail size={15} className="text-re-gold" /> Reminder
                         </button>
                     </div>
@@ -182,20 +183,30 @@ const StudentModal = ({ student, onClose }) => {
 const FeePayments = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedStudent, setSelectedStudent] = useState(null);
+    const academic = useAcademic();
     const [openDropdownId, setOpenDropdownId] = useState(null);
     const [showClassFilter, setShowClassFilter] = useState(false);
     const [selectedClass, setSelectedClass] = useState('View All');
     const [selectedStatus, setSelectedStatus] = useState('all');
-    const [selectedTerm, setSelectedTerm] = useState('Term 1');
-    const [selectedYear, setSelectedYear] = useState(getAcademicYears(1)[0]);
+    const [selectedTerm, setSelectedTerm] = useState('');
+    const [selectedYear, setSelectedYear] = useState('');
+
+    // Seed from global academic settings once loaded
+    useEffect(() => {
+        if (!academic.loading && academic.currentTerm) {
+            setSelectedTerm(prev => prev || academic.currentTerm);
+            setSelectedYear(prev => prev || academic.academicYear);
+        }
+    }, [academic.loading, academic.currentTerm, academic.academicYear]);
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [students, setStudents] = useState([]);
     const [classes, setClasses] = useState([]);
-    const yearOptions = getAcademicYears();
+    const yearOptions = academic.academicYears.length ? academic.academicYears : getAcademicYears();
 
     useEffect(() => {
+        if (!selectedTerm || !selectedYear) return;
         let cancelled = false;
         const run = async () => {
             setLoading(true);
@@ -343,7 +354,7 @@ const FeePayments = () => {
             />
 
             {/* ── Hero Section ── */}
-            <div className="relative w-full min-h-[280px] overflow-hidden bg-[#000435]">
+            <div className="relative w-full min-h-[280px] overflow-hidden bg-[#c87800]">
                 <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full border border-white/5 pointer-events-none" />
                 <div className="absolute -top-12 -right-12 w-64 h-64 rounded-full border border-white/5 pointer-events-none" />
                 <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-[#FEBF10]/30 to-transparent pointer-events-none" />
@@ -352,12 +363,12 @@ const FeePayments = () => {
                     <div className="space-y-1">
                         <div className="flex items-center gap-2 mb-2">
                             <span className="w-6 h-1 bg-re-gold rounded-full"></span>
-                            <p className="text-[10px] font-black text-re-gold uppercase tracking-[0.3em]">Financial Repository</p>
+                            <p className="text-[10px] font-semibold text-re-gold uppercase tracking-[0.3em]">Financial Repository</p>
                         </div>
-                        <h1 className="text-2xl sm:text-4xl md:text-5xl font-black text-white tracking-tighter leading-none mb-2 mt-2 uppercase">
-                            Student Fee <span className="text-re-gold">Registry</span>
+                        <h1 className="text-2xl md:text-3xl font-semibold text-white tracking-tight leading-none mb-2 mt-2 uppercase" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+                            Student Fee Registry
                         </h1>
-                        <p className="text-[6px] sm:text-[10px]  font-bold text-white/40 max-w-lg leading-relaxed uppercase tracking-widest italic opacity-60">
+                        <p className="text-[10px] font-medium text-white/60 max-w-lg leading-relaxed uppercase tracking-widest" style={{ fontFamily: "'Montserrat', sans-serif" }}>
                             Professional Financial Oversight & Collection Intelligence
                         </p>
                     </div>
@@ -365,8 +376,8 @@ const FeePayments = () => {
             </div>
 
             {/* ── Main Dashboard Context ── */}
-            <div className="max-w-[1600px] mx-auto px-6 md:px-12 -mt-24 relative z-20 pb-20">
-                <div className="bg-white rounded-t-[32px] shadow-2xl border border-black/5 overflow-hidden flex flex-col">
+            <div className="max-w-[1600px] mx-auto px-6 md:px-12 -mt-4 sm:-mt-5 md:-mt-6 pt-2 relative z-20 pb-20">
+                <div className="bg-white rounded-t-[32px] shadow-sm border border-black/10 overflow-hidden flex flex-col">
 
                     {/* Stats Grid */}
                     <div className="grid grid-cols-1 lg:grid-cols-4 border-b border-black/5">
@@ -379,10 +390,10 @@ const FeePayments = () => {
                             ].map((stat, i) => (
                                 <div key={i} className="p-4 sm:p-8 flex flex-col items-center justify-center text-center group hover:bg-re-bg/20 transition-all cursor-default text-re-navy">
                                     {stat.icon && React.cloneElement(stat.icon, { size: 12, className: "text-re-gold opacity-40 mb-1.5 sm:mb-2" })}
-                                    <span className="text-sm sm:text-xl font-black tracking-tighter group-hover:text-re-gold transition-colors">
+                                    <span className="text-sm sm:text-xl font-semibold tracking-tighter group-hover:text-re-gold transition-colors">
                                         {stat.value}
                                     </span>
-                                    <p className="text-[6px] sm:text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] mt-0.5 sm:mt-1 opacity-60">
+                                    <p className="text-[6px] sm:text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.2em] mt-0.5 sm:mt-1 opacity-60">
                                         {stat.label}
                                     </p>
                                 </div>
@@ -393,19 +404,19 @@ const FeePayments = () => {
                         <div className="hidden lg:flex flex-col border-l border-black/5 bg-re-bg/30 p-6 justify-center gap-3">
                             <button
                                 onClick={exportLedgerCsv}
-                                className="w-full h-11 flex items-center justify-center gap-2 bg-re-grad-navy text-white rounded-xl font-black text-[9px] uppercase tracking-widest shadow-re-premium-navy hover:scale-[1.02] active:scale-95 transition-all"
+                                className="w-full h-11 flex items-center justify-center gap-2 bg-re-grad-navy text-white rounded-xl font-medium text-[9px] uppercase tracking-widest shadow-re-premium-navy active:scale-95 transition-all"
                             >
                                 <Download size={14} />
                                 Export CSV
                             </button>
                             <button
                                 onClick={exportLedgerXlsx}
-                                className="w-full h-11 flex items-center justify-center gap-2 bg-white border border-black/5 text-re-navy font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg hover:shadow-re-soft transition-all"
+                                className="w-full h-11 flex items-center justify-center gap-2 bg-white border border-black/5 text-re-navy font-medium text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg hover:shadow-re-soft transition-all"
                             >
                                 <Download size={14} className="text-re-gold" />
                                 Export Excel
                             </button>
-                            <button className="w-full h-11 flex items-center justify-center gap-2 bg-white border border-black/5 text-re-navy font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg hover:shadow-re-soft transition-all">
+                            <button className="w-full h-11 flex items-center justify-center gap-2 bg-white border border-black/5 text-re-navy font-medium text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg hover:shadow-re-soft transition-all">
                                 <Mail size={14} className="text-re-gold" />
                                 Notify Arrears
                             </button>
@@ -427,7 +438,7 @@ const FeePayments = () => {
                         <div className="flex items-center gap-2 w-full md:w-auto">
                             <button
                                 onClick={() => setShowClassFilter(!showClassFilter)}
-                                className="h-10 sm:h-11 px-3 sm:px-5 bg-white border border-black/5 rounded-xl flex items-center gap-1.5 sm:gap-2 text-re-text-muted font-black text-[8px] sm:text-[9px] uppercase tracking-widest hover:bg-re-bg transition-all shadow-sm whitespace-nowrap"
+                                className="h-10 sm:h-11 px-3 sm:px-5 bg-white border border-black/5 rounded-xl flex items-center gap-1.5 sm:gap-2 text-re-text-muted font-semibold text-[8px] sm:text-[9px] uppercase tracking-widest hover:bg-re-bg transition-all shadow-sm whitespace-nowrap"
                             >
                                 <Filter size={14} className="text-re-gold" />
                                 Filter By Class
@@ -435,7 +446,7 @@ const FeePayments = () => {
                             <select
                                 value={selectedStatus}
                                 onChange={(e) => setSelectedStatus(e.target.value)}
-                                className="h-10 sm:h-11 px-3 sm:px-5 bg-white border border-black/5 rounded-xl text-re-text-muted font-black text-[8px] sm:text-[9px] uppercase tracking-widest hover:bg-re-bg transition-all shadow-sm whitespace-nowrap"
+                                className="h-10 sm:h-11 px-3 sm:px-5 bg-white border border-black/5 rounded-xl text-re-text-muted font-semibold text-[8px] sm:text-[9px] uppercase tracking-widest hover:bg-re-bg transition-all shadow-sm whitespace-nowrap"
                             >
                                 {STATUS_OPTIONS.map((s) => (
                                     <option key={s.value} value={s.value}>{s.label}</option>
@@ -444,23 +455,23 @@ const FeePayments = () => {
                             <select
                                 value={selectedTerm}
                                 onChange={(e) => setSelectedTerm(e.target.value)}
-                                className="h-10 sm:h-11 px-3 sm:px-5 bg-white border border-black/5 rounded-xl text-re-text-muted font-black text-[8px] sm:text-[9px] uppercase tracking-widest hover:bg-re-bg transition-all shadow-sm whitespace-nowrap"
+                                className="h-10 sm:h-11 px-3 sm:px-5 bg-white border border-black/5 rounded-xl text-re-text-muted font-semibold text-[8px] sm:text-[9px] uppercase tracking-widest hover:bg-re-bg transition-all shadow-sm whitespace-nowrap"
                             >
-                                {TERMS.map((t) => (
+                                {[...(academic.activeTerms.length ? academic.activeTerms : TERMS), 'Annual Review'].map((t) => (
                                     <option key={t} value={t}>{t}</option>
                                 ))}
                             </select>
                             <select
                                 value={selectedYear}
                                 onChange={(e) => setSelectedYear(e.target.value)}
-                                className="h-10 sm:h-11 px-3 sm:px-5 bg-white border border-black/5 rounded-xl text-re-text-muted font-black text-[8px] sm:text-[9px] uppercase tracking-widest hover:bg-re-bg transition-all shadow-sm whitespace-nowrap"
+                                className="h-10 sm:h-11 px-3 sm:px-5 bg-white border border-black/5 rounded-xl text-re-text-muted font-semibold text-[8px] sm:text-[9px] uppercase tracking-widest hover:bg-re-bg transition-all shadow-sm whitespace-nowrap"
                             >
                                 {yearOptions.map((y) => (
                                     <option key={y} value={y}>{y}</option>
                                 ))}
                             </select>
                             <div className="w-px h-6 bg-black/5 hidden md:block"></div>
-                            <button className="h-10 sm:h-11 flex-1 md:flex-none px-3 sm:px-6 bg-re-bg border border-black/5 rounded-xl text-re-navy font-black text-[8px] sm:text-[9px] uppercase tracking-widest hover:bg-white hover:border-re-gold/20 transition-all shadow-sm group flex items-center gap-1.5 sm:gap-2 whitespace-nowrap">
+                            <button className="h-10 sm:h-11 flex-1 md:flex-none px-3 sm:px-6 bg-re-bg border border-black/5 rounded-xl text-re-navy font-semibold text-[8px] sm:text-[9px] uppercase tracking-widest hover:bg-white hover:border-re-gold/20 transition-all shadow-sm group flex items-center gap-1.5 sm:gap-2 whitespace-nowrap">
                                 <Wallet size={14} className="text-re-gold opacity-60 group-hover:opacity-100 transition-opacity" />
                                 Bulk Payment
                             </button>
@@ -474,8 +485,8 @@ const FeePayments = () => {
                                 <button
                                     key={cls}
                                     onClick={() => setSelectedClass(cls)}
-                                    className={`flex items-center justify-center gap-1.5 shrink-0 h-9 px-5 rounded-xl border font-black text-[9px] uppercase tracking-widest transition-all whitespace-nowrap ${selectedClass === cls
-                                        ? 'bg-re-navy border-re-navy text-white shadow-re-premium-navy hover:scale-105'
+                                    className={`flex items-center justify-center gap-1.5 shrink-0 h-9 px-5 rounded-xl border font-medium text-[9px] uppercase tracking-widest transition-all whitespace-nowrap ${selectedClass === cls
+                                        ? 'bg-re-navy border-re-navy text-white shadow-re-premium-navy'
                                         : 'bg-white border-black/5 text-re-text-muted hover:bg-re-bg hover:text-re-text'
                                         }`}
                                 >
@@ -489,23 +500,23 @@ const FeePayments = () => {
                     {/* Table View */}
                     <div className="overflow-x-auto bg-white">
                         {error ? (
-                            <div className="px-8 py-3 text-[10px] font-black uppercase tracking-widest text-red-600 border-b border-black/5">
+                            <div className="px-8 py-3 text-[10px] font-semibold uppercase tracking-widest text-red-600 border-b border-black/5">
                                 {error}
                             </div>
                         ) : null}
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-re-bg/20 border-b border-black/5">
-                                    <th className="px-8 py-4 text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5 last:border-r-0">Student Info</th>
-                                    <th className="hidden md:table-cell px-8 py-4 text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Class Registry</th>
-                                    <th className="hidden md:table-cell px-8 py-4 text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Revenue (Expected)</th>
-                                    <th className="hidden md:table-cell px-8 py-4 text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Status</th>
-                                    <th className="px-8 py-4 text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 text-right">Actions</th>
+                                    <th className="px-8 py-4 text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5 last:border-r-0">Student Info</th>
+                                    <th className="hidden md:table-cell px-8 py-4 text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Class Registry</th>
+                                    <th className="hidden md:table-cell px-8 py-4 text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Revenue (Expected)</th>
+                                    <th className="hidden md:table-cell px-8 py-4 text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Status</th>
+                                    <th className="px-8 py-4 text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.2em] opacity-40 text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-black/5">
                                 {loading ? (
-                                    <tr><td colSpan="5" className="p-20 text-center animate-pulse text-re-navy font-black text-xs">Syncing Distributed Ledger...</td></tr>
+                                    <tr><td colSpan="5" className="p-20 text-center animate-pulse text-re-navy font-semibold text-xs">Syncing Distributed Ledger...</td></tr>
                                 ) : (
                                     filteredStudents.map((s, idx) => {
                                         const isLastItems = idx >= filteredStudents.length - 2 && filteredStudents.length > 2;
@@ -517,30 +528,30 @@ const FeePayments = () => {
                                             >
                                                 <td className="px-8 py-5 border-r border-black/5 last:border-r-0">
                                                     <div className="flex items-center gap-4">
-                                                        <div className="w-10 h-10 rounded-full bg-re-bg border border-black/5 flex-shrink-0 flex items-center justify-center text-re-navy font-black text-sm relative shadow-inner overflow-hidden group-hover:bg-white transition-colors">
+                                                        <div className="w-10 h-10 rounded-full bg-re-bg border border-black/5 flex-shrink-0 flex items-center justify-center text-re-navy font-semibold text-sm relative shadow-inner overflow-hidden group-hover:bg-white transition-colors">
                                                             <User size={12} className='text-gray-400' />
                                                             <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-white border border-black/5 rounded-full flex items-center justify-center">
                                                                 <div className={`w-1.5 h-1.5 ${s.balance === 0 ? 'bg-re-emerald' : 'bg-re-orange'} rounded-full`}></div>
                                                             </div>
                                                         </div>
                                                         <div>
-                                                            <p className="text-sm font-black text-re-navy tracking-tight uppercase leading-none mb-1 group-hover:text-re-gold transition-colors">{s.name}</p>
+                                                            <p className="text-sm font-semibold text-re-navy tracking-tight uppercase leading-none mb-1 group-hover:text-re-gold transition-colors">{s.name}</p>
                                                             <p className="text-[9px] font-bold text-re-text-muted opacity-30 uppercase tracking-widest leading-none font-mono italic">{s.id}</p>
                                                         </div>
                                                     </div>
                                                 </td>
                                                 <td className="hidden md:table-cell px-8 py-5 border-r border-black/5">
                                                     <div className="flex flex-col gap-0.5">
-                                                        <p className="text-[10px] font-black text-re-navy uppercase tracking-tight">{s.grade}</p>
-                                                        <p className="text-[9px] font-black text-re-gold uppercase italic">{s.stream || '—'}</p>
+                                                        <p className="text-[10px] font-semibold text-re-navy uppercase tracking-tight">{s.grade}</p>
+                                                        <p className="text-[9px] font-semibold text-re-gold uppercase italic">{s.stream || '—'}</p>
                                                     </div>
                                                 </td>
                                                 <td className="hidden md:table-cell px-8 py-5 border-r border-black/5 text-re-navy">
-                                                    <p className="text-[10px] font-black uppercase tracking-tight">RWF {s.totalBill.toLocaleString()}</p>
+                                                    <p className="text-[10px] font-semibold uppercase tracking-tight">RWF {s.totalBill.toLocaleString()}</p>
                                                     <p className="text-[9px] font-bold text-re-emerald uppercase tracking-widest opacity-60">Paid: {s.paid.toLocaleString()}</p>
                                                 </td>
                                                 <td className="hidden md:table-cell px-8 py-5 border-r border-black/5">
-                                                    <div className={`inline-flex px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest ring-1 ring-inset ${s.balance === 0 ? 'bg-emerald-50 text-re-emerald ring-emerald-500/20' : 'bg-re-orange/5 text-re-orange ring-re-orange/20'}`}>
+                                                    <div className={`inline-flex px-3 py-1.5 rounded-lg text-[8px] font-semibold uppercase tracking-widest ring-1 ring-inset ${s.balance === 0 ? 'bg-emerald-50 text-re-emerald ring-emerald-500/20' : 'bg-re-orange/5 text-re-orange ring-re-orange/20'}`}>
                                                         {s.balance === 0 ? 'Fully Settled' : `Bal: ${s.balance.toLocaleString()}`}
                                                     </div>
                                                 </td>
@@ -565,14 +576,14 @@ const FeePayments = () => {
                                                             {openDropdownId === s.id && (
                                                                 <>
                                                                     <div className="fixed inset-0 z-[40]" onClick={() => setOpenDropdownId(null)} />
-                                                                    <div className={`absolute right-0 ${isLastItems ? 'bottom-full mb-2' : 'top-full mt-2'} w-48 bg-white border border-black/5 shadow-2xl rounded-2xl z-[50] overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-150`}>
-                                                                        <button className="w-full text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-re-navy hover:bg-re-bg transition-colors flex items-center gap-2.5">
+                                                                    <div className={`absolute right-0 ${isLastItems ? 'bottom-full mb-2' : 'top-full mt-2'} w-48 bg-white border border-black/10 shadow-md rounded-2xl z-[50] overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-150`}>
+                                                                        <button className="w-full text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-re-navy hover:bg-re-bg transition-colors flex items-center gap-2.5">
                                                                             <Eye size={13} className="text-re-text-muted" /> View Details
                                                                         </button>
-                                                                        <button className="w-full text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-re-gold hover:bg-re-gold/5 transition-colors flex items-center gap-2.5 border-t border-black/5">
+                                                                        <button className="w-full text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-re-gold hover:bg-re-gold/5 transition-colors flex items-center gap-2.5 border-t border-black/5">
                                                                             <Wallet size={13} /> Record Payment
                                                                         </button>
-                                                                        <button className="w-full text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-re-navy hover:bg-re-bg transition-colors flex items-center gap-2.5">
+                                                                        <button className="w-full text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-re-navy hover:bg-re-bg transition-colors flex items-center gap-2.5">
                                                                             <Printer size={13} className="text-re-text-muted" /> Statement
                                                                         </button>
                                                                     </div>
@@ -594,25 +605,25 @@ const FeePayments = () => {
                         <div className="flex items-center gap-4">
                             <div className="flex items-center gap-2">
                                 <div className="w-1.5 h-1.5 bg-re-gold rounded-full animate-pulse"></div>
-                                <p className="text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 italic">Ledger Synchronized</p>
+                                <p className="text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.2em] opacity-40 italic">Ledger Synchronized</p>
                             </div>
                             <div className="w-px h-3 bg-black/10"></div>
-                            <p className="text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 italic">Displaying {filteredStudents.length} Records · {selectedTerm} · {selectedYear}</p>
+                            <p className="text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.2em] opacity-40 italic">Displaying {filteredStudents.length} Records · {selectedTerm} · {selectedYear}</p>
                         </div>
                         <div className="flex items-center gap-1.5">
-                            <button className="h-8 px-4 rounded-lg bg-white border border-black/5 text-[9px] font-black text-re-text-muted tracking-tighter opacity-40 hover:opacity-100 transition-all font-mono italic">Prev_set</button>
-                            <div className="h-8 px-4 rounded-lg flex items-center justify-center bg-white border border-black/5 text-[9px] font-black text-re-navy tracking-tighter">Page 01</div>
-                            <button className="h-8 px-4 rounded-lg bg-re-grad-navy text-white text-[9px] font-black shadow-re-premium-navy tracking-tighter">Next_set</button>
+                            <button className="h-8 px-4 rounded-lg bg-white border border-black/5 text-[9px] font-semibold text-re-text-muted tracking-tighter opacity-40 hover:opacity-100 transition-all font-mono italic">Prev_set</button>
+                            <div className="h-8 px-4 rounded-lg flex items-center justify-center bg-white border border-black/5 text-[9px] font-semibold text-re-navy tracking-tighter">Page 01</div>
+                            <button className="h-8 px-4 rounded-lg bg-re-grad-navy text-white text-[9px] font-semibold shadow-re-premium-navy tracking-tighter">Next_set</button>
                         </div>
                     </div>
                 </div>
 
                 {/* System Meta */}
                 <div className="flex flex-col md:flex-row items-center justify-between mt-8 px-4 gap-4">
-                    <p className="text-[7px] text-re-text-muted font-black uppercase tracking-[0.3em] opacity-30 italic">Developed & Engineered by Babyeyi Intelligence Systems</p>
+                    <p className="text-[7px] text-re-text-muted font-semibold uppercase tracking-[0.3em] opacity-30 italic">Developed & Engineered by Babyeyi Intelligence Systems</p>
                     <div className="flex items-center gap-4 opacity-20 text-re-navy">
-                        <span className="text-[8px] font-black uppercase tracking-widest">Finance OS</span>
-                        <span className="text-[8px] font-black uppercase tracking-widest">v1.2.0-Reloaded</span>
+                        <span className="text-[8px] font-semibold uppercase tracking-widest">Finance OS</span>
+                        <span className="text-[8px] font-semibold uppercase tracking-widest">v1.2.0-Reloaded</span>
                     </div>
                 </div>
             </div>

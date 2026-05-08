@@ -36,11 +36,11 @@ const ItemModal = ({ item, onClose, onSave }) => {
 
   return createPortal(
     <div className="fixed inset-0 z-[220] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-0 sm:p-4">
-      <div className="bg-white w-full sm:max-w-md rounded-t-[32px] sm:rounded-[28px] shadow-2xl flex flex-col max-h-[92vh]">
+      <div className="bg-white w-full sm:max-w-md rounded-t-[32px] sm:rounded-[28px] shadow-sm flex flex-col max-h-[92vh]">
         <div className="flex items-center justify-between px-6 py-5 border-b border-black/5 shrink-0">
           <div>
-            <p className="text-[9px] font-black uppercase tracking-[0.3em] text-re-navy">{isEdit ? 'Edit item' : 'Add item'}</p>
-            <h3 className="font-black text-re-navy text-base mt-0.5">{isEdit ? form.name : 'New stock item'}</h3>
+            <p className="text-[9px] font-semibold uppercase tracking-[0.3em] text-re-navy">{isEdit ? 'Edit item' : 'Add item'}</p>
+            <h3 className="font-semibold text-re-navy text-base mt-0.5">{isEdit ? form.name : 'New stock item'}</h3>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-50 rounded-xl text-slate-400 hover:text-re-navy transition-all"><X size={18} /></button>
         </div>
@@ -54,20 +54,20 @@ const ItemModal = ({ item, onClose, onSave }) => {
             { label: 'Storage location', key: 'location', type: 'text', placeholder: 'e.g. Shelf A3' },
           ].map(f => (
             <div key={f.key}>
-              <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-1">{f.label}</label>
+              <label className="text-[9px] font-semibold uppercase tracking-widest text-slate-400 block mb-1">{f.label}</label>
               <input type={f.type} value={form[f.key]} onChange={e => set(f.key, e.target.value)} placeholder={f.placeholder}
                 className="w-full bg-re-bg border border-black/5 rounded-xl px-3 py-2.5 text-[11px] font-bold outline-none focus:ring-2 focus:ring-re-navy/20 transition-all" />
             </div>
           ))}
           <div>
-            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-1">Category</label>
+            <label className="text-[9px] font-semibold uppercase tracking-widest text-slate-400 block mb-1">Category</label>
             <select value={form.category} onChange={e => set('category', e.target.value)}
               className="w-full bg-re-bg border border-black/5 rounded-xl px-3 py-2.5 text-[11px] font-bold outline-none focus:ring-2 focus:ring-re-navy/20 transition-all">
               {CATEGORIES.filter(c => c !== 'All').map(c => <option key={c}>{c}</option>)}
             </select>
           </div>
           <div>
-            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-1">Term</label>
+            <label className="text-[9px] font-semibold uppercase tracking-widest text-slate-400 block mb-1">Term</label>
             <select
               value={form.term}
               onChange={(e) => set('term', e.target.value)}
@@ -78,7 +78,7 @@ const ItemModal = ({ item, onClose, onSave }) => {
             </select>
           </div>
           <div>
-            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-1">Academic year</label>
+            <label className="text-[9px] font-semibold uppercase tracking-widest text-slate-400 block mb-1">Academic year</label>
             <input
               type="text"
               value={form.academic_year}
@@ -88,16 +88,16 @@ const ItemModal = ({ item, onClose, onSave }) => {
             />
           </div>
           <div>
-            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-1">Note</label>
+            <label className="text-[9px] font-semibold uppercase tracking-widest text-slate-400 block mb-1">Note</label>
             <textarea value={form.note} onChange={e => set('note', e.target.value)} rows={2} placeholder="Optional note"
               className="w-full bg-re-bg border border-black/5 rounded-xl px-3 py-2.5 text-[11px] font-bold outline-none focus:ring-2 focus:ring-re-navy/20 transition-all resize-none" />
           </div>
         </div>
         <div className="px-6 py-4 border-t border-black/5 flex justify-end gap-2 shrink-0">
-          <button onClick={onClose} className="px-4 py-2 rounded-xl border border-black/5 text-re-navy font-black text-[9px] uppercase tracking-widest hover:bg-re-bg transition-all">Cancel</button>
+          <button onClick={onClose} className="px-4 py-2 rounded-xl border border-black/5 text-re-navy font-semibold text-[9px] uppercase tracking-widest hover:bg-re-bg transition-all">Cancel</button>
           <button onClick={() => { if (valid) { onSave({ ...item, ...form, quantity: Number(form.quantity), reorder_level: Number(form.reorder_level), unit_cost: Number(form.unit_cost) }); onClose(); }}}
             disabled={!valid}
-            className="px-6 py-2 rounded-xl text-white font-black text-[9px] uppercase tracking-widest disabled:opacity-50 transition-all hover:scale-[1.02]"
+            className="px-6 py-2 rounded-xl text-white font-semibold text-[9px] uppercase tracking-widest disabled:opacity-50 transition-all border border-black/10 shadow-sm"
             style={{ background: 'linear-gradient(135deg,#1E3A5F,#0D2644)' }}>
             <Save size={12} className="inline mr-1" />{isEdit ? 'Update' : 'Add item'}
           </button>
@@ -227,13 +227,13 @@ export default function Inventory() {
 
   const stockBadge = (item) => {
     const qty = Number(item.quantity);
-    if (qty === 0) return <span className="text-[8px] font-black px-2 py-0.5 rounded-full bg-red-100 text-red-600 uppercase">Out</span>;
-    if (item.reorder_level > 0 && qty <= Number(item.reorder_level)) return <span className="text-[8px] font-black px-2 py-0.5 rounded-full bg-amber-100 text-amber-600 uppercase">Low</span>;
-    return <span className="text-[8px] font-black px-2 py-0.5 rounded-full bg-re-navy/10 text-re-navy uppercase">OK</span>;
+    if (qty === 0) return <span className="text-[8px] font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-600 uppercase">Out</span>;
+    if (item.reorder_level > 0 && qty <= Number(item.reorder_level)) return <span className="text-[8px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-600 uppercase">Low</span>;
+    return <span className="text-[8px] font-semibold px-2 py-0.5 rounded-full bg-re-navy/10 text-re-navy uppercase">OK</span>;
   };
 
   const selectCls =
-    'h-9 md:h-8 bg-white/80 rounded-lg outline-none border border-black/5 focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[9px] font-black uppercase tracking-widest shadow-[inset_0_2px_8px_rgba(15,23,42,0.06)] cursor-pointer appearance-none px-3 pr-8';
+    'h-9 md:h-8 bg-white/80 rounded-lg outline-none border border-black/5 focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[9px] font-semibold uppercase tracking-widest shadow-[inset_0_2px_8px_rgba(15,23,42,0.06)] cursor-pointer appearance-none px-3 pr-8';
   const selectChevron = {
     backgroundImage: `url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%231E3A5F%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')`,
     backgroundRepeat: 'no-repeat',
@@ -261,7 +261,7 @@ export default function Inventory() {
               type="button"
               onClick={fetchItems}
               disabled={loading}
-              className="w-full h-11 flex items-center justify-center gap-2 bg-white border border-black/5 text-re-text font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg hover:border-[#1E3A5F]/20 transition-all"
+              className="w-full h-11 flex items-center justify-center gap-2 bg-white border border-black/5 text-re-text font-semibold text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg hover:border-[#1E3A5F]/20 transition-all"
             >
               <RefreshCw size={14} className={loading ? 'animate-spin text-[#1E3A5F]' : 'text-[#1E3A5F]'} />
               Refresh
@@ -269,7 +269,7 @@ export default function Inventory() {
             <button
               type="button"
               onClick={exportPDF}
-              className="w-full h-11 flex items-center justify-center gap-2 bg-white border border-black/5 text-re-text font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg transition-all"
+              className="w-full h-11 flex items-center justify-center gap-2 bg-white border border-black/5 text-re-text font-semibold text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg transition-all"
             >
               <Download size={14} className="text-amber-500" />
               Export PDF
@@ -277,7 +277,7 @@ export default function Inventory() {
             <button
               type="button"
               onClick={() => setModal({})}
-              className="w-full h-11 flex items-center justify-center gap-2 text-white rounded-xl font-black text-[9px] uppercase tracking-widest shadow-xl hover:scale-[1.02] active:scale-95 transition-all"
+              className="w-full h-11 flex items-center justify-center gap-2 text-white rounded-xl text-[9px] font-semibold uppercase tracking-widest border border-black/10 shadow-sm active:scale-95 transition-all"
               style={{ background: 'linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)' }}
             >
               <Plus size={14} />
@@ -289,7 +289,7 @@ export default function Inventory() {
           <>
             <div className="relative w-full sm:w-[11rem] shrink-0 group">
               <Filter size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-amber-500 z-[1]" />
-              <span className="absolute left-7 top-1/2 -translate-y-1/2 text-[8px] font-black uppercase text-slate-400 tracking-[0.2em] z-[1] pointer-events-none">Category</span>
+              <span className="absolute left-7 top-1/2 -translate-y-1/2 text-[8px] font-semibold uppercase text-slate-400 tracking-[0.2em] z-[1] pointer-events-none">Category</span>
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
@@ -302,7 +302,7 @@ export default function Inventory() {
               </select>
             </div>
             <div className="relative w-full sm:w-[9.5rem] shrink-0">
-              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[8px] font-black uppercase text-slate-400 tracking-[0.2em] z-[1] pointer-events-none">Stock</span>
+              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[8px] font-semibold uppercase text-slate-400 tracking-[0.2em] z-[1] pointer-events-none">Stock</span>
               <select
                 value={stockFilter}
                 onChange={(e) => setStockFilter(e.target.value)}
@@ -315,7 +315,7 @@ export default function Inventory() {
               </select>
             </div>
             <div className="relative w-full sm:w-[10rem] shrink-0">
-              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[8px] font-black uppercase text-slate-400 tracking-[0.2em] z-[1] pointer-events-none">Term</span>
+              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[8px] font-semibold uppercase text-slate-400 tracking-[0.2em] z-[1] pointer-events-none">Term</span>
               <select
                 value={termFilter}
                 onChange={(e) => setTermFilter(e.target.value)}
@@ -328,7 +328,7 @@ export default function Inventory() {
               </select>
             </div>
             <div className="relative w-full sm:w-[11rem] shrink-0">
-              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[8px] font-black uppercase text-slate-400 tracking-[0.2em] z-[1] pointer-events-none">Academic year</span>
+              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[8px] font-semibold uppercase text-slate-400 tracking-[0.2em] z-[1] pointer-events-none">Academic year</span>
               <select
                 value={yearFilter}
                 onChange={(e) => setYearFilter(e.target.value)}
@@ -346,7 +346,7 @@ export default function Inventory() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search name, category, location…"
-                className="w-full h-9 md:h-8 bg-white/80 rounded-lg outline-none border border-black/5 focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[9px] font-black uppercase tracking-tight shadow-[inset_0_2px_8px_rgba(15,23,42,0.06)] placeholder:text-[#1E3A5F]/30 !pl-8"
+                className="w-full h-9 md:h-8 bg-white/80 rounded-lg outline-none border border-black/5 focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[9px] font-semibold uppercase tracking-tight shadow-[inset_0_2px_8px_rgba(15,23,42,0.06)] placeholder:text-[#1E3A5F]/30 !pl-8"
               />
             </div>
           </>
@@ -355,13 +355,13 @@ export default function Inventory() {
         {loading ? (
           <div className="flex items-center justify-center py-20 gap-3">
             <Loader2 size={22} className="animate-spin text-[#1E3A5F]/30" />
-            <p className="text-[11px] font-black uppercase tracking-widest text-slate-400">Loading inventory…</p>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Loading inventory…</p>
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3 px-6">
             <Package size={36} className="text-slate-200" />
-            <p className="text-[11px] font-black uppercase tracking-widest text-slate-400">No items match your filters</p>
-            <button type="button" onClick={() => setModal({})} className="text-[10px] font-black text-[#1E3A5F] hover:underline">
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">No items match your filters</p>
+            <button type="button" onClick={() => setModal({})} className="text-[10px] font-semibold text-[#1E3A5F] hover:underline">
               + Add first item
             </button>
           </div>
@@ -372,7 +372,7 @@ export default function Inventory() {
                 {['Item', 'Category', 'Term', 'Academic year', 'Qty', 'Unit', 'Reorder', 'Unit cost', 'Location', 'Status', ''].map((h, hi) => (
                   <th
                     key={`inv-th-${hi}`}
-                    className="px-4 sm:px-6 py-3 text-[7px] sm:text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-50 border-r border-black/5 last:border-r-0"
+                    className="px-4 sm:px-6 py-3 text-[7px] sm:text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.2em] opacity-50 border-r border-black/5 last:border-r-0"
                   >
                     {h}
                   </th>
@@ -383,17 +383,17 @@ export default function Inventory() {
               {filtered.map((item) => (
                 <tr key={item.id} className="hover:bg-re-bg/60 even:bg-re-bg/20 transition-colors group">
                   <td className="px-4 sm:px-6 py-3 border-r border-black/5">
-                    <p className="font-black text-[#1E3A5F] text-[12px] tracking-tight">{item.name}</p>
+                    <p className="font-semibold text-[#1E3A5F] text-[12px] tracking-tight">{item.name}</p>
                     {item.note ? (
                       <p className="text-[8px] font-bold text-re-text-muted uppercase tracking-widest mt-1 opacity-60 truncate max-w-[220px]">{item.note}</p>
                     ) : null}
                   </td>
-                  <td className="px-4 sm:px-6 py-3 border-r border-black/5 text-[10px] font-black text-[#1E3A5F]">
+                  <td className="px-4 sm:px-6 py-3 border-r border-black/5 text-[10px] font-semibold text-[#1E3A5F]">
                     <span className="bg-re-bg px-2 py-0.5 rounded-lg border border-black/5">{item.category}</span>
                   </td>
                   <td className="px-4 sm:px-6 py-3 border-r border-black/5 text-[10px] font-bold text-slate-500">{item.term || '—'}</td>
                   <td className="px-4 sm:px-6 py-3 border-r border-black/5 text-[10px] font-bold text-slate-500">{item.academic_year || '—'}</td>
-                  <td className="px-4 sm:px-6 py-3 border-r border-black/5 font-black text-slate-800 text-[12px]">{item.quantity}</td>
+                  <td className="px-4 sm:px-6 py-3 border-r border-black/5 font-semibold text-slate-800 text-[12px]">{item.quantity}</td>
                   <td className="px-4 sm:px-6 py-3 border-r border-black/5 text-[10px] font-bold text-slate-500">{item.unit}</td>
                   <td className="px-4 sm:px-6 py-3 border-r border-black/5 text-[10px] font-bold text-slate-500">{item.reorder_level || '—'}</td>
                   <td className="px-4 sm:px-6 py-3 border-r border-black/5 text-[10px] font-bold text-slate-700">{fmtMoney(item.unit_cost)}</td>
@@ -419,13 +419,13 @@ export default function Inventory() {
       {modal !== null && <ItemModal item={modal} onClose={() => setModal(null)} onSave={handleSave} />}
       {deleteConfirm && createPortal(
         <div className="fixed inset-0 z-[230] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-[24px] shadow-2xl p-8 max-w-sm w-full text-center">
+          <div className="bg-white rounded-[24px] shadow-sm p-8 max-w-sm w-full text-center">
             <div className="w-12 h-12 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-4"><Trash2 size={20} className="text-red-500" /></div>
-            <h3 className="font-black text-slate-800 mb-2">Delete "{deleteConfirm.name}"?</h3>
+            <h3 className="font-semibold text-slate-800 mb-2">Delete "{deleteConfirm.name}"?</h3>
             <p className="text-[11px] font-bold text-slate-400 mb-6">This will permanently remove this item from inventory.</p>
             <div className="flex gap-3">
-              <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-2.5 rounded-xl border border-black/5 font-black text-[10px] uppercase tracking-widest text-slate-500 hover:bg-slate-50 transition-all">Cancel</button>
-              <button onClick={() => handleDelete(deleteConfirm.id)} className="flex-1 py-2.5 rounded-xl bg-red-500 text-white font-black text-[10px] uppercase tracking-widest hover:bg-red-600 transition-all">Delete</button>
+              <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-2.5 rounded-xl border border-black/5 font-semibold text-[10px] uppercase tracking-widest text-slate-500 hover:bg-slate-50 transition-all">Cancel</button>
+              <button onClick={() => handleDelete(deleteConfirm.id)} className="flex-1 py-2.5 rounded-xl bg-red-500 text-white font-semibold text-[10px] uppercase tracking-widest hover:bg-red-600 transition-all">Delete</button>
             </div>
           </div>
         </div>,

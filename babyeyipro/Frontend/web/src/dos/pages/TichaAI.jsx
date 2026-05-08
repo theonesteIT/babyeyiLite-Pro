@@ -10,6 +10,7 @@ import {
   Mic,
   Plus
 } from 'lucide-react';
+import DosOchreHero from '../components/DosOchreHero';
 
 const TichaAI = () => {
   const [messages, setMessages] = useState([]);
@@ -65,28 +66,21 @@ const TichaAI = () => {
   };
 
   return (
-    <div className="relative w-full bg-re-bg min-h-screen" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-      {/* ── Hero Banner ── */}
-      <section className="relative p-7 md:p-10 text-white overflow-hidden min-h-[200px] flex items-center bg-[#000435]">
-        <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full border border-white/5 pointer-events-none" />
-        <div className="absolute -top-12 -right-12 w-64 h-64 rounded-full border border-white/5 pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-[#FEBF10]/30 to-transparent pointer-events-none" />
-        <div className="relative z-10 max-w-5xl w-full">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="h-0.5 w-6 rounded-full bg-[#FEBF10]" />
-            <p className="text-[10px] font-black capitalize tracking-widest text-[#FEBF10]/80">Cognitive Core</p>
-          </div>
-          <h1 className="text-2xl md:text-3xl font-black tracking-tight">Ticha<span className="text-white/40">AI</span></h1>
-          <p className="text-xs font-bold text-white/60 max-w-xl mt-2">Empowering Educators with Intelligent Design — curriculum, planning, and academic support.</p>
-        </div>
-      </section>
+    <div className="relative w-full bg-re-bg min-h-screen font-sans">
+      <DosOchreHero
+        eyebrow="Academic assistant"
+        titleLine="Ticha"
+        titleAccent="AI"
+        subtitle="Curriculum, planning, and professional messages for families and staff."
+        icon={Sparkles}
+      />
 
       {/* ── Main Content Grid ── */}
-      <div className="max-w-[1600px] mx-auto px-4 md:px-12 -mt-10 md:-mt-12 relative z-20 pb-20">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 -mt-4 sm:-mt-5 md:-mt-6 pt-2 relative z-20 pb-20">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
 
           {/* ── Left Column (Chat Interface) ── */}
-          <div className="lg:col-span-2 flex flex-col h-[calc(100vh-220px)] md:h-[calc(100vh-280px)] min-h-[450px] bg-white rounded-[24px] shadow-2xl border border-black/5 overflow-hidden relative">
+          <div className="lg:col-span-2 flex flex-col h-[calc(100vh-220px)] md:h-[calc(100vh-280px)] min-h-[450px] bg-white rounded-[24px] shadow-sm border border-black/5 overflow-hidden relative">
             <header className="px-5 py-3 md:py-4 border-b border-black/5 bg-white/80 backdrop-blur-md flex items-center justify-between sticky top-0 z-30">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 md:w-9 md:h-9 bg-re-grad-purple rounded-lg flex items-center justify-center text-white shadow-re-premium-purple">
@@ -109,7 +103,7 @@ const TichaAI = () => {
 
             {/* Mobile History Overlay (Slide down inside the card) */}
             {showHistoryMob && (
-              <div className="lg:hidden absolute top-[56px] md:top-[68px] inset-x-0 z-40 bg-white/95 backdrop-blur-xl border-b border-black/10 shadow-2xl max-h-[350px] overflow-y-auto animate-in slide-in-from-top duration-300">
+              <div className="lg:hidden absolute top-[56px] md:top-[68px] inset-x-0 z-40 bg-white/95 backdrop-blur-xl border-b border-black/10 shadow-sm max-h-[350px] overflow-y-auto animate-in slide-in-from-top duration-300">
                 <div className="p-4 space-y-2">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">

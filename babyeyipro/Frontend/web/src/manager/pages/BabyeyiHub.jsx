@@ -34,8 +34,8 @@ export default function BabyeyiHub() {
   return (
     <div className="min-h-screen bg-re-bg p-4 sm:p-6 lg:p-8">
       <div className="rounded-3xl border border-black/5 bg-white shadow-sm p-6 sm:p-8">
-        <p className="text-[10px] uppercase tracking-[0.2em] text-re-orange font-black">Babyeyi workspace</p>
-        <h1 className="text-2xl sm:text-3xl font-black text-[#1E3A5F] mt-2">Babyeyi Professional Hub</h1>
+        <p className="text-[10px] uppercase tracking-[0.2em] text-re-orange font-semibold">Babyeyi workspace</p>
+        <h1 className="text-2xl sm:text-3xl font-semibold text-[#1E3A5F] mt-2">Babyeyi Professional Hub</h1>
         <p className="text-sm text-slate-600 mt-2 max-w-2xl">
           Access babyeyi creation, registry, and school-console tools from one place.
         </p>
@@ -48,7 +48,7 @@ export default function BabyeyiHub() {
               className="rounded-2xl border border-slate-200 bg-slate-50/50 p-4 hover:bg-white hover:shadow-md transition-all"
             >
               <module.icon size={18} className="text-[#1E3A5F]" />
-              <p className="mt-2 text-sm font-black text-[#1E3A5F]">{module.title}</p>
+              <p className="mt-2 text-sm font-semibold text-[#1E3A5F]">{module.title}</p>
               <p className="mt-1 text-xs text-slate-500">{module.desc}</p>
             </Link>
           ))}

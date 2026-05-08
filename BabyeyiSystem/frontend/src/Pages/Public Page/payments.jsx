@@ -56,13 +56,14 @@ const C = {
 // ── Shared style helpers ──────────────────────────────────────────
 const card = {
   background: "#fff",
-  border: `1px solid ${C.db100}`,
-  borderRadius: 12,
-  padding: "20px 22px",
+  border: `1px solid rgba(0,4,53,0.09)`,
+  borderRadius: 14,
+  padding: "22px 24px",
   marginBottom: 16,
+  boxShadow: "0 2px 12px rgba(0,4,53,0.06)",
 };
 const labelStyle = {
-  display: "block", fontSize: 11, fontWeight: 700,
+  display: "block", fontSize: 11, fontWeight: 600,
   textTransform: "uppercase", letterSpacing: "0.07em",
   color: C.db600, marginBottom: 5,
 };
@@ -320,15 +321,16 @@ function InfoBox({ children, variant = "amber" }) {
 function MethodBtn({ id, label, Icon, selected, disabled, onClick }) {
   return (
     <button type="button" onClick={onClick} disabled={disabled} style={{
-      display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
-      padding: "12px 10px", borderRadius: 8, cursor: disabled ? "not-allowed" : "pointer",
-      border: `2px solid ${selected ? C.am200 : C.db100}`,
-      background: selected ? C.am50 : "#fff",
-      color: selected ? C.am800 : C.db600,
-      opacity: disabled ? 0.4 : 1,
-      transition: "all 0.15s",
+      display: "flex", flexDirection: "column", alignItems: "center", gap: 7,
+      padding: "14px 10px", borderRadius: 12, cursor: disabled ? "not-allowed" : "pointer",
+      border: `2px solid ${selected ? C.am200 : "rgba(0,4,53,0.10)"}`,
+      background: selected ? C.am50 : "#f8fafc",
+      color: selected ? C.am800 : C.inkSoft,
+      opacity: disabled ? 0.38 : 1,
+      transition: "all 0.18s",
+      boxShadow: selected ? `0 0 0 3px rgba(251,191,36,0.18)` : "none",
     }}>
-      <Icon size={18} />
+      <Icon size={20} strokeWidth={selected ? 2.2 : 1.8} />
       <span style={{ fontSize: 11, fontWeight: 700, textAlign: "center", lineHeight: 1.2 }}>{label}</span>
     </button>
   );
@@ -887,6 +889,7 @@ export default function PaymentsPage() {
       : principal;
     const res = await fetch(`${API}/public/babyeyi-pay/intent`, {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         school_id:                draft.schoolId,
@@ -908,6 +911,7 @@ export default function PaymentsPage() {
         public_pay_no_login:   !!draft.publicPayNoLogin,
         from_public_finder:    !!draft.fromPublicFinder,
         from_school_mini_site: !!draft.fromSchoolMiniSite,
+        classkit_guest_checkout: !!draft.classkitGuestCheckout,
         payment_plan: {
           method:      payMethod === 'loan' && pageTab === 'shuleavance' ? 'shule_avance' : payMethod,
           payMode:     payMethod === 'loan' ? 'loan' : undefined,
@@ -2018,28 +2022,29 @@ export default function PaymentsPage() {
   }, [draft]);
   // ── No draft ──────────────────────────────────────────────────
   if (!draft) return (
-    <div style={{ minHeight: "100vh", background: C.db900, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: FONT_FAMILY }}>
-      <div style={{ maxWidth: 400, textAlign: "center" }}>
-        <AlertCircle size={40} color={C.am200} style={{ marginBottom: 16 }} />
-        <div style={{ fontWeight: 700, color: "#fff", fontSize: 16, marginBottom: 8 }}>No payment selection loaded.</div>
-        <div style={{ fontSize: 13, color: C.db200, marginBottom: 20, lineHeight: 1.6 }}>
-          Start from a school page and tap <strong style={{ color: C.am100 }}>View &amp; pay</strong>, or go to{' '}
-          <Link to="/services" style={{ color: C.am200, fontWeight: 700 }}>Babyeyi services</Link>.
+    <div style={{ minHeight: "100vh", background: "#f0f2f5", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: FONT_FAMILY }}>
+      <div style={{ maxWidth: 400, textAlign: "center", background: "#fff", borderRadius: 16, padding: "40px 32px", boxShadow: "0 4px 24px rgba(0,4,53,0.08)", border: `1px solid rgba(0,4,53,0.08)` }}>
+        <AlertCircle size={40} color={C.am400} style={{ marginBottom: 16 }} />
+        <div style={{ fontWeight: 700, color: C.db900, fontSize: 16, marginBottom: 8 }}>No payment selection loaded.</div>
+        <div style={{ fontSize: 13, color: C.inkMuted, marginBottom: 20, lineHeight: 1.6 }}>
+          Start from a school page and tap <strong style={{ color: C.am600 }}>View &amp; pay</strong>, or go to{' '}
+          <Link to="/services" style={{ color: C.am600, fontWeight: 700 }}>Babyeyi services</Link>.
         </div>
-        <Link to="/schools" style={{ color: C.am200, fontWeight: 700, textDecoration: "none" }}>Browse schools →</Link>
+        <Link to="/schools" style={{ color: C.am600, fontWeight: 700, textDecoration: "none" }}>Browse schools →</Link>
       </div>
     </div>
   );
 
   return (
-    <div style={{ minHeight: "100vh", background: C.db900, paddingBottom: 60, fontFamily: FONT_FAMILY }}>
+    <div style={{ minHeight: "100vh", background: "#f0f2f5", paddingBottom: 60, fontFamily: FONT_FAMILY }}>
       {/* Top bar */}
-      <div style={{ background: C.db800, borderBottom: `3px solid ${C.am200}`, padding: "14px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+      <div style={{ background: "#ffffff", borderBottom: `1px solid rgba(0,4,53,0.10)`, boxShadow: "0 1px 8px rgba(0,4,53,0.07)", padding: "12px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <button type="button" onClick={() => navigate(-1)} style={{
-            display: "flex", alignItems: "center", gap: 6, background: "transparent",
-            border: `1px solid ${C.am400}`, color: C.am100, padding: "6px 14px",
-            borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: "pointer",
+            display: "flex", alignItems: "center", gap: 6, background: "#f8fafc",
+            border: `1px solid rgba(0,4,53,0.15)`, color: C.db900, padding: "6px 14px",
+            borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer",
+            transition: "all 0.15s",
           }}>
             <ArrowLeft size={14} /> Back
           </button>
@@ -2049,33 +2054,33 @@ export default function PaymentsPage() {
               onClick={() => navigate(wizardBackTarget.to)}
               style={{
                 display: "flex", alignItems: "center", gap: 8,
-                background: "#fff",
+                background: C.am50,
                 color: C.db900,
-                border: `2px solid ${C.am200}`,
-                padding: "8px 18px",
+                border: `1.5px solid ${C.am200}`,
+                padding: "7px 18px",
                 borderRadius: 999,
                 fontSize: 13, fontWeight: 700, cursor: "pointer",
-                boxShadow: "0 1px 0 rgba(0,0,0,0.06)",
+                boxShadow: "0 1px 4px rgba(251,191,36,0.18)",
               }}
             >
               <ArrowLeft size={16} strokeWidth={2.5} /> {wizardBackTarget.label}
             </button>
           )}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, color: C.am200, textTransform: "uppercase", letterSpacing: "0.1em" }}>
-          <Shield size={13} color={C.am200} /> Secure Payment
+        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, color: C.am600, textTransform: "uppercase", letterSpacing: "0.1em", background: C.am50, border: `1px solid ${C.am200}`, borderRadius: 20, padding: "5px 12px" }}>
+          <Shield size={12} color={C.am600} /> Secure Payment
         </div>
       </div>
 
       {/* Content */}
-      <div style={{ maxWidth: 680, margin: "0 auto", padding: "24px 24px 0" }}>
+      <div style={{ maxWidth: 680, margin: "0 auto", padding: "28px 20px 0" }}>
 
         {/* Page title */}
         <div style={{ marginBottom: 20 }}>
-          <h1 style={{ color: "#fff", fontSize: 22, fontWeight: 800, margin: "0 0 4px" }}>Complete payment</h1>
-          <div style={{ fontSize: 13, color: C.db200 }}>{label}</div>
+          <h1 style={{ color: C.db900, fontSize: 22, fontWeight: 700, margin: "0 0 4px" }}>Complete payment</h1>
+          <div style={{ fontSize: 13, color: C.inkMuted }}>{label}</div>
           {(draft?.studentServiceCheckout || draft?.uniformVoucherCheckout) && draft?.payer?.name && (
-            <div style={{ fontSize: 12, color: C.am100, marginTop: 3 }}>
+            <div style={{ fontSize: 12, color: C.am600, marginTop: 3 }}>
               Payer: <strong>{draft.payer.name}</strong>
             </div>
           )}
@@ -2099,16 +2104,16 @@ export default function PaymentsPage() {
 
         {/* ── Payment summary card ────────────────────────────── */}
         <div style={card}>
-          <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#000435", marginBottom: 14, display: "flex", alignItems: "center", gap: 6 }}>
-            <Wallet size={13} color="#000435" /> Payment summary
+          <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: C.inkMuted, marginBottom: 14, display: "flex", alignItems: "center", gap: 6 }}>
+            <Wallet size={13} color={C.am600} /> Payment summary
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12, marginBottom: 14 }}>
             {/* You pay now */}
-            <div style={{ border: `1px solid #000435`, borderRadius: 8, padding: "14px 16px",width:"100%" }}>
-              <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#000435", marginBottom: 4,textAlign:"center" }}>You pay now</div>
-              <div style={{ fontSize: 35, fontWeight: 500, color: "#000435", fontFamily: "montserrat", lineHeight: 1 ,textAlign:"center"}}>
-                {Number(principal).toLocaleString()} <span style={{ fontSize: 13, color: "#000435" }}>RWF</span>
+            <div style={{ background: "#ffffff", border: "2px solid #000435", borderRadius: 12, padding: "20px 20px", width:"100%" }}>
+              <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.10em", color: "#000435", marginBottom: 6, textAlign:"center", opacity: 0.55 }}>You pay now</div>
+              <div style={{ fontSize: 38, fontWeight: 700, color: "#000435", fontFamily: "montserrat", lineHeight: 1, textAlign:"center" }}>
+                {Number(principal).toLocaleString()} <span style={{ fontSize: 14, color: "#000435", fontWeight: 400, opacity: 0.6 }}>RWF</span>
               </div>
             </div>
 
@@ -2232,10 +2237,10 @@ export default function PaymentsPage() {
         </div>
 
         {feeLikeTabs && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 16, background: "#fff", borderRadius: 12, padding: "6px", boxShadow: "0 1px 6px rgba(0,4,53,0.07)", border: `1px solid rgba(0,4,53,0.08)` }}>
             {[
               { id: 'direct', label: 'Direct Pay' },
-              { id: 'shuleavance', label: 'Access ShuleAvance' },
+              { id: 'shuleavance', label: 'ShuleAvance' },
               { id: 'loan', label: 'Get Loan' },
             ].map((tab) => (
               <button
@@ -2252,11 +2257,13 @@ export default function PaymentsPage() {
                   if (tab.id === 'shuleavance') setShuleStep('organization');
                 }}
                 style={{
-                  padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12,
-                  border: `1.5px solid ${pageTab === tab.id ? C.am200 : C.db100}`,
-                  background: pageTab === tab.id ? C.am50 : "#fff",
-                  color: pageTab === tab.id ? C.am900 : C.db600,
+                  flex: 1, padding: "9px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12,
+                  border: `none`,
+                  background: pageTab === tab.id ? C.am200 : "transparent",
+                  color: pageTab === tab.id ? C.am900 : C.inkMuted,
                   cursor: "pointer",
+                  transition: "all 0.18s",
+                  boxShadow: pageTab === tab.id ? "0 2px 8px rgba(251,191,36,0.30)" : "none",
                 }}
               >
                 {tab.label}
@@ -2267,7 +2274,7 @@ export default function PaymentsPage() {
 
         {/* ── Payment method card ─────────────────────────────── */}
         <div style={card}>
-          <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: C.am600, marginBottom: 14 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: C.am600, marginBottom: 14 }}>
             {feeLikeTabs && pageTab === 'direct' ? 'Direct payment methods'
               : feeLikeTabs && pageTab === 'loan' ? 'Get Loan application'
               : feeLikeTabs && pageTab === 'shuleavance' ? 'Access ShuleAvance'
@@ -2275,12 +2282,11 @@ export default function PaymentsPage() {
           </div>
 
           {(!feeLikeTabs || pageTab === 'direct') && (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 18 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 18 }}>
             {[
               { id: 'momo', label: 'MTN / Airtel', Icon: Smartphone },
               { id: 'bank', label: 'Bank Transfer', Icon: Building2 },
               { id: 'visa', label: 'Visa Card',     Icon: CreditCard },
-              { id: 'loan', label: 'Get Loan',      Icon: Wallet    },
             ].map(({ id, label: l, Icon }) => {
               const svcOnly = !!(draft?.studentServiceCheckout && !draft?.extendedPaymentTabs && id !== 'momo');
               const shopOnly = !!(draft?.agentShopCheckout && id !== 'momo');
@@ -2920,14 +2926,16 @@ export default function PaymentsPage() {
         <>
         {showLoanFamilySubmit && (
         <button type="button" disabled={!canSubmit} onClick={handleConfirm} style={{
-          width: "100%", padding: "14px",
-          borderRadius: 10, fontWeight: 800, fontSize: 15,
-          background: canSubmit ? C.am200 : C.am50,
-          color: canSubmit ? C.db900 : C.am400,
-          border: `2px solid ${canSubmit ? C.am400 : C.am100}`,
+          width: "100%", padding: "15px",
+          borderRadius: 12, fontWeight: 800, fontSize: 15,
+          background: canSubmit ? C.am200 : "#f1f3f5",
+          color: canSubmit ? C.db900 : C.inkMuted,
+          border: `none`,
           cursor: canSubmit ? "pointer" : "not-allowed",
           display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-          marginBottom: 12, transition: "all 0.15s",
+          marginBottom: 12, transition: "all 0.18s",
+          boxShadow: canSubmit ? "0 4px 16px rgba(251,191,36,0.35)" : "none",
+          letterSpacing: "0.01em",
         }}>
           {submitting && momoStatus === 'PENDING'
             ? <><Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} />Initiating Payment…</>
@@ -2970,8 +2978,8 @@ export default function PaymentsPage() {
         )}
 
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 16, marginBottom: 40 }}>
-          <Shield size={12} color={C.db400} />
-          <div style={{ fontSize: 11, color: C.db400, textAlign: "center", maxWidth: 460, lineHeight: 1.5 }}>
+          <Shield size={12} color={C.inkMuted} />
+          <div style={{ fontSize: 11, color: C.inkMuted, textAlign: "center", maxWidth: 460, lineHeight: 1.5 }}>
             {draft?.studentServiceCheckout
               ? 'MTN MoMo is used for this Babyeyi student service. Approve the prompt on your phone to complete payment.'
               : draft?.uniformVoucherCheckout

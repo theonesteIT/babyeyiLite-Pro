@@ -19,8 +19,8 @@ export default function StockInventory() {
   return (
     <div className="min-h-screen bg-re-bg px-4 sm:px-6 lg:px-8 py-6 space-y-6">
       <section className="rounded-3xl border border-black/5 bg-white p-6 sm:p-8 shadow-sm">
-        <p className="text-[10px] uppercase tracking-[0.2em] text-re-orange font-black">Stock & inventory</p>
-        <h1 className="text-2xl sm:text-3xl font-black text-[#1E3A5F] mt-2">Store and Asset Control</h1>
+        <p className="text-[10px] uppercase tracking-[0.2em] text-re-orange font-semibold">Stock & inventory</p>
+        <h1 className="text-2xl sm:text-3xl font-semibold text-[#1E3A5F] mt-2">Store and Asset Control</h1>
         <p className="text-sm text-slate-600 mt-2 max-w-2xl">
           Monitor school inventory levels, prioritize low-stock items, and maintain procurement visibility.
         </p>
@@ -30,7 +30,7 @@ export default function StockInventory() {
         {inventoryStats.map((card) => (
           <div key={card.label} className="rounded-2xl border border-black/5 bg-white p-4">
             <card.icon size={16} className="text-[#1E3A5F]" />
-            <p className="mt-2 text-lg font-black text-[#1E3A5F]">{card.value}</p>
+            <p className="mt-2 text-lg font-semibold text-[#1E3A5F]">{card.value}</p>
             <p className="text-[11px] text-slate-500 font-bold">{card.label}</p>
           </div>
         ))}
@@ -39,7 +39,7 @@ export default function StockInventory() {
       <section className="rounded-2xl border border-black/5 bg-white p-5 shadow-sm">
         <div className="flex items-center gap-2 mb-3">
           <ChartNoAxesColumn size={16} className="text-[#1E3A5F]" />
-          <h2 className="text-sm font-black uppercase tracking-wider text-[#1E3A5F]">Inventory snapshot</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-[#1E3A5F]">Inventory snapshot</h2>
         </div>
         <div className="divide-y divide-slate-100">
           {rows.map((row) => (
@@ -49,7 +49,7 @@ export default function StockInventory() {
                 <p className="text-xs text-slate-500">Available quantity: {row.qty}</p>
               </div>
               <span
-                className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full border ${
+                className={`text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full border ${
                   row.status === 'Low'
                     ? 'bg-red-50 text-red-700 border-red-200'
                     : 'bg-emerald-50 text-emerald-700 border-emerald-200'

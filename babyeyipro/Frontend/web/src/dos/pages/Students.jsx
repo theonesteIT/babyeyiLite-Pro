@@ -6,7 +6,10 @@ import {
     UserCheck, Award, Filter, Activity, UserPlus, X, User,
     Phone, Clock, Home, Tag, Edit3, Printer, Eye, CheckCircle, RefreshCw
 } from 'lucide-react';
-import api from '../services/api';import ConductMarksModal from '../components/ConductMarksModal';
+import api from '../services/api';
+import ConductMarksModal from '../components/ConductMarksModal';
+import DosOchreHero from '../components/DosOchreHero';
+import { PORTAL } from '../config/portal';
 
 // ── Student Detail Modal (Drawer Style) ──────────────────────────────────────
 const StudentModal = ({ student, onClose }) => {
@@ -250,7 +253,7 @@ const Students = () => {
             {showAllClassesModal && createPortal(
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in" onClick={() => setShowAllClassesModal(false)} />
-                    <div className="relative bg-white w-full max-w-sm rounded-[2rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+                    <div className="relative bg-white w-full max-w-sm rounded-[2rem] shadow-sm overflow-hidden animate-in zoom-in-95 duration-200">
                         <div className="px-6 py-5 border-b border-black/5 flex items-center justify-between">
                             <div>
                                 <h3 className="text-sm font-black text-re-text uppercase tracking-widest">Select Class</h3>
@@ -282,34 +285,26 @@ const Students = () => {
                 </div>, document.body
             )}
 
-            {/* ── Hero Banner ── */}
-            <section className="relative p-7 md:p-10 text-white overflow-hidden min-h-[200px] flex items-center bg-[#000435]">
-                <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full border border-white/5 pointer-events-none" />
-                <div className="absolute -top-12 -right-12 w-64 h-64 rounded-full border border-white/5 pointer-events-none" />
-                <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-[#FEBF10]/30 to-transparent pointer-events-none" />
-                <div className="relative z-10 max-w-5xl w-full">
-                    <div className="flex items-center gap-2 mb-2">
-                        <span className="h-0.5 w-6 rounded-full bg-[#FEBF10]" />
-                        <p className="text-[10px] font-black capitalize tracking-widest text-[#FEBF10]/80">Institutional Repository</p>
-                    </div>
-                    <h1 className="text-2xl md:text-3xl font-black tracking-tight">Students <span className="text-[#FEBF10]">List</span></h1>
-                    <p className="text-xs font-bold text-white/60 max-w-xl mt-2">Professional Academic & Behavioral Analytics View.</p>
-                </div>
-            </section>
+            <DosOchreHero
+                eyebrow="Student registry"
+                titleLine="Students"
+                titleAccent="list"
+                subtitle={`Rosters and analytics for ${PORTAL.roleLabel.toLowerCase()} oversight.`}
+                icon={Users}
+            />
 
-            {/* ── Consolidated High-Fidelity Card (Dashboard Stats Style) ── */}
-            <div className="max-w-[1600px] mx-auto px-6 md:px-12 -mt-10 relative z-20 pb-20">
-                <div className="bg-white rounded-t-[32px] shadow-2xl border border-black/5 overflow-hidden flex flex-col">
+            <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 -mt-4 sm:-mt-5 md:-mt-6 pt-2 relative z-20 pb-20">
+                <div className="bg-white rounded-t-[32px] shadow-sm border border-black/10 overflow-hidden flex flex-col">
 
                     {/* Top Layer: Stats Grid + Actions (Dashboard Style) */}
                     <div className={`${!isClassSelected ? 'hidden md:grid' : 'grid'} grid-cols-1 lg:grid-cols-4 border-b border-black/5`}>
                         {/* Stats (3 columns on lg) */}
-                        <div className="lg:col-span-3 grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-black/5">
+                        <div className="lg:col-span-3 grid grid-cols-2 md:grid-cols-2 divide-x divide-y md:divide-y-0 divide-black/5">
                             {[
                                 { label: 'Total Enrolled', value: stats.totalEnrolled, icon: <Users size={14} className="text-re-orange opacity-40 mb-2" /> },
-                                { label: 'Epic Status', value: stats.epicPercent, icon: <Award size={14} className="text-re-orange opacity-40 mb-2" /> },
+                              
                                 { label: 'Attendance Avg', value: stats.avgAttendance, icon: <Activity size={14} className="text-re-orange opacity-40 mb-2" /> },
-                                { label: 'Diversity Index', value: stats.diversityIndex, icon: <TrendingUp size={14} className="text-re-orange opacity-40 mb-2" /> }
+                              
                             ].map((stat, i) => (
                                 <div key={i} className="p-4 sm:p-8 flex flex-col items-center justify-center text-center group hover:bg-re-bg/20 transition-all cursor-default">
                                     {stat.icon && React.cloneElement(stat.icon, { size: 12, className: "text-re-orange opacity-40 mb-1.5 sm:mb-2" })}
@@ -411,7 +406,7 @@ const Students = () => {
                     {/* Bottom Layer: Selection Gatekeeper or Scholastic Repository */}
                     {!isClassSelected && (
                         <div className="md:hidden p-4 sm:p-6 bg-re-bg/20 flex flex-col items-center justify-center text-center py-8 sm:py-12 animate-in fade-in zoom-in-95 duration-500">
-                            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white rounded-2xl sm:rounded-[2rem] shadow-xl flex items-center justify-center text-re-orange mb-4 sm:mb-6 border border-black/5 animate-bounce">
+                            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white rounded-2xl sm:rounded-[2rem] shadow-sm flex items-center justify-center text-re-orange mb-4 sm:mb-6 border border-black/5 animate-bounce">
                                 <GraduationCap size={24} className="sm:w-8 sm:h-8" />
                             </div>
                             <h2 className="text-lg sm:text-xl font-black text-re-text tracking-tighter uppercase mb-1 sm:mb-2">Select a Class</h2>
@@ -561,7 +556,7 @@ const Students = () => {
                                                                             onClick={(e) => { e.stopPropagation(); setOpenDropdownId(null); }}
                                                                         />
                                                                         <div
-                                                                            className={`absolute right-0 ${isLastItems ? 'bottom-full mb-2 origin-bottom-right' : 'top-full mt-2 origin-top-right'} w-48 bg-white border border-black/5 shadow-2xl rounded-2xl z-[50] overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-150`}
+                                                                            className={`absolute right-0 ${isLastItems ? 'bottom-full mb-2 origin-bottom-right' : 'top-full mt-2 origin-top-right'} w-48 bg-white border border-black/5 shadow-sm rounded-2xl z-[50] overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-150`}
                                                                             onClick={(e) => e.stopPropagation()}
                                                                         >
                                                                             <button

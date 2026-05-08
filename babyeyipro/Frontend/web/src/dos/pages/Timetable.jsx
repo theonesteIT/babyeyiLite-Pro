@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { jsPDF } from 'jspdf';
-import { AlertCircle, BookPlus, CheckCircle2, Download, Edit3, Image as ImageIcon, Loader2, Plus, Search, Trash2, X } from 'lucide-react';
+import { AlertCircle, BookPlus, Calendar, CheckCircle2, Download, Edit3, Image as ImageIcon, Loader2, Plus, Search, Trash2, X } from 'lucide-react';
 import api from '../services/api';
+import DosOchreHero from '../components/DosOchreHero';
 
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 const ALL_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -433,39 +434,49 @@ export default function Timetable() {
     }
   }, [renderToCanvas]);
 
-  return (
-    <div className="bg-re-bg min-h-screen p-3 sm:p-5 lg:p-8">
-      <div className="mx-auto max-w-[1420px] space-y-4">
-        <div className="bg-white rounded-3xl border border-black/5 shadow-sm p-4 sm:p-6">
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-re-text-muted opacity-60">DOS Timetable</p>
-              <h1 className="text-xl sm:text-2xl font-black text-re-text tracking-tight mt-1">Modern Weekly Grid</h1>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={exportAsPng} disabled={exporting || loading || displayPeriods.length === 0} className="h-11 px-4 rounded-xl border border-black/10 bg-white text-re-text font-black text-[10px] uppercase tracking-widest hover:bg-re-bg transition inline-flex items-center gap-2 disabled:opacity-60">
-                <ImageIcon size={14} className="text-re-orange" />
-                Export PNG
-              </button>
-              <button type="button" onClick={exportAsPdf} disabled={exporting || loading || displayPeriods.length === 0} className="h-11 px-4 rounded-xl border border-black/10 bg-white text-re-text font-black text-[10px] uppercase tracking-widest hover:bg-re-bg transition inline-flex items-center gap-2 disabled:opacity-60">
-                <Download size={14} className="text-re-orange" />
-                Export PDF
-              </button>
-              <button type="button" onClick={() => setShowPeriodModal(true)} className="h-11 px-4 rounded-xl border border-black/10 bg-white text-re-text font-black text-[10px] uppercase tracking-widest hover:bg-re-bg transition">
-                Set Break/Lunch/Free
-              </button>
-              <button type="button" onClick={() => setShowCourseModal(true)} className="h-11 px-4 rounded-xl border border-black/10 bg-white text-re-text font-black text-[10px] uppercase tracking-widest hover:bg-re-bg transition inline-flex items-center gap-2">
-                <BookPlus size={14} className="text-re-orange" />
-                Create Course
-              </button>
-              <button type="button" onClick={() => openCreateTimetable()} className="h-11 px-4 rounded-xl bg-re-grad-orange text-white font-black text-[10px] uppercase tracking-widest shadow-re-glow hover:opacity-95 transition inline-flex items-center gap-2">
-                <Plus size={14} />
-                Add Timetable
-              </button>
-            </div>
-          </div>
+  const heroBtn =
+    'h-10 px-3 sm:px-4 rounded-xl text-xs font-medium transition inline-flex items-center gap-2 disabled:opacity-50';
+  const heroGhost = `${heroBtn} border border-white/25 bg-white/10 text-white hover:bg-white/15`;
+  const heroPrimary = `${heroBtn} border border-[#FEBF10]/45 bg-[#FEBF10]/18 text-[#FEBF10] hover:bg-[#FEBF10]/26 shadow-sm`;
 
-          <div className="mt-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
+  const heroActions = (
+    <div className="flex flex-wrap gap-2 justify-end max-w-xl lg:max-w-none">
+      <button type="button" onClick={exportAsPng} disabled={exporting || loading || displayPeriods.length === 0} className={heroGhost}>
+        <ImageIcon size={14} className="text-[#FEBF10]" />
+        Export PNG
+      </button>
+      <button type="button" onClick={exportAsPdf} disabled={exporting || loading || displayPeriods.length === 0} className={heroGhost}>
+        <Download size={14} className="text-[#FEBF10]" />
+        Export PDF
+      </button>
+      <button type="button" onClick={() => setShowPeriodModal(true)} className={heroGhost}>
+        Break / lunch
+      </button>
+      <button type="button" onClick={() => setShowCourseModal(true)} className={heroGhost}>
+        <BookPlus size={14} className="text-[#FEBF10]" />
+        New course
+      </button>
+      <button type="button" onClick={() => openCreateTimetable()} className={heroPrimary}>
+        <Plus size={14} strokeWidth={2.25} />
+        Add slot
+      </button>
+    </div>
+  );
+
+  return (
+    <>
+      <DosOchreHero
+        eyebrow="Schedule"
+        titleLine="Weekly"
+        titleAccent="timetable"
+        subtitle="Configure periods, assign classes and teachers, and export PNG or PDF for your school week."
+        icon={Calendar}
+        rightSlot={heroActions}
+      />
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 -mt-4 sm:-mt-5 md:-mt-6 pt-2 relative z-20 pb-10">
+      <div className="space-y-4">
+        <div className="bg-white rounded-[28px] border border-black/10 shadow-sm p-4 sm:p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
             <div className="relative xl:col-span-2">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-re-text-muted/60" />
               <input value={filters.q} onChange={(e) => setFilters((prev) => ({ ...prev, q: e.target.value }))} placeholder="Search class, subject, room, teacher..." className="w-full h-11 pl-10 pr-3 rounded-xl border border-black/10 text-sm font-semibold bg-white" />
@@ -498,10 +509,10 @@ export default function Timetable() {
           </div>
         )}
 
-        <div className="bg-[#f4f5f7] rounded-3xl border border-black/5 shadow-sm overflow-hidden">
+        <div className="bg-[#f4f5f7] rounded-[28px] border border-black/10 shadow-sm overflow-hidden">
           <div className="px-4 sm:px-6 py-4 border-b border-black/5 flex items-center justify-between">
-            <h2 className="text-sm font-black text-re-text uppercase tracking-[0.16em]">Weekly Grid</h2>
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-re-text-muted">{rows.length} lessons</span>
+            <h2 className="text-sm font-medium text-re-text tracking-tight">Weekly grid</h2>
+            <span className="text-[11px] font-medium text-re-text-muted">{rows.length} lessons</span>
           </div>
 
           {loading ? (
@@ -512,8 +523,8 @@ export default function Timetable() {
             <div className="overflow-x-auto p-3 sm:p-4" ref={exportRef}>
               <div className="grid grid-cols-5 gap-3 min-w-[980px]">
                 {WEEK_DAYS.map((day) => (
-                  <div key={day} className="bg-[#eef0f4] rounded-2xl border border-black/10 shadow-[0_4px_12px_rgba(15,23,42,0.06)] overflow-hidden">
-                    <div className="px-3 py-3 border-b border-black/10 text-center text-sm font-black tracking-[0.08em] text-[#1f2937] uppercase">
+                  <div key={day} className="bg-[#eef0f4] rounded-2xl border border-black/10 shadow-sm overflow-hidden">
+                    <div className="px-3 py-3 border-b border-black/10 text-center text-sm font-medium tracking-tight text-[#1f2937]">
                       <span className="text-sm">{day}</span>
                     </div>
                     <div className="p-2 space-y-2 bg-[#f4f5f7]">
@@ -592,7 +603,7 @@ export default function Timetable() {
 
       {showTimetableModal && (
         <div className="fixed inset-0 z-[2000] bg-black/50 p-3 sm:p-6 flex items-center justify-center">
-          <form onSubmit={submitTimetable} className="w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-black/5 overflow-hidden">
+          <form onSubmit={submitTimetable} className="w-full max-w-xl bg-white rounded-3xl shadow-sm border border-black/5 overflow-hidden">
             <div className="px-5 py-4 border-b border-black/5 flex items-center justify-between">
               <h3 className="text-sm font-black text-re-text uppercase tracking-widest">{editingRow ? 'Edit Timetable Period' : 'Create Timetable Period'}</h3>
               <button type="button" onClick={() => setShowTimetableModal(false)} className="p-2 rounded-lg text-re-text-muted hover:bg-re-bg"><X size={16} /></button>
@@ -678,7 +689,7 @@ export default function Timetable() {
 
       {showCourseModal && (
         <div className="fixed inset-0 z-[2100] bg-black/50 p-3 sm:p-6 flex items-center justify-center">
-          <form onSubmit={submitCourse} className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-black/5 overflow-hidden">
+          <form onSubmit={submitCourse} className="w-full max-w-md bg-white rounded-3xl shadow-sm border border-black/5 overflow-hidden">
             <div className="px-5 py-4 border-b border-black/5 flex items-center justify-between">
               <h3 className="text-sm font-black text-re-text uppercase tracking-widest">Create School Course</h3>
               <button type="button" onClick={() => setShowCourseModal(false)} className="p-2 rounded-lg text-re-text-muted hover:bg-re-bg"><X size={16} /></button>
@@ -712,7 +723,7 @@ export default function Timetable() {
 
       {showPeriodModal && (
         <div className="fixed inset-0 z-[2200] bg-black/50 p-3 sm:p-6 flex items-center justify-center">
-          <form onSubmit={submitPeriod} className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-black/5 overflow-hidden">
+          <form onSubmit={submitPeriod} className="w-full max-w-md bg-white rounded-3xl shadow-sm border border-black/5 overflow-hidden">
             <div className="px-5 py-4 border-b border-black/5 flex items-center justify-between">
               <h3 className="text-sm font-black text-re-text uppercase tracking-widest">Set Break / Lunch / Free Hour</h3>
               <button type="button" onClick={() => setShowPeriodModal(false)} className="p-2 rounded-lg text-re-text-muted hover:bg-re-bg"><X size={16} /></button>
@@ -746,6 +757,7 @@ export default function Timetable() {
           </form>
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }

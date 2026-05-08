@@ -77,13 +77,13 @@ const REPAYMENT_OPTIONS = Array.from({ length: 18 }, (_, i) => i + 1);
 
 const STATUS_MAP = {
    pending_accountant: {
-      label: 'Pending',
+      label: 'Pending — Finance Review',
       short: 'Pending',
       className: 'bg-amber-100 text-amber-900 border-amber-200',
    },
    sent_to_manager: {
       label: 'Sent to School Manager',
-      short: 'With manager',
+      short: 'With Manager',
       className: 'bg-sky-100 text-sky-900 border-sky-200',
    },
    approved: {
@@ -92,12 +92,12 @@ const STATUS_MAP = {
       className: 'bg-emerald-100 text-emerald-900 border-emerald-200',
    },
    rejected_by_accountant: {
-      label: 'Rejected',
+      label: 'Rejected by Finance',
       short: 'Rejected',
       className: 'bg-red-100 text-red-900 border-red-200',
    },
    rejected_by_manager: {
-      label: 'Rejected',
+      label: 'Rejected by Manager',
       short: 'Rejected',
       className: 'bg-red-100 text-red-900 border-red-200',
    },
@@ -155,13 +155,13 @@ function computeStatusTransitionAlerts(prevMap, rows) {
             key: `${id}-pending_to_manager`,
             variant: 'info',
             title: 'Sent to school manager',
-            message: `Finance approved and forwarded your request (#${id}) to your school manager.`,
+            message: `Finance reviewed and forwarded your request (#${id}) to your school manager for final approval.`,
          });
       } else if (was === 'sent_to_manager' && now === 'approved') {
          alerts.push({
             key: `${id}-manager_approved`,
             variant: 'success',
-            title: 'Request approved',
+            title: 'Request approved ✓',
             message: `Your school manager approved Ticha Avance request #${id}.`,
          });
       } else if (was === 'sent_to_manager' && now === 'rejected_by_manager') {
@@ -170,6 +170,24 @@ function computeStatusTransitionAlerts(prevMap, rows) {
             variant: 'reject',
             title: 'Request not approved',
             message: `Your school manager did not approve Ticha Avance request #${id}.`,
+         });
+      } else if (was === 'pending_accountant' && now === 'approved') {
+         // Cashout was auto-approved on a background refresh (edge case: tab was open during processing)
+         alerts.push({
+            key: `${id}-auto_approved`,
+            variant: 'success',
+            title: 'Cashout approved ✓',
+            message: `Your cashout request #${id} was automatically approved and will be deducted from your next payroll.`,
+         });
+      } else if (
+         (was === 'pending_accountant' || was === 'sent_to_manager') &&
+         now === 'rejected_by_accountant'
+      ) {
+         alerts.push({
+            key: `${id}-accountant_rejected`,
+            variant: 'reject',
+            title: 'Request declined by Finance',
+            message: `Your Ticha Avance request #${id} was declined by the finance team.`,
          });
       }
    }
@@ -363,6 +381,16 @@ export default function ShuleAvance() {
       return rows.filter(r => r.status === 'pending_accountant' || r.status === 'sent_to_manager');
    }, [rows]);
 
+   const cashoutRequests = useMemo(() =>
+      rows.filter(r => String(r.request_type || '').toLowerCase() === 'cashout'),
+   [rows]);
+
+   const dealRequests = useMemo(() =>
+      rows.filter(r => String(r.request_type || '').toLowerCase() !== 'cashout'),
+   [rows]);
+
+   const [activeTab, setActiveTab] = useState('cashout');
+
    const resetForm = () => {
       setAmount('');
       setRepayment(6);
@@ -418,6 +446,17 @@ export default function ShuleAvance() {
 
          const res = await api.post('/services/shule-avance/applicant/requests', body);
          if (res.data?.success) {
+            if (res.data.auto_approved) {
+               setStatusAlerts((prev) => {
+                  const key = `auto-approved-${Date.now()}`;
+                  return [{
+                     key,
+                     variant: 'success',
+                     title: 'Cashout auto-approved!',
+                     message: `Your cashout of ${formatMoney(amt)} was instantly approved (≤ 40 % of your net salary) and will be deducted from your next payroll.`,
+                  }, ...prev].slice(0, 8);
+               });
+            }
             closeFlow();
             await load(true);
          } else {
@@ -451,7 +490,7 @@ export default function ShuleAvance() {
                reason: String(cashoutReason || '').trim(),
                description: String(description || '').trim() || undefined,
                amount_requested: amt,
-               repayment_term_months: Number(repayment),
+               repayment_term_months: 1, // cashouts are always single-deduction
             };
 
          const res = await api.put(`/services/shule-avance/applicant/requests/${editRow.id}`, body);
@@ -591,7 +630,11 @@ export default function ShuleAvance() {
                   </div>
                   <div className="text-left">
                      <p className="text-sm font-black text-re-text uppercase tracking-tight">Request Cashout</p>
-                     <p className="text-[10px] font-bold text-re-text-muted opacity-60 uppercase">Instant approval available</p>
+                     <p className="text-[10px] font-bold text-re-text-muted opacity-60 uppercase">
+                        {payrollSalary?.net
+                           ? `≤ ${formatMoney(Math.floor(payrollSalary.net * 0.4))} auto-approved instantly`
+                           : 'Instant approval available for ≤ 40% of net salary'}
+                     </p>
                   </div>
                </div>
                <ChevronRight size={18} className="text-re-orange group-hover:translate-x-1 transition-transform" />
@@ -659,8 +702,8 @@ export default function ShuleAvance() {
                      {denied
                         ? 'Notifications are blocked for this site. Enable them in your browser settings to receive Ticha Avance updates.'
                         : subscribed
-                          ? 'You will receive system notifications when finance forwards your request or when your manager approves.'
-                          : 'Turn on to get notified when your request is sent to your manager or approved — even when this tab is closed.'}
+                          ? 'Active on this device. You will be notified when your cashout is auto-approved, when finance forwards your request, or when your manager decides.'
+                          : 'Turn on to get notified the moment your cashout is auto-approved, or when your manager approves/rejects — works even when this tab is closed, on any device.'}
                   </p>
                   {pushHint ? (
                      <p className="mt-2 text-[11px] font-semibold text-amber-700">{pushHint}</p>
@@ -697,9 +740,10 @@ export default function ShuleAvance() {
 
    return (
       <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen">
-         {statusAlerts.length > 0 && (
+         {/* ── Status alert toasts — portalled to body so CSS stacking contexts can't clip them ── */}
+         {statusAlerts.length > 0 && createPortal(
             <div
-               className="fixed top-[max(0.75rem,env(safe-area-inset-top))] left-4 right-4 z-[200] flex flex-col gap-2 max-w-lg mx-auto md:left-auto md:right-6 md:mx-0 pointer-events-none"
+               className="fixed top-16 left-4 right-4 z-[9999] flex flex-col gap-2 max-w-lg mx-auto md:left-auto md:right-6 md:mx-0 pointer-events-none"
                role="region"
                aria-label="Ticha Avance updates"
             >
@@ -709,12 +753,12 @@ export default function ShuleAvance() {
                   return (
                      <div
                         key={a.key}
-                        className={`pointer-events-auto flex gap-3 rounded-2xl border p-4 shadow-[0_14px_40px_-12px_rgba(14,31,53,0.35)] ${
+                        className={`pointer-events-auto flex gap-3 rounded-2xl border p-4 shadow-[0_14px_40px_-12px_rgba(14,31,53,0.35)] animate-in slide-in-from-top-2 duration-300 ${
                            isSuccess
-                              ? 'border-emerald-200 bg-emerald-50/95 backdrop-blur-sm'
+                              ? 'border-emerald-200 bg-emerald-50/98 backdrop-blur-sm'
                               : isReject
-                                ? 'border-red-200 bg-red-50/95 backdrop-blur-sm'
-                                : 'border-sky-200 bg-sky-50/95 backdrop-blur-sm'
+                                ? 'border-red-200 bg-red-50/98 backdrop-blur-sm'
+                                : 'border-sky-200 bg-sky-50/98 backdrop-blur-sm'
                         }`}
                      >
                         <div
@@ -743,7 +787,8 @@ export default function ShuleAvance() {
                      </div>
                   );
                })}
-            </div>
+            </div>,
+            document.body
          )}
          {/* ── Main Content Grid ── */}
           <div className="max-w-[1600px] mx-auto px-4 md:px-12 md:pt-6 pb-20 relative z-20">
@@ -757,66 +802,180 @@ export default function ShuleAvance() {
                       {renderWebPushCard()}
                    </div>
 
-                   <div className="bg-white rounded-2xl md:rounded-[32px] md:shadow-2xl border-y md:border border-black/5 p-0 md:p-8 relative overflow-hidden">
-                     <div className="pointer-events-none absolute inset-x-0 top-0 h-20 md:bg-[linear-gradient(180deg,rgba(255,140,0,0.07),transparent)]"></div>
-                     
-                     {activeApplications.length > 0 && (
-                        <div className="space-y-4">
-                           <div className="flex items-center gap-2 pl-3 pt-8 md:p-0">
-                              <span className="w-4 h-1 rounded-full bg-re-orange"></span>
-                              <p className="text-md  ">My Requests History ({activeApplications.length})</p>
+                   {/* ── Tabbed History Card ── */}
+                   <div className="bg-white rounded-2xl md:rounded-[32px] md:shadow-xl border-y md:border border-black/5 overflow-hidden">
+
+                     {/* Tab switcher */}
+                     <div className="px-4 pt-4 pb-0 md:px-6 md:pt-5">
+                        <div className="flex gap-2 p-1 bg-re-bg rounded-2xl">
+                           <button
+                              onClick={() => setActiveTab('cashout')}
+                              className={`flex flex-1 items-center justify-center gap-2 py-2.5 px-3 rounded-xl font-black text-[11px] uppercase tracking-wide transition-all duration-200 ${
+                                 activeTab === 'cashout'
+                                    ? 'bg-re-orange text-white shadow-md shadow-re-orange/30'
+                                    : 'text-re-text-muted hover:text-re-text'
+                              }`}
+                           >
+                              <Banknote size={13} className="shrink-0" />
+                              <span>Cashouts</span>
+                              {cashoutRequests.length > 0 && (
+                                 <span className={`inline-flex items-center justify-center h-4 min-w-[16px] px-1 rounded-full text-[9px] font-black ${
+                                    activeTab === 'cashout' ? 'bg-white/25 text-white' : 'bg-re-orange/15 text-re-orange'
+                                 }`}>{cashoutRequests.length}</span>
+                              )}
+                           </button>
+                           <button
+                              onClick={() => setActiveTab('deals')}
+                              className={`flex flex-1 items-center justify-center gap-2 py-2.5 px-3 rounded-xl font-black text-[11px] uppercase tracking-wide transition-all duration-200 ${
+                                 activeTab === 'deals'
+                                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30'
+                                    : 'text-re-text-muted hover:text-re-text'
+                              }`}
+                           >
+                              <Package size={13} className="shrink-0" />
+                              <span>Deals</span>
+                              {dealRequests.length > 0 && (
+                                 <span className={`inline-flex items-center justify-center h-4 min-w-[16px] px-1 rounded-full text-[9px] font-black ${
+                                    activeTab === 'deals' ? 'bg-white/25 text-white' : 'bg-indigo-500/15 text-indigo-600'
+                                 }`}>{dealRequests.length}</span>
+                              )}
+                           </button>
+                        </div>
+                     </div>
+
+                     {/* ── Cashout Tab ── */}
+                     {activeTab === 'cashout' && (
+                        <div className="animate-in fade-in duration-200">
+                           <div className="flex items-center justify-between px-4 pt-4 pb-2 md:px-6">
+                              <p className="text-[10px] font-black uppercase text-re-text-muted tracking-widest opacity-60">
+                                 {cashoutRequests.length} request{cashoutRequests.length !== 1 ? 's' : ''}
+                                 {cashoutRequests.length > 0 && ` · ${formatMoney(cashoutRequests.reduce((s, r) => s + (Number(r.amount_rwf) || 0), 0))} total`}
+                              </p>
+                              <button
+                                 onClick={() => { setSelectedBillKey('cashout'); setApplyMode('direct'); setShowApplyModal(true); setCashoutReason('Emergency Cashout'); }}
+                                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-re-orange text-white text-[10px] font-black uppercase tracking-wide hover:opacity-90 transition-opacity shadow-sm"
+                              >
+                                 <Plus size={11} /> New Cashout
+                              </button>
                            </div>
-                           
-                           <div className="md:bg-white rounded-none md:rounded-[24px] overflow-hidden md:shadow-sm">
-                              <div className="overflow-x-auto">
-                                 <table className="w-full md:border-collapse">
+
+                           {cashoutRequests.length === 0 ? (
+                              <div className="flex flex-col items-center justify-center py-14 gap-3">
+                                 <div className="w-14 h-14 rounded-2xl bg-re-bg flex items-center justify-center">
+                                    <Banknote size={24} className="text-re-text-muted/30" />
+                                 </div>
+                                 <div className="text-center">
+                                    <p className="text-xs font-black text-re-text-muted opacity-40 uppercase tracking-wide">No cashout requests yet</p>
+                                    <p className="text-[10px] text-re-text-muted opacity-30 mt-1">Tap "New Cashout" to request funds</p>
+                                 </div>
+                              </div>
+                           ) : (
+                              <div className="overflow-x-auto pb-2">
+                                 <table className="w-full min-w-[360px]">
                                     <thead>
-                                       <tr className="border-b border-black/5">
-                                          <th className="px-4 py-3 text-left text-sm ">Service</th>
-                                          <th className="px-4 py-3 text-left text-sm whitespace-nowrap">Amount</th>
-                                          <th className="px-4 py-3 text-left text-sm whitespace-nowrap">Status</th>
-                                          <th className="px-4 py-3 text-right text-sm"></th>
+                                       <tr className="border-b border-black/5 bg-re-bg/40">
+                                          <th className="px-4 md:px-6 py-2.5 text-left text-[10px] font-black uppercase text-re-text-muted/70 tracking-wider">Date & Reason</th>
+                                          <th className="px-3 py-2.5 text-left text-[10px] font-black uppercase text-re-text-muted/70 tracking-wider">Amount</th>
+                                          <th className="px-3 py-2.5 text-left text-[10px] font-black uppercase text-re-text-muted/70 tracking-wider">Status</th>
+                                          <th className="px-3 py-2.5 w-8"></th>
                                        </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-black/[0.03]">
-                                       {activeApplications.map((app, idx) => (
-                                          <tr key={app.id} onClick={() => setDetailRow(app)} className={`group hover:bg-re-bg/40 transition-all cursor-pointer ${idx % 2 === 0 ? 'bg-transparent' : 'bg-black/[0.015]'}`}>
-                                             <td className="px-4 py-4">
-                                                <span className="text-xs text-re-text whitespace-nowrap overflow-hidden text-ellipsis block">
-                                                   {app.service_category?.replace(/_/g, ' ') || 'Cashout'}
+                                    <tbody className="divide-y divide-black/[0.04]">
+                                       {cashoutRequests.map((r) => (
+                                          <tr key={r.id} onClick={() => setDetailRow(r)} className="group hover:bg-re-bg/40 transition-colors cursor-pointer active:bg-re-bg/60">
+                                             <td className="px-4 md:px-6 py-3.5">
+                                                <div className="text-xs font-bold text-re-text">{new Date(r.created_at).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}</div>
+                                                {r.cashout_reason && (
+                                                   <div className="text-[10px] text-re-text-muted mt-0.5 max-w-[180px] truncate opacity-50">{r.cashout_reason}</div>
+                                                )}
+                                             </td>
+                                             <td className="px-3 py-3.5 whitespace-nowrap">
+                                                <span className="text-sm font-black text-re-text">{formatMoney(r.amount_rwf)}</span>
+                                             </td>
+                                             <td className="px-3 py-3.5 whitespace-nowrap">
+                                                <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[9px] font-bold ${STATUS_MAP[r.status]?.className || 'bg-gray-100 text-gray-700 border-gray-200'}`}>
+                                                   {STATUS_MAP[r.status]?.short || r.status}
                                                 </span>
                                              </td>
-                                             <td className="px-4 py-4 whitespace-nowrap">
-                                                <span className="text-sm font-semibold text-re-text">{formatMoney(app.amount_rwf)}</span>
-                                             </td>
-                                             <td className="px-4 py-4 whitespace-nowrap">
-                                                <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs ${STATUS_MAP[app.status]?.className}`}>
-                                                   {STATUS_MAP[app.status]?.short}
-                                                </span>
-                                             </td>
-                                             <td className="px-4 py-4 text-right">
-                                                <ChevronRight size={14} className="text-re-text-muted group-hover:translate-x-1 transition-transform inline-block" />
+                                             <td className="px-3 py-3.5 text-right">
+                                                <ChevronRight size={14} className="text-re-text-muted/40 group-hover:translate-x-0.5 transition-transform inline-block" />
                                              </td>
                                           </tr>
                                        ))}
                                     </tbody>
-                                    <tfoot className="border-t-2 border-black/5 bg-re-bg/30">
-                                       <tr>
-                                          <td className="px-4 py-4 text-xs font-black uppercase text-re-text-muted">Total</td>
-                                          <td className="px-4 py-4 whitespace-nowrap">
-                                             <span className="text-sm font-black text-re-orange">
-                                                {formatMoney(activeApplications.reduce((sum, app) => sum + (Number(app.amount_rwf) || 0), 0))}
-                                             </span>
-                                          </td>
-                                          <td colSpan="2"></td>
-                                       </tr>
-                                    </tfoot>
                                  </table>
                               </div>
-                           </div>
+                           )}
                         </div>
                      )}
-                  </div>
+
+                     {/* ── Deals Tab ── */}
+                     {activeTab === 'deals' && (
+                        <div className="animate-in fade-in duration-200">
+                           <div className="flex items-center justify-between px-4 pt-4 pb-2 md:px-6">
+                              <p className="text-[10px] font-black uppercase text-re-text-muted tracking-widest opacity-60">
+                                 {dealRequests.length} request{dealRequests.length !== 1 ? 's' : ''}
+                                 {dealRequests.length > 0 && ` · ${formatMoney(dealRequests.reduce((s, r) => s + (Number(r.amount_rwf) || 0), 0))} total`}
+                              </p>
+                           </div>
+
+                           {dealRequests.length === 0 ? (
+                              <div className="flex flex-col items-center justify-center py-14 gap-3">
+                                 <div className="w-14 h-14 rounded-2xl bg-re-bg flex items-center justify-center">
+                                    <Package size={24} className="text-re-text-muted/30" />
+                                 </div>
+                                 <div className="text-center">
+                                    <p className="text-xs font-black text-re-text-muted opacity-40 uppercase tracking-wide">No deal requests yet</p>
+                                    <p className="text-[10px] text-re-text-muted opacity-30 mt-1">Browse TichaDeals to get started</p>
+                                 </div>
+                              </div>
+                           ) : (
+                              <div className="overflow-x-auto pb-2">
+                                 <table className="w-full min-w-[380px]">
+                                    <thead>
+                                       <tr className="border-b border-black/5 bg-re-bg/40">
+                                          <th className="px-4 md:px-6 py-2.5 text-left text-[10px] font-black uppercase text-re-text-muted/70 tracking-wider">Service / Deal</th>
+                                          <th className="px-3 py-2.5 text-left text-[10px] font-black uppercase text-re-text-muted/70 tracking-wider">Amount</th>
+                                          <th className="px-3 py-2.5 text-left text-[10px] font-black uppercase text-re-text-muted/70 tracking-wider hidden sm:table-cell">Term</th>
+                                          <th className="px-3 py-2.5 text-left text-[10px] font-black uppercase text-re-text-muted/70 tracking-wider">Status</th>
+                                          <th className="px-3 py-2.5 w-8"></th>
+                                       </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-black/[0.04]">
+                                       {dealRequests.map((r) => {
+                                          const label = r.service_category
+                                             ? r.service_category.replace(/_/g, ' ')
+                                             : r.vendor_label || 'Service';
+                                          return (
+                                             <tr key={r.id} onClick={() => setDetailRow(r)} className="group hover:bg-re-bg/40 transition-colors cursor-pointer active:bg-re-bg/60">
+                                                <td className="px-4 md:px-6 py-3.5">
+                                                   <div className="text-xs font-bold text-re-text capitalize">{label}</div>
+                                                   <div className="text-[10px] text-re-text-muted mt-0.5 opacity-50">{new Date(r.created_at).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}</div>
+                                                </td>
+                                                <td className="px-3 py-3.5 whitespace-nowrap">
+                                                   <span className="text-sm font-black text-re-text">{formatMoney(r.amount_rwf)}</span>
+                                                </td>
+                                                <td className="px-3 py-3.5 whitespace-nowrap hidden sm:table-cell">
+                                                   <span className="text-xs font-semibold text-re-text-muted/60">{r.repayment_term_months || 1}mo</span>
+                                                </td>
+                                                <td className="px-3 py-3.5 whitespace-nowrap">
+                                                   <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[9px] font-bold ${STATUS_MAP[r.status]?.className || 'bg-gray-100 text-gray-700 border-gray-200'}`}>
+                                                      {STATUS_MAP[r.status]?.short || r.status}
+                                                   </span>
+                                                </td>
+                                                <td className="px-3 py-3.5 text-right">
+                                                   <ChevronRight size={14} className="text-re-text-muted/40 group-hover:translate-x-0.5 transition-transform inline-block" />
+                                                </td>
+                                             </tr>
+                                          );
+                                       })}
+                                    </tbody>
+                                 </table>
+                              </div>
+                           )}
+                        </div>
+                     )}
+                   </div>
                </div>
 
                {/* ── Right Column (Sidebar) ── */}
@@ -856,32 +1015,32 @@ export default function ShuleAvance() {
          </div>
 
          {/* ── Modals ── */}
-         {showApplyModal && createPortal(
-            <div className="fixed inset-0 z-[300] flex items-end sm:items-center justify-center bg-black/75 p-0 sm:p-4 max-sm:pb-[env(safe-area-inset-bottom,0px)]">
-               <div className="w-full sm:max-w-[500px] rounded-t-[22px] sm:rounded-[24px] shadow-2xl max-h-[min(100svh,100dvh)] sm:max-h-[92vh] flex flex-col min-h-0 overflow-hidden animate-in zoom-in-95 duration-300">
-                  {(() => {
-                     const applyCanAdvance =
-                        (applyMode === 'invoice' && wizardStep < 2) || (applyMode === 'direct' && wizardStep < 2);
-                     const handleApplyBack = () => (wizardStep === 1 ? closeFlow() : setWizardStep(wizardStep - 1));
-                     const handleApplyPrimary = () => {
-                        if (applyCanAdvance) setWizardStep(wizardStep + 1);
-                        else if (applyMode === 'invoice') submitInvoiceWizard();
-                        else submitRequest({ customTerm: 1 });
-                     };
-                     return (
-                  <div className="relative z-10 bg-[linear-gradient(145deg,#0E1F35,#1B3354)] px-4 sm:px-6 pt-[max(0.75rem,env(safe-area-inset-top))] sm:pt-6 pb-4 shrink-0 border-b border-white/5">
+         {showApplyModal && (() => {
+            const applyCanAdvance =
+               (applyMode === 'invoice' && wizardStep < 2) || (applyMode === 'direct' && wizardStep < 2);
+            const handleApplyBack = () => (wizardStep === 1 ? closeFlow() : setWizardStep(wizardStep - 1));
+            const handleApplyPrimary = () => {
+               if (applyCanAdvance) setWizardStep(wizardStep + 1);
+               else if (applyMode === 'invoice') submitInvoiceWizard();
+               else submitRequest({ customTerm: 1 });
+            };
+            return createPortal(
+            <div className="fixed inset-0 z-[300] flex items-end sm:items-center justify-center bg-black/75 p-0 sm:p-4">
+               <div className="w-full sm:max-w-[500px] rounded-t-[28px] sm:rounded-[24px] shadow-2xl max-h-[min(96svh,100dvh)] sm:max-h-[92vh] flex flex-col min-h-0 overflow-hidden animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300">
+
+                  {/* ── Header ── */}
+                  <div className="bg-[linear-gradient(145deg,#0E1F35,#1B3354)] px-4 sm:px-6 pt-[max(0.75rem,env(safe-area-inset-top))] sm:pt-6 pb-4 shrink-0 border-b border-white/5">
                      <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-4 sm:hidden" />
-                     <div className="flex items-start gap-2 sm:gap-3">
-                        <div className="shrink-0 pt-0.5 lg:hidden">
-                           <button
-                              type="button"
-                              onClick={handleApplyBack}
-                              className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/12 border border-white/20 text-white shadow-sm hover:bg-white/20 active:scale-[0.97]"
-                              aria-label={wizardStep === 1 ? 'Close' : 'Back'}
-                           >
-                              <ArrowLeft size={18} strokeWidth={2.25} />
-                           </button>
-                        </div>
+                     <div className="flex items-center gap-3">
+                        {/* Back button — always visible in header */}
+                        <button
+                           type="button"
+                           onClick={handleApplyBack}
+                           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 border border-white/15 text-white shadow-sm hover:bg-white/20 active:scale-[0.97] transition-all"
+                           aria-label={wizardStep === 1 ? 'Close' : 'Back'}
+                        >
+                           <ArrowLeft size={18} strokeWidth={2.25} />
+                        </button>
                         <div className="min-w-0 flex-1">
                            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-amber-400/90 mb-0.5">
                               Step {wizardStep} of 2 · {applyMode === 'invoice' ? 'Invoice' : 'Cashout'}
@@ -890,44 +1049,24 @@ export default function ShuleAvance() {
                               {applyMode === 'invoice' ? 'Pay Invoice' : 'New Cashout Request'}
                            </h1>
                         </div>
-                        <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
-                           <div className="flex items-center gap-1 lg:hidden">
-                              {applyCanAdvance ? (
-                                 <button
-                                    type="button"
-                                    onClick={() => setWizardStep(wizardStep + 1)}
-                                    className="inline-flex items-center justify-center gap-0.5 rounded-xl bg-gradient-to-b from-amber-400 to-amber-500 px-2.5 py-2 min-h-[38px] max-w-[7rem] text-[10px] font-black uppercase tracking-wide text-[#0E1F35] shadow-md ring-1 ring-amber-300/60 active:scale-[0.98]"
-                                 >
-                                    Next
-                                    <ChevronRight size={14} strokeWidth={2.5} />
-                                 </button>
-                              ) : (
-                                 <button
-                                    type="button"
-                                    onClick={handleApplyPrimary}
-                                    disabled={submitting}
-                                    className="inline-flex items-center justify-center gap-1 rounded-xl bg-re-orange px-2.5 py-2 min-h-[38px] max-w-[7.5rem] text-[10px] font-black uppercase tracking-wide text-white shadow-lg shadow-re-orange/25 ring-1 ring-white/20 active:scale-[0.98] disabled:opacity-45"
-                                 >
-                                    {submitting ? <Loader2 size={14} className="animate-spin shrink-0" /> : <CheckCircle size={14} className="shrink-0" />}
-                                    <span className="truncate">{submitting ? '…' : 'Confirm'}</span>
-                                 </button>
-                              )}
-                           </div>
-                           <button
-                              type="button"
-                              onClick={closeFlow}
-                              className="p-2 bg-white/10 hover:bg-white/20 rounded-xl text-white/70 transition-all group shrink-0"
-                              aria-label="Close"
-                           >
-                              <X size={18} className="group-hover:rotate-90 transition-transform" />
-                           </button>
-                        </div>
+                        <button
+                           type="button"
+                           onClick={closeFlow}
+                           className="h-10 w-10 shrink-0 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-xl text-white/70 transition-all"
+                           aria-label="Close"
+                        >
+                           <X size={18} />
+                        </button>
+                     </div>
+                     {/* Step dots */}
+                     <div className="flex gap-1.5 mt-3 ml-[52px]">
+                        {[1, 2].map(s => (
+                           <div key={s} className={`rounded-full transition-all duration-300 ${s === wizardStep ? 'w-5 h-1.5 bg-amber-400' : s < wizardStep ? 'w-1.5 h-1.5 bg-amber-400/60' : 'w-1.5 h-1.5 bg-white/20'}`} />
+                        ))}
                      </div>
                   </div>
-                     );
-                  })()}
 
-                  <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 sm:px-6 py-5 sm:py-6 bg-white space-y-6 pb-10 lg:pb-6 [-webkit-overflow-scrolling:touch]">
+                  <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 sm:px-6 py-5 sm:py-6 bg-white space-y-6 [-webkit-overflow-scrolling:touch]">
                      {error && <div className="flex items-start gap-2 rounded-xl bg-red-50 border border-red-100 p-4 animate-in fade-in"><AlertTriangle size={16} className="text-red-500 mt-0.5 shrink-0" /><p className="text-xs font-bold text-red-800">{error}</p></div>}
                      
                      {applyMode === 'invoice' ? (
@@ -973,8 +1112,26 @@ export default function ShuleAvance() {
                         <div className="space-y-6 animate-in slide-in-from-right-4">
                            {wizardStep === 1 && (
                               <div className="space-y-6 py-4">
-                                 <div className="space-y-2"><label className="text-[10px] font-bold text-re-text-muted uppercase tracking-widest opacity-40 ml-1">Amount Requested (RWF)</label>
-                                    <input type="number" value={amount} onChange={e => { setAmount(e.target.value); setRepayment(1); }} placeholder="Enter amount..." className="w-full h-16 bg-re-bg rounded-2xl px-6 font-black text-2xl outline-none border border-transparent focus:border-re-orange/20 shadow-inner" />
+                                 <div className="space-y-2">
+                                    <label className="text-[10px] font-bold text-re-text-muted uppercase tracking-widest opacity-40 ml-1">Amount Requested (RWF)</label>
+                                    <input type="number" value={amount} onChange={e => { setAmount(e.target.value); }} placeholder="Enter amount..." className="w-full h-16 bg-re-bg rounded-2xl px-6 font-black text-2xl outline-none border border-transparent focus:border-re-orange/20 shadow-inner" />
+                                    {/* 40% threshold badge */}
+                                    {(() => {
+                                       const netSal = payrollSalary?.net || 0;
+                                       const threshold = Math.floor(netSal * 0.4);
+                                       const enteredAmt = Number(amount) || 0;
+                                       if (!netSal || !enteredAmt) return null;
+                                       const isAuto = enteredAmt <= threshold;
+                                       return (
+                                          <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-[10px] font-bold mt-1 ${isAuto ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
+                                             {isAuto ? <CheckCircle size={13} className="shrink-0 text-emerald-600" /> : <AlertCircle size={13} className="shrink-0 text-amber-600" />}
+                                             {isAuto
+                                                ? `Auto-approved — within 40% of your net salary (${formatMoney(threshold)} limit)`
+                                                : `Requires review — exceeds 40% limit (${formatMoney(threshold)}). Will go to accountant → manager.`
+                                             }
+                                          </div>
+                                       );
+                                    })()}
                                  </div>
                                  <div className="p-5 rounded-2xl bg-re-bg/50 border border-black/5 flex items-start gap-4">
                                     <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-re-orange shrink-0 shadow-sm transition-transform hover:rotate-12"><Zap size={20} /></div>
@@ -987,6 +1144,23 @@ export default function ShuleAvance() {
                            )}
                            {wizardStep === 2 && (
                               <div className="space-y-4 py-2">
+                                 {/* Approval path indicator */}
+                                 {(() => {
+                                    const netSal = payrollSalary?.net || 0;
+                                    const threshold = Math.floor(netSal * 0.4);
+                                    const enteredAmt = Number(amount) || 0;
+                                    const isAuto = netSal > 0 && enteredAmt > 0 && enteredAmt <= threshold;
+                                    return (
+                                       <div className={`flex items-center gap-2 px-4 py-3 rounded-2xl border text-[10px] font-bold ${isAuto ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
+                                          {isAuto ? <CheckCircle size={14} className="shrink-0 text-emerald-600" /> : <Send size={14} className="shrink-0 text-amber-600" />}
+                                          <span>
+                                             {isAuto
+                                                ? 'Instant approval — money will be available immediately, deducted from next payroll.'
+                                                : 'This request will be sent to your accountant, then to your school manager for approval.'}
+                                          </span>
+                                       </div>
+                                    );
+                                 })()}
                                  <div className="bg-re-bg p-6 rounded-[28px] border border-black/5 space-y-5">
                                     <div className="flex justify-between items-center">
                                        <span className="text-[10px] font-black uppercase text-re-text-muted/60">Amount to Receive</span>
@@ -997,7 +1171,7 @@ export default function ShuleAvance() {
                                           <span className="text-[10px] font-black uppercase text-re-orange tracking-widest">Est. Salary Balance</span>
                                           <p className="text-[9px] font-bold text-re-text-muted opacity-50 uppercase">After next deduction</p>
                                        </div>
-                                       <span className="text-xl font-black text-re-orange">{formatMoney(350000 - Number(amount))}</span>
+                                       <span className="text-xl font-black text-re-orange">{formatMoney((payrollSalary?.net || 0) - Number(amount))}</span>
                                     </div>
                                  </div>
                                  <div className="flex items-center gap-2 p-3 bg-re-orange/5 border border-re-orange/10 rounded-xl">
@@ -1010,15 +1184,42 @@ export default function ShuleAvance() {
                      )}
                   </div>
 
+                  {/* ── Mobile sticky footer (Next / Confirm at bottom-right) ── */}
+                  <div className="lg:hidden shrink-0 flex items-center justify-between gap-3 px-4 py-3 bg-white border-t border-black/5 pb-[max(0.75rem,env(safe-area-inset-bottom,0.75rem))]">
+                     <p className="text-[10px] font-bold text-re-text-muted opacity-50 uppercase">
+                        {wizardStep === 1 ? 'Fill in the details' : 'Review your request'}
+                     </p>
+                     {applyCanAdvance ? (
+                        <button
+                           type="button"
+                           onClick={() => setWizardStep(wizardStep + 1)}
+                           className="flex items-center gap-1.5 px-5 py-2.5 rounded-2xl bg-[#0E1F35] text-white font-black text-[11px] uppercase tracking-wide shadow-lg active:scale-95 transition-all"
+                        >
+                           Next <ChevronRight size={14} strokeWidth={2.5} />
+                        </button>
+                     ) : (
+                        <button
+                           type="button"
+                           onClick={handleApplyPrimary}
+                           disabled={submitting}
+                           className="flex items-center gap-1.5 px-5 py-2.5 rounded-2xl bg-re-orange text-white font-black text-[11px] uppercase tracking-wide shadow-lg shadow-re-orange/25 active:scale-95 transition-all disabled:opacity-50"
+                        >
+                           {submitting ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle size={13} />}
+                           {submitting ? 'Submitting…' : 'Confirm'}
+                        </button>
+                     )}
+                  </div>
+
+                  {/* ── Desktop footer ── */}
                   <div className="hidden lg:flex p-6 border-t border-black/5 items-center justify-between gap-4 shrink-0 bg-white">
                      <button
                         type="button"
-                        onClick={() => (wizardStep === 1 ? closeFlow() : setWizardStep(wizardStep - 1))}
+                        onClick={handleApplyBack}
                         className="px-6 py-2.5 rounded-xl border border-black/5 font-black text-[11px] uppercase tracking-widest hover:bg-re-bg transition-all text-re-text-muted"
                      >
                         Back
                      </button>
-                     {(applyMode === 'invoice' && wizardStep < 2) || (applyMode === 'direct' && wizardStep < 2) ? (
+                     {applyCanAdvance ? (
                         <button
                            type="button"
                            onClick={() => setWizardStep(wizardStep + 1)}
@@ -1029,7 +1230,7 @@ export default function ShuleAvance() {
                      ) : (
                         <button
                            type="button"
-                           onClick={applyMode === 'invoice' ? submitInvoiceWizard : () => submitRequest({ customTerm: 1 })}
+                           onClick={handleApplyPrimary}
                            disabled={submitting}
                            className="flex-1 px-8 py-3 rounded-xl bg-re-orange text-white font-black text-[11px] uppercase tracking-widest shadow-xl shadow-re-orange/20 flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50"
                         >
@@ -1041,7 +1242,8 @@ export default function ShuleAvance() {
                </div>
             </div>,
             document.body
-         )}
+            );
+         })()}
 
          {/* Edit Modal (Standard) */}
          {editRow && createPortal(
@@ -1050,13 +1252,21 @@ export default function ShuleAvance() {
                   <div className="flex items-center justify-between"><h2 className="text-lg font-black text-re-text uppercase tracking-tight">Update Request</h2><button onClick={() => setEditRow(null)} className="p-2 hover:bg-re-bg rounded-xl"><X size={20} /></button></div>
                   <div className="space-y-4">
                      <div><label className="text-[10px] font-black text-re-text-muted uppercase">Amount (RWF)</label><input type="number" value={amount} onChange={e => setAmount(e.target.value)} className="w-full h-12 bg-re-bg rounded-xl px-4 font-black mt-1" /></div>
-                     <div><label className="text-[10px] font-black text-re-text-muted uppercase">Repayment Months</label><select value={repayment} onChange={e => setRepayment(Number(e.target.value))} className="w-full h-12 bg-re-bg rounded-xl px-4 font-black mt-1">{REPAYMENT_OPTIONS.map(m => <option key={m} value={m}>{m} Months</option>)}</select></div>
+                     {String(editRow.request_type).toLowerCase() !== 'cashout' && (
+                        <div><label className="text-[10px] font-black text-re-text-muted uppercase">Repayment Months</label><select value={repayment} onChange={e => setRepayment(Number(e.target.value))} className="w-full h-12 bg-re-bg rounded-xl px-4 font-black mt-1">{REPAYMENT_OPTIONS.map(m => <option key={m} value={m}>{m} Months</option>)}</select></div>
+                     )}
                      {String(editRow.request_type).toLowerCase() === 'cashout' ? (
-                        <div><label className="text-[10px] font-black text-re-text-muted uppercase">Reason</label><textarea value={cashoutReason} onChange={e => setCashoutReason(e.target.value)} className="w-full h-24 bg-re-bg rounded-xl p-4 font-bold mt-1" /></div>
+                        <>
+                           <div><label className="text-[10px] font-black text-re-text-muted uppercase">Reason</label><textarea value={cashoutReason} onChange={e => setCashoutReason(e.target.value)} className="w-full h-24 bg-re-bg rounded-xl p-4 font-bold mt-1" /></div>
+                           <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-sky-50 border border-sky-100 text-[10px] font-bold text-sky-800">
+                              <Zap size={12} className="shrink-0 text-sky-500" />
+                              Cashout is deducted in full from your next payroll — no repayment schedule needed.
+                           </div>
+                        </>
                      ) : (
                         <div><label className="text-[10px] font-black text-re-text-muted uppercase">Description</label><textarea value={description} onChange={e => setDescription(e.target.value)} className="w-full h-24 bg-re-bg rounded-xl p-4 font-bold mt-1" /></div>
                      )}
-                     <button onClick={submitUpdate} disabled={submitting} className="w-full py-4 rounded-2xl bg-re-grad-orange text-white font-black uppercase tracking-widest shadow-re-glow">Save Changes</button>
+                     <button onClick={submitUpdate} disabled={submitting} className="w-full py-4 rounded-2xl bg-re-grad-orange text-white font-black uppercase tracking-widest shadow-re-glow">{submitting ? 'Saving…' : 'Save Changes'}</button>
                   </div>
                </div>
             </div>,
@@ -1064,61 +1274,120 @@ export default function ShuleAvance() {
          )}
 
          {/* Detail Modal */}
-         <Modal open={!!detailRow} onClose={() => setDetailRow(null)} wide title={`Request Details #${detailRow?.id}`}>
-            {detailRow && (
-               <div className="space-y-6">
-                  <div className="space-y-4">
-                     <div className="flex items-center justify-between gap-4">
-                        <span className="text-[10px] font-black text-re-text-muted uppercase tracking-widest whitespace-nowrap">Amount Requested</span>
-                        <div className="flex-1 border-b border-dashed border-black/10 mt-1"></div>
-                        <span className="text-sm font-black text-re-text whitespace-nowrap">{formatMoney(detailRow.amount_rwf)}</span>
-                     </div>
-                     <div className="flex items-center justify-between gap-4">
-                        <span className="text-[10px] font-black text-re-text-muted uppercase tracking-widest whitespace-nowrap">Date Requested</span>
-                        <div className="flex-1 border-b border-dashed border-black/10 mt-1"></div>
-                        <span className="text-sm font-black text-re-text whitespace-nowrap">{new Date(detailRow.created_at).toLocaleDateString()}</span>
-                     </div>
-                     <div className="flex items-center justify-between gap-4">
-                        <span className="text-[10px] font-black text-re-text-muted uppercase tracking-widest whitespace-nowrap">Request Status</span>
-                        <div className="flex-1 border-b border-dashed border-black/10 mt-1"></div>
-                        <span className={`text-[10px] font-black uppercase px-3 py-1 rounded-full border ${STATUS_MAP[detailRow.status]?.className}`}>
-                           {STATUS_MAP[detailRow.status]?.label}
+         <Modal open={!!detailRow} onClose={() => setDetailRow(null)} wide
+            title={detailRow ? `${String(detailRow.request_type || 'service').toLowerCase() === 'cashout' ? 'Cashout' : 'Deal'} Request #${detailRow.id}` : ''}>
+            {detailRow && (() => {
+               const isCashout = String(detailRow.request_type || '').toLowerCase() === 'cashout';
+               const isPending = detailRow.status === 'pending_accountant';
+               const amt = Number(detailRow.amount_rwf) || 0;
+               const months = Number(detailRow.repayment_term_months) || 1;
+               const interest = amt * 0.03 * months;
+               return (
+                  <div className="space-y-5">
+
+                     {/* Type badge + status */}
+                     <div className="flex items-center justify-between gap-3">
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wide ${isCashout ? 'bg-re-orange/10 text-re-orange' : 'bg-indigo-50 text-indigo-700'}`}>
+                           {isCashout ? <Banknote size={12} /> : <Package size={12} />}
+                           {isCashout ? 'Cashout' : (detailRow.service_category?.replace(/_/g, ' ') || detailRow.vendor_label || 'Service')}
+                        </span>
+                        <span className={`inline-flex items-center rounded-full border px-3 py-1 text-[10px] font-bold ${STATUS_MAP[detailRow.status]?.className || 'bg-gray-100 text-gray-700 border-gray-200'}`}>
+                           {STATUS_MAP[detailRow.status]?.label || detailRow.status}
                         </span>
                      </div>
-                  </div>
 
-                  <div className="bg-re-bg rounded-2xl p-5 divide-y divide-gray-300 border border-black/5 space-y-4">
-                     <div className="flex justify-between items-center ">
-                        <h4 className="text-sm  text-re-text">Repayment Calculator :</h4>
-                        <span className="text-xs  text-re-text-muted">Rate 3.00% / mo · {detailRow.repayment_term_months || 1} mos</span>
-                     </div>
-                     
-                     <div className="space-y-4 pt-2">
-                        <div className="flex items-center justify-between gap-4">
-                           <span className="text-sm  text-re-text-muted whitespace-nowrap">Est. total interest :</span>
-                           <span className="text-sm  text-re-text whitespace-nowrap">{formatMoney((Number(detailRow.amount_rwf) || 0) * 0.03 * (Number(detailRow.repayment_term_months) || 1))}</span>
+                     {/* Key figures */}
+                     <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-re-bg rounded-2xl p-4 space-y-1">
+                           <p className="text-[9px] font-black uppercase text-re-text-muted opacity-50 tracking-widest">Amount</p>
+                           <p className="text-xl font-black text-re-text">{formatMoney(amt)}</p>
                         </div>
-                        <div className="flex items-center justify-between gap-4">
-                           <span className="text-sm  text-re-text-muted  whitespace-nowrap">Total to repay :</span>
-                           <span className="text-sm  text-re-text whitespace-nowrap">{formatMoney((Number(detailRow.amount_rwf) || 0) + ((Number(detailRow.amount_rwf) || 0) * 0.03 * (Number(detailRow.repayment_term_months) || 1)))}</span>
-                        </div>
-                        <div className="flex items-center justify-between gap-4">
-                           <span className="text-sm text-re-orange  whitespace-nowrap">Monthly installment :</span>
-                           <span className="text-sm text-re-orange whitespace-nowrap">{formatMoney(((Number(detailRow.amount_rwf) || 0) + ((Number(detailRow.amount_rwf) || 0) * 0.03 * (Number(detailRow.repayment_term_months) || 1))) / (Number(detailRow.repayment_term_months) || 1))}</span>
+                        <div className="bg-re-bg rounded-2xl p-4 space-y-1">
+                           <p className="text-[9px] font-black uppercase text-re-text-muted opacity-50 tracking-widest">Date</p>
+                           <p className="text-sm font-black text-re-text">{new Date(detailRow.created_at).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}</p>
                         </div>
                      </div>
-                     
-                  </div>
 
-                  {detailRow.accountant_note && <div className="p-4 bg-sky-50 border border-sky-100 rounded-2xl"><p className="text-[9px] font-black uppercase text-sky-800/50">Finance Feedback</p><p className="text-sm font-bold text-sky-900 mt-1">{detailRow.accountant_note}</p></div>}
-                  
-                  {detailRow.status === 'pending_accountant' && (
-                     <div className="pt-2">
-                        <button onClick={() => handleCancel(detailRow.id)} className="w-full py-3.5 rounded-xl bg-red-50 text-red-500 font-black text-[10px] uppercase tracking-widest hover:bg-red-100 transition-colors">Cancel Request</button>
-                     </div>
-                  )}
-               </div>
-            )}
+                     {/* Reason / Purpose */}
+                     {(detailRow.cashout_reason || detailRow.purpose) && (
+                        <div className="bg-re-bg rounded-2xl p-4 space-y-1">
+                           <p className="text-[9px] font-black uppercase text-re-text-muted opacity-50 tracking-widest">{isCashout ? 'Reason' : 'Purpose'}</p>
+                           <p className="text-sm font-semibold text-re-text leading-relaxed">{detailRow.cashout_reason || detailRow.purpose}</p>
+                        </div>
+                     )}
+
+                     {/* Deduction / Repayment block */}
+                     {isCashout ? (
+                        <div className="bg-sky-50 rounded-2xl p-5 border border-sky-100 space-y-3">
+                           <div className="flex items-center gap-2">
+                              <Zap size={14} className="text-sky-600 shrink-0" />
+                              <h4 className="text-xs font-black text-sky-900 uppercase tracking-tight">Single Payroll Deduction</h4>
+                           </div>
+                           <p className="text-[11px] font-semibold text-sky-800 leading-relaxed">
+                              Deducted in full from your next payroll — no interest, no instalment schedule.
+                           </p>
+                           <div className="flex items-center justify-between pt-2 border-t border-sky-200">
+                              <span className="text-[10px] font-black text-sky-700 uppercase">Full deduction</span>
+                              <span className="text-sm font-black text-sky-900">{formatMoney(amt)}</span>
+                           </div>
+                        </div>
+                     ) : (
+                        <div className="bg-re-bg rounded-2xl p-5 border border-black/5 space-y-4">
+                           <div className="flex justify-between items-center">
+                              <h4 className="text-xs font-black text-re-text uppercase">Repayment</h4>
+                              <span className="text-[10px] font-semibold text-re-text-muted">3.00% / mo · {months} mo</span>
+                           </div>
+                           <div className="space-y-3 pt-1 border-t border-black/5">
+                              {[
+                                 { label: 'Principal', val: formatMoney(amt) },
+                                 { label: 'Est. interest', val: formatMoney(interest) },
+                                 { label: 'Total to repay', val: formatMoney(amt + interest) },
+                                 { label: 'Monthly instalment', val: formatMoney((amt + interest) / months), highlight: true },
+                              ].map(({ label, val, highlight }) => (
+                                 <div key={label} className="flex items-center justify-between gap-3">
+                                    <span className={`text-xs font-semibold ${highlight ? 'text-re-orange' : 'text-re-text-muted'}`}>{label}</span>
+                                    <div className="flex-1 border-b border-dashed border-black/5" />
+                                    <span className={`text-sm font-black ${highlight ? 'text-re-orange' : 'text-re-text'}`}>{val}</span>
+                                 </div>
+                              ))}
+                           </div>
+                        </div>
+                     )}
+
+                     {/* Finance / manager feedback */}
+                     {detailRow.accountant_note && (
+                        <div className="p-4 bg-sky-50 border border-sky-100 rounded-2xl">
+                           <p className="text-[9px] font-black uppercase text-sky-800/50">Finance Note</p>
+                           <p className="text-sm font-bold text-sky-900 mt-1">{detailRow.accountant_note}</p>
+                        </div>
+                     )}
+                     {detailRow.manager_feedback && (
+                        <div className={`p-4 rounded-2xl border ${detailRow.status === 'approved' ? 'bg-emerald-50 border-emerald-100' : 'bg-red-50 border-red-100'}`}>
+                           <p className={`text-[9px] font-black uppercase ${detailRow.status === 'approved' ? 'text-emerald-800/50' : 'text-red-800/50'}`}>Manager Feedback</p>
+                           <p className={`text-sm font-bold mt-1 ${detailRow.status === 'approved' ? 'text-emerald-900' : 'text-red-900'}`}>{detailRow.manager_feedback}</p>
+                        </div>
+                     )}
+
+                     {/* Actions */}
+                     {isPending && (
+                        <div className="flex gap-3 pt-1">
+                           <button
+                              onClick={() => { setDetailRow(null); openEdit(detailRow); }}
+                              className="flex-1 py-3 rounded-xl border border-black/10 bg-white text-re-text font-black text-[10px] uppercase tracking-widest hover:bg-re-bg transition-colors flex items-center justify-center gap-1.5"
+                           >
+                              <Pencil size={12} /> Edit
+                           </button>
+                           <button
+                              onClick={() => handleCancel(detailRow.id)}
+                              className="flex-1 py-3 rounded-xl bg-red-50 text-red-500 font-black text-[10px] uppercase tracking-widest hover:bg-red-100 transition-colors flex items-center justify-center gap-1.5"
+                           >
+                              <Trash2 size={12} /> Cancel
+                           </button>
+                        </div>
+                     )}
+                  </div>
+               );
+            })()}
          </Modal>
 
          {/* Product Preview Modal */}

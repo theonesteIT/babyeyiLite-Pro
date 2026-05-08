@@ -5,6 +5,7 @@
 import en from "./en.json";
 import rw from "./rw.json";
 import fr from "./fr.json";
+import { normalizeBabyeyiLang } from "../babyeyiPublic/babyeyiTranslateLangs.js";
 
 const locales = { en, rw, fr };
 
@@ -19,10 +20,11 @@ function getNested(obj, path) {
  */
 /** Stored parent message, or official Kinyarwanda template when empty in RW view. */
 export function getParentMessageForDisplay(rec, lang, T) {
-  const raw = String(rec?.parentMessage || "").trim();
-  if (raw) return rec.parentMessage;
+  const fromRec = rec?.parentMessage ?? rec?.parent_message;
+  const raw = String(fromRec ?? "").trim();
+  if (raw) return String(fromRec);
   if (lang === "rw" && T.officialParentMessageRw) return T.officialParentMessageRw;
-  return rec?.parentMessage || "";
+  return "";
 }
 
 export function createTranslator(locale) {
@@ -45,7 +47,7 @@ export function createTranslator(locale) {
  * @param {string} lang
  */
 export function getLegacyBabyeyiUI(lang) {
-  const t = createTranslator(lang);
+  const t = createTranslator(normalizeBabyeyiLang(lang));
   return {
     title: t("list.title"),
     viewBtn: t("list.viewBtn"),
@@ -147,6 +149,49 @@ export function getLegacyBabyeyiUI(lang) {
     headerMinistryLine: t("doc.headerMinistryLine"),
     badgeCategory: t("doc.badgeCategory"),
     officialParentMessageRw: t("doc.officialParentMessageRw"),
+    docFooterLeft: t("doc.docFooterLeft"),
+    finderEyebrow: t("finder.eyebrow"),
+    finderHeroTitle: t("finder.heroTitle"),
+    finderHeroSubtitle: t("finder.heroSubtitle"),
+    finderCardTitle: t("finder.cardTitle"),
+    finderCardSubtitle: t("finder.cardSubtitle"),
+    finderSearchBtn: t("finder.searchBtn"),
+    finderSearching: t("finder.searching"),
+    finderFound: t("finder.found"),
+    finderDocOne: t("finder.docOne"),
+    finderDocMany: t("finder.docMany"),
+    finderNoDocsTitle: t("finder.noDocsTitle"),
+    finderNoDocsBody: t("finder.noDocsBody"),
+    finderOpening: t("finder.opening"),
+    finderInfoTitle: t("finder.infoTitle"),
+    finderInfoBody: t("finder.infoBody"),
+    finderAllYears: t("finder.allYears"),
+    finderAllTerms: t("finder.allTerms"),
+    finderAllClasses: t("finder.allClasses"),
+    finderModalEyebrow: t("finder.modalEyebrow"),
+    finderModalTitle: t("finder.modalTitle"),
+    finderModalSubtitle: t("finder.modalSubtitle"),
+    finderStudentCodePlaceholder: t("finder.studentCodePlaceholder"),
+    finderConfirmLookupBtn: t("finder.confirmLookupBtn"),
+    finderOpenDownloadBtn: t("finder.openDownloadBtn"),
+    finderViewPayBtn: t("finder.viewPayBtn"),
+    finderFilterError: t("finder.filterError"),
+    finderSchoolMissingError: t("finder.schoolMissingError"),
+    finderFetchError: t("finder.fetchError"),
+    finderStudentCodeRequired: t("finder.studentCodeRequired"),
+    finderStudentNotFound: t("finder.studentNotFound"),
+    finderWrongSchoolError: t("finder.wrongSchoolError"),
+    finderStudentLookupFailed: t("finder.studentLookupFailed"),
+    finderNoResultsModal: t("finder.noResultsModal"),
+    finderTotalFeeShort: t("finder.totalFeeShort"),
+    finderBankLabel: t("finder.bankLabel"),
+    finderViewDownloadBtn: t("finder.viewDownloadBtn"),
+    finderClassPrefix: t("finder.classPrefix"),
+    finderAriaClose: t("finder.ariaClose"),
+    finderOpenDocFailed: t("finder.openDocFailed"),
+    finderLoadLangError: t("finder.loadLangError"),
+    finderSearchLangPlaceholder: t("finder.searchLangPlaceholder"),
+    finderNoLangMatch: t("finder.noLangMatch"),
   };
 }
 

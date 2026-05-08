@@ -49,7 +49,7 @@ const Login = () => {
          <div className="absolute bottom-0 left-0 w-96 h-96 bg-re-orange/10 blur-3xl -ml-48 -mb-48 rounded-full pointer-events-none"></div>
 
          <div className="w-full flex items-center justify-center p-0 md:p-8 z-10">
-            <div className="group bg-white flex flex-col md:flex-row shadow-2xl md:rounded-0 w-full md:max-w-4xl overflow-hidden h-full md:max-h-[520px]">
+            <div className="group bg-white flex flex-col md:flex-row shadow-sm md:rounded-0 w-full md:max-w-4xl overflow-hidden h-full md:max-h-[520px]">
 
                {/* ── Left: Image / Branding Panel ── */}
                <div className="flex w-full h-52 md:h-auto md:w-1/2 relative overflow-hidden group/image shrink-0">
@@ -76,7 +76,7 @@ const Login = () => {
                            {PORTAL.loginHeroLine}{' '}
                            <span className="font-black text-orange-300 italic">{PORTAL.loginHeroHighlight}</span>
                         </p>
-                        <div className="inline-flex items-center gap-3 px-4 py-2 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 shadow-xl self-start">
+                        <div className="inline-flex items-center gap-3 px-4 py-2 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 shadow-sm self-start">
                            <div className="w-2.5 h-2.5 bg-orange-400 rounded-full animate-pulse" style={{ boxShadow: '0 0 10px rgba(251,146,60,0.6)' }}></div>
                            <span className="text-[10px] font-black uppercase tracking-widest text-white/90">{PORTAL.loginBadge}</span>
                         </div>

@@ -34,6 +34,7 @@ const STATUS = {
   REJECTED_BY_ACCOUNTANT: 'rejected_by_accountant',
   REJECTED_BY_MANAGER: 'rejected_by_manager',
 };
+const CASHOUT_AUTO_APPROVAL_RATIO = 0.40;
 
 let tableReady = false;
 let teacherDealProductsReady = false;
@@ -138,6 +139,13 @@ async function ensureTable() {
     ['deal_product_ids_json', 'TEXT NULL'],
     ['deal_products_snapshot_json', 'LONGTEXT NULL'],
     ['deal_products_total_rwf', 'DECIMAL(14,2) NULL'],
+    ['cashout_month_key', 'VARCHAR(7) NULL'],
+    ['net_salary_baseline_rwf', 'DECIMAL(14,2) NULL'],
+    ['auto_approval_limit_rwf', 'DECIMAL(14,2) NULL'],
+    ['monthly_requested_total_rwf', 'DECIMAL(14,2) NULL'],
+    ['monthly_remaining_net_rwf', 'DECIMAL(14,2) NULL'],
+    ['auto_approved', 'TINYINT(1) NOT NULL DEFAULT 0'],
+    ['auto_approved_at', 'DATETIME NULL'],
   ];
   for (const [name, def] of cols) {
     try {
@@ -230,6 +238,134 @@ async function fetchTeacherDealProductsByIds(ids) {
   return (rows || []).map(toDealProductDto);
 }
 
+/** Compute net salary from the staff HR table (same logic as teacher-portal payroll endpoint). */
+async function getTeacherNetSalaryFromStaff(schoolId, userId) {
+  try {
+    const [[row]] = await promisePool.query(
+      `SELECT st.payroll_basic_salary, st.payroll_transport_allowance, st.payroll_housing_allowance,
+              st.payroll_meal_allowance, st.payroll_other_allowances, st.payroll_tax_percent,
+              st.payroll_pension_amount, st.payroll_other_deductions
+       FROM staff st
+       WHERE st.school_id = ? AND st.user_id = ?
+       LIMIT 1`,
+      [schoolId, userId]
+    );
+    if (!row) return 0;
+    const toMoney = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+    const parseList = (raw) => {
+      if (Array.isArray(raw)) return raw;
+      if (typeof raw !== 'string' || !raw.trim()) return [];
+      try { const p = JSON.parse(raw); return Array.isArray(p) ? p : []; } catch { return []; }
+    };
+    const basic = toMoney(row.payroll_basic_salary);
+    const allowances =
+      toMoney(row.payroll_transport_allowance) +
+      toMoney(row.payroll_housing_allowance) +
+      toMoney(row.payroll_meal_allowance) +
+      parseList(row.payroll_other_allowances).reduce((s, i) => s + toMoney(i?.amount), 0);
+    const gross = basic + allowances;
+    const tax = (gross * toMoney(row.payroll_tax_percent)) / 100;
+    const pension = toMoney(row.payroll_pension_amount);
+    const otherDed = parseList(row.payroll_other_deductions).reduce((s, i) => s + toMoney(i?.amount), 0);
+    return Math.max(0, gross - tax - pension - otherDed);
+  } catch (e) {
+    console.warn('[shule-avance] getTeacherNetSalaryFromStaff:', e.message);
+    return 0;
+  }
+}
+
+function monthKeyNow() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  return `${y}-${m}`;
+}
+
+async function getTeacherMonthlyCashoutPolicy(schoolId, userId, netSalary, monthKey = monthKeyNow()) {
+  const [rows] = await promisePool.query(
+    `SELECT
+        COALESCE(
+          MIN(
+            CASE
+              WHEN COALESCE(cashout_month_key, DATE_FORMAT(submitted_at, '%Y-%m')) = ?
+              THEN net_salary_baseline_rwf
+              ELSE NULL
+            END
+          ),
+          0
+        ) AS baseline_snapshot,
+        COALESCE(
+          SUM(
+            CASE
+              WHEN COALESCE(cashout_month_key, DATE_FORMAT(submitted_at, '%Y-%m')) = ?
+               AND LOWER(COALESCE(status, '')) NOT IN ('rejected_by_accountant', 'rejected_by_manager', 'cancelled')
+              THEN amount_rwf
+              ELSE 0
+            END
+          ),
+          0
+        ) AS monthly_requested_total,
+        COALESCE(
+          SUM(
+            CASE
+              WHEN COALESCE(cashout_month_key, DATE_FORMAT(submitted_at, '%Y-%m')) = ?
+               AND auto_approved = 1
+               AND LOWER(COALESCE(status, '')) NOT IN ('rejected_by_accountant', 'rejected_by_manager', 'cancelled')
+              THEN amount_rwf
+              ELSE 0
+            END
+          ),
+          0
+        ) AS monthly_auto_approved_total
+     FROM shule_avance_requests
+     WHERE school_id = ? AND teacher_user_id = ? AND request_type = 'cashout'`,
+    [monthKey, monthKey, monthKey, schoolId, userId]
+  );
+  const stats = rows?.[0] || {};
+  const baseline = Math.max(0, toMoney(stats.baseline_snapshot) || toMoney(netSalary));
+  const autoApprovalLimit = Math.floor(baseline * CASHOUT_AUTO_APPROVAL_RATIO);
+  const monthlyRequestedTotal = toMoney(stats.monthly_requested_total);
+  const monthlyAutoApprovedTotal = toMoney(stats.monthly_auto_approved_total);
+  return {
+    month_key: monthKey,
+    baseline_net_salary: Math.round(baseline),
+    monthly_requested_total: Math.round(monthlyRequestedTotal),
+    monthly_remaining_net: Math.max(0, Math.round(baseline - monthlyRequestedTotal)),
+    auto_approval_ratio: CASHOUT_AUTO_APPROVAL_RATIO,
+    auto_approval_limit: autoApprovalLimit,
+    auto_approval_used: Math.round(monthlyAutoApprovedTotal),
+    auto_approval_remaining: Math.max(0, Math.round(autoApprovalLimit - monthlyAutoApprovedTotal)),
+  };
+}
+
+/** Send a web-push notification to every subscribed user matching any of the given role codes in a school. */
+async function sendWebPushToSchoolRoles(schoolId, roleCodes, payload) {
+  if (!isWebPushConfigured()) return;
+  const accepted = Array.isArray(roleCodes) ? roleCodes : [roleCodes];
+  if (!accepted.length) return;
+  try {
+    const placeholders = accepted.map(() => '?').join(',');
+    const [rows] = await promisePool.query(
+      `SELECT DISTINCT u.id
+       FROM users u
+       LEFT JOIN roles r ON r.id = u.role_id
+       WHERE u.school_id = ? AND r.role_code IN (${placeholders}) AND u.deleted_at IS NULL`,
+      [schoolId, ...accepted]
+    );
+    for (const row of rows || []) {
+      const uid = Number(row.id);
+      if (!uid) continue;
+      setImmediate(() => {
+        sendWebPushToUser(uid, payload).catch((e) =>
+          console.warn('[shule-avance] push to role:', e.message)
+        );
+      });
+    }
+  } catch (e) {
+    console.warn('[shule-avance] sendWebPushToSchoolRoles:', e.message);
+  }
+}
+
 function pickUploadedImage(req) {
   const files = Array.isArray(req.files) ? req.files : [];
   return files.find((f) => String(f.mimetype || '').toLowerCase().startsWith('image/')) || null;
@@ -265,12 +401,15 @@ async function parseCreateBody(req, maps) {
     return { error: 'request_type must be service or cashout' };
   }
   let amount = Number(req.body?.amount_requested ?? req.body?.amount_rwf);
-  const repayment = Number(req.body?.repayment_term_months ?? req.body?.repayment_term ?? 6);
+  // Cashouts are always deducted in a single payroll cycle — no repayment term needed
+  const repayment = requestType === 'cashout'
+    ? 1
+    : Number(req.body?.repayment_term_months ?? req.body?.repayment_term ?? 6);
 
   if (!amount || amount <= 0) {
     return { error: 'amount_requested must be greater than zero' };
   }
-  if (!Number.isInteger(repayment) || repayment < 1 || repayment > 12) {
+  if (requestType !== 'cashout' && (!Number.isInteger(repayment) || repayment < 1 || repayment > 12)) {
     return { error: 'repayment_term_months must be between 1 and 12' };
   }
 
@@ -372,12 +511,32 @@ async function handleApplicantCreate(req, res) {
     }
     const v = parsed.value;
 
+    // ── 40% monthly baseline auto-approval rule for cashouts ─────────────────
+    let initialStatus = STATUS.PENDING_ACCOUNTANT;
+    let autoApproved = false;
+    let cashoutPolicy = null;
+    let requestedTotalAfter = null;
+    let remainingAfter = null;
+    if (v.requestType === 'cashout') {
+      const netSalary = await getTeacherNetSalaryFromStaff(schoolId, userId);
+      cashoutPolicy = await getTeacherMonthlyCashoutPolicy(schoolId, userId, netSalary);
+      if (cashoutPolicy.baseline_net_salary > 0 && v.amount <= cashoutPolicy.auto_approval_remaining) {
+        initialStatus = STATUS.APPROVED;
+        autoApproved = true;
+      }
+      requestedTotalAfter = Math.round(cashoutPolicy.monthly_requested_total + v.amount);
+      remainingAfter = Math.max(0, Math.round(cashoutPolicy.baseline_net_salary - requestedTotalAfter));
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     const [result] = await promisePool.query(
       `INSERT INTO shule_avance_requests
        (school_id, teacher_user_id, amount_rwf, purpose, repayment_term_months, vendor_label, details,
         invoice_file_name, status, request_type, service_category, cashout_reason, cashout_category_slug,
-        deal_product_ids_json, deal_products_snapshot_json, deal_products_total_rwf)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        deal_product_ids_json, deal_products_snapshot_json, deal_products_total_rwf,
+        cashout_month_key, net_salary_baseline_rwf, auto_approval_limit_rwf, monthly_requested_total_rwf, monthly_remaining_net_rwf,
+        auto_approved, auto_approved_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         schoolId,
         userId,
@@ -387,7 +546,7 @@ async function handleApplicantCreate(req, res) {
         v.vendorLabel,
         v.details,
         v.invoiceFileName,
-        STATUS.PENDING_ACCOUNTANT,
+        initialStatus,
         v.requestType,
         v.requestType === 'service' ? v.serviceCategory : null,
         v.requestType === 'cashout' ? v.cashoutReason : null,
@@ -395,10 +554,58 @@ async function handleApplicantCreate(req, res) {
         v.requestType === 'service' ? v.dealProductIdsJson : null,
         v.requestType === 'service' ? v.dealProductsSnapshotJson : null,
         v.requestType === 'service' ? v.dealProductsTotalRwf : null,
+        v.requestType === 'cashout' ? cashoutPolicy?.month_key : null,
+        v.requestType === 'cashout' ? cashoutPolicy?.baseline_net_salary : null,
+        v.requestType === 'cashout' ? cashoutPolicy?.auto_approval_limit : null,
+        v.requestType === 'cashout' ? requestedTotalAfter : null,
+        v.requestType === 'cashout' ? remainingAfter : null,
+        autoApproved ? 1 : 0,
+        autoApproved ? new Date() : null,
       ]
     );
 
-    res.status(201).json({ success: true, message: 'Request submitted to accountant', id: result.insertId });
+    const reqId = result.insertId;
+    const responseMsg = autoApproved
+      ? 'Cashout auto-approved — will be deducted from your next payroll'
+      : (v.requestType === 'cashout'
+        ? 'Cashout exceeds direct 40% auto-approval window: sent to accountant then manager review workflow'
+        : 'Request submitted to accountant');
+    res.status(201).json({
+      success: true,
+      message: responseMsg,
+      id: reqId,
+      auto_approved: autoApproved,
+      requested_at: new Date().toISOString(),
+      cashout_policy: cashoutPolicy ? {
+        ...cashoutPolicy,
+        monthly_requested_total_after: requestedTotalAfter,
+        monthly_remaining_net_after: remainingAfter,
+      } : null,
+    });
+
+    // ── Fire-and-forget push notifications ───────────────────────────────────
+    if (autoApproved) {
+      // Notify the teacher that their cashout was instantly approved
+      setImmediate(() => {
+        sendWebPushToUser(userId, {
+          title: 'Ticha Avance — Auto-approved ✓',
+          body: `Your cashout of ${Math.round(v.amount).toLocaleString()} RWF was automatically approved and will be deducted from your next payroll.`,
+          tag: `sa-${reqId}-auto-approved`,
+          url: '/shule-avance',
+        }).catch((e) => console.warn('[shule-avance] push auto-approved:', e.message));
+      });
+    } else {
+      // Notify all accountants in the school that a new request is waiting
+      setImmediate(() => {
+        sendWebPushToSchoolRoles(schoolId, [ROLE_ACCOUNTANT], {
+          title: 'Ticha Avance — New Request',
+          body: `A new ${v.requestType === 'cashout' ? 'cashout' : 'advance'} request of ${Math.round(v.amount).toLocaleString()} RWF needs your review.`,
+          tag: `sa-${reqId}-new`,
+          url: '/shule-avance/finance',
+        });
+      });
+    }
+    // ─────────────────────────────────────────────────────────────────────────
   } catch (error) {
     console.error('[shule-avance] applicant create:', error.message);
     res.status(500).json({ success: false, message: 'Failed to submit request' });
@@ -415,7 +622,16 @@ async function handleApplicantList(req, res) {
        ORDER BY r.id DESC`,
       [schoolId, userId]
     );
-    res.json({ success: true, data: rows });
+    const netSalary = await getTeacherNetSalaryFromStaff(schoolId, userId);
+    const monthlyCashoutPolicy = await getTeacherMonthlyCashoutPolicy(schoolId, userId, netSalary);
+    res.json({
+      success: true,
+      data: rows,
+      summary: {
+        generated_at: new Date().toISOString(),
+        monthly_cashout_policy: monthlyCashoutPolicy,
+      },
+    });
   } catch (error) {
     console.error('[shule-avance] applicant list:', error.message);
     res.status(500).json({ success: false, message: 'Failed to load your ShuleAvance requests' });
@@ -1590,6 +1806,7 @@ router.patch('/shule-avance/finance/invoice-requests/:id/send-to-manager', requi
     }
     res.json({ success: true, message: 'Request sent to school manager for decision' });
 
+    // Notify the teacher their request has been forwarded
     if (Number.isFinite(teacherUserId) && teacherUserId > 0) {
       setImmediate(() => {
         sendWebPushToUser(teacherUserId, {
@@ -1600,6 +1817,15 @@ router.patch('/shule-avance/finance/invoice-requests/:id/send-to-manager', requi
         }).catch((e) => console.warn('[shule-avance] web push send:', e.message));
       });
     }
+    // Notify all school managers that action is required
+    setImmediate(() => {
+      sendWebPushToSchoolRoles(schoolId, MANAGER_ROLES, {
+        title: 'Ticha Avance — Approval Required',
+        body: `Finance forwarded request #${id} to you for final approval.`,
+        tag: `sa-${id}-manager-action`,
+        url: '/shule-avance/manager',
+      });
+    });
   } catch (error) {
     console.error('[shule-avance] finance send-to-manager:', error.message);
     res.status(500).json({ success: false, message: 'Failed to send request to manager' });

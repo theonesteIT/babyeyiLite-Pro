@@ -49,14 +49,14 @@ export default function RecordPaymentModal({
         <div className="bg-white rounded-[24px]  border border-black/10 overflow-hidden">
           <div className="px-5 md:px-6 py-4 border-b border-black/5 flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <p className="text-[9px] font-black uppercase tracking-[0.28em] text-re-text-muted/45">
+              <p className="text-[9px] font-medium uppercase tracking-[0.28em] text-re-text-muted/45">
                 Record payment · {academicYear} · {term}
               </p>
-              <h3 className="text-base md:text-lg font-black text-re-navy tracking-tight truncate">
+              <h3 className="text-base md:text-lg font-medium text-re-navy tracking-tight truncate">
                 {student ? student.name : 'Student payment'}
               </h3>
               {student && (
-                <p className="text-[10px] font-bold text-re-text-muted/70 mt-1 truncate">
+                <p className="text-[10px] font-medium text-re-text-muted/70 mt-1 truncate">
                   UID {student.id} · {student.class} · Remaining {formatMoneyRWF(context.remaining)}
                 </p>
               )}
@@ -73,10 +73,10 @@ export default function RecordPaymentModal({
           <div className="p-5 md:p-6 space-y-4">
             {!student && (
               <div className="rounded-2xl bg-amber-50 border border-amber-100 p-4">
-                <p className="text-[10px] font-black uppercase tracking-widest text-amber-800">
+                <p className="text-[10px] font-medium uppercase tracking-widest text-amber-800">
                   Select a student first
                 </p>
-                <p className="text-[10px] font-bold text-amber-800/70 mt-1">
+                <p className="text-[10px] font-medium text-amber-800/70 mt-1">
                   Open a learner record from the table, then tap “Record Payment”.
                 </p>
               </div>
@@ -90,7 +90,7 @@ export default function RecordPaymentModal({
                   onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ''))}
                   inputMode="numeric"
                   placeholder="Amount (RWF)"
-                  className="w-full h-11 rounded-xl bg-white border border-black/5 outline-none pl-9 pr-3 text-[11px] font-black text-re-navy  focus:bg-white focus:border-[#000435]/20 transition-all"
+                  className="w-full h-11 rounded-xl bg-white border border-black/5 outline-none pl-9 pr-3 text-[11px] font-medium text-re-navy  focus:bg-white focus:border-[#000435]/20 transition-all"
                   disabled={!student || submitting}
                 />
               </div>
@@ -100,7 +100,7 @@ export default function RecordPaymentModal({
                 <select
                   value={method}
                   onChange={(e) => setMethod(e.target.value)}
-                  className="w-full h-11 rounded-xl bg-white border border-black/5 outline-none pl-9 pr-3 text-[11px] font-black text-re-navy  focus:bg-white focus:border-[#000435]/20 transition-all cursor-pointer"
+                  className="w-full h-11 rounded-xl bg-white border border-black/5 outline-none pl-9 pr-3 text-[11px] font-medium text-re-navy  focus:bg-white focus:border-[#000435]/20 transition-all cursor-pointer"
                   disabled={!student || submitting}
                 >
                   {METHODS.map((m) => (
@@ -115,7 +115,7 @@ export default function RecordPaymentModal({
                   type="date"
                   value={paidAt}
                   onChange={(e) => setPaidAt(e.target.value)}
-                  className="w-full h-11 rounded-xl bg-white border border-black/5 outline-none pl-9 pr-3 text-[11px] font-black text-re-navy  focus:bg-white focus:border-[#000435]/20 transition-all"
+                  className="w-full h-11 rounded-xl bg-white border border-black/5 outline-none pl-9 pr-3 text-[11px] font-medium text-re-navy  focus:bg-white focus:border-[#000435]/20 transition-all"
                   disabled={!student || submitting}
                 />
               </div>
@@ -126,7 +126,7 @@ export default function RecordPaymentModal({
                   value={student ? `${student.name}` : ''}
                   readOnly
                   placeholder="Student"
-                  className="w-full h-11 rounded-xl bg-white border border-black/5 outline-none pl-9 pr-3 text-[11px] font-black text-re-navy/70 "
+                  className="w-full h-11 rounded-xl bg-white border border-black/5 outline-none pl-9 pr-3 text-[11px] font-medium text-re-navy/70 "
                 />
               </div>
             </div>
@@ -137,7 +137,7 @@ export default function RecordPaymentModal({
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 placeholder="Note (optional)"
-                className="w-full min-h-[90px] rounded-xl bg-white border border-black/5 outline-none pl-9 pr-3 py-3 text-[11px] font-bold text-re-navy  focus:bg-white focus:border-[#000435]/20 transition-all resize-none"
+                className="w-full min-h-[90px] rounded-xl bg-white border border-black/5 outline-none pl-9 pr-3 py-3 text-[11px] font-medium text-re-navy  focus:bg-white focus:border-[#000435]/20 transition-all resize-none"
                 disabled={!student || submitting}
               />
             </div>
@@ -146,7 +146,7 @@ export default function RecordPaymentModal({
           <div className="px-5 md:px-6 py-4 border-t border-black/5 bg-white/20 flex items-center justify-end gap-2">
             <button
               onClick={() => onClose?.()}
-              className="h-10 px-4 rounded-xl bg-white border border-black/5 text-re-navy font-black text-[10px] uppercase tracking-widest hover:bg-re-bg transition-all"
+              className="h-10 px-4 rounded-xl bg-white border border-black/5 text-re-navy font-medium text-[10px] uppercase tracking-widest hover:bg-re-bg transition-all"
               disabled={submitting}
             >
               Cancel
@@ -171,7 +171,7 @@ export default function RecordPaymentModal({
                   setSubmitting(false);
                 }
               }}
-              className="h-10 px-4 rounded-xl text-white font-black text-[10px] uppercase tracking-widest  hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:hover:scale-100"
+              className="h-10 px-4 rounded-xl text-white font-medium text-[10px] uppercase tracking-widest  active:scale-95 transition-all disabled:opacity-50 disabled:hover:scale-100"
               style={{ background: 'linear-gradient(135deg, #000435 0%, #0D2644 100%)' }}
               disabled={!student || submitting || !(Number(amount) > 0)}
             >

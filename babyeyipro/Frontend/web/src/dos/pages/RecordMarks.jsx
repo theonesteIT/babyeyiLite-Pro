@@ -5,6 +5,7 @@ import {
     Download, Save, FileText, CheckCircle, BarChart2,
     Users, BookOpen, Clock, Activity, Printer, Filter, ChevronUp, User
 } from 'lucide-react';
+import DosOchreHero from '../components/DosOchreHero';
 
 export default function RecordMarks() {
     const [selectedClass, setSelectedClass] = useState('Senior 3A');
@@ -106,28 +107,19 @@ export default function RecordMarks() {
     };
 
     return (
-        <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen pb-12" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+        <div className="animate-in fade-in duration-500 bg-re-bg min-h-screen pb-12 font-sans">
 
-            {/* ── Hero Banner ── */}
-            <section className="relative p-7 md:p-10 text-white overflow-hidden min-h-[200px] flex items-center bg-[#000435]">
-                <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full border border-white/5 pointer-events-none" />
-                <div className="absolute -top-12 -right-12 w-64 h-64 rounded-full border border-white/5 pointer-events-none" />
-                <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-[#FEBF10]/30 to-transparent pointer-events-none" />
-                <div className="relative z-10 max-w-5xl w-full">
-                    <div className="flex items-center gap-2 mb-2">
-                        <span className="h-0.5 w-6 rounded-full bg-[#FEBF10]" />
-                        <p className="text-[10px] font-black capitalize tracking-widest text-[#FEBF10]/80">Academic Grading</p>
-                    </div>
-                    <h1 className="text-2xl md:text-3xl font-black tracking-tight">Students Marks</h1>
-                    <p className="text-xs font-bold text-white/60 max-w-xl mt-2">
-                        Record and analyze scholastic performance for {selectedClass} · {selectedSubject}.
-                    </p>
-                </div>
-            </section>
+            <DosOchreHero
+                eyebrow="Academic grading"
+                titleLine="Record"
+                titleAccent="marks"
+                subtitle={`Capture assessments for ${selectedClass} · ${selectedSubject}.`}
+                icon={GraduationCap}
+            />
 
             {/* ── Main Content Area ── */}
-            <div className="relative z-30 max-w-[1600px] mx-auto px-2 md:px-6 -mt-10">
-                <div className="bg-white rounded-t-[2.5rem] shadow-2xl border border-black/5 overflow-hidden flex flex-col">
+            <div className="relative z-30 max-w-[1600px] mx-auto px-2 md:px-6 -mt-4 sm:-mt-5 md:-mt-6 pt-2">
+                <div className="bg-white rounded-t-[2.5rem] shadow-sm border border-black/10 overflow-hidden flex flex-col">
 
                     {/* High-Density Stats Grid */}
                     <div className={`${!isClassSelected ? 'hidden lg:grid' : 'grid'} grid-cols-2 lg:grid-cols-3 divide-x divide-y lg:divide-y-0 divide-black/5 border-b border-black/5`}>
@@ -226,7 +218,7 @@ export default function RecordMarks() {
                     {/* Mobile Class Selection Gatekeeper */}
                     {!isClassSelected && (
                         <div className="lg:hidden p-6 bg-re-bg/20 flex flex-col items-center justify-center text-center py-12 animate-in fade-in zoom-in-95 duration-500">
-                            <div className="w-16 h-16 bg-white rounded-[2rem] shadow-xl flex items-center justify-center text-re-orange mb-6 border border-black/5 animate-bounce">
+                            <div className="w-16 h-16 bg-white rounded-[2rem] shadow-sm flex items-center justify-center text-re-orange mb-6 border border-black/5 animate-bounce">
                                 <GraduationCap size={32} />
                             </div>
                             <h2 className="text-xl font-black text-re-text tracking-tighter uppercase mb-2">Select Class</h2>

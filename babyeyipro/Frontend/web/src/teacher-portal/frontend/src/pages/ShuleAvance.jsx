@@ -30,6 +30,7 @@ function canEditOrDelete(status) {
 
 export default function ShuleAvance() {
   const [rows, setRows] = useState([]);
+  const [cashoutPolicy, setCashoutPolicy] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
@@ -44,6 +45,7 @@ export default function ShuleAvance() {
       const res = await api.get('/services/shule-avance/teacher/my-requests');
       if (res.data?.success) {
         setRows(res.data.data || []);
+        setCashoutPolicy(res.data?.summary?.monthly_cashout_policy || null);
       } else {
         setError(res.data?.message || 'Could not load requests.');
       }
@@ -145,6 +147,30 @@ export default function ShuleAvance() {
 
       {message && <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">{message}</div>}
       {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">{error}</div>}
+      {cashoutPolicy && (
+        <section className="rounded-2xl border border-indigo-200 bg-gradient-to-r from-indigo-50 via-white to-indigo-50 px-4 py-4 md:px-5">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <h2 className="text-[11px] font-black uppercase tracking-[0.18em] text-indigo-900">Monthly Cashout Policy</h2>
+            <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border border-indigo-200 bg-white text-indigo-700">
+              {cashoutPolicy.month_key || 'Current Month'}
+            </span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="rounded-xl border border-indigo-100 bg-white px-3 py-3">
+              <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Baseline Net</p>
+              <p className="text-sm font-black text-slate-900 mt-1">{fmtMoney(cashoutPolicy.baseline_net_salary)}</p>
+            </div>
+            <div className="rounded-xl border border-indigo-100 bg-white px-3 py-3">
+              <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Remaining Net This Month</p>
+              <p className="text-sm font-black text-slate-900 mt-1">{fmtMoney(cashoutPolicy.monthly_remaining_net)}</p>
+            </div>
+            <div className="rounded-xl border border-indigo-100 bg-white px-3 py-3">
+              <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Auto-Approval Remaining</p>
+              <p className="text-sm font-black text-slate-900 mt-1">{fmtMoney(cashoutPolicy.auto_approval_remaining)}</p>
+            </div>
+          </div>
+        </section>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <section className="lg:col-span-1 bg-white rounded-2xl border border-black/5 shadow-sm p-5">

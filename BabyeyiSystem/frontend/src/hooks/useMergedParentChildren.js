@@ -17,6 +17,25 @@ export function useMergedParentChildren() {
 
   useEffect(() => {
     let cancelled = false;
+
+    // Guest ClassKit (?cks=) and other portals hit this hook too — skip parent-only API.
+    if (auth.loading) {
+      setLoading(true);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const role = auth.role ? String(auth.role).toUpperCase() : "";
+    if (!auth.isLoggedIn || role !== "PARENT") {
+      setApiList([]);
+      setError(null);
+      setLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
     (async () => {
       setLoading(true);
       setError(null);
@@ -40,7 +59,7 @@ export function useMergedParentChildren() {
     return () => {
       cancelled = true;
     };
-  }, [reloadKey]);
+  }, [reloadKey, auth.loading, auth.isLoggedIn, auth.role]);
 
   const merged = useMemo(() => {
     const parentPhone = auth.user?.parent_phone || null;

@@ -1,0 +1,4688 @@
+{
+  "info": {
+    "name": "BabyeyiSystem API (Organized)",
+    "_postman_id": "9fb72d8b-6a48-4cd8-8f0e-b3312f2b3d77",
+    "description": "Import-ready Postman collection for BabyeyiSystem.\\n\\nUse with the environment file in this folder.\\nLogin first to establish cookie session.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5100" },
+    { "key": "identifier", "value": "teacher@example.com" },
+    { "key": "password", "value": "ChangeMe123!" },
+    { "key": "schoolCode", "value": "001" },
+    { "key": "ussdAccessToken", "value": "" },
+    { "key": "studentId", "value": "1" }
+  ],
+  "item": [
+    {
+      "name": "Auth & Session",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"{{identifier}}\",\n  \"password\": \"{{password}}\",\n  \"schoolCode\": \"{{schoolCode}}\",\n  \"remember_me\": true\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/login"
+          }
+        },
+        {
+          "name": "Session Me",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/session/me"
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/session/logout"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Discipline",
+      "item": [
+        {
+          "name": "Get Settings",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/discipline/settings"
+          }
+        },
+        {
+          "name": "Update Default Marks",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"default_marks\": 40,\n  \"apply_to\": \"new\",\n  \"confirmed_overwrite\": false\n}"
+            },
+            "url": "{{baseUrl}}/api/discipline/settings/default-marks"
+          }
+        },
+        {
+          "name": "Students List",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/discipline/students?query=&page=1&limit=15"
+          }
+        },
+        {
+          "name": "Student Logs",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/discipline/students/{{studentId}}/logs"
+          }
+        },
+        {
+          "name": "Apply Student Marks",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"remove\",\n  \"marks\": 5,\n  \"reason\": \"Late to class\",\n  \"date\": \"2026-05-07\",\n  \"notes\": \"Postman test\"\n}"
+            },
+            "url": "{{baseUrl}}/api/discipline/students/{{studentId}}/marks"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Shule Avance Services",
+      "item": [
+        {
+          "name": "Catalog",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/services/shule-avance/catalog"
+          }
+        },
+        {
+          "name": "Applicant My Requests",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/services/shule-avance/applicant/my-requests"
+          }
+        },
+        {
+          "name": "Create Applicant Cashout",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"request_type\": \"cashout\",\n  \"cashout_category\": \"general\",\n  \"reason\": \"Emergency cashout\",\n  \"amount_requested\": 90000,\n  \"repayment_term_months\": 1\n}"
+            },
+            "url": "{{baseUrl}}/api/services/shule-avance/applicant/requests"
+          }
+        },
+        {
+          "name": "Finance Requests",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/services/shule-avance/finance/requests?status=all"
+          }
+        },
+        {
+          "name": "Manager Requests",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/services/shule-avance/manager/requests?status=all"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Teacher Portal Payroll",
+      "item": [
+        {
+          "name": "My Payroll",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/teacher-portal/staff/payroll/my"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Teacher Avance USSD",
+      "item": [
+        {
+          "name": "USSD Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"{{identifier}}\",\n  \"password\": \"{{password}}\",\n  \"school_code\": \"{{schoolCode}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/teacher-portal/avance/ussd/login"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let j = {};",
+                  "try { j = pm.response.json(); } catch (e) {}",
+                  "if (j && j.data && j.data.access_token) {",
+                  "  pm.collectionVariables.set('ussdAccessToken', j.data.access_token);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "USSD Create Cashout Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{ussdAccessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount_requested\": 120000,\n  \"reason\": \"Medical emergency\",\n  \"cashout_category_slug\": \"general\"\n}"
+            },
+            "url": "{{baseUrl}}/api/teacher-portal/avance/ussd/cashout-request"
+          }
+        },
+        {
+          "name": "USSD List Requests",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{ussdAccessToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/teacher-portal/avance/ussd/requests"
+          }
+        }
+      ]
+    },
+    {
+      "name": "System Health",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/health"
+          }
+        },
+        {
+          "name": "Metrics",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/metrics"
+          }
+        }
+      ]
+    }
+  ]
+}
+{
+  "info": {
+    "_postman_id": "c9a91f04-4e28-4f47-b8f8-c001b9c7a111",
+    "name": "BabyeyiSystem API",
+    "description": "Organized Postman collection for Babyeyi backend APIs. Uses session-cookie authentication (babyeyi_sid). **Parent portal:** use `10 - Parent Portal & Payments` \u2192 `POST .../parent-portal/login` (or register / phone-login) first; Postman stores the cookie for later requests. **Guest Babyeyi Finder pay (no login):** use `10b` \u2014 student code lookup + pricing + intent. **Public pay by school code + class (no auth):** use `10c` \u2014 `POST /api/public/public-pay/class-pricing` and `search-student`, then `POST /api/public/babyeyi-pay/intent`. **Invoices & receipts:** `12` \u2014 list/detail/print PDF (school session), public verify + paid receipt PDF, quote-balance, MoMo poll. **MTN direct (optional):** `13` \u2014 `/api/momo/*` and student-services pay. **Parent phone reset:** `14`. **Field agents:** `15`. **Super Admin only:** `admin-upgrades`, `admin-accounts`, and `/api/public/babyeyi-pay/admin-*` require `01 - Auth & Session` as SUPER_ADMIN. **School staff:** `POST /api/auth/login` with `email`, `password`, `schoolCode`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5100"
+    },
+    {
+      "key": "email",
+      "value": "admin@example.com"
+    },
+    {
+      "key": "password",
+      "value": "ChangeMe123!"
+    },
+    {
+      "key": "schoolCode",
+      "value": "001"
+    },
+    {
+      "key": "babyeyiId",
+      "value": "1"
+    },
+    {
+      "key": "studentId",
+      "value": "1"
+    },
+    {
+      "key": "schoolId",
+      "value": "1"
+    },
+    {
+      "key": "formId",
+      "value": "1"
+    },
+    {
+      "key": "appId",
+      "value": "1"
+    },
+    {
+      "key": "requestId",
+      "value": "1"
+    },
+    {
+      "key": "parentPhone",
+      "value": "0780000000"
+    },
+    {
+      "key": "loanIntentId",
+      "value": "1"
+    },
+    {
+      "key": "className",
+      "value": "P1"
+    },
+    {
+      "key": "academicYear",
+      "value": "2025-2026"
+    },
+    {
+      "key": "studentLookupCode",
+      "value": "STUDENT_UID_OR_CODE"
+    },
+    {
+      "key": "paymentIntentId",
+      "value": "1"
+    },
+    {
+      "key": "invoiceNo",
+      "value": "INV-20260101-00000001"
+    },
+    {
+      "key": "momoReferenceId",
+      "value": "00000000-0000-4000-8000-000000000000"
+    },
+    {
+      "key": "xentripayWebhookToken",
+      "value": ""
+    },
+    {
+      "key": "serviceId",
+      "value": "1"
+    }
+  ],
+  "item": [
+    {
+      "name": "00 - Health & Root",
+      "item": [
+        {
+          "name": "GET /",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/"
+          }
+        },
+        {
+          "name": "GET /api/health",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/health"
+          }
+        }
+      ]
+    },
+    {
+      "name": "01 - Auth & Session",
+      "item": [
+        {
+          "name": "POST /api/auth/login",
+          "description": "School staff: set collection vars `email` (login email), `password`, `schoolCode`. Body uses `email`; API also accepts `identifier` with the same value.",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"schoolCode\": \"{{schoolCode}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/login"
+          }
+        },
+        {
+          "name": "GET /api/session/me",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/session/me"
+          }
+        },
+        {
+          "name": "POST /api/session/logout",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/session/logout"
+          }
+        },
+        {
+          "name": "GET /api/auth/verify",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/auth/verify"
+          }
+        },
+        {
+          "name": "POST /api/auth/forgot-password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@example.com\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/forgot-password"
+          }
+        },
+        {
+          "name": "POST /api/auth/reset-password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"RESET_TOKEN\",\n  \"newPassword\": \"NewStrong123!\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/reset-password"
+          }
+        },
+        {
+          "name": "PUT /api/auth/change-password",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"OldPass123!\",\n  \"newPassword\": \"NewPass123!\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/change-password"
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 - Auth Admin Management",
+      "item": [
+        {
+          "name": "POST /api/auth/signup-super-admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Super\",\n  \"last_name\": \"Admin\",\n  \"email\": \"superadmin@example.com\",\n  \"password\": \"StrongPass123!\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/signup-super-admin"
+          }
+        },
+        {
+          "name": "GET /api/auth/schools",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/auth/schools"
+          }
+        },
+        {
+          "name": "POST /api/auth/create-school",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"schoolName\": \"Demo School\",\n  \"schoolCode\": \"001\",\n  \"district\": \"Gasabo\",\n  \"managerEmail\": \"manager@example.com\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/create-school"
+          }
+        },
+        {
+          "name": "POST /api/auth/create-nesa-admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"nesa@example.com\",\n  \"first_name\": \"Nesa\",\n  \"last_name\": \"Admin\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/create-nesa-admin"
+          }
+        },
+        {
+          "name": "GET /api/auth/nesa-admins",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/auth/nesa-admins"
+          }
+        },
+        {
+          "name": "PUT /api/auth/nesa-admin/:id",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/auth/nesa-admin/1"
+          }
+        },
+        {
+          "name": "DELETE /api/auth/nesa-admin/:id",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/auth/nesa-admin/1"
+          }
+        },
+        {
+          "name": "POST /api/auth/create-deo",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"deo@example.com\",\n  \"first_name\": \"District\",\n  \"last_name\": \"Officer\",\n  \"district\": \"Gasabo\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/create-deo"
+          }
+        },
+        {
+          "name": "GET /api/auth/deo-admins",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/auth/deo-admins"
+          }
+        },
+        {
+          "name": "PUT /api/auth/deo-admin/:id",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/auth/deo-admin/1"
+          }
+        },
+        {
+          "name": "DELETE /api/auth/deo-admin/:id",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/auth/deo-admin/1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 - Schools (Public & Admin)",
+      "item": [
+        {
+          "name": "GET /api/public/schools/next-school-code",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/public/schools/next-school-code?district=Gasabo"
+          }
+        },
+        {
+          "name": "POST /api/public/schools/register (form-data)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/public/schools/register"
+          }
+        },
+        {
+          "name": "POST /api/public/schools/claim (form-data)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/public/schools/claim"
+          }
+        },
+        {
+          "name": "GET /api/public/schools",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/public/schools?province=Kigali&district=Gasabo&sector=Kimironko"
+          }
+        },
+        {
+          "name": "GET /api/schools/check-code",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/schools/check-code?schoolCode=001"
+          }
+        },
+        {
+          "name": "GET /api/schools/check-username",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/schools/check-username?username=manager_001"
+          }
+        },
+        {
+          "name": "GET /api/schools/check-email",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/schools/check-email?email=manager@example.com"
+          }
+        },
+        {
+          "name": "GET /api/schools/next-school-code",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/schools/next-school-code"
+          }
+        },
+        {
+          "name": "GET /api/schools",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/schools?page=1&limit=20"
+          }
+        },
+        {
+          "name": "GET /api/schools/districts",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/schools/districts"
+          }
+        },
+        {
+          "name": "POST /api/schools/skeleton",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"schoolName\": \"Skeleton School\",\n  \"province\": \"Kigali\",\n  \"district\": \"Gasabo\",\n  \"sector\": \"Kimironko\",\n  \"ownership\": \"Private\",\n  \"levels\": [\"primary\"]\n}"
+            },
+            "url": "{{baseUrl}}/api/schools/skeleton"
+          }
+        },
+        {
+          "name": "POST /api/schools (form-data)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/schools"
+          }
+        },
+        {
+          "name": "POST /api/schools/bulk-delete",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ids\": [1,2]\n}"
+            },
+            "url": "{{baseUrl}}/api/schools/bulk-delete"
+          }
+        },
+        {
+          "name": "GET /api/schools/:id",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/schools/{{schoolId}}"
+          }
+        },
+        {
+          "name": "GET /api/schools/:id/summary",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/schools/{{schoolId}}/summary"
+          }
+        },
+        {
+          "name": "PUT /api/schools/:id",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/schools/{{schoolId}}"
+          }
+        },
+        {
+          "name": "PUT /api/schools/:id/status",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"active\"\n}"
+            },
+            "url": "{{baseUrl}}/api/schools/{{schoolId}}/status"
+          }
+        },
+        {
+          "name": "POST /api/schools/:id/logo (form-data)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/schools/{{schoolId}}/logo"
+          }
+        },
+        {
+          "name": "POST /api/schools/:id/signature (form-data)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/schools/{{schoolId}}/signature"
+          }
+        },
+        {
+          "name": "POST /api/schools/:id/stamp (form-data)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/schools/{{schoolId}}/stamp"
+          }
+        },
+        {
+          "name": "DELETE /api/schools/:id",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/schools/{{schoolId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 - Locations",
+      "item": [
+        {
+          "name": "GET /api/locations/provinces",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/locations/provinces"
+          }
+        },
+        {
+          "name": "GET /api/locations/districts",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/locations/districts?province=Kigali"
+          }
+        },
+        {
+          "name": "GET /api/locations/sectors",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/locations/sectors?district=Gasabo"
+          }
+        },
+        {
+          "name": "GET /api/locations/cells",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/locations/cells?sector=Kimironko"
+          }
+        },
+        {
+          "name": "GET /api/locations/villages",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/locations/villages?cell=Bibare"
+          }
+        },
+        {
+          "name": "GET /api/locations/all",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/locations/all"
+          }
+        },
+        {
+          "name": "GET /api/locations/search",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/locations/search?q=Gasabo"
+          }
+        },
+        {
+          "name": "GET /api/locations/stats",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/locations/stats"
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 - Students",
+      "item": [
+        {
+          "name": "GET /api/students",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/students?page=1&limit=20"
+          }
+        },
+        {
+          "name": "POST /api/students",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"John\",\n  \"last_name\": \"Doe\",\n  \"gender\": \"Male\",\n  \"class_name\": \"P1\",\n  \"academic_year\": \"2025-2026\"\n}"
+            },
+            "url": "{{baseUrl}}/api/students"
+          }
+        },
+        {
+          "name": "PUT /api/students/:id",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/students/{{studentId}}"
+          }
+        },
+        {
+          "name": "DELETE /api/students/:id",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/students/{{studentId}}"
+          }
+        },
+        {
+          "name": "POST /api/students/bulk-delete",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ids\": [1,2]\n}"
+            },
+            "url": "{{baseUrl}}/api/students/bulk-delete"
+          }
+        },
+        {
+          "name": "POST /api/students/delete-all",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"confirm\": \"DELETE ALL\"\n}"
+            },
+            "url": "{{baseUrl}}/api/students/delete-all"
+          }
+        },
+        {
+          "name": "GET /api/students/export.xlsx",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/students/export.xlsx"
+          }
+        },
+        {
+          "name": "GET /api/students/export.pdf",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/students/export.pdf"
+          }
+        },
+        {
+          "name": "POST /api/students/import (form-data file)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/students/import"
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 - Babyeyi Core",
+      "item": [
+        {
+          "name": "GET /api/babyeyi/school-info",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/babyeyi/school-info"
+          }
+        },
+        {
+          "name": "POST /api/babyeyi/upload-asset (form-data)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/babyeyi/upload-asset"
+          }
+        },
+        {
+          "name": "GET /api/babyeyi/nesa-limit",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/babyeyi/nesa-limit"
+          }
+        },
+        {
+          "name": "GET /api/babyeyi/student-requirements-catalog",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/babyeyi/student-requirements-catalog"
+          }
+        },
+        {
+          "name": "GET /api/babyeyi/verify/:docId",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/babyeyi/verify/DEMO-DOC-ID"
+          }
+        },
+        {
+          "name": "GET /api/babyeyi/stats",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/babyeyi/stats"
+          }
+        },
+        {
+          "name": "GET /api/babyeyi",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/babyeyi"
+          }
+        },
+        {
+          "name": "GET /api/babyeyi/:id",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/babyeyi/{{babyeyiId}}"
+          }
+        },
+        {
+          "name": "POST /api/babyeyi",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/babyeyi"
+          }
+        },
+        {
+          "name": "POST /api/babyeyi/:id/regenerate-docs",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/babyeyi/{{babyeyiId}}/regenerate-docs"
+          }
+        },
+        {
+          "name": "GET /api/babyeyi/:id/qrcode",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/babyeyi/{{babyeyiId}}/qrcode"
+          }
+        },
+        {
+          "name": "POST /api/babyeyi/:id/qrcode",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/babyeyi/{{babyeyiId}}/qrcode"
+          }
+        },
+        {
+          "name": "PUT /api/babyeyi/:id",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/babyeyi/{{babyeyiId}}"
+          }
+        },
+        {
+          "name": "DELETE /api/babyeyi/:id",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/babyeyi/{{babyeyiId}}"
+          }
+        },
+        {
+          "name": "PATCH /api/babyeyi/:id/district-approve",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/api/babyeyi/{{babyeyiId}}/district-approve"
+          }
+        },
+        {
+          "name": "PATCH /api/babyeyi/:id/district-recommend",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/api/babyeyi/{{babyeyiId}}/district-recommend"
+          }
+        },
+        {
+          "name": "PATCH /api/babyeyi/:id/district-reject",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/api/babyeyi/{{babyeyiId}}/district-reject"
+          }
+        },
+        {
+          "name": "PATCH /api/babyeyi/:id/nesa-approve",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/api/babyeyi/{{babyeyiId}}/nesa-approve"
+          }
+        },
+        {
+          "name": "PATCH /api/babyeyi/:id/nesa-reject",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/api/babyeyi/{{babyeyiId}}/nesa-reject"
+          }
+        },
+        {
+          "name": "POST /api/babyeyi/:id/submit-request",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/babyeyi/{{babyeyiId}}/submit-request"
+          }
+        },
+        {
+          "name": "GET /api/babyeyi/pdf/:docId",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/babyeyi/pdf/DEMO-DOC-ID"
+          }
+        },
+        {
+          "name": "GET /api/babyeyi/:id/pdf",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/babyeyi/{{babyeyiId}}/pdf"
+          }
+        },
+        {
+          "name": "GET /api/babyeyi/:id/leaders",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/babyeyi/{{babyeyiId}}/leaders"
+          }
+        },
+        {
+          "name": "POST /api/babyeyi/:id/leaders",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/babyeyi/{{babyeyiId}}/leaders"
+          }
+        },
+        {
+          "name": "PUT /api/babyeyi/:id/leaders/:leaderId",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/babyeyi/{{babyeyiId}}/leaders/1"
+          }
+        },
+        {
+          "name": "DELETE /api/babyeyi/:id/leaders/:leaderId",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/babyeyi/{{babyeyiId}}/leaders/1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 - District DEO & NESA",
+      "item": [
+        {
+          "name": "GET /api/district/babyeyi/me",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/district/babyeyi/me"
+          }
+        },
+        {
+          "name": "GET /api/district/babyeyi/stats",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/district/babyeyi/stats"
+          }
+        },
+        {
+          "name": "GET /api/district/babyeyi/analytics",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/district/babyeyi/analytics"
+          }
+        },
+        {
+          "name": "GET /api/district/babyeyi/list",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/district/babyeyi/list"
+          }
+        },
+        {
+          "name": "GET /api/district/babyeyi/increase-requests",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/district/babyeyi/increase-requests"
+          }
+        },
+        {
+          "name": "GET /api/district/babyeyi/schools/list",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/district/babyeyi/schools/list"
+          }
+        },
+        {
+          "name": "GET /api/district/babyeyi/deo-assets",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/district/babyeyi/deo-assets"
+          }
+        },
+        {
+          "name": "POST /api/district/babyeyi/deo-assets (form-data)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/district/babyeyi/deo-assets"
+          }
+        },
+        {
+          "name": "GET /api/district/babyeyi/:id",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/district/babyeyi/{{requestId}}"
+          }
+        },
+        {
+          "name": "PATCH /api/district/babyeyi/:id/approve",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/api/district/babyeyi/{{requestId}}/approve"
+          }
+        },
+        {
+          "name": "PATCH /api/district/babyeyi/:id/reject",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/api/district/babyeyi/{{requestId}}/reject"
+          }
+        },
+        {
+          "name": "PATCH /api/district/babyeyi/:id/recommend",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/api/district/babyeyi/{{requestId}}/recommend"
+          }
+        },
+        {
+          "name": "GET /api/nesa/babyeyi/stats",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/nesa/babyeyi/stats"
+          }
+        },
+        {
+          "name": "GET /api/nesa/babyeyi/analytics",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/nesa/babyeyi/analytics"
+          }
+        },
+        {
+          "name": "GET /api/nesa/babyeyi/requests",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/nesa/babyeyi/requests"
+          }
+        },
+        {
+          "name": "GET /api/nesa/babyeyi/requests/:id",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/nesa/babyeyi/requests/{{requestId}}"
+          }
+        },
+        {
+          "name": "GET /api/nesa/babyeyi/violations",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/nesa/babyeyi/violations"
+          }
+        },
+        {
+          "name": "PATCH /api/nesa/babyeyi/requests/:id/approve",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/api/nesa/babyeyi/requests/{{requestId}}/approve"
+          }
+        },
+        {
+          "name": "PATCH /api/nesa/babyeyi/requests/:id/reject",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/api/nesa/babyeyi/requests/{{requestId}}/reject"
+          }
+        },
+        {
+          "name": "GET /api/nesa/babyeyi/notifications",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/nesa/babyeyi/notifications"
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 - Fees & Requirement Pricing",
+      "item": [
+        {
+          "name": "GET /api/fee-limits/stats",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/fee-limits/stats"
+          }
+        },
+        {
+          "name": "GET /api/fee-limits",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/fee-limits?page=1&limit=20"
+          }
+        },
+        {
+          "name": "GET /api/fee-limits/audit/:id",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/fee-limits/audit/1"
+          }
+        },
+        {
+          "name": "GET /api/fee-limits/:id",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/fee-limits/1"
+          }
+        },
+        {
+          "name": "POST /api/fee-limits (form-data regulation_pdf)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/fee-limits"
+          }
+        },
+        {
+          "name": "PUT /api/fee-limits/:id",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/fee-limits/1"
+          }
+        },
+        {
+          "name": "PATCH /api/fee-limits/:id",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/api/fee-limits/1"
+          }
+        },
+        {
+          "name": "DELETE /api/fee-limits/:id",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/fee-limits/1"
+          }
+        },
+        {
+          "name": "GET /api/requirement-prices/options",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/requirement-prices/options"
+          }
+        },
+        {
+          "name": "GET /api/requirement-prices/list",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/requirement-prices/list"
+          }
+        },
+        {
+          "name": "DELETE /api/requirement-prices/by-class",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/requirement-prices/by-class"
+          }
+        },
+        {
+          "name": "GET /api/requirement-prices/requirements",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/requirement-prices/requirements"
+          }
+        },
+        {
+          "name": "PUT /api/requirement-prices/catalog-defaults",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/requirement-prices/catalog-defaults"
+          }
+        },
+        {
+          "name": "POST /api/requirement-prices/requirements/:id/image (form-data)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/requirement-prices/requirements/1/image"
+          }
+        },
+        {
+          "name": "DELETE /api/requirement-prices/requirements/:id/image",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/requirement-prices/requirements/1/image"
+          }
+        },
+        {
+          "name": "GET /api/requirement-prices/browse/schools",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/requirement-prices/browse/schools"
+          }
+        },
+        {
+          "name": "GET /api/requirement-prices/browse/school-babyeyi",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/requirement-prices/browse/school-babyeyi?school_id={{schoolId}}"
+          }
+        },
+        {
+          "name": "GET /api/requirement-prices/browse/babyeyi-detail/:babyeyiId",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/requirement-prices/browse/babyeyi-detail/{{babyeyiId}}"
+          }
+        },
+        {
+          "name": "POST /api/requirement-prices/requirements",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/requirement-prices/requirements"
+          }
+        },
+        {
+          "name": "PUT /api/requirement-prices/requirements/:id",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/requirement-prices/requirements/1"
+          }
+        },
+        {
+          "name": "DELETE /api/requirement-prices/requirements/:id",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/requirement-prices/requirements/1"
+          }
+        },
+        {
+          "name": "GET /api/requirement-prices",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/requirement-prices"
+          }
+        },
+        {
+          "name": "POST /api/requirement-prices",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/requirement-prices"
+          }
+        },
+        {
+          "name": "GET /api/requirement-prices/:id",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/requirement-prices/1"
+          }
+        },
+        {
+          "name": "PUT /api/requirement-prices/:id",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/requirement-prices/1"
+          }
+        },
+        {
+          "name": "DELETE /api/requirement-prices/:id",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/requirement-prices/1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 - School Operations",
+      "item": [
+        {
+          "name": "GET /api/school/staff",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/school/staff"
+          }
+        },
+        {
+          "name": "POST /api/school/staff",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/school/staff"
+          }
+        },
+        {
+          "name": "GET /api/accountant/overview",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/accountant/overview"
+          }
+        },
+        {
+          "name": "GET /api/accountant/babyeyi-fee",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/accountant/babyeyi-fee"
+          }
+        },
+        {
+          "name": "GET /api/accountant/reports/payments",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/accountant/reports/payments"
+          }
+        },
+        {
+          "name": "GET /api/accountant/reports/payments/export.xlsx",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/accountant/reports/payments/export.xlsx"
+          }
+        },
+        {
+          "name": "GET /api/accountant/reports/payments/export.pdf",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/accountant/reports/payments/export.pdf"
+          }
+        },
+        {
+          "name": "GET /api/accountant/payments",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/accountant/payments"
+          }
+        },
+        {
+          "name": "POST /api/accountant/payments",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/accountant/payments"
+          }
+        },
+        {
+          "name": "GET /api/discipline/settings",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/discipline/settings"
+          }
+        },
+        {
+          "name": "PUT /api/discipline/settings",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/discipline/settings"
+          }
+        },
+        {
+          "name": "GET /api/discipline/students-summary",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/discipline/students-summary"
+          }
+        },
+        {
+          "name": "POST /api/discipline/cases",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/discipline/cases"
+          }
+        },
+        {
+          "name": "GET /api/discipline/cases",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/discipline/cases"
+          }
+        },
+        {
+          "name": "GET /api/discipline/report-summary",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/discipline/report-summary"
+          }
+        },
+        {
+          "name": "GET /api/dos/settings",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/dos/settings"
+          }
+        },
+        {
+          "name": "PUT /api/dos/settings",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/dos/settings"
+          }
+        },
+        {
+          "name": "GET /api/dos/progress/students",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/dos/progress/students"
+          }
+        },
+        {
+          "name": "POST /api/dos/progress",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/dos/progress"
+          }
+        },
+        {
+          "name": "GET /api/dos/reports/summary",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/dos/reports/summary"
+          }
+        },
+        {
+          "name": "GET /api/dos/reports/summary/export.xlsx",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/dos/reports/summary/export.xlsx"
+          }
+        },
+        {
+          "name": "GET /api/dos/reports/summary/export.pdf",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/dos/reports/summary/export.pdf"
+          }
+        },
+        {
+          "name": "GET /api/student-transfers/lookup",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/student-transfers/lookup?student_code=DEMO"
+          }
+        },
+        {
+          "name": "POST /api/student-transfers/request",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/student-transfers/request"
+          }
+        },
+        {
+          "name": "GET /api/student-transfers/my",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/student-transfers/my"
+          }
+        },
+        {
+          "name": "PUT /api/student-transfers/:id/decision",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/student-transfers/1/decision"
+          }
+        },
+        {
+          "name": "GET /api/student-transfers/notifications/unread-count",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/student-transfers/notifications/unread-count"
+          }
+        },
+        {
+          "name": "PUT /api/discipline/settings/default-marks",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/discipline/settings/default-marks"
+          }
+        },
+        {
+          "name": "GET /api/discipline/students",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/discipline/students"
+          }
+        },
+        {
+          "name": "GET /api/discipline/students/:studentId/logs",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/discipline/students/{{studentId}}/logs"
+          }
+        },
+        {
+          "name": "POST /api/discipline/students/:studentId/marks",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/discipline/students/{{studentId}}/marks"
+          }
+        },
+        {
+          "name": "POST /api/discipline/students/:studentId/undo-last-action",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/discipline/students/{{studentId}}/undo-last-action"
+          }
+        }
+      ]
+    },
+    {
+      "name": "10b - Parent public Babyeyi Finder (no auth)",
+      "description": "**URL rule:** Set `baseUrl` to the API host **without** a trailing slash, e.g. `https://babyeyi.rw` or `http://localhost:5100`. Every request uses `{{baseUrl}}/api/...` (required slash before `api`). Wrong: `{{baseUrl}}api/...` \u2192 `https://babyeyi.rwapi/...` (broken).\n\n**404 on parent-path calls:** Production must run latest `server.js` (parent portal router mounted **before** the `/api/parent-portal/public/babyeyi-finder` alias). If parent paths still 404, use the **alias** requests \u2014 same server handlers as `/api/public/...`.",
+      "item": [
+        {
+          "name": "GET discovery (parent path)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/parent-portal/public/babyeyi-finder"
+          }
+        },
+        {
+          "name": "GET discovery (alias /api/public/babyeyi-pay)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/public/babyeyi-pay/"
+          }
+        },
+        {
+          "name": "POST student-lookup (parent path)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"STUDENT_UID_OR_OFFICIAL_CODE\"\n}"
+            },
+            "url": "{{baseUrl}}/api/parent-portal/public/babyeyi-finder/student-lookup"
+          }
+        },
+        {
+          "name": "POST student-lookup (alias /api/public/student-code-lookup)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"STUDENT_UID_OR_OFFICIAL_CODE\"\n}"
+            },
+            "url": "{{baseUrl}}/api/public/student-code-lookup"
+          }
+        },
+        {
+          "name": "GET pricing (parent path)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/parent-portal/public/babyeyi-finder/pricing/{{babyeyiId}}?school_id={{schoolId}}"
+          }
+        },
+        {
+          "name": "GET pricing (alias /api/public/babyeyi-pay)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/public/babyeyi-pay/pricing/{{babyeyiId}}?school_id={{schoolId}}"
+          }
+        },
+        {
+          "name": "POST intent (parent path)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"school_id\": {{schoolId}},\n  \"babyeyi_id\": {{babyeyiId}},\n  \"total_rwf\": 1000,\n  \"status\": \"submitted\",\n  \"selected_fee_ids\": [],\n  \"selected_requirement_ids\": [],\n  \"selected_student\": null,\n  \"payer\": { \"name\": \"Test Parent\", \"phone\": \"0780000000\", \"email\": null },\n  \"payment_plan\": { \"method\": \"momo\", \"payMode\": \"full\" }\n}"
+            },
+            "url": "{{baseUrl}}/api/parent-portal/public/babyeyi-finder/intent"
+          }
+        },
+        {
+          "name": "POST intent (alias /api/public/babyeyi-pay)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"school_id\": {{schoolId}},\n  \"babyeyi_id\": {{babyeyiId}},\n  \"total_rwf\": 1000,\n  \"status\": \"submitted\",\n  \"selected_fee_ids\": [],\n  \"selected_requirement_ids\": [],\n  \"selected_student\": null,\n  \"payer\": { \"name\": \"Test Parent\", \"phone\": \"0780000000\", \"email\": null },\n  \"payment_plan\": { \"method\": \"momo\", \"payMode\": \"full\" }\n}"
+            },
+            "url": "{{baseUrl}}/api/public/babyeyi-pay/intent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "10c - Public pay by school code (no auth)",
+      "description": "No login. Use **school directory code** + **class** to load tuition + requirements + total, or **search-student** (scoped to that school) then continue with **POST /api/public/babyeyi-pay/intent** using `next_step.example_body` from the response.",
+      "item": [
+        {
+          "name": "GET /api/public/public-pay (discovery)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/public/public-pay"
+          }
+        },
+        {
+          "name": "POST /api/public/public-pay/class-pricing",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"school_code\": \"{{schoolCode}}\",\n  \"class_name\": \"{{className}}\",\n  \"academic_year\": \"{{academicYear}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/public/public-pay/class-pricing"
+          }
+        },
+        {
+          "name": "POST /api/public/public-pay/search-student",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"school_code\": \"{{schoolCode}}\",\n  \"code\": \"{{studentLookupCode}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/public/public-pay/search-student"
+          }
+        },
+        {
+          "name": "GET /api/public/babyeyi-pay/pricing/:serviceId (class + school_code)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/public/babyeyi-pay/pricing/{{serviceId}}?class_name={{className}}&school_code={{schoolCode}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "10 - Parent Portal & Payments",
+      "item": [
+        {
+          "name": "POST /api/parent-portal/check-phone",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"{{parentPhone}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/parent-portal/check-phone"
+          }
+        },
+        {
+          "name": "POST /api/public/student-code-lookup",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"STUDENT_UID_OR_OFFICIAL_CODE\"\n}"
+            },
+            "url": "{{baseUrl}}/api/public/student-code-lookup"
+          }
+        },
+        {
+          "name": "POST /api/parent-portal/link-student-by-code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"STUDENT_UID_OR_OFFICIAL_CODE\"\n}"
+            },
+            "url": "{{baseUrl}}/api/parent-portal/link-student-by-code"
+          }
+        },
+        {
+          "name": "POST /api/parent-portal/register",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"{{parentPhone}}\",\n  \"password\": \"Password123!\",\n  \"father_full_name\": \"Test\",\n  \"mother_full_name\": \"Parent\",\n  \"father_email\": null,\n  \"mother_email\": null\n}"
+            },
+            "url": "{{baseUrl}}/api/parent-portal/register"
+          }
+        },
+        {
+          "name": "POST /api/parent-portal/login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"{{parentPhone}}\",\n  \"password\": \"Password123!\"\n}"
+            },
+            "url": "{{baseUrl}}/api/parent-portal/login"
+          }
+        },
+        {
+          "name": "POST /api/parent-portal/phone-login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"{{parentPhone}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/parent-portal/phone-login"
+          }
+        },
+        {
+          "name": "POST /api/parent-portal/complete-registration",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"password\": \"Password123!\",\n  \"father_full_name\": \"Test\",\n  \"mother_full_name\": \"Parent\",\n  \"father_email\": null,\n  \"mother_email\": null\n}"
+            },
+            "url": "{{baseUrl}}/api/parent-portal/complete-registration"
+          }
+        },
+        {
+          "name": "GET /api/parent-portal/admin-upgrades",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/parent-portal/admin-upgrades"
+          }
+        },
+        {
+          "name": "GET /api/parent-portal/admin-accounts",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/parent-portal/admin-accounts"
+          }
+        },
+        {
+          "name": "GET /api/parent-portal/admin-accounts/export.csv",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/parent-portal/admin-accounts/export.csv"
+          }
+        },
+        {
+          "name": "GET /api/parent-portal/children",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/parent-portal/children"
+          }
+        },
+        {
+          "name": "GET /api/parent-portal/classkit-pricing",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/parent-portal/classkit-pricing"
+          }
+        },
+        {
+          "name": "GET /api/parent-portal/payments-report",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/parent-portal/payments-report"
+          }
+        },
+        {
+          "name": "GET /api/parent-portal/payments-report/export.csv",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/parent-portal/payments-report/export.csv"
+          }
+        },
+        {
+          "name": "GET /api/parent-portal/loan-intents/:id/detail",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/parent-portal/loan-intents/{{loanIntentId}}/detail"
+          }
+        },
+        {
+          "name": "POST /api/parent-portal/loan-intents/:id/pay",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount_rwf\": 5000,\n  \"note\": \"Test repayment\"\n}"
+            },
+            "url": "{{baseUrl}}/api/parent-portal/loan-intents/{{loanIntentId}}/pay"
+          }
+        },
+        {
+          "name": "GET /api/parent-portal/loan-repayments/:id/receipt",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/parent-portal/loan-repayments/1/receipt"
+          }
+        },
+        {
+          "name": "GET /api/public/babyeyi-pay/pricing/:babyeyiId",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/public/babyeyi-pay/pricing/{{babyeyiId}}?school_id={{schoolId}}"
+          }
+        },
+        {
+          "name": "POST /api/public/babyeyi-pay/intent",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"school_id\": {{schoolId}},\n  \"babyeyi_id\": {{babyeyiId}},\n  \"total_rwf\": 1000,\n  \"status\": \"draft\",\n  \"selected_fee_ids\": [],\n  \"selected_requirement_ids\": [],\n  \"selected_student\": { \"student_id\": {{studentId}}, \"student_name\": \"Test Student\" },\n  \"payment_plan\": { \"payMode\": \"full\", \"method\": \"cash\" },\n  \"payer\": { \"name\": \"Parent Name\", \"phone\": \"{{parentPhone}}\", \"email\": \"parent@example.com\" }\n}"
+            },
+            "url": "{{baseUrl}}/api/public/babyeyi-pay/intent"
+          }
+        },
+        {
+          "name": "GET /api/public/babyeyi-pay/admin-intents",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/public/babyeyi-pay/admin-intents"
+          }
+        },
+        {
+          "name": "GET /api/public/babyeyi-pay/admin-intents/filters",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/public/babyeyi-pay/admin-intents/filters"
+          }
+        },
+        {
+          "name": "GET /api/public/babyeyi-pay/admin-intents/export.csv",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/public/babyeyi-pay/admin-intents/export.csv"
+          }
+        },
+        {
+          "name": "GET /api/public/babyeyi-pay/admin-intents/:id/detail",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/public/babyeyi-pay/admin-intents/1/detail"
+          }
+        },
+        {
+          "name": "PUT /api/public/babyeyi-pay/admin-intents/:id/status",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/public/babyeyi-pay/admin-intents/1/status"
+          }
+        },
+        {
+          "name": "PUT /api/public/babyeyi-pay/admin-loan-repayments/:id/review",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/public/babyeyi-pay/admin-loan-repayments/1/review"
+          }
+        },
+        {
+          "name": "PUT /api/public/babyeyi-pay/admin-intents/:id/loan-extension",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/public/babyeyi-pay/admin-intents/1/loan-extension"
+          }
+        },
+        {
+          "name": "GET /api/parent-portal/search-students",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/parent-portal/search-students?query=student"
+          }
+        },
+        {
+          "name": "POST /api/parent-portal/limited-actions/log",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/parent-portal/limited-actions/log"
+          }
+        },
+        {
+          "name": "POST /api/parent-portal/access-requests",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/parent-portal/access-requests"
+          }
+        },
+        {
+          "name": "GET /api/parent-portal/access-requests/mine",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/parent-portal/access-requests/mine"
+          }
+        },
+        {
+          "name": "GET /api/parent-portal/notifications",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/parent-portal/notifications"
+          }
+        },
+        {
+          "name": "GET /api/parent-portal/admin/access-requests",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/parent-portal/admin/access-requests"
+          }
+        },
+        {
+          "name": "PATCH /api/parent-portal/admin/access-requests/:id",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/api/parent-portal/admin/access-requests/1"
+          }
+        },
+        {
+          "name": "GET /api/parent-portal/shulecard/students",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/parent-portal/shulecard/students"
+          }
+        },
+        {
+          "name": "POST /api/parent-portal/shulecard/topups",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/parent-portal/shulecard/topups"
+          }
+        },
+        {
+          "name": "PATCH /api/parent-portal/shulecard/daily-limit",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/api/parent-portal/shulecard/daily-limit"
+          }
+        },
+        {
+          "name": "GET /api/parent-portal/shulecard/topups",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/parent-portal/shulecard/topups"
+          }
+        },
+        {
+          "name": "GET /api/parent-portal/shulecard/data",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/parent-portal/shulecard/data"
+          }
+        }
+      ]
+    },
+    {
+      "name": "11 - Mini Websites & Admissions",
+      "item": [
+        {
+          "name": "GET /api/mini-websites/school/:schoolId",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/mini-websites/school/{{schoolId}}"
+          }
+        },
+        {
+          "name": "GET /api/mini-websites/slug/:slug",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/mini-websites/slug/demo-school"
+          }
+        },
+        {
+          "name": "POST /api/mini-websites/gallery-images (form-data)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/mini-websites/gallery-images"
+          }
+        },
+        {
+          "name": "GET /api/mini-websites",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/mini-websites"
+          }
+        },
+        {
+          "name": "GET /api/mini-websites/filter-options",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/mini-websites/filter-options"
+          }
+        },
+        {
+          "name": "GET /api/mini-websites/:miniId",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/mini-websites/1"
+          }
+        },
+        {
+          "name": "POST /api/mini-websites",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/mini-websites"
+          }
+        },
+        {
+          "name": "PUT /api/mini-websites/:miniId",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/mini-websites/1"
+          }
+        },
+        {
+          "name": "PATCH /api/mini-websites/:miniId/publish",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/api/mini-websites/1/publish"
+          }
+        },
+        {
+          "name": "PATCH /api/mini-websites/:miniId/unpublish",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/api/mini-websites/1/unpublish"
+          }
+        },
+        {
+          "name": "DELETE /api/mini-websites/:miniId",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/mini-websites/1"
+          }
+        },
+        {
+          "name": "GET /api/admissions/forms/:formId/public",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/admissions/forms/{{formId}}/public"
+          }
+        },
+        {
+          "name": "GET /api/admissions/forms/:formId/stats",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/admissions/forms/{{formId}}/stats"
+          }
+        },
+        {
+          "name": "GET /api/admissions/slug/:slug",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/admissions/slug/demo-school"
+          }
+        },
+        {
+          "name": "POST /api/admissions/forms/:formId/apply (form-data q_1..q_99)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/admissions/forms/{{formId}}/apply"
+          }
+        },
+        {
+          "name": "GET /api/admissions/track/:referenceNo",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/admissions/track/ADM-0001"
+          }
+        },
+        {
+          "name": "GET /api/admissions/school/:schoolId",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/admissions/school/{{schoolId}}"
+          }
+        },
+        {
+          "name": "POST /api/admissions/school/:schoolId",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/admissions/school/{{schoolId}}"
+          }
+        },
+        {
+          "name": "PUT /api/admissions/school/:schoolId",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/admissions/school/{{schoolId}}"
+          }
+        },
+        {
+          "name": "PATCH /api/admissions/forms/:formId/status",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/api/admissions/forms/{{formId}}/status"
+          }
+        },
+        {
+          "name": "DELETE /api/admissions/forms/:formId",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/admissions/forms/{{formId}}"
+          }
+        },
+        {
+          "name": "GET /api/admissions/forms/:formId/applications",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/admissions/forms/{{formId}}/applications"
+          }
+        },
+        {
+          "name": "GET /api/admissions/applications/:appId",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/admissions/applications/{{appId}}"
+          }
+        },
+        {
+          "name": "PATCH /api/admissions/applications/:appId/status",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/api/admissions/applications/{{appId}}/status"
+          }
+        }
+      ]
+    },
+    {
+      "name": "12 - Invoices & Babyeyi Pay (extended)",
+      "description": "**Creating an invoice:** There is no separate \u201ccreate invoice\u201d endpoint. Invoices are created when you **POST /api/public/babyeyi-pay/intent** \u2014 the server inserts `babyeyi_payment_intents`, assigns `invoice_no`, and may start MTN MoMo or XentriPay. Use **10b** / **10** / **10c** intent requests for that.\n\n**School staff (session):** `GET /invoices`, `.../detail`, `.../print.pdf`, exports \u2014 login via `01` + `POST /api/auth/login` first; cookie is sent automatically.\n\n**Public (no auth):** `GET .../invoices/verify/:id?invoice_no=`, `GET .../receipt/:id.pdf?invoice_no=` (PAID only), `POST quote-balance`, `POST intent/:id/check-provider-status` (MoMo polling).",
+      "item": [
+        {
+          "name": "POST /api/public/babyeyi-pay/quote-balance \u2014 remaining balance (no auth)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"school_id\": {{schoolId}},\n  \"babyeyi_id\": {{babyeyiId}},\n  \"selected_fee_ids\": [],\n  \"selected_requirement_ids\": [],\n  \"selected_students\": []\n}"
+            },
+            "url": "{{baseUrl}}/api/public/babyeyi-pay/quote-balance"
+          }
+        },
+        {
+          "name": "POST /api/public/babyeyi-pay/intent/:id/check-provider-status \u2014 poll MoMo/Xentri (no auth)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/api/public/babyeyi-pay/intent/{{paymentIntentId}}/check-provider-status"
+          }
+        },
+        {
+          "name": "GET /api/public/babyeyi-pay/invoices \u2014 list (school session)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/public/babyeyi-pay/invoices?page=1&limit=20"
+          }
+        },
+        {
+          "name": "GET /api/public/babyeyi-pay/invoices/:id/detail \u2014 JSON bundle (school session)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/public/babyeyi-pay/invoices/{{paymentIntentId}}/detail"
+          }
+        },
+        {
+          "name": "GET /api/public/babyeyi-pay/invoices/:id/print.pdf \u2014 invoice PDF (school session)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/public/babyeyi-pay/invoices/{{paymentIntentId}}/print.pdf"
+          }
+        },
+        {
+          "name": "GET /api/public/babyeyi-pay/invoices/export.xlsx \u2014 export (school session)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/public/babyeyi-pay/invoices/export.xlsx"
+          }
+        },
+        {
+          "name": "GET /api/public/babyeyi-pay/invoices/export.pdf \u2014 export (school session)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/public/babyeyi-pay/invoices/export.pdf"
+          }
+        },
+        {
+          "name": "GET /api/public/babyeyi-pay/invoices/verify/:id \u2014 public QR/authenticity (no auth)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/public/babyeyi-pay/invoices/verify/{{paymentIntentId}}?invoice_no={{invoiceNo}}"
+          }
+        },
+        {
+          "name": "GET /api/public/babyeyi-pay/receipt/:id.pdf \u2014 paid receipt PDF (no auth)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/public/babyeyi-pay/receipt/{{paymentIntentId}}.pdf?invoice_no={{invoiceNo}}"
+          }
+        },
+        {
+          "name": "POST /api/public/babyeyi-pay/admin-invoices/reminders/run \u2014 unpaid reminders (session)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"school_id\": {{schoolId}}\n}"
+            },
+            "url": "{{baseUrl}}/api/public/babyeyi-pay/admin-invoices/reminders/run"
+          }
+        },
+        {
+          "name": "POST /api/public/babyeyi-pay/admin-intents/:id/reconcile-provider \u2014 SUPER_ADMIN",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/api/public/babyeyi-pay/admin-intents/{{paymentIntentId}}/reconcile-provider"
+          }
+        },
+        {
+          "name": "POST /api/public/babyeyi-pay/admin-intents/:id/retry-collection \u2014 SUPER_ADMIN",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/api/public/babyeyi-pay/admin-intents/{{paymentIntentId}}/retry-collection"
+          }
+        },
+        {
+          "name": "GET /api/public/babyeyi-pay/admin-webhook-logs \u2014 SUPER_ADMIN",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/public/babyeyi-pay/admin-webhook-logs?page=1&limit=20"
+          }
+        },
+        {
+          "name": "POST /api/public/babyeyi-pay/webhook/xentripay \u2014 XentriPay callback (token)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{xentripayWebhookToken}}",
+                "description": "Optional; set XENTRIPAY_WEBHOOK_TOKEN in .env or use query ?token="
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": "{{baseUrl}}/api/public/babyeyi-pay/webhook/xentripay"
+          }
+        }
+      ]
+    },
+    {
+      "name": "13 - MTN MoMo direct & student services",
+      "description": "**MoMo:** Lower-level MTN Collection API (`momo_transactions` table). Production Babyeyi fees use **folder 12** intent flow instead. **Student services:** public catalog + quote + pay-momo for voucher-style services.\n\n**Variables:** add `xentripayWebhookToken` at collection level if testing webhooks (optional).",
+      "item": [
+        {
+          "name": "POST /api/momo/request-to-pay",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"0781234567\",\n  \"amount\": 500,\n  \"external_id\": \"postman-test-001\",\n  \"payer_message\": \"School fees test\",\n  \"payee_note\": \"Babyeyi\",\n  \"school_id\": {{schoolId}},\n  \"babyeyi_id\": {{babyeyiId}}\n}"
+            },
+            "url": "{{baseUrl}}/api/momo/request-to-pay"
+          }
+        },
+        {
+          "name": "GET /api/momo/status/:referenceId",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/momo/status/{{momoReferenceId}}"
+          }
+        },
+        {
+          "name": "POST /api/momo/callback \u2014 MTN webhook (if configured)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": "{{baseUrl}}/api/momo/callback"
+          }
+        },
+        {
+          "name": "GET /api/momo/transactions \u2014 list",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/momo/transactions"
+          }
+        },
+        {
+          "name": "GET /api/momo/debug \u2014 non-production config peek",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/momo/debug"
+          }
+        },
+        {
+          "name": "GET /api/student-services/public/services \u2014 catalog",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/student-services/public/services"
+          }
+        },
+        {
+          "name": "GET /api/student-services/public/services/:idOrCode",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/student-services/public/services/1"
+          }
+        },
+        {
+          "name": "POST /api/student-services/public/quote \u2014 price quote",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"service_id\": 1,\n  \"student_code\": \"STUDENT_CODE\"\n}"
+            },
+            "url": "{{baseUrl}}/api/student-services/public/quote"
+          }
+        },
+        {
+          "name": "POST /api/student-services/public/pay-momo \u2014 start MoMo for service",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"service_id\": 1,\n  \"student_code\": \"STUDENT_CODE\",\n  \"payer_name\": \"Parent Name\",\n  \"payer_phone\": \"0781234567\"\n}"
+            },
+            "url": "{{baseUrl}}/api/student-services/public/pay-momo"
+          }
+        }
+      ]
+    },
+    {
+      "name": "14 - Parent portal (phone recovery)",
+      "description": "Password reset via phone flow. **Parent session** is used for `recovery-email` when logged in.",
+      "item": [
+        {
+          "name": "POST /api/parent-portal/request-phone-reset",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"{{parentPhone}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/parent-portal/request-phone-reset"
+          }
+        },
+        {
+          "name": "GET /api/parent-portal/phone-reset/validate",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/parent-portal/phone-reset/validate?token=RESET_TOKEN_FROM_SMS"
+          }
+        },
+        {
+          "name": "POST /api/parent-portal/complete-phone-reset",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"TOKEN_FROM_VALIDATE\",\n  \"newPassword\": \"NewPassword123!\"\n}"
+            },
+            "url": "{{baseUrl}}/api/parent-portal/complete-phone-reset"
+          }
+        },
+        {
+          "name": "PATCH /api/parent-portal/recovery-email \u2014 logged-in parent",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"parent@example.com\"\n}"
+            },
+            "url": "{{baseUrl}}/api/parent-portal/recovery-email"
+          }
+        }
+      ]
+    },
+    {
+      "name": "15 - Field agents",
+      "description": "Mounted at `/api/field-agents` (admin) and `/api/agent` (agent role). Login as AGENT or elevated role first.",
+      "item": [
+        {
+          "name": "GET /api/field-agents/agents \u2014 list agents (elevated)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/field-agents/agents"
+          }
+        },
+        {
+          "name": "GET /api/agent/summary \u2014 agent dashboard",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/agent/summary"
+          }
+        },
+        {
+          "name": "GET /api/agent/schools",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/agent/schools?page=1&limit=20"
+          }
+        },
+        {
+          "name": "GET /api/agent/reports/summary",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/agent/reports/summary"
+          }
+        }
+      ]
+    },
+    {
+      "name": "16 - BabyeyiPro portals API map",
+      "description": "API endpoints actively consumed by babyeyipro frontend portals (manager, teacher, DOS, accountant, discipline, librarian, storekeeper). These resolve against `{{baseUrl}}/api`.",
+      "item": [
+        {
+          "name": "Auth, session, and permissions",
+          "item": [
+            {
+              "name": "GET /api/session/me",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/session/me"
+              }
+            },
+            {
+              "name": "POST /api/session/logout",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/session/logout"
+              }
+            },
+            {
+              "name": "POST /api/auth/login",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/auth/login"
+              }
+            },
+            {
+              "name": "POST /api/auth/sso-verify",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/auth/sso-verify"
+              }
+            },
+            {
+              "name": "GET /api/permissions",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/permissions"
+              }
+            },
+            {
+              "name": "POST /api/permissions",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/permissions"
+              }
+            },
+            {
+              "name": "PATCH /api/permissions/:id/status",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/permissions/1/status"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Teacher portal and academics",
+          "item": [
+            {
+              "name": "GET /api/teacher-portal/dashboard",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/teacher-portal/dashboard"
+              }
+            },
+            {
+              "name": "GET /api/teacher-portal/timetable",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/teacher-portal/timetable"
+              }
+            },
+            {
+              "name": "GET /api/teacher-portal/students",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/teacher-portal/students"
+              }
+            },
+            {
+              "name": "GET /api/teacher-portal/classes",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/teacher-portal/classes"
+              }
+            },
+            {
+              "name": "GET /api/teacher-portal/attendance",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/teacher-portal/attendance"
+              }
+            },
+            {
+              "name": "POST /api/teacher-portal/attendance",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/teacher-portal/attendance"
+              }
+            },
+            {
+              "name": "POST /api/teacher-portal/assessments",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/teacher-portal/assessments"
+              }
+            },
+            {
+              "name": "POST /api/teacher-portal/marks",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/teacher-portal/marks"
+              }
+            },
+            {
+              "name": "GET /api/teacher-portal/gradebook-filters",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/teacher-portal/gradebook-filters"
+              }
+            },
+            {
+              "name": "GET /api/teacher-portal/gradebook-matrix",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/teacher-portal/gradebook-matrix"
+              }
+            },
+            {
+              "name": "GET /api/teacher-portal/timetable-filters",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/teacher-portal/timetable-filters"
+              }
+            },
+            {
+              "name": "GET /api/teacher-portal/attendance-summary/daily",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/teacher-portal/attendance-summary/daily"
+              }
+            },
+            {
+              "name": "GET /api/teacher-portal/attendance-summary/weekly",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/teacher-portal/attendance-summary/weekly"
+              }
+            },
+            {
+              "name": "GET /api/teacher-portal/teacher-attendance",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/teacher-portal/teacher-attendance"
+              }
+            },
+            {
+              "name": "POST /api/teacher-portal/teacher-attendance",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/teacher-portal/teacher-attendance"
+              }
+            },
+            {
+              "name": "GET /api/teacher-portal/staff/payroll/my",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/teacher-portal/staff/payroll/my"
+              }
+            },
+            {
+              "name": "GET /api/teacher-portal/attendance-module/meta",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/teacher-portal/attendance-module/meta"
+              }
+            },
+            {
+              "name": "GET /api/teacher-portal/attendance-module/class-period",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/teacher-portal/attendance-module/class-period"
+              }
+            },
+            {
+              "name": "POST /api/teacher-portal/attendance-module/class-period",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/teacher-portal/attendance-module/class-period"
+              }
+            },
+            {
+              "name": "GET /api/teacher-portal/attendance-module/student-entry-exit",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/teacher-portal/attendance-module/student-entry-exit"
+              }
+            },
+            {
+              "name": "POST /api/teacher-portal/attendance-module/student-entry-exit/simulate-scan",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/teacher-portal/attendance-module/student-entry-exit/simulate-scan"
+              }
+            },
+            {
+              "name": "GET /api/teacher-portal/attendance-module/student-entry-exit/monthly-grid",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/teacher-portal/attendance-module/student-entry-exit/monthly-grid"
+              }
+            },
+            {
+              "name": "GET /api/teacher-portal/attendance-module/teacher",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/teacher-portal/attendance-module/teacher"
+              }
+            },
+            {
+              "name": "GET /api/teacher-portal/attendance-module/teacher/monthly-grid",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/teacher-portal/attendance-module/teacher/monthly-grid"
+              }
+            },
+            {
+              "name": "POST /api/teacher-portal/attendance-module/teacher/manual",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/teacher-portal/attendance-module/teacher/manual"
+              }
+            },
+            {
+              "name": "POST /api/teacher-portal/attendance-module/teacher/simulate-scan",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/teacher-portal/attendance-module/teacher/simulate-scan"
+              }
+            },
+            {
+              "name": "GET /api/teacher-portal/attendance-module/teacher-class-checkin",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/teacher-portal/attendance-module/teacher-class-checkin"
+              }
+            },
+            {
+              "name": "POST /api/teacher-portal/attendance-module/teacher-class-checkin/simulate-scan",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/teacher-portal/attendance-module/teacher-class-checkin/simulate-scan"
+              }
+            },
+            {
+              "name": "POST /api/teacher-portal/attendance-module/teacher-class-checkin/override",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/teacher-portal/attendance-module/teacher-class-checkin/override"
+              }
+            },
+            {
+              "name": "GET /api/teacher-portal/attendance-module/parent-notifications",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/teacher-portal/attendance-module/parent-notifications"
+              }
+            },
+            {
+              "name": "POST /api/teacher-portal/attendance-module/parent-notifications/enqueue",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/teacher-portal/attendance-module/parent-notifications/enqueue"
+              }
+            }
+          ]
+        },
+        {
+          "name": "DOS and discipline",
+          "item": [
+            {
+              "name": "GET /api/dos/settings",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/dos/settings"
+              }
+            },
+            {
+              "name": "PUT /api/dos/settings",
+              "request": {
+                "method": "PUT",
+                "url": "{{baseUrl}}/api/dos/settings"
+              }
+            },
+            {
+              "name": "GET /api/dos/reports/summary",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/dos/reports/summary"
+              }
+            },
+            {
+              "name": "GET /api/dos/reports/attendance/by-class",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/dos/reports/attendance/by-class"
+              }
+            },
+            {
+              "name": "GET /api/dos/reports/attendance/by-teacher",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/dos/reports/attendance/by-teacher"
+              }
+            },
+            {
+              "name": "GET /api/dos/reports/requisitions/teacher",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/dos/reports/requisitions/teacher"
+              }
+            },
+            {
+              "name": "GET /api/dos/subjects",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/dos/subjects"
+              }
+            },
+            {
+              "name": "POST /api/dos/subjects",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/dos/subjects"
+              }
+            },
+            {
+              "name": "PATCH /api/dos/subjects/:id",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/dos/subjects/1"
+              }
+            },
+            {
+              "name": "POST /api/dos/timetable",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/dos/timetable"
+              }
+            },
+            {
+              "name": "DELETE /api/dos/timetable/:id",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/dos/timetable/1"
+              }
+            },
+            {
+              "name": "GET /api/discipline/settings",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/discipline/settings"
+              }
+            },
+            {
+              "name": "PUT /api/discipline/settings",
+              "request": {
+                "method": "PUT",
+                "url": "{{baseUrl}}/api/discipline/settings"
+              }
+            },
+            {
+              "name": "POST /api/discipline/cases",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/discipline/cases"
+              }
+            },
+            {
+              "name": "GET /api/discipline/report-summary",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/discipline/report-summary"
+              }
+            },
+            {
+              "name": "PUT /api/discipline/settings/default-marks",
+              "request": {
+                "method": "PUT",
+                "url": "{{baseUrl}}/api/discipline/settings/default-marks"
+              }
+            },
+            {
+              "name": "GET /api/discipline/students",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/discipline/students"
+              }
+            },
+            {
+              "name": "GET /api/discipline/students/:studentId/logs",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/discipline/students/{{studentId}}/logs"
+              }
+            },
+            {
+              "name": "POST /api/discipline/students/:studentId/marks",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/discipline/students/{{studentId}}/marks"
+              }
+            },
+            {
+              "name": "POST /api/discipline/students/:studentId/undo-last-action",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/discipline/students/{{studentId}}/undo-last-action"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Finance, payroll, and store",
+          "item": [
+            {
+              "name": "GET /api/accountant/overview",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/accountant/overview"
+              }
+            },
+            {
+              "name": "GET /api/accountant/payments",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/accountant/payments"
+              }
+            },
+            {
+              "name": "GET /api/accountant/reports/payments",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/accountant/reports/payments"
+              }
+            },
+            {
+              "name": "GET /api/accountant/expenses",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/accountant/expenses"
+              }
+            },
+            {
+              "name": "POST /api/accountant/expenses",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/accountant/expenses"
+              }
+            },
+            {
+              "name": "PATCH /api/accountant/expenses/:id/request-approval",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/accountant/expenses/1/request-approval"
+              }
+            },
+            {
+              "name": "PATCH /api/accountant/expenses/:id/status",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/accountant/expenses/1/status"
+              }
+            },
+            {
+              "name": "POST /api/accountant/expenses/:id/payments",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/accountant/expenses/1/payments"
+              }
+            },
+            {
+              "name": "GET /api/accountant/requisitions",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/accountant/requisitions"
+              }
+            },
+            {
+              "name": "PATCH /api/accountant/requisitions/:id/status",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/accountant/requisitions/1/status"
+              }
+            },
+            {
+              "name": "GET /api/accountant/payroll",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/accountant/payroll"
+              }
+            },
+            {
+              "name": "GET /api/accountant/payroll/config",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/accountant/payroll/config"
+              }
+            },
+            {
+              "name": "GET /api/accountant/payroll/runs",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/accountant/payroll/runs"
+              }
+            },
+            {
+              "name": "GET /api/store/inventory",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/store/inventory"
+              }
+            },
+            {
+              "name": "GET /api/store/movements",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/store/movements"
+              }
+            },
+            {
+              "name": "POST /api/store/movements",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/store/movements"
+              }
+            },
+            {
+              "name": "GET /api/store/suppliers",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/store/suppliers"
+              }
+            },
+            {
+              "name": "POST /api/store/suppliers",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/store/suppliers"
+              }
+            },
+            {
+              "name": "PATCH /api/store/suppliers/:id",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/store/suppliers/1"
+              }
+            },
+            {
+              "name": "DELETE /api/store/suppliers/:id",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/store/suppliers/1"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Tools, services, and manager workflow",
+          "item": [
+            {
+              "name": "GET /api/services/shule-avance/status",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/services/shule-avance/status"
+              }
+            },
+            {
+              "name": "GET /api/services/shule-avance/catalog",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/services/shule-avance/catalog"
+              }
+            },
+            {
+              "name": "GET /api/services/shule-avance/teacher-deal-products",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/services/shule-avance/teacher-deal-products"
+              }
+            },
+            {
+              "name": "POST /api/services/shule-avance/apply",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/services/shule-avance/apply"
+              }
+            },
+            {
+              "name": "POST /api/services/shule-avance/applicant/requests",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/services/shule-avance/applicant/requests"
+              }
+            },
+            {
+              "name": "DELETE /api/services/shule-avance/cancel/:id",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/services/shule-avance/cancel/1"
+              }
+            },
+            {
+              "name": "GET /api/tools/ticha-ai/history",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/tools/ticha-ai/history"
+              }
+            },
+            {
+              "name": "POST /api/tools/ticha-ai/assist",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/tools/ticha-ai/assist"
+              }
+            },
+            {
+              "name": "PATCH /api/manager/expenses/:id/decision",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/manager/expenses/1/decision"
+              }
+            },
+            {
+              "name": "PATCH /api/manager/requisitions/:id/decision",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/manager/requisitions/1/decision"
+              }
+            },
+            {
+              "name": "GET /api/iot/devices",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/iot/devices"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "17 - Extra backend modules (BabyeyiSystem)",
+      "description": "Additional backend API groups mounted in `server.js` that were not fully represented in the earlier folders.",
+      "item": [
+        {
+          "name": "Standard shule kits",
+          "item": [
+            {
+              "name": "GET /api/standard-shule-kits/public/kits",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/standard-shule-kits/public/kits"
+              }
+            },
+            {
+              "name": "GET /api/standard-shule-kits/public/kits/:id",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/standard-shule-kits/public/kits/1"
+              }
+            },
+            {
+              "name": "POST /api/standard-shule-kits/public/requests/prepare",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/standard-shule-kits/public/requests/prepare"
+              }
+            },
+            {
+              "name": "POST /api/standard-shule-kits/public/requests/pay-momo",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/standard-shule-kits/public/requests/pay-momo"
+              }
+            },
+            {
+              "name": "GET /api/standard-shule-kits/public/requests/pay-status/:requestId",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/standard-shule-kits/public/requests/pay-status/1"
+              }
+            },
+            {
+              "name": "GET /api/standard-shule-kits/admin/requests",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/standard-shule-kits/admin/requests"
+              }
+            },
+            {
+              "name": "GET /api/standard-shule-kits/agent/requests",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/standard-shule-kits/agent/requests"
+              }
+            },
+            {
+              "name": "GET /api/standard-shule-kits/admin/kits",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/standard-shule-kits/admin/kits"
+              }
+            },
+            {
+              "name": "GET /api/standard-shule-kits/admin/kits/:id",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/standard-shule-kits/admin/kits/1"
+              }
+            },
+            {
+              "name": "POST /api/standard-shule-kits/admin/kits",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/standard-shule-kits/admin/kits"
+              }
+            },
+            {
+              "name": "PUT /api/standard-shule-kits/admin/kits/:id",
+              "request": {
+                "method": "PUT",
+                "url": "{{baseUrl}}/api/standard-shule-kits/admin/kits/1"
+              }
+            },
+            {
+              "name": "DELETE /api/standard-shule-kits/admin/kits/:id",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/standard-shule-kits/admin/kits/1"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Uniform vouchers",
+          "item": [
+            {
+              "name": "GET /api/uniform-vouchers/public/items",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/uniform-vouchers/public/items"
+              }
+            },
+            {
+              "name": "POST /api/uniform-vouchers/public/lookup-student",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/uniform-vouchers/public/lookup-student"
+              }
+            },
+            {
+              "name": "POST /api/uniform-vouchers/public/orders",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/uniform-vouchers/public/orders"
+              }
+            },
+            {
+              "name": "GET /api/uniform-vouchers/public/track/:voucherNumber",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/uniform-vouchers/public/track/VCH-0001"
+              }
+            },
+            {
+              "name": "POST /api/uniform-vouchers/public/payment-intent",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/uniform-vouchers/public/payment-intent"
+              }
+            },
+            {
+              "name": "POST /api/uniform-vouchers/public/pay-momo",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/uniform-vouchers/public/pay-momo"
+              }
+            },
+            {
+              "name": "GET /api/uniform-vouchers/public/pay-status/:orderId",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/uniform-vouchers/public/pay-status/1"
+              }
+            },
+            {
+              "name": "GET /api/uniform-vouchers/admin/items",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/uniform-vouchers/admin/items"
+              }
+            },
+            {
+              "name": "POST /api/uniform-vouchers/admin/items",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/uniform-vouchers/admin/items"
+              }
+            },
+            {
+              "name": "PUT /api/uniform-vouchers/admin/items/:id",
+              "request": {
+                "method": "PUT",
+                "url": "{{baseUrl}}/api/uniform-vouchers/admin/items/1"
+              }
+            },
+            {
+              "name": "DELETE /api/uniform-vouchers/admin/items/:id",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/uniform-vouchers/admin/items/1"
+              }
+            },
+            {
+              "name": "GET /api/uniform-vouchers/admin/orders",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/uniform-vouchers/admin/orders"
+              }
+            },
+            {
+              "name": "PATCH /api/uniform-vouchers/admin/orders/:id",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/uniform-vouchers/admin/orders/1"
+              }
+            },
+            {
+              "name": "GET /api/uniform-vouchers/agent/orders",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/uniform-vouchers/agent/orders"
+              }
+            },
+            {
+              "name": "PATCH /api/uniform-vouchers/agent/orders/:id",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/uniform-vouchers/agent/orders/1"
+              }
+            },
+            {
+              "name": "GET /api/uniform-vouchers/admin/summary",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/uniform-vouchers/admin/summary"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "18 - Exhaustive route-file index (remaining)",
+      "description": "Second-pass full backend route-file coverage. Endpoints here are grouped by source module to make auditing easier.",
+      "item": [
+        {
+          "name": "authPages/auth.js (advanced admin + Shule Avance org)",
+          "item": [
+            {
+              "name": "PATCH /api/auth/schools/:schoolId/subscription",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/auth/schools/{{schoolId}}/subscription"
+              }
+            },
+            {
+              "name": "PATCH /api/auth/schools/:schoolId/manager-credentials",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/auth/schools/{{schoolId}}/manager-credentials"
+              }
+            },
+            {
+              "name": "GET /api/auth/schools/:schoolId/modules",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/auth/schools/{{schoolId}}/modules"
+              }
+            },
+            {
+              "name": "PUT /api/auth/schools/:schoolId/modules",
+              "request": {
+                "method": "PUT",
+                "url": "{{baseUrl}}/api/auth/schools/{{schoolId}}/modules"
+              }
+            },
+            {
+              "name": "POST /api/auth/create-shule-avance-organization",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/auth/create-shule-avance-organization"
+              }
+            },
+            {
+              "name": "GET /api/auth/shule-avance-organizations",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/auth/shule-avance-organizations"
+              }
+            },
+            {
+              "name": "GET /api/auth/shule-avance-organization/:id",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/auth/shule-avance-organization/1"
+              }
+            },
+            {
+              "name": "PUT /api/auth/shule-avance-organization/:id",
+              "request": {
+                "method": "PUT",
+                "url": "{{baseUrl}}/api/auth/shule-avance-organization/1"
+              }
+            },
+            {
+              "name": "DELETE /api/auth/shule-avance-organization/:id",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/auth/shule-avance-organization/1"
+              }
+            },
+            {
+              "name": "GET /api/auth/shule-avance-teacher-catalog",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/auth/shule-avance-teacher-catalog"
+              }
+            },
+            {
+              "name": "POST /api/auth/shule-avance-teacher-catalog",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/auth/shule-avance-teacher-catalog"
+              }
+            },
+            {
+              "name": "PATCH /api/auth/shule-avance-teacher-catalog/:id",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/auth/shule-avance-teacher-catalog/1"
+              }
+            },
+            {
+              "name": "DELETE /api/auth/shule-avance-teacher-catalog/:id",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/auth/shule-avance-teacher-catalog/1"
+              }
+            }
+          ]
+        },
+        {
+          "name": "shuleAvanceOrgPortal.js",
+          "item": [
+            {
+              "name": "GET /api/shule-avance-partner/me",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/shule-avance-partner/me"
+              }
+            },
+            {
+              "name": "GET /api/shule-avance-partner/requests",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/shule-avance-partner/requests"
+              }
+            },
+            {
+              "name": "GET /api/shule-avance-partner/requests/:id",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/shule-avance-partner/requests/1"
+              }
+            },
+            {
+              "name": "PATCH /api/shule-avance-partner/requests/:id",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/shule-avance-partner/requests/1"
+              }
+            },
+            {
+              "name": "GET /api/shule-avance-partner/stats",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/shule-avance-partner/stats"
+              }
+            }
+          ]
+        },
+        {
+          "name": "teacherPortal.js (remaining)",
+          "item": [
+            {
+              "name": "GET /api/teacher-portal/english-club/resources",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/teacher-portal/english-club/resources"
+              }
+            },
+            {
+              "name": "GET /api/teacher-portal/gradebook-assessments",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/teacher-portal/gradebook-assessments"
+              }
+            }
+          ]
+        },
+        {
+          "name": "dosAcademic.js (remaining)",
+          "item": [
+            {
+              "name": "GET /api/dos/dashboard/stats",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/dos/dashboard/stats"
+              }
+            },
+            {
+              "name": "GET /api/dos/registry/classes",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/dos/registry/classes"
+              }
+            },
+            {
+              "name": "GET /api/dos/subjects/config",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/dos/subjects/config"
+              }
+            },
+            {
+              "name": "GET /api/dos/teaching-staff",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/dos/teaching-staff"
+              }
+            },
+            {
+              "name": "PUT /api/dos/timetable/:id",
+              "request": {
+                "method": "PUT",
+                "url": "{{baseUrl}}/api/dos/timetable/1"
+              }
+            }
+          ]
+        },
+        {
+          "name": "schoolStaff.js + students.js (remaining)",
+          "item": [
+            {
+              "name": "PATCH /api/school/staff/:userId",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/school/staff/1"
+              }
+            },
+            {
+              "name": "DELETE /api/school/staff/:userId",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/school/staff/1"
+              }
+            },
+            {
+              "name": "PUT /api/school/staff/:userId/identity",
+              "request": {
+                "method": "PUT",
+                "url": "{{baseUrl}}/api/school/staff/1/identity"
+              }
+            },
+            {
+              "name": "PUT /api/students/:id/identity",
+              "request": {
+                "method": "PUT",
+                "url": "{{baseUrl}}/api/students/{{studentId}}/identity"
+              }
+            }
+          ]
+        },
+        {
+          "name": "fieldAgentsRoutes.js (complete index)",
+          "item": [
+            {
+              "name": "GET /api/field-agents/rwanda-geo",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/field-agents/rwanda-geo"
+              }
+            },
+            {
+              "name": "GET /api/field-agents/meta/districts",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/field-agents/meta/districts"
+              }
+            },
+            {
+              "name": "GET /api/field-agents/meta/sectors",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/field-agents/meta/sectors?district=Gasabo"
+              }
+            },
+            {
+              "name": "POST /api/field-agents/agents",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/field-agents/agents"
+              }
+            },
+            {
+              "name": "PATCH /api/field-agents/agents/:id",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/field-agents/agents/1"
+              }
+            },
+            {
+              "name": "DELETE /api/field-agents/agents/:id",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/field-agents/agents/1"
+              }
+            },
+            {
+              "name": "GET /api/agent/rwanda-geo",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/agent/rwanda-geo"
+              }
+            },
+            {
+              "name": "GET /api/agent/my-coverage",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/agent/my-coverage"
+              }
+            },
+            {
+              "name": "GET /api/agent/schools/filters",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/agent/schools/filters"
+              }
+            },
+            {
+              "name": "GET /api/agent/services/revenue",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/agent/services/revenue"
+              }
+            },
+            {
+              "name": "GET /api/agent/school-fees",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/agent/school-fees"
+              }
+            },
+            {
+              "name": "GET /api/agent/support-requests",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/agent/support-requests"
+              }
+            },
+            {
+              "name": "PATCH /api/agent/support-requests/:id/status",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/agent/support-requests/1/status"
+              }
+            },
+            {
+              "name": "GET /api/public/agents/find",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/public/agents/find?q=school"
+              }
+            },
+            {
+              "name": "POST /api/public/agents/support-requests",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/public/agents/support-requests"
+              }
+            }
+          ]
+        },
+        {
+          "name": "publicPaySchoolFlow.js (remaining)",
+          "item": [
+            {
+              "name": "POST /api/public/public-pay/student-catalog",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/public/public-pay/student-catalog"
+              }
+            }
+          ]
+        },
+        {
+          "name": "publicBabyeyiPay.js (remaining invoice/payment ops)",
+          "item": [
+            {
+              "name": "POST /api/public/babyeyi-pay/invoices",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/public/babyeyi-pay/invoices"
+              }
+            },
+            {
+              "name": "PATCH /api/public/babyeyi-pay/invoices/:id",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/public/babyeyi-pay/invoices/1"
+              }
+            },
+            {
+              "name": "DELETE /api/public/babyeyi-pay/invoices/:id",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/public/babyeyi-pay/invoices/1"
+              }
+            },
+            {
+              "name": "GET /api/public/babyeyi-pay/invoice/:id.pdf",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/public/babyeyi-pay/invoice/1.pdf"
+              }
+            },
+            {
+              "name": "GET /api/public/babyeyi-pay/shule-avance-organizations",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/public/babyeyi-pay/shule-avance-organizations"
+              }
+            },
+            {
+              "name": "GET /api/public/babyeyi-pay/admin-webhook-logs/export.csv",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/public/babyeyi-pay/admin-webhook-logs/export.csv"
+              }
+            },
+            {
+              "name": "GET /api/public/babyeyi-pay/admin-webhook-logs/:id",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/public/babyeyi-pay/admin-webhook-logs/1"
+              }
+            },
+            {
+              "name": "POST /api/public/babyeyi-pay/admin-webhook-logs/:id/reconcile",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/public/babyeyi-pay/admin-webhook-logs/1/reconcile"
+              }
+            }
+          ]
+        },
+        {
+          "name": "accountantFees.js + portalOperations.js (detailed)",
+          "item": [
+            {
+              "name": "GET /api/accountant/payments/:id",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/accountant/payments/1"
+              }
+            },
+            {
+              "name": "PATCH /api/accountant/payments/:id",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/accountant/payments/1"
+              }
+            },
+            {
+              "name": "DELETE /api/accountant/payments/:id",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/accountant/payments/1"
+              }
+            },
+            {
+              "name": "GET /api/manager/finance/payments/report",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/manager/finance/payments/report"
+              }
+            },
+            {
+              "name": "GET /api/accountant/babyeyi-fees",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/accountant/babyeyi-fees"
+              }
+            },
+            {
+              "name": "GET /api/accountant/babyeyi-fees/:id",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/accountant/babyeyi-fees/1"
+              }
+            },
+            {
+              "name": "PUT /api/accountant/babyeyi-fees/:id",
+              "request": {
+                "method": "PUT",
+                "url": "{{baseUrl}}/api/accountant/babyeyi-fees/1"
+              }
+            },
+            {
+              "name": "DELETE /api/accountant/babyeyi-fees/:id",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/accountant/babyeyi-fees/1"
+              }
+            },
+            {
+              "name": "GET /api/teacher-portal/inventory-equipment",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/teacher-portal/inventory-equipment"
+              }
+            },
+            {
+              "name": "GET /api/teacher-portal/requisitions",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/teacher-portal/requisitions"
+              }
+            },
+            {
+              "name": "POST /api/teacher-portal/requisitions",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/teacher-portal/requisitions"
+              }
+            },
+            {
+              "name": "PATCH /api/teacher-portal/requisitions/:id",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/teacher-portal/requisitions/1"
+              }
+            },
+            {
+              "name": "DELETE /api/teacher-portal/requisitions/:id",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/teacher-portal/requisitions/1"
+              }
+            },
+            {
+              "name": "GET /api/reports/requisitions/teacher",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/reports/requisitions/teacher"
+              }
+            },
+            {
+              "name": "POST /api/accountant/requisitions",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/accountant/requisitions"
+              }
+            },
+            {
+              "name": "PATCH /api/accountant/requisitions/:id",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/accountant/requisitions/1"
+              }
+            },
+            {
+              "name": "PATCH /api/manager/requisitions/:id/decision",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/manager/requisitions/1/decision"
+              }
+            },
+            {
+              "name": "DELETE /api/accountant/requisitions/:id",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/accountant/requisitions/1"
+              }
+            },
+            {
+              "name": "GET /api/store/requisitions",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/store/requisitions"
+              }
+            },
+            {
+              "name": "PATCH /api/store/requisitions/:id/status",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/store/requisitions/1/status"
+              }
+            },
+            {
+              "name": "DELETE /api/accountant/expenses/:id",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/accountant/expenses/1"
+              }
+            },
+            {
+              "name": "DELETE /api/accountant/expenses/:expenseId/payments/:paymentId",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/accountant/expenses/1/payments/1"
+              }
+            },
+            {
+              "name": "GET /api/accountant/payroll/staff/search",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/accountant/payroll/staff/search?q=john"
+              }
+            },
+            {
+              "name": "GET /api/accountant/payroll/record/:id",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/accountant/payroll/record/1"
+              }
+            },
+            {
+              "name": "POST /api/accountant/payroll",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/accountant/payroll"
+              }
+            },
+            {
+              "name": "PUT /api/accountant/payroll/record/:id",
+              "request": {
+                "method": "PUT",
+                "url": "{{baseUrl}}/api/accountant/payroll/record/1"
+              }
+            },
+            {
+              "name": "DELETE /api/accountant/payroll/record/:id",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/accountant/payroll/record/1"
+              }
+            },
+            {
+              "name": "PUT /api/accountant/payroll/rates",
+              "request": {
+                "method": "PUT",
+                "url": "{{baseUrl}}/api/accountant/payroll/rates"
+              }
+            },
+            {
+              "name": "PATCH /api/accountant/payroll/staff/:userId",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/accountant/payroll/staff/1"
+              }
+            },
+            {
+              "name": "GET /api/accountant/payroll/runs/:id",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/accountant/payroll/runs/1"
+              }
+            },
+            {
+              "name": "POST /api/accountant/payroll/runs/trigger",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/accountant/payroll/runs/trigger"
+              }
+            },
+            {
+              "name": "POST /api/store/inventory",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/store/inventory"
+              }
+            },
+            {
+              "name": "PATCH /api/store/inventory/:id",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/store/inventory/1"
+              }
+            },
+            {
+              "name": "DELETE /api/store/inventory/:id",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/store/inventory/1"
+              }
+            }
+          ]
+        },
+        {
+          "name": "schoolRoleOperations.js (library / stock / gate)",
+          "item": [
+            {
+              "name": "GET /api/library/books",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/library/books"
+              }
+            },
+            {
+              "name": "POST /api/library/books",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/library/books"
+              }
+            },
+            {
+              "name": "PUT /api/library/books/:id",
+              "request": {
+                "method": "PUT",
+                "url": "{{baseUrl}}/api/library/books/1"
+              }
+            },
+            {
+              "name": "DELETE /api/library/books/:id",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/library/books/1"
+              }
+            },
+            {
+              "name": "GET /api/library/checkouts",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/library/checkouts"
+              }
+            },
+            {
+              "name": "POST /api/library/checkouts",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/library/checkouts"
+              }
+            },
+            {
+              "name": "PUT /api/library/checkouts/:id",
+              "request": {
+                "method": "PUT",
+                "url": "{{baseUrl}}/api/library/checkouts/1"
+              }
+            },
+            {
+              "name": "PATCH /api/library/checkouts/:id/return",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/library/checkouts/1/return"
+              }
+            },
+            {
+              "name": "DELETE /api/library/checkouts/:id",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/library/checkouts/1"
+              }
+            },
+            {
+              "name": "GET /api/stock/items",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/stock/items"
+              }
+            },
+            {
+              "name": "POST /api/stock/items",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/stock/items"
+              }
+            },
+            {
+              "name": "PUT /api/stock/items/:id",
+              "request": {
+                "method": "PUT",
+                "url": "{{baseUrl}}/api/stock/items/1"
+              }
+            },
+            {
+              "name": "DELETE /api/stock/items/:id",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/stock/items/1"
+              }
+            },
+            {
+              "name": "GET /api/stock/movements",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/stock/movements"
+              }
+            },
+            {
+              "name": "POST /api/stock/movements",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/stock/movements"
+              }
+            },
+            {
+              "name": "PUT /api/stock/movements/:id",
+              "request": {
+                "method": "PUT",
+                "url": "{{baseUrl}}/api/stock/movements/1"
+              }
+            },
+            {
+              "name": "DELETE /api/stock/movements/:id",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/stock/movements/1"
+              }
+            },
+            {
+              "name": "GET /api/gate/logs",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/gate/logs"
+              }
+            },
+            {
+              "name": "POST /api/gate/logs",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/gate/logs"
+              }
+            },
+            {
+              "name": "PUT /api/gate/logs/:id",
+              "request": {
+                "method": "PUT",
+                "url": "{{baseUrl}}/api/gate/logs/1"
+              }
+            },
+            {
+              "name": "DELETE /api/gate/logs/:id",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/gate/logs/1"
+              }
+            }
+          ]
+        },
+        {
+          "name": "studentServicesRoutes.js (full public/admin/agent/shop)",
+          "item": [
+            {
+              "name": "GET /api/student-services/admin/services",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/student-services/admin/services"
+              }
+            },
+            {
+              "name": "GET /api/student-services/admin/services/:id",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/student-services/admin/services/1"
+              }
+            },
+            {
+              "name": "POST /api/student-services/admin/services",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/student-services/admin/services"
+              }
+            },
+            {
+              "name": "PUT /api/student-services/admin/services/:id",
+              "request": {
+                "method": "PUT",
+                "url": "{{baseUrl}}/api/student-services/admin/services/1"
+              }
+            },
+            {
+              "name": "PATCH /api/student-services/admin/services/:id/status",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/student-services/admin/services/1/status"
+              }
+            },
+            {
+              "name": "DELETE /api/student-services/admin/services/:id",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/student-services/admin/services/1"
+              }
+            },
+            {
+              "name": "GET /api/student-services/admin/shoe-brand-models",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/student-services/admin/shoe-brand-models"
+              }
+            },
+            {
+              "name": "POST /api/student-services/admin/shoe-brand-models",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/student-services/admin/shoe-brand-models"
+              }
+            },
+            {
+              "name": "PUT /api/student-services/admin/shoe-brand-models/:id",
+              "request": {
+                "method": "PUT",
+                "url": "{{baseUrl}}/api/student-services/admin/shoe-brand-models/1"
+              }
+            },
+            {
+              "name": "DELETE /api/student-services/admin/shoe-brand-models/:id",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/student-services/admin/shoe-brand-models/1"
+              }
+            },
+            {
+              "name": "GET /api/student-services/admin/shop-products",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/student-services/admin/shop-products"
+              }
+            },
+            {
+              "name": "GET /api/student-services/admin/shoes/agents",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/student-services/admin/shoes/agents"
+              }
+            },
+            {
+              "name": "GET /api/student-services/admin/shoes/orders",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/student-services/admin/shoes/orders"
+              }
+            },
+            {
+              "name": "PATCH /api/student-services/admin/shoes/orders/:id/status",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/student-services/admin/shoes/orders/1/status"
+              }
+            },
+            {
+              "name": "GET /api/student-services/admin/shoes/orders/export",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/student-services/admin/shoes/orders/export"
+              }
+            },
+            {
+              "name": "GET /api/student-services/agent/shop-products",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/student-services/agent/shop-products"
+              }
+            },
+            {
+              "name": "POST /api/student-services/agent/shop-products",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/student-services/agent/shop-products"
+              }
+            },
+            {
+              "name": "PUT /api/student-services/agent/shop-products/:id",
+              "request": {
+                "method": "PUT",
+                "url": "{{baseUrl}}/api/student-services/agent/shop-products/1"
+              }
+            },
+            {
+              "name": "DELETE /api/student-services/agent/shop-products/:id",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/student-services/agent/shop-products/1"
+              }
+            },
+            {
+              "name": "GET /api/student-services/agent/shop-orders",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/student-services/agent/shop-orders"
+              }
+            },
+            {
+              "name": "GET /api/student-services/public/shop/products",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/student-services/public/shop/products"
+              }
+            },
+            {
+              "name": "POST /api/student-services/public/shop/quote",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/student-services/public/shop/quote"
+              }
+            },
+            {
+              "name": "POST /api/student-services/public/shop/checkout",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/student-services/public/shop/checkout"
+              }
+            },
+            {
+              "name": "POST /api/student-services/public/shop/pay-momo",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/student-services/public/shop/pay-momo"
+              }
+            },
+            {
+              "name": "GET /api/student-services/public/shop/pay-status/:batchRef",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/student-services/public/shop/pay-status/BATCH-REF"
+              }
+            },
+            {
+              "name": "POST /api/student-services/public/payment-plan-intent",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/student-services/public/payment-plan-intent"
+              }
+            }
+          ]
+        },
+        {
+          "name": "shuleAvanceServices.js (full role ops)",
+          "item": [
+            {
+              "name": "GET /api/services/shule-avance/admin/teacher-deal-products",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/services/shule-avance/admin/teacher-deal-products"
+              }
+            },
+            {
+              "name": "POST /api/services/shule-avance/admin/teacher-deal-products",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/services/shule-avance/admin/teacher-deal-products"
+              }
+            },
+            {
+              "name": "PUT /api/services/shule-avance/admin/teacher-deal-products/:id",
+              "request": {
+                "method": "PUT",
+                "url": "{{baseUrl}}/api/services/shule-avance/admin/teacher-deal-products/1"
+              }
+            },
+            {
+              "name": "DELETE /api/services/shule-avance/admin/teacher-deal-products/:id",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/services/shule-avance/admin/teacher-deal-products/1"
+              }
+            },
+            {
+              "name": "GET /api/services/shule-avance/applicant/my-requests",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/services/shule-avance/applicant/my-requests"
+              }
+            },
+            {
+              "name": "PUT /api/services/shule-avance/applicant/requests/:id",
+              "request": {
+                "method": "PUT",
+                "url": "{{baseUrl}}/api/services/shule-avance/applicant/requests/1"
+              }
+            },
+            {
+              "name": "DELETE /api/services/shule-avance/applicant/requests/:id",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/services/shule-avance/applicant/requests/1"
+              }
+            },
+            {
+              "name": "GET /api/services/shule-avance/teacher/my-requests",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/services/shule-avance/teacher/my-requests"
+              }
+            },
+            {
+              "name": "POST /api/services/shule-avance/teacher/requests",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/services/shule-avance/teacher/requests"
+              }
+            },
+            {
+              "name": "PUT /api/services/shule-avance/teacher/requests/:id",
+              "request": {
+                "method": "PUT",
+                "url": "{{baseUrl}}/api/services/shule-avance/teacher/requests/1"
+              }
+            },
+            {
+              "name": "DELETE /api/services/shule-avance/teacher/requests/:id",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/services/shule-avance/teacher/requests/1"
+              }
+            },
+            {
+              "name": "GET /api/services/shule-avance/finance/requests",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/services/shule-avance/finance/requests"
+              }
+            },
+            {
+              "name": "GET /api/services/shule-avance/finance/pending-invoices",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/services/shule-avance/finance/pending-invoices"
+              }
+            },
+            {
+              "name": "PATCH /api/services/shule-avance/finance/invoice-requests/:id/send-to-manager",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/services/shule-avance/finance/invoice-requests/1/send-to-manager"
+              }
+            },
+            {
+              "name": "PATCH /api/services/shule-avance/finance/invoice-requests/:id/reject",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/services/shule-avance/finance/invoice-requests/1/reject"
+              }
+            },
+            {
+              "name": "GET /api/services/shule-avance/manager/requests",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/services/shule-avance/manager/requests"
+              }
+            },
+            {
+              "name": "GET /api/services/shule-avance/manager/pending-requests",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/services/shule-avance/manager/pending-requests"
+              }
+            },
+            {
+              "name": "PATCH /api/services/shule-avance/manager/invoice-requests/:id/decision",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/services/shule-avance/manager/invoice-requests/1/decision"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

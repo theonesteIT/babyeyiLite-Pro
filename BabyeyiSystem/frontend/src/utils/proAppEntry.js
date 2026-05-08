@@ -17,6 +17,8 @@ const ROLE_TO_PRO_PATH = {
   DISCIPLINE_STAFF: '/discipline-staff',
   TEACHER: '/teacher',
   HOD: '/teacher',
+  GATE_OFFICER: '/gatekeeper',
+  GATE_KEEPER: '/gatekeeper',
 };
 
 export function getProPortalPathForRole(roleCode) {

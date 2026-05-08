@@ -141,15 +141,15 @@ export default function StaffIdentityModal({ open, onClose, staffList, creatorRo
 
   return (
     <div className="fixed inset-0 z-[5000] flex items-end sm:items-center justify-center bg-black/55 p-3 sm:p-6">
-      <div className="w-full max-w-lg rounded-3xl bg-white shadow-2xl border border-amber-100 overflow-hidden max-h-[92vh] flex flex-col">
+      <div className="w-full max-w-lg rounded-3xl bg-white shadow-sm border border-amber-100 overflow-hidden max-h-[92vh] flex flex-col">
         <div className="px-5 py-4 border-b border-amber-100 flex items-center justify-between gap-3 bg-gradient-to-r from-gray-900 to-gray-800">
           <div className="flex items-center gap-2 min-w-0">
             <div className="w-10 h-10 rounded-2xl bg-amber-400 flex items-center justify-center shrink-0">
               <Shield size={18} className="text-gray-900" />
             </div>
             <div className="min-w-0">
-              <p className="text-[10px] font-black uppercase tracking-widest text-amber-200/90">Staff identity</p>
-              <h2 className="text-base font-black text-white truncate">Step {step} of 3</h2>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-amber-200/90">Staff identity</p>
+              <h2 className="text-base font-semibold text-white truncate">Step {step} of 3</h2>
             </div>
           </div>
           <button type="button" onClick={() => onClose?.()} className="p-2 rounded-xl text-white/70 hover:bg-white/10">
@@ -221,7 +221,7 @@ export default function StaffIdentityModal({ open, onClose, staffList, creatorRo
               <div className="rounded-2xl border-2 border-dashed border-amber-200 p-6 text-center bg-amber-50/40">
                 <Upload className="mx-auto text-amber-600 mb-2" size={28} />
                 <p className="text-sm font-semibold text-gray-800 mb-2">Profile photo</p>
-                <label className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-900 text-amber-300 text-xs font-black cursor-pointer">
+                <label className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-900 text-amber-300 text-xs font-semibold cursor-pointer">
                   <Camera size={14} /> Choose image
                   <input type="file" accept="image/*" className="hidden" onChange={onPickFile} />
                 </label>
@@ -237,7 +237,7 @@ export default function StaffIdentityModal({ open, onClose, staffList, creatorRo
                 type="button"
                 disabled={busy || !photoFile}
                 onClick={savePhoto}
-                className="w-full py-3 rounded-2xl bg-gray-900 text-amber-300 font-black text-sm disabled:opacity-50 inline-flex items-center justify-center gap-2"
+                className="w-full py-3 rounded-2xl bg-gray-900 text-amber-300 font-semibold text-sm disabled:opacity-50 inline-flex items-center justify-center gap-2"
               >
                 {busy ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
                 Save photo & continue
@@ -270,7 +270,7 @@ export default function StaffIdentityModal({ open, onClose, staffList, creatorRo
               )}
               <div className="grid gap-3">
                 <div>
-                  <label className="text-[10px] font-black uppercase text-gray-500">RFID UID (optional)</label>
+                  <label className="text-[10px] font-semibold uppercase text-gray-500">RFID UID (optional)</label>
                   <div className="relative mt-1">
                     <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
                     <input
@@ -282,7 +282,7 @@ export default function StaffIdentityModal({ open, onClose, staffList, creatorRo
                   </div>
                 </div>
                 <div>
-                  <label className="text-[10px] font-black uppercase text-gray-500">Fingerprint ID (optional)</label>
+                  <label className="text-[10px] font-semibold uppercase text-gray-500">Fingerprint ID (optional)</label>
                   <div className="relative mt-1">
                     <Fingerprint className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
                     <input
@@ -294,7 +294,7 @@ export default function StaffIdentityModal({ open, onClose, staffList, creatorRo
                   </div>
                 </div>
                 <div>
-                  <label className="text-[10px] font-black uppercase text-gray-500">Remarks (optional)</label>
+                  <label className="text-[10px] font-semibold uppercase text-gray-500">Remarks (optional)</label>
                   <textarea
                     value={remarks}
                     onChange={(e) => setRemarks(e.target.value)}
@@ -307,7 +307,7 @@ export default function StaffIdentityModal({ open, onClose, staffList, creatorRo
                 type="button"
                 disabled={busy}
                 onClick={saveIdentity}
-                className="w-full py-3 rounded-2xl bg-amber-400 text-gray-900 font-black text-sm inline-flex items-center justify-center gap-2"
+                className="w-full py-3 rounded-2xl bg-amber-400 text-gray-900 font-semibold text-sm inline-flex items-center justify-center gap-2"
               >
                 {busy ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
                 Save identity

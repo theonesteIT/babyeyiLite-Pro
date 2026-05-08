@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { Filter, Loader2, AlertCircle, ShieldCheck, ChevronLeft, ChevronRight, X, BookOpen } from "lucide-react";
 import api from "../services/api";
+import DosOchreHero from "../components/DosOchreHero";
 
 const TERMS = ["Term 1", "Term 2", "Term 3"];
 const ACADEMIC_YEARS = ["2023-2024", "2024-2025", "2025-2026", "2026-2027", "2027-2028"];
@@ -191,16 +192,14 @@ export default function DosAcademicProgressPage() {
 
   return (
     <>
-      <div className="mb-6 sm:mb-8">
-        <div className="inline-flex items-center gap-2 rounded-full bg-[#FFFBE8] px-3 py-1 text-xs font-bold text-[#7A5C00] ring-1 ring-[#FDEAA0]">
-          <BookOpen size={14} />
-          Academic progress
-        </div>
-        <h1 className="mt-3 text-2xl font-black tracking-tight text-[#1A1200] sm:text-3xl">Students status & marks</h1>
-        <p className="mt-1 max-w-2xl text-sm text-slate-600">
-          Select academic year and term, then set each learner’s status and marks. Remaining is calculated automatically from the DOS default total marks.
-        </p>
-      </div>
+      <DosOchreHero
+        eyebrow="Academic progress"
+        titleLine="Student status"
+        titleAccent="& marks"
+        subtitle="Select year and term, then set each learner’s status and marks. Remaining is calculated from your DOS default total marks."
+        icon={BookOpen}
+      />
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 -mt-4 sm:-mt-5 md:-mt-6 pt-2 relative z-20 pb-10">
 
       {error && (
         <div className="mb-4 flex items-start gap-2 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
@@ -267,7 +266,7 @@ export default function DosAcademicProgressPage() {
         </div>
       </div>
 
-      <div className="rounded-3xl border border-slate-200/80 bg-white shadow-xl overflow-hidden">
+      <div className="rounded-3xl border border-slate-200/80 bg-white shadow-sm overflow-hidden">
         <div className="border-b border-[#FDEAA0]/60 bg-[#FFFBE8]/90 px-4 py-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2 font-black text-[#1A1200]">
@@ -392,11 +391,12 @@ export default function DosAcademicProgressPage() {
           </div>
         )}
       </div>
+      </div>
 
       {modalStudent && (
         <div className="fixed inset-0 z-[200] flex items-end justify-center bg-black/55 p-3 backdrop-blur-sm sm:items-center sm:p-6">
           <div className="fixed inset-0" onClick={closeModal} />
-          <div className="relative z-10 w-full max-w-md overflow-hidden rounded-3xl border border-[#FDEAA0] bg-white shadow-2xl">
+          <div className="relative z-10 w-full max-w-md overflow-hidden rounded-3xl border border-[#FDEAA0] bg-white shadow-sm">
             <div className="flex items-center justify-between border-b border-[#FDEAA0]/60 bg-[#FFFBE8] px-4 py-3">
               <div className="flex items-center gap-2 font-black text-[#1A1200]">
                 <BookOpen size={18} className="text-[#B88A00]" />

@@ -8,6 +8,7 @@
 //   DELETE /api/students/:id       → delete student
 //   POST   /api/students/bulk-delete → delete many by id (same school)
 //   POST   /api/students/delete-all  → delete every student in school (typed confirm)
+//   GET    /api/students/registry-stats → gender / class aggregates (filtered)
 //   GET    /api/students/export.xlsx → export Excel
 //   GET    /api/students/export.pdf  → export PDF
 //   POST   /api/students/import    → import many students from Excel
@@ -49,7 +50,25 @@ const {
 // DOS can also register/import students (same StudentsPage UX as School Manager).
 const SCHOOL_ROLES = ['SCHOOL_ADMIN', 'SCHOOL_MANAGER', 'ACCOUNTANT', 'DOS'];
 /** HOD may list students (read-only discipline workflow); mutations stay SCHOOL_ROLES */
-const STUDENT_LIST_ROLES = [...SCHOOL_ROLES, 'HOD'];
+const STUDENT_LIST_ROLES = [...SCHOOL_ROLES, 'HOD', 'SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER'];
+/** RFID / fingerprint partial updates — platform operators may act on behalf of a selected school. */
+const STUDENT_IDENTITY_ROLES = [...SCHOOL_ROLES, 'SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER'];
+
+const ELEVATED_SCHOOL_SCOPERS = ['SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER'];
+
+function requesterRoleUpper(req) {
+  return String(req.user?.role_code || '').toUpperCase();
+}
+
+/** Session school, or for Super Admin / Controller: `school_id` query / `X-Babyeyi-School-Id` header. */
+function resolveEffectiveSchoolId(req) {
+  const base = resolveSchoolId(req);
+  if (!ELEVATED_SCHOOL_SCOPERS.includes(requesterRoleUpper(req))) return base;
+  const raw = req.query.school_id ?? req.headers['x-babyeyi-school-id'];
+  const id = Number(raw);
+  if (Number.isFinite(id) && id > 0) return id;
+  return base;
+}
 
 // ── Student profile photo uploads (DOS identity wizard) ──────────
 const STUDENT_PHOTO_DIR = path.join(__dirname, '..', 'uploads', 'student-profile-photos');
@@ -736,8 +755,14 @@ async function ensureStudentsTable() {
 router.get('/students', requireRole(STUDENT_LIST_ROLES), async (req, res) => {
   try {
     await ensureStudentsTable();
-    const schoolId = resolveSchoolId(req);
-    if (!schoolId) return res.status(400).json({ success: false, message: 'School not found in session.' });
+    const schoolId = resolveEffectiveSchoolId(req);
+    if (!schoolId) {
+      const needParam = ELEVATED_SCHOOL_SCOPERS.includes(requesterRoleUpper(req)) && !resolveSchoolId(req);
+      return res.status(400).json({
+        success: false,
+        message: needParam ? 'school_id is required (query or X-Babyeyi-School-Id header).' : 'School not found in session.',
+      });
+    }
 
     const q = trimStr(req.query.q || '');
     const { page, limit, offset } = parsePagination(req);
@@ -768,8 +793,8 @@ router.get('/students', requireRole(STUDENT_LIST_ROLES), async (req, res) => {
     const classFilter = trimStr(req.query.class_name || req.query.class || '');
     const yearFilter = trimStr(req.query.academic_year || req.query.year || '');
     if (classFilter) {
-      sql += ' AND class_name = ?';
-      countSql += ' AND class_name = ?';
+      sql += ' AND TRIM(COALESCE(class_name, \'\')) = ?';
+      countSql += ' AND TRIM(COALESCE(class_name, \'\')) = ?';
       params.push(classFilter);
       countParams.push(classFilter);
     }
@@ -800,6 +825,79 @@ router.get('/students', requireRole(STUDENT_LIST_ROLES), async (req, res) => {
   } catch (err) {
     console.error('GET /api/students error:', err);
     return res.status(500).json({ success: false, message: 'Failed to fetch students' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+// GET /api/students/registry-stats — gender totals + class list (filtered by q/year)
+// Optional class_name narrows gender counts to one class (TRIM match).
+// ════════════════════════════════════════════════════════════════
+router.get('/students/registry-stats', requireRole(STUDENT_LIST_ROLES), async (req, res) => {
+  try {
+    await ensureStudentsTable();
+    const schoolId = resolveEffectiveSchoolId(req);
+    if (!schoolId) {
+      const needParam = ELEVATED_SCHOOL_SCOPERS.includes(requesterRoleUpper(req)) && !resolveSchoolId(req);
+      return res.status(400).json({
+        success: false,
+        message: needParam ? 'school_id is required (query or X-Babyeyi-School-Id header).' : 'School not found in session.',
+      });
+    }
+
+    const q = trimStr(req.query.q || '');
+    const yearFilter = trimStr(req.query.academic_year || req.query.year || '');
+    const classFilter = trimStr(req.query.class_name || req.query.class || '');
+
+    const params = [schoolId];
+    let where = 'school_id = ?';
+    if (q) {
+      where +=
+        ` AND (student_uid LIKE ? OR student_code LIKE ? OR sdm_code LIKE ? OR first_name LIKE ? OR last_name LIKE ? OR CONCAT(first_name,' ',last_name) LIKE ?)`;
+      const like = `%${q}%`;
+      params.push(like, like, like, like, like, like);
+    }
+    if (yearFilter) {
+      where += ' AND academic_year = ?';
+      params.push(yearFilter);
+    }
+
+    const classListSql =
+      `SELECT TRIM(class_name) AS class_name, COUNT(*) AS cnt FROM students WHERE ${where}` +
+      " AND TRIM(COALESCE(class_name, '')) <> '' GROUP BY TRIM(class_name) ORDER BY TRIM(class_name)";
+
+    let genderWhere = where;
+    const genderParams = [...params];
+    if (classFilter) {
+      genderWhere += " AND TRIM(COALESCE(class_name, '')) = ?";
+      genderParams.push(classFilter);
+    }
+
+    const genderSql =
+      `SELECT COUNT(*) AS total,` +
+      ` SUM(CASE WHEN gender = 'Male' THEN 1 ELSE 0 END) AS male,` +
+      ` SUM(CASE WHEN gender = 'Female' THEN 1 ELSE 0 END) AS female,` +
+      ` SUM(CASE WHEN gender IS NULL OR gender NOT IN ('Male','Female') THEN 1 ELSE 0 END) AS unspecified` +
+      ` FROM students WHERE ${genderWhere}`;
+
+    const [[wholeRow]] = await promisePool.query(`SELECT COUNT(*) AS t FROM students WHERE ${where}`, params);
+    const [classRows] = await promisePool.query(classListSql, params);
+    const [[genderRow]] = await promisePool.query(genderSql, genderParams);
+
+    return res.json({
+      success: true,
+      total: Number(genderRow?.total ?? 0),
+      rosterAllClasses: Number(wholeRow?.t ?? 0),
+      male: Number(genderRow?.male ?? 0),
+      female: Number(genderRow?.female ?? 0),
+      unspecified: Number(genderRow?.unspecified ?? 0),
+      classes: (classRows || []).map((r) => ({
+        class_name: trimStr(r.class_name),
+        count: Number(r.cnt ?? 0),
+      })),
+    });
+  } catch (err) {
+    console.error('GET /api/students/registry-stats error:', err);
+    return res.status(500).json({ success: false, message: 'Failed to load registry stats' });
   }
 });
 
@@ -906,7 +1004,7 @@ router.put('/students/:id', requireRole(SCHOOL_ROLES), async (req, res) => {
 // ════════════════════════════════════════════════════════════════
 router.put(
   '/students/:id/identity/photo',
-  requireRole(SCHOOL_ROLES),
+  requireRole(STUDENT_IDENTITY_ROLES),
   (req, res, next) => studentPhotoUpload.single('photo')(req, res, (err) => {
     if (err) return res.status(400).json({ success: false, message: err.message || 'Photo upload failed' });
     next();
@@ -914,7 +1012,7 @@ router.put(
   async (req, res) => {
     try {
       await ensureStudentsTable();
-      const schoolId = resolveSchoolId(req);
+      const schoolId = resolveEffectiveSchoolId(req);
       const studentId = Number(req.params.id);
       if (!schoolId || Number.isNaN(studentId)) {
         return res.status(400).json({ success: false, message: 'Invalid request' });
@@ -972,10 +1070,10 @@ function coalesceIdentityToken(body, currentVal, snake, camel) {
   return t === '' ? null : t;
 }
 
-router.put('/students/:id/identity', requireRole(SCHOOL_ROLES), async (req, res) => {
+router.put('/students/:id/identity', requireRole(STUDENT_IDENTITY_ROLES), async (req, res) => {
   try {
     await ensureStudentsTable();
-    const schoolId = resolveSchoolId(req);
+    const schoolId = resolveEffectiveSchoolId(req);
     const studentId = Number(req.params.id);
     if (!schoolId || Number.isNaN(studentId)) {
       return res.status(400).json({ success: false, message: 'Invalid request' });

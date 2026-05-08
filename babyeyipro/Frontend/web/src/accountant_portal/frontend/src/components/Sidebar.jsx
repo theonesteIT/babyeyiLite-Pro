@@ -1,9 +1,15 @@
-import { NavLink, useLocation } from 'react-router-dom';
-import { useState } from 'react';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { createElement, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
-  LayoutDashboard, Wallet,
-  User, LogOut, Wifi, WifiOff, RefreshCw, ChevronDown,
+  LayoutDashboard,
+  Wallet,
+  User,
+  LogOut,
+  Wifi,
+  WifiOff,
+  RefreshCw,
+  ChevronDown,
   Settings,
   Receipt,
   Landmark,
@@ -13,69 +19,74 @@ import {
   FileText,
   MessageSquare,
   DollarSign,
+  Headphones,
+  History,
 } from 'lucide-react';
 import useChatUnread from '../../../../shared/hooks/useChatUnread';
+import { h } from '../utils/href';
+import babyeyiIcon from '../assets/babyeyi-icon.png';
 
-// ── Status Badge ──────────────────────────────────────────────
 const statusConfig = {
-  online: { label: 'Online', dot: 'bg-emerald-400', text: 'text-emerald-600', ring: 'ring-emerald-100', bg: 'bg-emerald-50', Icon: Wifi },
-  offline: { label: 'Offline', dot: 'bg-red-400', text: 'text-red-500', ring: 'ring-red-100', bg: 'bg-red-50', Icon: WifiOff },
-  syncing: { label: 'Syncing', dot: 'bg-amber-400', text: 'text-amber-600', ring: 'ring-amber-100', bg: 'bg-amber-50', Icon: RefreshCw },
+  online: { label: 'Online', dot: 'bg-green-400', text: 'text-green-400', Icon: Wifi },
+  offline: { label: 'Offline', dot: 'bg-red-400', text: 'text-red-400', Icon: WifiOff },
+  syncing: { label: 'Syncing', dot: 'bg-amber-400', text: 'text-amber-400', Icon: RefreshCw },
 };
 
 const AppStatusBadge = ({ status = 'online' }) => {
   const s = statusConfig[status];
   return (
-    <div className={`flex items-center gap-1 px-2 py-1 rounded-lg ${s.bg} ring-1 ${s.ring}`}>
+    <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-white/5 ring-1 ring-white/10">
       <span className="relative flex h-1.5 w-1.5">
-        {status !== 'offline' && <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${s.dot} opacity-60`} />}
+        {status !== 'offline' && (
+          <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${s.dot} opacity-60`} />
+        )}
         <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${s.dot}`} />
       </span>
-      <s.Icon size={9} className={`${s.text} ${status === 'syncing' ? 'animate-spin' : ''}`} />
-      <span className={`text-[9px] font-bold ${s.text}`}>{s.label}</span>
+      <s.Icon size={10} className={`${s.text} ${status === 'syncing' ? 'animate-spin' : ''}`} />
+      <span className="text-[9px] font-medium text-white/70">{s.label}</span>
     </div>
   );
 };
 
-// ── Single nav link ───────────────────────────────────────────
-const NavItem = ({ icon, name, path, exact, onClose, badgeCount = 0 }) => {
-  const ItemIcon = icon;
+const NavItem = ({ icon, name, path, exact, onClose, badgeCount = 0 }) => (
+  <NavLink
+    to={path}
+    end={exact}
+    onClick={onClose}
+    className={({ isActive }) =>
+      `relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group text-[13px] font-medium tracking-tight border border-transparent
+      ${
+        isActive
+          ? 'bg-white/[0.12] text-re-gold shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] border-white/10'
+          : 'text-white/72 hover:bg-white/[0.06] hover:text-white'
+      }`
+    }
+  >
+    {({ isActive }) => (
+      <>
+        {createElement(icon, {
+          size: 18,
+          strokeWidth: 1.75,
+          className: isActive
+            ? 'text-re-gold shrink-0'
+            : 'text-white/45 group-hover:text-white/85 shrink-0 transition-colors',
+        })}
+        <span className="truncate">{name}</span>
+        {badgeCount > 0 && (
+          <span className="ml-auto text-[10px] leading-none px-1.5 py-0.5 rounded-md bg-re-gold/90 text-[#0B1530] font-medium">
+            {badgeCount > 99 ? '99+' : badgeCount}
+          </span>
+        )}
+      </>
+    )}
+  </NavLink>
+);
 
-  return (
-    <NavLink
-      to={path}
-      end={exact}
-      onClick={onClose}
-      className={({ isActive }) =>
-        `relative flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl transition-all duration-200 group text-[12px] font-black uppercase tracking-[0.08em]
-        ${isActive ? 'text-white shadow-sm border border-amber-300/40' : 'text-[#000435]/65 hover:bg-[#000435]/5 hover:text-[#000435] border border-transparent'}`
-      }
-      style={({ isActive }) =>
-        isActive ? { background: 'linear-gradient(135deg,#000435,#00021A)', boxShadow: '0 8px 20px rgba(0,4,53,0.28)' } : {}
-      }
-    >
-      {({ isActive }) => (
-        <>
-          <ItemIcon size={14} className={isActive ? 'text-amber-300' : 'text-[#000435]/45 group-hover:text-[#000435] transition-colors'} />
-          <span className="truncate">{name}</span>
-          {badgeCount > 0 && (
-            <span className="ml-auto text-[10px] leading-none px-1.5 py-1 rounded-full bg-amber-100 text-[#000435] border border-amber-300/40">
-              {badgeCount > 99 ? '99+' : badgeCount}
-            </span>
-          )}
-        </>
-      )}
-    </NavLink>
-  );
-};
-
-// ── Expandable item ───────────────────────────────────────────
 const ExpandableNavItem = ({ icon, name, subItems, onClose }) => {
   const location = useLocation();
-  const ItemIcon = icon;
   const pathMatches = (path) => {
     if (!path) return false;
-    return location.pathname === path;
+    return location.pathname === h(path);
   };
   const isAnyActive = subItems.some((s) => pathMatches(s.path));
   const [open, setOpen] = useState(isAnyActive);
@@ -83,29 +94,52 @@ const ExpandableNavItem = ({ icon, name, subItems, onClose }) => {
   return (
     <div>
       <button
-        onClick={() => setOpen(o => !o)}
-        className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl transition-all text-[12px] font-black uppercase tracking-[0.08em] group border
-          ${isAnyActive ? 'text-white bg-[#000435] border-amber-300/40' : 'text-[#000435]/65 hover:bg-[#000435]/5 hover:text-[#000435] border-transparent'}`}
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-[13px] font-medium tracking-tight group border border-transparent
+          ${
+            isAnyActive
+              ? 'bg-white/[0.12] text-re-gold border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]'
+              : 'text-white/72 hover:bg-white/[0.06] hover:text-white'
+          }`}
       >
-        <ItemIcon size={14} className={`${isAnyActive ? 'text-amber-300' : 'text-[#000435]/45 group-hover:text-[#000435]'} transition-colors`} />
+        {createElement(icon, {
+          size: 18,
+          strokeWidth: 1.75,
+          className: `${
+            isAnyActive ? 'text-re-gold' : 'text-white/45 group-hover:text-white/85'
+          } transition-colors shrink-0`,
+        })}
         <span className="flex-1 text-left">{name}</span>
-        <ChevronDown size={12} className={`transition-transform duration-300 opacity-60 ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown
+          size={16}
+          strokeWidth={2}
+          className={`transition-transform duration-300 text-white/40 shrink-0 ${open ? 'rotate-180' : ''}`}
+        />
       </button>
 
       {open && (
-        <div className="ml-4 mt-1 space-y-1 border-l-2 border-amber-300/40 pl-3">
-          {subItems.map(sub => {
+        <div className="ml-2 mt-1 space-y-0.5 border-l border-white/15 pl-3">
+          {subItems.map((sub) => {
             const subActive = pathMatches(sub.path);
             return (
               <NavLink
                 key={sub.path}
-                to={sub.path}
+                to={h(sub.path)}
                 onClick={onClose}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-[0.07em] transition-all border
-                  ${subActive ? 'text-[#000435] bg-amber-50 border-amber-300/40' : 'text-[#000435]/60 hover:text-[#000435] hover:bg-[#000435]/5 border-transparent'}`}
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[12px] font-medium transition-all
+                ${
+                  subActive
+                    ? 'text-re-gold bg-white/[0.08]'
+                    : 'text-white/60 hover:text-white hover:bg-white/[0.05]'
+                }`}
               >
-                <sub.icon size={11} className={subActive ? 'text-amber-600' : 'text-[#000435]/40'} />
-                {sub.name}
+                <sub.icon
+                  size={14}
+                  strokeWidth={1.75}
+                  className={subActive ? 'text-re-gold/90' : 'text-white/35'}
+                />
+                <span className="truncate">{sub.name}</span>
               </NavLink>
             );
           })}
@@ -115,101 +149,118 @@ const ExpandableNavItem = ({ icon, name, subItems, onClose }) => {
   );
 };
 
-// ── Section label ──────────────────────────────────────────────
 const SectionLabel = ({ label }) => (
-  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#000435]/35 px-3.5 pt-3 pb-1">
+  <p className="text-[10px] font-medium uppercase tracking-widest text-slate-400/85 px-3 pt-4 pb-2 first:pt-1">
     {label}
   </p>
 );
 
 const Sidebar = ({ onClose }) => {
+  const navigate = useNavigate();
   const { staff, logout } = useAuth();
   const unreadCount = useChatUnread();
 
   return (
-    <div className="flex flex-col h-full min-w-[300px] bg-white border-r border-black/5 shadow-sm">
-      <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-
-      {/* Brand card */}
-      <div className="p-4" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-        <div className="rounded-3xl bg-white border border-[#000435]/10 shadow-[0_10px_30px_-16px_rgba(0,4,53,.45)] p-4 space-y-1">
-          <div className="flex items-center gap-3">
-            <div className="bg-[#000435]/10 p-3 rounded-2xl shadow-inner text-[#000435] border border-amber-300/30">
-              <Landmark size={22} />
-            </div>
-            <div>
-              <span
-                className="text-xl font-black tracking-tight leading-none block text-[#000435]"
-              >
-                Accounts
-              </span>
-              <p className="text-[9px] text-[#000435] font-black uppercase tracking-[0.22em] opacity-60 mt-0.5">
-                Staff Portal
-              </p>
-            </div>
+    <div
+      className="flex flex-col min-h-0 h-full w-full min-w-0 border-r border-white/[0.08] shadow-sm"
+      style={{
+        background: 'linear-gradient(180deg,#0f2247 0%,#0b1530 40%,#060d1f 100%)',
+        colorScheme: 'dark',
+      }}
+    >
+      <div className="p-4 pb-3 shrink-0 border-b border-white/[0.06]">
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/[0.08] ring-1 ring-white/10">
+            <img src={babyeyiIcon} alt="Babyeyi icon" className="h-7 w-7 object-contain" />
+          </div>
+          <div className="min-w-0">
+            <span className="text-lg font-medium tracking-tight text-white block leading-tight">
+              Babyeyi
+            </span>
+            <p className="text-[11px] font-medium tracking-wide text-re-gold/90 mt-0.5 capitalize">
+              Accountant portal
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 px-3 py-2 overflow-y-auto space-y-1" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-        <NavItem icon={LayoutDashboard} name="Dashboard" path="/accountant" exact onClose={onClose} />
+      <nav
+        className="accountant-sidebar-scroll flex-1 min-h-0 px-3 py-3 overflow-y-auto overflow-x-hidden overscroll-y-contain space-y-0.5 pr-1"
+        aria-label="Accountant navigation"
+      >
+        <SectionLabel label="Main" />
+        <NavItem icon={LayoutDashboard} name="Dashboard" path={h('/')} exact onClose={onClose} />
 
         <SectionLabel label="Finance operations" />
-        <NavItem icon={Receipt} name="Student Fees" path="/fees" onClose={onClose} />
-        <NavItem icon={FileSpreadsheet} name="Babyeyi Fee Cards" path="/fees/babyeyi-fees" onClose={onClose} />
-        <NavItem icon={FileText} name="INVOICE REGISTRY" path="/invoices" onClose={onClose} />
-        <NavItem icon={Banknote} name="Expenses" path="/expenses" onClose={onClose} />
-        <NavItem icon={FileSpreadsheet} name="Requisitions" path="/requisitions" onClose={onClose} />
+        <NavItem icon={Receipt} name="Student Fees" path={h('/fees')} onClose={onClose} />
+        <NavItem icon={FileSpreadsheet} name="Babyeyi Fee Cards" path={h('/fees/babyeyi-fees')} onClose={onClose} />
+        <NavItem icon={FileText} name="Invoice Registry" path={h('/invoices')} onClose={onClose} />
+        <NavItem icon={Banknote} name="Expenses" path={h('/expenses')} onClose={onClose} />
+        <NavItem icon={FileSpreadsheet} name="Requisitions" path={h('/requisitions')} onClose={onClose} />
         <ExpandableNavItem
           icon={ClipboardCheck}
           name="Payroll"
           onClose={onClose}
           subItems={[
-            { name: 'Payroll Center', path: '/payroll', icon: ClipboardCheck },
+            { name: 'Payroll History', path: '/payroll/history', icon: History },
             { name: 'Configure Payroll', path: '/payroll/config', icon: Settings },
           ]}
         />
 
-
         <SectionLabel label="Services" />
-        <NavItem icon={DollarSign} name="My Payroll" path="/my-payroll" onClose={onClose} />
-        <NavItem icon={Wallet} name="Teacher Avance" path="/shule-avance" onClose={onClose} />
-        <NavItem icon={MessageSquare} name="Chat Center" path="/chat" onClose={onClose} badgeCount={unreadCount} />
-
-
+        <NavItem icon={DollarSign} name="My Payroll" path={h('/my-payroll')} onClose={onClose} />
+        <NavItem icon={Wallet} name="Teacher Avance" path={h('/shule-avance')} onClose={onClose} />
+        <NavItem icon={MessageSquare} name="Chat Center" path={h('/chat')} onClose={onClose} badgeCount={unreadCount} />
       </nav>
 
-      {/* Bottom Profile */}
-      <div className="p-4" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-        <div className="rounded-3xl border border-[#000435]/10 bg-white shadow-[0_10px_30px_-16px_rgba(0,4,53,.45)] p-3 space-y-2">
-          <div className="flex items-center justify-between px-1">
-            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#000435]/40">Status</p>
-            <AppStatusBadge status="online" />
+      <div className="p-4 pt-2 shrink-0 border-t border-white/[0.06] space-y-3">
+        <div className="rounded-2xl bg-[#060d1f]/90 ring-1 ring-white/10 p-4 space-y-3">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-re-gold/15 ring-1 ring-re-gold/25">
+              <Headphones className="text-re-gold" size={20} strokeWidth={1.75} aria-hidden />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-white">Help &amp; support</p>
+              <p className="text-[12px] text-white/55 mt-1 leading-snug">
+                Reach finance ops from chat or contact your school admin.
+              </p>
+            </div>
           </div>
-
-          <div className="h-px bg-black/5 mx-1" />
-
-          {/* User profile */}
-          <div className="flex items-center gap-2.5 px-2.5 py-2 bg-white rounded-2xl border border-black/5 shadow-sm">
-            <div className="w-8 h-8 rounded-xl overflow-hidden bg-[#000435]/10 flex items-center justify-center shrink-0">
-              {staff?.photo
-                ? <img src={staff.photo} alt={staff.first_name} className="w-full h-full object-cover" />
-                : <User size={16} className="text-[#000435]" />
-              }
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-black truncate text-[#000435] uppercase tracking-tight">
-                {staff?.first_name || 'Staff Member'}
-              </p>
-              <p className="text-[9px] text-[#000435]/55 truncate font-bold uppercase tracking-wider opacity-70 mt-0.5">
-                {staff?.role_name || 'Accountant'}
-              </p>
-            </div>
-            <button onClick={logout} className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors">
-              <LogOut size={12} />
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <AppStatusBadge status="online" />
+            <button
+              type="button"
+              onClick={() => {
+                navigate(h('/chat'));
+                onClose?.();
+              }}
+              className="inline-flex items-center justify-center rounded-xl bg-re-gold px-4 py-2.5 text-[13px] font-medium text-[#0b1530] border border-black/10 shadow-sm hover:bg-re-gold-light active:scale-[0.98] transition-all"
+            >
+              Open chat
             </button>
           </div>
+        </div>
+
+        <div className="rounded-2xl bg-white/[0.06] ring-1 ring-white/10 p-3 flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl overflow-hidden bg-white/10 flex items-center justify-center shrink-0 ring-1 ring-white/10">
+            {staff?.photo ? (
+              <img src={staff.photo} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <User size={16} className="text-white/70" aria-hidden />
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[12px] font-medium text-white truncate">{staff?.first_name || 'Staff'}</p>
+            <p className="text-[10px] text-white/45 truncate font-medium">{staff?.role_name || 'Accountant'}</p>
+          </div>
+          <button
+            type="button"
+            onClick={logout}
+            className="p-2 rounded-xl text-white/45 hover:text-red-300 hover:bg-white/5 transition-colors"
+            aria-label="Log out"
+          >
+            <LogOut size={18} strokeWidth={1.75} />
+          </button>
         </div>
       </div>
     </div>

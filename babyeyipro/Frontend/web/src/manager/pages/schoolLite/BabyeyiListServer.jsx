@@ -408,7 +408,7 @@ function LangSwitcher({ lang, setLang, translating, compact = false }) {
         <button
           onClick={() => setOpen(o => !o)}
           disabled={translating}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[10px] font-black transition-all border"
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[10px] font-semibold transition-all border"
           style={{
             background: open ? "#1F2937" : "rgba(255,255,255,0.12)",
             color: open ? "#FBBF24" : "white",
@@ -427,7 +427,7 @@ function LangSwitcher({ lang, setLang, translating, compact = false }) {
 
         {open && (
           <div
-            className="absolute right-0 top-full mt-1.5 rounded-2xl shadow-2xl overflow-hidden z-50 min-w-[140px]"
+            className="absolute right-0 top-full mt-1.5 rounded-2xl shadow-sm overflow-hidden z-50 min-w-[140px]"
             style={{ background: "#1F2937", border: "1px solid rgba(251,191,36,0.25)" }}
           >
             {Object.values(LANGS).map(l => (
@@ -466,7 +466,7 @@ function LangSwitcher({ lang, setLang, translating, compact = false }) {
           key={l.code}
           onClick={() => setLang(l.code)}
           disabled={translating}
-          className="flex items-center gap-1 px-2.5 py-1.5 text-[10px] font-black transition-all"
+          className="flex items-center gap-1 px-2.5 py-1.5 text-[10px] font-semibold transition-all"
           style={{
             background: lang === l.code ? "#FBBF24" : "transparent",
             color: lang === l.code ? "#1F2937" : "rgba(255,255,255,0.6)",
@@ -905,13 +905,13 @@ function QRCodePanel({ rec }) {
   );
   return (
     <div className="flex flex-col items-center border border-indigo-200 rounded-xl p-3">
-      <p className="text-[8px] font-black text-indigo-500 uppercase tracking-widest mb-2 flex items-center gap-1">
+      <p className="text-[8px] font-semibold text-indigo-500 uppercase tracking-widest mb-2 flex items-center gap-1">
         <Ic n="qr" s={9} c="#6366f1" /> Scan to Verify
       </p>
       <div className="bg-white rounded-lg p-2 border border-indigo-100 shadow-sm mb-2">
         <img src={qrB64} alt="QR Code" className="w-28 h-28 object-contain" />
       </div>
-      {rec.docId && <p className="text-[8px] font-mono font-black text-indigo-700 mb-0.5">ID: {rec.docId}</p>}
+      {rec.docId && <p className="text-[8px] font-mono font-semibold text-indigo-700 mb-0.5">ID: {rec.docId}</p>}
       {vUrl && <p className="text-[7px] text-indigo-400 text-center mb-2 break-all px-1 max-w-[160px]">{vUrl}</p>}
       <div className="flex gap-1.5">
         <button onClick={() => { navigator.clipboard.writeText(vUrl || "").then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }); }}
@@ -1071,7 +1071,7 @@ function OfficialDoc({ rec: originalRec, onClose, globalLang }) {
             <Ic n="chevL" s={12} c="white" /> {T.backBtn}
           </button>
           <div className="flex-1 min-w-0 hidden sm:block">
-            <p className="text-white font-black text-sm truncate">
+            <p className="text-white font-semibold text-sm truncate">
               {rec.schoolName} — {levelLabel} · {classLabel} · {rec.term} · {rec.academicYear}
               {rec.docId && <span className="ml-2 px-2 py-0.5 bg-indigo-600/40 text-indigo-200 rounded text-[8px] font-mono">{rec.docId}</span>}
             </p>
@@ -1081,7 +1081,7 @@ function OfficialDoc({ rec: originalRec, onClose, globalLang }) {
           <LangSwitcher lang={lang} setLang={handleLangChange} translating={translating} compact />
 
           <span style={{ background: st.hex.bg, color: st.hex.text, border: `1px solid ${st.hex.border}` }}
-            className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black flex-shrink-0">
+            className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-semibold flex-shrink-0">
             <span style={{ background: st.hex.dot }} className="w-1.5 h-1.5 rounded-full inline-block" />
             {st.label}
           </span>
@@ -1143,7 +1143,7 @@ function OfficialDoc({ rec: originalRec, onClose, globalLang }) {
         )}
 
         {/* ── DOCUMENT BODY ── */}
-        <div className="bg-white shadow-2xl rounded-b-2xl overflow-hidden" style={{ fontFamily: "Georgia,'Times New Roman',serif", opacity: translating ? 0.6 : 1, transition: "opacity 0.3s" }}>
+        <div className="bg-white shadow-sm rounded-b-2xl overflow-hidden" style={{ fontFamily: "Georgia,'Times New Roman',serif", opacity: translating ? 0.6 : 1, transition: "opacity 0.3s" }}>
           <div style={{ height: "3px", background: "#1e3a5f" }} />
 
           {/* HEADER */}
@@ -1394,7 +1394,7 @@ function ShareModal({ rec, onClose, schoolLogoB64, otherLogoB64, sigB64, stampB6
   return (
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4"
       style={{ background: "rgba(0,0,0,0.82)", backdropFilter: "blur(10px)" }}>
-      <div className="w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl bg-white"
+      <div className="w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-sm bg-white"
         style={{ maxHeight: "92vh", display: "flex", flexDirection: "column" }}>
         <div style={{ background: "linear-gradient(135deg,#1e3a5f,#1d4ed8)", padding: "18px 20px 14px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -1463,7 +1463,7 @@ function EditWizardModal({ rec, session, onClose, onSaved }) {
               <span className="text-base">✏️</span>
             </div>
             <div>
-              <h1 className="font-black text-white text-sm sm:text-base leading-tight">Edit Babyeyi</h1>
+              <h1 className="font-semibold text-white text-sm sm:text-base leading-tight">Edit Babyeyi</h1>
               <p className="text-[10px] text-indigo-300">{rec.class} · {rec.term} · {rec.academicYear}</p>
             </div>
           </div>
@@ -1494,26 +1494,26 @@ function BabyeyiCard({ rec, onView, onEdit, onDelete, onShare, T }) {
   const lCount  = rec.leadersCount || 0;
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 hover:border-indigo-300 hover:shadow-xl hover:shadow-indigo-100/50 transition-all duration-300 overflow-hidden">
+    <div className="bg-white rounded-2xl border border-slate-200 hover:border-indigo-300 hover:shadow-sm hover:shadow-indigo-100/50 transition-all duration-300 overflow-hidden">
       <div className={`h-1 w-full ${rec.status === "approved" ? "bg-gradient-to-r from-emerald-400 to-teal-400" : rec.status === "rejected" ? "bg-gradient-to-r from-red-400 to-rose-400" : "bg-gradient-to-r from-amber-400 to-orange-400"}`} />
       <div className="p-4">
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-12 h-12 bg-amber-800 rounded-2xl flex items-center justify-center shrink-0 shadow-lg shadow-indigo-200">
-              <span className="text-white font-black text-[11px] text-center leading-tight">{classes.join(", ")}</span>
+              <span className="text-white font-semibold text-[11px] text-center leading-tight">{classes.join(", ")}</span>
             </div>
             <div className="min-w-0">
-              <p className="font-black text-slate-800 text-sm truncate">{rec.term} · {rec.academicYear}</p>
+              <p className="font-semibold text-slate-800 text-sm truncate">{rec.term} · {rec.academicYear}</p>
               <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                <span className={`inline-flex px-2 py-0.5 rounded-full text-[9px] font-black border ${lv}`}>{rec.level}</span>
-                {rec.docId && <span className="inline-flex px-1.5 py-0.5 rounded font-mono text-[7.5px] font-black bg-indigo-50 text-indigo-700 border border-indigo-200">{rec.docId}</span>}
-                {blocked && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[7.5px] font-black bg-amber-50 text-amber-700 border border-amber-200"><Ic n="lock" s={8} c="#b45309" /> {T.locked}</span>}
-                {lCount > 0 && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[7.5px] font-black bg-slate-50 text-slate-600 border border-slate-200"><Ic n="users" s={8} c="#475569" /> {lCount}</span>}
+                <span className={`inline-flex px-2 py-0.5 rounded-full text-[9px] font-semibold border ${lv}`}>{rec.level}</span>
+                {rec.docId && <span className="inline-flex px-1.5 py-0.5 rounded font-mono text-[7.5px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">{rec.docId}</span>}
+                {blocked && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[7.5px] font-semibold bg-amber-50 text-amber-700 border border-amber-200"><Ic n="lock" s={8} c="#b45309" /> {T.locked}</span>}
+                {lCount > 0 && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[7.5px] font-semibold bg-slate-50 text-slate-600 border border-slate-200"><Ic n="users" s={8} c="#475569" /> {lCount}</span>}
               </div>
             </div>
           </div>
           <span style={{ background: st.hex.bg, color: st.hex.text, border: `1px solid ${st.hex.border}` }}
-            className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black shrink-0">
+            className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-semibold shrink-0">
             <span style={{ background: st.hex.dot }} className="w-1.5 h-1.5 rounded-full inline-block" />
             {st.label}
           </span>
@@ -1522,7 +1522,7 @@ function BabyeyiCard({ rec, onView, onEdit, onDelete, onShare, T }) {
         <div className="grid grid-cols-2 gap-2 mb-3">
           <div className={`rounded-xl px-3 py-2 border ${rec.exceedsLimit ? "bg-red-50 border-red-200" : "bg-emerald-50 border-emerald-200"}`}>
             <p className="text-[8px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">{T.total}</p>
-            <p className={`text-sm font-black font-mono ${rec.exceedsLimit ? "text-red-700" : "text-emerald-700"}`}>{fee.toLocaleString()} RWF</p>
+            <p className={`text-sm font-semibold font-mono ${rec.exceedsLimit ? "text-red-700" : "text-emerald-700"}`}>{fee.toLocaleString()} RWF</p>
             {rec.exceedsLimit && <p className="text-[8px] text-red-600 font-semibold">+{over.toLocaleString()} over NESA</p>}
           </div>
           <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
@@ -1665,14 +1665,14 @@ async function loadFullRecord(sumRec) {
 function DeleteModal({ rec, onConfirm, onCancel, T }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-sm w-full max-w-sm overflow-hidden">
         <div className="bg-gradient-to-r from-red-600 to-rose-600 px-5 py-4">
-          <p className="font-black text-white text-sm">{T.deleteTitle}</p>
+          <p className="font-semibold text-white text-sm">{T.deleteTitle}</p>
           <p className="text-white/70 text-[10px]">{T.deleteWarning}</p>
         </div>
         <div className="p-5">
           <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 my-3">
-            <p className="font-black text-slate-800">{rec.class} · {rec.term} · {rec.academicYear}</p>
+            <p className="font-semibold text-slate-800">{rec.class} · {rec.term} · {rec.academicYear}</p>
             {rec.docId && <p className="text-[9px] font-mono text-indigo-600 mt-1">{rec.docId}</p>}
           </div>
           <div className="flex gap-3">
@@ -1814,7 +1814,7 @@ export default function BabyeyiList({ session }) {
       )}
 
       {toast && (
-        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-2xl shadow-2xl text-sm font-bold flex items-center gap-2 max-w-xs ${toast.type === "success" ? "bg-emerald-600 text-white" : toast.type === "info" ? "bg-indigo-600 text-white" : "bg-red-600 text-white"}`}
+        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-2xl shadow-sm text-sm font-bold flex items-center gap-2 max-w-xs ${toast.type === "success" ? "bg-emerald-600 text-white" : toast.type === "info" ? "bg-indigo-600 text-white" : "bg-red-600 text-white"}`}
           style={{ animation: "slideIn .3s ease-out" }}>
           {toast.type === "success" ? "✅" : toast.type === "info" ? "ℹ️" : "❌"} {toast.msg}
         </div>
@@ -1836,7 +1836,7 @@ export default function BabyeyiList({ session }) {
                 <span className="text-xl">📋</span>
               </div>
               <div>
-                <h1 className="font-black text-white text-lg sm:text-xl">{T.title}</h1>
+                <h1 className="font-semibold text-white text-lg sm:text-xl">{T.title}</h1>
                 <p className="text-indigo-300 text-xs">{session?.schoolName || "School"}</p>
               </div>
             </div>
@@ -1856,7 +1856,7 @@ export default function BabyeyiList({ session }) {
               { l: T.rejected, v: stats.rejected, c: "text-red-400"     },
             ].map(s => (
               <div key={s.l} className="bg-white/10 backdrop-blur rounded-2xl p-3 border border-white/10 text-center">
-                <p className={`text-2xl font-black ${s.c}`}>{s.v}</p>
+                <p className={`text-2xl font-semibold ${s.c}`}>{s.v}</p>
                 <p className="text-white/80 text-[10px] font-bold uppercase tracking-wider">{s.l}</p>
               </div>
             ))}
@@ -1876,7 +1876,7 @@ export default function BabyeyiList({ session }) {
           <button onClick={() => setShowFilters(!showFilters)}
             className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl font-bold text-sm border-2 ${showFilters || activeFilters > 0 ? "bg-indigo-600 text-white border-indigo-600" : "bg-white text-slate-600 border-slate-200 hover:border-indigo-300"}`}>
             <Ic n="filter" s={14} c={showFilters || activeFilters > 0 ? "white" : "currentColor"} /> {T.filters}
-            {activeFilters > 0 && <span className="w-5 h-5 bg-white text-indigo-700 rounded-full text-[9px] font-black flex items-center justify-center">{activeFilters}</span>}
+            {activeFilters > 0 && <span className="w-5 h-5 bg-white text-indigo-700 rounded-full text-[9px] font-semibold flex items-center justify-center">{activeFilters}</span>}
           </button>
           <select value={sortBy} onChange={e => setSortBy(e.target.value)}
             className="px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 font-semibold outline-none focus:border-indigo-400 cursor-pointer">
@@ -1890,7 +1890,7 @@ export default function BabyeyiList({ session }) {
         {showFilters && (
           <div className="bg-white border border-slate-200 rounded-2xl p-4 mb-4 shadow-sm">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-black text-slate-500 uppercase tracking-widest">{T.filters}</p>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest">{T.filters}</p>
               {activeFilters > 0 && (
                 <button onClick={() => setFilters({ status: "", level: "", term: "", year: "" })} className="text-xs text-red-500 font-bold flex items-center gap-1">
                   <Ic n="x" s={11} c="#ef4444" /> {T.clearAll}
@@ -1905,7 +1905,7 @@ export default function BabyeyiList({ session }) {
                 { key: "year",   label: T.year,   opts: ["", "2025", "2026", "2024"],                                    labels: [T.allOption, "2025", "2026", "2024"] },
               ].map(f => (
                 <div key={f.key}>
-                  <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">{f.label}</label>
+                  <label className="block text-[9px] font-semibold text-slate-500 uppercase tracking-widest mb-1">{f.label}</label>
                   <select value={filters[f.key]} onChange={e => setFilters(p => ({ ...p, [f.key]: e.target.value }))}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 font-semibold outline-none focus:border-indigo-400">
                     {f.opts.map((o, i) => <option key={o} value={o}>{f.labels[i]}</option>)}
@@ -1931,7 +1931,7 @@ export default function BabyeyiList({ session }) {
         ) : filtered.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-2xl border border-slate-200">
             <div className="text-5xl mb-4 opacity-30">📋</div>
-            <p className="font-black text-slate-400 text-lg">{T.noRecords}</p>
+            <p className="font-semibold text-slate-400 text-lg">{T.noRecords}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

@@ -1,24 +1,151 @@
 // ================================================================
-// Orders.jsx — Order history (local demo data from Classkit flow)
+// Orders.jsx — Order history + resume / share (ClassKit / ShuleKit)
 // ================================================================
 
-import { useMemo, useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { Package, ChevronRight, ClipboardList, ArrowLeft } from "lucide-react";
-import { getParentOrders } from "../../utils/parentOrderHistory";
+import { useReducer, useState, useEffect, useRef } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { Package, ChevronRight, ClipboardList, ArrowLeft, MoreVertical } from "lucide-react";
+import { getParentOrders, deleteParentOrder } from "../../utils/parentOrderHistory";
+import { kitOrderResumeShareUrl, whatsappShareHref } from "../../utils/parentKitOrderClipboard";
 
 const STATUS_LABEL = {
-  pending: { label: "Pending", className: "bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300" },
-  confirmed: { label: "Confirmed", className: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300" },
-  cancelled: { label: "Cancelled", className: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300" },
+  incomplete: {
+    label: "In progress",
+    className: "bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300",
+  },
+  pending_payment: {
+    label: "Pay now",
+    className: "bg-sky-100 text-sky-800 dark:bg-sky-950/50 dark:text-sky-300",
+  },
+  pending: {
+    label: "Pending",
+    className: "bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300",
+  },
+  confirmed: {
+    label: "Confirmed",
+    className: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300",
+  },
+  cancelled: {
+    label: "Cancelled",
+    className: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
+  },
 };
 
-export default function Orders() {
-  const [tick, setTick] = useState(0);
-  const orders = useMemo(() => getParentOrders(), [tick]);
+function OrderActionsMenu({ order, onDelete }) {
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
+
+  const resumePayload = order.resumePayload;
+  const resumeToken = order.resumeToken;
 
   useEffect(() => {
-    const bump = () => setTick((t) => t + 1);
+    if (!open) return undefined;
+    const close = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
+
+  const canResume =
+    (order.status === "incomplete" || order.status === "pending_payment") && (resumePayload || resumeToken);
+
+  if (!canResume) return null;
+
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const isShule = order.type === "shulekit" || resumePayload?.kitLabel === "shulekit";
+  const qs = new URLSearchParams();
+  if (resumeToken) qs.set("resume", resumeToken);
+  if (isShule) qs.set("kit", "shule");
+  const continuePath = `/parents/classkit${qs.toString() ? `?${qs.toString()}` : ""}`;
+
+  const pathForShare = `/parents/classkit${isShule ? "?kit=shule" : ""}`;
+  const portable =
+    resumePayload && origin
+      ? kitOrderResumeShareUrl(origin, pathForShare, resumePayload)
+      : `${origin}${continuePath}`;
+
+  const wa = whatsappShareHref(
+    `Babyeyi — resume ${order.kitTitle || "ClassKit / ShuleKit"} for ${order.childName || "your child"}`,
+    portable,
+  );
+
+  const onCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(portable);
+      window.alert("Link copied.");
+    } catch {
+      window.alert("Could not copy.");
+    }
+    setOpen(false);
+  };
+
+  return (
+    <div className="relative shrink-0 self-start" ref={wrapRef}>
+      <button
+        type="button"
+        aria-label="Order actions"
+        onClick={() => setOpen((x) => !x)}
+        className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-100 bg-slate-50 text-slate-600 hover:bg-white dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300"
+      >
+        <MoreVertical className="h-5 w-5" />
+      </button>
+      {open && (
+        <div className="absolute right-0 z-20 mt-1 w-52 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-600 dark:bg-slate-900">
+          <button
+            type="button"
+            className="flex w-full px-3 py-2.5 text-left text-sm font-bold text-slate-800 hover:bg-orange-50 dark:text-slate-100 dark:hover:bg-slate-800"
+            onClick={() => {
+              navigate(continuePath);
+              setOpen(false);
+            }}
+          >
+            Continue order
+          </button>
+          <button
+            type="button"
+            className="flex w-full px-3 py-2.5 text-left text-sm font-bold text-slate-800 hover:bg-orange-50 dark:text-slate-100 dark:hover:bg-slate-800"
+            onClick={onCopy}
+          >
+            Copy link
+          </button>
+          <a
+            href={wa}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex w-full px-3 py-2.5 text-left text-sm font-bold text-emerald-800 hover:bg-emerald-50 dark:text-emerald-200 dark:hover:bg-slate-800"
+            onClick={() => setOpen(false)}
+          >
+            Share (WhatsApp)
+          </a>
+          <button
+            type="button"
+            className="flex w-full px-3 py-2.5 text-left text-sm font-bold text-red-700 hover:bg-red-50 dark:text-red-300 dark:hover:bg-slate-800"
+            onClick={() => {
+              const ok = window.confirm("Delete this order from history?");
+              if (ok) onDelete?.(order.id);
+              setOpen(false);
+            }}
+          >
+            Delete order
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function Orders() {
+  const [, rerenderOrders] = useReducer((n) => n + 1, 0);
+  const orders = getParentOrders();
+  const handleDelete = (id) => {
+    deleteParentOrder(id);
+    rerenderOrders();
+  };
+
+  useEffect(() => {
+    const bump = () => rerenderOrders();
     window.addEventListener("babyeyi-orders-updated", bump);
     window.addEventListener("storage", bump);
     return () => {
@@ -39,7 +166,9 @@ export default function Orders() {
         </Link>
         <div>
           <h1 className="text-xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">Order history</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">Classkit and shop orders on this device</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            ClassKit / ShuleKit — resumes and shop orders on this device
+          </p>
         </div>
       </div>
 
@@ -50,7 +179,7 @@ export default function Orders() {
           </div>
           <p className="font-bold text-slate-800 dark:text-slate-200">No orders yet</p>
           <p className="mt-2 text-sm text-slate-500 dark:text-slate-400 max-w-sm mx-auto leading-relaxed">
-            Complete a Classkit order from Services — it will appear here automatically (saved on this device).
+            Start ClassKit or ShuleKit from Services — unfinished orders get a resume link you can share.
           </p>
           <Link
             to="/parents/services"
@@ -72,7 +201,7 @@ export default function Orders() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-extrabold text-slate-900 dark:text-slate-100">{o.kitTitle || "Classkit order"}</p>
+                      <p className="font-extrabold text-slate-900 dark:text-slate-100">{o.kitTitle || "ClassKit order"}</p>
                       <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${st.className}`}>
                         {st.label}
                       </span>
@@ -81,14 +210,16 @@ export default function Orders() {
                       {o.childName}
                       {o.delivery === "home" ? " · Home delivery" : " · School delivery"}
                       {o.payment === "loan" ? " · Loan" : " · Mobile Money"}
+                      {o.type === "shulekit" ? " · ShuleKit" : ""}
                     </p>
                     <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400 dark:text-slate-500">
-                      <span>{new Date(o.createdAt).toLocaleString()}</span>
+                      <span>{o.createdAt || o.updatedAt ? new Date(o.createdAt || o.updatedAt).toLocaleString() : "—"}</span>
                       <span className="font-bold text-orange-600 dark:text-orange-400 tabular-nums">
                         {Number(o.totalRwf).toLocaleString()} RWF
                       </span>
                     </div>
                   </div>
+                  <OrderActionsMenu order={o} onDelete={handleDelete} />
                 </div>
               </li>
             );

@@ -160,10 +160,9 @@ export default function Reports() {
   }, [overdueRows, overdueTypeFilter, overdueTermFilter, overdueYearFilter, overdueSearch]);
 
   const tabCls = ({ isActive }) =>
-    `inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${
-      isActive
-        ? 'text-white border-transparent shadow-lg'
-        : 'bg-white border-black/5 text-slate-500 hover:border-[#1E3A5F]/20'
+    `inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-semibold uppercase tracking-widest border transition-all ${isActive
+      ? 'text-white border-transparent shadow-lg'
+      : 'bg-white border-black/5 text-slate-500 hover:border-[#1E3A5F]/20'
     }`;
 
   const tabStyle = ({ isActive }) =>
@@ -277,27 +276,28 @@ export default function Reports() {
 
   return (
     <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-      <div className="relative w-full min-h-[220px] sm:min-h-[280px] overflow-hidden">
-        <div className="absolute inset-0 bg-[#0a192f]/85 z-10 backdrop-blur-[2px]" />
-        <img src="/teacher.jpg" alt="" className="absolute inset-0 w-full h-full object-cover scale-105" />
-        <div className="relative z-20 max-w-[1600px] mx-auto px-4 sm:px-6 md:px-12 pt-12 sm:pt-16 pb-16 sm:pb-24 flex items-center gap-8">
-          <div className="hidden md:flex shrink-0 w-24 h-24 rounded-[32px] border border-white/10 bg-white/5 items-center justify-center backdrop-blur-xl shadow-2xl group">
-            <BarChart2 size={40} style={{ color: '#FEBF10' }} className="group-hover:scale-110 transition-transform duration-500" />
-          </div>
-          <div className="space-y-1 min-w-0">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="w-6 h-1 rounded-full animate-pulse shrink-0" style={{ background: '#FEBF10' }} />
-              <p className="text-[10px] font-black uppercase tracking-[0.3em] truncate" style={{ color: '#FEBF10' }}>Library</p>
+      <div className="relative w-full min-h-[200px] sm:min-h-[220px] overflow-hidden bg-[#c87800]">
+        <div className="absolute -top-28 -right-28 w-[22rem] h-[22rem] rounded-full border border-white/[0.07] pointer-events-none" aria-hidden />
+        <div className="absolute -top-14 -right-14 w-[15rem] h-[15rem] rounded-full border border-white/[0.06] pointer-events-none" aria-hidden />
+        <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-[#FEBF10]/30 to-transparent pointer-events-none" aria-hidden />
+
+        <div className="relative z-10 max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-12 pt-10 sm:pt-12 pb-20 sm:pb-24 flex items-center justify-between">
+          <div className="space-y-1 max-w-3xl">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="w-5 h-1 rounded-full bg-[#FEBF10]" aria-hidden />
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#FEBF10]">Library</p>
             </div>
-            <h1 className="text-xl sm:text-4xl md:text-5xl font-black text-white tracking-tighter leading-none uppercase">
-              Library <span style={{ color: '#FEBF10' }}>Reports</span>
+            <h1 className="text-xl md:text-2xl font-semibold text-white tracking-tight leading-none mb-1 mt-1 uppercase">
+              Library Reports
             </h1>
-            <p className="text-[10px] font-bold text-white/40 max-w-lg uppercase tracking-widest italic opacity-60">{subtitle}</p>
+            <p className="text-[10px] sm:text-[11px] font-medium text-white/60 tracking-wider">
+              {subtitle}
+            </p>
           </div>
         </div>
       </div>
 
-      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 md:px-12 -mt-14 sm:-mt-24 relative z-20 pb-16 sm:pb-20 space-y-4">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 md:px-12 -mt-12 sm:-mt-16 relative z-20 pb-16 sm:pb-20 space-y-4">
         <div className="bg-white rounded-[24px] sm:rounded-t-[32px] shadow-2xl border border-black/5 overflow-hidden">
           <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-black/5 border-b border-black/5">
             {[
@@ -308,8 +308,8 @@ export default function Reports() {
             ].map((s, i) => (
               <div key={i} className="p-4 sm:p-8 flex flex-col items-center justify-center text-center">
                 <div className="mb-1.5 sm:mb-2 opacity-40 shrink-0">{s.icon}</div>
-                <span className="text-lg sm:text-2xl font-black text-re-text">{loading ? '…' : s.value}</span>
-                <p className="text-[6px] sm:text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] mt-0.5 sm:mt-1 opacity-60">{s.label}</p>
+                <span className="text-lg sm:text-2xl font-semibold text-re-text">{loading ? '…' : s.value}</span>
+                <p className="text-[6px] sm:text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.2em] mt-0.5 sm:mt-1 opacity-60">{s.label}</p>
               </div>
             ))}
           </div>
@@ -330,7 +330,7 @@ export default function Reports() {
             <>
               <div className="p-4 sm:p-6 border-b border-black/5 bg-re-bg/30 flex flex-col sm:flex-row gap-3 sm:items-end justify-between">
                 <div>
-                  <label className="text-[9px] font-black uppercase tracking-widest text-slate-500 block mb-1">Daily borrowing report</label>
+                  <label className="text-[9px] font-semibold uppercase tracking-widest text-slate-500 block mb-1">Daily borrowing report</label>
                   <input type="date" value={dailyDate} onChange={(e) => setDailyDate(e.target.value)} className="h-10 px-3 rounded-xl border border-black/5 text-[12px] font-bold text-[#1E3A5F]" />
                 </div>
                 <div className="flex-1 text-[11px] font-bold text-slate-600">
@@ -341,7 +341,7 @@ export default function Reports() {
                 <button
                   type="button"
                   onClick={exportOverviewSnippetPdf}
-                  className="h-10 px-4 rounded-xl flex items-center gap-2 text-white font-black text-[9px] uppercase tracking-widest shadow-lg shrink-0"
+                  className="h-10 px-4 rounded-xl flex items-center gap-2 text-white font-semibold text-[9px] uppercase tracking-widest shadow-lg shrink-0"
                   style={{ background: 'linear-gradient(135deg,#1E3A5F 0%,#0D2644 100%)' }}
                 >
                   <Printer size={14} /> PDF snapshot
@@ -350,7 +350,7 @@ export default function Reports() {
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 divide-y lg:divide-y-0 lg:divide-x divide-black/5">
                 <div className="p-6 sm:p-8">
-                  <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+                  <h3 className="text-[11px] font-semibold text-slate-800 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
                     <TrendingUp size={13} className="text-amber-500" /> Borrowing activity
                   </h3>
                   <div className="flex items-end gap-2 sm:gap-4 h-40 mb-4 overflow-x-auto pb-1">
@@ -378,7 +378,7 @@ export default function Reports() {
                             />
                           )}
                         </div>
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-wider">{m.label}</p>
+                        <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-wider">{m.label}</p>
                       </div>
                     ))}
                     {monthlyBars.rows.length === 0 && !loading && (
@@ -386,13 +386,13 @@ export default function Reports() {
                     )}
                   </div>
                   <div className="flex items-center gap-4 mt-2">
-                    <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-sm shrink-0" style={{ background: '#1E3A5F' }} /><span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Issued</span></div>
-                    <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-sm shrink-0" style={{ background: '#FEBF10' }} /><span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Returned</span></div>
+                    <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-sm shrink-0" style={{ background: '#1E3A5F' }} /><span className="text-[9px] font-semibold text-slate-500 uppercase tracking-widest">Issued</span></div>
+                    <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-sm shrink-0" style={{ background: '#FEBF10' }} /><span className="text-[9px] font-semibold text-slate-500 uppercase tracking-widest">Returned</span></div>
                   </div>
                 </div>
 
                 <div className="p-6 sm:p-8">
-                  <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+                  <h3 className="text-[11px] font-semibold text-slate-800 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
                     <BarChart2 size={13} className="text-blue-500" /> By category
                   </h3>
                   <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1">
@@ -404,8 +404,8 @@ export default function Reports() {
                       return (
                         <div key={g.genre}>
                           <div className="flex items-center justify-between mb-1 gap-2">
-                            <span className="text-[10px] font-black text-slate-700 truncate">{g.genre}</span>
-                            <div className="flex items-center gap-2 text-[9px] font-black text-slate-400 shrink-0">
+                            <span className="text-[10px] font-semibold text-slate-700 truncate">{g.genre}</span>
+                            <div className="flex items-center gap-2 text-[9px] font-semibold text-slate-400 shrink-0">
                               <span>{g.titles} titles · {g.copies} copies</span>
                               <span className="text-[#1E3A5F]">{g.borrowed} out</span>
                             </div>
@@ -421,7 +421,7 @@ export default function Reports() {
               </div>
 
               <div className="border-t border-black/5 px-4 sm:px-8 py-5">
-                <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
+                <h3 className="text-[11px] font-semibold text-slate-800 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
                   <AlertTriangle size={13} className="text-red-500" /> Damaged books (condition = Damaged)
                 </h3>
                 {damaged.length === 0 ? (
@@ -444,7 +444,7 @@ export default function Reports() {
             <div className="p-4 sm:p-8">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                 <div>
-                  <h3 className="text-sm font-black text-[#1E3A5F] uppercase tracking-tight">Overdue loans</h3>
+                  <h3 className="text-sm font-semibold text-[#1E3A5F] uppercase tracking-tight">Overdue loans</h3>
                   <p className="text-[11px] font-bold text-slate-500 mt-1">
                     Active loans whose return date is before today. {filteredOverdueRows.length} record(s).
                   </p>
@@ -453,7 +453,7 @@ export default function Reports() {
                   <button
                     type="button"
                     onClick={exportOverduePdf}
-                    className="h-11 px-5 rounded-xl flex items-center justify-center gap-2 text-white font-black text-[9px] uppercase tracking-widest shadow-lg shrink-0"
+                    className="h-11 px-5 rounded-xl flex items-center justify-center gap-2 text-white font-semibold text-[9px] uppercase tracking-widest shadow-lg shrink-0"
                     style={{ background: 'linear-gradient(135deg,#1E3A5F 0%,#0D2644 100%)' }}
                   >
                     <Printer size={14} /> Export PDF
@@ -461,7 +461,7 @@ export default function Reports() {
                   <button
                     type="button"
                     onClick={exportOverdueExcel}
-                    className="h-11 px-5 rounded-xl flex items-center justify-center gap-2 bg-white border border-black/10 text-[#1E3A5F] font-black text-[9px] uppercase tracking-widest shadow-sm shrink-0"
+                    className="h-11 px-5 rounded-xl flex items-center justify-center gap-2 bg-white border border-black/10 text-[#1E3A5F] font-semibold text-[9px] uppercase tracking-widest shadow-sm shrink-0"
                   >
                     <Download size={14} /> Export Excel
                   </button>
@@ -508,29 +508,29 @@ export default function Reports() {
                   <table className="w-full text-left min-w-[900px]">
                     <thead>
                       <tr className="bg-gradient-to-r from-[#1E3A5F] to-[#3D5A80] text-white">
-                        <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest">Borrower</th>
-                        <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest hidden md:table-cell">Borrower details</th>
-                        <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest">Book</th>
-                        <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-right hidden sm:table-cell">Borrowed</th>
-                        <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-right">Due</th>
-                        <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-right">Days late</th>
-                        <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-right">Status</th>
+                        <th className="px-4 py-3 text-[9px] font-semibold uppercase tracking-widest">Borrower</th>
+                        <th className="px-4 py-3 text-[9px] font-semibold uppercase tracking-widest hidden md:table-cell">Borrower details</th>
+                        <th className="px-4 py-3 text-[9px] font-semibold uppercase tracking-widest">Book</th>
+                        <th className="px-4 py-3 text-[9px] font-semibold uppercase tracking-widest text-right hidden sm:table-cell">Borrowed</th>
+                        <th className="px-4 py-3 text-[9px] font-semibold uppercase tracking-widest text-right">Due</th>
+                        <th className="px-4 py-3 text-[9px] font-semibold uppercase tracking-widest text-right">Days late</th>
+                        <th className="px-4 py-3 text-[9px] font-semibold uppercase tracking-widest text-right">Status</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-black/5 bg-white">
                       {filteredOverdueRows.map((r) => (
                         <tr key={r.id} className="hover:bg-amber-50/40">
-                          <td className="px-4 py-3 text-[12px] font-black text-[#1E3A5F]">{r.borrower_name}</td>
+                          <td className="px-4 py-3 text-[12px] font-semibold text-[#1E3A5F]">{r.borrower_name}</td>
                           <td className="px-4 py-3 text-[10px] font-bold text-slate-500 hidden md:table-cell">{r.borrower_detail} · {r.user_type === 'student' ? 'Student' : 'Staff'}</td>
                           <td className="px-4 py-3">
-                            <span className="text-[11px] font-black text-slate-800">{r.book_title}</span>
+                            <span className="text-[11px] font-semibold text-slate-800">{r.book_title}</span>
                             <p className="text-[9px] font-mono text-slate-400">{r.book_isbn}</p>
                           </td>
                           <td className="px-4 py-3 text-right text-[11px] font-bold hidden sm:table-cell">{r.borrow_date}</td>
-                          <td className="px-4 py-3 text-right text-[11px] font-black text-red-600">{r.return_date}</td>
-                          <td className="px-4 py-3 text-right text-[11px] font-black text-red-500">{r.days_past_due ?? '—'}</td>
+                          <td className="px-4 py-3 text-right text-[11px] font-semibold text-red-600">{r.return_date}</td>
+                          <td className="px-4 py-3 text-right text-[11px] font-semibold text-red-500">{r.days_past_due ?? '—'}</td>
                           <td className="px-4 py-3 text-right">
-                            <span className="inline-flex px-2 py-0.5 rounded-lg text-[9px] font-black uppercase bg-red-100 text-red-700 border border-red-200">Overdue</span>
+                            <span className="inline-flex px-2 py-0.5 rounded-lg text-[9px] font-semibold uppercase bg-red-100 text-red-700 border border-red-200">Overdue</span>
                           </td>
                         </tr>
                       ))}
@@ -548,7 +548,7 @@ export default function Reports() {
             <div className="p-4 sm:p-8">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                 <div>
-                  <h3 className="text-sm font-black text-[#1E3A5F] uppercase tracking-tight">Book circulation</h3>
+                  <h3 className="text-sm font-semibold text-[#1E3A5F] uppercase tracking-tight">Book circulation</h3>
                   <p className="text-[11px] font-bold text-slate-500 mt-1">
                     All books with quantity, borrowed, returned, and remaining in stock.
                   </p>
@@ -557,7 +557,7 @@ export default function Reports() {
                   <button
                     type="button"
                     onClick={exportCirculationPdf}
-                    className="h-11 px-5 rounded-xl flex items-center justify-center gap-2 text-white font-black text-[9px] uppercase tracking-widest shadow-lg shrink-0"
+                    className="h-11 px-5 rounded-xl flex items-center justify-center gap-2 text-white font-semibold text-[9px] uppercase tracking-widest shadow-lg shrink-0"
                     style={{ background: 'linear-gradient(135deg,#1E3A5F 0%,#0D2644 100%)' }}
                   >
                     <Printer size={14} /> Export PDF
@@ -565,7 +565,7 @@ export default function Reports() {
                   <button
                     type="button"
                     onClick={exportCirculationExcel}
-                    className="h-11 px-5 rounded-xl flex items-center justify-center gap-2 bg-white border border-black/10 text-[#1E3A5F] font-black text-[9px] uppercase tracking-widest shadow-sm shrink-0"
+                    className="h-11 px-5 rounded-xl flex items-center justify-center gap-2 bg-white border border-black/10 text-[#1E3A5F] font-semibold text-[9px] uppercase tracking-widest shadow-sm shrink-0"
                   >
                     <Download size={14} /> Export Excel
                   </button>
@@ -576,29 +576,29 @@ export default function Reports() {
                   <table className="w-full text-left min-w-[1100px]">
                     <thead>
                       <tr className="bg-gradient-to-r from-[#1E3A5F] to-[#3D5A80] text-white">
-                        <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest">Title</th>
-                        <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest hidden md:table-cell">ISBN</th>
-                        <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-right">Quantity</th>
-                        <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-right">Borrowed</th>
-                        <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-right">Returned</th>
-                        <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-right">Remain</th>
-                        <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-right">Active out</th>
-                        <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest hidden lg:table-cell">Shelf</th>
+                        <th className="px-4 py-3 text-[9px] font-semibold uppercase tracking-widest">Title</th>
+                        <th className="px-4 py-3 text-[9px] font-semibold uppercase tracking-widest hidden md:table-cell">ISBN</th>
+                        <th className="px-4 py-3 text-[9px] font-semibold uppercase tracking-widest text-right">Quantity</th>
+                        <th className="px-4 py-3 text-[9px] font-semibold uppercase tracking-widest text-right">Borrowed</th>
+                        <th className="px-4 py-3 text-[9px] font-semibold uppercase tracking-widest text-right">Returned</th>
+                        <th className="px-4 py-3 text-[9px] font-semibold uppercase tracking-widest text-right">Remain</th>
+                        <th className="px-4 py-3 text-[9px] font-semibold uppercase tracking-widest text-right">Active out</th>
+                        <th className="px-4 py-3 text-[9px] font-semibold uppercase tracking-widest hidden lg:table-cell">Shelf</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-black/5 bg-white">
                       {inventoryRows.map((r) => (
                         <tr key={r.id} className="hover:bg-emerald-50/30">
                           <td className="px-4 py-3">
-                            <span className="text-[12px] font-black text-[#1E3A5F]">{r.title}</span>
+                            <span className="text-[12px] font-semibold text-[#1E3A5F]">{r.title}</span>
                             <p className="text-[9px] font-bold text-slate-400 mt-0.5">{r.author || '—'} · {r.category || '—'}</p>
                           </td>
                           <td className="px-4 py-3 text-[10px] font-mono text-slate-500 hidden md:table-cell">{r.isbn || '—'}</td>
-                          <td className="px-4 py-3 text-right text-[11px] font-black">{r.total_copies}</td>
-                          <td className="px-4 py-3 text-right text-[11px] font-black text-amber-600">{r.borrowed_qty ?? 0}</td>
-                          <td className="px-4 py-3 text-right text-[11px] font-black text-blue-600">{r.returned_qty ?? 0}</td>
-                          <td className="px-4 py-3 text-right text-[11px] font-black text-emerald-600">{r.total_remain_in_stock ?? r.in_library}</td>
-                          <td className="px-4 py-3 text-right text-[11px] font-black text-orange-600">{r.on_loan_qty}</td>
+                          <td className="px-4 py-3 text-right text-[11px] font-semibold">{r.total_copies}</td>
+                          <td className="px-4 py-3 text-right text-[11px] font-semibold text-amber-600">{r.borrowed_qty ?? 0}</td>
+                          <td className="px-4 py-3 text-right text-[11px] font-semibold text-blue-600">{r.returned_qty ?? 0}</td>
+                          <td className="px-4 py-3 text-right text-[11px] font-semibold text-emerald-600">{r.total_remain_in_stock ?? r.in_library}</td>
+                          <td className="px-4 py-3 text-right text-[11px] font-semibold text-orange-600">{r.on_loan_qty}</td>
                           <td className="px-4 py-3 text-[10px] font-bold text-slate-500 hidden lg:table-cell">{r.shelf_location || '—'}</td>
                         </tr>
                       ))}
@@ -622,7 +622,7 @@ export default function Reports() {
                 <div className="w-8 h-8 rounded-xl bg-re-bg border border-black/5 flex items-center justify-center shrink-0 group-hover:bg-[#1E3A5F] group-hover:text-white transition-all">
                   <Icon size={13} />
                 </div>
-                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest group-hover:text-[#1E3A5F]">{label}</span>
+                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest group-hover:text-[#1E3A5F]">{label}</span>
                 <ArrowRight size={10} className="ml-auto text-slate-200 group-hover:text-[#1E3A5F]" />
               </Link>
             ))}

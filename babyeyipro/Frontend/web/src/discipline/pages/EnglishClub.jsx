@@ -13,6 +13,7 @@ import {
   Plus,
   ChevronRight
 } from 'lucide-react';
+import DisciplineOchreHero from '../components/DisciplineOchreHero';
 
 const EnglishClub = () => {
   const [resources, setResources] = useState([]);
@@ -46,25 +47,16 @@ const EnglishClub = () => {
 
   return (
     <div className="relative w-full bg-re-bg min-h-screen">
-      {/* ── High-Fidelity Hero Section ── */}
-      <div className="relative w-full min-h-[140px] md:min-h-[200px] overflow-hidden">
-        <div className="absolute inset-0 bg-re-purple/70 z-10 backdrop-blur-[2px]"></div>
-        <img src="/teacher.jpg" alt="Hero" className="absolute inset-0 w-full h-full object-cover scale-105 grayscale" />
-
-        <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-12 pt-8 md:pt-12 pb-10 md:pb-16">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="w-4 h-1 bg-white/40 rounded-full"></span>
-              <p className="text-[9px] font-black text-white/50 uppercase tracking-[0.3em]">Professional Excellence</p>
-            </div>
-            <h1 className="text-3xl md:text-5xl font-black text-white tracking-tighter leading-none mb-1 mt-1">English <span className="text-white/40">Club</span></h1>
-            <p className="text-[10px] md:text-sm font-bold text-white/40 max-w-lg leading-relaxed uppercase tracking-widest italic opacity-60">Sharpening Pedagogy through Linguistic Mastery</p>
-          </div>
-        </div>
-      </div>
+      <DisciplineOchreHero
+        eyebrow="Professional excellence"
+        titleLine="English"
+        titleAccent="club"
+        subtitle="Sharpening pedagogy through linguistic mastery in a clearer manager-style layout."
+        icon={BookOpen}
+      />
 
       {/* ── Main Content Grid ── */}
-      <div className="max-w-[1600px] mx-auto px-4 md:px-12 -mt-10 md:-mt-12 relative z-20 pb-20">
+      <div className="max-w-[1600px] mx-auto px-4 md:px-12 -mt-4 sm:-mt-5 md:-mt-6 pt-2 relative z-20 pb-20">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
 
           {/* ── Main Gallery (Left Column) ── */}

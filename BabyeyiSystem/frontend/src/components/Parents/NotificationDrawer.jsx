@@ -1,10 +1,35 @@
 // ================================================================
 // NotificationDrawer — slide-over panel for parent notifications
+// Supports resume links for ClassKit / ShuleKit (copy, WhatsApp share)
 // ================================================================
 
 import { useEffect } from "react";
-import { X, Bell } from "lucide-react";
+import { X, Bell, Copy, MessageCircle, LinkIcon } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useParentShell } from "../../context/ParentShellContext";
+import { whatsappShareHref } from "../../utils/parentKitOrderClipboard";
+
+function toastCopy(ok) {
+  try {
+    if (typeof window !== "undefined") window.alert(ok ? "Link copied." : "Could not copy. Try again.");
+  } catch {
+    /* ignore */
+  }
+}
+
+function toRouterPath(fullOrRelative) {
+  const s = String(fullOrRelative || "").trim();
+  if (!s) return "/parents/classkit";
+  try {
+    if (s.startsWith("http://") || s.startsWith("https://")) {
+      const u = new URL(s);
+      return `${u.pathname}${u.search}${u.hash}`;
+    }
+  } catch {
+    /* fall through */
+  }
+  return s.startsWith("/") ? s : "/parents/classkit";
+}
 
 export default function NotificationDrawer() {
   const {
@@ -83,28 +108,104 @@ export default function NotificationDrawer() {
             </div>
           ) : (
             <ul className="space-y-2">
-              {notifications.map((n) => (
-                <li key={n.id}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      markNotificationRead(n.id);
-                    }}
-                    className={[
-                      "w-full rounded-2xl border px-4 py-3 text-left transition-colors",
-                      n.read
-                        ? "border-slate-100 bg-slate-50/80 dark:border-slate-700 dark:bg-slate-800/50"
-                        : "border-orange-200/80 bg-orange-50/60 dark:border-orange-900/50 dark:bg-orange-950/20",
-                    ].join(" ")}
-                  >
-                    <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">{n.title}</p>
-                    <p className="mt-1 text-xs text-slate-600 dark:text-slate-400 leading-relaxed">{n.body}</p>
-                    <p className="mt-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
-                      {new Date(n.createdAt).toLocaleString()}
-                    </p>
-                  </button>
-                </li>
-              ))}
+              {notifications.map((n) => {
+                const portable = String(n.shareUrl || "").trim();
+                const sameDevice = String(n.resumeUrl || "").trim();
+                const copyTarget = portable || sameDevice;
+
+                const hasResume =
+                  n.kind === "incomplete_kit_order" || Boolean(copyTarget);
+
+                const markReadThen = () => markNotificationRead(n.id);
+
+                const baseCard =
+                  "w-full rounded-2xl border px-4 py-3 text-left transition-colors ";
+
+                if (hasResume && copyTarget) {
+                  const continueTo = portable ? toRouterPath(portable) : toRouterPath(sameDevice);
+                  const wa = whatsappShareHref(`${n.title}\n${n.body}`, portable || sameDevice);
+
+                  return (
+                    <li key={n.id}>
+                      <div
+                        className={
+                          baseCard +
+                          (n.read
+                            ? "border-slate-100 bg-slate-50/80 dark:border-slate-700 dark:bg-slate-800/50"
+                            : "border-orange-200/80 bg-orange-50/60 dark:border-orange-900/50 dark:bg-orange-950/20")
+                        }
+                      >
+                        <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">{n.title}</p>
+                        <p className="mt-1 text-xs text-slate-600 dark:text-slate-400 leading-relaxed">{n.body}</p>
+                        <p className="mt-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                          {new Date(n.createdAt).toLocaleString()}
+                        </p>
+
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <Link
+                            to={continueTo}
+                            onClick={() => {
+                              markReadThen();
+                              setNotificationsOpen(false);
+                            }}
+                            className="inline-flex items-center gap-1.5 rounded-xl bg-orange-600 px-3 py-2 text-[11px] font-bold text-white hover:bg-orange-700"
+                          >
+                            <LinkIcon size={13} aria-hidden /> Continue order
+                          </Link>
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                            onClick={async () => {
+                              markReadThen();
+                              try {
+                                await navigator.clipboard.writeText(copyTarget);
+                                toastCopy(true);
+                              } catch {
+                                toastCopy(false);
+                              }
+                            }}
+                          >
+                            <Copy size={13} aria-hidden /> Copy link
+                          </button>
+                          <a
+                            href={wa}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] font-bold text-emerald-800 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200"
+                            onClick={() => markReadThen()}
+                          >
+                            <MessageCircle size={13} aria-hidden /> WhatsApp
+                          </a>
+                        </div>
+
+                        <p className="mt-2 text-[10px] text-slate-400 dark:text-slate-500 break-all leading-snug">{copyTarget}</p>
+                      </div>
+                    </li>
+                  );
+                }
+
+                return (
+                  <li key={n.id}>
+                    <button
+                      type="button"
+                      className={
+                        baseCard +
+                        "hover:bg-orange-50/30 dark:hover:bg-slate-800/80 " +
+                        (n.read
+                          ? "border-slate-100 bg-slate-50/80 dark:border-slate-700 dark:bg-slate-800/50"
+                          : "border-orange-200/80 bg-orange-50/60 dark:border-orange-900/50 dark:bg-orange-950/20")
+                      }
+                      onClick={markReadThen}
+                    >
+                      <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">{n.title}</p>
+                      <p className="mt-1 text-xs text-slate-600 dark:text-slate-400 leading-relaxed">{n.body}</p>
+                      <p className="mt-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                        {new Date(n.createdAt).toLocaleString()}
+                      </p>
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>

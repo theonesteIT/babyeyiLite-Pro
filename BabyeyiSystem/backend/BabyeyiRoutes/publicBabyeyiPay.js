@@ -37,6 +37,7 @@ const {
   getRequestToPayStatus: mtnGetRequestToPayStatus,
   mapMtnStatusToUpper,
 } = require('./mtnMomoCollection');
+const { resolveGuestShareFromReq, ensureClasskitShareTable } = require('./classkitShareService');
 
 const query = (sql, params = []) => db.query(sql, params);
 
@@ -1704,6 +1705,32 @@ router.post('/intent', async (req, res) => {
   try {
     await ensureIntentTable();
     const body = req.body || {};
+
+    const guestCk = body.classkit_guest_checkout === true || body.classkit_guest_checkout === 'true';
+    if (guestCk) {
+      try {
+        await ensureClasskitShareTable();
+      } catch (_) {}
+      const shareRow = await resolveGuestShareFromReq(req);
+      if (!shareRow) {
+        return res.status(401).json({
+          success: false,
+          message:
+            'This checkout requires the ClassKit/ShuleKit link to be unlocked with the code sent to the parent email or SMS.',
+          code: 'CLASSKIT_SHARE_AUTH',
+        });
+      }
+      const sel = body.selected_student || body.selectedStudent || {};
+      const sidBody = Number(sel.student_id || sel.id || 0);
+      if (!sidBody || sidBody !== Number(shareRow.student_id)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Student selection does not match the verified resume link.',
+          code: 'CLASSKIT_SHARE_MISMATCH',
+        });
+      }
+    }
+
     const schoolId = parseInt(body.school_id, 10);
     const babyeyiId = parseInt(body.babyeyi_id, 10);
     const total_rwf = parseFloat(body.total_rwf);

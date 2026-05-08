@@ -297,23 +297,23 @@ const Registry = () => {
         <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen">
 
             {/* ── Hero Section ── */}
-            <div className="relative w-full min-h-[220px] overflow-hidden bg-[#000435]">
+            <div className="relative w-full min-h-[220px] overflow-hidden bg-[#c87800]">
                 <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full border border-white/5 pointer-events-none" />
                 <div className="absolute -top-12 -right-12 w-64 h-64 rounded-full border border-white/5 pointer-events-none" />
                 <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-[#FEBF10]/30 to-transparent pointer-events-none" />
 
                 <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-12 pt-12 pb-16 flex items-center gap-6">
-                    <div className="hidden md:flex shrink-0 w-20 h-20 rounded-3xl border border-white/10 bg-white/5 items-center justify-center backdrop-blur-xl shadow-2xl relative overflow-hidden group">
+                    <div className="hidden md:flex shrink-0 w-20 h-20 rounded-3xl border border-white/10 bg-white/5 items-center justify-center backdrop-blur-xl shadow-sm relative overflow-hidden group">
                         <div className="absolute inset-0 bg-gradient-to-br from-[#FEBF10]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
-                        <School size={40} style={{ color: "#FEBF10" }} className="group-hover:scale-110 transition-transform duration-500" />
+                        <School size={40} style={{ color: "#FEBF10" }} className="" />
                     </div>
 
                     <div className="space-y-1">
                         <div className="flex items-center gap-2 mb-1.5">
                             <span className="w-5 h-1 rounded-full animate-pulse" style={{ background: "#FEBF10" }}></span>
-                            <p className="text-[9px] font-black uppercase tracking-[0.2em]" style={{ color: "#FEBF10" }}>App Configuration</p>
+                            <p className="text-[9px] font-semibold uppercase tracking-[0.2em]" style={{ color: "#FEBF10" }}>App Configuration</p>
                         </div>
-                        <h1 className="text-xl sm:text-3xl md:text-4xl font-black text-white tracking-tighter leading-none mb-1.5 uppercase">School <span style={{ color: "#FEBF10" }}>Profile</span></h1>
+                        <h1 className="text-2xl md:text-3xl font-semibold text-white tracking-tight leading-none mb-1.5 uppercase" style={{ fontFamily: "'Montserrat', sans-serif" }}>School Profile</h1>
                         <p className="text-[10px] md:text-xs font-medium text-white/60 max-w-lg leading-relaxed uppercase tracking-widest italic">Configure institutional identity, location and academic structure</p>
                     </div>
                 </div>
@@ -322,19 +322,19 @@ const Registry = () => {
             {/* ── Main Console ── */}
             <div className="max-w-[1600px] mx-auto px-6 md:px-12 -mt-16 relative z-20 pb-16">
                 {loading ? (
-                    <div className="bg-white rounded-3xl shadow-2xl border border-black/5 flex items-center justify-center min-h-[500px]">
+                    <div className="bg-white rounded-3xl shadow-sm border border-black/10 flex items-center justify-center min-h-[500px]">
                         <div className="flex flex-col items-center gap-4">
                             <Loader2 className="animate-spin text-[#FEBF10]" size={40} />
-                            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1E3A5F]">Synchronizing Registry...</p>
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-[#1E3A5F]">Synchronizing Registry...</p>
                         </div>
                     </div>
                 ) : (
-                    <div className="bg-white rounded-t-3xl shadow-2xl border border-black/5 overflow-hidden flex flex-col md:flex-row min-h-[500px]">
+                    <div className="bg-white rounded-t-3xl shadow-sm border border-black/10 overflow-hidden flex flex-col md:flex-row min-h-[500px]">
 
                         {/* Left Sidebar Nav */}
                         <div className="w-full md:w-56 lg:w-64 bg-re-bg/30 border-r border-black/5 flex flex-col pt-5 shrink-0 relative">
                             <div className="px-5 mb-4">
-                                <h3 className="text-[9px] font-black uppercase tracking-[0.2em] text-[#1E3A5F]/50 flex items-center gap-1.5">
+                                <h3 className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[#1E3A5F]/50 flex items-center gap-1.5">
                                     <HardDrive size={12} /> Profile Menu
                                 </h3>
                             </div>
@@ -344,7 +344,7 @@ const Registry = () => {
                                     <button
                                         key={item.id}
                                         onClick={() => setActiveTab(item.id)}
-                                        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === item.id
+                                        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl font-medium text-[10px] uppercase tracking-widest transition-all ${activeTab === item.id
                                                 ? 'bg-white shadow-sm text-[#1E3A5F] ring-1 ring-black/5'
                                                 : 'text-re-text-muted hover:text-re-text hover:bg-re-bg'
                                             }`}
@@ -357,12 +357,12 @@ const Registry = () => {
 
                             {/* Status Card */}
                             <div className="px-5 mt-auto pb-6 hidden md:block">
-                                <div className="bg-[#1E3A5F] p-4 rounded-2xl text-white relative overflow-hidden shadow-2xl">
+                                <div className="bg-[#1E3A5F] p-4 rounded-2xl text-white relative overflow-hidden shadow-sm">
                                     <div className="absolute -bottom-4 -right-4 w-16 h-16 bg-[#FEBF10]/20 rounded-full blur-2xl"></div>
                                     <div className="relative z-10">
                                         <ShieldCheck size={18} style={{ color: "#FEBF10" }} className="mb-2" />
-                                        <p className="text-[9px] font-black uppercase tracking-widest opacity-70">Registry Status</p>
-                                        <p className="text-[11px] font-black uppercase tracking-tight mt-1 text-emerald-400">Verified ✓</p>
+                                        <p className="text-[9px] font-semibold uppercase tracking-widest opacity-70">Registry Status</p>
+                                        <p className="text-[11px] font-semibold uppercase tracking-tight mt-1 text-emerald-400">Verified ✓</p>
                                         <p className="text-[8px] font-bold opacity-40 uppercase tracking-widest mt-0.5">NESA Certified 2024</p>
                                     </div>
                                 </div>
@@ -377,12 +377,12 @@ const Registry = () => {
                                 <div className="space-y-6 animate-in slide-in-from-right-4 duration-500">
                                     <div className="flex items-center justify-between">
                                         <div>
-                                            <h2 className="text-lg md:text-xl font-black text-[#1E3A5F] uppercase tracking-tighter">Identity & Contact</h2>
+                                            <h2 className="text-lg md:text-xl font-semibold text-[#1E3A5F] uppercase tracking-tighter">Identity & Contact</h2>
                                             <p className="text-[9px] font-bold text-re-text-muted uppercase tracking-widest mt-1">Core institutional information</p>
                                         </div>
                                         <button
                                             onClick={handleSave}
-                                            className="h-9 px-4 rounded-xl flex items-center justify-center gap-1.5 text-white font-black text-[9px] uppercase tracking-widest shadow-md hover:scale-105 active:scale-95 transition-all"
+                                            className="h-9 px-4 rounded-xl flex items-center justify-center gap-1.5 text-white font-medium text-[9px] uppercase tracking-widest shadow-md active:scale-95 transition-all"
                                             style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)" }}
                                         >
                                             {saving ? <CheckCircle size={14} style={{ color: "#FEBF10" }} /> : <Save size={14} style={{ color: "#FEBF10" }} />}
@@ -406,14 +406,14 @@ const Registry = () => {
                                             {profile.logo_url ? (
                                                 <img src={(import.meta.env.VITE_API_URL || 'http://localhost:5100') + profile.logo_url} className="w-full h-full object-cover" alt="Logo" />
                                             ) : (
-                                                <School className="text-[#1E3A5F]/20 group-hover:scale-110 transition-transform duration-500" size={24} />
+                                                <School className="text-[#1E3A5F]/20" size={24} />
                                             )}
                                             <div className={`absolute inset-0 bg-[#1E3A5F]/40 flex items-center justify-center transition-opacity ${uploadingLogo ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
                                                 {uploadingLogo ? <Loader2 className="text-white animate-spin" size={16} /> : <Upload className="text-white" size={16} />}
                                             </div>
                                         </div>
                                         <div>
-                                            <h3 className="text-base font-black text-[#1E3A5F] tracking-tight uppercase">{profile.school_name}</h3>
+                                            <h3 className="text-base font-semibold text-[#1E3A5F] tracking-tight uppercase">{profile.school_name}</h3>
                                             <p className="text-[9px] font-bold text-re-text-muted uppercase tracking-widest mt-0.5">Code: {profile.school_code}</p>
                                             <p className="text-[8px] text-re-text-muted uppercase tracking-widest mt-1 opacity-50">Click logo to update</p>
                                         </div>
@@ -428,7 +428,7 @@ const Registry = () => {
                                     </div>
 
                                     <div className="space-y-2">
-                                        <p className="text-[9px] font-black uppercase text-[#1E3A5F]/50 tracking-widest">Vision / Mission Message</p>
+                                        <p className="text-[9px] font-semibold uppercase text-[#1E3A5F]/50 tracking-widest">Vision / Mission Message</p>
                                         <textarea
                                             name="vision"
                                             className="w-full p-4 bg-re-bg border border-transparent rounded-2xl text-sm font-bold text-re-text outline-none focus:bg-white focus:border-[#1E3A5F]/20 transition-all shadow-inner h-24"
@@ -443,7 +443,7 @@ const Registry = () => {
                             {activeTab === 'location' && (
                                 <div className="space-y-6 animate-in slide-in-from-right-4 duration-500">
                                     <div>
-                                        <h2 className="text-lg md:text-xl font-black text-[#1E3A5F] uppercase tracking-tighter">Geographic Coordinates</h2>
+                                        <h2 className="text-lg md:text-xl font-semibold text-[#1E3A5F] uppercase tracking-tighter">Geographic Coordinates</h2>
                                         <p className="text-[9px] font-bold text-re-text-muted uppercase tracking-widest mt-1">Official administrative address</p>
                                     </div>
 
@@ -454,7 +454,7 @@ const Registry = () => {
                                         <SelectFormField label="Cell" name="cell" options={RW_LOCATIONS[profile.province]?.[profile.district]?.[profile.sector] || []} value={profile.cell} onChange={handleChange} />
                                     </div>
                                     <div className="flex justify-end">
-                                        <button onClick={handleSave} className="h-10 px-6 rounded-xl flex items-center justify-center gap-2 text-white font-black text-[9px] uppercase tracking-widest shadow-md hover:scale-105 active:scale-95 transition-all" style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)" }}>
+                                        <button onClick={handleSave} className="h-10 px-6 rounded-xl flex items-center justify-center gap-2 text-white font-medium text-[9px] uppercase tracking-widest shadow-md active:scale-95 transition-all" style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)" }}>
                                             <Save size={14} /> Save Location
                                         </button>
                                     </div>
@@ -466,12 +466,12 @@ const Registry = () => {
                                 <div className="space-y-6 animate-in slide-in-from-right-4 duration-500 pb-12">
                                     <div className="flex items-center justify-between">
                                         <div className="space-y-0.5">
-                                            <h2 className="text-base md:text-lg font-black text-[#1E3A5F] uppercase tracking-tighter">Institutional Framework</h2>
+                                            <h2 className="text-base md:text-lg font-semibold text-[#1E3A5F] uppercase tracking-tighter">Institutional Framework</h2>
                                             <p className="text-[9px] font-bold text-re-text-muted uppercase tracking-widest opacity-60">Legal status and operational format</p>
                                         </div>
                                         <button
                                             onClick={handleSave}
-                                            className="h-9 px-5 rounded-xl flex items-center justify-center gap-2 text-white font-black text-[8px] uppercase tracking-widest shadow-lg hover:bg-[#FEBF10] hover:text-[#1E3A5F] transition-all"
+                                            className="h-9 px-5 rounded-xl flex items-center justify-center gap-2 text-white font-medium text-[8px] uppercase tracking-widest shadow-lg hover:bg-[#FEBF10] hover:text-[#1E3A5F] transition-all"
                                             style={{ background: !saving ? "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)" : "#FEBF10" }}
                                         >
                                             {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
@@ -483,7 +483,7 @@ const Registry = () => {
                                         {/* Column 1: Ownership & Format */}
                                         <div className="space-y-6">
                                             <div className="space-y-3">
-                                                <p className="text-[9px] font-black uppercase text-[#1E3A5F] tracking-widest flex items-center gap-2">
+                                                <p className="text-[9px] font-semibold uppercase text-[#1E3A5F] tracking-widest flex items-center gap-2">
                                                     <ShieldCheck size={12} className="text-[#FEBF10]" /> School Ownership
                                                 </p>
                                                 <div className="grid grid-cols-2 gap-2">
@@ -491,7 +491,7 @@ const Registry = () => {
                                                         <button
                                                             key={type}
                                                             onClick={() => setProfile(p => ({ ...p, ownership_type: type }))}
-                                                            className={`p-3 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all text-center ${profile.ownership_type === type
+                                                            className={`p-3 rounded-xl border text-[9px] font-semibold uppercase tracking-widest transition-all text-center ${profile.ownership_type === type
                                                                     ? 'bg-[#1E3A5F] text-[#FEBF10] border-transparent shadow-md'
                                                                     : 'bg-white text-re-text-muted border-black/[0.05] hover:border-[#1E3A5F]/20'
                                                                 }`}
@@ -503,7 +503,7 @@ const Registry = () => {
                                             </div>
 
                                             <div className="space-y-3">
-                                                <p className="text-[9px] font-black uppercase text-[#1E3A5F] tracking-widest flex items-center gap-2">
+                                                <p className="text-[9px] font-semibold uppercase text-[#1E3A5F] tracking-widest flex items-center gap-2">
                                                     <Home size={12} className="text-[#FEBF10]" /> Educational Format
                                                 </p>
                                                 <div className="grid grid-cols-3 gap-2">
@@ -511,7 +511,7 @@ const Registry = () => {
                                                         <button
                                                             key={format}
                                                             onClick={() => setProfile(p => ({ ...p, boarding_type: format }))}
-                                                            className={`p-3 rounded-xl border text-[8px] font-black uppercase tracking-widest transition-all text-center ${profile.boarding_type === format
+                                                            className={`p-3 rounded-xl border text-[8px] font-semibold uppercase tracking-widest transition-all text-center ${profile.boarding_type === format
                                                                     ? 'bg-[#1E3A5F] text-[#FEBF10] border-transparent shadow-md'
                                                                     : 'bg-white text-re-text-muted border-black/[0.05] hover:border-[#1E3A5F]/20'
                                                                 }`}
@@ -525,7 +525,7 @@ const Registry = () => {
 
                                         {/* Column 2: Educational Category */}
                                         <div className="space-y-3">
-                                            <p className="text-[9px] font-black uppercase text-[#1E3A5F] tracking-widest flex items-center gap-2">
+                                            <p className="text-[9px] font-semibold uppercase text-[#1E3A5F] tracking-widest flex items-center gap-2">
                                                 <GraduationCap size={12} className="text-[#FEBF10]" /> Educational Departments
                                             </p>
                                             <div className="grid grid-cols-1 gap-1.5">
@@ -545,7 +545,7 @@ const Registry = () => {
                                                                     <card.icon size={14} />
                                                                 </div>
                                                                 <div className="text-left">
-                                                                    <p className="text-[9px] font-black uppercase tracking-widest">{card.label}</p>
+                                                                    <p className="text-[9px] font-semibold uppercase tracking-widest">{card.label}</p>
                                                                     <p className="text-[7px] font-bold opacity-50 uppercase tracking-tighter">
                                                                         {card.id === 'A-Level' ? 'S4-S6' : card.id === 'O-Level' ? 'S1-S3' : 'GEN'}
                                                                     </p>
@@ -563,7 +563,7 @@ const Registry = () => {
                                     {profile.school_category_arr.includes('A-Level') && (
                                         <div className="bg-re-bg/20 rounded-3xl p-6 border border-black/[0.03] space-y-4 animate-in zoom-in-95 duration-500">
                                             <div className="space-y-0.5">
-                                                <p className="text-[9px] font-black uppercase text-[#1E3A5F] tracking-widest flex items-center gap-2">
+                                                <p className="text-[9px] font-semibold uppercase text-[#1E3A5F] tracking-widest flex items-center gap-2">
                                                     <BookOpen size={12} className="text-[#FEBF10]" /> Offered Combinations
                                                 </p>
                                                 <p className="text-[8px] font-bold text-re-text-muted uppercase tracking-widest opacity-60">Select advanced level programs</p>
@@ -576,7 +576,7 @@ const Registry = () => {
                                                         <button
                                                             key={comb}
                                                             onClick={() => toggleCombination(comb)}
-                                                            className={`px-3 py-2 rounded-lg border text-[9px] font-black uppercase tracking-widest transition-all ${isSelected
+                                                            className={`px-3 py-2 rounded-lg border text-[9px] font-semibold uppercase tracking-widest transition-all ${isSelected
                                                                     ? 'bg-[#FEBF10] text-[#1E3A5F] border-transparent shadow-sm'
                                                                     : 'bg-white text-re-text-muted border-black/5 hover:border-[#1E3A5F]/20'
                                                                 }`}
@@ -596,12 +596,12 @@ const Registry = () => {
                                 <div className="space-y-8 animate-in slide-in-from-right-4 duration-500 pb-20">
                                     <div className="flex items-center justify-between">
                                         <div className="space-y-1">
-                                            <h2 className="text-lg md:text-xl font-black text-[#1E3A5F] uppercase tracking-tighter">Academic Architecture</h2>
+                                            <h2 className="text-lg md:text-xl font-semibold text-[#1E3A5F] uppercase tracking-tighter">Academic Architecture</h2>
                                             <p className="text-[10px] font-bold text-re-text-muted uppercase tracking-widest opacity-60">Manage classes and room assignments</p>
                                         </div>
                                         <button
                                             onClick={handleSave}
-                                            className="h-10 px-6 rounded-xl flex items-center justify-center gap-2 text-white font-black text-[9px] uppercase tracking-widest shadow-lg hover:bg-[#FEBF10] hover:text-[#1E3A5F] transition-all"
+                                            className="h-10 px-6 rounded-xl flex items-center justify-center gap-2 text-white font-medium text-[9px] uppercase tracking-widest shadow-lg hover:bg-[#FEBF10] hover:text-[#1E3A5F] transition-all"
                                             style={{ background: !saving ? "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)" : "#FEBF10" }}
                                         >
                                             {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
@@ -616,7 +616,7 @@ const Registry = () => {
                                                 <GraduationCap size={20} />
                                             </div>
                                             <div>
-                                                <h3 className="text-xs font-black text-[#1E3A5F] uppercase tracking-widest leading-none">Academic Architect</h3>
+                                                <h3 className="text-xs font-semibold text-[#1E3A5F] uppercase tracking-widest leading-none">Academic Architect</h3>
                                                 <p className="text-[7px] font-bold text-re-text-muted uppercase tracking-widest mt-1.5 opacity-60">Deploy new classes across all departments</p>
                                             </div>
                                         </div>
@@ -625,7 +625,7 @@ const Registry = () => {
                                                 setNewClassData({ category: '', group_name: '', combination: '', stream_name: 'A' });
                                                 setIsAddModalOpen(true);
                                             }}
-                                            className="h-11 px-8 bg-re-bg border border-black/5 text-[#1E3A5F] rounded-xl font-black text-[9px] uppercase tracking-[0.2em] shadow-sm hover:bg-[#FEBF10] hover:border-transparent transition-all flex items-center gap-2 group"
+                                            className="h-11 px-8 bg-re-bg border border-black/5 text-[#1E3A5F] rounded-xl font-medium text-[9px] uppercase tracking-[0.2em] shadow-sm hover:bg-[#FEBF10] hover:border-transparent transition-all flex items-center gap-2 group"
                                         >
                                             <Plus size={14} className="group-hover:rotate-90 transition-transform" /> Add New Class
                                         </button>
@@ -641,7 +641,7 @@ const Registry = () => {
                                                             <School size={16} />
                                                         </div>
                                                         <div>
-                                                            <p className="text-[10px] font-black uppercase tracking-widest text-[#FEBF10] leading-none">Class Configuration</p>
+                                                            <p className="text-[10px] font-semibold uppercase tracking-widest text-[#FEBF10] leading-none">Class Configuration</p>
                                                             <p className="text-[7px] font-bold opacity-40 uppercase tracking-tight mt-1">{newClassData.category || 'All'} Department</p>
                                                         </div>
                                                     </div>
@@ -655,11 +655,11 @@ const Registry = () => {
                                                     <div className="space-y-4">
                                                         {!newClassData.category && (
                                                             <div className="space-y-1.5">
-                                                                <p className="text-[8px] font-black uppercase text-[#1E3A5F]/30 tracking-widest ml-1">Department</p>
+                                                                <p className="text-[8px] font-semibold uppercase text-[#1E3A5F]/30 tracking-widest ml-1">Department</p>
                                                                 <select
                                                                     value={newClassData.category}
                                                                     onChange={(e) => setNewClassData({ ...newClassData, category: e.target.value, group_name: '' })}
-                                                                    className="w-full h-11 bg-re-bg/50 border border-black/5 rounded-xl px-4 text-[11px] font-black uppercase outline-none focus:ring-1 ring-[#1E3A5F]/10 transition-all"
+                                                                    className="w-full h-11 bg-re-bg/50 border border-black/5 rounded-xl px-4 text-[11px] font-semibold uppercase outline-none focus:ring-1 ring-[#1E3A5F]/10 transition-all"
                                                                 >
                                                                     <option value="">Select Department...</option>
                                                                     {profile.school_category_arr.map(c => <option key={c} value={c}>{c}</option>)}
@@ -669,11 +669,11 @@ const Registry = () => {
 
                                                         <div className="grid grid-cols-2 gap-4">
                                                             <div className="space-y-1.5">
-                                                                <p className="text-[8px] font-black uppercase text-[#1E3A5F]/30 tracking-widest ml-1">Class Name</p>
+                                                                <p className="text-[8px] font-semibold uppercase text-[#1E3A5F]/30 tracking-widest ml-1">Class Name</p>
                                                                 <select
                                                                     value={newClassData.group_name}
                                                                     onChange={(e) => setNewClassData({ ...newClassData, group_name: e.target.value })}
-                                                                    className="w-full h-11 bg-re-bg/50 border border-black/5 rounded-xl px-4 text-[11px] font-black uppercase outline-none focus:ring-1 ring-[#1E3A5F]/10 transition-all"
+                                                                    className="w-full h-11 bg-re-bg/50 border border-black/5 rounded-xl px-4 text-[11px] font-semibold uppercase outline-none focus:ring-1 ring-[#1E3A5F]/10 transition-all"
                                                                 >
                                                                     <option value="">SELECT...</option>
                                                                     {ACADEMIC_CONSTANTS.CATEGORIES.find(c => c.id === newClassData.category)?.levels.map(lvl => (
@@ -682,7 +682,7 @@ const Registry = () => {
                                                                 </select>
                                                             </div>
                                                             <div className="space-y-1.5">
-                                                                <p className="text-[8px] font-black uppercase text-[#1E3A5F]/30 tracking-widest ml-1">Room Name</p>
+                                                                <p className="text-[8px] font-semibold uppercase text-[#1E3A5F]/30 tracking-widest ml-1">Room Name</p>
                                                                 <input
                                                                     type="text"
                                                                     placeholder="e.g. A"
@@ -695,11 +695,11 @@ const Registry = () => {
 
                                                         {newClassData.category === 'A-Level' && (
                                                             <div className="space-y-1.5 animate-in slide-in-from-top-2 duration-300">
-                                                                <p className="text-[8px] font-black uppercase text-[#1E3A5F]/30 tracking-widest ml-1">Academic Specialty</p>
+                                                                <p className="text-[8px] font-semibold uppercase text-[#1E3A5F]/30 tracking-widest ml-1">Academic Specialty</p>
                                                                 <select
                                                                     value={newClassData.combination}
                                                                     onChange={(e) => setNewClassData({ ...newClassData, combination: e.target.value })}
-                                                                    className="w-full h-11 bg-re-bg/50 border border-black/5 rounded-xl px-4 text-[11px] font-black uppercase outline-none focus:ring-1 ring-[#1E3A5F]/10 transition-all appearance-none"
+                                                                    className="w-full h-11 bg-re-bg/50 border border-black/5 rounded-xl px-4 text-[11px] font-semibold uppercase outline-none focus:ring-1 ring-[#1E3A5F]/10 transition-all appearance-none"
                                                                 >
                                                                     <option value="">SELECT SPECIALTY...</option>
                                                                     <option value="GENERAL">GENERAL / COMMON</option>
@@ -731,7 +731,7 @@ const Registry = () => {
                                                             setIsModalSubmitting(false);
                                                         }}
                                                         disabled={isModalSubmitting}
-                                                        className="w-full h-12 bg-[#1E3A5F] text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-[#1E3A5F]/10 hover:bg-[#FEBF10] hover:text-[#1E3A5F] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                                                        className="w-full h-12 bg-[#1E3A5F] text-white rounded-xl font-medium text-[10px] uppercase tracking-widest shadow-sm shadow-[#1E3A5F]/10 hover:bg-[#FEBF10] hover:text-[#1E3A5F] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                                                     >
                                                         {isModalSubmitting ? (
                                                             <Loader2 className="animate-spin" size={16} />
@@ -763,7 +763,7 @@ const Registry = () => {
                                                     <div className="flex items-center justify-between">
                                                         <div className="flex items-center gap-3">
                                                             <div className="w-1 h-3.5 bg-[#FEBF10] rounded-full"></div>
-                                                            <h3 className="text-[10px] font-black text-[#1E3A5F] uppercase tracking-widest">{cat} Department</h3>
+                                                            <h3 className="text-[10px] font-semibold text-[#1E3A5F] uppercase tracking-widest">{cat} Department</h3>
                                                         </div>
                                                         <button
                                                             onClick={() => {
@@ -773,7 +773,7 @@ const Registry = () => {
                                                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1E3A5F] text-white hover:bg-[#FEBF10] hover:text-[#1E3A5F] transition-all shadow-sm group"
                                                         >
                                                             <School size={10} className="group-hover:rotate-12 transition-transform" />
-                                                            <span className="text-[8px] font-black uppercase tracking-tighter">
+                                                            <span className="text-[8px] font-semibold uppercase tracking-tighter">
                                                                 Add Class
                                                             </span>
                                                         </button>
@@ -794,9 +794,9 @@ const Registry = () => {
                                                             return (
                                                                 <div key={key} className="bg-white rounded-2xl border border-black/[0.05] p-3 flex flex-col gap-3 hover:border-[#FEBF10]/30 transition-all shadow-sm">
                                                                     <div className="flex items-center justify-between">
-                                                                        <p className="text-[9px] font-black text-[#1E3A5F] uppercase tracking-tighter">{displayTitle}</p>
+                                                                        <p className="text-[9px] font-semibold text-[#1E3A5F] uppercase tracking-tighter">{displayTitle}</p>
                                                                         <div className="flex items-center gap-2">
-                                                                            <span className="text-[7px] font-black text-re-text-muted bg-re-bg px-2 py-0.5 rounded-full uppercase">{classRooms.length} ROOMS</span>
+                                                                            <span className="text-[7px] font-semibold text-re-text-muted bg-re-bg px-2 py-0.5 rounded-full uppercase">{classRooms.length} ROOMS</span>
                                                                             <button
                                                                                 onClick={async () => {
                                                                                     const sName = prompt(`New room for ${displayTitle}:`, "");
@@ -825,7 +825,7 @@ const Registry = () => {
                                                                         {classRooms.map((r, rIdx) => (
                                                                             <div key={rIdx} className="group/room relative">
                                                                                 <span className="inline-flex min-w-[2.2rem] h-8 items-center justify-center bg-re-bg/50 rounded-lg border border-transparent px-2">
-                                                                                    <p className="text-[8px] font-black text-[#1E3A5F]">{r.stream_name}</p>
+                                                                                    <p className="text-[8px] font-semibold text-[#1E3A5F]">{r.stream_name}</p>
                                                                                 </span>
                                                                                 <button
                                                                                     onClick={() => removeGroup(groups.indexOf(r))}
@@ -851,7 +851,7 @@ const Registry = () => {
                             {activeTab === 'assets' && (
                                 <div className="space-y-6 animate-in slide-in-from-right-4 duration-500">
                                     <div>
-                                        <h2 className="text-lg md:text-xl font-black text-[#1E3A5F] uppercase tracking-tighter">Administrative Assets</h2>
+                                        <h2 className="text-lg md:text-xl font-semibold text-[#1E3A5F] uppercase tracking-tighter">Administrative Assets</h2>
                                         <p className="text-[9px] font-bold text-re-text-muted uppercase tracking-widest mt-1">Upload official stamps, signatures and documents</p>
                                     </div>
 
@@ -867,15 +867,15 @@ const Registry = () => {
                                                         {asset.status === 'Uploaded' ? <CheckCircle size={18} /> : <Upload size={18} />}
                                                     </div>
                                                     <div>
-                                                        <p className="text-[11px] font-black text-[#1E3A5F] uppercase tracking-tight">{asset.name}</p>
+                                                        <p className="text-[11px] font-semibold text-[#1E3A5F] uppercase tracking-tight">{asset.name}</p>
                                                         <p className="text-[8px] font-bold text-re-text-muted uppercase tracking-widest mt-0.5">{asset.desc}</p>
                                                     </div>
                                                 </div>
                                                 <div className="flex items-center gap-3">
-                                                    <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded-md ${asset.status === 'Uploaded' ? 'text-emerald-600 bg-emerald-50 border border-emerald-100' : 'text-amber-600 bg-amber-50 border border-amber-100'}`}>
+                                                    <span className={`text-[8px] font-semibold uppercase tracking-widest px-2 py-1 rounded-md ${asset.status === 'Uploaded' ? 'text-emerald-600 bg-emerald-50 border border-emerald-100' : 'text-amber-600 bg-amber-50 border border-amber-100'}`}>
                                                         {asset.status}
                                                     </span>
-                                                    <button className="h-8 px-4 rounded-lg border border-black/5 text-[#1E3A5F] font-black text-[9px] uppercase tracking-widest hover:bg-[#1E3A5F] hover:text-[#FEBF10] hover:border-transparent transition-colors shadow-sm bg-re-bg">
+                                                    <button className="h-8 px-4 rounded-lg border border-black/5 text-[#1E3A5F] font-medium text-[9px] uppercase tracking-widest hover:bg-[#1E3A5F] hover:text-[#FEBF10] hover:border-transparent transition-colors shadow-sm bg-re-bg">
                                                         {asset.status === 'Uploaded' ? 'Replace' : 'Upload'}
                                                     </button>
                                                 </div>
@@ -895,7 +895,7 @@ const Registry = () => {
 // ── Sub-components ────────────────────────────────────────────────
 const FormField = ({ label, name, value, onChange, icon: Icon, className = "" }) => (
     <div className={`space-y-2 ${className}`}>
-        <p className="text-[9px] font-black uppercase text-[#1E3A5F]/50 tracking-[0.2em] pl-1">{label}</p>
+        <p className="text-[9px] font-semibold uppercase text-[#1E3A5F]/50 tracking-[0.2em] pl-1">{label}</p>
         <div className="relative group">
             <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-[#1E3A5F]/30 group-focus-within:text-[#FEBF10] transition-colors pointer-events-none">
                 <Icon size={13} />
@@ -905,7 +905,7 @@ const FormField = ({ label, name, value, onChange, icon: Icon, className = "" })
                 name={name}
                 value={value || ""}
                 onChange={onChange}
-                className="w-full h-11 bg-re-bg/50 border border-transparent rounded-lg pl-9 pr-4 font-black text-xs uppercase tracking-widest text-[#1E3A5F] placeholder:text-[#1E3A5F]/30 focus:border-[#1E3A5F]/30 focus:bg-white outline-none transition-all shadow-inner focus:shadow-none focus:ring-2 focus:ring-[#1E3A5F]/5"
+                className="w-full h-11 bg-re-bg/50 border border-transparent rounded-lg pl-9 pr-4 font-semibold text-xs uppercase tracking-widest text-[#1E3A5F] placeholder:text-[#1E3A5F]/30 focus:border-[#1E3A5F]/30 focus:bg-white outline-none transition-all shadow-inner focus:shadow-none focus:ring-2 focus:ring-[#1E3A5F]/5"
             />
         </div>
     </div>
@@ -913,13 +913,13 @@ const FormField = ({ label, name, value, onChange, icon: Icon, className = "" })
 
 const SelectFormField = ({ label, name, options, value, onChange }) => (
     <div className="space-y-2">
-        <p className="text-[9px] font-black uppercase text-[#1E3A5F]/50 tracking-[0.2em] pl-1">{label}</p>
+        <p className="text-[9px] font-semibold uppercase text-[#1E3A5F]/50 tracking-[0.2em] pl-1">{label}</p>
         <div className="relative">
             <select
                 name={name}
                 value={value || ""}
                 onChange={onChange}
-                className="w-full h-11 bg-re-bg/50 border border-transparent rounded-lg px-4 font-black text-xs uppercase tracking-widest text-[#1E3A5F] focus:border-[#1E3A5F]/30 focus:bg-white outline-none appearance-none transition-all cursor-pointer shadow-inner focus:shadow-none"
+                className="w-full h-11 bg-re-bg/50 border border-transparent rounded-lg px-4 font-semibold text-xs uppercase tracking-widest text-[#1E3A5F] focus:border-[#1E3A5F]/30 focus:bg-white outline-none appearance-none transition-all cursor-pointer shadow-inner focus:shadow-none"
             >
                 <option value="" disabled>Select {label}</option>
                 {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}

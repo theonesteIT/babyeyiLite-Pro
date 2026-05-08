@@ -22,6 +22,17 @@ const { promisePool } = require('../config/database');
 const { requireRole } = require('../middleware/deoAuth');
 const { getBabyeyiFinderDiscoveryPayload } = require('./babyeyiFinderDiscovery');
 const { applyRememberMeToSession } = require('../utils/sessionRememberMe');
+const { fetchClasskitPricingForStudent } = require('./classkitPricingShared');
+const {
+  ensureClasskitShareTable,
+  createShareTokenRecord,
+  ttlDaysDefault,
+} = require('./classkitShareService');
+const {
+  getRequestMeta,
+  logParentAuditEvent,
+  listParentAuditEvents,
+} = require('../utils/parentAuditLog');
 
 const router = express.Router();
 router.use((req, res, next) => {
@@ -60,6 +71,57 @@ const SQL_JOIN_STUDENT_REQ_BY_ITEM = `LEFT JOIN student_requirements sr ON CONVE
 function trimStr(v) {
   if (v === undefined || v === null) return '';
   return String(v).trim();
+}
+
+function inferTermFromMonth(terms = [], date = new Date()) {
+  const month = date.getMonth() + 1;
+  if (!Array.isArray(terms) || !terms.length) return 'Term 1';
+  if (terms.length >= 3) {
+    if (month >= 9 && month <= 12) return terms[0];
+    if (month >= 1 && month <= 4) return terms[1] || terms[0];
+    return terms[2] || terms[terms.length - 1];
+  }
+  if (terms.length === 2) return month >= 9 || month <= 2 ? terms[0] : terms[1];
+  return terms[0];
+}
+
+function inferAcademicYearFromDate(date = new Date()) {
+  const y = date.getFullYear();
+  const m = date.getMonth() + 1;
+  return m >= 9 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
+}
+
+async function resolveAcademicContext(schoolId, academicYearRaw, termRaw) {
+  const explicitYear = trimStr(academicYearRaw);
+  const explicitTerm = trimStr(termRaw);
+  if (!schoolId) {
+    return { academicYear: explicitYear, term: explicitTerm };
+  }
+  if (explicitYear && explicitTerm) {
+    return { academicYear: explicitYear, term: explicitTerm };
+  }
+  const [[row]] = await promisePool.query(
+    `SELECT current_academic_year, active_terms_json
+     FROM school_academic_settings
+     WHERE school_id = ?
+     LIMIT 1`,
+    [schoolId]
+  ).catch(() => [[null]]);
+  let terms = ['Term 1', 'Term 2', 'Term 3'];
+  try {
+    if (row?.active_terms_json) {
+      const parsed = Array.isArray(row.active_terms_json)
+        ? row.active_terms_json
+        : JSON.parse(row.active_terms_json);
+      if (Array.isArray(parsed) && parsed.length) {
+        terms = parsed.map((x) => String(x || '').trim()).filter(Boolean);
+      }
+    }
+  } catch (_) {}
+  return {
+    academicYear: explicitYear || trimStr(row?.current_academic_year) || inferAcademicYearFromDate(),
+    term: explicitTerm || inferTermFromMonth(terms),
+  };
 }
 
 function yearMatchesRow(rowYear, inputLabel) {
@@ -1164,6 +1226,20 @@ router.post('/parent-portal/link-student-by-code', authLimiter, async (req, res)
         studentId: st.id,
         accessType: 'FULL',
       });
+      const meta = getRequestMeta(req);
+      await logParentAuditEvent({
+        parentPortalAccountId,
+        parentPhone: np,
+        actorType: 'parent',
+        eventType: 'parent_child_added',
+        entityType: 'student',
+        entityId: String(st.id),
+        channel: 'student_code_lookup',
+        outcome: 'success',
+        ipAddress: meta.ip,
+        userAgent: meta.userAgent,
+        details: { access_type: 'FULL', student_uid: st.student_uid, student_code: st.student_code },
+      }).catch(() => {});
       return res.json({
         success: true,
         linked: true,
@@ -1193,6 +1269,20 @@ router.post('/parent-portal/link-student-by-code', authLimiter, async (req, res)
       actionType: 'add_student_limited',
       endpoint: '/api/parent-portal/link-student-by-code',
       payload: { student_uid: st.student_uid, student_code: st.student_code, sdm_code: st.sdm_code },
+    }).catch(() => {});
+    const meta = getRequestMeta(req);
+    await logParentAuditEvent({
+      parentPortalAccountId,
+      parentPhone: np,
+      actorType: 'parent',
+      eventType: 'parent_child_added',
+      entityType: 'student',
+      entityId: String(st.id),
+      channel: 'student_code_lookup',
+      outcome: 'success',
+      ipAddress: meta.ip,
+      userAgent: meta.userAgent,
+      details: { access_type: 'LIMITED', student_uid: st.student_uid, student_code: st.student_code, sdm_code: st.sdm_code },
     }).catch(() => {});
     return res.json({
       success: true,
@@ -2043,6 +2133,42 @@ router.get('/parent-portal/children', async (req, res) => {
   }
 });
 
+// ── GET /api/parent-portal/audit-log ───────────────────────────
+router.get('/parent-portal/audit-log', async (req, res) => {
+  try {
+    const role = (req.session?.user?.role?.code || req.session?.roleCode || '').toUpperCase();
+    const phone = normalizePhone(req.session?.user?.parent_phone || '');
+    const parentPortalAccountId = req.session?.parentPortalAccountId || req.session?.user?.parent_portal_id || null;
+    if (role !== 'PARENT' || !phone) {
+      return res.status(401).json({ success: false, message: 'Not authenticated as parent' });
+    }
+    const limit = Math.min(200, Math.max(1, Number(req.query?.limit || 20)));
+    const page = Math.max(1, Number(req.query?.page || 1));
+    const offset = (page - 1) * limit;
+    const out = await listParentAuditEvents({
+      parentPortalAccountId: parentPortalAccountId || null,
+      parentPhone: phone,
+      limit,
+      offset,
+    });
+    return res.json({
+      success: true,
+      data: out.rows || [],
+      pagination: {
+        page,
+        limit: out.limit ?? limit,
+        total: out.total ?? 0,
+        total_pages: Math.max(1, Math.ceil(Number(out.total || 0) / Number(out.limit || limit))),
+        has_prev: page > 1,
+        has_next: page * Number(out.limit || limit) < Number(out.total || 0),
+      },
+    });
+  } catch (err) {
+    console.error('[parent-portal/audit-log]', err);
+    return res.status(500).json({ success: false, message: 'Failed to load audit logs' });
+  }
+});
+
 // ── ShuleCard APIs (student wallet, top-up, daily limit) ──────────
 router.get('/parent-portal/shulecard/students', async (req, res) => {
   try {
@@ -2591,121 +2717,98 @@ router.get('/parent-portal/classkit-pricing', async (req, res) => {
         payload: { scope: 'classkit_pricing' },
       }).catch(() => {});
     }
-    const { father_phone: _fp, mother_phone: _mp, ...st } = st0;
-    if (!st.school_id || !st.class_name) {
-      return res.status(400).json({
-        success: false,
-        message: 'Student class or school is missing. Ask school manager to update learner class first.',
-      });
+
+    const pricing = await fetchClasskitPricingForStudent(studentId, accessType);
+    if (!pricing.ok) {
+      return res.status(pricing.status).json({ success: false, message: pricing.message });
     }
 
-    const [babyeyiRows] = await promisePool.query(
-      `SELECT id, school_id, class_name, classes_json, term, academic_year, status, total_fee
-       FROM school_babyeyi
-       WHERE school_id = ?
-         AND is_active = 1
-         AND status = 'approved'
-       ORDER BY created_at DESC, id DESC
-       LIMIT 200`,
-      [st.school_id]
-    );
-    const babyeyi = (babyeyiRows || []).find(
-      (r) => classMatchesBabyeyi(r, st.class_name) && yearMatchesRow(r.academic_year, st.academic_year || '')
-    );
-    if (!babyeyi) {
-      return res.status(404).json({
-        success: false,
-        message: `No approved Babyeyi found for class ${st.class_name}.`,
-      });
+    return res.json({ success: true, data: pricing.data });
+  } catch (err) {
+    console.error('[parent-portal/classkit-pricing]', err);
+    return res.status(500).json({ success: false, message: 'Failed to load classkit pricing' });
+  }
+});
+
+// ── POST /api/parent-portal/classkit-share-token ────────────────
+// Issues an opaque resume token (+ OTP-before-pricing gate for receivers).
+router.post('/parent-portal/classkit-share-token', authLimiter, async (req, res) => {
+  try {
+    await ensureStudentAccessTable();
+    await ensureClasskitShareTable();
+    const role = (req.session?.user?.role?.code || req.session?.roleCode || '').toUpperCase();
+    const phone = req.session?.user?.parent_phone || null;
+    if (role !== 'PARENT' || !phone) {
+      return res.status(401).json({ success: false, message: 'Not authenticated as parent' });
+    }
+    const studentId = Number(req.body?.student_id || req.query?.student_id || 0);
+    if (!studentId) {
+      return res.status(400).json({ success: false, message: 'student_id is required' });
+    }
+    const phoneNorm = normalizePhone(phone);
+    if (!phoneNorm) {
+      return res.status(401).json({ success: false, message: 'Not authenticated as parent' });
+    }
+    const parentPortalAccountId = req.session?.parentPortalAccountId || req.session?.user?.parent_portal_id;
+    if (!parentPortalAccountId) {
+      return res.status(401).json({ success: false, message: 'Portal session incomplete — log in again' });
     }
 
-    const [feeRows] = await promisePool.query(
-      `SELECT id, name, amount, sort_order
-       FROM babyeyi_payments
-       WHERE babyeyi_id = ?
-       ORDER BY sort_order, id`,
-      [babyeyi.id]
+    const [ownRows] = await promisePool.query(
+      `SELECT s.id, s.father_phone, s.mother_phone
+       FROM students s
+       WHERE s.id = ?
+       LIMIT 1`,
+      [studentId]
     );
-
-    let reqLines;
-    try {
-      [reqLines] = await promisePool.query(
-        `SELECT bsr.id AS babyeyi_requirement_id, bsr.item AS requirement_name, bsr.description, bsr.quantity,
-                rp.price AS stored_price,
-                sr.default_price AS catalog_default_price,
-                sr.image_url AS catalog_image_url,
-                COALESCE(rp.price, sr.default_price, bsr.cost, 0) AS unit_price
-         FROM babyeyi_student_requirements bsr
-         LEFT JOIN requirement_prices rp ON rp.babyeyi_id = bsr.babyeyi_id AND rp.babyeyi_requirement_id = bsr.id
-         ${SQL_JOIN_STUDENT_REQ_BY_ITEM}
-         WHERE bsr.babyeyi_id = ?
-         ORDER BY bsr.sort_order, bsr.id`,
-        [babyeyi.id]
+    const st0 = ownRows?.[0];
+    if (!st0) {
+      return res.status(404).json({ success: false, message: 'Student not found for this parent' });
+    }
+    const isOfficial = !!(st0 && studentRowOwnedByPhone(st0, phoneNorm));
+    let accessType = isOfficial ? 'FULL' : null;
+    if (!isOfficial) {
+      const [aRows] = await promisePool.query(
+        `SELECT access_type FROM student_access WHERE parent_phone = ? AND student_id = ? LIMIT 1`,
+        [phoneNorm, studentId]
       );
-    } catch (e) {
-      if (e.code !== 'ER_BAD_FIELD_ERROR') throw e;
-      [reqLines] = await promisePool.query(
-        `SELECT bsr.id AS babyeyi_requirement_id, bsr.item AS requirement_name, bsr.description, bsr.quantity,
-                rp.price AS stored_price,
-                sr.default_price AS catalog_default_price,
-                sr.image_url AS catalog_image_url,
-                COALESCE(rp.price, sr.default_price, 0) AS unit_price
-         FROM babyeyi_student_requirements bsr
-         LEFT JOIN requirement_prices rp ON rp.babyeyi_id = bsr.babyeyi_id AND rp.babyeyi_requirement_id = bsr.id
-         ${SQL_JOIN_STUDENT_REQ_BY_ITEM}
-         WHERE bsr.babyeyi_id = ?
-         ORDER BY bsr.sort_order, bsr.id`,
-        [babyeyi.id]
-      );
+      accessType = aRows?.[0]?.access_type || null;
+    }
+    if (!accessType) {
+      return res.status(404).json({ success: false, message: 'Student not linked to this parent account' });
     }
 
-    const requirements = (reqLines || []).map((l) => {
-      const unit = Number(l.unit_price ?? 0);
-      const qty = parseRequirementQuantity(l.quantity);
-      const lineTotal = Math.round(unit * qty * 100) / 100;
-      return {
-        ...l,
-        unit_price_rwf: unit,
-        quantity_value: qty,
-        line_total_rwf: lineTotal,
-      };
+    const snapshot = typeof req.body?.snapshot === 'object' && req.body.snapshot ? req.body.snapshot : {};
+    const created = await createShareTokenRecord({
+      parentPortalAccountId,
+      ownerPhone: phoneNorm,
+      studentId,
+      accessType,
+      snapshot,
     });
-    const canSeeSchoolFees = accessType === 'FULL';
-    const feeRowsScoped = canSeeSchoolFees ? (feeRows || []) : [];
-    const schoolFeesTotal = feeRowsScoped.reduce((s, f) => s + Number(f.amount || 0), 0);
-    const requirementsTotal = requirements.reduce((s, r) => s + Number(r.line_total_rwf || 0), 0);
-    const combinedTotal = Math.round((schoolFeesTotal + requirementsTotal) * 100) / 100;
+
+    await logParentStudentAction({
+      parentPortalAccountId,
+      parentPhone: phoneNorm,
+      studentId,
+      accessType,
+      actionType: 'classkit_share_token_created',
+      endpoint: '/api/parent-portal/classkit-share-token',
+      payload: { ttl_days: ttlDaysDefault() },
+    }).catch(() => {});
 
     return res.json({
       success: true,
       data: {
-        student: {
-          id: st.id,
-          first_name: st.first_name,
-          last_name: st.last_name,
-          school_id: st.school_id,
-          school_name: st.school_name,
-          class_name: st.class_name,
-          academic_year: st.academic_year,
-        },
-        babyeyi,
-        access_type: accessType,
-        limited_access: accessType === 'LIMITED',
-        permissions: accessType === 'LIMITED'
-          ? ['create_payment', 'purchase_items']
-          : ['create_payment', 'purchase_items', 'get_fees_breakdown', 'get_transactions', 'get_reports', 'get_attendance', 'get_discipline'],
-        school_fees: feeRowsScoped,
-        requirements,
-        totals: {
-          school_fees_rwf: Math.round(schoolFeesTotal * 100) / 100,
-          requirements_rwf: Math.round(requirementsTotal * 100) / 100,
-          combined_rwf: combinedTotal,
-        },
+        token: created.plain_token,
+        expires_at: created.expires_at,
+        ttl_days: ttlDaysDefault(),
+        student_id: studentId,
       },
     });
   } catch (err) {
-    console.error('[parent-portal/classkit-pricing]', err);
-    return res.status(500).json({ success: false, message: 'Failed to load classkit pricing' });
+    console.error('[parent-portal/classkit-share-token]', err);
+    return res.status(500).json({ success: false, message: 'Could not create share link' });
   }
 });
 
@@ -2720,8 +2823,8 @@ router.get('/parent-portal/payments-report', async (req, res) => {
       return res.status(401).json({ success: false, message: 'Not authenticated as parent' });
     }
 
-    const term = String(req.query.term || '').trim();
-    const academicYear = String(req.query.academic_year || '').trim();
+    const termQ = String(req.query.term || '').trim();
+    const academicYearQ = String(req.query.academic_year || '').trim();
     const schoolId = Number(req.query.school_id || 0);
     const status = String(req.query.status || '').trim().toLowerCase();
     const dateFrom = String(req.query.date_from || '').trim();
@@ -2754,6 +2857,7 @@ router.get('/parent-portal/payments-report', async (req, res) => {
     const studentFilter = `CAST(JSON_UNQUOTE(JSON_EXTRACT(i.payload_json, '$.selected_student.student_id')) AS UNSIGNED)`;
     where.push(`(${studentFilter} IN (${ownedIds.map(() => '?').join(',')}))`);
     params.push(...ownedIds);
+    const { term, academicYear } = await resolveAcademicContext(schoolId || null, academicYearQ, termQ);
     if (term) {
       where.push(`COALESCE(b.term, '') = ?`);
       params.push(term);
@@ -2876,8 +2980,8 @@ router.get('/parent-portal/payments-report/export.csv', async (req, res) => {
       return res.status(401).json({ success: false, message: 'Not authenticated as parent' });
     }
 
-    const term = String(req.query.term || '').trim();
-    const academicYear = String(req.query.academic_year || '').trim();
+    const termQ = String(req.query.term || '').trim();
+    const academicYearQ = String(req.query.academic_year || '').trim();
     const schoolId = Number(req.query.school_id || 0);
     const status = String(req.query.status || '').trim().toLowerCase();
     const dateFrom = String(req.query.date_from || '').trim();
@@ -2907,6 +3011,7 @@ router.get('/parent-portal/payments-report/export.csv', async (req, res) => {
     const studentFilter = `CAST(JSON_UNQUOTE(JSON_EXTRACT(i.payload_json, '$.selected_student.student_id')) AS UNSIGNED)`;
     where.push(`(${studentFilter} IN (${ownedIds.map(() => '?').join(',')}))`);
     params.push(...ownedIds);
+    const { term, academicYear } = await resolveAcademicContext(schoolId || null, academicYearQ, termQ);
     if (term) {
       where.push(`COALESCE(b.term, '') = ?`);
       params.push(term);
@@ -3360,8 +3465,9 @@ router.get('/parent-portal/student-details/academics', async (req, res) => {
     if (!st) return res.status(403).json({ success: false, message: 'No access to this student' });
     const studentId = Number(st.id);
 
-    const academicYear = String(req.query?.academic_year || '').trim();
-    const term = String(req.query?.term || '').trim();
+    const academicYearQ = String(req.query?.academic_year || '').trim();
+    const termQ = String(req.query?.term || '').trim();
+    const { academicYear, term } = await resolveAcademicContext(st.school_id || null, academicYearQ, termQ);
 
     // Mocked data by request (can be replaced later with real gradebook matrix).
     const mockSubjects = [
@@ -3391,6 +3497,7 @@ router.get('/parent-portal/student-details/academics', async (req, res) => {
         class_rank: `${rank} of ${classSize}`,
         subjects: mockSubjects,
       },
+      meta: { academic_year: academicYear, term },
     });
   } catch (err) {
     console.error('[parent-portal/student-details/academics]', err);
@@ -3425,8 +3532,9 @@ router.get('/parent-portal/student-details/attendance-dos-proxy', async (req, re
     const date = toSqlDateLocal(req.query?.date);
     const selectedDay = dayNameFromDate(date);
     const className = String(st.class_name || '').trim();
-    const term = String(req.query?.term || '').trim();
-    const academicYear = String(req.query?.academic_year || '').trim();
+    const termQ = String(req.query?.term || '').trim();
+    const academicYearQ = String(req.query?.academic_year || '').trim();
+    const { academicYear, term } = await resolveAcademicContext(st.school_id || null, academicYearQ, termQ);
     if (!className) {
       return res.status(400).json({ success: false, message: 'Student class is not configured' });
     }
@@ -3536,6 +3644,7 @@ router.get('/parent-portal/student-details/attendance-dos-proxy', async (req, re
         periods,
         roster,
       },
+      meta: { academic_year: academicYear, term },
     });
   } catch (err) {
     console.error('[parent-portal/student-details/attendance-dos-proxy]', err);
@@ -3559,8 +3668,9 @@ router.get('/parent-portal/student-attendance', async (req, res) => {
     const studentId = Number(st.id);
 
     const type = String(req.query?.type || 'class').trim().toLowerCase(); // class | entry_exit
-    const academicYear = String(req.query?.academic_year || '').trim();
-    const term = String(req.query?.term || '').trim();
+    const academicYearQ = String(req.query?.academic_year || '').trim();
+    const termQ = String(req.query?.term || '').trim();
+    const { academicYear, term } = await resolveAcademicContext(st.school_id || null, academicYearQ, termQ);
     const specificDate = String(req.query?.date || '').trim();
     const weekday = normalizeWeekday(req.query?.weekday);
 
@@ -3608,6 +3718,7 @@ router.get('/parent-portal/student-attendance', async (req, res) => {
       return res.json({
         success: true,
         data: { type: 'entry_exit', student_id: studentId, rows: filtered, summary: summarizeEntryExit(filtered) },
+        meta: { academic_year: academicYear, term },
       });
     }
 
@@ -3724,6 +3835,7 @@ router.get('/parent-portal/student-attendance', async (req, res) => {
     return res.json({
       success: true,
       data: { type: 'class', student_id: studentId, class_name: st.class_name || '', rows: filtered, summary: summarizeClass(filtered) },
+      meta: { academic_year: academicYear, term },
     });
   } catch (err) {
     console.error('[parent-portal/student-attendance]', err);
@@ -3746,8 +3858,9 @@ router.get('/parent-portal/student-discipline', async (req, res) => {
     if (!st) return res.status(403).json({ success: false, message: 'No access to this student' });
     const studentId = Number(st.id);
 
-    const academicYear = String(req.query?.academic_year || '').trim();
-    const term = String(req.query?.term || '').trim();
+    const academicYearQ = String(req.query?.academic_year || '').trim();
+    const termQ = String(req.query?.term || '').trim();
+    const { academicYear, term } = await resolveAcademicContext(st.school_id || null, academicYearQ, termQ);
     const specificDate = String(req.query?.date || '').trim();
     const weekday = normalizeWeekday(req.query?.weekday);
 
@@ -3869,6 +3982,7 @@ router.get('/parent-portal/student-discipline', async (req, res) => {
           discipline_default_marks: disciplineDefaultMarks,
         },
       },
+      meta: { academic_year: academicYear, term },
     });
   } catch (err) {
     console.error('[parent-portal/student-discipline]', err);

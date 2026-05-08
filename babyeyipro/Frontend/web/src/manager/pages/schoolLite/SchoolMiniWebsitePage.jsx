@@ -76,7 +76,7 @@ const formatProgramLabel = (raw) => String(raw || '')
 function StatusBadge({ status }) {
   if (status === "published") {
     return (
-      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
+      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
         Live
       </span>
@@ -84,14 +84,14 @@ function StatusBadge({ status }) {
   }
   if (status === "draft") {
     return (
-      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-amber-500/15 text-amber-400 border border-amber-500/25">
+      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/25">
         <Clock size={10} />
         Draft
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-slate-700 text-slate-400 border border-slate-600">
+    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-700 text-slate-400 border border-slate-600">
       <Globe size={10} />
       No website yet
     </span>
@@ -106,12 +106,12 @@ function SectionHead({ eyebrow, title, theme, light = false }) {
   const { a } = theme;
   return (
     <div className="text-center mb-10 sm:mb-14">
-      <div className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] mb-3" style={{ color: a }}>
+      <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] mb-3" style={{ color: a }}>
         <span className="w-8 h-px block" style={{ background: a }} />
         {eyebrow}
         <span className="w-8 h-px block" style={{ background: a }} />
       </div>
-      <h2 className="text-3xl sm:text-4xl font-black leading-tight" style={{ color: light ? "#fff" : "#0f172a" }}>
+      <h2 className="text-3xl sm:text-4xl font-semibold leading-tight" style={{ color: light ? "#fff" : "#0f172a" }}>
         {title}
       </h2>
     </div>
@@ -134,15 +134,15 @@ function SiteNavBar({ school, theme, active, onNav, menuOpen, setMenuOpen, onEdi
   ];
 
   return (
-    <nav className="sticky top-0 z-50 shadow-2xl" style={{ background: p }}>
+    <nav className="sticky top-0 z-50 shadow-md" style={{ background: p }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 flex-shrink-0 min-w-0">
           <div className="w-9 h-9 rounded-xl overflow-hidden flex-shrink-0 ring-2 ring-white/20">
             {logoSrc
               ? <img src={logoSrc} alt="logo" className="w-full h-full object-cover" />
-              : <div className="w-full h-full flex items-center justify-center font-black text-white text-base" style={{ background: a + "44" }}>{nm[0]}</div>}
+              : <div className="w-full h-full flex items-center justify-center font-semibold text-white text-base" style={{ background: a + "44" }}>{nm[0]}</div>}
           </div>
-          <span className="font-black text-white text-sm sm:text-base truncate max-w-[140px] sm:max-w-xs">{nm}</span>
+          <span className="font-semibold text-white text-sm sm:text-base truncate max-w-[140px] sm:max-w-xs">{nm}</span>
         </div>
         <div className="hidden xl:flex items-center gap-0.5">
           {navItems.map(item => (
@@ -155,10 +155,10 @@ function SiteNavBar({ school, theme, active, onNav, menuOpen, setMenuOpen, onEdi
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <button onClick={onEdit}
-            className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl font-black text-xs shadow-lg transition-all hover:scale-105 active:scale-95 border border-white/20 text-white hover:bg-white/10">
+            className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl font-semibold text-xs shadow-lg transition-all active:scale-95 border border-white/20 text-white hover:bg-white/10">
             <Settings size={12} /> Edit Site
           </button>
-          <button className="hidden sm:flex px-4 py-2 rounded-xl font-black text-xs shadow-lg transition-all hover:scale-105 active:scale-95"
+          <button className="hidden sm:flex px-4 py-2 rounded-xl font-semibold text-xs shadow-lg transition-all active:scale-95"
             style={{ background: a, color: "#111" }}>
             Apply Now
           </button>
@@ -179,10 +179,10 @@ function SiteNavBar({ school, theme, active, onNav, menuOpen, setMenuOpen, onEdi
           ))}
           <div className="flex gap-2 pt-1">
             <button onClick={() => { onEdit(); setMenuOpen(false); }}
-              className="flex-1 py-3 rounded-xl font-black text-sm border border-white/20 text-white text-center">
+              className="flex-1 py-3 rounded-xl font-semibold text-sm border border-white/20 text-white text-center">
               Edit Site
             </button>
-            <button className="flex-1 py-3 rounded-xl font-black text-sm text-gray-900 text-center" style={{ background: a }}>
+            <button className="flex-1 py-3 rounded-xl font-semibold text-sm text-gray-900 text-center" style={{ background: a }}>
               Apply Now
             </button>
           </div>
@@ -217,7 +217,7 @@ function SiteHero({ school, theme }) {
           <div>
             <div className="flex flex-wrap gap-2 mb-6">
               {school.schoolStatus === "active" && (
-                <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black shadow-lg" style={{ background: a, color: "#111" }}>
+                <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold shadow-lg" style={{ background: a, color: "#111" }}>
                   <Check size={10} /> Verified School
                 </span>
               )}
@@ -227,18 +227,18 @@ function SiteHero({ school, theme }) {
                 </span>
               )}
             </div>
-            <h1 className="text-white font-black text-4xl sm:text-5xl lg:text-6xl leading-none mb-5">
+            <h1 className="text-white font-semibold text-4xl sm:text-5xl lg:text-6xl leading-none mb-5">
               {nm}
             </h1>
             <p className="text-white/70 text-lg sm:text-xl leading-relaxed mb-8 max-w-lg">
               {school.vision || "Shaping tomorrow's leaders through excellence, integrity, and innovation."}
             </p>
             <div className="flex flex-wrap gap-3">
-              <button className="px-6 sm:px-8 py-3 sm:py-4 rounded-2xl font-black text-sm shadow-2xl transition-all hover:scale-105 active:scale-95"
+              <button className="px-6 sm:px-8 py-3 sm:py-4 rounded-2xl font-semibold text-sm shadow-md transition-all active:scale-95"
                 style={{ background: a, color: "#111" }}>
                 Apply for Admission <ArrowRight size={14} className="inline ml-1" />
               </button>
-              <button className="px-6 sm:px-8 py-3 sm:py-4 rounded-2xl font-black text-sm text-white bg-white/10 border border-white/20 hover:bg-white/20 transition-colors backdrop-blur-sm">
+              <button className="px-6 sm:px-8 py-3 sm:py-4 rounded-2xl font-semibold text-sm text-white bg-white/10 border border-white/20 hover:bg-white/20 transition-colors backdrop-blur-sm">
                 <Download size={13} className="inline mr-1.5" />
                 Prospectus
               </button>
@@ -254,7 +254,7 @@ function SiteHero({ school, theme }) {
             ].map(s => (
               <div key={s.label} className="rounded-3xl p-5 border border-white/10 bg-white/10 backdrop-blur-sm hover:bg-white/15 transition-colors">
                 <div className="text-3xl mb-2">{s.icon}</div>
-                <div className="text-lg font-black leading-tight mb-1" style={{ color: a }}>{s.val}</div>
+                <div className="text-lg font-semibold leading-tight mb-1" style={{ color: a }}>{s.val}</div>
                 <div className="text-white/50 text-xs font-semibold">{s.label}</div>
               </div>
             ))}
@@ -270,7 +270,7 @@ function SiteHero({ school, theme }) {
           ].map(s => (
             <div key={s.label} className="rounded-2xl p-4 bg-white/10 backdrop-blur-sm border border-white/10 text-center">
               <div className="text-xl mb-1">{s.icon}</div>
-              <div className="font-black text-sm leading-tight" style={{ color: a }}>{s.val}</div>
+              <div className="font-semibold text-sm leading-tight" style={{ color: a }}>{s.val}</div>
               <div className="text-white/50 text-xs mt-0.5">{s.label}</div>
             </div>
           ))}
@@ -294,10 +294,10 @@ function SiteAbout({ school, theme }) {
       <div className="max-w-7xl mx-auto px-6 sm:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
           <div>
-            <div className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] mb-5" style={{ color: a }}>
+            <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] mb-5" style={{ color: a }}>
               <span className="w-6 h-px block" style={{ background: a }} /> WHO WE ARE
             </div>
-            <h2 className="text-4xl sm:text-5xl font-black text-gray-900 mb-6 leading-tight">
+            <h2 className="text-4xl sm:text-5xl font-semibold text-gray-900 mb-6 leading-tight">
               Shaping Rwanda's<br />Future Leaders
             </h2>
             <p className="text-gray-500 text-base sm:text-lg leading-relaxed mb-8">
@@ -310,11 +310,11 @@ function SiteAbout({ school, theme }) {
             </div>
             {(school.coreValues || []).length > 0 && (
               <div>
-                <h4 className="text-xs font-black uppercase tracking-widest mb-3" style={{ color: p }}>Core Values</h4>
+                <h4 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: p }}>Core Values</h4>
                 <div className="flex flex-wrap gap-2">
                   {school.coreValues.map((v, i) => (
                     <div key={v} className="flex items-center gap-2 px-4 py-2 rounded-xl" style={{ background: `${p}10`, color: p }}>
-                      <span className="w-5 h-5 rounded-full font-black text-xs flex items-center justify-center text-white" style={{ background: p }}>{i + 1}</span>
+                      <span className="w-5 h-5 rounded-full font-semibold text-xs flex items-center justify-center text-white" style={{ background: p }}>{i + 1}</span>
                       <span className="font-bold text-sm">{v}</span>
                     </div>
                   ))}
@@ -325,14 +325,14 @@ function SiteAbout({ school, theme }) {
           <div className="relative">
             {aboutSrc ? (
               <div className="relative">
-                <img src={aboutSrc} alt="about" className="w-full h-72 sm:h-96 object-cover rounded-3xl shadow-2xl" />
+                <img src={aboutSrc} alt="about" className="w-full h-72 sm:h-96 object-cover rounded-3xl shadow-md" />
                 <div className="absolute -bottom-4 -right-4 w-24 h-24 rounded-3xl -z-10" style={{ background: a + "40" }} />
                 <div className="absolute -top-4 -left-4 w-16 h-16 rounded-2xl -z-10" style={{ background: p + "30" }} />
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-4">
                 {["🏫", "🔬", "📚", "⚽"].map((e, i) => (
-                  <div key={i} className="rounded-3xl aspect-square flex items-center justify-center text-6xl transition-transform hover:scale-105"
+                  <div key={i} className="rounded-3xl aspect-square flex items-center justify-center text-6xl transition-transform"
                     style={{ background: s || "#EFF6FF", marginTop: i === 1 || i === 3 ? "2rem" : "0" }}>
                     {e}
                   </div>
@@ -357,21 +357,21 @@ function SiteMission({ school, theme }) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <div className="rounded-3xl p-8 sm:p-10" style={{ background: p }}>
             <Target size={28} className="text-white mb-5" />
-            <h3 className="text-white font-black text-2xl mb-4">Our Mission</h3>
+            <h3 className="text-white font-semibold text-2xl mb-4">Our Mission</h3>
             <p className="text-white/75 text-base leading-relaxed">
               {school.mission || "To provide quality, holistic education that nurtures every learner."}
             </p>
           </div>
           <div className="rounded-3xl p-8 sm:p-10 border-2 bg-white" style={{ borderColor: `${p}30` }}>
             <Lightbulb size={28} className="mb-5" style={{ color: p }} />
-            <h3 className="font-black text-2xl mb-4" style={{ color: p }}>Our Vision</h3>
+            <h3 className="font-semibold text-2xl mb-4" style={{ color: p }}>Our Vision</h3>
             <p className="text-gray-600 text-base leading-relaxed">
               {school.vision || "To be Rwanda's leading institution for holistic education."}
             </p>
           </div>
         </div>
         {missionSrc && (
-          <div className="rounded-3xl overflow-hidden shadow-xl">
+          <div className="rounded-3xl overflow-hidden shadow-md">
             <img src={missionSrc} alt="mission" className="w-full h-48 sm:h-64 object-cover" />
           </div>
         )}
@@ -405,10 +405,10 @@ function SitePrograms({ school, theme }) {
               const m = levelMeta[l] || { icon: "📖", desc: "" };
               const shortName = l.replace("Secondary School (", "").replace(")", "").replace(" / Pre-Primary", "");
               return (
-                <div key={l} className="rounded-3xl p-6 text-center border-2 hover:scale-105 hover:shadow-xl transition-all cursor-default"
+                <div key={l} className="rounded-3xl p-6 text-center border-2 hover:shadow-md transition-all cursor-default"
                   style={{ background: s || "#EFF6FF", borderColor: `${p}25` }}>
                   <div className="text-4xl sm:text-5xl mb-3">{m.icon}</div>
-                  <h3 className="font-black text-gray-900 text-sm mb-1">{shortName}</h3>
+                  <h3 className="font-semibold text-gray-900 text-sm mb-1">{shortName}</h3>
                   <p className="text-xs text-gray-500">{m.desc}</p>
                 </div>
               );
@@ -417,14 +417,14 @@ function SitePrograms({ school, theme }) {
         )}
         {aLevelCombos.length > 0 && (
           <div className="rounded-3xl p-8 mb-6 bg-purple-50 border border-purple-100">
-            <h3 className="font-black text-purple-900 text-xl mb-2 flex items-center gap-2">
+            <h3 className="font-semibold text-purple-900 text-xl mb-2 flex items-center gap-2">
               <Award size={20} /> A-Level Combinations
             </h3>
             <p className="text-purple-600 text-sm mb-6">Available subject combinations for Senior 4–6</p>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
               {aLevelCombos.map(c => (
                 <div key={c.code} className="bg-white rounded-2xl p-4 border border-purple-100 hover:shadow-md transition-shadow">
-                  <div className="font-black text-2xl text-purple-700 mb-1">{c.code}</div>
+                  <div className="font-semibold text-2xl text-purple-700 mb-1">{c.code}</div>
                   <div className="text-xs text-gray-500 leading-tight">{c.full}</div>
                 </div>
               ))}
@@ -433,7 +433,7 @@ function SitePrograms({ school, theme }) {
         )}
         {tvetTrades.length > 0 && (
           <div className="rounded-3xl p-8 bg-orange-50 border border-orange-100">
-            <h3 className="font-black text-orange-900 text-xl mb-5">🔧 TVET Trades Offered</h3>
+            <h3 className="font-semibold text-orange-900 text-xl mb-5">🔧 TVET Trades Offered</h3>
             <div className="flex flex-wrap gap-3">
               {tvetTrades.map(t => (
                 <span key={t} className="px-5 py-2.5 rounded-2xl font-bold text-sm text-white" style={{ background: "#EA580C" }}>{t}</span>
@@ -443,7 +443,7 @@ function SitePrograms({ school, theme }) {
         )}
         {(internationalPrimaryPrograms.length > 0 || internationalOtherPrograms.length > 0) && (
           <div className="rounded-3xl p-8 mb-6 bg-teal-50 border border-teal-100">
-            <h3 className="font-black text-teal-900 text-xl mb-2 flex items-center gap-2">
+            <h3 className="font-semibold text-teal-900 text-xl mb-2 flex items-center gap-2">
               <Globe size={20}/> International Students
             </h3>
             <p className="text-xs text-teal-800 mb-6">
@@ -452,7 +452,7 @@ function SitePrograms({ school, theme }) {
 
             {internationalPrimaryPrograms.length > 0 && (
               <div className="mb-5">
-                <p className="text-xs font-black uppercase tracking-wider text-teal-900 mb-2">Primary</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-teal-900 mb-2">Primary</p>
                 <div className="flex flex-wrap gap-2">
                   {internationalPrimaryPrograms.map(x => (
                     <span key={x} className="px-4 py-2 rounded-2xl font-bold text-xs bg-white border border-teal-100 text-teal-900">
@@ -465,7 +465,7 @@ function SitePrograms({ school, theme }) {
 
             {internationalOtherPrograms.length > 0 && (
               <div>
-                <p className="text-xs font-black uppercase tracking-wider text-teal-900 mb-2">Other</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-teal-900 mb-2">Other</p>
                 <div className="flex flex-wrap gap-2">
                   {internationalOtherPrograms.map(x => (
                     <span key={x} className="px-4 py-2 rounded-2xl font-bold text-xs bg-white border border-teal-100 text-teal-900">
@@ -509,17 +509,17 @@ function SiteFees({ school, theme }) {
             };
             const total = data.items.reduce((sum, i) => sum + (parseFloat(i.amount) || 0), 0);
             return (
-              <div key={lvl} className="bg-white rounded-3xl overflow-hidden border-2 hover:shadow-xl transition-shadow" style={{ borderColor: `${p}20` }}>
+              <div key={lvl} className="bg-white rounded-3xl overflow-hidden border-2 hover:shadow-md transition-shadow" style={{ borderColor: `${p}20` }}>
                 <div className="px-6 py-5 flex items-center justify-between" style={{ background: `${p}0e` }}>
                   <div className="flex items-center gap-3">
                     <span className="text-3xl">{fl.emoji || fl.icon}</span>
                     <div>
-                      <h4 className="font-black text-sm sm:text-base" style={{ color: p }}>{fl.label}</h4>
+                      <h4 className="font-semibold text-sm sm:text-base" style={{ color: p }}>{fl.label}</h4>
                       <p className="text-xs text-gray-500">{data.currency || "RWF"} · {data.items.length} fee type{data.items.length !== 1 ? "s" : ""}</p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="font-black text-base sm:text-lg" style={{ color: p }}>
+                    <div className="font-semibold text-base sm:text-lg" style={{ color: p }}>
                       {data.currency || "RWF"} {total.toLocaleString()}
                     </div>
                     <div className="text-xs text-gray-400">/term est.</div>
@@ -530,7 +530,7 @@ function SiteFees({ school, theme }) {
                     <div key={i} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
                       <span className="text-sm text-gray-700 font-medium">{item.type}</span>
                       <div className="flex items-center gap-2">
-                        <span className="font-black text-sm" style={{ color: p }}>{Number(item.amount || 0).toLocaleString()}</span>
+                        <span className="font-semibold text-sm" style={{ color: p }}>{Number(item.amount || 0).toLocaleString()}</span>
                         <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{item.period}</span>
                       </div>
                     </div>
@@ -569,7 +569,7 @@ function SiteGallery({ school, theme }) {
               className="flex-shrink-0 flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-2xl text-sm font-bold border-2 transition-all"
               style={{ borderColor: activeAlbum === i ? p : "#E5E7EB", background: activeAlbum === i ? p : "#fff", color: activeAlbum === i ? "#fff" : "#6B7280" }}>
               📁 {al.title || `Album ${i + 1}`}
-              <span className="rounded-full px-2 py-0.5 text-xs font-black"
+              <span className="rounded-full px-2 py-0.5 text-xs font-semibold"
                 style={{ background: activeAlbum === i ? "rgba(255,255,255,0.25)" : "#F3F4F6", color: activeAlbum === i ? "#fff" : "#9CA3AF" }}>
                 {al.images?.length || 0}
               </span>
@@ -579,7 +579,7 @@ function SiteGallery({ school, theme }) {
         {album && (
           <>
             <div className="flex flex-wrap items-center gap-3 mb-5">
-              <h4 className="font-black text-gray-900 text-xl">{album.title}</h4>
+              <h4 className="font-semibold text-gray-900 text-xl">{album.title}</h4>
               {album.date && <span className="text-sm text-gray-500 flex items-center gap-1.5"><Calendar size={13} />{album.date}</span>}
               {album.category && <span className="text-xs font-bold px-3 py-1 rounded-full" style={{ background: `${p}15`, color: p }}>{album.category}</span>}
             </div>
@@ -590,7 +590,7 @@ function SiteGallery({ school, theme }) {
                   const src = imgUrl(img.url);
                   return (
                     <div key={img.id || i}
-                      className="group relative aspect-square rounded-2xl overflow-hidden cursor-pointer shadow-sm hover:shadow-xl transition-all hover:scale-[1.02]"
+                      className="group relative aspect-square rounded-2xl overflow-hidden cursor-pointer shadow-sm hover:shadow-md transition-all"
                       onClick={() => setLightbox({ images: album.images, index: i })}>
                       {src ? <img src={src} alt={img.caption || ""} className="w-full h-full object-cover" /> : (
                         <div className="w-full h-full flex items-center justify-center bg-gray-100"><Camera size={24} className="text-gray-300" /></div>
@@ -624,7 +624,7 @@ function SiteGallery({ school, theme }) {
             {(() => {
               const img = lightbox.images[lightbox.index];
               const src = imgUrl(img.url);
-              return src ? <img src={src} alt={img.caption || ""} className="max-h-[75vh] max-w-full object-contain rounded-2xl shadow-2xl" /> : null;
+              return src ? <img src={src} alt={img.caption || ""} className="max-h-[75vh] max-w-full object-contain rounded-2xl shadow-md" /> : null;
             })()}
             <button onClick={nextImg} className="absolute right-4 w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center text-white hover:bg-white/20 z-10"><ChevronRight size={20} /></button>
           </div>
@@ -638,7 +638,7 @@ function SiteGallery({ school, theme }) {
               const src = imgUrl(img.url);
               return (
                 <button key={i} onClick={e => { e.stopPropagation(); setLightbox(l => ({ ...l, index: i })); }}
-                  className={`w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 border-2 transition-all ${lightbox.index === i ? "border-amber-400 scale-110" : "border-transparent opacity-50 hover:opacity-75"}`}>
+                  className={`w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 border-2 transition-all ${lightbox.index === i ? "border-amber-400 opacity-100 ring-2 ring-amber-400/50" : "border-transparent opacity-50 hover:opacity-75"}`}>
                   {src ? <img src={src} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full bg-gray-800" />}
                 </button>
               );
@@ -670,17 +670,17 @@ function SiteLeadership({ school, theme }) {
           {allLeaders.map((l, i) => {
             const photoSrc = imgUrl(l.photo || l.photoPreview);
             return (
-              <div key={i} className="bg-white rounded-3xl p-6 text-center border border-gray-100 hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 group">
+              <div key={i} className="bg-white rounded-3xl p-6 text-center border border-gray-100 hover:shadow-md hover:-translate-y-2 transition-all duration-300 group">
                 <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl mx-auto mb-4 overflow-hidden ring-4 group-hover:ring-8 transition-all"
                   style={{ background: `${p}15`, ringColor: `${p}20` }}>
                   {photoSrc ? (
                     <img src={photoSrc} alt={l.name} className="w-full h-full object-cover"
                       onError={e => { e.target.style.display = "none"; }} />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center font-black text-2xl" style={{ color: p }}>{l.name[0]}</div>
+                    <div className="w-full h-full flex items-center justify-center font-semibold text-2xl" style={{ color: p }}>{l.name[0]}</div>
                   )}
                 </div>
-                <h4 className="font-black text-gray-900 text-sm sm:text-base mb-1">{l.name}</h4>
+                <h4 className="font-semibold text-gray-900 text-sm sm:text-base mb-1">{l.name}</h4>
                 <p className="text-xs sm:text-sm text-gray-500 mb-2 font-medium">{l.role}</p>
                 {l.phone && <a href={`tel:${l.phone}`} className="text-xs font-mono transition-colors hover:text-gray-900" style={{ color: p }}>{l.phone}</a>}
                 {l.email && !l.phone && <a href={`mailto:${l.email}`} className="text-xs transition-colors hover:text-gray-900 truncate block" style={{ color: p }}>{l.email}</a>}
@@ -762,11 +762,11 @@ function AdmissionApplyModal({ formId, theme, onClose }) {
   return (
     <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-6"
       style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}>
-      <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
+      <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-xl max-h-[92vh] flex flex-col shadow-md overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0"
           style={{ background: `linear-gradient(135deg, ${p}, ${p}cc)` }}>
           <div>
-            <h3 className="text-white font-black text-lg">Apply for Admission</h3>
+            <h3 className="text-white font-semibold text-lg">Apply for Admission</h3>
             {form?.schoolName && <p className="text-white/60 text-xs">{form.schoolName}</p>}
           </div>
           <button onClick={onClose} className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition">
@@ -787,14 +787,14 @@ function AdmissionApplyModal({ formId, theme, onClose }) {
                 style={{ background: `${p}15` }}>
                 <CheckCircle size={32} style={{ color: p }} />
               </div>
-              <h4 className="font-black text-gray-900 text-xl mb-2">Application Submitted!</h4>
+              <h4 className="font-semibold text-gray-900 text-xl mb-2">Application Submitted!</h4>
               <p className="text-gray-500 text-sm mb-4">Thank you, <strong>{submitted.applicantName}</strong>!</p>
               <div className="rounded-2xl p-4 mb-6" style={{ background: `${p}08`, border: `1.5px solid ${p}25` }}>
                 <p className="text-xs text-gray-500 font-bold uppercase mb-1">Reference No.</p>
-                <p className="text-xl font-black font-mono" style={{ color: p }}>{submitted.referenceNo}</p>
+                <p className="text-xl font-semibold font-mono" style={{ color: p }}>{submitted.referenceNo}</p>
                 <p className="text-xs text-gray-400 mt-1">Keep this for tracking your application</p>
               </div>
-              <button onClick={onClose} className="px-8 py-3 rounded-2xl font-black text-sm text-white"
+              <button onClick={onClose} className="px-8 py-3 rounded-2xl font-semibold text-sm text-white"
                 style={{ background: p }}>Done ✓</button>
             </div>
           )}
@@ -830,7 +830,7 @@ function AdmissionApplyModal({ formId, theme, onClose }) {
                     </div>
                   )}
                   <div>
-                    <p className="text-xs font-black text-gray-500 uppercase tracking-wider mb-3">Your Information</p>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Your Information</p>
                     <div className="space-y-3">
                       <div>
                         <label className="block text-xs font-bold text-gray-600 mb-1">Full Name <span className="text-red-500">*</span></label>
@@ -857,7 +857,7 @@ function AdmissionApplyModal({ formId, theme, onClose }) {
                   </div>
                   {(form.questions || []).map((q, idx) => (
                     <div key={q.id}>
-                      <label className="block text-xs font-black text-gray-700 mb-1.5">
+                      <label className="block text-xs font-semibold text-gray-700 mb-1.5">
                         {idx + 1}. {q.label}
                         {q.isRequired && <span className="text-red-500 ml-1">*</span>}
                       </label>
@@ -874,7 +874,7 @@ function AdmissionApplyModal({ formId, theme, onClose }) {
         {!loading && !submitted && form?.status === "open" && (
           <div className="px-6 py-4 border-t border-gray-100 flex-shrink-0">
             <button onClick={handleSubmit} disabled={submitting}
-              className="w-full py-3.5 rounded-2xl font-black text-white text-sm flex items-center justify-center gap-2 shadow-lg hover:opacity-90 transition disabled:opacity-60"
+              className="w-full py-3.5 rounded-2xl font-semibold text-white text-sm flex items-center justify-center gap-2 shadow-lg hover:opacity-90 transition disabled:opacity-60"
               style={{ background: `linear-gradient(135deg, ${p}, ${p}cc)` }}>
               {submitting ? <><Loader2 size={16} className="animate-spin" /> Submitting…</> : <>Submit Application <ArrowRight size={15} /></>}
             </button>
@@ -900,7 +900,7 @@ function ModalQuestionField({ q, value, onChange, p }) {
       <div className="flex gap-2">
         {["Yes","No"].map(opt => (
           <button key={opt} type="button" onClick={() => onChange(opt)}
-            className={`flex-1 py-2.5 rounded-xl text-sm font-black border-2 transition ${value === opt ? "text-white border-transparent" : "text-gray-600 border-gray-200 bg-white"}`}
+            className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border-2 transition ${value === opt ? "text-white border-transparent" : "text-gray-600 border-gray-200 bg-white"}`}
             style={value === opt ? { background: p, borderColor: p } : {}}>
             {opt}
           </button>
@@ -1012,7 +1012,7 @@ function SiteAdmissions({ school, theme, schoolSlug }) {
             ].filter(Boolean).slice(0, 4).map((item, i) => (
               <div key={i} className="rounded-2xl p-4 sm:p-5 text-center" style={{ background: item.bg }}>
                 {item.dot && <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse inline-block mb-1" />}
-                <div className="text-xl sm:text-2xl font-black" style={{ color: item.color }}>{item.val}</div>
+                <div className="text-xl sm:text-2xl font-semibold" style={{ color: item.color }}>{item.val}</div>
                 <div className="text-xs text-gray-500 font-bold mt-0.5">{item.label}</div>
               </div>
             ))}
@@ -1038,8 +1038,8 @@ function SiteAdmissions({ school, theme, schoolSlug }) {
           <div className="grid sm:grid-cols-3 gap-4 sm:gap-6 mb-10">
             {adm.steps.filter(Boolean).map((st, i) => (
               <div key={i} className="rounded-3xl p-6 sm:p-8 text-center hover:shadow-lg transition-shadow" style={{ background: s || "#EFF6FF" }}>
-                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center mx-auto mb-4 font-black text-white text-lg shadow-lg" style={{ background: p }}>{i + 1}</div>
-                <h4 className="font-black text-gray-900 text-sm sm:text-base">{st}</h4>
+                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center mx-auto mb-4 font-semibold text-white text-lg shadow-lg" style={{ background: p }}>{i + 1}</div>
+                <h4 className="font-semibold text-gray-900 text-sm sm:text-base">{st}</h4>
               </div>
             ))}
           </div>
@@ -1048,7 +1048,7 @@ function SiteAdmissions({ school, theme, schoolSlug }) {
         <div className="grid sm:grid-cols-2 gap-6 mb-8">
           {adm.requirements?.length > 0 && (
             <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-100 shadow-sm">
-              <h4 className="font-black text-gray-900 text-lg mb-5 flex items-center gap-2">
+              <h4 className="font-semibold text-gray-900 text-lg mb-5 flex items-center gap-2">
                 <CheckCircle2 size={20} style={{ color: p }} /> Requirements
               </h4>
               <div className="space-y-3">
@@ -1063,7 +1063,7 @@ function SiteAdmissions({ school, theme, schoolSlug }) {
           )}
           {adm.documents?.length > 0 && (
             <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-100 shadow-sm">
-              <h4 className="font-black text-gray-900 text-lg mb-5 flex items-center gap-2">
+              <h4 className="font-semibold text-gray-900 text-lg mb-5 flex items-center gap-2">
                 <FileText size={20} style={{ color: p }} /> Required Documents
               </h4>
               <div className="space-y-3">
@@ -1087,7 +1087,7 @@ function SiteAdmissions({ school, theme, schoolSlug }) {
         <div className="rounded-3xl p-8 sm:p-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6"
           style={{ background: `linear-gradient(135deg, ${p}, ${p}cc)` }}>
           <div>
-            <h3 className="text-white font-black text-xl sm:text-2xl mb-1">Ready to Join {school.name}?</h3>
+            <h3 className="text-white font-semibold text-xl sm:text-2xl mb-1">Ready to Join {school.name}?</h3>
             <p className="text-white/60 text-sm">
               {admStats?.applicantsCount != null && admStats?.maxApplicants
                 ? `${admStats.spotsRemaining} spots remaining out of ${admStats.maxApplicants}`
@@ -1096,12 +1096,12 @@ function SiteAdmissions({ school, theme, schoolSlug }) {
           </div>
           {formId && isOpen ? (
             <button onClick={() => setApplyOpen(true)}
-              className="flex-shrink-0 flex items-center gap-2 px-6 sm:px-8 py-3 sm:py-4 rounded-2xl font-black text-sm text-gray-900 hover:scale-105 transition-transform shadow-2xl"
+              className="flex-shrink-0 flex items-center gap-2 px-6 sm:px-8 py-3 sm:py-4 rounded-2xl font-semibold text-sm text-gray-900 transition-transform shadow-md"
               style={{ background: a }}>
               Apply Online <ArrowRight size={15} />
             </button>
           ) : (
-            <button className="flex-shrink-0 px-6 sm:px-8 py-3 sm:py-4 rounded-2xl font-black text-sm text-white/60 cursor-default border border-white/20" disabled>
+            <button className="flex-shrink-0 px-6 sm:px-8 py-3 sm:py-4 rounded-2xl font-semibold text-sm text-white/60 cursor-default border border-white/20" disabled>
               {admStats?.status === "closed" ? "Applications Closed" : admStats?.status === "paused" ? "Temporarily Paused" : "Apply Online →"}
             </button>
           )}
@@ -1134,16 +1134,16 @@ function SiteContact({ school, theme }) {
                   <c.icon size={18} style={{ color: p }} />
                 </div>
                 <div>
-                  <div className="text-xs font-black text-gray-400 uppercase tracking-wider mb-0.5">{c.label}</div>
+                  <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-0.5">{c.label}</div>
                   <div className="text-sm font-semibold text-gray-900">{c.val}</div>
                 </div>
               </div>
             ))}
             {(school.facebook || school.twitter || school.instagram) && (
               <div className="flex gap-3 pt-2">
-                {school.facebook  && <a href={school.facebook}  target="_blank" rel="noopener noreferrer" className="w-11 h-11 rounded-2xl flex items-center justify-center hover:scale-110 transition-transform" style={{ background: "#1877F2" }}><Share2 size={18} className="text-white" /></a>}
-                {school.twitter   && <a href={school.twitter}   target="_blank" rel="noopener noreferrer" className="w-11 h-11 rounded-2xl flex items-center justify-center hover:scale-110 transition-transform" style={{ background: "#1DA1F2" }}><Share2 size={18} className="text-white" /></a>}
-                {school.instagram && <a href={school.instagram} target="_blank" rel="noopener noreferrer" className="w-11 h-11 rounded-2xl flex items-center justify-center hover:scale-110 transition-transform" style={{ background: "#E4405F" }}><Share2 size={18} className="text-white" /></a>}
+                {school.facebook  && <a href={school.facebook}  target="_blank" rel="noopener noreferrer" className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: "#1877F2" }}><Share2 size={18} className="text-white" /></a>}
+                {school.twitter   && <a href={school.twitter}   target="_blank" rel="noopener noreferrer" className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: "#1DA1F2" }}><Share2 size={18} className="text-white" /></a>}
+                {school.instagram && <a href={school.instagram} target="_blank" rel="noopener noreferrer" className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: "#E4405F" }}><Share2 size={18} className="text-white" /></a>}
               </div>
             )}
           </div>
@@ -1154,7 +1154,7 @@ function SiteContact({ school, theme }) {
                 <p className="text-gray-500 text-sm mb-2 font-semibold">{school.district}, {school.province}</p>
                 <p className="text-gray-400 text-xs mb-6">{school.address}</p>
                 <a href={school.mapUrl} target="_blank" rel="noopener noreferrer"
-                  className="px-6 py-3 rounded-2xl text-sm font-black text-white inline-block hover:opacity-90 transition-opacity shadow-lg"
+                  className="px-6 py-3 rounded-2xl text-sm font-semibold text-white inline-block hover:opacity-90 transition-opacity shadow-lg"
                   style={{ background: p }}>
                   Open in Google Maps →
                 </a>
@@ -1185,10 +1185,10 @@ function SiteFooter({ school, theme, slug }) {
             <div className="w-10 h-10 rounded-xl overflow-hidden bg-white/10">
               {logoSrc
                 ? <img src={logoSrc} alt="logo" className="w-full h-full object-cover" />
-                : <div className="w-full h-full flex items-center justify-center font-black text-white text-lg">{(school.name || "S")[0]}</div>}
+                : <div className="w-full h-full flex items-center justify-center font-semibold text-white text-lg">{(school.name || "S")[0]}</div>}
             </div>
             <div>
-              <div className="font-black text-white text-base">{school.name}</div>
+              <div className="font-semibold text-white text-base">{school.name}</div>
               <div className="text-white/50 text-xs">{school.address || `${school.district}, ${school.province}`}</div>
             </div>
           </div>
@@ -1248,11 +1248,11 @@ function FullSiteViewer({ schoolId, onBack, onEdit }) {
 
   if (error || !data) return (
     <div className="min-h-screen flex items-center justify-center p-6" style={{ background: "#0f172a" }}>
-      <div className="bg-gray-900 border border-gray-800 rounded-3xl p-10 text-center max-w-sm shadow-2xl">
+      <div className="bg-gray-900 border border-gray-800 rounded-3xl p-10 text-center max-w-sm shadow-md">
         <div className="text-6xl mb-5">🏫</div>
-        <h3 className="text-white font-black text-2xl mb-2">Website Not Available</h3>
+        <h3 className="text-white font-semibold text-2xl mb-2">Website Not Available</h3>
         <p className="text-gray-400 text-sm mb-8 leading-relaxed">{error || "This school's website data could not be loaded."}</p>
-        <button onClick={onBack} className="px-8 py-3 bg-amber-400 text-gray-900 rounded-2xl font-black text-sm hover:bg-amber-300 transition-all shadow-lg">
+        <button onClick={onBack} className="px-8 py-3 bg-amber-400 text-gray-900 rounded-2xl font-semibold text-sm hover:bg-amber-300 transition-all shadow-lg">
           ← Go Back
         </button>
       </div>
@@ -1270,7 +1270,7 @@ function FullSiteViewer({ schoolId, onBack, onEdit }) {
   return (
     <div className="min-h-screen" style={{ fontFamily: "'Montserrat', system-ui, sans-serif" }}>
       <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2 px-4 py-2.5 rounded-2xl shadow-2xl border border-white/15"
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2 px-4 py-2.5 rounded-2xl shadow-md border border-white/15"
         style={{ background: "rgba(15,23,42,0.92)", backdropFilter: "blur(12px)" }}>
         <button onClick={onBack}
           className="flex items-center gap-1.5 px-4 py-2 rounded-xl font-bold text-sm text-white hover:bg-white/10 transition-colors">
@@ -1396,7 +1396,7 @@ function ApplicantsPanel({ schoolId }) {
   if (!admForm) return (
     <div className="text-center py-12 rounded-2xl bg-gray-50 border border-gray-100">
       <div className="text-4xl mb-3">📬</div>
-      <p className="text-gray-600 font-black text-sm">No admission form configured yet</p>
+      <p className="text-gray-600 font-semibold text-sm">No admission form configured yet</p>
       <p className="text-gray-400 text-xs mt-1">Go to Manage Website → Step 7 to set up admissions</p>
     </div>
   );
@@ -1418,7 +1418,7 @@ function ApplicantsPanel({ schoolId }) {
               <s.icon size={16} className={s.ic}/>
             </div>
             <div className="min-w-0">
-              <div className={`text-xl font-black leading-none ${s.val_c} truncate`}>{s.val}</div>
+              <div className={`text-xl font-semibold leading-none ${s.val_c} truncate`}>{s.val}</div>
               <div className="text-[10px] font-bold text-gray-500 mt-0.5">{s.label}</div>
             </div>
           </div>
@@ -1463,12 +1463,12 @@ function ApplicantsPanel({ schoolId }) {
       {apps.length>0 && (
         <div className="flex flex-wrap gap-2">
           <button onClick={()=>setFilterStatus("all")}
-            className={`px-3 py-1.5 rounded-full text-xs font-black transition ${filterStatus==="all"?"bg-gray-900 text-white":"bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold transition ${filterStatus==="all"?"bg-gray-900 text-white":"bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
             All ({apps.length})
           </button>
           {APP_STATUSES_SPLASH.filter(s=>counts[s.value]>0).map(s=>(
             <button key={s.value} onClick={()=>setFilterStatus(s.value)}
-              className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-black transition ${
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold transition ${
                 filterStatus===s.value?`${s.color} ring-2 ring-offset-1 ring-current`:"bg-gray-100 text-gray-600 hover:bg-gray-200"
               }`}>
               <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`}/>
@@ -1486,9 +1486,9 @@ function ApplicantsPanel({ schoolId }) {
       ) : filtered.length===0 ? (
         <div className="text-center py-12 rounded-2xl bg-gray-50 border border-gray-100">
           <div className="text-4xl mb-2">{apps.length===0?"📬":"🔍"}</div>
-          <p className="text-gray-600 font-black text-sm">{apps.length===0?"No applications yet":"No results"}</p>
+          <p className="text-gray-600 font-semibold text-sm">{apps.length===0?"No applications yet":"No results"}</p>
           <p className="text-gray-400 text-xs mt-1">{apps.length===0?"Submitted applications will appear here":"Try clearing filters"}</p>
-          {search&&<button onClick={()=>{setSearch("");setFilterStatus("all");}} className="mt-3 px-4 py-2 rounded-xl bg-indigo-50 text-indigo-600 text-xs font-black hover:bg-indigo-100 transition">Clear</button>}
+          {search&&<button onClick={()=>{setSearch("");setFilterStatus("all");}} className="mt-3 px-4 py-2 rounded-xl bg-indigo-50 text-indigo-600 text-xs font-semibold hover:bg-indigo-100 transition">Clear</button>}
         </div>
       ) : (
         <>
@@ -1499,12 +1499,12 @@ function ApplicantsPanel({ schoolId }) {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100 text-left">
-                  <th className="px-4 py-3 text-xs font-black text-gray-500 uppercase">Ref</th>
-                  <th className="px-4 py-3 text-xs font-black text-gray-500 uppercase">Applicant</th>
-                  <th className="px-4 py-3 text-xs font-black text-gray-500 uppercase">Contact</th>
-                  <th className="px-4 py-3 text-xs font-black text-gray-500 uppercase">Date</th>
-                  <th className="px-4 py-3 text-xs font-black text-gray-500 uppercase">Status</th>
-                  <th className="px-4 py-3 text-xs font-black text-gray-500 uppercase">Action</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Ref</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Applicant</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Contact</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Date</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Status</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
@@ -1516,7 +1516,7 @@ function ApplicantsPanel({ schoolId }) {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <div className="w-8 h-8 rounded-xl bg-indigo-100 flex items-center justify-center flex-shrink-0">
-                            <span className="text-xs font-black text-indigo-600">{(app.applicant_name||"?")[0].toUpperCase()}</span>
+                            <span className="text-xs font-semibold text-indigo-600">{(app.applicant_name||"?")[0].toUpperCase()}</span>
                           </div>
                           <span className="font-bold text-gray-800 text-sm">{app.applicant_name}</span>
                         </div>
@@ -1529,7 +1529,7 @@ function ApplicantsPanel({ schoolId }) {
                         {new Date(app.submitted_at||app.created_at).toLocaleDateString()}
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black ${st.color}`}>
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${st.color}`}>
                           <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`}/>{st.label}
                         </span>
                       </td>
@@ -1556,14 +1556,14 @@ function ApplicantsPanel({ schoolId }) {
                   <div className="flex items-start justify-between gap-2 mb-2.5">
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center flex-shrink-0">
-                        <span className="text-sm font-black text-indigo-600">{(app.applicant_name||"?")[0].toUpperCase()}</span>
+                        <span className="text-sm font-semibold text-indigo-600">{(app.applicant_name||"?")[0].toUpperCase()}</span>
                       </div>
                       <div className="min-w-0">
-                        <p className="font-black text-gray-900 text-sm truncate">{app.applicant_name}</p>
+                        <p className="font-semibold text-gray-900 text-sm truncate">{app.applicant_name}</p>
                         <p className="text-xs text-gray-400 font-mono">{app.reference_no}</p>
                       </div>
                     </div>
-                    <span className={`flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black ${st.color}`}>
+                    <span className={`flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${st.color}`}>
                       <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`}/>{st.label}
                     </span>
                   </div>
@@ -1648,11 +1648,11 @@ function WebsiteSplash({ schoolId, schoolName, onEnter, onOpenFeatures, onViewSi
         <div className="relative px-4 sm:px-8 py-8 sm:py-12 flex flex-col sm:flex-row items-center sm:items-end justify-between gap-6">
           <div className="flex flex-col sm:flex-row items-center sm:items-end gap-5 text-center sm:text-left">
             <div className="relative flex-shrink-0">
-              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl overflow-hidden ring-4 ring-indigo-500/30 shadow-2xl shadow-indigo-500/20">
+              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl overflow-hidden ring-4 ring-indigo-500/30 shadow-md shadow-indigo-500/20">
                 {logoSrc ? (
                   <img src={logoSrc} alt="logo" className="w-full h-full object-cover"/>
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-3xl font-black text-white"
+                  <div className="w-full h-full flex items-center justify-center text-3xl font-semibold text-white"
                     style={{ background:"linear-gradient(135deg,#6366f1,#8b5cf6)" }}>
                     {(schoolName||"S")[0]}
                   </div>
@@ -1667,9 +1667,9 @@ function WebsiteSplash({ schoolId, schoolName, onEnter, onOpenFeatures, onViewSi
             <div>
               <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-500/15 border border-indigo-500/25 mb-2 sm:mb-1.5">
                 <Zap size={9} className="text-indigo-400"/>
-                <span className="text-indigo-400 text-[10px] font-black uppercase tracking-widest">School Mini Website</span>
+                <span className="text-indigo-400 text-[10px] font-semibold uppercase tracking-widest">School Mini Website</span>
               </div>
-              <h1 className="text-2xl sm:text-4xl font-black text-white leading-tight">{schoolName||"Your School"}</h1>
+              <h1 className="text-2xl sm:text-4xl font-semibold text-white leading-tight">{schoolName||"Your School"}</h1>
               {loading ? (
                 <div className="flex items-center justify-center sm:justify-start gap-1.5 mt-2">
                   <Loader2 size={12} className="text-indigo-400 animate-spin"/>
@@ -1691,7 +1691,7 @@ function WebsiteSplash({ schoolId, schoolName, onEnter, onOpenFeatures, onViewSi
           {!loading && !error && (
             <div className="flex flex-col sm:flex-row gap-2.5 flex-shrink-0 w-full sm:w-auto">
               <button onClick={onEnter}
-                className="flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl font-black text-sm text-gray-900 shadow-2xl shadow-indigo-500/30 hover:scale-105 active:scale-95 transition-all"
+                className="flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl font-semibold text-sm text-gray-900 shadow-md shadow-indigo-500/30 active:scale-95 transition-all"
                 style={{ background:"linear-gradient(135deg,#fbbf24,#f59e0b)" }}>
                 {isDraft ? <><RefreshCw size={14}/> Continue Editing</> :
                  isPublished ? <><Settings size={14}/> Manage Website</> :
@@ -1700,7 +1700,7 @@ function WebsiteSplash({ schoolId, schoolName, onEnter, onOpenFeatures, onViewSi
               </button>
               {hasWebsite && (
                 <button onClick={onViewSite}
-                  className="flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl font-black text-sm border border-white/20 text-white hover:bg-white/10 transition-colors">
+                  className="flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl font-semibold text-sm border border-white/20 text-white hover:bg-white/10 transition-colors">
                   <Eye size={14}/> {isPublished ? "View Live Site" : "Preview Draft"}
                 </button>
               )}
@@ -1716,7 +1716,7 @@ function WebsiteSplash({ schoolId, schoolName, onEnter, onOpenFeatures, onViewSi
                 <div className="w-8 h-8 rounded-xl mx-auto mb-2 flex items-center justify-center" style={{ background:"rgba(99,102,241,.2)" }}>
                   <f.icon size={14} className="text-indigo-400"/>
                 </div>
-                <div className="text-white font-black text-[11px] mb-0.5">{f.title}</div>
+                <div className="text-white font-semibold text-[11px] mb-0.5">{f.title}</div>
                 <div className="text-slate-500 text-[9px] leading-tight">{f.desc}</div>
               </div>
             ))}
@@ -1732,7 +1732,7 @@ function WebsiteSplash({ schoolId, schoolName, onEnter, onOpenFeatures, onViewSi
             ].map(s=>(
               <div key={s.label} className="text-center rounded-2xl px-4 py-2.5 border border-white/8"
                 style={{ background:"rgba(255,255,255,.04)" }}>
-                <div className="text-white font-black text-xs">{s.val}</div>
+                <div className="text-white font-semibold text-xs">{s.val}</div>
                 <div className="text-slate-500 text-[10px]">{s.label}</div>
               </div>
             ))}
@@ -1757,7 +1757,7 @@ function WebsiteSplash({ schoolId, schoolName, onEnter, onOpenFeatures, onViewSi
             { key:"applicants", label:"Applicants", icon:Users  },
           ].map(t=>(
             <button key={t.key} onClick={()=>setActiveTab(t.key)}
-              className={`flex items-center gap-2 px-4 py-3.5 text-sm font-black border-b-2 -mb-px transition-colors ${
+              className={`flex items-center gap-2 px-4 py-3.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${
                 activeTab===t.key ? "border-indigo-600 text-indigo-700" : "border-transparent text-gray-500 hover:text-gray-800"
               }`}>
               <t.icon size={14}/> {t.label}
@@ -1773,10 +1773,10 @@ function WebsiteSplash({ schoolId, schoolName, onEnter, onOpenFeatures, onViewSi
             {!hasWebsite && !loading && (
               <div className="text-center py-10 rounded-3xl bg-indigo-50 border-2 border-dashed border-indigo-200">
                 <Sparkles size={32} className="text-indigo-400 mx-auto mb-3"/>
-                <h3 className="font-black text-gray-900 text-lg mb-1">No website yet</h3>
+                <h3 className="font-semibold text-gray-900 text-lg mb-1">No website yet</h3>
                 <p className="text-gray-500 text-sm mb-5">Build your school's mini website in minutes with our guided wizard</p>
                 <button onClick={onEnter}
-                  className="inline-flex items-center gap-2 px-7 py-3.5 rounded-2xl font-black text-sm text-gray-900"
+                  className="inline-flex items-center gap-2 px-7 py-3.5 rounded-2xl font-semibold text-sm text-gray-900"
                   style={{ background:"linear-gradient(135deg,#fbbf24,#f59e0b)" }}>
                   <Sparkles size={14}/> Create Your Website <ArrowRight size={13}/>
                 </button>
@@ -1785,7 +1785,7 @@ function WebsiteSplash({ schoolId, schoolName, onEnter, onOpenFeatures, onViewSi
             {hasWebsite && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                  <h3 className="font-black text-gray-700 text-sm mb-3 flex items-center gap-2">
+                  <h3 className="font-semibold text-gray-700 text-sm mb-3 flex items-center gap-2">
                     <Globe size={14} className="text-indigo-500"/> Website Details
                   </h3>
                   <div className="space-y-2 text-sm">
@@ -1797,29 +1797,29 @@ function WebsiteSplash({ schoolId, schoolName, onEnter, onOpenFeatures, onViewSi
                     ].map(r=>(
                       <div key={r.label} className="flex justify-between gap-2">
                         <span className="text-gray-400 font-bold text-xs">{r.label}</span>
-                        <span className="text-gray-800 font-black text-xs">{r.val}</span>
+                        <span className="text-gray-800 font-semibold text-xs">{r.val}</span>
                       </div>
                     ))}
                   </div>
                 </div>
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                  <h3 className="font-black text-gray-700 text-sm mb-3 flex items-center gap-2">
+                  <h3 className="font-semibold text-gray-700 text-sm mb-3 flex items-center gap-2">
                     <Sparkles size={14} className="text-indigo-500"/> Quick Actions
                   </h3>
                   <div className="space-y-2">
                     <button onClick={onEnter}
-                      className="w-full flex items-center gap-2.5 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm font-black hover:bg-amber-100 transition text-left">
+                      className="w-full flex items-center gap-2.5 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm font-semibold hover:bg-amber-100 transition text-left">
                       <Settings size={14}/> {isDraft ? "Continue Editing" : "Manage Website / Features"}
                     </button>
                     <button
                       onClick={onOpenFeatures}
-                      className="w-full flex items-center gap-2.5 px-4 py-3 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-800 text-sm font-black hover:bg-indigo-100 transition text-left"
+                      className="w-full flex items-center gap-2.5 px-4 py-3 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-800 text-sm font-semibold hover:bg-indigo-100 transition text-left"
                     >
                       <Layers size={14}/> Select steps/features (Gallery optional)
                     </button>
                     {hasWebsite&&(
                       <button onClick={onViewSite}
-                        className="w-full flex items-center gap-2.5 px-4 py-3 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-800 text-sm font-black hover:bg-indigo-100 transition text-left">
+                        className="w-full flex items-center gap-2.5 px-4 py-3 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-800 text-sm font-semibold hover:bg-indigo-100 transition text-left">
                         <Eye size={14}/> {isPublished?"View Live Site":"Preview Draft"}
                       </button>
                     )}
@@ -1827,7 +1827,7 @@ function WebsiteSplash({ schoolId, schoolName, onEnter, onOpenFeatures, onViewSi
                       <button
                         onClick={onDeleteSite}
                         disabled={deleting}
-                        className="w-full flex items-center gap-2.5 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm font-black hover:bg-red-100 transition text-left disabled:opacity-60"
+                        className="w-full flex items-center gap-2.5 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm font-semibold hover:bg-red-100 transition text-left disabled:opacity-60"
                       >
                         {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
                         {deleting ? "Deleting website..." : "Delete mini website"}
@@ -1855,7 +1855,7 @@ function SchoolMiniWebsiteWizard({ schoolId, schoolName, onBack, initialStep }) 
   return (
     <div className="relative min-h-screen" style={{ fontFamily: "'Montserrat', system-ui, sans-serif" }}>
       <button onClick={onBack}
-        className="fixed bottom-6 right-4 z-50 flex items-center gap-2 px-4 py-2.5 rounded-2xl font-bold text-sm text-white shadow-xl border border-white/15 hover:bg-white/15 transition-colors"
+        className="fixed bottom-6 right-4 z-50 flex items-center gap-2 px-4 py-2.5 rounded-2xl font-bold text-sm text-white shadow-md border border-white/15 hover:bg-white/15 transition-colors"
         style={{ background: "rgba(15,23,42,0.9)", backdropFilter: "blur(8px)" }}>
         <ChevronLeft size={13} /> Dashboard
       </button>
@@ -1949,10 +1949,10 @@ export default function SchoolMiniWebsitePage({ session, toast }) {
       />
       {showDeleteModal && (
         <div className="fixed inset-0 z-[250] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md rounded-3xl border border-red-200 bg-white shadow-2xl p-6">
-            <h3 className="text-lg font-black text-red-700">Delete mini website</h3>
+          <div className="w-full max-w-md rounded-3xl border border-red-200 bg-white shadow-md p-6">
+            <h3 className="text-lg font-semibold text-red-700">Delete mini website</h3>
             <p className="mt-2 text-sm text-gray-600 leading-relaxed">
-              This action cannot be undone. To confirm, type <span className="font-black text-gray-900">DELETE</span> below.
+              This action cannot be undone. To confirm, type <span className="font-semibold text-gray-900">DELETE</span> below.
             </p>
             <input
               value={deleteInput}
@@ -1974,7 +1974,7 @@ export default function SchoolMiniWebsitePage({ session, toast }) {
                 type="button"
                 onClick={handleDeleteSite}
                 disabled={deletingSite || deleteInput !== "DELETE"}
-                className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-black text-white hover:bg-red-500 disabled:opacity-50"
+                className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-500 disabled:opacity-50"
               >
                 {deletingSite ? "Deleting..." : "Delete now"}
               </button>

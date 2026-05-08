@@ -3,39 +3,43 @@
 @theme {
   --font-sans: "Montserrat", system-ui, sans-serif;
   --font-heading: "Montserrat", system-ui, sans-serif;
-  --font-weight-bold: 800;
+  --font-weight-bold: 550;
 
-  /* Brand Colors - Clean & Premium */
-  --color-re-orange: #FF8C00;
-  --color-re-orange-light: #FFB800;
-  --color-re-orange-dark: #FF5E00;
+  /* Align with Babyeyi manager institutional palette */
+  --color-re-navy: #1e3a5f;
+  --color-re-navy-light: #3d5a80;
+  --color-re-navy-dark: #0d1b2a;
 
-  --color-re-purple: #9D50BB;
-  --color-re-magenta: #6E48AA;
+  --color-re-gold: #febf10;
+  --color-re-gold-light: #ffd24d;
+  --color-re-gold-dark: #d9a400;
 
-  /* Backgrounds & Core */
-  --color-re-bg: #F8F9FA;
-  --color-re-card: #FFFFFF;
-  --color-re-row: #FFFFFF;
-  --color-re-text: #0E1F35;
-  --color-re-text-muted: #6B7280;
+  /* Legacy token used across DOS JSX — maps to institutional gold */
+  --color-re-orange: #febf10;
+  --color-re-orange-light: #ffd24d;
+  --color-re-orange-dark: #d9a400;
 
-  /* Supplemental Brand Colors */
-  --color-re-blue: #3B82F6;
-  --color-re-emerald: #10B981;
-  --color-re-slate: #1E293B;
+  --color-re-purple: #9d50bb;
+  --color-re-magenta: #6e48aa;
 
-  /* Specific Border Colors from Screenshot */
-  --color-re-border-gold: #FFB800;
-  --color-re-border-purple: #9D50BB;
-  --color-re-border-light: #F1F3F6;
+  --color-re-bg: #f8f9fa;
+  --color-re-card: #ffffff;
+  --color-re-row: #ffffff;
+  --color-re-text: #0e1f35;
+  --color-re-text-muted: #6b7280;
 
-  /* Premium Border Radius */
+  --color-re-blue: #3b82f6;
+  --color-re-emerald: #10b981;
+  --color-re-slate: #1e293b;
+
+  --color-re-border-gold: #febf10;
+  --color-re-border-purple: #1e3a5f;
+  --color-re-border-light: #f1f3f6;
+
   --radius-re-card: 32px;
   --radius-re-row: 24px;
   --radius-re-input: 16px;
 
-  /* Soft "Floating" Shadows */
   --shadow-re-premium: 0 10px 40px -10px rgba(0, 0, 0, 0.08);
   --shadow-re-row: 0 4px 20px -2px rgba(0, 0, 0, 0.04);
 }
@@ -49,20 +53,39 @@
 
   b,
   strong {
-    font-weight: 800;
+    font-weight: 550;
+  }
+}
+
+@layer utilities {
+  .font-black,
+  .font-extrabold,
+  .font-bold {
+    font-weight: 500 !important;
+  }
+
+  .font-semibold {
+    font-weight: 520 !important;
+  }
+
+  .font-medium {
+    font-weight: 500 !important;
+  }
+
+  .font-normal {
+    font-weight: 400 !important;
   }
 }
 
 @layer components {
   .btn-assist {
-    @apply flex flex-col items-center justify-center p-6 bg-white border-2 rounded-re-card transition-all duration-300 hover:scale-[1.02] active:scale-95 text-center;
+    @apply flex flex-col items-center justify-center p-6 bg-white border border-black/10 rounded-re-card transition-colors duration-200 hover:bg-re-bg/80 active:scale-[0.99] text-center shadow-sm;
   }
 
   .list-row {
     @apply flex items-center gap-4 bg-white p-5 rounded-re-row shadow-re-row border border-re-border-light transition-all hover:bg-gray-50/50;
   }
 
-  /* Utility Gradients & Glows */
   .bg-re-grad-orange {
     @apply bg-gradient-to-br from-re-orange-light via-re-orange to-re-orange-dark;
   }
@@ -72,14 +95,42 @@
   }
 
   .shadow-re-glow {
-    @apply shadow-[0_10px_30px_-5px_#FF8C0055];
+    @apply shadow-[0_10px_30px_-5px_rgba(254,191,16,0.15)];
   }
 
   .shadow-re-premium-purple {
-    @apply shadow-[0_12px_45px_-12px_#9D50BB66];
+    @apply shadow-[0_12px_45px_-12px_#9d50bb66];
   }
 
   .icon-circle {
-    @apply w-12 h-12 rounded-full flex items-center justify-center font-bold text-white shadow-sm;
+    @apply w-12 h-12 rounded-full flex items-center justify-center font-medium text-white shadow-sm;
+  }
+
+  /* DOS sidebar — thin gold thumb (manager-aligned) */
+  .dos-sidebar-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(254, 191, 16, 0.45) rgba(255, 255, 255, 0.06);
+    scrollbar-gutter: stable;
+  }
+
+  .dos-sidebar-scroll::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .dos-sidebar-scroll::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 9999px;
+    margin: 4px 0;
+  }
+
+  .dos-sidebar-scroll::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, rgba(254, 191, 16, 0.35), rgba(254, 191, 16, 0.2));
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+
+  .dos-sidebar-scroll::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, rgba(254, 191, 16, 0.55), rgba(254, 191, 16, 0.35));
   }
 }

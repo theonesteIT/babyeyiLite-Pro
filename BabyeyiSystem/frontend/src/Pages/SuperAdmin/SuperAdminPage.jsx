@@ -26,9 +26,12 @@ import {
   IdCard,
   LayoutTemplate,
   Receipt,
+  GraduationCap,
+  Fingerprint,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import LogoutButton from '../Auth/LogoutButton';
+import SuperAdminDashboardSchoolPeek from './SmartAccess/SuperAdminDashboardSchoolPeek';
 import { BABYEYI_FONT_STACK, BABYEYI_NAVY, BABYEYI_PAGE_BG } from '../../theme/babyeyiDashboardTheme';
 
 // ── API base (port 5100) ──────────────────────────────────────
@@ -238,6 +241,9 @@ const NAV = [
   { id: 'shule-avance-teacher', icon: Percent, label: 'ShuleAvance Teacher' },
   { id: 'teacher-deal-products', icon: Package, label: 'Teacher Deal Products' },
   { id: 'ticha-deal-requests', icon: Receipt, label: 'Ticha Deal Requests' },
+  { id: '_section_smart_access', label: 'SMART ACCESS', section: true },
+  { id: 'smart-access-students', icon: GraduationCap, label: 'Student Smart Access' },
+  { id: 'smart-access-staff', icon: Fingerprint, label: 'Staff Smart Access' },
   { id: 'school-students-card', icon: IdCard, label: 'School Students Card' },
   { id: 'student-card-template-2', icon: LayoutTemplate, label: 'Student Card Template 2' },
   { id: 'school-staff-card-template', icon: IdCard, label: 'School Staff Card Template' },
@@ -329,6 +335,8 @@ function Sidebar({ page, onChange, online, user, navigate }) {
           const isSchoolStudentsCard = item.id === 'school-students-card';
           const isStudentCardTemplate2 = item.id === 'student-card-template-2';
           const isSchoolStaffCardTemplate = item.id === 'school-staff-card-template';
+          const isSmartStudents = item.id === 'smart-access-students';
+          const isSmartStaff = item.id === 'smart-access-staff';
           return (
             <button key={item.id}
               onClick={() => {
@@ -362,6 +370,10 @@ function Sidebar({ page, onChange, online, user, navigate }) {
                   navigate('/superadmin/student-card-template-2');
                 } else if (isSchoolStaffCardTemplate) {
                   navigate('/superadmin/school-staff-card-template');
+                } else if (isSmartStudents) {
+                  navigate('/superadmin/smart-access/students');
+                } else if (isSmartStaff) {
+                  navigate('/superadmin/smart-access/staff');
                 } else if (isRequirementsPrices) {
                   navigate('/manage-requirements-prices');
                 } else if (isPricesList) {
@@ -858,6 +870,8 @@ function DashboardPage({
         />
       </div>
 
+      <SuperAdminDashboardSchoolPeek navigate={navigate} />
+
       <div className="bg-white border-2 border-amber-100 rounded-2xl shadow-lg p-5">
         <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
           <h3 className="font-bold text-gray-900 text-sm flex items-center gap-2">
@@ -900,11 +914,13 @@ function DashboardPage({
         <h3 className="font-bold text-gray-900 mb-3 text-sm flex items-center gap-2">
           <Star className="w-4 h-4" style={{ color: ACCENT }}/> Quick Actions
         </h3>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
           {[
             { icon: PlusCircle, label: 'Register School',      action: ()=>navigate('/add-school'), color: 'green' },
             { icon: DollarSign, label: 'Set Prices',           action: ()=>navigate('/manage-requirements-prices'), color: 'amber' },
             { icon: FileText,   label: 'Prices List',          action: ()=>navigate('/requirement-prices-list'), color: 'primary' },
+            { icon: GraduationCap, label: 'Student Smart Access', action: ()=>navigate('/superadmin/smart-access/students'), color: 'emerald' },
+            { icon: Fingerprint, label: 'Staff Smart Access', action: ()=>navigate('/superadmin/smart-access/staff'), color: 'teal' },
             { icon: Flag,       label: 'Add NESA Admin',       action: ()=>setPage('nesa'),         color: 'indigo' },
             { icon: MapPin,     label: 'Add DEO Officer',      action: ()=>setPage('deo'),          color: 'violet' },
             { icon: BarChart3,  label: 'View Activity',        action: ()=>setPage('activity'),     color: 'cyan' },
@@ -3708,6 +3724,8 @@ export default function SuperAdminDashboard() {
                 const isSchoolStudentsCard = item.id === 'school-students-card';
                 const isStudentCardTemplate2 = item.id === 'student-card-template-2';
                 const isSchoolStaffCardTemplate = item.id === 'school-staff-card-template';
+                const isSmartStudents = item.id === 'smart-access-students';
+                const isSmartStaff = item.id === 'smart-access-staff';
                 return (
                   <button key={item.id}
                     onClick={() => {
@@ -3726,6 +3744,8 @@ export default function SuperAdminDashboard() {
                       else if (isSchoolStudentsCard) { navigate('/superadmin/school-students-card'); }
                       else if (isStudentCardTemplate2) { navigate('/superadmin/student-card-template-2'); }
                       else if (isSchoolStaffCardTemplate) { navigate('/superadmin/school-staff-card-template'); }
+                      else if (isSmartStudents) { navigate('/superadmin/smart-access/students'); }
+                      else if (isSmartStaff) { navigate('/superadmin/smart-access/staff'); }
                       else if (isRequirementsPrices) { navigate('/manage-requirements-prices'); }
                       else if (isPricesList) { navigate('/requirement-prices-list'); }
                       else if (isInvoices) { navigate('/invoices'); }

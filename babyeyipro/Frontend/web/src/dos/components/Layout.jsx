@@ -12,9 +12,11 @@ const DashboardLayout = ({ children, title }) => {
   return (
     <div className="flex h-screen bg-re-bg font-sans overflow-hidden">
       {/* Sidebar — Desktop */}
-      {!isChatFocused && <div className="hidden lg:block w-64 flex-shrink-0">
-        <Sidebar />
-      </div>}
+      {!isChatFocused && (
+        <div className="hidden lg:flex w-[304px] shrink-0 min-h-0 h-full flex-col overflow-hidden bg-[#0b1530]">
+          <Sidebar />
+        </div>
+      )}
 
       {/* Sidebar — Mobile overlay */}
       {!isChatFocused && isSidebarOpen && (
@@ -23,12 +25,15 @@ const DashboardLayout = ({ children, title }) => {
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
-      {!isChatFocused && <div
-        className={`fixed inset-y-0 left-0 z-50 w-72 transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] lg:hidden ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+      {!isChatFocused && (
+        <div
+          className={`fixed inset-y-0 left-0 z-50 w-[304px] max-w-[88vw] flex flex-col min-h-0 overflow-hidden bg-[#0b1530] transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] lg:hidden ${
+            isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
-      >
-        <Sidebar onClose={() => setIsSidebarOpen(false)} />
-      </div>}
+        >
+          <Sidebar onClose={() => setIsSidebarOpen(false)} />
+        </div>
+      )}
 
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">

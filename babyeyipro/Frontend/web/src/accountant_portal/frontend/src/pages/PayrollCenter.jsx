@@ -84,11 +84,11 @@ function RegisterStaffModal({ open, onClose, onSubmit, nextStaffCode }) {
     <div className="fixed inset-0 z-[240]">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="absolute inset-0 flex items-center justify-center p-4">
-        <div className="w-full max-w-4xl max-h-[92vh] overflow-y-auto bg-white rounded-3xl border border-black/10 shadow-2xl">
+        <div className="w-full max-w-4xl max-h-[92vh] overflow-y-auto bg-white rounded-3xl border border-black/10 shadow-sm">
           <div className="px-5 py-4 border-b border-black/5 flex items-center justify-between">
             <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#000435]">Staff Registration Wizard</p>
-              <h3 className="text-lg font-black text-[#000435]">Step {step} of 4</h3>
+              <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-[#000435]">Staff Registration Wizard</p>
+              <h3 className="text-lg font-medium text-[#000435]">Step {step} of 4</h3>
             </div>
             <button onClick={onClose} className="h-9 w-9 rounded-xl border border-black/10 flex items-center justify-center"><X size={14} /></button>
           </div>
@@ -96,7 +96,7 @@ function RegisterStaffModal({ open, onClose, onSubmit, nextStaffCode }) {
           <div className="p-5">
             {step === 1 && (
               <div className="space-y-3">
-                <p className="text-xs font-black uppercase tracking-widest text-[#000435]">STEP 1: Basic Information</p>
+                <p className="text-xs font-medium uppercase tracking-widest text-[#000435]">STEP 1: Basic Information</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <input className="h-10 rounded-xl border border-black/10 px-3" placeholder="Full Name" value={form.fullName} onChange={(e) => setForm((p) => ({ ...p, fullName: e.target.value }))} />
                   <select className="h-10 rounded-xl border border-black/10 px-3" value={form.gender} onChange={(e) => setForm((p) => ({ ...p, gender: e.target.value }))}><option value="">Gender</option><option>Male</option><option>Female</option></select>
@@ -104,7 +104,7 @@ function RegisterStaffModal({ open, onClose, onSubmit, nextStaffCode }) {
                   <input className="h-10 rounded-xl border border-black/10 px-3" placeholder="Phone Number" value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} />
                   <input className="h-10 rounded-xl border border-black/10 px-3 md:col-span-2" placeholder="Email" value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} />
                   <div className="md:col-span-2 flex items-center gap-3">
-                    <div className="h-16 w-16 rounded-full border border-black/10 bg-white overflow-hidden flex items-center justify-center text-[10px] font-bold text-[#000435]">
+                    <div className="h-16 w-16 rounded-full border border-black/10 bg-white overflow-hidden flex items-center justify-center text-[10px] font-medium text-[#000435]">
                       {form.photo?.name ? form.photo.name.slice(0, 2).toUpperCase() : 'IMG'}
                     </div>
                     <input type="file" accept="image/*" className="h-10 rounded-xl border border-black/10 px-3 py-2 text-xs" onChange={(e) => setForm((p) => ({ ...p, photo: e.target.files?.[0] || null }))} />
@@ -115,7 +115,7 @@ function RegisterStaffModal({ open, onClose, onSubmit, nextStaffCode }) {
 
             {step === 2 && (
               <div className="space-y-3">
-                <p className="text-xs font-black uppercase tracking-widest text-[#000435]">STEP 2: Work Information</p>
+                <p className="text-xs font-medium uppercase tracking-widest text-[#000435]">STEP 2: Work Information</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <input className="h-10 rounded-xl border border-black/10 px-3 bg-white" readOnly value={nextStaffCode} />
                   <select className="h-10 rounded-xl border border-black/10 px-3" value={form.role} onChange={(e) => setForm((p) => ({ ...p, role: e.target.value }))}><option>Teacher</option><option>Accountant</option><option>Admin</option></select>
@@ -129,7 +129,7 @@ function RegisterStaffModal({ open, onClose, onSubmit, nextStaffCode }) {
 
             {step === 3 && (
               <div className="space-y-3">
-                <p className="text-xs font-black uppercase tracking-widest text-[#000435]">STEP 3: Salary Details</p>
+                <p className="text-xs font-medium uppercase tracking-widest text-[#000435]">STEP 3: Salary Details</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <input className="h-10 rounded-xl border border-black/10 px-3" placeholder="Basic Salary" value={form.basicSalary} onChange={(e) => setForm((p) => ({ ...p, basicSalary: e.target.value.replace(/[^\d]/g, '') }))} />
                   <div className="grid grid-cols-2 gap-2">
@@ -139,7 +139,7 @@ function RegisterStaffModal({ open, onClose, onSubmit, nextStaffCode }) {
                   {extraAllowances.map((item, idx) => (
                     <div key={`other-${idx}`} className="md:col-span-2 grid grid-cols-[1fr_auto] gap-2">
                       <input className="h-10 rounded-xl border border-black/10 px-3" placeholder={`Other allowance ${idx + 1}`} value={item.amount} onChange={(e) => setExtraAllowances((prev) => prev.map((x, i) => (i === idx ? { ...x, amount: e.target.value.replace(/[^\d]/g, '') } : x)))} />
-                      <button className="h-10 px-3 rounded-xl border border-black/10 text-[10px] font-black uppercase" onClick={() => setExtraAllowances((prev) => [...prev, { key: 'Other', amount: '' }])}>Add</button>
+                      <button className="h-10 px-3 rounded-xl border border-black/10 text-[10px] font-medium uppercase" onClick={() => setExtraAllowances((prev) => [...prev, { key: 'Other', amount: '' }])}>Add</button>
                     </div>
                   ))}
                   <select className="h-10 rounded-xl border border-black/10 px-3" value={form.paymentMethod} onChange={(e) => setForm((p) => ({ ...p, paymentMethod: e.target.value }))}><option>Bank</option><option>Mobile Money</option></select>
@@ -154,7 +154,7 @@ function RegisterStaffModal({ open, onClose, onSubmit, nextStaffCode }) {
 
             {step === 4 && (
               <div className="space-y-2 text-sm">
-                <p className="text-xs font-black uppercase tracking-widest text-[#000435]">STEP 5: Review & Submit</p>
+                <p className="text-xs font-medium uppercase tracking-widest text-[#000435]">STEP 5: Review & Submit</p>
                 <p><strong>Personal Info:</strong> {payload.fullName} · {payload.gender} · {payload.phone} · {payload.email}</p>
                 <p><strong>Job Info:</strong> {payload.staffCode} · {payload.role} · {payload.department} · {payload.contractType} · {payload.status}</p>
                 <p><strong>Salary:</strong> {formatMoney(payload.basicSalary)} basic + {formatMoney(payload.allowances)} allowances</p>
@@ -164,15 +164,15 @@ function RegisterStaffModal({ open, onClose, onSubmit, nextStaffCode }) {
           </div>
 
           <div className="px-5 py-4 border-t border-black/5 flex items-center justify-between">
-            <button onClick={() => setStep((s) => Math.max(1, s - 1))} className="h-10 px-4 rounded-xl border border-black/10 text-xs font-black uppercase tracking-widest">
+            <button onClick={() => setStep((s) => Math.max(1, s - 1))} className="h-10 px-4 rounded-xl border border-black/10 text-xs font-medium uppercase tracking-widest">
               Back
             </button>
             {step < 4 ? (
-              <button disabled={!canNext} onClick={() => setStep((s) => s + 1)} className="h-10 px-4 rounded-xl bg-[#000435] text-white text-xs font-black uppercase tracking-widest disabled:opacity-40">
+              <button disabled={!canNext} onClick={() => setStep((s) => s + 1)} className="h-10 px-4 rounded-xl bg-[#000435] text-white text-xs font-medium uppercase tracking-widest disabled:opacity-40">
                 Next
               </button>
             ) : (
-              <button onClick={() => onSubmit(payload)} className="h-10 px-4 rounded-xl bg-emerald-600 text-white text-xs font-black uppercase tracking-widest">
+              <button onClick={() => onSubmit(payload)} className="h-10 px-4 rounded-xl bg-emerald-600 text-white text-xs font-medium uppercase tracking-widest">
                 Submit
               </button>
             )}
@@ -377,8 +377,8 @@ export default function PayrollCenter() {
   return (
     <div className="min-h-screen bg-re-bg px-4 sm:px-6 lg:px-8 py-6 space-y-4" style={{ fontFamily: "'Montserrat', sans-serif" }}>
       <div className="rounded-3xl bg-gradient-to-r from-[#000435] to-[#0D2644] p-6 text-white border border-[#000435]/40">
-        <p className="text-[10px] uppercase tracking-[0.2em] text-amber-300 font-black">Payroll Center</p>
-        <h1 className="text-2xl sm:text-3xl font-black mt-2">Modern Payroll Management</h1>
+        <p className="text-[10px] uppercase tracking-[0.2em] text-amber-300 font-medium">Payroll Center</p>
+        <h1 className="text-2xl sm:text-3xl font-medium mt-2">Modern Payroll Management</h1>
         <p className="text-xs sm:text-sm text-[#000435] mt-2 max-w-3xl">Register staff, process monthly payroll, and generate professional salary slips.</p>
       </div>
 
@@ -387,7 +387,7 @@ export default function PayrollCenter() {
           <button
             key={key}
             onClick={() => setTab(key)}
-            className={`h-9 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest border ${tab === key ? 'bg-[#000435] text-white border-[#000435]' : 'bg-white border-black/10 text-[#000435]'}`}
+            className={`h-9 px-4 rounded-xl text-[10px] font-medium uppercase tracking-widest border ${tab === key ? 'bg-[#000435] text-white border-[#000435]' : 'bg-white border-black/10 text-[#000435]'}`}
           >
             {label}
           </button>
@@ -397,33 +397,33 @@ export default function PayrollCenter() {
       {tab === 'staff' && (
         <div className="rounded-2xl border border-black/5 bg-white p-4 sm:p-5">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-black text-[#000435]">Register staff in guided steps</p>
-            <button onClick={() => setRegisterOpen(true)} className="h-10 px-4 rounded-xl bg-[#000435] text-white text-[10px] font-black uppercase tracking-widest inline-flex items-center gap-2">
+            <p className="text-sm font-medium text-[#000435]">Register staff in guided steps</p>
+            <button onClick={() => setRegisterOpen(true)} className="h-10 px-4 rounded-xl bg-[#000435] text-white text-[10px] font-medium uppercase tracking-widest inline-flex items-center gap-2">
               <UserPlus size={13} /> Open Register Modal
             </button>
           </div>
           <p className="text-xs text-[#000435] mt-2">Uses persistent backend endpoint and auto ID format: {nextStaffCode}</p>
-          {!!error && <p className="mt-3 text-xs font-bold text-red-600">{error}</p>}
-          {loading ? <p className="mt-3 text-xs font-bold text-[#000435]">Loading staff…</p> : null}
+          {!!error && <p className="mt-3 text-xs font-medium text-red-600">{error}</p>}
+          {loading ? <p className="mt-3 text-xs font-medium text-[#000435]">Loading staff…</p> : null}
         </div>
       )}
 
       {tab === 'payroll' && (
         <div className="rounded-2xl border border-black/5 bg-white p-4 sm:p-5 space-y-3">
           <div className="flex flex-wrap gap-2 items-center">
-            <select value={month} onChange={(e) => setMonth(e.target.value)} className="h-9 px-3 rounded-xl border border-black/10 text-xs font-bold">{Array.from({ length: 12 }, (_, i) => i + 1).map((m) => <option key={m}>{m}</option>)}</select>
-            <input value={year} onChange={(e) => setYear(e.target.value.replace(/[^\d]/g, ''))} className="h-9 w-28 px-3 rounded-xl border border-black/10 text-xs font-bold" />
-            <input value={taxRate} onChange={(e) => setTaxRate(e.target.value.replace(/[^\d]/g, ''))} className="h-9 w-24 px-3 rounded-xl border border-black/10 text-xs font-bold" placeholder="Tax %" />
-            <input value={pensionRate} onChange={(e) => setPensionRate(e.target.value.replace(/[^\d]/g, ''))} className="h-9 w-24 px-3 rounded-xl border border-black/10 text-xs font-bold" placeholder="Pension %" />
+            <select value={month} onChange={(e) => setMonth(e.target.value)} className="h-9 px-3 rounded-xl border border-black/10 text-xs font-medium">{Array.from({ length: 12 }, (_, i) => i + 1).map((m) => <option key={m}>{m}</option>)}</select>
+            <input value={year} onChange={(e) => setYear(e.target.value.replace(/[^\d]/g, ''))} className="h-9 w-28 px-3 rounded-xl border border-black/10 text-xs font-medium" />
+            <input value={taxRate} onChange={(e) => setTaxRate(e.target.value.replace(/[^\d]/g, ''))} className="h-9 w-24 px-3 rounded-xl border border-black/10 text-xs font-medium" placeholder="Tax %" />
+            <input value={pensionRate} onChange={(e) => setPensionRate(e.target.value.replace(/[^\d]/g, ''))} className="h-9 w-24 px-3 rounded-xl border border-black/10 text-xs font-medium" placeholder="Pension %" />
             <div className="relative">
               <Search size={13} className="absolute left-2 top-1/2 -translate-y-1/2 text-[#000435]" />
-              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search staff" className="h-9 pl-7 pr-3 rounded-xl border border-black/10 text-xs font-bold" />
+              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search staff" className="h-9 pl-7 pr-3 rounded-xl border border-black/10 text-xs font-medium" />
             </div>
-            <select value={departmentFilter} onChange={(e) => setDepartmentFilter(e.target.value)} className="h-9 px-3 rounded-xl border border-black/10 text-xs font-bold">
+            <select value={departmentFilter} onChange={(e) => setDepartmentFilter(e.target.value)} className="h-9 px-3 rounded-xl border border-black/10 text-xs font-medium">
               {['All', ...Array.from(new Set(staff.map((s) => s.department)))].map((d) => <option key={d}>{d}</option>)}
             </select>
-            <button onClick={bulkPayAll} className="h-9 px-3 rounded-xl bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest">Pay All</button>
-            <button onClick={exportCsv} className="h-9 px-3 rounded-xl border border-black/10 bg-white text-[10px] font-black uppercase tracking-widest inline-flex items-center gap-1"><Download size={12} /> Export CSV</button>
+            <button onClick={bulkPayAll} className="h-9 px-3 rounded-xl bg-emerald-600 text-white text-[10px] font-medium uppercase tracking-widest">Pay All</button>
+            <button onClick={exportCsv} className="h-9 px-3 rounded-xl border border-black/10 bg-white text-[10px] font-medium uppercase tracking-widest inline-flex items-center gap-1"><Download size={12} /> Export CSV</button>
           </div>
 
           <div className="overflow-x-auto">
@@ -436,17 +436,17 @@ export default function PayrollCenter() {
               <tbody>
                 {activePayrollRows.map((row) => (
                   <tr key={row.staffId} className="border-b border-black/5 text-sm">
-                    <td className="py-2 font-bold text-[#000435]">{row.fullName}</td>
+                    <td className="py-2 font-medium text-[#000435]">{row.fullName}</td>
                     <td>{formatMoney(row.grossSalary)}</td>
                     <td>{formatMoney(row.deductions)}</td>
-                    <td className="font-bold">{formatMoney(row.netSalary)}</td>
+                    <td className="font-medium">{formatMoney(row.netSalary)}</td>
                     <td>
-                      <span className={`px-2 py-1 rounded-full text-[10px] font-black uppercase ${row.paymentStatus === 'Paid' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                      <span className={`px-2 py-1 rounded-full text-[10px] font-medium uppercase ${row.paymentStatus === 'Paid' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
                         {row.paymentStatus}
                       </span>
                     </td>
                     <td className="text-right">
-                      <button onClick={() => { savePayrollRow(row); setSlipStaff(row); }} className="text-xs font-bold text-[#000435] hover:underline">Generate Slip</button>
+                      <button onClick={() => { savePayrollRow(row); setSlipStaff(row); }} className="text-xs font-medium text-[#000435] hover:underline">Generate Slip</button>
                     </td>
                   </tr>
                 ))}
@@ -460,15 +460,15 @@ export default function PayrollCenter() {
         <div className="rounded-2xl border border-black/5 bg-white p-4 sm:p-5 grid grid-cols-1 md:grid-cols-2 gap-3">
           {activePayrollRows.map((row) => (
             <div key={`slip-${row.staffId}`} className="border border-black/10 rounded-xl p-3">
-              <p className="font-black text-[#000435]">{row.fullName}</p>
+              <p className="font-medium text-[#000435]">{row.fullName}</p>
               <p className="text-xs text-[#000435]">{row.staffId} · {row.role} · {row.department}</p>
               <p className="text-xs mt-1">Earnings: {formatMoney(row.grossSalary)}</p>
               <p className="text-xs">Deductions: {formatMoney(row.deductions)}</p>
-              <p className="text-xs font-black">Net Pay: {formatMoney(row.netSalary)}</p>
+              <p className="text-xs font-medium">Net Pay: {formatMoney(row.netSalary)}</p>
               <div className="mt-3 flex flex-wrap gap-2">
-                <button onClick={() => exportPdfSlip(row)} className="h-8 px-3 rounded-lg bg-[#000435] text-white text-[10px] font-black uppercase">Download PDF</button>
-                <button onClick={() => emailSlip(row)} className="h-8 px-3 rounded-lg border border-black/10 text-[10px] font-black uppercase inline-flex items-center gap-1"><Mail size={12} /> Email</button>
-                <button className="h-8 px-3 rounded-lg border border-black/10 text-[10px] font-black uppercase inline-flex items-center gap-1"><Printer size={12} /> Print</button>
+                <button onClick={() => exportPdfSlip(row)} className="h-8 px-3 rounded-lg bg-[#000435] text-white text-[10px] font-medium uppercase">Download PDF</button>
+                <button onClick={() => emailSlip(row)} className="h-8 px-3 rounded-lg border border-black/10 text-[10px] font-medium uppercase inline-flex items-center gap-1"><Mail size={12} /> Email</button>
+                <button className="h-8 px-3 rounded-lg border border-black/10 text-[10px] font-medium uppercase inline-flex items-center gap-1"><Printer size={12} /> Print</button>
               </div>
             </div>
           ))}
@@ -478,10 +478,10 @@ export default function PayrollCenter() {
       {slipStaff && (
         <div className="fixed inset-0 z-[220] bg-black/45 flex items-center justify-center p-4" onClick={() => setSlipStaff(null)}>
           <div className="w-full max-w-md rounded-2xl bg-white p-5 border border-black/10" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-black text-[#000435]">Salary Slip Preview</h3>
+            <h3 className="text-lg font-medium text-[#000435]">Salary Slip Preview</h3>
             <p className="text-sm mt-2">{slipStaff.fullName} ({slipStaff.staffId})</p>
             <p className="text-sm">Net Pay: <strong>{formatMoney(slipStaff.netSalary)}</strong></p>
-            <button onClick={() => exportPdfSlip(slipStaff)} className="mt-4 h-9 px-4 rounded-xl bg-[#000435] text-white text-[10px] font-black uppercase tracking-widest">Download PDF</button>
+            <button onClick={() => exportPdfSlip(slipStaff)} className="mt-4 h-9 px-4 rounded-xl bg-[#000435] text-white text-[10px] font-medium uppercase tracking-widest">Download PDF</button>
           </div>
         </div>
       )}

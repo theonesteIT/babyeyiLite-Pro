@@ -9,11 +9,13 @@ import {
   ClipboardList,
   Download,
   Loader2,
+  PieChart,
   RefreshCw,
   Search,
   Wallet,
   XCircle,
 } from 'lucide-react';
+import ManagerOchreHeroShell from '../components/ManagerOchreHeroShell';
 
 function getAcademicYears() {
   const now = new Date().getFullYear();
@@ -116,7 +118,7 @@ function Toast({ toast }) {
   const error = toast.type === 'error';
   return (
     <div className="fixed top-4 right-4 z-[300] max-w-sm w-[calc(100%-2rem)] sm:w-auto">
-      <div className={`rounded-xl border px-4 py-3 text-[11px] font-black uppercase tracking-wide shadow-xl ${error ? 'bg-red-50 text-red-700 border-red-100' : 'bg-emerald-50 text-emerald-700 border-emerald-100'}`}>
+      <div className={`rounded-xl border px-4 py-3 text-[11px] font-semibold uppercase tracking-wide shadow-sm ${error ? 'bg-red-50 text-red-700 border-red-100' : 'bg-emerald-50 text-emerald-700 border-emerald-100'}`}>
         {toast.message}
       </div>
     </div>
@@ -129,9 +131,9 @@ function DecisionModal({ open, title, actionLabel, loading, note, onNoteChange, 
     <div className="fixed inset-0 z-[320]">
       <div className="absolute inset-0 bg-black/45 backdrop-blur-sm" onClick={onCancel} />
       <div className="absolute inset-0 flex items-center justify-center p-4">
-        <div className="w-full max-w-lg bg-white rounded-2xl border border-black/10 shadow-2xl overflow-hidden">
+        <div className="w-full max-w-lg bg-white rounded-2xl border border-black/10 shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-black/5">
-            <h3 className="text-sm font-black uppercase tracking-wider text-[#1E3A5F]">{title}</h3>
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-[#1E3A5F]">{title}</h3>
             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-1">
               Optional note for manager decision
             </p>
@@ -149,7 +151,7 @@ function DecisionModal({ open, title, actionLabel, loading, note, onNoteChange, 
               type="button"
               onClick={onCancel}
               disabled={loading}
-              className="h-9 px-3 rounded-xl border border-black/10 bg-white text-[10px] font-black uppercase tracking-wider text-slate-600 disabled:opacity-50"
+              className="h-9 px-3 rounded-xl border border-black/10 bg-white text-[10px] font-semibold uppercase tracking-wider text-slate-600 disabled:opacity-50"
             >
               Cancel
             </button>
@@ -157,7 +159,7 @@ function DecisionModal({ open, title, actionLabel, loading, note, onNoteChange, 
               type="button"
               onClick={onConfirm}
               disabled={loading}
-              className="h-9 px-4 rounded-xl bg-[#1E3A5F] text-white text-[10px] font-black uppercase tracking-wider disabled:opacity-50"
+              className="h-9 px-4 rounded-xl bg-[#1E3A5F] text-white text-[10px] font-semibold uppercase tracking-wider disabled:opacity-50"
             >
               {loading ? 'Saving…' : actionLabel}
             </button>
@@ -473,8 +475,15 @@ export default function FinanceCenter() {
     setToast({ type: 'success', message: 'Excel export downloaded.' });
   };
 
+  const financeKpiTiles = [
+    { key: 'Pending expenses', label: 'Pending expenses', value: headerStats.pendingExpenses, icon: Wallet },
+    { key: 'Pending requisitions', label: 'Pending requisitions', value: headerStats.pendingReq, icon: ClipboardList },
+    { key: 'Payroll total', label: 'Payroll total', value: money(headerStats.payrollTotal), icon: Briefcase },
+    { key: 'Staff presence avg', label: 'Staff presence avg', value: `${headerStats.staffPresenceAvg}%`, icon: CheckCircle2 },
+  ];
+
   return (
-    <div className="animate-in fade-in duration-500 bg-re-bg min-h-screen pb-20">
+    <>
       <Toast toast={toast} />
       <DecisionModal
         open={decisionModal.open}
@@ -492,34 +501,16 @@ export default function FinanceCenter() {
         onCancel={() => setDecisionModal({ open: false, kind: 'expense', row: null, decision: '', note: '' })}
         onConfirm={submitExpenseDecision}
       />
-      <section className="relative min-h-[220px] overflow-hidden bg-[#000435]">
-        <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full border border-white/5 pointer-events-none" />
-        <div className="absolute -top-12 -right-12 w-64 h-64 rounded-full border border-white/5 pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-[#FEBF10]/30 to-transparent pointer-events-none" />
-        <div className="relative z-20 max-w-[1500px] mx-auto px-4 md:px-8 py-12 text-white">
-          <p className="text-[10px] uppercase text-center tracking-[0.3em] font-black text-[#FEBF10]">School Manager</p>
-          <h1 className="text-2xl md:text-2xl text-center font-black uppercase tracking-tight mt-2">Finance approvals & reports</h1>
-          
-        </div>
-      </section>
-
-      <div className="max-w-[1500px] mx-auto px-4 md:px-8 -mt-10 relative z-30">
-        <div className="bg-white rounded-3xl border border-black/5 shadow-2xl overflow-hidden">
-          <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-y lg:divide-y-0 divide-black/5">
-            {[
-              { label: 'Pending expenses', value: headerStats.pendingExpenses, icon: Wallet },
-              { label: 'Pending requisitions', value: headerStats.pendingReq, icon: ClipboardList },
-              { label: 'Payroll total', value: money(headerStats.payrollTotal), icon: Briefcase },
-              { label: 'Staff presence avg', value: `${headerStats.staffPresenceAvg}%`, icon: CheckCircle2 },
-            ].map((s) => (
-              <div key={s.label} className="p-4 sm:p-6 text-center">
-                <s.icon size={14} className="mx-auto text-[#1E3A5F] opacity-60 mb-2" />
-                <p className="text-lg font-black text-[#1E3A5F]">{s.value}</p>
-                <p className="text-[9px] uppercase tracking-widest font-black text-slate-400">{s.label}</p>
-              </div>
-            ))}
-          </div>
-
+      <ManagerOchreHeroShell
+        outerClassName="animate-in fade-in duration-500 bg-re-bg min-h-screen pb-20"
+        eyebrow="School manager"
+        title="Financial overview"
+        subtitle="Approvals & operational reports"
+        HeroIcon={PieChart}
+        kpiTiles={financeKpiTiles}
+        overlapClassName="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 -mt-4 sm:-mt-5 pt-2 relative z-20 mb-6"
+        cardBody={(
+          <>
           <div className="p-4 border-t border-black/5 bg-slate-50 flex flex-col gap-3">
             <div className="flex flex-wrap gap-2">
               {[
@@ -533,7 +524,7 @@ export default function FinanceCenter() {
                   key={id}
                   type="button"
                   onClick={() => setActiveTab(id)}
-                  className={`h-9 px-3 rounded-xl text-[10px] font-black uppercase tracking-wider border ${activeTab === id ? 'bg-[#1E3A5F] text-white border-[#1E3A5F]' : 'bg-white text-slate-600 border-black/10 hover:bg-slate-50'}`}
+                  className={`h-9 px-3 rounded-xl text-[10px] font-semibold uppercase tracking-wider border ${activeTab === id ? 'bg-[#1E3A5F] text-white border-[#1E3A5F]' : 'bg-white text-slate-600 border-black/10 hover:bg-slate-50'}`}
                 >
                   {label}
                 </button>
@@ -565,7 +556,7 @@ export default function FinanceCenter() {
                         key={`${activeTab}-${value}`}
                         type="button"
                         onClick={onPick}
-                        className={`h-8 px-3 rounded-xl text-[10px] font-black uppercase tracking-wider border ${current === value
+                        className={`h-8 px-3 rounded-xl text-[10px] font-semibold uppercase tracking-wider border ${current === value
                             ? 'bg-[#1E3A5F] text-white border-[#1E3A5F]'
                             : 'bg-white text-slate-600 border-black/10 hover:bg-slate-50'
                           }`}
@@ -587,33 +578,33 @@ export default function FinanceCenter() {
                   className="w-full h-10 rounded-xl border border-black/10 pl-9 pr-3 text-[11px] font-bold text-slate-700 outline-none focus:border-[#1E3A5F]/30"
                 />
               </div>
-              <select value={academicYear} onChange={(e) => setAcademicYear(e.target.value)} className="h-10 rounded-xl border border-black/10 px-3 text-[10px] font-black uppercase tracking-wider">
+              <select value={academicYear} onChange={(e) => setAcademicYear(e.target.value)} className="h-10 rounded-xl border border-black/10 px-3 text-[10px] font-semibold uppercase tracking-wider">
                 {getAcademicYears().map((y) => <option key={y} value={y}>{y === 'ALL' ? 'All Years' : y}</option>)}
               </select>
-              <select value={term} onChange={(e) => setTerm(e.target.value)} className="h-10 rounded-xl border border-black/10 px-3 text-[10px] font-black uppercase tracking-wider">
+              <select value={term} onChange={(e) => setTerm(e.target.value)} className="h-10 rounded-xl border border-black/10 px-3 text-[10px] font-semibold uppercase tracking-wider">
                 <option>All Terms</option>
                 <option>Term 1</option>
                 <option>Term 2</option>
                 <option>Term 3</option>
                 <option>Annual</option>
               </select>
-              <input type="date" value={specificDate} onChange={(e) => setSpecificDate(e.target.value)} className="h-10 rounded-xl border border-black/10 px-3 text-[10px] font-black uppercase tracking-wider" />
-              <button type="button" onClick={loadData} disabled={loading} className="h-10 rounded-xl border border-black/10 bg-white text-[10px] font-black uppercase tracking-wider text-[#1E3A5F] hover:bg-slate-50 disabled:opacity-50 flex items-center justify-center gap-2">
+              <input type="date" value={specificDate} onChange={(e) => setSpecificDate(e.target.value)} className="h-10 rounded-xl border border-black/10 px-3 text-[10px] font-semibold uppercase tracking-wider" />
+              <button type="button" onClick={loadData} disabled={loading} className="h-10 rounded-xl border border-black/10 bg-white text-[10px] font-semibold uppercase tracking-wider text-[#1E3A5F] hover:bg-slate-50 disabled:opacity-50 flex items-center justify-center gap-2">
                 <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
                 Refresh
               </button>
             </div>
 
             <div className="grid grid-cols-2 gap-2">
-              <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="h-9 rounded-xl border border-black/10 px-3 text-[10px] font-black uppercase tracking-wider" />
-              <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="h-9 rounded-xl border border-black/10 px-3 text-[10px] font-black uppercase tracking-wider" />
+              <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="h-9 rounded-xl border border-black/10 px-3 text-[10px] font-semibold uppercase tracking-wider" />
+              <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="h-9 rounded-xl border border-black/10 px-3 text-[10px] font-semibold uppercase tracking-wider" />
             </div>
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={handleExportCsv}
                 disabled={loading || !exportConfig.rows.length}
-                className="h-9 px-3 rounded-xl border border-black/10 bg-white text-[10px] font-black uppercase tracking-wider text-[#1E3A5F] hover:bg-slate-50 disabled:opacity-40 flex items-center gap-2"
+                className="h-9 px-3 rounded-xl border border-black/10 bg-white text-[10px] font-semibold uppercase tracking-wider text-[#1E3A5F] hover:bg-slate-50 disabled:opacity-40 flex items-center gap-2"
               >
                 <Download size={13} />
                 Export CSV
@@ -622,7 +613,7 @@ export default function FinanceCenter() {
                 type="button"
                 onClick={handleExportPdf}
                 disabled={loading || !exportConfig.rows.length}
-                className="h-9 px-3 rounded-xl border border-black/10 bg-white text-[10px] font-black uppercase tracking-wider text-[#1E3A5F] hover:bg-slate-50 disabled:opacity-40 flex items-center gap-2"
+                className="h-9 px-3 rounded-xl border border-black/10 bg-white text-[10px] font-semibold uppercase tracking-wider text-[#1E3A5F] hover:bg-slate-50 disabled:opacity-40 flex items-center gap-2"
               >
                 <Download size={13} />
                 Export PDF
@@ -631,12 +622,12 @@ export default function FinanceCenter() {
                 type="button"
                 onClick={handleExportExcel}
                 disabled={loading || !exportConfig.rows.length}
-                className="h-9 px-3 rounded-xl border border-black/10 bg-white text-[10px] font-black uppercase tracking-wider text-[#1E3A5F] hover:bg-slate-50 disabled:opacity-40 flex items-center gap-2"
+                className="h-9 px-3 rounded-xl border border-black/10 bg-white text-[10px] font-semibold uppercase tracking-wider text-[#1E3A5F] hover:bg-slate-50 disabled:opacity-40 flex items-center gap-2"
               >
                 <Download size={13} />
                 Export Excel
               </button>
-              <span className="h-9 inline-flex items-center text-[10px] font-black uppercase tracking-wider text-slate-400">
+              <span className="h-9 inline-flex items-center text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                 Rows: {exportConfig.rows.length}
               </span>
             </div>
@@ -646,7 +637,7 @@ export default function FinanceCenter() {
             {loading ? (
               <div className="py-16 flex items-center justify-center gap-2 text-slate-500">
                 <Loader2 size={18} className="animate-spin" />
-                <span className="text-[11px] font-black uppercase tracking-widest">Loading manager workspace...</span>
+                <span className="text-[11px] font-semibold uppercase tracking-widest">Loading manager workspace...</span>
               </div>
             ) : (
               <>
@@ -669,14 +660,14 @@ export default function FinanceCenter() {
                           const rejectBusy = busyKey === `exp:${r.db_id}:rejected`;
                           return (
                             <tr key={r.id} className="border-b border-black/5">
-                              <td className="py-3 font-black text-[#1E3A5F]">{r.title || r.id}</td>
+                              <td className="py-3 font-semibold text-[#1E3A5F]">{r.title || r.id}</td>
                               <td className="py-3">{r.vendor || '—'}</td>
                               <td className="py-3 font-bold">{money(r.amount)}</td>
-                              <td className="py-3 uppercase font-black text-[10px]">{r.status}</td>
+                              <td className="py-3 uppercase font-semibold text-[10px]">{r.status}</td>
                               <td className="py-3">
                                 <div className="flex items-center justify-end gap-2">
-                                  <button disabled={!canDecide || approveBusy || rejectBusy} onClick={() => openExpenseDecisionModal(r, 'approved')} className="h-8 px-3 rounded-lg text-[10px] font-black uppercase bg-emerald-600 text-white disabled:opacity-40">{approveBusy ? 'Saving…' : 'Approve'}</button>
-                                  <button disabled={!canDecide || approveBusy || rejectBusy} onClick={() => openExpenseDecisionModal(r, 'rejected')} className="h-8 px-3 rounded-lg text-[10px] font-black uppercase bg-red-50 text-red-600 border border-red-100 disabled:opacity-40">{rejectBusy ? 'Saving…' : 'Reject'}</button>
+                                  <button disabled={!canDecide || approveBusy || rejectBusy} onClick={() => openExpenseDecisionModal(r, 'approved')} className="h-8 px-3 rounded-lg text-[10px] font-semibold uppercase bg-emerald-600 text-white disabled:opacity-40">{approveBusy ? 'Saving…' : 'Approve'}</button>
+                                  <button disabled={!canDecide || approveBusy || rejectBusy} onClick={() => openExpenseDecisionModal(r, 'rejected')} className="h-8 px-3 rounded-lg text-[10px] font-semibold uppercase bg-red-50 text-red-600 border border-red-100 disabled:opacity-40">{rejectBusy ? 'Saving…' : 'Reject'}</button>
                                 </div>
                               </td>
                             </tr>
@@ -705,14 +696,14 @@ export default function FinanceCenter() {
                           const rejectBusy = busyKey === `req:${r.db_id}:rejected`;
                           return (
                             <tr key={r.id} className="border-b border-black/5">
-                              <td className="py-3 font-black text-[#1E3A5F]">{r.requester}</td>
+                              <td className="py-3 font-semibold text-[#1E3A5F]">{r.requester}</td>
                               <td className="py-3">{r.dept}</td>
                               <td className="py-3 font-bold">{money(r.amount)}</td>
-                              <td className="py-3 uppercase font-black text-[10px]">{r.status}</td>
+                              <td className="py-3 uppercase font-semibold text-[10px]">{r.status}</td>
                               <td className="py-3">
                                 <div className="flex items-center justify-end gap-2">
-                                  <button disabled={approveBusy || rejectBusy} onClick={() => openRequisitionDecisionModal(r, 'approved')} className="h-8 px-3 rounded-lg text-[10px] font-black uppercase bg-emerald-600 text-white disabled:opacity-40">{approveBusy ? 'Saving…' : 'Approve'}</button>
-                                  <button disabled={approveBusy || rejectBusy} onClick={() => openRequisitionDecisionModal(r, 'rejected')} className="h-8 px-3 rounded-lg text-[10px] font-black uppercase bg-red-50 text-red-600 border border-red-100 disabled:opacity-40">{rejectBusy ? 'Saving…' : 'Reject'}</button>
+                                  <button disabled={approveBusy || rejectBusy} onClick={() => openRequisitionDecisionModal(r, 'approved')} className="h-8 px-3 rounded-lg text-[10px] font-semibold uppercase bg-emerald-600 text-white disabled:opacity-40">{approveBusy ? 'Saving…' : 'Approve'}</button>
+                                  <button disabled={approveBusy || rejectBusy} onClick={() => openRequisitionDecisionModal(r, 'rejected')} className="h-8 px-3 rounded-lg text-[10px] font-semibold uppercase bg-red-50 text-red-600 border border-red-100 disabled:opacity-40">{rejectBusy ? 'Saving…' : 'Reject'}</button>
                                 </div>
                               </td>
                             </tr>
@@ -738,10 +729,10 @@ export default function FinanceCenter() {
                       <tbody>
                         {filteredPayroll.map((r) => (
                           <tr key={r.payrollId} className="border-b border-black/5">
-                            <td className="py-3 font-black text-[#1E3A5F]">{r.payrollId}</td>
+                            <td className="py-3 font-semibold text-[#1E3A5F]">{r.payrollId}</td>
                             <td className="py-3">{r.staffName}</td>
                             <td className="py-3">{String(r.month).padStart(2, '0')}/{r.year}</td>
-                            <td className="py-3 uppercase font-black text-[10px]">{r.paymentStatus}</td>
+                            <td className="py-3 uppercase font-semibold text-[10px]">{r.paymentStatus}</td>
                             <td className="py-3 text-right font-bold">{money(r.netSalaryPaid)}</td>
                           </tr>
                         ))}
@@ -754,11 +745,11 @@ export default function FinanceCenter() {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                     {filteredStaffAttendance.map((r) => (
                       <div key={r.id} className="rounded-2xl border border-black/10 p-4 bg-white">
-                        <p className="text-sm font-black text-[#1E3A5F]">{r.name}</p>
-                        <p className="text-[10px] uppercase tracking-widest font-black text-slate-400 mt-1">{r.department}</p>
+                        <p className="text-sm font-semibold text-[#1E3A5F]">{r.name}</p>
+                        <p className="text-[10px] uppercase tracking-widest font-semibold text-slate-400 mt-1">{r.department}</p>
                         <div className="mt-3 flex items-center justify-between">
-                          <span className="text-[10px] font-black uppercase text-slate-500">Presence</span>
-                          <span className="text-lg font-black text-emerald-600">{r.presenceRate}%</span>
+                          <span className="text-[10px] font-semibold uppercase text-slate-500">Presence</span>
+                          <span className="text-lg font-semibold text-emerald-600">{r.presenceRate}%</span>
                         </div>
                       </div>
                     ))}
@@ -769,11 +760,11 @@ export default function FinanceCenter() {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                     {filteredStudentAttendance.map((r) => (
                       <div key={r.id} className="rounded-2xl border border-black/10 p-4 bg-white">
-                        <p className="text-sm font-black text-[#1E3A5F]">{r.class}</p>
-                        <p className="text-[10px] uppercase tracking-widest font-black text-slate-400 mt-1">{r.headTeacher || '—'}</p>
+                        <p className="text-sm font-semibold text-[#1E3A5F]">{r.class}</p>
+                        <p className="text-[10px] uppercase tracking-widest font-semibold text-slate-400 mt-1">{r.headTeacher || '—'}</p>
                         <div className="mt-3 flex items-center justify-between">
-                          <span className="text-[10px] font-black uppercase text-slate-500">Presence</span>
-                          <span className="text-lg font-black text-emerald-600">{r.presenceRate}%</span>
+                          <span className="text-[10px] font-semibold uppercase text-slate-500">Presence</span>
+                          <span className="text-lg font-semibold text-emerald-600">{r.presenceRate}%</span>
                         </div>
                       </div>
                     ))}
@@ -783,13 +774,14 @@ export default function FinanceCenter() {
             )}
           </div>
 
-          <div className="px-4 md:px-6 py-4 border-t border-black/5 bg-slate-50 text-[10px] font-black uppercase tracking-wider text-slate-400 flex flex-wrap items-center gap-2">
+          <div className="px-4 md:px-6 py-4 border-t border-black/5 bg-slate-50 text-[10px] font-semibold uppercase tracking-wider text-slate-400 flex flex-wrap items-center gap-2">
             <Calendar size={13} />
             Date window: {resolvedRange.from || '—'} to {resolvedRange.to || '—'}
           </div>
-        </div>
-      </div>
-    </div>
+          </>
+        )}
+      />
+    </>
   );
 }
 

@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { jsPDF } from 'jspdf';
 import api from '../services/api.js';
-import { PORTAL } from '../config/portal';
 import PortalToast from '../components/PortalToast.jsx';
+import AccountantOchreHero from '../components/AccountantOchreHero';
 import {
   FileText,
   Plus,
@@ -364,8 +364,8 @@ function NewInvoiceModal({ open, onClose, onCreate, config }) {
                 <Plus size={16} />
               </div>
               <div>
-                <h1 className="text-[11px] font-black text-white uppercase tracking-widest leading-none">New Invoice</h1>
-                <p className="text-[7px] font-bold text-white/40 uppercase tracking-tight mt-1">Create a realistic invoice</p>
+                <h1 className="text-[11px] font-medium text-white uppercase tracking-widest leading-none">New Invoice</h1>
+                <p className="text-[7px] font-medium text-white/40 uppercase tracking-tight mt-1">Create a realistic invoice</p>
               </div>
             </div>
             <button onClick={onClose} className="p-1.5 bg-white/5 hover:bg-white/10 rounded-xl transition-all text-white/40 hover:text-re-gold group">
@@ -377,31 +377,31 @@ function NewInvoiceModal({ open, onClose, onCreate, config }) {
         <div className="flex-1 overflow-y-auto custom-scrollbar p-5 md:p-6 space-y-5 bg-re-bg/30">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
-              <p className="text-[9px] font-black text-[#000435] uppercase tracking-[0.2em] mb-1.5 opacity-80 flex items-center gap-1.5">
+              <p className="text-[9px] font-medium text-[#000435] uppercase tracking-[0.2em] mb-1.5 opacity-80 flex items-center gap-1.5">
                 <User size={12} className="text-amber-500/80" /> Student name
               </p>
-              <input value={name} onChange={(e) => setName(e.target.value)} className="w-full h-9 rounded-lg bg-white px-3 outline-none border border-black/5 focus:border-[#000435]/20 transition-all text-[#000435] text-[10px] font-black tracking-tight shadow-inner" />
+              <input value={name} onChange={(e) => setName(e.target.value)} className="w-full h-9 rounded-lg bg-white px-3 outline-none border border-black/5 focus:border-[#000435]/20 transition-all text-[#000435] text-[10px] font-medium tracking-tight shadow-inner" />
             </div>
             <div>
-              <p className="text-[9px] font-black text-[#000435] uppercase tracking-[0.2em] mb-1.5 opacity-80">Student UID</p>
-              <input value={uid} onChange={(e) => setUid(e.target.value)} className="w-full h-9 rounded-lg bg-white px-3 outline-none border border-black/5 focus:border-[#000435]/20 transition-all text-[#000435] text-[10px] font-black tracking-tight shadow-inner" />
+              <p className="text-[9px] font-medium text-[#000435] uppercase tracking-[0.2em] mb-1.5 opacity-80">Student UID</p>
+              <input value={uid} onChange={(e) => setUid(e.target.value)} className="w-full h-9 rounded-lg bg-white px-3 outline-none border border-black/5 focus:border-[#000435]/20 transition-all text-[#000435] text-[10px] font-medium tracking-tight shadow-inner" />
             </div>
             <div>
-              <p className="text-[9px] font-black text-[#000435] uppercase tracking-[0.2em] mb-1.5 opacity-80">Class</p>
-              <input value={cls} onChange={(e) => setCls(e.target.value)} className="w-full h-9 rounded-lg bg-white px-3 outline-none border border-black/5 focus:border-[#000435]/20 transition-all text-[#000435] text-[10px] font-black tracking-tight shadow-inner" />
+              <p className="text-[9px] font-medium text-[#000435] uppercase tracking-[0.2em] mb-1.5 opacity-80">Class</p>
+              <input value={cls} onChange={(e) => setCls(e.target.value)} className="w-full h-9 rounded-lg bg-white px-3 outline-none border border-black/5 focus:border-[#000435]/20 transition-all text-[#000435] text-[10px] font-medium tracking-tight shadow-inner" />
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="md:col-span-2">
-              <p className="text-[9px] font-black text-[#000435] uppercase tracking-[0.2em] mb-1.5 opacity-80 flex items-center gap-1.5">
+              <p className="text-[9px] font-medium text-[#000435] uppercase tracking-[0.2em] mb-1.5 opacity-80 flex items-center gap-1.5">
                 <Calendar size={12} className="text-amber-500/80" /> Due date
               </p>
-              <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="w-full h-9 rounded-lg bg-white px-3 outline-none border border-black/5 focus:border-[#000435]/20 transition-all text-[#000435] text-[10px] font-black tracking-tight shadow-inner" />
+              <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="w-full h-9 rounded-lg bg-white px-3 outline-none border border-black/5 focus:border-[#000435]/20 transition-all text-[#000435] text-[10px] font-medium tracking-tight shadow-inner" />
             </div>
             <div>
-              <p className="text-[9px] font-black text-[#000435] uppercase tracking-[0.2em] mb-1.5 opacity-80">Tax rate</p>
-              <select value={taxRate} onChange={(e) => setTaxRate(Number(e.target.value) || 0)} className="w-full h-9 rounded-lg bg-white px-3 outline-none border border-black/5 focus:border-[#000435]/20 transition-all text-[#000435] text-[10px] font-black tracking-tight shadow-inner">
+              <p className="text-[9px] font-medium text-[#000435] uppercase tracking-[0.2em] mb-1.5 opacity-80">Tax rate</p>
+              <select value={taxRate} onChange={(e) => setTaxRate(Number(e.target.value) || 0)} className="w-full h-9 rounded-lg bg-white px-3 outline-none border border-black/5 focus:border-[#000435]/20 transition-all text-[#000435] text-[10px] font-medium tracking-tight shadow-inner">
                 <option value={0}>0%</option>
                 <option value={0.05}>5%</option>
                 <option value={0.1}>10%</option>
@@ -411,11 +411,11 @@ function NewInvoiceModal({ open, onClose, onCreate, config }) {
 
           <div className="bg-white rounded-3xl border border-black/5 overflow-hidden">
             <div className="px-4 py-3 border-b border-black/5 flex items-center justify-between">
-              <p className="text-[10px] font-black uppercase tracking-widest text-[#000435]">Line items</p>
+              <p className="text-[10px] font-medium uppercase tracking-widest text-[#000435]">Line items</p>
               <button
                 type="button"
                 onClick={() => setItems((prev) => [...prev, { id: `i${prev.length + 1}`, name: '', qty: 1, unitPrice: 0 }])}
-                className="h-8 px-3 rounded-xl flex items-center justify-center gap-2 bg-re-bg border border-black/5 text-[#000435] font-black text-[9px] uppercase tracking-widest hover:bg-white transition-all"
+                className="h-8 px-3 rounded-xl flex items-center justify-center gap-2 bg-re-bg border border-black/5 text-[#000435] font-medium text-[9px] uppercase tracking-widest hover:bg-white transition-all"
               >
                 <Plus size={14} className="text-amber-500" /> Add item
               </button>
@@ -424,10 +424,10 @@ function NewInvoiceModal({ open, onClose, onCreate, config }) {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-re-bg/20 border-b border-black/5">
-                    <th className="px-4 py-2 text-[7px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Item</th>
-                    <th className="px-4 py-2 text-[7px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5 w-24">Qty</th>
-                    <th className="px-4 py-2 text-[7px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5 w-36">Unit</th>
-                    <th className="px-4 py-2 text-right text-[7px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 w-36">Amount</th>
+                    <th className="px-4 py-2 text-[7px] font-medium text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Item</th>
+                    <th className="px-4 py-2 text-[7px] font-medium text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5 w-24">Qty</th>
+                    <th className="px-4 py-2 text-[7px] font-medium text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5 w-36">Unit</th>
+                    <th className="px-4 py-2 text-right text-[7px] font-medium text-re-text-muted uppercase tracking-[0.2em] opacity-40 w-36">Amount</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-black/5">
@@ -437,7 +437,7 @@ function NewInvoiceModal({ open, onClose, onCreate, config }) {
                         <input
                           value={it.name}
                           onChange={(e) => setItems((prev) => prev.map((p) => (p.id === it.id ? { ...p, name: e.target.value } : p)))}
-                          className="w-full h-8 rounded-lg bg-re-bg px-3 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[10px] font-black tracking-tight shadow-inner"
+                          className="w-full h-8 rounded-lg bg-re-bg px-3 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[10px] font-medium tracking-tight shadow-inner"
                         />
                       </td>
                       <td className="px-4 py-2 border-r border-black/5">
@@ -446,7 +446,7 @@ function NewInvoiceModal({ open, onClose, onCreate, config }) {
                           min="0"
                           value={it.qty}
                           onChange={(e) => setItems((prev) => prev.map((p) => (p.id === it.id ? { ...p, qty: Number(e.target.value) } : p)))}
-                          className="w-full h-8 rounded-lg bg-re-bg px-3 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[10px] font-black tracking-tight shadow-inner"
+                          className="w-full h-8 rounded-lg bg-re-bg px-3 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[10px] font-medium tracking-tight shadow-inner"
                         />
                       </td>
                       <td className="px-4 py-2 border-r border-black/5">
@@ -455,13 +455,13 @@ function NewInvoiceModal({ open, onClose, onCreate, config }) {
                           min="0"
                           value={it.unitPrice}
                           onChange={(e) => setItems((prev) => prev.map((p) => (p.id === it.id ? { ...p, unitPrice: Number(e.target.value) } : p)))}
-                          className="w-full h-8 rounded-lg bg-re-bg px-3 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[10px] font-black tracking-tight shadow-inner"
+                          className="w-full h-8 rounded-lg bg-re-bg px-3 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[10px] font-medium tracking-tight shadow-inner"
                         />
                       </td>
                       <td className="px-4 py-2 text-right">
-                        <p className="text-[10px] font-black text-[#000435]">
+                        <p className="text-[10px] font-medium text-[#000435]">
                           {formatMoneyRWF((Number(it.qty) || 0) * (Number(it.unitPrice) || 0)).replace('RWF', '').trim()}
-                          <span className="ml-1 text-[8px] font-black text-[#000435]/60 uppercase tracking-widest">RWF</span>
+                          <span className="ml-1 text-[8px] font-medium text-[#000435]/60 uppercase tracking-widest">RWF</span>
                         </p>
                       </td>
                     </tr>
@@ -471,26 +471,26 @@ function NewInvoiceModal({ open, onClose, onCreate, config }) {
             </div>
             <div className="px-4 py-3 border-t border-black/5 flex items-center justify-end gap-6">
               <div className="text-right">
-                <p className="text-[8px] font-black text-re-text-muted uppercase tracking-[0.22em] opacity-40">Subtotal</p>
-                <p className="text-[12px] font-black text-[#000435]">{formatCompactMoneyRWF(totals.subTotal)}</p>
+                <p className="text-[8px] font-medium text-re-text-muted uppercase tracking-[0.22em] opacity-40">Subtotal</p>
+                <p className="text-[12px] font-medium text-[#000435]">{formatCompactMoneyRWF(totals.subTotal)}</p>
               </div>
               <div className="text-right">
-                <p className="text-[8px] font-black text-re-text-muted uppercase tracking-[0.22em] opacity-40">Tax</p>
-                <p className="text-[12px] font-black text-[#000435]">{formatCompactMoneyRWF(totals.tax)}</p>
+                <p className="text-[8px] font-medium text-re-text-muted uppercase tracking-[0.22em] opacity-40">Tax</p>
+                <p className="text-[12px] font-medium text-[#000435]">{formatCompactMoneyRWF(totals.tax)}</p>
               </div>
               <div className="text-right">
-                <p className="text-[8px] font-black text-re-text-muted uppercase tracking-[0.22em] opacity-40">Total</p>
-                <p className="text-[14px] font-black text-emerald-600">{formatCompactMoneyRWF(totals.total)}</p>
+                <p className="text-[8px] font-medium text-re-text-muted uppercase tracking-[0.22em] opacity-40">Total</p>
+                <p className="text-[14px] font-medium text-emerald-600">{formatCompactMoneyRWF(totals.total)}</p>
               </div>
             </div>
           </div>
 
           <div>
-            <p className="text-[9px] font-black text-[#000435] uppercase tracking-[0.2em] mb-1.5 opacity-80">Terms / Notes</p>
-            <input value={notes} onChange={(e) => setNotes(e.target.value)} className="w-full h-9 rounded-lg bg-white px-3 outline-none border border-black/5 focus:border-[#000435]/20 transition-all text-[#000435] text-[10px] font-black tracking-tight shadow-inner" />
+            <p className="text-[9px] font-medium text-[#000435] uppercase tracking-[0.2em] mb-1.5 opacity-80">Terms / Notes</p>
+            <input value={notes} onChange={(e) => setNotes(e.target.value)} className="w-full h-9 rounded-lg bg-white px-3 outline-none border border-black/5 focus:border-[#000435]/20 transition-all text-[#000435] text-[10px] font-medium tracking-tight shadow-inner" />
           </div>
           {!!errorMsg && (
-            <p className="text-[10px] font-bold text-red-600">{errorMsg}</p>
+            <p className="text-[10px] font-medium text-red-600">{errorMsg}</p>
           )}
         </div>
 
@@ -498,7 +498,7 @@ function NewInvoiceModal({ open, onClose, onCreate, config }) {
           <button
             type="button"
             onClick={onClose}
-            className="h-9 px-4 rounded-lg border border-black/5 text-re-navy font-black text-[9px] uppercase tracking-widest hover:bg-re-bg transition-all active:scale-95"
+            className="h-9 px-4 rounded-lg border border-black/5 text-re-navy font-medium text-[9px] uppercase tracking-widest hover:bg-re-bg transition-all active:scale-95"
           >
             Cancel
           </button>
@@ -547,7 +547,7 @@ function NewInvoiceModal({ open, onClose, onCreate, config }) {
                 setSubmitting(false);
               }
             }}
-            className="h-9 px-4 rounded-lg text-white font-black text-[9px] uppercase tracking-widest shadow-lg hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-60"
+            className="h-9 px-4 rounded-lg text-white font-medium text-[9px] uppercase tracking-widest shadow-lg active:scale-95 transition-all disabled:opacity-60"
             style={{ background: 'linear-gradient(135deg, #000435 0%, #0D2644 100%)' }}
           >
             {submitting ? 'SavingΓÇª' : 'Create invoice'}
@@ -729,35 +729,18 @@ export default function Invoices() {
   return (
     <>
       <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-        {/* Hero */}
-        <div className="relative w-full min-h-[280px] overflow-hidden">
-          <div className="absolute inset-0 bg-[#0a192f]/85 z-10 backdrop-blur-[2px]"></div>
-          <img src={PORTAL.heroImage} alt="" className="absolute inset-0 w-full h-full object-cover scale-105" />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#000435]/40 via-transparent to-transparent z-10 max-w-[1600px] mx-auto"></div>
-
-          <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-12 pt-16 pb-24 flex items-center gap-8">
-            <div className="hidden md:flex shrink-0 w-24 h-24 rounded-[32px] border border-white/10 bg-white/5 items-center justify-center backdrop-blur-xl shadow-2xl relative overflow-hidden group">
-              <div className="absolute inset-0 bg-gradient-to-br from-[#FEBF10]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
-              <FileText size={40} style={{ color: "#FEBF10" }} className="group-hover:scale-110 transition-transform duration-500" />
-            </div>
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="w-6 h-1 rounded-full animate-pulse" style={{ background: "#FEBF10" }}></span>
-                <p className="text-[10px] font-black uppercase tracking-[0.3em]" style={{ color: "#FEBF10" }}>Billing</p>
-              </div>
-              <h1 className="text-2xl sm:text-4xl md:text-5xl font-black text-white tracking-tighter leading-none mb-2 mt-2 uppercase">
-                Invoice <span style={{ color: "#FEBF10" }}>Management</span>
-              </h1>
-              <p className="text-[8px] sm:text-[10px] md:text-xs font-bold text-white/40 max-w-lg leading-relaxed uppercase tracking-widest italic opacity-60">
-                Create, send, and track invoices
-              </p>
-            </div>
-          </div>
-        </div>
+        {/* Hero — ochre band */}
+        <AccountantOchreHero
+          eyebrow="Billing"
+          titleLine="Invoice"
+          titleAccent="Management"
+          subtitle="Create, send, and track invoices"
+          icon={FileText}
+        />
 
         {/* Card */}
-        <div className="max-w-[1600px] mx-auto px-6 md:px-12 -mt-24 relative z-20 pb-20">
-          <div className="bg-white rounded-t-[32px] shadow-2xl border border-black/5 overflow-hidden flex flex-col min-h-[540px]">
+        <div className="acct-shell-standard pb-20">
+          <div className="acct-panel-sheet overflow-hidden flex flex-col min-h-[540px]">
             {/* Stats + actions */}
             <div className="grid grid-cols-1 lg:grid-cols-4 border-b border-black/5">
               <div className="lg:col-span-3 grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-black/5">
@@ -769,10 +752,10 @@ export default function Invoices() {
                 ].map((stat, i) => (
                   <div key={i} className="p-4 sm:p-8 flex flex-col items-center justify-center text-center group hover:bg-re-bg/20 transition-all cursor-default">
                     <div className="mb-1.5 sm:mb-2 opacity-40 shrink-0">{stat.icon}</div>
-                    <span className="text-sm sm:text-2xl font-black text-re-text tracking-tighter group-hover:text-[#000435] transition-colors">
+                    <span className="text-sm sm:text-2xl font-medium text-re-text tracking-tighter group-hover:text-[#000435] transition-colors">
                       {stat.value}
                     </span>
-                    <p className="text-[6px] sm:text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] mt-0.5 sm:mt-1 opacity-60">
+                    <p className="text-[6px] sm:text-[8px] font-medium text-re-text-muted uppercase tracking-[0.2em] mt-0.5 sm:mt-1 opacity-60">
                       {stat.label}
                     </p>
                   </div>
@@ -782,7 +765,7 @@ export default function Invoices() {
               <div className="hidden lg:flex flex-col border-l border-black/5 bg-re-bg/30 p-6 justify-center gap-3 relative">
                 <button
                   onClick={() => setNewOpen(true)}
-                  className="w-full h-11 flex items-center justify-center gap-2 text-white rounded-xl font-black text-[9px] uppercase tracking-widest shadow-xl hover:scale-[1.02] active:scale-95 transition-all"
+                  className="w-full h-11 flex items-center justify-center gap-2 text-white rounded-xl font-medium text-[9px] uppercase tracking-widest shadow-sm active:scale-95 transition-all"
                   style={{ background: "linear-gradient(135deg, #000435 0%, #0D2644 100%)" }}
                 >
                   <Plus size={14} />
@@ -801,7 +784,7 @@ export default function Invoices() {
                     placeholder="Search invoice number or customer name..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full h-10 bg-white rounded-xl pl-10 pr-4 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[10px] font-black uppercase tracking-tight shadow-sm placeholder:text-[#000435]"
+                    className="w-full h-10 bg-white rounded-xl pl-10 pr-4 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[10px] font-medium uppercase tracking-tight shadow-sm placeholder:text-[#000435]"
                   />
                 </div>
 
@@ -810,7 +793,7 @@ export default function Invoices() {
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    className="w-full h-10 bg-white rounded-xl pl-9 pr-8 outline-none border border-black/5 focus:border-[#000435]/20 transition-all text-[#000435] text-[10px] font-black uppercase tracking-widest cursor-pointer appearance-none shadow-sm"
+                    className="w-full h-10 bg-white rounded-xl pl-9 pr-8 outline-none border border-black/5 focus:border-[#000435]/20 transition-all text-[#000435] text-[10px] font-medium uppercase tracking-widest cursor-pointer appearance-none shadow-sm"
                   >
                     <option value="All">All Statuses</option>
                     <option value="draft">Draft</option>
@@ -834,7 +817,7 @@ export default function Invoices() {
                 <div className="w-px h-6 bg-black/5 mx-1" />
                 <button
                   onClick={() => setNewOpen(true)}
-                  className="h-10 px-5 bg-white border border-black/5 rounded-xl text-[#000435] font-black text-[9px] uppercase tracking-widest hover:bg-white transition-all shadow-sm flex items-center gap-2"
+                  className="h-10 px-5 bg-white border border-black/5 rounded-xl text-[#000435] font-medium text-[9px] uppercase tracking-widest hover:bg-white transition-all shadow-sm flex items-center gap-2"
                 >
                   <Plus size={14} className="text-re-gold" />
                   New Invoice
@@ -843,7 +826,7 @@ export default function Invoices() {
             </div>
 
             {loadError && (
-              <div className="px-6 py-3 bg-amber-50 border-b border-amber-100 text-[10px] font-bold text-amber-900">
+              <div className="px-6 py-3 bg-amber-50 border-b border-amber-100 text-[10px] font-medium text-amber-900">
                 {loadError}
               </div>
             )}
@@ -852,18 +835,18 @@ export default function Invoices() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-re-bg/20 border-b border-black/5">
-                    <th className="px-4 sm:px-6 py-2.5 sm:py-3 text-[7px] sm:text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Invoice</th>
-                    <th className="hidden md:table-cell px-6 py-3 text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Customer</th>
-                    <th className="hidden lg:table-cell px-6 py-3 text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Dates</th>
-                    <th className="px-4 sm:px-6 py-2.5 sm:py-3 text-right text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Total</th>
-                    <th className="px-4 sm:px-6 py-2.5 sm:py-3 text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Status</th>
-                    <th className="px-4 sm:px-6 py-2.5 sm:py-3 text-right text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40">Action</th>
+                    <th className="px-4 sm:px-6 py-2.5 sm:py-3 text-[7px] sm:text-[8px] font-medium text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Invoice</th>
+                    <th className="hidden md:table-cell px-6 py-3 text-[8px] font-medium text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Customer</th>
+                    <th className="hidden lg:table-cell px-6 py-3 text-[8px] font-medium text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Dates</th>
+                    <th className="px-4 sm:px-6 py-2.5 sm:py-3 text-right text-[8px] font-medium text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Total</th>
+                    <th className="px-4 sm:px-6 py-2.5 sm:py-3 text-[8px] font-medium text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Status</th>
+                    <th className="px-4 sm:px-6 py-2.5 sm:py-3 text-right text-[8px] font-medium text-re-text-muted uppercase tracking-[0.2em] opacity-40">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-black/5">
                   {!derived.filtered.length && (
                     <tr>
-                      <td colSpan={6} className="px-6 py-16 text-center text-[10px] font-bold text-[#000435] uppercase tracking-widest">
+                      <td colSpan={6} className="px-6 py-16 text-center text-[10px] font-medium text-[#000435] uppercase tracking-widest">
                         {loading ? 'Loading invoicesΓÇª' : 'No invoices yet. Create one or refresh after payments are recorded in Babyeyi.'}
                       </td>
                     </tr>
@@ -879,8 +862,8 @@ export default function Invoices() {
                               <FileText size={16} className="opacity-75" />
                             </div>
                             <div className="min-w-0">
-                              <p className="text-[12px] font-black text-[#000435] tracking-tight truncate">{r.invoiceNo}</p>
-                              <p className="text-[8px] font-bold text-re-text-muted uppercase tracking-widest leading-none mt-1 opacity-50 truncate">
+                              <p className="text-[12px] font-medium text-[#000435] tracking-tight truncate">{r.invoiceNo}</p>
+                              <p className="text-[8px] font-medium text-re-text-muted uppercase tracking-widest leading-none mt-1 opacity-50 truncate">
                                 Due {r.dueDate}
                               </p>
                             </div>
@@ -893,26 +876,26 @@ export default function Invoices() {
                               <User size={13} className="text-amber-500" />
                             </div>
                             <div className="min-w-0">
-                              <p className="text-[11px] font-black text-[#000435] truncate">{r.billTo?.name || 'ΓÇö'}</p>
-                              <p className="text-[8px] font-bold text-re-text-muted uppercase tracking-widest opacity-40 truncate">{(r.billTo?.metaLines || []).join(' ┬╖ ')}</p>
+                              <p className="text-[11px] font-medium text-[#000435] truncate">{r.billTo?.name || 'ΓÇö'}</p>
+                              <p className="text-[8px] font-medium text-re-text-muted uppercase tracking-widest opacity-40 truncate">{(r.billTo?.metaLines || []).join(' ┬╖ ')}</p>
                             </div>
                           </div>
                         </td>
 
                         <td className="hidden lg:table-cell px-6 py-3 border-r border-black/5">
-                          <p className="text-[10px] font-black text-[#000435] uppercase tracking-widest leading-none whitespace-nowrap">{r.issueDate}</p>
-                          <p className="text-[8px] font-bold text-re-text-muted uppercase tracking-widest opacity-40 mt-1 leading-none whitespace-nowrap">Due {r.dueDate}</p>
+                          <p className="text-[10px] font-medium text-[#000435] uppercase tracking-widest leading-none whitespace-nowrap">{r.issueDate}</p>
+                          <p className="text-[8px] font-medium text-re-text-muted uppercase tracking-widest opacity-40 mt-1 leading-none whitespace-nowrap">Due {r.dueDate}</p>
                         </td>
 
                         <td className="px-4 sm:px-6 py-2.5 sm:py-3 border-r border-black/5 text-right">
-                          <p className="text-[12px] font-black text-[#000435]">
+                          <p className="text-[12px] font-medium text-[#000435]">
                             {formatMoneyRWF(r.totals.total).replace('RWF', '').trim()}
-                            <span className="ml-1 text-[9px] font-black text-[#000435]/60 uppercase tracking-widest">RWF</span>
+                            <span className="ml-1 text-[9px] font-medium text-[#000435]/60 uppercase tracking-widest">RWF</span>
                           </p>
                         </td>
 
                         <td className="px-4 sm:px-6 py-2.5 sm:py-3 border-r border-black/5">
-                          <span className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-xl border text-[9px] font-black uppercase tracking-widest ${chip.cls}`}>
+                          <span className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-xl border text-[9px] font-medium uppercase tracking-widest ${chip.cls}`}>
                             <span className={`w-1.5 h-1.5 rounded-full ${chip.dot}`} />
                             {chip.label}
                           </span>
@@ -924,7 +907,7 @@ export default function Invoices() {
                               type="button"
                               onClick={() => setRowMenuOpen((v) => (v === r.id ? null : r.id))}
                               disabled={isRowBusy}
-                              className="h-7 px-3 rounded-xl flex items-center justify-center gap-1.5 bg-white border border-black/5 text-re-text font-black text-[9px] uppercase tracking-widest shadow-sm hover:bg-re-bg hover:text-[#000435] transition-all ml-auto"
+                              className="h-7 px-3 rounded-xl flex items-center justify-center gap-1.5 bg-white border border-black/5 text-re-text font-medium text-[9px] uppercase tracking-widest shadow-sm hover:bg-re-bg hover:text-[#000435] transition-all ml-auto"
                             >
                               <ChevronRight size={14} className={`opacity-50 transition-transform ${rowMenuOpen === r.id ? 'rotate-90' : ''}`} />
                               Actions
@@ -933,7 +916,7 @@ export default function Invoices() {
                             {rowMenuOpen === r.id && (
                               <>
                                 <div className="fixed inset-0 z-[120]" onClick={() => setRowMenuOpen(null)} />
-                                <div className="absolute right-0 bottom-9 z-[130] w-56 rounded-2xl border border-black/10 bg-white shadow-2xl overflow-hidden">
+                                <div className="absolute right-0 bottom-9 z-[130] w-56 rounded-2xl border border-black/10 bg-white shadow-sm overflow-hidden">
                                   <button
                                     type="button"
                                     onClick={async () => {
@@ -949,7 +932,7 @@ export default function Invoices() {
                                     className="w-full px-4 py-3 flex items-center gap-2 text-left hover:bg-re-bg/30 transition-all"
                                   >
                                     <Printer size={14} className="text-[#000435]" />
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-[#000435]">View</span>
+                                    <span className="text-[10px] font-medium uppercase tracking-widest text-[#000435]">View</span>
                                   </button>
                                   <button
                                     type="button"
@@ -958,7 +941,7 @@ export default function Invoices() {
                                     className="w-full px-4 py-3 flex items-center gap-2 text-left hover:bg-red-50 transition-all border-t border-black/5"
                                   >
                                     <AlertTriangle size={14} className="text-red-600" />
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-red-600">Delete invoice</span>
+                                    <span className="text-[10px] font-medium uppercase tracking-widest text-red-600">Delete invoice</span>
                                   </button>
                                 </div>
                               </>
@@ -976,14 +959,14 @@ export default function Invoices() {
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-1.5">
                   <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                  <p className="text-[8px] font-black text-[#000435] uppercase tracking-widest italic opacity-60">Invoice Registry</p>
+                  <p className="text-[8px] font-medium text-[#000435] uppercase tracking-widest italic opacity-60">Invoice Registry</p>
                 </div>
                 <div className="w-px h-3 bg-black/10" />
-                <p className="text-[8px] font-black text-[#000435] uppercase tracking-[0.2em] opacity-40 italic">
+                <p className="text-[8px] font-medium text-[#000435] uppercase tracking-[0.2em] opacity-40 italic">
                   {derived.stats.count} Records ┬╖ Filter: {statusFilter}
                 </p>
               </div>
-              <div className="hidden sm:flex items-center gap-2 text-[8px] font-black uppercase tracking-widest text-[#000435] opacity-60">
+              <div className="hidden sm:flex items-center gap-2 text-[8px] font-medium uppercase tracking-widest text-[#000435] opacity-60">
                 <Building2 size={12} className="text-amber-500/70" />
                 {config.schoolName}
               </div>

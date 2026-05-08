@@ -3,6 +3,8 @@
  */
 export const PORTAL = {
   id: 'storekeeper',
+  /** NavLink prefix — mounted at /storekeeper/* */
+  basePath: '/storekeeper',
   sessionKey: 'storekeeper_logged_in',
   documentTitle: 'Babyeyi · Storekeeper',
   loadingMessage: 'Loading Store Portal…',

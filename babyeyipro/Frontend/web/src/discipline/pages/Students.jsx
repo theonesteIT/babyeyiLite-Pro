@@ -6,7 +6,9 @@ import {
     UserCheck, Award, Filter, Activity, UserPlus, X, User,
     Phone, Clock, Home, Tag, Edit3, Printer, Eye, CheckCircle, RefreshCw
 } from 'lucide-react';
-import api from '../services/api';import ConductMarksModal from '../components/ConductMarksModal';
+import api from '../services/api';
+import ConductMarksModal from '../components/ConductMarksModal';
+import DisciplineOchreHero from '../components/DisciplineOchreHero';
 
 // ── Student Detail Modal (Drawer Style) ──────────────────────────────────────
 const StudentModal = ({ student, onClose }) => {
@@ -282,25 +284,16 @@ const Students = () => {
                 </div>, document.body
             )}
 
-            {/* ── High-Fidelity Hero Section (ShuleAvance Pattern) ── */}
-            <div className="relative w-full min-h-[280px] overflow-hidden">
-                <div className="absolute inset-0 bg-orange-950/70 z-10 backdrop-blur-[2px]"></div>
-                <img src="/teacher.jpg" alt="Hero" className="absolute inset-0 w-full h-full object-cover scale-105" />
-
-                <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-12 pt-16 pb-24">
-                    <div className="space-y-1">
-                        <div className="flex items-center gap-2 mb-2">
-                            <span className="w-6 h-1 bg-re-orange rounded-full"></span>
-                            <p className="text-[10px] font-black text-re-orange uppercase tracking-[0.3em]">Institutional Repository</p>
-                        </div>
-                        <h1 className="text-2xl sm:text-4xl md:text-5xl font-black text-white tracking-tighter leading-none mb-2 mt-2 uppercase">Students <span className="text-re-orange">List</span></h1>
-                        <p className="text-[8px] sm:text-[10px] md:text-sm font-bold text-white/40 max-w-lg leading-relaxed uppercase tracking-widest italic opacity-60">Professional Academic & Behavioral Analytics View</p>
-                    </div>
-                </div>
-            </div>
+            <DisciplineOchreHero
+                eyebrow="Institutional repository"
+                titleLine="Students"
+                titleAccent="list"
+                subtitle="Professional academic and behavioral analytics view in a cleaner manager-style shell."
+                icon={Users}
+            />
 
             {/* ── Consolidated High-Fidelity Card (Dashboard Stats Style) ── */}
-            <div className="max-w-[1600px] mx-auto px-6 md:px-12 -mt-24 relative z-20 pb-20">
+            <div className="max-w-[1600px] mx-auto px-6 md:px-12 -mt-4 sm:-mt-5 md:-mt-6 pt-2 relative z-20 pb-20">
                 <div className="bg-white rounded-t-[32px] shadow-2xl border border-black/5 overflow-hidden flex flex-col">
 
                     {/* Top Layer: Stats Grid + Actions (Dashboard Style) */}

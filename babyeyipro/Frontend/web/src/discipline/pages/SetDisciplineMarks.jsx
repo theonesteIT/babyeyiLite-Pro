@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, ChevronLeft, ChevronRight, History, Loader2, RotateCcw, Search, ShieldAlert, UserCircle2 } from 'lucide-react';
 import disciplineService from '../services/disciplineService';
+import DisciplineOchreHero from '../components/DisciplineOchreHero';
 
 const REASON_PRESETS = [
   'Late to class',
@@ -178,8 +179,15 @@ export default function SetDisciplineMarks() {
   }, [history]);
 
   return (
-    <div className="min-h-screen bg-re-bg p-4 md:p-6">
+    <div className="min-h-screen bg-re-bg pb-10">
       <Toast toast={toast} />
+      <DisciplineOchreHero
+        eyebrow="Discipline workflow"
+        titleLine="Set"
+        titleAccent="marks"
+        subtitle="Search learners, apply discipline actions, and review history from one cleaner manager-style workspace."
+        icon={ShieldAlert}
+      />
 
       {drawerOpen && selectedStudent && (
         <div className="fixed inset-0 z-[300]">
@@ -374,7 +382,7 @@ export default function SetDisciplineMarks() {
         </div>
       )}
 
-      <div className="max-w-6xl mx-auto space-y-5">
+      <div className="max-w-6xl mx-auto px-4 md:px-6 -mt-4 sm:-mt-5 md:-mt-6 pt-2 relative z-20 space-y-5">
         <div className="rounded-2xl bg-white border border-black/5 p-5 md:p-6 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center">

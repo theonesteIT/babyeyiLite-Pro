@@ -189,23 +189,23 @@ export default function StudentTransferPage({ toast, t, session }) {
             <ArrowRightLeft className="w-5 h-5 text-[#B88A00]" />
           </div>
           <div>
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-[#1A1200]">Student Transfer / Replacement</h1>
+            <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-[#1A1200]">Student Transfer / Replacement</h1>
             <p className="text-sm text-slate-600 mt-0.5">Receive students and coordinate approval with the old school.</p>
           </div>
         </div>
-        <div className="rounded-2xl border border-[#FDEAA0]/70 bg-[#FFFBE8]/70 px-3 py-2 text-sm font-black text-[#7A5C00]">
+        <div className="rounded-2xl border border-[#FDEAA0]/70 bg-[#FFFBE8]/70 px-3 py-2 text-sm font-semibold text-[#7A5C00]">
           Incoming pending: {incomingPendingCount}
         </div>
       </div>
 
       {/* Lookup + request */}
-      <div className="rounded-3xl border border-[#FDEAA0]/80 bg-white shadow-xl shadow-[#FDEAA0]/20 p-4 sm:p-6 mb-6">
+      <div className="rounded-3xl border border-[#FDEAA0]/80 bg-white shadow-sm shadow-[#FDEAA0]/20 p-4 sm:p-6 mb-6">
         <div className="flex items-start gap-3 mb-3">
           <div className="w-9 h-9 rounded-2xl bg-[#FFFBE8] border border-[#FDEAA0] flex items-center justify-center">
             <Search className="w-4 h-4 text-[#B88A00]" />
           </div>
           <div>
-            <h2 className="font-black text-[#1A1200] text-lg">Receive Student</h2>
+            <h2 className="font-semibold text-[#1A1200] text-lg">Receive Student</h2>
             <p className="text-sm text-slate-600">Enter the student UID, review details, then request transfer.</p>
           </div>
         </div>
@@ -227,7 +227,7 @@ export default function StudentTransferPage({ toast, t, session }) {
             type="button"
             onClick={doLookup}
             disabled={lookupLoading || !studentUid.trim()}
-            className="h-[42px] px-5 rounded-xl bg-gradient-to-r from-[#1A1200] to-[#3D2C00] text-sm font-black text-[#FEBF10] shadow-sm disabled:opacity-50 flex items-center gap-2 justify-center"
+            className="h-[42px] px-5 rounded-xl bg-gradient-to-r from-[#1A1200] to-[#3D2C00] text-sm font-semibold text-[#FEBF10] shadow-sm disabled:opacity-50 flex items-center gap-2 justify-center"
           >
             {lookupLoading ? <Loader2 className="animate-spin" size={16} /> : <Search size={16} />}
             Retrieve
@@ -247,7 +247,7 @@ export default function StudentTransferPage({ toast, t, session }) {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <div className="text-xs font-bold uppercase text-[#7A5C00] tracking-widest">Student snapshot</div>
-                  <div className="mt-1 font-black text-[#1A1200] text-lg">
+                  <div className="mt-1 font-semibold text-[#1A1200] text-lg">
                     {lookup.student.full_name}{" "}
                     <span className="font-mono text-[#B88A00] text-sm">
                       ({lookup.student.student_code || lookup.student.student_uid})
@@ -260,17 +260,17 @@ export default function StudentTransferPage({ toast, t, session }) {
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   {pendingExists && (
-                    <span className={`inline-flex items-center px-3 py-1 rounded-lg border ${statusBadge("pending")} text-[11px] font-black`}>
+                    <span className={`inline-flex items-center px-3 py-1 rounded-lg border ${statusBadge("pending")} text-[11px] font-semibold`}>
                       Pending request already exists
                     </span>
                   )}
                   {studentMatchesYourSchool && (
-                    <span className="inline-flex items-center px-3 py-1 rounded-lg border bg-amber-50 border-amber-200 text-amber-800 text-[11px] font-black">
+                    <span className="inline-flex items-center px-3 py-1 rounded-lg border bg-amber-50 border-amber-200 text-amber-800 text-[11px] font-semibold">
                       Student already in your school
                     </span>
                   )}
                   {!canRequest && !pendingExists && !studentMatchesYourSchool && (
-                    <span className="inline-flex items-center px-3 py-1 rounded-lg border bg-slate-100 border-slate-200 text-slate-700 text-[11px] font-black">
+                    <span className="inline-flex items-center px-3 py-1 rounded-lg border bg-slate-100 border-slate-200 text-slate-700 text-[11px] font-semibold">
                       Not eligible
                     </span>
                   )}
@@ -284,7 +284,7 @@ export default function StudentTransferPage({ toast, t, session }) {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <div className="rounded-3xl border border-slate-200/80 bg-white overflow-hidden">
-                <div className="px-4 py-3 border-b border-[#FDEAA0]/60 bg-[#FFFBE8]/90 font-black text-[#1A1200]">
+                <div className="px-4 py-3 border-b border-[#FDEAA0]/60 bg-[#FFFBE8]/90 font-semibold text-[#1A1200]">
                   Full profile
                 </div>
                 <div className="p-4">
@@ -312,19 +312,19 @@ export default function StudentTransferPage({ toast, t, session }) {
               </div>
 
               <div className="rounded-3xl border border-slate-200/80 bg-white overflow-hidden">
-                <div className="px-4 py-3 border-b border-[#FDEAA0]/60 bg-[#FFFBE8]/90 font-black text-[#1A1200]">
+                <div className="px-4 py-3 border-b border-[#FDEAA0]/60 bg-[#FFFBE8]/90 font-semibold text-[#1A1200]">
                   Payment status (previous school)
                 </div>
                 <div className="p-4">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <CreditCard size={16} className="text-[#B88A00]" />
-                      <div className="text-sm font-black text-[#1A1200]">
+                      <div className="text-sm font-semibold text-[#1A1200]">
                         {lookup.payment.payment_status_label}
                       </div>
                     </div>
                     <span
-                      className={`inline-flex items-center px-3 py-1 rounded-lg border ${paymentBadge(lookup.payment.payment_status_code)} text-[11px] font-black`}
+                      className={`inline-flex items-center px-3 py-1 rounded-lg border ${paymentBadge(lookup.payment.payment_status_code)} text-[11px] font-semibold`}
                     >
                       {lookup.payment.payment_status_code}
                     </span>
@@ -333,15 +333,15 @@ export default function StudentTransferPage({ toast, t, session }) {
                   <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                     <div className="rounded-2xl border border-[#FDEAA0]/60 bg-[#FFFBE8]/60 p-3">
                       <div className="text-[0.65rem] font-bold uppercase text-slate-500">Total due</div>
-                      <div className="mt-1 font-black text-[#1A1200]">{Number(lookup.payment.total_due || 0).toLocaleString()}</div>
+                      <div className="mt-1 font-semibold text-[#1A1200]">{Number(lookup.payment.total_due || 0).toLocaleString()}</div>
                     </div>
                     <div className="rounded-2xl border border-[#FDEAA0]/60 bg-[#FFFBE8]/60 p-3">
                       <div className="text-[0.65rem] font-bold uppercase text-slate-500">Paid</div>
-                      <div className="mt-1 font-black text-[#1A1200]">{Number(lookup.payment.amount_paid_total || 0).toLocaleString()}</div>
+                      <div className="mt-1 font-semibold text-[#1A1200]">{Number(lookup.payment.amount_paid_total || 0).toLocaleString()}</div>
                     </div>
                     <div className="rounded-2xl border border-[#FDEAA0]/60 bg-[#FFFBE8]/60 p-3">
                       <div className="text-[0.65rem] font-bold uppercase text-slate-500">Remaining</div>
-                      <div className="mt-1 font-black text-[#1A1200]">{Number(lookup.payment.remaining_balance || 0).toLocaleString()}</div>
+                      <div className="mt-1 font-semibold text-[#1A1200]">{Number(lookup.payment.remaining_balance || 0).toLocaleString()}</div>
                     </div>
                   </div>
 
@@ -354,7 +354,7 @@ export default function StudentTransferPage({ toast, t, session }) {
 
             <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
               <div className="rounded-3xl border border-slate-200/80 bg-white overflow-hidden">
-                <div className="px-4 py-3 border-b border-[#FDEAA0]/60 bg-[#FFFBE8]/90 font-black text-[#1A1200]">
+                <div className="px-4 py-3 border-b border-[#FDEAA0]/60 bg-[#FFFBE8]/90 font-semibold text-[#1A1200]">
                   DOS academic records
                 </div>
                 <div className="p-4">
@@ -375,7 +375,7 @@ export default function StudentTransferPage({ toast, t, session }) {
                               <td className="px-3 py-2 font-semibold">{r.academic_year}</td>
                               <td className="px-3 py-2 text-slate-700">{r.term}</td>
                               <td className="px-3 py-2 font-semibold text-[#7A5C00]">{r.status_label || r.status_code}</td>
-                              <td className="px-3 py-2 text-right font-black text-[#1A1200]">{Number(r.marks_obtained || 0).toLocaleString()}</td>
+                              <td className="px-3 py-2 text-right font-semibold text-[#1A1200]">{Number(r.marks_obtained || 0).toLocaleString()}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -388,7 +388,7 @@ export default function StudentTransferPage({ toast, t, session }) {
               </div>
 
               <div className="rounded-3xl border border-slate-200/80 bg-white overflow-hidden">
-                <div className="px-4 py-3 border-b border-[#FDEAA0]/60 bg-[#FFFBE8]/90 font-black text-[#1A1200]">
+                <div className="px-4 py-3 border-b border-[#FDEAA0]/60 bg-[#FFFBE8]/90 font-semibold text-[#1A1200]">
                   Discipline snapshot
                 </div>
                 <div className="p-4">
@@ -396,10 +396,10 @@ export default function StudentTransferPage({ toast, t, session }) {
                     <>
                       <div className="flex items-center justify-between gap-2 flex-wrap">
                         <div className="text-sm text-slate-700">
-                          Deducted: <span className="font-black text-[#B88A00]">{Number(lookup.discipline.discipline_deducted_total || 0).toLocaleString()}</span>
+                          Deducted: <span className="font-semibold text-[#B88A00]">{Number(lookup.discipline.discipline_deducted_total || 0).toLocaleString()}</span>
                           {" · "}
                           Remaining:{" "}
-                          <span className="font-black text-[#1A1200]">{Number(lookup.discipline.discipline_remaining_total || 0).toLocaleString()}</span>
+                          <span className="font-semibold text-[#1A1200]">{Number(lookup.discipline.discipline_remaining_total || 0).toLocaleString()}</span>
                         </div>
                         <div className="text-xs text-slate-500">
                           {lookup.discipline.academic_year || lookup.selected_period.academic_year || "—"} · {lookup.discipline.term || lookup.selected_period.term || "—"}
@@ -412,12 +412,12 @@ export default function StudentTransferPage({ toast, t, session }) {
                               <div key={c.id} className="rounded-2xl border border-slate-100 bg-slate-50 p-3">
                                 <div className="flex items-start justify-between gap-2">
                                   <div>
-                                    <div className="font-black text-[#1A1200] text-sm">{c.lesson_subject}</div>
+                                    <div className="font-semibold text-[#1A1200] text-sm">{c.lesson_subject}</div>
                                     <div className="text-xs text-slate-600">{c.description ? c.description : "—"}</div>
                                   </div>
                                   <div className="text-right">
                                     <div className="text-[0.65rem] font-bold uppercase text-slate-500">Deducted</div>
-                                    <div className="font-black text-[#B88A00]">{Number(c.marks_deducted || 0).toLocaleString()}</div>
+                                    <div className="font-semibold text-[#B88A00]">{Number(c.marks_deducted || 0).toLocaleString()}</div>
                                   </div>
                                 </div>
                                 <div className="mt-2 text-xs text-slate-500 flex items-center gap-2">
@@ -444,7 +444,7 @@ export default function StudentTransferPage({ toast, t, session }) {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <div className="text-xs font-bold uppercase tracking-widest text-[#7A5C00]">Transfer decision</div>
-                  <div className="mt-1 font-black text-[#1A1200] text-lg">Request Transfer to your school</div>
+                  <div className="mt-1 font-semibold text-[#1A1200] text-lg">Request Transfer to your school</div>
                   <div className="text-sm text-slate-600 mt-0.5">Send a request to the old school manager for review.</div>
                 </div>
               </div>
@@ -477,7 +477,7 @@ export default function StudentTransferPage({ toast, t, session }) {
                   type="button"
                   onClick={doRequestTransfer}
                   disabled={!canRequest || requesting}
-                  className="h-[44px] px-5 rounded-xl bg-gradient-to-r from-[#1A1200] to-[#3D2C00] text-sm font-black text-[#FEBF10] shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="h-[44px] px-5 rounded-xl bg-gradient-to-r from-[#1A1200] to-[#3D2C00] text-sm font-semibold text-[#FEBF10] shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   {requesting ? <Loader2 size={16} className="animate-spin" /> : <ArrowRightLeft size={16} />}
                   Request Transfer
@@ -498,13 +498,13 @@ export default function StudentTransferPage({ toast, t, session }) {
       </div>
 
       {/* Requests list */}
-      <div className="rounded-3xl border border-[#FDEAA0]/80 bg-white shadow-xl shadow-[#FDEAA0]/20 p-4 sm:p-6">
+      <div className="rounded-3xl border border-[#FDEAA0]/80 bg-white shadow-sm shadow-[#FDEAA0]/20 p-4 sm:p-6">
         <div className="flex items-start justify-between gap-3 mb-3">
           <div>
-            <h2 className="font-black text-[#1A1200] text-lg">Transfer Requests</h2>
+            <h2 className="font-semibold text-[#1A1200] text-lg">Transfer Requests</h2>
             <p className="text-sm text-slate-600">Approve incoming requests or track your outgoing ones.</p>
           </div>
-          <div className="inline-flex items-center gap-2 rounded-2xl border border-[#FDEAA0]/70 bg-[#FFFBE8]/70 px-3 py-2 text-sm font-black text-[#7A5C00]">
+          <div className="inline-flex items-center gap-2 rounded-2xl border border-[#FDEAA0]/70 bg-[#FFFBE8]/70 px-3 py-2 text-sm font-semibold text-[#7A5C00]">
             <ClipboardList size={16} />
             {transfers.length} total
           </div>
@@ -541,7 +541,7 @@ export default function StudentTransferPage({ toast, t, session }) {
                 {transfers.map((r) => (
                   <tr key={r.id} className="hover:bg-[#FFFBE8]/40">
                     <td className="px-4 py-3">
-                      <div className="font-black text-[#1A1200]">{r.student.full_name}</div>
+                      <div className="font-semibold text-[#1A1200]">{r.student.full_name}</div>
                       <div className="text-xs text-slate-600 font-mono">{r.student.student_code || r.student.student_uid}</div>
                     </td>
                     <td className="px-4 py-3">
@@ -556,7 +556,7 @@ export default function StudentTransferPage({ toast, t, session }) {
                       {r.reason ? <div className="max-w-[240px] truncate" title={r.reason}>{r.reason}</div> : "—"}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <span className={`inline-flex items-center px-3 py-1 rounded-lg border ${statusBadge(r.status)} text-[11px] font-black`}>
+                      <span className={`inline-flex items-center px-3 py-1 rounded-lg border ${statusBadge(r.status)} text-[11px] font-semibold`}>
                         {r.status}
                       </span>
                       <div className="text-xs text-slate-500 mt-1">
@@ -571,7 +571,7 @@ export default function StudentTransferPage({ toast, t, session }) {
                             setHistoryRequest(r);
                             setHistoryOpen(true);
                           }}
-                          className="px-3 py-2 rounded-xl border border-[#FDEAA0] bg-[#FFFBE8] text-[#3D2C00] text-xs font-black hover:bg-[#FFF3CC]"
+                          className="px-3 py-2 rounded-xl border border-[#FDEAA0] bg-[#FFFBE8] text-[#3D2C00] text-xs font-semibold hover:bg-[#FFF3CC]"
                         >
                           View history
                         </button>
@@ -581,14 +581,14 @@ export default function StudentTransferPage({ toast, t, session }) {
                             <button
                               type="button"
                               onClick={() => decideRequest(r.id, "approve", "")}
-                              className="px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 text-xs font-black hover:bg-emerald-100"
+                              className="px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 text-xs font-semibold hover:bg-emerald-100"
                             >
                               Approve
                             </button>
                             <button
                               type="button"
                               onClick={() => decideRequest(r.id, "reject", "")}
-                              className="px-3 py-2 rounded-xl border border-red-200 bg-red-50 text-red-800 text-xs font-black hover:bg-red-100"
+                              className="px-3 py-2 rounded-xl border border-red-200 bg-red-50 text-red-800 text-xs font-semibold hover:bg-red-100"
                             >
                               Reject
                             </button>
@@ -618,16 +618,16 @@ export default function StudentTransferPage({ toast, t, session }) {
             <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
               <div className="text-xs font-bold uppercase tracking-widest text-slate-500">Request info</div>
               <div className="mt-2 text-sm text-slate-700">
-                <div><span className="font-black text-[#1A1200]">From:</span> {historyRequest.from_school_name}</div>
-                <div><span className="font-black text-[#1A1200]">To:</span> {historyRequest.to_school_name}</div>
-                <div className="mt-1"><span className="font-black text-[#1A1200]">Reason:</span> {historyRequest.reason || "—"}</div>
-                <div className="mt-1"><span className="font-black text-[#1A1200]">Notes (new school):</span> {historyRequest.notes_from_to_school || "—"}</div>
-                <div className="mt-1"><span className="font-black text-[#1A1200]">Notes (old school):</span> {historyRequest.notes_from_from_school || "—"}</div>
-                <div className="mt-1"><span className="font-black text-[#1A1200]">Status:</span> {historyRequest.status}</div>
-                <div className="mt-1 text-xs text-slate-500"><span className="font-black">Created:</span> {fmtDT(historyRequest.created_at)}</div>
+                <div><span className="font-semibold text-[#1A1200]">From:</span> {historyRequest.from_school_name}</div>
+                <div><span className="font-semibold text-[#1A1200]">To:</span> {historyRequest.to_school_name}</div>
+                <div className="mt-1"><span className="font-semibold text-[#1A1200]">Reason:</span> {historyRequest.reason || "—"}</div>
+                <div className="mt-1"><span className="font-semibold text-[#1A1200]">Notes (new school):</span> {historyRequest.notes_from_to_school || "—"}</div>
+                <div className="mt-1"><span className="font-semibold text-[#1A1200]">Notes (old school):</span> {historyRequest.notes_from_from_school || "—"}</div>
+                <div className="mt-1"><span className="font-semibold text-[#1A1200]">Status:</span> {historyRequest.status}</div>
+                <div className="mt-1 text-xs text-slate-500"><span className="font-semibold">Created:</span> {fmtDT(historyRequest.created_at)}</div>
                 {historyRequest.approved_at || historyRequest.rejected_at ? (
                   <div className="mt-1 text-xs text-slate-500">
-                    <span className="font-black">{historyRequest.approved_at ? "Approved at:" : "Rejected at:"}</span>{" "}
+                    <span className="font-semibold">{historyRequest.approved_at ? "Approved at:" : "Rejected at:"}</span>{" "}
                     {fmtDT(historyRequest.approved_at || historyRequest.rejected_at)}
                   </div>
                 ) : null}
@@ -641,7 +641,7 @@ export default function StudentTransferPage({ toast, t, session }) {
                   historyRequest.logs.map((l, idx) => (
                     <div key={`${l.action}-${idx}`} className="flex items-start justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3">
                       <div>
-                        <div className="font-black text-[#1A1200] text-sm">{l.action}</div>
+                        <div className="font-semibold text-[#1A1200] text-sm">{l.action}</div>
                         <div className="text-sm text-slate-700">{l.note || "—"}</div>
                       </div>
                       <div className="text-xs text-slate-500 whitespace-nowrap">{fmtDT(l.created_at)}</div>
@@ -661,7 +661,7 @@ export default function StudentTransferPage({ toast, t, session }) {
                     <div key={`${n.notification_type}-${idx}`} className="rounded-xl border border-slate-100 bg-slate-50 p-3">
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <div className="font-black text-[#1A1200] text-sm">{n.notification_type}</div>
+                          <div className="font-semibold text-[#1A1200] text-sm">{n.notification_type}</div>
                           <div className="text-sm text-slate-700">{n.message}</div>
                         </div>
                         <div className="text-right text-xs text-slate-500 whitespace-nowrap">
@@ -694,14 +694,14 @@ export default function StudentTransferPage({ toast, t, session }) {
                   <button
                     type="button"
                     onClick={() => decideRequest(historyRequest.id, "approve", historyRequest.notes_from_from_school || "")}
-                    className="px-4 py-2 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 text-xs font-black hover:bg-emerald-100"
+                    className="px-4 py-2 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 text-xs font-semibold hover:bg-emerald-100"
                   >
                     Approve
                   </button>
                   <button
                     type="button"
                     onClick={() => decideRequest(historyRequest.id, "reject", historyRequest.notes_from_from_school || "")}
-                    className="px-4 py-2 rounded-xl border border-red-200 bg-red-50 text-red-800 text-xs font-black hover:bg-red-100"
+                    className="px-4 py-2 rounded-xl border border-red-200 bg-red-50 text-red-800 text-xs font-semibold hover:bg-red-100"
                   >
                     Reject
                   </button>

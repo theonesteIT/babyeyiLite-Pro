@@ -34,7 +34,7 @@ const TopNav = ({ title, onMenuClick }) => {
                 >
                     <Menu size={18} />
                 </button>
-                <h1 className="hidden lg:block text-sm font-black text-re-text tracking-tight uppercase">
+                <h1 className="hidden lg:block text-sm font-medium text-re-text tracking-tight">
                     {title || 'Dashboard'}
                 </h1>
             </div>
@@ -49,7 +49,7 @@ const TopNav = ({ title, onMenuClick }) => {
                         type="text"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        className="w-full bg-re-bg border border-black/5 rounded-2xl py-2 pl-10 pr-4 text-xs font-bold outline-none shadow-inner focus:ring-2 transition-all text-re-text"
+                        className="w-full bg-re-bg border border-black/5 rounded-2xl py-2 pl-10 pr-4 text-xs font-medium outline-none focus:ring-2 transition-all text-re-text"
                         style={{ '--tw-ring-color': 'rgba(254,191,16,0.25)' }}
                         placeholder={PORTAL.searchPlaceholder}
                     />
@@ -75,7 +75,7 @@ const TopNav = ({ title, onMenuClick }) => {
                     >
                         <div className="relative">
                             <div
-                                className="w-8 h-8 rounded-xl text-white flex items-center justify-center font-black text-xs shadow-sm group-hover:scale-105 transition-transform"
+                                className="w-8 h-8 rounded-xl text-white flex items-center justify-center font-semibold text-xs shadow-sm"
                                 style={{ background: 'linear-gradient(135deg,#000435,#3D5A80)' }}
                             >
                                 {initials}
@@ -83,10 +83,10 @@ const TopNav = ({ title, onMenuClick }) => {
                             <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-400 border-2 border-white rounded-full" />
                         </div>
                         <div className="hidden sm:block text-left">
-                            <p className="text-xs font-black text-re-text leading-tight group-hover:text-re-navy transition-colors uppercase tracking-tight">
+                            <p className="text-xs font-medium text-re-text leading-tight group-hover:text-re-navy transition-colors capitalize tracking-tight">
                                 {staff?.first_name || PORTAL.profileFallback}
                             </p>
-                            <p className="text-[10px] text-re-text-muted/60 font-bold leading-tight uppercase tracking-widest">
+                            <p className="text-[10px] text-re-text-muted/60 font-normal leading-tight tracking-tight truncate max-w-[140px]">
                                 {staff?.school?.name || PORTAL.roleLabel}
                             </p>
                         </div>
@@ -97,18 +97,18 @@ const TopNav = ({ title, onMenuClick }) => {
                     </button>
 
                     {userOpen && (
-                        <div className="absolute right-0 mt-1.5 w-52 bg-white rounded-2xl shadow-2xl border border-black/5 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                        <div className="absolute right-0 mt-1.5 w-52 bg-white rounded-2xl shadow-md border border-black/10 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
                             {/* Header */}
                             <div className="px-4 py-3 border-b border-black/5">
                                 <div className="flex items-center gap-3">
                                     <div
-                                        className="w-9 h-9 rounded-xl text-white flex items-center justify-center font-black text-sm shadow-sm shrink-0"
+                                        className="w-9 h-9 rounded-xl text-white flex items-center justify-center font-medium text-sm shadow-sm shrink-0"
                                         style={{ background: 'linear-gradient(135deg,#000435,#3D5A80)' }}
                                     >
                                         {initials}
                                     </div>
                                     <div>
-                                        <p className="text-xs font-black text-re-text uppercase tracking-tight">
+                                        <p className="text-xs font-medium text-re-text capitalize tracking-tight">
                                             {staff?.first_name} {staff?.last_name}
                                         </p>
                                         <p className="text-[10px] text-re-text-muted/60 truncate max-w-[120px]">
@@ -122,13 +122,13 @@ const TopNav = ({ title, onMenuClick }) => {
                             <div className="py-1">
                                 <button
                                     onClick={() => { navigate('/profile'); setUserOpen(false); }}
-                                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-re-text-muted hover:bg-re-navy/5 hover:text-re-navy transition-all"
+                                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-re-text-muted hover:bg-re-navy/5 hover:text-re-navy transition-all"
                                 >
                                     <User size={13} /> My Profile
                                 </button>
                                 <button
                                     onClick={() => { navigate('/settings'); setUserOpen(false); }}
-                                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-re-text-muted hover:bg-re-navy/5 hover:text-re-navy transition-all"
+                                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-re-text-muted hover:bg-re-navy/5 hover:text-re-navy transition-all"
                                 >
                                     <Settings size={13} /> Settings
                                 </button>
@@ -137,7 +137,7 @@ const TopNav = ({ title, onMenuClick }) => {
                             <div className="border-t border-black/5 py-1">
                                 <button
                                     onClick={logout}
-                                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-red-500 hover:bg-red-50 transition-all"
+                                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-red-500 hover:bg-red-50 transition-all"
                                 >
                                     <LogOut size={13} /> Sign out
                                 </button>

@@ -19,6 +19,8 @@ import DosAcademicProgressPage from './pages/DosAcademicProgressPage'
 import DosSettingsPage from './pages/DosSettingsPage'
 import DosReportsPage from './pages/DosReportsPage'
 import TeacherRequisitionReports from './pages/TeacherRequisitionReports'
+import PermissionsManager from '../manager/pages/PermissionsManager'
+import LessonPlanReportsPage from './pages/LessonPlanReportsPage'
 import DosStudentRecordsPage from './pages/DosStudentRecordsPage'
 import StaffPayroll from './pages/StaffPayroll'
 import ChatCenter from '../shared/pages/ChatCenter'
@@ -31,7 +33,7 @@ const LoadingScreen = () => (
       className="w-12 h-12 rounded-2xl animate-pulse"
       style={{ background: 'linear-gradient(135deg,#FF8C00,#FF5E00)' }}
     />
-    <p className="text-re-text-muted text-sm font-bold uppercase tracking-widest animate-pulse">
+    <p className="text-re-text-muted text-sm font-medium animate-pulse tracking-tight">
       {PORTAL.loadingMessage}
     </p>
   </div>
@@ -158,6 +160,22 @@ function DosRoutesInner() {
         element={
           <ProtectedRoute title="Teacher requisitions report">
             <TeacherRequisitionReports />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="teacher-permissions"
+        element={
+          <ProtectedRoute title="Teacher permissions">
+            <PermissionsManager />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="lesson-plan-reports"
+        element={
+          <ProtectedRoute title="Lesson plan reports">
+            <LessonPlanReportsPage />
           </ProtectedRoute>
         }
       />

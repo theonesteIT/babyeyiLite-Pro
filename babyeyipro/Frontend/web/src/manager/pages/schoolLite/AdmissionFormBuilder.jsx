@@ -91,7 +91,7 @@ function StatCard({ icon: Icon, label, value, sub, iconBg, iconColor, valColor }
         <Icon size={18} className={iconColor} />
       </div>
       <div className="min-w-0 flex-1">
-        <div className={`text-2xl font-black leading-none ${valColor}`}>{value}</div>
+        <div className={`text-2xl font-semibold leading-none ${valColor}`}>{value}</div>
         <div className="text-xs font-bold text-gray-500 mt-0.5 truncate">{label}</div>
         {sub && <div className="text-[10px] text-gray-400 mt-0.5 truncate">{sub}</div>}
       </div>
@@ -214,20 +214,20 @@ function AppDetailModal({ app, onClose, onStatusChange }) {
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="w-full sm:max-w-lg bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="w-full sm:max-w-lg bg-white rounded-t-3xl sm:rounded-3xl shadow-sm overflow-hidden flex flex-col max-h-[90vh]">
         {/* header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-indigo-100 flex items-center justify-center">
-              <span className="text-base font-black text-indigo-600">{(app.applicant_name||"?")[0].toUpperCase()}</span>
+              <span className="text-base font-semibold text-indigo-600">{(app.applicant_name||"?")[0].toUpperCase()}</span>
             </div>
             <div>
-              <h3 className="font-black text-gray-900 text-sm">{app.applicant_name}</h3>
+              <h3 className="font-semibold text-gray-900 text-sm">{app.applicant_name}</h3>
               <p className="text-xs text-gray-400 font-mono">{app.reference_no}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <span className={`px-3 py-1 rounded-full text-xs font-black ${st.color}`}>{st.label}</span>
+            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${st.color}`}>{st.label}</span>
             <button onClick={onClose} className="w-8 h-8 rounded-xl bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition">
               <X size={14}/>
             </button>
@@ -255,7 +255,7 @@ function AppDetailModal({ app, onClose, onStatusChange }) {
           </div>
           {(app.answers||[]).length > 0 && (
             <div>
-              <h4 className="text-xs font-black text-gray-500 uppercase tracking-wider mb-2">Answers</h4>
+              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Answers</h4>
               <div className="space-y-2">
                 {app.answers.map((ans, i) => (
                   <div key={i} className="p-3 rounded-xl border border-gray-100 bg-gray-50">
@@ -271,11 +271,11 @@ function AppDetailModal({ app, onClose, onStatusChange }) {
         </div>
         {/* status footer */}
         <div className="flex-shrink-0 px-5 py-4 border-t border-gray-100 bg-gray-50">
-          <p className="text-xs font-black text-gray-500 mb-2.5">Update Status</p>
+          <p className="text-xs font-semibold text-gray-500 mb-2.5">Update Status</p>
           <div className="flex flex-wrap gap-2">
             {APP_STATUSES.map(s => (
               <button key={s.value} onClick={() => { onStatusChange(app.id, s.value); onClose(); }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1 ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1 ${
                   app.status === s.value
                     ? `${s.color} ring-2 ring-offset-1 ring-current`
                     : "bg-white border border-gray-200 text-gray-600 hover:border-gray-400"
@@ -493,13 +493,13 @@ export default function AdmissionFormBuilder({ schoolId, toast, onNext, onBack }
             </button>
           )}
           <div>
-            <h2 className="text-xl sm:text-2xl font-black text-gray-900">Admission System</h2>
+            <h2 className="text-xl sm:text-2xl font-semibold text-gray-900">Admission System</h2>
             <p className="text-gray-500 text-sm mt-0.5">Online application form &amp; applicant tracking</p>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {form && (
-            <span className={`px-3 py-1.5 rounded-full text-xs font-black ${fmSt.color} flex items-center gap-1.5`}>
+            <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${fmSt.color} flex items-center gap-1.5`}>
               <span className={`w-2 h-2 rounded-full ${
                 form.status==="open"   ? "bg-green-500 animate-pulse" :
                 form.status==="paused" ? "bg-amber-500" :
@@ -543,11 +543,11 @@ export default function AdmissionFormBuilder({ schoolId, toast, onNext, onBack }
       {/* ── FORM STATUS CONTROLS ──────────────────────────────── */}
       {form && (
         <div className="flex flex-wrap items-center gap-2 p-4 bg-gray-50 rounded-2xl border border-gray-100">
-          <span className="text-xs font-black text-gray-500 w-full sm:w-auto mb-1 sm:mb-0">Form Status:</span>
+          <span className="text-xs font-semibold text-gray-500 w-full sm:w-auto mb-1 sm:mb-0">Form Status:</span>
           {FORM_STATUSES.map(s => (
             <button key={s.value} disabled={statusBusy||form.status===s.value}
               onClick={() => changeStatus(s.value)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition-all capitalize ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all capitalize ${
                 form.status===s.value
                   ? `${s.color} ring-2 ring-offset-1 ring-current`
                   : "bg-white text-gray-500 border border-gray-200 hover:border-indigo-300 hover:text-indigo-600"
@@ -559,7 +559,7 @@ export default function AdmissionFormBuilder({ schoolId, toast, onNext, onBack }
           ))}
           {form.status==="open" && form.id && (
             <a href={`/apply/${form.id}`} target="_blank" rel="noopener noreferrer"
-              className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-indigo-600 text-white hover:bg-indigo-700 transition">
+              className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition">
               <Eye size={11}/> Preview Form
             </a>
           )}
@@ -573,7 +573,7 @@ export default function AdmissionFormBuilder({ schoolId, toast, onNext, onBack }
           { key:"applications", label:`Applicants${apps.length>0?` (${apps.length})`:""}`, icon:Inbox },
         ].map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
-            className={`flex items-center gap-2 px-4 py-3 text-sm font-black transition-colors border-b-2 -mb-px ${
+            className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold transition-colors border-b-2 -mb-px ${
               tab===t.key ? "border-indigo-600 text-indigo-700" : "border-transparent text-gray-500 hover:text-gray-700"
             }`}>
             <t.icon size={14}/> {t.label}
@@ -588,7 +588,7 @@ export default function AdmissionFormBuilder({ schoolId, toast, onNext, onBack }
         <div className="space-y-5">
           {/* Meta settings */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
-            <h3 className="font-black text-gray-800 flex items-center gap-2 text-sm sm:text-base">
+            <h3 className="font-semibold text-gray-800 flex items-center gap-2 text-sm sm:text-base">
               <Settings2 size={16} className="text-indigo-600"/> Form Settings
             </h3>
             <div>
@@ -630,7 +630,7 @@ export default function AdmissionFormBuilder({ schoolId, toast, onNext, onBack }
           {/* Questions */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="font-black text-gray-800 flex items-center gap-2 text-sm sm:text-base">
+              <h3 className="font-semibold text-gray-800 flex items-center gap-2 text-sm sm:text-base">
                 <List size={16} className="text-indigo-600"/> Questions
                 <span className="text-xs font-bold text-gray-400">({questions.length})</span>
               </h3>
@@ -638,10 +638,10 @@ export default function AdmissionFormBuilder({ schoolId, toast, onNext, onBack }
             {questions.length===0 ? (
               <div className="text-center py-14 rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50">
                 <div className="text-4xl mb-3">📝</div>
-                <p className="text-gray-600 font-black text-sm">No questions yet</p>
+                <p className="text-gray-600 font-semibold text-sm">No questions yet</p>
                 <p className="text-gray-400 text-xs mt-1 mb-4">Add questions applicants will fill in</p>
                 <button type="button" onClick={addQuestion}
-                  className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-black hover:bg-indigo-700 transition">
+                  className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 transition">
                   + Add First Question
                 </button>
               </div>
@@ -663,7 +663,7 @@ export default function AdmissionFormBuilder({ schoolId, toast, onNext, onBack }
 
           {/* ── SAVE + NAVIGATION FOOTER ─────────────────────── */}
           <div className="sticky bottom-0 z-10">
-            <div className="bg-white/95 backdrop-blur-sm border border-gray-100 rounded-2xl shadow-xl p-4">
+            <div className="bg-white/95 backdrop-blur-sm border border-gray-100 rounded-2xl shadow-sm p-4">
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
                 {/* Back */}
                 {onBack && (
@@ -675,14 +675,14 @@ export default function AdmissionFormBuilder({ schoolId, toast, onNext, onBack }
                 <div className="flex-1"/>
                 {/* Save only */}
                 <button type="button" onClick={()=>save(false)} disabled={saving}
-                  className="flex items-center justify-center gap-2 px-6 py-3 bg-white border-2 border-indigo-200 text-indigo-700 rounded-xl font-black text-sm hover:bg-indigo-50 transition disabled:opacity-60">
+                  className="flex items-center justify-center gap-2 px-6 py-3 bg-white border-2 border-indigo-200 text-indigo-700 rounded-xl font-semibold text-sm hover:bg-indigo-50 transition disabled:opacity-60">
                   {saving ? <Loader2 size={14} className="animate-spin"/> : <Save size={14}/>}
                   {saving ? "Saving…" : saved ? "Saved ✓" : "Save Form"}
                 </button>
                 {/* Save & Continue */}
                 {onNext && (
                   <button type="button" onClick={()=>save(true)} disabled={saving}
-                    className="flex items-center justify-center gap-2 px-6 py-3.5 bg-indigo-600 text-white rounded-xl font-black text-sm hover:bg-indigo-700 transition disabled:opacity-60 shadow-lg shadow-indigo-100">
+                    className="flex items-center justify-center gap-2 px-6 py-3.5 bg-indigo-600 text-white rounded-xl font-semibold text-sm hover:bg-indigo-700 transition disabled:opacity-60 shadow-lg shadow-indigo-100">
                     {saving
                       ? <><Loader2 size={14} className="animate-spin"/> Saving…</>
                       : <><Save size={14}/> Save &amp; Continue <ChevronRight size={13}/></>
@@ -746,12 +746,12 @@ export default function AdmissionFormBuilder({ schoolId, toast, onNext, onBack }
           {apps.length>0 && (
             <div className="flex flex-wrap gap-2">
               <button onClick={()=>setFilterStatus("all")}
-                className={`px-3 py-1.5 rounded-full text-xs font-black transition ${filterStatus==="all"?"bg-gray-900 text-white":"bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition ${filterStatus==="all"?"bg-gray-900 text-white":"bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
                 All ({apps.length})
               </button>
               {APP_STATUSES.filter(s=>statusCounts[s.value]>0).map(s=>(
                 <button key={s.value} onClick={()=>setFilterStatus(s.value)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-black transition flex items-center gap-1 ${
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold transition flex items-center gap-1 ${
                     filterStatus===s.value ? `${s.color} ring-2 ring-offset-1 ring-current` : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                   }`}>
                   <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`}/>
@@ -770,7 +770,7 @@ export default function AdmissionFormBuilder({ schoolId, toast, onNext, onBack }
           ) : filteredApps.length===0 ? (
             <div className="text-center py-16 rounded-2xl bg-gray-50 border border-gray-100">
               <div className="text-5xl mb-3">{apps.length===0?"📬":"🔍"}</div>
-              <p className="text-gray-700 font-black text-base">
+              <p className="text-gray-700 font-semibold text-base">
                 {apps.length===0 ? "No applications yet" : "No results found"}
               </p>
               <p className="text-gray-400 text-xs mt-1">
@@ -778,7 +778,7 @@ export default function AdmissionFormBuilder({ schoolId, toast, onNext, onBack }
               </p>
               {apps.length>0 && search && (
                 <button onClick={()=>{setSearch("");setFilterStatus("all");}}
-                  className="mt-4 px-4 py-2 rounded-xl bg-indigo-50 text-indigo-600 text-xs font-black hover:bg-indigo-100 transition">
+                  className="mt-4 px-4 py-2 rounded-xl bg-indigo-50 text-indigo-600 text-xs font-semibold hover:bg-indigo-100 transition">
                   Clear filters
                 </button>
               )}
@@ -794,12 +794,12 @@ export default function AdmissionFormBuilder({ schoolId, toast, onNext, onBack }
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-gray-50 border-b border-gray-100 text-left">
-                      <th className="px-4 py-3 font-black text-gray-500 text-xs uppercase">Ref</th>
-                      <th className="px-4 py-3 font-black text-gray-500 text-xs uppercase">Applicant</th>
-                      <th className="px-4 py-3 font-black text-gray-500 text-xs uppercase">Contact</th>
-                      <th className="px-4 py-3 font-black text-gray-500 text-xs uppercase">Date</th>
-                      <th className="px-4 py-3 font-black text-gray-500 text-xs uppercase">Status</th>
-                      <th className="px-4 py-3 font-black text-gray-500 text-xs uppercase">Action</th>
+                      <th className="px-4 py-3 font-semibold text-gray-500 text-xs uppercase">Ref</th>
+                      <th className="px-4 py-3 font-semibold text-gray-500 text-xs uppercase">Applicant</th>
+                      <th className="px-4 py-3 font-semibold text-gray-500 text-xs uppercase">Contact</th>
+                      <th className="px-4 py-3 font-semibold text-gray-500 text-xs uppercase">Date</th>
+                      <th className="px-4 py-3 font-semibold text-gray-500 text-xs uppercase">Status</th>
+                      <th className="px-4 py-3 font-semibold text-gray-500 text-xs uppercase">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
@@ -812,7 +812,7 @@ export default function AdmissionFormBuilder({ schoolId, toast, onNext, onBack }
                           <td className="px-4 py-3.5">
                             <div className="flex items-center gap-2.5">
                               <div className="w-8 h-8 rounded-xl bg-indigo-100 flex items-center justify-center flex-shrink-0">
-                                <span className="text-xs font-black text-indigo-600">
+                                <span className="text-xs font-semibold text-indigo-600">
                                   {(app.applicant_name||"?")[0].toUpperCase()}
                                 </span>
                               </div>
@@ -827,7 +827,7 @@ export default function AdmissionFormBuilder({ schoolId, toast, onNext, onBack }
                             {new Date(app.submitted_at||app.created_at).toLocaleDateString()}
                           </td>
                           <td className="px-4 py-3.5">
-                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black ${st.color}`}>
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${st.color}`}>
                               <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`}/>
                               {st.label}
                             </span>
@@ -855,16 +855,16 @@ export default function AdmissionFormBuilder({ schoolId, toast, onNext, onBack }
                       <div className="flex items-start justify-between gap-2 mb-2.5">
                         <div className="flex items-center gap-2.5 min-w-0">
                           <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center flex-shrink-0">
-                            <span className="text-sm font-black text-indigo-600">
+                            <span className="text-sm font-semibold text-indigo-600">
                               {(app.applicant_name||"?")[0].toUpperCase()}
                             </span>
                           </div>
                           <div className="min-w-0">
-                            <p className="font-black text-gray-900 text-sm truncate">{app.applicant_name}</p>
+                            <p className="font-semibold text-gray-900 text-sm truncate">{app.applicant_name}</p>
                             <p className="text-xs text-gray-400 font-mono">{app.reference_no}</p>
                           </div>
                         </div>
-                        <span className={`flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black ${st.color}`}>
+                        <span className={`flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${st.color}`}>
                           <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`}/>
                           {st.label}
                         </span>
@@ -897,7 +897,7 @@ export default function AdmissionFormBuilder({ schoolId, toast, onNext, onBack }
             ) : <div/>}
             {onNext && (
               <button onClick={onNext}
-                className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 text-white font-black text-sm hover:bg-indigo-700 transition shadow-lg shadow-indigo-100">
+                className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 text-white font-semibold text-sm hover:bg-indigo-700 transition shadow-lg shadow-indigo-100">
                 Continue <ChevronRight size={14}/>
               </button>
             )}

@@ -7,6 +7,7 @@ import {
   Building2, Wallet, ArrowUpRight, MoreVertical, RefreshCw,
 } from 'lucide-react';
 import api from '../services/api';
+import ManagerOchreHeroShell from '../components/ManagerOchreHeroShell';
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DEPARTMENTS = ['All', 'Mathematics', 'Sciences', 'Finance', 'Library', 'ICT', 'Administration', 'Languages', 'Student Affairs'];
@@ -50,27 +51,10 @@ function downloadCsv(rows, filename) {
 }
 
 /* ─── Sub-components ─────────────────────────────────────────────────── */
-function StatCard({ icon: Icon, label, value, sub, accent, index }) {
-  return (
-    <div
-      className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-5 group"
-      style={{ animationDelay: `${index * 80}ms` }}
-    >
-      <div className={`absolute -top-6 -right-6 w-24 h-24 rounded-full blur-2xl opacity-25 transition-opacity group-hover:opacity-40 ${accent}`} />
-      <div className={`inline-flex items-center justify-center w-9 h-9 rounded-xl mb-3 ${accent} bg-opacity-20`}>
-        <Icon size={16} className="text-amber-300" />
-      </div>
-      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">{label}</p>
-      <p className="text-xl sm:text-2xl font-black text-white mt-0.5 leading-none">{value}</p>
-      {sub && <p className="text-[10px] text-slate-400 mt-1">{sub}</p>}
-    </div>
-  );
-}
-
 function StatusBadge({ status }) {
   const c = STATUS_CFG[status] || { badge: 'bg-slate-100 text-slate-600 border-slate-200', dot: 'bg-slate-400' };
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${c.badge}`}>
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wider border ${c.badge}`}>
       <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${c.dot}`} />
       {status}
     </span>
@@ -90,7 +74,7 @@ function Toast({ toast }) {
   if (!toast.message) return null;
   const isErr = toast.type === 'error';
   return (
-    <div className={`fixed top-4 right-4 z-[400] flex items-center gap-3 px-4 py-3 rounded-2xl shadow-2xl border text-sm font-semibold max-w-xs
+    <div className={`fixed top-4 right-4 z-[400] flex items-center gap-3 px-4 py-3 rounded-2xl shadow-sm border text-sm font-semibold max-w-xs
       ${isErr ? 'bg-red-600 border-red-500 text-white' : 'bg-emerald-600 border-emerald-500 text-white'}`}>
       {isErr ? <XCircle size={16} /> : <CheckCircle2 size={16} />}
       {toast.message}
@@ -116,13 +100,13 @@ function DetailModal({ row, onClose, onDecide, loading }) {
   return (
     <div className="fixed inset-0 z-[300] flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full sm:max-w-2xl max-h-[96dvh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-white shadow-2xl flex flex-col">
+      <div className="relative w-full sm:max-w-2xl max-h-[96dvh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-white shadow-sm flex flex-col">
 
         {/* header */}
         <div className="sticky top-0 z-10 bg-white border-b border-slate-100 px-5 py-4 flex items-start justify-between rounded-t-3xl sm:rounded-t-3xl">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Payroll Request Detail</p>
-            <h3 className="text-lg font-black text-[#000435]">{row.staffName}</h3>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Payroll Request Detail</p>
+            <h3 className="text-lg font-semibold text-[#000435]">{row.staffName}</h3>
             <p className="text-xs text-slate-500 font-medium">{row.staffCode} · {row.role} · {row.department}</p>
           </div>
           <div className="flex items-center gap-2">
@@ -143,16 +127,16 @@ function DetailModal({ row, onClose, onDecide, loading }) {
 
           {/* Salary breakdown */}
           <div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Salary Breakdown</p>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-3">Salary Breakdown</p>
             <div className="rounded-xl border border-slate-200 overflow-hidden">
               {[
                 { label: 'Basic Salary',       value: fmt(row.basic),        color: 'text-slate-800' },
                 { label: 'Allowances',         value: `+ ${fmt(row.allowances)}`, color: 'text-emerald-700' },
                 { label: 'Deductions (RSSB)',  value: `− ${fmt(row.deductions)}`, color: 'text-red-600'     },
-                { label: 'Net Salary',         value: fmt(row.netSalary),    color: 'text-[#000435] font-black', divider: true },
+                { label: 'Net Salary',         value: fmt(row.netSalary),    color: 'text-[#000435] font-semibold', divider: true },
                 { label: 'Advance Deduction',  value: `− ${fmt(row.advance)}`,   color: 'text-orange-600'  },
-                { label: 'Final Payable',      value: fmt(row.finalPayable), color: 'text-emerald-700 font-black text-base', divider: true },
-                { label: 'Amount Requested',   value: fmt(row.amount),       color: row.amount > row.finalPayable ? 'text-red-600 font-black' : 'text-[#000435] font-black' },
+                { label: 'Final Payable',      value: fmt(row.finalPayable), color: 'text-emerald-700 font-semibold text-base', divider: true },
+                { label: 'Amount Requested',   value: fmt(row.amount),       color: row.amount > row.finalPayable ? 'text-red-600 font-semibold' : 'text-[#000435] font-semibold' },
               ].map(({ label, value, color, divider }) => (
                 <div key={label}>
                   {divider && <div className="h-px bg-slate-100" />}
@@ -169,15 +153,15 @@ function DetailModal({ row, onClose, onDecide, loading }) {
           <div className="grid grid-cols-3 gap-3">
             {[['Month', row.month], ['Term', row.term], ['Year', String(row.year)]].map(([k, v]) => (
               <div key={k} className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-center">
-                <p className="text-[10px] text-slate-400 font-black uppercase tracking-wider">{k}</p>
-                <p className="font-black text-[#000435] mt-1">{v}</p>
+                <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">{k}</p>
+                <p className="font-semibold text-[#000435] mt-1">{v}</p>
               </div>
             ))}
           </div>
 
           {/* Audit */}
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-2 text-sm">
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Audit Trail</p>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Audit Trail</p>
             <div className="flex items-start gap-2">
               <div className="w-6 h-6 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0 mt-0.5"><Clock size={11} className="text-amber-600" /></div>
                 <div>
@@ -218,17 +202,17 @@ function DetailModal({ row, onClose, onDecide, loading }) {
           {(row.status === 'Pending' || row.status === 'Approved') && !action && (
             <div className="flex flex-wrap gap-3">
               {row.status === 'Pending' && (
-                <button onClick={() => setAction('approve')} className="flex-1 h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[11px] uppercase tracking-widest inline-flex items-center justify-center gap-2 transition active:scale-95">
+                <button onClick={() => setAction('approve')} className="flex-1 h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-[11px] uppercase tracking-widest inline-flex items-center justify-center gap-2 transition active:scale-95">
                   <CheckCircle2 size={15} /> Approve
                 </button>
               )}
               {row.status === 'Approved' && (
-                <button onClick={() => onDecide(row.id, 'pay')} disabled={loading} className="flex-1 h-11 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-[11px] uppercase tracking-widest inline-flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-50">
+                <button onClick={() => onDecide(row.id, 'pay')} disabled={loading} className="flex-1 h-11 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-medium text-[11px] uppercase tracking-widest inline-flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-50">
                   {loading ? <Loader2 size={14} className="animate-spin" /> : <DollarSign size={15} />} Mark as Paid
                 </button>
               )}
               {row.status !== 'Rejected' && (
-                <button onClick={() => setAction('reject')} className="flex-1 h-11 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-[11px] uppercase tracking-widest inline-flex items-center justify-center gap-2 transition active:scale-95">
+                <button onClick={() => setAction('reject')} className="flex-1 h-11 rounded-xl bg-red-600 hover:bg-red-700 text-white font-medium text-[11px] uppercase tracking-widest inline-flex items-center justify-center gap-2 transition active:scale-95">
                   <Ban size={15} /> Reject
                 </button>
               )}
@@ -238,7 +222,7 @@ function DetailModal({ row, onClose, onDecide, loading }) {
           {/* Approve confirm */}
           {action === 'approve' && (
             <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 space-y-3">
-              <p className="font-black text-emerald-800 text-sm">Confirm Approval</p>
+              <p className="font-semibold text-emerald-800 text-sm">Confirm Approval</p>
               <div className="flex flex-col gap-2">
                 {[['approve','Mark as Approved only'],['pay','Mark as Approved & Paid immediately']].map(([v, lbl]) => (
                   <label key={v} className="flex items-center gap-2.5 cursor-pointer">
@@ -248,11 +232,11 @@ function DetailModal({ row, onClose, onDecide, loading }) {
                 ))}
               </div>
               <div className="flex gap-2">
-                <button onClick={() => setAction(null)} className="h-9 px-4 rounded-xl border border-slate-200 text-[11px] font-black uppercase hover:bg-white transition">Cancel</button>
+                <button onClick={() => setAction(null)} className="h-9 px-4 rounded-xl border border-slate-200 text-[11px] font-semibold uppercase hover:bg-white transition">Cancel</button>
                 <button
                   onClick={() => { onDecide(row.id, approveMode); setAction(null); }}
                   disabled={loading}
-                  className="flex-1 h-9 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black uppercase transition active:scale-95 disabled:opacity-50 inline-flex items-center justify-center gap-1"
+                  className="flex-1 h-9 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold uppercase transition active:scale-95 disabled:opacity-50 inline-flex items-center justify-center gap-1"
                 >
                   {loading ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />} Confirm
                 </button>
@@ -263,7 +247,7 @@ function DetailModal({ row, onClose, onDecide, loading }) {
           {/* Reject form */}
           {action === 'reject' && (
             <div className="rounded-xl border border-red-200 bg-red-50 p-4 space-y-3">
-              <p className="font-black text-red-800 text-sm">Rejection Reason</p>
+              <p className="font-semibold text-red-800 text-sm">Rejection Reason</p>
               <div className="flex flex-wrap gap-2">
                 {REJECTION_PRESETS.map((r) => (
                   <button key={r} onClick={() => { setRejectReason(r); setCustomReason(''); }}
@@ -282,11 +266,11 @@ function DetailModal({ row, onClose, onDecide, loading }) {
                   placeholder="Enter custom rejection reason…" />
               )}
               <div className="flex gap-2">
-                <button onClick={() => { setAction(null); setRejectReason(''); setCustomReason(''); }} className="h-9 px-4 rounded-xl border border-slate-200 text-[11px] font-black uppercase hover:bg-white transition">Cancel</button>
+                <button onClick={() => { setAction(null); setRejectReason(''); setCustomReason(''); }} className="h-9 px-4 rounded-xl border border-slate-200 text-[11px] font-semibold uppercase hover:bg-white transition">Cancel</button>
                 <button
                   onClick={() => { onDecide(row.id, 'reject', finalReason); setAction(null); }}
                   disabled={!canSubmitReject || loading}
-                  className="flex-1 h-9 rounded-xl bg-red-600 hover:bg-red-700 text-white text-[11px] font-black uppercase transition active:scale-95 disabled:opacity-40 inline-flex items-center justify-center gap-1"
+                  className="flex-1 h-9 rounded-xl bg-red-600 hover:bg-red-700 text-white text-[11px] font-semibold uppercase transition active:scale-95 disabled:opacity-40 inline-flex items-center justify-center gap-1"
                 >
                   {loading ? <Loader2 size={13} className="animate-spin" /> : <Ban size={13} />} Confirm Reject
                 </button>
@@ -334,7 +318,7 @@ function AnalyticsPanel({ requests }) {
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
       {/* Approval rate */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5">
-        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Approval Rate</p>
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-4">Approval Rate</p>
         <div className="flex items-center justify-center">
           <div className="relative w-28 h-28">
             <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
@@ -343,7 +327,7 @@ function AnalyticsPanel({ requests }) {
                 strokeDasharray={`${rate} ${100 - rate}`} strokeLinecap="round" />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-2xl font-black text-[#000435]">{rate}%</span>
+              <span className="text-2xl font-semibold text-[#000435]">{rate}%</span>
               <span className="text-[9px] text-slate-400 font-bold uppercase">Rate</span>
             </div>
           </div>
@@ -353,7 +337,7 @@ function AnalyticsPanel({ requests }) {
             ['Rejected', requests.filter(r=>r.status==='Rejected').length, 'text-red-600'], ['Paid', requests.filter(r=>r.status==='Paid').length, 'text-blue-600']]
             .map(([lbl,n,cls]) => (
               <div key={lbl} className="rounded-lg bg-slate-50 py-2">
-                <p className={`font-black text-base ${cls}`}>{n}</p>
+                <p className={`font-semibold text-base ${cls}`}>{n}</p>
                 <p className="text-slate-400 text-[10px] font-semibold">{lbl}</p>
               </div>
           ))}
@@ -362,13 +346,13 @@ function AnalyticsPanel({ requests }) {
 
       {/* Dept breakdown */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5">
-        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Dept. Payroll (RWF)</p>
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-4">Dept. Payroll (RWF)</p>
         <div className="space-y-3">
           {byDept.length ? byDept.map(([dept, total]) => (
             <div key={dept}>
               <div className="flex justify-between text-xs mb-1">
                 <span className="font-semibold text-slate-700 truncate max-w-[60%]">{dept}</span>
-                <span className="font-black text-[#000435]">{fmtShort(total)}</span>
+                <span className="font-semibold text-[#000435]">{fmtShort(total)}</span>
               </div>
               <MiniBar value={total} max={maxDept} color="bg-amber-500" />
             </div>
@@ -378,13 +362,13 @@ function AnalyticsPanel({ requests }) {
 
       {/* Monthly cost */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5">
-        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Monthly Paid (RWF)</p>
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-4">Monthly Paid (RWF)</p>
         <div className="flex items-end gap-1.5 h-28">
           {byMonth.length ? byMonth.map(([month, val]) => {
             const pct = Math.max(8, (val / maxMonth) * 100);
             return (
               <div key={month} className="flex-1 flex flex-col items-center gap-1">
-                <span className="text-[9px] font-black text-slate-500">{fmtShort(val)}</span>
+                <span className="text-[9px] font-semibold text-slate-500">{fmtShort(val)}</span>
                 <div className="w-full rounded-t-md bg-[#000435] transition-all" style={{ height: `${pct}%` }} />
                 <span className="text-[8px] text-slate-400 font-semibold">{month.slice(0,3)}</span>
               </div>
@@ -642,84 +626,94 @@ export default function Payroll() {
         />
       )}
 
-      {/* ── Topbar ─────────────────────────────────────────────────────── */}
-      <div className="sticky top-0 z-[200] bg-[#000435] border-b border-white/10 px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-amber-500 flex items-center justify-center flex-shrink-0">
-            <Wallet size={15} className="text-[#000435]" />
-          </div>
-          <div>
-            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-amber-400">School Manager</p>
-            <p className="text-sm font-black text-white leading-none">Payroll Control Center</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setShowAnalytics((p) => !p)} className={`h-8 px-3 rounded-xl border text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-1.5 transition ${showAnalytics ? 'bg-amber-500 border-amber-500 text-[#000435]' : 'border-white/20 text-slate-300 hover:border-amber-400 hover:text-amber-400'}`}>
-            <BarChart2 size={12} /> Analytics
-          </button>
-          {/* notification bell */}
-          <div className="relative" ref={notifRef}>
-            <button onClick={() => setShowNotif((p) => !p)} className="relative h-8 w-8 rounded-xl border border-white/20 inline-flex items-center justify-center hover:border-amber-400 transition">
-              <Bell size={14} className="text-slate-300" />
-              {unreadCount > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-500 text-[#000435] text-[8px] font-black flex items-center justify-center">{unreadCount}</span>}
+      <ManagerOchreHeroShell
+        outerClassName="min-h-screen bg-slate-100 pb-10"
+        eyebrow={`School manager · ${MONTHS[new Date().getMonth()]} ${new Date().getFullYear()} · T2`}
+        title="Payroll control center"
+        subtitle="Review, approve, and manage all staff salary requests"
+        HeroIcon={Wallet}
+        headerRight={(
+          <>
+            <button
+              type="button"
+              onClick={exportCsv}
+              className="h-9 px-3 rounded-xl border border-white/25 bg-white/10 text-[10px] font-semibold uppercase tracking-wider text-white inline-flex items-center gap-1.5 hover:bg-white/15 transition-colors"
+            >
+              <FileSpreadsheet size={12} />
+              CSV
             </button>
-            {showNotif && (
-              <div className="absolute right-0 top-10 w-72 rounded-2xl bg-white border border-slate-200 shadow-2xl overflow-hidden z-50">
-                <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
-                  <p className="text-xs font-black text-[#000435] uppercase tracking-wider">Notifications</p>
-                  <button onClick={() => setNotifications((p) => p.map((n) => ({ ...n, read: true })))} className="text-[10px] text-amber-600 font-bold hover:underline">Mark all read</button>
-                </div>
-                {notifications.map((n) => (
-                  <div key={n.id} className={`px-4 py-3 border-b border-slate-50 ${n.read ? '' : 'bg-amber-50'}`}>
-                    <p className="text-xs font-semibold text-slate-700">{n.text}</p>
-                    <p className="text-[10px] text-slate-400 mt-0.5">{n.time}</p>
+            <button
+              type="button"
+              onClick={exportPdf}
+              className="h-9 px-3 rounded-xl border border-white/25 bg-white/10 text-[10px] font-semibold uppercase tracking-wider text-white inline-flex items-center gap-1.5 hover:bg-white/15 transition-colors"
+            >
+              <FileText size={12} />
+              PDF
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowAnalytics((p) => !p)}
+              className={`h-9 px-3 rounded-xl border text-[10px] font-semibold uppercase tracking-wider inline-flex items-center gap-1.5 transition ${
+                showAnalytics ? 'border-[#FEBF10] bg-[#FEBF10]/20 text-white' : 'border-white/25 text-white/90 hover:bg-white/10'
+              }`}
+            >
+              <BarChart2 size={12} />
+              Analytics
+            </button>
+            <div className="relative" ref={notifRef}>
+              <button
+                type="button"
+                onClick={() => setShowNotif((p) => !p)}
+                className="relative h-9 w-9 rounded-xl border border-white/25 bg-white/10 inline-flex items-center justify-center text-white hover:bg-white/15 transition-colors"
+              >
+                <Bell size={14} />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[1rem] h-4 px-0.5 rounded-full bg-[#FEBF10] text-[#1E3A5F] text-[8px] font-semibold flex items-center justify-center">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+              {showNotif && (
+                <div className="absolute right-0 top-11 w-72 rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden z-50">
+                  <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                    <p className="text-xs font-semibold text-[#000435] uppercase tracking-wider">Notifications</p>
+                    <button
+                      type="button"
+                      onClick={() => setNotifications((p) => p.map((n) => ({ ...n, read: true })))}
+                      className="text-[10px] text-amber-600 font-bold hover:underline"
+                    >
+                      Mark all read
+                    </button>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-          <button onClick={fetchRequests} className="h-8 w-8 rounded-xl border border-white/20 inline-flex items-center justify-center hover:border-amber-400 transition">
-            <RefreshCw size={13} className={`text-slate-300 ${loading.fetch ? 'animate-spin' : ''}`} />
-          </button>
-        </div>
-      </div>
-
+                  {notifications.map((n) => (
+                    <div key={n.id} className={`px-4 py-3 border-b border-slate-50 ${n.read ? '' : 'bg-amber-50'}`}>
+                      <p className="text-xs font-semibold text-slate-700">{n.text}</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">{n.time}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={fetchRequests}
+              className="h-9 w-9 rounded-xl border border-white/25 bg-white/10 inline-flex items-center justify-center text-white hover:bg-white/15 transition-colors"
+            >
+              <RefreshCw size={13} className={loading.fetch ? 'animate-spin' : ''} />
+            </button>
+          </>
+        )}
+        kpiTiles={[
+          { key: 'tot', label: 'Total requests', value: stats.total, icon: Users },
+          { key: 'pen', label: 'Pending', value: stats.pending, subValue: `${fmt(stats.pendingAmt)}`, icon: Clock },
+          { key: 'app', label: 'Approved', value: stats.approved, icon: BadgeCheck },
+          { key: 'rej', label: 'Rejected', value: stats.rejected, icon: Ban },
+          { key: 'pay', label: 'Total payable', value: `${fmtShort(stats.totalAmt)} RWF`, icon: TrendingUp },
+        ]}
+        kpiGridClassName="grid-cols-2 sm:grid-cols-3 lg:grid-cols-5"
+        overlapClassName="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 -mt-4 sm:-mt-5 pt-2 relative z-20 mb-6"
+        pageBody={(
       <div className="px-3 sm:px-6 lg:px-8 py-5 space-y-5">
-
-        {/* ── Hero / Stats ────────────────────────────────────────────── */}
-        <div className="relative overflow-hidden rounded-3xl bg-[#000435] p-5 sm:p-8">
-          <div className="pointer-events-none absolute -top-16 -right-16 w-72 h-72 rounded-full bg-amber-500/10 blur-3xl" />
-          <div className="pointer-events-none absolute bottom-0 left-1/2 w-64 h-32 rounded-full bg-blue-500/10 blur-2xl" />
-          <div className="relative">
-            <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
-              <div>
-                <span className="inline-block text-[9px] font-black uppercase tracking-[0.25em] text-amber-400 bg-amber-400/10 border border-amber-400/20 px-3 py-1 rounded-full mb-2">
-                  {MONTHS[new Date().getMonth()]} {new Date().getFullYear()} · T2
-                </span>
-                <h1 className="text-xl sm:text-3xl font-black text-white leading-tight">
-                  Payroll Control Center
-                </h1>
-                <p className="text-slate-400 text-xs sm:text-sm mt-1">Review, approve, and manage all staff salary requests</p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button onClick={exportCsv} className="h-9 px-3 rounded-xl border border-white/20 text-[10px] font-black uppercase tracking-wider text-slate-300 hover:border-amber-400 hover:text-amber-400 inline-flex items-center gap-1.5 transition">
-                  <FileSpreadsheet size={12} /> CSV
-                </button>
-                <button onClick={exportPdf} className="h-9 px-3 rounded-xl border border-white/20 text-[10px] font-black uppercase tracking-wider text-slate-300 hover:border-amber-400 hover:text-amber-400 inline-flex items-center gap-1.5 transition">
-                  <FileText size={12} /> PDF
-                </button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-              <StatCard icon={Users}      label="Total Requests" value={stats.total}              accent="bg-blue-500"    index={0} />
-              <StatCard icon={Clock}      label="Pending"        value={stats.pending}             accent="bg-amber-500"   index={1} sub={`${fmt(stats.pendingAmt)}`} />
-              <StatCard icon={BadgeCheck} label="Approved"       value={stats.approved}            accent="bg-emerald-500" index={2} />
-              <StatCard icon={Ban}        label="Rejected"       value={stats.rejected}            accent="bg-red-500"     index={3} />
-              <StatCard icon={TrendingUp} label="Total Payable"  value={fmtShort(stats.totalAmt) + ' RWF'} accent="bg-purple-500"  index={4} />
-            </div>
-          </div>
-        </div>
 
         {/* ── Analytics Panel ─────────────────────────────────────────── */}
         {showAnalytics && <AnalyticsPanel requests={requests} />}
@@ -738,7 +732,7 @@ export default function Payroll() {
             </div>
             <button
               onClick={() => setShowFilters((p) => !p)}
-              className={`h-9 px-3 rounded-xl border text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-1.5 transition ${showFilters ? 'bg-[#000435] border-[#000435] text-white' : 'border-slate-200 text-slate-600 hover:border-amber-400'}`}
+              className={`h-9 px-3 rounded-xl border text-[10px] font-semibold uppercase tracking-wider inline-flex items-center gap-1.5 transition ${showFilters ? 'bg-[#000435] border-[#000435] text-white' : 'border-slate-200 text-slate-600 hover:border-amber-400'}`}
             >
               <Sliders size={12} /> Filters {showFilters ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
             </button>
@@ -771,12 +765,12 @@ export default function Payroll() {
           {/* Bulk actions bar */}
           {someSelected && (
             <div className="flex flex-wrap items-center gap-2 px-4 sm:px-5 py-2.5 bg-amber-50 border-b border-amber-100">
-              <span className="text-xs font-black text-amber-800">{selected.length} selected</span>
+              <span className="text-xs font-semibold text-amber-800">{selected.length} selected</span>
               <div className="flex flex-wrap gap-2 ml-2">
-                <button onClick={() => bulkDecide('approve')} disabled={loading.action} className="h-8 px-3 rounded-lg bg-emerald-600 text-white text-[10px] font-black uppercase hover:bg-emerald-700 transition disabled:opacity-50">Approve All</button>
-                <button onClick={() => bulkDecide('pay')}      disabled={loading.action} className="h-8 px-3 rounded-lg bg-blue-600 text-white text-[10px] font-black uppercase hover:bg-blue-700 transition disabled:opacity-50">Mark Paid</button>
-                <button onClick={() => bulkDecide('reject')}   disabled={loading.action} className="h-8 px-3 rounded-lg bg-red-600 text-white text-[10px] font-black uppercase hover:bg-red-700 transition disabled:opacity-50">Reject All</button>
-                <button onClick={() => setSelected([])} className="h-8 px-3 rounded-lg border border-slate-200 text-[10px] font-black uppercase text-slate-600 hover:bg-white transition">Clear</button>
+                <button onClick={() => bulkDecide('approve')} disabled={loading.action} className="h-8 px-3 rounded-lg bg-emerald-600 text-white text-[10px] font-semibold uppercase hover:bg-emerald-700 transition disabled:opacity-50">Approve All</button>
+                <button onClick={() => bulkDecide('pay')}      disabled={loading.action} className="h-8 px-3 rounded-lg bg-blue-600 text-white text-[10px] font-semibold uppercase hover:bg-blue-700 transition disabled:opacity-50">Mark Paid</button>
+                <button onClick={() => bulkDecide('reject')}   disabled={loading.action} className="h-8 px-3 rounded-lg bg-red-600 text-white text-[10px] font-semibold uppercase hover:bg-red-700 transition disabled:opacity-50">Reject All</button>
+                <button onClick={() => setSelected([])} className="h-8 px-3 rounded-lg border border-slate-200 text-[10px] font-semibold uppercase text-slate-600 hover:bg-white transition">Clear</button>
               </div>
             </div>
           )}
@@ -827,7 +821,7 @@ export default function Payroll() {
                       </td>
                       <td className="px-4 py-3.5">
                         <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#000435] to-blue-700 flex items-center justify-center text-white text-[10px] font-black flex-shrink-0">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#000435] to-blue-700 flex items-center justify-center text-white text-[10px] font-semibold flex-shrink-0">
                             {row.staffName.split(' ').map((w) => w[0]).slice(0,2).join('')}
                           </div>
                           <div>
@@ -846,10 +840,10 @@ export default function Payroll() {
                         <p className="text-[10px] text-slate-400">{row.term}</p>
                       </td>
                       <td className="px-4 py-3.5 hidden lg:table-cell">
-                        <p className="text-xs font-black text-slate-700">{fmt(row.netSalary)}</p>
+                        <p className="text-xs font-semibold text-slate-700">{fmt(row.netSalary)}</p>
                       </td>
                       <td className="px-4 py-3.5">
-                        <p className={`text-xs font-black ${row.amount > row.finalPayable ? 'text-red-600' : 'text-[#000435]'}`}>{fmt(row.amount)}</p>
+                        <p className={`text-xs font-semibold ${row.amount > row.finalPayable ? 'text-red-600' : 'text-[#000435]'}`}>{fmt(row.amount)}</p>
                       </td>
                       <td className="px-4 py-3.5">
                         <StatusBadge status={row.status} />
@@ -866,18 +860,18 @@ export default function Payroll() {
                           {row.status === 'Pending' && (
                             <>
                               <button onClick={() => decide(row.id, 'approve')} disabled={loading.action}
-                                className="h-7 px-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[9px] font-black uppercase tracking-wider disabled:opacity-40 transition active:scale-95">
+                                className="h-7 px-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[9px] font-semibold uppercase tracking-wider disabled:opacity-40 transition active:scale-95">
                                 ✓
                               </button>
                               <button onClick={() => setDetailRow(row)} disabled={loading.action}
-                                className="h-7 px-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-[9px] font-black uppercase tracking-wider disabled:opacity-40 transition active:scale-95">
+                                className="h-7 px-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-[9px] font-semibold uppercase tracking-wider disabled:opacity-40 transition active:scale-95">
                                 ✕
                               </button>
                             </>
                           )}
                           {row.status === 'Approved' && (
                             <button onClick={() => decide(row.id, 'pay')} disabled={loading.action}
-                              className="h-7 px-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[9px] font-black uppercase tracking-wider disabled:opacity-40 transition active:scale-95">
+                              className="h-7 px-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[9px] font-semibold uppercase tracking-wider disabled:opacity-40 transition active:scale-95">
                               Pay
                             </button>
                           )}
@@ -913,14 +907,14 @@ export default function Payroll() {
                 <button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={pagination.page <= 1 || loading.fetch}
-                  className="h-8 px-3 rounded-lg border border-slate-200 text-[11px] font-black uppercase text-slate-600 disabled:opacity-40"
+                  className="h-8 px-3 rounded-lg border border-slate-200 text-[11px] font-semibold uppercase text-slate-600 disabled:opacity-40"
                 >
                   Prev
                 </button>
                 <button
                   onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
                   disabled={pagination.page >= pagination.totalPages || loading.fetch}
-                  className="h-8 px-3 rounded-lg border border-slate-200 text-[11px] font-black uppercase text-slate-600 disabled:opacity-40"
+                  className="h-8 px-3 rounded-lg border border-slate-200 text-[11px] font-semibold uppercase text-slate-600 disabled:opacity-40"
                 >
                   Next
                 </button>
@@ -934,8 +928,8 @@ export default function Payroll() {
 
         <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
           <div className="px-4 sm:px-5 py-3.5 border-b border-slate-100">
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">School Manager</p>
-            <h3 className="text-base font-black text-[#000435]">Payroll Payment Tracker</h3>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">School Manager</p>
+            <h3 className="text-base font-semibold text-[#000435]">Payroll Payment Tracker</h3>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
@@ -960,9 +954,9 @@ export default function Payroll() {
                       <p className="text-[10px] text-slate-400 font-mono">{r.staffCode}</p>
                     </td>
                     <td className="px-4 py-3.5">{r.month} {r.year} · {r.term}</td>
-                    <td className="px-4 py-3.5 font-black text-emerald-700">{fmt(r.finalPayable)}</td>
-                    <td className="px-4 py-3.5 font-black text-blue-700">{fmt(r.paidAmount)}</td>
-                    <td className="px-4 py-3.5 font-black text-orange-600">{fmt(r.remaining)}</td>
+                    <td className="px-4 py-3.5 font-semibold text-emerald-700">{fmt(r.finalPayable)}</td>
+                    <td className="px-4 py-3.5 font-semibold text-blue-700">{fmt(r.paidAmount)}</td>
+                    <td className="px-4 py-3.5 font-semibold text-orange-600">{fmt(r.remaining)}</td>
                     <td className="px-4 py-3.5">
                       <StatusBadge status={r.status === 'Pending Approval' ? 'Pending' : (r.status === 'Fully Paid' ? 'Paid' : r.status)} />
                     </td>
@@ -971,7 +965,7 @@ export default function Payroll() {
                         <button
                           onClick={() => openFinishPaymentModal(r)}
                           disabled={r.remaining <= 0 || r.status === 'Pending Approval' || r.status === 'Approved'}
-                          className="h-8 px-3 rounded-lg bg-amber-500 hover:bg-amber-400 text-[#000435] text-[10px] font-black uppercase tracking-wider disabled:opacity-40 disabled:cursor-not-allowed transition active:scale-95"
+                          className="h-8 px-3 rounded-lg bg-amber-500 hover:bg-amber-400 text-[#000435] text-[10px] font-semibold uppercase tracking-wider disabled:opacity-40 disabled:cursor-not-allowed transition active:scale-95"
                         >
                           {canActionFinishPayment ? 'Finish Payment' : 'View'}
                         </button>
@@ -989,7 +983,7 @@ export default function Payroll() {
           <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
             <div className="flex items-center gap-2 mb-3">
               <AlertTriangle size={16} className="text-amber-600" />
-              <p className="text-xs font-black uppercase tracking-widest text-amber-800">Smart Alerts</p>
+              <p className="text-xs font-semibold uppercase tracking-widest text-amber-800">Smart Alerts</p>
             </div>
             <div className="space-y-2">
               {requests.filter((r) => r.amount > r.finalPayable && r.status === 'Pending').map((r) => (
@@ -997,7 +991,7 @@ export default function Payroll() {
                   <span className="text-amber-800 font-semibold">
                     ⚠️ <strong>{r.staffName}</strong> — requested {fmt(r.amount)} but max payable is {fmt(r.finalPayable)}
                   </span>
-                  <button onClick={() => setDetailRow(r)} className="text-[10px] font-black text-amber-700 underline hover:text-amber-900">Review</button>
+                  <button onClick={() => setDetailRow(r)} className="text-[10px] font-semibold text-amber-700 underline hover:text-amber-900">Review</button>
                 </div>
               ))}
             </div>
@@ -1005,13 +999,15 @@ export default function Payroll() {
         )}
 
       </div>
+        )}
+      />
 
       {finishModal.open && finishModal.row && (
         <div className="fixed inset-0 z-[280] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/55 backdrop-blur-sm" onClick={() => setFinishModal({ open: false, row: null, amount: '' })} />
-          <div className="relative w-full max-w-lg rounded-2xl bg-white border border-slate-200 shadow-2xl p-6">
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Finish Payment</p>
-            <h3 className="text-lg font-black text-[#000435] mt-1">{finishModal.row.staffName}</h3>
+          <div className="relative w-full max-w-lg rounded-2xl bg-white border border-slate-200 shadow-sm p-6">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Finish Payment</p>
+            <h3 className="text-lg font-semibold text-[#000435] mt-1">{finishModal.row.staffName}</h3>
             <p className="text-xs text-slate-500">{finishModal.row.month} / {finishModal.row.term} / {finishModal.row.year}</p>
             <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm space-y-2">
               <div className="flex justify-between"><span className="text-slate-500">Final Payable</span><strong className="text-emerald-700">{fmt(finishModal.row.finalPayable)}</strong></div>
@@ -1022,7 +1018,7 @@ export default function Payroll() {
             {canActionFinishPayment ? (
               <>
                 <div className="mt-4">
-                  <label className="text-[11px] font-black uppercase tracking-widest text-slate-600">Pay Amount (RWF)</label>
+                  <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-600">Pay Amount (RWF)</label>
                   <input
                     value={finishModal.amount}
                     onChange={(e) => setFinishModal((p) => ({ ...p, amount: e.target.value.replace(/[^\d]/g, '') }))}
@@ -1031,10 +1027,10 @@ export default function Payroll() {
                   />
                 </div>
                 <div className="mt-5 flex justify-end gap-2">
-                  <button onClick={() => setFinishModal({ open: false, row: null, amount: '' })} className="h-10 px-4 rounded-xl border border-slate-200 text-[11px] font-black uppercase tracking-widest hover:bg-slate-50 transition">
+                  <button onClick={() => setFinishModal({ open: false, row: null, amount: '' })} className="h-10 px-4 rounded-xl border border-slate-200 text-[11px] font-semibold uppercase tracking-widest hover:bg-slate-50 transition">
                     Cancel
                   </button>
-                  <button onClick={confirmFinishPayment} disabled={loading.action} className="h-10 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black uppercase tracking-widest inline-flex items-center gap-2 disabled:opacity-50 transition active:scale-95">
+                  <button onClick={confirmFinishPayment} disabled={loading.action} className="h-10 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold uppercase tracking-widest inline-flex items-center gap-2 disabled:opacity-50 transition active:scale-95">
                     {loading.action ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
                     Mark Paid
                   </button>
@@ -1042,7 +1038,7 @@ export default function Payroll() {
               </>
             ) : (
               <div className="mt-5 flex justify-end">
-                <button onClick={() => setFinishModal({ open: false, row: null, amount: '' })} className="h-10 px-4 rounded-xl border border-slate-200 text-[11px] font-black uppercase tracking-widest hover:bg-slate-50 transition">
+                <button onClick={() => setFinishModal({ open: false, row: null, amount: '' })} className="h-10 px-4 rounded-xl border border-slate-200 text-[11px] font-semibold uppercase tracking-widest hover:bg-slate-50 transition">
                   Close
                 </button>
               </div>

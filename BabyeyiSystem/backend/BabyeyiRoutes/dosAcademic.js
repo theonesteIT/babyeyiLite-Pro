@@ -129,10 +129,14 @@ async function ensureDosTables() {
       school_id INT UNSIGNED NOT NULL PRIMARY KEY,
       current_academic_year VARCHAR(32) NOT NULL DEFAULT '2025-2026',
       active_terms_json JSON NULL,
+      term_dates_json JSON NULL,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       updated_by_user_id INT UNSIGNED NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
+  await promisePool.query(
+    'ALTER TABLE school_academic_settings ADD COLUMN term_dates_json JSON NULL'
+  ).catch(() => {});
 
   await promisePool.query(`
     CREATE TABLE IF NOT EXISTS school_teacher_period_settings (
@@ -234,7 +238,7 @@ const statusLabelForCode = (code, label) => {
 async function getAcademicCalendarSettings(schoolId) {
   await ensureDosTables();
   const [[row]] = await promisePool.query(
-    `SELECT current_academic_year, active_terms_json
+    `SELECT current_academic_year, active_terms_json, term_dates_json
      FROM school_academic_settings
      WHERE school_id = ?
      LIMIT 1`,
@@ -249,13 +253,55 @@ async function getAcademicCalendarSettings(schoolId) {
       if (Array.isArray(parsed) && parsed.length) {
         terms = parsed.map((x) => String(x).trim()).filter(Boolean);
       }
-    } catch (_) {
-      /* keep defaults */
-    }
+    } catch (_) { /* keep defaults */ }
+  }
+  let termDates = [];
+  if (row?.term_dates_json) {
+    try {
+      const parsed = Array.isArray(row.term_dates_json)
+        ? row.term_dates_json
+        : JSON.parse(row.term_dates_json);
+      if (Array.isArray(parsed)) termDates = parsed;
+    } catch (_) { /* keep empty */ }
   }
   return {
     current_academic_year: row?.current_academic_year || '2025-2026',
     active_terms: terms,
+    term_dates: termDates,
+  };
+}
+
+function inferTermFromMonth(terms = [], date = new Date()) {
+  const month = date.getMonth() + 1;
+  if (!Array.isArray(terms) || !terms.length) return 'Term 1';
+  if (terms.length >= 3) {
+    if (month >= 9 && month <= 12) return terms[0];
+    if (month >= 1 && month <= 4) return terms[1] || terms[0];
+    return terms[2] || terms[terms.length - 1];
+  }
+  if (terms.length === 2) return month >= 9 || month <= 2 ? terms[0] : terms[1];
+  return terms[0];
+}
+
+function inferAcademicYearFromDate(date = new Date()) {
+  const y = date.getFullYear();
+  const m = date.getMonth() + 1;
+  return m >= 9 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
+}
+
+async function resolveAcademicContext(schoolId, academicYearRaw, termRaw) {
+  const explicitYear = trimStr(academicYearRaw);
+  const explicitTerm = trimStr(termRaw);
+  if (explicitYear && explicitTerm) {
+    return { academicYear: explicitYear, term: explicitTerm };
+  }
+  const calendar = await getAcademicCalendarSettings(schoolId);
+  const terms = Array.isArray(calendar?.active_terms) && calendar.active_terms.length
+    ? calendar.active_terms
+    : ['Term 1', 'Term 2', 'Term 3'];
+  return {
+    academicYear: explicitYear || trimStr(calendar?.current_academic_year) || inferAcademicYearFromDate(),
+    term: explicitTerm || inferTermFromMonth(terms),
   };
 }
 
@@ -328,29 +374,111 @@ router.get('/dos/dashboard/stats', requireRole(DOS_DASHBOARD_ROLES), async (req,
       institutionalGPA = '0';
     }
 
+    // ─── Gate attendance trend (real RFID data, last 14 days) ────
+    let termTrend = [];
+    let gateToday = { students_in: 0, staff_in: 0 };
+    try {
+      const [gateTrendRows] = await promisePool.query(
+        `SELECT
+           DATE_FORMAT(attendance_date, '%b %d') AS label,
+           COUNT(CASE WHEN person_type = 'STUDENT' AND morning_check_in IS NOT NULL THEN 1 END) AS value
+         FROM school_gate_attendance_records
+         WHERE school_id = ? AND attendance_date >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)
+         GROUP BY attendance_date
+         ORDER BY attendance_date ASC`,
+        [schoolId]
+      );
+      termTrend = gateTrendRows.map((r) => ({ label: r.label, value: Number(r.value) || 0 }));
+
+      const [[gateRow]] = await promisePool.query(
+        `SELECT
+           COUNT(CASE WHEN person_type = 'STUDENT' AND morning_check_in IS NOT NULL THEN 1 END) AS students_in,
+           COUNT(CASE WHEN person_type = 'STAFF'   AND morning_check_in IS NOT NULL THEN 1 END) AS staff_in
+         FROM school_gate_attendance_records
+         WHERE school_id = ? AND attendance_date = CURDATE()`,
+        [schoolId]
+      );
+      if (gateRow) {
+        gateToday = {
+          students_in: Number(gateRow.students_in || 0),
+          staff_in:    Number(gateRow.staff_in    || 0),
+        };
+      }
+    } catch (gateErr) {
+      console.warn('[dos/dashboard/stats] gate data skipped:', gateErr.message);
+    }
+
+    // ─── Student enrollment by section (real data) ───────────────
+    let feeByClass = [];
+    try {
+      const [sectionRows] = await promisePool.query(
+        `SELECT
+           COALESCE(NULLIF(TRIM(class_name), ''), 'Unknown') AS label,
+           COUNT(*) AS value
+         FROM students
+         WHERE school_id = ?
+         GROUP BY COALESCE(NULLIF(TRIM(class_name), ''), 'Unknown')
+         ORDER BY class_name`,
+        [schoolId]
+      );
+      feeByClass = sectionRows.map((r) => ({ label: r.label, value: Number(r.value) || 0 }));
+    } catch (secErr) {
+      console.warn('[dos/dashboard/stats] section enrollment skipped:', secErr.message);
+    }
+
+    // ─── Academic marks distribution (real data when available) ──
+    let acExceptional = Math.floor(totalStudents * 0.45);
+    let acExpected    = Math.floor(totalStudents * 0.40);
+    let acReview      = Math.max(0, totalStudents - acExceptional - acExpected);
+    let academicHasRealData = false;
+    try {
+      const [[marksRow]] = await promisePool.query(
+        `SELECT
+           SUM(CASE WHEN a.max_score > 0 AND (m.score_obtained / a.max_score) >= 0.75 THEN 1 ELSE 0 END) AS exceptional,
+           SUM(CASE WHEN a.max_score > 0 AND (m.score_obtained / a.max_score) >= 0.50 AND (m.score_obtained / a.max_score) < 0.75 THEN 1 ELSE 0 END) AS expected,
+           SUM(CASE WHEN a.max_score > 0 AND (m.score_obtained / a.max_score) < 0.50 THEN 1 ELSE 0 END) AS needs_review
+         FROM academic_marks m
+         JOIN academic_assessments a ON m.assessment_id = a.id
+         WHERE m.school_id = ? AND a.max_score > 0`,
+        [schoolId]
+      );
+      const total = Number(marksRow?.exceptional || 0) + Number(marksRow?.expected || 0) + Number(marksRow?.needs_review || 0);
+      if (total > 0) {
+        acExceptional = Number(marksRow.exceptional || 0);
+        acExpected    = Number(marksRow.expected    || 0);
+        acReview      = Number(marksRow.needs_review || 0);
+        academicHasRealData = true;
+      }
+    } catch (marksErr) {
+      console.warn('[dos/dashboard/stats] marks distribution skipped:', marksErr.message);
+    }
+
+    // ─── Build sparklines from real gate data ─────────────────────
+    const sparklineFromGate = termTrend.length >= 2
+      ? termTrend.slice(-7).map((r) => ({ value: r.value }))
+      : [{ value: 0 }, { value: 0 }, { value: 0 }, { value: 0 }, { value: 0 }, { value: gateToday.students_in || 0 }];
+
     const baseCount = presentCount > 0 ? presentCount : totalStudents;
-    const activeBoys = Math.floor(baseCount * 0.48);
+    const activeBoys  = Math.floor(baseCount * 0.48);
     const activeGirls = baseCount - activeBoys;
 
     const attendanceOverview = {
-      present: presentCount || 0,
-      absent: absentCount || 0,
-      boys: { count: activeBoys, percentage: baseCount > 0 ? Math.round((activeBoys / baseCount) * 100) : 0 },
+      present:  presentCount || 0,
+      absent:   absentCount  || 0,
+      boys:  { count: activeBoys,  percentage: baseCount > 0 ? Math.round((activeBoys  / baseCount) * 100) : 0 },
       girls: { count: activeGirls, percentage: baseCount > 0 ? Math.round((activeGirls / baseCount) * 100) : 0 },
-      sparkline: [{ value: 0 }, { value: 0 }, { value: 0 }, { value: 0 }, { value: 0 }, { value: presentCount || 0 }],
+      sparkline: sparklineFromGate,
+      gateToday,
     };
 
-    const expectedCount = Math.floor(totalStudents * 0.4);
-    const exceptionalCount = Math.floor(totalStudents * 0.45);
-    const reviewCount = Math.max(0, totalStudents - expectedCount - exceptionalCount);
-
     const academicOverview = {
-      exceptional: exceptionalCount,
-      expected: expectedCount,
-      needsReview: reviewCount,
-      boys: { count: (totalStudents * 0.45).toFixed(1), percentage: 48 },
+      exceptional:    acExceptional,
+      expected:       acExpected,
+      needsReview:    acReview,
+      hasRealData:    academicHasRealData,
+      boys:  { count: (totalStudents * 0.45).toFixed(1), percentage: 48 },
       girls: { count: (totalStudents * 0.55).toFixed(1), percentage: 52 },
-      sparkline: [{ value: 65 }, { value: 68 }, { value: 67 }, { value: 70 }, { value: 69 }, { value: 71 }],
+      sparkline: [{ value: 65 }, { value: 68 }, { value: 67 }, { value: 70 }, { value: 69 }, { value: Number(institutionalGPA) || 71 }],
     };
 
     res.json({
@@ -362,15 +490,48 @@ router.get('/dos/dashboard/stats', requireRole(DOS_DASHBOARD_ROLES), async (req,
         institutionalGPA,
         attendanceOverview,
         academicOverview,
+        termTrend,
+        feeByClass,
         activityLog: [
-          { id: 'LOG-1', type: 'Academic', detail: 'Marks and attendance sync with your school records', time: 'recent', status: 'approved' },
-          { id: 'LOG-2', type: 'Attendance', detail: 'Daily attendance is tracked per lesson where recorded', time: 'recent', status: 'pending' },
+          { id: 'LOG-1', type: 'Academic',   detail: 'Marks and attendance sync with your school records', time: 'recent', status: 'approved' },
+          { id: 'LOG-2', type: 'Attendance', detail: 'Daily gate attendance tracked via RFID check-in',     time: 'recent', status: 'pending'  },
         ],
       },
     });
   } catch (err) {
     console.error('[GET /dos/dashboard/stats]', err);
     res.status(500).json({ success: false, message: 'Failed to fetch dashboard stats' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+// GET /api/dos/class-enrollment — student count per class/section
+// ════════════════════════════════════════════════════════════════
+router.get('/dos/class-enrollment', requireRole(DOS_DASHBOARD_ROLES), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'No active school context' });
+    const [rows] = await promisePool.query(
+      `SELECT
+         COALESCE(NULLIF(TRIM(class_name), ''), 'Unknown') AS class_name,
+         COUNT(*) AS student_count
+       FROM students
+       WHERE school_id = ?
+       GROUP BY COALESCE(NULLIF(TRIM(class_name), ''), 'Unknown')
+       ORDER BY class_name ASC`,
+      [schoolId]
+    );
+    const total = rows.reduce((s, r) => s + Number(r.student_count || 0), 0);
+    return res.json({
+      success: true,
+      data: {
+        rows: rows.map((r) => ({ class_name: r.class_name, student_count: Number(r.student_count || 0) })),
+        total,
+      },
+    });
+  } catch (err) {
+    console.error('GET /dos/class-enrollment:', err);
+    return res.status(500).json({ success: false, message: 'Failed to load class enrollment' });
   }
 });
 
@@ -504,27 +665,42 @@ router.get('/dos/academic-calendar-settings', requireRole(DOS_ACADEMIC_CALENDAR_
 router.put('/dos/academic-calendar-settings', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
   try {
     const schoolId = resolveSchoolId(req);
-    const userId = resolveUserId(req);
+    const userId   = resolveUserId(req);
     if (!schoolId || !userId) return res.status(400).json({ success: false, message: 'Invalid session.' });
-    const year = trimStr(req.body?.current_academic_year);
+
+    const year     = trimStr(req.body?.current_academic_year);
     const termsRaw = Array.isArray(req.body?.active_terms) ? req.body.active_terms : [];
-    const terms = termsRaw.map((x) => trimStr(x)).filter(Boolean);
+    const terms    = termsRaw.map((x) => trimStr(x)).filter(Boolean);
+
     if (!/^\d{4}-\d{4}$/.test(year)) {
       return res.status(400).json({ success: false, message: 'current_academic_year must be like 2025-2026.' });
     }
     if (!terms.length) {
       return res.status(400).json({ success: false, message: 'At least one term is required.' });
     }
+
+    // Validate & sanitise term_dates array: [{ name, start, end }]
+    const termDatesRaw = Array.isArray(req.body?.term_dates) ? req.body.term_dates : [];
+    const termDates = termDatesRaw
+      .filter((d) => d && d.name && d.start && d.end)
+      .map((d) => ({
+        name:  String(d.name).trim(),
+        start: String(d.start).trim(),
+        end:   String(d.end).trim(),
+      }));
+
     await promisePool.query(
-      `INSERT INTO school_academic_settings (school_id, current_academic_year, active_terms_json, updated_by_user_id)
-       VALUES (?, ?, ?, ?)
+      `INSERT INTO school_academic_settings
+         (school_id, current_academic_year, active_terms_json, term_dates_json, updated_by_user_id)
+       VALUES (?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE
          current_academic_year = VALUES(current_academic_year),
-         active_terms_json = VALUES(active_terms_json),
-         updated_by_user_id = VALUES(updated_by_user_id)`,
-      [schoolId, year, JSON.stringify(terms), userId]
+         active_terms_json     = VALUES(active_terms_json),
+         term_dates_json       = VALUES(term_dates_json),
+         updated_by_user_id    = VALUES(updated_by_user_id)`,
+      [schoolId, year, JSON.stringify(terms), JSON.stringify(termDates), userId]
     );
-    return res.json({ success: true, data: { current_academic_year: year, active_terms: terms } });
+    return res.json({ success: true, data: { current_academic_year: year, active_terms: terms, term_dates: termDates } });
   } catch (err) {
     console.error('PUT /dos/academic-calendar-settings:', err);
     return res.status(500).json({ success: false, message: 'Failed to save academic settings' });
@@ -540,12 +716,10 @@ router.get('/dos/progress/students', requireRole(DOS_ONLY), async (req, res) => 
     const schoolId = resolveSchoolId(req);
     if (!schoolId) return res.status(400).json({ success: false, message: 'School not found in session.' });
 
-    const academicYear = trimStr(req.query.academic_year || req.query.year || '');
-    const term = trimStr(req.query.term || '');
+    const academicYearQ = trimStr(req.query.academic_year || req.query.year || '');
+    const termQ = trimStr(req.query.term || '');
     const className = trimStr(req.query.class_name || req.query.class || '');
-    if (!academicYear || !term) {
-      return res.status(400).json({ success: false, message: 'academic_year and term are required.' });
-    }
+    const { academicYear, term } = await resolveAcademicContext(schoolId, academicYearQ, termQ);
 
     const { page, limit, offset } = parsePagination(req);
     const totalMarks = await getTotalMarksForSchool(schoolId);
@@ -640,8 +814,11 @@ router.post('/dos/progress', requireRole(DOS_ONLY), async (req, res) => {
 
     const body = req.body || {};
     const studentId = Number(body.student_id);
-    const academicYear = trimStr(body.academic_year);
-    const term = trimStr(body.term);
+    const { academicYear, term } = await resolveAcademicContext(
+      schoolId,
+      body.academic_year || body.year || '',
+      body.term || ''
+    );
     const className = trimStr(body.class_name || '');
     const statusCodeRaw = trimStr(body.status_code).toLowerCase();
     const statusLabel = trimStr(body.status_label || '');
@@ -649,7 +826,6 @@ router.post('/dos/progress', requireRole(DOS_ONLY), async (req, res) => {
     const notes = trimStr(body.notes) || null;
 
     if (!studentId || Number.isNaN(studentId)) return res.status(400).json({ success: false, message: 'student_id is required.' });
-    if (!academicYear || !term) return res.status(400).json({ success: false, message: 'academic_year and term are required.' });
     if (!STATUS_CODES.includes(statusCodeRaw)) {
       return res.status(400).json({ success: false, message: `status_code must be one of: ${STATUS_CODES.join(', ')}` });
     }
@@ -717,12 +893,10 @@ router.get('/dos/reports/summary', requireRole(DOS_ONLY), async (req, res) => {
       return res.status(400).json({ success: false, message: 'School not found in session.' });
     }
 
-    const academicYear = trimStr(req.query.academic_year || req.query.year || '');
-    const term = trimStr(req.query.term || '');
+    const academicYearQ = trimStr(req.query.academic_year || req.query.year || '');
+    const termQ = trimStr(req.query.term || '');
     const className = trimStr(req.query.class_name || req.query.class || '');
-    if (!academicYear || !term) {
-      return res.status(400).json({ success: false, message: 'academic_year and term are required.' });
-    }
+    const { academicYear, term } = await resolveAcademicContext(schoolId, academicYearQ, termQ);
 
     const totalMarksDefault = await getTotalMarksForSchool(schoolId);
 
@@ -848,12 +1022,10 @@ router.get('/dos/reports/summary/export.xlsx', requireRole(DOS_ONLY), async (req
     const schoolId = resolveSchoolId(req);
     if (!schoolId) return res.status(400).json({ success: false, message: 'School not found in session.' });
 
-    const academicYear = trimStr(req.query.academic_year || req.query.year || '');
-    const term = trimStr(req.query.term || '');
+    const academicYearQ = trimStr(req.query.academic_year || req.query.year || '');
+    const termQ = trimStr(req.query.term || '');
     const className = trimStr(req.query.class_name || req.query.class || '');
-    if (!academicYear || !term) {
-      return res.status(400).json({ success: false, message: 'academic_year and term are required.' });
-    }
+    const { academicYear, term } = await resolveAcademicContext(schoolId, academicYearQ, termQ);
 
     const [[schoolRow]] = await promisePool.query(
       'SELECT school_name, school_code FROM schools WHERE id = ? LIMIT 1',
@@ -990,12 +1162,10 @@ router.get('/dos/reports/summary/export.pdf', requireRole(DOS_ONLY), async (req,
     const schoolId = resolveSchoolId(req);
     if (!schoolId) return res.status(400).json({ success: false, message: 'School not found in session.' });
 
-    const academicYear = trimStr(req.query.academic_year || req.query.year || '');
-    const term = trimStr(req.query.term || '');
+    const academicYearQ = trimStr(req.query.academic_year || req.query.year || '');
+    const termQ = trimStr(req.query.term || '');
     const className = trimStr(req.query.class_name || req.query.class || '');
-    if (!academicYear || !term) {
-      return res.status(400).json({ success: false, message: 'academic_year and term are required.' });
-    }
+    const { academicYear, term } = await resolveAcademicContext(schoolId, academicYearQ, termQ);
 
     const [[schoolRow]] = await promisePool.query(
       'SELECT school_name, school_code FROM schools WHERE id = ? LIMIT 1',
@@ -1562,12 +1732,12 @@ router.put('/dos/teacher-period/settings', requireRole(DOS_ACADEMIC_ADMIN), asyn
     const userId = resolveUserId(req);
     if (!schoolId || !userId) return res.status(400).json({ success: false, message: 'Invalid session' });
 
-    const academicYear = trimStr(req.body?.academic_year);
-    const term = trimStr(req.body?.term);
+    const { academicYear, term } = await resolveAcademicContext(
+      schoolId,
+      req.body?.academic_year || req.body?.year || '',
+      req.body?.term || ''
+    );
     const lateThreshold = Number(req.body?.late_threshold_minutes);
-    if (!academicYear || !term) {
-      return res.status(400).json({ success: false, message: 'academic_year and term are required' });
-    }
     if (Number.isNaN(lateThreshold) || lateThreshold < 0 || lateThreshold > 120) {
       return res.status(400).json({ success: false, message: 'late_threshold_minutes must be between 0 and 120' });
     }
@@ -1905,6 +2075,460 @@ router.post('/dos/teacher-period/scan', async (req, res) => {
   } catch (err) {
     console.error('POST /dos/teacher-period/scan:', err);
     return res.status(500).json({ success: false, message: 'Failed to process scan' });
+  }
+});
+
+const DOS_ATTENDANCE_ROLES = ['DOS', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER'];
+
+// ════════════════════════════════════════════════════════════════
+// GET /api/dos/attendance/term-progress
+//   ?term=Term 1
+// Returns working-day stats for the given term so the frontend
+// can render a "X% of term elapsed / Y days attended" progress bar.
+// Working days = Mon–Fri only (public holidays not excluded).
+// ════════════════════════════════════════════════════════════════
+function countWorkingDays(startStr, endStr) {
+  const start = new Date(startStr);
+  const end   = new Date(endStr);
+  if (!startStr || !endStr || isNaN(start) || isNaN(end)) return 0;
+  let count = 0;
+  const cur = new Date(start);
+  cur.setHours(0, 0, 0, 0);
+  const fin = new Date(end);
+  fin.setHours(0, 0, 0, 0);
+  while (cur <= fin) {
+    const d = cur.getDay(); // 0=Sun,6=Sat
+    if (d !== 0 && d !== 6) count++;
+    cur.setDate(cur.getDate() + 1);
+  }
+  return count;
+}
+
+router.get('/dos/attendance/term-progress', requireRole(DOS_ATTENDANCE_ROLES), async (req, res) => {
+  try {
+    await ensureAcademicTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(403).json({ success: false, message: 'No school context' });
+
+    const termParam = trimStr(req.query.term);
+    const calendar  = await getAcademicCalendarSettings(schoolId);
+    const termDates = Array.isArray(calendar.term_dates) ? calendar.term_dates : [];
+
+    // Find the requested term's date config
+    const termCfg = termParam
+      ? termDates.find((t) => t.name === termParam)
+      : termDates[0] || null;
+
+    if (!termCfg || !termCfg.start || !termCfg.end) {
+      return res.json({
+        success: true,
+        data: {
+          configured: false,
+          term: termParam || (calendar.active_terms[0] || 'Term 1'),
+          message: 'No term dates configured yet. Set them in Settings → Preferences.',
+        },
+      });
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const termStart = new Date(termCfg.start);
+    const termEnd   = new Date(termCfg.end);
+
+    // Clamp today to [termStart, termEnd]
+    const elapsedEnd = today < termStart ? termStart : today > termEnd ? termEnd : today;
+    const totalWorkingDays   = countWorkingDays(termCfg.start, termCfg.end);
+    const elapsedWorkingDays = countWorkingDays(termCfg.start, elapsedEnd.toISOString().slice(0, 10));
+
+    // Count student morning attendance (On time + Late = "present") for the school in this date range
+    const [stuRows] = await promisePool.query(
+      `SELECT COUNT(DISTINCT a.attendance_date) AS present_days
+       FROM attendance_student a
+       WHERE a.school_id = ?
+         AND a.attendance_date BETWEEN ? AND ?
+         AND a.status_in IN ('On time', 'Late')`,
+      [schoolId, termCfg.start, elapsedEnd.toISOString().slice(0, 10)]
+    );
+    const studentPresentDays = Number(stuRows[0]?.present_days || 0);
+
+    // Count staff attendance
+    const [staffRows] = await promisePool.query(
+      `SELECT COUNT(DISTINCT a.attendance_date) AS present_days
+       FROM attendance_teacher a
+       WHERE a.school_id = ?
+         AND a.attendance_date BETWEEN ? AND ?
+         AND a.status_in IN ('Present', 'Late')`,
+      [schoolId, termCfg.start, elapsedEnd.toISOString().slice(0, 10)]
+    );
+    const staffPresentDays = Number(staffRows[0]?.present_days || 0);
+
+    const termProgressPct = elapsedWorkingDays > 0
+      ? Math.round((elapsedWorkingDays / totalWorkingDays) * 100)
+      : 0;
+
+    const studentAttendancePct = elapsedWorkingDays > 0
+      ? Math.round((studentPresentDays / elapsedWorkingDays) * 100)
+      : 0;
+
+    const staffAttendancePct = elapsedWorkingDays > 0
+      ? Math.round((staffPresentDays / elapsedWorkingDays) * 100)
+      : 0;
+
+    return res.json({
+      success: true,
+      data: {
+        configured:          true,
+        term:                termCfg.name,
+        start:               termCfg.start,
+        end:                 termCfg.end,
+        totalWorkingDays,
+        elapsedWorkingDays,
+        termProgressPct,
+        student: {
+          presentDays:    studentPresentDays,
+          attendancePct:  studentAttendancePct,
+        },
+        staff: {
+          presentDays:    staffPresentDays,
+          attendancePct:  staffAttendancePct,
+        },
+      },
+    });
+  } catch (err) {
+    console.error('[GET /dos/attendance/term-progress]', err);
+    res.status(500).json({ success: false, message: 'Failed to load term progress' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+// GET /api/dos/reports/attendance/by-class
+//   ?from=YYYY-MM-DD&to=YYYY-MM-DD&days=90
+// Returns per-class attendance summary from lesson roll-call records.
+// ════════════════════════════════════════════════════════════════
+
+router.get('/dos/reports/attendance/by-class', requireRole(DOS_ATTENDANCE_ROLES), async (req, res) => {
+  try {
+    await ensureAcademicTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(403).json({ success: false, message: 'No active school context' });
+
+    const from = trimStr(req.query.from) || new Date(Date.now() - 90 * 86400000).toISOString().split('T')[0];
+    const to   = trimStr(req.query.to)   || new Date().toISOString().split('T')[0];
+    const days = Math.max(1, Number(req.query.days) || 90);
+
+    const [rows] = await promisePool.query(
+      `SELECT
+         tt.class_name,
+         COUNT(ar.id)                                                              AS total_marks,
+         SUM(CASE WHEN LOWER(ar.status) IN ('present','late','permission') THEN 1 ELSE 0 END) AS present_count,
+         SUM(CASE WHEN LOWER(ar.status) = 'absent'                         THEN 1 ELSE 0 END) AS absent_count
+       FROM academic_attendance_logs  al
+       JOIN academic_timetables       tt ON tt.id = al.timetable_id AND tt.school_id = al.school_id
+       JOIN academic_attendance_records ar ON ar.log_id = al.id
+       WHERE al.school_id = ? AND al.record_date BETWEEN ? AND ?
+       GROUP BY tt.class_name
+       ORDER BY tt.class_name ASC`,
+      [schoolId, from, to]
+    );
+
+    let totalPresent = 0, totalAbsent = 0;
+    const classes = rows.map((r) => {
+      const total   = Number(r.total_marks)   || 0;
+      const present = Number(r.present_count) || 0;
+      const absent  = Number(r.absent_count)  || 0;
+      const rate    = total > 0 ? Math.round((present / total) * 100) : 0;
+      totalPresent += present;
+      totalAbsent  += absent;
+      return {
+        id:           r.class_name,
+        class:        r.class_name,
+        headTeacher:  '—',
+        absences:     absent,
+        presenceRate: rate,
+        trend:        rate >= 85 ? 'up' : 'down',
+        status:       rate >= 95 ? 'Exceptional' : rate >= 80 ? 'Expected' : 'Needs Review',
+      };
+    });
+
+    const globalTotal = totalPresent + totalAbsent;
+    const globalPresence = globalTotal > 0 ? `${Math.round((totalPresent / globalTotal) * 100)}%` : '—';
+    const chronicAbsentees = classes.filter((c) => c.presenceRate < 75).length;
+    const top = classes.reduce((best, c) => (!best || c.presenceRate > best.presenceRate ? c : best), null);
+
+    res.json({
+      success: true,
+      data: {
+        stats: {
+          globalPresence,
+          chronicAbsentees: String(chronicAbsentees),
+          mostPresentClass: top ? top.class : '—',
+          termSync: 'Live',
+          range: { from, to },
+        },
+        classes,
+      },
+    });
+  } catch (err) {
+    console.error('[GET /dos/reports/attendance/by-class]', err);
+    res.status(500).json({ success: false, message: 'Failed to load class attendance report' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+// GET /api/dos/reports/attendance/by-teacher
+//   ?from=YYYY-MM-DD&to=YYYY-MM-DD&days=90
+// Returns per-teacher attendance summary inferred from lesson roll-call.
+// ════════════════════════════════════════════════════════════════
+router.get('/dos/reports/attendance/by-teacher', requireRole(DOS_ATTENDANCE_ROLES), async (req, res) => {
+  try {
+    await ensureAcademicTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(403).json({ success: false, message: 'No active school context' });
+
+    const from = trimStr(req.query.from) || new Date(Date.now() - 90 * 86400000).toISOString().split('T')[0];
+    const to   = trimStr(req.query.to)   || new Date().toISOString().split('T')[0];
+
+    const [rows] = await promisePool.query(
+      `SELECT
+         tt.staff_id,
+         TRIM(CONCAT(COALESCE(u.first_name,''), ' ', COALESCE(u.last_name,''))) AS teacher_name,
+         COALESCE(r.role_code, 'TEACHER')                                        AS department,
+         COUNT(ar.id)                                                             AS total_marks,
+         SUM(CASE WHEN LOWER(ar.status) IN ('present','late','permission') THEN 1 ELSE 0 END) AS present_count,
+         SUM(CASE WHEN LOWER(ar.status) = 'absent'                         THEN 1 ELSE 0 END) AS absent_count
+       FROM academic_attendance_logs  al
+       JOIN academic_timetables       tt ON tt.id = al.timetable_id AND tt.school_id = al.school_id
+       JOIN academic_attendance_records ar ON ar.log_id = al.id
+       JOIN users                     u  ON u.id = tt.staff_id
+       LEFT JOIN roles                r  ON r.id = u.role_id
+       WHERE al.school_id = ? AND al.record_date BETWEEN ? AND ?
+       GROUP BY tt.staff_id
+       ORDER BY teacher_name ASC`,
+      [schoolId, from, to]
+    );
+
+    let totalPresent = 0, totalAbsent = 0;
+    const staff = rows.map((r) => {
+      const total   = Number(r.total_marks)   || 0;
+      const present = Number(r.present_count) || 0;
+      const absent  = Number(r.absent_count)  || 0;
+      const rate    = total > 0 ? Math.round((present / total) * 100) : 0;
+      totalPresent += present;
+      totalAbsent  += absent;
+      return {
+        id:           r.staff_id,
+        name:         r.teacher_name,
+        department:   r.department,
+        absences:     absent,
+        presenceRate: rate,
+        trend:        rate >= 85 ? 'up' : 'down',
+        status:       rate >= 95 ? 'Exceptional' : rate >= 80 ? 'Expected' : 'Needs Review',
+      };
+    });
+
+    const globalTotal = totalPresent + totalAbsent;
+    const globalPresence = globalTotal > 0 ? `${Math.round((totalPresent / globalTotal) * 100)}%` : '—';
+    const chronicAbsentees = staff.filter((s) => s.presenceRate < 75).length;
+    const top = staff.reduce((best, s) => (!best || s.presenceRate > best.presenceRate ? s : best), null);
+
+    res.json({
+      success: true,
+      data: {
+        stats: {
+          globalPresence,
+          chronicAbsentees: String(chronicAbsentees),
+          mostPresentClass: top ? top.name : '—',
+          termSync: 'Live',
+          range: { from, to },
+        },
+        staff,
+      },
+    });
+  } catch (err) {
+    console.error('[GET /dos/reports/attendance/by-teacher]', err);
+    res.status(500).json({ success: false, message: 'Failed to load staff attendance report' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+// GET  /api/dos/attendance/morning/students
+//   ?date=YYYY-MM-DD&class_name=
+// POST /api/dos/attendance/morning/students
+//   { date, records: [{ student_id, status_in, notes? }] }
+// ════════════════════════════════════════════════════════════════
+router.get('/dos/attendance/morning/students', requireRole(DOS_ATTENDANCE_ROLES), async (req, res) => {
+  try {
+    await ensureAcademicTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(403).json({ success: false, message: 'No school context' });
+
+    const date      = trimStr(req.query.date) || new Date().toISOString().split('T')[0];
+    const className = trimStr(req.query.class_name);
+
+    const [rows] = await promisePool.query(
+      `SELECT s.id AS student_id, s.student_uid,
+              CONCAT(s.first_name, ' ', s.last_name) AS name,
+              s.gender, s.class_name,
+              a.status_in, a.status_out, a.check_in, a.check_out, a.notes
+       FROM students s
+       LEFT JOIN attendance_student a
+         ON a.school_id = s.school_id AND a.student_id = s.id AND a.attendance_date = ?
+       WHERE s.school_id = ?
+         ${className ? `AND (${sqlNormLabelEquals('s.class_name')})` : ''}
+       ORDER BY s.class_name ASC, s.first_name ASC, s.last_name ASC`,
+      className ? [date, schoolId, className] : [date, schoolId]
+    );
+
+    const [classes] = await promisePool.query(
+      `SELECT DISTINCT class_name FROM students WHERE school_id = ? AND class_name IS NOT NULL AND class_name != '' ORDER BY class_name ASC`,
+      [schoolId]
+    );
+
+    res.json({
+      success: true,
+      data: {
+        date,
+        students: rows,
+        classes:  classes.map((c) => c.class_name),
+        totals: {
+          total:   rows.length,
+          onTime:  rows.filter((r) => r.status_in === 'On time').length,
+          late:    rows.filter((r) => r.status_in === 'Late').length,
+          absent:  rows.filter((r) => !r.status_in || r.status_in === 'Absent').length,
+        },
+      },
+    });
+  } catch (err) {
+    console.error('[GET /dos/attendance/morning/students]', err);
+    res.status(500).json({ success: false, message: 'Failed to load student morning attendance' });
+  }
+});
+
+router.post('/dos/attendance/morning/students', requireRole(DOS_ATTENDANCE_ROLES), async (req, res) => {
+  try {
+    await ensureAcademicTables();
+    const schoolId = resolveSchoolId(req);
+    const userId   = resolveUserId(req);
+    if (!schoolId) return res.status(403).json({ success: false, message: 'No school context' });
+
+    const { date, records } = req.body || {};
+    if (!date || !Array.isArray(records) || records.length === 0) {
+      return res.status(400).json({ success: false, message: 'date and records[] are required' });
+    }
+
+    const now = new Date();
+    for (const r of records) {
+      const { student_id, status_in, notes } = r;
+      if (!student_id || !status_in) continue;
+      await promisePool.query(
+        `INSERT INTO attendance_student (school_id, student_id, attendance_date, check_in, status_in, notes)
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+           status_in = VALUES(status_in),
+           check_in  = VALUES(check_in),
+           notes     = VALUES(notes)`,
+        [schoolId, student_id, date, status_in === 'Absent' ? null : now, status_in, notes || null]
+      );
+    }
+
+    res.json({ success: true, message: `Saved ${records.length} student attendance records` });
+  } catch (err) {
+    console.error('[POST /dos/attendance/morning/students]', err);
+    res.status(500).json({ success: false, message: 'Failed to save student morning attendance' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+// GET  /api/dos/attendance/morning/staff
+//   ?date=YYYY-MM-DD
+// POST /api/dos/attendance/morning/staff
+//   { date, records: [{ teacher_id, status_in, status_out?, remarks? }] }
+// ════════════════════════════════════════════════════════════════
+router.get('/dos/attendance/morning/staff', requireRole(DOS_ATTENDANCE_ROLES), async (req, res) => {
+  try {
+    await ensureAcademicTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(403).json({ success: false, message: 'No school context' });
+
+    const date = trimStr(req.query.date) || new Date().toISOString().split('T')[0];
+
+    const [rows] = await promisePool.query(
+      `SELECT u.id AS teacher_id,
+              TRIM(CONCAT(COALESCE(u.first_name,''), ' ', COALESCE(u.last_name,''))) AS name,
+              COALESCE(ro.role_code, 'STAFF') AS role_code,
+              COALESCE(ro.role_name, 'Staff') AS role_name,
+              a.status_in, a.status_out, a.check_in, a.check_out, a.remarks
+       FROM users u
+       LEFT JOIN roles ro ON ro.id = u.role_id
+       LEFT JOIN attendance_teacher a
+         ON a.school_id = u.school_id AND a.teacher_id = u.id AND a.attendance_date = ?
+       WHERE u.school_id = ? AND u.deleted_at IS NULL
+         AND COALESCE(ro.role_code,'') IN ('TEACHER','DOS','HOD','SCHOOL_ADMIN','SCHOOL_MANAGER','ACCOUNTANT','DISCIPLINE','DISCIPLINE_STAFF')
+       ORDER BY u.first_name ASC, u.last_name ASC`,
+      [date, schoolId]
+    );
+
+    res.json({
+      success: true,
+      data: {
+        date,
+        staff: rows,
+        totals: {
+          total:       rows.length,
+          present:     rows.filter((r) => r.status_in === 'Present').length,
+          late:        rows.filter((r) => r.status_in === 'Late').length,
+          absent:      rows.filter((r) => !r.status_in || r.status_in === 'Absent').length,
+          excused:     rows.filter((r) => r.status_in === 'Excused').length,
+          checkedOut:  rows.filter((r) => r.status_out === 'Checked out').length,
+        },
+      },
+    });
+  } catch (err) {
+    console.error('[GET /dos/attendance/morning/staff]', err);
+    res.status(500).json({ success: false, message: 'Failed to load staff attendance' });
+  }
+});
+
+router.post('/dos/attendance/morning/staff', requireRole(DOS_ATTENDANCE_ROLES), async (req, res) => {
+  try {
+    await ensureAcademicTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(403).json({ success: false, message: 'No school context' });
+
+    const { date, records } = req.body || {};
+    if (!date || !Array.isArray(records) || records.length === 0) {
+      return res.status(400).json({ success: false, message: 'date and records[] are required' });
+    }
+
+    const now = new Date();
+    for (const r of records) {
+      const { teacher_id, status_in, status_out, remarks } = r;
+      if (!teacher_id) continue;
+      await promisePool.query(
+        `INSERT INTO attendance_teacher
+           (school_id, teacher_id, attendance_date, check_in, check_out, status_in, status_out, remarks)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+           status_in  = VALUES(status_in),
+           status_out = COALESCE(VALUES(status_out), status_out),
+           check_in   = COALESCE(VALUES(check_in),  check_in),
+           check_out  = COALESCE(VALUES(check_out), check_out),
+           remarks    = COALESCE(VALUES(remarks),   remarks)`,
+        [
+          schoolId, teacher_id, date,
+          (status_in && status_in !== 'Absent') ? now : null,
+          (status_out === 'Checked out')         ? now : null,
+          status_in  || 'Absent',
+          status_out || 'Missing',
+          remarks    || null,
+        ]
+      );
+    }
+
+    res.json({ success: true, message: `Saved ${records.length} staff attendance records` });
+  } catch (err) {
+    console.error('[POST /dos/attendance/morning/staff]', err);
+    res.status(500).json({ success: false, message: 'Failed to save staff attendance' });
   }
 });
 

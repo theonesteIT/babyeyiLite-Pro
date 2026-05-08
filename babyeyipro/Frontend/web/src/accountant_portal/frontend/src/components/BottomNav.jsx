@@ -9,17 +9,18 @@ import {
     MessageSquare,
 } from 'lucide-react';
 import useChatUnread from '../../../../shared/hooks/useChatUnread';
+import { h } from '../utils/href';
 
 const BottomNav = () => {
     const unreadCount = useChatUnread();
     const navItems = [
-        { icon: LayoutDashboard, name: 'Home', path: '/accountant', exact: true },
-        { icon: Receipt, name: 'Fees', path: '/fees' },
-        { icon: Banknote, name: 'Expenses', path: '/expenses' },
-        { icon: ClipboardCheck, name: 'Payroll', path: '/payroll/history' },
-        { icon: DollarSign, name: 'My Payroll', path: '/my-payroll' },
-        { icon: Wallet, name: 'Avance', path: '/shule-avance' },
-        { icon: MessageSquare, name: 'Chat', path: '/chat', badgeCount: unreadCount },
+        { icon: LayoutDashboard, name: 'Home', path: h('/'), exact: true },
+        { icon: Receipt, name: 'Fees', path: h('/fees') },
+        { icon: Banknote, name: 'Expenses', path: h('/expenses') },
+        { icon: ClipboardCheck, name: 'Payroll', path: h('/payroll/history') },
+        { icon: DollarSign, name: 'My Payroll', path: h('/my-payroll') },
+        { icon: Wallet, name: 'Avance', path: h('/shule-avance') },
+        { icon: MessageSquare, name: 'Chat', path: h('/chat'), badgeCount: unreadCount },
     ];
 
     return (
@@ -32,7 +33,7 @@ const BottomNav = () => {
                         end={item.exact}
                         className={({ isActive }) => `
               flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors
-              ${isActive ? 'text-re-orange' : 'text-gray-400'}
+              ${isActive ? 'text-re-gold' : 'text-gray-400'}
             `}
                     >
                         <div className="relative">
@@ -43,7 +44,7 @@ const BottomNav = () => {
                                 </span>
                             )}
                         </div>
-                        <span className="text-[9px] font-bold uppercase tracking-wider">
+                        <span className="text-[10px] font-medium text-gray-500 tracking-tight">
                             {item.name}
                         </span>
                     </NavLink>

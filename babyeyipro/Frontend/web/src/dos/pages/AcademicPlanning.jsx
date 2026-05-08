@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   RefreshCw,
   UserPlus,
@@ -16,6 +16,8 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 import { h } from '../utils/href';
+import DosOchreHero from '../components/DosOchreHero';
+import { PORTAL } from '../config/portal';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -44,8 +46,18 @@ const emptyPeriod = () => ({
   room: '',
 });
 
+const ACADEMIC_TABS = ['teachers', 'courses', 'timetable'];
+
 export default function AcademicPlanning() {
-  const [tab, setTab] = useState('teachers');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const tab = ACADEMIC_TABS.includes(tabParam) ? tabParam : 'teachers';
+
+  useEffect(() => {
+    if (!ACADEMIC_TABS.includes(tabParam)) {
+      setSearchParams({ tab: 'teachers' }, { replace: true });
+    }
+  }, [tabParam, setSearchParams]);
   const [loading, setLoading] = useState(true);
   const [banner, setBanner] = useState(null);
 
@@ -275,18 +287,17 @@ export default function AcademicPlanning() {
   }
 
   return (
-    <div className="animate-in fade-in duration-500 bg-re-bg min-h-screen pb-16">
-      <div className="bg-white border-b border-black/5 px-5 md:px-8 py-6">
-        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-re-text-muted opacity-60 mb-1">
-          Academic office
-        </p>
-        <h1 className="text-xl md:text-2xl font-black text-re-text tracking-tight">Staff, courses & timetable</h1>
-        <p className="text-xs text-re-text-muted font-bold mt-1 max-w-2xl">
-          Create teacher logins, maintain the subject catalogue, and place class periods on the school timetable.
-        </p>
-      </div>
+    <div className="animate-in fade-in duration-500 bg-re-bg min-h-screen pb-16 font-sans">
+      <DosOchreHero
+        eyebrow={PORTAL.brandLine}
+        titleLine="Staff, courses"
+        titleAccent="& timetable"
+        subtitle="Create teacher logins, maintain the subject catalogue, and place class periods on the school timetable."
+        icon={BookMarked}
+      />
 
-      <div className="max-w-[1100px] mx-auto px-4 md:px-8 py-6 space-y-5">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 -mt-4 sm:-mt-5 md:-mt-6 pt-2 relative z-20 pb-10 space-y-5">
+        <div className="max-w-[1100px] mx-auto px-2 md:px-0 py-6 space-y-5">
         {banner && (
           <div
             className={`flex items-start gap-2 rounded-2xl border px-4 py-3 text-sm font-bold ${
@@ -313,7 +324,7 @@ export default function AcademicPlanning() {
             <button
               key={id}
               type="button"
-              onClick={() => setTab(id)}
+              onClick={() => setSearchParams({ tab: id })}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
                 tab === id
                   ? 'bg-re-grad-orange text-white shadow-md'
@@ -779,10 +790,11 @@ export default function AcademicPlanning() {
           </div>
         )}
       </div>
+      </div>
 
       {viewTeacher && (
         <div className="fixed inset-0 z-[4000] flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white shadow-xl border border-black/5 p-6 space-y-3">
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-sm border border-black/5 p-6 space-y-3">
             <h3 className="text-sm font-black text-re-text uppercase tracking-widest">Teacher details</h3>
             <dl className="text-xs space-y-2 font-bold text-re-text">
               <div>
@@ -823,7 +835,7 @@ export default function AcademicPlanning() {
         <div className="fixed inset-0 z-[4000] flex items-center justify-center bg-black/50 p-3 sm:p-4">
           <form
             onSubmit={submitTeacher}
-            className="w-full max-w-2xl bg-white rounded-3xl border border-black/5 shadow-2xl overflow-hidden"
+            className="w-full max-w-2xl bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden"
           >
             <div className="px-4 sm:px-5 py-4 border-b border-black/5 flex items-center justify-between">
               <div>
@@ -912,7 +924,7 @@ export default function AcademicPlanning() {
 
       {editTeacher && editTeacherForm && (
         <div className="fixed inset-0 z-[4000] flex items-center justify-center bg-black/50 p-4">
-          <form onSubmit={saveTeacherEdit} className="w-full max-w-md rounded-2xl bg-white shadow-xl border border-black/5 p-6 space-y-4">
+          <form onSubmit={saveTeacherEdit} className="w-full max-w-md rounded-2xl bg-white shadow-sm border border-black/5 p-6 space-y-4">
             <h3 className="text-sm font-black text-re-text uppercase tracking-widest">Edit teacher</h3>
             <p className="text-[10px] text-re-text-muted font-bold font-mono break-all">{editTeacher.email}</p>
             <div className="grid grid-cols-2 gap-3">
@@ -1003,7 +1015,7 @@ export default function AcademicPlanning() {
 
       {deleteTeacher && (
         <div className="fixed inset-0 z-[4000] flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-white shadow-xl border border-red-100 p-6 space-y-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white shadow-sm border border-red-100 p-6 space-y-4">
             <p className="text-sm font-black text-re-text">Remove this teacher account?</p>
             <p className="text-xs text-re-text-muted font-bold">
               {deleteTeacher.first_name} {deleteTeacher.last_name} — they will no longer be able to sign in.

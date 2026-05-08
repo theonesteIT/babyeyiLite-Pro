@@ -1,17 +1,23 @@
 import React from 'react';
+import { Wallet } from 'lucide-react';
+import AccountantOchreHero from '../components/AccountantOchreHero';
 import ShuleAvanceFinanceApprovals from '../components/ShuleAvanceFinanceApprovals';
 
 export default function ShuleAvance() {
   return (
-    <div className="min-h-screen bg-re-bg p-6 md:p-10 space-y-6">
-      <div>
-        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#000435]">Accountant Portal</p>
-        <h1 className="text-2xl md:text-3xl font-black text-[#000435] tracking-tight">ShuleAvance Review Desk</h1>
-        <p className="text-xs font-bold text-[#000435] mt-1">
-          Review teacher requests and route them to the school manager for final approval.
-        </p>
+    <div className="min-h-full bg-re-bg animate-in fade-in duration-500">
+      <AccountantOchreHero
+        eyebrow="Staff services · Finance"
+        titleLine="Shule"
+        titleAccent="Avance"
+        subtitle="Review teacher advance requests and route them to the school manager for approval"
+        icon={Wallet}
+      />
+      <div className="acct-shell-standard pb-16">
+        <div className="acct-panel-sheet p-4 sm:p-6 md:p-8">
+          <ShuleAvanceFinanceApprovals />
+        </div>
       </div>
-      <ShuleAvanceFinanceApprovals />
     </div>
   );
 }

@@ -13,6 +13,7 @@ import {
   Plus,
   ChevronRight
 } from 'lucide-react';
+import DosOchreHero from '../components/DosOchreHero';
 
 const EnglishClub = () => {
   const [resources, setResources] = useState([]);
@@ -45,26 +46,17 @@ const EnglishClub = () => {
   );
 
   return (
-    <div className="relative w-full bg-re-bg min-h-screen" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-      {/* ── Hero Banner ── */}
-      <section className="relative p-7 md:p-10 text-white overflow-hidden min-h-[200px] flex items-center bg-[#000435]">
-        <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full border border-white/5 pointer-events-none" />
-        <div className="absolute -top-12 -right-12 w-64 h-64 rounded-full border border-white/5 pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-[#FEBF10]/30 to-transparent pointer-events-none" />
-        <div className="relative z-10 max-w-5xl w-full">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="h-0.5 w-6 rounded-full bg-[#FEBF10]" />
-            <p className="text-[10px] font-black capitalize tracking-widest text-[#FEBF10]/80">Professional Excellence</p>
-          </div>
-          <h1 className="text-2xl md:text-3xl font-black tracking-tight">English <span className="text-white/40">Club</span></h1>
-          <p className="text-xs font-bold text-white/60 max-w-xl mt-2">
-            Sharpening Pedagogy through Linguistic Mastery — resources, videos, and quizzes.
-          </p>
-        </div>
-      </section>
+    <div className="relative w-full bg-re-bg min-h-screen font-sans">
+      <DosOchreHero
+        eyebrow="Professional excellence"
+        titleLine="English"
+        titleAccent="club"
+        subtitle="Sharpen pedagogy through linguistic mastery — resources, videos, and quizzes."
+        icon={BookOpen}
+      />
 
       {/* ── Main Content Grid ── */}
-      <div className="max-w-[1600px] mx-auto px-4 md:px-12 -mt-10 md:-mt-12 relative z-20 pb-20">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 -mt-4 sm:-mt-5 md:-mt-6 pt-2 relative z-20 pb-20">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
 
           {/* ── Main Gallery (Left Column) ── */}

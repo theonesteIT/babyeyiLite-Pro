@@ -27,7 +27,7 @@ const BottomNav = () => {
                         end={item.exact}
                         className={({ isActive }) => `
               flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors
-              ${isActive ? 'text-re-orange' : 'text-gray-400'}
+              ${isActive ? 'text-re-gold' : 'text-gray-400'}
             `}
                     >
                         <div className="relative">
@@ -38,7 +38,7 @@ const BottomNav = () => {
                                 </span>
                             )}
                         </div>
-                        <span className="text-[9px] font-bold uppercase tracking-wider">
+                        <span className="text-[10px] font-medium tracking-tight">
                             {item.name}
                         </span>
                     </NavLink>

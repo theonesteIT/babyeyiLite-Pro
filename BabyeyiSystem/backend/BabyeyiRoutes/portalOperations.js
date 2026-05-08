@@ -27,7 +27,7 @@ const STORE_WRITE_ROLES = ['STORE_MANAGER', 'STOREKEEPER'];
 const ADMIN_AUDIT_ROLES = ['SCHOOL_ADMIN', 'SCHOOL_MANAGER'];
 
 let tablesReady = false;
-const PORTAL_OPS_PREFIX_RE = /^\/(teacher-portal\/requisitions|accountant\/(?:requisitions|expenses|payroll(?:-requests)?)|manager\/payroll-requests|staff\/payroll\/my|payroll\/audit-log|store\/(?:requisitions|inventory|suppliers|movements)|admin\/portal-audit-logs|tools\/ticha-ai)(\/|$)/i;
+const PORTAL_OPS_PREFIX_RE = /^\/(teacher-portal\/requisitions|accountant\/(?:requisitions|expenses|payroll(?:-requests)?)|manager\/payroll-requests|staff\/payroll\/my|payroll\/audit-log|store\/(?:requisitions|inventory|suppliers|movements)|admin\/(?:portal-audit-logs|staff-logins)|tools\/ticha-ai)(\/|$)/i;
 
 function resolveUserId(req) {
   return req.session?.userId || req.session?.user?.id || req.user?.id || null;
@@ -136,6 +136,54 @@ function parseDateEnd(v) {
   if (Number.isNaN(d.getTime())) return null;
   d.setHours(23, 59, 59, 999);
   return d;
+}
+
+function inferTermFromMonth(terms = [], date = new Date()) {
+  const month = date.getMonth() + 1;
+  if (!Array.isArray(terms) || !terms.length) return 'Term 1';
+  if (terms.length >= 3) {
+    if (month >= 9 && month <= 12) return terms[0];
+    if (month >= 1 && month <= 4) return terms[1] || terms[0];
+    return terms[2] || terms[terms.length - 1];
+  }
+  if (terms.length === 2) return month >= 9 || month <= 2 ? terms[0] : terms[1];
+  return terms[0];
+}
+
+function inferAcademicYearFromDate(date = new Date()) {
+  const y = date.getFullYear();
+  const m = date.getMonth() + 1;
+  return m >= 9 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
+}
+
+async function resolveAcademicContext(schoolId, academicYearRaw, termRaw) {
+  const explicitYear = String(academicYearRaw || '').trim();
+  const explicitTerm = String(termRaw || '').trim();
+  if (explicitYear && explicitTerm) {
+    return { academicYear: explicitYear, term: explicitTerm };
+  }
+  const [[row]] = await promisePool.query(
+    `SELECT current_academic_year, active_terms_json
+     FROM school_academic_settings
+     WHERE school_id = ?
+     LIMIT 1`,
+    [schoolId]
+  ).catch(() => [[null]]);
+  let terms = ['Term 1', 'Term 2', 'Term 3'];
+  try {
+    if (row?.active_terms_json) {
+      const parsed = Array.isArray(row.active_terms_json)
+        ? row.active_terms_json
+        : JSON.parse(row.active_terms_json);
+      if (Array.isArray(parsed) && parsed.length) {
+        terms = parsed.map((x) => String(x || '').trim()).filter(Boolean);
+      }
+    }
+  } catch (_) {}
+  return {
+    academicYear: explicitYear || String(row?.current_academic_year || '').trim() || inferAcademicYearFromDate(),
+    term: explicitTerm || inferTermFromMonth(terms),
+  };
 }
 
 function portalPrefixFilter(portalRaw) {
@@ -873,8 +921,9 @@ router.get('/reports/requisitions/teacher', requireRole(['DOS', 'ACCOUNTANT', 'S
   try {
     const { schoolId } = req.ctx;
     const status = String(req.query?.status || '').trim().toLowerCase();
-    const term = String(req.query?.term || '').trim();
-    const academicYear = String(req.query?.academic_year || '').trim();
+    const termQ = String(req.query?.term || '').trim();
+    const academicYearQ = String(req.query?.academic_year || '').trim();
+    const { term, academicYear } = await resolveAcademicContext(schoolId, academicYearQ, termQ);
     const fromDate = String(req.query?.from || '').trim();
     const toDate = String(req.query?.to || '').trim();
     const where = ['r.school_id = ?', 'r.deleted_at IS NULL', "r.source_portal = 'teacher'"];
@@ -919,7 +968,7 @@ router.get('/reports/requisitions/teacher', requireRole(['DOS', 'ACCOUNTANT', 'S
       issued: data.filter((x) => x.status === 'issued').length,
       returned: data.filter((x) => x.status === 'returned').length,
     };
-    res.json({ success: true, data, summary });
+    res.json({ success: true, data, summary, meta: { term, academic_year: academicYear } });
   } catch (e) {
     console.error('[reports/requisitions/teacher GET]:', e.message);
     res.status(500).json({ success: false, message: 'Failed to load teacher requisition report' });
@@ -1645,7 +1694,8 @@ router.get('/accountant/payroll-requests', requireRole(ACCOUNTANT_READ_ROLES), a
     const { schoolId } = req.ctx;
     const status = String(req.query?.status || '').trim();
     const month = monthLabelToNumber(req.query?.month);
-    const term = String(req.query?.term || '').trim();
+    const termQ = String(req.query?.term || '').trim();
+    const { term, academicYear } = await resolveAcademicContext(schoolId, '', termQ);
     const year = Number(req.query?.year || 0);
     const qRaw = String(req.query?.query || '').trim();
     const department = String(req.query?.department || '').trim();
@@ -1705,6 +1755,7 @@ router.get('/accountant/payroll-requests', requireRole(ACCOUNTANT_READ_ROLES), a
 
     return res.json({
       success: true,
+      meta: { term, academic_year: academicYear },
       data: (rows || []).map((r) => ({
         id: Number(r.id),
         payrollId: `PAY-${r.id}`,
@@ -1752,7 +1803,8 @@ router.get('/manager/payroll-requests', requireRole(PAYROLL_MANAGER_ROLES), asyn
     const { schoolId } = req.ctx;
     const status = String(req.query?.status || '').trim();
     const month = monthLabelToNumber(req.query?.month);
-    const term = String(req.query?.term || '').trim();
+    const termQ = String(req.query?.term || '').trim();
+    const { term, academicYear } = await resolveAcademicContext(schoolId, '', termQ);
     const year = Number(req.query?.year || 0);
     const qRaw = String(req.query?.query || '').trim();
     const department = String(req.query?.department || '').trim();
@@ -1823,6 +1875,7 @@ router.get('/manager/payroll-requests', requireRole(PAYROLL_MANAGER_ROLES), asyn
 
     return res.json({
       success: true,
+      meta: { term, academic_year: academicYear },
       pagination: {
         page,
         limit,
@@ -2528,8 +2581,9 @@ router.get('/accountant/payroll', requireRole(ACCOUNTANT_READ_ROLES), async (req
     const status = String(req.query?.status || '').trim().toLowerCase();
     const month = Number(req.query?.month || 0);
     const year = Number(req.query?.year || 0);
-    const term = String(req.query?.term || '').trim();
-    const academicYear = String(req.query?.academic_year || req.query?.academicYear || '').trim();
+    const termQ = String(req.query?.term || '').trim();
+    const academicYearQ = String(req.query?.academic_year || req.query?.academicYear || '').trim();
+    const { term, academicYear } = await resolveAcademicContext(schoolId, academicYearQ, termQ);
     const where = ['p.school_id = ?', 'p.deleted_at IS NULL'];
     const params = [schoolId];
 
@@ -2562,7 +2616,7 @@ router.get('/accountant/payroll', requireRole(ACCOUNTANT_READ_ROLES), async (req
       where.push('COALESCE(p.academic_year_label, "") = ?');
       params.push(academicYear);
     }
-    const limit = Math.min(500, Math.max(1, Number(req.query?.limit) || 200));
+    const limit = Math.min(2000, Math.max(1, Number(req.query?.limit) || 500));
 
     const [rows] = await promisePool.query(
       `SELECT p.id, p.staff_user_id, p.staff_code, p.staff_name, p.role_code, p.department,
@@ -2580,6 +2634,7 @@ router.get('/accountant/payroll', requireRole(ACCOUNTANT_READ_ROLES), async (req
 
     res.json({
       success: true,
+      meta: { term, academic_year: academicYear },
       data: rows.map((r) => ({
         db_id: r.id,
         payrollId: `PAY-${r.id}`,
@@ -2830,8 +2885,9 @@ router.get('/accountant/payroll/payments-tracker', requireRole(ACCOUNTANT_READ_R
     const query = String(req.query?.query || '').trim();
     const month = Number(req.query?.month || 0);
     const year = Number(req.query?.year || 0);
-    const term = String(req.query?.term || '').trim();
-    const academicYear = String(req.query?.academic_year || '').trim();
+    const termQ = String(req.query?.term || '').trim();
+    const academicYearQ = String(req.query?.academic_year || '').trim();
+    const { term, academicYear } = await resolveAcademicContext(schoolId, academicYearQ, termQ);
     const status = String(req.query?.status || '').trim().toLowerCase();
     const where = ['p.school_id = ?', 'p.deleted_at IS NULL'];
     const params = [schoolId];
@@ -2861,6 +2917,7 @@ router.get('/accountant/payroll/payments-tracker', requireRole(ACCOUNTANT_READ_R
     );
     return res.json({
       success: true,
+      meta: { term, academic_year: academicYear },
       data: (rows || []).map((r) => ({
         id: Number(r.id),
         staffUserId: Number(r.staff_user_id),
@@ -3120,8 +3177,9 @@ router.get('/manager/payroll/requests', requireRole(ACCOUNTANT_READ_ROLES), asyn
     const status = String(req.query?.status || '').trim().toLowerCase();
     const month = Number(req.query?.month || 0);
     const year = Number(req.query?.year || 0);
-    const term = String(req.query?.term || '').trim();
-    const academicYear = String(req.query?.academic_year || '').trim();
+    const termQ = String(req.query?.term || '').trim();
+    const academicYearQ = String(req.query?.academic_year || '').trim();
+    const { term, academicYear } = await resolveAcademicContext(schoolId, academicYearQ, termQ);
     const where = ['p.school_id = ?', 'p.deleted_at IS NULL'];
     const params = [schoolId];
 
@@ -3165,6 +3223,7 @@ router.get('/manager/payroll/requests', requireRole(ACCOUNTANT_READ_ROLES), asyn
 
     res.json({
       success: true,
+      meta: { term, academic_year: academicYear },
       data: (rows || []).map((r) => ({
         payrollId: `PAY-${r.id}`,
         staffUserId: Number(r.staff_user_id),
@@ -3657,8 +3716,9 @@ router.post('/accountant/payroll/runs/trigger', requireRole(ACCOUNTANT_WRITE_ROL
 router.get('/store/inventory', requireRole(STORE_READ_ROLES), async (req, res) => {
   try {
     const { schoolId } = req.ctx;
-    const term = String(req.query?.term || '').trim();
-    const academicYear = String(req.query?.academic_year || '').trim();
+    const termQ = String(req.query?.term || '').trim();
+    const academicYearQ = String(req.query?.academic_year || '').trim();
+    const { term, academicYear } = await resolveAcademicContext(schoolId, academicYearQ, termQ);
     const where = ['school_id = ?', 'deleted_at IS NULL'];
     const params = [schoolId];
     if (term) {
@@ -3676,7 +3736,11 @@ router.get('/store/inventory', requireRole(STORE_READ_ROLES), async (req, res) =
        ORDER BY id DESC`,
       params
     );
-    res.json({ success: true, data: rows.map((r) => ({ ...r, quantity: Number(r.quantity), reorder_level: Number(r.reorder_level), unit_cost: Number(r.unit_cost) })) });
+    res.json({
+      success: true,
+      meta: { term, academic_year: academicYear },
+      data: rows.map((r) => ({ ...r, quantity: Number(r.quantity), reorder_level: Number(r.reorder_level), unit_cost: Number(r.unit_cost) })),
+    });
   } catch (e) {
     console.error('[store/inventory GET]:', e.message);
     res.status(500).json({ success: false, message: 'Failed to load inventory' });
@@ -3922,8 +3986,9 @@ router.delete('/store/suppliers/:id', requireRole(STORE_WRITE_ROLES), async (req
 router.get('/store/movements', requireRole(STORE_READ_ROLES), async (req, res) => {
   try {
     const { schoolId } = req.ctx;
-    const term = String(req.query?.term || '').trim();
-    const academicYear = String(req.query?.academic_year || '').trim();
+    const termQ = String(req.query?.term || '').trim();
+    const academicYearQ = String(req.query?.academic_year || '').trim();
+    const { term, academicYear } = await resolveAcademicContext(schoolId, academicYearQ, termQ);
     const specificDate = String(req.query?.date || '').trim();
     const fromDate = String(req.query?.from || '').trim();
     const toDate = String(req.query?.to || '').trim();
@@ -3970,6 +4035,7 @@ router.get('/store/movements', requireRole(STORE_READ_ROLES), async (req, res) =
     };
     res.json({
       success: true,
+      meta: { term, academic_year: academicYear },
       data: rows.map((r) => ({
         id: r.id,
         item_id: r.item_id,
@@ -4181,6 +4247,56 @@ router.get('/admin/portal-audit-logs', requireRole(ADMIN_AUDIT_ROLES), async (re
   } catch (e) {
     console.error('[admin/portal-audit-logs GET]:', e.message);
     res.status(500).json({ success: false, message: 'Failed to load portal audit logs' });
+  }
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// GET /api/admin/staff-logins — staff login history (last_login + IP per user)
+// ────────────────────────────────────────────────────────────────────────────
+router.get('/admin/staff-logins', requireRole(ADMIN_AUDIT_ROLES), async (req, res) => {
+  try {
+    const { schoolId } = req.ctx;
+    const page   = Math.max(1, Number(req.query?.page)  || 1);
+    const limit  = Math.min(200, Math.max(1, Number(req.query?.limit) || 60));
+    const offset = (page - 1) * limit;
+    const search = String(req.query?.search || '').trim();
+
+    let where = 'u.school_id = ? AND u.deleted_at IS NULL';
+    const params = [schoolId];
+
+    if (search) {
+      where += ' AND (u.first_name LIKE ? OR u.last_name LIKE ? OR u.email LIKE ?)';
+      const like = `%${search}%`;
+      params.push(like, like, like);
+    }
+
+    const [[countRow]] = await promisePool.query(
+      `SELECT COUNT(*) AS total FROM users u WHERE ${where}`,
+      params
+    );
+    const total = Number(countRow?.total || 0);
+
+    const [rows] = await promisePool.query(
+      `SELECT
+         u.id, u.first_name, u.last_name, u.email,
+         u.last_login, u.last_login_ip, u.failed_login_attempts,
+         r.role_code, r.role_name
+       FROM users u
+       LEFT JOIN roles r ON u.role_id = r.id
+       WHERE ${where}
+       ORDER BY u.last_login DESC, u.id DESC
+       LIMIT ? OFFSET ?`,
+      [...params, limit, offset]
+    );
+
+    return res.json({
+      success: true,
+      data: rows,
+      pagination: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) },
+    });
+  } catch (e) {
+    console.error('[admin/staff-logins GET]:', e.message);
+    return res.status(500).json({ success: false, message: 'Failed to load staff logins' });
   }
 });
 

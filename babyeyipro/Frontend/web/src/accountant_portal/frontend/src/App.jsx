@@ -29,7 +29,7 @@ const LoadingScreen = () => (
   <div className="min-h-screen bg-re-bg flex flex-col items-center justify-center gap-4 font-sans">
     <div className="w-12 h-12 rounded-2xl animate-pulse"
       style={{ background: 'linear-gradient(135deg,#FF8C00,#FF5E00)' }} />
-    <p className="text-re-text-muted text-sm font-bold uppercase tracking-widest animate-pulse">
+    <p className="text-re-text-muted text-sm font-medium animate-pulse tracking-tight">
       {PORTAL.loadingMessage}
     </p>
   </div>

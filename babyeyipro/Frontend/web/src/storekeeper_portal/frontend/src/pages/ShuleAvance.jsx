@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
+import StorekeeperOchreHero from '../components/StorekeeperOchreHero';
 import { PORTAL } from '../config/portal';
 import {
    Wallet,
@@ -83,44 +84,36 @@ const ShuleAvance = () => {
 
    return (
       <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen">
-         {/* ── High-Fidelity Hero Section ── */}
-         <div className="relative w-full min-h-[280px] overflow-hidden">
-            <div className="absolute inset-0 bg-[#0a192f]/80 z-10 backdrop-blur-[2px]"></div>
-            <img src={PORTAL.heroImage} alt="" className="absolute inset-0 w-full h-full object-cover scale-105" />
-
-            <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-12 pt-16 pb-24">
-               <div className="space-y-1">
-                  <div className="flex items-center gap-2 mb-2">
-                     <span className="w-6 h-1 rounded-full" style={{ background: "#FEBF10" }}></span>
-                     <p className="text-[10px] font-black uppercase tracking-[0.3em]" style={{ color: "#FEBF10" }}>Staff services</p>
-                  </div>
-                  <h1 className="text-4xl md:text-5xl font-black text-white tracking-tighter leading-none mb-2 mt-2">Shule<span style={{ color: "#FEBF10" }}>Avance</span></h1>
-               </div>
-            </div>
-         </div>
+         <StorekeeperOchreHero
+            eyebrow="Staff services"
+            titleLine="Shule"
+            titleAccent="Avance"
+            subtitle="Apply for salary advance · track repayment · manage your staff credit line"
+            icon={Wallet}
+         />
 
          {/* ── Main Content Grid ── */}
-         <div className="max-w-[1600px] mx-auto px-6 md:px-12 -mt-24 relative z-20 pb-20">
+         <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 -mt-4 sm:-mt-5 pt-2 relative z-20 pb-20">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
                {/* ── Left Column (Financial Dashboard) ── */}
                <div className="lg:col-span-2 space-y-8">
 
                   {/* Main Financial State Card */}
-                  <div className="bg-white rounded-[32px] shadow-2xl border border-black/5 p-6 md:p-8 relative overflow-hidden flex flex-col justify-between">
+                  <div className="bg-white rounded-[32px] shadow-sm border border-black/10 p-6 md:p-8 relative overflow-hidden flex flex-col justify-between">
                      {showApply ? (
                         <div className="space-y-6 animate-in slide-in-from-top-4 duration-500">
                            <div className="flex items-center justify-between">
                               <div className="space-y-0.5">
-                                 <h3 className="text-lg font-black text-re-text tracking-tight uppercase">Credit Application</h3>
+                                 <h3 className="text-lg font-semibold text-re-text tracking-tight uppercase">Credit Application</h3>
                                  <p className="text-[9px] text-re-text-muted font-bold uppercase tracking-widest opacity-40">Step 1 of 2: Basic Details</p>
                               </div>
-                              <button onClick={() => setShowApply(false)} className="text-[9px] font-black text-re-text-muted hover:text-[#1E3A5F] transition-colors uppercase tracking-widest">Cancel Application</button>
+                              <button onClick={() => setShowApply(false)} className="text-[9px] font-semibold text-re-text-muted hover:text-[#1E3A5F] transition-colors uppercase tracking-widest">Cancel Application</button>
                            </div>
 
                            <form onSubmit={handleApply} className="grid grid-cols-1 md:grid-cols-2 gap-5">
                               <div className="space-y-1.5">
-                                 <label className="text-[9px] font-black text-re-text-muted uppercase tracking-widest opacity-40">Desired Amount (RWF)</label>
+                                 <label className="text-[9px] font-semibold text-re-text-muted uppercase tracking-widest opacity-40">Desired Amount (RWF)</label>
                                  <input
                                     type="number"
                                     className="w-full h-11 bg-re-bg rounded-lg px-4 font-bold outline-none border border-transparent focus:border-[#FEBF10]/20 focus:bg-white transition-all text-xs"
@@ -131,7 +124,7 @@ const ShuleAvance = () => {
                                  />
                               </div>
                               <div className="space-y-1.5">
-                                 <label className="text-[9px] font-black text-re-text-muted uppercase tracking-widest opacity-40">Repayment Period</label>
+                                 <label className="text-[9px] font-semibold text-re-text-muted uppercase tracking-widest opacity-40">Repayment Period</label>
                                  <select
                                     className="w-full h-11 bg-re-bg rounded-lg px-4 font-bold outline-none border border-transparent focus:border-[#FEBF10]/20 focus:bg-white transition-all text-xs appearance-none"
                                     value={term}
@@ -144,7 +137,7 @@ const ShuleAvance = () => {
                                  </select>
                               </div>
                               <div className="space-y-1.5 md:col-span-2">
-                                 <label className="text-[9px] font-black text-re-text-muted uppercase tracking-widest opacity-40">Purpose of Credit</label>
+                                 <label className="text-[9px] font-semibold text-re-text-muted uppercase tracking-widest opacity-40">Purpose of Credit</label>
                                  <textarea
                                     className="w-full h-20 bg-re-bg rounded-lg p-4 font-bold outline-none border border-transparent focus:border-[#FEBF10]/20 focus:bg-white transition-all text-xs resize-none"
                                     placeholder="Ex: Improving housing, tuition fees..."
@@ -154,12 +147,12 @@ const ShuleAvance = () => {
                                  ></textarea>
                               </div>
                               <div className="md:col-span-2 flex justify-between items-center bg-re-bg/50 p-4 rounded-lg border border-dashed border-gray-200">
-                                 <p className="text-[9px] text-re-text-muted font-bold italic">Est. Deduction: <span className="text-re-text font-black text-xs">{(Number(amount) / term || 0).toLocaleString()} RWF/mo</span></p>
+                                 <p className="text-[9px] text-re-text-muted font-bold italic">Est. Deduction: <span className="text-re-text font-semibold text-xs">{(Number(amount) / term || 0).toLocaleString()} RWF/mo</span></p>
                                  <button
                                     type="submit"
                                     disabled={submitting}
-                                    className="text-white px-6 py-2.5 rounded-lg font-black hover:scale-[1.02] active:scale-95 transition-all text-[10px] uppercase tracking-widest disabled:opacity-50"
-                                    style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)", boxShadow: "0 12px 30px rgba(30,58,95,0.22)" }}
+                                    className="text-white px-6 py-2.5 rounded-lg font-semibold active:scale-95 transition-all text-[10px] uppercase tracking-widest disabled:opacity-50 border border-white/15 shadow-sm"
+                                    style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)" }}
                                  >
                                     {submitting ? 'Submitting...' : 'Submit Request'}
                                  </button>
@@ -183,16 +176,26 @@ const ShuleAvance = () => {
                                          ${isPast || isCurrent ? 'text-white shadow-inner' : 'bg-white border-re-bg text-re-text-muted/40 shadow-inner'}`}
                                          style={isPast || isCurrent ? { background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)", borderColor: "rgba(254,191,16,0.25)" } : {}}
                                          >
-                                                {isPast && !isCurrent ? <CheckCircle size={12} /> : <span className="text-[9px] font-black">{idx + 1}</span>}
+                                                {isPast && !isCurrent ? <CheckCircle size={12} /> : <span className="text-[9px] font-semibold">{idx + 1}</span>}
                                              </div>
-                                             <span className={`text-[8px] font-black uppercase tracking-widest ${isCurrent ? 'text-[#FEBF10]' : 'text-gray-400 opacity-40'}`}>{step}</span>
+                                             <span className={`text-[8px] font-semibold uppercase tracking-widest ${isCurrent ? 'text-[#FEBF10]' : 'text-gray-400 opacity-40'}`}>{step}</span>
                                           </div>
                                        );
                                     })}
                                     {/* Step Connector Line */}
                                     <div className="absolute top-[13.5px] left-8 right-8 h-0.5 bg-re-bg -z-0">
-                                       <div className={`h-full transition-all duration-1000`} style={{ background: "#FEBF10" }}
-                                          style={{ width: loanStatus.active_loan.status === 'pending' ? '0%' : loanStatus.active_loan.status === 'reviewed' ? '50%' : '100%' }}></div>
+                                       <div
+                                          className="h-full transition-all duration-1000"
+                                          style={{
+                                            background: '#FEBF10',
+                                            width:
+                                              loanStatus.active_loan.status === 'pending'
+                                                ? '0%'
+                                                : loanStatus.active_loan.status === 'reviewed'
+                                                  ? '50%'
+                                                  : '100%',
+                                          }}
+                                       />
                                     </div>
                                  </div>
 
@@ -200,26 +203,26 @@ const ShuleAvance = () => {
                                  <div className="bg-re-bg/40 rounded-2xl p-5 border border-black/5 flex flex-col md:flex-row items-center justify-between gap-5">
                                     <div className="space-y-3 text-center md:text-left">
                                        <div>
-                                          <p className="text-[9px] font-black text-re-text-muted uppercase tracking-widest opacity-40">Credit Value</p>
-                                          <h4 className="text-2xl font-black text-re-text tracking-tighter mt-0.5">{Number(loanStatus.active_loan.amount_requested).toLocaleString()} <span className="text-xs opacity-30">RWF</span></h4>
+                                          <p className="text-[9px] font-semibold text-re-text-muted uppercase tracking-widest opacity-40">Credit Value</p>
+                                          <h4 className="text-2xl font-semibold text-re-text tracking-tighter mt-0.5">{Number(loanStatus.active_loan.amount_requested).toLocaleString()} <span className="text-xs opacity-30">RWF</span></h4>
                                        </div>
                                        <div className="flex items-center gap-4 justify-center md:justify-start">
                                           <div className="flex flex-col">
-                                             <span className="text-[8px] font-black text-re-text-muted opacity-30 tracking-widest uppercase">Repayment</span>
-                                             <span className="text-[10px] font-black text-re-text leading-tight">{loanStatus.active_loan.repayment_term_months} Mo</span>
+                                             <span className="text-[8px] font-semibold text-re-text-muted opacity-30 tracking-widest uppercase">Repayment</span>
+                                             <span className="text-[10px] font-semibold text-re-text leading-tight">{loanStatus.active_loan.repayment_term_months} Mo</span>
                                           </div>
                                           <div className="w-px h-5 bg-gray-200"></div>
                                           <div className="flex flex-col">
-                                             <span className="text-[8px] font-black text-re-text-muted opacity-30 tracking-widest uppercase">Lodged On</span>
-                                             <span className="text-[10px] font-black text-re-text leading-tight uppercase font-mono">{new Date(loanStatus.active_loan.created_at).toLocaleDateString()}</span>
+                                             <span className="text-[8px] font-semibold text-re-text-muted opacity-30 tracking-widest uppercase">Lodged On</span>
+                                             <span className="text-[10px] font-semibold text-re-text leading-tight uppercase font-mono">{new Date(loanStatus.active_loan.created_at).toLocaleDateString()}</span>
                                           </div>
                                        </div>
                                     </div>
 
                                     <div className="flex flex-col gap-1.5 w-full md:w-auto">
-                                       <button className="px-6 py-2.5 bg-white border border-black/5 rounded-lg font-black text-[9px] uppercase tracking-widest shadow-sm hover:bg-re-bg transition-all">Download Contract</button>
+                                       <button className="px-6 py-2.5 bg-white border border-black/5 rounded-lg font-semibold text-[9px] uppercase tracking-widest shadow-sm hover:bg-re-bg transition-all">Download Contract</button>
                                        {loanStatus.active_loan.status === 'pending' && (
-                                          <button onClick={() => handleCancel(loanStatus.active_loan.id)} className="px-6 py-2.5 bg-red-50 text-red-500 rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-red-100 transition-all">Revoke Request</button>
+                                          <button onClick={() => handleCancel(loanStatus.active_loan.id)} className="px-6 py-2.5 bg-red-50 text-red-500 rounded-lg font-semibold text-[9px] uppercase tracking-widest hover:bg-red-100 transition-all">Revoke Request</button>
                                        )}
                                     </div>
                                  </div>
@@ -230,17 +233,17 @@ const ShuleAvance = () => {
                                     <div className="space-y-2">
                                        <div className="flex items-center gap-2">
                                           <span className="w-4 h-1 rounded-full" style={{ background: "#FEBF10" }}></span>
-                                          <p className="text-[9px] font-black uppercase tracking-[0.2em]" style={{ color: "#FEBF10" }}>Available Credit</p>
+                                          <p className="text-[9px] font-semibold uppercase tracking-[0.2em]" style={{ color: "#FEBF10" }}>Available Credit</p>
                                        </div>
-                                       <h4 className="text-2xl font-black text-re-text tracking-tight uppercase leading-tight">Support when you need it</h4>
+                                       <h4 className="text-2xl font-semibold text-re-text tracking-tight uppercase leading-tight">Support when you need it</h4>
                                        <p className="text-[11px] text-re-text-muted font-bold opacity-70 leading-relaxed">
                                           Bridge financing for verified school staff—personal or professional goals, with a typical decision in 24–48 hours.
                                        </p>
                                     </div>
                                     <button
                                        onClick={() => setShowApply(true)}
-                                       className="text-white px-8 py-3.5 rounded-xl font-black hover:scale-[1.02] active:scale-95 transition-all text-[10px] uppercase tracking-widest inline-flex items-center gap-3"
-                                       style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)", boxShadow: "0 12px 30px rgba(30,58,95,0.22)" }}
+                                       className="text-white px-8 py-3.5 rounded-xl font-semibold active:scale-[0.99] transition-all text-[10px] uppercase tracking-widest inline-flex items-center gap-3 border border-white/15 shadow-sm"
+                                       style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)" }}
                                     >
                                        Start application <ArrowRight size={14} />
                                     </button>
@@ -248,16 +251,16 @@ const ShuleAvance = () => {
 
                                  {/* Credit Limit Illustration */}
                                  <div className="relative group perspective-1000 hidden md:block">
-                                    <div className="w-48 h-32 bg-re-grad-purple shadow-re-premium-purple rounded-[24px] p-5 text-white transform transition-all duration-700 hover:rotate-y-12">
+                                    <div className="w-48 h-32 bg-re-grad-purple shadow-sm border border-white/15 rounded-[24px] p-5 text-white transform transition-all duration-700 hover:rotate-y-12">
                                        <div className="flex justify-between items-start">
                                           <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-md">
                                              <Wallet size={16} />
                                           </div>
-                                          <p className="text-[7px] font-black uppercase tracking-[0.2em] opacity-50">Tier: Platinum</p>
+                                          <p className="text-[7px] font-semibold uppercase tracking-[0.2em] opacity-50">Tier: Platinum</p>
                                        </div>
                                        <div className="mt-6 space-y-0.5">
-                                          <p className="text-[8px] font-black opacity-50 uppercase tracking-[0.1em]">Max Potential</p>
-                                          <p className="text-base font-black tracking-tight">1,200,000 <span className="text-[9px] opacity-30">RWF</span></p>
+                                          <p className="text-[8px] font-semibold opacity-50 uppercase tracking-[0.1em]">Max Potential</p>
+                                          <p className="text-base font-semibold tracking-tight">1,200,000 <span className="text-[9px] opacity-30">RWF</span></p>
                                        </div>
                                     </div>
                                     <div className="absolute -inset-1 bg-white/10 blur-xl rounded-full -z-10 animate-pulse"></div>
@@ -273,11 +276,11 @@ const ShuleAvance = () => {
                      <div className="bg-white rounded-[24px] shadow-sm border border-black/5 overflow-hidden">
                         <div className="p-4 pb-1.5 flex items-center gap-2">
                            <span className="w-0.5 h-3 bg-re-purple rounded-full"></span>
-                           <h3 className="text-[9px] font-black text-re-text uppercase tracking-widest opacity-40">Statement History</h3>
+                           <h3 className="text-[9px] font-semibold text-re-text uppercase tracking-widest opacity-40">Statement History</h3>
                         </div>
                         <div className="px-5 py-3 border-b border-gray-50 flex items-center justify-between bg-re-bg/30">
-                           <span className="text-[8px] font-black text-re-text-muted tracking-widest uppercase opacity-30">Withdrawal Details</span>
-                           <span className="text-[8px] font-black text-re-text-muted tracking-widest uppercase opacity-30">Sum / Status</span>
+                           <span className="text-[8px] font-semibold text-re-text-muted tracking-widest uppercase opacity-30">Withdrawal Details</span>
+                           <span className="text-[8px] font-semibold text-re-text-muted tracking-widest uppercase opacity-30">Sum / Status</span>
                         </div>
                         <div className="divide-y divide-gray-50">
                            {loanStatus?.history?.length > 0 ? loanStatus.history.map((loan) => (
@@ -287,13 +290,13 @@ const ShuleAvance = () => {
                                        <CreditCard size={14} className="text-[#1E3A5F]/40" />
                                     </div>
                                     <div>
-                                       <p className="text-xs font-black text-re-text tracking-tight uppercase">Credit #{loan.id}</p>
-                                       <p className="text-[8px] text-re-text-muted font-black uppercase tracking-[0.1em] mt-0.5 opacity-40 font-mono italic">{new Date(loan.created_at).toLocaleDateString(undefined, { day: '2-digit', month: 'short' })}</p>
+                                       <p className="text-xs font-semibold text-re-text tracking-tight uppercase">Credit #{loan.id}</p>
+                                       <p className="text-[8px] text-re-text-muted font-semibold uppercase tracking-[0.1em] mt-0.5 opacity-40 font-mono italic">{new Date(loan.created_at).toLocaleDateString(undefined, { day: '2-digit', month: 'short' })}</p>
                                     </div>
                                  </div>
                                  <div className="text-right">
-                                    <p className="text-xs font-black text-re-text tracking-tight">{Number(loan.amount_requested).toLocaleString()} <span className="text-[8px] opacity-30 uppercase">RWF</span></p>
-                                    <span className={`text-[7px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full inline-block mt-0.5 ${loan.status === 'completed' ? 'bg-re-navy/5 text-re-navy border border-re-navy/15' : 'bg-amber-50 text-amber-600 border border-amber-100'}`}>
+                                    <p className="text-xs font-semibold text-re-text tracking-tight">{Number(loan.amount_requested).toLocaleString()} <span className="text-[8px] opacity-30 uppercase">RWF</span></p>
+                                    <span className={`text-[7px] font-semibold uppercase tracking-widest px-2 py-0.5 rounded-full inline-block mt-0.5 ${loan.status === 'completed' ? 'bg-re-navy/5 text-re-navy border border-re-navy/15' : 'bg-amber-50 text-amber-600 border border-amber-100'}`}>
                                        {loan.status}
                                     </span>
                                  </div>
@@ -307,13 +310,13 @@ const ShuleAvance = () => {
                                        className="w-full h-full object-contain grayscale"
                                     />
                                  </div>
-                                 <p className="text-[8px] font-black text-re-text-muted opacity-30 uppercase tracking-[0.4em]">Zero trace of activity</p>
+                                 <p className="text-[8px] font-semibold text-re-text-muted opacity-30 uppercase tracking-[0.4em]">Zero trace of activity</p>
                               </div>
                            )}
                         </div>
                         {loanStatus?.history?.length > 0 && (
                            <div className="p-3 bg-re-bg/20 text-center border-t border-black/5">
-                              <button className="text-[8px] font-black uppercase tracking-widest hover:underline opacity-60" style={{ color: "#FEBF10" }}>Fetch Archive Records</button>
+                              <button className="text-[8px] font-semibold uppercase tracking-widest hover:underline opacity-60" style={{ color: "#FEBF10" }}>Fetch Archive Records</button>
                            </div>
                         )}
                      </div>
@@ -326,7 +329,7 @@ const ShuleAvance = () => {
                   <div className="bg-white rounded-[24px] shadow-sm border border-black/5 p-5 pt-4 space-y-4">
                      <div className="flex items-center gap-2 mb-1">
                         <span className="w-0.5 h-3 bg-blue-500 rounded-full"></span>
-                        <h3 className="text-[9px] font-black text-re-text uppercase tracking-widest opacity-40">Directives & Thresholds</h3>
+                        <h3 className="text-[9px] font-semibold text-re-text uppercase tracking-widest opacity-40">Directives & Thresholds</h3>
                      </div>
 
                      <div className="flex items-start gap-3 p-3 rounded-xl bg-blue-50/20 border border-blue-100/50">
@@ -334,7 +337,7 @@ const ShuleAvance = () => {
                            <TrendingUp size={16} />
                         </div>
                         <div>
-                           <h4 className="text-[10px] font-black text-re-text uppercase tracking-tight">Credit ceiling</h4>
+                           <h4 className="text-[10px] font-semibold text-re-text uppercase tracking-tight">Credit ceiling</h4>
                            <p className="text-[9px] text-re-text-muted font-bold pt-0.5 opacity-60 inline-block">Capped at 70% of Net Salary.</p>
                         </div>
                      </div>
@@ -343,14 +346,14 @@ const ShuleAvance = () => {
                            <Clock size={16} />
                         </div>
                         <div>
-                           <h4 className="text-[10px] font-black text-re-text uppercase tracking-tight">Fast Decision</h4>
+                           <h4 className="text-[10px] font-semibold text-re-text uppercase tracking-tight">Fast Decision</h4>
                            <p className="text-[9px] text-re-text-muted font-bold pt-0.5 opacity-60 inline-block">Processing timeframe: 24–48hrs.</p>
                         </div>
                      </div>
                   </div>
 
                   {/* Quick Support Card (Optimized Height) */}
-                  <div className="relative rounded-[24px] p-5 text-white shadow-re-premium-purple overflow-hidden group cursor-pointer active:scale-95 transition-all bg-re-grad-purple min-h-[140px] flex flex-col justify-center">
+                  <div className="relative rounded-[24px] p-5 text-white shadow-sm border border-white/15 overflow-hidden group cursor-pointer active:scale-95 transition-all bg-re-grad-purple min-h-[140px] flex flex-col justify-center">
 
                      {/* Texture Overlay */}
                      <div className="absolute inset-0 opacity-10 mix-blend-overlay">
@@ -362,12 +365,12 @@ const ShuleAvance = () => {
                            <Users size={16} className="text-white" />
                         </div>
                         <div>
-                           <h4 className="font-black text-[10px] tracking-widest uppercase leading-none opacity-90">Emergency Priority?</h4>
+                           <h4 className="font-semibold text-[10px] tracking-widest uppercase leading-none opacity-90">Emergency Priority?</h4>
                            <p className="text-[9px] text-white font-bold leading-snug mt-1.5 opacity-70">
                               For urgent medical or family needs, please contact our support desk for priority processing.
                            </p>
                         </div>
-                        <div className="flex items-center gap-1.5 text-[8px] font-black uppercase tracking-widest group-hover:gap-2.5 transition-all outline outline-white/20 px-3 py-1.5 rounded-lg w-fit mt-0.5">
+                        <div className="flex items-center gap-1.5 text-[8px] font-semibold uppercase tracking-widest group-hover:gap-2.5 transition-all outline outline-white/20 px-3 py-1.5 rounded-lg w-fit mt-0.5">
                            Connect to Agent <ArrowRight size={10} />
                         </div>
                      </div>

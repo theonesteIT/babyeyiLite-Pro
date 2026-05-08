@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import {
   Search,
   Upload,
@@ -11,45 +11,65 @@ import {
   RotateCcw,
   Fingerprint,
   Users,
+  ZoomIn,
+  X,
 } from "lucide-react";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:5100";
 
-const C = {
-  dark: "#1A1200",
-  gold: "#FEBF10",
-  goldDark: "#B88A00",
-  emerald: "#059669",
-  slate: "#0f172a",
-};
-
-/** Snapchat-style “Pleasant frame”: higher saturation + slight warmth (also called saturation frame). */
 const PLEASANT_FRAME_FILTER =
   "saturate(1.45) contrast(1.06) brightness(1.04) sepia(0.05)";
 
 function cameraStartErrorMessage(err) {
   const name = err && typeof err === "object" && "name" in err ? String(err.name) : "";
-  if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+  if (name === "NotAllowedError" || name === "PermissionDeniedError")
     return "Camera access was blocked. Click the camera icon in the address bar and allow this site, or check site settings for camera.";
-  }
-  if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+  if (name === "NotFoundError" || name === "DevicesNotFoundError")
     return "That camera was not found. It may be unplugged—try another device or reconnect the webcam.";
-  }
-  if (name === "NotReadableError" || name === "TrackStartError") {
+  if (name === "NotReadableError" || name === "TrackStartError")
     return "This camera could not be opened. It may be in use by another app (Zoom, Teams, etc.), or the USB connection/driver failed—close other apps using the camera and try again.";
-  }
-  if (name === "OverconstrainedError") {
+  if (name === "OverconstrainedError")
     return "This camera does not support the requested settings. Try another camera or refresh the page.";
-  }
-  if (name === "SecurityError") {
+  if (name === "SecurityError")
     return "Camera requires a secure (HTTPS) context or allowed permissions.";
-  }
-  if (name === "AbortError") {
+  if (name === "AbortError")
     return "Opening the camera was cancelled. Try again.";
-  }
   return "Could not start this camera. Check permissions, USB connection, and that no other app is using it.";
 }
 
+// ─── Full-screen lightbox ────────────────────────────────────────
+function PhotoLightbox({ src, onClose }) {
+  useEffect(() => {
+    const handler = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/85 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <button
+        type="button"
+        onClick={onClose}
+        className="absolute top-4 right-4 w-11 h-11 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors"
+        aria-label="Close preview"
+      >
+        <X className="w-5 h-5" />
+      </button>
+      <img
+        src={src}
+        alt="Full-size preview"
+        className="max-w-[90vw] max-h-[90vh] rounded-2xl shadow-sm object-contain"
+        style={{ imageRendering: "high-quality" }}
+        onClick={(e) => e.stopPropagation()}
+      />
+    </div>
+  );
+}
+
+// ─── Step indicator ──────────────────────────────────────────────
 function StepIndicator({ step }) {
   const items = [
     { n: 1, label: "Search", sub: "Select student" },
@@ -87,11 +107,7 @@ function StepIndicator({ step }) {
               </div>
               {idx < items.length - 1 && (
                 <div className="h-1 mt-2">
-                  <div
-                    className={`h-full rounded-full ${
-                      step > it.n ? "bg-emerald-400" : active ? "bg-[#FEBF10]" : "bg-slate-200"
-                    }`}
-                  />
+                  <div className={`h-full rounded-full ${step > it.n ? "bg-emerald-400" : active ? "bg-[#FEBF10]" : "bg-slate-200"}`} />
                 </div>
               )}
             </div>
@@ -127,11 +143,20 @@ function resolveMediaUrl(url) {
   return `${base}${rel}`;
 }
 
+function fileNameForPhotoBlob(blob) {
+  const t = String(blob?.type || "").toLowerCase();
+  if (t === "image/png") return "student-photo.png";
+  return "student-photo.jpg";
+}
+
+// ════════════════════════════════════════════════════════════════
+// Main component
+// ════════════════════════════════════════════════════════════════
 export default function StudentIdentityRegistrationModal({ open, onClose, session, toast, onSaved }) {
   const [step, setStep] = useState(1);
 
   // Step 1
-  const [searchMode, setSearchMode] = useState("student_code"); // student_code | sdms_code | student_name
+  const [searchMode, setSearchMode] = useState("student_code");
   const [searchQuery, setSearchQuery] = useState("");
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState([]);
@@ -139,12 +164,12 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
   const [searchError, setSearchError] = useState(null);
 
   // Step 2
-  const [photoTab, setPhotoTab] = useState("upload"); // upload | camera
+  const [photoTab, setPhotoTab] = useState("upload");
   const [uploadFile, setUploadFile] = useState(null);
   const [uploadPreviewUrl, setUploadPreviewUrl] = useState(null);
-
   const [approvedBlob, setApprovedBlob] = useState(null);
   const [approvedPreviewUrl, setApprovedPreviewUrl] = useState(null);
+  const [lightboxSrc, setLightboxSrc] = useState(null); // ✅ lightbox state
 
   const [cameraDevices, setCameraDevices] = useState([]);
   const [cameraDeviceId, setCameraDeviceId] = useState("");
@@ -152,7 +177,6 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
   const [cameraError, setCameraError] = useState(null);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [capturedFromCamera, setCapturedFromCamera] = useState(false);
-  /** Live preview + JPEG capture use the same filter when enabled. */
   const [pleasantFrame, setPleasantFrame] = useState(true);
 
   const videoRef = useRef(null);
@@ -169,7 +193,6 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
   const [step3Success, setStep3Success] = useState(null);
   const [photoSaved, setPhotoSaved] = useState(false);
 
-  /** Step 3: work through a class without returning to step 2 */
   const [distinctClasses, setDistinctClasses] = useState([]);
   const [classesLoading, setClassesLoading] = useState(false);
   const [classFilterStep3, setClassFilterStep3] = useState("");
@@ -178,7 +201,9 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
   const [classRosterError, setClassRosterError] = useState(null);
 
   const studentPhotoUrl = resolveMediaUrl(selectedStudent?.student_photo_url || null);
-  const fullName = selectedStudent ? `${selectedStudent.first_name || ""} ${selectedStudent.last_name || ""}`.trim() : "";
+  const fullName = selectedStudent
+    ? `${selectedStudent.first_name || ""} ${selectedStudent.last_name || ""}`.trim()
+    : "";
 
   const resetWizard = useCallback(() => {
     setStep(1);
@@ -187,26 +212,18 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
     setSearchError(null);
     setSearchResults([]);
     setSelectedStudent(null);
-
     setPhotoTab("upload");
     setUploadFile(null);
-    setUploadPreviewUrl((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
-      return null;
-    });
+    setUploadPreviewUrl((prev) => { if (prev) URL.revokeObjectURL(prev); return null; });
     setApprovedBlob(null);
-    setApprovedPreviewUrl((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
-      return null;
-    });
-
+    setApprovedPreviewUrl((prev) => { if (prev) URL.revokeObjectURL(prev); return null; });
+    setLightboxSrc(null);
     setCameraDevices([]);
     setCameraDeviceId("");
     setCameraBusy(false);
     setCameraError(null);
     setCameraOpen(false);
     setCapturedFromCamera(false);
-
     setIdentityRfid("");
     setIdentityFingerprint("");
     setIdentityRemarks("");
@@ -215,7 +232,6 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
     setStep3Error(null);
     setStep3Success(null);
     setPhotoSaved(false);
-
     setDistinctClasses([]);
     setClassesLoading(false);
     setClassFilterStep3("");
@@ -229,7 +245,6 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
     resetWizard();
   }, [open, resetWizard]);
 
-  // Manage object URLs
   useEffect(() => {
     return () => {
       if (uploadPreviewUrl) URL.revokeObjectURL(uploadPreviewUrl);
@@ -246,55 +261,47 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
     if (videoRef.current) videoRef.current.srcObject = null;
   }, []);
 
-  const startCamera = useCallback(
-    async (deviceId) => {
-      if (!navigator.mediaDevices?.getUserMedia) {
-        setCameraError("Camera is not supported in this browser.");
-        return;
+  const startCamera = useCallback(async (deviceId) => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraError("Camera is not supported in this browser.");
+      return;
+    }
+    setCameraError(null);
+    setCameraBusy(true);
+    try {
+      stopCamera();
+      const hdVideo = { width: { ideal: 1920, min: 640 }, height: { ideal: 1080, min: 480 } };
+      const constraints =
+        deviceId && String(deviceId).trim()
+          ? { video: { deviceId: { exact: String(deviceId).trim() }, ...hdVideo }, audio: false }
+          : { video: { ...hdVideo, facingMode: { ideal: "user" } }, audio: false };
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play().catch(() => {});
       }
-      setCameraError(null);
-      setCameraBusy(true);
-      try {
-        stopCamera();
-        const constraints =
-          deviceId && String(deviceId).trim()
-            ? {
-                video: { deviceId: { exact: String(deviceId).trim() } },
-                audio: false,
-              }
-            : { video: true, audio: false };
-
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-        streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          await videoRef.current.play().catch(() => {});
-        }
-      } catch (e) {
-        setCameraError(cameraStartErrorMessage(e));
-      } finally {
-        setCameraBusy(false);
-      }
-    },
-    [stopCamera]
-  );
+    } catch (e) {
+      setCameraError(cameraStartErrorMessage(e));
+    } finally {
+      setCameraBusy(false);
+    }
+  }, [stopCamera]);
 
   const detectCameras = useCallback(async () => {
     setCameraError(null);
     try {
-      // Request permission first so device labels are populated (when supported).
-      await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 1920, min: 640 }, height: { ideal: 1080, min: 480 } },
+        audio: false,
+      });
       const devices = await navigator.mediaDevices.enumerateDevices();
       const videoInputs = (devices || []).filter((d) => d.kind === "videoinput");
-      const normalized = videoInputs.map((d) => ({
-        deviceId: d.deviceId,
-        label: d.label ? d.label : "Camera",
-      }));
+      const normalized = videoInputs.map((d) => ({ deviceId: d.deviceId, label: d.label || "Camera" }));
       setCameraDevices(normalized);
-
       const usbFirst =
         normalized.find((d) => /usb|webcam|external|camera/i.test(d.label)) ||
-        normalized.find((d) => d.label && d.label.toLowerCase().includes("camera")) ||
+        normalized.find((d) => d.label?.toLowerCase().includes("camera")) ||
         normalized[0] ||
         null;
       setCameraDeviceId(usbFirst?.deviceId || "");
@@ -309,7 +316,6 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
     setCameraOpen(true);
     setCapturedFromCamera(false);
     setCameraError(null);
-
     try {
       const deviceId = await detectCameras();
       await startCamera(deviceId || undefined);
@@ -323,81 +329,55 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!canvas) return;
-
     const w = video.videoWidth || 640;
     const h = video.videoHeight || 480;
     canvas.width = w;
     canvas.height = h;
-
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.filter = pleasantFrame ? PLEASANT_FRAME_FILTER : "none";
     ctx.drawImage(video, 0, 0, w, h);
     ctx.filter = "none";
-
     canvas.toBlob(
       (blob) => {
         if (!blob) return;
-        // If the previous preview exists, release it.
-        setApprovedBlob((prev) => {
-          if (prev?.objectUrl) URL.revokeObjectURL(prev.objectUrl);
-          return blob;
-        });
-
+        setApprovedBlob(blob);
         const url = URL.createObjectURL(blob);
-        setApprovedPreviewUrl((prev) => {
-          if (prev) URL.revokeObjectURL(prev);
-          return url;
-        });
+        setApprovedPreviewUrl((prev) => { if (prev) URL.revokeObjectURL(prev); return url; });
         setPhotoSaved(false);
         setCapturedFromCamera(true);
         setCameraOpen(false);
         stopCamera();
       },
       "image/jpeg",
-      0.92
+      0.97
     );
   }, [pleasantFrame, stopCamera]);
 
   // Step 1 search (debounced)
   useEffect(() => {
     if (!open || step !== 1) return;
-
     const q = searchQuery.trim();
-    if (q.length < 2) {
-      setSearchResults([]);
-      setSearchError(null);
-      return;
-    }
-
+    if (q.length < 2) { setSearchResults([]); setSearchError(null); return; }
     const t = setTimeout(async () => {
       setSearching(true);
       setSearchError(null);
       try {
-        const params = new URLSearchParams({
-          page: "1",
-          limit: "20",
-          paginate: "true",
-          q,
-        });
+        const params = new URLSearchParams({ page: "1", limit: "20", paginate: "true", q });
         const res = await fetch(`${API}/api/students?${params}`, { credentials: "include" });
         const json = await res.json().catch(() => ({}));
-
         if (!res.ok || !json.success) {
           setSearchResults([]);
           setSearchError(json.message || "Failed to search students.");
           return;
         }
-
         const rows = Array.isArray(json.data) ? json.data : [];
         const ql = q.toLowerCase();
         const filtered = rows.filter((s) => {
           const studentCode = String(s.student_code || "").toLowerCase();
           const sdm = String(s.sdm_code || "").toLowerCase();
           const name = `${s.first_name || ""} ${s.last_name || ""}`.toLowerCase();
-          if (searchMode === "student_code") {
-            return studentCode.includes(ql) || String(s.student_uid || "").toLowerCase().includes(ql);
-          }
+          if (searchMode === "student_code") return studentCode.includes(ql) || String(s.student_uid || "").toLowerCase().includes(ql);
           if (searchMode === "sdms_code") return sdm.includes(ql);
           return name.includes(ql);
         });
@@ -409,11 +389,10 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
         setSearching(false);
       }
     }, 350);
-
     return () => clearTimeout(t);
   }, [API, open, step, searchQuery, searchMode]);
 
-  // Prefill identity values when entering step 3
+  // Prefill identity on step 3
   useEffect(() => {
     if (!open || step !== 3 || !selectedStudent) return;
     setIdentityRfid(selectedStudent.rfid_uid || "");
@@ -423,7 +402,7 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
     setStep3Success(null);
   }, [open, step, selectedStudent]);
 
-  // Step 3: distinct class names for roster picker
+  // Step 3: distinct classes
   useEffect(() => {
     if (!open || step !== 3) return;
     let cancelled = false;
@@ -432,10 +411,7 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
       try {
         const res = await fetch(`${API}/api/students?paginate=false&limit=5000`, { credentials: "include" });
         const json = await res.json().catch(() => ({}));
-        if (cancelled || !json.success) {
-          if (!cancelled) setDistinctClasses([]);
-          return;
-        }
+        if (cancelled || !json.success) { if (!cancelled) setDistinctClasses([]); return; }
         const uniq = new Set();
         (json.data || []).forEach((row) => {
           const cn = row.class_name != null ? String(row.class_name).trim() : "";
@@ -448,12 +424,9 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
         if (!cancelled) setClassesLoading(false);
       }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [open, step, API]);
 
-  // Default class filter from current student when opening step 3
   useEffect(() => {
     if (step !== 3 || !selectedStudent?.class_name) return;
     const cn = String(selectedStudent.class_name).trim();
@@ -461,15 +434,10 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
     setClassFilterStep3(cn);
   }, [step, selectedStudent?.id, selectedStudent?.class_name, classFilterStep3]);
 
-  // Load all students in selected class (step 3)
   useEffect(() => {
     if (!open || step !== 3) return;
     const cn = classFilterStep3.trim();
-    if (!cn) {
-      setClassRosterStudents([]);
-      setClassRosterError(null);
-      return;
-    }
+    if (!cn) { setClassRosterStudents([]); setClassRosterError(null); return; }
     let cancelled = false;
     (async () => {
       setClassRosterLoading(true);
@@ -479,136 +447,90 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
         const res = await fetch(`${API}/api/students?${params}`, { credentials: "include" });
         const json = await res.json().catch(() => ({}));
         if (cancelled) return;
-        if (!json.success) {
-          setClassRosterError(json.message || "Failed to load class list");
-          setClassRosterStudents([]);
-          return;
-        }
+        if (!json.success) { setClassRosterError(json.message || "Failed to load class list"); setClassRosterStudents([]); return; }
         const rows = Array.isArray(json.data) ? json.data : [];
-        rows.sort(
-          (a, b) =>
-            String(a.last_name || "").localeCompare(String(b.last_name || "")) ||
-            String(a.first_name || "").localeCompare(String(b.first_name || ""))
+        rows.sort((a, b) =>
+          String(a.last_name || "").localeCompare(String(b.last_name || "")) ||
+          String(a.first_name || "").localeCompare(String(b.first_name || ""))
         );
         setClassRosterStudents(rows);
       } catch {
-        if (!cancelled) {
-          setClassRosterError("Network error");
-          setClassRosterStudents([]);
-        }
+        if (!cancelled) { setClassRosterError("Network error"); setClassRosterStudents([]); }
       } finally {
         if (!cancelled) setClassRosterLoading(false);
       }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [open, step, classFilterStep3, API]);
 
   const handleUploadSelect = useCallback((file) => {
     if (!file) return;
-    if (!["image/jpeg", "image/jpg", "image/png"].includes(file.type || "")) {
-      setSearchError(null);
-      return;
-    }
+    if (!["image/jpeg", "image/jpg", "image/png"].includes(file.type || "")) return;
     setUploadFile(file);
+    // ✅ FIX: Create blob URL from ORIGINAL file — no re-compression ever
     const url = URL.createObjectURL(file);
-    setUploadPreviewUrl((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
-      return url;
-    });
-
+    setUploadPreviewUrl((prev) => { if (prev) URL.revokeObjectURL(prev); return url; });
+    // approvedBlob = original File, sent as-is to server
     setApprovedBlob(file);
-    setApprovedPreviewUrl((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
-      return url;
-    });
+    setApprovedPreviewUrl((prev) => { if (prev) URL.revokeObjectURL(prev); return url; });
     setPhotoSaved(false);
     setCapturedFromCamera(false);
   }, []);
 
-  const savePhotoToProfile = useCallback(
-    async ({ goToStep3 }) => {
-      if (!selectedStudent) {
-        setSearchError("Select a student first.");
-        return false;
-      }
-      if (!approvedBlob) {
-        setSearchError("Please choose or capture a photo first.");
-        return false;
-      }
-      setSavingPhoto(true);
-      setSearchError(null);
-      try {
-        const fd = new FormData();
-        const photoFile =
-          approvedBlob instanceof Blob
-            ? new File([approvedBlob], "student-photo.jpg", { type: approvedBlob.type || "image/jpeg" })
-            : approvedBlob;
-        fd.append("photo", photoFile);
-
-        const url = `${API}/api/students/${selectedStudent.id}/identity/photo`;
-        const res = await fetch(url, { method: "PUT", credentials: "include", body: fd });
-        const json = await res.json().catch(() => ({}));
-        if (!res.ok || !json.success) {
-          setSearchError(json.message || "Failed to save student photo.");
-          return false;
-        }
-        await fetch(`${API}/api/student-cards/cache/refresh/${selectedStudent.id}`, {
-          method: "POST",
-          credentials: "include",
-        }).catch(() => null);
-
-        setSelectedStudent((prev) => ({
-          ...(prev || {}),
-          ...json.data,
-        }));
-        setPhotoSaved(true);
-        if (goToStep3) setStep(3);
-        return true;
-      } catch {
-        setSearchError("Cannot connect to server.");
-        return false;
-      } finally {
-        setSavingPhoto(false);
-      }
-    },
-    [API, approvedBlob, selectedStudent]
-  );
+  const savePhotoToProfile = useCallback(async ({ goToStep3 }) => {
+    if (!selectedStudent) { setSearchError("Select a student first."); return false; }
+    if (!approvedBlob) { setSearchError("Please choose or capture a photo first."); return false; }
+    setSavingPhoto(true);
+    setSearchError(null);
+    try {
+      const fd = new FormData();
+      const photoFile =
+        approvedBlob instanceof Blob
+          ? new File([approvedBlob], fileNameForPhotoBlob(approvedBlob), { type: approvedBlob.type || "image/jpeg" })
+          : approvedBlob;
+      fd.append("photo", photoFile);
+      const url = `${API}/api/students/${selectedStudent.id}/identity/photo`;
+      const res = await fetch(url, { method: "PUT", credentials: "include", body: fd });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) { setSearchError(json.message || "Failed to save student photo."); return false; }
+      await fetch(`${API}/api/student-cards/cache/refresh/${selectedStudent.id}`, {
+        method: "POST", credentials: "include",
+      }).catch(() => null);
+      setSelectedStudent((prev) => ({ ...(prev || {}), ...json.data }));
+      setPhotoSaved(true);
+      if (goToStep3) setStep(3);
+      return true;
+    } catch {
+      setSearchError("Cannot connect to server.");
+      return false;
+    } finally {
+      setSavingPhoto(false);
+    }
+  }, [API, approvedBlob, selectedStudent]);
 
   const doSavePhotoAndContinue = useCallback(() => savePhotoToProfile({ goToStep3: true }), [savePhotoToProfile]);
-
   const savePhotoStayOnStep3 = useCallback(() => savePhotoToProfile({ goToStep3: false }), [savePhotoToProfile]);
 
-  const applyStudentSwitch = useCallback(
-    (s) => {
-      if (!s) return;
-      stopCamera();
-      setUploadFile(null);
-      setUploadPreviewUrl((prev) => {
-        if (prev) URL.revokeObjectURL(prev);
-        return null;
-      });
-      setApprovedBlob(null);
-      setApprovedPreviewUrl((prev) => {
-        if (prev) URL.revokeObjectURL(prev);
-        return null;
-      });
-      setCameraOpen(false);
-      setCapturedFromCamera(false);
-      setCameraError(null);
-      setPhotoSaved(!!(s.student_photo_url && String(s.student_photo_url).trim()));
-      setSelectedStudent(s);
-      setSearchError(null);
-      setStep3Error(null);
-      setStep3Success(null);
-    },
-    [stopCamera]
-  );
+  const applyStudentSwitch = useCallback((s) => {
+    if (!s) return;
+    stopCamera();
+    setUploadFile(null);
+    setUploadPreviewUrl((prev) => { if (prev) URL.revokeObjectURL(prev); return null; });
+    setApprovedBlob(null);
+    setApprovedPreviewUrl((prev) => { if (prev) URL.revokeObjectURL(prev); return null; });
+    setLightboxSrc(null);
+    setCameraOpen(false);
+    setCapturedFromCamera(false);
+    setCameraError(null);
+    setPhotoSaved(!!(s.student_photo_url && String(s.student_photo_url).trim()));
+    setSelectedStudent(s);
+    setSearchError(null);
+    setStep3Error(null);
+    setStep3Success(null);
+  }, [stopCamera]);
 
   const doSaveIdentity = useCallback(async () => {
     if (!selectedStudent) return;
-
     setSavingIdentity(true);
     setStep3Error(null);
     setStep3Success(null);
@@ -618,26 +540,17 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
         fingerprint_id: identityFingerprint.trim() || null,
         identity_remarks: identityRemarks.trim() || null,
       };
-
       const res = await fetch(`${API}/api/students/${selectedStudent.id}/identity`, {
-        method: "PUT",
-        credentials: "include",
+        method: "PUT", credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
       const json = await res.json().catch(() => ({}));
-
-      if (!res.ok || !json.success) {
-        setStep3Error(json.message || "Failed to save identity credentials.");
-        return;
-      }
-
+      if (!res.ok || !json.success) { setStep3Error(json.message || "Failed to save identity credentials."); return; }
       const updated = { ...(selectedStudent || {}), ...json.data };
       setSelectedStudent(updated);
-
       const idx = classRosterStudents.findIndex((x) => x.id === selectedStudent.id);
       const nextStudent = idx >= 0 && idx + 1 < classRosterStudents.length ? classRosterStudents[idx + 1] : null;
-
       if (nextStudent) {
         applyStudentSwitch(nextStudent);
         setStep3Success("Saved. Next student loaded — adjust photo or credentials, then save.");
@@ -654,45 +567,131 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
     } finally {
       setSavingIdentity(false);
     }
-  }, [
-    API,
-    applyStudentSwitch,
-    classRosterStudents,
-    identityFingerprint,
-    identityRemarks,
-    identityRfid,
-    onClose,
-    onSaved,
-    selectedStudent,
-    toast,
-  ]);
+  }, [API, applyStudentSwitch, classRosterStudents, identityFingerprint, identityRemarks, identityRfid, onClose, onSaved, selectedStudent, toast]);
 
-  // Cleanup camera on close
-  useEffect(() => {
-    if (!open) stopCamera();
-  }, [open, stopCamera]);
+  useEffect(() => { if (!open) stopCamera(); }, [open, stopCamera]);
 
   if (!open) return null;
+
+  // ── Shared large-preview block (upload tab) ──────────────────
+  const UploadPreview = uploadPreviewUrl ? (
+    <div className="rounded-2xl border border-slate-200 bg-white p-3">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-[11px] font-black uppercase tracking-widest text-slate-500">Preview</p>
+        <p className="text-[10px] text-emerald-600 font-semibold">✓ Original quality — no compression on save</p>
+      </div>
+      {/* ✅ FIX: Full-width large preview, object-contain, high-quality rendering */}
+      <div className="relative group">
+        <div className="w-full rounded-2xl overflow-hidden bg-slate-100 border border-slate-200" style={{ maxHeight: 320 }}>
+          <img
+            src={uploadPreviewUrl}
+            alt="Preview"
+            className="w-full object-contain"
+            style={{ imageRendering: "high-quality", maxHeight: 320 }}
+          />
+        </div>
+        <button
+          type="button"
+          onClick={() => setLightboxSrc(uploadPreviewUrl)}
+          className="absolute top-2 right-2 w-9 h-9 rounded-xl bg-black/40 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+          aria-label="View full size"
+        >
+          <ZoomIn className="w-4 h-4" />
+        </button>
+      </div>
+      <button
+        type="button"
+        onClick={() => {
+          setUploadFile(null);
+          setUploadPreviewUrl((prev) => { if (prev) URL.revokeObjectURL(prev); return null; });
+          setApprovedBlob(null);
+          setApprovedPreviewUrl((prev) => { if (prev) URL.revokeObjectURL(prev); return null; });
+          setPhotoSaved(false);
+        }}
+        className="mt-2 px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 hover:bg-slate-50 touch-manipulation"
+      >
+        Remove
+      </button>
+    </div>
+  ) : null;
+
+  // ── Shared large-preview block (camera tab) ──────────────────
+  const CapturedPreview = (approvedPreviewUrl || capturedFromCamera) ? (
+    <div className="rounded-2xl border border-slate-200 bg-white p-3">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-[11px] font-black uppercase tracking-widest text-slate-500">Captured photo</p>
+        <p className="text-[10px] text-slate-400">JPEG 97% quality · {capturedFromCamera && "from camera"}</p>
+      </div>
+      {/* ✅ FIX: Full-width large preview for captured photo */}
+      <div className="relative group mb-3">
+        <div className="w-full rounded-2xl overflow-hidden bg-slate-100 border border-slate-200" style={{ maxHeight: 320 }}>
+          {approvedPreviewUrl ? (
+            <img
+              src={approvedPreviewUrl}
+              alt="Captured"
+              className="w-full object-contain"
+              style={{ imageRendering: "high-quality", maxHeight: 320 }}
+            />
+          ) : null}
+        </div>
+        {approvedPreviewUrl && (
+          <button
+            type="button"
+            onClick={() => setLightboxSrc(approvedPreviewUrl)}
+            className="absolute top-2 right-2 w-9 h-9 rounded-xl bg-black/40 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+            aria-label="View full size"
+          >
+            <ZoomIn className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+      <p className="text-xs text-slate-600 font-semibold mb-2">Confirm the photo. You can retake if it&apos;s not clear.</p>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            setApprovedBlob(null);
+            setApprovedPreviewUrl((prev) => { if (prev) URL.revokeObjectURL(prev); return null; });
+            setPhotoSaved(false);
+            setCapturedFromCamera(false);
+            setCameraOpen(false);
+          }}
+          className="flex-1 min-h-[44px] rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 hover:bg-slate-50 touch-manipulation"
+        >
+          Clear
+        </button>
+        <button
+          type="button"
+          onClick={handleTakePhoto}
+          disabled={cameraBusy}
+          className="flex-1 min-h-[44px] rounded-xl bg-slate-900 text-white text-sm font-black hover:bg-slate-800 disabled:opacity-60 touch-manipulation"
+        >
+          Retake
+        </button>
+      </div>
+    </div>
+  ) : null;
 
   return (
     <div
       className="fixed inset-0 z-[90] flex items-end sm:items-center justify-center p-0 sm:p-4"
       style={{ background: "rgba(2,6,23,0.76)", backdropFilter: "blur(6px)" }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !savingPhoto && !savingIdentity) onClose?.();
-      }}
+      onClick={(e) => { if (e.target === e.currentTarget && !savingPhoto && !savingIdentity) onClose?.(); }}
       role="dialog"
       aria-modal="true"
       aria-label="Student identity registration"
     >
+      {/* ✅ Lightbox for full-resolution preview */}
+      {lightboxSrc && <PhotoLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />}
+
       <div
-        className={`bg-white w-full flex flex-col overflow-hidden shadow-2xl rounded-t-[1.35rem] sm:rounded-3xl h-[100dvh] max-h-[100dvh] sm:h-auto sm:max-h-[min(92vh,920px)] ${step === 3 ? "max-w-3xl" : "max-w-2xl"}`}
+        className={`bg-white w-full flex flex-col overflow-hidden shadow-sm rounded-t-[1.35rem] sm:rounded-3xl h-[100dvh] max-h-[100dvh] sm:h-auto sm:max-h-[min(92vh,920px)] ${step === 3 ? "max-w-3xl" : "max-w-2xl"}`}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Body (no top title bar — close via footer, backdrop, or step 1 Cancel) */}
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 sm:px-5 py-4 pt-[max(1rem,env(safe-area-inset-top))] bg-slate-50">
           <StepIndicator step={step} />
 
+          {/* ── Step 3: Class roster bar ──────────────────────────── */}
           {step === 3 && (
             <div className="mb-4 rounded-2xl border border-[#FDEAA0]/80 bg-[#FFFBE8]/90 p-3 sm:p-4">
               <div className="flex items-start gap-2 mb-3">
@@ -717,11 +716,7 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
                     className={inputCls}
                   >
                     <option value="">{classesLoading ? "Loading classes…" : "Select class"}</option>
-                    {distinctClasses.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
+                    {distinctClasses.map((c) => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
                 <div className="flex gap-1">
@@ -752,9 +747,7 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
                 </div>
               </div>
 
-              {classRosterError && (
-                <p className="text-xs font-semibold text-red-600 mt-2">{classRosterError}</p>
-              )}
+              {classRosterError && <p className="text-xs font-semibold text-red-600 mt-2">{classRosterError}</p>}
 
               {classFilterStep3 && (
                 <div className="mt-3">
@@ -775,9 +768,7 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
                               sel ? "border-[#FEBF10] bg-[#FFF3CC] shadow-sm" : "border-slate-200 bg-white hover:bg-slate-50"
                             }`}
                           >
-                            <p className="text-[11px] font-black text-slate-900 truncate">
-                              {s.first_name} {s.last_name}
-                            </p>
+                            <p className="text-[11px] font-black text-slate-900 truncate">{s.first_name} {s.last_name}</p>
                             <p className="text-[9px] font-mono text-slate-500 truncate">{s.student_code || s.student_uid}</p>
                           </button>
                         );
@@ -792,15 +783,17 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
             </div>
           )}
 
+          {/* ── Error banner ──────────────────────────────────────── */}
           {(searchError || step3Error) && (
             <div className="mb-4 flex items-start gap-2 rounded-2xl border border-red-200 bg-red-50 px-3 py-2.5">
               <AlertTriangle className="w-4 h-4 text-red-600 mt-0.5 shrink-0" />
-              <div className="min-w-0">
-                <p className="text-xs font-semibold text-red-700">{searchError || step3Error}</p>
-              </div>
+              <p className="text-xs font-semibold text-red-700">{searchError || step3Error}</p>
             </div>
           )}
 
+          {/* ══════════════════════════════════════════════════════
+              STEP 1 — Search & select student
+          ══════════════════════════════════════════════════════ */}
           {step === 1 && (
             <div className="space-y-4">
               <div className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-4">
@@ -808,45 +801,31 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
                   <div className="min-w-0">
                     <p className="text-sm font-black text-slate-900">Search and select a student</p>
                     <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
-                      Use <span className="font-bold text-slate-700">Student Code</span>, <span className="font-bold text-slate-700">SDMS Code</span>, or <span className="font-bold text-slate-700">Student Name</span>.
+                      Use <span className="font-bold text-slate-700">Student Code</span>,{" "}
+                      <span className="font-bold text-slate-700">SDMS Code</span>, or{" "}
+                      <span className="font-bold text-slate-700">Student Name</span>.
                     </p>
                   </div>
-                  <div className="inline-flex items-center gap-2 shrink-0">
-                    <Search className="w-4 h-4 text-slate-400" />
-                  </div>
+                  <Search className="w-4 h-4 text-slate-400 shrink-0" />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
-                  <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 cursor-pointer touch-manipulation">
-                    <input
-                      type="radio"
-                      name="smode"
-                      checked={searchMode === "student_code"}
-                      onChange={() => setSearchMode("student_code")}
-                      className="w-4 h-4 text-[#FEBF10] focus:ring-[#FEBF10]/30"
-                    />
-                    <span className="text-[12px] font-bold text-slate-700">Student Code</span>
-                  </label>
-                  <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 cursor-pointer touch-manipulation">
-                    <input
-                      type="radio"
-                      name="smode"
-                      checked={searchMode === "sdms_code"}
-                      onChange={() => setSearchMode("sdms_code")}
-                      className="w-4 h-4 text-[#FEBF10] focus:ring-[#FEBF10]/30"
-                    />
-                    <span className="text-[12px] font-bold text-slate-700">SDMS Code</span>
-                  </label>
-                  <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 cursor-pointer touch-manipulation">
-                    <input
-                      type="radio"
-                      name="smode"
-                      checked={searchMode === "student_name"}
-                      onChange={() => setSearchMode("student_name")}
-                      className="w-4 h-4 text-[#FEBF10] focus:ring-[#FEBF10]/30"
-                    />
-                    <span className="text-[12px] font-bold text-slate-700">Student Name</span>
-                  </label>
+                  {[
+                    { value: "student_code", label: "Student Code" },
+                    { value: "sdms_code", label: "SDMS Code" },
+                    { value: "student_name", label: "Student Name" },
+                  ].map((m) => (
+                    <label key={m.value} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 cursor-pointer touch-manipulation">
+                      <input
+                        type="radio"
+                        name="smode"
+                        checked={searchMode === m.value}
+                        onChange={() => setSearchMode(m.value)}
+                        className="w-4 h-4 text-[#FEBF10] focus:ring-[#FEBF10]/30"
+                      />
+                      <span className="text-[12px] font-bold text-slate-700">{m.label}</span>
+                    </label>
+                  ))}
                 </div>
 
                 <div className="relative">
@@ -855,17 +834,10 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
                     type="search"
                     enterKeyHint="search"
                     value={searchQuery}
-                    onChange={(e) => {
-                      setSearchQuery(e.target.value);
-                      setSelectedStudent(null);
-                      setSearchError(null);
-                    }}
+                    onChange={(e) => { setSearchQuery(e.target.value); setSelectedStudent(null); setSearchError(null); }}
                     placeholder={
-                      searchMode === "student_code"
-                        ? "Type student code..."
-                        : searchMode === "sdms_code"
-                          ? "Type SDMS code..."
-                          : "Type student name..."
+                      searchMode === "student_code" ? "Type student code..." :
+                      searchMode === "sdms_code" ? "Type SDMS code..." : "Type student name..."
                     }
                     className="w-full pl-10 pr-3 py-2.5 min-h-[44px] rounded-xl border border-slate-200 bg-white text-sm focus:border-[#FEBF10] focus:ring-2 focus:ring-[#FEBF10]/25 outline-none"
                   />
@@ -895,39 +867,26 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
                             type="button"
                             onClick={() => setSelectedStudent(s)}
                             className={`text-left rounded-2xl border p-3 touch-manipulation transition-all ${
-                              isSelected
-                                ? "border-[#FEBF10] bg-[#FFF3CC]/80 shadow-sm"
-                                : "border-slate-200 bg-white hover:bg-slate-50"
+                              isSelected ? "border-[#FEBF10] bg-[#FFF3CC]/80 shadow-sm" : "border-slate-200 bg-white hover:bg-slate-50"
                             }`}
                           >
                             <div className="flex items-start gap-3">
                               <div className="w-11 h-11 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 shrink-0 flex items-center justify-center">
-                                {img ? (
-                                  <img src={img} alt={`${s.first_name} ${s.last_name}`} className="w-full h-full object-cover" />
-                                ) : (
-                                  <div className="w-5 h-5 rounded-full bg-slate-200" />
-                                )}
+                                {img
+                                  ? <img src={img} alt="" className="w-full h-full object-cover" style={{ imageRendering: "high-quality" }} />
+                                  : <div className="w-5 h-5 rounded-full bg-slate-200" />
+                                }
                               </div>
                               <div className="min-w-0 flex-1">
-                                <p className="text-[13px] font-black text-slate-900 truncate">
-                                  {s.first_name} {s.last_name}
-                                </p>
+                                <p className="text-[13px] font-black text-slate-900 truncate">{s.first_name} {s.last_name}</p>
                                 <p className="text-[11px] font-mono text-slate-600 mt-1">
                                   {s.student_code || s.student_uid || "—"}
                                   {s.sdm_code ? <span className="text-slate-400"> · SDMS {s.sdm_code}</span> : null}
                                 </p>
-                                <p className="text-[11px] text-slate-500 mt-1 truncate">
-                                  {s.class_name || "—"} · {s.gender || "—"}
-                                </p>
+                                <p className="text-[11px] text-slate-500 mt-1 truncate">{s.class_name || "—"} · {s.gender || "—"}</p>
                               </div>
-                              <div className="shrink-0">
-                                <div
-                                  className={`w-8 h-8 rounded-xl flex items-center justify-center border ${
-                                    isSelected ? "border-[#FEBF10] bg-[#FEBF10]/15" : "border-slate-200 bg-white"
-                                  }`}
-                                >
-                                  <CheckCircle2 className={`w-4 h-4 ${isSelected ? "text-[#B88A00]" : "text-slate-300"}`} />
-                                </div>
+                              <div className={`w-8 h-8 rounded-xl flex items-center justify-center border shrink-0 ${isSelected ? "border-[#FEBF10] bg-[#FEBF10]/15" : "border-slate-200 bg-white"}`}>
+                                <CheckCircle2 className={`w-4 h-4 ${isSelected ? "text-[#B88A00]" : "text-slate-300"}`} />
                               </div>
                             </div>
                           </button>
@@ -942,31 +901,25 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
                 <div className="rounded-2xl border border-[#FDEAA0]/70 bg-white p-3 sm:p-4">
                   <div className="flex items-start gap-3">
                     <div className="w-16 h-16 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 shrink-0 flex items-center justify-center">
-                      {studentPhotoUrl ? (
-                        <img src={studentPhotoUrl} alt="Current student" className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-8 h-8 rounded-full bg-slate-200" />
-                      )}
+                      {studentPhotoUrl
+                        ? <img src={studentPhotoUrl} alt="Current student" className="w-full h-full object-cover" style={{ imageRendering: "high-quality" }} />
+                        : <div className="w-8 h-8 rounded-full bg-slate-200" />
+                      }
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-black text-slate-900">{fullName || "Selected student"}</p>
                       <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
-                          <p className="text-[10px] uppercase tracking-widest font-black text-slate-500">Student Code</p>
-                          <p className="text-sm font-bold text-slate-800 font-mono mt-0.5">{selectedStudent.student_code || selectedStudent.student_uid || "—"}</p>
-                        </div>
-                        <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
-                          <p className="text-[10px] uppercase tracking-widest font-black text-slate-500">SDMS Code</p>
-                          <p className="text-sm font-bold text-slate-800 font-mono mt-0.5">{selectedStudent.sdm_code || "—"}</p>
-                        </div>
-                        <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
-                          <p className="text-[10px] uppercase tracking-widest font-black text-slate-500">Class / Department</p>
-                          <p className="text-sm font-bold text-slate-800 mt-0.5">{selectedStudent.class_name || "—"}</p>
-                        </div>
-                        <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
-                          <p className="text-[10px] uppercase tracking-widest font-black text-slate-500">Gender</p>
-                          <p className="text-sm font-bold text-slate-800 mt-0.5">{selectedStudent.gender || "—"}</p>
-                        </div>
+                        {[
+                          { label: "Student Code", value: selectedStudent.student_code || selectedStudent.student_uid || "—", mono: true },
+                          { label: "SDMS Code", value: selectedStudent.sdm_code || "—", mono: true },
+                          { label: "Class / Department", value: selectedStudent.class_name || "—" },
+                          { label: "Gender", value: selectedStudent.gender || "—" },
+                        ].map((f) => (
+                          <div key={f.label} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
+                            <p className="text-[10px] uppercase tracking-widest font-black text-slate-500">{f.label}</p>
+                            <p className={`text-sm font-bold text-slate-800 mt-0.5 ${f.mono ? "font-mono" : ""}`}>{f.value}</p>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </div>
@@ -975,6 +928,9 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
             </div>
           )}
 
+          {/* ══════════════════════════════════════════════════════
+              STEP 2 & 3 — Photo section
+          ══════════════════════════════════════════════════════ */}
           {(step === 2 || step === 3) && (
             <div className="space-y-4">
               {!selectedStudent ? (
@@ -998,6 +954,7 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
                       </div>
                     </div>
 
+                    {/* Tab switcher */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
                       <button
                         type="button"
@@ -1027,25 +984,27 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
                       </button>
                     </div>
 
-                    {/* Current photo */}
+                    {/* Current saved photo (small thumbnail — this is for reference only, not the upload preview) */}
                     <div className="rounded-2xl border border-[#FDEAA0]/70 bg-[#FFFBE8]/60 p-3 mb-3">
                       <div className="flex items-start gap-3">
                         <div className="w-14 h-14 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
-                          {studentPhotoUrl ? (
-                            <img src={studentPhotoUrl} alt="Current student photo" className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-7 h-7 rounded-full bg-slate-200" />
-                          )}
+                          {studentPhotoUrl
+                            ? <img src={studentPhotoUrl} alt="Current" className="w-full h-full object-cover" style={{ imageRendering: "high-quality" }} />
+                            : <div className="w-7 h-7 rounded-full bg-slate-200" />
+                          }
                         </div>
                         <div className="min-w-0">
-                          <p className="text-[12px] font-black text-slate-900">Current photo</p>
+                          <p className="text-[12px] font-black text-slate-900">Current saved photo</p>
                           <p className="text-[11px] text-slate-600 mt-1">
-                            {studentPhotoUrl ? "Existing photo found for this student." : "No photo saved yet. You can skip photo and continue."}
+                            {studentPhotoUrl
+                              ? "Existing photo found for this student."
+                              : "No photo saved yet. You can skip photo and continue."}
                           </p>
                         </div>
                       </div>
                     </div>
 
+                    {/* ── Upload tab ──────────────────────────────────── */}
                     {photoTab === "upload" && (
                       <div className="space-y-3">
                         <Field label="Upload image" hint="JPG/PNG">
@@ -1060,39 +1019,12 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
                             />
                           </label>
                         </Field>
-
-                        {uploadPreviewUrl && (
-                          <div className="rounded-2xl border border-slate-200 bg-white p-3">
-                            <p className="text-[11px] font-black uppercase tracking-widest text-slate-500">Preview</p>
-                            <div className="mt-2 flex items-center gap-3">
-                              <div className="w-24 h-24 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 shrink-0">
-                                <img src={uploadPreviewUrl} alt="Preview" className="w-full h-full object-cover" />
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setUploadFile(null);
-                                  setUploadPreviewUrl((prev) => {
-                                    if (prev) URL.revokeObjectURL(prev);
-                                    return null;
-                                  });
-                                  setApprovedBlob(null);
-                                  setApprovedPreviewUrl((prev) => {
-                                    if (prev) URL.revokeObjectURL(prev);
-                                    return null;
-                                  });
-                                  setPhotoSaved(false);
-                                }}
-                                className="px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 hover:bg-slate-50 touch-manipulation"
-                              >
-                                Remove
-                              </button>
-                            </div>
-                          </div>
-                        )}
+                        {/* ✅ FIXED: Large upload preview */}
+                        {UploadPreview}
                       </div>
                     )}
 
+                    {/* ── Camera tab ──────────────────────────────────── */}
                     {photoTab === "camera" && (
                       <div className="space-y-3">
                         {!cameraOpen ? (
@@ -1102,7 +1034,10 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
                             disabled={cameraBusy}
                             className="w-full inline-flex items-center justify-center gap-2 min-h-[48px] rounded-2xl bg-amber-400 text-sm font-black text-slate-900 hover:bg-amber-300 disabled:opacity-60 transition-all touch-manipulation"
                           >
-                            {cameraBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Camera className="w-4 h-4" /> Take Photo</>}
+                            {cameraBusy
+                              ? <Loader2 className="w-4 h-4 animate-spin" />
+                              : <><Camera className="w-4 h-4" /> Take Photo</>
+                            }
                           </button>
                         ) : (
                           <div className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-4">
@@ -1113,8 +1048,8 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
                               </div>
                             )}
 
-                            {/* Wide live preview + actions beside (Capture next to preview, not below) */}
                             <div className="flex flex-col sm:flex-row gap-4 items-stretch">
+                              {/* Live video preview */}
                               <div className="min-w-0 flex-1 sm:min-w-[58%]">
                                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Live preview</p>
                                 <div className="relative w-full rounded-2xl overflow-hidden border-2 border-slate-200 bg-slate-900 shadow-inner aspect-video min-h-[280px] max-h-[min(72vh,580px)]">
@@ -1123,9 +1058,7 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
                                     playsInline
                                     muted
                                     className="absolute inset-0 w-full h-full object-cover"
-                                    style={{
-                                      filter: pleasantFrame ? PLEASANT_FRAME_FILTER : "none",
-                                    }}
+                                    style={{ filter: pleasantFrame ? PLEASANT_FRAME_FILTER : "none" }}
                                   />
                                   {cameraBusy && (
                                     <div className="absolute inset-0 bg-white/70 flex items-center justify-center z-10">
@@ -1135,11 +1068,10 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
                                 </div>
                               </div>
 
+                              {/* Controls */}
                               <div className="flex flex-col gap-3 w-full sm:w-[200px] md:w-[220px] shrink-0 sm:pt-7">
                                 <div className="rounded-2xl border border-slate-200 bg-slate-50/90 p-2.5">
-                                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
-                                    Pleasant frame
-                                  </p>
+                                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Pleasant frame</p>
                                   <p className="text-[10px] text-slate-500 mb-2 leading-snug">
                                     Saturation + warmth (like Snapchat). Matches your saved photo.
                                   </p>
@@ -1148,9 +1080,7 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
                                       type="button"
                                       onClick={() => setPleasantFrame(true)}
                                       className={`flex-1 min-h-[40px] text-[11px] font-black px-2 transition-colors touch-manipulation ${
-                                        pleasantFrame
-                                          ? "bg-[#FEBF10] text-[#1A1200]"
-                                          : "bg-white text-slate-500 hover:bg-slate-50"
+                                        pleasantFrame ? "bg-[#FEBF10] text-[#1A1200]" : "bg-white text-slate-500 hover:bg-slate-50"
                                       }`}
                                     >
                                       On
@@ -1159,9 +1089,7 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
                                       type="button"
                                       onClick={() => setPleasantFrame(false)}
                                       className={`flex-1 min-h-[40px] text-[11px] font-black px-2 border-l border-slate-200 transition-colors touch-manipulation ${
-                                        !pleasantFrame
-                                          ? "bg-slate-900 text-white"
-                                          : "bg-white text-slate-500 hover:bg-slate-50"
+                                        !pleasantFrame ? "bg-slate-900 text-white" : "bg-white text-slate-500 hover:bg-slate-50"
                                       }`}
                                     >
                                       Original
@@ -1178,10 +1106,7 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => {
-                                    setCameraOpen(false);
-                                    stopCamera();
-                                  }}
+                                  onClick={() => { setCameraOpen(false); stopCamera(); }}
                                   className="w-full min-h-[48px] rounded-2xl border border-slate-200 bg-white text-sm font-bold text-slate-600 hover:bg-slate-50 touch-manipulation"
                                 >
                                   Cancel
@@ -1196,9 +1121,7 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
                                       style={{ minHeight: 44 }}
                                     >
                                       {cameraDevices.map((d) => (
-                                        <option key={d.deviceId} value={d.deviceId}>
-                                          {d.label}
-                                        </option>
+                                        <option key={d.deviceId} value={d.deviceId}>{d.label}</option>
                                       ))}
                                     </select>
                                     <button
@@ -1207,8 +1130,7 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
                                       disabled={cameraBusy}
                                       className="mt-2 w-full inline-flex items-center justify-center gap-2 min-h-[44px] rounded-xl bg-slate-900 text-white text-sm font-black hover:bg-slate-800 disabled:opacity-60 transition-all touch-manipulation"
                                     >
-                                      <RotateCcw className="w-4 h-4" />
-                                      Switch
+                                      <RotateCcw className="w-4 h-4" /> Switch
                                     </button>
                                   </div>
                                 )}
@@ -1217,51 +1139,13 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
                           </div>
                         )}
 
-                        {(approvedPreviewUrl || capturedFromCamera) && (
-                          <div className="rounded-2xl border border-slate-200 bg-white p-3">
-                            <p className="text-[11px] font-black uppercase tracking-widest text-slate-500">Captured photo</p>
-                            <div className="mt-2 flex items-center gap-3">
-                              <div className="w-24 h-24 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 shrink-0">
-                                {approvedPreviewUrl ? <img src={approvedPreviewUrl} alt="Captured" className="w-full h-full object-cover" /> : null}
-                              </div>
-                              <div className="flex-1">
-                                <p className="text-xs text-slate-600 font-semibold">
-                                  Confirm the photo. You can retake if it&apos;s not clear.
-                                </p>
-                                <div className="flex gap-2 mt-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setApprovedBlob(null);
-                                      setApprovedPreviewUrl((prev) => {
-                                        if (prev) URL.revokeObjectURL(prev);
-                                        return null;
-                                      });
-                                      setPhotoSaved(false);
-                                      setCapturedFromCamera(false);
-                                      setCameraOpen(false);
-                                    }}
-                                    className="flex-1 min-h-[44px] rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 hover:bg-slate-50 touch-manipulation"
-                                  >
-                                    Clear
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={handleTakePhoto}
-                                    disabled={cameraBusy}
-                                    className="flex-1 min-h-[44px] rounded-xl bg-slate-900 text-white text-sm font-black hover:bg-slate-800 disabled:opacity-60 touch-manipulation"
-                                  >
-                                    Retake
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        )}
+                        {/* ✅ FIXED: Large captured photo preview */}
+                        {CapturedPreview}
                       </div>
                     )}
                   </div>
 
+                  {/* Step 2 — Save & Continue */}
                   {step === 2 && (
                     <div className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-4">
                       <div className="flex items-center justify-between gap-3">
@@ -1271,20 +1155,22 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
                             Save an approved image if available, or continue without photo and assign credentials later.
                           </p>
                         </div>
-                        <div className="shrink-0">
-                          <button
-                            type="button"
-                            onClick={doSavePhotoAndContinue}
-                            disabled={savingPhoto}
-                            className="inline-flex items-center justify-center gap-2 min-h-[48px] px-5 rounded-2xl bg-emerald-600 text-white text-sm font-black hover:bg-emerald-500 disabled:opacity-60 transition-all touch-manipulation"
-                          >
-                            {savingPhoto ? <Loader2 className="w-4 h-4 animate-spin" /> : <><CheckCircle2 className="w-4 h-4" /> Save & Continue</>}
-                          </button>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={doSavePhotoAndContinue}
+                          disabled={savingPhoto}
+                          className="inline-flex items-center justify-center gap-2 min-h-[48px] px-5 rounded-2xl bg-emerald-600 text-white text-sm font-black hover:bg-emerald-500 disabled:opacity-60 transition-all touch-manipulation shrink-0"
+                        >
+                          {savingPhoto
+                            ? <Loader2 className="w-4 h-4 animate-spin" />
+                            : <><CheckCircle2 className="w-4 h-4" /> Save & Continue</>
+                          }
+                        </button>
                       </div>
                     </div>
                   )}
 
+                  {/* Step 3 — Save photo (stay on step 3) */}
                   {step === 3 && (
                     <div className="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-3 sm:p-4">
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -1300,7 +1186,10 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
                           disabled={savingPhoto}
                           className="inline-flex items-center justify-center gap-2 min-h-[48px] px-5 rounded-2xl bg-emerald-600 text-white text-sm font-black hover:bg-emerald-500 disabled:opacity-60 transition-all touch-manipulation shrink-0"
                         >
-                          {savingPhoto ? <Loader2 className="w-4 h-4 animate-spin" /> : <><CheckCircle2 className="w-4 h-4" /> Save photo</>}
+                          {savingPhoto
+                            ? <Loader2 className="w-4 h-4 animate-spin" />
+                            : <><CheckCircle2 className="w-4 h-4" /> Save photo</>
+                          }
                         </button>
                       </div>
                     </div>
@@ -1310,8 +1199,11 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
             </div>
           )}
 
+          {/* ══════════════════════════════════════════════════════
+              STEP 3 — RFID + Fingerprint credentials
+          ══════════════════════════════════════════════════════ */}
           {step === 3 && (
-            <div className="space-y-4">
+            <div className="space-y-4 mt-4">
               {!selectedStudent ? (
                 <div className="rounded-2xl border border-red-200 bg-red-50 px-3 py-3 text-sm font-semibold text-red-700">
                   Please go back and select a student first.
@@ -1339,7 +1231,6 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
                         />
                       </Field>
                     </div>
-
                     <div className="sm:col-span-2 rounded-2xl border border-slate-200 bg-white p-3">
                       <Field label="Remarks / Notes" hint="optional">
                         <textarea
@@ -1363,20 +1254,14 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
                         <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
                           RFID UID and Fingerprint ID are optional. If provided, they are validated to prevent duplicates across the school.
                         </p>
-
                         <div className="mt-2 flex flex-wrap gap-2">
-                          <div className="px-3 py-1.5 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 text-[11px] font-bold">
-                            Attendance tracking
-                          </div>
-                          <div className="px-3 py-1.5 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 text-[11px] font-bold">
-                            Gate access
-                          </div>
-                          <div className="px-3 py-1.5 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 text-[11px] font-bold">
-                            Library & canteen
-                          </div>
+                          {["Attendance tracking", "Gate access", "Library & canteen"].map((tag) => (
+                            <div key={tag} className="px-3 py-1.5 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 text-[11px] font-bold">
+                              {tag}
+                            </div>
+                          ))}
                         </div>
                       </div>
-
                       <div className="shrink-0 flex flex-col gap-2 items-end">
                         <button
                           type="button"
@@ -1384,7 +1269,10 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
                           disabled={savingIdentity}
                           className="inline-flex items-center justify-center gap-2 min-h-[48px] px-5 rounded-2xl bg-amber-400 text-[#1A1200] text-sm font-black hover:bg-amber-300 disabled:opacity-60 transition-all touch-manipulation"
                         >
-                          {savingIdentity ? <Loader2 className="w-4 h-4 animate-spin" /> : <><CheckCircle2 className="w-4 h-4" /> Save Identity</>}
+                          {savingIdentity
+                            ? <Loader2 className="w-4 h-4 animate-spin" />
+                            : <><CheckCircle2 className="w-4 h-4" /> Save Identity</>
+                          }
                         </button>
                         <p className="text-[10px] text-slate-500 font-semibold">You can edit later anytime.</p>
                       </div>
@@ -1393,9 +1281,7 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
                     {step3Success && (
                       <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 flex items-start gap-2">
                         <CheckCircle2 className="w-4 h-4 text-emerald-700 mt-0.5 shrink-0" />
-                        <div className="min-w-0">
-                          <p className="text-xs font-semibold text-emerald-800">{step3Success}</p>
-                        </div>
+                        <p className="text-xs font-semibold text-emerald-800">{step3Success}</p>
                       </div>
                     )}
                   </div>
@@ -1404,11 +1290,10 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
             </div>
           )}
 
-          {/* Hidden canvas for camera capture */}
           <canvas ref={canvasRef} className="hidden" />
         </div>
 
-        {/* Footer */}
+        {/* ── Footer ────────────────────────────────────────────── */}
         <div className="px-4 sm:px-5 py-3 border-t border-slate-100 bg-white flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2 shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-3">
           <button
             type="button"
@@ -1431,13 +1316,7 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
                 type="button"
                 onClick={() => {
                   if (savingPhoto || savingIdentity) return;
-                  if (step === 1 && !selectedStudent) {
-                    setSearchError("Please select a student to continue.");
-                    return;
-                  }
-                  if (step === 2 && !photoSaved) {
-                    setSearchError(null);
-                  }
+                  if (step === 1 && !selectedStudent) { setSearchError("Please select a student to continue."); return; }
                   setSearchError(null);
                   setStep((s) => Math.min(3, s + 1));
                 }}
@@ -1447,7 +1326,6 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
                 Next <ChevronRight className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
               </button>
             )}
-
             {step === 3 && (
               <button
                 type="button"
@@ -1464,4 +1342,3 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
     </div>
   );
 }
-

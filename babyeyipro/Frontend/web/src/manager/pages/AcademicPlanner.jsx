@@ -152,17 +152,17 @@ export default function AcademicPlanner() {
             <div className="relative w-full min-h-[220px] overflow-hidden" style={{ backgroundImage: `url(${heroImg})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
                 <div className="absolute inset-0 bg-[#0a192f]/85 z-10 backdrop-blur-[2px]"></div>
                 <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-12 pt-12 pb-16 flex items-center gap-6">
-                    <div className="hidden md:flex shrink-0 w-20 h-20 rounded-3xl border border-white/10 bg-white/5 items-center justify-center backdrop-blur-xl shadow-2xl relative overflow-hidden group">
+                    <div className="hidden md:flex shrink-0 w-20 h-20 rounded-3xl border border-white/10 bg-white/5 items-center justify-center backdrop-blur-xl shadow-sm relative overflow-hidden group">
                         <div className="absolute inset-0 bg-gradient-to-br from-[#FEBF10]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
-                        <Layout size={40} style={{ color: "#FEBF10" }} className="group-hover:scale-110 transition-transform duration-500" />
+                        <Layout size={40} style={{ color: "#FEBF10" }} className="" />
                     </div>
 
                     <div className="space-y-1">
                         <div className="flex items-center gap-2 mb-1.5">
                             <span className="w-5 h-1 rounded-full animate-pulse" style={{ background: "#FEBF10" }}></span>
-                            <p className="text-[9px] font-black uppercase tracking-[0.2em]" style={{ color: "#FEBF10" }}>Academic Master Planner</p>
+                            <p className="text-[9px] font-semibold uppercase tracking-[0.2em]" style={{ color: "#FEBF10" }}>Academic Master Planner</p>
                         </div>
-                        <h1 className="text-xl sm:text-3xl md:text-4xl font-black text-white tracking-tighter leading-none mb-1.5 uppercase">Timetable <span style={{ color: "#FEBF10" }}>Wizard</span></h1>
+                        <h1 className="text-xl sm:text-3xl md:text-4xl font-semibold text-white tracking-tighter leading-none mb-1.5 uppercase">Timetable <span style={{ color: "#FEBF10" }}>Wizard</span></h1>
                         <p className="text-[10px] md:text-xs font-medium text-white/60 max-w-lg leading-relaxed uppercase tracking-widest italic">Coordinate faculty loads, room assignments, and period distribution for the entire school</p>
                     </div>
                 </div>
@@ -170,16 +170,16 @@ export default function AcademicPlanner() {
 
             {/* ── Main Content Area ── */}
             <div className="relative z-30 max-w-[1600px] mx-auto px-4 md:px-12 -mt-16 pb-16">
-                <div className="bg-white rounded-t-3xl shadow-2xl border border-black/5 overflow-hidden flex flex-col min-h-[600px]">
+                <div className="bg-white rounded-t-3xl shadow-sm border border-black/10 overflow-hidden flex flex-col min-h-[600px]">
 
                     {/* Toolbar */}
                     <div className="px-6 py-5 border-b border-black/5 flex flex-col xl:flex-row items-center justify-between gap-4 bg-re-bg/20">
                         <div className="flex flex-col sm:flex-row items-center gap-4 w-full xl:w-auto">
                             <div className="h-9 w-full sm:w-[320px] bg-re-bg border border-transparent focus-within:border-[#1E3A5F]/20 focus-within:bg-white rounded-lg px-3 flex items-center gap-2 shadow-inner transition-all pr-1 relative">
                                 <Filter size={14} className="text-[#FEBF10]" />
-                                <span className="text-[8px] font-black uppercase text-[#1E3A5F] tracking-[0.2em] opacity-80 border-r border-[#1E3A5F]/10 pr-2 whitespace-nowrap">View By Class</span>
+                                <span className="text-[8px] font-semibold uppercase text-[#1E3A5F] tracking-[0.2em] opacity-80 border-r border-[#1E3A5F]/10 pr-2 whitespace-nowrap">View By Class</span>
                                 <select 
-                                    className="bg-transparent text-[10px] font-black uppercase tracking-widest text-[#1E3A5F] outline-none cursor-pointer border-none pl-2 appearance-none pr-8 w-full h-full"
+                                    className="bg-transparent text-[10px] font-semibold uppercase tracking-widest text-[#1E3A5F] outline-none cursor-pointer border-none pl-2 appearance-none pr-8 w-full h-full"
                                     value={selectedClass}
                                     onChange={e => setSelectedClass(e.target.value)}
                                     style={{ backgroundImage: `url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236b7280%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.5rem center', backgroundSize: '10px' }}
@@ -198,7 +198,7 @@ export default function AcademicPlanner() {
                                     <input 
                                         type="text"
                                         placeholder="Search Faculty..."
-                                        className="bg-transparent text-[10px] font-black uppercase tracking-widest text-[#1E3A5F] outline-none w-full placeholder:text-[#1E3A5F]/40"
+                                        className="bg-transparent text-[10px] font-semibold uppercase tracking-widest text-[#1E3A5F] outline-none w-full placeholder:text-[#1E3A5F]/40"
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
                                     />
@@ -209,7 +209,7 @@ export default function AcademicPlanner() {
                         <div className="flex items-center gap-3 w-full xl:w-auto">
                              <button 
                                 onClick={() => exportTimetablePDF(timetable, days, periods, selectedClass)}
-                                className="h-10 px-6 bg-white border border-black/5 text-[#1E3A5F] rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center gap-2 shadow-sm transition-all hover:border-[#FEBF10] hover:text-[#FEBF10]"
+                                className="h-10 px-6 bg-white border border-black/5 text-[#1E3A5F] rounded-xl font-medium text-[9px] uppercase tracking-widest flex items-center gap-2 shadow-sm transition-all hover:border-[#FEBF10] hover:text-[#FEBF10]"
                             >
                                 <FileText size={14} /> Export PDF
                             </button>
@@ -221,9 +221,9 @@ export default function AcademicPlanner() {
                         <table className="w-full border-collapse table-fixed min-w-[900px]">
                             <thead className="bg-[#1E3A5F]">
                                 <tr>
-                                    <th className="w-40 p-3 border-b border-r border-white/10 text-[9px] font-black uppercase tracking-widest text-[#FEBF10] text-left">Faculty Member</th>
+                                    <th className="w-40 p-3 border-b border-r border-white/10 text-[9px] font-semibold uppercase tracking-widest text-[#FEBF10] text-left">Faculty Member</th>
                                     {days.map(day => (
-                                        <th key={day} className="p-3 border-b border-r border-white/10 text-[10px] font-black uppercase tracking-widest text-white text-left">{day}</th>
+                                        <th key={day} className="p-3 border-b border-r border-white/10 text-[10px] font-semibold uppercase tracking-widest text-white text-left">{day}</th>
                                     ))}
                                 </tr>
                             </thead>
@@ -239,7 +239,7 @@ export default function AcademicPlanner() {
                                             return (
                                                 <tr key={`faculty-${teacherData.id}`}>
                                                     <td className="p-4 border-r border-b border-black/5 bg-re-bg/5 text-left align-top">
-                                                        <p className="text-[11px] font-black text-[#1E3A5F] uppercase leading-tight">{teacherData.teacher}</p>
+                                                        <p className="text-[11px] font-semibold text-[#1E3A5F] uppercase leading-tight">{teacherData.teacher}</p>
                                                         <p className="text-[8px] font-bold text-re-text-muted uppercase mt-1">Load: {teacherData.load}</p>
                                                     </td>
                                                     {days.map(day => (
@@ -249,7 +249,7 @@ export default function AcademicPlanner() {
                                                                     if (period.is_break) {
                                                                         return (
                                                                             <div key={`period-${period.id}`} className="relative py-0.5 px-1.5 border border-amber-500/10 rounded-md bg-amber-50/30 text-center flex items-center justify-between opacity-80 shadow-sm">
-                                                                                <span className="text-[6.5px] font-black uppercase tracking-[0.2em] text-amber-700">{period.period_name}</span>
+                                                                                <span className="text-[6.5px] font-semibold uppercase tracking-[0.2em] text-amber-700">{period.period_name}</span>
                                                                                 <span className="text-[6px] font-bold text-amber-600/50">{period.start_time.substring(0,5)}</span>
                                                                             </div>
                                                                         );
@@ -261,12 +261,12 @@ export default function AcademicPlanner() {
                                                                     return (
                                                                         <div key={`period-${period.id}`} className={`relative p-1.5 border rounded-md group hover:border-[#FEBF10]/60 transition-all text-left shadow-sm ${themeClasses}`}>
                                                                             <div className="flex items-center justify-between mb-0.5 border-b border-black/5 pb-0.5">
-                                                                                <span className="text-[6.5px] font-black opacity-60 uppercase tracking-wider">{period.period_name}</span>
+                                                                                <span className="text-[6.5px] font-semibold opacity-60 uppercase tracking-wider">{period.period_name}</span>
                                                                                 <span className="text-[6px] font-bold opacity-50">{period.start_time.substring(0,5)}</span>
                                                                             </div>
                                                                             {lesson ? (
                                                                                 <div className="relative">
-                                                                                    <p className="text-[8px] font-black uppercase truncate leading-tight w-[90%]">{lesson.subject}</p>
+                                                                                    <p className="text-[8px] font-semibold uppercase truncate leading-tight w-[90%]">{lesson.subject}</p>
                                                                                     <p className="text-[7px] font-bold opacity-70 uppercase truncate">{lesson.group}</p>
                                                                                     <div className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity">
                                                                                         <Edit3 size={8} className="opacity-40 hover:opacity-100 cursor-pointer" onClick={() => handleOpenWizard(teacherData, day, period, '', lesson)} />
@@ -278,7 +278,7 @@ export default function AcademicPlanner() {
                                                                                     onClick={() => handleOpenWizard(teacherData, day, period)}
                                                                                 >
                                                                                     <Plus size={10} className="text-[#1E3A5F] opacity-50 group-hover:opacity-100" />
-                                                                                    <span className="text-[5px] font-black text-[#1E3A5F] uppercase ml-1 opacity-0 group-hover:opacity-70 transition-opacity">Assign</span>
+                                                                                    <span className="text-[5px] font-semibold text-[#1E3A5F] uppercase ml-1 opacity-0 group-hover:opacity-70 transition-opacity">Assign</span>
                                                                                 </div>
                                                                             )}
                                                                         </div>
@@ -304,7 +304,7 @@ export default function AcademicPlanner() {
                                     return (
                                         <tr key={`class-${selectedClass}`}>
                                             <td className="p-4 border-r border-b border-black/5 bg-re-bg/5 text-left align-top">
-                                                <p className="text-[11px] font-black text-[#1E3A5F] uppercase leading-tight">{selectedClass}</p>
+                                                <p className="text-[11px] font-semibold text-[#1E3A5F] uppercase leading-tight">{selectedClass}</p>
                                                 <p className="text-[8px] font-bold text-re-text-muted uppercase mt-1">Class Timetable</p>
                                                 <p className="text-[8px] font-bold text-[#FEBF10] uppercase mt-1 px-2 py-0.5 bg-[#1E3A5F] inline-block rounded">{classLessons.length} ASSIGNMENTS</p>
                                             </td>
@@ -315,7 +315,7 @@ export default function AcademicPlanner() {
                                                             if (period.is_break) {
                                                                 return (
                                                                     <div key={`period-${period.id}`} className="relative py-0.5 px-1.5 border border-amber-500/10 rounded-md bg-amber-50/30 text-center flex items-center justify-between opacity-80 shadow-sm">
-                                                                        <span className="text-[6.5px] font-black uppercase tracking-[0.2em] text-amber-700">{period.period_name}</span>
+                                                                        <span className="text-[6.5px] font-semibold uppercase tracking-[0.2em] text-amber-700">{period.period_name}</span>
                                                                         <span className="text-[6px] font-bold text-amber-600/50">{period.start_time.substring(0,5)}</span>
                                                                     </div>
                                                                 );
@@ -327,12 +327,12 @@ export default function AcademicPlanner() {
                                                             return (
                                                                 <div key={`period-${period.id}`} className={`relative p-1.5 border rounded-md group hover:border-[#FEBF10]/60 transition-all text-left shadow-sm ${themeClasses}`}>
                                                                     <div className="flex items-center justify-between mb-0.5 border-b border-black/5 pb-0.5">
-                                                                        <span className="text-[6.5px] font-black opacity-60 uppercase tracking-wider">{period.period_name}</span>
+                                                                        <span className="text-[6.5px] font-semibold opacity-60 uppercase tracking-wider">{period.period_name}</span>
                                                                         <span className="text-[6px] font-bold opacity-50">{period.start_time.substring(0,5)}</span>
                                                                     </div>
                                                                     {lesson ? (
                                                                         <div className="relative">
-                                                                            <p className="text-[8px] font-black uppercase truncate leading-tight w-[90%]">{lesson.subject}</p>
+                                                                            <p className="text-[8px] font-semibold uppercase truncate leading-tight w-[90%]">{lesson.subject}</p>
                                                                             <p className="text-[7px] font-bold opacity-70 uppercase truncate">{lesson.teacherName}</p>
                                                                             <div className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity">
                                                                                 <Edit3 size={8} className="opacity-40 hover:opacity-100 cursor-pointer" onClick={() => handleOpenWizard(null, day, period, selectedClass, lesson)} />
@@ -344,7 +344,7 @@ export default function AcademicPlanner() {
                                                                                 onClick={() => handleOpenWizard(null, day, period, selectedClass)}
                                                                             >
                                                                             <Plus size={10} className="text-[#1E3A5F] opacity-50 group-hover:opacity-100" />
-                                                                            <span className="text-[5px] font-black text-[#1E3A5F] uppercase ml-1 opacity-0 group-hover:opacity-70 transition-opacity">Assign</span>
+                                                                            <span className="text-[5px] font-semibold text-[#1E3A5F] uppercase ml-1 opacity-0 group-hover:opacity-70 transition-opacity">Assign</span>
                                                                         </div>
                                                                     )}
                                                                 </div>
@@ -371,7 +371,7 @@ export default function AcademicPlanner() {
                                 <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center border border-white/20 text-[#FEBF10]">
                                     <Settings size={16} />
                                 </div>
-                                <h3 className="font-black text-[10px] uppercase tracking-widest">Assign Faculty Asset</h3>
+                                <h3 className="font-medium text-[10px] uppercase tracking-widest">Assign Faculty Asset</h3>
                             </div>
                             <button onClick={() => setIsWizardOpen(false)} className="text-white/40 hover:text-[#FEBF10] transition-colors">
                                 <X size={20} />
@@ -381,23 +381,23 @@ export default function AcademicPlanner() {
                         <div className="p-8 space-y-6">
                             <div className="p-4 bg-re-bg/30 rounded-2xl flex items-center justify-between">
                                 <div>
-                                    <p className="text-[8px] font-black uppercase text-[#1E3A5F]/40 tracking-widest leading-none">Context</p>
-                                    <h4 className="text-xs font-black text-[#1E3A5F] uppercase mt-1">{selectedClass} · {wizardContext.day}</h4>
+                                    <p className="text-[8px] font-semibold uppercase text-[#1E3A5F]/40 tracking-widest leading-none">Context</p>
+                                    <h4 className="text-xs font-semibold text-[#1E3A5F] uppercase mt-1">{selectedClass} · {wizardContext.day}</h4>
                                 </div>
                                 <div className="text-right">
-                                    <p className="text-[8px] font-black uppercase text-re-gold tracking-widest leading-none">Slot</p>
-                                    <h4 className="text-xs font-black text-[#1E3A5F] uppercase mt-1">{wizardContext.start_time.substring(0,5)}</h4>
+                                    <p className="text-[8px] font-semibold uppercase text-re-gold tracking-widest leading-none">Slot</p>
+                                    <h4 className="text-xs font-semibold text-[#1E3A5F] uppercase mt-1">{wizardContext.start_time.substring(0,5)}</h4>
                                 </div>
                             </div>
 
                             <div className="space-y-4">
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-[9px] font-black text-[#1E3A5F] uppercase tracking-[0.2em] mb-1.5 opacity-80">Subject Unit</label>
+                                        <label className="block text-[9px] font-semibold text-[#1E3A5F] uppercase tracking-[0.2em] mb-1.5 opacity-80">Subject Unit</label>
                                         <select 
                                             value={assignment.subject_name}
                                             onChange={e => setAssignment({...assignment, subject_name: e.target.value})}
-                                            className="w-full h-9 bg-re-bg rounded-lg px-3 outline-none border border-transparent focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[10px] font-black uppercase tracking-tight shadow-inner cursor-pointer appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236b7280%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:10px_10px] bg-no-repeat bg-[position:right_1rem_center] pr-10"
+                                            className="w-full h-9 bg-re-bg rounded-lg px-3 outline-none border border-transparent focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[10px] font-semibold uppercase tracking-tight shadow-inner cursor-pointer appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236b7280%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:10px_10px] bg-no-repeat bg-[position:right_1rem_center] pr-10"
                                         >
                                             <option value="">Select Subject</option>
                                             {subjects.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
@@ -405,11 +405,11 @@ export default function AcademicPlanner() {
                                     </div>
 
                                     <div>
-                                        <label className="block text-[9px] font-black text-[#1E3A5F] uppercase tracking-[0.2em] mb-1.5 opacity-80">Assigned Teacher</label>
+                                        <label className="block text-[9px] font-semibold text-[#1E3A5F] uppercase tracking-[0.2em] mb-1.5 opacity-80">Assigned Teacher</label>
                                         <select 
                                             value={assignment.staff_id}
                                             onChange={e => setAssignment({...assignment, staff_id: e.target.value})}
-                                            className="w-full h-9 bg-re-bg rounded-lg px-3 outline-none border border-transparent focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[10px] font-black uppercase tracking-tight shadow-inner cursor-pointer appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236b7280%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:10px_10px] bg-no-repeat bg-[position:right_1rem_center] pr-10"
+                                            className="w-full h-9 bg-re-bg rounded-lg px-3 outline-none border border-transparent focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[10px] font-semibold uppercase tracking-tight shadow-inner cursor-pointer appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236b7280%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:10px_10px] bg-no-repeat bg-[position:right_1rem_center] pr-10"
                                         >
                                             <option value="">Select Faculty Member</option>
                                             {timetable.map(t => <option key={`opt-${t.id}`} value={t.id}>{t.teacher}</option>)}
@@ -418,11 +418,11 @@ export default function AcademicPlanner() {
                                 </div>
 
                                 <div>
-                                    <label className="block text-[9px] font-black text-[#1E3A5F] uppercase tracking-[0.2em] mb-1.5 opacity-80">Location / Class</label>
+                                    <label className="block text-[9px] font-semibold text-[#1E3A5F] uppercase tracking-[0.2em] mb-1.5 opacity-80">Location / Class</label>
                                     <select 
                                         value={assignment.room}
                                         onChange={e => setAssignment({...assignment, room: e.target.value})}
-                                        className="w-full h-9 bg-re-bg rounded-lg px-3 outline-none border border-transparent focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[10px] font-black uppercase tracking-tight shadow-inner cursor-pointer appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236b7280%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:10px_10px] bg-no-repeat bg-[position:right_1rem_center] pr-10"
+                                        className="w-full h-9 bg-re-bg rounded-lg px-3 outline-none border border-transparent focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[10px] font-semibold uppercase tracking-tight shadow-inner cursor-pointer appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236b7280%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:10px_10px] bg-no-repeat bg-[position:right_1rem_center] pr-10"
                                     >
                                         <option value="">Assign Location/Class</option>
                                         {classes.map(c => {
@@ -442,12 +442,12 @@ export default function AcademicPlanner() {
                                 <button 
                                     onClick={handleSaveAssignment}
                                     disabled={saving || !assignment.subject_name || !assignment.staff_id}
-                                    className="w-full h-12 bg-[#1E3A5F] text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-xl flex items-center justify-center gap-2 hover:bg-[#FEBF10] hover:text-[#1E3A5F] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="w-full h-12 bg-[#1E3A5F] text-white rounded-xl font-medium text-[10px] uppercase tracking-widest shadow-sm flex items-center justify-center gap-2 hover:bg-[#FEBF10] hover:text-[#1E3A5F] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} 
                                     {saving ? 'Saving...' : 'Assign Lesson'}
                                 </button>
-                                <p className="text-[7px] font-black text-re-text-muted uppercase text-center mt-4 tracking-[0.2em] opacity-40 italic">Syncing with Registry NESA standards... [Automatic Checks]</p>
+                                <p className="text-[7px] font-semibold text-re-text-muted uppercase text-center mt-4 tracking-[0.2em] opacity-40 italic">Syncing with Registry NESA standards... [Automatic Checks]</p>
                             </div>
                         </div>
                     </div>

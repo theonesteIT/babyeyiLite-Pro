@@ -17,14 +17,25 @@
  *   // Add to SchoolSite render: <BabyeyiFinder school={data} theme={theme} schoolSlug={slug} />
  */
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Search, FileText, Download, Loader2, AlertCircle,
   ChevronDown, X, Eye, Shield, ZoomIn, Calendar,
-  GraduationCap, Building2, DollarSign,
+  GraduationCap, Building2, DollarSign, CreditCard,
 } from 'lucide-react';
 import Heroimage from '../../assets/hero-image.png';
+import { BABYEYI_AUTO_LANG_OPTIONS, isCoreBabyeyiLang, normalizeBabyeyiLang } from '../../babyeyiPublic/babyeyiTranslateLangs.js';
+import { useBabyeyiUiT } from '../../babyeyiPublic/useBabyeyiUiT.js';
+import { useFinderDocBody } from '../../babyeyiPublic/useFinderDocBody.js';
+import { getStatusLabelSafe } from '../../i18n/index.js';
+
+function pickStudentLookupMessage(raw, finderT) {
+  const m = String(raw || '').trim();
+  if (/student not found/i.test(m)) return finderT.finderStudentNotFound;
+  if (/another school/i.test(m)) return finderT.finderWrongSchoolError;
+  return m || finderT.finderStudentLookupFailed;
+}
 
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
 const SERVER  = import.meta.env.VITE_API_URL || 'http://localhost:5100';
@@ -96,6 +107,65 @@ function parseBanks(rec) {
   return [];
 }
 
+/**
+ * Public GET only — core langs use merged server content (rw = manager-curated).
+ * Non-core: fetch English base; Lingva applies in useFinderDocBody.
+ */
+async function loadBabyeyiFullRecord(sumRec, uiLang) {
+  const lc = normalizeBabyeyiLang(uiLang);
+  const apiLang = isCoreBabyeyiLang(lc) ? lc : 'en';
+  const res = await fetch(`${API}/babyeyi/${sumRec.id}?lang=${encodeURIComponent(apiLang)}`);
+  const json = await res.json();
+  if (!json.success) throw new Error(json.message || 'Failed');
+
+  const d = json.data;
+  const sigs = d.signatures || {};
+
+  let payments = d.payments || [];
+  if (!payments.length && d.payments_json) {
+    try { payments = JSON.parse(d.payments_json); } catch {}
+  }
+
+  const allClassReqs = (d.class_requirements || []).map((r) => ({
+    item: r.item || r.information || '',
+    details: r.details || '',
+  }));
+  const classNotes = allClassReqs.filter((r) => r.details && r.details.trim());
+  const otherInfos = allClassReqs.filter((r) => !r.details || !r.details.trim());
+
+  const normalise = (p) => (p ? p.replace(/\\/g, '/') : null);
+
+  return {
+    ...sumRec,
+    ...d,
+    class_name: d.class_name || d.class || sumRec.class_name || '',
+    classes_json: d.classes_json || d.classesJson || d.classes || sumRec.classes_json || null,
+    school_name: d.school_name || sumRec.school_name || '',
+    school_district: d.school_district || d.district || sumRec.school_district || '',
+    school_sector: d.school_sector || d.sector || sumRec.school_sector || '',
+    payments,
+    requirements: (d.student_requirements || []).map((r) => ({
+      item: r.item,
+      description: r.description || '',
+      quantity: r.quantity || '',
+    })),
+    classNotes,
+    otherInfos,
+    leaders: Array.isArray(d.leaders) ? d.leaders : [],
+    signatures: {
+      ...sigs,
+      director_sig_path: normalise(sigs.director_sig_path),
+      stamp_path: normalise(sigs.stamp_path),
+      school_logo_path: normalise(sigs.school_logo_path),
+      other_logo_path: normalise(sigs.other_logo_path),
+      qr_code_path: normalise(sigs.qr_code_path),
+      qr_view_url: sigs.qr_view_url || null,
+    },
+    qr_code_path: normalise(d.qr_code_path),
+    qr_view_url: d.qr_view_url || null,
+  };
+}
+
 // ─── ACADEMIC YEAR OPTIONS ────────────────────────────────────────────────────
 const currentYear = new Date().getFullYear();
 const YEAR_OPTIONS = [
@@ -115,6 +185,17 @@ const CLASS_OPTIONS = [
 
 const TERM_OPTIONS = ['Term 1', 'Term 2', 'Term 3'];
 
+const CORE_FINDER_LANG_OPTIONS = [
+  { code: 'en', flag: '🇬🇧', name: 'English' },
+  { code: 'rw', flag: '🇷🇼', name: 'Kinyarwanda' },
+  { code: 'fr', flag: '🇫🇷', name: 'Français' },
+];
+const ALL_FINDER_LANG_OPTIONS = [...CORE_FINDER_LANG_OPTIONS, ...BABYEYI_AUTO_LANG_OPTIONS];
+function finderLangMeta(code) {
+  const n = normalizeBabyeyiLang(code);
+  return ALL_FINDER_LANG_OPTIONS.find((x) => x.code === n) || { code: n, flag: '🌐', name: String(n || 'en').toUpperCase() };
+}
+
 // ─── STATUS COLORS ────────────────────────────────────────────────────────────
 const STATUS_CFG = {
   approved:    { label: 'Approved',    bg: '#d1fae5', text: '#047857', dot: '#10b981', border: '#6ee7b7' },
@@ -126,8 +207,14 @@ const STATUS_CFG = {
 };
 
 // ─── WORD-DOC HTML BUILDER (mirrors BabyeyiList) ─────────────────────────────
-function buildDocHTML({ rec, payments, banks, requirements, classNotes, otherInfos, leaders,
-                        totalFee, today, schoolLogoB64, otherLogoB64, sigB64, stampB64, qrB64, vUrl }) {
+function buildDocHTML({
+  rec, payments, banks, requirements, classNotes, otherInfos, leaders,
+  totalFee, today, schoolLogoB64, otherLogoB64, sigB64, stampB64, qrB64, vUrl,
+  T = {},
+  parentMsg: parentMsgOverride,
+}) {
+  const L = (key, fb) => (T && T[key]) || fb;
+  const letterBody = parentMsgOverride != null ? String(parentMsgOverride) : String(rec.parent_message || '');
   const tableStyle  = `width:100%;border-collapse:collapse;margin-top:8px`;
   const thStyle     = `padding:8px 12px;font-size:12px;font-weight:700;color:#1e3a5f;border-bottom:2px solid #1e3a5f;text-align:left;background:transparent`;
   const tdStyle     = `padding:7px 12px;font-size:12px;color:#1e293b;border-bottom:1px solid #e2e8f0;background:transparent`;
@@ -145,16 +232,16 @@ function buildDocHTML({ rec, payments, banks, requirements, classNotes, otherInf
 
   const paySection = payments.length > 0 ? `
     <div style="margin-bottom:22px">
-      ${ruleDiv('Fee Payment Breakdown')}
+      ${ruleDiv(L('secFee', 'Fee Payment Breakdown'))}
       <table style="${tableStyle}">
         <thead><tr>
-          <th style="${thStyle};width:42px;text-align:center">N°</th>
-          <th style="${thStyle}">Payment Item</th>
-          <th style="${thStyle};text-align:right">Amount (RWF)</th>
+          <th style="${thStyle};width:42px;text-align:center">${L('thNo', 'N°')}</th>
+          <th style="${thStyle}">${L('thPaymentItem', 'Payment Item')}</th>
+          <th style="${thStyle};text-align:right">${L('thAmount', 'Amount (RWF)')}</th>
         </tr></thead>
         <tbody>${payRows}</tbody>
         <tfoot><tr>
-          <td colspan="2" style="padding:9px 12px;font-size:14px;font-weight:700;color:#1e3a5f;border-top:2px solid #1e3a5f">TOTAL</td>
+          <td colspan="2" style="padding:9px 12px;font-size:14px;font-weight:700;color:#1e3a5f;border-top:2px solid #1e3a5f">${L('thTotalLabel', 'TOTAL')}</td>
           <td style="padding:9px 12px;font-size:14px;font-weight:700;color:#1e3a5f;border-top:2px solid #1e3a5f;text-align:right;font-family:monospace">RWF ${totalFee.toLocaleString()}</td>
         </tr></tfoot>
       </table>
@@ -171,14 +258,14 @@ function buildDocHTML({ rec, payments, banks, requirements, classNotes, otherInf
 
   const banksSection = banks.length > 0 ? `
     <div style="margin-bottom:22px">
-      ${ruleDiv('Banking Information')}
+      ${ruleDiv(L('secBanking', 'Banking Information'))}
       <table style="${tableStyle}">
         <thead><tr>
-          <th style="${thStyle};width:40px;text-align:center">#</th>
-          <th style="${thStyle}">Bank Name</th>
-          <th style="${thStyle}">Account Number</th>
-          <th style="${thStyle}">Account Name</th>
-          <th style="${thStyle};text-align:center;width:70px">Primary</th>
+          <th style="${thStyle};width:40px;text-align:center">${L('thHash', '#')}</th>
+          <th style="${thStyle}">${L('thBank', 'Bank Name')}</th>
+          <th style="${thStyle}">${L('thAccount', 'Account Number')}</th>
+          <th style="${thStyle}">${L('thAccountName', 'Account Name')}</th>
+          <th style="${thStyle};text-align:center;width:70px">${L('thPrimary', 'Primary')}</th>
         </tr></thead>
         <tbody>${bankRows}</tbody>
       </table>
@@ -193,13 +280,13 @@ function buildDocHTML({ rec, payments, banks, requirements, classNotes, otherInf
     </tr>`).join('');
   const reqSection = requirements.length > 0 ? `
     <div style="margin-bottom:22px">
-      ${ruleDiv('Student Requirements')}
+      ${ruleDiv(L('secRequirements', 'Student Requirements'))}
       <table style="${tableStyle}">
         <thead><tr>
-          <th style="${thStyle};width:42px;text-align:center">#</th>
-          <th style="${thStyle}">Item</th>
-          <th style="${thStyle}">Description</th>
-          <th style="${thStyle};text-align:center;width:80px">Quantity</th>
+          <th style="${thStyle};width:42px;text-align:center">${L('thHash', '#')}</th>
+          <th style="${thStyle}">${L('thItem', 'Item')}</th>
+          <th style="${thStyle}">${L('thDescription', 'Description')}</th>
+          <th style="${thStyle};text-align:center;width:80px">${L('thQuantity', 'Quantity')}</th>
         </tr></thead>
         <tbody>${reqRows}</tbody>
       </table>
@@ -213,12 +300,12 @@ function buildDocHTML({ rec, payments, banks, requirements, classNotes, otherInf
     </tr>`).join('');
   const notesSection = classNotes.length > 0 ? `
     <div style="margin-bottom:22px">
-      ${ruleDiv('Class Requirements & Notes')}
+      ${ruleDiv(L('secClassNotes', 'Class Requirements & Notes'))}
       <table style="${tableStyle}">
         <thead><tr>
-          <th style="${thStyle};width:42px;text-align:center">#</th>
-          <th style="${thStyle}">Item</th>
-          <th style="${thStyle}">Details</th>
+          <th style="${thStyle};width:42px;text-align:center">${L('thHash', '#')}</th>
+          <th style="${thStyle}">${L('thItem', 'Item')}</th>
+          <th style="${thStyle}">${L('thDetails', 'Details')}</th>
         </tr></thead>
         <tbody>${noteRows}</tbody>
       </table>
@@ -232,12 +319,12 @@ function buildDocHTML({ rec, payments, banks, requirements, classNotes, otherInf
     </tr>`).join('');
   const otherSection = otherInfos.length > 0 ? `
     <div style="margin-bottom:22px">
-      ${ruleDiv('Other Information')}
+      ${ruleDiv(L('secOtherInfo', 'Other Information'))}
       <table style="${tableStyle}">
         <thead><tr>
-          <th style="${thStyle};width:42px;text-align:center">#</th>
-          <th style="${thStyle}">Item</th>
-          <th style="${thStyle}">Details</th>
+          <th style="${thStyle};width:42px;text-align:center">${L('thHash', '#')}</th>
+          <th style="${thStyle}">${L('thItem', 'Item')}</th>
+          <th style="${thStyle}">${L('thDetails', 'Details')}</th>
         </tr></thead>
         <tbody>${otherRows}</tbody>
       </table>
@@ -253,24 +340,24 @@ function buildDocHTML({ rec, payments, banks, requirements, classNotes, otherInf
     </tr>`).join('');
   const leadersSection = (leaders || []).length > 0 ? `
     <div style="margin-bottom:22px">
-      ${ruleDiv('School Leadership Contacts')}
+      ${ruleDiv(L('secLeadership', 'School Leadership Contacts'))}
       <table style="${tableStyle}">
         <thead><tr>
-          <th style="${thStyle};width:36px;text-align:center">#</th>
-          <th style="${thStyle}">Full Name</th>
-          <th style="${thStyle}">Role / Title</th>
-          <th style="${thStyle}">Phone</th>
-          <th style="${thStyle}">Email</th>
+          <th style="${thStyle};width:36px;text-align:center">${L('thHash', '#')}</th>
+          <th style="${thStyle}">${L('thFullName', 'Full Name')}</th>
+          <th style="${thStyle}">${L('thRole', 'Role / Title')}</th>
+          <th style="${thStyle}">${L('thPhone', 'Phone')}</th>
+          <th style="${thStyle}">${L('thEmail', 'Email')}</th>
         </tr></thead>
         <tbody>${leaderRows}</tbody>
       </table>
     </div>` : '';
 
-  const parentSection = rec.parent_message ? `
+  const parentSection = letterBody.trim() ? `
     <div style="margin-bottom:22px">
-      ${ruleDiv('')}
+      ${ruleDiv(L('parentMessageHeading', 'Message to Parents / Guardians'))}
       <div style="padding-left:16px;margin-top:4px">
-        <p style="font-size:12px;color:#1e293b;line-height:1.7;white-space:pre-line;margin:0">${rec.parent_message}</p>
+        <p style="font-size:12px;color:#1e293b;line-height:1.7;white-space:pre-line;margin:0">${letterBody}</p>
       </div>
     </div>` : '';
 
@@ -279,7 +366,7 @@ function buildDocHTML({ rec, payments, banks, requirements, classNotes, otherInf
       <div style="background:white;border:1px solid #e2e8f0;padding:6px;border-radius:6px">
         <img src="${qrB64}" style="width:80px;height:80px;object-fit:contain;display:block"/>
       </div>
-      <p style="font-size:10px;color:#1e3a5f;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin:0;text-align:center">Scan to Verify</p>
+      <p style="font-size:10px;color:#1e3a5f;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin:0;text-align:center">${L('sigScanVerify', 'Scan to Verify')}</p>
       ${rec.doc_id ? `<p style="font-size:10px;color:#64748b;font-family:monospace;margin:0">ID: ${rec.doc_id}</p>` : ''}
       ${vUrl ? `<p style="font-size:9px;color:#4f46e5;margin:0;text-align:center;max-width:110px;word-break:break-all">${vUrl}</p>` : ''}
     </div>` : `
@@ -287,12 +374,12 @@ function buildDocHTML({ rec, payments, banks, requirements, classNotes, otherInf
       <div style="width:80px;height:80px;border:1px dashed #e2e8f0;display:flex;align-items:center;justify-content:center">
         <span style="font-size:20px;opacity:.1">▣</span>
       </div>
-      <p style="font-size:10px;color:#94a3b8;margin:0">QR Pending</p>
+      <p style="font-size:10px;color:#94a3b8;margin:0">${L('qrPending', 'QR Pending')}</p>
     </div>`;
 
   const schoolLogoHtml = schoolLogoB64
     ? `<img src="${schoolLogoB64}" style="width:92px;height:92px;object-fit:contain;display:block"/>`
-    : `<div style="width:92px;height:92px;display:flex;align-items:center;justify-content:center;border:1px dashed #e2e8f0"><span style="font-size:8px;color:#64748b;text-align:center;font-weight:700">SCHOOL LOGO</span></div>`;
+    : `<div style="width:92px;height:92px;display:flex;align-items:center;justify-content:center;border:1px dashed #e2e8f0"><span style="font-size:8px;color:#64748b;text-align:center;font-weight:700">${L('schoolLogoPlaceholder', 'SCHOOL LOGO')}</span></div>`;
 
   const otherLogoHtml = otherLogoB64
     ? `<img src="${otherLogoB64}" style="width:70px;height:70px;object-fit:contain;display:block"/>`
@@ -305,12 +392,12 @@ function buildDocHTML({ rec, payments, banks, requirements, classNotes, otherInf
     <div style="display:flex;align-items:center;gap:20px">
       <div style="flex-shrink:0;width:110px;height:110px;display:flex;align-items:center;justify-content:center">${schoolLogoHtml}</div>
       <div style="flex:1;text-align:center">
-        <p style="font-size:10px;color:#64748b;margin:0 0 2px;letter-spacing:0.08em;text-transform:uppercase;font-weight:600">Republic of Rwanda · Ministry of Education — NESA</p>
-        <p style="font-size:9px;color:#64748b;margin:0 0 2px">District: ${rec.school_district || rec.district || '—'}</p>
-        <p style="font-size:9px;color:#64748b;margin:0 0 6px">Sector: ${rec.school_sector || rec.sector || '—'}</p>
+        <p style="font-size:10px;color:#64748b;margin:0 0 2px;letter-spacing:0.08em;text-transform:uppercase;font-weight:600">${L('republic', 'Republic of Rwanda · Ministry of Education — NESA')}</p>
+        <p style="font-size:9px;color:#64748b;margin:0 0 2px">${L('district', 'District')}: ${rec.school_district || rec.district || '—'}</p>
+        <p style="font-size:9px;color:#64748b;margin:0 0 6px">${L('sector', 'Sector')}: ${rec.school_sector || rec.sector || '—'}</p>
         <h1 style="font-size:17px;font-weight:700;color:#1e3a5f;margin:0 0 6px;text-transform:uppercase;letter-spacing:.03em">${rec.school_name || ''}</h1>
         <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:center">
-          ${[['Academic Year', rec.academic_year], ['Term', rec.term], ['Level', rec.education_level || rec.level], ['Class', getClassLabel(rec)]].map(([l, v]) => `
+          ${[[L('academicYear', 'Academic Year'), rec.academic_year], [L('termLabel', 'Term'), rec.term], [L('levelLabel', 'Level'), rec.education_level || rec.level], [L('classLabel', 'Class'), getClassLabel(rec)]].map(([l, v]) => `
           <span style="font-size:12px;color:#1e293b"><strong style="color:#1e3a5f">${l}:</strong> ${v || '—'}</span>`).join('')}
           ${rec.doc_id ? `<span style="font-size:11px;font-family:monospace;font-weight:700;color:#3730a3;padding:1px 8px;border:1px solid #c7d2fe">${rec.doc_id}</span>` : ''}
         </div>
@@ -328,33 +415,33 @@ function buildDocHTML({ rec, payments, banks, requirements, classNotes, otherInf
     ${notesSection}
     <div style="margin-bottom:22px">
       <div style="border-bottom:1.5px solid #1e3a5f;padding-bottom:5px;margin-bottom:12px;margin-top:20px">
-        <span style="${headingStyle}">Authorization &amp; Signatures</span>
+        <span style="${headingStyle}">${L('secAuth', 'Authorization & Signatures')}</span>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-top:12px">
         <div style="border:1px solid #e2e8f0;padding:14px;text-align:center">
-          <p style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;margin:0 0 8px">Head Teacher</p>
+          <p style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;margin:0 0 8px">${L('sigHeadTeacher', 'Head Teacher')}</p>
           <div style="height:52px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:4px">
             ${sigB64 ? `<img src="${sigB64}" style="max-height:48px;max-width:140px;object-fit:contain"/>` : `<div style="width:100%;height:1px;border-bottom:1px solid #cbd5e1"></div>`}
           </div>
-          <p style="font-size:11px;color:#94a3b8;margin:4px 0 0">${sigB64 ? '✓ Signed' : 'Signature Required'}</p>
+          <p style="font-size:11px;color:#94a3b8;margin:4px 0 0">${sigB64 ? L('sigSigned', '✓ Signed') : L('sigRequired', 'Signature Required')}</p>
         </div>
         <div style="border:1px solid #e2e8f0;padding:14px;display:flex;flex-direction:column;align-items:center;justify-content:center">
           ${qrBlock}
         </div>
         <div style="border:1px solid #e2e8f0;padding:14px;text-align:center">
-          <p style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;margin:0 0 8px">Official Stamp</p>
+          <p style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;margin:0 0 8px">${L('sigStamp', 'Official Stamp')}</p>
           <div style="width:80px;height:80px;border:1px dashed #e2e8f0;border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden;margin:0 auto 6px">
             ${stampB64 ? `<img src="${stampB64}" style="width:76px;height:76px;object-fit:contain;border-radius:50%"/>` : `<span style="font-size:22px;opacity:.08">🔏</span>`}
           </div>
-          <p style="font-size:11px;color:#94a3b8;margin:0">Cachet Officiel</p>
+          <p style="font-size:11px;color:#94a3b8;margin:0">${L('sigCachet', 'Official seal')}</p>
         </div>
       </div>
     </div>
   </div>
   <div style="border-top:1px solid #1e3a5f;padding:8px 40px;display:flex;justify-content:space-between;align-items:center">
     <span style="font-size:11px;color:#64748b">${rec.school_name || ''} · ${rec.school_district || rec.district || ''}</span>
-    <span style="font-size:11px;color:#1e3a5f;font-weight:700;text-transform:uppercase">Document Officiel — NE PAS FALSIFIER</span>
-    <span style="font-size:11px;color:#64748b">Doc: ${rec.doc_id || '—'} · ${today}</span>
+    <span style="font-size:11px;color:#1e3a5f;font-weight:700;text-transform:uppercase">${L('docOfficial', 'Official Document — DO NOT FALSIFY')}</span>
+    <span style="font-size:11px;color:#64748b">${L('docFooterLeft', 'Doc:')} ${rec.doc_id || '—'} · ${today}</span>
   </div>
   <div style="height:3px;background:#1e3a5f"></div>
 </div>`;
@@ -411,11 +498,104 @@ async function downloadAsPDF(htmlContent, filename) {
   }
 }
 
+function FinderLangSwitcher({
+  value,
+  onChange,
+  disabled,
+  label,
+  light = false,
+  searchPlaceholder = 'Search language…',
+  noMatchText = 'No match',
+}) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState('');
+  const meta = finderLangMeta(value);
+  const filtered = useMemo(() => {
+    const qq = q.trim().toLowerCase();
+    if (!qq) return ALL_FINDER_LANG_OPTIONS;
+    return ALL_FINDER_LANG_OPTIONS.filter(
+      (o) => o.name.toLowerCase().includes(qq) || o.code.toLowerCase().includes(qq)
+    );
+  }, [q]);
+
+  const btnCls = light
+    ? 'flex items-center gap-1.5 px-2.5 py-1.5 border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50 text-slate-800 shadow-sm rounded-xl text-[10px] font-bold max-w-[160px]'
+    : 'flex items-center gap-1.5 px-2.5 py-1.5 bg-white/10 hover:bg-white/20 disabled:opacity-50 text-white rounded-xl text-[10px] font-bold max-w-[140px]';
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setOpen((o) => !o)}
+        className={btnCls}
+        title={label || 'Language'}
+      >
+        <span className="text-base leading-none">{meta.flag}</span>
+        <span className="truncate">{meta.name}</span>
+        <ChevronDown size={12} className={`opacity-80 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <>
+          <button type="button" className="fixed inset-0 z-[298] cursor-default bg-transparent" aria-label="Close menu" onClick={() => { setOpen(false); setQ(''); }} />
+          <div className="absolute right-0 top-full z-[302] mt-1 w-56 max-h-72 overflow-hidden rounded-xl border border-white/15 bg-slate-900 shadow-xl">
+            <div className="p-2 border-b border-white/10">
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder={searchPlaceholder}
+                className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/15 text-[11px] text-white placeholder:text-white/40 focus:outline-none focus:ring-1 focus:ring-amber-400/50"
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
+            <ul className="max-h-52 overflow-y-auto py-1">
+              {filtered.map((o) => (
+                <li key={o.code}>
+                  <button
+                    type="button"
+                    className="w-full flex items-center gap-2 px-3 py-2 text-left text-[11px] text-white hover:bg-white/10"
+                    onClick={() => {
+                      onChange(o.code);
+                      setOpen(false);
+                      setQ('');
+                    }}
+                  >
+                    <span className="text-base">{o.flag}</span>
+                    <span>{o.name}</span>
+                    <span className="ml-auto text-[9px] text-white/40 font-mono">{o.code}</span>
+                  </button>
+                </li>
+              ))}
+              {filtered.length === 0 && (
+                <li className="px-3 py-2 text-[10px] text-white/50">{noMatchText}</li>
+              )}
+            </ul>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 //  DOCUMENT VIEWER
 // ═══════════════════════════════════════════════════════════════════════════════
-function DocumentViewer({ rec, theme, onClose }) {
+function DocumentViewer({ rec, theme, onClose, viewerLang, onViewerLangChange, docLoading }) {
   const { p, a } = theme;
+  const { T, mtLoading, machineActive } = useBabyeyiUiT(viewerLang);
+  const docBody = useFinderDocBody(viewerLang, rec, T);
+  const merged = docBody.merged || rec;
+
+  const payments   = Array.isArray(merged.payments)     ? merged.payments     : [];
+  const leaders    = Array.isArray(merged.leaders)       ? merged.leaders      : [];
+  const classNotes = Array.isArray(merged.classNotes)   ? merged.classNotes   : [];
+  const otherInfos = Array.isArray(merged.otherInfos)   ? merged.otherInfos   : [];
+  const requirements = Array.isArray(merged.requirements) ? merged.requirements : [];
+  const banks      = docBody.banks && docBody.banks.length ? docBody.banks : parseBanks(merged);
+  const totalFee   = payments.reduce((s, py) => s + Number(py.amount || 0), 0);
+  const parentMsg  = docBody.parentMsg || '';
+  const translatingUi = machineActive && (mtLoading || docBody.busy);
+
   const [schoolLogoB64, setSchoolLogoB64] = useState(null);
   const [otherLogoB64, setOtherLogoB64]   = useState(null);
   const [sigB64, setSigB64]               = useState(null);
@@ -425,15 +605,9 @@ function DocumentViewer({ rec, theme, onClose }) {
   const [qrLoading, setQrLoading]         = useState(true);
   const [downloading, setDownloading]     = useState(false);
 
-  const payments   = Array.isArray(rec.payments)     ? rec.payments     : [];
-  const leaders    = Array.isArray(rec.leaders)       ? rec.leaders      : [];
-  const classNotes = Array.isArray(rec.classNotes)   ? rec.classNotes   : [];
-  const otherInfos = Array.isArray(rec.otherInfos)   ? rec.otherInfos   : [];
-  const requirements = Array.isArray(rec.requirements) ? rec.requirements : [];
-  const banks      = parseBanks(rec);
-  const totalFee   = payments.reduce((s, p) => s + Number(p.amount || 0), 0);
   const today      = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
   const st         = STATUS_CFG[rec.status] || STATUS_CFG.approved;
+  const statusLabel = getStatusLabelSafe(viewerLang, rec.status) || st.label;
 
   // Load all binary assets
   useEffect(() => {
@@ -481,17 +655,36 @@ function DocumentViewer({ rec, theme, onClose }) {
     setDownloading(true);
     try {
       const html = buildDocHTML({
-        rec, payments, banks, requirements, classNotes, otherInfos, leaders,
-        totalFee, today, schoolLogoB64, otherLogoB64, sigB64, stampB64, qrB64, vUrl,
+        rec: merged,
+        payments,
+        banks,
+        requirements,
+        classNotes,
+        otherInfos,
+        leaders,
+        totalFee,
+        today,
+        schoolLogoB64,
+        otherLogoB64,
+        sigB64,
+        stampB64,
+        qrB64,
+        vUrl,
+        T,
+        parentMsg: docBody.parentMsg,
       });
-      const clsLabel = rec.classes_json ? (() => {
+      const clsLabel = merged.classes_json ? (() => {
         try {
-          const arr = typeof rec.classes_json === "string" ? JSON.parse(rec.classes_json) : rec.classes_json;
+          const arr = typeof merged.classes_json === "string" ? JSON.parse(merged.classes_json) : merged.classes_json;
           if (Array.isArray(arr) && arr.length) return arr.join("-");
         } catch {}
         return null;
       })() : null;
-      await downloadAsPDF(html, `Babyeyi-${rec.doc_id || clsLabel || rec.class_name || rec.class}-${rec.term}.pdf`);
+      const langTag = normalizeBabyeyiLang(viewerLang);
+      await downloadAsPDF(
+        html,
+        `Babyeyi-${rec.doc_id || clsLabel || merged.class_name || merged.class}-${merged.term}-${langTag}.pdf`
+      );
     } catch (e) {
       alert('PDF error: ' + e.message);
     } finally {
@@ -509,8 +702,8 @@ function DocumentViewer({ rec, theme, onClose }) {
 
   const tblStyle = { width: '100%', borderCollapse: 'collapse', marginTop: '8px' };
 
-  const Th = ({ children, center, w }) => (
-    <th style={{ ...DOC.th, textAlign: center ? 'center' : 'left', width: w || 'auto' }}>{children}</th>
+  const Th = ({ children, center, w, right }) => (
+    <th style={{ ...DOC.th, textAlign: right ? 'right' : center ? 'center' : 'left', width: w || 'auto' }}>{children}</th>
   );
   const Td = ({ children, center, mono, bold, color, italic }) => (
     <td style={{ ...DOC.td, textAlign: center ? 'center' : 'left', fontFamily: mono ? 'monospace' : 'inherit', fontWeight: bold ? 700 : 400, color: color || DOC.td.color, fontStyle: italic ? 'italic' : 'normal' }}>{children}</td>
@@ -525,44 +718,60 @@ function DocumentViewer({ rec, theme, onClose }) {
     <div className="fixed inset-0 z-[300] flex items-start justify-center bg-black/75 backdrop-blur-sm p-2 sm:p-4 overflow-y-auto">
       <div className="w-full max-w-3xl my-4">
         {/* Toolbar */}
-        <div className="rounded-t-2xl px-4 py-3 flex items-center gap-2 flex-wrap" style={{ background: '#0f172a' }}>
+        <div className="rounded-t-2xl px-4 py-3 flex items-center gap-2 flex-wrap relative" style={{ background: '#0f172a' }}>
           <button onClick={onClose} className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold">
-            ← Back
+            ← {T.backBtn || 'Back'}
           </button>
           <div className="flex-1 min-w-0">
             <p className="text-white font-black text-sm truncate">
-              {rec.school_name} — {getClassLabel(rec)} · {rec.term} · {rec.academic_year}
+              {rec.school_name} — {getClassLabel(merged)} · {rec.term} · {rec.academic_year}
               {rec.doc_id && (
                 <span className="ml-2 px-2 py-0.5 bg-indigo-600/40 text-indigo-200 rounded text-[9px] font-mono">{rec.doc_id}</span>
               )}
             </p>
           </div>
           <div className="flex items-center gap-1.5 flex-wrap">
+            <FinderLangSwitcher
+              value={viewerLang}
+              onChange={onViewerLangChange}
+              disabled={!!docLoading}
+              label={T.language}
+              searchPlaceholder={T.finderSearchLangPlaceholder}
+              noMatchText={T.finderNoLangMatch}
+            />
             <span style={{ background: st.bg, color: st.text, border: `1px solid ${st.border}` }}
               className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black">
               <span style={{ background: st.dot }} className="w-1.5 h-1.5 rounded-full inline-block" />
-              {st.label}
+              {statusLabel}
             </span>
             {rec.doc_id && (
               <a href={`${SERVER.replace(':5100', ':5173')}/babyeyi/verify/${rec.doc_id}`} target="_blank" rel="noreferrer"
                 className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-600/20 border border-emerald-600/30 hover:bg-emerald-600/30 text-emerald-300 rounded-xl text-[10px] font-bold">
-                <Shield size={11} /> Verify
+                <Shield size={11} /> {T.verify}
               </a>
             )}
-            <button onClick={handleDownloadPDF} disabled={downloading}
+            <button onClick={handleDownloadPDF} disabled={downloading || translatingUi}
               className="flex items-center gap-1 px-2.5 py-1.5 bg-rose-600 hover:bg-rose-500 disabled:opacity-60 text-white rounded-xl text-[10px] font-bold">
               {downloading
                 ? <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full inline-block" style={{ animation: 'spin .8s linear infinite' }} />
                 : <Download size={11} />}
-              {downloading ? 'Generating…' : 'Download PDF'}
+              {downloading ? (T.generatingQr || 'Generating…') : T.pdfBtn}
             </button>
           </div>
+          {(docLoading || translatingUi) && (
+            <div className="absolute inset-0 z-[10] flex items-center justify-center rounded-t-2xl bg-slate-950/55 backdrop-blur-[2px]">
+              <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-900/90 border border-white/10 text-white text-[11px] font-bold">
+                <Loader2 size={16} className="animate-spin text-amber-400 shrink-0" />
+                {docLoading ? (T.loading || 'Loading…') : (T.translating || T.translateDoc || 'Translating…')}
+              </div>
+            </div>
+          )}
         </div>
 
         {qrLoading && (
           <div className="bg-indigo-900/30 border-b border-indigo-500/30 px-4 py-1.5 flex items-center gap-2">
             <span className="w-3 h-3 border-2 border-indigo-300/30 border-t-indigo-300 rounded-full inline-block" style={{ animation: 'spin .8s linear infinite' }} />
-            <p className="text-indigo-300 text-[10px] font-bold">Loading QR code…</p>
+            <p className="text-indigo-300 text-[10px] font-bold">{T.loadingQr || 'Loading QR code…'}</p>
           </div>
         )}
 
@@ -577,24 +786,24 @@ function DocumentViewer({ rec, theme, onClose }) {
               <div style={{ flexShrink: 0, width: '110px', height: '110px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {schoolLogoB64
                   ? <img src={schoolLogoB64} style={{ width: '110px', height: '110px', objectFit: 'contain' }} alt="School Logo" />
-                  : <span style={{ fontSize: '8px', color: '#64748b', textAlign: 'center', fontWeight: 700, padding: '4px', lineHeight: '1.4' }}>SCHOOL LOGO</span>}
+                  : <span style={{ fontSize: '8px', color: '#64748b', textAlign: 'center', fontWeight: 700, padding: '4px', lineHeight: '1.4' }}>{T.schoolLogoPlaceholder}</span>}
               </div>
               {/* Center */}
               <div style={{ flex: 1, textAlign: 'center' }}>
                 <p style={{ fontSize: '10px', color: '#64748b', margin: '0', letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 600, lineHeight: '1.8' }}>
-                  Republic of Rwanda · Ministry of Education — NESA
+                  {T.republic}
                 </p>
                 <p style={{ fontSize: '10px', color: '#64748b', margin: '0', lineHeight: '1.8' }}>
-                  District: <strong style={{ color: '#1e3a5f' }}>{rec.school_district || rec.district || '—'}</strong>
+                  {T.district}: <strong style={{ color: '#1e3a5f' }}>{rec.school_district || rec.district || '—'}</strong>
                 </p>
                 <p style={{ fontSize: '10px', color: '#64748b', margin: '0 0 6px', lineHeight: '1.8' }}>
-                  Sector: <strong style={{ color: '#1e3a5f' }}>{rec.school_sector || rec.sector || '—'}</strong>
+                  {T.sector}: <strong style={{ color: '#1e3a5f' }}>{rec.school_sector || rec.sector || '—'}</strong>
                 </p>
                 <h1 style={{ fontSize: '17px', fontWeight: 700, color: '#1e3a5f', margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: '.03em' }}>
                   {rec.school_name}
                 </h1>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px', alignItems: 'center', justifyContent: 'center', marginBottom: '8px' }}>
-                  {[['Academic Year', rec.academic_year], ['Term', rec.term], ['Level', rec.education_level || rec.level], ['Class', getClassLabel(rec)]].map(([l, v], i) => (
+                  {[[T.academicYear, rec.academic_year], [T.termLabel, rec.term], [T.levelLabel, rec.education_level || rec.level], [T.classLabel, getClassLabel(merged)]].map(([l, v], i) => (
                     <span key={i} style={DOC.body}><strong style={{ color: '#1e3a5f' }}>{l}:</strong> {v || '—'}</span>
                   ))}
                   {rec.doc_id && (
@@ -615,20 +824,21 @@ function DocumentViewer({ rec, theme, onClose }) {
 
           {/* BODY */}
           <div style={{ padding: '20px 40px 28px' }}>
-            {rec.parent_message && (
+            {parentMsg.trim() ? (
               <div style={{ marginBottom: '22px' }}>
+                <DocHeading title={T.parentMessageHeading} />
                 <div style={{ paddingLeft: '16px', marginTop: '4px' }}>
-                  <p style={{ ...DOC.body, whiteSpace: 'pre-line', margin: 0 }}>{rec.parent_message}</p>
+                  <p style={{ ...DOC.body, whiteSpace: 'pre-line', margin: 0 }}>{parentMsg}</p>
                 </div>
               </div>
-            )}
+            ) : null}
 
             {/* Payments */}
             {payments.length > 0 && (
               <div style={{ marginBottom: '22px' }}>
-                <DocHeading title="Fee Payment Breakdown" />
+                <DocHeading title={T.secFee} />
                 <table style={tblStyle}>
-                  <thead><tr><Th w="42px" center>N°</Th><Th>Payment Item</Th><Th>Amount (RWF)</Th></tr></thead>
+                  <thead><tr><Th w="42px" center>{T.thNo}</Th><Th>{T.thPaymentItem}</Th><Th right>{T.thAmount}</Th></tr></thead>
                   <tbody>
                     {payments.map((pay, i) => (
                       <tr key={i}>
@@ -640,7 +850,7 @@ function DocumentViewer({ rec, theme, onClose }) {
                   </tbody>
                   <tfoot>
                     <tr>
-                      <td colSpan={2} style={{ padding: '9px 12px', fontSize: '14px', fontWeight: 700, color: '#1e3a5f', borderTop: '2px solid #1e3a5f' }}>TOTAL</td>
+                      <td colSpan={2} style={{ padding: '9px 12px', fontSize: '14px', fontWeight: 700, color: '#1e3a5f', borderTop: '2px solid #1e3a5f' }}>{T.thTotalLabel}</td>
                       <td style={{ padding: '9px 12px', fontSize: '14px', fontWeight: 700, color: '#1e3a5f', borderTop: '2px solid #1e3a5f', textAlign: 'right', fontFamily: 'monospace' }}>RWF {totalFee.toLocaleString()}</td>
                     </tr>
                   </tfoot>
@@ -651,9 +861,9 @@ function DocumentViewer({ rec, theme, onClose }) {
             {/* Banks */}
             {banks.length > 0 && (
               <div style={{ marginBottom: '22px' }}>
-                <DocHeading title="Banking Information" />
+                <DocHeading title={T.secBanking} />
                 <table style={tblStyle}>
-                  <thead><tr><Th w="40px" center>#</Th><Th>Bank Name</Th><Th>Account Number</Th><Th>Account Name</Th><Th w="80px" center>Primary</Th></tr></thead>
+                  <thead><tr><Th w="40px" center>{T.thHash}</Th><Th>{T.thBank}</Th><Th>{T.thAccount}</Th><Th>{T.thAccountName}</Th><Th w="80px" center>{T.thPrimary}</Th></tr></thead>
                   <tbody>
                     {banks.map((bk, i) => (
                       <tr key={i}>
@@ -672,14 +882,14 @@ function DocumentViewer({ rec, theme, onClose }) {
             {/* Requirements */}
             {requirements.length > 0 && (
               <div style={{ marginBottom: '22px' }}>
-                <DocHeading title="Student Requirements" />
+                <DocHeading title={T.secRequirements} />
                 <table style={tblStyle}>
                   <thead>
                     <tr>
-                      <Th w="42px" center>#</Th>
-                      <Th>Item</Th>
-                      <Th>Description</Th>
-                      <Th w="80px" center>Quantity</Th>
+                      <Th w="42px" center>{T.thHash}</Th>
+                      <Th>{T.thItem}</Th>
+                      <Th>{T.thDescription}</Th>
+                      <Th w="80px" center>{T.thQuantity}</Th>
                     </tr>
                   </thead>
                   <tbody>
@@ -699,9 +909,9 @@ function DocumentViewer({ rec, theme, onClose }) {
             {/* Other infos */}
             {otherInfos.length > 0 && (
               <div style={{ marginBottom: '22px' }}>
-                <DocHeading title="Other Information" />
+                <DocHeading title={T.secOtherInfo} />
                 <table style={tblStyle}>
-                  <thead><tr><Th w="42px" center>#</Th><Th>Item</Th><Th>Details</Th></tr></thead>
+                  <thead><tr><Th w="42px" center>{T.thHash}</Th><Th>{T.thItem}</Th><Th>{T.thDetails}</Th></tr></thead>
                   <tbody>
                     {otherInfos.map((n, i) => (
                       <tr key={i}><Td center color="#64748b">{i + 1}</Td><Td bold>{n.item || ''}</Td><Td>{n.details || ''}</Td></tr>
@@ -714,9 +924,9 @@ function DocumentViewer({ rec, theme, onClose }) {
             {/* Leaders */}
             {leaders.length > 0 && (
               <div style={{ marginBottom: '22px' }}>
-                <DocHeading title="School Leadership Contacts" />
+                <DocHeading title={T.secLeadership} />
                 <table style={tblStyle}>
-                  <thead><tr><Th w="36px" center>#</Th><Th>Full Name</Th><Th>Role / Title</Th><Th>Phone</Th><Th>Email</Th></tr></thead>
+                  <thead><tr><Th w="36px" center>{T.thHash}</Th><Th>{T.thFullName}</Th><Th>{T.thRole}</Th><Th>{T.thPhone}</Th><Th>{T.thEmail}</Th></tr></thead>
                   <tbody>
                     {leaders.map((l, i) => (
                       <tr key={i}>
@@ -742,9 +952,9 @@ function DocumentViewer({ rec, theme, onClose }) {
             {/* Class notes */}
             {classNotes.length > 0 && (
               <div style={{ marginBottom: '22px' }}>
-                <DocHeading title="Class Requirements & Notes" />
+                <DocHeading title={T.secClassNotes} />
                 <table style={tblStyle}>
-                  <thead><tr><Th w="42px" center>#</Th><Th>Item</Th><Th>Details</Th></tr></thead>
+                  <thead><tr><Th w="42px" center>{T.thHash}</Th><Th>{T.thItem}</Th><Th>{T.thDetails}</Th></tr></thead>
                   <tbody>
                     {classNotes.map((n, i) => (
                       <tr key={i}><Td center color="#64748b">{i + 1}</Td><Td bold>{n.item || ''}</Td><Td>{n.details || '—'}</Td></tr>
@@ -756,15 +966,15 @@ function DocumentViewer({ rec, theme, onClose }) {
 
             {/* Authorization & Signatures */}
             <div style={{ marginBottom: '22px' }}>
-              <DocHeading title="Authorization & Signatures" />
+              <DocHeading title={T.secAuth} />
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px', marginTop: '12px' }}>
                 {/* Signature */}
                 <div style={{ border: '1px solid #e2e8f0', padding: '14px', textAlign: 'center' }}>
-                  <p style={{ ...DOC.label, textTransform: 'uppercase', fontSize: '11px', margin: '0 0 8px' }}>Head Teacher</p>
+                  <p style={{ ...DOC.label, textTransform: 'uppercase', fontSize: '11px', margin: '0 0 8px' }}>{T.sigHeadTeacher}</p>
                   <div style={{ height: '52px', borderBottom: '1px solid #cbd5e1', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: '4px', marginBottom: '6px' }}>
                     {sigB64 && <img src={sigB64} style={{ maxHeight: '48px', maxWidth: '140px', objectFit: 'contain' }} alt="Signature" />}
                   </div>
-                  <p style={{ fontSize: '11px', color: '#94a3b8', margin: 0 }}>{sigB64 ? '✓ Signed' : 'Signature Required'}</p>
+                  <p style={{ fontSize: '11px', color: '#94a3b8', margin: 0 }}>{sigB64 ? T.sigSigned : T.sigRequired}</p>
                 </div>
                 {/* QR */}
                 <div style={{ border: '1px solid #e2e8f0', padding: '14px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
@@ -773,28 +983,31 @@ function DocumentViewer({ rec, theme, onClose }) {
                       <div style={{ background: 'white', border: '1px solid #e2e8f0', padding: '4px', borderRadius: '4px' }}>
                         <img src={qrB64} style={{ width: '80px', height: '80px', objectFit: 'contain', display: 'block' }} alt="QR Code" />
                       </div>
-                      <p style={{ fontSize: '10px', color: '#1e3a5f', fontWeight: 700, margin: '6px 0 0', textTransform: 'uppercase', letterSpacing: '.05em' }}>Scan to Verify</p>
+                      <p style={{ fontSize: '10px', color: '#1e3a5f', fontWeight: 700, margin: '6px 0 0', textTransform: 'uppercase', letterSpacing: '.05em' }}>{T.sigScanVerify}</p>
                       {rec.doc_id && <p style={{ fontSize: '10px', color: '#64748b', margin: '2px 0 0', fontFamily: 'monospace' }}>ID: {rec.doc_id}</p>}
                       {vUrl && <p style={{ fontSize: '9px', color: '#4f46e5', margin: '2px 0 0', textAlign: 'center', maxWidth: '110px', wordBreak: 'break-all' }}>{vUrl}</p>}
                     </>
                   ) : qrLoading ? (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
                       <div style={{ width: 20, height: 20, borderRadius: '50%', border: '2px solid #e0e7ff', borderTopColor: '#4f46e5', animation: 'spin .8s linear infinite' }} />
-                      <span style={{ fontSize: '10px', color: '#4f46e5', fontWeight: 700 }}>Generating…</span>
+                      <span style={{ fontSize: '10px', color: '#4f46e5', fontWeight: 700 }}>{T.generatingQr}</span>
                     </div>
                   ) : (
-                    <div style={{ width: 80, height: 80, border: '1px dashed #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <span style={{ fontSize: '22px', opacity: .1 }}>▣</span>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                      <div style={{ width: 80, height: 80, border: '1px dashed #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <span style={{ fontSize: '22px', opacity: .1 }}>▣</span>
+                      </div>
+                      <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 700 }}>{T.qrPending}</span>
                     </div>
                   )}
                 </div>
                 {/* Stamp */}
                 <div style={{ border: '1px solid #e2e8f0', padding: '14px', textAlign: 'center' }}>
-                  <p style={{ ...DOC.label, textTransform: 'uppercase', fontSize: '11px', margin: '0 0 8px' }}>Official Stamp</p>
+                  <p style={{ ...DOC.label, textTransform: 'uppercase', fontSize: '11px', margin: '0 0 8px' }}>{T.sigStamp}</p>
                   <div style={{ width: '80px', height: '80px', border: '1px dashed #e2e8f0', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', margin: '0 auto 6px' }}>
                     {stampB64 ? <img src={stampB64} style={{ width: '76px', height: '76px', objectFit: 'contain', borderRadius: '50%' }} alt="Stamp" /> : <span style={{ fontSize: '22px', opacity: .08 }}>🔏</span>}
                   </div>
-                  <p style={{ fontSize: '11px', color: '#94a3b8', margin: 0 }}>Cachet Officiel</p>
+                  <p style={{ fontSize: '11px', color: '#94a3b8', margin: 0 }}>{T.sigCachet}</p>
                 </div>
               </div>
             </div>
@@ -1073,6 +1286,22 @@ export default function BabyeyiFinder({ school, theme, schoolSlug, openModal = f
   const [openingAuto, setOpeningAuto] = useState(false);
   const [finderModalOpen, setFinderModalOpen] = useState(false);
 
+  const FINDER_LANG_STORAGE = 'babyeyi_finder_lang';
+  const [viewerLang, setViewerLang] = useState(() => {
+    try {
+      const raw = localStorage.getItem(FINDER_LANG_STORAGE);
+      if (raw) return normalizeBabyeyiLang(raw);
+    } catch {}
+    return 'en';
+  });
+  const lastViewSumRef = useRef(null);
+
+  const { T: finderT } = useBabyeyiUiT(viewerLang);
+  const finderInfoResolved = useMemo(() => {
+    const raw = finderT.finderInfoBody || '';
+    return raw.replace(/\{school\}/g, school?.name || 'this school');
+  }, [finderT.finderInfoBody, school?.name]);
+
   // We must resolve schoolId from the mini-website data
   const schoolId = school?.schoolId || school?.id || school?.school_id || null;
 
@@ -1089,12 +1318,12 @@ export default function BabyeyiFinder({ school, theme, schoolSlug, openModal = f
     const useTerm = override?.term ?? term;
     const bypassValidation = !!override?.bypassValidation;
     if (!bypassValidation && !useYear && !useClass && !useTerm) {
-      setError('Please select at least one filter: Academic Year, Term, or Class.');
+      setError(finderT.finderFilterError);
       return;
     }
     // Guard: school_id is required so the backend allows the unauthenticated request
     if (!schoolId) {
-      setError('School information is missing. Please refresh the page.');
+      setError(finderT.finderSchoolMissingError);
       return;
     }
     setError(null);
@@ -1133,7 +1362,7 @@ export default function BabyeyiFinder({ school, theme, schoolSlug, openModal = f
         setOpeningAuto(false);
       }
     } catch (e) {
-      setError(e.message || 'Could not fetch documents. Please try again.');
+      setError(e.message || finderT.finderFetchError);
       setOpeningAuto(false);
     } finally {
       setLoading(false);
@@ -1144,11 +1373,11 @@ export default function BabyeyiFinder({ school, theme, schoolSlug, openModal = f
   const runStudentCodeLookup = async (codeOverride = null) => {
     const code = (codeOverride ?? studentCode).trim();
     if (!code) {
-      setError('Enter student code or SDM ID to search.');
+      setError(finderT.finderStudentCodeRequired);
       return;
     }
     if (!schoolId) {
-      setError('School information is missing. Please refresh the page.');
+      setError(finderT.finderSchoolMissingError);
       return;
     }
     setLoading(true);
@@ -1163,13 +1392,13 @@ export default function BabyeyiFinder({ school, theme, schoolSlug, openModal = f
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || json.success === false || !json.found || !json.data) {
-        throw new Error(json.message || 'Student not found.');
+        throw new Error(json.message || finderT.finderStudentNotFound);
       }
       const data = json.data;
       const currentSchoolId = String(schoolId || '').trim();
       const lookupSchoolId = String(data.school_id || data.schoolId || '').trim();
       if (currentSchoolId && lookupSchoolId && currentSchoolId !== lookupSchoolId) {
-        throw new Error('This student belongs to another school.');
+        throw new Error(finderT.finderWrongSchoolError);
       }
       const nextYear = data.academic_year || '';
       const nextTerm = data.term || '';
@@ -1179,72 +1408,42 @@ export default function BabyeyiFinder({ school, theme, schoolSlug, openModal = f
       if (nextCls) setCls(nextCls);
       await handleSearch({ year: nextYear, term: nextTerm, cls: nextCls, bypassValidation: true });
     } catch (e) {
-      setError(e.message || 'Student lookup failed.');
+      setError(pickStudentLookupMessage(e.message, finderT));
       setOpeningAuto(false);
       setLoading(false);
       setSearched(true);
     }
   };
 
-  const handleView = async (sumRec) => {
-    setLoadingView(true);
+  const handleViewerLangChange = async (lang) => {
+    const n = normalizeBabyeyiLang(lang);
+    setViewerLang(n);
     try {
-      const res  = await fetch(`${API}/babyeyi/${sumRec.id}`);
-      const json = await res.json();
-      if (!json.success) throw new Error(json.message || 'Failed');
-
-      const d = json.data;
-      const sigs = d.signatures || {};
-
-      // Parse payments
-      let payments = d.payments || [];
-      if (!payments.length && d.payments_json) {
-        try { payments = JSON.parse(d.payments_json); } catch {}
-      }
-
-      // Parse class requirements — split into classNotes (with details) and otherInfos (without)
-      const allClassReqs = (d.class_requirements || []).map(r => ({
-        item:    r.item    || r.information || '',
-        details: r.details || '',
-      }));
-      const classNotes = allClassReqs.filter(r => r.details && r.details.trim());
-      const otherInfos = allClassReqs.filter(r => !r.details || !r.details.trim());
-
-      const normalise = (p) => p ? p.replace(/\\/g, '/') : null;
-
-      const full = {
-        ...sumRec,
-        ...d,
-        class_name:    d.class_name    || d.class    || sumRec.class_name || '',
-        classes_json:  d.classes_json  || d.classesJson || d.classes || sumRec.classes_json || null,
-        school_name:   d.school_name   || sumRec.school_name || '',
-        school_district: d.school_district || d.district || sumRec.school_district || '',
-        school_sector:   d.school_sector   || d.sector   || sumRec.school_sector   || '',
-        payments,
-        requirements:  (d.student_requirements || []).map(r => ({
-          item: r.item,
-          description: r.description || "",
-          quantity: r.quantity || "",
-        })),
-        classNotes,
-        otherInfos,
-        leaders:       Array.isArray(d.leaders) ? d.leaders : [],
-        signatures: {
-          ...sigs,
-          director_sig_path:  normalise(sigs.director_sig_path),
-          stamp_path:         normalise(sigs.stamp_path),
-          school_logo_path:   normalise(sigs.school_logo_path),
-          other_logo_path:    normalise(sigs.other_logo_path),
-          qr_code_path:       normalise(sigs.qr_code_path),
-          qr_view_url:        sigs.qr_view_url || null,
-        },
-        qr_code_path: normalise(d.qr_code_path),
-        qr_view_url:  d.qr_view_url || null,
-      };
-
+      localStorage.setItem(FINDER_LANG_STORAGE, n);
+    } catch {}
+    const sum = lastViewSumRef.current;
+    if (!sum?.id) return;
+    setLoadingView(true);
+    setError(null);
+    try {
+      const full = await loadBabyeyiFullRecord(sum, n);
       setViewing(full);
     } catch (e) {
-      setError(`Failed to open document: ${e.message}`);
+      setError(e.message || finderT.finderLoadLangError);
+    } finally {
+      setLoadingView(false);
+    }
+  };
+
+  const handleView = async (sumRec) => {
+    lastViewSumRef.current = sumRec;
+    setLoadingView(true);
+    setError(null);
+    try {
+      const full = await loadBabyeyiFullRecord(sumRec, viewerLang);
+      setViewing(full);
+    } catch (e) {
+      setError(`${finderT.finderOpenDocFailed} ${e.message}`.trim());
     } finally {
       setLoadingView(false);
     }
@@ -1286,11 +1485,11 @@ export default function BabyeyiFinder({ school, theme, schoolSlug, openModal = f
           <div className="w-full max-w-3xl bg-[#000435] rounded-3xl shadow-2xl border border-amber-400/30 max-h-[92dvh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="px-4 sm:px-6 py-4 border-b border-white/10 flex items-start justify-between gap-3">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-400">School Mini Website</p>
-                <h3 className="text-base sm:text-lg font-black text-white">Find School Document</h3>
-                <p className="text-xs text-white/60 mt-0.5">Search by student code or SDM ID, then year, term, and class.</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-400">{finderT.finderModalEyebrow}</p>
+                <h3 className="text-base sm:text-lg font-black text-white">{finderT.finderModalTitle}</h3>
+                <p className="text-xs text-white/60 mt-0.5">{finderT.finderModalSubtitle}</p>
               </div>
-              <button type="button" onClick={closeFinderModal} className="p-2 rounded-xl hover:bg-white/10 text-white/80" aria-label="Close">
+              <button type="button" onClick={closeFinderModal} className="p-2 rounded-xl hover:bg-white/10 text-white/80" aria-label={finderT.finderAriaClose}>
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1300,7 +1499,7 @@ export default function BabyeyiFinder({ school, theme, schoolSlug, openModal = f
                 <input
                   value={studentCode}
                   onChange={(e) => setStudentCode(e.target.value)}
-                  placeholder="Student code or SDM ID"
+                  placeholder={finderT.finderStudentCodePlaceholder}
                   className="w-full px-3.5 py-2.5 rounded-xl border text-sm font-semibold text-white focus:outline-none transition-all bg-white/5 border-white/20 placeholder:text-white/35"
                 />
                 <button
@@ -1309,23 +1508,23 @@ export default function BabyeyiFinder({ school, theme, schoolSlug, openModal = f
                   disabled={loading}
                   className="px-3 sm:px-4 py-2.5 rounded-xl font-black text-[11px] sm:text-sm text-[#000435] disabled:opacity-60 leading-snug text-center max-w-full bg-amber-400 hover:bg-amber-300"
                 >
-                  Confirm details before continuing
+                  {finderT.finderConfirmLookupBtn}
                 </button>
               </div>
 
               <div className="grid sm:grid-cols-3 gap-3">
                 <select value={year} onChange={(e) => setYear(e.target.value)} className="w-full appearance-none px-3.5 py-2.5 rounded-xl border text-sm font-semibold text-white focus:outline-none transition-all bg-white/5 border-white/20">
-                  <option value="">All Years</option>
+                  <option value="">{finderT.finderAllYears}</option>
                   {YEAR_OPTIONS.map((y) => <option key={y} value={y}>{y}</option>)}
                   <option value={String(currentYear)}>{currentYear}</option>
                   <option value={String(currentYear - 1)}>{currentYear - 1}</option>
                 </select>
                 <select value={term} onChange={(e) => setTerm(e.target.value)} className="w-full appearance-none px-3.5 py-2.5 rounded-xl border text-sm font-semibold text-white focus:outline-none transition-all bg-white/5 border-white/20">
-                  <option value="">All Terms</option>
+                  <option value="">{finderT.finderAllTerms}</option>
                   {TERM_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
                 </select>
                 <select value={cls} onChange={(e) => setCls(e.target.value)} className="w-full appearance-none px-3.5 py-2.5 rounded-xl border text-sm font-semibold text-white focus:outline-none transition-all bg-white/5 border-white/20">
-                  <option value="">All Classes</option>
+                  <option value="">{finderT.finderAllClasses}</option>
                   {CLASS_OPTIONS.map((group) => (
                     <optgroup key={group.group} label={group.group}>
                       {group.classes.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -1337,30 +1536,30 @@ export default function BabyeyiFinder({ school, theme, schoolSlug, openModal = f
               {error && <div className="text-sm rounded-xl border border-red-400/30 bg-red-400/10 px-3 py-2 text-red-300">{error}</div>}
 
                   <button onClick={() => handleSearch()} disabled={loading} className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-black text-sm text-[#000435] bg-amber-400 hover:bg-amber-300 disabled:opacity-60">
-                {loading ? <><Loader2 size={16} className="animate-spin" /> Searching...</> : <><Search size={16} /> Search Documents</>}
+                {loading ? <><Loader2 size={16} className="animate-spin" /> {finderT.finderSearching}</> : <><Search size={16} /> {finderT.finderSearchBtn}</>}
               </button>
               {openingAuto && (
                 <p className="text-xs text-center font-semibold" style={{ color: p }}>
-                  Opening Babyeyi...
+                  {finderT.finderOpening}
                 </p>
               )}
 
               {searched && !loading && (
                 <div className="space-y-2">
                   {results.length === 0 ? (
-                    <p className="text-sm text-white/65">No approved documents found for this filter.</p>
+                    <p className="text-sm text-white/65">{finderT.finderNoResultsModal}</p>
                   ) : (
                     results.map((rec) => (
                       <div key={rec.id} className="rounded-xl border border-white/15 bg-white/5 p-3">
                         <p className="font-bold text-sm text-white">{getClassLabel(rec)} · {rec.term} · {rec.academic_year}</p>
                         <div className="mt-2 flex flex-wrap gap-2">
-                          <button type="button" onClick={() => { closeFinderModal(); handleView(rec); }} className="px-3 py-2 rounded-lg text-xs font-black text-[#000435] bg-amber-400 hover:bg-amber-300">Open &amp; Download</button>
+                          <button type="button" onClick={() => { closeFinderModal(); handleView(rec); }} className="px-3 py-2 rounded-lg text-xs font-black text-[#000435] bg-amber-400 hover:bg-amber-300">{finderT.finderOpenDownloadBtn}</button>
                           <button
                             type="button"
                             onClick={() => { closeFinderModal(); startPublicPayFlow(rec); }}
                             className="px-3 py-2 rounded-lg text-xs font-black border border-amber-400/40 text-amber-300 hover:bg-white/10"
                           >
-                            View &amp; Pay
+                            {finderT.finderViewPayBtn}
                           </button>
                         </div>
                       </div>
@@ -1391,18 +1590,36 @@ export default function BabyeyiFinder({ school, theme, schoolSlug, openModal = f
         <div className="relative z-10 max-w-7xl mx-auto px-6 sm:px-8">
 
           {/* Section Header */}
-          <div className="mb-10 text-center">
-            <div className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.22em] mb-4" style={{ color: a }}>
-              <span className="w-8 h-px block" style={{ background: a }} />
-              School Fee Documents
-              <span className="w-8 h-px block" style={{ background: a }} />
+          <div className="mb-10 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="text-center sm:text-left flex-1 min-w-0">
+              <div className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.22em] mb-4" style={{ color: a }}>
+                <span className="w-8 h-px block" style={{ background: a }} />
+                {finderT.finderEyebrow}
+                <span className="w-8 h-px block" style={{ background: a }} />
+              </div>
+              <h2 className={fs ? "text-3xl sm:text-4xl font-black leading-tight text-slate-900 mb-3" : "text-3xl sm:text-4xl font-black leading-tight text-white mb-3"}>
+                {finderT.finderHeroTitle}
+              </h2>
+              <p className={fs ? "text-slate-600 text-base max-w-xl sm:mx-0 mx-auto" : "text-white/70 text-base max-w-xl sm:mx-0 mx-auto"}>
+                {finderT.finderHeroSubtitle}
+              </p>
             </div>
-            <h2 className={fs ? "text-3xl sm:text-4xl font-black leading-tight text-slate-900 mb-3" : "text-3xl sm:text-4xl font-black leading-tight text-white mb-3"}>
-              Find Your Babyeyi
-            </h2>
-            <p className={fs ? "text-slate-600 text-base max-w-xl mx-auto" : "text-white/70 text-base max-w-xl mx-auto"}>
-              Search and download official school mini-website documents for your child's class. Only approved documents are shown.
-            </p>
+            <div className="flex justify-center sm:justify-end shrink-0 sm:pt-1">
+              <FinderLangSwitcher
+                value={viewerLang}
+                onChange={(code) => {
+                  const n = normalizeBabyeyiLang(code);
+                  setViewerLang(n);
+                  try {
+                    localStorage.setItem(FINDER_LANG_STORAGE, n);
+                  } catch {}
+                }}
+                label={finderT.language}
+                light={!!fs}
+                searchPlaceholder={finderT.finderSearchLangPlaceholder}
+                noMatchText={finderT.finderNoLangMatch}
+              />
+            </div>
           </div>
 
           {/* Search Card */}
@@ -1414,8 +1631,8 @@ export default function BabyeyiFinder({ school, theme, schoolSlug, openModal = f
                   <Search size={20} />
                 </div>
                 <div>
-                  <h3 className={fs ? "font-black text-slate-900 text-base" : "font-black text-white text-base"}>Search Babyeyi Documents</h3>
-                  <p className={fs ? "text-xs text-slate-500 mt-0.5" : "text-xs text-white/60 mt-0.5"}>Filter by academic year, term, and class</p>
+                  <h3 className={fs ? "font-black text-slate-900 text-base" : "font-black text-white text-base"}>{finderT.finderCardTitle}</h3>
+                  <p className={fs ? "text-xs text-slate-500 mt-0.5" : "text-xs text-white/60 mt-0.5"}>{finderT.finderCardSubtitle}</p>
                 </div>
               </div>
 
@@ -1425,7 +1642,7 @@ export default function BabyeyiFinder({ school, theme, schoolSlug, openModal = f
                   {/* Academic Year */}
                   <div>
                     <label className={fs ? "block text-xs font-black text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5" : "block text-xs font-black text-white/60 uppercase tracking-wider mb-2 flex items-center gap-1.5"}>
-                      <Calendar size={11} /> Academic Year
+                      <Calendar size={11} /> {finderT.academicYear}
                     </label>
                     <div className="relative">
                       <select
@@ -1434,7 +1651,7 @@ export default function BabyeyiFinder({ school, theme, schoolSlug, openModal = f
                         className={fs ? "w-full appearance-none px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-300 transition-all pr-9" : "w-full appearance-none px-4 py-3 rounded-xl border text-sm font-semibold text-white focus:outline-none transition-all pr-9"}
                         style={fs ? undefined : { borderColor: year ? `${a}aa` : 'rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.06)', colorScheme: 'dark' }}
                       >
-                        <option value="">All Years</option>
+                        <option value="">{finderT.finderAllYears}</option>
                         {YEAR_OPTIONS.map(y => <option key={y} value={y}>{y}</option>)}
                         <option value={String(currentYear)}>{currentYear}</option>
                         <option value={String(currentYear - 1)}>{currentYear - 1}</option>
@@ -1446,7 +1663,7 @@ export default function BabyeyiFinder({ school, theme, schoolSlug, openModal = f
                   {/* Term */}
                   <div>
                     <label className={fs ? "block text-xs font-black text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5" : "block text-xs font-black text-white/60 uppercase tracking-wider mb-2 flex items-center gap-1.5"}>
-                      <Calendar size={11} /> Term
+                      <Calendar size={11} /> {finderT.termLabel}
                     </label>
                     <div className="relative">
                       <select
@@ -1455,7 +1672,7 @@ export default function BabyeyiFinder({ school, theme, schoolSlug, openModal = f
                         className={fs ? "w-full appearance-none px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-300 transition-all pr-9" : "w-full appearance-none px-4 py-3 rounded-xl border text-sm font-semibold text-white focus:outline-none transition-all pr-9"}
                         style={fs ? undefined : { borderColor: term ? `${a}aa` : 'rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.06)', colorScheme: 'dark' }}
                       >
-                        <option value="">All Terms</option>
+                        <option value="">{finderT.finderAllTerms}</option>
                         {TERM_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
                       </select>
                       <ChevronDown size={14} className={fs ? "absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" : "absolute right-3 top-1/2 -translate-y-1/2 text-white/60 pointer-events-none"} />
@@ -1465,7 +1682,7 @@ export default function BabyeyiFinder({ school, theme, schoolSlug, openModal = f
                   {/* Class */}
                   <div>
                     <label className={fs ? "block text-xs font-black text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5" : "block text-xs font-black text-white/60 uppercase tracking-wider mb-2 flex items-center gap-1.5"}>
-                      <GraduationCap size={11} /> Class
+                      <GraduationCap size={11} /> {finderT.classLabel}
                     </label>
                     <div className="relative">
                       <select
@@ -1474,7 +1691,7 @@ export default function BabyeyiFinder({ school, theme, schoolSlug, openModal = f
                         className={fs ? "w-full appearance-none px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-300 transition-all pr-9" : "w-full appearance-none px-4 py-3 rounded-xl border text-sm font-semibold text-white focus:outline-none transition-all pr-9"}
                         style={fs ? undefined : { borderColor: cls ? `${a}aa` : 'rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.06)', colorScheme: 'dark' }}
                       >
-                        <option value="">All Classes</option>
+                        <option value="">{finderT.finderAllClasses}</option>
                         {CLASS_OPTIONS.map(group => (
                           <optgroup key={group.group} label={group.group}>
                             {group.classes.map(c => <option key={c} value={c}>{c}</option>)}
@@ -1511,14 +1728,14 @@ export default function BabyeyiFinder({ school, theme, schoolSlug, openModal = f
                     )}
                     {cls && (
                       <span className="flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold border" style={{ background: 'rgba(251,191,36,0.16)', color: a, borderColor: 'rgba(251,191,36,0.35)' }}>
-                        <GraduationCap size={10} /> Class {cls}
+                        <GraduationCap size={10} /> {finderT.finderClassPrefix} {cls}
                         <button onClick={() => setCls('')} className="hover:opacity-70"><X size={10} /></button>
                       </span>
                     )}
                     {hasFilters && (
                       <button onClick={() => { setYear(''); setCls(''); setTerm(''); setStudentCode(''); setResults([]); setSearched(false); }}
                         className={fs ? "flex items-center gap-1 px-3 py-1 rounded-xl text-xs font-bold text-slate-500 hover:text-red-600 border border-slate-200 hover:border-red-300 transition-colors" : "flex items-center gap-1 px-3 py-1 rounded-xl text-xs font-bold text-white/70 hover:text-red-300 border border-white/20 hover:border-red-300/40 transition-colors"}>
-                        <X size={10} /> Clear all
+                        <X size={10} /> {finderT.clearAll}
                       </button>
                     )}
                   </div>
@@ -1532,12 +1749,12 @@ export default function BabyeyiFinder({ school, theme, schoolSlug, openModal = f
                   style={{ background: 'linear-gradient(135deg, #FCD34D, #F59E0B)', color: '#111827', boxShadow: '0 8px 24px rgba(251,191,36,0.35)' }}
                       >
                   {loading
-                    ? <><Loader2 size={16} className="animate-spin" /> Searching…</>
-                    : <><Search size={16} /> Search Documents</>}
+                    ? <><Loader2 size={16} className="animate-spin" /> {finderT.finderSearching}</>
+                    : <><Search size={16} /> {finderT.finderSearchBtn}</>}
                 </button>
                 {openingAuto && (
                   <p className="text-xs text-center font-semibold" style={{ color: p }}>
-                    Opening Babyeyi...
+                    {finderT.finderOpening}
                   </p>
                 )}
               </div>
@@ -1551,20 +1768,22 @@ export default function BabyeyiFinder({ school, theme, schoolSlug, openModal = f
                     <div className="w-16 h-16 rounded-3xl flex items-center justify-center mx-auto mb-4" style={{ background: 'rgba(251,191,36,0.15)' }}>
                       <FileText size={28} style={{ color: a }} />
                     </div>
-                    <h4 className={fs ? "font-black text-slate-900 text-lg mb-2" : "font-black text-white text-lg mb-2"}>No Documents Found</h4>
+                    <h4 className={fs ? "font-black text-slate-900 text-lg mb-2" : "font-black text-white text-lg mb-2"}>{finderT.finderNoDocsTitle}</h4>
                     <p className={fs ? "text-slate-600 text-sm max-w-xs mx-auto" : "text-white/70 text-sm max-w-xs mx-auto"}>
-                      No approved Babyeyi documents match your search. Try different filters or contact the school directly.
+                      {finderT.finderNoDocsBody}
                     </p>
                   </div>
                 ) : (
                   <div className="space-y-4">
                     <p className={fs ? "text-sm font-bold text-slate-700 mb-4" : "text-sm font-bold text-white/75 mb-4"}>
-                      Found <span style={{ color: a }}>{results.length}</span> document{results.length !== 1 ? 's' : ''}
+                      {finderT.finderFound} <span style={{ color: a }}>{results.length}</span>{' '}
+                      {results.length === 1 ? finderT.finderDocOne : finderT.finderDocMany}
                     </p>
                     {results.map((rec) => {
                       const payments = Array.isArray(rec.payments) ? rec.payments : [];
                       const fee = rec.total_fee ?? rec.totalFee ?? payments.reduce((s, py) => s + Number(py.amount || 0), 0);
                       const st = STATUS_CFG[rec.status] || STATUS_CFG.approved;
+                      const statusLabel = getStatusLabelSafe(viewerLang, rec.status) || st.label;
                       let classes = [];
                       try {
                         const raw = rec.classes_json || rec.classesJson || rec.classes || null;
@@ -1606,7 +1825,7 @@ export default function BabyeyiFinder({ school, theme, schoolSlug, openModal = f
                                   <span style={{ background: st.bg, color: st.text, border: `1px solid ${st.border}` }}
                                     className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black flex-shrink-0">
                                     <span style={{ background: st.dot }} className="w-1.5 h-1.5 rounded-full inline-block" />
-                                    {st.label}
+                                    {statusLabel}
                                   </span>
                                 </div>
                               </div>
@@ -1615,11 +1834,11 @@ export default function BabyeyiFinder({ school, theme, schoolSlug, openModal = f
                             {/* Fee + bank info */}
                             <div className="grid grid-cols-2 gap-3 mb-4">
                               <div className="rounded-2xl px-4 py-3 border" style={{ background: 'rgba(251,191,36,0.12)', borderColor: 'rgba(251,191,36,0.35)' }}>
-                                <p className="text-[10px] font-black uppercase tracking-wider mb-1" style={{ color: a }}>Total Fee</p>
+                                <p className="text-[10px] font-black uppercase tracking-wider mb-1" style={{ color: a }}>{finderT.finderTotalFeeShort}</p>
                                 <p className={fs ? "font-black text-lg font-mono text-slate-900" : "font-black text-lg font-mono text-white"}>{Number(fee).toLocaleString()} <span className="text-sm">RWF</span></p>
                               </div>
                               <div className={fs ? "rounded-2xl px-4 py-3 border border-slate-200 bg-slate-50" : "rounded-2xl px-4 py-3 border bg-white/[0.04]"} style={fs ? undefined : { borderColor: 'rgba(255,255,255,0.16)' }}>
-                                <p className={fs ? "text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1" : "text-[10px] font-black uppercase tracking-wider text-white/60 mb-1"}>Bank</p>
+                                <p className={fs ? "text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1" : "text-[10px] font-black uppercase tracking-wider text-white/60 mb-1"}>{finderT.finderBankLabel}</p>
                                 <p className={fs ? "font-bold text-sm text-slate-900 truncate" : "font-bold text-sm text-white truncate"}>{rec.bank_name || '—'}</p>
                                 {rec.bank_account_no && <p className={fs ? "text-[10px] text-slate-500 font-mono truncate" : "text-[10px] text-white/55 font-mono truncate"}>{rec.bank_account_no}</p>}
                               </div>
@@ -1635,7 +1854,7 @@ export default function BabyeyiFinder({ school, theme, schoolSlug, openModal = f
                                 {loadingView
                                   ? <Loader2 size={14} className="animate-spin" />
                                   : <Eye size={14} />}
-                                <Download size={14} /> View &amp; Download
+                                <Download size={14} /> {finderT.finderViewDownloadBtn}
                               </button>
                               <button
                                 type="button"
@@ -1643,7 +1862,7 @@ export default function BabyeyiFinder({ school, theme, schoolSlug, openModal = f
                                 className={fs ? "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-black text-sm border border-slate-300 bg-white hover:bg-slate-50 transition-colors text-slate-800" : "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-black text-sm border hover:bg-white/10 transition-colors text-white"}
                                 style={fs ? undefined : { borderColor: 'rgba(255,255,255,0.28)' }}
                               >
-                                <DollarSign size={14} /> View &amp; Pay
+                                <DollarSign size={14} /> {finderT.finderViewPayBtn}
                               </button>
                             </div>
                           </div>
@@ -1662,11 +1881,9 @@ export default function BabyeyiFinder({ school, theme, schoolSlug, openModal = f
                   <Shield size={16} />
                 </div>
                 <div>
-                  <p className="font-black text-sm mb-1" style={{ color: a }}>Only Approved Documents Shown</p>
+                  <p className="font-black text-sm mb-1" style={{ color: a }}>{finderT.finderInfoTitle}</p>
                   <p className={fs ? "text-xs text-slate-700 leading-relaxed" : "text-xs text-white/70 leading-relaxed"}>
-                    Only officially approved Babyeyi documents for <strong>{school?.name || 'this school'}</strong> are visible here.
-                    Documents are verified by the school administration and the District Education Office.
-                    Each document includes a QR code for authenticity verification.
+                    {finderInfoResolved}
                   </p>
                 </div>
               </div>
@@ -1677,7 +1894,14 @@ export default function BabyeyiFinder({ school, theme, schoolSlug, openModal = f
 
       {/* Document Viewer Modal */}
       {viewing && (
-        <DocumentViewer rec={viewing} theme={theme} onClose={() => setViewing(null)} />
+        <DocumentViewer
+          rec={viewing}
+          theme={theme}
+          onClose={() => setViewing(null)}
+          viewerLang={viewerLang}
+          onViewerLangChange={handleViewerLangChange}
+          docLoading={loadingView}
+        />
       )}
 
     </>

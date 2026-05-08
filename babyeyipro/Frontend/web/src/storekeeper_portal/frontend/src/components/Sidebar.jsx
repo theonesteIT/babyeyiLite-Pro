@@ -1,44 +1,77 @@
-import { NavLink, useLocation } from 'react-router-dom';
-import { useState } from 'react';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { createElement } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
-  LayoutDashboard, Package, ArrowDownUp, ClipboardList, Building2,
-  Wallet, User, LogOut, Wifi, WifiOff, RefreshCw, Store, MessageSquare, DollarSign,
+  LayoutDashboard,
+  Package,
+  ArrowDownUp,
+  ClipboardList,
+  Building2,
+  User,
+  LogOut,
+  Wifi,
+  WifiOff,
+  RefreshCw,
+  Store,
+  MessageSquare,
+  DollarSign,
+  Sparkles,
+  Landmark,
+  Headphones,
 } from 'lucide-react';
+import { PORTAL } from '../config/portal';
 import useChatUnread from '../../../../shared/hooks/useChatUnread';
+import { h } from '../utils/href';
+import babyeyiIcon from '../assets/babyeyi-icon.png';
 
 const statusConfig = {
-  online:  { label: 'Online',  dot: 'bg-[#FEBF10]', text: 'text-re-navy', ring: 'ring-[#FEBF10]/35', bg: 'bg-[#FEBF10]/12',  Icon: Wifi },
-  offline: { label: 'Offline', dot: 'bg-red-400',     text: 'text-red-500',     ring: 'ring-red-100',     bg: 'bg-red-50',      Icon: WifiOff },
-  syncing: { label: 'Syncing', dot: 'bg-amber-400',   text: 'text-amber-600',   ring: 'ring-amber-100',   bg: 'bg-amber-50',    Icon: RefreshCw },
+  online: { label: 'Online', dot: 'bg-green-400', text: 'text-green-400', Icon: Wifi },
+  offline: { label: 'Offline', dot: 'bg-red-400', text: 'text-red-400', Icon: WifiOff },
+  syncing: { label: 'Syncing', dot: 'bg-amber-400', text: 'text-amber-400', Icon: RefreshCw },
 };
 
 const AppStatusBadge = ({ status = 'online' }) => {
   const s = statusConfig[status];
   return (
-    <div className={`flex items-center gap-1 px-2 py-1 rounded-lg ${s.bg} ring-1 ${s.ring}`}>
+    <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-white/5 ring-1 ring-white/10">
       <span className="relative flex h-1.5 w-1.5">
-        {status !== 'offline' && <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${s.dot} opacity-60`} />}
+        {status !== 'offline' && (
+          <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${s.dot} opacity-60`} />
+        )}
         <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${s.dot}`} />
       </span>
-      <s.Icon size={9} className={`${s.text} ${status === 'syncing' ? 'animate-spin' : ''}`} />
-      <span className={`text-[9px] font-bold ${s.text}`}>{s.label}</span>
+      <s.Icon size={10} className={`${s.text} ${status === 'syncing' ? 'animate-spin' : ''}`} />
+      <span className="text-[9px] font-bold text-white/70">{s.label}</span>
     </div>
   );
 };
 
-const NavItem = ({ icon: Icon, name, path, exact, onClose, badgeCount = 0 }) => (
-  <NavLink to={path} end={exact} onClick={onClose}
+const NavItem = ({ icon, name, path, exact, onClose, badgeCount = 0 }) => (
+  <NavLink
+    to={path}
+    end={exact}
+    onClick={onClose}
     className={({ isActive }) =>
-      `relative flex items-center gap-2 px-2.5 py-1.5 rounded-xl transition-all duration-200 group text-[11px] font-bold
-      ${isActive ? 'text-white shadow-sm' : 'text-re-text-muted hover:bg-re-navy/5 hover:text-re-navy'}`}
-    style={({ isActive }) => isActive ? { background: 'linear-gradient(135deg,#1E3A5F,#3D5A80)', boxShadow: '0 3px 10px rgba(30,58,95,0.25)' } : {}}>
+      `relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group text-[13px] font-semibold tracking-tight border border-transparent
+      ${
+        isActive
+          ? 'bg-white/[0.12] text-re-gold shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] border-white/10'
+          : 'text-white/72 hover:bg-white/[0.06] hover:text-white'
+      }`
+    }
+  >
     {({ isActive }) => (
       <>
-        <Icon size={13} className={isActive ? 'text-white' : 'text-re-text-muted/50 group-hover:text-re-navy transition-colors'} />
-        <span>{name}</span>
+        {createElement(icon, {
+          size: 18,
+          strokeWidth: 1.75,
+          className: isActive
+            ? 'text-re-gold shrink-0'
+            : 'text-white/45 group-hover:text-white/85 shrink-0 transition-colors',
+        })}
+        <span className="truncate">{name}</span>
         {badgeCount > 0 && (
-          <span className="ml-auto text-[10px] leading-none px-1.5 py-1 rounded-full bg-red-100 text-red-700">
+          <span className="ml-auto text-[10px] leading-none px-1.5 py-0.5 rounded-md bg-re-gold/90 text-[#0B1530] font-bold">
             {badgeCount > 99 ? '99+' : badgeCount}
           </span>
         )}
@@ -48,64 +81,102 @@ const NavItem = ({ icon: Icon, name, path, exact, onClose, badgeCount = 0 }) => 
 );
 
 const SectionLabel = ({ label }) => (
-  <p className="text-[8px] font-black uppercase tracking-[0.18em] text-re-text-muted/35 px-2.5 pt-2 pb-0.5">{label}</p>
+  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400 px-3 pt-4 pb-2 first:pt-1">{label}</p>
 );
 
 const Sidebar = ({ onClose }) => {
+  const navigate = useNavigate();
   const { staff, logout } = useAuth();
   const unreadCount = useChatUnread();
+
   return (
-    <div className="flex flex-col h-full bg-white border-r border-black/5 shadow-sm">
-      <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-      <div className="p-3" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-        <div className="rounded-2xl bg-re-bg shadow-inner p-3 space-y-1">
-          <div className="flex items-center gap-3">
-            <div className="bg-re-navy/10 p-2.5 rounded-2xl shadow-inner">
-              <Store size={22} className="text-re-navy" />
-            </div>
-            <div>
-              <span className="text-xl font-black tracking-tight leading-none block"
-                style={{ background: 'linear-gradient(135deg,#1E3A5F,#3D5A80)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                Store
-              </span>
-              <p className="text-[9px] font-black uppercase tracking-[0.2em] opacity-60 mt-0.5" style={{ color: '#FEBF10' }}>Storekeeper Portal</p>
-            </div>
+    <div
+      className="flex flex-col min-h-0 h-full w-full min-w-0 shadow-[2px_0_16px_rgba(11,21,48,0.14)] border-r border-white/[0.06]"
+      style={{
+        background: 'linear-gradient(180deg,#0f2247 0%,#0b1530 40%,#060d1f 100%)',
+        colorScheme: 'dark',
+      }}
+    >
+      <div className="p-4 pb-3 shrink-0 border-b border-white/[0.06]">
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/[0.08] ring-1 ring-white/10">
+            <img src={babyeyiIcon} alt="Babyeyi icon" className="h-7 w-7 object-contain" />
+          </div>
+          <div className="min-w-0">
+            <span className="text-lg font-bold tracking-tight text-white block leading-tight">Babyeyi</span>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-re-gold/95 mt-0.5">{PORTAL.brandLine}</p>
           </div>
         </div>
       </div>
 
-      <nav className="flex-1 px-2 py-1 overflow-y-auto space-y-0.5" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-        <NavItem icon={LayoutDashboard} name="Dashboard"       path="/storekeeper"   exact onClose={onClose} />
+      <nav
+        className="storekeeper-sidebar-scroll flex-1 min-h-0 px-3 py-3 overflow-y-auto overflow-x-hidden overscroll-y-contain space-y-0.5 pr-1"
+        aria-label="Storekeeper navigation"
+      >
+        <SectionLabel label="Main" />
+        <NavItem icon={LayoutDashboard} name="Dashboard" path={h('/')} exact onClose={onClose} />
 
-        <SectionLabel label="Store" />
-        <NavItem icon={Package}        name="Inventory"        path="/inventory"         onClose={onClose} />
-        <NavItem icon={ArrowDownUp}    name="Stock Movements"  path="/movements"         onClose={onClose} />
-        <NavItem icon={ClipboardList}  name="Requisitions"     path="/requisitions"      onClose={onClose} />
-        <NavItem icon={Building2}      name="Suppliers"        path="/suppliers"         onClose={onClose} />
+        <SectionLabel label="Store operations" />
+        <NavItem icon={Package} name="Inventory" path={h('/inventory')} onClose={onClose} />
+        <NavItem icon={ArrowDownUp} name="Stock Movements" path={h('/movements')} onClose={onClose} />
+        <NavItem icon={ClipboardList} name="Requisitions" path={h('/requisitions')} onClose={onClose} />
+        <NavItem icon={Building2} name="Suppliers" path={h('/suppliers')} onClose={onClose} />
 
         <SectionLabel label="Services" />
-        <NavItem icon={DollarSign}     name="My Payroll"      path="/my-payroll"           onClose={onClose} />
-        <NavItem icon={Wallet}         name="Shule Avance"     path="/shule-avance"      onClose={onClose} />
-        <NavItem icon={MessageSquare}  name="Chat Center"      path="/chat"              onClose={onClose} badgeCount={unreadCount} />
+        <NavItem icon={DollarSign} name="My Payroll" path={h('/my-payroll')} onClose={onClose} />
+        <NavItem icon={Sparkles} name="Shule Avance" path={h('/shule-avance')} onClose={onClose} />
+        <NavItem icon={Store} name="Ticha AI" path={h('/ticha-ai')} onClose={onClose} />
+        <NavItem icon={MessageSquare} name="Chat Center" path={h('/chat')} onClose={onClose} badgeCount={unreadCount} />
       </nav>
 
-      <div className="p-3" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-        <div className="rounded-2xl border border-black/5 bg-re-bg shadow-inner p-2 space-y-2">
-          <div className="flex items-center justify-between px-1">
-            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-re-text-muted/40">Status</p>
+      <div className="p-4 pt-2 shrink-0 border-t border-white/[0.06] space-y-3">
+        <div className="rounded-2xl bg-[#060d1f]/90 ring-1 ring-white/10 p-4 space-y-3">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-re-gold/15 ring-1 ring-re-gold/25">
+              <Headphones className="text-re-gold" size={20} strokeWidth={1.75} aria-hidden />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-white">Help &amp; support</p>
+              <p className="text-[12px] text-white/55 mt-1 leading-snug">
+                Contact procurement or finance from chat or through your manager.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center justify-between gap-2 flex-wrap">
             <AppStatusBadge status="online" />
+            <button
+              type="button"
+              onClick={() => {
+                navigate(h('/chat'));
+                onClose?.();
+              }}
+              className="inline-flex items-center justify-center rounded-xl bg-re-gold px-4 py-2.5 text-[13px] font-bold text-[#0b1530] shadow-sm border border-[#d4a20a]/30 hover:bg-yellow-400 active:scale-[0.98] transition-all"
+            >
+              Open chat
+            </button>
           </div>
-          <div className="h-px bg-black/5 mx-1" />
-          <div className="flex items-center gap-2.5 px-2 py-1.5 bg-white rounded-xl border border-black/5 shadow-sm">
-            <div className="w-8 h-8 rounded-xl overflow-hidden bg-re-navy/10 flex items-center justify-center shrink-0">
-              {staff?.photo ? <img src={staff.photo} alt={staff.first_name} className="w-full h-full object-cover" /> : <User size={16} className="text-re-navy" />}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-black truncate text-re-navy uppercase tracking-tight">{staff?.first_name || 'Storekeeper'}</p>
-              <p className="text-[9px] text-re-text-muted truncate font-bold uppercase tracking-wider opacity-50 mt-0.5">{staff?.role_name || 'Storekeeper'}</p>
-            </div>
-            <button onClick={logout} className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors"><LogOut size={12} /></button>
+        </div>
+
+        <div className="rounded-2xl bg-white/[0.06] ring-1 ring-white/10 p-3 flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl overflow-hidden bg-white/10 flex items-center justify-center shrink-0 ring-1 ring-white/10">
+            {staff?.photo ? (
+              <img src={staff.photo} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <User size={16} className="text-white/70" aria-hidden />
+            )}
           </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[12px] font-semibold text-white truncate">{staff?.first_name || 'Storekeeper'}</p>
+            <p className="text-[10px] text-white/45 truncate font-medium">{staff?.role_name || PORTAL.roleLabel}</p>
+          </div>
+          <button
+            type="button"
+            onClick={logout}
+            className="p-2 rounded-xl text-white/45 hover:text-red-300 hover:bg-white/5 transition-colors"
+            aria-label="Log out"
+          >
+            <LogOut size={18} strokeWidth={1.75} />
+          </button>
         </div>
       </div>
     </div>

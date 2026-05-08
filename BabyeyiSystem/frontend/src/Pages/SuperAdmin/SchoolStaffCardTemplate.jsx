@@ -23,7 +23,9 @@ import {
 
 /* ─── Constants ─────────────────────────────────────────────────────── */
 export const CARD_PX = { w: 320, h: 695 };
-const QR_CARD_PX = 120;
+/** Design px — used by preview + all exports (PNG/JPEG/PDF/ZIP via renderStaffCardToCanvas). */
+const QR_CARD_PX = 176;
+const QR_BORDER = '#000435';
 const SCALE = 3;
 
 const C = {
@@ -100,7 +102,8 @@ function buildStaffQrPayload(staff) {
 }
 
 function getQrImageUrl(payload) {
-  return `https://api.qrserver.com/v1/create-qr-code/?size=768x768&format=png&data=${encodeURIComponent(payload)}`;
+  /* High-res source so large on-card QR stays sharp in every download. */
+  return `https://api.qrserver.com/v1/create-qr-code/?size=1024x1024&format=png&data=${encodeURIComponent(payload)}`;
 }
 
 export function mapRowToStaff(row) {
@@ -206,20 +209,13 @@ export async function renderStaffCardToCanvas(staff, template, photoImg, logoImg
   ctx.save();
   ctx.clip();
 
-  /* ── 2. Teal accent stripe at top ── */
-  const stripeH = 8 * s;
-  const stripeGrad = ctx.createLinearGradient(0, 0, W, 0);
-  stripeGrad.addColorStop(0, C.teal);
-  stripeGrad.addColorStop(1, '#00897b');
-  ctx.fillStyle = stripeGrad;
-  ctx.fillRect(0, 0, W, stripeH);
-
-  /* ── 3. School logo ── */
+  /* ── 2. School logo (no top accent bar — matches React preview) ── */
+  const topPad = 16 * s;
   const schoolTitle = (template?.school_name || staff.school || 'SCHOOL').toUpperCase();
   const schoolPhone = (template?.school_phone || staff.school_phone || '').trim();
   const logoSz = 86 * s;
   const logoX = W / 2 - logoSz / 2;
-  const logoY = stripeH + 6 * s;
+  const logoY = topPad;
 
   ctx.globalAlpha = 1;
   if (logoImg) {
@@ -247,15 +243,19 @@ export async function renderStaffCardToCanvas(staff, template, photoImg, logoImg
     ctx.fillText(schoolPhone, W / 2, schoolNameY + 16 * s);
   }
 
-  /* ── "STAFF ID" badge ── */
+  /* ── "STAFF IDENTITY CARD" badge — white fill, amber border/text (same as IDCardStaff / all downloads) ── */
   const badgeY = schoolPhone ? schoolNameY + 16 * s + 14 * s : schoolNameY + 8 * s;
   const badgeW = 116 * s;
   const badgeH = 19 * s;
   const badgeX = W / 2 - badgeW / 2;
   rRect(ctx, badgeX, badgeY, badgeW, badgeH, 5 * s);
-  ctx.fillStyle = C.teal;
-  ctx.fill();
   ctx.fillStyle = '#ffffff';
+  ctx.fill();
+  ctx.strokeStyle = C.amber;
+  ctx.lineWidth = Math.max(1, s);
+  rRect(ctx, badgeX, badgeY, badgeW, badgeH, 5 * s);
+  ctx.stroke();
+  ctx.fillStyle = C.amber;
   ctx.font = `800 ${8.2 * s}px ${FONT_STACK}`;
   ctx.textAlign = 'center';
   ctx.fillText('STAFF IDENTITY CARD', W / 2, badgeY + 13.2 * s);
@@ -352,12 +352,13 @@ export async function renderStaffCardToCanvas(staff, template, photoImg, logoImg
   const footerY = H - footerH;
   const pad = 6 * s;
   const boxR = 10 * s;
-  const gapAfterInfo = 8 * s;
-  const gapAboveFooter = 8 * s;
+  /* Tighter gaps so a larger QR_CARD_PX still fits above the amber footer on every export. */
+  const gapAfterInfo = 4 * s;
+  const gapAboveFooter = 6 * s;
   const scanTextH = 11 * s;
-  const labelGapBelowBox = 24 * s;
+  const labelGapBelowBox = 14 * s;
   const maxQR = QR_CARD_PX * s;
-  const minQR = 72 * s;
+  const minQR = 56 * s;
 
   const qrY = infoY + gapAfterInfo;
   const maxQrPx = footerY - gapAboveFooter - qrY - pad - labelGapBelowBox - scanTextH;
@@ -379,7 +380,7 @@ export async function renderStaffCardToCanvas(staff, template, photoImg, logoImg
     }
 
     ctx.globalAlpha = 1;
-    ctx.strokeStyle = C.teal;
+    ctx.strokeStyle = QR_BORDER;
     ctx.lineWidth = 2 * s;
     rRect(ctx, qrX - pad, qrY - pad, qrPx + pad * 2, qrPx + pad * 2, boxR);
     ctx.stroke();
@@ -467,8 +468,19 @@ export function IDCardStaff({ staff, template, scale = 1 }) {
           <div style={{ marginBottom: 4 }} />
         )}
 
-        {/* STAFF ID badge */}
-        <div style={{ background: C.teal, color: '#fff', fontSize: 8.2, fontWeight: 800, letterSpacing: 1, padding: '4px 14px', borderRadius: 5, marginBottom: 14, textTransform: 'uppercase' }}>
+        {/* STAFF ID badge — white (matches canvas PNG/JPEG/PDF/ZIP) */}
+        <div style={{
+          background: '#ffffff',
+          color: C.amber,
+          border: `1px solid ${C.amber}`,
+          fontSize: 8.2,
+          fontWeight: 800,
+          letterSpacing: 1,
+          padding: '4px 14px',
+          borderRadius: 5,
+          marginBottom: 14,
+          textTransform: 'uppercase',
+        }}>
           Staff Identity Card
         </div>
 
@@ -505,7 +517,7 @@ export function IDCardStaff({ staff, template, scale = 1 }) {
 
         {/* QR */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20, marginTop: 4, marginBottom: 4, flexShrink: 0, zIndex: 4 }}>
-          <div style={{ borderRadius: 12, border: `2px solid ${C.teal}`, padding: 6, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ borderRadius: 12, border: `2px solid ${QR_BORDER}`, padding: 6, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             {qrImg ? (
               <img src={qrImg} alt="QR" style={{ width: QR_CARD_PX, height: QR_CARD_PX, display: 'block', objectFit: 'contain' }} />
             ) : (

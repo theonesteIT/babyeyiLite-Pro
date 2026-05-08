@@ -337,7 +337,7 @@ export default function GateAttendance() {
   return (
     <div className="min-h-screen bg-[#f8fafc] font-sans text-slate-900">
       {sideNotice && (
-        <div className="fixed right-4 top-20 z-[80] w-[92vw] max-w-sm rounded-2xl border border-amber-200 bg-white p-4 shadow-xl sm:w-[360px]">
+        <div className="fixed right-4 top-20 z-[80] w-[92vw] max-w-sm rounded-2xl border border-amber-200 bg-white p-4 shadow-sm sm:w-[360px]">
           <div className="flex items-start gap-3">
             <div className="mt-0.5 rounded-xl bg-amber-100 p-2 text-amber-700">
               <BellRing size={16} />
@@ -1073,7 +1073,7 @@ function SettingsPage({ settings, setSettings, savingSettings, setSavingSettings
       <div className="flex items-center gap-4">
         <button
           onClick={handleSave}
-          className="rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 px-8 py-3.5 text-sm font-black uppercase tracking-widest text-[#0b1220] shadow-xl shadow-amber-900/40 transition hover:opacity-90 active:scale-95 inline-flex items-center gap-2"
+          className="rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 px-8 py-3.5 text-sm font-black uppercase tracking-widest text-[#0b1220] shadow-sm shadow-amber-900/40 transition hover:opacity-90 active:scale-95 inline-flex items-center gap-2"
         >
           <Save size={15} />
           {savingSettings ? 'Saving...' : 'Save Gate Settings'}

@@ -4,6 +4,7 @@ import {
     List, Grid as GridIcon, Filter, Plus, FileText, CheckCircle, RefreshCw
 } from 'lucide-react';
 import api from '../services/api';
+import DisciplineOchreHero from '../components/DisciplineOchreHero';
 
 export default function Timetable() {
     const [view, setView] = useState('grid'); // 'grid' or 'list'
@@ -42,32 +43,16 @@ export default function Timetable() {
 
     return (
         <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen pb-12">
-
-            {/* ── High-Fidelity Hero Section ── */}
-            <div className="relative w-full min-h-[280px] overflow-hidden">
-                <div className="absolute inset-0 bg-orange-950/70 z-10 backdrop-blur-[2px]"></div>
-                {/* Fallback pattern if teacher.jpg isn't perfectly suitable */}
-                <img src="/teacher.jpg" alt="Hero" className="absolute inset-0 w-full h-full object-cover scale-105 opacity-100" />
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent to-transparent z-[5]"></div>
-
-                <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-12 pt-16 pb-24">
-                    <div className="space-y-1">
-                        <div className="flex items-center gap-2 mb-2">
-                            <span className="w-6 h-1 bg-re-orange rounded-full"></span>
-                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/80">Schedular Module</span>
-                        </div>
-                        <h1 className="text-3xl md:text-5xl font-black text-white tracking-tight">
-                            My <span className="text-re-orange">Timetable</span>
-                        </h1>
-                        <p className="text-xs md:text-sm text-white/70 font-bold max-w-xl leading-relaxed">
-                            Navigate your weekly teaching schedule. Plan your classes, monitor practical labs, and sync administrative meetings automatically.
-                        </p>
-                    </div>
-                </div>
-            </div>
+            <DisciplineOchreHero
+                eyebrow="Scheduler module"
+                titleLine="My"
+                titleAccent="timetable"
+                subtitle="Navigate your weekly teaching schedule and keep classes, labs, and meetings aligned."
+                icon={Calendar}
+            />
 
             {/* ── Main Content Area ── */}
-            <div className="relative z-30 max-w-[1600px] mx-auto px-4 md:px-12 -mt-20">
+            <div className="relative z-30 max-w-[1600px] mx-auto px-4 md:px-12 -mt-4 sm:-mt-5 md:-mt-6 pt-2">
                 <div className="bg-white rounded-t-[2rem] shadow-2xl border border-black/5 overflow-hidden flex flex-col">
 
                     {/* Header/Controls inside the card */}

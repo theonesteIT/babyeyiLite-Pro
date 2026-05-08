@@ -6,6 +6,7 @@ import {
     Users, BookOpen, Clock, Activity, Printer,
     ArrowUpRight, ArrowDownRight, Award, Filter, ChevronUp, User
 } from 'lucide-react';
+import DisciplineOchreHero from '../components/DisciplineOchreHero';
 
 export default function ViewMarks() {
     const [selectedClass, setSelectedClass] = useState('Senior 3A');
@@ -69,32 +70,16 @@ export default function ViewMarks() {
 
     return (
         <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen pb-12">
-
-            {/* ── High-Fidelity Hero Section ── */}
-            <div className="relative w-full min-h-[300px] overflow-hidden">
-                <div className="absolute inset-0 bg-orange-950/70 z-10 backdrop-blur-[2px]"></div>
-                <img src="/teacher.jpg" alt="Hero" className="absolute inset-0 w-full h-full object-cover scale-105 opacity-100" />
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent to-transparent z-[5]"></div>
-
-                <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-12 pt-16 pb-24">
-                    <div className="space-y-1">
-                        <div className="flex items-center gap-2 mb-2">
-                            <span className="w-6 h-1 bg-re-orange rounded-full"></span>
-                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/80">Performance Analytics</span>
-                        </div>
-                        <h1 className="text-3xl md:text-5xl font-black text-white tracking-tight">
-                            View Marks
-                        </h1>
-                        <p className="text-xs md:text-sm text-white/70 font-bold max-w-xl leading-relaxed uppercase tracking-widest opacity-60">
-                            Scholastic performance breakdown for {selectedClass} • {selectedSubject}.
-                        </p>
-                    </div>
-
-                </div>
-            </div>
+            <DisciplineOchreHero
+                eyebrow="Performance analytics"
+                titleLine="View"
+                titleAccent="marks"
+                subtitle={`Scholastic performance breakdown for ${selectedClass} • ${selectedSubject}.`}
+                icon={TrendingUp}
+            />
 
             {/* ── Main Content Area ── */}
-            <div className="relative z-30 max-w-[1600px] mx-auto px-2 md:px-6 -mt-16">
+            <div className="relative z-30 max-w-[1600px] mx-auto px-2 md:px-6 -mt-4 sm:-mt-5 md:-mt-6 pt-2">
                 <div className="bg-white rounded-t-[2.5rem] shadow-2xl border border-black/5 overflow-hidden flex flex-col">
 
                     {/* Integrated Stats Grid */}

@@ -83,7 +83,7 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
             <>
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-white/95 backdrop-blur-md" onClick={() => setSuccess(false)} />
-                    <div className="relative bg-white w-full max-w-sm rounded-[2rem] shadow-2xl overflow-hidden text-center p-8 border border-re-orange/10">
+                    <div className="relative bg-white w-full max-w-sm rounded-[2rem] shadow-sm overflow-hidden text-center p-8 border border-re-orange/10">
                         <div className="mb-6 relative">
                             <div className="w-20 h-20 bg-re-orange/10 rounded-full mx-auto flex items-center justify-center relative z-10">
                                 <CheckCircle size={40} className="text-re-orange" />
@@ -171,7 +171,7 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
 
                 {/* Search dropdown */}
                 {showSearch && search.length > 0 && (
-                    <div className="absolute left-4 right-4 z-20 mt-1 bg-white border border-black/5 rounded-xl shadow-2xl overflow-hidden max-h-56 overflow-y-auto">
+                    <div className="absolute left-4 right-4 z-20 mt-1 bg-white border border-black/5 rounded-xl shadow-sm overflow-hidden max-h-56 overflow-y-auto">
                         {filtered.length === 0 ? (
                             <div className="flex items-center gap-2 px-4 py-3 text-xs font-bold text-gray-400">
                                 <AlertCircle size={13} /> No criteria found
@@ -371,7 +371,7 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
     const BrowserOverlay = showBrowser && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowBrowser(false)} />
-            <div className="relative bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden max-h-[80vh] flex flex-col">
+            <div className="relative bg-white w-full max-w-lg rounded-2xl shadow-sm overflow-hidden max-h-[80vh] flex flex-col">
                 <div className="px-5 py-4 border-b border-black/5 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-xl bg-re-bg flex items-center justify-center text-re-orange">
@@ -406,7 +406,7 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
     const StudentPickerOverlay = showStudents && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowStudents(false)} />
-            <div className="relative bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden max-h-[80vh] flex flex-col">
+            <div className="relative bg-white w-full max-w-md rounded-2xl shadow-sm overflow-hidden max-h-[80vh] flex flex-col">
                 <div className="px-5 py-4 border-b border-black/5 flex items-center justify-between relative z-10 bg-white">
                     <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-xl bg-re-bg flex items-center justify-center text-re-orange">
@@ -477,7 +477,7 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
 
             {/* DESKTOP CONTAINER */}
             <div className="hidden md:flex fixed inset-0 z-[90] items-center justify-center p-6">
-                <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl min-h-[500px] flex flex-col max-h-[90vh] overflow-hidden border border-black/5">
+                <div className="bg-white rounded-3xl shadow-sm w-full max-w-4xl min-h-[500px] flex flex-col max-h-[90vh] overflow-hidden border border-black/5">
                     <div className="flex items-center justify-between px-6 py-5 border-b border-black/5 shrink-0 bg-white relative z-10 shadow-sm">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 bg-re-bg rounded-xl border border-black/5 flex items-center justify-center">

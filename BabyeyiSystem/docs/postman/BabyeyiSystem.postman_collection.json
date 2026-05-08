@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "c9a91f04-4e28-4f47-b8f8-c001b9c7a111",
     "name": "BabyeyiSystem API",
-    "description": "Organized Postman collection for Babyeyi backend APIs. Uses session-cookie authentication (babyeyi_sid). **Parent portal:** use `10 - Parent Portal & Payments` \u2192 `POST .../parent-portal/login` (or register / phone-login) first; Postman stores the cookie for later requests. **Guest Babyeyi Finder pay (no login):** use `10b` \u2014 student code lookup + pricing + intent. **Public pay by school code + class (no auth):** use `10c` \u2014 `POST /api/public/public-pay/class-pricing` and `search-student`, then `POST /api/public/babyeyi-pay/intent`. **Invoices & receipts:** `12` \u2014 list/detail/print PDF (school session), public verify + paid receipt PDF, quote-balance, MoMo poll. **MTN direct (optional):** `13` \u2014 `/api/momo/*` and student-services pay. **Parent phone reset:** `14`. **Field agents:** `15`. **Super Admin only:** `admin-upgrades`, `admin-accounts`, and `/api/public/babyeyi-pay/admin-*` require `01 - Auth & Session` as SUPER_ADMIN. **School staff:** `POST /api/auth/login` with `email`, `password`, `schoolCode`.",
+    "description": "Organized Postman collection for Babyeyi backend APIs. Uses session-cookie authentication (babyeyi_sid). **Parent portal:** use `10 - Parent Portal & Payments` → `POST .../parent-portal/login` (or register / phone-login) first; Postman stores the cookie for later requests. **Guest Babyeyi Finder pay (no login):** use `10b` — student code lookup + pricing + intent. **Public pay by school code + class (no auth):** use `10c` — `POST /api/public/public-pay/class-pricing` and `search-student`, then `POST /api/public/babyeyi-pay/intent`. **Invoices & receipts:** `12` — list/detail/print PDF (school session), public verify + paid receipt PDF, quote-balance, MoMo poll. **MTN direct (optional):** `13` — `/api/momo/*` and student-services pay. **Parent phone reset:** `14`. **Field agents:** `15`. **Super Admin only:** `admin-upgrades`, `admin-accounts`, and `/api/public/babyeyi-pay/admin-*` require `01 - Auth & Session` as SUPER_ADMIN. **School staff:** `POST /api/auth/login` with `email`, `password`, `schoolCode`. **Teacher Avance (USSD):** folder **`Teacher Avance USSD`** — login body uses collection var **`{{teacherStaffId}}`** (Manager → HR Central **Staff ID / Code**, same as `staff.staff_id` in DB, e.g. `TR-007`) as JSON field `identifier`; `ussdAccessToken` is set after login. **Shule Avance (HTTP):** see **`16`** → *Tools, services...* and **`18`** → *shuleAvanceServices.js* / *auth.js* / *shuleAvanceOrgPortal.js*.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -85,6 +85,18 @@
     {
       "key": "serviceId",
       "value": "1"
+    },
+    {
+      "key": "identifier",
+      "value": "teacher@example.com"
+    },
+    {
+      "key": "teacherStaffId",
+      "value": "TR-007"
+    },
+    {
+      "key": "ussdAccessToken",
+      "value": ""
     }
   ],
   "item": [
@@ -1415,7 +1427,7 @@
     },
     {
       "name": "10b - Parent public Babyeyi Finder (no auth)",
-      "description": "**URL rule:** Set `baseUrl` to the API host **without** a trailing slash, e.g. `https://babyeyi.rw` or `http://localhost:5100`. Every request uses `{{baseUrl}}/api/...` (required slash before `api`). Wrong: `{{baseUrl}}api/...` \u2192 `https://babyeyi.rwapi/...` (broken).\n\n**404 on parent-path calls:** Production must run latest `server.js` (parent portal router mounted **before** the `/api/parent-portal/public/babyeyi-finder` alias). If parent paths still 404, use the **alias** requests \u2014 same server handlers as `/api/public/...`.",
+      "description": "**URL rule:** Set `baseUrl` to the API host **without** a trailing slash, e.g. `https://babyeyi.rw` or `http://localhost:5100`. Every request uses `{{baseUrl}}/api/...` (required slash before `api`). Wrong: `{{baseUrl}}api/...` → `https://babyeyi.rwapi/...` (broken).\n\n**404 on parent-path calls:** Production must run latest `server.js` (parent portal router mounted **before** the `/api/parent-portal/public/babyeyi-finder` alias). If parent paths still 404, use the **alias** requests — same server handlers as `/api/public/...`.",
       "item": [
         {
           "name": "GET discovery (parent path)",
@@ -2109,10 +2121,10 @@
     },
     {
       "name": "12 - Invoices & Babyeyi Pay (extended)",
-      "description": "**Creating an invoice:** There is no separate \u201ccreate invoice\u201d endpoint. Invoices are created when you **POST /api/public/babyeyi-pay/intent** \u2014 the server inserts `babyeyi_payment_intents`, assigns `invoice_no`, and may start MTN MoMo or XentriPay. Use **10b** / **10** / **10c** intent requests for that.\n\n**School staff (session):** `GET /invoices`, `.../detail`, `.../print.pdf`, exports \u2014 login via `01` + `POST /api/auth/login` first; cookie is sent automatically.\n\n**Public (no auth):** `GET .../invoices/verify/:id?invoice_no=`, `GET .../receipt/:id.pdf?invoice_no=` (PAID only), `POST quote-balance`, `POST intent/:id/check-provider-status` (MoMo polling).",
+      "description": "**Creating an invoice:** There is no separate “create invoice” endpoint. Invoices are created when you **POST /api/public/babyeyi-pay/intent** — the server inserts `babyeyi_payment_intents`, assigns `invoice_no`, and may start MTN MoMo or XentriPay. Use **10b** / **10** / **10c** intent requests for that.\n\n**School staff (session):** `GET /invoices`, `.../detail`, `.../print.pdf`, exports — login via `01` + `POST /api/auth/login` first; cookie is sent automatically.\n\n**Public (no auth):** `GET .../invoices/verify/:id?invoice_no=`, `GET .../receipt/:id.pdf?invoice_no=` (PAID only), `POST quote-balance`, `POST intent/:id/check-provider-status` (MoMo polling).",
       "item": [
         {
-          "name": "POST /api/public/babyeyi-pay/quote-balance \u2014 remaining balance (no auth)",
+          "name": "POST /api/public/babyeyi-pay/quote-balance — remaining balance (no auth)",
           "request": {
             "method": "POST",
             "header": [
@@ -2129,7 +2141,7 @@
           }
         },
         {
-          "name": "POST /api/public/babyeyi-pay/intent/:id/check-provider-status \u2014 poll MoMo/Xentri (no auth)",
+          "name": "POST /api/public/babyeyi-pay/intent/:id/check-provider-status — poll MoMo/Xentri (no auth)",
           "request": {
             "method": "POST",
             "header": [],
@@ -2137,56 +2149,56 @@
           }
         },
         {
-          "name": "GET /api/public/babyeyi-pay/invoices \u2014 list (school session)",
+          "name": "GET /api/public/babyeyi-pay/invoices — list (school session)",
           "request": {
             "method": "GET",
             "url": "{{baseUrl}}/api/public/babyeyi-pay/invoices?page=1&limit=20"
           }
         },
         {
-          "name": "GET /api/public/babyeyi-pay/invoices/:id/detail \u2014 JSON bundle (school session)",
+          "name": "GET /api/public/babyeyi-pay/invoices/:id/detail — JSON bundle (school session)",
           "request": {
             "method": "GET",
             "url": "{{baseUrl}}/api/public/babyeyi-pay/invoices/{{paymentIntentId}}/detail"
           }
         },
         {
-          "name": "GET /api/public/babyeyi-pay/invoices/:id/print.pdf \u2014 invoice PDF (school session)",
+          "name": "GET /api/public/babyeyi-pay/invoices/:id/print.pdf — invoice PDF (school session)",
           "request": {
             "method": "GET",
             "url": "{{baseUrl}}/api/public/babyeyi-pay/invoices/{{paymentIntentId}}/print.pdf"
           }
         },
         {
-          "name": "GET /api/public/babyeyi-pay/invoices/export.xlsx \u2014 export (school session)",
+          "name": "GET /api/public/babyeyi-pay/invoices/export.xlsx — export (school session)",
           "request": {
             "method": "GET",
             "url": "{{baseUrl}}/api/public/babyeyi-pay/invoices/export.xlsx"
           }
         },
         {
-          "name": "GET /api/public/babyeyi-pay/invoices/export.pdf \u2014 export (school session)",
+          "name": "GET /api/public/babyeyi-pay/invoices/export.pdf — export (school session)",
           "request": {
             "method": "GET",
             "url": "{{baseUrl}}/api/public/babyeyi-pay/invoices/export.pdf"
           }
         },
         {
-          "name": "GET /api/public/babyeyi-pay/invoices/verify/:id \u2014 public QR/authenticity (no auth)",
+          "name": "GET /api/public/babyeyi-pay/invoices/verify/:id — public QR/authenticity (no auth)",
           "request": {
             "method": "GET",
             "url": "{{baseUrl}}/api/public/babyeyi-pay/invoices/verify/{{paymentIntentId}}?invoice_no={{invoiceNo}}"
           }
         },
         {
-          "name": "GET /api/public/babyeyi-pay/receipt/:id.pdf \u2014 paid receipt PDF (no auth)",
+          "name": "GET /api/public/babyeyi-pay/receipt/:id.pdf — paid receipt PDF (no auth)",
           "request": {
             "method": "GET",
             "url": "{{baseUrl}}/api/public/babyeyi-pay/receipt/{{paymentIntentId}}.pdf?invoice_no={{invoiceNo}}"
           }
         },
         {
-          "name": "POST /api/public/babyeyi-pay/admin-invoices/reminders/run \u2014 unpaid reminders (session)",
+          "name": "POST /api/public/babyeyi-pay/admin-invoices/reminders/run — unpaid reminders (session)",
           "request": {
             "method": "POST",
             "header": [
@@ -2203,7 +2215,7 @@
           }
         },
         {
-          "name": "POST /api/public/babyeyi-pay/admin-intents/:id/reconcile-provider \u2014 SUPER_ADMIN",
+          "name": "POST /api/public/babyeyi-pay/admin-intents/:id/reconcile-provider — SUPER_ADMIN",
           "request": {
             "method": "POST",
             "header": [],
@@ -2211,7 +2223,7 @@
           }
         },
         {
-          "name": "POST /api/public/babyeyi-pay/admin-intents/:id/retry-collection \u2014 SUPER_ADMIN",
+          "name": "POST /api/public/babyeyi-pay/admin-intents/:id/retry-collection — SUPER_ADMIN",
           "request": {
             "method": "POST",
             "header": [],
@@ -2219,14 +2231,14 @@
           }
         },
         {
-          "name": "GET /api/public/babyeyi-pay/admin-webhook-logs \u2014 SUPER_ADMIN",
+          "name": "GET /api/public/babyeyi-pay/admin-webhook-logs — SUPER_ADMIN",
           "request": {
             "method": "GET",
             "url": "{{baseUrl}}/api/public/babyeyi-pay/admin-webhook-logs?page=1&limit=20"
           }
         },
         {
-          "name": "POST /api/public/babyeyi-pay/webhook/xentripay \u2014 XentriPay callback (token)",
+          "name": "POST /api/public/babyeyi-pay/webhook/xentripay — XentriPay callback (token)",
           "request": {
             "method": "POST",
             "header": [
@@ -2278,7 +2290,7 @@
           }
         },
         {
-          "name": "POST /api/momo/callback \u2014 MTN webhook (if configured)",
+          "name": "POST /api/momo/callback — MTN webhook (if configured)",
           "request": {
             "method": "POST",
             "header": [
@@ -2295,21 +2307,21 @@
           }
         },
         {
-          "name": "GET /api/momo/transactions \u2014 list",
+          "name": "GET /api/momo/transactions — list",
           "request": {
             "method": "GET",
             "url": "{{baseUrl}}/api/momo/transactions"
           }
         },
         {
-          "name": "GET /api/momo/debug \u2014 non-production config peek",
+          "name": "GET /api/momo/debug — non-production config peek",
           "request": {
             "method": "GET",
             "url": "{{baseUrl}}/api/momo/debug"
           }
         },
         {
-          "name": "GET /api/student-services/public/services \u2014 catalog",
+          "name": "GET /api/student-services/public/services — catalog",
           "request": {
             "method": "GET",
             "url": "{{baseUrl}}/api/student-services/public/services"
@@ -2323,7 +2335,7 @@
           }
         },
         {
-          "name": "POST /api/student-services/public/quote \u2014 price quote",
+          "name": "POST /api/student-services/public/quote — price quote",
           "request": {
             "method": "POST",
             "header": [
@@ -2340,7 +2352,7 @@
           }
         },
         {
-          "name": "POST /api/student-services/public/pay-momo \u2014 start MoMo for service",
+          "name": "POST /api/student-services/public/pay-momo — start MoMo for service",
           "request": {
             "method": "POST",
             "header": [
@@ -2404,7 +2416,7 @@
           }
         },
         {
-          "name": "PATCH /api/parent-portal/recovery-email \u2014 logged-in parent",
+          "name": "PATCH /api/parent-portal/recovery-email — logged-in parent",
           "request": {
             "method": "PATCH",
             "header": [
@@ -2427,14 +2439,14 @@
       "description": "Mounted at `/api/field-agents` (admin) and `/api/agent` (agent role). Login as AGENT or elevated role first.",
       "item": [
         {
-          "name": "GET /api/field-agents/agents \u2014 list agents (elevated)",
+          "name": "GET /api/field-agents/agents — list agents (elevated)",
           "request": {
             "method": "GET",
             "url": "{{baseUrl}}/api/field-agents/agents"
           }
         },
         {
-          "name": "GET /api/agent/summary \u2014 agent dashboard",
+          "name": "GET /api/agent/summary — agent dashboard",
           "request": {
             "method": "GET",
             "url": "{{baseUrl}}/api/agent/summary"
@@ -2452,6 +2464,78 @@
           "request": {
             "method": "GET",
             "url": "{{baseUrl}}/api/agent/reports/summary"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Teacher Avance USSD",
+      "item": [
+        {
+          "name": "USSD Login",
+          "request": {
+            "method": "POST",
+            "description": "Use variable **teacherStaffId** = the **Staff ID / Code** from Manager portal **HR Central** (`HRCentral.jsx`): auto-generated code stored as `staff.staff_id` (e.g. TR-007). It is sent in the JSON body as **identifier** (API also accepts `staff_code` alias).",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"{{teacherStaffId}}\",\n  \"password\": \"{{password}}\",\n  \"school_code\": \"{{schoolCode}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/teacher-portal/avance/ussd/login"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let j = {};",
+                  "try { j = pm.response.json(); } catch (e) {}",
+                  "if (j && j.data && j.data.access_token) {",
+                  "  pm.collectionVariables.set('ussdAccessToken', j.data.access_token);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "USSD Create Cashout Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ussdAccessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount_requested\": 120000,\n  \"reason\": \"Medical emergency\",\n  \"cashout_category_slug\": \"general\"\n}"
+            },
+            "url": "{{baseUrl}}/api/teacher-portal/avance/ussd/cashout-request"
+          }
+        },
+        {
+          "name": "USSD List Requests",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ussdAccessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/teacher-portal/avance/ussd/requests"
           }
         }
       ]

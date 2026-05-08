@@ -368,10 +368,10 @@ export default function StaffSmartAccessPage({ portalBase = '/manager', accent =
   return (
     <div className="min-h-screen bg-slate-50 pb-16">
       <div className="bg-gradient-to-r from-[#0f172a] via-[#1e293b] to-[#0f172a] text-white px-5 md:px-10 py-8 border-b border-white/10">
-        <p className="text-[10px] font-black uppercase tracking-[0.25em] text-white/50 mb-1">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-white/50 mb-1">
           {teachersOnly ? 'Teachers · identity' : 'Staff & teachers · identity'}
         </p>
-        <h1 className="text-2xl md:text-3xl font-black tracking-tight">Smart staff access</h1>
+        <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">Smart staff access</h1>
         <p className="text-sm text-white/70 font-semibold mt-2 max-w-2xl">
           Step 1: find the person. Step 2: profile photo. Step 3: assign RFID and fingerprint using the same USB device
           workflow as student Smart School Access.
@@ -382,7 +382,7 @@ export default function StaffSmartAccessPage({ portalBase = '/manager', accent =
               key={n}
               type="button"
               onClick={() => setStep(n)}
-              className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+              className={`px-4 py-2 rounded-xl text-[10px] font-semibold uppercase tracking-widest transition-all ${
                 step === n ? 'bg-white text-[#0f172a]' : 'bg-white/10 text-white/80 hover:bg-white/15'
               }`}
             >
@@ -391,7 +391,7 @@ export default function StaffSmartAccessPage({ portalBase = '/manager', accent =
           ))}
           <Link
             to={h('/smart-access')}
-            className={`ml-auto text-[10px] font-black uppercase tracking-widest ${goldText} underline-offset-4 hover:underline`}
+            className={`ml-auto text-[10px] font-semibold uppercase tracking-widest ${goldText} underline-offset-4 hover:underline`}
           >
             Student Smart Access →
           </Link>
@@ -410,10 +410,10 @@ export default function StaffSmartAccessPage({ portalBase = '/manager', accent =
         )}
 
         {step === 1 && (
-          <div className="bg-white rounded-[28px] border border-black/5 shadow-xl p-6 md:p-8">
+          <div className="bg-white rounded-[28px] border border-black/5 shadow-sm p-6 md:p-8">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
               <div>
-                <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">Step 1 — Select person</h2>
+                <h2 className="text-sm font-semibold text-slate-900 uppercase tracking-widest">Step 1 — Select person</h2>
                 <p className="text-xs text-slate-500 font-semibold mt-1">
                   {teachersOnly ? 'Teachers at your school only.' : 'All staff accounts (teachers, admin, etc.).'}
                 </p>
@@ -421,7 +421,7 @@ export default function StaffSmartAccessPage({ portalBase = '/manager', accent =
               <button
                 type="button"
                 onClick={loadStaff}
-                className="text-[10px] font-black uppercase tracking-widest text-[#1E3A5F]"
+                className="text-[10px] font-semibold uppercase tracking-widest text-[#1E3A5F]"
               >
                 Refresh list
               </button>
@@ -438,7 +438,7 @@ export default function StaffSmartAccessPage({ portalBase = '/manager', accent =
             <div className="overflow-x-auto rounded-2xl border border-slate-100">
               <table className="w-full text-left text-sm">
                 <thead>
-                  <tr className="text-[10px] font-black uppercase tracking-wider text-slate-400 border-b border-slate-100">
+                  <tr className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 border-b border-slate-100">
                     <th className="py-3 px-4">Name</th>
                     <th className="py-3 px-4">Email</th>
                     <th className="py-3 px-4">Role</th>
@@ -468,7 +468,7 @@ export default function StaffSmartAccessPage({ portalBase = '/manager', accent =
                         <td className="py-3 px-4 font-bold text-slate-900">{staffName(row)}</td>
                         <td className="py-3 px-4 text-slate-600 text-xs font-mono">{row.email}</td>
                         <td className="py-3 px-4">
-                          <span className="text-[10px] font-black uppercase text-amber-700">{row.role_code}</span>
+                          <span className="text-[10px] font-semibold uppercase text-amber-700">{row.role_code}</span>
                         </td>
                         <td className="py-3 px-4 font-mono text-xs text-slate-600">{row.rfid_uid || '—'}</td>
                         <td className="py-3 px-4 font-mono text-xs text-slate-600">{row.fingerprint_id || '—'}</td>
@@ -480,7 +480,7 @@ export default function StaffSmartAccessPage({ portalBase = '/manager', accent =
                               setPhotoFile(null)
                               setStep(2)
                             }}
-                            className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider text-white ${navyBtn}`}
+                            className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-semibold uppercase tracking-wider text-white ${navyBtn}`}
                           >
                             <UserCheck size={14} />
                             Select
@@ -495,7 +495,7 @@ export default function StaffSmartAccessPage({ portalBase = '/manager', accent =
         )}
 
         {step === 2 && selected && (
-          <div className="bg-white rounded-[28px] border border-black/5 shadow-xl p-6 md:p-8">
+          <div className="bg-white rounded-[28px] border border-black/5 shadow-sm p-6 md:p-8">
             <button
               type="button"
               onClick={() => setStep(1)}
@@ -503,7 +503,7 @@ export default function StaffSmartAccessPage({ portalBase = '/manager', accent =
             >
               <ArrowLeft size={14} /> Back to search
             </button>
-            <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-1">Step 2 — Profile photo</h2>
+            <h2 className="text-sm font-semibold text-slate-900 uppercase tracking-widest mb-1">Step 2 — Profile photo</h2>
             <p className="text-xs text-slate-500 font-semibold mb-6">
               {staffName(selected)} · {selected.email}
             </p>
@@ -518,7 +518,7 @@ export default function StaffSmartAccessPage({ portalBase = '/manager', accent =
                 type="button"
                 disabled={photoBusy || !photoFile}
                 onClick={savePhoto}
-                className="inline-flex items-center gap-2 px-8 py-3 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-500 text-[#0f172a] font-black text-xs uppercase tracking-widest disabled:opacity-50"
+                className="inline-flex items-center gap-2 px-8 py-3 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-500 text-[#0f172a] font-semibold text-xs uppercase tracking-widest disabled:opacity-50"
               >
                 {photoBusy ? <Loader2 className="animate-spin" size={16} /> : <Check size={16} />}
                 Save & continue
@@ -526,7 +526,7 @@ export default function StaffSmartAccessPage({ portalBase = '/manager', accent =
               <button
                 type="button"
                 onClick={() => setStep(3)}
-                className="px-6 py-3 rounded-2xl border border-slate-200 text-xs font-black uppercase tracking-widest text-slate-700"
+                className="px-6 py-3 rounded-2xl border border-slate-200 text-xs font-semibold uppercase tracking-widest text-slate-700"
               >
                 Skip to hardware
               </button>
@@ -545,7 +545,7 @@ export default function StaffSmartAccessPage({ portalBase = '/manager', accent =
                 <button
                   type="button"
                   onClick={connectSerial}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 border border-white/20 text-[10px] font-black uppercase tracking-wider"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 border border-white/20 text-[10px] font-semibold uppercase tracking-wider"
                 >
                   <Radio size={14} /> Web Serial
                 </button>
@@ -555,7 +555,7 @@ export default function StaffSmartAccessPage({ portalBase = '/manager', accent =
               </div>
             </div>
 
-            <div className="bg-white rounded-[28px] border border-black/5 shadow-xl p-6 md:p-8">
+            <div className="bg-white rounded-[28px] border border-black/5 shadow-sm p-6 md:p-8">
               <button
                 type="button"
                 onClick={() => setStep(2)}
@@ -563,7 +563,7 @@ export default function StaffSmartAccessPage({ portalBase = '/manager', accent =
               >
                 <ArrowLeft size={14} /> Back
               </button>
-              <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-1">Step 3 — Hardware</h2>
+              <h2 className="text-sm font-semibold text-slate-900 uppercase tracking-widest mb-1">Step 3 — Hardware</h2>
               <p className="text-xs text-slate-500 font-semibold mb-6">
                 Selected: <strong>{staffName(selected)}</strong>
               </p>
@@ -576,18 +576,18 @@ export default function StaffSmartAccessPage({ portalBase = '/manager', accent =
 
               <div className="grid md:grid-cols-2 gap-4 mb-6">
                 <div className="rounded-2xl border border-slate-100 p-4 bg-slate-50">
-                  <p className="text-[10px] font-black uppercase text-slate-400 mb-2">Serial status</p>
+                  <p className="text-[10px] font-semibold uppercase text-slate-400 mb-2">Serial status</p>
                   <p className="text-sm font-bold text-slate-800">{serialStatus === 'connected' ? 'Connected' : 'Not connected'}</p>
                   <p className="text-xs text-slate-600 mt-2">{instruction}</p>
                 </div>
                 <div className="rounded-2xl border border-slate-100 p-4 bg-slate-50">
-                  <p className="text-[10px] font-black uppercase text-slate-400 mb-2">Last scan</p>
+                  <p className="text-[10px] font-semibold uppercase text-slate-400 mb-2">Last scan</p>
                   <p className="font-mono text-xs text-slate-800">RFID: {cardUid || '—'}</p>
                   <p className="font-mono text-xs text-slate-800 mt-1">FP: {fpId || '—'}</p>
                 </div>
               </div>
 
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Or enter manually</p>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-3">Or enter manually</p>
               <div className="grid md:grid-cols-2 gap-4 mb-6">
                 <div>
                   <label className="text-[10px] font-bold text-slate-500 flex items-center gap-1">
@@ -622,7 +622,7 @@ export default function StaffSmartAccessPage({ portalBase = '/manager', accent =
                 type="button"
                 disabled={apiBusy}
                 onClick={saveIdentityManual}
-                className={`inline-flex items-center gap-2 px-8 py-3 rounded-2xl text-white font-black text-xs uppercase tracking-widest ${navyBtn} disabled:opacity-50`}
+                className={`inline-flex items-center gap-2 px-8 py-3 rounded-2xl text-white font-semibold text-xs uppercase tracking-widest ${navyBtn} disabled:opacity-50`}
               >
                 {apiBusy ? <Loader2 className="animate-spin" size={16} /> : <Shield size={16} />}
                 Save identity

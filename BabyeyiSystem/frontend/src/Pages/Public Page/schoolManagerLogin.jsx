@@ -151,7 +151,12 @@ export default function SchoolManagerLogin() {
       const roleCode = String(json.role || '').toUpperCase();
       if (roleCode !== 'SCHOOL_ADMIN' && roleCode !== 'SCHOOL_MANAGER') {
         try {
-          await fetch(`${API}/api/session/logout`, { method: 'POST', credentials: 'include' });
+          await fetch(`${API}/api/session/logout`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({}),
+          });
         } catch { /* ignore */ }
         notify(
           'This page is for school managers only. Teachers and other staff should use Staff login.',

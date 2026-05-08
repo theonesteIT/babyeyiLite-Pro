@@ -109,7 +109,7 @@ export default function StudentPermissions() {
 
     const PermissionModal = isModalOpen ? createPortal(
         <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 bg-[#0a192f]/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white rounded-[40px] shadow-2xl border border-black/5 w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col">
+            <div className="bg-white rounded-[40px] shadow-sm border border-black/5 w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col">
                 <div className="px-6 py-5 bg-gradient-to-br from-[#000435] to-[#0D2644] text-white shrink-0">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -117,8 +117,8 @@ export default function StudentPermissions() {
                                 <FileText size={18} style={{ color: "#FEBF10" }} />
                             </div>
                             <div className="min-w-0">
-                                <h3 className="text-base font-black uppercase tracking-widest leading-none">Issue Permission</h3>
-                                <p className="text-[9px] font-bold text-white/60 uppercase tracking-widest mt-1">
+                                <h3 className="text-base font-medium uppercase tracking-widest leading-none">Issue Permission</h3>
+                                <p className="text-[9px] font-medium text-white/60 uppercase tracking-widest mt-1">
                                     Create a validated permission window
                                 </p>
                             </div>
@@ -132,14 +132,14 @@ export default function StudentPermissions() {
                 <form onSubmit={handleCreate} className="px-6 py-5 space-y-5 overflow-y-auto">
                     <div className="space-y-4">
                         <div className="space-y-1.5">
-                            <label className="text-[9px] font-black text-[#000435] uppercase tracking-widest ml-1">Select Student</label>
+                            <label className="text-[9px] font-medium text-[#000435] uppercase tracking-widest ml-1">Select Student</label>
                             <div className="relative">
                                 <div className="absolute left-4 top-1/2 -translate-y-1/2 text-re-text-muted/60 pointer-events-none">
                                     <Search size={14} />
                                 </div>
                                 <select
                                     required
-                                    className="w-full h-11 pl-12 pr-4 bg-white border border-black/5 rounded-2xl text-[10px] font-black text-[#000435] uppercase tracking-widest shadow-inner outline-none focus:ring-2 focus:ring-[#FEBF10]/20 appearance-none cursor-pointer"
+                                    className="w-full h-11 pl-12 pr-4 bg-white border border-black/5 rounded-2xl text-[10px] font-medium text-[#000435] uppercase tracking-widest shadow-inner outline-none focus:ring-2 focus:ring-[#FEBF10]/20 appearance-none cursor-pointer"
                                     value={form.student_id}
                                     onChange={e => setForm({...form, student_id: e.target.value})}
                                 >
@@ -154,19 +154,19 @@ export default function StudentPermissions() {
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1.5">
-                                <label className="text-[9px] font-black text-[#000435] uppercase tracking-widest ml-1">From</label>
+                                <label className="text-[9px] font-medium text-[#000435] uppercase tracking-widest ml-1">From</label>
                                 <input 
                                     required type="datetime-local"
-                                    className="w-full h-11 px-4 bg-white border border-black/5 rounded-2xl text-[10px] font-black text-[#000435] uppercase tracking-widest shadow-inner outline-none focus:ring-2 focus:ring-[#FEBF10]/20"
+                                    className="w-full h-11 px-4 bg-white border border-black/5 rounded-2xl text-[10px] font-medium text-[#000435] uppercase tracking-widest shadow-inner outline-none focus:ring-2 focus:ring-[#FEBF10]/20"
                                     value={form.starts_at}
                                     onChange={e => setForm({...form, starts_at: e.target.value})}
                                 />
                             </div>
                             <div className="space-y-1.5">
-                                <label className="text-[9px] font-black text-[#000435] uppercase tracking-widest ml-1">To</label>
+                                <label className="text-[9px] font-medium text-[#000435] uppercase tracking-widest ml-1">To</label>
                                 <input 
                                     required type="datetime-local"
-                                    className="w-full h-11 px-4 bg-white border border-black/5 rounded-2xl text-[10px] font-black text-[#000435] uppercase tracking-widest shadow-inner outline-none focus:ring-2 focus:ring-[#FEBF10]/20"
+                                    className="w-full h-11 px-4 bg-white border border-black/5 rounded-2xl text-[10px] font-medium text-[#000435] uppercase tracking-widest shadow-inner outline-none focus:ring-2 focus:ring-[#FEBF10]/20"
                                     value={form.ends_at}
                                     onChange={e => setForm({...form, ends_at: e.target.value})}
                                 />
@@ -174,13 +174,13 @@ export default function StudentPermissions() {
                         </div>
 
                         <div className="space-y-1.5">
-                            <label className="text-[9px] font-black text-[#000435] uppercase tracking-widest ml-1">Leave Type</label>
+                            <label className="text-[9px] font-medium text-[#000435] uppercase tracking-widest ml-1">Leave Type</label>
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                                 {['MEDICAL', 'FAMILY', 'OFFICIAL', 'OTHER'].map(type => (
                                     <button 
                                         key={type} type="button"
                                         onClick={() => setForm({...form, permission_type: type})}
-                                        className={`py-2 rounded-xl text-[8px] font-black uppercase tracking-widest transition-all border ${
+                                        className={`py-2 rounded-xl text-[8px] font-medium uppercase tracking-widest transition-all border ${
                                             form.permission_type === type ? 'bg-[#000435] text-white border-[#000435]' : 'bg-white border-black/5 text-re-text-muted hover:border-[#000435]/30 shadow-inner'
                                         }`}
                                     >
@@ -191,7 +191,7 @@ export default function StudentPermissions() {
                         </div>
 
                         <div className="space-y-1.5">
-                            <label className="text-[9px] font-black text-[#000435] uppercase tracking-widest ml-1">Reason / Remarks</label>
+                            <label className="text-[9px] font-medium text-[#000435] uppercase tracking-widest ml-1">Reason / Remarks</label>
                             <textarea 
                                 className="w-full h-24 p-4 bg-white border border-black/5 rounded-2xl text-xs font-semibold shadow-inner outline-none focus:ring-2 focus:ring-[#FEBF10]/20 resize-none"
                                 placeholder="Short reason (optional)..."
@@ -206,14 +206,14 @@ export default function StudentPermissions() {
                         <button
                             type="button"
                             onClick={() => setIsModalOpen(false)}
-                            className="flex-1 h-11 rounded-2xl border border-black/5 text-re-text font-black text-[9px] uppercase tracking-[0.2em] hover:bg-re-bg transition-all"
+                            className="flex-1 h-11 rounded-2xl border border-black/5 text-re-text font-medium text-[9px] uppercase tracking-[0.2em] hover:bg-re-bg transition-all"
                         >
                             Cancel
                         </button>
                         <button
                             type="submit"
                             disabled={isSaving}
-                            className="flex-[2] h-11 rounded-2xl text-white font-black text-[9px] uppercase tracking-[0.2em] shadow-xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+                            className="flex-[2] h-11 rounded-2xl text-white font-medium text-[9px] uppercase tracking-[0.2em] shadow-sm active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-60"
                             style={{ background: "linear-gradient(135deg, #000435 0%, #0D2644 100%)" }}
                         >
                             {isSaving ? <Loader2 size={15} className="animate-spin" /> : <ShieldCheck size={15} style={{ color: "#FEBF10" }} />}
@@ -229,15 +229,15 @@ export default function StudentPermissions() {
 
     const PermissionDetailsModal = selectedPermission ? createPortal(
         <div className="fixed inset-0 z-[230] flex items-center justify-center p-4 bg-[#0a192f]/60 backdrop-blur-sm animate-in fade-in duration-150">
-            <div className="bg-white rounded-[32px] shadow-2xl border border-black/5 w-full max-w-md overflow-hidden max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-150">
+            <div className="bg-white rounded-[32px] shadow-sm border border-black/5 w-full max-w-md overflow-hidden max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-150">
                 <div className="px-6 py-5 bg-gradient-to-br from-[#000435] to-[#0D2644] text-white shrink-0">
                     <div className="flex items-center justify-between">
                         <div className="min-w-0">
-                            <p className="text-[9px] font-black uppercase tracking-[0.3em]" style={{ color: "#FEBF10" }}>Permission</p>
-                            <h3 className="text-base font-black uppercase tracking-widest leading-tight mt-1 truncate">
+                            <p className="text-[9px] font-medium uppercase tracking-[0.3em]" style={{ color: "#FEBF10" }}>Permission</p>
+                            <h3 className="text-base font-medium uppercase tracking-widest leading-tight mt-1 truncate">
                                 {selectedPermission.first_name} {selectedPermission.last_name}
                             </h3>
-                            <p className="text-[9px] font-bold text-white/60 uppercase tracking-widest mt-1 truncate">
+                            <p className="text-[9px] font-medium text-white/60 uppercase tracking-widest mt-1 truncate">
                                 {selectedPermission.student_uid} • {selectedPermission.class_name}
                             </p>
                         </div>
@@ -253,29 +253,29 @@ export default function StudentPermissions() {
                 <div className="px-6 py-5 overflow-y-auto space-y-4">
                     <div className="grid grid-cols-2 gap-3">
                         <div className="bg-white border border-black/5 rounded-2xl p-3 shadow-inner">
-                            <p className="text-[8px] font-black text-re-text-muted uppercase tracking-widest opacity-50">Type</p>
-                            <p className="text-[11px] font-black text-[#000435] uppercase tracking-widest mt-1">{selectedPermission.permission_type}</p>
+                            <p className="text-[8px] font-medium text-re-text-muted uppercase tracking-widest opacity-50">Type</p>
+                            <p className="text-[11px] font-medium text-[#000435] uppercase tracking-widest mt-1">{selectedPermission.permission_type}</p>
                         </div>
                         <div className="bg-white border border-black/5 rounded-2xl p-3 shadow-inner">
-                            <p className="text-[8px] font-black text-re-text-muted uppercase tracking-widest opacity-50">Status</p>
-                            <p className="text-[11px] font-black text-[#000435] uppercase tracking-widest mt-1">{selectedPermission.status}</p>
+                            <p className="text-[8px] font-medium text-re-text-muted uppercase tracking-widest opacity-50">Status</p>
+                            <p className="text-[11px] font-medium text-[#000435] uppercase tracking-widest mt-1">{selectedPermission.status}</p>
                         </div>
                     </div>
 
                     <div className="bg-white border border-black/5 rounded-2xl p-4 shadow-inner space-y-2">
-                        <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-widest text-re-text-muted/60">
+                        <div className="flex items-center justify-between text-[9px] font-medium uppercase tracking-widest text-re-text-muted/60">
                             <span>From</span>
                             <span className="text-[#000435]">{new Date(selectedPermission.starts_at).toLocaleString()}</span>
                         </div>
-                        <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-widest text-re-text-muted/60 border-t border-black/5 pt-2">
+                        <div className="flex items-center justify-between text-[9px] font-medium uppercase tracking-widest text-re-text-muted/60 border-t border-black/5 pt-2">
                             <span>To</span>
                             <span className="text-[#000435]">{new Date(selectedPermission.ends_at).toLocaleString()}</span>
                         </div>
                     </div>
 
                     <div className="bg-white border border-black/5 rounded-2xl p-4 shadow-inner">
-                        <p className="text-[8px] font-black text-re-text-muted uppercase tracking-widest opacity-50 mb-2">Reason</p>
-                        <p className="text-[11px] font-bold text-re-text leading-relaxed">{selectedPermission.reason || '—'}</p>
+                        <p className="text-[8px] font-medium text-re-text-muted uppercase tracking-widest opacity-50 mb-2">Reason</p>
+                        <p className="text-[11px] font-medium text-re-text leading-relaxed">{selectedPermission.reason || '—'}</p>
                     </div>
                 </div>
 
@@ -289,7 +289,7 @@ export default function StudentPermissions() {
                                     href={callDisabled ? undefined : `tel:${parentPhone}`}
                                     aria-disabled={callDisabled}
                                     title={callDisabled ? 'No parent phone number' : `Call ${parentPhone}`}
-                                    className={`h-11 flex items-center justify-center gap-2 rounded-2xl font-black text-[9px] uppercase tracking-[0.2em] border transition-all ${
+                                    className={`h-11 flex items-center justify-center gap-2 rounded-2xl font-medium text-[9px] uppercase tracking-[0.2em] border transition-all ${
                                         callDisabled ? 'bg-re-bg/40 text-re-text/40 border-black/0 cursor-not-allowed pointer-events-none' : 'bg-white border-black/5 hover:bg-re-bg'
                                     }`}
                                 >
@@ -305,7 +305,7 @@ export default function StudentPermissions() {
                                             autoPrint: true,
                                         });
                                     }}
-                                    className="h-11 flex items-center justify-center gap-2 rounded-2xl text-white font-black text-[9px] uppercase tracking-[0.2em] shadow-xl hover:scale-[1.02] active:scale-95 transition-all"
+                                    className="h-11 flex items-center justify-center gap-2 rounded-2xl text-white font-medium text-[9px] uppercase tracking-[0.2em] shadow-sm active:scale-95 transition-all"
                                     style={{ background: "linear-gradient(135deg, #000435 0%, #0D2644 100%)" }}
                                 >
                                     <Printer size={15} style={{ color: "#FEBF10" }} />
@@ -333,12 +333,12 @@ export default function StudentPermissions() {
                     <div className="space-y-1">
                         <div className="flex items-center gap-2 mb-1">
                             <span className="w-5 h-1 rounded-full animate-pulse" style={{ background: "#FEBF10" }}></span>
-                            <p className="text-[9px] font-black uppercase tracking-[0.3em]" style={{ color: "#FEBF10" }}>Staff Resource</p>
+                            <p className="text-[9px] font-medium uppercase tracking-[0.3em]" style={{ color: "#FEBF10" }}>Staff Resource</p>
                         </div>
-                        <h1 className="text-2xl sm:text-4xl md:text-5xl font-black text-white tracking-tighter leading-none mb-1 mt-1 uppercase">
+                        <h1 className="text-2xl sm:text-4xl md:text-5xl font-medium text-white tracking-tighter leading-none mb-1 mt-1 uppercase">
                             Student <span style={{ color: "#FEBF10" }}>Permissions</span>
                         </h1>
-                        <p className="text-[8px] sm:text-[9px] md:text-[11px] font-bold text-white/40 max-w-lg leading-relaxed uppercase tracking-widest italic opacity-60">
+                        <p className="text-[8px] sm:text-[9px] md:text-[11px] font-medium text-white/40 max-w-lg leading-relaxed uppercase tracking-widest italic opacity-60">
                             Digital Out-Passes & Attendance Reconciliation Engine
                         </p>
                     </div>
@@ -346,8 +346,8 @@ export default function StudentPermissions() {
             </div>
 
             {/* ── Main Dashboard ── */}
-            <div className="max-w-[1600px] mx-auto px-6 -mt-20 relative z-20 pb-20">
-                <div className="bg-white rounded-t-[32px] shadow-2xl border border-black/5 overflow-hidden flex flex-col min-h-[600px]">
+            <div className="acct-shell-wide pb-20">
+                <div className="acct-panel-sheet overflow-hidden flex flex-col min-h-[600px]">
                     
                     {/* Top Layer: Stats Grid */}
                     <div className="grid grid-cols-1 lg:grid-cols-4 border-b border-black/5">
@@ -362,10 +362,10 @@ export default function StudentPermissions() {
                                     <div className="mb-1 sm:mb-1.5 opacity-40 shrink-0" style={{ color: s.color || "#000435" }}>
                                         {s.icon}
                                     </div>
-                                    <span className="text-sm sm:text-xl font-black text-re-text tracking-tighter group-hover:text-[#000435] transition-colors">
+                                    <span className="text-sm sm:text-xl font-medium text-re-text tracking-tighter group-hover:text-[#000435] transition-colors">
                                         {s.value}
                                     </span>
-                                    <p className="text-[6px] sm:text-[7px] font-black text-re-text-muted uppercase tracking-[0.2em] mt-0.5 opacity-60">
+                                    <p className="text-[6px] sm:text-[7px] font-medium text-re-text-muted uppercase tracking-[0.2em] mt-0.5 opacity-60">
                                         {s.label}
                                     </p>
                                 </div>
@@ -376,7 +376,7 @@ export default function StudentPermissions() {
                         <div className="hidden lg:flex flex-col border-l border-black/5 bg-re-bg/30 p-6 justify-center gap-3 relative">
                             <button 
                                 onClick={() => setIsModalOpen(true)}
-                                className="w-full h-11 flex items-center justify-center gap-2 text-white rounded-xl font-black text-[9px] uppercase tracking-widest shadow-xl hover:scale-[1.02] active:scale-95 transition-all"
+                                className="w-full h-11 flex items-center justify-center gap-2 text-white rounded-xl font-medium text-[9px] uppercase tracking-widest shadow-sm active:scale-95 transition-all"
                                 style={{ background: "linear-gradient(135deg, #000435 0%, #0D2644 100%)" }}
                             >
                                 <Plus size={14} />
@@ -393,7 +393,7 @@ export default function StudentPermissions() {
                                     <button 
                                         key={f}
                                         onClick={() => setActiveFilter(f)}
-                                        className={`px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                                        className={`px-4 py-2 rounded-lg text-[9px] font-medium uppercase tracking-widest transition-all ${
                                             activeFilter === f ? 'bg-[#000435] text-white shadow-md' : 'text-re-text-muted hover:bg-re-bg'
                                         }`}
                                     >
@@ -409,7 +409,7 @@ export default function StudentPermissions() {
                                 <input 
                                     type="text"
                                     placeholder="Search by student or ID..."
-                                    className="w-full h-11 pl-11 pr-4 bg-white border border-black/5 rounded-xl shadow-inner text-xs font-bold outline-none focus:ring-2 ring-[#000435]/10"
+                                    className="w-full h-11 pl-11 pr-4 bg-white border border-black/5 rounded-xl shadow-inner text-xs font-medium outline-none focus:ring-2 ring-[#000435]/10"
                                     value={searchQuery}
                                     onChange={e => setSearchQuery(e.target.value)}
                                 />
@@ -422,17 +422,17 @@ export default function StudentPermissions() {
                         {loading ? (
                             <div className="p-24 text-center">
                                 <Loader2 size={40} className="text-orange-500 animate-spin mx-auto mb-4" />
-                                <p className="text-[10px] font-black text-re-text-muted uppercase tracking-widest">Accessing Vault...</p>
+                                <p className="text-[10px] font-medium text-re-text-muted uppercase tracking-widest">Accessing Vault...</p>
                             </div>
                         ) : (
                             <table className="w-full text-left border-collapse">
                                 <thead>
                                     <tr className="bg-re-bg/30">
-                                        <th className="px-6 py-4 text-[9px] font-black text-re-text-muted uppercase tracking-widest border-b border-black/5">Student</th>
-                                        <th className="px-6 py-4 text-[9px] font-black text-re-text-muted uppercase tracking-widest border-b border-black/5">Duration</th>
-                                        <th className="px-6 py-4 text-[9px] font-black text-re-text-muted uppercase tracking-widest border-b border-black/5">Reason & Type</th>
-                                        <th className="px-6 py-4 text-[9px] font-black text-re-text-muted uppercase tracking-widest border-b border-black/5">Status</th>
-                                        <th className="px-6 py-4 text-[9px] font-black text-re-text-muted uppercase tracking-widest border-b border-black/5 text-right">Actions</th>
+                                        <th className="px-6 py-4 text-[9px] font-medium text-re-text-muted uppercase tracking-widest border-b border-black/5">Student</th>
+                                        <th className="px-6 py-4 text-[9px] font-medium text-re-text-muted uppercase tracking-widest border-b border-black/5">Duration</th>
+                                        <th className="px-6 py-4 text-[9px] font-medium text-re-text-muted uppercase tracking-widest border-b border-black/5">Reason & Type</th>
+                                        <th className="px-6 py-4 text-[9px] font-medium text-re-text-muted uppercase tracking-widest border-b border-black/5">Status</th>
+                                        <th className="px-6 py-4 text-[9px] font-medium text-re-text-muted uppercase tracking-widest border-b border-black/5 text-right">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-black/5">
@@ -452,32 +452,32 @@ export default function StudentPermissions() {
                                                             <User size={18} className="text-re-text-muted opacity-40" />
                                                         </div>
                                                         <div>
-                                                            <div className="text-xs font-black text-re-text uppercase tracking-tight">{p.first_name} {p.last_name}</div>
-                                                            <div className="text-[8px] font-bold text-re-text-muted uppercase tracking-widest">{p.student_uid} • {p.class_name}</div>
+                                                            <div className="text-xs font-medium text-re-text uppercase tracking-tight">{p.first_name} {p.last_name}</div>
+                                                            <div className="text-[8px] font-medium text-re-text-muted uppercase tracking-widest">{p.student_uid} • {p.class_name}</div>
                                                         </div>
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <div className="space-y-1">
-                                                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-600">
+                                                        <div className="flex items-center gap-1.5 text-[10px] font-medium text-emerald-600">
                                                             <CheckCircle size={10} /> {new Date(p.starts_at).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}
                                                         </div>
-                                                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-red-600">
+                                                        <div className="flex items-center gap-1.5 text-[10px] font-medium text-red-600">
                                                             <XCircle size={10} /> {new Date(p.ends_at).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}
                                                         </div>
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <div className="space-y-1">
-                                                        <div className="inline-flex px-2 py-0.5 rounded bg-re-bg border border-black/5 text-[8px] font-black text-re-text-muted uppercase tracking-widest">
+                                                        <div className="inline-flex px-2 py-0.5 rounded bg-re-bg border border-black/5 text-[8px] font-medium text-re-text-muted uppercase tracking-widest">
                                                             {p.permission_type}
                                                         </div>
-                                                        <p className="text-[10px] font-bold text-re-text leading-tight max-w-[200px] truncate">{p.reason || 'No reason provided'}</p>
+                                                        <p className="text-[10px] font-medium text-re-text leading-tight max-w-[200px] truncate">{p.reason || 'No reason provided'}</p>
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <div className="flex items-center gap-2">
-                                                        <span className={`px-2 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest ring-1 ${
+                                                        <span className={`px-2 py-1 rounded-lg text-[8px] font-medium uppercase tracking-widest ring-1 ${
                                                             p.status === 'PENDING' ? 'bg-orange-50 text-orange-600 ring-orange-500/20' :
                                                             p.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-600 ring-emerald-500/20' :
                                                             'bg-red-50 text-red-600 ring-red-500/20'
@@ -485,7 +485,7 @@ export default function StudentPermissions() {
                                                             {p.status}
                                                         </span>
                                                         {active && (
-                                                            <span className="flex items-center gap-1 text-[8px] font-black text-emerald-500 uppercase tracking-widest bg-emerald-100/50 px-2 py-1 rounded-lg animate-pulse">
+                                                            <span className="flex items-center gap-1 text-[8px] font-medium text-emerald-500 uppercase tracking-widest bg-emerald-100/50 px-2 py-1 rounded-lg animate-pulse">
                                                                 <ShieldCheck size={10} /> Currently Out
                                                             </span>
                                                         )}
@@ -518,7 +518,7 @@ export default function StudentPermissions() {
                         {!loading && filteredPermissions.length === 0 && (
                             <div className="p-24 text-center">
                                 <AlertCircle size={40} className="text-[#000435] mx-auto mb-4" />
-                                <p className="text-[10px] font-black text-re-text-muted uppercase tracking-widest">No permission records found</p>
+                                <p className="text-[10px] font-medium text-re-text-muted uppercase tracking-widest">No permission records found</p>
                             </div>
                         )}
                     </div>

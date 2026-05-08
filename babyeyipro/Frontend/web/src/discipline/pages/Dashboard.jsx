@@ -3,7 +3,6 @@ import { useAuth } from '../context/AuthContext';
 import {
   Wallet,
   MessageSquare,
-  BookOpen,
   Users,
   ArrowRight,
   RefreshCw,
@@ -11,6 +10,8 @@ import {
   ClipboardCheck,
   Eye,
   Calendar,
+  FileSpreadsheet,
+  ClipboardList,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
@@ -86,17 +87,24 @@ const Dashboard = () => {
     },
     {
       title: 'Shule Avance',
-      desc: 'Staff services portal.',
+      desc: 'Teacher service requests and cash support.',
       icon: <Wallet size={20} />,
       color: 'text-re-orange',
       path: '/shule-avance',
     },
     {
-      title: 'English Club',
-      desc: 'Professional reading resources.',
-      icon: <BookOpen size={20} />,
-      color: 'text-re-blue',
-      path: '/english-club',
+      title: 'Requisitions',
+      desc: 'Create and track requests for school services.',
+      icon: <FileSpreadsheet size={20} />,
+      color: 'text-amber-700',
+      path: '/requisitions',
+    },
+    {
+      title: 'Set discipline marks',
+      desc: 'Record discipline marks and keep a clear audit trail.',
+      icon: <ClipboardList size={20} />,
+      color: 'text-rose-600',
+      path: '/discipline/set-marks',
     },
   ];
 
@@ -106,31 +114,35 @@ const Dashboard = () => {
 
   return (
     <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen">
+      <section className="relative w-full min-h-[200px] sm:min-h-[220px] overflow-hidden bg-[#c87800]">
+        <div className="absolute -top-28 -right-28 w-[22rem] h-[22rem] rounded-full border border-white/[0.07] pointer-events-none" aria-hidden />
+        <div className="absolute -top-14 -right-14 w-[15rem] h-[15rem] rounded-full border border-white/[0.06] pointer-events-none" aria-hidden />
+        <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-[#FEBF10]/30 to-transparent pointer-events-none" aria-hidden />
 
-      {/* HERO */}
-      <section className="relative p-7 md:p-10 text-white overflow-hidden min-h-[230px] flex items-center">
-        <div className="absolute inset-0 z-0">
-          <img src="/teacher.jpg" className="w-full h-full object-cover shadow-2xl" />
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-[1px]"></div>
-        </div>
-
-        <div className="relative z-10 max-w-4xl">
-          <h1 className="text-2xl md:text-3xl font-black tracking-tight mb-2">
-            Welcome, {teacher?.first_name || 'Team'} 
-          </h1>
-         
+        <div className="relative z-10 max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-12 pt-10 sm:pt-12 pb-20 sm:pb-24">
+          <div className="space-y-1 max-w-3xl">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="w-5 h-1 rounded-full bg-[#FEBF10]" aria-hidden />
+              <p className="text-[10px] font-medium uppercase tracking-widest text-white/85">Discipline portal</p>
+            </div>
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-medium text-white tracking-tight leading-tight">
+              Dashboard <span className="text-[#FEBF10]">{teacher?.first_name || 'Team'}</span>
+            </h1>
+            <p className="text-xs sm:text-sm font-normal text-white/82 max-w-xl leading-relaxed">
+              Track discipline, attendance, and student support with a cleaner manager-style dashboard.
+            </p>
+          </div>
         </div>
       </section>
 
-      {/* MAIN */}
-      <div className="max-w-[1300px] mx-auto px-5 md:px-8 -mt-10 relative z-20 pb-14">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 -mt-4 sm:-mt-5 md:-mt-6 pt-2 relative z-20 pb-10">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
           {/* LEFT */}
           <div className="lg:col-span-2 space-y-5">
 
             {/* STATS */}
-            <div className="bg-white rounded-[24px] shadow-2xl border border-black/5 overflow-hidden grid grid-cols-2">
+            <div className="bg-white rounded-[24px] shadow-sm border border-black/10 overflow-hidden grid grid-cols-2">
               {stats.map((stat, i) => (
                 <div
                   key={i}
@@ -138,10 +150,10 @@ const Dashboard = () => {
                   ${i % 2 === 0 ? 'border-r' : ''} 
                   ${i < 2 ? 'border-b' : ''}`}
                 >
-                  <span className="text-xl md:text-2xl font-black text-re-text">
+                  <span className="text-xl md:text-2xl font-semibold text-re-text">
                     {stat.value}
                   </span>
-                  <p className="text-[9px] font-black text-re-text-muted uppercase tracking-widest mt-1 opacity-60">
+                  <p className="text-[9px] font-medium text-re-text-muted uppercase tracking-wider mt-1 opacity-60">
                     {stat.label}
                   </p>
                 </div>
@@ -150,7 +162,7 @@ const Dashboard = () => {
 
             {/* TOOLS */}
             <div className="bg-white rounded-[24px] shadow-sm border border-black/5 p-5 space-y-4">
-              <h3 className="text-sm font-black text-re-text uppercase opacity-80">
+              <h3 className="text-sm font-medium text-re-text uppercase tracking-wide opacity-80">
                 Quick access
               </h3>
 
@@ -164,17 +176,17 @@ const Dashboard = () => {
                       </div>
 
                       <div>
-                        <h4 className="text-sm font-black text-re-text">
+                        <h4 className="text-sm font-semibold text-re-text">
                           {tool.title}
                         </h4>
-                        <p className="text-[10px] text-re-text-muted font-bold opacity-60 leading-snug pr-2">
+                        <p className="text-[10px] text-re-text-muted font-medium opacity-70 leading-snug pr-2">
                           {tool.desc}
                         </p>
                       </div>
 
                       <Link
                         to={h(tool.path)}
-                        className="flex items-center gap-1 text-re-orange font-black text-[9px] uppercase tracking-widest group-hover:gap-2 transition-all"
+                        className="flex items-center gap-1 text-re-orange font-medium text-[9px] uppercase tracking-wider group-hover:gap-2 transition-all"
                       >
                         Open Tool <ArrowRight size={11} />
                       </Link>
@@ -191,10 +203,10 @@ const Dashboard = () => {
           <div className="space-y-5 lg:sticky lg:top-20 h-fit">
 
             {/* Today's Schedule Card */}
-            <div className="bg-white rounded-[24px] shadow-2xl border border-black/5 p-5">
+            <div className="bg-white rounded-[24px] shadow-sm border border-black/10 p-5">
               <div className="flex items-center gap-2 mb-4">
                 <span className="w-0.5 h-3 bg-re-purple rounded-full"></span>
-                <h3 className="text-xs font-black text-re-text uppercase tracking-widest opacity-70">Today&apos;s timetable</h3>
+                <h3 className="text-xs font-medium text-re-text uppercase tracking-wider opacity-70">Today&apos;s timetable</h3>
               </div>
 
               <div className="space-y-2">
@@ -202,16 +214,16 @@ const Dashboard = () => {
                   <div key={i} className={`flex items-start gap-3 p-2 rounded-lg transition-all
                     ${item.active ? 'bg-orange-50/50 border-b shadow-inner border-orange-100' : 'hover:bg-re-bg'}`}>
 
-                    <span className={`text-[8px] font-black min-w-[32px] pt-0.5
+                    <span className={`text-[8px] font-medium min-w-[32px] pt-0.5
                       ${item.active ? 'text-re-orange' : 'text-re-text-muted opacity-40'}`}>
                       {item.time}
                     </span>
 
                     <div>
-                      <p className="font-black text-re-text text-xs leading-none tracking-tight">
+                      <p className="font-semibold text-re-text text-xs leading-none tracking-tight">
                         {item.subject || item.title}
                       </p>
-                      <p className="text-[8px] text-re-text-muted font-bold uppercase tracking-widest opacity-40 mt-1">
+                      <p className="text-[8px] text-re-text-muted font-medium uppercase tracking-wider opacity-40 mt-1">
                         {[item.group, item.room].filter(Boolean).join(' · ') || '—'}
                       </p>
                     </div>
@@ -222,7 +234,7 @@ const Dashboard = () => {
               <div className="mt-4 text-center">
                 <Link
                   to={h('/timetable')}
-                  className="inline-block text-re-orange font-black text-[8px] uppercase tracking-widest hover:underline opacity-80"
+                  className="inline-block text-re-orange font-medium text-[8px] uppercase tracking-wider hover:underline opacity-80"
                 >
                   View full timetable
                 </Link>
@@ -230,7 +242,7 @@ const Dashboard = () => {
             </div>
 
             {/* Quick Support Card (Rich Gradient + Texture) */}
-            <div className="relative rounded-[24px] p-6 text-white shadow-re-premium-purple overflow-hidden group active:scale-[0.99] transition-all bg-re-grad-purple">
+            <div className="relative rounded-[24px] p-6 text-white shadow-sm border border-black/10 overflow-hidden group active:scale-[0.99] transition-all bg-re-grad-purple">
 
               {/* Background Texture Overlay */}
               <div className="absolute inset-0 opacity-10 mix-blend-overlay">
@@ -242,12 +254,12 @@ const Dashboard = () => {
                   <Shield size={18} className="text-white" />
                 </div>
                 <div>
-                  <h4 className="font-black text-xs tracking-widest uppercase leading-none opacity-90">Conduct hub</h4>
-                  <p className="text-[10px] text-white font-bold leading-snug mt-2 opacity-80">
+                  <h4 className="font-semibold text-xs tracking-wider uppercase leading-none opacity-90">Conduct hub</h4>
+                  <p className="text-[10px] text-white font-medium leading-snug mt-2 opacity-80">
                     Open the conduct overview for scale settings and how to use discipline tools with your school.
                   </p>
                 </div>
-                <div className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest group-hover:gap-2.5 transition-all">
+                <div className="flex items-center gap-1.5 text-[9px] font-medium uppercase tracking-wider group-hover:gap-2.5 transition-all">
                   Go to conduct <ArrowRight size={12} />
                 </div>
               </Link>

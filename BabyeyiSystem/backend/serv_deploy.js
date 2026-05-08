@@ -434,6 +434,7 @@ const requirementPriceRoutes = require('./BabyeyiRoutes/requirementPrice');     
 const studentRoutes          = require('./BabyeyiRoutes/students');                console.log('  ✅  students.js');
 const parentPortalRoutes     = require('./BabyeyiRoutes/parentPortal');             console.log('  ✅  parentPortal.js');
 const fieldAgentsModule      = require('./BabyeyiRoutes/fieldAgentsRoutes');        console.log('  ✅  fieldAgentsRoutes.js');
+const classkitShareRoutes    = require('./BabyeyiRoutes/classkitShareRoutes');       console.log('  ✅  classkitShareRoutes.js');
 
 let locationRoutes = null;
 try {
@@ -466,6 +467,7 @@ fieldAgentsModule.ensureAgentRole().catch(() => {});
 fieldAgentsModule.ensureProfileTable().catch(() => {});
 app.use('/api',                    studentRoutes);           console.log('  ✅  /api/students/*');
 app.use('/api',                    parentPortalRoutes);      console.log('  ✅  /api/parent-portal/*');
+app.use('/api/public/classkit-share', classkitShareRoutes);  console.log('  ✅  /api/public/classkit-share/*');
 
 if (locationRoutes) {
   app.use('/api/locations', locationRoutes); console.log('  ✅  /api/locations/*');

@@ -179,7 +179,7 @@ function QuestionField({ question, value, onChange, theme, error }) {
               key={opt}
               type="button"
               onClick={() => onChange(opt)}
-              className={`flex-1 py-3 rounded-2xl text-sm font-black transition-all border-2 ${
+              className={`flex-1 py-3 rounded-2xl text-sm font-semibold transition-all border-2 ${
                 value === opt
                   ? "text-white border-transparent shadow-lg"
                   : "text-gray-600 border-gray-200 hover:border-indigo-300 bg-white"
@@ -358,12 +358,12 @@ export default function AdmissionApplyPage({ formId: propFormId, onClose }) {
   // ── Error ────────────────────────────────────────────────────
   if (error && !form) return (
     <div className="min-h-screen flex items-center justify-center p-6" style={{ background: "#f8fafc" }}>
-      <div className="bg-white rounded-3xl p-10 shadow-xl text-center max-w-sm border border-red-100">
+      <div className="bg-white rounded-3xl p-10 shadow-sm text-center max-w-sm border border-red-100">
         <div className="text-5xl mb-4">😔</div>
-        <h3 className="text-xl font-black text-gray-900 mb-2">Form Unavailable</h3>
+        <h3 className="text-xl font-semibold text-gray-900 mb-2">Form Unavailable</h3>
         <p className="text-gray-500 text-sm mb-6">{error}</p>
         {onClose && (
-          <button onClick={onClose} className="px-6 py-3 rounded-2xl font-black text-sm text-white"
+          <button onClick={onClose} className="px-6 py-3 rounded-2xl font-semibold text-sm text-white"
             style={{ background: "#6366f1" }}>
             ← Go Back
           </button>
@@ -375,16 +375,16 @@ export default function AdmissionApplyPage({ formId: propFormId, onClose }) {
   // ── Closed ───────────────────────────────────────────────────
   if (form && form.status !== "open") return (
     <div className="min-h-screen flex items-center justify-center p-6" style={{ background: form?.colorTheme ? theme.s : "#f8fafc" }}>
-      <div className="bg-white rounded-3xl p-10 shadow-xl text-center max-w-sm">
+      <div className="bg-white rounded-3xl p-10 shadow-sm text-center max-w-sm">
         <div className="text-5xl mb-4">🔒</div>
-        <h3 className="text-xl font-black text-gray-900 mb-2">Admissions Not Open</h3>
+        <h3 className="text-xl font-semibold text-gray-900 mb-2">Admissions Not Open</h3>
         <p className="text-gray-500 text-sm mb-2">{form.title}</p>
         <p className="text-gray-400 text-sm mb-6">
           {form.status === "closed" ? "Applications are closed." : "Applications are not currently accepting submissions."}
           {form.applicationDeadline && form.status !== "closed" && ` Check back on ${new Date(form.applicationStart || form.applicationDeadline).toLocaleDateString()}.`}
         </p>
         {onClose && (
-          <button onClick={onClose} className="px-6 py-3 rounded-2xl font-black text-sm text-white"
+          <button onClick={onClose} className="px-6 py-3 rounded-2xl font-semibold text-sm text-white"
             style={{ background: theme.p }}>
             ← Back to School Website
           </button>
@@ -396,27 +396,27 @@ export default function AdmissionApplyPage({ formId: propFormId, onClose }) {
   // ── Success ──────────────────────────────────────────────────
   if (submitted) return (
     <div className="min-h-screen flex items-center justify-center p-6" style={{ background: theme.s }}>
-      <div className="bg-white rounded-3xl p-10 shadow-2xl text-center max-w-md border border-gray-100">
+      <div className="bg-white rounded-3xl p-10 shadow-sm text-center max-w-md border border-gray-100">
         <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg"
           style={{ background: `${theme.p}15` }}>
           <CheckCircle size={40} style={{ color: theme.p }} />
         </div>
-        <h2 className="text-2xl font-black text-gray-900 mb-2">Application Submitted!</h2>
+        <h2 className="text-2xl font-semibold text-gray-900 mb-2">Application Submitted!</h2>
         <p className="text-gray-500 text-sm mb-6">
           Thank you, <strong>{submitted.applicantName}</strong>! Your application has been received.
         </p>
         <div className="rounded-2xl p-5 mb-6" style={{ background: `${theme.p}08`, border: `1.5px solid ${theme.p}25` }}>
           <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">Your Reference Number</p>
-          <p className="text-2xl font-black font-mono" style={{ color: theme.p }}>{submitted.referenceNo}</p>
+          <p className="text-2xl font-semibold font-mono" style={{ color: theme.p }}>{submitted.referenceNo}</p>
           <p className="text-xs text-gray-400 mt-2">Keep this for tracking your application status</p>
         </div>
         {onClose ? (
-          <button onClick={onClose} className="px-8 py-3.5 rounded-2xl font-black text-sm text-white shadow-lg hover:opacity-90 transition"
+          <button onClick={onClose} className="px-8 py-3.5 rounded-2xl font-semibold text-sm text-white shadow-lg hover:opacity-90 transition"
             style={{ background: theme.p }}>
             ← Back to School Website
           </button>
         ) : (
-          <button onClick={() => window.history.back()} className="px-8 py-3.5 rounded-2xl font-black text-sm text-white"
+          <button onClick={() => window.history.back()} className="px-8 py-3.5 rounded-2xl font-semibold text-sm text-white"
             style={{ background: theme.p }}>
             Done
           </button>
@@ -438,11 +438,11 @@ export default function AdmissionApplyPage({ formId: propFormId, onClose }) {
               <ChevronLeft size={16} /> Back to School Website
             </button>
           )}
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-4 text-xs font-black uppercase tracking-wider"
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-4 text-xs font-semibold uppercase tracking-wider"
             style={{ background: "rgba(255,255,255,0.15)" }}>
             📋 Online Admission
           </div>
-          <h1 className="text-3xl sm:text-4xl font-black mb-2">{form.title}</h1>
+          <h1 className="text-3xl sm:text-4xl font-semibold mb-2">{form.title}</h1>
           {form.schoolName && <p className="text-white/70 text-sm font-semibold">{form.schoolName}</p>}
           {form.academicYear && <p className="text-white/60 text-sm mt-1">Academic Year: {form.academicYear}</p>}
           {form.description && <p className="text-white/80 text-sm mt-3 leading-relaxed">{form.description}</p>}
@@ -475,10 +475,10 @@ export default function AdmissionApplyPage({ formId: propFormId, onClose }) {
 
         {/* Applicant Info */}
         <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-gray-100 mb-6">
-          <h3 className="font-black text-gray-900 text-lg mb-5">Applicant Information</h3>
+          <h3 className="font-semibold text-gray-900 text-lg mb-5">Applicant Information</h3>
           <div className="space-y-4">
             <div>
-              <label className="block text-xs font-black text-gray-600 uppercase tracking-wider mb-1.5">
+              <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1.5">
                 Full Name <span className="text-red-500">*</span>
               </label>
               <input
@@ -493,7 +493,7 @@ export default function AdmissionApplyPage({ formId: propFormId, onClose }) {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-black text-gray-600 uppercase tracking-wider mb-1.5">Email Address</label>
+                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1.5">Email Address</label>
                 <input
                   type="email"
                   value={email}
@@ -503,7 +503,7 @@ export default function AdmissionApplyPage({ formId: propFormId, onClose }) {
                 />
               </div>
               <div>
-                <label className="block text-xs font-black text-gray-600 uppercase tracking-wider mb-1.5">Phone Number</label>
+                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1.5">Phone Number</label>
                 <input
                   type="tel"
                   value={phone}
@@ -520,10 +520,10 @@ export default function AdmissionApplyPage({ formId: propFormId, onClose }) {
         {(form.questions || []).map((q, idx) => (
           <div key={q.id} className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-gray-100 mb-4">
             <div className="flex items-start gap-2 mb-4">
-              <span className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-black text-white mt-0.5"
+              <span className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold text-white mt-0.5"
                 style={{ background: theme.p }}>{idx + 1}</span>
               <div>
-                <p className="text-sm font-black text-gray-900 leading-snug">
+                <p className="text-sm font-semibold text-gray-900 leading-snug">
                   {q.label}
                   {q.isRequired && <span className="text-red-500 ml-1">*</span>}
                 </p>
@@ -552,7 +552,7 @@ export default function AdmissionApplyPage({ formId: propFormId, onClose }) {
           type="button"
           onClick={handleSubmit}
           disabled={submitting}
-          className="w-full flex items-center justify-center gap-3 py-4 rounded-2xl font-black text-white text-base shadow-xl hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-60 mt-6"
+          className="w-full flex items-center justify-center gap-3 py-4 rounded-2xl font-semibold text-white text-base shadow-sm hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-60 mt-6"
           style={{ background: `linear-gradient(135deg, ${theme.p}, ${theme.p}cc)` }}
         >
           {submitting ? (

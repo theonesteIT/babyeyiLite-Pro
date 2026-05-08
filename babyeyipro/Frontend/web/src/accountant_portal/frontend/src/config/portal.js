@@ -3,6 +3,8 @@
  */
 export const PORTAL = {
   id: 'accountant',
+  /** Prefix for NavLink targets (mounted at /accountant/*) */
+  basePath: '/accountant',
   /** localStorage key for this app (legacy key still accepted in AuthContext for migration) */
   sessionKey: 'accountant_logged_in',
   documentTitle: 'Babyeyi · Accountant',

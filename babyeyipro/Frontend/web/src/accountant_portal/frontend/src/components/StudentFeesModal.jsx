@@ -327,17 +327,17 @@ export default function StudentFeesModal({
                 {/* Drawer Header */}
                 <div className="flex items-center justify-between px-8 py-6 border-b border-black/5 bg-white shrink-0">
                     <div className="flex items-center gap-4">
-                        <div className="w-14 h-14 rounded-full border border-black/5 bg-slate-50 flex items-center justify-center font-black text-lg  relative overflow-hidden shrink-0 text-[#000435]">
+                        <div className="w-14 h-14 rounded-full border border-black/5 bg-slate-50 flex items-center justify-center font-medium text-lg  relative overflow-hidden shrink-0 text-[#000435]">
                             <span>{student.name?.charAt(0) || <User size={20} />}</span>
                         </div>
                         <div className="min-w-0">
-                            <h3 className="font-black text-[#000435] text-base leading-tight uppercase tracking-tight truncate">{student.name}</h3>
+                            <h3 className="font-medium text-[#000435] text-base leading-tight uppercase tracking-tight truncate">{student.name}</h3>
                             <div className="flex flex-col gap-0.5 mt-0.5">
-                                <p className="text-[9px] text-slate-400 font-bold flex items-center gap-1 uppercase tracking-widest opacity-60 truncate">
+                                <p className="text-[9px] text-slate-400 font-medium flex items-center gap-1 uppercase tracking-widest opacity-60 truncate">
                                     <span className="w-1 h-1 rounded-full shrink-0 bg-amber-400"></span>
                                     UID: {student.id}
                                 </p>
-                                <p className="text-[8px] text-[#000435] font-black flex items-center gap-1 uppercase tracking-[0.2em] truncate">
+                                <p className="text-[8px] text-[#000435] font-medium flex items-center gap-1 uppercase tracking-[0.2em] truncate">
                                     {student.class} Class
                                 </p>
                             </div>
@@ -357,7 +357,7 @@ export default function StudentFeesModal({
                     {/* Financial Breakdown Section */}
                     <div className="space-y-4">
                         <div className="flex items-center gap-2 mb-2">
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] opacity-40">Financial Breakdown</span>
+                            <span className="text-[9px] font-medium text-slate-400 uppercase tracking-[0.3em] opacity-40">Financial Breakdown</span>
                             <div className="flex-1 h-px bg-black/5" />
                         </div>
                         {[
@@ -368,10 +368,10 @@ export default function StudentFeesModal({
                             <div key={i} className="flex items-center justify-between group">
                                 <div className="flex items-center gap-2">
                                     <item.icon size={11} className="opacity-30 text-amber-500" />
-                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{item.label}</span>
+                                    <span className="text-[10px] font-medium text-slate-400 uppercase tracking-widest">{item.label}</span>
                                 </div>
                                 <div className="flex-1 mx-3 border-b border-dashed border-black/10 group-hover:border-amber-200 transition-colors" />
-                                <span className={`text-[10px] font-black uppercase tracking-tight ${item.color}`}>{item.value}</span>
+                                <span className={`text-[10px] font-medium uppercase tracking-tight ${item.color}`}>{item.value}</span>
                             </div>
                         ))}
                     </div>
@@ -380,22 +380,22 @@ export default function StudentFeesModal({
                     <div className="grid grid-cols-2 gap-4">
                         <div className="bg-slate-50 rounded-3xl p-5 border border-black/5  relative overflow-hidden group">
                             <div className="absolute top-0 right-0 w-16 h-16 bg-blue-500 opacity-5 rounded-full -mr-6 -mt-6 group-hover:scale-125 transition-transform duration-700" />
-                            <p className="text-[8px] text-slate-400 uppercase tracking-[0.2em] font-black mb-1 relative z-10 opacity-60">Amount Paid</p>
+                            <p className="text-[8px] text-slate-400 uppercase tracking-[0.2em] font-medium mb-1 relative z-10 opacity-60">Amount Paid</p>
                             <div className="flex items-baseline gap-1 relative z-10">
-                                <span className="text-xl font-black tracking-tighter text-emerald-600">
+                                <span className="text-xl font-medium tracking-tighter text-emerald-600">
                                     {format(student.paidThisTerm ?? student.paid ?? 0).replace('RWF', '')}
                                 </span>
-                                <span className="text-[9px] font-black uppercase tracking-widest text-[#000435]">RWF</span>
+                                <span className="text-[9px] font-medium uppercase tracking-widest text-[#000435]">RWF</span>
                             </div>
                         </div>
                         <div className="bg-slate-50 rounded-3xl p-5 border border-black/5  relative overflow-hidden group text-right">
                             <div className="absolute top-0 left-0 w-16 h-16 bg-amber-500 opacity-5 rounded-full -ml-6 -mt-6 group-hover:scale-125 transition-transform duration-700" />
-                            <p className="text-[8px] text-slate-400 uppercase tracking-[0.2em] font-black mb-1 relative z-10 opacity-60">Remaining</p>
+                            <p className="text-[8px] text-slate-400 uppercase tracking-[0.2em] font-medium mb-1 relative z-10 opacity-60">Remaining</p>
                             <div className="flex items-baseline gap-1 justify-end relative z-10">
-                                <span className="text-xl font-black text-red-500 tracking-tighter">
+                                <span className="text-xl font-medium text-red-500 tracking-tighter">
                                     {format(student.remaining).replace('RWF', '')}
                                 </span>
-                                <span className="text-[9px] font-black uppercase tracking-widest ml-1 opacity-60">RWF</span>
+                                <span className="text-[9px] font-medium uppercase tracking-widest ml-1 opacity-60">RWF</span>
                             </div>
                         </div>
                     </div>
@@ -403,45 +403,45 @@ export default function StudentFeesModal({
                     {/* Transaction Log */}
                     <div className="flex-1 overflow-y-auto">
                         <div className="flex items-center gap-2 mb-4">
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] opacity-40">Payment History</span>
+                            <span className="text-[9px] font-medium text-slate-400 uppercase tracking-[0.3em] opacity-40">Payment History</span>
                             <div className="flex-1 h-px bg-black/5" />
                         </div>
 
                         {loading ? (
                             <div className="flex flex-col items-center justify-center py-10 gap-3">
                                 <Loader2 size={24} className="animate-spin text-[#000435]/30" />
-                                <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] opacity-40">Fetching logs...</p>
+                                <p className="text-[8px] font-medium text-slate-400 uppercase tracking-[0.2em] opacity-40">Fetching logs...</p>
                             </div>
                         ) : history.length === 0 ? (
                             <div className="text-center py-8">
-                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest italic opacity-40">No transaction records found.</p>
+                                <p className="text-[9px] font-medium text-slate-400 uppercase tracking-widest italic opacity-40">No transaction records found.</p>
                             </div>
                         ) : (
                             <div className="overflow-hidden rounded-2xl border border-black/5">
                                 <table className="w-full text-left border-collapse">
                                     <thead>
                                         <tr className="bg-re-bg/20 border-b border-black/5">
-                                            <th className="px-3 py-2 text-[6.5px] font-black text-re-text-muted uppercase tracking-[0.24em] opacity-40 border-r border-black/5">Paid at</th>
-                                            <th className="px-3 py-2 text-[6.5px] font-black text-re-text-muted uppercase tracking-[0.24em] opacity-40 border-r border-black/5">Mode</th>
-                                            <th className="px-3 py-2 text-right text-[6.5px] font-black text-re-text-muted uppercase tracking-[0.24em] opacity-40 border-r border-black/5">Amount</th>
-                                            <th className="px-3 py-2 text-right text-[6.5px] font-black text-re-text-muted uppercase tracking-[0.24em] opacity-40">Action</th>
+                                            <th className="px-3 py-2 text-[6.5px] font-medium text-re-text-muted uppercase tracking-[0.24em] opacity-40 border-r border-black/5">Paid at</th>
+                                            <th className="px-3 py-2 text-[6.5px] font-medium text-re-text-muted uppercase tracking-[0.24em] opacity-40 border-r border-black/5">Mode</th>
+                                            <th className="px-3 py-2 text-right text-[6.5px] font-medium text-re-text-muted uppercase tracking-[0.24em] opacity-40 border-r border-black/5">Amount</th>
+                                            <th className="px-3 py-2 text-right text-[6.5px] font-medium text-re-text-muted uppercase tracking-[0.24em] opacity-40">Action</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-black/5">
                                         {history.map((log) => (
                                             <tr key={log.id} className="hover:bg-re-bg/30 transition-colors">
                                                 <td className="px-3 py-2 border-r border-black/5">
-                                                    <p className="text-[8px] font-black text-[#000435] uppercase tracking-widest leading-none whitespace-nowrap">{log.date}</p>
-                                                    <p className="text-[6.5px] font-bold text-re-text-muted uppercase tracking-widest opacity-40 mt-1 leading-none truncate">{log.ref}</p>
+                                                    <p className="text-[8px] font-medium text-[#000435] uppercase tracking-widest leading-none whitespace-nowrap">{log.date}</p>
+                                                    <p className="text-[6.5px] font-medium text-re-text-muted uppercase tracking-widest opacity-40 mt-1 leading-none truncate">{log.ref}</p>
                                                 </td>
                                                 <td className="px-3 py-2 border-r border-black/5">
-                                                    <p className="text-[8px] font-black text-[#000435] uppercase tracking-widest leading-none">{log.channel}</p>
-                                                    <p className="text-[6.5px] font-bold text-re-text-muted uppercase tracking-widest opacity-40 mt-1 leading-none truncate">{log.category}</p>
+                                                    <p className="text-[8px] font-medium text-[#000435] uppercase tracking-widest leading-none">{log.channel}</p>
+                                                    <p className="text-[6.5px] font-medium text-re-text-muted uppercase tracking-widest opacity-40 mt-1 leading-none truncate">{log.category}</p>
                                                 </td>
                                                 <td className="px-3 py-2 border-r border-black/5 text-right">
-                                                    <p className="text-[9px] font-black text-emerald-600 leading-none">
+                                                    <p className="text-[9px] font-medium text-emerald-600 leading-none">
                                                         {format(log.amount).replace('RWF', '').trim()}
-                                                        <span className="ml-1 text-[7px] font-black text-[#000435]/60 uppercase tracking-widest">RWF</span>
+                                                        <span className="ml-1 text-[7px] font-medium text-[#000435]/60 uppercase tracking-widest">RWF</span>
                                                     </p>
                                                 </td>
                                                 <td className="px-3 py-2 text-right">
@@ -483,7 +483,7 @@ export default function StudentFeesModal({
                                                                 )));
                                                                 setToast({ type: 'success', message: 'Payment updated.' });
                                                             }}
-                                                            className="h-6 px-2 rounded-lg flex items-center justify-center bg-white border border-black/5 text-[#000435] font-black text-[7px] uppercase tracking-widest  hover:bg-re-bg transition-all"
+                                                            className="h-6 px-2 rounded-lg flex items-center justify-center bg-white border border-black/5 text-[#000435] font-medium text-[7px] uppercase tracking-widest  hover:bg-re-bg transition-all"
                                                             disabled={isBusy}
                                                             title="Edit payment"
                                                         >
@@ -508,7 +508,7 @@ export default function StudentFeesModal({
                                                                 setHistory((prev) => prev.filter((x) => x.id !== log.id));
                                                                 setToast({ type: 'success', message: 'Payment deleted.' });
                                                             }}
-                                                            className="h-6 px-2 rounded-lg flex items-center justify-center bg-white border border-red-200 text-red-600 font-black text-[7px] uppercase tracking-widest  hover:bg-red-50 transition-all"
+                                                            className="h-6 px-2 rounded-lg flex items-center justify-center bg-white border border-red-200 text-red-600 font-medium text-[7px] uppercase tracking-widest  hover:bg-red-50 transition-all"
                                                             disabled={isBusy}
                                                             title="Delete payment"
                                                         >
@@ -517,7 +517,7 @@ export default function StudentFeesModal({
                                                         <button
                                                             type="button"
                                                             onClick={() => printReceiptPdf(log)}
-                                                            className="h-6 px-2.5 rounded-lg flex items-center justify-center gap-1.5 bg-white border border-black/5 text-re-text font-black text-[7.5px] uppercase tracking-widest  hover:bg-re-bg hover:text-[#000435] transition-all"
+                                                            className="h-6 px-2.5 rounded-lg flex items-center justify-center gap-1.5 bg-white border border-black/5 text-re-text font-medium text-[7.5px] uppercase tracking-widest  hover:bg-re-bg hover:text-[#000435] transition-all"
                                                             disabled={isBusy}
                                                             title="Print receipt"
                                                         >
@@ -541,19 +541,19 @@ export default function StudentFeesModal({
                 <div className="px-8 py-5 border-t border-black/5 bg-slate-50/20 flex flex-col gap-2">
                     <button
                         onClick={() => onClose({ recordPayment: true })}
-                        className="h-10 w-full flex items-center justify-center gap-2 text-white rounded-xl font-black text-[9px] uppercase tracking-widest  hover:scale-[1.02] active:scale-95 transition-all"
+                        className="h-10 w-full flex items-center justify-center gap-2 text-white rounded-xl font-medium text-[9px] uppercase tracking-widest  active:scale-95 transition-all"
                         style={{ background: "linear-gradient(135deg, #000435 0%, #0D2644 100%)" }}
                     >
                         <CreditCard size={14} /> Record Payment
                     </button>
                     <div className="grid grid-cols-2 gap-2">
-                        <button className="h-9 flex items-center justify-center gap-2 bg-white border border-black/5 text-[#000435] font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-slate-50 transition-all">
+                        <button className="h-9 flex items-center justify-center gap-2 bg-white border border-black/5 text-[#000435] font-medium text-[9px] uppercase tracking-widest rounded-xl hover:bg-slate-50 transition-all">
                             <Phone size={14} className="text-amber-500" /> Call Parent
                         </button>
                         <div className="relative">
                             <button
                                 onClick={() => setInvoiceMenuOpen((v) => !v)}
-                                className="h-9 w-full flex items-center justify-center gap-2 bg-white border border-black/5 text-[#000435] font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-slate-50 transition-all"
+                                className="h-9 w-full flex items-center justify-center gap-2 bg-white border border-black/5 text-[#000435] font-medium text-[9px] uppercase tracking-widest rounded-xl hover:bg-slate-50 transition-all"
                                 type="button"
                             >
                                 <Printer size={14} className="text-amber-500" />
@@ -571,7 +571,7 @@ export default function StudentFeesModal({
                                             className="w-full px-4 py-3 flex items-center gap-2 text-left hover:bg-re-bg/30 transition-all"
                                         >
                                             <Printer size={14} className="text-[#000435]" />
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-[#000435]">Print invoice</span>
+                                            <span className="text-[10px] font-medium uppercase tracking-widest text-[#000435]">Print invoice</span>
                                         </button>
                                         <button
                                             type="button"
@@ -579,7 +579,7 @@ export default function StudentFeesModal({
                                             className="w-full px-4 py-3 flex items-center gap-2 text-left hover:bg-re-bg/30 transition-all border-t border-black/5"
                                         >
                                             <Send size={14} className="text-[#000435]" />
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-[#000435]">Send invoice</span>
+                                            <span className="text-[10px] font-medium uppercase tracking-widest text-[#000435]">Send invoice</span>
                                         </button>
                                         <button
                                             type="button"
@@ -587,7 +587,7 @@ export default function StudentFeesModal({
                                             className="w-full px-4 py-3 flex items-center gap-2 text-left hover:bg-re-bg/30 transition-all border-t border-black/5"
                                         >
                                             <Receipt size={14} className="text-[#000435]" />
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-[#000435]">Print & send</span>
+                                            <span className="text-[10px] font-medium uppercase tracking-widest text-[#000435]">Print & send</span>
                                         </button>
                                         <button
                                             type="button"
@@ -595,7 +595,7 @@ export default function StudentFeesModal({
                                             className="w-full px-4 py-3 flex items-center gap-2 text-left hover:bg-re-bg/30 transition-all border-t border-black/5"
                                         >
                                             <Settings2 size={14} className="text-[#000435]" />
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-[#000435]">Invoice settings</span>
+                                            <span className="text-[10px] font-medium uppercase tracking-widest text-[#000435]">Invoice settings</span>
                                         </button>
                                     </div>
                                 </>
@@ -636,8 +636,8 @@ export function InvoiceSettingsModal({ open, onClose, config, setConfig, sentAt 
                                 <Settings2 size={16} />
                             </div>
                             <div>
-                                <h1 className="text-[11px] font-black text-white uppercase tracking-widest leading-none">Invoice Settings</h1>
-                                <p className="text-[7px] font-bold text-white/40 uppercase tracking-tight mt-1">
+                                <h1 className="text-[11px] font-medium text-white uppercase tracking-widest leading-none">Invoice Settings</h1>
+                                <p className="text-[7px] font-medium text-white/40 uppercase tracking-tight mt-1">
                                     Last sent: {sentAt ? new Date(sentAt).toLocaleString() : 'Not yet'}
                                 </p>
                             </div>
@@ -657,11 +657,11 @@ export function InvoiceSettingsModal({ open, onClose, config, setConfig, sentAt 
                         { key: 'footerNote', label: 'Footer note' },
                     ].map((f) => (
                         <div key={f.key}>
-                            <p className="text-[9px] font-black text-[#000435] uppercase tracking-[0.2em] mb-1.5 opacity-80">{f.label}</p>
+                            <p className="text-[9px] font-medium text-[#000435] uppercase tracking-[0.2em] mb-1.5 opacity-80">{f.label}</p>
                             <input
                                 value={config?.[f.key] || ''}
                                 onChange={(e) => setConfig((prev) => ({ ...(prev || {}), [f.key]: e.target.value }))}
-                                className="w-full h-9 rounded-lg bg-re-bg px-3 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] sm:text-[10px] font-black tracking-tight  placeholder:text-re-text-muted/40"
+                                className="w-full h-9 rounded-lg bg-re-bg px-3 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] sm:text-[10px] font-medium tracking-tight  placeholder:text-re-text-muted/40"
                             />
                         </div>
                     ))}
@@ -671,7 +671,7 @@ export function InvoiceSettingsModal({ open, onClose, config, setConfig, sentAt 
                     <button
                         type="button"
                         onClick={onClose}
-                        className="h-9 px-4 rounded-lg border border-black/5 text-re-navy font-black text-[9px] uppercase tracking-widest hover:bg-re-bg transition-all active:scale-95"
+                        className="h-9 px-4 rounded-lg border border-black/5 text-re-navy font-medium text-[9px] uppercase tracking-widest hover:bg-re-bg transition-all active:scale-95"
                     >
                         Done
                     </button>

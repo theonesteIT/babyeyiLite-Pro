@@ -20,11 +20,10 @@ const FONT = `"Montserrat",sans-serif`;
 
 const FontLoader = () => (
   <style>{`
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap');
     @keyframes stepIn{from{opacity:0;transform:translateX(18px)}to{opacity:1;transform:translateX(0)}}
-    @keyframes stepOut{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(-18px)}}
     @keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
     @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
-    @keyframes pulseAmber{0%,100%{box-shadow:0 0 0 0 rgba(251,191,36,.4)}50%{box-shadow:0 0 0 8px rgba(251,191,36,0)}}
     .step-in{animation:stepIn .35s cubic-bezier(.22,1,.36,1) both}
     .fade-in{animation:fadeIn .3s cubic-bezier(.22,1,.36,1) both}
     .spin-anim{animation:spin 1s linear infinite}
@@ -57,28 +56,30 @@ const STEPS = [
 
 function StepIndicator({ current }) {
   return (
-    <div className="flex items-center gap-0 w-full">
+    <div className="flex items-center w-full">
       {STEPS.map((s, i) => {
         const done = current > s.id;
         const active = current === s.id;
         return (
           <div key={s.id} className="flex items-center flex-1 min-w-0">
             <div className="flex flex-col items-center gap-1.5 flex-shrink-0">
-              <div className={`relative w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center font-black text-[13px] transition-all duration-300 ${
-                done ? "bg-amber-400 text-[#000435] shadow-md shadow-amber-400/30"
-                : active ? "bg-[#000435] border-2 border-amber-400 text-amber-400 shadow-lg shadow-amber-400/20"
-                : "bg-white/5 border border-white/15 text-white/30"
-              }`} style={active ? { animation: "pulseAmber 2s ease-in-out infinite" } : {}}>
-                {done ? <Check size={15} strokeWidth={3}/> : <s.icon size={14}/>}
+              <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-all duration-300 border-2 ${
+                done
+                  ? "bg-amber-400 border-amber-400 text-white shadow-md shadow-amber-200"
+                  : active
+                  ? "bg-white border-amber-400 text-amber-500 shadow-sm"
+                  : "bg-white border-gray-200 text-gray-400"
+              }`}>
+                {done ? <Check size={15} strokeWidth={3}/> : <s.icon size={15}/>}
               </div>
-              <span className={`text-[9px] sm:text-[10px] font-black uppercase tracking-[.06em] text-center leading-none hidden xs:block ${
-                done ? "text-amber-400" : active ? "text-white" : "text-white/30"
+              <span className={`text-[9px] sm:text-[10px] font-black uppercase tracking-[.06em] text-center leading-none ${
+                done ? "text-amber-500" : active ? "text-[#000435]" : "text-gray-400"
               }`}>{s.short}</span>
             </div>
             {i < STEPS.length - 1 && (
-              <div className="flex-1 h-0.5 mx-1 sm:mx-2 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.1)" }}>
+              <div className="flex-1 h-0.5 mx-1.5 sm:mx-2 rounded-full overflow-hidden bg-gray-200">
                 <div className="h-full rounded-full bg-amber-400 transition-all duration-500"
-                  style={{ width: done ? "100%" : active ? "50%" : "0%" }}/>
+                  style={{ width: done ? "100%" : "0%" }}/>
               </div>
             )}
           </div>
@@ -92,12 +93,12 @@ function StepIndicator({ current }) {
 function Field({ label, required, error, hint, children }) {
   return (
     <div>
-      <label className="block text-[10px] font-black uppercase tracking-[.1em] text-white/40 mb-2">
-        {label}{required && <span className="text-amber-400 ml-0.5">*</span>}
+      <label className="block text-[10px] font-black uppercase tracking-[.1em] text-gray-400 mb-2">
+        {label}{required && <span className="text-amber-500 ml-0.5">*</span>}
       </label>
       {children}
-      {error && <p className="flex items-center gap-1.5 text-[11px] text-red-400 font-semibold mt-1.5"><AlertCircle size={11}/>{error}</p>}
-      {hint && !error && <p className="text-[11px] text-white/35 mt-1.5">{hint}</p>}
+      {error && <p className="flex items-center gap-1.5 text-[11px] text-red-500 font-semibold mt-1.5"><AlertCircle size={11}/>{error}</p>}
+      {hint && !error && <p className="text-[11px] text-gray-400 mt-1.5">{hint}</p>}
     </div>
   );
 }
@@ -106,13 +107,13 @@ function Input({ value, onChange, placeholder, type="text", icon: Icon, onKeyDow
   const [focused, setFocused] = useState(false);
   return (
     <div className={`flex items-center gap-2.5 rounded-xl border transition-all ${
-      focused ? "border-amber-400 bg-amber-400/5 shadow-lg shadow-amber-400/10" : "border-white/15 bg-white/5 hover:border-white/25"
+      focused ? "border-amber-400 bg-amber-50 shadow-sm" : "border-gray-200 bg-white hover:border-gray-300"
     } px-3.5 h-12`}>
-      {Icon && <Icon size={15} className={focused ? "text-amber-400" : "text-white/35"} />}
+      {Icon && <Icon size={15} className={focused ? "text-amber-500" : "text-gray-400"} />}
       <input
         type={type} value={value} onChange={onChange} placeholder={placeholder}
         onFocus={() => setFocused(true)} onBlur={() => setFocused(false)} onKeyDown={onKeyDown}
-        className={`flex-1 bg-transparent text-white text-[14px] font-semibold placeholder:text-white/25 outline-none ${className}`}
+        className={`flex-1 bg-transparent text-[#000435] text-[14px] font-semibold placeholder:text-gray-400 outline-none ${className}`}
       />
     </div>
   );
@@ -122,12 +123,12 @@ function Select({ value, onChange, children, disabled = false }) {
   return (
     <div className="relative">
       <select value={value} onChange={onChange} disabled={disabled}
-        className={`w-full h-12 rounded-xl border border-white/15 bg-white/5 text-white text-[13px] font-bold px-4 outline-none appearance-none transition-all ${
-          disabled ? "opacity-60 cursor-not-allowed" : "hover:border-white/25 focus:border-amber-400 focus:bg-amber-400/5 cursor-pointer"
+        className={`w-full h-12 rounded-xl border border-gray-200 bg-white text-[#000435] text-[13px] font-bold px-4 outline-none appearance-none transition-all ${
+          disabled ? "opacity-50 cursor-not-allowed bg-gray-50" : "hover:border-gray-300 focus:border-amber-400 focus:bg-amber-50 cursor-pointer"
         }`}>
         {children}
       </select>
-      <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none"/>
+      <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"/>
     </div>
   );
 }
@@ -136,15 +137,15 @@ function Select({ value, onChange, children, disabled = false }) {
 function SummaryCard({ label, value, sub, highlight, green }) {
   return (
     <div className={`rounded-xl p-3.5 sm:p-4 border ${
-      highlight ? "bg-amber-400/12 border-amber-400/30"
-      : green ? "bg-emerald-500/10 border-emerald-500/25"
-      : "bg-white/5 border-white/10"
+      highlight ? "bg-amber-50 border-amber-200"
+      : green ? "bg-emerald-50 border-emerald-200"
+      : "bg-gray-50 border-gray-200"
     }`}>
-      <p className="text-[9px] font-black uppercase tracking-[.1em] text-white/40 mb-1">{label}</p>
+      <p className="text-[9px] font-black uppercase tracking-[.1em] text-gray-400 mb-1">{label}</p>
       <p className={`text-[16px] sm:text-[18px] font-black leading-none ${
-        highlight ? "text-amber-400" : green ? "text-emerald-400" : "text-white"
+        highlight ? "text-amber-500" : green ? "text-emerald-600" : "text-[#000435]"
       }`}>{value}</p>
-      {sub && <p className="text-[10px] text-white/35 mt-1 font-semibold">{sub}</p>}
+      {sub && <p className="text-[10px] text-gray-400 mt-1 font-semibold">{sub}</p>}
     </div>
   );
 }
@@ -152,18 +153,18 @@ function SummaryCard({ label, value, sub, highlight, green }) {
 /* ── Nav buttons ─────────────────────────────────────────────── */
 function NavBtns({ onBack, onNext, nextLabel = "Continue", nextDisabled = false, nextLoading = false, backLabel = "Back" }) {
   return (
-    <div className="flex items-center gap-3 pt-5 mt-1 border-t border-white/8">
+    <div className="flex items-center gap-3 pt-5 mt-1 border-t border-gray-100">
       {onBack && (
         <button type="button" onClick={onBack}
-          className="flex items-center gap-2 px-4 py-3 rounded-xl border border-white/15 text-white/60 font-bold text-[13px] hover:border-white/30 hover:text-white transition-all min-h-[48px]">
+          className="flex items-center gap-2 px-4 py-3 rounded-xl border border-gray-200 text-gray-500 font-bold text-[13px] hover:border-gray-300 hover:text-[#000435] transition-all min-h-[48px]">
           <ArrowLeft size={15}/> {backLabel}
         </button>
       )}
       <button type="button" onClick={onNext} disabled={nextDisabled || nextLoading}
         className={`flex-1 sm:flex-none sm:ml-auto flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-black text-[14px] min-h-[48px] transition-all ${
           nextDisabled || nextLoading
-            ? "bg-white/8 text-white/25 cursor-not-allowed"
-            : "bg-amber-400 text-[#000435] hover:bg-amber-300 shadow-xl shadow-amber-400/20 active:scale-[.98]"
+            ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+            : "bg-[#000435] text-white hover:bg-[#000635] shadow-lg active:scale-[.98]"
         }`}>
         {nextLoading && <Loader2 size={16} className="spin-anim"/>}
         {nextLabel} {!nextLoading && <ChevronRight size={16}/>}
@@ -579,66 +580,64 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
 
   // ── RENDER ────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#000435]" style={{ fontFamily: FONT }}>
+    <div className="min-h-screen bg-gray-50" style={{ fontFamily: FONT }}>
       <FontLoader/>
 
       {/* Top bar */}
-      <div className="sticky top-0 z-20 bg-[#000435]/95 backdrop-blur-xl border-b-[3px] border-amber-400">
+      <div className="sticky top-0 z-20 bg-white border-b border-gray-100 shadow-sm">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center gap-3">
           <button onClick={() => navigate(-1)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/6 border border-white/12 text-white/60 font-bold text-[12px] hover:bg-white/10 hover:text-white transition-all">
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-600 font-bold text-[12px] hover:bg-gray-50 hover:text-[#000435] transition-all">
             <ArrowLeft size={14}/> Back
           </button>
           <div className="flex items-center gap-2 ml-1">
-            <div className="w-7 h-7 rounded-lg bg-amber-400 flex items-center justify-center">
-              <School size={14} className="text-[#000435]"/>
+            <div className="w-8 h-8 rounded-xl bg-amber-400 flex items-center justify-center shadow-sm shadow-amber-200">
+              <School size={15} className="text-[#000435]"/>
             </div>
-            <span className="font-black text-[14px] sm:text-[15px] text-white hidden xs:block">
-              {classkitIntent ? "Pay ClassKit" : "Pay School Fees"}
-            </span>
           </div>
-          <div className="flex items-center gap-1.5 ml-auto text-[11px] font-bold text-amber-400">
-            <ShieldCheck size={14}/>
+          <div className="flex items-center gap-1.5 ml-auto text-[12px] font-bold text-[#000435]">
+            <ShieldCheck size={15} className="text-amber-500"/>
             <span className="hidden sm:inline">Secure Checkout</span>
           </div>
         </div>
+        {/* amber accent line */}
+        <div className="h-[3px] bg-amber-400"/>
       </div>
 
       {/* Page */}
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
 
         {/* Hero heading */}
-        <div className="mb-7 sm:mb-8">
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-400/10 border border-amber-400/25 px-3 py-1.5 mb-4">
+        <div className="mb-7 sm:mb-8 text-center">
+          <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200 px-3.5 py-1.5 mb-4">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-400"/>
-            <span className="text-[10px] font-black uppercase tracking-[.12em] text-amber-400">
+            <span className="text-[10px] font-black uppercase tracking-[.12em] text-amber-600">
               {classkitIntent ? "ClassKit & ShuleKit" : "Parents & Guardians"}
             </span>
           </div>
-          <h1 className="font-black text-white text-[24px] sm:text-[28px] xl:text-[32px] tracking-tight leading-tight mb-2">
+          <h1 className="font-black text-[#000435] text-[26px] sm:text-[30px] xl:text-[34px] tracking-tight leading-tight mb-2">
             {classkitIntent ? "Pay for SchoolKit" : "Pay school fees by"}&nbsp;
-            <span className="text-amber-400">Student code</span>
+            <span className="text-amber-500">Student code</span>
           </h1>
-        
+          <p className="text-gray-400 text-[13px] font-semibold">Quick, secure &amp; easy way to manage school payments</p>
         </div>
 
         {/* Main card */}
-        <div className="rounded-2xl xl:rounded-3xl bg-white/4 border border-amber-400/20 overflow-hidden shadow-2xl shadow-black/30">
+        <div className="rounded-2xl bg-white border border-gray-100 overflow-hidden shadow-lg">
 
           {/* Step indicator header */}
-          <div className="px-5 sm:px-6 py-5 border-b border-white/8 bg-[#000435]/50">
+          <div className="px-5 sm:px-8 py-5 border-b-2 border-amber-400">
             <StepIndicator current={step}/>
           </div>
 
           {/* Step content area */}
-          <div className="px-5 sm:px-6 py-6">
+          <div className="px-5 sm:px-8 py-6">
 
             {/* ── STEP 1: Student code → school + class ──────── */}
             {step === 1 && (
               <div key={stepKey} className="step-in">
                 <div className="mb-6">
-                  <h2 className="font-black text-white text-[18px] sm:text-[20px] mb-1.5">Enter student code</h2>
-                  
+                  <h2 className="font-black text-[#000435] text-[18px] sm:text-[20px] mb-1">Enter student code</h2>
                 </div>
 
                 <Field label="Student Code / UID / SDMS ID" required error={catalogErr}>
@@ -647,7 +646,7 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
                       <Input value={studentCodeInput} onChange={e => { setStudentCodeInput(e.target.value); setCatalogErr(""); }} placeholder="Official student code or UID" icon={Search} onKeyDown={e => e.key === "Enter" && loadStudentCatalog()}/>
                     </div>
                     <button type="button" onClick={() => loadStudentCatalog()} disabled={catalogLoading}
-                      className="flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-400 text-[#000435] font-black text-[13px] hover:bg-amber-300 transition-all disabled:opacity-50 shrink-0 min-h-[48px]">
+                      className="flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-400 text-[#000435] font-black text-[13px] hover:bg-amber-300 transition-all disabled:opacity-50 shrink-0 min-h-[48px] shadow-sm">
                       {catalogLoading ? <Loader2 size={15} className="spin-anim"/> : <Search size={15}/>}
                       <span className="hidden sm:inline">Find</span>
                     </button>
@@ -656,25 +655,25 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
 
                 {school && student && (
                   <div className="mt-5 fade-in space-y-3">
-                    <div className="flex items-center gap-3 p-4 rounded-xl border border-amber-400/30 bg-amber-400/8">
-                      <div className="w-10 h-10 rounded-xl bg-amber-400/20 border border-amber-400/30 flex items-center justify-center shrink-0">
-                        <Building2 size={18} className="text-amber-400"/>
+                    <div className="flex items-center gap-3 p-4 rounded-xl border border-amber-200 bg-amber-50">
+                      <div className="w-10 h-10 rounded-xl bg-amber-100 border border-amber-200 flex items-center justify-center shrink-0">
+                        <Building2 size={18} className="text-amber-500"/>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-black text-white text-[15px] truncate">{school.school_name}</p>
-                        <p className="text-[11px] font-mono text-amber-400/70 mt-0.5">School code: {school.school_code}</p>
+                        <p className="font-black text-[#000435] text-[15px] truncate">{school.school_name}</p>
+                        <p className="text-[11px] font-mono text-amber-600/70 mt-0.5">School code: {school.school_code}</p>
                       </div>
-                      <Check size={16} className="text-amber-400 shrink-0" strokeWidth={2.5}/>
+                      <Check size={16} className="text-amber-500 shrink-0" strokeWidth={2.5}/>
                     </div>
-                    <div className="flex items-start gap-3 p-4 rounded-xl border border-white/10 bg-white/4">
-                      <div className="w-10 h-10 rounded-xl bg-amber-400/15 border border-amber-400/25 flex items-center justify-center font-black text-[13px] text-amber-400 shrink-0">
+                    <div className="flex items-start gap-3 p-4 rounded-xl border border-gray-100 bg-gray-50">
+                      <div className="w-10 h-10 rounded-xl bg-amber-100 border border-amber-200 flex items-center justify-center font-black text-[13px] text-amber-600 shrink-0">
                         {`${student.first_name || " "}`[0]}{`${student.last_name || " "}`[0]}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-black text-white text-[15px]">{student.first_name} {student.last_name}</p>
-                        <p className="text-[12px] text-white/45 font-semibold mt-1">
-                          Class <span className="text-white/80">{student.class_name || "—"}</span>
-                          {student.academic_year ? <span className="text-white/35"> · Record year {student.academic_year}</span> : null}
+                        <p className="font-black text-[#000435] text-[15px]">{student.first_name} {student.last_name}</p>
+                        <p className="text-[12px] text-gray-400 font-semibold mt-1">
+                          Class <span className="text-[#000435]">{student.class_name || "—"}</span>
+                          {student.academic_year ? <span className="text-gray-300"> · Record year {student.academic_year}</span> : null}
                         </p>
                       </div>
                     </div>
@@ -697,10 +696,9 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
             {step === 2 && school && student && (
               <div key={stepKey} className="step-in">
                 <div className="mb-6">
-                  <h2 className="font-black text-white text-[18px] sm:text-[20px] mb-1.5">Term and academic year</h2>
-                  <p className="text-white/45 text-[13px]">
-                    Fees are for <span className="text-amber-400 font-bold">{student.class_name || "your class"}</span> at {school.school_name}.
-                  
+                  <h2 className="font-black text-[#000435] text-[18px] sm:text-[20px] mb-1.5">Term and academic year</h2>
+                  <p className="text-gray-400 text-[13px]">
+                    Fees are for <span className="text-amber-500 font-bold">{student.class_name || "your class"}</span> at {school.school_name}.
                   </p>
                 </div>
 
@@ -734,7 +732,7 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
                 )}
 
                 {yearPick && termPick && matchingComboIndices.length === 0 && (
-                  <div className="rounded-xl border border-red-400/25 bg-red-400/8 px-3.5 py-3 text-[12px] text-red-300 font-semibold">
+                  <div className="rounded-xl border border-red-200 bg-red-50 px-3.5 py-3 text-[12px] text-red-600 font-semibold">
                     No Babyeyi for this class with the selected term and year. Try another combination.
                   </div>
                 )}
@@ -752,8 +750,8 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
             {step === 3 && school && (
               <div key={stepKey} className="step-in">
                 <div className="mb-5">
-                  <h2 className="font-black text-white text-[18px] sm:text-[20px] mb-1">Select what to pay</h2>
-                  <p className="text-white/45 text-[13px]">
+                  <h2 className="font-black text-[#000435] text-[18px] sm:text-[20px] mb-1">Select what to pay</h2>
+                  <p className="text-gray-400 text-[13px]">
                     {includeRequirements
                       ? "Choose Tuition, Paid at School items, and Requirements. Total updates instantly."
                       : "Choose Tuition & Paid at School items only. Total updates instantly."}
@@ -761,28 +759,28 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
                 </div>
 
                 {/* Combo selector */}
-                <div className="mb-5 p-3.5 rounded-xl border border-amber-400/20 bg-amber-400/5 flex items-center gap-3">
+                <div className="mb-5 p-3.5 rounded-xl border border-amber-200 bg-amber-50 flex items-center gap-3">
                   <div className="w-8 h-8 rounded-lg bg-amber-400 flex items-center justify-center shrink-0">
                     <GraduationCap size={15} className="text-[#000435]"/>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-black text-white text-[13px]">{school.school_name}</p>
-                    <p className="text-[11px] text-amber-400/70 font-semibold">{selectedCombo ? comboLabel(selectedCombo) : "—"}</p>
+                    <p className="font-black text-[#000435] text-[13px]">{school.school_name}</p>
+                    <p className="text-[11px] text-amber-600/70 font-semibold">{selectedCombo ? comboLabel(selectedCombo) : "—"}</p>
                   </div>
-                  <button type="button" onClick={() => goStep(2)} className="text-[11px] text-amber-400/60 hover:text-amber-400 font-bold transition-colors shrink-0">Change</button>
+                  <button type="button" onClick={() => goStep(2)} className="text-[11px] text-amber-500 hover:text-amber-600 font-bold transition-colors shrink-0">Change</button>
                 </div>
 
                 {pricingLoading && (
                   <div className="flex flex-col items-center justify-center py-12 gap-3">
-                    <div className="w-10 h-10 rounded-xl border border-amber-400/25 flex items-center justify-center">
-                      <Loader2 size={20} className="text-amber-400 spin-anim"/>
+                    <div className="w-10 h-10 rounded-xl border border-amber-200 flex items-center justify-center">
+                      <Loader2 size={20} className="text-amber-500 spin-anim"/>
                     </div>
-                    <p className="text-white/40 text-[13px] font-semibold">Loading fees…</p>
+                    <p className="text-gray-400 text-[13px] font-semibold">Loading fees…</p>
                   </div>
                 )}
 
                 {pricingErr && (
-                  <div className="flex items-start gap-2.5 p-4 rounded-xl border border-red-500/25 bg-red-500/8 text-red-400 text-[13px] font-semibold">
+                  <div className="flex items-start gap-2.5 p-4 rounded-xl border border-red-200 bg-red-50 text-red-600 text-[13px] font-semibold">
                     <AlertCircle size={15} className="mt-0.5 shrink-0"/>{pricingErr}
                   </div>
                 )}
@@ -792,7 +790,7 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
                     {/* School fees */}
                     {(pricingData.school_fees || []).length > 0 && (
                       <div className="mb-4">
-                        <p className="text-[10px] font-black uppercase tracking-[.1em] text-white/35 mb-3 flex items-center gap-2">
+                        <p className="text-[10px] font-black uppercase tracking-[.1em] text-gray-400 mb-3 flex items-center gap-2">
                           <Wallet size={12}/> Tuition &amp; Paid at School Items
                         </p>
                         <div className="space-y-2">
@@ -807,7 +805,7 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
                               <div
                                 key={String(f.id)}
                                 className={`rounded-xl border transition-all ${
-                                  selected ? "border-amber-400/40 bg-amber-400/8" : "border-white/10 bg-white/3 hover:border-white/20"
+                                  selected ? "border-amber-300 bg-amber-50" : "border-gray-100 bg-gray-50 hover:border-gray-200"
                                 }`}
                               >
                                 <div
@@ -818,34 +816,34 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
                                   className="flex items-center gap-3 p-3.5 cursor-pointer"
                                 >
                                   <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 border-2 transition-all ${
-                                    selected ? "bg-amber-400 border-amber-400" : "border-white/25 bg-transparent"
+                                    selected ? "bg-amber-400 border-amber-400" : "border-gray-300 bg-white"
                                   }`}>
-                                    {selected && <Check size={11} className="text-[#000435]" strokeWidth={3}/>}
+                                    {selected && <Check size={11} className="text-white" strokeWidth={3}/>}
                                   </div>
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 flex-wrap">
-                                      <span className="font-semibold text-white text-[13px]">{f.name || "Fee item"}</span>
+                                      <span className="font-semibold text-[#000435] text-[13px]">{f.name || "Fee item"}</span>
                                       {isPas ? (
-                                        <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-white/10 text-amber-300/90 border border-white/10">Paid at school</span>
+                                        <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-700 border border-amber-200">Paid at school</span>
                                       ) : null}
                                     </div>
                                     {isPas && f.unit_price_rwf != null ? (
-                                      <p className="text-[10px] text-white/35 mt-1">
+                                      <p className="text-[10px] text-gray-400 mt-1">
                                         {Number(f.unit_price_rwf || 0).toLocaleString()} RWF × {Number(f.quantity_value ?? 1)} = {owedLine.toLocaleString()} RWF
                                       </p>
                                     ) : null}
                                   </div>
                                   <div className="text-right shrink-0">
-                                    <span className="font-black text-[13px] font-mono text-amber-400">{owedLine.toLocaleString()} RWF</span>
+                                    <span className="font-black text-[13px] font-mono text-amber-500">{owedLine.toLocaleString()} RWF</span>
                                   </div>
                                 </div>
                               </div>
                             );
                           })}
                         </div>
-                        <div className="mt-3 p-3.5 rounded-xl border border-amber-400/30 bg-amber-400/7 flex items-center justify-between">
-                          <p className="text-[12px] font-black text-white">Total Tuition Fee &amp; Paid At School</p>
-                          <p className="font-black text-[16px] font-mono text-amber-400">{feeTotal.toLocaleString()} RWF</p>
+                        <div className="mt-3 p-3.5 rounded-xl border border-amber-200 bg-amber-50 flex items-center justify-between">
+                          <p className="text-[12px] font-black text-[#000435]">Total Tuition Fee &amp; Paid At School</p>
+                          <p className="font-black text-[16px] font-mono text-amber-500">{feeTotal.toLocaleString()} RWF</p>
                         </div>
                       </div>
                     )}
@@ -853,7 +851,7 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
                     {/* Requirements */}
                     {includeRequirements && (pricingData.requirements || []).length > 0 && (
                       <div className="mb-4">
-                        <p className="text-[10px] font-black uppercase tracking-[.1em] text-white/35 mb-3 flex items-center gap-2">
+                        <p className="text-[10px] font-black uppercase tracking-[.1em] text-gray-400 mb-3 flex items-center gap-2">
                           <Wallet size={12}/> Requirements
                         </p>
                         <div className="space-y-2">
@@ -870,44 +868,44 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
                                 onClick={() => toggleReq(rid)}
                                 onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleReq(rid); } }}
                                 className={`flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
-                                  selected ? "border-amber-400/40 bg-amber-400/8" : "border-white/10 bg-white/3 hover:border-white/20"
+                                  selected ? "border-amber-300 bg-amber-50" : "border-gray-100 bg-gray-50 hover:border-gray-200"
                                 }`}
                               >
                                 <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 border-2 transition-all ${
-                                  selected ? "bg-amber-400 border-amber-400" : "border-white/25 bg-transparent"
+                                  selected ? "bg-amber-400 border-amber-400" : "border-gray-300 bg-white"
                                 }`}>
-                                  {selected && <Check size={11} className="text-[#000435]" strokeWidth={3}/>}
+                                  {selected && <Check size={11} className="text-white" strokeWidth={3}/>}
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                  <p className="font-semibold text-white text-[13px]">{r.requirement_name || r.name || "Requirement item"}</p>
+                                  <p className="font-semibold text-[#000435] text-[13px]">{r.requirement_name || r.name || "Requirement item"}</p>
                                   {(r.quantity_value != null || r.unit_price_rwf != null) ? (
-                                    <p className="text-[10px] text-white/35 mt-1">
+                                    <p className="text-[10px] text-gray-400 mt-1">
                                       {Number(r.unit_price_rwf || 0).toLocaleString()} RWF × {Number(r.quantity_value ?? 1)} = {lineAmount.toLocaleString()} RWF
                                     </p>
                                   ) : null}
                                 </div>
                                 <div className="text-right shrink-0">
-                                  <span className="font-black text-[13px] font-mono text-amber-400">{lineAmount.toLocaleString()} RWF</span>
+                                  <span className="font-black text-[13px] font-mono text-amber-500">{lineAmount.toLocaleString()} RWF</span>
                                 </div>
                               </div>
                             );
                           })}
                         </div>
-                        <div className="mt-3 p-3.5 rounded-xl border border-amber-400/30 bg-amber-400/7 flex items-center justify-between">
-                          <p className="text-[12px] font-black text-white">Total Requirements</p>
-                          <p className="font-black text-[16px] font-mono text-amber-400">{reqTotal.toLocaleString()} RWF</p>
+                        <div className="mt-3 p-3.5 rounded-xl border border-amber-200 bg-amber-50 flex items-center justify-between">
+                          <p className="text-[12px] font-black text-[#000435]">Total Requirements</p>
+                          <p className="font-black text-[16px] font-mono text-amber-500">{reqTotal.toLocaleString()} RWF</p>
                         </div>
                       </div>
                     )}
 
                     {/* Grand total */}
-                    <div className="p-4 rounded-xl border-2 border-amber-400/40 bg-amber-400/6">
+                    <div className="p-4 rounded-xl border-2 border-amber-300 bg-amber-50">
                       <div className="flex items-center justify-between">
-                        <p className="font-black text-white text-[15px]">Total due online</p>
-                        <p className="font-black text-amber-400 text-[22px] font-mono">{grand.toLocaleString()} <span className="text-[14px]">RWF</span></p>
+                        <p className="font-black text-[#000435] text-[15px]">Total due online</p>
+                        <p className="font-black text-amber-500 text-[22px] font-mono">{grand.toLocaleString()} <span className="text-[14px]">RWF</span></p>
                       </div>
                       {schoolCounterCreditSum > 0 && (
-                        <p className="text-[11px] text-emerald-300/90 font-semibold mt-2 pt-2 border-t border-amber-400/15">
+                        <p className="text-[11px] text-emerald-700 font-semibold mt-2 pt-2 border-t border-amber-200">
                           Including −{schoolCounterCreditSum.toLocaleString()} RWF declared as already paid at school (school-counter items only).
                         </p>
                       )}
@@ -928,8 +926,7 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
             {step === 4 && pricingData && (
               <div key={stepKey} className="step-in">
                 <div className="mb-5">
-                  <h2 className="font-black text-white text-[18px] sm:text-[20px] mb-1.5">Payment amount</h2>
-                  
+                  <h2 className="font-black text-[#000435] text-[18px] sm:text-[20px] mb-1.5">Payment amount</h2>
                 </div>
 
                 <div className="grid gap-2.5 mb-5">
@@ -941,11 +938,11 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
                         setAmountInput(String(Math.round(feeTotal * 100) / 100));
                       }}
                       className={`text-left rounded-xl border px-4 py-3 transition-all ${
-                        payScope === "tuition_school" ? "border-amber-400 bg-amber-400/10" : "border-white/12 bg-white/4 hover:border-white/25"
+                        payScope === "tuition_school" ? "border-amber-400 bg-amber-50" : "border-gray-200 bg-gray-50 hover:border-gray-300"
                       }`}
                     >
-                      <p className="text-[11px] font-black uppercase tracking-[.08em] text-white/40">Tuition + Paid at school</p>
-                      <p className="text-[15px] font-black text-amber-400 font-mono mt-0.5">{Math.round(feeTotal * 100) / 100} RWF</p>
+                      <p className="text-[11px] font-black uppercase tracking-[.08em] text-gray-400">Tuition + Paid at school</p>
+                      <p className="text-[15px] font-black text-amber-500 font-mono mt-0.5">{Math.round(feeTotal * 100) / 100} RWF</p>
                     </button>
                   )}
                   {includeRequirements && reqTotal > 0 && (
@@ -956,11 +953,11 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
                         setAmountInput(String(Math.round(reqTotal * 100) / 100));
                       }}
                       className={`text-left rounded-xl border px-4 py-3 transition-all ${
-                        payScope === "requirements_only" ? "border-amber-400 bg-amber-400/10" : "border-white/12 bg-white/4 hover:border-white/25"
+                        payScope === "requirements_only" ? "border-amber-400 bg-amber-50" : "border-gray-200 bg-gray-50 hover:border-gray-300"
                       }`}
                     >
-                      <p className="text-[11px] font-black uppercase tracking-[.08em] text-white/40">Requirements only</p>
-                      <p className="text-[15px] font-black text-amber-400 font-mono mt-0.5">{Math.round(reqTotal * 100) / 100} RWF</p>
+                      <p className="text-[11px] font-black uppercase tracking-[.08em] text-gray-400">Requirements only</p>
+                      <p className="text-[15px] font-black text-amber-500 font-mono mt-0.5">{Math.round(reqTotal * 100) / 100} RWF</p>
                     </button>
                   )}
                   {includeRequirements && grand > 0 && (
@@ -971,36 +968,33 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
                         setAmountInput(String(Math.round(grand * 100) / 100));
                       }}
                       className={`text-left rounded-xl border px-4 py-3 transition-all ${
-                        payScope === "both" ? "border-amber-400 bg-amber-400/10" : "border-white/12 bg-white/4 hover:border-white/25"
+                        payScope === "both" ? "border-amber-400 bg-amber-50" : "border-gray-200 bg-gray-50 hover:border-gray-300"
                       }`}
                     >
-                      <p className="text-[11px] font-black uppercase tracking-[.08em] text-white/40">Tuition + Paid at school + Requirements</p>
-                      <p className="text-[15px] font-black text-amber-400 font-mono mt-0.5">{Math.round(grand * 100) / 100} RWF</p>
+                      <p className="text-[11px] font-black uppercase tracking-[.08em] text-gray-400">Tuition + Paid at school + Requirements</p>
+                      <p className="text-[15px] font-black text-amber-500 font-mono mt-0.5">{Math.round(grand * 100) / 100} RWF</p>
                     </button>
                   )}
-                  
                 </div>
-
-              
 
                 <Field label="Amount (RWF)" required error={amountOverSel ? `Cannot exceed ${grand.toLocaleString()} RWF (selected items total).` : enteredAmount > 0 && enteredAmount + 1e-6 < minPayAmount ? `Enter at least ${minPayAmount.toLocaleString()} RWF for selected option.` : ""}>
                   <div className={`flex items-center gap-2.5 rounded-xl border transition-all h-14 px-4 ${
-                    amountOverSel ? "border-red-400/50 bg-red-400/5"
-                    : amountValid && enteredAmount > 0 ? "border-emerald-400/50 bg-emerald-400/5"
-                    : "border-white/15 bg-white/5"
+                    amountOverSel ? "border-red-300 bg-red-50"
+                    : amountValid && enteredAmount > 0 ? "border-emerald-300 bg-emerald-50"
+                    : "border-gray-200 bg-white"
                   }`}>
-                    <span className="text-white/35 font-bold text-[12px] shrink-0">RWF</span>
+                    <span className="text-gray-400 font-bold text-[12px] shrink-0">RWF</span>
                     <input
                       type="number" value={amountInput} onChange={e => setAmountInput(e.target.value)}
                       placeholder="0" min="0"
-                      className="flex-1 bg-transparent text-white text-[20px] font-black font-mono placeholder:text-white/20 outline-none"
+                      className="flex-1 bg-transparent text-[#000435] text-[20px] font-black font-mono placeholder:text-gray-300 outline-none"
                     />
-                    {amountValid && enteredAmount > 0 && <Check size={18} className="text-emerald-400 shrink-0" strokeWidth={2.5}/>}
+                    {amountValid && enteredAmount > 0 && <Check size={18} className="text-emerald-500 shrink-0" strokeWidth={2.5}/>}
                   </div>
                 </Field>
 
                 {allocationNote && enteredAmount >= 100 && (
-                  <div className="mt-3 rounded-xl border border-amber-400/25 bg-amber-400/8 px-3.5 py-3 text-[12px] text-amber-100/90 font-semibold leading-snug">
+                  <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3 text-[12px] text-amber-800 font-semibold leading-snug">
                     {allocationNote}
                   </div>
                 )}
@@ -1024,43 +1018,43 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
             {step === 5 && pricingData && amountValid && student && !classMismatch && (
               <div key={stepKey} className="step-in">
                 <div className="mb-6">
-                  <h2 className="font-black text-white text-[18px] sm:text-[20px] mb-1.5">Confirm and continue</h2>
-                  <p className="text-white/45 text-[13px]">Review this payment and continue to choose your payment method.</p>
+                  <h2 className="font-black text-[#000435] text-[18px] sm:text-[20px] mb-1.5">Confirm and continue</h2>
+                  <p className="text-gray-400 text-[13px]">Review this payment and continue to choose your payment method.</p>
                 </div>
 
                 {/* Payment summary */}
-                <div className="p-4 rounded-xl border border-amber-400/25 bg-amber-400/6 mb-6">
+                <div className="p-4 rounded-xl border border-amber-200 bg-amber-50 mb-6">
                   <div className="flex items-center justify-between mb-3">
-                    <p className="text-[11px] font-black uppercase tracking-[.1em] text-amber-400/60">Payment Summary</p>
-                    <button type="button" onClick={() => goStep(3)} className="text-[11px] text-amber-400/50 hover:text-amber-400 font-bold transition-colors">Edit</button>
+                    <p className="text-[11px] font-black uppercase tracking-[.1em] text-amber-600">Payment Summary</p>
+                    <button type="button" onClick={() => goStep(3)} className="text-[11px] text-amber-500 hover:text-amber-600 font-bold transition-colors">Edit</button>
                   </div>
                   <div className="space-y-1.5 text-[13px]">
                     <div className="flex items-center justify-between">
-                      <span className="text-white/50 font-semibold">School</span>
-                      <span className="text-white font-bold truncate max-w-[60%] text-right">{school?.school_name}</span>
+                      <span className="text-gray-400 font-semibold">School</span>
+                      <span className="text-[#000435] font-bold truncate max-w-[60%] text-right">{school?.school_name}</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-white/50 font-semibold">Class / Term</span>
-                      <span className="text-white font-bold">{comboLabel(selectedCombo)}</span>
+                      <span className="text-gray-400 font-semibold">Class / Term</span>
+                      <span className="text-[#000435] font-bold">{comboLabel(selectedCombo)}</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-white/50 font-semibold">Student</span>
-                      <span className="text-white font-bold">{student.first_name} {student.last_name}</span>
+                      <span className="text-gray-400 font-semibold">Student</span>
+                      <span className="text-[#000435] font-bold">{student.first_name} {student.last_name}</span>
                     </div>
                     {remainingOwed != null && (
                       <div className="flex items-center justify-between">
-                        <span className="text-white/50 font-semibold">Outstanding before payment</span>
-                        <span className="text-white font-bold">{remainingOwed.toLocaleString()} RWF</span>
+                        <span className="text-gray-400 font-semibold">Outstanding before payment</span>
+                        <span className="text-[#000435] font-bold">{remainingOwed.toLocaleString()} RWF</span>
                       </div>
                     )}
-                    <div className="flex items-center justify-between pt-2 mt-1 border-t border-amber-400/15">
-                      <span className="text-white font-black">Total to pay</span>
-                      <span className="text-amber-400 font-black text-[18px] font-mono">{enteredAmount.toLocaleString()} RWF</span>
+                    <div className="flex items-center justify-between pt-2 mt-1 border-t border-amber-200">
+                      <span className="text-[#000435] font-black">Total to pay</span>
+                      <span className="text-amber-500 font-black text-[18px] font-mono">{enteredAmount.toLocaleString()} RWF</span>
                     </div>
                     {remainingAfterCurrentPayment != null && (
                       <div className="flex items-center justify-between">
-                        <span className="text-white/50 font-semibold">Outstanding after payment</span>
-                        <span className={`font-bold ${remainingAfterCurrentPayment === 0 ? "text-emerald-400" : "text-white"}`}>
+                        <span className="text-gray-400 font-semibold">Outstanding after payment</span>
+                        <span className={`font-bold ${remainingAfterCurrentPayment === 0 ? "text-emerald-600" : "text-[#000435]"}`}>
                           {remainingAfterCurrentPayment.toLocaleString()} RWF
                         </span>
                       </div>
@@ -1069,14 +1063,14 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
                 </div>
 
                 {!classMismatch && (balanceLoading || balanceErr || balanceQuote) && (
-                  <div className="rounded-xl border border-white/10 bg-white/3 overflow-hidden mb-4">
-                    <div className="px-4 py-3 border-b border-white/8 flex items-center gap-2">
-                      <CircleDollarSign size={15} className="text-amber-400"/>
-                      <span className="text-[11px] font-black uppercase tracking-[.1em] text-white/50">Balance check</span>
-                      {balanceLoading && <Loader2 size={13} className="text-amber-400 spin-anim ml-auto"/>}
+                  <div className="rounded-xl border border-gray-100 bg-gray-50 overflow-hidden mb-4">
+                    <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
+                      <CircleDollarSign size={15} className="text-amber-500"/>
+                      <span className="text-[11px] font-black uppercase tracking-[.1em] text-gray-400">Balance check</span>
+                      {balanceLoading && <Loader2 size={13} className="text-amber-500 spin-anim ml-auto"/>}
                     </div>
                     {balanceErr && (
-                      <div className="px-4 py-3 text-[12px] text-red-400 font-semibold">{balanceErr}</div>
+                      <div className="px-4 py-3 text-[12px] text-red-500 font-semibold">{balanceErr}</div>
                     )}
                     {!balanceLoading && balanceQuote && (
                       <div className="p-4 space-y-3">
@@ -1085,9 +1079,9 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
                           <SummaryCard label="Remaining After This Payment" value={`${(remainingAfterCurrentPayment ?? 0).toLocaleString()} RWF`} sub={balanceQuote.term_label} green={remainingAfterCurrentPayment === 0} />
                         </div>
                         {remainingFullDocumentAfterCurrentPayment != null && (
-                          <div className="p-3 rounded-xl bg-white/4 border border-white/8 text-[12px]">
-                            <span className="text-white/40 font-bold">Outstanding after this payment for this term: </span>
-                            <span className="text-white font-black font-mono">{remainingFullDocumentAfterCurrentPayment.toLocaleString()} RWF</span>
+                          <div className="p-3 rounded-xl bg-white border border-gray-100 text-[12px]">
+                            <span className="text-gray-400 font-bold">Outstanding after this payment for this term: </span>
+                            <span className="text-[#000435] font-black font-mono">{remainingFullDocumentAfterCurrentPayment.toLocaleString()} RWF</span>
                           </div>
                         )}
                       </div>
@@ -1096,7 +1090,7 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
                 )}
 
                 {payErr && (
-                  <div className="flex items-start gap-2.5 p-4 rounded-xl border border-red-400/30 bg-red-400/8 text-red-400 text-[13px] font-semibold mb-4 fade-in">
+                  <div className="flex items-start gap-2.5 p-4 rounded-xl border border-red-200 bg-red-50 text-red-600 text-[13px] font-semibold mb-4 fade-in">
                     <AlertCircle size={15} className="mt-0.5 shrink-0"/>{payErr}
                   </div>
                 )}
@@ -1104,20 +1098,20 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
                 <button type="button" onClick={continueToPayment} disabled={balanceLoading || classMismatch}
                   className={`w-full flex items-center justify-center gap-2.5 py-4 rounded-xl font-black text-[15px] transition-all min-h-[56px] ${
                     balanceLoading || classMismatch
-                      ? "bg-white/8 text-white/25 cursor-not-allowed"
-                      : "bg-amber-400 text-[#000435] hover:bg-amber-300 shadow-2xl shadow-amber-400/25 active:scale-[.98]"
+                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                      : "bg-[#000435] text-white hover:bg-[#000630] shadow-lg active:scale-[.98]"
                   }`}>
                   {balanceLoading ? <Loader2 size={18} className="spin-anim"/> : <CreditCard size={18} strokeWidth={2.5}/>}
                   Continue to Payment
                   {!balanceLoading && <ArrowRight size={16}/>}
                 </button>
 
-                <div className="flex items-center justify-center gap-2 mt-3 text-[11px] text-white/25 font-semibold">
+                <div className="flex items-center justify-center gap-2 mt-3 text-[11px] text-gray-400 font-semibold">
                   <ShieldCheck size={12}/> Choose MTN MoMo, bank transfer, or card on the next screen
                 </div>
 
-                <div className="mt-4 pt-4 border-t border-white/8">
-                  <button type="button" onClick={() => goStep(4)} className="text-[12px] text-white/35 hover:text-white/60 font-bold transition-colors flex items-center gap-1.5">
+                <div className="mt-4 pt-4 border-t border-gray-100">
+                  <button type="button" onClick={() => goStep(4)} className="text-[12px] text-gray-400 hover:text-[#000435] font-bold transition-colors flex items-center gap-1.5">
                     <ArrowLeft size={13}/> Back to amount
                   </button>
                 </div>
@@ -1128,14 +1122,14 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
         </div>
 
         {/* Footer link */}
-        <div className="text-center mt-6 text-[12px] text-white/30 font-semibold">
+        <div className="text-center mt-6 text-[12px] text-gray-400 font-semibold">
           Need a different learner?{" "}
           <button type="button" onClick={() => {
             setCatalog(null); setStudent(null); setTermPick(""); setYearPick(""); setPricingData(null);
             setAmountInput(""); setCatalogErr(""); setComboIndex(0); setReqSel(new Set()); goStep(1);
-          }} className="text-amber-400/70 hover:text-amber-400 transition-colors font-bold">Start over</button>
+          }} className="text-amber-500 hover:text-amber-600 transition-colors font-bold">Start over</button>
           {" · "}
-          <Link to="/schools" className="text-amber-400/70 hover:text-amber-400 transition-colors font-bold">Browse schools</Link>
+          <Link to="/schools" className="text-amber-500 hover:text-amber-600 transition-colors font-bold">Browse schools</Link>
         </div>
       </div>
 

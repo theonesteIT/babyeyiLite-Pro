@@ -173,8 +173,8 @@ export default function SchoolWorkersPage({ session, toast }) {
 
       {editRow && editForm && (
         <div className="fixed inset-0 z-[4000] flex items-center justify-center bg-black/50 p-4">
-          <form onSubmit={saveEdit} className="w-full max-w-md rounded-3xl bg-white shadow-xl border border-gray-100 p-6 space-y-4">
-            <h3 className="text-lg font-black text-gray-900">Edit staff</h3>
+          <form onSubmit={saveEdit} className="w-full max-w-md rounded-3xl bg-white shadow-sm border border-gray-100 p-6 space-y-4">
+            <h3 className="text-lg font-semibold text-gray-900">Edit staff</h3>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-[0.65rem] font-bold text-gray-500 uppercase mb-1">First name</label>
@@ -226,7 +226,7 @@ export default function SchoolWorkersPage({ session, toast }) {
               >
                 Cancel
               </button>
-              <button type="submit" className="px-5 py-2 rounded-xl bg-gray-900 text-amber-300 text-sm font-black">
+              <button type="submit" className="px-5 py-2 rounded-xl bg-gray-900 text-amber-300 text-sm font-semibold">
                 Save
               </button>
             </div>
@@ -236,7 +236,7 @@ export default function SchoolWorkersPage({ session, toast }) {
 
       {deleteRow && (
         <div className="fixed inset-0 z-[4000] flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-sm rounded-3xl bg-white shadow-xl border border-red-100 p-6 space-y-4">
+          <div className="w-full max-w-sm rounded-3xl bg-white shadow-sm border border-red-100 p-6 space-y-4">
             <p className="text-sm font-bold text-gray-900">Remove this account?</p>
             <p className="text-xs text-gray-600">
               {deleteRow.first_name} {deleteRow.last_name} — they will no longer be able to sign in.
@@ -247,7 +247,7 @@ export default function SchoolWorkersPage({ session, toast }) {
               </button>
               <button
                 type="button"
-                className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-black"
+                className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-semibold"
                 onClick={confirmDelete}
               >
                 Delete
@@ -266,7 +266,7 @@ export default function SchoolWorkersPage({ session, toast }) {
             <Users size={22} className="text-gray-900" />
           </div>
           <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-black text-gray-900 tracking-tight">School team</h2>
+            <h2 className="text-lg font-semibold text-gray-900 tracking-tight">School team</h2>
             <p className="text-xs text-gray-600 font-medium">
               Add staff with email — a <strong>temporary password is generated and emailed</strong> to them. They sign in at{" "}
               <span className="font-mono text-amber-800">/login</span> and can change their password from the staff dashboard
@@ -283,7 +283,7 @@ export default function SchoolWorkersPage({ session, toast }) {
           <button
             type="button"
             onClick={() => setIdentityOpen(true)}
-            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-gray-900 text-amber-300 text-xs font-black hover:bg-gray-800"
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-gray-900 text-amber-300 text-xs font-semibold hover:bg-gray-800"
           >
             <ScanFace size={16} /> Set identity (photo / RFID)
           </button>
@@ -291,7 +291,7 @@ export default function SchoolWorkersPage({ session, toast }) {
 
         <div className="p-5 lg:p-6 grid grid-cols-1 xl:grid-cols-2 gap-8">
           <form onSubmit={submit} className="space-y-4">
-            <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-gray-500">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
               <Plus size={14} className="text-amber-600" /> New worker
             </div>
             {error && (
@@ -387,7 +387,7 @@ export default function SchoolWorkersPage({ session, toast }) {
             <button
               type="submit"
               disabled={saving}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-gray-900 text-amber-300 font-black text-sm hover:bg-gray-800 transition-colors disabled:opacity-60"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-gray-900 text-amber-300 font-semibold text-sm hover:bg-gray-800 transition-colors disabled:opacity-60"
             >
               {saving ? <Loader2 size={16} className="animate-spin" /> : <BadgeCheck size={16} />}
               Create account
@@ -396,7 +396,7 @@ export default function SchoolWorkersPage({ session, toast }) {
 
           <div>
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-black uppercase tracking-wider text-gray-500">Team members</span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">Team members</span>
               <span className="text-[0.65rem] font-mono text-gray-400">{session?.schoolCode || "—"}</span>
             </div>
             <div className="rounded-2xl border border-gray-100 overflow-hidden max-h-[520px] overflow-y-auto shadow-inner">

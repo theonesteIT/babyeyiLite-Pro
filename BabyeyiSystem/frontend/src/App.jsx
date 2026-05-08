@@ -9,7 +9,7 @@
 //   /parents/login             → ParentLogin (phone + password)
 //   /parents/register          → ParentRegister (new parent account)
 //   /parents/reset-phone       → ParentResetPhone (email self-service phone reset)
-//   /parents/*                 → Parent dashboard (Home, Shop, …) (PARENT session)
+//   /parents/*                 → Parent dashboard (PARENT session); /parents/classkit?cks=… is open to guests (OTP + cookie)
 //   /register                  → AddSchool (public registration)
 //   /signup/super-admin        → SuperAdminSignup
 //   /superadmin/signup         → SuperAdministratorSignup (first Super Admin credentials)
@@ -17,6 +17,7 @@
 //   /superadmin/control        → SuperAdministratorControl (FULL_SYSTEM_CONTROLLER only)
 //   /system-controller/dashboard → redirects to /superadmin/control
 //   /superadmin/dashboard      → SuperAdminDashboard (SUPER_ADMIN only)
+//   /superadmin/smart-access/* → Student/Staff Smart Access (SUPER_ADMIN | FULL_SYSTEM_CONTROLLER)
 //   /superadmin/voucher-services → SuperAdminVoucherServices (SUPER_ADMIN | FULL_SYSTEM_CONTROLLER)
 //   /superadmin/standard-shule-kits → SuperAdminStandardShuleKits (SUPER_ADMIN | FULL_SYSTEM_CONTROLLER)
 //   /services/standard-shulekit → PublicStandardShuleKit (public)
@@ -125,6 +126,9 @@ import AgentStandardKitRequestsPage from './Pages/Agent/AgentStandardKitRequests
 import AgentUniformVoucherOrdersPage from './Pages/Agent/AgentUniformVoucherOrdersPage';
 import SuperAdminStandardKitRequestsPage from './Pages/SuperAdmin/SuperAdminStandardKitRequestsPage';
 import SuperAdminShuleAvanceOrgs from './Pages/SuperAdmin/SuperAdminShuleAvanceOrgs';
+import SuperAdminSmartAccessLayout from './Pages/SuperAdmin/SmartAccess/SuperAdminSmartAccessLayout';
+import SuperAdminStudentSmartAccess from './Pages/SuperAdmin/SmartAccess/SuperAdminStudentSmartAccess';
+import SuperAdminStaffSmartAccess from './Pages/SuperAdmin/SmartAccess/SuperAdminStaffSmartAccess';
 import SchoolStudentsCard from './Pages/SuperAdmin/SchoolStudentsCard';
 import SchoolStudentCardTemplate2 from './Pages/SuperAdmin/SchoolStudentCardTemplate2';
 import SchoolStaffCardTemplate from './Pages/SuperAdmin/SchoolStaffCardTemplate';
@@ -138,7 +142,6 @@ import BabyeyiVerifyPage        from './Pages/School Manager/components/BabyeyiV
 import ParentLogin              from './Pages/Parents/ParentLogin';
 import ParentRegister           from './Pages/Parents/ParentRegister';
 import ParentResetPhone         from './Pages/Parents/ParentResetPhone';
-import ParentDashboardLayout    from './Pages/Parents/ParentDashboardLayout';
 import ParentHome               from './Pages/Parents/Home';
 import ParentShop               from './Pages/Parents/Shop';
 import ParentShulecard          from './Pages/Parents/Shulecard';
@@ -147,13 +150,15 @@ import ParentProfile            from './Pages/Parents/Profile';
 import ParentServices           from './Pages/Parents/Services';
 import ParentClasskitOrder      from './Pages/Parents/ClasskitOrderFlow';
 import ParentOrders             from './Pages/Parents/Orders';
+import ParentAuditLog           from './Pages/Parents/AuditLog';
+import ParentServiceStudentSelect from './Pages/Parents/ServiceStudentSelect';
 import QuickPayStudentSelect    from './Pages/Parents/QuickPayStudentSelect';
 import ParentPaymentsReport     from './Pages/Parents/PaymentsReport';
 import ShuleCardData            from './Pages/Parents/ShuleCardData';
 import ParentStudentDetails     from './Pages/Parents/ParentStudentDetails';
 import ParentSchoolChat         from './Pages/Parents/ParentSchoolChat';
 import InvoicesListPage         from './Pages/Shared/InvoicesListPage';
-import { ParentShellProvider } from './context/ParentShellContext';
+import ParentPortalGate from './components/ParentPortalGate';
 import StudentDashboard from './Pages/Student/student_dashboard';
 
 export default function App() {
@@ -220,13 +225,7 @@ export default function App() {
               <StudentDashboard />
             </ProtectedRoute>
           } />
-          <Route path="/parents" element={
-            <ProtectedRoute role="PARENT" redirectTo="/parents/login">
-              <ParentShellProvider>
-                <ParentDashboardLayout />
-              </ParentShellProvider>
-            </ProtectedRoute>
-          }>
+          <Route path="/parents" element={<ParentPortalGate />}>
             <Route index element={<Navigate to="home" replace />} />
             <Route path="home" element={<ParentHome />} />
             <Route path="shop" element={<ParentShop />} />
@@ -236,7 +235,9 @@ export default function App() {
             <Route path="services" element={<ParentServices />} />
             <Route path="quick-pay" element={<QuickPayStudentSelect />} />
             <Route path="classkit" element={<ParentClasskitOrder />} />
+            <Route path="service-student-select" element={<ParentServiceStudentSelect />} />
             <Route path="orders" element={<ParentOrders />} />
+            <Route path="audit-log" element={<ParentAuditLog />} />
             <Route path="payments-report" element={<ParentPaymentsReport />} />
             <Route path="shulecard-data" element={<ShuleCardData />} />
             <Route path="student-details/:studentId" element={<ParentStudentDetails />} />
@@ -254,6 +255,16 @@ export default function App() {
               <SuperAdminDashboard />
             </ProtectedRoute>
           } />
+
+          <Route path="/superadmin/smart-access" element={
+            <ProtectedRoute role={['SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER']}>
+              <SuperAdminSmartAccessLayout />
+            </ProtectedRoute>
+          }>
+            <Route index element={<Navigate to="students" replace />} />
+            <Route path="students" element={<SuperAdminStudentSmartAccess />} />
+            <Route path="staff" element={<SuperAdminStaffSmartAccess />} />
+          </Route>
 
           <Route path="/system-controller/dashboard" element={<FullSystemControllerDashboard />} />
 

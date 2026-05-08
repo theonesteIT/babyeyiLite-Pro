@@ -22,9 +22,9 @@ const BLANK = {
 };
 
 const inputCls =
-  'w-full h-9 bg-re-bg rounded-lg px-3 outline-none border border-transparent focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-re-text text-[9px] sm:text-[10px] font-black tracking-tight shadow-inner placeholder:text-re-text-muted/40';
+  'w-full h-9 bg-re-bg rounded-lg px-3 outline-none border border-transparent focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-re-text text-[9px] sm:text-[10px] font-semibold tracking-tight shadow-inner placeholder:text-re-text-muted/40';
 const selectCls = `${inputCls} cursor-pointer appearance-none`;
-const labelCls = 'block text-[9px] font-black text-[#1E3A5F] uppercase tracking-[0.2em] mb-1.5 opacity-80';
+const labelCls = 'block text-[9px] font-semibold text-[#1E3A5F] uppercase tracking-[0.2em] mb-1.5 opacity-80';
 
 function FormField({ label, required, children }) {
   return (
@@ -102,7 +102,7 @@ export default function FinancePayMethodModal({ open, onClose, onSuccess }) {
                 <CreditCard size={16} />
               </div>
               <div>
-                <h1 className="text-[11px] font-black text-white uppercase tracking-widest leading-none">
+                <h1 className="text-[11px] font-semibold text-white uppercase tracking-widest leading-none">
                   Add payment method
                 </h1>
                 <p className="text-[7px] font-bold text-white/40 uppercase tracking-tight mt-1">
@@ -203,7 +203,7 @@ export default function FinancePayMethodModal({ open, onClose, onSuccess }) {
                   />
                 </FormField>
 
-                <label className="flex items-center gap-2 text-[10px] font-black text-re-navy cursor-pointer select-none pt-1">
+                <label className="flex items-center gap-2 text-[10px] font-semibold text-re-navy cursor-pointer select-none pt-1">
                   <input
                     type="checkbox"
                     checked={form.is_primary}
@@ -223,14 +223,14 @@ export default function FinancePayMethodModal({ open, onClose, onSuccess }) {
               type="button"
               onClick={onClose}
               disabled={saving}
-              className="h-9 px-4 rounded-lg border border-black/5 text-re-navy font-black text-[9px] uppercase tracking-widest hover:bg-re-bg transition-all active:scale-95 disabled:opacity-50"
+              className="h-9 px-4 rounded-lg border border-black/5 text-re-navy font-medium text-[9px] uppercase tracking-widest hover:bg-re-bg transition-all active:scale-95 disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="h-9 px-6 rounded-lg bg-re-grad-navy text-white font-black text-[9px] uppercase tracking-widest shadow-re-premium-navy hover:scale-[1.02] active:scale-95 transition-all flex items-center gap-1.5 disabled:opacity-50"
+              className="h-9 px-6 rounded-lg bg-re-grad-navy text-white font-medium text-[9px] uppercase tracking-widest shadow-re-premium-navy active:scale-95 transition-all flex items-center gap-1.5 disabled:opacity-50"
             >
               {saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
               {saving ? 'Saving…' : 'Add method'}

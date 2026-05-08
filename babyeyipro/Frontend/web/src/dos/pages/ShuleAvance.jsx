@@ -12,6 +12,7 @@ import {
    CreditCard,
    Users
 } from 'lucide-react';
+import DosOchreHero from '../components/DosOchreHero';
 
 const ShuleAvance = () => {
    const [loanStatus, setLoanStatus] = useState(null);
@@ -81,31 +82,24 @@ const ShuleAvance = () => {
    );
 
    return (
-      <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-         {/* ── Hero Banner ── */}
-         <section className="relative p-7 md:p-10 text-white overflow-hidden min-h-[200px] flex items-center bg-[#000435]">
-            <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full border border-white/5 pointer-events-none" />
-            <div className="absolute -top-12 -right-12 w-64 h-64 rounded-full border border-white/5 pointer-events-none" />
-            <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-[#FEBF10]/30 to-transparent pointer-events-none" />
-            <div className="relative z-10 max-w-5xl w-full">
-               <div className="flex items-center gap-2 mb-2">
-                  <span className="h-0.5 w-6 rounded-full bg-[#FEBF10]" />
-                  <p className="text-[10px] font-black capitalize tracking-widest text-[#FEBF10]/80">Financial Portal</p>
-               </div>
-               <h1 className="text-2xl md:text-3xl font-black tracking-tight">Shule<span className="text-[#FEBF10]">Avance</span></h1>
-               <p className="text-xs font-bold text-white/60 max-w-xl mt-2">Staff financial services — apply for credit, track repayments, and manage your loan status.</p>
-            </div>
-         </section>
+      <div className="animate-in fade-in duration-500 bg-re-bg min-h-screen font-sans">
+         <DosOchreHero
+            eyebrow="Financial services"
+            titleLine="Shule"
+            titleAccent="Avance"
+            subtitle="Staff financial services — apply for credit, track repayments, and manage your loan status."
+            icon={Wallet}
+         />
 
          {/* ── Main Content Grid ── */}
-         <div className="max-w-[1600px] mx-auto px-6 md:px-12 -mt-10 relative z-20 pb-20">
+         <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 -mt-4 sm:-mt-5 md:-mt-6 pt-2 relative z-20 pb-20">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
                {/* ── Left Column (Financial Dashboard) ── */}
                <div className="lg:col-span-2 space-y-8">
 
                   {/* Main Financial State Card */}
-                  <div className="bg-white rounded-[32px] shadow-2xl border border-black/5 p-6 md:p-8 relative overflow-hidden flex flex-col justify-between">
+                  <div className="bg-white rounded-[32px] shadow-sm border border-black/5 p-6 md:p-8 relative overflow-hidden flex flex-col justify-between">
                      {showApply ? (
                         <div className="space-y-6 animate-in slide-in-from-top-4 duration-500">
                            <div className="flex items-center justify-between">

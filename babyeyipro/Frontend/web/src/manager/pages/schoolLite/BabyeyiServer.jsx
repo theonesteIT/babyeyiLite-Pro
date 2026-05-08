@@ -325,7 +325,7 @@ function FileZone({ label, sublabel, required, file, onFile, accept = "image/*,a
         <p className="text-xs font-bold mb-1 flex items-center gap-1.5" style={{ color: C.darkMid }}>
           {label} {required && <span style={{ color: C.red }}>*</span>}
           {fromDB && !file && previewUrl && (
-            <span className="px-1.5 py-0.5 rounded text-[8px] font-black border"
+            <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold border"
               style={{ background: "#d1fae5", color: "#065f46", borderColor: "#6ee7b7" }}>
               ✓ From DB
             </span>
@@ -383,7 +383,7 @@ function ClassSelector({ level, selected, onChange }) {
     <div className="flex flex-wrap gap-2">
       {classes.map(cls => (
         <button key={cls} type="button" onClick={() => toggle(cls)}
-          className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl font-black text-sm transition-all border-2 active:scale-95"
+          className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl font-semibold text-sm transition-all border-2 active:scale-95"
           style={selected.includes(cls)
             ? { background: C.gold, color: C.dark, borderColor: C.gold, boxShadow: "0 4px 12px rgba(254,191,16,0.4)" }
             : { background: "#fff", color: "#475569", borderColor: C.goldBorder }}>
@@ -420,14 +420,14 @@ function DocPreview({ form, previews }) {
             {form.includeSchoolDetails ? (
               <>
                 <p className="text-[8px] uppercase tracking-widest text-slate-500 font-bold">Republic of Rwanda</p>
-                <p className="font-black text-sm uppercase text-slate-900 leading-tight">{form.schoolName || "School Name"}</p>
+                <p className="font-semibold text-sm uppercase text-slate-900 leading-tight">{form.schoolName || "School Name"}</p>
                 <p className="text-[8px] text-slate-500">{[form.district, form.sector, form.cell].filter(Boolean).join(" / ")}</p>
               </>
             ) : (
-              <p className="font-black text-sm uppercase text-slate-900">BABYEYI DOCUMENT</p>
+              <p className="font-semibold text-sm uppercase text-slate-900">BABYEYI DOCUMENT</p>
             )}
             <div className="inline-block border-t border-b border-slate-700 px-3 py-0.5 mt-1">
-              <p className="text-[8px] font-black uppercase tracking-wider">BABYEYI — {form.term} · {form.academicYear}</p>
+              <p className="text-[8px] font-semibold uppercase tracking-wider">BABYEYI — {form.term} · {form.academicYear}</p>
             </div>
           </div>
           <div className="w-14 h-14 border border-slate-300 rounded flex items-center justify-center bg-slate-50 shrink-0 overflow-hidden">
@@ -440,18 +440,18 @@ function DocPreview({ form, previews }) {
       <div className="px-5 py-2 flex items-center justify-between"
         style={{ background: C.dark }}>
         <div className="flex gap-2">{form.classes.map(c => (
-          <span key={c} className="px-2 py-0.5 rounded text-[9px] font-black"
+          <span key={c} className="px-2 py-0.5 rounded text-[9px] font-semibold"
             style={{ background: C.gold, color: C.dark }}>{c}</span>
         ))}</div>
         <span className="text-[8px]" style={{ color: "#FED44A" }}>Kigali, le {form.dateSigned || new Date().toLocaleDateString('fr-FR')}</span>
       </div>
       <div className="px-5 py-3 space-y-3">
         <div>
-          <p className="text-[8px] font-black uppercase tracking-widest border-b border-slate-200 pb-0.5 mb-1 text-slate-600">MESSAGE AUX PARENTS</p>
+          <p className="text-[8px] font-semibold uppercase tracking-widest border-b border-slate-200 pb-0.5 mb-1 text-slate-600">MESSAGE AUX PARENTS</p>
           <p className="text-[9px] leading-relaxed text-slate-700 line-clamp-3">{form.parentMessage}</p>
         </div>
         <div>
-          <p className="text-[8px] font-black uppercase tracking-widest border-b border-slate-200 pb-0.5 mb-1 text-slate-600">FRAIS SCOLAIRES</p>
+          <p className="text-[8px] font-semibold uppercase tracking-widest border-b border-slate-200 pb-0.5 mb-1 text-slate-600">FRAIS SCOLAIRES</p>
           <table className="w-full text-[9px]">
             <thead><tr style={{ background: C.goldBgMid }}>
               <th className="text-left px-2 py-1 font-bold">Désignation</th>
@@ -465,22 +465,22 @@ function DocPreview({ form, previews }) {
                 </tr>
               ))}
               <tr style={{ background: C.dark }}>
-                <td className="px-2 py-1 font-black" style={{ color: C.gold }}>TOTAL</td>
-                <td className="px-2 py-1 text-right font-black" style={{ color: C.gold }}>RWF {total.toLocaleString()}</td>
+                <td className="px-2 py-1 font-semibold" style={{ color: C.gold }}>TOTAL</td>
+                <td className="px-2 py-1 text-right font-semibold" style={{ color: C.gold }}>RWF {total.toLocaleString()}</td>
               </tr>
             </tbody>
           </table>
         </div>
         {allBanks.length > 0 && (
           <div>
-            <p className="text-[8px] font-black uppercase tracking-widest border-b border-slate-200 pb-0.5 mb-1 text-slate-600">
+            <p className="text-[8px] font-semibold uppercase tracking-widest border-b border-slate-200 pb-0.5 mb-1 text-slate-600">
               COMPTE{allBanks.length > 1 ? "S" : ""} BANCAIRE{allBanks.length > 1 ? "S" : ""}
             </p>
             <div className="space-y-1">
               {allBanks.map((b, idx) => (
                 <div key={idx} className="rounded px-3 py-1.5 text-[9px] space-y-0.5 border"
                   style={{ background: C.goldBg, borderColor: C.goldBorder }}>
-                  {allBanks.length > 1 && <p className="text-[8px] font-black" style={{ color: C.goldDark }}>Bank {idx + 1}</p>}
+                  {allBanks.length > 1 && <p className="text-[8px] font-semibold" style={{ color: C.goldDark }}>Bank {idx + 1}</p>}
                   {b.bankName && <p><b>Banque:</b> {b.bankName}</p>}
                   {b.accountNumber && <p><b>N° Compte:</b> <span className="font-mono">{b.accountNumber}</span></p>}
                   {b.accountName && <p><b>Nom:</b> {b.accountName}</p>}
@@ -493,14 +493,14 @@ function DocPreview({ form, previews }) {
         {/* ── Leaders mini preview ─────────────────────────── */}
         {visibleLeaders.length > 0 && (
           <div>
-            <p className="text-[8px] font-black uppercase tracking-widest border-b border-slate-200 pb-0.5 mb-1 text-slate-600">
+            <p className="text-[8px] font-semibold uppercase tracking-widest border-b border-slate-200 pb-0.5 mb-1 text-slate-600">
               SCHOOL LEADERSHIP CONTACTS
             </p>
             <div className="grid grid-cols-2 gap-1">
               {visibleLeaders.slice(0, 4).map((l, i) => (
                 <div key={i} className="rounded px-2 py-1 text-[8px] border"
                   style={{ background: C.goldBg, borderColor: C.goldBorder }}>
-                  <p className="font-black truncate" style={{ color: C.dark }}>{l.name || "—"}</p>
+                  <p className="font-semibold truncate" style={{ color: C.dark }}>{l.name || "—"}</p>
                   <p className="truncate" style={{ color: C.goldDark }}>{l.role || "—"}</p>
                   {l.phone && <p className="font-mono text-slate-500">{l.phone}</p>}
                 </div>
@@ -515,7 +515,7 @@ function DocPreview({ form, previews }) {
         )}
 
         <div>
-          <p className="text-[8px] font-black uppercase tracking-widest border-b border-slate-200 pb-0.5 mb-2 text-slate-600">SIGNATURES & CACHETS</p>
+          <p className="text-[8px] font-semibold uppercase tracking-widest border-b border-slate-200 pb-0.5 mb-2 text-slate-600">SIGNATURES & CACHETS</p>
           <div className="grid grid-cols-3 gap-2 text-center">
             {[
               { l:"Directeur", s:previews.directorSignature, e:"✍️" },
@@ -724,7 +724,7 @@ export default function App({ session }) {
       <div className="min-h-screen flex items-center justify-center p-6" style={{ fontFamily: "'Montserrat', sans-serif" }}>
         <div className="bg-white rounded-2xl border-2 border-red-200 p-8 max-w-md text-center shadow-lg">
           <div className="text-4xl mb-4">⚠️</div>
-          <h2 className="font-black text-lg mb-2" style={{ color: C.red }}>Session Error</h2>
+          <h2 className="font-semibold text-lg mb-2" style={{ color: C.red }}>Session Error</h2>
           <p className="text-slate-600 text-sm">School ID not found in session. Please log out and log back in with your school manager account.</p>
         </div>
       </div>
@@ -863,11 +863,11 @@ export default function App({ session }) {
       <div className="min-h-screen flex items-start justify-center p-6 overflow-y-auto"
         style={{ background: `linear-gradient(135deg, ${C.goldBg}, #fff, ${C.goldBgMid})`, fontFamily: "'Montserrat', sans-serif" }}>
         <div className="text-center max-w-lg w-full py-6">
-          <div className="w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-5 shadow-2xl"
+          <div className="w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-5 shadow-sm"
             style={{ background: `linear-gradient(135deg, ${C.gold}, ${C.goldDark})`, boxShadow: "0 8px 30px rgba(254,191,16,0.45)" }}>
             <Svg d={ic.check} size={36} color={C.dark} sw={3} />
           </div>
-          <h2 className="text-2xl font-black mb-2" style={{ color: C.dark }}>Babyeyi Generated!</h2>
+          <h2 className="text-2xl font-semibold mb-2" style={{ color: C.dark }}>Babyeyi Generated!</h2>
           <p className="text-slate-500 text-sm mb-4">
             {form.classes.length} record{form.classes.length > 1 ? "s" : ""} created for:{" "}
             <strong style={{ color: C.goldDark }}>{form.classes.join(", ")}</strong>
@@ -884,7 +884,7 @@ export default function App({ session }) {
             <div className="mb-5 space-y-3">
               <div className="flex items-center gap-2 mb-2">
                 <I n="qr" size={14} color={C.gold} />
-                <p className="text-xs font-black uppercase tracking-widest" style={{ color: C.darkMid }}>
+                <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: C.darkMid }}>
                   QR Code{generatedQRCodes.length > 1 ? "s" : ""} — Scan to View
                 </p>
               </div>
@@ -911,7 +911,7 @@ export default function App({ session }) {
                   {generatedQRCodes.map(qr => (
                     <div key={qr.id} className="rounded-xl p-3 text-center border-2"
                       style={{ background: C.goldBg, borderColor: C.goldBorder }}>
-                      <span className="inline-block px-2 py-0.5 rounded-lg text-[9px] font-black mb-2"
+                      <span className="inline-block px-2 py-0.5 rounded-lg text-[9px] font-semibold mb-2"
                         style={{ background: C.gold, color: C.dark }}>{qr.cls}</span>
                       <div className="flex justify-center mb-2">
                         <div className="bg-white rounded-lg p-2 border shadow-sm" style={{ borderColor: C.goldBorder }}>
@@ -1032,7 +1032,7 @@ export default function App({ session }) {
                 )}
 
                 <div className="flex flex-col gap-0.5">
-                  <p className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5"
+                  <p className="text-[10px] font-semibold uppercase tracking-widest flex items-center gap-1.5"
                     style={{ color: C.goldDark }}>
                     <I n="school" size={11} color={C.goldDark} /> School Information
                   </p>
@@ -1166,7 +1166,7 @@ export default function App({ session }) {
             </div>
 
             <div className="bg-white border rounded-2xl p-4" style={{ borderColor: C.goldBorder }}>
-              <label className="block text-[10px] font-black uppercase tracking-widest mb-3" style={{ color: C.darkMid }}>
+              <label className="block text-[10px] font-semibold uppercase tracking-widest mb-3" style={{ color: C.darkMid }}>
                 Select Classes
                 <span className="ml-2 font-normal normal-case text-[10px]" style={{ color: C.goldDark }}>
                   — multi-select within same level
@@ -1184,7 +1184,7 @@ export default function App({ session }) {
             <div>
               <label className="block text-[10px] font-bold uppercase mb-1 flex items-center gap-1.5" style={{ color: C.darkMid }}>
                 Parent Message
-                <span className="px-1.5 py-0.5 rounded text-[8px] font-black border"
+                <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold border"
                   style={{ background: C.goldBg, color: C.goldDark, borderColor: C.goldBorder }}>
                   Saved to DB ✓
                 </span>
@@ -1210,7 +1210,7 @@ export default function App({ session }) {
                   <I n="shield" size={16} color="white" />
                 </div>
                 <div>
-                  <p className="font-black text-white text-sm">Tuition Smart Checker</p>
+                  <p className="font-semibold text-white text-sm">Tuition Smart Checker</p>
                   <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.75)" }}>
                     {nesaLimitLoading ? "Fetching limit…"
                       : nesaLimitSource === "none" ? `No fee limit configured for ${form.level} ${form.term}`
@@ -1255,7 +1255,7 @@ export default function App({ session }) {
 
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-[10px] font-black uppercase tracking-widest" style={{ color: C.darkMid }}>Payment Items</label>
+              <label className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: C.darkMid }}>Payment Items</label>
               <button type="button" onClick={() => up("payments", [...form.payments, {name:"",amount:""}])}
                 className="flex items-center gap-1 text-xs font-bold hover:opacity-80 px-2 py-1 rounded-lg"
                 style={{ color: C.goldDark, background: C.goldBg }}>
@@ -1270,7 +1270,7 @@ export default function App({ session }) {
             <div className="space-y-2">
               {form.payments.map((p, i) => (
                 <div key={i} className="flex gap-2 items-center">
-                  <span className="w-5 h-5 rounded-lg flex items-center justify-center text-[9px] font-black shrink-0"
+                  <span className="w-5 h-5 rounded-lg flex items-center justify-center text-[9px] font-semibold shrink-0"
                     style={{ background: C.goldBgMid, color: C.goldDark }}>{i+1}</span>
                   <input value={p.name} onChange={e => { const ps=[...form.payments]; ps[i].name=e.target.value; up("payments",ps); }}
                     placeholder="Payment name" className={`${inp} flex-1`} style={{ borderColor: C.goldBorder }} />
@@ -1289,8 +1289,8 @@ export default function App({ session }) {
             </div>
             <div className="flex items-center justify-between mt-3 px-4 py-3 rounded-xl"
               style={{ background: exceeds ? `linear-gradient(135deg, #dc2626, #ef4444)` : `linear-gradient(135deg, ${C.dark}, ${C.darkMid})` }}>
-              <span className="text-sm font-black text-white">GRAND TOTAL</span>
-              <span className="text-lg font-black" style={{ color: C.gold }}>RWF {totalFee.toLocaleString()}</span>
+              <span className="text-sm font-semibold text-white">GRAND TOTAL</span>
+              <span className="text-lg font-semibold" style={{ color: C.gold }}>RWF {totalFee.toLocaleString()}</span>
             </div>
           </div>
 
@@ -1305,7 +1305,7 @@ export default function App({ session }) {
                       <I n="send" size={16} color="white" />
                     </div>
                     <div>
-                      <p className="font-black text-white text-sm">Request Increase Approval</p>
+                      <p className="font-semibold text-white text-sm">Request Increase Approval</p>
                       <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.75)" }}>
                         Fee exceeds limit by <strong className="text-white">RWF {overBy.toLocaleString()}</strong>
                       </p>
@@ -1337,7 +1337,7 @@ export default function App({ session }) {
                     style={{ background: form.requestIncrease ? "#fff" : "rgba(255,255,255,0.2)", borderColor: form.requestIncrease ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.3)" }}>
                     <span className={`absolute top-0.5 w-5 h-5 rounded-full shadow-md transition-all duration-300 ${form.requestIncrease?"left-[30px]":"left-[2px]"}`}
                       style={{ background: form.requestIncrease ? C.gold : "#fff" }} />
-                    <span className={`absolute inset-0 flex items-center justify-center text-[8px] font-black ${form.requestIncrease?"pl-1 text-amber-700":"pr-1 text-white/60"}`}>
+                    <span className={`absolute inset-0 flex items-center justify-center text-[8px] font-semibold ${form.requestIncrease?"pl-1 text-amber-700":"pr-1 text-white/60"}`}>
                       {form.requestIncrease ? "ON" : "OFF"}
                     </span>
                   </button>
@@ -1388,7 +1388,7 @@ export default function App({ session }) {
             </div>
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="text-[10px] font-black uppercase tracking-widest" style={{ color: C.darkMid }}>Standard Package</label>
+                <label className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: C.darkMid }}>Standard Package</label>
                 <button
                   type="button"
                   disabled={studentReqCatalogLoading || !studentReqCatalog.length}
@@ -1442,7 +1442,7 @@ export default function App({ session }) {
               )}
             </div>
             <div className="flex items-center justify-between">
-              <label className="text-[10px] font-black uppercase tracking-widest" style={{ color: C.darkMid }}>Custom Requirements</label>
+              <label className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: C.darkMid }}>Custom Requirements</label>
               <button type="button" onClick={() => up("requirements", [...(form.requirements||[]),{item:""}])}
                 className="flex items-center gap-1 text-xs font-bold hover:opacity-80 px-2 py-1 rounded-lg"
                 style={{ color: C.goldDark, background: C.goldBg }}>
@@ -1454,7 +1454,7 @@ export default function App({ session }) {
                   <div key={i} className="flex flex-col gap-1.5 border border-amber-100 rounded-xl p-2 bg-white">
                     <div className="flex items-center gap-2">
                       <span
-                        className="w-5 h-5 rounded-lg flex items-center justify-center text-[9px] font-black shrink-0"
+                        className="w-5 h-5 rounded-lg flex items-center justify-center text-[9px] font-semibold shrink-0"
                         style={{ background: C.goldBgMid, color: C.goldDark }}
                       >
                         {i+1}
@@ -1512,7 +1512,7 @@ export default function App({ session }) {
             <div className="border-t pt-4" style={{ borderColor: C.goldBorder }}>
               <div className="flex items-center justify-between mb-1">
                 <div>
-                  <label className="text-[10px] font-black uppercase tracking-widest" style={{ color: C.darkMid }}>
+                  <label className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: C.darkMid }}>
                     Other School Information
                   </label>
                   <p className="text-[10px] mt-0.5" style={{ color: C.slate }}>
@@ -1528,7 +1528,7 @@ export default function App({ session }) {
               <div className="space-y-2 mt-2">
                 {(form.otherInfos||[]).map((r,i) => (
                   <div key={i} className="flex gap-2 items-start">
-                    <span className="w-5 h-5 rounded-lg flex items-center justify-center text-[9px] font-black shrink-0 mt-2.5"
+                    <span className="w-5 h-5 rounded-lg flex items-center justify-center text-[9px] font-semibold shrink-0 mt-2.5"
                       style={{ background: "#d1fae5", color: "#065f46" }}>
                       {String.fromCharCode(65+i)}
                     </span>
@@ -1581,10 +1581,10 @@ export default function App({ session }) {
                   <I n="bank" size={18} color={C.dark} />
                 </div>
                 <div>
-                  <p className="font-black text-sm" style={{ color: C.dark }}>Primary Bank Account</p>
+                  <p className="font-semibold text-sm" style={{ color: C.dark }}>Primary Bank Account</p>
                   <p className="text-[10px]" style={{ color: C.goldDark }}>Main payment account for this Babyeyi</p>
                 </div>
-                <span className="ml-auto shrink-0 px-2 py-0.5 rounded-lg text-[9px] font-black"
+                <span className="ml-auto shrink-0 px-2 py-0.5 rounded-lg text-[9px] font-semibold"
                   style={{ background: C.gold, color: C.dark }}>PRIMARY</span>
               </div>
               <div className="space-y-3">
@@ -1610,7 +1610,7 @@ export default function App({ session }) {
             </div>
 
             {form.bankName && form.accountNumber && (
-              <div className="relative rounded-2xl p-5 text-white overflow-hidden shadow-xl"
+              <div className="relative rounded-2xl p-5 text-white overflow-hidden shadow-sm"
                 style={{ background: `linear-gradient(135deg, ${C.dark}, ${C.darkMid})` }}>
                 <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full" style={{ background: "rgba(254,191,16,0.1)" }} />
                 <div className="flex items-center justify-between mb-3">
@@ -1628,7 +1628,7 @@ export default function App({ session }) {
             <div>
               <div className="flex items-center justify-between mb-3">
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: C.darkMid }}>Additional Bank Accounts</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: C.darkMid }}>Additional Bank Accounts</p>
                 </div>
                 <button type="button" onClick={addExtraBank}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold shadow-md transition-all active:scale-95"
@@ -1647,7 +1647,7 @@ export default function App({ session }) {
                   {extraBanks.map((bank, idx) => (
                     <div key={idx} className="bg-white border-2 rounded-2xl p-4 relative" style={{ borderColor: C.goldBorder }}>
                       <div className="flex items-center justify-between mb-3">
-                        <span className="text-xs font-black" style={{ color: C.dark }}>Bank {idx + 2}</span>
+                        <span className="text-xs font-semibold" style={{ color: C.dark }}>Bank {idx + 2}</span>
                         <button type="button" onClick={() => removeExtraBank(idx)} className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ color: C.red }}>
                           <I n="x" size={12} />
                         </button>
@@ -1699,7 +1699,7 @@ export default function App({ session }) {
                     <span className="text-base">{item.icon}</span>
                   </div>
                   <div>
-                    <p className="text-xs font-black" style={{ color: C.dark }}>{item.label}</p>
+                    <p className="text-xs font-semibold" style={{ color: C.dark }}>{item.label}</p>
                     <p className="text-[9px] font-semibold" style={{ color: dbAssets[item.dbKey] ? C.emerald : C.slate }}>
                       {dbAssets[item.dbKey] ? "✓ Loaded from school profile" : "Not set in database"}
                     </p>
@@ -1745,7 +1745,7 @@ export default function App({ session }) {
             </div>
           </div>
           <div className="flex items-center justify-between">
-            <label className="text-[10px] font-black uppercase tracking-widest" style={{ color: C.darkMid }}>Other School Information</label>
+            <label className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: C.darkMid }}>Other School Information</label>
             <button type="button" onClick={() => up("otherInfos",[...(form.otherInfos||[]),{item:""}])}
               className="flex items-center gap-1 text-xs font-bold hover:opacity-80 px-2 py-1 rounded-lg"
               style={{ color: C.goldDark, background: C.goldBg }}>
@@ -1755,7 +1755,7 @@ export default function App({ session }) {
           <div className="space-y-2">
             {(form.otherInfos||[]).map((r,i) => (
               <div key={i} className="flex gap-2 items-start">
-                <span className="w-5 h-5 rounded-lg flex items-center justify-center text-[9px] font-black shrink-0 mt-2.5"
+                <span className="w-5 h-5 rounded-lg flex items-center justify-center text-[9px] font-semibold shrink-0 mt-2.5"
                   style={{ background: "#d1fae5", color: "#065f46" }}>{String.fromCharCode(65+i)}</span>
                 <input value={r.item} onChange={e=>{const arr=[...(form.otherInfos||[])];arr[i].item=e.target.value;up("otherInfos",arr);}}
                   placeholder="e.g. Parents must clear all fees before mid-term exams…"
@@ -1818,7 +1818,7 @@ export default function App({ session }) {
                         <I n="user" size={13} color={leader.name ? C.dark : C.goldDark} />
                       </div>
                       <div>
-                        <p className="text-xs font-black"
+                        <p className="text-xs font-semibold"
                           style={{ color: leader.name ? C.dark : C.goldDark }}>
                           {leader.name || `Leader ${idx + 1}`}
                         </p>
@@ -1830,13 +1830,13 @@ export default function App({ session }) {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="px-2 py-0.5 rounded-lg text-[8px] font-black"
+                      <span className="px-2 py-0.5 rounded-lg text-[8px] font-semibold"
                         style={{ background: leader.name ? "rgba(255,255,255,0.25)" : C.goldBorder, color: leader.name ? C.dark : C.goldDark }}>
                         #{idx + 1}
                       </span>
                       {leaders.length > 1 && (
                         <button type="button" onClick={() => removeLeader(idx)}
-                          className="w-6 h-6 rounded-lg flex items-center justify-center transition-all hover:scale-110"
+                          className="w-6 h-6 rounded-lg flex items-center justify-center"
                           style={{ background: leader.name ? "rgba(239,68,68,0.2)" : C.redBorder, color: C.red }}>
                           <I n="x" size={11} />
                         </button>
@@ -1991,8 +1991,8 @@ export default function App({ session }) {
                 { label:"Leaders",   val:`${validLeadersCount} contact${validLeadersCount!==1?"s":""}`, bg:C.goldBg, border:C.goldBorder, color:C.darkMid },
               ].map(c => (
                 <div key={c.label} className="rounded-xl border-2 p-3" style={{ background: c.bg, borderColor: c.border }}>
-                  <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-0.5" style={{ color: c.color }}>{c.label}</p>
-                  <p className="text-xs font-black truncate" style={{ color: c.color }}>{c.val}</p>
+                  <p className="text-[9px] font-semibold uppercase tracking-widest opacity-60 mb-0.5" style={{ color: c.color }}>{c.label}</p>
+                  <p className="text-xs font-semibold truncate" style={{ color: c.color }}>{c.val}</p>
                 </div>
               ))}
             </div>
@@ -2003,7 +2003,7 @@ export default function App({ session }) {
                 <div className="px-4 py-2.5 flex items-center gap-2"
                   style={{ background: C.goldBgMid, borderBottom: `1px solid ${C.goldBorder}` }}>
                   <I n="users" size={13} color={C.goldDark} />
-                  <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: C.goldDark }}>
+                  <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: C.goldDark }}>
                     Leaders — {validLeadersCount} contact{validLeadersCount !== 1 ? "s" : ""}
                   </p>
                 </div>
@@ -2029,17 +2029,17 @@ export default function App({ session }) {
             )}
 
             <div>
-              <p className="text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-1.5" style={{ color: C.darkMid }}>
+              <p className="text-[10px] font-semibold uppercase tracking-widest mb-2 flex items-center gap-1.5" style={{ color: C.darkMid }}>
                 <I n="eye" size={12} /> Document Preview
               </p>
-              <div className="overflow-y-auto rounded-2xl shadow-xl max-h-[40vh]"
+              <div className="overflow-y-auto rounded-2xl shadow-sm max-h-[40vh]"
                 style={{ boxShadow: `0 0 0 2px ${C.goldBorder}` }}>
                 <DocPreview form={form} previews={previews} />
               </div>
             </div>
 
             <div className="rounded-xl p-3 border" style={{ background: C.goldBg, borderColor: C.goldBorder }}>
-              <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{ color: C.goldDark }}>Validation Checklist</p>
+              <p className="text-[9px] font-semibold uppercase tracking-widest mb-2" style={{ color: C.goldDark }}>Validation Checklist</p>
               {[
                 { ok:form.payments.some(p=>p.name&&p.amount),                              label:"At least one payment item",         req:true },
                 { ok:!!form.parentMessage?.trim(),                                          label:"Parent message",                    req:false },
@@ -2085,7 +2085,7 @@ export default function App({ session }) {
       `}</style>
 
       {toast && (
-        <div className="fixed top-4 right-4 z-50 px-4 py-3 rounded-2xl shadow-2xl text-sm font-bold flex items-center gap-2 max-w-xs"
+        <div className="fixed top-4 right-4 z-50 px-4 py-3 rounded-2xl shadow-sm text-sm font-bold flex items-center gap-2 max-w-xs"
           style={{
             background: toast.type==="success" ? C.emerald : toast.type==="error" ? C.red : C.gold,
             color: toast.type==="info" ? C.dark : "#fff",
@@ -2095,7 +2095,7 @@ export default function App({ session }) {
         </div>
       )}
 
-      <div className="bg-white rounded-3xl w-full max-w-2xl max-h-[96vh] flex flex-col shadow-2xl overflow-hidden"
+      <div className="bg-white rounded-3xl w-full max-w-2xl max-h-[96vh] flex flex-col shadow-sm overflow-hidden"
         style={{ boxShadow: "0 25px 60px rgba(254,191,16,0.2), 0 0 0 1px rgba(254,191,16,0.1)" }}>
 
         {/* Header */}
@@ -2107,7 +2107,7 @@ export default function App({ session }) {
                 <span className="text-base">📋</span>
               </div>
               <div>
-                <h1 className="font-black text-white text-sm sm:text-base leading-tight">Create Babyeyi</h1>
+                <h1 className="font-semibold text-white text-sm sm:text-base leading-tight">Create Babyeyi</h1>
                 <p className="text-[10px]" style={{ color: C.goldLight }}>
                   {form.schoolName || session?.schoolName || "School"} · {form.classes.join(", ")} · {form.level} · {form.term}
                 </p>
@@ -2153,7 +2153,7 @@ export default function App({ session }) {
           <span className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0" style={{ background: C.goldBgMid }}>
             <I n={STEPS[step-1].icon} size={13} color={C.goldDark} />
           </span>
-          <h3 className="font-black text-slate-800 text-sm">Step {step}: {STEPS[step-1].label}</h3>
+          <h3 className="font-semibold text-slate-800 text-sm">Step {step}: {STEPS[step-1].label}</h3>
           <span className="ml-auto text-[10px] font-bold shrink-0" style={{ color: C.goldDark }}>{step}/{STEPS.length}</span>
         </div>
 
@@ -2207,7 +2207,7 @@ export default function App({ session }) {
         style={{ background: "rgba(15,23,42,0.7)", backdropFilter: "blur(6px)" }}
         onClick={e => { if (e.target === e.currentTarget) setShowIncreaseModal(false); }}
       >
-        <div className="bg-white rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+        <div className="bg-white rounded-3xl w-full max-w-xl shadow-sm overflow-hidden max-h-[90vh] flex flex-col">
           <div className="px-4 sm:px-5 py-3.5 flex items-center justify-between shrink-0"
             style={{ background: "linear-gradient(135deg,#f59e0b,#b45309)" }}>
             <div className="flex items-center gap-2.5">
@@ -2215,7 +2215,7 @@ export default function App({ session }) {
                 <I n="send" size={16} color="white" />
               </div>
               <div>
-                <p className="font-black text-white text-sm">Request fee increase approval</p>
+                <p className="font-semibold text-white text-sm">Request fee increase approval</p>
                 <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.75)" }}>
                   Your total is above the limit by <strong className="text-white">RWF {overBy.toLocaleString()}</strong>
                 </p>
@@ -2232,7 +2232,7 @@ export default function App({ session }) {
 
           <div className="p-5 space-y-4 overflow-y-auto flex-1" style={{ background: "#fffbf0" }}>
             <div>
-              <label className="block text-[11px] font-black uppercase tracking-widest mb-1.5" style={{ color: "#92400e" }}>
+              <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: "#92400e" }}>
                 Reasons for increase <span style={{ color: C.red }}>*</span>
               </label>
               <div className="border rounded-xl bg-white p-2.5 max-h-40 overflow-y-auto" style={{ borderColor: "#fde68a" }}>
@@ -2277,7 +2277,7 @@ export default function App({ session }) {
             </div>
 
             <div>
-              <label className="block text-[11px] font-black uppercase tracking-widest mb-1.5" style={{ color: "#92400e" }}>
+              <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: "#92400e" }}>
                 Description <span style={{ color: C.red }}>*</span>
               </label>
               <textarea

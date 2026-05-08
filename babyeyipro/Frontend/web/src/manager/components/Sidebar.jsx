@@ -1,19 +1,23 @@
-import { NavLink, useLocation } from 'react-router-dom';
-import { useState, useMemo } from 'react';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { createElement, useState, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { SCHOOL_CONSOLE_NAV } from '../config/schoolConsoleNav';
 import {
-  LayoutDashboard, Users, BookOpen, Calendar, ClipboardCheck,
-  Wallet, MessageSquare, ClipboardList, Eye, PenLine,
-  User, LogOut, Wifi, WifiOff, RefreshCw, GraduationCap, ChevronDown,
-  Building2, School, Landmark, UserCog, UserCheck, PieChart, Activity, Settings, ShieldCheck, Table2,
+  LayoutDashboard, Users, BookOpen, ClipboardCheck,
+  Wallet, MessageSquare, ClipboardList,
+  Wifi, WifiOff, RefreshCw, GraduationCap, ChevronDown,
+  Building2, Landmark, UserCog, UserCheck, PieChart, Activity, Settings, ShieldCheck,
   LayoutGrid,
-  Radio,
   DoorOpen,
   DollarSign,
+  Shield,
+  Package,
+  Headphones,
+  Home,
 } from 'lucide-react';
 import { h } from '../utils/href';
 import useChatUnread from '../../shared/hooks/useChatUnread';
+import babyeyiIcon from '../assets/babyeyi-icon.png';
 
 // ── Status Badge ──────────────────────────────────────────────
 const statusConfig = {
@@ -25,37 +29,41 @@ const statusConfig = {
 const AppStatusBadge = ({ status = 'online' }) => {
   const s = statusConfig[status];
   return (
-    <div className={`flex items-center gap-1 px-2 py-1 rounded-lg ${s.bg} ring-1 ${s.ring}`}>
+    <div className={`flex items-center gap-1.5 px-2 py-1 rounded-lg bg-white/5 ring-1 ring-white/10`}>
       <span className="relative flex h-1.5 w-1.5">
         {status !== 'offline' && <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${s.dot} opacity-60`} />}
         <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${s.dot}`} />
       </span>
-      <s.Icon size={9} className={`${s.text} ${status === 'syncing' ? 'animate-spin' : ''}`} />
-      <span className={`text-[9px] font-bold ${s.text}`}>{s.label}</span>
+      <s.Icon size={10} className={`${s.text} ${status === 'syncing' ? 'animate-spin' : ''}`} />
+      <span className="text-[9px] font-bold text-white/70">{s.label}</span>
     </div>
   );
 };
 
 // ── Single nav link ───────────────────────────────────────────
-const NavItem = ({ icon: Icon, name, path, exact, onClose, badgeCount = 0 }) => (
+const NavItem = ({ icon, name, path, exact, onClose, badgeCount = 0 }) => (
   <NavLink
     to={h(path)}
     end={exact}
     onClick={onClose}
     className={({ isActive }) =>
-      `relative flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl transition-all duration-200 group text-[12px] font-black uppercase tracking-[0.08em] border
-      ${isActive ? 'text-white shadow-sm border-amber-300/40' : 'text-[#000435]/65 hover:bg-[#000435]/5 hover:text-[#000435] border-transparent'}`
-    }
-    style={({ isActive }) =>
-      isActive ? { background: 'linear-gradient(135deg,#000435,#00021A)', boxShadow: '0 8px 20px rgba(0,4,53,0.28)' } : {}
+      `relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group text-[13px] font-semibold tracking-tight border border-transparent
+      ${isActive
+        ? 'bg-white/[0.12] text-re-gold shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] border-white/10'
+        : 'text-white/72 hover:bg-white/[0.06] hover:text-white'
+      }`
     }
   >
     {({ isActive }) => (
       <>
-        <Icon size={14} className={isActive ? 'text-amber-300' : 'text-[#000435]/45 group-hover:text-[#000435] transition-colors'} />
+        {createElement(icon, {
+          size: 18,
+          strokeWidth: 1.75,
+          className: isActive ? 'text-re-gold shrink-0' : 'text-white/45 group-hover:text-white/85 shrink-0 transition-colors',
+        })}
         <span className="truncate">{name}</span>
         {badgeCount > 0 && (
-          <span className="ml-auto text-[10px] leading-none px-1.5 py-1 rounded-full bg-amber-100 text-[#000435] border border-amber-300/40">
+          <span className="ml-auto text-[10px] leading-none px-1.5 py-0.5 rounded-md bg-re-gold/90 text-[#0B1530] font-bold">
             {badgeCount > 99 ? '99+' : badgeCount}
           </span>
         )}
@@ -65,7 +73,7 @@ const NavItem = ({ icon: Icon, name, path, exact, onClose, badgeCount = 0 }) => 
 );
 
 // ── Expandable item ───────────────────────────────────────────
-const ExpandableNavItem = ({ icon: Icon, name, subItems, onClose }) => {
+const ExpandableNavItem = ({ icon, name, subItems, onClose }) => {
   const location = useLocation();
   const pathMatches = (path) => {
     if (!path) return false;
@@ -85,17 +93,25 @@ const ExpandableNavItem = ({ icon: Icon, name, subItems, onClose }) => {
   return (
     <div>
       <button
+        type="button"
         onClick={() => setOpen(o => !o)}
-        className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl transition-all text-[12px] font-black uppercase tracking-[0.08em] group border
-          ${isAnyActive ? 'text-white bg-[#000435] border-amber-300/40' : 'text-[#000435]/65 hover:bg-[#000435]/5 hover:text-[#000435] border-transparent'}`}
+        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-[13px] font-semibold tracking-tight group border border-transparent
+          ${isAnyActive
+            ? 'bg-white/[0.12] text-re-gold border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]'
+            : 'text-white/72 hover:bg-white/[0.06] hover:text-white'
+          }`}
       >
-        <Icon size={14} className={`${isAnyActive ? 'text-amber-300' : 'text-[#000435]/45 group-hover:text-[#000435]'} transition-colors`} />
+        {createElement(icon, {
+          size: 18,
+          strokeWidth: 1.75,
+          className: `${isAnyActive ? 'text-re-gold' : 'text-white/45 group-hover:text-white/85'} transition-colors shrink-0`,
+        })}
         <span className="flex-1 text-left">{name}</span>
-        <ChevronDown size={12} className={`transition-transform duration-300 opacity-60 ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown size={16} strokeWidth={2} className={`transition-transform duration-300 text-white/40 shrink-0 ${open ? 'rotate-180' : ''}`} />
       </button>
 
       {open && (
-        <div className="ml-4 mt-1 space-y-1 border-l-2 border-amber-300/40 pl-3">
+        <div className="ml-2 mt-1 space-y-0.5 border-l border-white/15 pl-3">
           {subItems.map(sub => {
             const subActive = pathMatches(sub.path);
             return (
@@ -104,11 +120,11 @@ const ExpandableNavItem = ({ icon: Icon, name, subItems, onClose }) => {
               to={h(sub.path)}
               end={sub.path === '/finance'}
               onClick={onClose}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-[0.07em] transition-all border
-                ${subActive ? 'text-[#000435] bg-amber-50 border-amber-300/40' : 'text-[#000435]/60 hover:text-[#000435] hover:bg-[#000435]/5 border-transparent'}`}
+              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[12px] font-medium transition-all
+                ${subActive ? 'text-re-gold bg-white/[0.08]' : 'text-white/60 hover:text-white hover:bg-white/[0.05]'}`}
             >
-              <sub.icon size={11} className={subActive ? 'text-amber-600' : 'text-[#000435]/40'} />
-              {sub.name}
+              <sub.icon size={14} strokeWidth={1.75} className={subActive ? 'text-re-gold/90' : 'text-white/35'} />
+              <span className="truncate">{sub.name}</span>
             </NavLink>
             );
           })}
@@ -120,14 +136,15 @@ const ExpandableNavItem = ({ icon: Icon, name, subItems, onClose }) => {
 
 // ── Section label ──────────────────────────────────────────────
 const SectionLabel = ({ label }) => (
-  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#000435]/35 px-3.5 pt-3 pb-1">
+  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400 px-3 pt-4 pb-2 first:pt-1">
     {label}
   </p>
 );
 
 // ── Sidebar ───────────────────────────────────────────────────
 const Sidebar = ({ onClose }) => {
-  const { manager, logout, canAccessSchoolConsole } = useAuth();
+  const navigate = useNavigate();
+  const { canAccessSchoolConsole } = useAuth();
   const unreadCount = useChatUnread();
 
   const schoolConsoleSubItems = useMemo(
@@ -141,83 +158,92 @@ const Sidebar = ({ onClose }) => {
   );
 
   return (
-    <div className="flex flex-col h-full min-w-[300px] bg-white border-r border-black/5 shadow-sm">
+    <div
+      className="flex flex-col min-h-0 h-full w-full min-w-0 shadow-[2px_0_16px_rgba(11,21,48,0.14)] border-r border-white/[0.06]"
+      style={{
+        background: 'linear-gradient(180deg,#0f2247 0%,#0b1530 40%,#060d1f 100%)',
+        colorScheme: 'dark',
+      }}
+    >
 
-      {/* Brand card — premium feel */}
-      <div className="p-4">
-        <div className="rounded-3xl bg-white border border-[#000435]/10 shadow-[0_10px_30px_-16px_rgba(0,4,53,.45)] p-4 space-y-1">
-          <div className="flex items-center gap-3">
-            <div className="bg-[#000435]/10 p-3 rounded-2xl shadow-inner text-[#000435] border border-amber-300/30">
-              <School size={22} />
-            </div>
-            <div>
-              <span
-                className="text-xl font-black tracking-tight leading-none block"
-                style={{ background: 'linear-gradient(135deg,#000435,#142f63)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}
-              >
-                Babyeyi
-              </span>
-              <p className="text-[9px] text-[#000435] font-black uppercase tracking-[0.22em] opacity-60 mt-0.5">
-                Manager Portal
-              </p>
-            </div>
+      {/* Brand — matches Babyeyi Manager portal hero */}
+      <div className="p-4 pb-3 shrink-0 border-b border-white/[0.06]">
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/[0.08] ring-1 ring-white/10">
+            <img src={babyeyiIcon} alt="Babyeyi icon" className="h-7 w-7 object-contain" />
+          </div>
+          <div className="min-w-0">
+            <span className="text-lg font-bold tracking-tight text-white block leading-tight">
+              Babyeyi
+            </span>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-re-gold/95 mt-0.5">
+              Manager Portal
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 px-3 py-2 overflow-y-auto space-y-1">
+      {/* Nav — min-h-0 so this column scrolls inside the flex shell (not the viewport) */}
+      <nav
+        className="manager-sidebar-scroll flex-1 min-h-0 px-3 py-3 overflow-y-auto overflow-x-hidden overscroll-y-contain space-y-0.5 pr-1"
+        aria-label="School manager navigation"
+      >
+        <SectionLabel label="Main" />
         <NavItem icon={LayoutDashboard} name="Dashboard" path="/" exact onClose={onClose} />
         <SectionLabel label="School admin" />
         {canAccessSchoolConsole && (
           <ExpandableNavItem
             icon={LayoutGrid}
-            name="Babyeyi school admin"
+            name="Babyeyi School Admin"
             onClose={onClose}
             subItems={schoolConsoleSubItems}
           />
         )}
-        <NavItem icon={Users} name="Students" path="/students" onClose={onClose} />
+        {/* <NavItem icon={Users} name="Students" path="/students" onClose={onClose} /> */}
+        
+        <NavItem icon={UserCog} name="HRCenter" path="/hr" onClose={onClose} />
+        <SectionLabel label="Finance center" />
         <ExpandableNavItem
           icon={Landmark}
-          name="Finance Center"
+          name="Finance center"
           onClose={onClose}
           subItems={[
-            { name: 'Financial Overview', path: '/finance', icon: PieChart },
-            { name: 'Student Fee Payment', path: '/finance/payments', icon: Users },
-            { name: 'Babyeyi Wizard', path: '/finance/wizard', icon: Activity },
+            { name: 'Financial Overview',   path: '/finance',          icon: PieChart },
+        
+            { name: 'Student Fee Payment',  path: '/finance/payments', icon: Users },
+            { name: 'Payroll',              path: '/payroll',          icon: ClipboardCheck },
+            { name: 'Stock Reports',        path: '/reports/stock',    icon: Package },
+            { name: 'Library Reports',      path: '/reports/library',  icon: BookOpen },
           ]}
         />
-        <NavItem icon={UserCog} name="HRCentral" path="/hr" onClose={onClose} />
+        <SectionLabel label="Payroll center" />
         <NavItem icon={ClipboardCheck} name="Payroll" path="/payroll" onClose={onClose} />
 
         <SectionLabel label="Services" />
         <NavItem icon={DollarSign} name="My Payroll" path="/my-payroll" onClose={onClose} />
-        <NavItem icon={Wallet} name="Teacher Avance" path="/avance" onClose={onClose} />
-
-        <SectionLabel label="Operational Tools" />
-        <NavItem icon={MessageSquare} name="TichaAI" path="/manager-ai" onClose={onClose} />
-        <NavItem icon={MessageSquare} name="Chat Center" path="/chat" onClose={onClose} badgeCount={unreadCount} />
-        {canAccessSchoolConsole && (
-          <NavItem icon={Radio} name="Smart School Access" path="/smart-access" onClose={onClose} />
-        )}
-        {canAccessSchoolConsole && (
-          <NavItem icon={UserCheck} name="Staff smart access" path="/staff-smart-access" onClose={onClose} />
-        )}
-        <NavItem icon={DoorOpen} name="Gate Attendance" path="/attendance/gate" onClose={onClose} />
-        <NavItem icon={ClipboardList} name="All Gate Logs" path="/attendance/gate-logs" onClose={onClose} />
-        <NavItem icon={ShieldCheck} name="Student Permissions" path="/permissions" onClose={onClose} />
         <ExpandableNavItem
-          icon={ClipboardList}
-          name="NESA Reports"
+          icon={Wallet}
+          name="Tools"
           onClose={onClose}
           subItems={[
-            { name: 'Standard Return', path: '/reports/nesa', icon: Eye },
-            { name: 'Generate New', path: '/reports/new', icon: PenLine },
+            { name: 'Teacher Avance', path: '/avance', icon: Wallet },
+            { name: 'TichaAI', path: '/manager-ai', icon: MessageSquare },
           ]}
         />
 
-        <SectionLabel label="Institutional Reports" />
+        <SectionLabel label="Operational tools" />
+        <NavItem icon={MessageSquare} name="Chat Center" path="/chat" onClose={onClose} badgeCount={unreadCount} />
+        <ExpandableNavItem
+          icon={ShieldCheck}
+          name="Student Conduct"
+          onClose={onClose}
+          subItems={[
+            { name: 'Student Permissions', path: '/permissions', icon: ShieldCheck },
+            { name: 'Student Discipline', path: '/reports/discipline', icon: Activity },
+          ]}
+        />
+
+        <SectionLabel label="Institutional reports" />
         <NavItem icon={GraduationCap} name="Academic Reports" path="/reports/academic" onClose={onClose} />
         <ExpandableNavItem
           icon={ClipboardCheck}
@@ -226,54 +252,54 @@ const Sidebar = ({ onClose }) => {
           subItems={[
             { name: 'Student Attendance', path: '/reports/attendance/students', icon: Users },
             { name: 'Staff Attendance', path: '/reports/attendance/staff', icon: UserCheck },
+            { name: 'Arrival Management', path: '/attendance/gate', icon: DoorOpen },
+            { name: 'All Arrival Logs', path: '/attendance/gate-logs', icon: ClipboardList },
           ]}
         />
-        <NavItem icon={Activity} name="Student Discipline" path="/reports/discipline" onClose={onClose} />
+        <SectionLabel label="Security" />
+        <NavItem icon={Shield} name="Audit Center" path="/audit" onClose={onClose} />
 
-        <SectionLabel label="App Configuration" />
-        <NavItem icon={Building2} name="School Profile" path="/registry" onClose={onClose} />
+        <SectionLabel label="App configuration" />
         <ExpandableNavItem
-          icon={Calendar}
-          name="School Organization"
+          icon={Building2}
+          name="Configuration"
           onClose={onClose}
           subItems={[
-            { name: 'Academic Planner', path: '/timetable', icon: GraduationCap },
-            { name: 'School Operations', path: '/operations', icon: Activity },
-            { name: 'Gradebook columns', path: '/operations?tab=gradebook', icon: Table2 },
+            { name: 'School Profile',       path: '/registry',   icon: Building2 },
+            { name: 'System Configuration', path: '/settings',   icon: Settings },
+            { name: 'Academic Planner',     path: '/timetable',  icon: GraduationCap },
+            { name: 'School Operations',    path: '/operations', icon: Activity },
           ]}
         />
-        <NavItem icon={Settings} name="System Configuration" path="/settings" onClose={onClose} />
       </nav>
 
-      {/* Bottom card — premium feel */}
-      <div className="p-4">
-        <div className="rounded-3xl border border-[#000435]/10 bg-white shadow-[0_10px_30px_-16px_rgba(0,4,53,.45)] p-3 space-y-2">
-
-          <div className="flex items-center justify-between px-1">
-            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#000435]/40">Status</p>
+      {/* Help & support — reference layout */}
+      <div className="p-4 pt-2 shrink-0 border-t border-white/[0.06] space-y-3">
+        <div className="rounded-2xl bg-[#060d1f]/90 ring-1 ring-white/10 p-4 space-y-3">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-re-gold/15 ring-1 ring-re-gold/25">
+              <Headphones className="text-re-gold" size={20} strokeWidth={1.75} aria-hidden />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-white">Help &amp; Support</p>
+              <p className="text-[12px] text-white/55 mt-1 leading-snug">
+                Reach the team from chat or raise a ticket anytime.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center justify-between gap-2 flex-wrap">
             <AppStatusBadge status="online" />
+            <button
+              type="button"
+              onClick={() => {
+                navigate(h('/chat'));
+                onClose?.();
+              }}
+              className="inline-flex items-center justify-center rounded-xl bg-re-gold px-4 py-2.5 text-[13px] font-semibold text-[#0b1530] shadow-sm border border-[#d4a20a]/30 hover:bg-re-gold-light active:scale-[0.98] transition-all"
+            >
+              Contact support
+            </button>
           </div>
-
-          <div className="h-px bg-black/5 mx-1" />
-
-          {/* Manager profile */}
-          <div className="flex items-center gap-2.5 px-2.5 py-2 bg-white rounded-2xl border border-black/5 shadow-sm">
-            <div className="w-8 h-8 rounded-xl overflow-hidden bg-[#000435]/10 flex items-center justify-center shrink-0">
-              {manager?.photo
-                ? <img src={manager.photo} alt={manager.full_name} className="w-full h-full object-cover" />
-                : <User size={16} className="text-[#000435]" />
-              }
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-black truncate text-[#000435] uppercase tracking-tight">
-                {manager?.first_name || 'Manager'}
-              </p>
-              <p className="text-[9px] text-[#000435]/55 truncate font-bold uppercase tracking-wider opacity-70 mt-0.5">
-                {manager?.school?.name || 'School Principal'}
-              </p>
-            </div>
-          </div>
-
         </div>
       </div>
     </div>

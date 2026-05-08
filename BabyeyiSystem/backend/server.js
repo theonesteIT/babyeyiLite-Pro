@@ -9,6 +9,7 @@ const cors           = require('cors');
 const helmet         = require('helmet');
 const compression    = require('compression');
 const morgan         = require('morgan');
+const pinoHttp       = require('pino-http');
 const rateLimit      = require('express-rate-limit');
 const session        = require('express-session');
 const cookieParser   = require('cookie-parser');
@@ -21,10 +22,13 @@ const { Server }     = require('socket.io');
 require('dotenv').config();
 
 const { testConnection, promisePool } = require('./config/database');
+const { validateEnvironment } = require('./config/env.js');
+const logger = require('./utils/logger');
+const requestContext = require('./middleware/requestContext');
+const { metricsMiddleware, metricsHandler } = require('./middleware/metrics');
 const { computeProAccessEffective, loadSchoolModules } = require('./utils/schoolSubscription');
 const systemSettings = require('./utils/systemSettings');
 const { ensureFullSystemControllerRole } = require('./utils/ensureRoles');
-const { ensureShuleAvanceOrgTables } = require('./BabyeyiRoutes/shuleAvanceOrgSchema');
 const shuleAvanceOrgPortalRoutes = require('./BabyeyiRoutes/shuleAvanceOrgPortal');
 const { getAgentSessionPayload } = require('./BabyeyiRoutes/fieldAgentsRoutes');
 const chatModule = require('./BabyeyiRoutes/chatRoutes');
@@ -74,14 +78,8 @@ app.set('etag', false);
 // ============================================================
 // ENV GUARDS
 // ============================================================
-if (!process.env.SESSION_SECRET) {
-  const crypto = require('crypto');
-  process.env.SESSION_SECRET = crypto.randomBytes(32).toString('hex');
-  console.warn('⚠️  SESSION_SECRET not set in .env — auto-generated for this session.');
-}
-if (!process.env.BABYEYI_HASH_SECRET) {
-  console.warn('⚠️  BABYEYI_HASH_SECRET not set — QR hashes using insecure default!');
-}
+validateEnvironment();
+const sessionSecret = process.env.SESSION_SECRET || 'dev-only-session-secret-change-me';
 
 // ============================================================
 // SESSION STORE
@@ -138,6 +136,18 @@ app.use(cors({
   methods:     ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
 }));
+app.use(requestContext);
+app.use(
+  pinoHttp({
+    logger,
+    customProps: (req) => ({
+      requestId: req.requestId,
+      userId: req.session?.userId || null,
+      role: req.user?.role_code || null,
+    }),
+  })
+);
+app.use(metricsMiddleware);
 
 io = new Server(httpServer, {
   cors: {
@@ -148,14 +158,14 @@ io = new Server(httpServer, {
 });
 app.set('io', io);
 
-app.use(cookieParser(process.env.SESSION_SECRET || 'babyeyi-default-secret'));
+app.use(cookieParser(sessionSecret));
 
 // ── FIX: Session cookie — secure only in production (nginx handles HTTPS)
 // sameSite 'none' requires secure=true, but that breaks localhost dev.
 // In production behind nginx: secure=true + sameSite='none' works correctly.
 const sessionMiddleware = session({
   name:   'babyeyi_sid',
-  secret: process.env.SESSION_SECRET || 'babyeyi-default-secret',
+  secret: sessionSecret,
   store:  sessionStore,
   resave: false,
   saveUninitialized: false,
@@ -202,7 +212,6 @@ app.use((req, _res, next) => {
   console.log(`📡  ${req.method} ${req.url}${req.session?.userId ? ` [uid:${req.session.userId}]` : ''}`);
   next();
 });
-
 // ============================================================
 // RATE LIMITING
 // ============================================================
@@ -758,6 +767,7 @@ app.get('/api/health', (_req, res) => res.json({
     ...(!process.env.BABYEYI_HASH_SECRET ? ['BABYEYI_HASH_SECRET not set'] : []),
   ],
 }));
+app.get('/api/metrics', metricsHandler);
 
 // ============================================================
 // ROUTE IMPORTS
@@ -871,6 +881,10 @@ console.log('  ✅  /api/uniform-vouchers/*');
 app.use('/api/public/babyeyi-pay', publicBabyeyiPayRoutes);
 console.log('  ✅  /api/public/babyeyi-pay/*');
 
+const classkitShareRoutes = require('./BabyeyiRoutes/classkitShareRoutes');
+app.use('/api/public/classkit-share', classkitShareRoutes);
+console.log('  ✅  /api/public/classkit-share/* (OTP + guest pricing)');
+
 const fieldAgentsModule = require('./BabyeyiRoutes/fieldAgentsRoutes');
 app.use('/api/field-agents', fieldAgentsModule.adminRouter);
 app.use('/api/agent', fieldAgentsModule.agentRouter);
@@ -972,7 +986,7 @@ const startServer = async () => {
     console.log('✅  Database connected\n');
 
     await ensureFullSystemControllerRole();
-    await ensureShuleAvanceOrgTables().catch((e) => console.warn('ensureShuleAvanceOrgTables:', e.message));
+    // Migrations now own schema evolution. Keep this call disabled in runtime.
 
     httpServer.listen(PORT, () => {
       console.log(`

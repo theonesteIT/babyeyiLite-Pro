@@ -72,7 +72,7 @@ function FileCard({ file }) {
           />
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
             <a href={url} target="_blank" rel="noopener noreferrer"
-              className="w-9 h-9 rounded-full bg-white/90 flex items-center justify-center shadow-lg hover:scale-110 transition-transform">
+              className="w-9 h-9 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
               <Eye size={15} className="text-gray-800" />
             </a>
           </div>
@@ -125,7 +125,7 @@ function AnswerBlock({ answer, index }) {
         onClick={() => setOpen(o => !o)}
         className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-gray-50 transition text-left"
       >
-        <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black text-white flex-shrink-0"
+        <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-semibold text-white flex-shrink-0"
           style={{ background: isEmpty ? "#d1d5db" : "#6366f1" }}>
           {index + 1}
         </span>
@@ -145,7 +145,7 @@ function AnswerBlock({ answer, index }) {
             <p className="text-xs text-gray-400 italic bg-gray-50 rounded-xl px-4 py-3">Not answered</p>
           ) : hasFiles ? (
             <div>
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider mb-2">
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
                 {Array.isArray(answer.filesJson) ? `${answer.filesJson.length} file(s) uploaded` : "Uploaded files"}
               </p>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -165,7 +165,7 @@ function AnswerBlock({ answer, index }) {
           ) : (
             <div className="bg-gray-50 rounded-xl px-4 py-3">
               {answer.questionType === "yesno" ? (
-                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-black ${
+                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-semibold ${
                   answer.answerText === "Yes"
                     ? "bg-emerald-100 text-emerald-700"
                     : "bg-red-100 text-red-600"
@@ -257,7 +257,7 @@ export default function ApplicantDetailModal({ app: initialApp, onClose, onStatu
       style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)" }}
       onClick={e => { if (e.target === e.currentTarget) onClose?.(); }}
     >
-      <div className="w-full sm:max-w-2xl bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden"
+      <div className="w-full sm:max-w-2xl bg-white rounded-t-3xl sm:rounded-3xl shadow-sm flex flex-col overflow-hidden"
         style={{ maxHeight: "92vh", fontFamily: "'Nunito', system-ui, sans-serif" }}>
 
         {/* ── Header ── */}
@@ -265,12 +265,12 @@ export default function ApplicantDetailModal({ app: initialApp, onClose, onStatu
           <div className="flex items-start justify-between gap-3 mb-3">
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-11 h-11 rounded-2xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center flex-shrink-0">
-                <span className="text-lg font-black text-indigo-300">
+                <span className="text-lg font-semibold text-indigo-300">
                   {(app?.applicant_name || "?")[0].toUpperCase()}
                 </span>
               </div>
               <div className="min-w-0">
-                <h2 className="text-white font-black text-base truncate">{app?.applicant_name}</h2>
+                <h2 className="text-white font-semibold text-base truncate">{app?.applicant_name}</h2>
                 <p className="text-indigo-300 text-xs font-mono">{app?.reference_no}</p>
               </div>
             </div>
@@ -293,7 +293,7 @@ export default function ApplicantDetailModal({ app: initialApp, onClose, onStatu
 
           {/* Status + meta row */}
           <div className="flex flex-wrap items-center gap-2">
-            <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black border ${st.color}`}>
+            <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border ${st.color}`}>
               <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
               {st.label}
             </span>
@@ -331,7 +331,7 @@ export default function ApplicantDetailModal({ app: initialApp, onClose, onStatu
             { key: "status",    label: "Status & Notes",              icon: CheckCircle },
           ].map(tab => (
             <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-              className={`flex items-center gap-1.5 px-4 py-3 text-xs font-black border-b-2 -mb-px transition-colors ${
+              className={`flex items-center gap-1.5 px-4 py-3 text-xs font-semibold border-b-2 -mb-px transition-colors ${
                 activeTab === tab.key
                   ? "border-indigo-600 text-indigo-700"
                   : "border-transparent text-gray-500 hover:text-gray-800"
@@ -381,7 +381,7 @@ export default function ApplicantDetailModal({ app: initialApp, onClose, onStatu
                       <div key={i}>
                         <div className="flex items-center gap-2 mb-3">
                           <Paperclip size={13} className="text-indigo-500" />
-                          <h4 className="text-xs font-black text-gray-700 uppercase tracking-wider">{ans.label}</h4>
+                          <h4 className="text-xs font-semibold text-gray-700 uppercase tracking-wider">{ans.label}</h4>
                           <span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
                             {ans.filesJson?.length} file{ans.filesJson?.length !== 1 ? "s" : ""}
                           </span>
@@ -401,14 +401,14 @@ export default function ApplicantDetailModal({ app: initialApp, onClose, onStatu
               {activeTab === "status" && (
                 <div className="space-y-5">
                   <div>
-                    <p className="text-xs font-black text-gray-500 uppercase tracking-wider mb-3">Update Status</p>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Update Status</p>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                       {APP_STATUSES.map(s => (
                         <button
                           key={s.value}
                           onClick={() => updateStatus(s.value)}
                           disabled={saving}
-                          className={`flex items-center gap-2.5 px-3.5 py-3 rounded-2xl text-sm font-black border-2 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60 ${
+                          className={`flex items-center gap-2.5 px-3.5 py-3 rounded-2xl text-sm font-semibold border-2 transition-all active:scale-[0.98] disabled:opacity-60 ${
                             app.status === s.value
                               ? `${s.color} ring-2 ring-offset-2 ${s.ring}`
                               : "bg-white border-gray-200 text-gray-600 hover:border-gray-400"
@@ -423,7 +423,7 @@ export default function ApplicantDetailModal({ app: initialApp, onClose, onStatu
                   </div>
 
                   <div>
-                    <label className="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                       Internal Notes (not visible to applicant)
                     </label>
                     <textarea
@@ -436,7 +436,7 @@ export default function ApplicantDetailModal({ app: initialApp, onClose, onStatu
                     <button
                       onClick={saveNotes}
                       disabled={saving}
-                      className="mt-2 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-black hover:bg-indigo-700 transition disabled:opacity-60"
+                      className="mt-2 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 transition disabled:opacity-60"
                     >
                       {saving ? <Loader2 size={12} className="animate-spin" /> : saved ? <Check size={12} /> : null}
                       {saved ? "Saved!" : "Save Notes"}
@@ -445,7 +445,7 @@ export default function ApplicantDetailModal({ app: initialApp, onClose, onStatu
 
                   {/* Application metadata */}
                   <div className="rounded-2xl bg-gray-50 border border-gray-200 p-4">
-                    <h4 className="text-xs font-black text-gray-500 uppercase tracking-wider mb-3">Application Info</h4>
+                    <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Application Info</h4>
                     <div className="space-y-2">
                       {[
                         { label: "Reference No",  val: app.reference_no },

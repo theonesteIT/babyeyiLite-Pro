@@ -34,6 +34,62 @@ function trimStr(v) {
   return String(v).trim();
 }
 
+function inferTermFromMonth(terms = [], date = new Date()) {
+  const month = date.getMonth() + 1;
+  if (!Array.isArray(terms) || !terms.length) return 'Term 1';
+  if (terms.length >= 3) {
+    if (month >= 9 && month <= 12) return terms[0];
+    if (month >= 1 && month <= 4) return terms[1] || terms[0];
+    return terms[2] || terms[terms.length - 1];
+  }
+  if (terms.length === 2) return month >= 9 || month <= 2 ? terms[0] : terms[1];
+  return terms[0];
+}
+
+function inferAcademicYearFromDate(date = new Date()) {
+  const y = date.getFullYear();
+  const m = date.getMonth() + 1;
+  return m >= 9 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
+}
+
+async function getAcademicCalendarSettings(schoolId) {
+  const [[row]] = await promisePool.query(
+    `SELECT current_academic_year, active_terms_json
+     FROM school_academic_settings
+     WHERE school_id = ?
+     LIMIT 1`,
+    [schoolId]
+  ).catch(() => [[null]]);
+  let terms = ['Term 1', 'Term 2', 'Term 3'];
+  try {
+    if (row?.active_terms_json) {
+      const parsed = Array.isArray(row.active_terms_json)
+        ? row.active_terms_json
+        : JSON.parse(row.active_terms_json);
+      if (Array.isArray(parsed) && parsed.length) {
+        terms = parsed.map((x) => String(x || '').trim()).filter(Boolean);
+      }
+    }
+  } catch (_) {}
+  return {
+    current_academic_year: trimStr(row?.current_academic_year) || inferAcademicYearFromDate(),
+    active_terms: terms,
+  };
+}
+
+async function resolveAcademicContext(schoolId, academicYearRaw, termRaw) {
+  const explicitYear = trimStr(academicYearRaw);
+  const explicitTerm = trimStr(termRaw);
+  if (explicitYear && explicitTerm) {
+    return { academicYear: explicitYear, term: explicitTerm };
+  }
+  const calendar = await getAcademicCalendarSettings(schoolId);
+  return {
+    academicYear: explicitYear || calendar.current_academic_year || inferAcademicYearFromDate(),
+    term: explicitTerm || inferTermFromMonth(calendar.active_terms),
+  };
+}
+
 let collectionsTableReady = false;
 async function ensureCollectionsTable() {
   if (collectionsTableReady) return;
@@ -470,13 +526,14 @@ router.get('/accountant/babyeyi-fee', requireRole(ACCOUNTANT_ONLY), async (req, 
     }
 
     const className = trimStr(req.query.class_name || req.query.class || '');
-    const academicYear = trimStr(req.query.academic_year || req.query.year || '');
-    const term = trimStr(req.query.term || '');
+    const academicYearQ = trimStr(req.query.academic_year || req.query.year || '');
+    const termQ = trimStr(req.query.term || '');
+    const { academicYear, term } = await resolveAcademicContext(schoolId, academicYearQ, termQ);
 
-    if (!className || !academicYear || !term) {
+    if (!className) {
       return res.status(400).json({
         success: false,
-        message: 'class_name, academic_year, and term are required.',
+        message: 'class_name is required.',
       });
     }
 
@@ -537,16 +594,10 @@ router.get('/accountant/reports/payments', requireRole(ACCOUNTANT_ONLY), async (
       return res.status(400).json({ success: false, message: 'School not found in session.' });
     }
 
-    const academicYear = trimStr(req.query.academic_year || req.query.year || '');
-    const term = trimStr(req.query.term || '');
+    const academicYearQ = trimStr(req.query.academic_year || req.query.year || '');
+    const termQ = trimStr(req.query.term || '');
+    const { academicYear, term } = await resolveAcademicContext(schoolId, academicYearQ, termQ);
     const classFilter = trimStr(req.query.class_name || req.query.class || '');
-
-    if (!academicYear || !term) {
-      return res.status(400).json({
-        success: false,
-        message: 'academic_year and term are required.',
-      });
-    }
 
     const statusFilter = trimStr(req.query.status || '');
     const data = await buildAccountantPaymentReport(schoolId, academicYear, term, classFilter, statusFilter);
@@ -565,17 +616,11 @@ router.get('/manager/finance/payments/report', requireRole(FINANCE_REPORT_READ_R
       return res.status(400).json({ success: false, message: 'School not found in session.' });
     }
 
-    const academicYear = trimStr(req.query.academic_year || req.query.year || '');
-    const term = trimStr(req.query.term || '');
+    const academicYearQ = trimStr(req.query.academic_year || req.query.year || '');
+    const termQ = trimStr(req.query.term || '');
+    const { academicYear, term } = await resolveAcademicContext(schoolId, academicYearQ, termQ);
     const classFilter = trimStr(req.query.class_name || req.query.class || '');
     const statusFilter = trimStr(req.query.status || '');
-
-    if (!academicYear || !term) {
-      return res.status(400).json({
-        success: false,
-        message: 'academic_year and term are required.',
-      });
-    }
 
     const data = await buildAccountantPaymentReport(schoolId, academicYear, term, classFilter, statusFilter);
     return res.json({ success: true, data });
@@ -595,16 +640,10 @@ router.get('/accountant/reports/payments/export.xlsx', requireRole(ACCOUNTANT_ON
       return res.status(400).json({ success: false, message: 'School not found in session.' });
     }
 
-    const academicYear = trimStr(req.query.academic_year || req.query.year || '');
-    const term = trimStr(req.query.term || '');
+    const academicYearQ = trimStr(req.query.academic_year || req.query.year || '');
+    const termQ = trimStr(req.query.term || '');
+    const { academicYear, term } = await resolveAcademicContext(schoolId, academicYearQ, termQ);
     const classFilter = trimStr(req.query.class_name || req.query.class || '');
-
-    if (!academicYear || !term) {
-      return res.status(400).json({
-        success: false,
-        message: 'academic_year and term are required.',
-      });
-    }
 
     const [[schoolRow]] = await promisePool.query(
       'SELECT school_name, school_code FROM schools WHERE id = ? LIMIT 1',
@@ -668,16 +707,10 @@ router.get('/accountant/reports/payments/export.pdf', requireRole(ACCOUNTANT_ONL
       return res.status(400).json({ success: false, message: 'School not found in session.' });
     }
 
-    const academicYear = trimStr(req.query.academic_year || req.query.year || '');
-    const term = trimStr(req.query.term || '');
+    const academicYearQ = trimStr(req.query.academic_year || req.query.year || '');
+    const termQ = trimStr(req.query.term || '');
+    const { academicYear, term } = await resolveAcademicContext(schoolId, academicYearQ, termQ);
     const classFilter = trimStr(req.query.class_name || req.query.class || '');
-
-    if (!academicYear || !term) {
-      return res.status(400).json({
-        success: false,
-        message: 'academic_year and term are required.',
-      });
-    }
 
     const [[schoolRow]] = await promisePool.query(
       'SELECT school_name, school_code FROM schools WHERE id = ? LIMIT 1',
@@ -880,18 +913,16 @@ router.patch('/accountant/payments/:id', requireRole(ACCOUNTANT_ONLY), async (re
     const totalDue = body.total_due != null ? Number(body.total_due) : Number(current.total_due || 0);
     const amountPaid = body.amount_paid != null ? Number(body.amount_paid) : Number(current.amount_paid || 0);
     const notes = body.notes != null ? trimStr(body.notes) : current.notes;
-    const term = body.term != null ? trimStr(body.term) : trimStr(current.term);
-    const academicYear = body.academic_year != null ? trimStr(body.academic_year) : trimStr(current.academic_year_label);
+    const termIn = body.term != null ? trimStr(body.term) : trimStr(current.term);
+    const academicYearIn = body.academic_year != null ? trimStr(body.academic_year) : trimStr(current.academic_year_label);
     const className = body.class_name != null ? trimStr(body.class_name) : trimStr(current.class_name);
+    const { academicYear, term } = await resolveAcademicContext(schoolId, academicYearIn, termIn);
 
     if (Number.isNaN(totalDue) || totalDue < 0) {
       return res.status(400).json({ success: false, message: 'total_due must be a non-negative number.' });
     }
     if (Number.isNaN(amountPaid) || amountPaid < 0) {
       return res.status(400).json({ success: false, message: 'amount_paid must be a non-negative number.' });
-    }
-    if (!term || !academicYear) {
-      return res.status(400).json({ success: false, message: 'term and academic_year are required.' });
     }
     const balance = Math.max(0, totalDue - amountPaid);
 
@@ -958,8 +989,11 @@ router.post('/accountant/payments', requireRole(ACCOUNTANT_ONLY), async (req, re
 
     const body = req.body || {};
     const studentId = Number(body.student_id);
-    const academicYear = trimStr(body.academic_year);
-    const term = trimStr(body.term);
+    const { academicYear, term } = await resolveAcademicContext(
+      schoolId,
+      body.academic_year || body.year || '',
+      body.term || ''
+    );
     let className = trimStr(body.class_name);
     const amountPaid = Number(body.amount_paid);
     const notes = trimStr(body.notes) || null;
@@ -967,9 +1001,6 @@ router.post('/accountant/payments', requireRole(ACCOUNTANT_ONLY), async (req, re
 
     if (!studentId || Number.isNaN(studentId)) {
       return res.status(400).json({ success: false, message: 'student_id is required.' });
-    }
-    if (!academicYear || !term) {
-      return res.status(400).json({ success: false, message: 'academic_year and term are required.' });
     }
     if (Number.isNaN(amountPaid) || amountPaid < 0) {
       return res.status(400).json({ success: false, message: 'amount_paid must be a non-negative number.' });
@@ -1208,11 +1239,9 @@ router.put('/accountant/babyeyi-fees/:id', requireRole(ACCOUNTANT_ONLY), async (
       return res.status(400).json({ success: false, message: 'Totals must be non-negative numbers' });
     }
     const className = trimStr(b.class_name) || null;
-    const term = trimStr(b.term || '');
-    const academicYear = trimStr(b.academic_year || '');
-    if (!term || !academicYear) {
-      return res.status(400).json({ success: false, message: 'term and academic_year are required' });
-    }
+    const termIn = trimStr(b.term || '');
+    const academicYearIn = trimStr(b.academic_year || '');
+    const { academicYear, term } = await resolveAcademicContext(schoolId, academicYearIn, termIn);
     const classesJson = normalizeClassesJsonInput(b.classes_json);
     const totalDue = Math.round((tuition + paidAtSchool) * 100) / 100;
     await promisePool.query(

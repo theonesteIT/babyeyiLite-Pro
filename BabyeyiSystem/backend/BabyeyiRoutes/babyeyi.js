@@ -28,7 +28,12 @@ const nodemailer = require("nodemailer");
 const { v4: uuidv4 } = require("uuid");
 const db       = require("../config/database");
 const { buildBabyeyiTranslationBundle, normalizeSourceLang } = require("../utils/babyeyiI18n");
-const { buildAndPersistContentI18n, mergeLocalizedBabyeyiPayload } = require("../utils/babyeyiContentI18n");
+const {
+  buildAndPersistContentI18n,
+  mergeLocalizedBabyeyiPayload,
+  splitClassRows,
+  mergeRwPatchesIntoContentI18nBundle,
+} = require("../utils/babyeyiContentI18n");
 const { getDocStrings } = require("../utils/babyeyiDocI18n");
 
 // ── Upload dirs ───────────────────────────────────────────────
@@ -2599,6 +2604,92 @@ router.post("/:id/regenerate-docs", async (req, res) => {
   } catch (err) {
     console.error(`[regenerate-docs] ❌ ERROR id=${id}:`, err.message);
     res.status(500).json({ success: false, message: `Regeneration failed: ${err.message}`, detail: err.stack });
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// PATCH /api/babyeyi/:id/content-i18n/rw — manager Kinyarwanda overrides
+// ════════════════════════════════════════════════════════════
+router.patch("/:id/content-i18n/rw", async (req, res) => {
+  const { id } = req.params;
+  const bid = id;
+  try {
+    const userSchoolId = resolveSchoolId(req);
+    if (!userSchoolId) {
+      return res.status(400).json({ success: false, message: "school_id not found in session" });
+    }
+
+    const rows = await query(
+      "SELECT id, school_id, content_i18n, parent_message, payments FROM school_babyeyi WHERE id=? AND is_active=1",
+      [bid]
+    );
+    if (!rows.length) return res.status(404).json({ success: false, message: "Babyeyi not found" });
+
+    if (Number(rows[0].school_id) !== Number(userSchoolId)) {
+      return res.status(403).json({ success: false, message: "Forbidden" });
+    }
+
+    let payments = await query(
+      "SELECT name, amount FROM babyeyi_payments WHERE babyeyi_id=? ORDER BY sort_order",
+      [bid]
+    );
+    if (!payments.length && rows[0].payments) {
+      try {
+        const raw = typeof rows[0].payments === "string" ? JSON.parse(rows[0].payments) : rows[0].payments;
+        if (Array.isArray(raw)) payments = raw;
+      } catch {}
+    }
+
+    const studentReqs = await query(
+      "SELECT item, description, quantity FROM babyeyi_student_requirements WHERE babyeyi_id=? ORDER BY sort_order",
+      [bid]
+    ).catch(() => []);
+
+    const classRowsRaw = await query(
+      `SELECT COALESCE(item, information) AS item, details
+       FROM babyeyi_class_requirements WHERE babyeyi_id=? ORDER BY COALESCE(sort_order, 0)`,
+      [bid]
+    ).catch(() => []);
+
+    const { classNotes, otherInfos } = splitClassRows(classRowsRaw.map(normaliseClassReq));
+    const leaders = await fetchLeaders(bid).catch(() => []);
+
+    const ctx = {
+      parentMessage: rows[0].parent_message ?? "",
+      payments: (payments || []).map((p) => ({ name: p.name, amount: p.amount })),
+      requirements: (studentReqs || []).map((r) => ({
+        item: r.item,
+        description: r.description || "",
+      })),
+      classNotes,
+      otherInfos,
+      leaders,
+    };
+
+    const patches = req.body && typeof req.body === "object" ? req.body : {};
+    const bundle = mergeRwPatchesIntoContentI18nBundle(rows[0].content_i18n, ctx, patches);
+
+    await query(`UPDATE school_babyeyi SET content_i18n=?, translation_status=? WHERE id=?`, [
+      JSON.stringify(bundle),
+      "manual",
+      bid,
+    ]);
+
+    const docResult = await regenerateDocumentsForBid(bid, "rw");
+
+    res.json({
+      success: true,
+      message: "Kinyarwanda content updated",
+      data: {
+        docId: docResult?.docId ?? null,
+        pdfPath: docResult?.pdfPath ?? null,
+        qrPath: docResult?.qrPath ?? null,
+        qrViewUrl: docResult?.qrViewUrl ?? null,
+      },
+    });
+  } catch (err) {
+    console.error(`[PATCH content-i18n/rw] id=${id}:`, err);
+    res.status(500).json({ success: false, message: err.message || "Failed to save Kinyarwanda content" });
   }
 });
 

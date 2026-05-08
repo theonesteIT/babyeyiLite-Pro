@@ -5,6 +5,7 @@
 import en from "./en.json";
 import rw from "./rw.json";
 import fr from "./fr.json";
+import { normalizeBabyeyiLang } from "../babyeyiTranslateLangs.js";
 
 const locales = { en, rw, fr };
 
@@ -22,6 +23,21 @@ export function getParentMessageForDisplay(rec, lang, T) {
   const raw = String(rec?.parentMessage || "").trim();
   if (raw) return rec.parentMessage;
   if (lang === "rw" && T.officialParentMessageRw) return T.officialParentMessageRw;
+  return rec?.parentMessage || "";
+}
+
+/**
+ * Parent letter source text for machine translation — does not depend on async `T`
+ * (avoids re-running MT when UI labels finish loading and `T` identity changes).
+ */
+export function getParentMessageForMachineTranslation(rec, lang) {
+  const lc = normalizeBabyeyiLang(lang);
+  const raw = String(rec?.parentMessage || "").trim();
+  if (raw) return rec.parentMessage;
+  if (lc === "rw") {
+    const Trw = getLegacyBabyeyiUI("rw");
+    if (Trw.officialParentMessageRw) return Trw.officialParentMessageRw;
+  }
   return rec?.parentMessage || "";
 }
 
@@ -45,7 +61,7 @@ export function createTranslator(locale) {
  * @param {string} lang
  */
 export function getLegacyBabyeyiUI(lang) {
-  const t = createTranslator(lang);
+  const t = createTranslator(normalizeBabyeyiLang(lang));
   return {
     title: t("list.title"),
     viewBtn: t("list.viewBtn"),
@@ -98,6 +114,19 @@ export function getLegacyBabyeyiUI(lang) {
     totalFeeLabel: t("list.totalFeeLabel"),
     generatingQr: t("list.generatingQr"),
     bankShort: t("list.bankShort"),
+    cardTotalFee: t("list.cardTotalFee"),
+    overNesaHint: t("list.overNesaHint"),
+    moreLanguagesHint: t("list.moreLanguagesHint"),
+    machineTranslateNote: t("list.machineTranslateNote"),
+    rwSectionSaved: t("list.rwSectionSaved"),
+    pdfSaveDownloadFailed: t("list.pdfSaveDownloadFailed"),
+    rwEditDenied: t("list.rwEditDenied"),
+    status_approved: t("statusUi.approved"),
+    status_pending: t("statusUi.pending"),
+    status_recommended: t("statusUi.recommended"),
+    status_rejected: t("statusUi.rejected"),
+    status_draft: t("statusUi.draft"),
+    status_submitted: t("statusUi.submitted"),
     secFee: t("doc.secFee"),
     secBanking: t("doc.secBanking"),
     secRequirements: t("doc.secRequirements"),
@@ -147,12 +176,14 @@ export function getLegacyBabyeyiUI(lang) {
     headerMinistryLine: t("doc.headerMinistryLine"),
     badgeCategory: t("doc.badgeCategory"),
     officialParentMessageRw: t("doc.officialParentMessageRw"),
+    livePreviewLabel: t("doc.livePreviewLabel"),
+    rwEditFooterNote: t("doc.rwEditFooterNote"),
   };
 }
 
 /** @param {string} lang */
 export function getStatusLabelSafe(lang, statusKey) {
-  const t = createTranslator(lang);
+  const t = createTranslator(normalizeBabyeyiLang(lang));
   const k = String(statusKey || "").toLowerCase();
   const key = `statusUi.${k}`;
   const v = t(key);

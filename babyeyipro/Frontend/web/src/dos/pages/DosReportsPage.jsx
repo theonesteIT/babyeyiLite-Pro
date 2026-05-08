@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { FileBarChart, Filter, Loader2, AlertCircle, FileSpreadsheet, FileText } from "lucide-react";
 import api from "../services/api";
+import DosOchreHero from "../components/DosOchreHero";
 
 const TERMS = ["Term 1", "Term 2", "Term 3"];
 const ACADEMIC_YEARS = ["2023-2024", "2024-2025", "2025-2026", "2026-2027", "2027-2028"];
@@ -129,25 +130,16 @@ export default function DosReportsPage() {
   );
 
   return (
-    <div className="min-h-screen bg-re-bg" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-      {/* ── Hero Banner ── */}
-      <section className="relative p-7 md:p-10 text-white overflow-hidden min-h-[180px] flex items-center bg-[#000435]">
-        <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full border border-white/5 pointer-events-none" />
-        <div className="absolute -top-12 -right-12 w-64 h-64 rounded-full border border-white/5 pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-[#FEBF10]/30 to-transparent pointer-events-none" />
-        <div className="relative z-10 max-w-5xl w-full">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="h-0.5 w-6 rounded-full bg-[#FEBF10]" />
-            <p className="text-[10px] font-black capitalize tracking-widest text-[#FEBF10]/80">Academic Reports</p>
-          </div>
-          <h1 className="text-2xl md:text-3xl font-black tracking-tight">DOS Reports</h1>
-          <p className="text-xs font-bold text-white/60 max-w-xl mt-2">
-            Totals by year, term, status &amp; class — filter a period to see counts and marks.
-          </p>
-        </div>
-      </section>
+    <div className="min-h-screen bg-re-bg font-sans">
+      <DosOchreHero
+        eyebrow="Academic reports"
+        titleLine="DOS"
+        titleAccent="reports"
+        subtitle="Totals by year, term, status, and class — filter a period to see counts and marks."
+        icon={FileBarChart}
+      />
 
-      <div className="max-w-[1500px] mx-auto px-4 md:px-10 py-8 space-y-6">
+      <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8 -mt-4 sm:-mt-5 md:-mt-6 pt-2 relative z-20 pb-10 space-y-6">
         <div className="mb-6 sm:mb-8">
           <div className="inline-flex items-center gap-2 rounded-full bg-[#FFFBE8] px-3 py-1 text-xs font-bold text-[#7A5C00] ring-1 ring-[#FDEAA0]">
             <FileBarChart size={14} className="text-[#B88A00]" />
@@ -256,7 +248,7 @@ export default function DosReportsPage() {
           </div>
 
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <div className="rounded-3xl border border-slate-200/80 bg-white shadow-xl overflow-hidden">
+            <div className="rounded-3xl border border-slate-200/80 bg-white shadow-sm overflow-hidden">
               <div className="px-4 py-3 border-b border-[#FDEAA0]/60 bg-[#FFFBE8]/90 font-black text-[#1A1200]">
                 Totals by status
               </div>
@@ -289,7 +281,7 @@ export default function DosReportsPage() {
               </div>
             </div>
 
-            <div className="rounded-3xl border border-slate-200/80 bg-white shadow-xl overflow-hidden">
+            <div className="rounded-3xl border border-slate-200/80 bg-white shadow-sm overflow-hidden">
               <div className="px-4 py-3 border-b border-[#FDEAA0]/60 bg-[#FFFBE8]/90 font-black text-[#1A1200]">
                 Totals by class
               </div>
@@ -323,7 +315,7 @@ export default function DosReportsPage() {
             </div>
           </div>
 
-          <div className="mt-6 rounded-3xl border border-slate-200/80 bg-white shadow-xl overflow-hidden">
+          <div className="mt-6 rounded-3xl border border-slate-200/80 bg-white shadow-sm overflow-hidden">
             <div className="px-4 py-3 border-b border-[#FDEAA0]/60 bg-[#FFFBE8]/90 font-black text-[#1A1200]">
               By class + status (detailed)
             </div>

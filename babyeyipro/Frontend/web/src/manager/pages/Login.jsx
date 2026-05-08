@@ -49,7 +49,7 @@ const Login = () => {
          <div className="absolute bottom-0 left-0 w-96 h-96 bg-re-navy/5 blur-3xl -ml-48 -mb-48 rounded-full pointer-events-none"></div>
 
          <div className="w-full flex items-center justify-center p-0 md:p-8 z-10">
-            <div className="group bg-white flex flex-col md:flex-row shadow-2xl md:rounded-0 w-full md:max-w-4xl overflow-hidden h-full md:max-h-[520px]">
+            <div className="group bg-white flex flex-col md:flex-row shadow-sm md:rounded-0 w-full md:max-w-4xl overflow-hidden h-full md:max-h-[520px]">
 
                {/* ── Left: Image / Branding Panel ── */}
                <div className="flex w-full h-52 md:h-auto md:w-1/2 relative overflow-hidden group/image shrink-0">
@@ -63,19 +63,19 @@ const Login = () => {
                   {/* Branding text */}
                   <div className="absolute inset-0 p-6 md:p-12 flex flex-col justify-between text-white z-20">
                      <div className="space-y-1 md:space-y-2 login-fade-pulse">
-                        <span className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] md:tracking-[0.4em] text-re-gold underline decoration-re-gold/50 underline-offset-8">
+                        <span className="text-[9px] md:text-[10px] font-semibold uppercase tracking-[0.3em] md:tracking-[0.4em] text-re-gold underline decoration-re-gold/50 underline-offset-8">
                            Administrative Workspace
                         </span>
-                        <h1 className="text-3xl md:text-6xl font-black tracking-tight">Babyeyi</h1>
+                        <h1 className="text-3xl md:text-6xl font-semibold tracking-tight">Babyeyi</h1>
                      </div>
 
                      <div className="hidden md:flex flex-col space-y-6 login-fade-pulse">
                         <p className="text-xl font-light leading-relaxed text-white/90 max-w-xs">
-                           Centralizing <span className="font-black text-re-gold italic">Leadership</span> with powerful school management tools.
+                           Centralizing <span className="font-semibold text-re-gold italic">Leadership</span> with powerful school management tools.
                         </p>
-                        <div className="inline-flex items-center gap-3 px-4 py-2 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 shadow-xl self-start">
+                        <div className="inline-flex items-center gap-3 px-4 py-2 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 shadow-sm self-start">
                            <div className="w-2.5 h-2.5 bg-re-gold rounded-full animate-pulse" style={{ boxShadow: '0 0 10px rgba(254,191,16,0.6)' }}></div>
-                           <span className="text-[10px] font-black uppercase tracking-widest text-white/90">Manager Portal | Secure</span>
+                           <span className="text-[10px] font-semibold uppercase tracking-widest text-white/90">Manager Portal | Secure</span>
                         </div>
                      </div>
                   </div>
@@ -88,7 +88,7 @@ const Login = () => {
                      <div className="bg-re-navy/10 p-2.5 rounded-full login-float">
                         <School className="w-7 h-7 text-re-navy" />
                      </div>
-                     <h1 className="text-xl font-black mt-2 text-re-navy tracking-tight uppercase">Manager Portal</h1>
+                     <h1 className="text-xl font-semibold mt-2 text-re-navy tracking-tight uppercase">Manager Portal</h1>
                      <p className="text-[11px] text-center font-bold text-re-text-muted opacity-60">The Babyeyi Institutional Hub — Authorize your session</p>
                   </div>
 
@@ -103,7 +103,7 @@ const Login = () => {
                   <form onSubmit={handleSubmit} className="space-y-3">
                      {/* Email */}
                      <div>
-                        <label className="text-[11px] font-black text-re-text-muted uppercase tracking-widest ml-1 opacity-70">
+                        <label className="text-[11px] font-semibold text-re-text-muted uppercase tracking-widest ml-1 opacity-70">
                            Administrator Email
                         </label>
                         <div className="flex items-center bg-re-bg border border-black/5 rounded-xl overflow-hidden mt-1 shadow-inner focus-within:ring-2 transition-all" style={{ '--tw-ring-color': 'rgba(30,58,95,0.35)' }}>
@@ -121,7 +121,7 @@ const Login = () => {
 
                      {/* Password */}
                      <div>
-                        <label className="text-[11px] font-black text-re-text-muted uppercase tracking-widest ml-1 opacity-70">
+                        <label className="text-[11px] font-semibold text-re-text-muted uppercase tracking-widest ml-1 opacity-70">
                            Password
                         </label>
                         <div className="flex items-center bg-re-bg border border-black/5 rounded-xl overflow-hidden mt-1 shadow-inner focus-within:ring-2 transition-all" style={{ '--tw-ring-color': 'rgba(30,58,95,0.35)' }}>
@@ -146,7 +146,7 @@ const Login = () => {
 
                      {/* Forgot */}
                      <div className="flex justify-end">
-                        <button type="button" className="text-[10px] font-black hover:underline uppercase tracking-wider text-re-navy">
+                        <button type="button" className="text-[10px] font-semibold hover:underline uppercase tracking-wider text-re-navy">
                            Forgot Password?
                         </button>
                      </div>
@@ -155,7 +155,7 @@ const Login = () => {
                      <button
                         type="submit"
                         disabled={loading}
-                        className="w-full text-white py-3 text-xs rounded-2xl font-black transition-all disabled:opacity-60 flex justify-center items-center gap-2 group/btn uppercase tracking-widest"
+                        className="w-full text-white py-3 text-xs rounded-2xl font-semibold transition-all disabled:opacity-60 flex justify-center items-center gap-2 group/btn uppercase tracking-widest"
                         style={{
                            background: 'linear-gradient(135deg, #1E3A5F 0%, #3D5A80 100%)',
                            boxShadow: '0 4px 15px rgba(30,58,95,0.35)',
@@ -176,13 +176,13 @@ const Login = () => {
                   <div className="mt-5 pt-4 border-t border-black/5 text-center flex flex-col gap-3">
                      <p className="text-[11px] text-re-text-muted opacity-50 font-bold">
                         Trouble signing in?{' '}
-                        <button className="font-black hover:underline text-re-navy">Contact Administrator</button>
+                        <button className="font-semibold hover:underline text-re-navy">Contact Administrator</button>
                      </p>
                      
                      <div className="pt-2">
                         <a 
                            href={`${import.meta.env.VITE_MAIN_PLATFORM_URL || 'http://localhost:5174'}/login`}
-                           className="inline-flex items-center gap-2 text-[10px] font-black text-re-navy hover:underline uppercase tracking-widest"
+                           className="inline-flex items-center gap-2 text-[10px] font-semibold text-re-navy hover:underline uppercase tracking-widest"
                         >
                            <ArrowLeft size={12} />
                            Back to Main Babyeyi Login
@@ -190,7 +190,7 @@ const Login = () => {
                      </div>
                   </div>
 
-                  <p className="text-center text-[9px] text-re-text-muted mt-4 uppercase tracking-widest font-black opacity-30">
+                  <p className="text-center text-[9px] text-re-text-muted mt-4 uppercase tracking-widest font-semibold opacity-30">
                      © 2026 Babyeyi Systems • Rwandan National Education Portal
                   </p>
                </div>

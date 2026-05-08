@@ -21,11 +21,11 @@ const SupplierModal = ({ supplier, onClose, onSave }) => {
 
   return createPortal(
     <div className="fixed inset-0 z-[220] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-0 sm:p-4">
-      <div className="bg-white w-full sm:max-w-md rounded-t-[32px] sm:rounded-[28px] shadow-2xl flex flex-col max-h-[90vh]">
+      <div className="bg-white w-full sm:max-w-md rounded-t-[32px] sm:rounded-[28px] shadow-sm flex flex-col max-h-[90vh]">
         <div className="flex items-center justify-between px-6 py-5 border-b border-black/5 shrink-0">
           <div>
-            <p className="text-[9px] font-black uppercase tracking-[0.3em] text-re-navy">{isEdit ? 'Edit supplier' : 'Add supplier'}</p>
-            <h3 className="font-black text-re-navy text-base mt-0.5">{isEdit ? form.name : 'New supplier'}</h3>
+            <p className="text-[9px] font-semibold uppercase tracking-[0.3em] text-re-navy">{isEdit ? 'Edit supplier' : 'Add supplier'}</p>
+            <h3 className="font-semibold text-re-navy text-base mt-0.5">{isEdit ? form.name : 'New supplier'}</h3>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-50 rounded-xl text-slate-400"><X size={18} /></button>
         </div>
@@ -39,21 +39,21 @@ const SupplierModal = ({ supplier, onClose, onSave }) => {
             { label: 'Categories supplied', key: 'categories', placeholder: 'e.g. Stationery, Cleaning' },
           ].map(f => (
             <div key={f.key}>
-              <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-1">{f.label}</label>
+              <label className="text-[9px] font-semibold uppercase tracking-widest text-slate-400 block mb-1">{f.label}</label>
               <input value={form[f.key]} onChange={e => set(f.key, e.target.value)} placeholder={f.placeholder}
                 className="w-full bg-re-bg border border-black/5 rounded-xl px-3 py-2.5 text-[11px] font-bold outline-none focus:ring-2 focus:ring-re-navy/20" />
             </div>
           ))}
           <div>
-            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-1">Note</label>
+            <label className="text-[9px] font-semibold uppercase tracking-widest text-slate-400 block mb-1">Note</label>
             <textarea value={form.note} onChange={e => set('note', e.target.value)} rows={2} placeholder="Optional note"
               className="w-full bg-re-bg border border-black/5 rounded-xl px-3 py-2.5 text-[11px] font-bold outline-none focus:ring-2 focus:ring-re-navy/20 resize-none" />
           </div>
         </div>
         <div className="px-6 py-4 border-t border-black/5 flex justify-end gap-2 shrink-0">
-          <button onClick={onClose} className="px-4 py-2 rounded-xl border border-black/5 text-re-navy font-black text-[9px] uppercase tracking-widest hover:bg-re-bg">Cancel</button>
+          <button onClick={onClose} className="px-4 py-2 rounded-xl border border-black/5 text-re-navy font-semibold text-[9px] uppercase tracking-widest hover:bg-re-bg">Cancel</button>
           <button disabled={!valid} onClick={() => { if (valid) { onSave({ ...supplier, ...form }); onClose(); }}}
-            className="px-6 py-2 rounded-xl text-white font-black text-[9px] uppercase tracking-widest disabled:opacity-50"
+            className="px-6 py-2 rounded-xl text-white font-semibold text-[9px] uppercase tracking-widest disabled:opacity-50"
             style={{ background: 'linear-gradient(135deg,#1E3A5F,#0D2644)' }}>
             <Save size={12} className="inline mr-1" />{isEdit ? 'Update' : 'Add supplier'}
           </button>
@@ -125,7 +125,7 @@ export default function Suppliers() {
               type="button"
               onClick={fetchSuppliers}
               disabled={loading}
-              className="w-full h-11 flex items-center justify-center gap-2 bg-white border border-black/5 text-re-text font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg transition-all"
+              className="w-full h-11 flex items-center justify-center gap-2 bg-white border border-black/5 text-re-text font-semibold text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg transition-all"
             >
               <RefreshCw size={14} className={loading ? 'animate-spin text-[#1E3A5F]' : 'text-[#1E3A5F]'} />
               Refresh
@@ -133,7 +133,7 @@ export default function Suppliers() {
             <button
               type="button"
               onClick={() => setModal({})}
-              className="w-full h-11 flex items-center justify-center gap-2 text-white rounded-xl font-black text-[9px] uppercase tracking-widest shadow-xl hover:scale-[1.02] active:scale-95 transition-all"
+              className="w-full h-11 flex items-center justify-center gap-2 text-white rounded-xl text-[9px] font-semibold uppercase tracking-widest border border-black/10 shadow-sm active:scale-95 transition-all"
               style={{ background: 'linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)' }}
             >
               <Plus size={14} />
@@ -148,7 +148,7 @@ export default function Suppliers() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search name, category, contact…"
-              className="w-full h-9 md:h-8 bg-white/80 rounded-lg outline-none border border-black/5 focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[9px] font-black uppercase tracking-tight shadow-[inset_0_2px_8px_rgba(15,23,42,0.06)] placeholder:text-[#1E3A5F]/30 !pl-8"
+              className="w-full h-9 md:h-8 bg-white/80 rounded-lg outline-none border border-black/5 focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[9px] font-semibold uppercase tracking-tight shadow-[inset_0_2px_8px_rgba(15,23,42,0.06)] placeholder:text-[#1E3A5F]/30 !pl-8"
             />
           </div>
         )}
@@ -156,27 +156,27 @@ export default function Suppliers() {
         {loading ? (
           <div className="flex items-center justify-center py-20 gap-3">
             <Loader2 size={22} className="animate-spin text-[#1E3A5F]/30" />
-            <p className="text-[11px] font-black uppercase tracking-widest text-slate-400">Loading suppliers…</p>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Loading suppliers…</p>
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3 px-6">
             <Building2 size={36} className="text-slate-200" />
-            <p className="text-[11px] font-black uppercase tracking-widest text-slate-400">No suppliers match your search</p>
-            <button type="button" onClick={() => setModal({})} className="text-[10px] font-black text-[#1E3A5F] hover:underline">
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">No suppliers match your search</p>
+            <button type="button" onClick={() => setModal({})} className="text-[10px] font-semibold text-[#1E3A5F] hover:underline">
               + Add first supplier
             </button>
           </div>
         ) : (
           <div className="p-4 sm:p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {filtered.map((s) => (
-              <div key={s.id} className="bg-re-bg/40 border border-black/5 rounded-[20px] p-5 hover:shadow-md transition-all group">
+              <div key={s.id} className="bg-re-bg/40 border border-black/5 rounded-[20px] p-5 hover:shadow-sm transition-all group">
                 <div className="flex items-start justify-between gap-3 mb-3">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 rounded-xl bg-white border border-black/5 flex items-center justify-center font-black text-[#1E3A5F] shrink-0 shadow-sm">
+                    <div className="w-10 h-10 rounded-xl bg-white border border-black/5 flex items-center justify-center font-semibold text-[#1E3A5F] shrink-0 shadow-sm">
                       {s.name?.charAt(0) || 'S'}
                     </div>
                     <div className="min-w-0">
-                      <p className="font-black text-[#1E3A5F] text-[12px] leading-tight truncate">{s.name}</p>
+                      <p className="font-semibold text-[#1E3A5F] text-[12px] leading-tight truncate">{s.name}</p>
                       {s.categories ? <p className="text-[9px] text-re-navy font-bold uppercase tracking-wider mt-0.5 truncate">{s.categories}</p> : null}
                     </div>
                   </div>
@@ -209,13 +209,13 @@ export default function Suppliers() {
       {modal !== null && <SupplierModal supplier={modal} onClose={() => setModal(null)} onSave={handleSave} />}
       {deleteConfirm && createPortal(
         <div className="fixed inset-0 z-[230] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-[24px] shadow-2xl p-8 max-w-sm w-full text-center">
+          <div className="bg-white rounded-[24px] shadow-sm p-8 max-w-sm w-full text-center">
             <div className="w-12 h-12 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-4"><Trash2 size={20} className="text-red-500" /></div>
-            <h3 className="font-black text-slate-800 mb-2">Remove "{deleteConfirm.name}"?</h3>
+            <h3 className="font-semibold text-slate-800 mb-2">Remove "{deleteConfirm.name}"?</h3>
             <p className="text-[11px] font-bold text-slate-400 mb-6">This supplier will be removed from your records.</p>
             <div className="flex gap-3">
-              <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-2.5 rounded-xl border border-black/5 font-black text-[10px] uppercase text-slate-500 hover:bg-slate-50">Cancel</button>
-              <button onClick={() => handleDelete(deleteConfirm.id)} className="flex-1 py-2.5 rounded-xl bg-red-500 text-white font-black text-[10px] uppercase hover:bg-red-600">Remove</button>
+              <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-2.5 rounded-xl border border-black/5 font-semibold text-[10px] uppercase text-slate-500 hover:bg-slate-50">Cancel</button>
+              <button onClick={() => handleDelete(deleteConfirm.id)} className="flex-1 py-2.5 rounded-xl bg-red-500 text-white font-semibold text-[10px] uppercase hover:bg-red-600">Remove</button>
             </div>
           </div>
         </div>,

@@ -20,6 +20,7 @@ import {
   ClipboardList,
   MessageSquare,
   FileText,
+  ShieldCheck,
   Sun,
   Moon,
   Monitor,
@@ -37,6 +38,7 @@ const navItemsDesktop = [
   { to: "/parents/payments-report", label: "Payments", Icon: FileText },
   { to: "/parents/shop", label: "Shop", Icon: ShoppingBag },
   { to: "/parents/shulecard", label: "Shulecard", Icon: CreditCard },
+  { to: "/parents/audit-log", label: "Audit", Icon: ShieldCheck },
   { to: "/parents/account", label: "Account", Icon: Wallet },
   { to: "/parents/profile", label: "Profile", Icon: User },
 ];
@@ -49,6 +51,7 @@ const navItemsMobile = [
   { to: "/parents/payments-report", label: "Payments", Icon: FileText },
   { to: "/parents/shop", label: "Shop", Icon: ShoppingBag },
   { to: "/parents/shulecard", label: "Shulecard", Icon: CreditCard },
+  { to: "/parents/audit-log", label: "Audit", Icon: ShieldCheck },
   { to: "/parents/account", label: "Account", Icon: Wallet },
   { to: "/parents/profile", label: "Profile", Icon: User },
 ];

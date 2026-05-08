@@ -34,7 +34,7 @@ const TopNav = ({ title, onMenuClick }) => {
                 >
                     <Menu size={18} />
                 </button>
-                <h1 className="hidden lg:block text-sm font-black text-re-text tracking-tight uppercase">
+                <h1 className="hidden lg:block text-sm font-semibold text-re-text tracking-tight uppercase">
                     {title || 'Dashboard'}
                 </h1>
             </div>
@@ -75,7 +75,7 @@ const TopNav = ({ title, onMenuClick }) => {
                     >
                         <div className="relative">
                             <div
-                                className="w-8 h-8 rounded-xl text-white flex items-center justify-center font-black text-xs shadow-sm group-hover:scale-105 transition-transform"
+                                className="w-8 h-8 rounded-xl text-white flex items-center justify-center font-semibold text-xs shadow-sm group-hover:scale-105 transition-transform"
                                 style={{ background: 'linear-gradient(135deg,#1E3A5F,#3D5A80)' }}
                             >
                                 {initials}
@@ -83,7 +83,7 @@ const TopNav = ({ title, onMenuClick }) => {
                             <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-400 border-2 border-white rounded-full" />
                         </div>
                         <div className="hidden sm:block text-left">
-                            <p className="text-xs font-black text-re-text leading-tight group-hover:text-re-navy transition-colors uppercase tracking-tight">
+                            <p className="text-xs font-semibold text-re-text leading-tight group-hover:text-re-navy transition-colors uppercase tracking-tight">
                                 {staff?.first_name || PORTAL.profileFallback}
                             </p>
                             <p className="text-[10px] text-re-text-muted/60 font-bold leading-tight uppercase tracking-widest">
@@ -102,13 +102,13 @@ const TopNav = ({ title, onMenuClick }) => {
                             <div className="px-4 py-3 border-b border-black/5">
                                 <div className="flex items-center gap-3">
                                     <div
-                                        className="w-9 h-9 rounded-xl text-white flex items-center justify-center font-black text-sm shadow-sm shrink-0"
+                                        className="w-9 h-9 rounded-xl text-white flex items-center justify-center font-semibold text-sm shadow-sm shrink-0"
                                         style={{ background: 'linear-gradient(135deg,#1E3A5F,#3D5A80)' }}
                                     >
                                         {initials}
                                     </div>
                                     <div>
-                                        <p className="text-xs font-black text-re-text uppercase tracking-tight">
+                                        <p className="text-xs font-semibold text-re-text uppercase tracking-tight">
                                             {staff?.first_name} {staff?.last_name}
                                         </p>
                                         <p className="text-[10px] text-re-text-muted/60 truncate max-w-[120px]">

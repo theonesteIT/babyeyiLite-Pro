@@ -83,4 +83,20 @@
   .icon-circle {
     @apply w-12 h-12 rounded-full flex items-center justify-center font-bold text-white shadow-sm;
   }
+
+  .storekeeper-sidebar-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(254, 191, 16, 0.45) rgba(255, 255, 255, 0.06);
+  }
+  .storekeeper-sidebar-scroll::-webkit-scrollbar {
+    width: 6px;
+  }
+  .storekeeper-sidebar-scroll::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 999px;
+  }
+  .storekeeper-sidebar-scroll::-webkit-scrollbar-thumb {
+    background: rgba(254, 191, 16, 0.45);
+    border-radius: 999px;
+  }
 }

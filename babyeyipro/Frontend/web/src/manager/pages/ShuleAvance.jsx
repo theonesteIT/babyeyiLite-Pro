@@ -10,8 +10,10 @@ import {
   Filter,
   X,
   Send,
+  Wallet,
 } from 'lucide-react';
 import api from '../services/api';
+import ManagerOchreHeroShell from '../components/ManagerOchreHeroShell';
 
 function fmtMoney(v) {
   const n = Number(v || 0);
@@ -41,10 +43,10 @@ function Modal({ open, title, subtitle, children, onClose }) {
         aria-label="Close"
         onClick={onClose}
       />
-      <div className="relative z-10 w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col rounded-t-[24px] bg-white shadow-2xl sm:rounded-2xl border border-slate-200/80 animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative z-10 w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col rounded-t-[24px] bg-white shadow-sm sm:rounded-2xl border border-slate-200/80 animate-in fade-in zoom-in-95 duration-200">
         <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4 bg-gradient-to-r from-[#0f172a] to-[#14532d] text-white">
           <div>
-            <h3 className="text-sm font-black uppercase tracking-wide">{title}</h3>
+            <h3 className="text-sm font-semibold uppercase tracking-wide">{title}</h3>
             {subtitle ? (
               <p className="mt-1 text-[11px] font-semibold text-white/80 leading-snug">{subtitle}</p>
             ) : null}
@@ -144,101 +146,77 @@ export default function ShuleAvance() {
   };
 
   return (
-    <div className="min-h-screen bg-re-bg p-4 sm:p-6 md:p-10 space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-re-orange">School Manager Portal</p>
-          <h1 className="text-2xl md:text-3xl font-black  text-re-text tracking-tight">
-            Shule<span className="text-re-orange">Avance</span> — Decisions & History
-          </h1>
-          <p className="text-xs font-bold text-slate-500 mt-1 max-w-xl">
-            Review forwarded requests, approve or reject with optional comments. All records stay here for filtering.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={load}
-          className="h-10 px-4 rounded-xl border border-black/10 bg-white text-[10px] font-black uppercase tracking-widest text-slate-700 inline-flex items-center gap-2"
-        >
-          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-          Refresh
-        </button>
-      </div>
+    <>
+      <ManagerOchreHeroShell
+        outerClassName="animate-in fade-in duration-500 bg-re-bg min-h-screen pb-16"
+        eyebrow="School manager"
+        title="Teacher Avance"
+        subtitle="Decisions & history — review forwarded requests, approve or reject with optional comments."
+        HeroIcon={Wallet}
+        headerRight={(
+          <button
+            type="button"
+            onClick={load}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-white/25 bg-white/10 text-white text-[10px] font-semibold uppercase tracking-widest hover:bg-white/15 transition-colors"
+          >
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            Refresh
+          </button>
+        )}
+        kpiTiles={[
+          {
+            key: 'all',
+            label: 'Total records',
+            value: stats.total,
+            subValue: 'All stored',
+            icon: LayoutGrid,
+            onClick: () => setTableFilter('all'),
+            selected: tableFilter === 'all',
+          },
+          {
+            key: 'sent_to_manager',
+            label: 'Needs decision',
+            value: stats.awaiting,
+            subValue: 'Awaiting you',
+            icon: Send,
+            onClick: () => setTableFilter('sent_to_manager'),
+            selected: tableFilter === 'sent_to_manager',
+          },
+          {
+            key: 'approved',
+            label: 'Approved',
+            value: stats.approved,
+            subValue: 'By you',
+            icon: CheckCircle2,
+            onClick: () => setTableFilter('approved'),
+            selected: tableFilter === 'approved',
+          },
+          {
+            key: 'rejected',
+            label: 'Rejected',
+            value: stats.rejected,
+            subValue: 'By you',
+            icon: Ban,
+            onClick: () => setTableFilter('rejected'),
+            selected: tableFilter === 'rejected',
+          },
+        ]}
+        pageBody={(
+          <div className="max-w-[1600px] mx-auto px-4 sm:px-6 md:px-10 space-y-6 pt-2">
+            {message && (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
+                {message}
+              </div>
+            )}
+            {error && (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+                {error}
+              </div>
+            )}
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <button
-          type="button"
-          onClick={() => setTableFilter('all')}
-          className={`rounded-2xl border p-4 text-left bg-white shadow-sm transition ${
-            tableFilter === 'all' ? 'border-re-orange ring-2 ring-re-orange/25' : 'border-black/5'
-          }`}
-        >
-          <div className="flex items-center gap-2 text-slate-500 mb-1">
-            <LayoutGrid size={14} />
-            <span className="text-[9px] font-black uppercase tracking-widest">Total</span>
-          </div>
-          <p className="text-2xl font-black text-re-text">{stats.total}</p>
-          <p className="text-[10px] font-bold text-slate-400 mt-0.5">All stored</p>
-        </button>
-        <button
-          type="button"
-          onClick={() => setTableFilter('sent_to_manager')}
-          className={`rounded-2xl border p-4 text-left bg-white shadow-sm transition ${
-            tableFilter === 'sent_to_manager' ? 'border-sky-500 ring-2 ring-sky-500/20' : 'border-black/5'
-          }`}
-        >
-          <div className="flex items-center gap-2 text-sky-700 mb-1">
-            <Send size={14} />
-            <span className="text-[9px] font-black uppercase tracking-widest">Action</span>
-          </div>
-          <p className="text-2xl font-black text-sky-800">{stats.awaiting}</p>
-          <p className="text-[10px] font-bold text-slate-400 mt-0.5">Needs decision</p>
-        </button>
-        <button
-          type="button"
-          onClick={() => setTableFilter('approved')}
-          className={`rounded-2xl border p-4 text-left bg-white shadow-sm transition ${
-            tableFilter === 'approved' ? 'border-emerald-500 ring-2 ring-emerald-500/20' : 'border-black/5'
-          }`}
-        >
-          <div className="flex items-center gap-2 text-emerald-700 mb-1">
-            <CheckCircle2 size={14} />
-            <span className="text-[9px] font-black uppercase tracking-widest">Approved</span>
-          </div>
-          <p className="text-2xl font-black text-emerald-700">{stats.approved}</p>
-          <p className="text-[10px] font-bold text-slate-400 mt-0.5">By you</p>
-        </button>
-        <button
-          type="button"
-          onClick={() => setTableFilter('rejected')}
-          className={`rounded-2xl border p-4 text-left bg-white shadow-sm transition ${
-            tableFilter === 'rejected' ? 'border-red-400 ring-2 ring-red-400/20' : 'border-black/5'
-          }`}
-        >
-          <div className="flex items-center gap-2 text-red-700 mb-1">
-            <Ban size={14} />
-            <span className="text-[9px] font-black uppercase tracking-widest">Rejected</span>
-          </div>
-          <p className="text-2xl font-black text-red-700">{stats.rejected}</p>
-          <p className="text-[10px] font-bold text-slate-400 mt-0.5">By you</p>
-        </button>
-      </div>
-
-      {message && (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
-          {message}
-        </div>
-      )}
-      {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
-          {error}
-        </div>
-      )}
-
-      <section className="bg-white rounded-2xl border border-black/5 shadow-sm overflow-hidden">
+            <section className="bg-white rounded-2xl border border-black/5 shadow-sm overflow-hidden">
         <div className="px-4 sm:px-5 py-4 border-b border-black/5 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
-          <h2 className="text-sm font-black uppercase tracking-wider text-re-text">Shule Avance records</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-re-text">Shule Avance records</h2>
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <Filter size={16} className="text-slate-500 shrink-0" />
             <select
@@ -266,7 +244,7 @@ export default function ShuleAvance() {
           <>
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left text-sm">
-                <thead className="bg-slate-50 text-[10px] font-black uppercase tracking-wider text-slate-500">
+                <thead className="bg-slate-50 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
                   <tr>
                     <th className="px-4 py-3">ID</th>
                     <th className="px-4 py-3">Staff</th>
@@ -284,10 +262,10 @@ export default function ShuleAvance() {
                         <p className="font-bold text-re-text">{r.staff_name || `User #${r.teacher_user_id}`}</p>
                         <p className="text-[10px] text-slate-500">{r.submitter_role_code}</p>
                       </td>
-                      <td className="px-4 py-3 font-black">{fmtMoney(r.amount_rwf)}</td>
+                      <td className="px-4 py-3 font-semibold">{fmtMoney(r.amount_rwf)}</td>
                       <td className="px-4 py-3">
                         {isTeacherDealRequest(r) ? (
-                          <span className="inline-flex rounded-full border px-2 py-0.5 text-[9px] font-black uppercase bg-fuchsia-50 text-fuchsia-800 border-fuchsia-200">
+                          <span className="inline-flex rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase bg-fuchsia-50 text-fuchsia-800 border-fuchsia-200">
                             Teacher Deals
                           </span>
                         ) : (
@@ -296,7 +274,7 @@ export default function ShuleAvance() {
                       </td>
                       <td className="px-4 py-3">
                         <span
-                          className={`inline-flex rounded-full border px-2 py-0.5 text-[9px] font-black uppercase ${
+                          className={`inline-flex rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase ${
                             STATUS_LABEL[r.status]?.cls || 'bg-slate-100'
                           }`}
                         >
@@ -313,7 +291,7 @@ export default function ShuleAvance() {
                                 setFeedbackDraft('');
                                 setModal({ decision: 'approved', row: r });
                               }}
-                              className="mr-2 inline-flex items-center gap-1 h-9 px-3 rounded-lg bg-emerald-600 text-white text-[10px] font-black uppercase disabled:opacity-50"
+                              className="mr-2 inline-flex items-center gap-1 h-9 px-3 rounded-lg bg-emerald-600 text-white text-[10px] font-semibold uppercase disabled:opacity-50"
                             >
                               <CheckCircle2 size={14} /> Approve
                             </button>
@@ -324,7 +302,7 @@ export default function ShuleAvance() {
                                 setFeedbackDraft('');
                                 setModal({ decision: 'rejected', row: r });
                               }}
-                              className="inline-flex items-center gap-1 h-9 px-3 rounded-lg border border-red-200 bg-red-50 text-red-700 text-[10px] font-black uppercase disabled:opacity-50"
+                              className="inline-flex items-center gap-1 h-9 px-3 rounded-lg border border-red-200 bg-red-50 text-red-700 text-[10px] font-semibold uppercase disabled:opacity-50"
                             >
                               <XCircle size={14} /> Reject
                             </button>
@@ -343,9 +321,9 @@ export default function ShuleAvance() {
               {filteredRows.map((r) => (
                 <div key={r.id} className="p-4 space-y-2">
                   <div className="flex justify-between gap-2">
-                    <p className="text-lg font-black text-re-text">{fmtMoney(r.amount_rwf)}</p>
+                    <p className="text-lg font-semibold text-re-text">{fmtMoney(r.amount_rwf)}</p>
                     <span
-                      className={`h-fit text-[9px] font-black uppercase px-2 py-1 rounded-full border ${
+                      className={`h-fit text-[9px] font-semibold uppercase px-2 py-1 rounded-full border ${
                         STATUS_LABEL[r.status]?.cls
                       }`}
                     >
@@ -357,13 +335,13 @@ export default function ShuleAvance() {
                   </p>
                   <p className="text-xs text-slate-600 line-clamp-2">{r.purpose}</p>
                   {isTeacherDealRequest(r) ? (
-                    <p className="inline-flex rounded-full border px-2 py-0.5 text-[9px] font-black uppercase bg-fuchsia-50 text-fuchsia-800 border-fuchsia-200">
+                    <p className="inline-flex rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase bg-fuchsia-50 text-fuchsia-800 border-fuchsia-200">
                       Teacher Deals
                     </p>
                   ) : null}
                   {r.accountant_note ? (
                     <p className="text-[10px] text-sky-800 bg-sky-50 rounded-lg p-2">
-                      <span className="font-black">Finance:</span> {r.accountant_note}
+                      <span className="font-semibold">Finance:</span> {r.accountant_note}
                     </p>
                   ) : null}
                   {r.status === 'sent_to_manager' ? (
@@ -375,7 +353,7 @@ export default function ShuleAvance() {
                           setFeedbackDraft('');
                           setModal({ decision: 'approved', row: r });
                         }}
-                        className="h-11 w-full rounded-xl bg-emerald-600 text-white text-[10px] font-black uppercase"
+                        className="h-11 w-full rounded-xl bg-emerald-600 text-white text-[10px] font-semibold uppercase"
                       >
                         Approve
                       </button>
@@ -386,7 +364,7 @@ export default function ShuleAvance() {
                           setFeedbackDraft('');
                           setModal({ decision: 'rejected', row: r });
                         }}
-                        className="h-11 w-full rounded-xl border border-red-200 bg-red-50 text-red-700 text-[10px] font-black uppercase"
+                        className="h-11 w-full rounded-xl border border-red-200 bg-red-50 text-red-700 text-[10px] font-semibold uppercase"
                       >
                         Reject
                       </button>
@@ -398,6 +376,9 @@ export default function ShuleAvance() {
           </>
         )}
       </section>
+          </div>
+        )}
+      />
 
       <Modal
         open={!!modal}
@@ -410,10 +391,10 @@ export default function ShuleAvance() {
         }
       >
         <div className="rounded-xl bg-slate-50 border border-slate-100 p-3 mb-4 text-xs text-slate-700">
-          <p className="font-black text-re-text">#{modal?.row?.id} · {fmtMoney(modal?.row?.amount_rwf)}</p>
+          <p className="font-semibold text-re-text">#{modal?.row?.id} · {fmtMoney(modal?.row?.amount_rwf)}</p>
           <p className="mt-1 font-semibold line-clamp-3">{modal?.row?.purpose}</p>
         </div>
-        <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
+        <label className="block text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-2">
           Comment (optional)
         </label>
         <textarea
@@ -426,7 +407,7 @@ export default function ShuleAvance() {
           <button
             type="button"
             onClick={closeModal}
-            className="h-11 px-4 rounded-xl border border-slate-200 text-xs font-black uppercase text-slate-700"
+            className="h-11 px-4 rounded-xl border border-slate-200 text-xs font-semibold uppercase text-slate-700"
           >
             Cancel
           </button>
@@ -434,7 +415,7 @@ export default function ShuleAvance() {
             type="button"
             disabled={busyId === modal?.row?.id}
             onClick={submitDecision}
-            className={`h-11 px-5 rounded-xl text-xs font-black uppercase text-white disabled:opacity-50 ${
+            className={`h-11 px-5 rounded-xl text-xs font-semibold uppercase text-white disabled:opacity-50 ${
               modal?.decision === 'approved' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'
             }`}
           >
@@ -442,6 +423,6 @@ export default function ShuleAvance() {
           </button>
         </div>
       </Modal>
-    </div>
+    </>
   );
 }

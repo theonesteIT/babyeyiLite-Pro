@@ -4,10 +4,12 @@ import {
   Package, RefreshCw, Tag, TrendingUp, ArrowDown, ArrowUp,
   Activity, PieChart, ArrowDownCircle, ArrowUpCircle,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { PORTAL } from '../config/portal';
 import { useAuth } from '../context/AuthContext';
+import StorekeeperOchreHero from '../components/StorekeeperOchreHero';
+import { h } from '../utils/href';
 
 function fmtMoney(v) {
   return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'RWF', maximumFractionDigits: 0 }).format(Number(v) || 0);
@@ -54,25 +56,25 @@ const DonutChart = ({ data = [], size = 140 }) => {
 };
 
 const OverviewCard = ({ title, icon: Icon, iconColor, dataPie, subStats }) => (
-  <div className="bg-white border border-slate-200 rounded-[24px] shadow-2xl p-6 flex flex-col items-center relative w-full">
+  <div className="bg-white border border-slate-200 rounded-[24px] shadow-sm p-6 flex flex-col items-center relative w-full">
     <div className="flex items-center justify-between gap-2 mb-6 w-full">
       <div className="flex items-center gap-2">
         <Icon size={16} className={iconColor} />
-        <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-[0.2em]">{title}</h3>
+        <h3 className="text-[11px] font-semibold text-slate-800 uppercase tracking-[0.2em]">{title}</h3>
       </div>
-      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Live</span>
+      <span className="text-[9px] font-semibold text-slate-400 uppercase tracking-widest">Live</span>
     </div>
     <DonutChart data={dataPie} size={150} />
     <div className="w-full mt-6 space-y-3">
-      <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-slate-500 bg-slate-50 p-3 rounded-xl border border-slate-100 shadow-inner">
+      <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-slate-500 bg-slate-50 p-3 rounded-xl border border-slate-100">
         <div className="flex flex-col items-center flex-1">
-          <span className="text-[#1E3A5F] font-black">{subStats.left.count}</span>
-          <span className="text-[8px] font-black text-slate-400 mt-0.5 tracking-[0.2em]">{subStats.left.label}</span>
+          <span className="text-[#1E3A5F] font-semibold tabular-nums">{subStats.left.count}</span>
+          <span className="text-[8px] font-semibold text-slate-400 mt-0.5 tracking-[0.16em]">{subStats.left.label}</span>
         </div>
         <div className="w-px h-8 bg-slate-200" />
         <div className="flex flex-col items-center flex-1">
-          <span className="text-amber-600 font-black">{subStats.right.count}</span>
-          <span className="text-[8px] font-black text-slate-400 mt-0.5 tracking-[0.2em]">{subStats.right.label}</span>
+          <span className="text-amber-600 font-semibold tabular-nums">{subStats.right.count}</span>
+          <span className="text-[8px] font-semibold text-slate-400 mt-0.5 tracking-[0.16em]">{subStats.right.label}</span>
         </div>
       </div>
     </div>
@@ -81,6 +83,7 @@ const OverviewCard = ({ title, icon: Icon, iconColor, dataPie, subStats }) => (
 
 export default function Dashboard() {
   const { staff } = useAuth();
+  const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -144,6 +147,38 @@ export default function Dashboard() {
     };
   }, [data]);
 
+  const dashHeroStats = useMemo(() => {
+    const low = derived?.lowStock?.length ?? 0;
+    const out = derived?.outOfStock?.length ?? 0;
+    const alerts = low + out;
+    return [
+      {
+        label: 'Total items',
+        value: String(derived?.totalItems ?? '—'),
+        icon: Package,
+        onClick: () => navigate(h('/inventory')),
+      },
+      {
+        label: 'Stock value',
+        value: derived ? fmtMoney(derived.totalValue) : '—',
+        icon: TrendingUp,
+        onClick: () => navigate(h('/inventory')),
+      },
+      {
+        label: 'Restock alerts',
+        value: String(alerts),
+        icon: AlertTriangle,
+        onClick: () => navigate(h('/inventory')),
+      },
+      {
+        label: 'Pending reqs',
+        value: String(derived?.pendingReqs?.length ?? '—'),
+        icon: ClipboardList,
+        onClick: () => navigate(h('/requisitions')),
+      },
+    ];
+  }, [derived, navigate]);
+
   if (loading && !data) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-re-bg">
@@ -155,49 +190,111 @@ export default function Dashboard() {
   const displayName = staff?.name || [staff?.first_name, staff?.last_name].filter(Boolean).join(' ') || staff?.email || 'Storekeeper';
 
   return (
-    <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen">
+    <div className="animate-in fade-in duration-700 bg-re-bg min-h-full pb-24 lg:pb-10 w-full">
       <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
 
-      <section className="relative p-7 md:p-10 text-white overflow-hidden min-h-[230px] flex items-center" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-        <div className="absolute inset-0 z-0">
-          <img src={PORTAL.heroImage} alt={PORTAL.heroImageAlt || ''} className="w-full h-full object-cover shadow-2xl" />
-          <div className="absolute inset-0 bg-black/55 backdrop-blur-[1px]" />
-        </div>
-
-        <div className="relative z-10 max-w-5xl w-full">
-          <div className="flex flex-wrap items-center justify-between gap-6">
-            <div className="flex flex-col gap-1">
-              <h1 className="text-2xl md:text-3xl font-black tracking-tight">
-                Welcome back, <span style={{ color: '#FEBF10' }}>{displayName}</span>
-              </h1>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-[#FEBF10] animate-pulse shadow-[0_0_8px_rgba(254,191,16,0.75)]" />
-                <p className="text-[10px] font-black uppercase tracking-widest text-white/80">
-                  {PORTAL.brandLine} · School store
-                </p>
-              </div>
+      <StorekeeperOchreHero
+        eyebrow={PORTAL.brandLine}
+        titleLine="Store"
+        titleAccent="Overview"
+        subtitle={`School store snapshot · ${displayName}`}
+        icon={Package}
+        rightSlot={
+          <>
+            <div className="flex bg-white/10 backdrop-blur-md rounded-xl border border-white/20 px-3 py-2">
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-white/90">
+                {loading ? 'Updating…' : error ? 'Limited' : 'Live store'}
+              </span>
             </div>
-
             <button
               type="button"
               onClick={load}
               disabled={loading}
-              className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-white backdrop-blur-sm hover:bg-white/15 transition-all active:scale-95 disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-xl border border-[#FEBF10]/35 bg-[#FEBF10]/15 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-widest text-white hover:bg-[#FEBF10]/25 transition-all active:scale-95 disabled:opacity-60"
             >
               <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
               Refresh
             </button>
+          </>
+        }
+      />
+
+      {lastUpdated && (
+        <p className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-12 -mt-8 sm:-mt-10 relative z-[15] text-[10px] font-semibold uppercase tracking-widest text-re-text-muted/80">
+          Last updated {fmtDateTime(lastUpdated)}
+        </p>
+      )}
+
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 -mt-4 sm:-mt-5 pt-2 relative z-20 mb-6 sm:mb-8">
+        <div className="bg-white rounded-t-[32px] shadow-sm border border-black/10 overflow-hidden flex flex-col">
+          <div className="grid grid-cols-1 lg:grid-cols-4 border-b border-black/5">
+            <div className="lg:col-span-3 grid grid-cols-2 xl:grid-cols-4 divide-x divide-y lg:divide-y-0 divide-black/5">
+              {dashHeroStats.map((stat) => (
+                <button
+                  key={stat.label}
+                  type="button"
+                  onClick={stat.onClick}
+                  className="p-4 sm:p-5 flex flex-col items-center justify-center text-center group hover:bg-re-bg/40 transition-all cursor-pointer min-h-[7.5rem]"
+                >
+                  <div className="mb-1 sm:mb-1.5 opacity-40 shrink-0" style={{ color: '#FEBF10' }}>
+                    <stat.icon size={12} className="mb-1.5 mx-auto" strokeWidth={2} aria-hidden />
+                  </div>
+                  <span className="text-sm sm:text-lg font-semibold text-re-text tracking-tight tabular-nums group-hover:text-[#1E3A5F] transition-colors">
+                    {stat.value}
+                  </span>
+                  <p className="text-[7px] sm:text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.12em] mt-0.5 opacity-65">
+                    {stat.label}
+                  </p>
+                </button>
+              ))}
+            </div>
+            <div className="hidden lg:flex flex-col border-t lg:border-t-0 lg:border-l border-black/5 bg-re-bg/30 p-6 justify-center gap-3">
+              <Link
+                to={h('/inventory')}
+                className="w-full h-11 flex items-center justify-center gap-2 text-white rounded-xl font-semibold text-[9px] uppercase tracking-widest border border-black/10 shadow-sm active:scale-95 transition-all"
+                style={{ background: 'linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)' }}
+              >
+                Inventory
+              </Link>
+              <Link
+                to={h('/movements')}
+                className="w-full h-11 flex items-center justify-center gap-2 bg-white border border-black/5 text-re-text font-semibold text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg transition-all"
+              >
+                Movements
+              </Link>
+              <Link
+                to={h('/requisitions')}
+                className="w-full h-11 flex items-center justify-center gap-2 rounded-xl font-semibold text-[9px] uppercase tracking-widest text-[#1E3A5F] border border-[#FEBF10]/40 bg-[#FEBF10]/15 hover:bg-[#FEBF10]/25 transition-all"
+              >
+                Requisitions
+              </Link>
+            </div>
+            <div className="lg:hidden grid grid-cols-3 gap-2 p-4 border-t border-black/5 bg-white">
+              <Link
+                to={h('/inventory')}
+                className="h-10 rounded-xl text-[9px] font-semibold uppercase tracking-widest text-white text-center flex items-center justify-center border border-black/10"
+                style={{ background: 'linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)' }}
+              >
+                Stock
+              </Link>
+              <Link
+                to={h('/movements')}
+                className="h-10 rounded-xl text-[9px] font-semibold uppercase tracking-widest text-[#1E3A5F] border border-black/10 bg-white flex items-center justify-center"
+              >
+                Moves
+              </Link>
+              <Link
+                to={h('/requisitions')}
+                className="h-10 rounded-xl text-[9px] font-semibold uppercase tracking-widest text-[#1E3A5F] border border-[#FEBF10]/40 bg-[#FEBF10]/15 flex items-center justify-center"
+              >
+                Reqs
+              </Link>
+            </div>
           </div>
-
-          {lastUpdated && (
-            <p className="mt-3 text-[10px] font-black uppercase tracking-widest text-white/65">
-              Last updated {fmtDateTime(lastUpdated)}
-            </p>
-          )}
         </div>
-      </section>
+      </div>
 
-      <div className="max-w-[1400px] mx-auto px-5 md:px-8 -mt-10 relative z-20 pb-14" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+      <div className="max-w-[1400px] mx-auto px-5 md:px-8 relative z-10 pb-14" style={{ fontFamily: "'Montserrat', sans-serif" }}>
         {error && (
           <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-950 flex items-start gap-2">
             <AlertCircle size={18} className="shrink-0" />
@@ -207,43 +304,43 @@ export default function Dashboard() {
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
           <div className="lg:col-span-3 space-y-5">
-            <div className="bg-white rounded-[24px] shadow-2xl border border-black/5 overflow-hidden grid grid-cols-2">
-              <Link to="/inventory" className="p-5 flex flex-col items-center justify-center text-center border-gray-100 border-r border-b hover:bg-slate-50/60 transition-all active:scale-[0.99]">
-                <span className="text-xl md:text-2xl font-black tracking-tighter text-[#1E3A5F]">{derived?.totalItems ?? '—'}</span>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1 opacity-70">Total Items</p>
+            <div className="bg-white rounded-[24px] shadow-sm border border-black/10 overflow-hidden grid grid-cols-2">
+              <Link to={h('/inventory')} className="p-5 flex flex-col items-center justify-center text-center border-gray-100 border-r border-b hover:bg-slate-50/60 transition-all active:scale-[0.99]">
+                <span className="text-xl md:text-2xl font-semibold tracking-tight text-[#1E3A5F] tabular-nums">{derived?.totalItems ?? '—'}</span>
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mt-1 opacity-70">Total Items</p>
               </Link>
-              <Link to="/inventory" className="p-5 flex flex-col items-center justify-center text-center border-gray-100 border-b hover:bg-slate-50/60 transition-all active:scale-[0.99]">
-                <span className="text-xl md:text-2xl font-black tracking-tighter text-[#1E3A5F]">{derived ? fmtMoney(derived.totalValue) : '—'}</span>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1 opacity-70">Stock Value</p>
+              <Link to={h('/inventory')} className="p-5 flex flex-col items-center justify-center text-center border-gray-100 border-b hover:bg-slate-50/60 transition-all active:scale-[0.99]">
+                <span className="text-xl md:text-2xl font-semibold tracking-tight text-[#1E3A5F] tabular-nums">{derived ? fmtMoney(derived.totalValue) : '—'}</span>
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mt-1 opacity-70">Stock Value</p>
               </Link>
 
               <div className="p-3.5 flex flex-col justify-center items-center text-center border-gray-100 border-r">
-                <span className="text-lg md:text-xl font-black tracking-tighter text-[#1E3A5F] leading-none">
+                <span className="text-lg md:text-xl font-semibold tracking-tighter text-[#1E3A5F] leading-none">
                   {(derived?.lowStock?.length || 0) + (derived?.outOfStock?.length || 0)}
                 </span>
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1 opacity-70 text-center w-full">Items to restock</p>
+                <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-widest mt-1 opacity-70 text-center w-full">Items to restock</p>
                 <div className="w-full h-px bg-slate-100 my-2" />
                 <div className="flex flex-col gap-1 text-[8.5px] font-bold text-slate-500 w-full bg-slate-50 rounded-lg py-1.5 px-2 border border-slate-100">
                   <div className="flex justify-between w-full">
                     <span className="uppercase tracking-widest">Low stock</span>
-                    <span className="font-black text-amber-600">{derived?.lowStock?.length ?? 0}</span>
+                    <span className="font-semibold text-amber-600">{derived?.lowStock?.length ?? 0}</span>
                   </div>
                   <div className="flex justify-between w-full">
                     <span className="uppercase tracking-widest">Out of stock</span>
-                    <span className="font-black text-red-500">{derived?.outOfStock?.length ?? 0}</span>
+                    <span className="font-semibold text-red-500">{derived?.outOfStock?.length ?? 0}</span>
                   </div>
                 </div>
               </div>
 
-              <Link to="/requisitions" className="p-5 flex flex-col items-center justify-center text-center border-gray-100 hover:bg-slate-50/60 transition-all active:scale-[0.99]">
-                <span className="text-xl md:text-2xl font-black tracking-tighter text-[#1E3A5F]">{derived?.pendingReqs?.length ?? '—'}</span>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1 opacity-70">Pending Requisitions</p>
+              <Link to={h('/requisitions')} className="p-5 flex flex-col items-center justify-center text-center border-gray-100 hover:bg-slate-50/60 transition-all active:scale-[0.99]">
+                <span className="text-xl md:text-2xl font-semibold tracking-tighter text-[#1E3A5F]">{derived?.pendingReqs?.length ?? '—'}</span>
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mt-1 opacity-70">Pending Requisitions</p>
               </Link>
             </div>
 
             <div className="bg-white border border-slate-200 rounded-[24px] shadow-sm p-5">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-black text-slate-800 flex items-center gap-2 text-[11px] uppercase tracking-[0.2em]">
+                <h3 className="font-semibold text-slate-800 flex items-center gap-2 text-[11px] uppercase tracking-[0.2em]">
                   <Tag className="w-4 h-4" style={{ color: '#FEBF10' }} /> Value by category
                 </h3>
               </div>
@@ -256,8 +353,8 @@ export default function Dashboard() {
                   return (
                     <div key={c.label}>
                       <div className="flex justify-between items-center mb-1">
-                        <span className="text-[10px] font-black text-slate-600">{c.label}</span>
-                        <span className="text-[10px] font-black text-slate-800">{fmtMoney(c.value)}</span>
+                        <span className="text-[10px] font-semibold text-slate-600">{c.label}</span>
+                        <span className="text-[10px] font-semibold text-slate-800">{fmtMoney(c.value)}</span>
                       </div>
                       <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
                         <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: '#1E3A5F' }} />
@@ -268,24 +365,24 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-[24px] shadow-2xl overflow-hidden flex flex-col">
+            <div className="bg-white border border-slate-200 rounded-[24px] shadow-sm overflow-hidden flex flex-col">
               <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                <h3 className="font-black text-slate-800 flex items-center gap-2 text-[11px] uppercase tracking-widest">
+                <h3 className="font-semibold text-slate-800 flex items-center gap-2 text-[11px] uppercase tracking-widest">
                   <Activity className="w-4 h-4 text-amber-500" /> Quick store actions
                 </h3>
               </div>
               <div className="divide-y divide-slate-50">
                 {[
-                  { icon: Package, label: 'Inventory', sub: 'Items, quantities, reorder levels', to: '/inventory', c: '#1E3A5F' },
-                  { icon: ArrowDownCircle, label: 'Stock movements', sub: 'Receive, issue, adjust stock', to: '/movements', c: '#FEBF10' },
-                  { icon: ClipboardList, label: 'Requisitions', sub: 'Department requests', to: '/requisitions', c: '#f59e0b' },
+                  { icon: Package, label: 'Inventory', sub: 'Items, quantities, reorder levels', to: h('/inventory'), c: '#1E3A5F' },
+                  { icon: ArrowDownCircle, label: 'Stock movements', sub: 'Receive, issue, adjust stock', to: h('/movements'), c: '#FEBF10' },
+                  { icon: ClipboardList, label: 'Requisitions', sub: 'Department requests', to: h('/requisitions'), c: '#f59e0b' },
                 ].map(({ icon: Icon, label, sub, to, c }) => (
                   <Link key={to} to={to} className="flex items-center gap-4 px-6 py-4 hover:bg-slate-50 transition-all group">
                     <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0 group-hover:bg-[#1E3A5F] group-hover:text-white transition-all">
                       <Icon size={16} style={{ color: c }} className="group-hover:!text-white" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-black text-slate-800 text-sm tracking-tight">{label}</p>
+                      <p className="font-semibold text-slate-800 text-sm tracking-tight">{label}</p>
                       <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">{sub}</p>
                     </div>
                     <ArrowRight size={14} className="text-slate-300 group-hover:text-[#1E3A5F] shrink-0" />
@@ -307,12 +404,12 @@ export default function Dashboard() {
               }}
             />
 
-            <div className="bg-white border border-slate-200 rounded-[24px] shadow-2xl overflow-hidden flex flex-col">
+            <div className="bg-white border border-slate-200 rounded-[24px] shadow-sm overflow-hidden flex flex-col">
               <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-                <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
+                <h3 className="text-[11px] font-semibold text-slate-800 uppercase tracking-widest flex items-center gap-2">
                   <ClipboardList size={13} className="text-[#1E3A5F]" /> Pending requisitions
                 </h3>
-                <Link to="/requisitions" className="text-[9px] font-black text-[#1E3A5F] uppercase hover:underline">View all</Link>
+                <Link to={h('/requisitions')} className="text-[9px] font-semibold text-[#1E3A5F] uppercase hover:underline">View all</Link>
               </div>
               <div className="divide-y divide-slate-50">
                 {!derived?.pendingReqs?.length ? (
@@ -321,22 +418,22 @@ export default function Dashboard() {
                   <div key={r.id} className="px-5 py-3.5 hover:bg-slate-50 transition-all">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex-1 min-w-0">
-                        <p className="font-black text-slate-800 text-[11px] truncate">{r.dept} · {r.requester}</p>
+                        <p className="font-semibold text-slate-800 text-[11px] truncate">{r.dept} · {r.requester}</p>
                         <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 truncate">{r.items}</p>
                       </div>
-                      <span className="text-[9px] font-black text-[#1E3A5F] bg-[#1E3A5F]/5 px-2 py-0.5 rounded-lg shrink-0">{fmtMoney(r.amount)}</span>
+                      <span className="text-[9px] font-semibold text-[#1E3A5F] bg-[#1E3A5F]/5 px-2 py-0.5 rounded-lg shrink-0">{fmtMoney(r.amount)}</span>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-[24px] shadow-2xl overflow-hidden flex flex-col">
+            <div className="bg-white border border-slate-200 rounded-[24px] shadow-sm overflow-hidden flex flex-col">
               <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-                <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
+                <h3 className="text-[11px] font-semibold text-slate-800 uppercase tracking-widest flex items-center gap-2">
                   <TrendingUp size={13} className="text-[#FEBF10]" /> Recent movements
                 </h3>
-                <Link to="/movements" className="text-[9px] font-black text-[#1E3A5F] uppercase hover:underline">View all</Link>
+                <Link to={h('/movements')} className="text-[9px] font-semibold text-[#1E3A5F] uppercase hover:underline">View all</Link>
               </div>
               <div className="divide-y divide-slate-50">
                 {!derived?.recentMovements?.length ? (
@@ -349,11 +446,11 @@ export default function Dashboard() {
                         {isIn ? <ArrowDown size={14} /> : <ArrowUp size={14} />}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-black text-slate-800 text-[11px] truncate">{m.item_name || 'Item'}</p>
+                        <p className="font-semibold text-slate-800 text-[11px] truncate">{m.item_name || 'Item'}</p>
                         <p className="text-[9px] font-bold text-slate-400 truncate mt-0.5">{m.ref ? `Ref: ${m.ref}` : m.note || '—'}</p>
                       </div>
                       <div className="text-right shrink-0">
-                        <p className={`font-black text-[12px] ${isIn ? 'text-re-navy' : 'text-slate-600'}`}>{isIn ? '+' : '-'}{m.quantity}</p>
+                        <p className={`font-semibold text-[12px] ${isIn ? 'text-re-navy' : 'text-slate-600'}`}>{isIn ? '+' : '-'}{m.quantity}</p>
                         <p className="text-[9px] font-bold text-slate-400">{fmtDateTime(m.created_at)}</p>
                       </div>
                     </div>
@@ -363,25 +460,25 @@ export default function Dashboard() {
             </div>
 
             <div
-              className="relative rounded-[24px] p-6 text-white shadow-2xl overflow-hidden group cursor-pointer active:scale-95 transition-all"
+              className="relative rounded-[24px] p-6 text-white shadow-sm border border-white/10 overflow-hidden group cursor-pointer active:scale-95 transition-all"
               style={{ background: 'linear-gradient(135deg, #1E3A5F 0%, #3D5A80 100%)' }}
             >
               <div className="absolute inset-0 opacity-10 mix-blend-overlay">
                 <img src={PORTAL.heroImage} alt="" className="w-full h-full object-cover grayscale" />
               </div>
               <div className="relative z-10 flex flex-col gap-4">
-                <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-md shadow-inner">
+                <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-md border border-white/20">
                   <Package size={18} className="text-white" />
                 </div>
                 <div>
-                  <h4 className="font-black text-xs tracking-widest uppercase leading-none opacity-90" style={{ color: '#FEBF10' }}>Next action</h4>
+                  <h4 className="font-semibold text-xs tracking-widest uppercase leading-none opacity-90" style={{ color: '#FEBF10' }}>Next action</h4>
                   <p className="text-[10px] text-white font-bold leading-snug mt-2 opacity-80">
                     {derived?.pendingReqs?.length
                       ? `${derived.pendingReqs.length} requisition(s) waiting. Confirm stock and issue or update status.`
                       : 'Keep movement records up to date when goods arrive or leave the store.'}
                   </p>
                 </div>
-                <Link to="/requisitions" className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest group-hover:gap-2.5 transition-all" style={{ color: '#FEBF10' }}>
+                <Link to={h('/requisitions')} className="flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-widest group-hover:gap-2.5 transition-all" style={{ color: '#FEBF10' }}>
                   Open requisitions <ArrowRight size={12} />
                 </Link>
               </div>

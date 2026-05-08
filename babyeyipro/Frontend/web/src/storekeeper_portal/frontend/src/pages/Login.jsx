@@ -36,7 +36,7 @@ const Login = () => {
       <div className="absolute top-0 right-0 w-96 h-96 bg-re-navy/10 blur-3xl -mr-48 -mt-48 rounded-full pointer-events-none" />
       <div className="absolute bottom-0 left-0 w-96 h-96 bg-re-gold/10 blur-3xl -ml-48 -mb-48 rounded-full pointer-events-none" />
       <div className="w-full flex items-center justify-center p-0 md:p-8 z-10">
-        <div className="group bg-white flex flex-col md:flex-row shadow-2xl md:rounded-0 w-full md:max-w-4xl overflow-hidden h-full md:max-h-[520px]">
+        <div className="group bg-white flex flex-col md:flex-row shadow-lg border border-black/5 md:rounded-none w-full md:max-w-4xl overflow-hidden h-full md:max-h-[520px]">
           {/* Left: hero */}
           <div className="flex w-full h-52 md:h-auto md:w-1/2 relative overflow-hidden group/image shrink-0">
             <img src={PORTAL.heroImage} alt={PORTAL.loginFormTitle} className="w-full h-full object-cover transition-transform duration-[2000ms] group-hover/image:scale-110" />
@@ -44,19 +44,19 @@ const Login = () => {
             <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-black/20 to-black/60 z-10 pointer-events-none" />
             <div className="absolute inset-0 p-6 md:p-12 flex flex-col justify-between text-white z-20">
               <div className="space-y-1 md:space-y-2">
-                <span className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] md:tracking-[0.4em] text-amber-200 underline decoration-amber-400/80 underline-offset-8">
+                <span className="text-[9px] md:text-[10px] font-semibold uppercase tracking-[0.3em] md:tracking-[0.4em] text-amber-200 underline decoration-amber-400/80 underline-offset-8">
                   {PORTAL.loginEyebrow}
                 </span>
-                <h1 className="text-3xl md:text-6xl font-black tracking-tight">{PORTAL.loginTitle}</h1>
+                <h1 className="text-3xl md:text-6xl font-extrabold tracking-tight">{PORTAL.loginTitle}</h1>
               </div>
               <div className="hidden md:flex flex-col space-y-6">
                 <p className="text-xl font-light leading-relaxed text-white/90 max-w-xs">
                   {PORTAL.loginHeroLine}{' '}
-                  <span className="font-black italic" style={{ color: '#FEBF10' }}>{PORTAL.loginHeroHighlight}</span>
+                  <span className="font-semibold italic" style={{ color: '#FEBF10' }}>{PORTAL.loginHeroHighlight}</span>
                 </p>
-                <div className="inline-flex items-center gap-3 px-4 py-2 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 shadow-xl self-start">
+                <div className="inline-flex items-center gap-3 px-4 py-2 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 shadow-sm self-start">
                   <div className="w-2.5 h-2.5 rounded-full animate-pulse" style={{ background: '#FEBF10', boxShadow: '0 0 10px rgba(254,191,16,0.5)' }} />
-                  <span className="text-[10px] font-black uppercase tracking-widest text-white/90">{PORTAL.loginBadge}</span>
+                  <span className="text-[10px] font-semibold uppercase tracking-widest text-white/90">{PORTAL.loginBadge}</span>
                 </div>
               </div>
             </div>
@@ -68,7 +68,7 @@ const Login = () => {
               <div className="p-2.5 rounded-full bg-re-navy/10">
                 <Shield className="w-7 h-7 text-re-navy" />
               </div>
-              <h1 className="text-xl font-black mt-2 text-re-text tracking-tight uppercase">{PORTAL.loginFormTitle}</h1>
+              <h1 className="text-xl font-semibold mt-2 text-re-text tracking-tight uppercase">{PORTAL.loginFormTitle}</h1>
               <p className="text-[11px] text-center font-bold text-re-text-muted opacity-60">{PORTAL.loginFormSubtitle}</p>
             </div>
 
@@ -101,7 +101,7 @@ const Login = () => {
               </div>
               <button
                 type="submit" disabled={loading}
-                className="w-full py-2.5 rounded-xl text-white font-black text-[11px] uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-2.5 rounded-xl text-white font-semibold text-[11px] uppercase tracking-widest transition-all active:scale-[0.99] disabled:opacity-60 flex items-center justify-center gap-2 border border-black/10 shadow-sm"
                 style={{ background: 'linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)', boxShadow: '0 4px 15px rgba(30,58,95,0.3)' }}
               >
                 {loading ? <RefreshCw size={14} className="animate-spin" /> : <Shield size={14} />}

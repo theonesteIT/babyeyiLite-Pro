@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { SlidersHorizontal, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 import api from "../services/api";
+import DosOchreHero from "../components/DosOchreHero";
 
 export default function DosSettingsPage() {
   const [totalMarks, setTotalMarks] = useState("100");
@@ -57,30 +58,21 @@ export default function DosSettingsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-re-bg" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-      {/* ── Hero Banner ── */}
-      <section className="relative p-7 md:p-10 text-white overflow-hidden min-h-[180px] flex items-center bg-[#000435]">
-        <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full border border-white/5 pointer-events-none" />
-        <div className="absolute -top-12 -right-12 w-64 h-64 rounded-full border border-white/5 pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-[#FEBF10]/30 to-transparent pointer-events-none" />
-        <div className="relative z-10 max-w-5xl w-full">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="h-0.5 w-6 rounded-full bg-[#FEBF10]" />
-            <p className="text-[10px] font-black capitalize tracking-widest text-[#FEBF10]/80">Configuration</p>
-          </div>
-          <h1 className="text-2xl md:text-3xl font-black tracking-tight">DOS Settings</h1>
-          <p className="text-xs font-bold text-white/60 max-w-xl mt-2">
-            Default total marks used to calculate remaining marks automatically for academic progress.
-          </p>
-        </div>
-      </section>
+    <div className="min-h-screen bg-re-bg font-sans">
+      <DosOchreHero
+        eyebrow="Configuration"
+        titleLine="DOS"
+        titleAccent="settings"
+        subtitle="Default total marks used to calculate remaining marks automatically for academic progress."
+        icon={SlidersHorizontal}
+      />
 
-      <div className="max-w-[1400px] mx-auto px-4 md:px-10 py-8">
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 -mt-4 sm:-mt-5 md:-mt-6 pt-2 relative z-20 pb-10">
         <div className="mb-6 sm:mb-8">
-          <h2 className="text-[10px] font-black text-[#000435] capitalize tracking-[0.22em]">Settings Panel</h2>
+          <h2 className="text-xs font-semibold text-[#000435] tracking-tight">Settings panel</h2>
         </div>
 
-      <div className="mx-auto max-w-lg rounded-3xl border border-[#FDEAA0]/80 bg-white p-5 shadow-xl shadow-[#FDEAA0]/15 sm:p-8">
+      <div className="mx-auto max-w-lg rounded-3xl border border-[#FDEAA0]/80 bg-white p-5 shadow-sm sm:p-8">
         <div className="mb-5 flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgba(254,191,16,0.2)]">
             <SlidersHorizontal className="text-[#B88A00]" size={24} />

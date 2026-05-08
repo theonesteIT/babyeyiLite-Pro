@@ -765,7 +765,7 @@ export function AnalyticsPage({ toast, session }) {
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
         <div>
-          <SectionTitle>📊 Financial Analytics</SectionTitle>
+          <SectionTitle>Financial Analytics</SectionTitle>
           <SubTitle>School fee trends and NESA compliance history (live data)</SubTitle>
         </div>
         <div style={{ display: "flex", gap: 8 }}>

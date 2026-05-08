@@ -83,27 +83,28 @@ const Returns = () => {
 
   return (
     <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-      <div className="relative w-full min-h-[280px] overflow-hidden">
-        <div className="absolute inset-0 bg-[#0a192f]/85 z-10 backdrop-blur-[2px]" />
-        <img src="/teacher.jpg" alt="" className="absolute inset-0 w-full h-full object-cover scale-105" />
-        <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-12 pt-16 pb-24 flex items-center gap-8">
-          <div className="hidden md:flex shrink-0 w-24 h-24 rounded-[32px] border border-white/10 bg-white/5 items-center justify-center backdrop-blur-xl shadow-2xl group">
-            <RotateCcw size={40} style={{ color: '#FEBF10' }} className="group-hover:scale-110 transition-transform duration-500" />
-          </div>
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="w-6 h-1 rounded-full animate-pulse" style={{ background: '#FEBF10' }} />
-              <p className="text-[10px] font-black uppercase tracking-[0.3em]" style={{ color: '#FEBF10' }}>Circulation</p>
+      <div className="relative w-full min-h-[200px] sm:min-h-[220px] overflow-hidden bg-[#c87800]">
+        <div className="absolute -top-28 -right-28 w-[22rem] h-[22rem] rounded-full border border-white/[0.07] pointer-events-none" aria-hidden />
+        <div className="absolute -top-14 -right-14 w-[15rem] h-[15rem] rounded-full border border-white/[0.06] pointer-events-none" aria-hidden />
+        <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-[#FEBF10]/30 to-transparent pointer-events-none" aria-hidden />
+
+        <div className="relative z-10 max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-12 pt-10 sm:pt-12 pb-20 sm:pb-24 flex items-center justify-between">
+          <div className="space-y-1 max-w-3xl">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="w-5 h-1 rounded-full bg-[#FEBF10]" aria-hidden />
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#FEBF10]">Circulation</p>
             </div>
-            <h1 className="text-2xl sm:text-4xl md:text-5xl font-black text-white tracking-tighter leading-none mb-2 mt-2 uppercase">
-              Returns <span style={{ color: '#FEBF10' }}>History</span>
+            <h1 className="text-xl md:text-2xl font-semibold text-white tracking-tight leading-none mb-1 mt-1 uppercase">
+              Returns History
             </h1>
-            <p className="text-[10px] font-bold text-white/40 max-w-lg uppercase tracking-widest italic opacity-60">Completed loans from the database · Late vs on-time</p>
+            <p className="text-[10px] sm:text-[11px] font-medium text-white/60 tracking-wider">
+              Completed loans from the database · Late vs on-time
+            </p>
           </div>
         </div>
       </div>
 
-      <div className="max-w-[1600px] mx-auto px-6 md:px-12 -mt-24 relative z-20 pb-20">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 md:px-12 -mt-12 sm:-mt-16 relative z-20 pb-20">
         <div className="bg-white rounded-t-[32px] shadow-2xl border border-black/5 overflow-hidden flex flex-col min-h-[500px]">
           <div className="grid grid-cols-1 lg:grid-cols-4 border-b border-black/5">
             <div className="lg:col-span-3 grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-black/5">
@@ -115,8 +116,8 @@ const Returns = () => {
               ].map((s, i) => (
                 <div key={i} className="p-4 sm:p-8 flex flex-col items-center justify-center text-center group hover:bg-re-bg/20 transition-all cursor-default">
                   <div className="mb-1.5 sm:mb-2 opacity-40 shrink-0">{s.icon}</div>
-                  <span className="text-sm sm:text-2xl font-black text-re-text tracking-tighter group-hover:text-[#1E3A5F] transition-colors">{s.value}</span>
-                  <p className="text-[6px] sm:text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] mt-0.5 sm:mt-1 opacity-60">{s.label}</p>
+                  <span className="text-sm sm:text-2xl font-semibold text-re-text tracking-tighter group-hover:text-[#1E3A5F] transition-colors">{s.value}</span>
+                  <p className="text-[6px] sm:text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.2em] mt-0.5 sm:mt-1 opacity-60">{s.label}</p>
                 </div>
               ))}
             </div>
@@ -124,7 +125,7 @@ const Returns = () => {
               <button
                 type="button"
                 onClick={exportPDF}
-                className="w-full h-11 flex items-center justify-center gap-2 text-white rounded-xl font-black text-[9px] uppercase tracking-widest shadow-xl hover:scale-[1.02] transition-all"
+                className="w-full h-11 flex items-center justify-center gap-2 text-white rounded-xl font-semibold text-[9px] uppercase tracking-widest shadow-xl hover:scale-[1.02] transition-all"
                 style={{ background: 'linear-gradient(135deg,#1E3A5F 0%,#0D2644 100%)' }}
               >
                 <Printer size={14} /><span>Export PDF</span>
@@ -132,7 +133,7 @@ const Returns = () => {
               <button
                 type="button"
                 onClick={loadReturns}
-                className="w-full h-9 flex items-center justify-center gap-2 text-[9px] font-black uppercase text-slate-500 border border-black/5 rounded-xl hover:bg-white"
+                className="w-full h-9 flex items-center justify-center gap-2 text-[9px] font-semibold uppercase text-slate-500 border border-black/5 rounded-xl hover:bg-white"
               >
                 <RefreshCw size={12} className={loading ? 'animate-spin' : ''} /> Refresh
               </button>
@@ -143,12 +144,12 @@ const Returns = () => {
             <button
               type="button"
               onClick={exportPDF}
-              className="h-9 flex items-center justify-center gap-2 text-white rounded-xl font-black text-[9px] uppercase"
+              className="h-9 flex items-center justify-center gap-2 text-white rounded-xl font-semibold text-[9px] uppercase"
               style={{ background: 'linear-gradient(135deg,#1E3A5F 0%,#0D2644 100%)' }}
             >
               <Printer size={14} /> PDF
             </button>
-            <button type="button" onClick={loadReturns} className="h-9 border border-black/5 rounded-xl text-[9px] font-black uppercase">
+            <button type="button" onClick={loadReturns} className="h-9 border border-black/5 rounded-xl text-[9px] font-semibold uppercase">
               <RefreshCw size={12} className={loading ? 'inline animate-spin' : 'inline'} /> Refresh
             </button>
           </div>
@@ -157,7 +158,7 @@ const Returns = () => {
             <button
               type="button"
               onClick={() => setLateOnly((p) => !p)}
-              className={`h-8 px-3 rounded-lg text-[9px] font-black uppercase border ${lateOnly ? 'bg-red-100 text-red-600 border-red-200' : 'bg-white border-black/5'}`}
+              className={`h-8 px-3 rounded-lg text-[9px] font-semibold uppercase border ${lateOnly ? 'bg-red-100 text-red-600 border-red-200' : 'bg-white border-black/5'}`}
             >
               Late only
             </button>
@@ -168,7 +169,7 @@ const Returns = () => {
                 placeholder="Search…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full h-8 bg-white/80 rounded-lg outline-none border border-black/5 pl-8 text-[9px] font-black"
+                className="w-full h-8 bg-white/80 rounded-lg outline-none border border-black/5 pl-8 text-[9px] font-semibold"
               />
             </div>
           </div>
@@ -177,7 +178,7 @@ const Returns = () => {
             <button
               type="button"
               onClick={() => setLateOnly((p) => !p)}
-              className={`h-8 px-3 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all ${lateOnly ? 'bg-red-100 text-red-600 border-red-200' : 'bg-white border-black/5 text-re-text-muted hover:border-red-200'}`}
+              className={`h-8 px-3 rounded-lg text-[9px] font-semibold uppercase tracking-widest border transition-all ${lateOnly ? 'bg-red-100 text-red-600 border-red-200' : 'bg-white border-black/5 text-re-text-muted hover:border-red-200'}`}
             >
               Late only
             </button>
@@ -188,7 +189,7 @@ const Returns = () => {
                 placeholder="Search borrower or book…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full h-8 bg-white/80 rounded-lg outline-none border border-black/5 focus:border-[#1E3A5F]/20 text-[#1E3A5F] text-[9px] font-black shadow-[inset_0_2px_8px_rgba(15,23,42,0.06)] placeholder:text-[#1E3A5F]/30 pl-8"
+                className="w-full h-8 bg-white/80 rounded-lg outline-none border border-black/5 focus:border-[#1E3A5F]/20 text-[#1E3A5F] text-[9px] font-semibold shadow-[inset_0_2px_8px_rgba(15,23,42,0.06)] placeholder:text-[#1E3A5F]/30 pl-8"
               />
             </div>
           </div>
@@ -200,7 +201,7 @@ const Returns = () => {
                   {['Borrower', 'Book', 'Issued', 'Due', 'Returned', 'Status'].map((h, i) => (
                     <th
                       key={h}
-                      className={`px-4 sm:px-6 py-2.5 sm:py-3 text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5 ${i > 1 ? 'hidden md:table-cell' : ''} ${i >= 2 ? 'text-right' : ''}`}
+                      className={`px-4 sm:px-6 py-2.5 sm:py-3 text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5 ${i > 1 ? 'hidden md:table-cell' : ''} ${i >= 2 ? 'text-right' : ''}`}
                     >
                       {h}
                     </th>
@@ -221,7 +222,7 @@ const Returns = () => {
                             <User size={16} className="opacity-75" />
                           </div>
                           <div>
-                            <p className="text-[13px] font-black text-[#1E3A5F] tracking-tight">{r.borrower_name || '—'}</p>
+                            <p className="text-[13px] font-semibold text-[#1E3A5F] tracking-tight">{r.borrower_name || '—'}</p>
                             <p className="text-[8px] font-bold text-re-text-muted uppercase tracking-widest opacity-50 mt-0.5">
                               {borrowerType}
                               {classOrRole !== '—' ? ` · ${classOrRole}` : ''}
@@ -230,16 +231,15 @@ const Returns = () => {
                         </div>
                       </td>
                       <td className="px-4 sm:px-6 py-2.5 sm:py-3 border-r border-black/5">
-                        <span className="text-[11px] font-black text-[#1E3A5F]">{r.book_title || '—'}</span>
+                        <span className="text-[11px] font-semibold text-[#1E3A5F]">{r.book_title || '—'}</span>
                       </td>
-                      <td className="hidden md:table-cell px-6 py-3 border-r border-black/5 text-right font-black text-[#1E3A5F] text-[11px]">{r.borrow_date || '—'}</td>
-                      <td className="hidden md:table-cell px-6 py-3 border-r border-black/5 text-right font-black text-slate-500 text-[11px]">{due || '—'}</td>
-                      <td className="hidden md:table-cell px-6 py-3 border-r border-black/5 text-right font-black text-[#1E3A5F] text-[11px]">{returned}</td>
+                      <td className="hidden md:table-cell px-6 py-3 border-r border-black/5 text-right font-semibold text-[#1E3A5F] text-[11px]">{r.borrow_date || '—'}</td>
+                      <td className="hidden md:table-cell px-6 py-3 border-r border-black/5 text-right font-semibold text-slate-500 text-[11px]">{due || '—'}</td>
+                      <td className="hidden md:table-cell px-6 py-3 border-r border-black/5 text-right font-semibold text-[#1E3A5F] text-[11px]">{returned}</td>
                       <td className="px-4 sm:px-6 py-2.5 sm:py-3 text-right">
                         <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider border ${
-                            r.late_return ? 'bg-red-100 text-red-600 border-red-200' : 'bg-emerald-100 text-emerald-600 border-emerald-200'
-                          }`}
+                          className={`inline-flex items-center px-2 py-0.5 rounded-lg text-[9px] font-semibold uppercase tracking-wider border ${r.late_return ? 'bg-red-100 text-red-600 border-red-200' : 'bg-emerald-100 text-emerald-600 border-emerald-200'
+                            }`}
                         >
                           {r.late_return ? 'Late' : 'On time'}
                         </span>
@@ -249,14 +249,14 @@ const Returns = () => {
                 })}
                 {!loading && filtered.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-6 py-8 text-center text-[10px] font-black text-re-text-muted uppercase tracking-widest opacity-50">
+                    <td colSpan={6} className="px-6 py-8 text-center text-[10px] font-semibold text-re-text-muted uppercase tracking-widest opacity-50">
                       No returns found
                     </td>
                   </tr>
                 )}
                 {loading && (
                   <tr>
-                    <td colSpan={6} className="px-6 py-8 text-center text-[10px] font-black text-re-text-muted uppercase tracking-widest">
+                    <td colSpan={6} className="px-6 py-8 text-center text-[10px] font-semibold text-re-text-muted uppercase tracking-widest">
                       Loading…
                     </td>
                   </tr>
@@ -269,10 +269,10 @@ const Returns = () => {
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-1.5">
                 <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest italic opacity-60">Returns log</p>
+                <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-widest italic opacity-60">Returns log</p>
               </div>
               <div className="w-px h-3 bg-black/10" />
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] opacity-40 italic">{filtered.length} records shown</p>
+              <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-[0.2em] opacity-40 italic">{filtered.length} records shown</p>
             </div>
           </div>
         </div>
