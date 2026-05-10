@@ -209,17 +209,7 @@ const Sidebar = ({ onClose }) => {
             { name: 'Student Identity Cards', path: '/student-records', icon: IdCard },
           ]}
         />
-        {canAccessSchoolConsole && (
-          <ExpandableNavItem
-            icon={Radio}
-            name="Smart Access"
-            onClose={onClose}
-            subItems={[
-              { name: 'Student Smart Access', path: '/smart-access', icon: Radio },
-              { name: 'Staff Smart Access', path: '/staff-smart-access', icon: UserCheck },
-            ]}
-          />
-        )}
+     
         <ExpandableNavItem
           icon={ClipboardCheck}
           name="Attendance"

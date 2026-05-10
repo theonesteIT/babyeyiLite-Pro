@@ -13,7 +13,7 @@ import DisciplineStaffPortalRoutes from './displine_staff_portal/PortalRoutes'
 import TeacherPortalRoutes from './teacher/PortalRoutes'
 import DisciplinePortalRoutes from './discipline/PortalRoutes'
 import GateKeeperPortalRoutes from './GateKeeper/PortalRoutes'
-import RepresentativePortalRoutes from './representative/PortalRoutes'
+import RepresentativePortalRoutes from './Representative/PortalRoutes'
 
 const PRO_BASENAME = (() => {
   const raw = String(import.meta.env.VITE_APP_BASENAME || '').trim()
