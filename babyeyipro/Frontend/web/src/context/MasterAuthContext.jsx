@@ -51,8 +51,15 @@ export function MasterAuthProvider({ children }) {
 
   const roleCode = user && user !== false ? String(user.role?.code || user.role_code || '').toUpperCase() : ''
   const school = user && user !== false ? user.school : null
+  // Platform-wide roles (representatives, network reps) are not bound to a
+  // single school's subscription. They oversee many schools, so Pro access
+  // is granted by virtue of the role itself.
+  const PLATFORM_PRO_ROLES = new Set(['SCHOOL_REPRESENTATIVE', 'NETWORK_REPRESENTATIVE'])
+  const isPlatformPro = PLATFORM_PRO_ROLES.has(roleCode)
   const proAccessEffective =
-    school?.pro_access_effective === true || school?.pro_access_effective === 1
+    isPlatformPro ||
+    school?.pro_access_effective === true ||
+    school?.pro_access_effective === 1
 
   const value = {
     user: user && user !== false ? user : null,

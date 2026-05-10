@@ -33,8 +33,17 @@ export default function ProHome() {
     return <Navigate to="/gatekeeper" replace />
   }
 
+  if (roleCode === 'SCHOOL_REPRESENTATIVE' || roleCode === 'NETWORK_REPRESENTATIVE') {
+    return <Navigate to="/representative" replace />
+  }
+
   const cards = [
     { to: '/dos', label: 'DOS (Directorate of Studies)', desc: 'Academic oversight, timetables, marks' },
+    {
+      to: '/representative',
+      label: 'School representative',
+      desc: 'Multi-school oversight, analytics, finance, compliance, and national reporting',
+    },
     { to: '/manager', label: 'School Manager', desc: 'Registry, finance, HR, reports' },
     { to: '/accountant', label: 'Accountant', desc: 'Fees, invoices, expenses, requisitions, payroll' },
     { to: '/storekeeper', label: 'Storekeeper', desc: 'Inventory, suppliers, stock movements, requisitions' },

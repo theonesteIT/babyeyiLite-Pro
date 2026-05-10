@@ -893,6 +893,12 @@ console.log('  ✅  /api/field-agents/*  |  /api/agent/*  |  /api/public/agents/
 fieldAgentsModule.ensureAgentRole().catch(() => {});
 fieldAgentsModule.ensureProfileTable().catch(() => {});
 
+const representativesModule = require('./BabyeyiRoutes/representativesRoutes');
+app.use('/api/representatives', representativesModule.adminRouter);
+app.use('/api/representative', representativesModule.repRouter);
+console.log('  ✅  /api/representatives/*  |  /api/representative/*');
+representativesModule.ensureSchema().catch((e) => console.warn('[representatives] ensureSchema:', e.message));
+
 // IMPORTANT: momoRoutes must be mounted BEFORE publicBabyeyiPay calls it internally
 app.use('/api/momo', momoRoutes);
 console.log('  ✅  /api/momo/*');

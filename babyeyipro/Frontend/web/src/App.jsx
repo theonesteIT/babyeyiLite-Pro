@@ -13,6 +13,7 @@ import DisciplineStaffPortalRoutes from './displine_staff_portal/PortalRoutes'
 import TeacherPortalRoutes from './teacher/PortalRoutes'
 import DisciplinePortalRoutes from './discipline/PortalRoutes'
 import GateKeeperPortalRoutes from './GateKeeper/PortalRoutes'
+import RepresentativePortalRoutes from './representative/PortalRoutes'
 
 const PRO_BASENAME = (() => {
   const raw = String(import.meta.env.VITE_APP_BASENAME || '').trim()
@@ -29,6 +30,8 @@ const PRO_BASENAME = (() => {
 
 const ROLE_HOME_PORTAL = {
   DOS: 'dos',
+  SCHOOL_REPRESENTATIVE: 'representative',
+  NETWORK_REPRESENTATIVE: 'representative',
   SCHOOL_ADMIN: 'manager',
   SCHOOL_MANAGER: 'manager',
   ACCOUNTANT: 'accountant',
@@ -45,6 +48,7 @@ const ROLE_HOME_PORTAL = {
 
 const KNOWN_ROOTS = [
   '/dos',
+  '/representative',
   '/manager',
   '/accountant',
   '/storekeeper',
@@ -81,6 +85,14 @@ export default function App() {
             element={
               <ProGate portal="dos">
                 <DosPortalRoutes />
+              </ProGate>
+            }
+          />
+          <Route
+            path="/representative/*"
+            element={
+              <ProGate portal="representative">
+                <RepresentativePortalRoutes />
               </ProGate>
             }
           />

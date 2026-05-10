@@ -108,6 +108,7 @@ import AddAllSchools            from './Pages/SuperAdmin/AddAllSchools';
 import ManageRequirementsPrices from './Pages/SuperAdmin/manage_requirements_prices';
 import RequirementPricesList    from './Pages/SuperAdmin/requirement_prices_list';
 import RegisterAgents           from './Pages/SuperAdmin/RegisterAgents';
+import RegisterRepresentatives  from './Pages/SuperAdmin/RegisterRepresentatives';
 import SuperAdminVoucherServices from './Pages/SuperAdmin/SuperAdminVoucherServices';
 import SuperAdminShoesVoucherManagement from './Pages/SuperAdmin/SuperAdminShoesVoucherManagement';
 import SuperAdminUniformVoucherManagement from './Pages/SuperAdmin/SuperAdminUniformVoucherManagement';
@@ -301,6 +302,12 @@ export default function App() {
           <Route path="/superadmin/register-agents" element={
             <ProtectedRoute role={['SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER']}>
               <RegisterAgents />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/superadmin/representatives" element={
+            <ProtectedRoute role={['SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER']}>
+              <RegisterRepresentatives />
             </ProtectedRoute>
           } />
 

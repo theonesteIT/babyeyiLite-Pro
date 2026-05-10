@@ -112,41 +112,54 @@ export default function DashboardPage({ setTab, toast, t, session }) {
 
   if (!stats) return null;
 
-  return (
-    <div className="space-y-5 anim" style={{ fontFamily: BABYEYI_FONT_STACK }}>
+  const kpis = [
+    { icon: FileText, label: t?.totalBabyeyi ?? "Total Babyeyi", value: stats.total, sub: "All terms" },
+    { icon: DollarSign, label: "Fees Collected", value: `RWF ${(stats.recentBabyeyi || []).reduce((s, r) => s + Number(r.totalFee || 0), 0).toLocaleString()}`, sub: "Current selection" },
+    { icon: BookOpen, label: "Active Classes", value: new Set((stats.feeByClass || []).map((x) => x.label)).size || 0, sub: "Enrolled cohorts" },
+    { icon: Award, label: "Teaching Personnel", value: "—", sub: "Linked from HR" },
+  ];
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        {[
-          { icon: FileText,      label: t?.totalBabyeyi ?? "Total Babyeyi", value: stats.total,    sub: "All terms",       trend: "+2", alert: false },
-          { icon: CheckCircle,   label: t?.approved     ?? "Approved",      value: stats.approved, sub: "This year",       trend: null, alert: false },
-          { icon: Clock,         label: t?.pending      ?? "Pending",        value: stats.pending,  sub: "Awaiting review", trend: null, alert: stats.pending > 0 },
-          { icon: XCircle,       label: t?.rejected     ?? "Rejected",       value: stats.rejected, sub: "This year",       trend: null, alert: false },
-          { icon: AlertTriangle, label: t?.alerts       ?? "Alerts",         value: stats.exceeded, sub: "NESA violations",  trend: null, alert: stats.exceeded > 0 },
-        ].map((card, i) => (
-          <button key={i} onClick={() => setTab("babyeyi")}
-            className="text-left rounded-2xl p-4 border transition-all hover:shadow-lg active:scale-95"
-            style={{
-              background: card.alert ? "linear-gradient(135deg, #fff7e0, #fffbe8)" : "#fff",
-              borderColor: card.alert ? "#FEBF10" : "#e2e8f0",
-              fontFamily: BABYEYI_FONT_STACK,
-            }}>
-            <div className="flex items-center justify-between mb-2">
-              <div className="w-8 h-8 rounded-xl flex items-center justify-center"
-                style={{ background: card.alert ? "#FEBF10" : "#FFF3CC" }}>
-                <card.icon className="w-4 h-4" style={{ color: card.alert ? "#fff" : "#B88A00" }}/>
-              </div>
-              {card.trend && (
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-lg"
-                  style={{ background: "#FFF3CC", color: "#B88A00" }}>{card.trend}</span>
-              )}
+  return (
+    <div className="space-y-5" style={{ fontFamily: BABYEYI_FONT_STACK }}>
+      <section className="rounded-2xl border border-slate-200/70 bg-white shadow-sm overflow-hidden">
+       
+
+        <div className="px-4 md:px-6 py-8 md:py-10 relative overflow-hidden" style={{ background: "linear-gradient(135deg, #c47b00 0%, #b36d00 45%, #9f6100 100%)" }}>
+          <div className="absolute -right-16 -top-16 h-56 w-56 rounded-full border border-white/10" />
+          <div className="absolute -right-4 -top-4 h-40 w-40 rounded-full border border-white/10" />
+          <div className="relative">
+            <div className="w-7 h-1 rounded-full bg-amber-300 mb-4" />
+            <h3 className="text-2xl md:text-3xl tracking-tight text-white font-semibold">Manager Dashboard</h3>
+            <p className="text-sm text-white/80 mt-2">Performance snapshot and approvals overview</p>
+          </div>
+        </div>
+
+        <div className="px-3 md:px-6 pb-4 md:pb-6 -mt-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
+            {kpis.map((card, i) => (
+              <button
+                key={i}
+                onClick={() => setTab("babyeyi")}
+                className="text-left p-4 border-b sm:border-b xl:border-b-0 sm:border-r last:border-r-0 border-slate-100 hover:bg-slate-50/80 transition-colors"
+              >
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-amber-50 text-amber-700 mb-2">
+                  <card.icon className="w-4 h-4" />
+                </div>
+                <p className="text-3xl leading-none font-semibold text-slate-900">{card.value}</p>
+                <p className="mt-2 text-[11px] uppercase tracking-[0.11em] text-slate-500 font-medium">{card.label}</p>
+                <p className="mt-1 text-[11px] text-slate-400">{card.sub}</p>
+              </button>
+            ))}
+            <div className="p-4 space-y-2 bg-slate-50/70">
+              <button className="w-full h-10 rounded-xl bg-[#0b2a57] text-white text-xs font-semibold">Export Records</button>
+              <button className="w-full h-10 rounded-xl border border-slate-200 bg-white text-slate-700 text-xs font-semibold">Quick Actions</button>
+              <button className="w-full h-10 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 text-xs font-semibold">
+                Refresh Data
+              </button>
             </div>
-            <p className="text-2xl font-semibold" style={{ color: "#1A1200" }}>{card.value}</p>
-            <p className="text-[10px] font-semibold mt-0.5" style={{ color: "#B88A00" }}>{card.label}</p>
-            <p className="text-[9px] mt-0.5" style={{ color: "#94a3b8" }}>{card.sub}</p>
-          </button>
-        ))}
-      </div>
+          </div>
+        </div>
+      </section>
 
       {/* NESA Alert */}
       {stats.exceeded > 0 && (
@@ -240,11 +253,11 @@ export default function DashboardPage({ setTab, toast, t, session }) {
 
         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-            <h3 className="font-bold text-slate-800 flex items-center gap-2 text-sm" style={{ fontFamily: BABYEYI_FONT_STACK }}>
+            <h3 className="font-semibold text-slate-800 flex items-center gap-2 text-sm" style={{ fontFamily: BABYEYI_FONT_STACK }}>
               <Award className="w-4 h-4 text-amber-500"/> Recent Babyeyi
             </h3>
             <button onClick={() => setTab("babyeyi")}
-              className="text-xs hover:underline flex items-center gap-1 font-semibold"
+              className="text-xs hover:underline flex items-center gap-1 font-medium"
               style={{ color: "#B88A00" }}>
               View all <ChevronRight className="w-3.5 h-3.5"/>
             </button>
@@ -257,7 +270,7 @@ export default function DashboardPage({ setTab, toast, t, session }) {
                   <BookOpen className="w-4 h-4" style={{ color: "#B88A00" }}/>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-bold text-slate-800 text-sm">{b.class} — {b.term}</p>
+                  <p className="font-semibold text-slate-800 text-sm">{b.class} — {b.term}</p>
                   <p className="text-[10px] text-slate-400">{b.year} · {b.category}</p>
                 </div>
                 <div className="text-right shrink-0">
@@ -270,7 +283,7 @@ export default function DashboardPage({ setTab, toast, t, session }) {
           <div className="p-4 border-t border-slate-50">
             <button
               onClick={() => setTab("babyeyi")}
-              className="w-full flex items-center justify-center gap-2 py-2.5 text-white rounded-xl font-bold text-sm shadow-lg active:scale-95 transition-all"
+              className="w-full flex items-center justify-center gap-2 py-2.5 text-white rounded-xl font-semibold text-sm shadow-lg active:scale-95 transition-all"
               style={{ background: "linear-gradient(135deg, #FEBF10, #B88A00)", boxShadow: "0 4px 15px rgba(254,191,16,0.35)" }}>
               <Zap className="w-4 h-4"/> Create New Babyeyi
             </button>

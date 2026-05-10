@@ -7,6 +7,7 @@ const LOGIN_FALLBACK = 'http://localhost:5173/login'
 /** Roles allowed per Pro portal — keep in sync with BabyeyiSystem `proAppEntry.js` */
 export const PORTAL_ROLES = {
   dos: ['DOS'],
+  representative: ['SCHOOL_REPRESENTATIVE', 'NETWORK_REPRESENTATIVE'],
   manager: ['SCHOOL_ADMIN', 'SCHOOL_MANAGER'],
   accountant: ['ACCOUNTANT'],
   storekeeper: ['STOREKEEPER', 'STORE_MANAGER'],
@@ -19,6 +20,8 @@ export const PORTAL_ROLES = {
 
 const ROLE_HOME_PORTAL = {
   DOS: 'dos',
+  SCHOOL_REPRESENTATIVE: 'representative',
+  NETWORK_REPRESENTATIVE: 'representative',
   SCHOOL_ADMIN: 'manager',
   SCHOOL_MANAGER: 'manager',
   ACCOUNTANT: 'accountant',

@@ -170,12 +170,12 @@ const DOC = {
 };
 
 const STATUS_CFG = {
-  approved:    { label:"Approved",    bg:"bg-emerald-500/15", text:"text-emerald-400",  dot:"bg-emerald-400",  border:"border-emerald-500/25" },
-  pending:     { label:"Pending",     bg:"bg-amber-400/15",   text:"text-amber-400",    dot:"bg-amber-400",    border:"border-amber-400/25" },
-  recommended: { label:"Recommended", bg:"bg-blue-500/15",    text:"text-blue-400",     dot:"bg-blue-400",     border:"border-blue-500/25" },
-  rejected:    { label:"Rejected",    bg:"bg-red-500/15",     text:"text-red-400",      dot:"bg-red-500",      border:"border-red-500/25" },
-  draft:       { label:"Draft",       bg:"bg-white/8",        text:"text-white/50",     dot:"bg-white/40",     border:"border-white/15" },
-  submitted:   { label:"Submitted",   bg:"bg-blue-500/15",    text:"text-blue-400",     dot:"bg-blue-400",     border:"border-blue-500/25" },
+  approved:    { label:"Approved",    bg:"bg-amber-50",  text:"text-[#000435]", dot:"bg-amber-500", border:"border-amber-200" },
+  pending:     { label:"Pending",     bg:"bg-amber-50",  text:"text-[#000435]", dot:"bg-amber-500", border:"border-amber-200" },
+  recommended: { label:"Recommended", bg:"bg-amber-50",  text:"text-[#000435]", dot:"bg-amber-500", border:"border-amber-200" },
+  rejected:    { label:"Rejected",    bg:"bg-amber-50",  text:"text-[#000435]", dot:"bg-amber-500", border:"border-amber-200" },
+  draft:       { label:"Draft",       bg:"bg-amber-50",  text:"text-[#000435]", dot:"bg-amber-500", border:"border-amber-200" },
+  submitted:   { label:"Submitted",   bg:"bg-amber-50",  text:"text-[#000435]", dot:"bg-amber-500", border:"border-amber-200" },
 };
 
 const BLOCKED_STATUSES = new Set(["pending","draft","submitted"]);
@@ -1338,22 +1338,22 @@ function BabyeyiCard({ rec, onView, onEdit, onDelete, onShare, T, lang }) {
   const blocked = isBlocked(rec.status);
 
   return (
-    <div className="rounded-2xl border border-amber-400/15 bg-[#000435] overflow-hidden hover:border-amber-400/40 transition-all hover:shadow-lg hover:shadow-black/20" style={{ fontFamily: FONT }}>
+    <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden hover:border-amber-300 transition-all hover:shadow-md" style={{ fontFamily: FONT }}>
       {/* Top accent by status */}
-      <div className={`h-[3px] w-full ${rec.status === "approved" ? "bg-emerald-500" : rec.status === "rejected" ? "bg-red-500" : "bg-amber-400"}`} />
+      <div className="h-[3px] w-full bg-amber-400" />
       <div className="p-4">
         {/* Header row */}
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-11 h-11 rounded-xl bg-amber-400 flex items-center justify-center shrink-0 shadow-md shadow-amber-900/30">
-              <span className="text-[#000435] font-semibold text-[10px] text-center leading-tight">{classes.join(", ")}</span>
+            <div className="w-11 h-11 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center shrink-0">
+              <span className="text-amber-800 font-medium text-[10px] text-center leading-tight">{classes.join(", ")}</span>
             </div>
             <div className="min-w-0">
-              <p className="font-semibold text-white text-[13px] truncate">{rec.term} · {rec.academicYear}</p>
+              <p className="font-semibold text-slate-900 text-[13px] truncate">{rec.term} · {rec.academicYear}</p>
               <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                <span className="text-[10px] font-bold text-white/40">{rec.level}</span>
-                {rec.docId && <span className="px-1.5 py-0.5 rounded text-[8px] font-mono font-semibold bg-amber-400/10 text-amber-400 border border-amber-400/20">{rec.docId}</span>}
-                {blocked && <Lock className="w-3 h-3 text-white/30 shrink-0" aria-hidden strokeWidth={2.25} />}
+                <span className="text-[10px] font-medium text-slate-500">{rec.level}</span>
+                {rec.docId && <span className="px-1.5 py-0.5 rounded text-[8px] font-mono font-medium bg-amber-50 text-amber-700 border border-amber-200">{rec.docId}</span>}
+                {blocked && <Lock className="w-3 h-3 text-slate-300 shrink-0" aria-hidden strokeWidth={2.25} />}
               </div>
             </div>
           </div>
@@ -1364,17 +1364,17 @@ function BabyeyiCard({ rec, onView, onEdit, onDelete, onShare, T, lang }) {
 
         {/* Stats row */}
         <div className="grid grid-cols-2 gap-2 mb-3">
-          <div className={`rounded-xl px-3 py-2.5 border ${rec.exceedsLimit ? "bg-red-500/10 border-red-500/25" : "bg-emerald-500/8 border-emerald-500/20"}`}>
-            <p className="text-[9px] font-semibold uppercase tracking-wider text-white/35 mb-0.5">{T.cardTotalFee || "Total fee"}</p>
-            <p className={`text-[14px] font-semibold font-mono ${rec.exceedsLimit ? "text-red-400" : "text-emerald-400"}`}>
+          <div className="rounded-xl px-3 py-2.5 border bg-amber-50 border-amber-200">
+            <p className="text-[9px] font-medium uppercase tracking-wider text-slate-500 mb-0.5">{T.cardTotalFee || "Total fee"}</p>
+            <p className="text-[14px] font-semibold font-mono text-[#000435]">
               {fee.toLocaleString()} <span className="text-[10px]">RWF</span>
             </p>
-            {rec.exceedsLimit && <p className="text-[9px] text-red-400/70 font-semibold">+{over.toLocaleString()} {T.overNesaHint || "over NESA"}</p>}
+            {rec.exceedsLimit && <p className="text-[9px] text-amber-700 font-medium">+{over.toLocaleString()} {T.overNesaHint || "over NESA"}</p>}
           </div>
-          <div className="rounded-xl px-3 py-2.5 border bg-white/4 border-white/10">
-            <p className="text-[9px] font-semibold uppercase tracking-wider text-white/35 mb-0.5">{T.bankShort || "Bank"}</p>
-            <p className="text-[11px] font-bold text-white/70 truncate">{rec.bankName || "—"}</p>
-            {rec.bankAccountNo && <p className="text-[9px] text-white/30 font-mono truncate">{rec.bankAccountNo}</p>}
+          <div className="rounded-xl px-3 py-2.5 border bg-slate-50 border-slate-200">
+            <p className="text-[9px] font-medium uppercase tracking-wider text-slate-500 mb-0.5">{T.bankShort || "Bank"}</p>
+            <p className="text-[11px] font-medium text-slate-700 truncate">{rec.bankName || "—"}</p>
+            {rec.bankAccountNo && <p className="text-[9px] text-slate-400 font-mono truncate">{rec.bankAccountNo}</p>}
           </div>
         </div>
 
@@ -1382,26 +1382,26 @@ function BabyeyiCard({ rec, onView, onEdit, onDelete, onShare, T, lang }) {
         <div className="flex items-center gap-2">
           {/* View/PDF */}
           <button type="button" onClick={() => onView(rec)}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-amber-400 text-[#000435] font-semibold text-[12px] hover:bg-amber-300 transition-all active:scale-[.98]">
+            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-amber-400 text-[#000435] font-medium text-[12px] hover:bg-amber-300 transition-all active:scale-[.98]">
             <Eye className="w-4 h-4 shrink-0" strokeWidth={2.5} aria-hidden /> {T.viewBtn || "View"}
           </button>
           {/* Edit */}
           <button type="button" onClick={() => onEdit(rec)}
-            className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/8 border border-white/15 text-white/60 hover:text-amber-400 hover:bg-amber-400/10 hover:border-amber-400/30 transition-all"
+            className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-50 border border-slate-200 text-slate-500 hover:text-amber-700 hover:bg-amber-50 hover:border-amber-200 transition-all"
             title={T.editBtn || "Edit"}><Pencil className="w-4 h-4" strokeWidth={2} aria-hidden /></button>
           {/* Share/WhatsApp */}
           {blocked ? (
-            <div className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/4 text-white/20 cursor-not-allowed"><Lock className="w-4 h-4" aria-hidden /></div>
+            <div className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-100 text-slate-300 cursor-not-allowed"><Lock className="w-4 h-4" aria-hidden /></div>
           ) : (
             <button type="button" onClick={() => onShare(rec)}
-              className="w-9 h-9 flex items-center justify-center rounded-xl transition-all"
-              style={{ background: "#dcfce7", color: "#16a34a" }} aria-label={T.share || "Share"}>
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="#16a34a" aria-hidden><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+              className="w-9 h-9 flex items-center justify-center rounded-xl border border-amber-200 transition-all bg-amber-50 text-[#000435] hover:bg-amber-100"
+              aria-label={T.share || "Share"}>
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="#000435" aria-hidden><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
             </button>
           )}
           {/* Delete */}
           <button type="button" onClick={() => onDelete(rec)}
-            className="w-9 h-9 flex items-center justify-center rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-all"
+            className="w-9 h-9 flex items-center justify-center rounded-xl bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 transition-all"
             aria-label={T.confirmDelete || "Delete"}>
             <Trash2 className="w-4 h-4" strokeWidth={2.25} aria-hidden />
           </button>
@@ -1642,21 +1642,21 @@ export default function BabyeyiList({ session }) {
 
       <div className="space-y-5" style={{ fontFamily: FONT }}>
         {/* Header */}
-        <div className="rounded-2xl bg-[#000435] border-2 border-amber-400/25 overflow-hidden">
+        <div className="rounded-2xl bg-white border border-slate-200 overflow-hidden shadow-sm">
           <div className="h-[3px] bg-amber-400" />
           <div className="px-5 py-5">
             <div className="flex items-center justify-between gap-4 mb-5">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-400/15 border border-amber-400/20 flex items-center justify-center shrink-0 text-amber-400">
+                <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center shrink-0 text-amber-700">
                   <ClipboardList className="w-5 h-5" strokeWidth={2} aria-hidden />
                 </div>
                 <div>
-                  <h1 className="font-semibold text-white text-[18px] xl:text-xl">{T.title || "Babyeyi Documents"}</h1>
-                  <p className="text-[11px] text-white/40">{session?.schoolName || "School"}</p>
+                  <h1 className="font-semibold text-slate-900 text-[18px] xl:text-xl">{T.title || "Babyeyi Documents"}</h1>
+                  <p className="text-[11px] text-slate-500">{session?.schoolName || "School"}</p>
                 </div>
               </div>
               <div className="flex flex-col items-end gap-2">
-                <p className="text-[9px] font-bold uppercase tracking-widest text-white/35">{T.language || "Language"}</p>
+                <p className="text-[9px] font-medium uppercase tracking-widest text-slate-400">{T.language || "Language"}</p>
                 <LangSwitcher
                   lang={lang}
                   setLang={handleLangChange}
@@ -1666,24 +1666,24 @@ export default function BabyeyiList({ session }) {
                   searchPlaceholder="Search language or code…"
                 />
                 {machineActive && mtError && (
-                  <p className="text-[9px] text-red-400/90 font-bold max-w-[200px] text-right">{mtError}</p>
+                  <p className="text-[9px] text-red-500 max-w-[200px] text-right">{mtError}</p>
                 )}
                 {machineActive && !mtLoading && !mtError && (
-                  <p className="text-[9px] text-white/30 font-bold max-w-[220px] text-right leading-tight">{T.machineTranslateNote}</p>
+                  <p className="text-[9px] text-slate-400 max-w-[220px] text-right leading-tight">{T.machineTranslateNote}</p>
                 )}
               </div>
             </div>
             {/* Stats row */}
-            <div className="grid grid-cols-4 gap-2 xl:gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 xl:gap-3">
               {[
-                { label: T.total || "Total", value: stats.total, color: "text-white" },
-                { label: T.approved || "Approved", value: stats.approved, color: "text-emerald-400" },
-                { label: T.pending || "Pending", value: stats.pending, color: "text-amber-400" },
-                { label: T.rejected || "Rejected", value: stats.rejected, color: "text-red-400" },
+                { label: T.total || "Total", value: stats.total, color: "text-[#000435]" },
+                { label: T.approved || "Approved", value: stats.approved, color: "text-[#000435]" },
+                { label: T.pending || "Pending", value: stats.pending, color: "text-[#000435]" },
+                { label: T.rejected || "Rejected", value: stats.rejected, color: "text-[#000435]" },
               ].map(s => (
-                <div key={s.label} className="rounded-xl bg-white/4 border border-white/8 p-3 text-center">
+                <div key={s.label} className="rounded-xl bg-slate-50 border border-slate-200 p-3 text-center">
                   <p className={`text-xl xl:text-2xl font-semibold ${s.color}`}>{s.value}</p>
-                  <p className="text-[10px] text-white/50 font-bold">{s.label}</p>
+                  <p className="text-[10px] text-slate-500 font-medium">{s.label}</p>
                 </div>
               ))}
             </div>
@@ -1693,11 +1693,11 @@ export default function BabyeyiList({ session }) {
         {/* Search + filters */}
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none w-[15px] h-[15px]" strokeWidth={2} aria-hidden />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none w-[15px] h-[15px]" strokeWidth={2} aria-hidden />
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder={T.searchPlaceholder || "Search by class, term, year, doc ID…"}
-              className="w-full pl-9 pr-4 py-3 bg-[#000435] border border-amber-400/20 rounded-xl text-[13px] text-white placeholder:text-white/25 outline-none focus:border-amber-400/50 transition-all" style={{ fontFamily: FONT }} />
+              className="w-full pl-9 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-[13px] text-slate-700 placeholder:text-slate-400 outline-none focus:border-amber-400/60 transition-all" style={{ fontFamily: FONT }} />
             {search && (
-              <button type="button" onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 p-0.5 rounded" aria-label="Clear search">
+              <button type="button" onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded" aria-label="Clear search">
                 <X className="w-4 h-4" strokeWidth={2.5} />
               </button>
             )}
@@ -1707,13 +1707,13 @@ export default function BabyeyiList({ session }) {
               className={`flex items-center gap-2 px-4 py-3 rounded-xl font-bold text-[12px] border-2 transition-all ${
                 showFilters || activeFilters > 0
                   ? "bg-amber-400 text-[#000435] border-amber-400"
-                  : "bg-[#000435] text-white/60 border-white/15 hover:border-amber-400/30"
+                  : "bg-white text-slate-600 border-slate-200 hover:border-amber-300"
               }`} style={{ fontFamily: FONT }}>
               <SlidersHorizontal className="w-3.5 h-3.5 shrink-0 opacity-90" strokeWidth={2.25} aria-hidden />
               {T.filters || "Filters"} {activeFilters > 0 && <span className={`w-5 h-5 rounded-full text-[10px] font-semibold flex items-center justify-center ${showFilters || activeFilters>0?"bg-[#000435] text-amber-400":"bg-amber-400 text-[#000435]"}`}>{activeFilters}</span>}
             </button>
             <select value={sortBy} onChange={e => setSortBy(e.target.value)}
-              className="px-3 py-3 bg-[#000435] border border-white/15 rounded-xl text-[12px] text-white/70 font-bold outline-none focus:border-amber-400/40 cursor-pointer" style={{ fontFamily: FONT }}>
+              className="px-3 py-3 bg-white border border-slate-200 rounded-xl text-[12px] text-slate-700 font-medium outline-none focus:border-amber-400/50 cursor-pointer" style={{ fontFamily: FONT }}>
               <option value="date_desc">{T.newestFirst || "Newest first"}</option>
               <option value="date_asc">{T.oldestFirst || "Oldest first"}</option>
               <option value="fee_desc">{T.highestFee || "Highest fee"}</option>
@@ -1724,9 +1724,9 @@ export default function BabyeyiList({ session }) {
 
         {/* Filter panel */}
         {showFilters && (
-          <div className="rounded-2xl bg-[#000435] border border-amber-400/20 p-4" style={{ fontFamily: FONT }}>
+          <div className="rounded-2xl bg-white border border-slate-200 p-4" style={{ fontFamily: FONT }}>
             <div className="flex items-center justify-between mb-3">
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-white/40">{T.filters || "Filters"}</p>
+              <p className="text-[11px] font-medium uppercase tracking-widest text-slate-500">{T.filters || "Filters"}</p>
               {activeFilters > 0 && (
                 <button type="button" onClick={() => setFilters({ status:"", level:"", term:"", year:"" })} className="text-[11px] text-red-400 font-bold flex items-center gap-1">
                   <X className="w-3 h-3" strokeWidth={2.5} aria-hidden /> {T.clearAll || "Clear all"}
@@ -1741,9 +1741,9 @@ export default function BabyeyiList({ session }) {
                 { key: "year", label: T.year || "Year", opts: ["","2025","2026","2024"], labels: [T.allOption || "All", "2025", "2026", "2024"] },
               ].map(f => (
                 <div key={f.key}>
-                  <label className="block text-[10px] font-semibold uppercase tracking-widest text-white/35 mb-1">{f.label}</label>
+                  <label className="block text-[10px] font-medium uppercase tracking-widest text-slate-500 mb-1">{f.label}</label>
                   <select value={filters[f.key]} onChange={e => setFilters(p => ({ ...p, [f.key]: e.target.value }))}
-                    className="w-full px-3 py-2.5 bg-white/4 border border-white/10 rounded-xl text-[12px] text-white font-bold outline-none focus:border-amber-400/40 cursor-pointer" style={{ fontFamily: FONT }}>
+                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-[12px] text-slate-700 font-medium outline-none focus:border-amber-400/50 cursor-pointer" style={{ fontFamily: FONT }}>
                     {f.opts.map((o, i) => <option key={o} value={o}>{f.labels[i]}</option>)}
                   </select>
                 </div>
@@ -1754,7 +1754,7 @@ export default function BabyeyiList({ session }) {
 
         {/* Result count */}
         <div className="flex items-center justify-between">
-          <p className="text-[12px] font-bold text-white/40" style={{ fontFamily: FONT }}>
+          <p className="text-[12px] font-medium text-slate-500" style={{ fontFamily: FONT }}>
             {filtered.length} {filtered.length !== 1 ? (T.recordsPlural || "records") : (T.records || "record")}
             {(search || activeFilters > 0) && <span className="text-amber-400"> — {T.filtered ? String(T.filtered).replace(/^\(|\)$/g, "") : "filtered"}</span>}
           </p>
@@ -1764,12 +1764,12 @@ export default function BabyeyiList({ session }) {
         {loading ? (
           <div className="text-center py-20">
             <div className="w-12 h-12 border-2 border-amber-400/20 border-t-amber-400 rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-white/40 font-semibold text-[13px]" style={{ fontFamily: FONT }}>{T.loading || "Loading…"}</p>
+            <p className="text-slate-500 font-medium text-[13px]" style={{ fontFamily: FONT }}>{T.loading || "Loading…"}</p>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="text-center py-20 rounded-2xl bg-[#000435] border border-white/8">
+          <div className="text-center py-20 rounded-2xl bg-white border border-slate-200">
             <div className="text-slate-300 mb-4"><ClipboardList className="mx-auto w-14 h-14 opacity-25" strokeWidth={1.25} aria-hidden /></div>
-            <p className="font-semibold text-white/40 text-lg" style={{ fontFamily: FONT }}>{T.noRecords || "No records found"}</p>
+            <p className="font-medium text-slate-500 text-lg" style={{ fontFamily: FONT }}>{T.noRecords || "No records found"}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">

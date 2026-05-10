@@ -237,6 +237,7 @@ const NAV = [
   { id: 'nesa',       icon: Flag,       label: 'NESA Admins' },
   { id: 'deo',        icon: MapPin,     label: 'DEO Officers' },
   { id: 'register-agents', icon: Radio, label: 'Field Agents' },
+  { id: 'representatives', icon: ShieldCheck, label: 'School Representatives' },
   { id: 'shule-avance-orgs', icon: Sparkles, label: 'ShuleAvance Orgs' },
   { id: 'shule-avance-teacher', icon: Percent, label: 'ShuleAvance Teacher' },
   { id: 'teacher-deal-products', icon: Package, label: 'Teacher Deal Products' },
@@ -322,6 +323,7 @@ function Sidebar({ page, onChange, online, user, navigate }) {
           const isPricesList = item.id === 'prices-list';
           const isInvoices = item.id === 'invoices';
           const isRegisterAgents = item.id === 'register-agents';
+          const isRepresentatives = item.id === 'representatives';
           const isVoucherServices = item.id === 'voucher-services';
           const isShoesVouchers = item.id === 'shoes-vouchers';
           const isUniformVouchers = item.id === 'uniform-vouchers';
@@ -382,6 +384,8 @@ function Sidebar({ page, onChange, online, user, navigate }) {
                   navigate('/invoices');
                 } else if (isRegisterAgents) {
                   navigate('/superadmin/register-agents');
+                } else if (isRepresentatives) {
+                  navigate('/superadmin/representatives');
                 } else {
                   onChange(item.id);
                 }
@@ -3711,6 +3715,7 @@ export default function SuperAdminDashboard() {
                 const isPricesList = item.id === 'prices-list';
                 const isInvoices = item.id === 'invoices';
                 const isRegisterAgents = item.id === 'register-agents';
+                const isRepresentatives = item.id === 'representatives';
                 const isVoucherServices = item.id === 'voucher-services';
                 const isShoesVouchers = item.id === 'shoes-vouchers';
                 const isUniformVouchers = item.id === 'uniform-vouchers';
@@ -3750,6 +3755,7 @@ export default function SuperAdminDashboard() {
                       else if (isPricesList) { navigate('/requirement-prices-list'); }
                       else if (isInvoices) { navigate('/invoices'); }
                       else if (isRegisterAgents) { navigate('/superadmin/register-agents'); }
+                      else if (isRepresentatives) { navigate('/superadmin/representatives'); }
                       else { setPage(item.id); }
                       setMobileOpen(false);
                     }}
