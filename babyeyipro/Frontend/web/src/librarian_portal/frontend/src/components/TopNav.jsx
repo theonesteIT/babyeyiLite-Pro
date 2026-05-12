@@ -3,7 +3,7 @@ import { Menu, Search, Bell, ChevronDown, LogOut, Settings, User } from 'lucide-
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { PORTAL } from '../config/portal';
-import ProfileModal from '../../../../../shared/components/ProfileModal';
+import ProfileModal from '../../../../shared/components/ProfileModal';
 
 const TopNav = ({ title, onMenuClick }) => {
     const navigate = useNavigate();
