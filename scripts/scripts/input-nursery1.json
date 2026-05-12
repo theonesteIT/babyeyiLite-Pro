@@ -1,0 +1,387 @@
+{
+  "total": 62,
+  "students": [
+    {
+      "student_name": "ABIJURU MARIE ORA ARCHANGE",
+      "class": "N1",
+      "pic_id": 1006,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "AGABA IRATWE KENNETH",
+      "class": "N1",
+      "pic_id": 1003,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "AGANZE NOLAN RYAN",
+      "class": "N1",
+      "pic_id": 1007,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "AGAPE DORAS",
+      "class": "N1",
+      "pic_id": 1071,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "AHIRWE BARIKI GOWAN",
+      "class": "N1",
+      "pic_id": null,
+      "flag": "no_photo"
+    },
+    {
+      "student_name": "ASHIMWE ROMAN ANICET",
+      "class": "N1",
+      "pic_id": 1009,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "BEZA WILLOW REINA",
+      "class": "N1",
+      "pic_id": 1012,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "CYANZU ELANER HAFFIWE",
+      "class": "N1",
+      "pic_id": 1013,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "CYIZA TEMBO FIDELINE",
+      "class": "N1",
+      "pic_id": 1015,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "CYUBAHIRO NDIZIHIWE ANABELLA",
+      "class": "N1",
+      "pic_id": 1017,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "DUSHIME ANGE FIONA",
+      "class": "N1",
+      "pic_id": 1018,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "DUSHIMEYESU YVAN BLESSING",
+      "class": "N1",
+      "pic_id": 1073,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "GATWAZA MUGISHA LIORA",
+      "class": "N1",
+      "pic_id": 1020,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "GATWAZA MUGISHA LUCAS",
+      "class": "N1",
+      "pic_id": 1021,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "HIMBAZA MUTWARE MAEVA",
+      "class": "N1",
+      "pic_id": 1072,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "IGANZE BRIELLA",
+      "class": "N1",
+      "pic_id": 1022,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "IGIHOZO MIRIMO BONNETH",
+      "class": "N1",
+      "pic_id": 1053,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "IGIRANEZA DEBORAH",
+      "class": "N1",
+      "pic_id": 1023,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "IHIRWE ADORANT OLGA",
+      "class": "N1",
+      "pic_id": 1024,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "INEZA BENIE KEILLA",
+      "class": "N1",
+      "pic_id": 1004,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "INEZA GIKUNDIRO GAELLA",
+      "class": "N1",
+      "pic_id": 1026,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "INEZA MPOZA AXCEL",
+      "class": "N1",
+      "pic_id": 1028,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "IRADUKUNDA GABI MICHAEL",
+      "class": "N1",
+      "pic_id": 1029,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "IRATUNEZEZA DERIVE CASIEN",
+      "class": "N1",
+      "pic_id": 1030,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "ISHIMWE HAPPY CELINE",
+      "class": "N1",
+      "pic_id": 1031,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "ISHIMWE KEZA ADLEY",
+      "class": "N1",
+      "pic_id": 1032,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "IZABAYO GABIRWA OWEN",
+      "class": "N1",
+      "pic_id": 1033,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "IZERIMANA ASSADI",
+      "class": "N1",
+      "pic_id": null,
+      "flag": "no_photo"
+    },
+    {
+      "student_name": "IZERWE GASIRABO BORIS",
+      "class": "N1",
+      "pic_id": 1034,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "JACKSON MURANGWA",
+      "class": "N1",
+      "pic_id": 1035,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "KARANGWA ALBIN SACHIEL",
+      "class": "N1",
+      "pic_id": 1036,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "KAYIJAMAHE JEAN LUC",
+      "class": "N1",
+      "pic_id": 1037,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "KAYIRANGA MUGISHA CALVIN",
+      "class": "N1",
+      "pic_id": 1039,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "KEZA LIBANJE VANILLA",
+      "class": "N1",
+      "pic_id": 1038,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "MANZI BIGANIRO EGIDE",
+      "class": "N1",
+      "pic_id": 1040,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "MBONIMPA EDWIN ERICKSON",
+      "class": "N1",
+      "pic_id": 1041,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "MUKIRE GABY",
+      "class": "N1",
+      "pic_id": 1042,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "MUSABWA SHALOM",
+      "class": "N1",
+      "pic_id": 1043,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "MUSABWA SHAMMAH",
+      "class": "N1",
+      "pic_id": 1044,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "NAMAHORO DIEU MERCI YVAN",
+      "class": "N1",
+      "pic_id": 1045,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "NDIPIA ENZO",
+      "class": "N1",
+      "pic_id": 1046,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "NEZA SOLANGE",
+      "class": "N1",
+      "pic_id": null,
+      "flag": "no_photo"
+    },
+    {
+      "student_name": "NGANJI KAYIRANGA YVEN",
+      "class": "N1",
+      "pic_id": 1048,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "NGUWENEZA JACQUE ELIO",
+      "class": "N1",
+      "pic_id": 1050,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "NISHIMWE NEZA LUCKY",
+      "class": "N1",
+      "pic_id": 1051,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "NISINGIZWE ISHIMWE KEDDY HUBBERT",
+      "class": "N1",
+      "pic_id": 1052,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "NIYOKWIRINGIRWA KELIA",
+      "class": "N1",
+      "pic_id": 1054,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "NIYONKURU ARMY KYLE",
+      "class": "N1",
+      "pic_id": 1055,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "NTWARI DARWIN MARVIN",
+      "class": "N1",
+      "pic_id": 1056,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "RUCOGOZA IMFURA RAHAMATULLAH",
+      "class": "N1",
+      "pic_id": 1057,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "SHAMI KAYIRANGA MIGUEL",
+      "class": "N1",
+      "pic_id": 1058,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "SHEMA YVAN",
+      "class": "N1",
+      "pic_id": null,
+      "flag": "no_photo"
+    },
+    {
+      "student_name": "SHIMWA MANZI RYAN",
+      "class": "N1",
+      "pic_id": 1060,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "SHIMWA UWIMANZI LIANA",
+      "class": "N1",
+      "pic_id": 1062,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "SUGIRA ALLEN CALMEL",
+      "class": "N1",
+      "pic_id": 1063,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "SUGIRA ASANI DIEGO",
+      "class": "N1",
+      "pic_id": 1065,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "SUGIRA OWEN ARMEL",
+      "class": "N1",
+      "pic_id": 1066,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "TETA ABIGAEL",
+      "class": "N1",
+      "pic_id": 1067,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "UJENEZA CHANCELINE",
+      "class": "N1",
+      "pic_id": null,
+      "flag": "no_photo"
+    },
+    {
+      "student_name": "UJENEZA JIMMY SLIVAN",
+      "class": "N1",
+      "pic_id": 1068,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "UWASE GENTIL ORNELLA NELLY",
+      "class": "N1",
+      "pic_id": 1069,
+      "flag": "confirmed"
+    },
+    {
+      "student_name": "UWASE MUTEBUTSI REBECCA",
+      "class": "N1",
+      "pic_id": 1070,
+      "flag": "confirmed"
+    }
+  ],
+  "flag_summary": {
+    "confirmed": 57,
+    "no_photo": 5,
+    "total": 62
+  },
+  "notes": [
+    "5 students have no PIC_ID: AHIRWE BARIKI GOWAN, IZERIMANA ASSADI, NEZA SOLANGE, SHEMA YVAN, UJENEZA CHANCELINE",
+    "Duplicate entry #63 (Karangwa Albin Sachiel, pic_id=1036) already exists as #31 - excluded",
+    "Entry #64 (Mpano Nolan) has no pic_id and no row number - excluded"
+  ]
+}

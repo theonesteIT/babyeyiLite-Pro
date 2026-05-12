@@ -18,6 +18,7 @@ import {
   Sparkles,
   Landmark,
   Headphones,
+  CalendarDays,
 } from 'lucide-react';
 import { PORTAL } from '../config/portal';
 import useChatUnread from '../../../../shared/hooks/useChatUnread';
@@ -121,6 +122,8 @@ const Sidebar = ({ onClose }) => {
         <NavItem icon={ArrowDownUp} name="Stock Movements" path={h('/movements')} onClose={onClose} />
         <NavItem icon={ClipboardList} name="Requisitions" path={h('/requisitions')} onClose={onClose} />
         <NavItem icon={Building2} name="Suppliers" path={h('/suppliers')} onClose={onClose} />
+
+        <NavItem icon={CalendarDays} name="School Calendar" path={h('/school-calendar')} onClose={onClose} />
 
         <SectionLabel label="Services" />
         <NavItem icon={DollarSign} name="My Payroll" path={h('/my-payroll')} onClose={onClose} />

@@ -19,7 +19,7 @@ const ALL_SCHOOL_ROLES = [
   'DISCIPLINE_STAFF',
 ];
 const TEACHER_REQ_READ_ROLES = ['TEACHER', 'HOD', 'DOS', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER', 'ACCOUNTANT'];
-const TEACHER_REQ_WRITE_ROLES = ['TEACHER', 'HOD'];
+const TEACHER_REQ_WRITE_ROLES = ['TEACHER', 'HOD', 'DOS'];
 const ACCOUNTANT_READ_ROLES = ['ACCOUNTANT', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER'];
 const ACCOUNTANT_WRITE_ROLES = ['ACCOUNTANT', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER'];
 const STORE_READ_ROLES = ['STORE_MANAGER', 'STOREKEEPER', 'ACCOUNTANT', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER'];
@@ -27,7 +27,7 @@ const STORE_WRITE_ROLES = ['STORE_MANAGER', 'STOREKEEPER'];
 const ADMIN_AUDIT_ROLES = ['SCHOOL_ADMIN', 'SCHOOL_MANAGER'];
 
 let tablesReady = false;
-const PORTAL_OPS_PREFIX_RE = /^\/(teacher-portal\/requisitions|accountant\/(?:requisitions|expenses|payroll(?:-requests)?)|manager\/payroll-requests|staff\/payroll\/my|payroll\/audit-log|store\/(?:requisitions|inventory|suppliers|movements)|admin\/(?:portal-audit-logs|staff-logins)|tools\/ticha-ai)(\/|$)/i;
+const PORTAL_OPS_PREFIX_RE = /^\/(teacher-portal\/(?:requisitions|inventory-equipment|permissions)|reports\/(?:requisitions\/teacher|teacher-permissions)|accountant\/(?:requisitions|expenses|payroll(?:-requests)?)|manager\/(?:payroll-requests|requisitions)|staff\/payroll\/my|payroll\/audit-log|store\/(?:requisitions|inventory|suppliers|movements)|admin\/(?:portal-audit-logs|staff-logins)|tools\/ticha-ai)(\/|$)/i;
 
 function resolveUserId(req) {
   return req.session?.userId || req.session?.user?.id || req.user?.id || null;
@@ -292,6 +292,8 @@ async function ensureTables() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
   await promisePool.query(`ALTER TABLE payroll_requests ADD COLUMN paid_by_user_id INT UNSIGNED NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE portal_requisitions ADD COLUMN destination VARCHAR(32) NOT NULL DEFAULT 'accountant'`).catch(() => {});
+  await promisePool.query(`ALTER TABLE portal_requisitions ADD COLUMN forwarded_to VARCHAR(32) NULL`).catch(() => {});
 
   await promisePool.query(`
     CREATE TABLE IF NOT EXISTS accountant_expenses (
@@ -606,6 +608,29 @@ async function ensureTables() {
   await promisePool.query(`ALTER TABLE store_movements ADD COLUMN movement_date DATE NULL`).catch(() => {});
   await promisePool.query(`ALTER TABLE store_movements ADD COLUMN stock_after DECIMAL(14,2) NOT NULL DEFAULT 0`).catch(() => {});
 
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS teacher_permissions (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      school_id INT UNSIGNED NOT NULL,
+      teacher_user_id INT UNSIGNED NOT NULL,
+      teacher_name VARCHAR(200) NOT NULL,
+      permission_type ENUM('SICK_LEAVE','PERSONAL','FAMILY','OFFICIAL','LATE_ARRIVAL','EARLY_DEPARTURE','OTHER') NOT NULL DEFAULT 'PERSONAL',
+      start_date DATE NOT NULL,
+      end_date DATE NOT NULL,
+      reason TEXT NULL,
+      status ENUM('pending','approved','rejected','cancelled') NOT NULL DEFAULT 'pending',
+      decided_by_user_id INT UNSIGNED NULL,
+      decided_at DATETIME NULL,
+      decision_note TEXT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      deleted_at DATETIME NULL,
+      KEY idx_tp_school (school_id, deleted_at),
+      KEY idx_tp_teacher (school_id, teacher_user_id, deleted_at),
+      KEY idx_tp_status (school_id, status, deleted_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
   tablesReady = true;
 }
 
@@ -636,7 +661,7 @@ router.use(async (_req, res, next) => {
 });
 
 // -------------------- Requisitions --------------------
-const REQUISITION_STATUSES = ['pending', 'approved', 'rejected', 'issued', 'returned', 'cancelled'];
+const REQUISITION_STATUSES = ['pending', 'approved', 'rejected', 'issued', 'returned', 'cancelled', 'forwarded'];
 
 function canOnlySeeOwnTeacherRequests(roleCode = '') {
   const rc = String(roleCode || '').toUpperCase();
@@ -668,6 +693,8 @@ function requisitionRowToDto(r) {
     note: r.note || '',
     status: r.status || 'pending',
     source_portal: r.source_portal || 'teacher',
+    destination: r.destination || 'accountant',
+    forwarded_to: r.forwarded_to || null,
   };
 }
 
@@ -798,12 +825,15 @@ router.post('/teacher-portal/requisitions', requireRole(TEACHER_REQ_WRITE_ROLES)
       if (!amount || amount < 0) amount = 0;
     }
 
+    const sourcePortal = String(req.ctx.roleCode || '').toUpperCase() === 'DOS' ? 'dos' : 'teacher';
+    const destRaw = String(payload.destination || '').trim().toLowerCase();
+    const destination = ['dos', 'accountant', 'store', 'all'].includes(destRaw) ? destRaw : 'accountant';
     const [r] = await promisePool.query(
       `INSERT INTO portal_requisitions
        (school_id, created_by_user_id, item_id, quantity_requested, dept, requester, purpose, priority_level, expected_return_date,
-        items, amount_rwf, submitted_at, attachment_name, note, status, source_portal)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'teacher')`,
-      [schoolId, userId, itemId, qty, dept, requester, purpose, priorityLevel, expectedReturnDate, computedItems, amount, submitted, attachmentName, note]
+        items, amount_rwf, submitted_at, attachment_name, note, status, source_portal, destination)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
+      [schoolId, userId, itemId, qty, dept, requester, purpose, priorityLevel, expectedReturnDate, computedItems, amount, submitted, attachmentName, note, sourcePortal, destination]
     );
     await appendAuditLog({
       schoolId,
@@ -813,7 +843,7 @@ router.post('/teacher-portal/requisitions', requireRole(TEACHER_REQ_WRITE_ROLES)
       entityType: 'requisition',
       entityId: r.insertId,
       action: 'create',
-      afterState: { status: 'pending', source_portal: 'teacher', item_id: itemId, qty, amount_rwf: amount },
+      afterState: { status: 'pending', source_portal: sourcePortal, destination, item_id: itemId, qty, amount_rwf: amount },
     });
     res.status(201).json({ success: true, message: 'Requisition submitted', id: r.insertId });
   } catch (e) {
@@ -923,21 +953,33 @@ router.get('/reports/requisitions/teacher', requireRole(['DOS', 'ACCOUNTANT', 'S
     const status = String(req.query?.status || '').trim().toLowerCase();
     const termQ = String(req.query?.term || '').trim();
     const academicYearQ = String(req.query?.academic_year || '').trim();
-    const { term, academicYear } = await resolveAcademicContext(schoolId, academicYearQ, termQ);
+    const explicitTerm = termQ || null;
+    const explicitAcademicYear = academicYearQ || null;
+    const { term, academicYear } = explicitTerm || explicitAcademicYear
+      ? await resolveAcademicContext(schoolId, academicYearQ, termQ)
+      : { term: null, academicYear: null };
     const fromDate = String(req.query?.from || '').trim();
     const toDate = String(req.query?.to || '').trim();
-    const where = ['r.school_id = ?', 'r.deleted_at IS NULL', "r.source_portal = 'teacher'"];
+    const sourceQ = String(req.query?.source || '').trim().toLowerCase();
+    const where = ['r.school_id = ?', 'r.deleted_at IS NULL'];
     const params = [schoolId];
+    if (sourceQ === 'dos') {
+      where.push("r.source_portal = 'dos'");
+    } else if (sourceQ === 'all') {
+      /* no source filter */
+    } else {
+      where.push("r.source_portal = 'teacher'");
+    }
     if (status && REQUISITION_STATUSES.includes(status)) {
       where.push('r.status = ?');
       params.push(status);
     }
     if (term) {
-      where.push('i.term = ?');
+      where.push('(i.term = ? OR r.item_id IS NULL)');
       params.push(term);
     }
     if (academicYear) {
-      where.push('i.academic_year = ?');
+      where.push('(i.academic_year = ? OR r.item_id IS NULL)');
       params.push(academicYear);
     }
     if (fromDate) {
@@ -952,7 +994,7 @@ router.get('/reports/requisitions/teacher', requireRole(['DOS', 'ACCOUNTANT', 'S
     const [rows] = await promisePool.query(
       `SELECT r.id, r.item_id, i.name AS item_name, i.term, i.academic_year, r.quantity_requested, r.dept, r.requester, r.items, r.purpose,
               r.priority_level, r.expected_return_date, r.amount_rwf, r.submitted_at, r.approved_at, r.issued_at, r.returned_at,
-              r.status_note, r.attachment_name, r.note, r.status, r.source_portal
+              r.status_note, r.attachment_name, r.note, r.status, r.source_portal, r.destination, r.forwarded_to
        FROM portal_requisitions r
        LEFT JOIN store_inventory_items i ON i.id = r.item_id AND i.school_id = r.school_id AND i.deleted_at IS NULL
        WHERE ${where.join(' AND ')}
@@ -967,11 +1009,72 @@ router.get('/reports/requisitions/teacher', requireRole(['DOS', 'ACCOUNTANT', 'S
       rejected: data.filter((x) => x.status === 'rejected').length,
       issued: data.filter((x) => x.status === 'issued').length,
       returned: data.filter((x) => x.status === 'returned').length,
+      forwarded: data.filter((x) => x.status === 'forwarded').length,
     };
     res.json({ success: true, data, summary, meta: { term, academic_year: academicYear } });
   } catch (e) {
     console.error('[reports/requisitions/teacher GET]:', e.message);
     res.status(500).json({ success: false, message: 'Failed to load teacher requisition report' });
+  }
+});
+
+const DOS_ACTION_ROLES = ['DOS', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER'];
+
+router.patch('/reports/requisitions/teacher/:id/action', requireRole(DOS_ACTION_ROLES), async (req, res) => {
+  try {
+    const { schoolId, userId, roleCode } = req.ctx;
+    const id = Number(req.params.id);
+    const action = String(req.body?.action || '').trim().toLowerCase();
+    const note = String(req.body?.note || '').trim();
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid requisition id' });
+
+    const validActions = ['approve', 'reject', 'forward_to_accountant'];
+    if (!validActions.includes(action)) {
+      return res.status(400).json({ success: false, message: 'Action must be: approve, reject, or forward_to_accountant' });
+    }
+
+    const [[existing]] = await promisePool.query(
+      `SELECT id, status FROM portal_requisitions WHERE id = ? AND school_id = ? AND deleted_at IS NULL`,
+      [id, schoolId]
+    );
+    if (!existing) return res.status(404).json({ success: false, message: 'Requisition not found' });
+
+    let newStatus, forwardedTo = null, notePrefix = '[DOS decision]';
+    if (action === 'approve') {
+      newStatus = 'approved';
+    } else if (action === 'reject') {
+      newStatus = 'rejected';
+    } else {
+      newStatus = 'forwarded';
+      forwardedTo = 'accountant';
+      notePrefix = '[DOS forwarded]';
+    }
+
+    await promisePool.query(
+      `UPDATE portal_requisitions
+       SET status = ?,
+           forwarded_to = ?,
+           approved_at = CASE WHEN ? = 'approved' THEN NOW() ELSE approved_at END,
+           note = CASE
+             WHEN ? = '' THEN note
+             WHEN note IS NULL OR note = '' THEN ?
+             ELSE CONCAT(note, '\n', ?)
+           END
+       WHERE id = ? AND school_id = ? AND deleted_at IS NULL`,
+      [newStatus, forwardedTo, newStatus, note, `${notePrefix} ${note}`, `${notePrefix} ${note}`, id, schoolId]
+    );
+    await appendAuditLog({
+      schoolId, userId, roleCode,
+      endpoint: '/reports/requisitions/teacher/:id/action',
+      entityType: 'requisition',
+      entityId: id,
+      action: `dos_${action}`,
+      afterState: { status: newStatus, forwarded_to: forwardedTo, note: note || null },
+    });
+    res.json({ success: true, message: `Requisition ${action === 'forward_to_accountant' ? 'forwarded to accountant' : newStatus}` });
+  } catch (e) {
+    console.error('[reports/requisitions/teacher/:id/action PATCH]:', e.message);
+    res.status(500).json({ success: false, message: 'Failed to perform action' });
   }
 });
 
@@ -988,7 +1091,7 @@ router.get('/accountant/requisitions', requireRole(ACCOUNTANT_READ_ROLES), async
     const [rows] = await promisePool.query(
       `SELECT r.id, r.item_id, i.name AS item_name, r.quantity_requested, r.dept, r.requester, r.items, r.purpose,
               r.priority_level, r.expected_return_date, r.amount_rwf, r.submitted_at, r.approved_at, r.issued_at, r.returned_at,
-              r.status_note, r.attachment_name, r.note, r.status, r.source_portal
+              r.status_note, r.attachment_name, r.note, r.status, r.source_portal, r.destination, r.forwarded_to
        FROM portal_requisitions r
        LEFT JOIN store_inventory_items i ON i.id = r.item_id AND i.school_id = r.school_id AND i.deleted_at IS NULL
        WHERE ${where.join(' AND ')}
@@ -1092,25 +1195,30 @@ router.patch('/accountant/requisitions/:id/status', requireRole(ACCOUNTANT_WRITE
   try {
     const { schoolId, userId, roleCode } = req.ctx;
     const id = Number(req.params.id);
-    const status = String(req.body?.status || '').toLowerCase();
+    const rawStatus = String(req.body?.status || '').toLowerCase();
     const note = String(req.body?.note || '').trim();
-    const allowed = ['pending', 'approved', 'rejected', 'issued', 'returned', 'cancelled'];
+    const isForwardToManager = rawStatus === 'forward_to_manager';
+    const status = isForwardToManager ? 'forwarded' : rawStatus;
+    const allowed = ['pending', 'approved', 'rejected', 'issued', 'returned', 'cancelled', 'forwarded'];
     if (!id) return res.status(400).json({ success: false, message: 'Invalid requisition id' });
     if (!allowed.includes(status)) return res.status(400).json({ success: false, message: 'Invalid status' });
+    const notePrefix = isForwardToManager ? '[Sent to Manager]' : '[Accountant decision]';
+    const forwardedTo = isForwardToManager ? 'manager' : null;
 
     const [r] = await promisePool.query(
       `UPDATE portal_requisitions
        SET status = ?,
+           forwarded_to = COALESCE(?, forwarded_to),
            approved_at = CASE WHEN ? = 'approved' THEN NOW() ELSE approved_at END,
            issued_at = CASE WHEN ? = 'issued' THEN NOW() ELSE issued_at END,
            returned_at = CASE WHEN ? = 'returned' THEN NOW() ELSE returned_at END,
            note = CASE
          WHEN ? = '' THEN note
          WHEN note IS NULL OR note = '' THEN ?
-         ELSE CONCAT(note, '\n[Decision] ', ?)
+         ELSE CONCAT(note, '\n', ?)
        END
        WHERE id = ? AND school_id = ? AND deleted_at IS NULL`,
-      [status, status, status, status, note, `[Decision] ${note}`, note, id, schoolId]
+      [status, forwardedTo, status, status, status, note, `${notePrefix} ${note}`, `${notePrefix} ${note}`, id, schoolId]
     );
     if (!r.affectedRows) return res.status(404).json({ success: false, message: 'Requisition not found' });
     await appendAuditLog({
@@ -1120,10 +1228,10 @@ router.patch('/accountant/requisitions/:id/status', requireRole(ACCOUNTANT_WRITE
       endpoint: '/accountant/requisitions/:id/status',
       entityType: 'requisition',
       entityId: id,
-      action: 'status_update',
-      afterState: { status, note: note || null },
+      action: isForwardToManager ? 'forward_to_manager' : 'status_update',
+      afterState: { status, forwarded_to: forwardedTo, note: note || null },
     });
-    res.json({ success: true, message: 'Requisition status updated' });
+    res.json({ success: true, message: isForwardToManager ? 'Requisition sent to manager' : 'Requisition status updated' });
   } catch (e) {
     console.error('[accountant/requisitions/:id/status PATCH]:', e.message);
     res.status(500).json({ success: false, message: 'Failed to update status' });
@@ -1213,7 +1321,7 @@ router.get('/store/requisitions', requireRole(STORE_READ_ROLES), async (req, res
     const [rows] = await promisePool.query(
       `SELECT r.id, r.item_id, i.name AS item_name, r.quantity_requested, r.dept, r.requester, r.items, r.purpose,
               r.priority_level, r.expected_return_date, r.amount_rwf, r.submitted_at, r.approved_at, r.issued_at, r.returned_at,
-              r.status_note, r.attachment_name, r.note, r.status, r.source_portal
+              r.status_note, r.attachment_name, r.note, r.status, r.source_portal, r.destination, r.forwarded_to
        FROM portal_requisitions r
        LEFT JOIN store_inventory_items i ON i.id = r.item_id AND i.school_id = r.school_id AND i.deleted_at IS NULL
        WHERE ${where.join(' AND ')}
@@ -3709,6 +3817,145 @@ router.post('/accountant/payroll/runs/trigger', requireRole(ACCOUNTANT_WRITE_ROL
     res.status(500).json({ success: false, message: 'Failed to trigger payroll' });
   } finally {
     conn.release();
+  }
+});
+
+// -------------------- Teacher Permissions --------------------
+const TEACHER_PERM_CREATE_ROLES = ['TEACHER', 'HOD', 'DOS'];
+const TEACHER_PERM_ADMIN_ROLES = ['DOS', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER'];
+const TEACHER_PERM_READ_ROLES = ['TEACHER', 'HOD', 'DOS', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER'];
+
+router.get('/teacher-portal/permissions', requireRole(TEACHER_PERM_CREATE_ROLES), async (req, res) => {
+  try {
+    const { schoolId, userId, roleCode } = req.ctx;
+    const rc = String(roleCode || '').toUpperCase();
+    const where = ['tp.school_id = ?', 'tp.deleted_at IS NULL'];
+    const params = [schoolId];
+    if (rc === 'TEACHER' || rc === 'HOD') {
+      where.push('tp.teacher_user_id = ?');
+      params.push(userId);
+    }
+    const statusQ = String(req.query?.status || '').toLowerCase();
+    if (['pending', 'approved', 'rejected', 'cancelled'].includes(statusQ)) {
+      where.push('tp.status = ?');
+      params.push(statusQ);
+    }
+    const [rows] = await promisePool.query(
+      `SELECT tp.* FROM teacher_permissions tp WHERE ${where.join(' AND ')} ORDER BY tp.id DESC`,
+      params
+    );
+    res.json({ success: true, data: rows });
+  } catch (e) {
+    console.error('[teacher-portal/permissions GET]:', e.message);
+    res.status(500).json({ success: false, message: 'Failed to load permissions' });
+  }
+});
+
+router.post('/teacher-portal/permissions', requireRole(TEACHER_PERM_CREATE_ROLES), async (req, res) => {
+  try {
+    const { schoolId, userId } = req.ctx;
+    const p = req.body || {};
+    const teacherName = String(p.teacher_name || '').trim();
+    const permissionType = String(p.permission_type || 'PERSONAL').toUpperCase();
+    const validTypes = ['SICK_LEAVE', 'PERSONAL', 'FAMILY', 'OFFICIAL', 'LATE_ARRIVAL', 'EARLY_DEPARTURE', 'OTHER'];
+    if (!validTypes.includes(permissionType)) {
+      return res.status(400).json({ success: false, message: 'Invalid permission type' });
+    }
+    const startDate = String(p.start_date || '').trim();
+    const endDate = String(p.end_date || '').trim();
+    const reason = String(p.reason || '').trim();
+    if (!teacherName || !startDate || !endDate) {
+      return res.status(400).json({ success: false, message: 'teacher_name, start_date, and end_date are required' });
+    }
+    const [r] = await promisePool.query(
+      `INSERT INTO teacher_permissions (school_id, teacher_user_id, teacher_name, permission_type, start_date, end_date, reason)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [schoolId, userId, teacherName, permissionType, startDate, endDate, reason || null]
+    );
+    res.status(201).json({ success: true, message: 'Permission request submitted', id: r.insertId });
+  } catch (e) {
+    console.error('[teacher-portal/permissions POST]:', e.message);
+    res.status(500).json({ success: false, message: 'Failed to submit permission request' });
+  }
+});
+
+router.get('/reports/teacher-permissions', requireRole(TEACHER_PERM_READ_ROLES), async (req, res) => {
+  try {
+    const { schoolId, userId, roleCode } = req.ctx;
+    const rc = String(roleCode || '').toUpperCase();
+    const where = ['tp.school_id = ?', 'tp.deleted_at IS NULL'];
+    const params = [schoolId];
+    if (rc === 'TEACHER' || rc === 'HOD') {
+      where.push('tp.teacher_user_id = ?');
+      params.push(userId);
+    }
+    const statusQ = String(req.query?.status || '').toLowerCase();
+    if (['pending', 'approved', 'rejected', 'cancelled'].includes(statusQ)) {
+      where.push('tp.status = ?');
+      params.push(statusQ);
+    }
+    const fromDate = String(req.query?.from || '').trim();
+    const toDate = String(req.query?.to || '').trim();
+    if (fromDate) { where.push('tp.start_date >= ?'); params.push(fromDate); }
+    if (toDate) { where.push('tp.end_date <= ?'); params.push(toDate); }
+
+    const [rows] = await promisePool.query(
+      `SELECT tp.* FROM teacher_permissions tp WHERE ${where.join(' AND ')} ORDER BY tp.id DESC`,
+      params
+    );
+    const data = rows;
+    const summary = {
+      total: data.length,
+      pending: data.filter(r => r.status === 'pending').length,
+      approved: data.filter(r => r.status === 'approved').length,
+      rejected: data.filter(r => r.status === 'rejected').length,
+    };
+    res.json({ success: true, data, summary });
+  } catch (e) {
+    console.error('[reports/teacher-permissions GET]:', e.message);
+    res.status(500).json({ success: false, message: 'Failed to load teacher permissions report' });
+  }
+});
+
+router.patch('/reports/teacher-permissions/:id/action', requireRole(TEACHER_PERM_ADMIN_ROLES), async (req, res) => {
+  try {
+    const { schoolId, userId } = req.ctx;
+    const id = Number(req.params.id);
+    const action = String(req.body?.action || '').toLowerCase();
+    const note = String(req.body?.note || '').trim();
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid permission id' });
+    if (!['approve', 'reject'].includes(action)) {
+      return res.status(400).json({ success: false, message: 'Action must be approve or reject' });
+    }
+    const newStatus = action === 'approve' ? 'approved' : 'rejected';
+    const [r] = await promisePool.query(
+      `UPDATE teacher_permissions SET status = ?, decided_by_user_id = ?, decided_at = NOW(), decision_note = ?
+       WHERE id = ? AND school_id = ? AND deleted_at IS NULL AND status = 'pending'`,
+      [newStatus, userId, note || null, id, schoolId]
+    );
+    if (!r.affectedRows) return res.status(409).json({ success: false, message: 'Permission not found or already decided' });
+    res.json({ success: true, message: `Permission ${newStatus}` });
+  } catch (e) {
+    console.error('[reports/teacher-permissions/:id/action PATCH]:', e.message);
+    res.status(500).json({ success: false, message: 'Failed to update permission' });
+  }
+});
+
+router.delete('/teacher-portal/permissions/:id', requireRole(TEACHER_PERM_CREATE_ROLES), async (req, res) => {
+  try {
+    const { schoolId, userId } = req.ctx;
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid permission id' });
+    const [r] = await promisePool.query(
+      `UPDATE teacher_permissions SET deleted_at = NOW()
+       WHERE id = ? AND school_id = ? AND teacher_user_id = ? AND deleted_at IS NULL AND status = 'pending'`,
+      [id, schoolId, userId]
+    );
+    if (!r.affectedRows) return res.status(404).json({ success: false, message: 'Permission not found or cannot be cancelled' });
+    res.json({ success: true, message: 'Permission request cancelled' });
+  } catch (e) {
+    console.error('[teacher-portal/permissions/:id DELETE]:', e.message);
+    res.status(500).json({ success: false, message: 'Failed to cancel permission' });
   }
 });
 

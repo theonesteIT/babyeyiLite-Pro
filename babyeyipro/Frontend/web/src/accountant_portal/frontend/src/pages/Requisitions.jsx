@@ -11,7 +11,7 @@ function formatMoneyRWF(value) {
   return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'RWF', maximumFractionDigits: 0 }).format(n);
 }
 
-const RequisitionDetailsDrawer = ({ isOpen, req, onClose, onApprove, onReject }) => {
+const RequisitionDetailsDrawer = ({ isOpen, req, onClose, onApprove, onReject, onForward }) => {
   if (!isOpen || !req) return null;
 
   return createPortal(
@@ -99,7 +99,7 @@ const RequisitionDetailsDrawer = ({ isOpen, req, onClose, onApprove, onReject })
         </div>
 
         <div className="px-8 py-5 border-t border-black/5 bg-white/20">
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             <button
               onClick={() => onReject?.(req)}
               disabled={req.status === 'rejected'}
@@ -114,6 +114,13 @@ const RequisitionDetailsDrawer = ({ isOpen, req, onClose, onApprove, onReject })
               style={{ background: 'linear-gradient(135deg, #000435 0%, #0D2644 100%)' }}
             >
               Approve
+            </button>
+            <button
+              onClick={() => { onForward?.(req); onClose(); }}
+              disabled={req.status === 'forwarded'}
+              className="h-10 w-full flex items-center justify-center gap-2 bg-indigo-50 border border-indigo-200 text-indigo-700 font-medium text-[9px] uppercase tracking-widest rounded-xl hover:bg-indigo-100 transition-all disabled:opacity-40"
+            >
+              → Manager
             </button>
           </div>
         </div>
@@ -652,6 +659,18 @@ export default function Requisitions() {
                         </button>
                         <button
                           type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateStatus(r, 'forward_to_manager');
+                          }}
+                          className="h-7 px-3 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700 font-medium text-[9px] uppercase tracking-widest shadow-sm hover:bg-indigo-100 transition-all disabled:opacity-40"
+                          disabled={r.status === 'forwarded' || isBusy}
+                          title="Send to Manager for approval"
+                        >
+                          {isBusy && actionBusyKey.endsWith(':forward_to_manager') ? 'Sending…' : '→ Manager'}
+                        </button>
+                        <button
+                          type="button"
                           onClick={async (e) => {
                             e.stopPropagation();
                             await editRequisition(r);
@@ -709,6 +728,7 @@ export default function Requisitions() {
         onClose={() => setDetails(null)}
         onApprove={(req) => updateStatus(req, 'approved')}
         onReject={(req) => updateStatus(req, 'rejected')}
+        onForward={(req) => updateStatus(req, 'forward_to_manager')}
       />
 
       <AddRequisitionModal

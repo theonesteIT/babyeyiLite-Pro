@@ -21,6 +21,7 @@ import {
   DollarSign,
   Headphones,
   History,
+  CalendarDays,
 } from 'lucide-react';
 import useChatUnread from '../../../../shared/hooks/useChatUnread';
 import { h } from '../utils/href';
@@ -206,6 +207,8 @@ const Sidebar = ({ onClose }) => {
             { name: 'Configure Payroll', path: '/payroll/config', icon: Settings },
           ]}
         />
+
+        <NavItem icon={CalendarDays} name="School Calendar" path={h('/school-calendar')} onClose={onClose} />
 
         <SectionLabel label="Services" />
         <NavItem icon={DollarSign} name="My Payroll" path={h('/my-payroll')} onClose={onClose} />

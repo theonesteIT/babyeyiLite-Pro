@@ -31,6 +31,7 @@ import StaffDailyAttendance from './pages/StaffDailyAttendance'
 import DisciplineReports from './pages/DisciplineReports'
 import SystemConfiguration from './pages/SystemConfiguration'
 import PermissionsManager from './pages/PermissionsManager'
+import TeacherPermissionReports from './pages/TeacherPermissionReports'
 import SchoolLiteSuite from './pages/SchoolLiteSuite'
 import SmartSchoolHardwarePage from './pages/SmartSchoolHardwarePage'
 import StaffSmartAccessPage from './pages/StaffSmartAccessPage'
@@ -133,6 +134,7 @@ function ManagerRoutesInner() {
       <Route path="settings" element={<ProtectedRoute title="System Configuration"><SystemConfiguration /></ProtectedRoute>} />
       <Route path="settings/gradebook" element={<Navigate to={h('/operations?tab=gradebook')} replace />} />
       <Route path="permissions" element={<ProtectedRoute title="Student Permissions"><PermissionsManager /></ProtectedRoute>} />
+      <Route path="teacher-permission-reports" element={<ProtectedRoute title="Teacher Permission Reports"><TeacherPermissionReports /></ProtectedRoute>} />
       <Route path="chat" element={<ProtectedRoute title="Chat center"><ChatCenter /></ProtectedRoute>} />
       <Route path="audit" element={<ProtectedRoute title="Audit Center"><AuditCenter /></ProtectedRoute>} />
       <Route path="reports/stock"   element={<ProtectedRoute title="Stock Reports"><StockReports /></ProtectedRoute>} />

@@ -26,6 +26,7 @@ import {
   UserCog,
   BookMarked,
   CalendarClock,
+  CalendarDays,
   ClipboardCheck,
   Clock,
   FileBarChart,
@@ -94,6 +95,7 @@ const NavItem = ({ icon, name, path, exact, onClose, badgeCount = 0 }) => (
 
 const ExpandableNavItem = ({ icon, name, subItems, onClose }) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const pathMatches = (path) => {
     if (!path) return false;
     const full = h(path);
@@ -134,17 +136,18 @@ const ExpandableNavItem = ({ icon, name, subItems, onClose }) => {
         <div className="ml-2 mt-1 space-y-0.5 border-l border-white/15 pl-3">
           {subItems.map((sub) => {
             const subActive = pathMatches(sub.path);
+            const fullPath = h(sub.path);
             return (
-              <NavLink
+              <button
+                type="button"
                 key={sub.path}
-                to={h(sub.path)}
-                onClick={onClose}
-                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[12px] font-medium transition-all
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(fullPath); if (onClose) onClose(); }}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[12px] font-medium transition-all cursor-pointer
                 ${subActive ? 'text-re-gold bg-white/[0.08]' : 'text-white/60 hover:text-white hover:bg-white/[0.05]'}`}
               >
-                <sub.icon size={14} strokeWidth={1.75} className={subActive ? 'text-re-gold/90' : 'text-white/35'} />
+                {createElement(sub.icon, { size: 14, strokeWidth: 1.75, className: subActive ? 'text-re-gold/90' : 'text-white/35' })}
                 <span className="truncate">{sub.name}</span>
-              </NavLink>
+              </button>
             );
           })}
         </div>
@@ -195,9 +198,12 @@ const Sidebar = ({ onClose }) => {
           name="Staff & Academics"
           onClose={onClose}
           subItems={[
-            { name: 'Staff Management', path: '/academic-setup?tab=teachers', icon: UserCog },
-            { name: 'Courses & Subjects', path: '/academic-setup?tab=courses', icon: BookMarked },
-            { name: 'Timetable', path: '/academic-setup?tab=timetable', icon: CalendarClock },
+            { name: 'Staff Management', path: '/timetable?tab=teachers', icon: UserCog },
+            { name: 'Courses & Subjects', path: '/timetable?tab=courses', icon: BookMarked },
+            { name: 'Time Settings', path: '/timetable?tab=schedule', icon: Clock },
+            { name: 'Assignments', path: '/timetable?tab=assignments', icon: ClipboardCheck },
+            { name: 'Timetable Generator', path: '/timetable?tab=generator', icon: Sparkles },
+            { name: 'View Timetable', path: '/timetable?tab=timetable', icon: CalendarClock },
           ]}
         />
         <ExpandableNavItem
@@ -205,8 +211,8 @@ const Sidebar = ({ onClose }) => {
           name="Students"
           onClose={onClose}
           subItems={[
-            { name: 'Student Records', path: '/students', icon: Users },
-            { name: 'Student Identity Cards', path: '/student-records', icon: IdCard },
+           
+            { name: 'Student Records', path: '/student-records', icon: IdCard },
           ]}
         />
      
@@ -235,10 +241,13 @@ const Sidebar = ({ onClose }) => {
           onClose={onClose}
           subItems={[
             { name: 'Teacher requisitions', path: '/teacher-requisitions', icon: ClipboardList },
-            { name: 'Teacher permissions', path: '/teacher-permissions', icon: ShieldCheck },
+            { name: 'Student permissions', path: '/teacher-permissions', icon: ShieldCheck },
+            { name: 'Staff permissions', path: '/staff-permissions', icon: ShieldCheck },
             { name: 'Lesson plan reports', path: '/lesson-plan-reports', icon: FileText },
           ]}
         />
+
+        <NavItem icon={CalendarDays} name="School Calendar" path="/school-calendar" onClose={onClose} />
 
         <SectionLabel label="Professional resources" />
         <NavItem icon={DollarSign} name="My Payroll" path="/my-payroll" onClose={onClose} />

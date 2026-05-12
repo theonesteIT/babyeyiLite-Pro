@@ -206,8 +206,12 @@ function normalizeReportStatusFilter(v) {
 
 /**
  * Shared report body for JSON + Excel + PDF exports.
+ * @param {object} [options]
+ * @param {boolean} [options.includeOnlineInvoicePayments=true] — When false, paid amounts come only from
+ *   `school_fee_collections` (accountant-recorded / paid-at-school). Online Babyeyi invoice intents are excluded.
  */
-async function buildAccountantPaymentReport(schoolId, academicYear, term, classFilter, statusFilterRaw) {
+async function buildAccountantPaymentReport(schoolId, academicYear, term, classFilter, statusFilterRaw, options = {}) {
+  const includeOnlineInvoicePayments = options.includeOnlineInvoicePayments !== false;
   await ensureCollectionsTable();
   await ensureAccountantFeeTotalsTableAcct();
 
@@ -272,22 +276,24 @@ async function buildAccountantPaymentReport(schoolId, academicYear, term, classF
     paidByStudent.set(sid, (paidByStudent.get(sid) || 0) + add);
   }
 
-  // Include public/online payments (PublicPayBySchool, parent pay links, etc.) that are marked PAID.
+  // Optional: public/online Babyeyi invoices (payment intents). Representative portal excludes these when only
+  // accountant student fees / paid-at-school collections should count.
   let publicPaidRows = [];
-  try {
-    const [rows] = await promisePool.query(
-      `SELECT i.id, i.total_rwf, i.payload_json, t.class_name, t.classes_json, t.term, t.academic_year
-       FROM babyeyi_payment_intents i
-       LEFT JOIN accountant_babyeyi_fees t ON t.babyeyi_id = i.babyeyi_id AND t.school_id = i.school_id
-       WHERE i.school_id = ?
-         AND UPPER(COALESCE(i.invoice_status, 'NOT_PAID')) = 'PAID'
-         AND i.babyeyi_id IS NOT NULL`,
-      [schoolId]
-    );
-    publicPaidRows = rows || [];
-  } catch (e) {
-    // Keep accountant report available even if public payment intents table is not present in this environment.
-    publicPaidRows = [];
+  if (includeOnlineInvoicePayments) {
+    try {
+      const [rows] = await promisePool.query(
+        `SELECT i.id, i.total_rwf, i.payload_json, t.class_name, t.classes_json, t.term, t.academic_year
+         FROM babyeyi_payment_intents i
+         LEFT JOIN accountant_babyeyi_fees t ON t.babyeyi_id = i.babyeyi_id AND t.school_id = i.school_id
+         WHERE i.school_id = ?
+           AND UPPER(COALESCE(i.invoice_status, 'NOT_PAID')) = 'PAID'
+           AND i.babyeyi_id IS NOT NULL`,
+        [schoolId]
+      );
+      publicPaidRows = rows || [];
+    } catch (e) {
+      publicPaidRows = [];
+    }
   }
   for (const row of publicPaidRows) {
     let payload = {};
@@ -1278,5 +1284,13 @@ router.delete('/accountant/babyeyi-fees/:id', requireRole(ACCOUNTANT_ONLY), asyn
     return res.status(500).json({ success: false, message: 'Failed to delete fee card' });
   }
 });
+
+/** Used by Representative `/fees-management` — same rules as accountant reports, without online invoice credits */
+router.buildAccountantPaymentReport = buildAccountantPaymentReport;
+router.resolveAcademicContext = resolveAcademicContext;
+router.yearMatchesRow = yearMatchesRow;
+router.termMatchesRow = termMatchesRow;
+router.trimStr = trimStr;
+router.collectionYearMatchesFilter = collectionYearMatchesFilter;
 
 module.exports = router;

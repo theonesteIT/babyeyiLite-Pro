@@ -20,7 +20,12 @@ import DosSettingsPage from './pages/DosSettingsPage'
 import DosReportsPage from './pages/DosReportsPage'
 import TeacherRequisitionReports from './pages/TeacherRequisitionReports'
 import PermissionsManager from '../manager/pages/PermissionsManager'
+import DosStudentPermissions from './pages/DosStudentPermissions'
+import DosTeacherStaffPermissions from './pages/DosTeacherStaffPermissions'
 import LessonPlanReportsPage from './pages/LessonPlanReportsPage'
+import SchoolCalendarPage from '../shared/pages/SchoolCalendarPage'
+import DosOchreHero from './components/DosOchreHero'
+import dosApi from './services/api'
 import DosStudentRecordsPage from './pages/DosStudentRecordsPage'
 import StaffPayroll from './pages/StaffPayroll'
 import ChatCenter from '../shared/pages/ChatCenter'
@@ -166,8 +171,8 @@ function DosRoutesInner() {
       <Route
         path="teacher-permissions"
         element={
-          <ProtectedRoute title="Teacher permissions">
-            <PermissionsManager />
+          <ProtectedRoute title="Student permissions">
+            <DosStudentPermissions />
           </ProtectedRoute>
         }
       />
@@ -179,6 +184,8 @@ function DosRoutesInner() {
           </ProtectedRoute>
         }
       />
+      <Route path="staff-permissions" element={<ProtectedRoute title="Staff permissions"><DosTeacherStaffPermissions /></ProtectedRoute>} />
+      <Route path="school-calendar" element={<ProtectedRoute title="School calendar"><SchoolCalendarPage api={dosApi} HeroComponent={DosOchreHero} heroProps={{ eyebrow: 'Academic', titleLine: 'School', titleAccent: 'Calendar', subtitle: 'View school events, holidays, exams, and important dates.' }} /></ProtectedRoute>} />
       <Route path="chat" element={<ProtectedRoute title="Chat center"><ChatCenter /></ProtectedRoute>} />
 
       <Route path="*" element={<Navigate to={PORTAL.basePath} replace />} />

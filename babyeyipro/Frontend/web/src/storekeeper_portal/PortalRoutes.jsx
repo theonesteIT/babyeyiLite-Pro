@@ -11,6 +11,9 @@ import StaffPayroll from './frontend/src/pages/StaffPayroll'
 import ShuleAvance from './frontend/src/pages/ShuleAvance'
 import TichaAI from './frontend/src/pages/TichaAI'
 import ChatCenter from '../shared/pages/ChatCenter'
+import SchoolCalendarPage from '../shared/pages/SchoolCalendarPage'
+import StorekeeperOchreHero from './frontend/src/components/StorekeeperOchreHero'
+import storekeeperApi from './frontend/src/services/api'
 
 function LoadingScreen() {
   return (
@@ -42,6 +45,7 @@ function StorekeeperRoutesInner() {
       <Route path="payroll" element={<Navigate to="my-payroll" replace />} />
       <Route path="shule-avance" element={<ProtectedRoute title="Shule Avance"><ShuleAvance /></ProtectedRoute>} />
       <Route path="ticha-ai" element={<ProtectedRoute title="TichaAI"><TichaAI /></ProtectedRoute>} />
+      <Route path="school-calendar" element={<ProtectedRoute title="School Calendar"><SchoolCalendarPage api={storekeeperApi} HeroComponent={StorekeeperOchreHero} heroProps={{ eyebrow: 'School', titleLine: 'School', titleAccent: 'Calendar', subtitle: 'View school events, holidays, exams, and important dates.' }} /></ProtectedRoute>} />
       <Route path="chat" element={<ProtectedRoute title="Chat center"><ChatCenter /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/storekeeper" replace />} />
     </Routes>

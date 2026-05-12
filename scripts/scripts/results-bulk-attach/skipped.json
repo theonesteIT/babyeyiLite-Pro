@@ -1,0 +1,751 @@
+[
+  {
+    "pic_id": 5600,
+    "json_name": "Nizeyimana Kellia",
+    "class": "P1B",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:50:49.806Z"
+  },
+  {
+    "pic_id": 5608,
+    "json_name": "Galvin Giant",
+    "class": "P1B",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:50:49.952Z"
+  },
+  {
+    "pic_id": 5628,
+    "json_name": "Mugisha Teta Olga",
+    "class": "P1",
+    "reason": "Photo file not found (pic_id=5628)",
+    "timestamp": "2026-04-30T14:50:51.661Z"
+  },
+  {
+    "pic_id": 5631,
+    "json_name": "Mahomte Igena Sorine",
+    "class": "P1",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:50:51.671Z"
+  },
+  {
+    "pic_id": 5632,
+    "json_name": "Matte Briera",
+    "class": "P1",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:50:51.679Z"
+  },
+  {
+    "pic_id": 5632,
+    "json_name": "Ntwari Mayori Nkuonti",
+    "class": "P1",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:50:51.686Z"
+  },
+  {
+    "pic_id": 5639,
+    "json_name": "Mbati Ngenzi",
+    "class": "P1",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:50:51.830Z"
+  },
+  {
+    "pic_id": 5640,
+    "json_name": "Amazia Koblloni",
+    "class": "P1",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:50:51.839Z"
+  },
+  {
+    "pic_id": 5680,
+    "json_name": "Nzitatira Samuel Prince",
+    "class": "P2",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:50:55.220Z"
+  },
+  {
+    "pic_id": 5712,
+    "json_name": "Nizeyimana Brian",
+    "class": "P3",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:50:56.485Z"
+  },
+  {
+    "pic_id": 5715,
+    "json_name": "Berwanineza Stella Nshutiyabega",
+    "class": "P3",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:50:56.637Z"
+  },
+  {
+    "pic_id": 5720,
+    "json_name": "Ishane Arisha",
+    "class": "P3",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:50:56.738Z"
+  },
+  {
+    "pic_id": 5723,
+    "json_name": "Mugisha Labine Janvier",
+    "class": "P3",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:50:56.802Z"
+  },
+  {
+    "pic_id": 5729,
+    "json_name": "Shama Mutuisha Celine",
+    "class": "P3",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:50:56.952Z"
+  },
+  {
+    "pic_id": 5730,
+    "json_name": "Ahirwe Munyabihogo Edwina",
+    "class": "P3",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:50:56.961Z"
+  },
+  {
+    "pic_id": 5732,
+    "json_name": "Ineza Gisa Tressa Kendra",
+    "class": "P3",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:50:57.012Z"
+  },
+  {
+    "pic_id": 5733,
+    "json_name": "Shalo Kopevise",
+    "class": "P3",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:50:57.020Z"
+  },
+  {
+    "pic_id": 5736,
+    "json_name": "Inema Brian",
+    "class": "P3",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:50:57.091Z"
+  },
+  {
+    "pic_id": 5741,
+    "json_name": "Shema Abdyla",
+    "class": "P3",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:50:57.387Z"
+  },
+  {
+    "pic_id": 5743,
+    "json_name": "Igitane Giheana Nzeza Jowalima",
+    "class": "P3",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:50:57.547Z"
+  },
+  {
+    "pic_id": 5748,
+    "json_name": "Umokendwa Elissa Boaz",
+    "class": "P3A",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:50:57.760Z"
+  },
+  {
+    "pic_id": 5749,
+    "json_name": "Kundwa Liona Bella",
+    "class": "P3A",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:50:57.766Z"
+  },
+  {
+    "pic_id": 5758,
+    "json_name": "Ikaze Bijugiza Jorina",
+    "class": "P3A",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:50:58.140Z"
+  },
+  {
+    "pic_id": 5762,
+    "json_name": "Mugisha Ingabire Arche",
+    "class": "P3A",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:50:58.200Z"
+  },
+  {
+    "pic_id": 5765,
+    "json_name": "Lali Halati Bayri",
+    "class": "P3A",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:50:58.256Z"
+  },
+  {
+    "pic_id": 5776,
+    "json_name": "Cyusa Dirane",
+    "class": "P3A",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:50:58.532Z"
+  },
+  {
+    "pic_id": 5851,
+    "json_name": "Iranzi Neste",
+    "class": "P4B",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:50:59.882Z"
+  },
+  {
+    "pic_id": 5853,
+    "json_name": "Uwaco Atete Mareni",
+    "class": "P4B",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:00.048Z"
+  },
+  {
+    "pic_id": 5855,
+    "json_name": "Amani Caisa Bronze",
+    "class": "P4B",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:00.299Z"
+  },
+  {
+    "pic_id": 5856,
+    "json_name": "(Name not written)",
+    "class": "P4B",
+    "reason": "Photo file not found (pic_id=5856)",
+    "timestamp": "2026-04-30T14:51:00.300Z"
+  },
+  {
+    "pic_id": 5867,
+    "json_name": "karungi",
+    "class": "P4B",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:00.862Z"
+  },
+  {
+    "pic_id": 5875,
+    "json_name": "ninsima aviela ryan",
+    "class": "P4B",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:01.281Z"
+  },
+  {
+    "pic_id": 5887,
+    "json_name": "irumva allan",
+    "class": "P4B",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:02.066Z"
+  },
+  {
+    "pic_id": 5806,
+    "json_name": "Mftimuco Muhire Gift",
+    "class": "p4",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:02.075Z"
+  },
+  {
+    "pic_id": 5807,
+    "json_name": "Nsengiyomva Joshua",
+    "class": "p4",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:02.083Z"
+  },
+  {
+    "pic_id": 5808,
+    "json_name": "Tonya Daniella",
+    "class": "p4",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:02.092Z"
+  },
+  {
+    "pic_id": 5809,
+    "json_name": "Akaliza Puzigoma Lilcane",
+    "class": "p4",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:02.104Z"
+  },
+  {
+    "pic_id": 5814,
+    "json_name": "Mugisha Brain",
+    "class": "p4",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:02.334Z"
+  },
+  {
+    "pic_id": 5816,
+    "json_name": "Akuzwe Shanu Ashli",
+    "class": "p4",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:02.365Z"
+  },
+  {
+    "pic_id": 5817,
+    "json_name": "Kazuba Yannick",
+    "class": "p4",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:02.372Z"
+  },
+  {
+    "pic_id": 5818,
+    "json_name": "Akaliza Neza Linkaliza",
+    "class": "p4",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:02.381Z"
+  },
+  {
+    "pic_id": 5819,
+    "json_name": "Mukendwa Zoella",
+    "class": "p4",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:02.388Z"
+  },
+  {
+    "pic_id": 5822,
+    "json_name": "Ndagitye Cyuza Laundy",
+    "class": "p4",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:02.480Z"
+  },
+  {
+    "pic_id": 5823,
+    "json_name": "Ishimwe Kerin",
+    "class": "p4",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:02.488Z"
+  },
+  {
+    "pic_id": 5824,
+    "json_name": "Isaro Asanase Orya",
+    "class": "p4",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:02.497Z"
+  },
+  {
+    "pic_id": 5789,
+    "json_name": "Iganze Oliya",
+    "class": "p4",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:02.559Z"
+  },
+  {
+    "pic_id": 5796,
+    "json_name": "Gwiza Shema Zila",
+    "class": "p4",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:02.974Z"
+  },
+  {
+    "pic_id": 5797,
+    "json_name": "Uhirwa Orga",
+    "class": "p4",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:02.978Z"
+  },
+  {
+    "pic_id": 5799,
+    "json_name": "Cyitahiro Christina",
+    "class": "p4",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:02.988Z"
+  },
+  {
+    "pic_id": 5801,
+    "json_name": "Neza Habyaremye",
+    "class": "p4",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:03.245Z"
+  },
+  {
+    "pic_id": 5803,
+    "json_name": "Uhirwa Ikuzwe Daniella",
+    "class": "p4",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:03.478Z"
+  },
+  {
+    "pic_id": 5826,
+    "json_name": "Ishimwe Anne Davida",
+    "class": "p4",
+    "reason": "Photo file not found (pic_id=5826)",
+    "timestamp": "2026-04-30T14:51:03.840Z"
+  },
+  {
+    "pic_id": 5829,
+    "json_name": "Ndayishimiye Jean Domar",
+    "class": "p4",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:03.957Z"
+  },
+  {
+    "pic_id": 5830,
+    "json_name": "Mucyo Claire Agano",
+    "class": "p4",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:03.965Z"
+  },
+  {
+    "pic_id": 5831,
+    "json_name": "Gusimana Keira",
+    "class": "p4",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:03.974Z"
+  },
+  {
+    "pic_id": 5833,
+    "json_name": "Rudiza Runzumbura Jouna",
+    "class": "p4",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:04.084Z"
+  },
+  {
+    "pic_id": 5834,
+    "json_name": "Ibahe Byukusenge Alvin",
+    "class": "p4",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:04.092Z"
+  },
+  {
+    "pic_id": 5835,
+    "json_name": "Gisa Zimme Brain",
+    "class": "p4",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:04.097Z"
+  },
+  {
+    "pic_id": 5837,
+    "json_name": "Irakoze Sacle",
+    "class": "p4",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:04.303Z"
+  },
+  {
+    "pic_id": 5838,
+    "json_name": "Nziza Iradutonda Logan",
+    "class": "p4",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:04.315Z"
+  },
+  {
+    "pic_id": 5841,
+    "json_name": "Ataza Ornela",
+    "class": "p4",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:04.412Z"
+  },
+  {
+    "pic_id": 5842,
+    "json_name": "Shyata Blain",
+    "class": "p4",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:04.500Z"
+  },
+  {
+    "pic_id": 5843,
+    "json_name": "Kayikinuri Epilem",
+    "class": "p4",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:04.507Z"
+  },
+  {
+    "pic_id": 5844,
+    "json_name": "Kalimda Landi Dila",
+    "class": "p4",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:04.513Z"
+  },
+  {
+    "pic_id": 5846,
+    "json_name": "Neza Ntwali Alian",
+    "class": "p4",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:04.540Z"
+  },
+  {
+    "pic_id": 5848,
+    "json_name": "Reza Ntwali Ageya",
+    "class": "p4",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:04.585Z"
+  },
+  {
+    "pic_id": 5891,
+    "json_name": "shema bienhereux achille pitie",
+    "class": "S1A",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:04.665Z"
+  },
+  {
+    "pic_id": 5939,
+    "json_name": "sheja dacey evans",
+    "class": "S1A",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:06.486Z"
+  },
+  {
+    "pic_id": 5921,
+    "json_name": "nkunda byringiro divin",
+    "class": "S1B",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:07.545Z"
+  },
+  {
+    "pic_id": 5930,
+    "json_name": "ninshima simplice",
+    "class": "S1B",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:07.877Z"
+  },
+  {
+    "pic_id": 5959,
+    "json_name": "UWANYUZE marijani Honorine",
+    "class": "S2",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:09.082Z"
+  },
+  {
+    "pic_id": 5980,
+    "json_name": "cyuzuzo james",
+    "class": "P5C",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:10.711Z"
+  },
+  {
+    "pic_id": 5985,
+    "json_name": "kimenyi linkon",
+    "class": "P5C",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:12.109Z"
+  },
+  {
+    "pic_id": 5987,
+    "json_name": "umukurwa faith minyone",
+    "class": "P5C",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:12.400Z"
+  },
+  {
+    "pic_id": 5989,
+    "json_name": "necha juru",
+    "class": "P5C",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:12.978Z"
+  },
+  {
+    "pic_id": 6007,
+    "json_name": "zimurinda mwiseneza pele",
+    "class": "P5C",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:14.065Z"
+  },
+  {
+    "pic_id": 6013,
+    "json_name": "uwimpuwe alliete",
+    "class": "P5A",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:14.308Z"
+  },
+  {
+    "pic_id": 6014,
+    "json_name": "mugabe kelly",
+    "class": "P5A",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:14.314Z"
+  },
+  {
+    "pic_id": 6017,
+    "json_name": "kirabo jasmin",
+    "class": "P5A",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:14.672Z"
+  },
+  {
+    "pic_id": 6021,
+    "json_name": "mukurwa aline",
+    "class": "P5A",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:15.004Z"
+  },
+  {
+    "pic_id": 6025,
+    "json_name": "beza rora halleuh",
+    "class": "P5A",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:15.234Z"
+  },
+  {
+    "pic_id": 6027,
+    "json_name": "senga bellange",
+    "class": "P5A",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:15.308Z"
+  },
+  {
+    "pic_id": 6028,
+    "json_name": "kurwa gift",
+    "class": "P5A",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:15.312Z"
+  },
+  {
+    "pic_id": 6037,
+    "json_name": "chris gisubizo yannick",
+    "class": "P5B",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:15.862Z"
+  },
+  {
+    "pic_id": 6047,
+    "json_name": "kaze kagabo",
+    "class": "P5B",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:16.112Z"
+  },
+  {
+    "pic_id": 6049,
+    "json_name": "hirwa jurudus",
+    "class": "P5B",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:16.144Z"
+  },
+  {
+    "pic_id": 6051,
+    "json_name": "kayunga rwabigwi ivan",
+    "class": "P5B",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:16.188Z"
+  },
+  {
+    "pic_id": 6052,
+    "json_name": "keza mark",
+    "class": "P5B",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:16.195Z"
+  },
+  {
+    "pic_id": 6090,
+    "json_name": "Nzayisenga kevin",
+    "class": "S5 PCB",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:18.977Z"
+  },
+  {
+    "pic_id": 6091,
+    "json_name": "NSENGA MIHIGO MURINDWA Bruce",
+    "class": "S5 PCB",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:18.989Z"
+  },
+  {
+    "pic_id": 6092,
+    "json_name": "BASANGIRA Mathis Gabriel",
+    "class": "S5 PCB",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:19.000Z"
+  },
+  {
+    "pic_id": 6093,
+    "json_name": "NZITATIRA Samuel Prince",
+    "class": "S5 PCB",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:19.017Z"
+  },
+  {
+    "pic_id": 6094,
+    "json_name": "RUDASINGWA Patrick",
+    "class": "S5 PCB",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:19.029Z"
+  },
+  {
+    "pic_id": 6103,
+    "json_name": "ashimwe ntwari mugisha thierry",
+    "class": "S4 ANP",
+    "best_score": "N/A",
+    "reason": "No match found (confidence < 80%)",
+    "timestamp": "2026-04-30T14:51:19.315Z"
+  }
+]

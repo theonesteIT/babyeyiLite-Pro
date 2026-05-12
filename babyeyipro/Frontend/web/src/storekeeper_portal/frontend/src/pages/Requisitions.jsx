@@ -18,10 +18,17 @@ function fmtDate(raw) {
 }
 
 const STATUS_COLORS = {
-  pending:  'bg-amber-100 text-amber-700 border-amber-200',
-  approved: 'bg-re-navy/10 text-re-navy border-re-navy/25',
-  rejected: 'bg-red-100 text-red-700 border-red-200',
-  issued:   'bg-blue-100 text-blue-700 border-blue-200',
+  pending:   'bg-amber-100 text-amber-700 border-amber-200',
+  approved:  'bg-re-navy/10 text-re-navy border-re-navy/25',
+  rejected:  'bg-red-100 text-red-700 border-red-200',
+  issued:    'bg-blue-100 text-blue-700 border-blue-200',
+  forwarded: 'bg-indigo-100 text-indigo-700 border-indigo-200',
+};
+
+const SOURCE_BADGE = {
+  teacher:    'bg-orange-50 text-orange-700 border-orange-200',
+  dos:        'bg-violet-50 text-violet-700 border-violet-200',
+  accountant: 'bg-emerald-50 text-emerald-700 border-emerald-200',
 };
 
 // ── Details drawer ────────────────────────────────────────────
@@ -48,6 +55,9 @@ const RequisitionDrawer = ({ req, onClose, onIssue, onReject }) => {
             { label: 'Requester', value: req.requester },
             { label: 'Items requested', value: req.items },
             { label: 'Amount', value: fmtMoney(req.amount) },
+            { label: 'Source', value: (req.source_portal || 'teacher').toUpperCase() },
+            { label: 'Destination', value: (req.destination || 'accountant').toUpperCase() },
+            { label: 'Forwarded to', value: req.forwarded_to ? req.forwarded_to.toUpperCase() : '—' },
             { label: 'Submitted', value: fmtDate(req.submitted) },
             { label: 'Reference', value: req.attachmentName || '—' },
             { label: 'Note', value: req.note || '—' },
@@ -246,7 +256,7 @@ export default function Requisitions() {
                 className={`w-full ${selectCls} !pl-14`}
                 style={selectChevron}
               >
-                {['All', 'pending', 'approved', 'issued', 'rejected'].map((s) => (
+                {['All', 'pending', 'approved', 'forwarded', 'issued', 'rejected'].map((s) => (
                   <option key={s} value={s}>{s}</option>
                 ))}
               </select>
@@ -277,7 +287,7 @@ export default function Requisitions() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-re-bg/20 border-b border-black/5">
-                {['Reference', 'Department', 'Requester', 'Items', 'Amount', 'Status'].map((h, hi) => (
+                {['Reference', 'Department', 'Requester', 'Items', 'Amount', 'Source', 'Status'].map((h, hi) => (
                   <th
                     key={`req-th-${hi}`}
                     className="px-4 sm:px-6 py-3 text-[7px] sm:text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.2em] opacity-50 border-r border-black/5 last:border-r-0"
@@ -309,6 +319,9 @@ export default function Requisitions() {
                   <td className="px-4 sm:px-6 py-3 border-r border-black/5 text-[10px] font-bold text-slate-600 max-w-[120px] truncate">{req.requester}</td>
                   <td className="px-4 sm:px-6 py-3 border-r border-black/5 text-[10px] font-bold text-slate-500 max-w-[220px] truncate">{req.items}</td>
                   <td className="px-4 sm:px-6 py-3 border-r border-black/5 font-semibold text-[#1E3A5F] text-[11px]">{fmtMoney(req.amount)}</td>
+                  <td className="px-4 sm:px-6 py-3 border-r border-black/5">
+                    <span className={`text-[8px] font-semibold px-2 py-0.5 rounded-full border ${SOURCE_BADGE[req.source_portal] || 'bg-slate-100 text-slate-500 border-slate-200'}`}>{(req.source_portal || 'teacher').toUpperCase()}</span>
+                  </td>
                   <td className="px-4 sm:px-6 py-3">
                     <span className={`text-[8px] font-semibold px-2 py-0.5 rounded-full border ${STATUS_COLORS[req.status] || 'bg-slate-100 text-slate-500 border-slate-200'}`}>{req.status}</span>
                   </td>

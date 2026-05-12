@@ -1,5 +1,5 @@
-import { NavLink, useNavigate } from 'react-router-dom';
-import { createElement } from 'react';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { createElement, useEffect, useState } from 'react';
 import {
   LayoutDashboard,
   Building2,
@@ -18,6 +18,13 @@ import {
   RefreshCw,
   Headphones,
   Sparkles,
+  ChevronDown,
+  Coins,
+  Users,
+  LineChart,
+  LayoutGrid,
+  FileBarChart,
+  PieChart,
 } from 'lucide-react';
 import { h } from '../utils/href';
 import babyeyiIcon from '../../manager/assets/babyeyi-icon.png';
@@ -82,6 +89,81 @@ const SectionLabel = ({ label }) => (
   <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/40 px-3 pt-4 pb-2 first:pt-1">{label}</p>
 );
 
+const ExpandableNavItem = ({ icon, name, subItems, onClose, activePrefix }) => {
+  const location = useLocation();
+  const pathMatches = (path) => {
+    if (!path) return false;
+    const full = h(path);
+    if (path.includes('?')) {
+      return `${location.pathname}${location.search}` === full;
+    }
+    const querySiblingActive = subItems.some(
+      (x) => x.path && x.path.includes('?') && `${location.pathname}${location.search}` === h(x.path),
+    );
+    if (location.pathname === full && querySiblingActive) return false;
+    return location.pathname === full;
+  };
+
+  const prefix = activePrefix ? h(activePrefix) : '';
+  const prefixActive =
+    prefix &&
+    (location.pathname === prefix || location.pathname.startsWith(`${prefix}/`));
+  const isAnyActive = activePrefix ? prefixActive : subItems.some((s) => pathMatches(s.path));
+
+  const [open, setOpen] = useState(isAnyActive);
+
+  useEffect(() => {
+    if (isAnyActive) setOpen(true);
+  }, [isAnyActive, location.pathname]);
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-[13px] font-semibold tracking-tight group border border-transparent
+          ${
+            isAnyActive
+              ? 'bg-white/[0.12] text-amber-400 border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]'
+              : 'text-white/72 hover:bg-white/[0.06] hover:text-white'
+          }`}
+      >
+        {createElement(icon, {
+          size: 18,
+          strokeWidth: 1.75,
+          className: `${isAnyActive ? 'text-amber-400' : 'text-white/45 group-hover:text-white/85'} transition-colors shrink-0`,
+        })}
+        <span className="flex-1 text-left">{name}</span>
+        <ChevronDown
+          size={16}
+          strokeWidth={2}
+          className={`transition-transform duration-300 text-white/40 shrink-0 ${open ? 'rotate-180' : ''}`}
+        />
+      </button>
+
+      {open && (
+        <div className="ml-2 mt-1 space-y-0.5 border-l border-white/15 pl-3">
+          {subItems.map((sub) => {
+            const subActive = pathMatches(sub.path);
+            return (
+              <NavLink
+                key={sub.path}
+                to={h(sub.path)}
+                onClick={onClose}
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[12px] font-semibold transition-all
+                ${subActive ? 'text-amber-400 bg-white/[0.08]' : 'text-white/60 hover:text-white hover:bg-white/[0.05]'}`}
+              >
+                <sub.icon size={14} strokeWidth={1.75} className={subActive ? 'text-amber-400/90' : 'text-white/35'} />
+                <span className="truncate">{sub.name}</span>
+              </NavLink>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default function RepresentativeSidebar({ onClose }) {
   const navigate = useNavigate();
 
@@ -122,7 +204,20 @@ export default function RepresentativeSidebar({ onClose }) {
         <NavItem icon={Sparkles} name="AI insights" path="/insights" onClose={onClose} badgeCount={2} />
 
         <SectionLabel label="Operations" />
-        <NavItem icon={Wallet} name="Finance" path="/finance" onClose={onClose} />
+        <ExpandableNavItem
+          icon={Wallet}
+          name="Finance"
+          activePrefix="/finance"
+          onClose={onClose}
+          subItems={[
+            { path: '/finance', name: 'Overview', icon: LayoutGrid },
+            { path: '/finance/fees', name: 'Fees management', icon: Coins },
+            { path: '/finance/payroll', name: 'Staff payroll', icon: Users },
+            { path: '/finance/analysis', name: 'Financial analysis', icon: LineChart },
+            { path: '/finance/reports', name: 'Reports & export', icon: FileBarChart },
+            { path: '/finance/budget', name: 'Budget & expenses', icon: PieChart },
+          ]}
+        />
         <NavItem icon={GraduationCap} name="Academic reports" path="/academic" onClose={onClose} />
         <NavItem icon={ShieldAlert} name="Discipline" path="/discipline" onClose={onClose} />
         <NavItem icon={ClipboardCheck} name="Attendance" path="/attendance" onClose={onClose} />

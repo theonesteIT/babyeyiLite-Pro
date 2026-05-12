@@ -242,6 +242,7 @@ const Sidebar = ({ onClose }) => {
             { name: 'Student Discipline', path: '/reports/discipline', icon: Activity },
           ]}
         />
+        <NavItem icon={Shield} name="Teacher Permissions" path="/teacher-permission-reports" onClose={onClose} />
 
         <SectionLabel label="Institutional reports" />
         <NavItem icon={GraduationCap} name="Academic Reports" path="/reports/academic" onClose={onClose} />

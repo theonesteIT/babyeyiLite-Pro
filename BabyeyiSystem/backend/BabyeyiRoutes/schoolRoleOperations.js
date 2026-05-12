@@ -2172,7 +2172,13 @@ router.delete('/iot/events/:id', requireRole(GATE_ATTENDANCE_ADMIN_ROLES), async
 // ════════════════════════════════════════════════════════════════
 // SCHOOL CALENDAR EVENTS
 // ════════════════════════════════════════════════════════════════
-router.get('/school/calendar-events', requireRole(GATE_ATTENDANCE_ADMIN_ROLES), async (req, res) => {
+const CALENDAR_READ_ROLES = [
+  ...GATE_ATTENDANCE_ADMIN_ROLES,
+  'ACCOUNTANT', 'STOREKEEPER', 'STORE_MANAGER', 'LIBRARIAN',
+  'SCHOOL_REPRESENTATIVE', 'NETWORK_REPRESENTATIVE',
+];
+
+router.get('/school/calendar-events', requireRole(CALENDAR_READ_ROLES), async (req, res) => {
   try {
     const schoolId = resolveSchoolId(req);
     if (!schoolId) return res.status(400).json({ success: false, message: 'School context missing.' });

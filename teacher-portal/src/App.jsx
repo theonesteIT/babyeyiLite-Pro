@@ -22,6 +22,8 @@ import Requisitions from './pages/Requisitions';
 import RequisitionsRes from './pages/RequisitionsRes';
 import ChatCenter from './pages/ChatCenter';
 import StaffPayroll from './pages/StaffPayroll';
+import Permissions from './pages/Permissions';
+import SchoolCalendar from './pages/SchoolCalendar';
 import './index.css';
 
 // ── Loading screen ────────────────────────────────────────────
@@ -69,7 +71,8 @@ function AppContent() {
       <Route path="/payroll" element={<ProtectedRoute title="My Payroll">          <StaffPayroll />                                                 </ProtectedRoute>} />
       <Route path="/marks/view" element={<ProtectedRoute title="View Student Marks"><ViewMarks /></ProtectedRoute>} />
       <Route path="/marks/record" element={<ProtectedRoute title="Record Marks">      <RecordMarks /></ProtectedRoute>} />
-
+      <Route path="/permissions" element={<ProtectedRoute title="Permissions"><Permissions /></ProtectedRoute>} />
+      <Route path="/school-calendar" element={<ProtectedRoute title="School Calendar"><SchoolCalendar /></ProtectedRoute>} />
 
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>

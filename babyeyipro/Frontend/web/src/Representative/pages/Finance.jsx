@@ -1,24 +1,134 @@
+import { useCallback, useEffect, useState } from 'react';
 import RepresentativeHeroShell from '../components/RepresentativeHeroShell';
 import { RepSection, RepCardGrid, RepStatCard, RepListCard } from '../components/RepContentCard';
-import { Wallet, FileDown } from 'lucide-react';
+import { useRepresentativeData } from '../context/RepresentativeContext';
+import { fetchRepresentativeFinanceOverview } from '../services/api';
+import { Wallet, FileDown, Loader2 } from 'lucide-react';
+
+const formatRwf = (n) => {
+  const v = Number(n || 0);
+  if (v >= 1_000_000_000) return `RWF ${(v / 1_000_000_000).toFixed(1)}B`;
+  if (v >= 1_000_000) return `RWF ${(v / 1_000_000).toFixed(1)}M`;
+  if (v >= 1_000) return `RWF ${(v / 1_000).toFixed(1)}K`;
+  return `RWF ${v.toLocaleString()}`;
+};
 
 export default function RepresentativeFinance() {
+  const { activeSchool, activeSchoolId, loading: ctxLoading, refresh: refreshContext } = useRepresentativeData();
+  const [finance, setFinance] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const scopeHint = activeSchool
+    ? `Showing data for ${activeSchool.school_name}`
+    : 'Showing totals across all schools assigned to you';
+
+  const loadFinance = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const schoolParam =
+        activeSchoolId != null && activeSchoolId !== '' ? Number(activeSchoolId) : undefined;
+      const res = await fetchRepresentativeFinanceOverview(schoolParam);
+      if (!res?.success) {
+        setFinance(null);
+        setError(res?.message || 'Could not load finance overview.');
+        return;
+      }
+      setFinance(res.data || null);
+    } catch (e) {
+      setFinance(null);
+      setError(e?.response?.data?.message || e.message || 'Could not load finance overview.');
+    } finally {
+      setLoading(false);
+    }
+  }, [activeSchoolId]);
+
+  useEffect(() => {
+    loadFinance();
+  }, [loadFinance]);
+
+  const onRefresh = useCallback(async () => {
+    await refreshContext();
+    await loadFinance();
+  }, [refreshContext, loadFinance]);
+
+  const kpis = finance?.kpis;
+  const transparency = finance?.transparency;
+  const pl = finance?.pl_snapshot;
+
+  const mobilePct =
+    transparency?.mobile_money_share_pct != null ? `${transparency.mobile_money_share_pct}%` : '—';
+
+  const kpiTiles = [
+    {
+      key: 'rev',
+      label: kpis?.revenue_quarter_label || 'Fee revenue (period)',
+      value: loading ? '…' : kpis ? formatRwf(kpis.revenue_period_rwf) : '—',
+      icon: Wallet,
+      subValue: loading ? '' : scopeHint,
+    },
+    {
+      key: 'exp',
+      label: 'Operating expenses',
+      value: loading ? '…' : kpis ? formatRwf(kpis.operating_expenses_rwf) : '—',
+      icon: Wallet,
+      subValue: 'Recorded in accountant expenses',
+    },
+    {
+      key: 'out',
+      label: 'Outstanding balances',
+      value: loading ? '…' : kpis ? formatRwf(kpis.outstanding_rwf) : '—',
+      icon: Wallet,
+      subValue: 'Open Babyeyi invoices',
+    },
+    {
+      key: 'cf',
+      label: 'Cash flow signal',
+      value: loading ? '…' : kpis?.cash_flow_health || '—',
+      icon: Wallet,
+      subValue: loading ? '' : `Paid all-time ${kpis ? formatRwf(kpis.fee_collected_all_time_rwf) : '—'}`,
+    },
+  ];
+
+  const salaryTone = transparency?.salary_monitoring?.tone === 'warn' ? 'warn' : 'default';
+
   return (
     <RepresentativeHeroShell
-      eyebrow="Financial control center"
+      onRefresh={onRefresh}
+      eyebrow={
+        activeSchool
+          ? `Financial control · ${activeSchool.school_name}`
+          : 'Financial control · assigned schools'
+      }
       title="Finance"
-      subtitle="Revenue, expenses, salaries, mobile money, bank flows, and audit-ready exports."
+      subtitle={
+        loading && ctxLoading
+          ? 'Loading live figures from your Babyeyi workspace…'
+          : `${scopeHint}. Revenue uses paid invoices in the last 90 days (when dates exist).`
+      }
       HeroIcon={Wallet}
-      kpiTiles={[
-        { key: 'rev', label: 'Network revenue (Q)', value: 'RWF 1.05B', icon: Wallet },
-        { key: 'exp', label: 'Operating expenses', value: 'RWF 612M', icon: Wallet },
-        { key: 'out', label: 'Outstanding balances', value: 'RWF 186M', icon: Wallet },
-        { key: 'cf', label: 'Cash flow health', value: 'Strong', icon: Wallet },
-      ]}
+      kpiTiles={kpiTiles}
       pageBody={
         <>
+          {error ? (
+            <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 mb-4">
+              <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">
+                {error}
+              </div>
+            </div>
+          ) : null}
+
+          {(loading || ctxLoading) && !finance ? (
+            <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 mb-4 flex items-center gap-2 text-sm text-re-text-muted">
+              <Loader2 className="animate-spin shrink-0" size={18} />
+              Syncing finance overview…
+            </div>
+          ) : null}
+
           <RepSection
             title="Transparency & exports"
+            subtitle={scopeHint}
             action={
               <div className="flex flex-wrap gap-2">
                 <button
@@ -37,28 +147,48 @@ export default function RepresentativeFinance() {
             }
           >
             <RepCardGrid>
-              <RepStatCard label="Mobile money share" value="61%" hint="MTN · Airtel · aggregated per school" />
-              <RepStatCard label="Bank settlements" value="RWF 318M" hint="Reconciled last 48h" />
-              <RepStatCard label="Salary monitoring" value="On track" hint="2 anomalies flagged for review" tone="warn" />
+              <RepStatCard
+                label="Mobile money share"
+                value={mobilePct}
+                hint="Paid invoices tagged MoMo / MTN / Airtel"
+              />
+              <RepStatCard
+                label="Bank settlements"
+                value={loading ? '…' : transparency ? formatRwf(transparency.bank_settlements_rwf) : '—'}
+                hint="Paid invoices tagged bank / transfer"
+              />
+              <RepStatCard
+                label="Salary monitoring"
+                value={loading ? '…' : transparency?.salary_monitoring?.label || '—'}
+                hint="Pending payroll requests"
+                tone={salaryTone}
+              />
             </RepCardGrid>
           </RepSection>
           <RepSection title="Profit / loss snapshot">
             <div className="grid gap-4 lg:grid-cols-2">
               <RepListCard
-                title="Budget vs actual (sample)"
-                rows={[
-                  { label: 'Instruction materials', value: '94%' },
-                  { label: 'Utilities', value: '108%' },
-                  { label: 'Transport', value: '101%' },
-                  { label: 'Boarding meals', value: '89%' },
-                ]}
+                title="Budget vs actual (guideline)"
+                rows={(pl?.budget_vs_actual || []).map((r) => ({
+                  label: r.label,
+                  value: `${r.pct_actual}%`,
+                }))}
               />
               <RepListCard
                 title="Daily transactions"
                 rows={[
-                  { label: 'Posted today', value: '1,842' },
-                  { label: 'Pending approval', value: '36' },
-                  { label: 'Fraud watch rules', value: '12 active' },
+                  {
+                    label: 'Posted today',
+                    value: loading ? '…' : String(pl?.daily?.posted_today ?? '—'),
+                  },
+                  {
+                    label: 'Pending approval',
+                    value: loading ? '…' : String(pl?.daily?.pending_approval ?? '—'),
+                  },
+                  {
+                    label: 'Fraud watch rules',
+                    value: loading ? '…' : `${pl?.daily?.fraud_rules_active ?? '—'} active`,
+                  },
                 ]}
               />
             </div>

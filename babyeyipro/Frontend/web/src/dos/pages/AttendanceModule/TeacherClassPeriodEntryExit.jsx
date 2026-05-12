@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import {
   Activity, AlertTriangle, BarChart2, Bell, BookOpen, Calendar,
-  CheckCircle2, ChevronDown, Clock, Filter, Home, Loader2,
-  Radio, RefreshCw, Search, Shield, TrendingDown, TrendingUp,
+  CheckCircle2, CheckSquare, ChevronDown, Clock, Filter, Home, Loader2,
+  Radio, RefreshCw, Search, Share2, Shield, Square, Trash2, TrendingDown, TrendingUp,
   User, Users, X, XCircle, Zap, ScanLine, Eye, Download,
   ArrowRight, Layers, Hash, MapPin, ChevronRight
 } from "lucide-react";
@@ -145,6 +145,12 @@ function ScanPulse({ result }) {
   };
   const c = cfg[result.type] || cfg.missed;
   const Icon = c.icon;
+  const todaySlots = result.today_slots || [];
+  const missedSub = result.type === "missed" && todaySlots.length > 0
+    ? `No period right now (${result.day || ""} ${result.time || ""})`
+    : result.type === "missed" && result.day
+      ? `No timetable for ${result.day}`
+      : c.sub;
   return (
     <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:16, padding:"24px 0", animation:"tpPop 0.45s cubic-bezier(0.34,1.56,0.64,1)" }}>
       <div style={{ position:"relative" }}>
@@ -155,10 +161,24 @@ function ScanPulse({ result }) {
       </div>
       <div style={{ textAlign:"center" }}>
         <p style={{ fontSize:20,fontWeight:900,color:NAVY,margin:0 }}>{c.label}</p>
-        <p style={{ fontSize:14,color:"#6b7280",margin:"4px 0 0" }}>{c.sub}</p>
+        <p style={{ fontSize:14,color:"#6b7280",margin:"4px 0 0" }}>{result.type === "missed" ? missedSub : c.sub}</p>
         {result.teacher&&<p style={{ fontSize:15,fontWeight:700,color:c.color,margin:"8px 0 0" }}>{result.teacher}</p>}
         {result.class&&<p style={{ fontSize:13,color:"#9ca3af",margin:"2px 0 0" }}>{result.class} · {result.subject}</p>}
       </div>
+      {result.type === "missed" && todaySlots.length > 0 && (
+        <div style={{ width:"100%",maxWidth:320,background:"#fafbff",border:"1.5px solid #e5e7eb",borderRadius:14,padding:"14px 16px",marginTop:4 }}>
+          <p style={{ fontSize:11,fontWeight:800,textTransform:"uppercase",letterSpacing:"0.08em",color:"#9ca3af",margin:"0 0 8px" }}>
+            Today's timetable ({result.day})
+          </p>
+          {todaySlots.map((s,i) => (
+            <div key={i} style={{ display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderTop:i?"1px solid #f3f4f6":"none" }}>
+              <span style={{ fontSize:12,fontFamily:"'DM Mono',monospace",color:"#6b7280",minWidth:90 }}>{s.start}–{s.end}</span>
+              <span style={{ fontSize:12,fontWeight:700,color:NAVY }}>{s.subject}</span>
+              <span style={{ fontSize:11,color:"#9ca3af" }}>({s.class})</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -281,7 +301,7 @@ function ReportDetailDrawer({ report, onClose }) {
               <Clock size={16} color={AMBER_DARK}/>
               <div>
                 <p style={{ fontSize:12,fontWeight:800,color:"#92400e",margin:0 }}>Late by {report.late_mins} minutes</p>
-                <p style={{ fontSize:11,color:"#b45309",margin:"2px 0 0" }}>Teacher arrived after the grace period</p>
+                <p style={{ fontSize:11,color:"#b45309",margin:"2px 0 0" }}>Teacher arrived after the limit minutes</p>
               </div>
             </div>
           )}
@@ -327,8 +347,12 @@ export default function TeacherClassPeriodEntryExit() {
   const [logs, setLogs] = useState([]);
   const [teachers, setTeachers] = useState([]);
   const [timetable, setTimetable] = useState([]);
-  const [alerts, setAlerts] = useState([]);
-  const [alertId, setAlertId] = useState(0);
+  const [toastAlerts, setToastAlerts] = useState([]);
+  const [toastId, setToastId] = useState(0);
+  const [dbAlerts, setDbAlerts] = useState([]);
+  const [dbAlertsLoading, setDbAlertsLoading] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [selectedAlertIds, setSelectedAlertIds] = useState(new Set());
   const [lateThreshold, setLateThreshold] = useState(DEFAULT_LATE_MINUTES);
   const [academicYear, setAcademicYear] = useState("");
   const [term, setTerm] = useState("");
@@ -356,23 +380,92 @@ export default function TeacherClassPeriodEntryExit() {
   }, []);
 
   const pushAlert = useCallback((a) => {
-    setAlertId((prev) => {
+    setToastId((prev) => {
       const id = prev + 1;
-      setAlerts((list) => [...list.slice(-4), { ...a, id }]);
-      setTimeout(() => setAlerts((list) => list.filter((x) => x.id !== id)), 8000);
+      setToastAlerts((list) => [...list.slice(-4), { ...a, id }]);
+      setTimeout(() => setToastAlerts((list) => list.filter((x) => x.id !== id)), 8000);
       return id;
     });
   }, []);
 
+  const loadDbAlerts = useCallback(async () => {
+    try {
+      setDbAlertsLoading(true);
+      const res = await api.get("/dos/teacher-period/alerts");
+      setDbAlerts(res?.data?.data || []);
+      setUnreadCount(res?.data?.unread_count || 0);
+    } catch (_) { /* silent */ }
+    finally { setDbAlertsLoading(false); }
+  }, []);
+
+  const markAlertRead = async (id, read = true) => {
+    try {
+      await api.patch(`/dos/teacher-period/alerts/${id}/read`, { is_read: read });
+      setDbAlerts((prev) => prev.map((a) => a.id === id ? { ...a, is_read: read ? 1 : 0 } : a));
+      setUnreadCount((c) => read ? Math.max(0, c - 1) : c + 1);
+    } catch (_) { pushAlert({ type:"missed", title:"Error", message:"Failed to update alert" }); }
+  };
+
+  const markAllRead = async () => {
+    try {
+      await api.patch("/dos/teacher-period/alerts/read-all");
+      setDbAlerts((prev) => prev.map((a) => ({ ...a, is_read: 1 })));
+      setUnreadCount(0);
+    } catch (_) { pushAlert({ type:"missed", title:"Error", message:"Failed to mark all read" }); }
+  };
+
+  const deleteAlert = async (id) => {
+    try {
+      await api.delete(`/dos/teacher-period/alerts/${id}`);
+      setDbAlerts((prev) => prev.filter((a) => a.id !== id));
+      setSelectedAlertIds((prev) => { const n = new Set(prev); n.delete(id); return n; });
+    } catch (_) { pushAlert({ type:"missed", title:"Error", message:"Failed to delete alert" }); }
+  };
+
+  const deleteSelectedAlerts = async () => {
+    if (selectedAlertIds.size === 0) return;
+    try {
+      await api.post("/dos/teacher-period/alerts/bulk-delete", { ids: [...selectedAlertIds] });
+      setDbAlerts((prev) => prev.filter((a) => !selectedAlertIds.has(a.id)));
+      setSelectedAlertIds(new Set());
+    } catch (_) { pushAlert({ type:"missed", title:"Error", message:"Failed to delete alerts" }); }
+  };
+
+  const deleteAllAlerts = async () => {
+    try {
+      await api.post("/dos/teacher-period/alerts/bulk-delete", { all: true });
+      setDbAlerts([]);
+      setSelectedAlertIds(new Set());
+      setUnreadCount(0);
+    } catch (_) { pushAlert({ type:"missed", title:"Error", message:"Failed to delete all alerts" }); }
+  };
+
+  const shareAlert = (alert) => {
+    const text = `[${alert.title}] ${alert.message}${alert.teacher_name ? ` — ${alert.teacher_name}` : ""}${alert.class_name ? ` (${alert.class_name})` : ""} — ${new Date(alert.created_at).toLocaleString()}`;
+    if (navigator.share) { navigator.share({ title: alert.title, text }).catch(() => {}); }
+    else { navigator.clipboard.writeText(text).then(() => pushAlert({ type:"late", title:"Copied", message:"Alert copied to clipboard" })); }
+  };
+
+  const toggleAlertSelect = (id) => {
+    setSelectedAlertIds((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  };
+
+  const toggleSelectAll = () => {
+    setSelectedAlertIds((prev) => prev.size === dbAlerts.length ? new Set() : new Set(dbAlerts.map((a) => a.id)));
+  };
+
   const loadPageData = useCallback(async () => {
     try {
       setLoading(true);
-      const [settingsRes, teachersRes, timetableRes, logsRes] = await Promise.all([
+      const [settingsRes, teachersRes, timetableRes, logsRes, alertsRes] = await Promise.all([
         api.get("/dos/teacher-period/settings"),
         api.get("/dos/teacher-period/teachers"),
         api.get("/dos/teacher-period/timetable", { params:{ day:getToday() } }),
         api.get("/dos/teacher-period/logs", { params:{ date:new Date().toISOString().slice(0,10) } }),
+        api.get("/dos/teacher-period/alerts").catch(() => ({ data: { data: [], unread_count: 0 } })),
       ]);
+      setDbAlerts(alertsRes?.data?.data || []);
+      setUnreadCount(alertsRes?.data?.unread_count || 0);
       const settings = settingsRes?.data?.data || {};
       setAcademicYear(settings.academic_year || "");
       setTerm(settings.term || "");
@@ -422,6 +515,7 @@ export default function TeacherClassPeriodEntryExit() {
   }, [filterDate,filterStatus,filterClass,filterTeacher,teachers,pushAlert]);
 
   useEffect(() => { if (activeTab==="reports") loadReports(); }, [activeTab,loadReports]);
+  useEffect(() => { if (activeTab==="alerts") loadDbAlerts(); }, [activeTab,loadDbAlerts]);
 
   const processTap = async (uid) => {
     if (!uid.trim()) return;
@@ -446,7 +540,12 @@ export default function TeacherClassPeriodEntryExit() {
       if (payload.action==="entry") setLogs((prev)=>[...prev.filter((l)=>l.id!==normalizedLog.id),normalizedLog]);
       else if (payload.action==="exit") setLogs((prev)=>prev.map((l)=>l.id===normalizedLog.id?{...l,exit_time:normalizedLog.exit_time||l.exit_time,status:normalizedLog.status||l.status,exit_status:normalizedLog.exit_status||l.exit_status||null}:l));
       else if (payload.action==="duplicate") { pushAlert({ type:"missed", title:"Attendance Closed", message:payload?.message||"All attendance done for this period" }); }
-      else if (payload.code==="NO_CLASS_ASSIGNED") { setScanResult({ type:"missed", teacher:data.teacher, late_mins:0 }); pushAlert({ type:"missed", title:"No Period Found", message:`${data.teacher||"Teacher"} has no class now` }); return; }
+      else if (payload.code==="NO_CLASS_ASSIGNED") {
+        const todaySlots = Array.isArray(data.today_slots) ? data.today_slots : [];
+        setScanResult({ type:"missed", teacher:data.teacher, late_mins:0, day:data.day, time:data.time, today_slots:todaySlots });
+        pushAlert({ type:"missed", title:"No Period Found", message:`${data.teacher||"Teacher"} has no class now` });
+        return;
+      }
       if (statusLower==="late") pushAlert({ type:"late", title:"Late Entry", message:`${data.teacher_name||"Teacher"} is ${Number(data.late_minutes||0)} min late` });
       setScanResult({
         type:payload.action==="duplicate"?"duplicate":payload.action==="exit"?(statusLower==="before"?"before":"exit"):statusLower==="late"?"late":"on_time",
@@ -456,7 +555,7 @@ export default function TeacherClassPeriodEntryExit() {
     } catch (err) {
       setScanResult({ type:"missed" });
       pushAlert({ type:"missed", title:"Scan Failed", message:err?.response?.data?.message||"Failed to process scan" });
-    } finally { setScanning(false); }
+    } finally { setScanning(false); loadDbAlerts(); }
   };
 
   const handleScanSubmit = (e) => { e.preventDefault(); processTap(scanInput); setScanInput(""); };
@@ -489,7 +588,7 @@ export default function TeacherClassPeriodEntryExit() {
     { key:"live",      label:"Live Log",  icon:Activity },
     { key:"reports",   label:"Reports",   icon:Eye },
     { key:"analytics", label:"Analytics", icon:BarChart2 },
-    { key:"alerts",    label:"Alerts",    icon:Bell, badge:alerts.length },
+    { key:"alerts",    label:"Alerts",    icon:Bell, badge:unreadCount },
     { key:"settings",  label:"Settings",  icon:Shield },
   ];
 
@@ -586,7 +685,7 @@ export default function TeacherClassPeriodEntryExit() {
         }
       `}</style>
 
-      <AlertToast alerts={alerts} onDismiss={(id)=>setAlerts((a)=>a.filter((x)=>x.id!==id))}/>
+      <AlertToast alerts={toastAlerts} onDismiss={(id)=>setToastAlerts((a)=>a.filter((x)=>x.id!==id))}/>
       <ReportDetailDrawer report={selectedReport} onClose={()=>setSelectedReport(null)}/>
 
       <div className="tp-page">
@@ -715,7 +814,7 @@ export default function TeacherClassPeriodEntryExit() {
 
                 <div style={{ marginTop:14,padding:"14px 16px",background:"#f8f9fc",borderRadius:14,display:"flex",alignItems:"center",justifyContent:"space-between",gap:12 }}>
                   <div>
-                    <p style={{ fontSize:12,fontWeight:700,color:NAVY,margin:0 }}>Grace Period</p>
+                    <p style={{ fontSize:12,fontWeight:700,color:NAVY,margin:0 }}>Limit Minutes</p>
                     <p style={{ fontSize:11,color:"#9ca3af",margin:"2px 0 0" }}>Late after this many minutes</p>
                   </div>
                   <div style={{ display:"flex",alignItems:"center",gap:8 }}>
@@ -990,7 +1089,7 @@ export default function TeacherClassPeriodEntryExit() {
               <div className="tp-stats-grid" style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:16 }}>
                 <StatCard icon={Activity}     label="Total Periods"  value={totalPeriods} sub="Today's logged"           accent={NAVY}    animate idx={0}/>
                 <StatCard icon={CheckCircle2} label="On Time"        value={onTimeCount}  sub={`${attendancePct}% rate`} accent="#10b981" animate idx={1}/>
-                <StatCard icon={Clock}        label="Late Entries"   value={lateCount}    sub="With grace period"        accent={AMBER}   animate idx={2}/>
+                <StatCard icon={Clock}        label="Late Entries"   value={lateCount}    sub="With Limit Minutes"        accent={AMBER}   animate idx={2}/>
                 <StatCard icon={XCircle}      label="Missed Periods" value={missedCount}  sub="No entry recorded"        accent="#ef4444" animate idx={3}/>
               </div>
 
@@ -1078,63 +1177,111 @@ export default function TeacherClassPeriodEntryExit() {
           {/* ── ALERTS ── */}
           {activeTab==="alerts"&&(
             <div style={{ animation:"tpFadeUp 0.35s ease" }}>
-              <div style={{ background:"#fff",borderRadius:20,padding:"22px 24px",boxShadow:"0 4px 24px rgba(0,4,53,0.06)",marginBottom:16 }}>
-                <div style={{ display:"flex",alignItems:"center",gap:12,marginBottom:18 }}>
+              {/* Toolbar */}
+              <div style={{ background:"#fff",borderRadius:20,padding:"16px 20px",boxShadow:"0 2px 16px rgba(0,4,53,0.06)",marginBottom:16,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10 }}>
+                <div style={{ display:"flex",alignItems:"center",gap:12 }}>
                   <div style={{ width:38,height:38,borderRadius:12,background:"#fff1f2",border:"1.5px solid #fecaca",display:"flex",alignItems:"center",justifyContent:"center" }}>
                     <Bell size={18} color="#dc2626"/>
                   </div>
                   <div>
                     <h2 style={{ fontSize:16,fontWeight:900,color:NAVY,margin:0 }}>Alert Center</h2>
-                    <p style={{ fontSize:12,color:"#9ca3af",margin:0 }}>Real-time period violations</p>
+                    <p style={{ fontSize:12,color:"#9ca3af",margin:0 }}>{dbAlerts.length} alerts · {unreadCount} unread</p>
                   </div>
                 </div>
-                {alerts.length===0?(
+                <div style={{ display:"flex",alignItems:"center",gap:6,flexWrap:"wrap" }}>
+                  <button type="button" onClick={toggleSelectAll} className="tp-btn-ghost" style={{ display:"flex",alignItems:"center",gap:5,padding:"7px 12px",fontSize:11 }}>
+                    {selectedAlertIds.size===dbAlerts.length&&dbAlerts.length>0?<CheckSquare size={13}/>:<Square size={13}/>}
+                    {selectedAlertIds.size>0?`${selectedAlertIds.size} selected`:"Select all"}
+                  </button>
+                  {unreadCount>0&&(
+                    <button type="button" onClick={markAllRead} className="tp-btn-ghost" style={{ display:"flex",alignItems:"center",gap:5,padding:"7px 12px",fontSize:11,color:"#1d4ed8",borderColor:"#dbeafe" }}>
+                      <Eye size={13}/> Mark all read
+                    </button>
+                  )}
+                  {selectedAlertIds.size>0&&(
+                    <button type="button" onClick={deleteSelectedAlerts} className="tp-btn-ghost" style={{ display:"flex",alignItems:"center",gap:5,padding:"7px 12px",fontSize:11,color:"#dc2626",borderColor:"#fecaca" }}>
+                      <Trash2 size={13}/> Delete selected
+                    </button>
+                  )}
+                  {dbAlerts.length>0&&(
+                    <button type="button" onClick={()=>{if(window.confirm("Delete ALL alerts?"))deleteAllAlerts();}} className="tp-btn-ghost" style={{ display:"flex",alignItems:"center",gap:5,padding:"7px 12px",fontSize:11,color:"#dc2626",borderColor:"#fecaca" }}>
+                      <Trash2 size={13}/> Clear all
+                    </button>
+                  )}
+                  <button type="button" onClick={loadDbAlerts} className="tp-btn-ghost" style={{ display:"flex",alignItems:"center",gap:5,padding:"7px 12px",fontSize:11 }}>
+                    <RefreshCw size={13}/> Refresh
+                  </button>
+                </div>
+              </div>
+
+              {/* Alerts List */}
+              <div style={{ background:"#fff",borderRadius:20,padding:"22px 24px",boxShadow:"0 4px 24px rgba(0,4,53,0.06)" }}>
+                {dbAlertsLoading?(
+                  <div style={{ textAlign:"center",padding:"36px 0",color:"#9ca3af" }}>
+                    <div style={{ width:32,height:32,borderRadius:"50%",border:`3px solid ${AMBER}`,borderTopColor:"transparent",animation:"tpSpin 0.8s linear infinite",margin:"0 auto 10px" }}/>
+                    <p style={{ margin:0,fontWeight:700 }}>Loading alerts…</p>
+                  </div>
+                ):dbAlerts.length===0?(
                   <div style={{ textAlign:"center",padding:"44px 0",color:"#9ca3af" }}>
                     <CheckCircle2 size={40} style={{ margin:"0 auto 12px",display:"block",color:"#10b981",opacity:0.5 }}/>
                     <p style={{ fontWeight:800,color:"#065f46",margin:0,fontSize:15 }}>All Clear</p>
-                    <p style={{ fontSize:13,color:"#9ca3af",margin:"6px 0 0" }}>No active alerts right now</p>
+                    <p style={{ fontSize:13,color:"#9ca3af",margin:"6px 0 0" }}>No alerts recorded yet</p>
                   </div>
                 ):(
-                  <div style={{ display:"flex",flexDirection:"column",gap:10 }}>
-                    {alerts.map((a,i)=>(
-                      <div key={a.id} style={{ display:"flex",alignItems:"flex-start",gap:12,padding:"14px 18px",borderRadius:16,background:a.type==="late"?"#fffbeb":"#fff1f2",border:`1.5px solid ${a.type==="late"?"#fde68a":"#fecaca"}`,animation:`tpFadeUp 0.25s ease ${i*0.05}s both` }}>
-                        <div style={{ width:38,height:38,borderRadius:11,background:a.type==="late"?"#fef3c7":"#fee2e2",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0 }}>
-                          {a.type==="late"?<Clock size={17} color={AMBER_DARK}/>:<AlertTriangle size={17} color="#dc2626"/>}
+                  <div style={{ display:"flex",flexDirection:"column",gap:8 }}>
+                    {dbAlerts.map((a,i)=>{
+                      const isLate = a.alert_type==="late";
+                      const isBefore = a.alert_type==="before";
+                      const bg = isLate?"#fffbeb":isBefore?"#eef2ff":"#fff1f2";
+                      const border = isLate?"#fde68a":isBefore?"#c7d2fe":"#fecaca";
+                      const iconBg = isLate?"#fef3c7":isBefore?"#e0e7ff":"#fee2e2";
+                      const iconColor = isLate?AMBER_DARK:isBefore?"#4338ca":"#dc2626";
+                      const IconEl = isLate?Clock:isBefore?TrendingDown:AlertTriangle;
+                      const isSelected = selectedAlertIds.has(a.id);
+                      const isUnread = !a.is_read;
+                      return (
+                        <div key={a.id} style={{
+                          display:"flex",alignItems:"flex-start",gap:12,padding:"14px 16px",borderRadius:16,
+                          background:isUnread?bg:`${bg}88`,border:`1.5px solid ${isUnread?border:`${border}66`}`,
+                          opacity:isUnread?1:0.75,animation:`tpFadeUp 0.25s ease ${i*0.03}s both`,
+                          position:"relative",
+                        }}>
+                          <button type="button" onClick={()=>toggleAlertSelect(a.id)} style={{ background:"none",border:"none",cursor:"pointer",padding:0,display:"flex",flexShrink:0,marginTop:2 }}>
+                            {isSelected?<CheckSquare size={18} color={AMBER_DARK}/>:<Square size={18} color="#9ca3af"/>}
+                          </button>
+                          {isUnread&&<div style={{ position:"absolute",top:8,left:8,width:7,height:7,borderRadius:"50%",background:"#3b82f6",boxShadow:"0 0 0 3px #3b82f622" }}/>}
+                          <div style={{ width:38,height:38,borderRadius:11,background:iconBg,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0 }}>
+                            <IconEl size={17} color={iconColor}/>
+                          </div>
+                          <div style={{ flex:1,minWidth:0 }}>
+                            <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:3 }}>
+                              <p style={{ fontWeight:800,fontSize:14,color:NAVY,margin:0 }}>{a.title}</p>
+                              {isUnread&&<span style={{ fontSize:9,fontWeight:800,background:"#3b82f6",color:"#fff",borderRadius:99,padding:"1px 7px",textTransform:"uppercase" }}>New</span>}
+                            </div>
+                            <p style={{ fontSize:13,color:"#6b7280",margin:"0 0 4px",lineHeight:1.4 }}>{a.message}</p>
+                            <div style={{ display:"flex",alignItems:"center",gap:8,flexWrap:"wrap" }}>
+                              {a.teacher_name&&<span style={{ fontSize:11,color:"#6b7280",fontWeight:600 }}>{a.teacher_name}</span>}
+                              {a.class_name&&<span style={{ fontSize:10,background:"#f0f1f8",borderRadius:6,padding:"2px 7px",fontWeight:700,color:NAVY }}>{a.class_name}</span>}
+                              {a.subject_name&&<span style={{ fontSize:10,color:"#9ca3af",fontWeight:600 }}>{a.subject_name}</span>}
+                              <span style={{ fontSize:10,color:"#9ca3af",fontFamily:"'DM Mono',monospace" }}>{new Date(a.created_at).toLocaleString("en-GB",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})}</span>
+                            </div>
+                          </div>
+                          <div style={{ display:"flex",flexDirection:"column",gap:4,flexShrink:0 }}>
+                            <button type="button" title={isUnread?"Mark read":"Mark unread"} onClick={()=>markAlertRead(a.id,isUnread)} style={{ width:30,height:30,borderRadius:8,border:"1px solid #e5e7eb",background:"#fff",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer" }}>
+                              <Eye size={13} color={isUnread?"#3b82f6":"#9ca3af"}/>
+                            </button>
+                            <button type="button" title="Share" onClick={()=>shareAlert(a)} style={{ width:30,height:30,borderRadius:8,border:"1px solid #e5e7eb",background:"#fff",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer" }}>
+                              <Share2 size={13} color="#6b7280"/>
+                            </button>
+                            <button type="button" title="Delete" onClick={()=>deleteAlert(a.id)} style={{ width:30,height:30,borderRadius:8,border:"1px solid #fecaca",background:"#fff1f2",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer" }}>
+                              <Trash2 size={13} color="#dc2626"/>
+                            </button>
+                          </div>
                         </div>
-                        <div style={{ flex:1 }}>
-                          <p style={{ fontWeight:800,fontSize:14,color:NAVY,margin:0 }}>{a.title}</p>
-                          <p style={{ fontSize:13,color:"#6b7280",margin:"3px 0 0" }}>{a.message}</p>
-                        </div>
-                        <button onClick={()=>setAlerts((l)=>l.filter((x)=>x.id!==a.id))} style={{ background:"none",border:"none",cursor:"pointer",padding:0,display:"flex" }}>
-                          <X size={16} color="#9ca3af"/>
-                        </button>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
-              </div>
-
-              <div style={{ background:"#fff",borderRadius:20,padding:"22px 24px",boxShadow:"0 4px 24px rgba(0,4,53,0.06)" }}>
-                <div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:18 }}>
-                  <Shield size={17} color={NAVY}/>
-                  <span style={{ fontWeight:800,fontSize:15,color:NAVY }}>Alert Configuration</span>
-                </div>
-                {[
-                  { label:"Late Entry Alert",   sub:"Trigger when teacher enters late",           active:true  },
-                  { label:"Missed Period Alert", sub:"Auto-flag periods with no tap",              active:true  },
-                  { label:"Early Exit Alert",    sub:"Alert when teacher leaves before end",       active:false },
-                  { label:"Double Tap Guard",    sub:"Prevent duplicate entry/exit taps",          active:true  },
-                ].map((cfg,i)=>(
-                  <div key={cfg.label} style={{ display:"flex",alignItems:"center",justifyContent:"space-between",padding:"15px 0",borderBottom:i<3?"1px solid #f3f4f6":"none" }}>
-                    <div>
-                      <p style={{ fontWeight:700,fontSize:14,color:NAVY,margin:0 }}>{cfg.label}</p>
-                      <p style={{ fontSize:12,color:"#9ca3af",margin:"3px 0 0" }}>{cfg.sub}</p>
-                    </div>
-                    <div style={{ width:46,height:26,borderRadius:99,background:cfg.active?`linear-gradient(135deg,${AMBER},${AMBER_DARK})`:"#e5e7eb",position:"relative",cursor:"pointer",flexShrink:0,boxShadow:cfg.active?`0 2px 10px ${AMBER}44`:"none",transition:"background 0.25s" }}>
-                      <div style={{ width:20,height:20,borderRadius:"50%",background:"#fff",position:"absolute",top:3,left:cfg.active?23:3,transition:"left 0.2s ease",boxShadow:"0 2px 6px rgba(0,0,0,0.14)" }}/>
-                    </div>
-                  </div>
-                ))}
               </div>
             </div>
           )}

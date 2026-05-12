@@ -1,0 +1,511 @@
+
+BULK PHOTO ATTACHMENT REPORT
+=====================================
+Date: 4/30/2026, 4:51:19 PM
+Duration: 0m 30s
+
+SUMMARY
+-------
+Total Processed: 483
+✅ Successfully Attached: 389 (80.5%)
+⏭️  Skipped (Low Confidence): 94
+❌ Errors: 0
+
+ATTACHED RECORDS
+----------------
+  • pic_id=5592, student_id=11, name="GWIZA NOLAN", score=100.0%
+  • pic_id=5595, student_id=22, name="IMENA MUGISHA NILAN", score=100.0%
+  • pic_id=5597, student_id=53, name="NISHIMWE MIKA JUNIOR", score=100.0%
+  • pic_id=5598, student_id=41, name="MANZI HUZAIFA", score=100.0%
+  • pic_id=5599, student_id=4, name="BYOSENIMANA GASARO ETOIRE", score=100.0%
+  • pic_id=5602, student_id=15, name="IGABE CIKOMA ELLAN", score=100.0%
+  • pic_id=5603, student_id=35, name="ISHIMWE FILLETE", score=100.0%
+  • pic_id=5604, student_id=1, name="AGANZE DARCY", score=100.0%
+  • pic_id=5605, student_id=65, name="UWUMUKIZA CHRISTIAN", score=100.0%
+  • pic_id=5606, student_id=2, name="BISAMAZA MORGAN", score=100.0%
+  • pic_id=5607, student_id=10, name="GWIZA IAN", score=100.0%
+  • pic_id=5609, student_id=19, name="IKUZO MUHOZA BENON", score=100.0%
+  • pic_id=5611, student_id=45, name="MFURAKAZI NADIA INNOCENTE", score=100.0%
+  • pic_id=5613, student_id=62, name="USANASE PRINCE", score=80.0%
+  • pic_id=5614, student_id=3, name="BYISHIMO CYUSA ETHAN", score=100.0%
+  • pic_id=5615, student_id=27, name="IRAKOZE IANNY MULAIKA", score=100.0%
+  • pic_id=5616, student_id=33, name="ISHIMWE CLEVER", score=100.0%
+  • pic_id=5617, student_id=21, name="IMANATURIKUMWE JANA DANIELLA", score=100.0%
+  • pic_id=5618, student_id=50, name="MUNEZERO KEILLA", score=100.0%
+  • pic_id=5619, student_id=61, name="SHIMWA DANIVA", score=100.0%
+  • pic_id=5620, student_id=7, name="DUHIRWE KAGABO MUNANA ELIO", score=100.0%
+  • pic_id=5620, student_id=54, name="NKESHIMANA ELLA AURORE", score=100.0%
+  • pic_id=5621, student_id=38, name="KAZUBA LEILA HORTANCE", score=100.0%
+  • pic_id=5622, student_id=31, name="ISHEJA SONGA GAEL", score=100.0%
+  • pic_id=5623, student_id=17, name="IKAMBA BRAVE HAYDEN", score=100.0%
+  • pic_id=5624, student_id=30, name="ISHEJA NAOMIE", score=100.0%
+  • pic_id=5625, student_id=28, name="IRAMUMPAYE ANGE BLESSING", score=100.0%
+  • pic_id=5626, student_id=58, name="RUGWIRO PEACE GAEL", score=100.0%
+  • pic_id=5627, student_id=20, name="IKUZWE GIHOZO OLGA", score=100.0%
+  • pic_id=5634, student_id=12, name="GWIZA NZIYUMVIRA ELYSIE", score=100.0%
+  • pic_id=5635, student_id=57, name="RUGWIRO OWEN IBRAHIM", score=100.0%
+  • pic_id=5636, student_id=48, name="MUGISHA SANO ARCHANGE", score=100.0%
+  • pic_id=5637, student_id=37, name="KAYIRANGA AURORE MERVEILLE", score=100.0%
+  • pic_id=5642, student_id=36, name="KALIMBA KAZADI ALIYAH AMELIA", score=100.0%
+  • pic_id=5643, student_id=14, name="HIRWA MUNYABIHOGO WILLIAM", score=100.0%
+  • pic_id=5644, student_id=29, name="IRINATWE TODAH GODWI", score=100.0%
+  • pic_id=5646, student_id=52, name="NEZERWA ASANTE", score=100.0%
+  • pic_id=5647, student_id=54, name="NKESHIMANA ELLA AURORE", score=100.0%
+  • pic_id=5648, student_id=8, name="GIKUNDIRO SABINE WINNY", score=100.0%
+  • pic_id=5649, student_id=60, name="RWEMA MUSONERA NARDO", score=100.0%
+  • pic_id=5650, student_id=59, name="RUGWIRO SAFARI PRIDE", score=100.0%
+  • pic_id=5651, student_id=40, name="KUNDWA GABIRO GRAINE", score=100.0%
+  • pic_id=5652, student_id=16, name="IGIRANEZA YAKIN", score=100.0%
+  • pic_id=5653, student_id=42, name="MANZI RWIGEMA JUNIOR", score=100.0%
+  • pic_id=5654, student_id=39, name="KUNDWA MUSAGO", score=100.0%
+  • pic_id=5655, student_id=23, name="IMPANO SHIMO DAVE", score=100.0%
+  • pic_id=5656, student_id=13, name="HIRWA RYAN", score=100.0%
+  • pic_id=5657, student_id=32, name="ISHEMA KUNDWA MAY", score=100.0%
+  • pic_id=5658, student_id=6, name="CYUSA AKEEM", score=100.0%
+  • pic_id=5659, student_id=5, name="CYIZA NGENZI SUIDICK", score=100.0%
+  • pic_id=5661, student_id=55, name="NTWARI BRAVE", score=100.0%
+  • pic_id=5662, student_id=34, name="ISHIMWE ELLA GAELLA", score=100.0%
+  • pic_id=5663, student_id=18, name="IKAZE NORA GIANA", score=100.0%
+  • pic_id=5665, student_id=133, name="UWINEZA IAN KEVIN", score=100.0%
+  • pic_id=5666, student_id=132, name="UWERA TEDINE", score=100.0%
+  • pic_id=5667, student_id=114, name="MUNEZERO HONETTE", score=100.0%
+  • pic_id=5668, student_id=126, name="TUYISHIME GANZA GIANI", score=100.0%
+  • pic_id=5669, student_id=87, name="INEMA Basil Alan", score=100.0%
+  • pic_id=5670, student_id=116, name="MURENGEZI GIFT", score=100.0%
+  • pic_id=5671, student_id=81, name="IHIRWE NAILA CIKOMA", score=100.0%
+  • pic_id=5672, student_id=68, name="AKAMI Karambizi Bryson", score=100.0%
+  • pic_id=5674, student_id=78, name="HIRWA Bless Ryan", score=100.0%
+  • pic_id=5675, student_id=113, name="MUHIZI Liam Nolan", score=100.0%
+  • pic_id=5676, student_id=75, name="HABINEZA Christa Bella", score=100.0%
+  • pic_id=5677, student_id=131, name="UWASE Keila", score=100.0%
+  • pic_id=5678, student_id=128, name="UMUTONIWASE Ella Tressa", score=100.0%
+  • pic_id=5679, student_id=51, name="NATETE BRIELLA", score=100.0%
+  • pic_id=5681, student_id=105, name="KAMIKAZIKASE Ornella", score=100.0%
+  • pic_id=5682, student_id=125, name="SHEMA Alnold Edwin", score=100.0%
+  • pic_id=5683, student_id=79, name="IGANZE EVAN BEBETO", score=100.0%
+  • pic_id=5684, student_id=88, name="INEZA LAILA", score=100.0%
+  • pic_id=5685, student_id=99, name="ISANGE Emma Bryanna", score=100.0%
+  • pic_id=5688, student_id=73, name="CYUSA AARON", score=100.0%
+  • pic_id=5689, student_id=89, name="INEZA IVAN BRUNO", score=100.0%
+  • pic_id=5690, student_id=108, name="MICYOMYIZA Eloi", score=100.0%
+  • pic_id=5691, student_id=104, name="KAMIKAZI BIJUGIZA SCOVIA", score=100.0%
+  • pic_id=5692, student_id=103, name="IYABIVUZE Belyse", score=100.0%
+  • pic_id=5693, student_id=130, name="UWASE GAELLA", score=100.0%
+  • pic_id=5694, student_id=76, name="HABUMUREMYI Isimbi Ella", score=100.0%
+  • pic_id=5695, student_id=67, name="AKALIZA HAPPY HARPER", score=100.0%
+  • pic_id=5696, student_id=124, name="SHEJA Samuella", score=100.0%
+  • pic_id=5697, student_id=94, name="IRADUKUNDA Ella Abriana", score=100.0%
+  • pic_id=5698, student_id=96, name="IRAZI Nshimiye Kendra", score=100.0%
+  • pic_id=5699, student_id=98, name="IRUMVA Aime Lameck", score=100.0%
+  • pic_id=5700, student_id=72, name="BERWANINEZA Keza Junior", score=100.0%
+  • pic_id=5702, student_id=92, name="INGENZI Rwisumbura Jasper", score=100.0%
+  • pic_id=5704, student_id=85, name="IKUZWE SHIMWA Louange", score=100.0%
+  • pic_id=5705, student_id=119, name="NTWARI IRASUBIZA CLEVER", score=100.0%
+  • pic_id=5706, student_id=69, name="AKAMIKAZI ABBY CHRISTELLA", score=100.0%
+  • pic_id=5707, student_id=97, name="IRINATWE Ganza Blessing", score=100.0%
+  • pic_id=5708, student_id=84, name="IKUZO NIMWIZA RENATHAHA", score=100.0%
+  • pic_id=5709, student_id=109, name="MPANO Mugisha Angelo", score=100.0%
+  • pic_id=5710, student_id=132, name="UWERA TEDINE", score=100.0%
+  • pic_id=5711, student_id=90, name="INEZA Ornella", score=100.0%
+  • pic_id=5713, student_id=80, name="IGENO Shimwa Honore", score=100.0%
+  • pic_id=5714, student_id=107, name="KUNDWA Joella", score=100.0%
+  • pic_id=5716, student_id=102, name="ISHIMWE JADE MYSTICA", score=100.0%
+  • pic_id=5717, student_id=127, name="UHIRWA BENAYAH", score=100.0%
+  • pic_id=5718, student_id=93, name="IRACYAKORA Lionel", score=100.0%
+  • pic_id=5719, student_id=95, name="IRAKIZA Dusabe Miguel", score=100.0%
+  • pic_id=5721, student_id=91, name="INEZA Winny Sharon", score=100.0%
+  • pic_id=5722, student_id=67, name="AKALIZA HAPPY HARPER", score=100.0%
+  • pic_id=5724, student_id=74, name="GWIZA Kariwabo Ollen", score=100.0%
+  • pic_id=5725, student_id=100, name="ISHEJA Norah", score=100.0%
+  • pic_id=5726, student_id=82, name="IHOZO Mugisha Clenia", score=100.0%
+  • pic_id=5727, student_id=83, name="IKUZO Nada", score=100.0%
+  • pic_id=5728, student_id=129, name="UWAJENEZA CHANIA", score=100.0%
+  • pic_id=5731, student_id=187, name="MUTESI ADELA", score=100.0%
+  • pic_id=5734, student_id=192, name="NIYOMUGABO BARIKA", score=100.0%
+  • pic_id=5735, student_id=140, name="AKAMANZI SALWA", score=100.0%
+  • pic_id=5737, student_id=186, name="MUGISHA Labine", score=100.0%
+  • pic_id=5738, student_id=156, name="IGENO LITA Jovia", score=100.0%
+  • pic_id=5739, student_id=166, name="IRAKOZE MUCYO JEAN DE DIEU", score=100.0%
+  • pic_id=5740, student_id=159, name="IHIRWE ORNELLA", score=100.0%
+  • pic_id=5742, student_id=204, name="UWAJENEZA JOVIA", score=100.0%
+  • pic_id=5744, student_id=144, name="ASHIMWE SENGA IAN", score=100.0%
+  • pic_id=5745, student_id=155, name="HABUMUGISHA SHYAKA", score=100.0%
+  • pic_id=5746, student_id=164, name="IRADUKUNDA INEZA MERCI", score=100.0%
+  • pic_id=5747, student_id=175, name="ISHIMWE SHEMA MUKHUTAL", score=100.0%
+  • pic_id=5750, student_id=205, name="YIZERE Ruben NESTOR", score=100.0%
+  • pic_id=5752, student_id=172, name="ISHIMWE HAPPY DIDIER", score=100.0%
+  • pic_id=5753, student_id=180, name="KANYIGINYA ANAELLA Success", score=100.0%
+  • pic_id=5754, student_id=154, name="GWIZA NESSA", score=100.0%
+  • pic_id=5755, student_id=151, name="GAJU NZIYUMVIRA ELLA", score=100.0%
+  • pic_id=5756, student_id=170, name="ISHIMWE ANGE CHRISTELLA", score=100.0%
+  • pic_id=5757, student_id=157, name="IGIRANEZA NISSIAH", score=100.0%
+  • pic_id=5760, student_id=202, name="UKUNZWE GIRAMATA LUCKY", score=100.0%
+  • pic_id=5761, student_id=191, name="NEZA JUAN", score=93.3%
+  • pic_id=5763, student_id=169, name="ISANOYACU DANY PRIDE", score=100.0%
+  • pic_id=5764, student_id=197, name="SHAMI NIWE Reeves", score=100.0%
+  • pic_id=5766, student_id=153, name="GWIZA Ndandu Shammah", score=100.0%
+  • pic_id=5767, student_id=141, name="AKANDI OLGA", score=100.0%
+  • pic_id=5768, student_id=138, name="AGATAKO MALUWA", score=100.0%
+  • pic_id=5769, student_id=138, name="AGATAKO MALUWA", score=100.0%
+  • pic_id=5770, student_id=189, name="NDAYISHIMIYE GOLAN", score=100.0%
+  • pic_id=5771, student_id=134, name="VICTOR KADDU KISENYI", score=100.0%
+  • pic_id=5771, student_id=184, name="MUDAHIGWA HUSNAH", score=100.0%
+  • pic_id=5772, student_id=168, name="ISANO AVASHA LOGAN", score=100.0%
+  • pic_id=5773, student_id=165, name="IRAKOZE MEGAN RIELLA", score=100.0%
+  • pic_id=5777, student_id=171, name="ISHIMWE ANNE CHRISTA", score=100.0%
+  • pic_id=5778, student_id=193, name="NTWARI NELSON", score=100.0%
+  • pic_id=5780, student_id=190, name="NDAYISHIMIYE HAMZA", score=100.0%
+  • pic_id=5781, student_id=174, name="ISHIMWE JONATHAN", score=100.0%
+  • pic_id=5782, student_id=146, name="BAHUJE LIAM JOBERT", score=100.0%
+  • pic_id=5783, student_id=177, name="JEAN PIERRE NJAMAHORO", score=94.4%
+  • pic_id=5784, student_id=201, name="TUYISHIME ELYSE", score=100.0%
+  • pic_id=5785, student_id=163, name="INEZA NSHUTI Alain", score=100.0%
+  • pic_id=5786, student_id=167, name="IRASUBIJE VITTY", score=100.0%
+  • pic_id=5787, student_id=142, name="AKEZAKASE GAELLA", score=100.0%
+  • pic_id=5852, student_id=275, name="NIYONSENGA Emmanuel", score=100.0%
+  • pic_id=5854, student_id=232, name="INEZA Eunice", score=100.0%
+  • pic_id=5857, student_id=247, name="ITETE NAELLA JACK SALIMA", score=100.0%
+  • pic_id=5858, student_id=299, name="UWITUZE Scovia", score=100.0%
+  • pic_id=5859, student_id=206, name="AGANZE NTWARI MUHSIN", score=100.0%
+  • pic_id=5860, student_id=218, name="BUGINGO ABED CALME", score=100.0%
+  • pic_id=5861, student_id=215, name="BELLE MORAH JAMVIERE", score=100.0%
+  • pic_id=5862, student_id=229, name="IHIRWE OONA BIANCA", score=100.0%
+  • pic_id=5863, student_id=285, name="SANO ISAAC", score=100.0%
+  • pic_id=5864, student_id=228, name="IGIRANEZA Kayiranga Kessy", score=88.0%
+  • pic_id=5865, student_id=269, name="MWIZA JOY", score=100.0%
+  • pic_id=5866, student_id=261, name="MUGEMA GIRAMATA ORNELLA", score=92.7%
+  • pic_id=5868, student_id=290, name="SHIMWA Ella", score=100.0%
+  • pic_id=5869, student_id=268, name="MUKUNZI CYUZUZO SHAINAH", score=82.1%
+  • pic_id=5871, student_id=214, name="AMPIRE MPURANYI ANAELLA", score=100.0%
+  • pic_id=5872, student_id=223, name="HABINEZA UTUJE ELLA", score=100.0%
+  • pic_id=5873, student_id=295, name="UMUSABESE ROSINE", score=100.0%
+  • pic_id=5874, student_id=279, name="NTWARI SHIMWA Maxime", score=100.0%
+  • pic_id=5876, student_id=292, name="SHYAKA Junior ALDO", score=86.7%
+  • pic_id=5877, student_id=274, name="NIYIGENA REYDEN", score=84.6%
+  • pic_id=5878, student_id=235, name="INEZA MIGAMBI PRINCE CLEVER", score=100.0%
+  • pic_id=5879, student_id=231, name="IMFURA MUSONI YANNICK", score=91.4%
+  • pic_id=5880, student_id=230, name="IMENA BLESS EVAN", score=81.8%
+  • pic_id=5881, student_id=256, name="MANZI IMFURA BRIGHTON", score=83.9%
+  • pic_id=5882, student_id=233, name="INEZA EVAN RYAN", score=100.0%
+  • pic_id=5883, student_id=277, name="NTANGO CYUSA ABIAH", score=100.0%
+  • pic_id=5884, student_id=287, name="SHAMIWAMUGISHA Promise", score=89.5%
+  • pic_id=5885, student_id=238, name="IRACYANYIBUKA ELIE", score=100.0%
+  • pic_id=5886, student_id=207, name="AKA LUCKY KING", score=84.2%
+  • pic_id=5810, student_id=258, name="MICOMYIZA Ganza", score=88.9%
+  • pic_id=5811, student_id=264, name="MUGISHA Obded", score=85.7%
+  • pic_id=5812, student_id=250, name="KAMIKAZI LINDA SYLIVIE", score=91.9%
+  • pic_id=5813, student_id=297, name="UWASE CLEMANCE", score=83.3%
+  • pic_id=5815, student_id=225, name="HIRWA BRUNO DANNY", score=82.8%
+  • pic_id=5820, student_id=226, name="HIRWA Ornella", score=100.0%
+  • pic_id=5821, student_id=284, name="SANGWA MUSONERA TONNY", score=85.7%
+  • pic_id=5788, student_id=152, name="GANZA Lewis", score=100.0%
+  • pic_id=5790, student_id=135, name="INEZA NTWARI ARNOLD", score=90.3%
+  • pic_id=5791, student_id=147, name="BISINGIZO ANNE TESSA", score=100.0%
+  • pic_id=5792, student_id=179, name="KAMANZI ENZO", score=100.0%
+  • pic_id=5793, student_id=136, name="ABAMI KARAMBIZI BRIAN", score=100.0%
+  • pic_id=5795, student_id=183, name="MANZI RYAN", score=100.0%
+  • pic_id=5800, student_id=143, name="ASHIMWE NDIZIHIWE DAISY", score=100.0%
+  • pic_id=5802, student_id=200, name="TURIKUMWE SHIMWA Fidella", score=100.0%
+  • pic_id=5804, student_id=181, name="KARIZA CHANCE Francine", score=100.0%
+  • pic_id=5805, student_id=203, name="UMWARI SONGA JENIFFA", score=100.0%
+  • pic_id=5827, student_id=245, name="ISHIMWE Eric", score=100.0%
+  • pic_id=5828, student_id=219, name="GANZA IVAN LEO BRIGHT", score=83.9%
+  • pic_id=5832, student_id=293, name="SUGIRA MUPENZI ALDON", score=82.4%
+  • pic_id=5836, student_id=259, name="MUCYO Yazid", score=94.7%
+  • pic_id=5840, student_id=474, name="MUGISHA IVAN", score=100.0%
+  • pic_id=5841, student_id=282, name="RUKUNDO BLESSING", score=92.9%
+  • pic_id=5845, student_id=278, name="NTWARI BLAISE", score=81.8%
+  • pic_id=5847, student_id=220, name="GASANA MARIE JANVIERE", score=97.1%
+  • pic_id=5849, student_id=298, name="UWINEZA MARIE", score=90.9%
+  • pic_id=5888, student_id=617, name="ISHIMWE NYURWA HUBERT", score=100.0%
+  • pic_id=5890, student_id=626, name="NIYITANGAZA M. Elohim", score=82.1%
+  • pic_id=5892, student_id=614, name="IMENA HIRWA Clevis", score=100.0%
+  • pic_id=5895, student_id=636, name="UWINEZA BAHATI SHAMI", score=100.0%
+  • pic_id=5896, student_id=628, name="NKUMBUYIMFURA TETA INEZA Mireille", score=90.6%
+  • pic_id=5898, student_id=610, name="GWIZA UWAMUNGU Charlize", score=100.0%
+  • pic_id=5899, student_id=635, name="URUSARO LEAN Iness", score=100.0%
+  • pic_id=5900, student_id=622, name="MIGISHA Queen Light", score=100.0%
+  • pic_id=5902, student_id=615, name="IRIZA SHEBA KETIA", score=100.0%
+  • pic_id=5904, student_id=611, name="HAFASHIMANA Thiery", score=100.0%
+  • pic_id=5905, student_id=616, name="ISARO KALISA Gavina", score=100.0%
+  • pic_id=5910, student_id=605, name="BYUKUSENGE Benitha", score=100.0%
+  • pic_id=5911, student_id=627, name="NIYITEGEKA SENGA Gloria", score=100.0%
+  • pic_id=5913, student_id=604, name="INEZA GANZA ORNELLA", score=100.0%
+  • pic_id=5915, student_id=634, name="TUYISABE Patience", score=100.0%
+  • pic_id=5917, student_id=625, name="NGIRIMANA KEZA Emelyne", score=100.0%
+  • pic_id=5918, student_id=608, name="GAJU Light", score=100.0%
+  • pic_id=5920, student_id=607, name="DUSHIME JABO Michael", score=100.0%
+  • pic_id=5924, student_id=621, name="MANZI Ian BADEGE", score=92.3%
+  • pic_id=5926, student_id=623, name="MUCYO Philemon RUSINE", score=94.4%
+  • pic_id=5927, student_id=631, name="SHEMA David", score=100.0%
+  • pic_id=5932, student_id=633, name="SHUMBUSHO Samuel", score=100.0%
+  • pic_id=5935, student_id=619, name="KWIZERA CYUSA ROMEO", score=100.0%
+  • pic_id=5937, student_id=632, name="SHEMA GANZA Taliq", score=85.7%
+  • pic_id=5940, student_id=613, name="IHIRWE GANZA Ness", score=100.0%
+  • pic_id=5889, student_id=669, name="UWIDUHAYE Seraphine", score=100.0%
+  • pic_id=5893, student_id=606, name="DUHIRWE Acsah Bernice", score=100.0%
+  • pic_id=5894, student_id=649, name="ISIMBI Romey Arielle", score=100.0%
+  • pic_id=5897, student_id=664, name="SANO MUGABO Bryan", score=100.0%
+  • pic_id=5901, student_id=639, name="IHIRWE Ange", score=100.0%
+  • pic_id=5903, student_id=651, name="KAYISHEJA MPANO Lievinne", score=100.0%
+  • pic_id=5906, student_id=668, name="UMURISA TUYISHIME Ornella", score=100.0%
+  • pic_id=5908, student_id=637, name="BENINGWA Brinelle Helene", score=87.8%
+  • pic_id=5912, student_id=657, name="MUNYANA Lina Narada", score=100.0%
+  • pic_id=5914, student_id=641, name="INEZA Brian", score=100.0%
+  • pic_id=5916, student_id=654, name="MBARAGA NDANYUZWE Endris", score=100.0%
+  • pic_id=5919, student_id=653, name="MBANANAYO Jonathan", score=100.0%
+  • pic_id=5922, student_id=650, name="IZAMUKUZA Yvette", score=96.3%
+  • pic_id=5925, student_id=642, name="INEZA FEZA Leslie", score=100.0%
+  • pic_id=5928, student_id=647, name="IRUMVA S.Vainqueur", score=89.7%
+  • pic_id=5929, student_id=662, name="NYIRAMUGISHA Gloria", score=87.5%
+  • pic_id=5931, student_id=640, name="IHIRWE Belyse", score=81.8%
+  • pic_id=5933, student_id=656, name="MUGISHA Hero Liver", score=93.3%
+  • pic_id=5934, student_id=648, name="ISHIMWE Joy", score=100.0%
+  • pic_id=5936, student_id=638, name="CYUSA Abdoulaziz", score=92.9%
+  • pic_id=5938, student_id=663, name="RWEMA Prince", score=100.0%
+  • pic_id=5941, student_id=661, name="NTWARI Justin Fiston", score=94.1%
+  • pic_id=6110, student_id=652, name="MANZI Bruce", score=100.0%
+  • pic_id=6111, student_id=666, name="UMUCYO Delphin", score=100.0%
+  • pic_id=6112, student_id=655, name="MPAMIRA MANZI Allain Crinovi", score=100.0%
+  • pic_id=6113, student_id=659, name="NKURUNZIZA Nicky Brian", score=100.0%
+  • pic_id=6114, student_id=665, name="UFITINEMA Kelly Bruno", score=100.0%
+  • pic_id=5942, student_id=746, name="TUYISHIMIRE Claudette", score=83.3%
+  • pic_id=5943, student_id=729, name="MANZI Lionel", score=100.0%
+  • pic_id=5944, student_id=745, name="TUMUKUNDE Bria Yusra", score=100.0%
+  • pic_id=5945, student_id=732, name="MUGISHA Akram", score=100.0%
+  • pic_id=5947, student_id=716, name="HIRWA MANZI Regis", score=100.0%
+  • pic_id=5948, student_id=733, name="MUHAWENIMANA Samuel", score=100.0%
+  • pic_id=5949, student_id=739, name="NGABONZIZA ZIMURINDA Ponchelin", score=100.0%
+  • pic_id=5950, student_id=741, name="NZOVU David", score=100.0%
+  • pic_id=5952, student_id=718, name="IGANZE Lenny", score=100.0%
+  • pic_id=5953, student_id=721, name="INTWARI KALISA Gabin", score=100.0%
+  • pic_id=5954, student_id=728, name="KWIZERA Irene", score=100.0%
+  • pic_id=5955, student_id=726, name="KAMIKAZI Yvanelle", score=100.0%
+  • pic_id=5956, student_id=711, name="DUSHIME ATETE Daniella", score=100.0%
+  • pic_id=5957, student_id=734, name="MUTESI Ines Danica", score=100.0%
+  • pic_id=5958, student_id=744, name="SHAMI Ethan", score=100.0%
+  • pic_id=5960, student_id=723, name="ISHIMWE Ange Ornella", score=100.0%
+  • pic_id=5961, student_id=743, name="SENGA Adonai Credo", score=100.0%
+  • pic_id=5963, student_id=731, name="MANZI Tresor", score=100.0%
+  • pic_id=5964, student_id=724, name="KAGIMBURA Ayan Elijah", score=100.0%
+  • pic_id=5965, student_id=725, name="KAKIRA TETA Rebecca", score=100.0%
+  • pic_id=5966, student_id=715, name="HIRWA Brave", score=100.0%
+  • pic_id=5967, student_id=749, name="UWASE Jolie", score=100.0%
+  • pic_id=5968, student_id=742, name="RUTIKANGA Brian", score=100.0%
+  • pic_id=5969, student_id=747, name="UMUBERARUGO TETA Sabrine", score=100.0%
+  • pic_id=5970, student_id=736, name="MUVUNYI USANASE Aurore", score=100.0%
+  • pic_id=5971, student_id=727, name="KARIZA Erryne KAGABO", score=100.0%
+  • pic_id=5972, student_id=738, name="NEZA MUHIRWA Nervin", score=100.0%
+  • pic_id=5973, student_id=722, name="IRAKARAMA Brave Laurene", score=100.0%
+  • pic_id=5974, student_id=713, name="GANZA MUGISHA Brighton", score=100.0%
+  • pic_id=5975, student_id=737, name="UWINEZA Sonia", score=100.0%
+  • pic_id=5976, student_id=717, name="HIRWA Marvin Carter", score=100.0%
+  • pic_id=5977, student_id=740, name="NKUBITO Gandhi", score=100.0%
+  • pic_id=5978, student_id=326, name="IHIRWE THEA", score=100.0%
+  • pic_id=5979, student_id=339, name="ISHIMWE ANDY PRINCE", score=86.5%
+  • pic_id=5981, student_id=328, name="IKAZE HAPPY", score=100.0%
+  • pic_id=5982, student_id=358, name="MANZI BENSON BRYAN", score=100.0%
+  • pic_id=5983, student_id=360, name="MANZI Fabrice", score=100.0%
+  • pic_id=5984, student_id=384, name="TUYIZERE HIRWA HONORE", score=100.0%
+  • pic_id=5986, student_id=309, name="CYUZUZO KEILLA NTAMBARA", score=92.3%
+  • pic_id=5988, student_id=335, name="INEZA KENDRA", score=100.0%
+  • pic_id=5990, student_id=350, name="KAYIGAMBA ISHEJA ORNELLA", score=90.5%
+  • pic_id=5991, student_id=315, name="HAKIZIMANA BRUCE", score=100.0%
+  • pic_id=5992, student_id=392, name="UWINEZA KETTY", score=100.0%
+  • pic_id=5993, student_id=334, name="INEZA JOVAN", score=100.0%
+  • pic_id=5994, student_id=349, name="KARARA IREME BIANCA", score=100.0%
+  • pic_id=5995, student_id=369, name="MWENYEZIMOLA Ndandu Adonai", score=100.0%
+  • pic_id=5996, student_id=348, name="KAMANZI NAILLAH", score=91.7%
+  • pic_id=5997, student_id=321, name="IGIRANEZA JOSHUA", score=100.0%
+  • pic_id=5998, student_id=362, name="MIGISHA UWITONDA LIZA", score=100.0%
+  • pic_id=5999, student_id=314, name="GISA MUKASA ALLAN", score=82.8%
+  • pic_id=6000, student_id=385, name="TUYUBAHE ELIE", score=95.7%
+  • pic_id=6001, student_id=312, name="GANZA GAELLA STACY", score=100.0%
+  • pic_id=6002, student_id=377, name="NTWARI PRINCE", score=100.0%
+  • pic_id=6005, student_id=375, name="NIYOMUGABO Thierry", score=100.0%
+  • pic_id=6006, student_id=365, name="MUGABO IVAN", score=100.0%
+  • pic_id=6008, student_id=330, name="IMFURA MPANO BRIGHT", score=100.0%
+  • pic_id=6009, student_id=391, name="UWINEZA Alliance", score=80.0%
+  • pic_id=6010, student_id=367, name="MUNEZERO FABRICE", score=100.0%
+  • pic_id=6011, student_id=300, name="ISHIMWE GISUBIZO LYAN", score=100.0%
+  • pic_id=6012, student_id=388, name="USANASE ISHEJA EDVALDO", score=100.0%
+  • pic_id=6015, student_id=333, name="INEZA GANZA BRYAN", score=100.0%
+  • pic_id=6016, student_id=322, name="IGIRANEZA JOYCE ANAELA", score=89.5%
+  • pic_id=6018, student_id=389, name="UWACU TETA SANDRA", score=100.0%
+  • pic_id=6019, student_id=383, name="SUGIRA LYDIVINE", score=100.0%
+  • pic_id=6020, student_id=324, name="IHIRWE KARIWABO NAELLA", score=97.3%
+  • pic_id=6022, student_id=347, name="KABARISA TETA GRACE", score=100.0%
+  • pic_id=6023, student_id=382, name="SIBOMANA IRUMVA GAD", score=100.0%
+  • pic_id=6024, student_id=323, name="IGIRANEZA NISSI KENNEDY", score=92.3%
+  • pic_id=6026, student_id=302, name="ASHIMWE JOANA", score=100.0%
+  • pic_id=6029, student_id=359, name="MANZI BRIGHT BRAVE", score=100.0%
+  • pic_id=6030, student_id=380, name="SANO JUNIOR", score=100.0%
+  • pic_id=6031, student_id=363, name="MUDAHIGWA HUSSEIN", score=89.7%
+  • pic_id=6032, student_id=316, name="HARERIMANA Reagan Junior", score=100.0%
+  • pic_id=6033, student_id=305, name="BYIRINGIRO DANILO", score=83.3%
+  • pic_id=6034, student_id=373, name="NGAMIJE Stallon", score=100.0%
+  • pic_id=6035, student_id=381, name="SHIMWA GIFT STANLEY", score=86.5%
+  • pic_id=6036, student_id=361, name="MICOMYIZA IZADOREN", score=90.3%
+  • pic_id=6038, student_id=338, name="IRAKOZE Divin", score=100.0%
+  • pic_id=6039, student_id=343, name="IZERE MUGABEKAZI ANNET", score=94.7%
+  • pic_id=6040, student_id=317, name="HIRWA Angelo", score=100.0%
+  • pic_id=6041, student_id=346, name="KABALISA THALES", score=100.0%
+  • pic_id=6042, student_id=341, name="ITUZE Divine", score=100.0%
+  • pic_id=6043, student_id=311, name="DUKUZUMUREMYI Navin", score=91.4%
+  • pic_id=6044, student_id=376, name="NKWAYA MIELLA RITHA", score=100.0%
+  • pic_id=6045, student_id=310, name="DUKUNDANE HAMZA", score=100.0%
+  • pic_id=6046, student_id=329, name="IKUZWE REMY", score=100.0%
+  • pic_id=6048, student_id=378, name="NYIRAMUGISHA NOELLA", score=100.0%
+  • pic_id=6050, student_id=332, name="INEZA Gad Owen", score=100.0%
+  • pic_id=6053, student_id=337, name="IRAFASHA REMY", score=100.0%
+  • pic_id=6054, student_id=304, name="BISAMAZA KEVINE", score=96.0%
+  • pic_id=6055, student_id=318, name="HIRWA IGIHOZO LUCIE", score=100.0%
+  • pic_id=6056, student_id=379, name="RUGIRA CHRISTA", score=96.0%
+  • pic_id=6057, student_id=313, name="GATETE AIME FISTON", score=86.7%
+  • pic_id=6058, student_id=301, name="AGANZE Prince", score=100.0%
+  • pic_id=6059, student_id=327, name="IHIRWE HABIMANA ISAAC", score=88.9%
+  • pic_id=6060, student_id=340, name="ISHIMWE LUCKY DANNY", score=100.0%
+  • pic_id=6061, student_id=320, name="IGENO GICANDA MAEVA DANICA", score=86.4%
+  • pic_id=6062, student_id=342, name="IZERE JANAAN", score=100.0%
+  • pic_id=6063, student_id=387, name="UMULISA NADIA", score=81.8%
+  • pic_id=6064, student_id=336, name="INEZABYUKUSENGE PAMELLA", score=100.0%
+  • pic_id=6065, student_id=308, name="CYUZUZO ESTHER", score=100.0%
+  • pic_id=6066, student_id=848, name="ITETO Kisha", score=100.0%
+  • pic_id=6068, student_id=843, name="AGAHIRE SHAMI Neilla", score=100.0%
+  • pic_id=6069, student_id=853, name="NGABO Innocent", score=100.0%
+  • pic_id=6070, student_id=847, name="INEZA Benithe", score=100.0%
+  • pic_id=6071, student_id=857, name="NYIRINKWAYA MANZI Cedrick", score=100.0%
+  • pic_id=6072, student_id=851, name="MURENZI Cedrick", score=100.0%
+  • pic_id=6073, student_id=852, name="NEZERWA Albert", score=100.0%
+  • pic_id=6074, student_id=850, name="MUGISHA Eric", score=100.0%
+  • pic_id=6075, student_id=845, name="HABIMANA Zuhud", score=100.0%
+  • pic_id=6076, student_id=855, name="NKUNZIMANA Isaac", score=100.0%
+  • pic_id=6077, student_id=856, name="NKURUNZIZA CYUBAHIRO Briand", score=100.0%
+  • pic_id=6078, student_id=846, name="HIRWA Kenny", score=100.0%
+  • pic_id=6079, student_id=844, name="GIRAMATA Ritha", score=100.0%
+  • pic_id=6080, student_id=835, name="INEZA Elie d'Honneur", score=100.0%
+  • pic_id=6081, student_id=836, name="IRADUKUNZA NZIZA Ornella", score=100.0%
+  • pic_id=6082, student_id=840, name="Moise Steven", score=100.0%
+  • pic_id=6083, student_id=838, name="KANYESHURI Patrick", score=100.0%
+  • pic_id=6084, student_id=834, name="ICHAKA Anyach Immaculate", score=100.0%
+  • pic_id=6085, student_id=839, name="MBITSE Ghislain", score=100.0%
+  • pic_id=6086, student_id=837, name="ISHEJA Claudeson Ritha", score=100.0%
+  • pic_id=6088, student_id=842, name="SHEJA Bryan", score=100.0%
+  • pic_id=6089, student_id=841, name="MUGISHA Bienvenue", score=100.0%
+  • pic_id=6095, student_id=818, name="MUHAWENIMANA Jeannette", score=100.0%
+  • pic_id=6097, student_id=821, name="UWUMUNEZERO Fatuma", score=100.0%
+  • pic_id=6099, student_id=822, name="IMANIRUMVA Adalbert", score=100.0%
+  • pic_id=6101, student_id=819, name="NGABIRE Hogoza", score=91.7%
+  • pic_id=6102, student_id=820, name="UMWALI Fridaus", score=100.0%
+  • pic_id=6096, student_id=815, name="HATEGEKIMANA Natacha", score=100.0%
+  • pic_id=6105, student_id=801, name="NYIRABUZIMA Emerance", score=100.0%
+  • pic_id=6106, student_id=797, name="IZERE Eunice", score=100.0%
+  • pic_id=6107, student_id=805, name="UWASE RUTAYISIRE Ines", score=100.0%
+  • pic_id=6109, student_id=803, name="UMURERWA Joyeuse", score=100.0%
+
+SKIPPED RECORDS (Low Confidence - Review Manually)
+---------------------------------------------------
+  • pic_id=5600, json_name="Nizeyimana Kellia", reason="No match found (confidence < 80%)"
+  • pic_id=5608, json_name="Galvin Giant", reason="No match found (confidence < 80%)"
+  • pic_id=5628, json_name="Mugisha Teta Olga", reason="Photo file not found (pic_id=5628)"
+  • pic_id=5631, json_name="Mahomte Igena Sorine", reason="No match found (confidence < 80%)"
+  • pic_id=5632, json_name="Matte Briera", reason="No match found (confidence < 80%)"
+  • pic_id=5632, json_name="Ntwari Mayori Nkuonti", reason="No match found (confidence < 80%)"
+  • pic_id=5639, json_name="Mbati Ngenzi", reason="No match found (confidence < 80%)"
+  • pic_id=5640, json_name="Amazia Koblloni", reason="No match found (confidence < 80%)"
+  • pic_id=5680, json_name="Nzitatira Samuel Prince", reason="No match found (confidence < 80%)"
+  • pic_id=5712, json_name="Nizeyimana Brian", reason="No match found (confidence < 80%)"
+  • pic_id=5715, json_name="Berwanineza Stella Nshutiyabega", reason="No match found (confidence < 80%)"
+  • pic_id=5720, json_name="Ishane Arisha", reason="No match found (confidence < 80%)"
+  • pic_id=5723, json_name="Mugisha Labine Janvier", reason="No match found (confidence < 80%)"
+  • pic_id=5729, json_name="Shama Mutuisha Celine", reason="No match found (confidence < 80%)"
+  • pic_id=5730, json_name="Ahirwe Munyabihogo Edwina", reason="No match found (confidence < 80%)"
+  • pic_id=5732, json_name="Ineza Gisa Tressa Kendra", reason="No match found (confidence < 80%)"
+  • pic_id=5733, json_name="Shalo Kopevise", reason="No match found (confidence < 80%)"
+  • pic_id=5736, json_name="Inema Brian", reason="No match found (confidence < 80%)"
+  • pic_id=5741, json_name="Shema Abdyla", reason="No match found (confidence < 80%)"
+  • pic_id=5743, json_name="Igitane Giheana Nzeza Jowalima", reason="No match found (confidence < 80%)"
+  • pic_id=5748, json_name="Umokendwa Elissa Boaz", reason="No match found (confidence < 80%)"
+  • pic_id=5749, json_name="Kundwa Liona Bella", reason="No match found (confidence < 80%)"
+  • pic_id=5758, json_name="Ikaze Bijugiza Jorina", reason="No match found (confidence < 80%)"
+  • pic_id=5762, json_name="Mugisha Ingabire Arche", reason="No match found (confidence < 80%)"
+  • pic_id=5765, json_name="Lali Halati Bayri", reason="No match found (confidence < 80%)"
+  • pic_id=5776, json_name="Cyusa Dirane", reason="No match found (confidence < 80%)"
+  • pic_id=5851, json_name="Iranzi Neste", reason="No match found (confidence < 80%)"
+  • pic_id=5853, json_name="Uwaco Atete Mareni", reason="No match found (confidence < 80%)"
+  • pic_id=5855, json_name="Amani Caisa Bronze", reason="No match found (confidence < 80%)"
+  • pic_id=5856, json_name="(Name not written)", reason="Photo file not found (pic_id=5856)"
+  • pic_id=5867, json_name="karungi", reason="No match found (confidence < 80%)"
+  • pic_id=5875, json_name="ninsima aviela ryan", reason="No match found (confidence < 80%)"
+  • pic_id=5887, json_name="irumva allan", reason="No match found (confidence < 80%)"
+  • pic_id=5806, json_name="Mftimuco Muhire Gift", reason="No match found (confidence < 80%)"
+  • pic_id=5807, json_name="Nsengiyomva Joshua", reason="No match found (confidence < 80%)"
+  • pic_id=5808, json_name="Tonya Daniella", reason="No match found (confidence < 80%)"
+  • pic_id=5809, json_name="Akaliza Puzigoma Lilcane", reason="No match found (confidence < 80%)"
+  • pic_id=5814, json_name="Mugisha Brain", reason="No match found (confidence < 80%)"
+  • pic_id=5816, json_name="Akuzwe Shanu Ashli", reason="No match found (confidence < 80%)"
+  • pic_id=5817, json_name="Kazuba Yannick", reason="No match found (confidence < 80%)"
+  • pic_id=5818, json_name="Akaliza Neza Linkaliza", reason="No match found (confidence < 80%)"
+  • pic_id=5819, json_name="Mukendwa Zoella", reason="No match found (confidence < 80%)"
+  • pic_id=5822, json_name="Ndagitye Cyuza Laundy", reason="No match found (confidence < 80%)"
+  • pic_id=5823, json_name="Ishimwe Kerin", reason="No match found (confidence < 80%)"
+  • pic_id=5824, json_name="Isaro Asanase Orya", reason="No match found (confidence < 80%)"
+  • pic_id=5789, json_name="Iganze Oliya", reason="No match found (confidence < 80%)"
+  • pic_id=5796, json_name="Gwiza Shema Zila", reason="No match found (confidence < 80%)"
+  • pic_id=5797, json_name="Uhirwa Orga", reason="No match found (confidence < 80%)"
+  • pic_id=5799, json_name="Cyitahiro Christina", reason="No match found (confidence < 80%)"
+  • pic_id=5801, json_name="Neza Habyaremye", reason="No match found (confidence < 80%)"
+  • pic_id=5803, json_name="Uhirwa Ikuzwe Daniella", reason="No match found (confidence < 80%)"
+  • pic_id=5826, json_name="Ishimwe Anne Davida", reason="Photo file not found (pic_id=5826)"
+  • pic_id=5829, json_name="Ndayishimiye Jean Domar", reason="No match found (confidence < 80%)"
+  • pic_id=5830, json_name="Mucyo Claire Agano", reason="No match found (confidence < 80%)"
+  • pic_id=5831, json_name="Gusimana Keira", reason="No match found (confidence < 80%)"
+  • pic_id=5833, json_name="Rudiza Runzumbura Jouna", reason="No match found (confidence < 80%)"
+  • pic_id=5834, json_name="Ibahe Byukusenge Alvin", reason="No match found (confidence < 80%)"
+  • pic_id=5835, json_name="Gisa Zimme Brain", reason="No match found (confidence < 80%)"
+  • pic_id=5837, json_name="Irakoze Sacle", reason="No match found (confidence < 80%)"
+  • pic_id=5838, json_name="Nziza Iradutonda Logan", reason="No match found (confidence < 80%)"
+  • pic_id=5841, json_name="Ataza Ornela", reason="No match found (confidence < 80%)"
+  • pic_id=5842, json_name="Shyata Blain", reason="No match found (confidence < 80%)"
+  • pic_id=5843, json_name="Kayikinuri Epilem", reason="No match found (confidence < 80%)"
+  • pic_id=5844, json_name="Kalimda Landi Dila", reason="No match found (confidence < 80%)"
+  • pic_id=5846, json_name="Neza Ntwali Alian", reason="No match found (confidence < 80%)"
+  • pic_id=5848, json_name="Reza Ntwali Ageya", reason="No match found (confidence < 80%)"
+  • pic_id=5891, json_name="shema bienhereux achille pitie", reason="No match found (confidence < 80%)"
+  • pic_id=5939, json_name="sheja dacey evans", reason="No match found (confidence < 80%)"
+  • pic_id=5921, json_name="nkunda byringiro divin", reason="No match found (confidence < 80%)"
+  • pic_id=5930, json_name="ninshima simplice", reason="No match found (confidence < 80%)"
+  • pic_id=5959, json_name="UWANYUZE marijani Honorine", reason="No match found (confidence < 80%)"
+  • pic_id=5980, json_name="cyuzuzo james", reason="No match found (confidence < 80%)"
+  • pic_id=5985, json_name="kimenyi linkon", reason="No match found (confidence < 80%)"
+  • pic_id=5987, json_name="umukurwa faith minyone", reason="No match found (confidence < 80%)"
+  • pic_id=5989, json_name="necha juru", reason="No match found (confidence < 80%)"
+  • pic_id=6007, json_name="zimurinda mwiseneza pele", reason="No match found (confidence < 80%)"
+  • pic_id=6013, json_name="uwimpuwe alliete", reason="No match found (confidence < 80%)"
+  • pic_id=6014, json_name="mugabe kelly", reason="No match found (confidence < 80%)"
+  • pic_id=6017, json_name="kirabo jasmin", reason="No match found (confidence < 80%)"
+  • pic_id=6021, json_name="mukurwa aline", reason="No match found (confidence < 80%)"
+  • pic_id=6025, json_name="beza rora halleuh", reason="No match found (confidence < 80%)"
+  • pic_id=6027, json_name="senga bellange", reason="No match found (confidence < 80%)"
+  • pic_id=6028, json_name="kurwa gift", reason="No match found (confidence < 80%)"
+  • pic_id=6037, json_name="chris gisubizo yannick", reason="No match found (confidence < 80%)"
+  • pic_id=6047, json_name="kaze kagabo", reason="No match found (confidence < 80%)"
+  • pic_id=6049, json_name="hirwa jurudus", reason="No match found (confidence < 80%)"
+  • pic_id=6051, json_name="kayunga rwabigwi ivan", reason="No match found (confidence < 80%)"
+  • pic_id=6052, json_name="keza mark", reason="No match found (confidence < 80%)"
+  • pic_id=6090, json_name="Nzayisenga kevin", reason="No match found (confidence < 80%)"
+  • pic_id=6091, json_name="NSENGA MIHIGO MURINDWA Bruce", reason="No match found (confidence < 80%)"
+  • pic_id=6092, json_name="BASANGIRA Mathis Gabriel", reason="No match found (confidence < 80%)"
+  • pic_id=6093, json_name="NZITATIRA Samuel Prince", reason="No match found (confidence < 80%)"
+  • pic_id=6094, json_name="RUDASINGWA Patrick", reason="No match found (confidence < 80%)"
+  • pic_id=6103, json_name="ashimwe ntwari mugisha thierry", reason="No match found (confidence < 80%)"
+
+ERRORS
+------
+
+
+NEXT STEPS
+----------
+1. Review skipped.json - decide if any should be manually matched
+2. Review errors.json - address any file/database issues
+3. Manual photo upload for skipped records if desired

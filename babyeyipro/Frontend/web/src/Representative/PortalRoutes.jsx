@@ -7,6 +7,11 @@ import RepresentativeDashboard from './pages/Dashboard';
 import RepresentativeSchools from './pages/Schools';
 import RepresentativeAnalytics from './pages/Analytics';
 import RepresentativeFinance from './pages/Finance';
+import FeesManagement from './pages/FeesManagement';
+import StaffPayroll from './pages/StaffPayroll';
+import FinancialAnalysis from './pages/FinancialAnalysis';
+import Reports from './pages/Reports';
+import BudgetAndExpense from './pages/BudgetAndExpense';
 import RepresentativeAcademic from './pages/AcademicReports';
 import RepresentativeDiscipline from './pages/Discipline';
 import RepresentativeAttendance from './pages/Attendance';
@@ -42,6 +47,11 @@ function RepresentativeRoutesInner() {
       <Route path="schools" element={<ProtectedRoute title="Schools"><RepresentativeSchools /></ProtectedRoute>} />
       <Route path="analytics" element={<ProtectedRoute title="Analytics"><RepresentativeAnalytics /></ProtectedRoute>} />
       <Route path="insights" element={<ProtectedRoute title="AI insights"><RepresentativeInsights /></ProtectedRoute>} />
+      <Route path="finance/fees" element={<ProtectedRoute title="Fees management"><FeesManagement /></ProtectedRoute>} />
+      <Route path="finance/payroll" element={<ProtectedRoute title="Staff payroll"><StaffPayroll /></ProtectedRoute>} />
+      <Route path="finance/analysis" element={<ProtectedRoute title="Financial analysis"><FinancialAnalysis /></ProtectedRoute>} />
+      <Route path="finance/reports" element={<ProtectedRoute title="Reports & export"><Reports /></ProtectedRoute>} />
+      <Route path="finance/budget" element={<ProtectedRoute title="Budget & expenses"><BudgetAndExpense /></ProtectedRoute>} />
       <Route path="finance" element={<ProtectedRoute title="Finance"><RepresentativeFinance /></ProtectedRoute>} />
       <Route path="academic" element={<ProtectedRoute title="Academic reports"><RepresentativeAcademic /></ProtectedRoute>} />
       <Route path="discipline" element={<ProtectedRoute title="Discipline"><RepresentativeDiscipline /></ProtectedRoute>} />

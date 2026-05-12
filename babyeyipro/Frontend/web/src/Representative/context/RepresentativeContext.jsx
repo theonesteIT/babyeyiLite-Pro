@@ -29,29 +29,39 @@ export function RepresentativeDataProvider({ children }) {
     setLoading(true);
     setError(null);
     try {
-      const [s, kpi] = await Promise.all([
-        fetchMySchools().catch(() => ({ success: false, data: [] })),
-        fetchRepresentativeSummary().catch(() => ({ success: false, data: null })),
-      ]);
+      const s = await fetchMySchools().catch(() => ({ success: false, data: [] }));
       const list = s?.success ? s.data || [] : [];
       setSchools(list);
-      setSummary(kpi?.success ? kpi.data : null);
+
+      let targetSchoolId = activeSchoolId;
       if (list.length) {
-        const stillExists = list.some((row) => Number(row.id) === Number(activeSchoolId));
-        if (!stillExists) {
-          const primary = list.find((row) => row.is_primary) || list[0];
-          setActiveSchoolId(primary?.id || null);
+        if (targetSchoolId != null && targetSchoolId !== '') {
+          const stillExists = list.some((row) => Number(row.id) === Number(targetSchoolId));
+          if (!stillExists) {
+            const primary = list.find((row) => row.is_primary) || list[0];
+            targetSchoolId = primary?.id ?? null;
+            setActiveSchoolId(targetSchoolId);
+          }
         }
       } else {
+        targetSchoolId = null;
         setActiveSchoolId(null);
       }
+
+      const schoolParam =
+        targetSchoolId != null && targetSchoolId !== '' ? Number(targetSchoolId) : undefined;
+
+      const kpi = await fetchRepresentativeSummary(schoolParam).catch(() => ({
+        success: false,
+        data: null,
+      }));
+      setSummary(kpi?.success ? kpi.data : null);
     } catch (e) {
       setError(e?.response?.data?.message || e.message || 'Failed to load representative data.');
     } finally {
       setLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [activeSchoolId]);
 
   useEffect(() => {
     refresh();

@@ -1,0 +1,3892 @@
+[
+  {
+    "pic_id": 5592,
+    "student_id": 11,
+    "student_name": "GWIZA NOLAN",
+    "json_name": "GWIZA NOLAN",
+    "match_score": "100.0%",
+    "class": "P1B",
+    "photo_filename": "student-11-5592-1777560649656.jpg",
+    "timestamp": "2026-04-30T14:50:49.693Z"
+  },
+  {
+    "pic_id": 5595,
+    "student_id": 22,
+    "student_name": "IMENA MUGISHA NILAN",
+    "json_name": "IMENA MUGISHA NILAN",
+    "match_score": "100.0%",
+    "class": "P1B",
+    "photo_filename": "student-22-5595-1777560649701.jpg",
+    "timestamp": "2026-04-30T14:50:49.719Z"
+  },
+  {
+    "pic_id": 5597,
+    "student_id": 53,
+    "student_name": "NISHIMWE MIKA JUNIOR",
+    "json_name": "Nishimwe Mika Junior",
+    "match_score": "100.0%",
+    "class": "P1B",
+    "photo_filename": "student-53-5597-1777560649728.jpg",
+    "timestamp": "2026-04-30T14:50:49.747Z"
+  },
+  {
+    "pic_id": 5598,
+    "student_id": 41,
+    "student_name": "MANZI HUZAIFA",
+    "json_name": "Manzi Huzaifa",
+    "match_score": "100.0%",
+    "class": "P1B",
+    "photo_filename": "student-41-5598-1777560649753.jpg",
+    "timestamp": "2026-04-30T14:50:49.770Z"
+  },
+  {
+    "pic_id": 5599,
+    "student_id": 4,
+    "student_name": "BYOSENIMANA GASARO ETOIRE",
+    "json_name": "Byosenimana Gasaro Etoire",
+    "match_score": "100.0%",
+    "class": "P1B",
+    "photo_filename": "student-4-5599-1777560649781.jpg",
+    "timestamp": "2026-04-30T14:50:49.798Z"
+  },
+  {
+    "pic_id": 5602,
+    "student_id": 15,
+    "student_name": "IGABE CIKOMA ELLAN",
+    "json_name": "Igabe Cikoma Ellan",
+    "match_score": "100.0%",
+    "class": "P1B",
+    "photo_filename": "student-15-5602-1777560649813.jpg",
+    "timestamp": "2026-04-30T14:50:49.830Z"
+  },
+  {
+    "pic_id": 5603,
+    "student_id": 35,
+    "student_name": "ISHIMWE FILLETE",
+    "json_name": "Ishimwe Fillete",
+    "match_score": "100.0%",
+    "class": "P1B",
+    "photo_filename": "student-35-5603-1777560649839.jpg",
+    "timestamp": "2026-04-30T14:50:49.860Z"
+  },
+  {
+    "pic_id": 5604,
+    "student_id": 1,
+    "student_name": "AGANZE DARCY",
+    "json_name": "Aganze Darcy",
+    "match_score": "100.0%",
+    "class": "P1B",
+    "photo_filename": "student-1-5604-1777560649867.jpg",
+    "timestamp": "2026-04-30T14:50:49.884Z"
+  },
+  {
+    "pic_id": 5605,
+    "student_id": 65,
+    "student_name": "UWUMUKIZA CHRISTIAN",
+    "json_name": "Uwumukiza Christian",
+    "match_score": "100.0%",
+    "class": "P1B",
+    "photo_filename": "student-65-5605-1777560649890.jpg",
+    "timestamp": "2026-04-30T14:50:49.907Z"
+  },
+  {
+    "pic_id": 5606,
+    "student_id": 2,
+    "student_name": "BISAMAZA MORGAN",
+    "json_name": "Bisamaza Morgan",
+    "match_score": "100.0%",
+    "class": "P1B",
+    "photo_filename": "student-2-5606-1777560649912.jpg",
+    "timestamp": "2026-04-30T14:50:49.928Z"
+  },
+  {
+    "pic_id": 5607,
+    "student_id": 10,
+    "student_name": "GWIZA IAN",
+    "json_name": "Gwiza Ian",
+    "match_score": "100.0%",
+    "class": "P1B",
+    "photo_filename": "student-10-5607-1777560649932.jpg",
+    "timestamp": "2026-04-30T14:50:49.947Z"
+  },
+  {
+    "pic_id": 5609,
+    "student_id": 19,
+    "student_name": "IKUZO MUHOZA BENON",
+    "json_name": "ikuzo muhoza benon",
+    "match_score": "100.0%",
+    "class": "P1B",
+    "photo_filename": "student-19-5609-1777560649959.jpg",
+    "timestamp": "2026-04-30T14:50:49.973Z"
+  },
+  {
+    "pic_id": 5611,
+    "student_id": 45,
+    "student_name": "MFURAKAZI NADIA INNOCENTE",
+    "json_name": "Mfurakazi Nadia Innocente",
+    "match_score": "100.0%",
+    "class": "P1",
+    "photo_filename": "student-45-5611-1777560649983.jpg",
+    "timestamp": "2026-04-30T14:50:50.042Z"
+  },
+  {
+    "pic_id": 5613,
+    "student_id": 62,
+    "student_name": "USANASE PRINCE",
+    "json_name": "usanase prince fiston",
+    "match_score": "80.0%",
+    "class": "P1",
+    "photo_filename": "student-62-5613-1777560650051.jpg",
+    "timestamp": "2026-04-30T14:50:50.129Z"
+  },
+  {
+    "pic_id": 5614,
+    "student_id": 3,
+    "student_name": "BYISHIMO CYUSA ETHAN",
+    "json_name": "Byishimo Cyusa Ethan",
+    "match_score": "100.0%",
+    "class": "P1",
+    "photo_filename": "student-3-5614-1777560650138.jpg",
+    "timestamp": "2026-04-30T14:50:50.234Z"
+  },
+  {
+    "pic_id": 5615,
+    "student_id": 27,
+    "student_name": "IRAKOZE IANNY MULAIKA",
+    "json_name": "IRAKOZE IANNY MULAIKA",
+    "match_score": "100.0%",
+    "class": "P1",
+    "photo_filename": "student-27-5615-1777560650245.jpg",
+    "timestamp": "2026-04-30T14:50:50.325Z"
+  },
+  {
+    "pic_id": 5616,
+    "student_id": 33,
+    "student_name": "ISHIMWE CLEVER",
+    "json_name": "Ishimwe Clever",
+    "match_score": "100.0%",
+    "class": "P1",
+    "photo_filename": "student-33-5616-1777560650334.jpg",
+    "timestamp": "2026-04-30T14:50:50.363Z"
+  },
+  {
+    "pic_id": 5617,
+    "student_id": 21,
+    "student_name": "IMANATURIKUMWE JANA DANIELLA",
+    "json_name": "IMANATURIKUMWE JANA DANIELLA",
+    "match_score": "100.0%",
+    "class": "P1",
+    "photo_filename": "student-21-5617-1777560650376.jpg",
+    "timestamp": "2026-04-30T14:50:51.046Z"
+  },
+  {
+    "pic_id": 5618,
+    "student_id": 50,
+    "student_name": "MUNEZERO KEILLA",
+    "json_name": "Munezero Keilla",
+    "match_score": "100.0%",
+    "class": "P1",
+    "photo_filename": "student-50-5618-1777560651067.jpg",
+    "timestamp": "2026-04-30T14:50:51.134Z"
+  },
+  {
+    "pic_id": 5619,
+    "student_id": 61,
+    "student_name": "SHIMWA DANIVA",
+    "json_name": "Shimwa Daniva",
+    "match_score": "100.0%",
+    "class": "P1",
+    "photo_filename": "student-61-5619-1777560651139.jpg",
+    "timestamp": "2026-04-30T14:50:51.182Z"
+  },
+  {
+    "pic_id": 5620,
+    "student_id": 7,
+    "student_name": "DUHIRWE KAGABO MUNANA ELIO",
+    "json_name": "Duhirwe Kagabo Munana Elio",
+    "match_score": "100.0%",
+    "class": "P1",
+    "photo_filename": "student-7-5620-1777560651189.jpg",
+    "timestamp": "2026-04-30T14:50:51.244Z"
+  },
+  {
+    "pic_id": 5620,
+    "student_id": 54,
+    "student_name": "NKESHIMANA ELLA AURORE",
+    "json_name": "Nkeshimana Ella Aurore",
+    "match_score": "100.0%",
+    "class": "P1",
+    "photo_filename": "student-54-5620-1777560651253.jpg",
+    "timestamp": "2026-04-30T14:50:51.267Z"
+  },
+  {
+    "pic_id": 5621,
+    "student_id": 38,
+    "student_name": "KAZUBA LEILA HORTANCE",
+    "json_name": "Kazuba Leila Hortance",
+    "match_score": "100.0%",
+    "class": "P1",
+    "photo_filename": "student-38-5621-1777560651274.jpg",
+    "timestamp": "2026-04-30T14:50:51.319Z"
+  },
+  {
+    "pic_id": 5622,
+    "student_id": 31,
+    "student_name": "ISHEJA SONGA GAEL",
+    "json_name": "Isheja Songa Gael",
+    "match_score": "100.0%",
+    "class": "P1",
+    "photo_filename": "student-31-5622-1777560651328.jpg",
+    "timestamp": "2026-04-30T14:50:51.414Z"
+  },
+  {
+    "pic_id": 5623,
+    "student_id": 17,
+    "student_name": "IKAMBA BRAVE HAYDEN",
+    "json_name": "Ikamba Brave Hayden",
+    "match_score": "100.0%",
+    "class": "P1",
+    "photo_filename": "student-17-5623-1777560651420.jpg",
+    "timestamp": "2026-04-30T14:50:51.462Z"
+  },
+  {
+    "pic_id": 5624,
+    "student_id": 30,
+    "student_name": "ISHEJA NAOMIE",
+    "json_name": "Isheja Naomie",
+    "match_score": "100.0%",
+    "class": "P1",
+    "photo_filename": "student-30-5624-1777560651470.jpg",
+    "timestamp": "2026-04-30T14:50:51.529Z"
+  },
+  {
+    "pic_id": 5625,
+    "student_id": 28,
+    "student_name": "IRAMUMPAYE ANGE BLESSING",
+    "json_name": "Iramumpaye Ange Blessing",
+    "match_score": "100.0%",
+    "class": "P1",
+    "photo_filename": "student-28-5625-1777560651539.jpg",
+    "timestamp": "2026-04-30T14:50:51.567Z"
+  },
+  {
+    "pic_id": 5626,
+    "student_id": 58,
+    "student_name": "RUGWIRO PEACE GAEL",
+    "json_name": "Rugwiro Peace Gael",
+    "match_score": "100.0%",
+    "class": "P1",
+    "photo_filename": "student-58-5626-1777560651577.jpg",
+    "timestamp": "2026-04-30T14:50:51.609Z"
+  },
+  {
+    "pic_id": 5627,
+    "student_id": 20,
+    "student_name": "IKUZWE GIHOZO OLGA",
+    "json_name": "Ikuzwe Gihozo Olga",
+    "match_score": "100.0%",
+    "class": "P1",
+    "photo_filename": "student-20-5627-1777560651618.jpg",
+    "timestamp": "2026-04-30T14:50:51.661Z"
+  },
+  {
+    "pic_id": 5634,
+    "student_id": 12,
+    "student_name": "GWIZA NZIYUMVIRA ELYSIE",
+    "json_name": "Gwiza Nziyumvira Elysie",
+    "match_score": "100.0%",
+    "class": "P1",
+    "photo_filename": "student-12-5634-1777560651697.jpg",
+    "timestamp": "2026-04-30T14:50:51.733Z"
+  },
+  {
+    "pic_id": 5635,
+    "student_id": 57,
+    "student_name": "RUGWIRO OWEN IBRAHIM",
+    "json_name": "Rugwiro Owen Ibrahim",
+    "match_score": "100.0%",
+    "class": "P1",
+    "photo_filename": "student-57-5635-1777560651753.jpg",
+    "timestamp": "2026-04-30T14:50:51.771Z"
+  },
+  {
+    "pic_id": 5636,
+    "student_id": 48,
+    "student_name": "MUGISHA SANO ARCHANGE",
+    "json_name": "Mugisha Sano Archange",
+    "match_score": "100.0%",
+    "class": "P1",
+    "photo_filename": "student-48-5636-1777560651781.jpg",
+    "timestamp": "2026-04-30T14:50:51.798Z"
+  },
+  {
+    "pic_id": 5637,
+    "student_id": 37,
+    "student_name": "KAYIRANGA AURORE MERVEILLE",
+    "json_name": "Kayiranga Aurore Merveille",
+    "match_score": "100.0%",
+    "class": "P1",
+    "photo_filename": "student-37-5637-1777560651804.jpg",
+    "timestamp": "2026-04-30T14:50:51.822Z"
+  },
+  {
+    "pic_id": 5642,
+    "student_id": 36,
+    "student_name": "KALIMBA KAZADI ALIYAH AMELIA",
+    "json_name": "Kalimba Kazadi Aliyah Amelia",
+    "match_score": "100.0%",
+    "class": "P1",
+    "photo_filename": "student-36-5642-1777560651851.jpg",
+    "timestamp": "2026-04-30T14:50:51.872Z"
+  },
+  {
+    "pic_id": 5643,
+    "student_id": 14,
+    "student_name": "HIRWA MUNYABIHOGO WILLIAM",
+    "json_name": "Hirwa Munyabihogo William",
+    "match_score": "100.0%",
+    "class": "P1",
+    "photo_filename": "student-14-5643-1777560651881.jpg",
+    "timestamp": "2026-04-30T14:50:51.899Z"
+  },
+  {
+    "pic_id": 5644,
+    "student_id": 29,
+    "student_name": "IRINATWE TODAH GODWI",
+    "json_name": "Irinatwe Todah Godwi",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-29-5644-1777560651909.jpg",
+    "timestamp": "2026-04-30T14:50:51.930Z"
+  },
+  {
+    "pic_id": 5646,
+    "student_id": 52,
+    "student_name": "NEZERWA ASANTE",
+    "json_name": "Nezerwa Asante",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-52-5646-1777560651938.jpg",
+    "timestamp": "2026-04-30T14:50:51.963Z"
+  },
+  {
+    "pic_id": 5647,
+    "student_id": 54,
+    "student_name": "NKESHIMANA ELLA AURORE",
+    "json_name": "Nkeshimana Ella Aurore",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-54-5647-1777560651977.jpg",
+    "timestamp": "2026-04-30T14:50:51.993Z"
+  },
+  {
+    "pic_id": 5648,
+    "student_id": 8,
+    "student_name": "GIKUNDIRO SABINE WINNY",
+    "json_name": "Gikundiro Sabine Winny",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-8-5648-1777560652001.jpg",
+    "timestamp": "2026-04-30T14:50:52.109Z"
+  },
+  {
+    "pic_id": 5649,
+    "student_id": 60,
+    "student_name": "RWEMA MUSONERA NARDO",
+    "json_name": "Rwema Musonera Nardo",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-60-5649-1777560652116.jpg",
+    "timestamp": "2026-04-30T14:50:52.216Z"
+  },
+  {
+    "pic_id": 5650,
+    "student_id": 59,
+    "student_name": "RUGWIRO SAFARI PRIDE",
+    "json_name": "Rugwiro Safari Pride",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-59-5650-1777560652239.jpg",
+    "timestamp": "2026-04-30T14:50:52.292Z"
+  },
+  {
+    "pic_id": 5651,
+    "student_id": 40,
+    "student_name": "KUNDWA GABIRO GRAINE",
+    "json_name": "Kundwa Gabiro Graine",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-40-5651-1777560652299.jpg",
+    "timestamp": "2026-04-30T14:50:52.344Z"
+  },
+  {
+    "pic_id": 5652,
+    "student_id": 16,
+    "student_name": "IGIRANEZA YAKIN",
+    "json_name": "Igiraneza Yakin",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-16-5652-1777560652350.jpg",
+    "timestamp": "2026-04-30T14:50:52.401Z"
+  },
+  {
+    "pic_id": 5653,
+    "student_id": 42,
+    "student_name": "MANZI RWIGEMA JUNIOR",
+    "json_name": "Manzi Rwigema Junior",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-42-5653-1777560652420.jpg",
+    "timestamp": "2026-04-30T14:50:52.487Z"
+  },
+  {
+    "pic_id": 5654,
+    "student_id": 39,
+    "student_name": "KUNDWA MUSAGO",
+    "json_name": "Kundwa Musago",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-39-5654-1777560652495.jpg",
+    "timestamp": "2026-04-30T14:50:52.532Z"
+  },
+  {
+    "pic_id": 5655,
+    "student_id": 23,
+    "student_name": "IMPANO SHIMO DAVE",
+    "json_name": "Impano Shimo Dave",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-23-5655-1777560652537.jpg",
+    "timestamp": "2026-04-30T14:50:52.577Z"
+  },
+  {
+    "pic_id": 5656,
+    "student_id": 13,
+    "student_name": "HIRWA RYAN",
+    "json_name": "Hirwa Ryan",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-13-5656-1777560652581.jpg",
+    "timestamp": "2026-04-30T14:50:52.611Z"
+  },
+  {
+    "pic_id": 5657,
+    "student_id": 32,
+    "student_name": "ISHEMA KUNDWA MAY",
+    "json_name": "Ishema Kundwa May",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-32-5657-1777560652619.jpg",
+    "timestamp": "2026-04-30T14:50:52.665Z"
+  },
+  {
+    "pic_id": 5658,
+    "student_id": 6,
+    "student_name": "CYUSA AKEEM",
+    "json_name": "Cyusa Akeem",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-6-5658-1777560652680.jpg",
+    "timestamp": "2026-04-30T14:50:52.736Z"
+  },
+  {
+    "pic_id": 5659,
+    "student_id": 5,
+    "student_name": "CYIZA NGENZI SUIDICK",
+    "json_name": "Cyiza Ngenzi Suidick",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-5-5659-1777560652752.jpg",
+    "timestamp": "2026-04-30T14:50:52.789Z"
+  },
+  {
+    "pic_id": 5661,
+    "student_id": 55,
+    "student_name": "NTWARI BRAVE",
+    "json_name": "Ntwari Brave",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-55-5661-1777560652813.jpg",
+    "timestamp": "2026-04-30T14:50:52.866Z"
+  },
+  {
+    "pic_id": 5662,
+    "student_id": 34,
+    "student_name": "ISHIMWE ELLA GAELLA",
+    "json_name": "Ishimwe Ella Gaella",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-34-5662-1777560652876.jpg",
+    "timestamp": "2026-04-30T14:50:52.931Z"
+  },
+  {
+    "pic_id": 5663,
+    "student_id": 18,
+    "student_name": "IKAZE NORA GIANA",
+    "json_name": "Ikaze Nora Giana",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-18-5663-1777560652946.jpg",
+    "timestamp": "2026-04-30T14:50:52.994Z"
+  },
+  {
+    "pic_id": 5665,
+    "student_id": 133,
+    "student_name": "UWINEZA IAN KEVIN",
+    "json_name": "Uwineza Ian Kevin",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-133-5665-1777560653010.jpg",
+    "timestamp": "2026-04-30T14:50:53.027Z"
+  },
+  {
+    "pic_id": 5666,
+    "student_id": 132,
+    "student_name": "UWERA TEDINE",
+    "json_name": "Uwera Tedine",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-132-5666-1777560653032.jpg",
+    "timestamp": "2026-04-30T14:50:53.063Z"
+  },
+  {
+    "pic_id": 5667,
+    "student_id": 114,
+    "student_name": "MUNEZERO HONETTE",
+    "json_name": "Munezero Honette",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-114-5667-1777560653090.jpg",
+    "timestamp": "2026-04-30T14:50:53.108Z"
+  },
+  {
+    "pic_id": 5668,
+    "student_id": 126,
+    "student_name": "TUYISHIME GANZA GIANI",
+    "json_name": "Tuyishime Ganza Giani",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-126-5668-1777560653115.jpg",
+    "timestamp": "2026-04-30T14:50:53.267Z"
+  },
+  {
+    "pic_id": 5669,
+    "student_id": 87,
+    "student_name": "INEMA Basil Alan",
+    "json_name": "Inema Basil Alan",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-87-5669-1777560653296.jpg",
+    "timestamp": "2026-04-30T14:50:53.335Z"
+  },
+  {
+    "pic_id": 5670,
+    "student_id": 116,
+    "student_name": "MURENGEZI GIFT",
+    "json_name": "Murengezi Gift",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-116-5670-1777560653343.jpg",
+    "timestamp": "2026-04-30T14:50:54.183Z"
+  },
+  {
+    "pic_id": 5671,
+    "student_id": 81,
+    "student_name": "IHIRWE NAILA CIKOMA",
+    "json_name": "Ihirwe Naila Cikoma",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-81-5671-1777560654210.jpg",
+    "timestamp": "2026-04-30T14:50:54.326Z"
+  },
+  {
+    "pic_id": 5672,
+    "student_id": 68,
+    "student_name": "AKAMI Karambizi Bryson",
+    "json_name": "Akami Karambizi Bryson",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-68-5672-1777560654337.jpg",
+    "timestamp": "2026-04-30T14:50:54.910Z"
+  },
+  {
+    "pic_id": 5674,
+    "student_id": 78,
+    "student_name": "HIRWA Bless Ryan",
+    "json_name": "Hirwa Bless Ryan",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-78-5674-1777560654933.jpg",
+    "timestamp": "2026-04-30T14:50:54.997Z"
+  },
+  {
+    "pic_id": 5675,
+    "student_id": 113,
+    "student_name": "MUHIZI Liam Nolan",
+    "json_name": "Muhizi Liam Nolan",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-113-5675-1777560655019.jpg",
+    "timestamp": "2026-04-30T14:50:55.083Z"
+  },
+  {
+    "pic_id": 5676,
+    "student_id": 75,
+    "student_name": "HABINEZA Christa Bella",
+    "json_name": "Habineza Christa Bella",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-75-5676-1777560655097.jpg",
+    "timestamp": "2026-04-30T14:50:55.127Z"
+  },
+  {
+    "pic_id": 5677,
+    "student_id": 131,
+    "student_name": "UWASE Keila",
+    "json_name": "Uwase Keila",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-131-5677-1777560655133.jpg",
+    "timestamp": "2026-04-30T14:50:55.168Z"
+  },
+  {
+    "pic_id": 5678,
+    "student_id": 128,
+    "student_name": "UMUTONIWASE Ella Tressa",
+    "json_name": "Umutoniwase Ella Tressa",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-128-5678-1777560655178.jpg",
+    "timestamp": "2026-04-30T14:50:55.194Z"
+  },
+  {
+    "pic_id": 5679,
+    "student_id": 51,
+    "student_name": "NATETE BRIELLA",
+    "json_name": "Natete Briella",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-51-5679-1777560655199.jpg",
+    "timestamp": "2026-04-30T14:50:55.213Z"
+  },
+  {
+    "pic_id": 5681,
+    "student_id": 105,
+    "student_name": "KAMIKAZIKASE Ornella",
+    "json_name": "Kamikazikase Ornella",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-105-5681-1777560655227.jpg",
+    "timestamp": "2026-04-30T14:50:55.242Z"
+  },
+  {
+    "pic_id": 5682,
+    "student_id": 125,
+    "student_name": "SHEMA Alnold Edwin",
+    "json_name": "Shema Alnold Edwin",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-125-5682-1777560655248.jpg",
+    "timestamp": "2026-04-30T14:50:55.263Z"
+  },
+  {
+    "pic_id": 5683,
+    "student_id": 79,
+    "student_name": "IGANZE EVAN BEBETO",
+    "json_name": "Iganze Evan Bebeto",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-79-5683-1777560655272.jpg",
+    "timestamp": "2026-04-30T14:50:55.296Z"
+  },
+  {
+    "pic_id": 5684,
+    "student_id": 88,
+    "student_name": "INEZA LAILA",
+    "json_name": "Ineza Laila",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-88-5684-1777560655300.jpg",
+    "timestamp": "2026-04-30T14:50:55.315Z"
+  },
+  {
+    "pic_id": 5685,
+    "student_id": 99,
+    "student_name": "ISANGE Emma Bryanna",
+    "json_name": "Isange Emma Bryanna",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-99-5685-1777560655324.jpg",
+    "timestamp": "2026-04-30T14:50:55.336Z"
+  },
+  {
+    "pic_id": 5688,
+    "student_id": 73,
+    "student_name": "CYUSA AARON",
+    "json_name": "Cyusa Aaron",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-73-5688-1777560655343.jpg",
+    "timestamp": "2026-04-30T14:50:55.358Z"
+  },
+  {
+    "pic_id": 5689,
+    "student_id": 89,
+    "student_name": "INEZA IVAN BRUNO",
+    "json_name": "Ineza Ivan Bruno",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-89-5689-1777560655365.jpg",
+    "timestamp": "2026-04-30T14:50:55.381Z"
+  },
+  {
+    "pic_id": 5690,
+    "student_id": 108,
+    "student_name": "MICYOMYIZA Eloi",
+    "json_name": "Micyomyiza Eloi",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-108-5690-1777560655391.jpg",
+    "timestamp": "2026-04-30T14:50:55.407Z"
+  },
+  {
+    "pic_id": 5691,
+    "student_id": 104,
+    "student_name": "KAMIKAZI BIJUGIZA SCOVIA",
+    "json_name": "Kamikazi Bijugiza Scovia",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-104-5691-1777560655417.jpg",
+    "timestamp": "2026-04-30T14:50:55.438Z"
+  },
+  {
+    "pic_id": 5692,
+    "student_id": 103,
+    "student_name": "IYABIVUZE Belyse",
+    "json_name": "Iyabivuze Belyse",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-103-5692-1777560655444.jpg",
+    "timestamp": "2026-04-30T14:50:55.459Z"
+  },
+  {
+    "pic_id": 5693,
+    "student_id": 130,
+    "student_name": "UWASE GAELLA",
+    "json_name": "Uwase Gaella",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-130-5693-1777560655464.jpg",
+    "timestamp": "2026-04-30T14:50:55.481Z"
+  },
+  {
+    "pic_id": 5694,
+    "student_id": 76,
+    "student_name": "HABUMUREMYI Isimbi Ella",
+    "json_name": "Habumuremyi Isimbi Ella",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-76-5694-1777560655499.jpg",
+    "timestamp": "2026-04-30T14:50:55.519Z"
+  },
+  {
+    "pic_id": 5695,
+    "student_id": 67,
+    "student_name": "AKALIZA HAPPY HARPER",
+    "json_name": "Akaliza Happy Harper",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-67-5695-1777560655527.jpg",
+    "timestamp": "2026-04-30T14:50:55.544Z"
+  },
+  {
+    "pic_id": 5696,
+    "student_id": 124,
+    "student_name": "SHEJA Samuella",
+    "json_name": "Sheja Samuella",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-124-5696-1777560655549.jpg",
+    "timestamp": "2026-04-30T14:50:55.566Z"
+  },
+  {
+    "pic_id": 5697,
+    "student_id": 94,
+    "student_name": "IRADUKUNDA Ella Abriana",
+    "json_name": "Iradukunda Ella Abriana",
+    "match_score": "100.0%",
+    "class": "P2",
+    "photo_filename": "student-94-5697-1777560655577.jpg",
+    "timestamp": "2026-04-30T14:50:55.593Z"
+  },
+  {
+    "pic_id": 5698,
+    "student_id": 96,
+    "student_name": "IRAZI Nshimiye Kendra",
+    "json_name": "Irazi Nshimiye Kendra",
+    "match_score": "100.0%",
+    "class": "P3",
+    "photo_filename": "student-96-5698-1777560655603.jpg",
+    "timestamp": "2026-04-30T14:50:55.641Z"
+  },
+  {
+    "pic_id": 5699,
+    "student_id": 98,
+    "student_name": "IRUMVA Aime Lameck",
+    "json_name": "Irumva Aime Lameck",
+    "match_score": "100.0%",
+    "class": "P3",
+    "photo_filename": "student-98-5699-1777560655647.jpg",
+    "timestamp": "2026-04-30T14:50:55.782Z"
+  },
+  {
+    "pic_id": 5700,
+    "student_id": 72,
+    "student_name": "BERWANINEZA Keza Junior",
+    "json_name": "Berwanineza Keza Junior",
+    "match_score": "100.0%",
+    "class": "P3",
+    "photo_filename": "student-72-5700-1777560655792.jpg",
+    "timestamp": "2026-04-30T14:50:55.892Z"
+  },
+  {
+    "pic_id": 5702,
+    "student_id": 92,
+    "student_name": "INGENZI Rwisumbura Jasper",
+    "json_name": "Ingenzi Rwisumbura Jasper",
+    "match_score": "100.0%",
+    "class": "P3",
+    "photo_filename": "student-92-5702-1777560655912.jpg",
+    "timestamp": "2026-04-30T14:50:55.967Z"
+  },
+  {
+    "pic_id": 5704,
+    "student_id": 85,
+    "student_name": "IKUZWE SHIMWA Louange",
+    "json_name": "Ikuzwe Shimwa Louange",
+    "match_score": "100.0%",
+    "class": "P3",
+    "photo_filename": "student-85-5704-1777560655989.jpg",
+    "timestamp": "2026-04-30T14:50:56.042Z"
+  },
+  {
+    "pic_id": 5705,
+    "student_id": 119,
+    "student_name": "NTWARI IRASUBIZA CLEVER",
+    "json_name": "Ntwari Irasubiza Clever",
+    "match_score": "100.0%",
+    "class": "P3",
+    "photo_filename": "student-119-5705-1777560656067.jpg",
+    "timestamp": "2026-04-30T14:50:56.113Z"
+  },
+  {
+    "pic_id": 5706,
+    "student_id": 69,
+    "student_name": "AKAMIKAZI ABBY CHRISTELLA",
+    "json_name": "Akamikazi Abby Christella",
+    "match_score": "100.0%",
+    "class": "P3",
+    "photo_filename": "student-69-5706-1777560656120.jpg",
+    "timestamp": "2026-04-30T14:50:56.170Z"
+  },
+  {
+    "pic_id": 5707,
+    "student_id": 97,
+    "student_name": "IRINATWE Ganza Blessing",
+    "json_name": "Irinatwe Ganza Blessing",
+    "match_score": "100.0%",
+    "class": "P3",
+    "photo_filename": "student-97-5707-1777560656183.jpg",
+    "timestamp": "2026-04-30T14:50:56.239Z"
+  },
+  {
+    "pic_id": 5708,
+    "student_id": 84,
+    "student_name": "IKUZO NIMWIZA RENATHAHA",
+    "json_name": "Ikuzo Nimwiza Renathaha",
+    "match_score": "100.0%",
+    "class": "P3",
+    "photo_filename": "student-84-5708-1777560656248.jpg",
+    "timestamp": "2026-04-30T14:50:56.289Z"
+  },
+  {
+    "pic_id": 5709,
+    "student_id": 109,
+    "student_name": "MPANO Mugisha Angelo",
+    "json_name": "Mpano Mugisha Angelo",
+    "match_score": "100.0%",
+    "class": "P3",
+    "photo_filename": "student-109-5709-1777560656297.jpg",
+    "timestamp": "2026-04-30T14:50:56.336Z"
+  },
+  {
+    "pic_id": 5710,
+    "student_id": 132,
+    "student_name": "UWERA TEDINE",
+    "json_name": "Uwera Tedine",
+    "match_score": "100.0%",
+    "class": "P3",
+    "photo_filename": "student-132-5710-1777560656342.jpg",
+    "timestamp": "2026-04-30T14:50:56.389Z"
+  },
+  {
+    "pic_id": 5711,
+    "student_id": 90,
+    "student_name": "INEZA Ornella",
+    "json_name": "Ineza Ornella",
+    "match_score": "100.0%",
+    "class": "P3",
+    "photo_filename": "student-90-5711-1777560656412.jpg",
+    "timestamp": "2026-04-30T14:50:56.467Z"
+  },
+  {
+    "pic_id": 5713,
+    "student_id": 80,
+    "student_name": "IGENO Shimwa Honore",
+    "json_name": "Igeno Shimwa Honore",
+    "match_score": "100.0%",
+    "class": "P3",
+    "photo_filename": "student-80-5713-1777560656496.jpg",
+    "timestamp": "2026-04-30T14:50:56.549Z"
+  },
+  {
+    "pic_id": 5714,
+    "student_id": 107,
+    "student_name": "KUNDWA Joella",
+    "json_name": "Kundwa Joella",
+    "match_score": "100.0%",
+    "class": "P3",
+    "photo_filename": "student-107-5714-1777560656568.jpg",
+    "timestamp": "2026-04-30T14:50:56.624Z"
+  },
+  {
+    "pic_id": 5716,
+    "student_id": 102,
+    "student_name": "ISHIMWE JADE MYSTICA",
+    "json_name": "Ishimwe Jade Mystica",
+    "match_score": "100.0%",
+    "class": "P3",
+    "photo_filename": "student-102-5716-1777560656645.jpg",
+    "timestamp": "2026-04-30T14:50:56.661Z"
+  },
+  {
+    "pic_id": 5717,
+    "student_id": 127,
+    "student_name": "UHIRWA BENAYAH",
+    "json_name": "Uhirwa Benayah",
+    "match_score": "100.0%",
+    "class": "P3",
+    "photo_filename": "student-127-5717-1777560656669.jpg",
+    "timestamp": "2026-04-30T14:50:56.686Z"
+  },
+  {
+    "pic_id": 5718,
+    "student_id": 93,
+    "student_name": "IRACYAKORA Lionel",
+    "json_name": "Iracyakora Lionel",
+    "match_score": "100.0%",
+    "class": "P3",
+    "photo_filename": "student-93-5718-1777560656693.jpg",
+    "timestamp": "2026-04-30T14:50:56.708Z"
+  },
+  {
+    "pic_id": 5719,
+    "student_id": 95,
+    "student_name": "IRAKIZA Dusabe Miguel",
+    "json_name": "Irakiza Dusabe Miguel",
+    "match_score": "100.0%",
+    "class": "P3",
+    "photo_filename": "student-95-5719-1777560656714.jpg",
+    "timestamp": "2026-04-30T14:50:56.731Z"
+  },
+  {
+    "pic_id": 5721,
+    "student_id": 91,
+    "student_name": "INEZA Winny Sharon",
+    "json_name": "Ineza Winny Sharon",
+    "match_score": "100.0%",
+    "class": "P3",
+    "photo_filename": "student-91-5721-1777560656748.jpg",
+    "timestamp": "2026-04-30T14:50:56.766Z"
+  },
+  {
+    "pic_id": 5722,
+    "student_id": 67,
+    "student_name": "AKALIZA HAPPY HARPER",
+    "json_name": "Akaliza Happy Harper",
+    "match_score": "100.0%",
+    "class": "P3",
+    "photo_filename": "student-67-5722-1777560656774.jpg",
+    "timestamp": "2026-04-30T14:50:56.793Z"
+  },
+  {
+    "pic_id": 5724,
+    "student_id": 74,
+    "student_name": "GWIZA Kariwabo Ollen",
+    "json_name": "Gwiza Kariwabo Ollen",
+    "match_score": "100.0%",
+    "class": "P3",
+    "photo_filename": "student-74-5724-1777560656812.jpg",
+    "timestamp": "2026-04-30T14:50:56.829Z"
+  },
+  {
+    "pic_id": 5725,
+    "student_id": 100,
+    "student_name": "ISHEJA Norah",
+    "json_name": "Isheja Norah",
+    "match_score": "100.0%",
+    "class": "P3",
+    "photo_filename": "student-100-5725-1777560656834.jpg",
+    "timestamp": "2026-04-30T14:50:56.859Z"
+  },
+  {
+    "pic_id": 5726,
+    "student_id": 82,
+    "student_name": "IHOZO Mugisha Clenia",
+    "json_name": "Ihozo Mugisha Clenia",
+    "match_score": "100.0%",
+    "class": "P3",
+    "photo_filename": "student-82-5726-1777560656868.jpg",
+    "timestamp": "2026-04-30T14:50:56.889Z"
+  },
+  {
+    "pic_id": 5727,
+    "student_id": 83,
+    "student_name": "IKUZO Nada",
+    "json_name": "Ikuzo Nada",
+    "match_score": "100.0%",
+    "class": "P3",
+    "photo_filename": "student-83-5727-1777560656895.jpg",
+    "timestamp": "2026-04-30T14:50:56.918Z"
+  },
+  {
+    "pic_id": 5728,
+    "student_id": 129,
+    "student_name": "UWAJENEZA CHANIA",
+    "json_name": "Uwajeneza Chania",
+    "match_score": "100.0%",
+    "class": "P3",
+    "photo_filename": "student-129-5728-1777560656927.jpg",
+    "timestamp": "2026-04-30T14:50:56.944Z"
+  },
+  {
+    "pic_id": 5731,
+    "student_id": 187,
+    "student_name": "MUTESI ADELA",
+    "json_name": "Mutesi Adela",
+    "match_score": "100.0%",
+    "class": "P3",
+    "photo_filename": "student-187-5731-1777560656966.jpg",
+    "timestamp": "2026-04-30T14:50:57.003Z"
+  },
+  {
+    "pic_id": 5734,
+    "student_id": 192,
+    "student_name": "NIYOMUGABO BARIKA",
+    "json_name": "Niyomugabo Barika",
+    "match_score": "100.0%",
+    "class": "P3",
+    "photo_filename": "student-192-5734-1777560657027.jpg",
+    "timestamp": "2026-04-30T14:50:57.051Z"
+  },
+  {
+    "pic_id": 5735,
+    "student_id": 140,
+    "student_name": "AKAMANZI SALWA",
+    "json_name": "Akamanzi Salwa",
+    "match_score": "100.0%",
+    "class": "P3",
+    "photo_filename": "student-140-5735-1777560657070.jpg",
+    "timestamp": "2026-04-30T14:50:57.085Z"
+  },
+  {
+    "pic_id": 5737,
+    "student_id": 186,
+    "student_name": "MUGISHA Labine",
+    "json_name": "Mugisha Labine",
+    "match_score": "100.0%",
+    "class": "P3",
+    "photo_filename": "student-186-5737-1777560657096.jpg",
+    "timestamp": "2026-04-30T14:50:57.114Z"
+  },
+  {
+    "pic_id": 5738,
+    "student_id": 156,
+    "student_name": "IGENO LITA Jovia",
+    "json_name": "Igeno Lita Jovia",
+    "match_score": "100.0%",
+    "class": "P3",
+    "photo_filename": "student-156-5738-1777560657123.jpg",
+    "timestamp": "2026-04-30T14:50:57.139Z"
+  },
+  {
+    "pic_id": 5739,
+    "student_id": 166,
+    "student_name": "IRAKOZE MUCYO JEAN DE DIEU",
+    "json_name": "Irakoze Mucyo Jean de Dieu",
+    "match_score": "100.0%",
+    "class": "P3",
+    "photo_filename": "student-166-5739-1777560657146.jpg",
+    "timestamp": "2026-04-30T14:50:57.175Z"
+  },
+  {
+    "pic_id": 5740,
+    "student_id": 159,
+    "student_name": "IHIRWE ORNELLA",
+    "json_name": "Ihirwe Ornella",
+    "match_score": "100.0%",
+    "class": "P3",
+    "photo_filename": "student-159-5740-1777560657180.jpg",
+    "timestamp": "2026-04-30T14:50:57.380Z"
+  },
+  {
+    "pic_id": 5742,
+    "student_id": 204,
+    "student_name": "UWAJENEZA JOVIA",
+    "json_name": "Uwajeneza Jovia",
+    "match_score": "100.0%",
+    "class": "P3",
+    "photo_filename": "student-204-5742-1777560657394.jpg",
+    "timestamp": "2026-04-30T14:50:57.529Z"
+  },
+  {
+    "pic_id": 5744,
+    "student_id": 144,
+    "student_name": "ASHIMWE SENGA IAN",
+    "json_name": "Ashimwe Senga Ian",
+    "match_score": "100.0%",
+    "class": "P3",
+    "photo_filename": "student-144-5744-1777560657562.jpg",
+    "timestamp": "2026-04-30T14:50:57.600Z"
+  },
+  {
+    "pic_id": 5745,
+    "student_id": 155,
+    "student_name": "HABUMUGISHA SHYAKA",
+    "json_name": "Habumugisha Shyaka",
+    "match_score": "100.0%",
+    "class": "P3",
+    "photo_filename": "student-155-5745-1777560657606.jpg",
+    "timestamp": "2026-04-30T14:50:57.646Z"
+  },
+  {
+    "pic_id": 5746,
+    "student_id": 164,
+    "student_name": "IRADUKUNDA INEZA MERCI",
+    "json_name": "Iradukunda Ineza Merci",
+    "match_score": "100.0%",
+    "class": "P3",
+    "photo_filename": "student-164-5746-1777560657652.jpg",
+    "timestamp": "2026-04-30T14:50:57.697Z"
+  },
+  {
+    "pic_id": 5747,
+    "student_id": 175,
+    "student_name": "ISHIMWE SHEMA MUKHUTAL",
+    "json_name": "Ishimwe Shema Mukhutal",
+    "match_score": "100.0%",
+    "class": "P3A",
+    "photo_filename": "student-175-5747-1777560657703.jpg",
+    "timestamp": "2026-04-30T14:50:57.752Z"
+  },
+  {
+    "pic_id": 5750,
+    "student_id": 205,
+    "student_name": "YIZERE Ruben NESTOR",
+    "json_name": "Yizere Ruben Nestor",
+    "match_score": "100.0%",
+    "class": "P3A",
+    "photo_filename": "student-205-5750-1777560657773.jpg",
+    "timestamp": "2026-04-30T14:50:57.825Z"
+  },
+  {
+    "pic_id": 5752,
+    "student_id": 172,
+    "student_name": "ISHIMWE HAPPY DIDIER",
+    "json_name": "Ishimwe Happy Didier",
+    "match_score": "100.0%",
+    "class": "P3A",
+    "photo_filename": "student-172-5752-1777560657835.jpg",
+    "timestamp": "2026-04-30T14:50:57.874Z"
+  },
+  {
+    "pic_id": 5753,
+    "student_id": 180,
+    "student_name": "KANYIGINYA ANAELLA Success",
+    "json_name": "Kanyiginya Anaella Success",
+    "match_score": "100.0%",
+    "class": "P3A",
+    "photo_filename": "student-180-5753-1777560657881.jpg",
+    "timestamp": "2026-04-30T14:50:57.922Z"
+  },
+  {
+    "pic_id": 5754,
+    "student_id": 154,
+    "student_name": "GWIZA NESSA",
+    "json_name": "Gwiza Nessa",
+    "match_score": "100.0%",
+    "class": "P3A",
+    "photo_filename": "student-154-5754-1777560657936.jpg",
+    "timestamp": "2026-04-30T14:50:57.988Z"
+  },
+  {
+    "pic_id": 5755,
+    "student_id": 151,
+    "student_name": "GAJU NZIYUMVIRA ELLA",
+    "json_name": "Gaju Nziyumvira Ella",
+    "match_score": "100.0%",
+    "class": "P3A",
+    "photo_filename": "student-151-5755-1777560658014.jpg",
+    "timestamp": "2026-04-30T14:50:58.064Z"
+  },
+  {
+    "pic_id": 5756,
+    "student_id": 170,
+    "student_name": "ISHIMWE ANGE CHRISTELLA",
+    "json_name": "Ishimwe Ange Christella",
+    "match_score": "100.0%",
+    "class": "P3A",
+    "photo_filename": "student-170-5756-1777560658086.jpg",
+    "timestamp": "2026-04-30T14:50:58.109Z"
+  },
+  {
+    "pic_id": 5757,
+    "student_id": 157,
+    "student_name": "IGIRANEZA NISSIAH",
+    "json_name": "Igiraneza Nissiah",
+    "match_score": "100.0%",
+    "class": "P3A",
+    "photo_filename": "student-157-5757-1777560658116.jpg",
+    "timestamp": "2026-04-30T14:50:58.133Z"
+  },
+  {
+    "pic_id": 5760,
+    "student_id": 202,
+    "student_name": "UKUNZWE GIRAMATA LUCKY",
+    "json_name": "Ukunzwe Giramata Lucky",
+    "match_score": "100.0%",
+    "class": "P3A",
+    "photo_filename": "student-202-5760-1777560658147.jpg",
+    "timestamp": "2026-04-30T14:50:58.161Z"
+  },
+  {
+    "pic_id": 5761,
+    "student_id": 191,
+    "student_name": "NEZA JUAN",
+    "json_name": "Neza Juana",
+    "match_score": "93.3%",
+    "class": "P3A",
+    "photo_filename": "student-191-5761-1777560658166.jpg",
+    "timestamp": "2026-04-30T14:50:58.193Z"
+  },
+  {
+    "pic_id": 5763,
+    "student_id": 169,
+    "student_name": "ISANOYACU DANY PRIDE",
+    "json_name": "Isanoyacu Dany Pride",
+    "match_score": "100.0%",
+    "class": "P3A",
+    "photo_filename": "student-169-5763-1777560658207.jpg",
+    "timestamp": "2026-04-30T14:50:58.227Z"
+  },
+  {
+    "pic_id": 5764,
+    "student_id": 197,
+    "student_name": "SHAMI NIWE Reeves",
+    "json_name": "Shami Niwe Reeves",
+    "match_score": "100.0%",
+    "class": "P3A",
+    "photo_filename": "student-197-5764-1777560658232.jpg",
+    "timestamp": "2026-04-30T14:50:58.250Z"
+  },
+  {
+    "pic_id": 5766,
+    "student_id": 153,
+    "student_name": "GWIZA Ndandu Shammah",
+    "json_name": "Gwiza Ndandu Shammah",
+    "match_score": "100.0%",
+    "class": "P3A",
+    "photo_filename": "student-153-5766-1777560658264.jpg",
+    "timestamp": "2026-04-30T14:50:58.284Z"
+  },
+  {
+    "pic_id": 5767,
+    "student_id": 141,
+    "student_name": "AKANDI OLGA",
+    "json_name": "Akandi Olga",
+    "match_score": "100.0%",
+    "class": "P3A",
+    "photo_filename": "student-141-5767-1777560658291.jpg",
+    "timestamp": "2026-04-30T14:50:58.307Z"
+  },
+  {
+    "pic_id": 5768,
+    "student_id": 138,
+    "student_name": "AGATAKO MALUWA",
+    "json_name": "Agatako Maluwa",
+    "match_score": "100.0%",
+    "class": "P3A",
+    "photo_filename": "student-138-5768-1777560658313.jpg",
+    "timestamp": "2026-04-30T14:50:58.332Z"
+  },
+  {
+    "pic_id": 5769,
+    "student_id": 138,
+    "student_name": "AGATAKO MALUWA",
+    "json_name": "Agatako Maluwa",
+    "match_score": "100.0%",
+    "class": "P3A",
+    "photo_filename": "student-138-5769-1777560658340.jpg",
+    "timestamp": "2026-04-30T14:50:58.361Z"
+  },
+  {
+    "pic_id": 5770,
+    "student_id": 189,
+    "student_name": "NDAYISHIMIYE GOLAN",
+    "json_name": "Ndayishimiye Golan",
+    "match_score": "100.0%",
+    "class": "P3A",
+    "photo_filename": "student-189-5770-1777560658367.jpg",
+    "timestamp": "2026-04-30T14:50:58.392Z"
+  },
+  {
+    "pic_id": 5771,
+    "student_id": 134,
+    "student_name": "VICTOR KADDU KISENYI",
+    "json_name": "Victor Kaddu Kisenyi",
+    "match_score": "100.0%",
+    "class": "P3A",
+    "photo_filename": "student-134-5771-1777560658400.jpg",
+    "timestamp": "2026-04-30T14:50:58.422Z"
+  },
+  {
+    "pic_id": 5771,
+    "student_id": 184,
+    "student_name": "MUDAHIGWA HUSNAH",
+    "json_name": "Mudahigwa Husnah",
+    "match_score": "100.0%",
+    "class": "P3A",
+    "photo_filename": "student-184-5771-1777560658428.jpg",
+    "timestamp": "2026-04-30T14:50:58.436Z"
+  },
+  {
+    "pic_id": 5772,
+    "student_id": 168,
+    "student_name": "ISANO AVASHA LOGAN",
+    "json_name": "Isano Avasha Logan",
+    "match_score": "100.0%",
+    "class": "P3A",
+    "photo_filename": "student-168-5772-1777560658443.jpg",
+    "timestamp": "2026-04-30T14:50:58.492Z"
+  },
+  {
+    "pic_id": 5773,
+    "student_id": 165,
+    "student_name": "IRAKOZE MEGAN RIELLA",
+    "json_name": "Irakoze Megan Riella",
+    "match_score": "100.0%",
+    "class": "P3A",
+    "photo_filename": "student-165-5773-1777560658498.jpg",
+    "timestamp": "2026-04-30T14:50:58.527Z"
+  },
+  {
+    "pic_id": 5777,
+    "student_id": 171,
+    "student_name": "ISHIMWE ANNE CHRISTA",
+    "json_name": "Ishimwe Anne Christa",
+    "match_score": "100.0%",
+    "class": "P3A",
+    "photo_filename": "student-171-5777-1777560658540.jpg",
+    "timestamp": "2026-04-30T14:50:58.595Z"
+  },
+  {
+    "pic_id": 5778,
+    "student_id": 193,
+    "student_name": "NTWARI NELSON",
+    "json_name": "Ntwari Nelson",
+    "match_score": "100.0%",
+    "class": "P3A",
+    "photo_filename": "student-193-5778-1777560658599.jpg",
+    "timestamp": "2026-04-30T14:50:58.777Z"
+  },
+  {
+    "pic_id": 5780,
+    "student_id": 190,
+    "student_name": "NDAYISHIMIYE HAMZA",
+    "json_name": "Ndayishimiye Hamza",
+    "match_score": "100.0%",
+    "class": "P3A",
+    "photo_filename": "student-190-5780-1777560658805.jpg",
+    "timestamp": "2026-04-30T14:50:58.924Z"
+  },
+  {
+    "pic_id": 5781,
+    "student_id": 174,
+    "student_name": "ISHIMWE JONATHAN",
+    "json_name": "Ishimwe Jonathan",
+    "match_score": "100.0%",
+    "class": "P3A",
+    "photo_filename": "student-174-5781-1777560658932.jpg",
+    "timestamp": "2026-04-30T14:50:59.149Z"
+  },
+  {
+    "pic_id": 5782,
+    "student_id": 146,
+    "student_name": "BAHUJE LIAM JOBERT",
+    "json_name": "Bahuje Liam Jobert",
+    "match_score": "100.0%",
+    "class": "P3A",
+    "photo_filename": "student-146-5782-1777560659177.jpg",
+    "timestamp": "2026-04-30T14:50:59.538Z"
+  },
+  {
+    "pic_id": 5783,
+    "student_id": 177,
+    "student_name": "JEAN PIERRE NJAMAHORO",
+    "json_name": "Njamahoro Jean Pierre",
+    "match_score": "94.4%",
+    "class": "P3A",
+    "photo_filename": "student-177-5783-1777560659563.jpg",
+    "timestamp": "2026-04-30T14:50:59.624Z"
+  },
+  {
+    "pic_id": 5784,
+    "student_id": 201,
+    "student_name": "TUYISHIME ELYSE",
+    "json_name": "Tuyishime Elyse",
+    "match_score": "100.0%",
+    "class": "P3A",
+    "photo_filename": "student-201-5784-1777560659643.jpg",
+    "timestamp": "2026-04-30T14:50:59.681Z"
+  },
+  {
+    "pic_id": 5785,
+    "student_id": 163,
+    "student_name": "INEZA NSHUTI Alain",
+    "json_name": "Ineza Nshuti Alain",
+    "match_score": "100.0%",
+    "class": "P3A",
+    "photo_filename": "student-163-5785-1777560659687.jpg",
+    "timestamp": "2026-04-30T14:50:59.734Z"
+  },
+  {
+    "pic_id": 5786,
+    "student_id": 167,
+    "student_name": "IRASUBIJE VITTY",
+    "json_name": "Irasubije Vitty",
+    "match_score": "100.0%",
+    "class": "P3A",
+    "photo_filename": "student-167-5786-1777560659763.jpg",
+    "timestamp": "2026-04-30T14:50:59.805Z"
+  },
+  {
+    "pic_id": 5787,
+    "student_id": 142,
+    "student_name": "AKEZAKASE GAELLA",
+    "json_name": "Akezakase Gaella",
+    "match_score": "100.0%",
+    "class": "P3A",
+    "photo_filename": "student-142-5787-1777560659828.jpg",
+    "timestamp": "2026-04-30T14:50:59.875Z"
+  },
+  {
+    "pic_id": 5852,
+    "student_id": 275,
+    "student_name": "NIYONSENGA Emmanuel",
+    "json_name": "Niyonsenga Emmanuel",
+    "match_score": "100.0%",
+    "class": "P4B",
+    "photo_filename": "student-275-5852-1777560659892.jpg",
+    "timestamp": "2026-04-30T14:51:00.042Z"
+  },
+  {
+    "pic_id": 5854,
+    "student_id": 232,
+    "student_name": "INEZA Eunice",
+    "json_name": "Ineza Eunice",
+    "match_score": "100.0%",
+    "class": "P4B",
+    "photo_filename": "student-232-5854-1777560660052.jpg",
+    "timestamp": "2026-04-30T14:51:00.270Z"
+  },
+  {
+    "pic_id": 5857,
+    "student_id": 247,
+    "student_name": "ITETE NAELLA JACK SALIMA",
+    "json_name": "ITETE NAELLA JACK SALIMA",
+    "match_score": "100.0%",
+    "class": "P4B",
+    "photo_filename": "student-247-5857-1777560660324.jpg",
+    "timestamp": "2026-04-30T14:51:00.400Z"
+  },
+  {
+    "pic_id": 5858,
+    "student_id": 299,
+    "student_name": "UWITUZE Scovia",
+    "json_name": "UWITUZE Scovia",
+    "match_score": "100.0%",
+    "class": "P4B",
+    "photo_filename": "student-299-5858-1777560660407.jpg",
+    "timestamp": "2026-04-30T14:51:00.448Z"
+  },
+  {
+    "pic_id": 5859,
+    "student_id": 206,
+    "student_name": "AGANZE NTWARI MUHSIN",
+    "json_name": "AGANZE NTWARI MUHSIN",
+    "match_score": "100.0%",
+    "class": "P4B",
+    "photo_filename": "student-206-5859-1777560660458.jpg",
+    "timestamp": "2026-04-30T14:51:00.510Z"
+  },
+  {
+    "pic_id": 5860,
+    "student_id": 218,
+    "student_name": "BUGINGO ABED CALME",
+    "json_name": "BUGINGO ABED CALME",
+    "match_score": "100.0%",
+    "class": "P4B",
+    "photo_filename": "student-218-5860-1777560660515.jpg",
+    "timestamp": "2026-04-30T14:51:00.559Z"
+  },
+  {
+    "pic_id": 5861,
+    "student_id": 215,
+    "student_name": "BELLE MORAH JAMVIERE",
+    "json_name": "BELLE MORAH JAMVIERE",
+    "match_score": "100.0%",
+    "class": "P4B",
+    "photo_filename": "student-215-5861-1777560660567.jpg",
+    "timestamp": "2026-04-30T14:51:00.610Z"
+  },
+  {
+    "pic_id": 5862,
+    "student_id": 229,
+    "student_name": "IHIRWE OONA BIANCA",
+    "json_name": "IHIRWE OONA BIANCA",
+    "match_score": "100.0%",
+    "class": "P4B",
+    "photo_filename": "student-229-5862-1777560660627.jpg",
+    "timestamp": "2026-04-30T14:51:00.671Z"
+  },
+  {
+    "pic_id": 5863,
+    "student_id": 285,
+    "student_name": "SANO ISAAC",
+    "json_name": "sano isaac",
+    "match_score": "100.0%",
+    "class": "P4B",
+    "photo_filename": "student-285-5863-1777560660677.jpg",
+    "timestamp": "2026-04-30T14:51:00.712Z"
+  },
+  {
+    "pic_id": 5864,
+    "student_id": 228,
+    "student_name": "IGIRANEZA Kayiranga Kessy",
+    "json_name": "igiraneza kayiranga kessy gianna",
+    "match_score": "88.0%",
+    "class": "P4B",
+    "photo_filename": "student-228-5864-1777560660725.jpg",
+    "timestamp": "2026-04-30T14:51:00.762Z"
+  },
+  {
+    "pic_id": 5865,
+    "student_id": 269,
+    "student_name": "MWIZA JOY",
+    "json_name": "mwiza joy",
+    "match_score": "100.0%",
+    "class": "P4B",
+    "photo_filename": "student-269-5865-1777560660768.jpg",
+    "timestamp": "2026-04-30T14:51:00.807Z"
+  },
+  {
+    "pic_id": 5866,
+    "student_id": 261,
+    "student_name": "MUGEMA GIRAMATA ORNELLA",
+    "json_name": "mugema giramata orenella",
+    "match_score": "92.7%",
+    "class": "P4B",
+    "photo_filename": "student-261-5866-1777560660816.jpg",
+    "timestamp": "2026-04-30T14:51:00.858Z"
+  },
+  {
+    "pic_id": 5868,
+    "student_id": 290,
+    "student_name": "SHIMWA Ella",
+    "json_name": "shimwa ella",
+    "match_score": "100.0%",
+    "class": "P4B",
+    "photo_filename": "student-290-5868-1777560660867.jpg",
+    "timestamp": "2026-04-30T14:51:00.919Z"
+  },
+  {
+    "pic_id": 5869,
+    "student_id": 268,
+    "student_name": "MUKUNZI CYUZUZO SHAINAH",
+    "json_name": "mukunzi cyuzuzo shiana",
+    "match_score": "82.1%",
+    "class": "P4B",
+    "photo_filename": "student-268-5869-1777560660927.jpg",
+    "timestamp": "2026-04-30T14:51:00.963Z"
+  },
+  {
+    "pic_id": 5871,
+    "student_id": 214,
+    "student_name": "AMPIRE MPURANYI ANAELLA",
+    "json_name": "AMPIRE MPURANYI ANAELLA",
+    "match_score": "100.0%",
+    "class": "P4B",
+    "photo_filename": "student-214-5871-1777560660973.jpg",
+    "timestamp": "2026-04-30T14:51:01.006Z"
+  },
+  {
+    "pic_id": 5872,
+    "student_id": 223,
+    "student_name": "HABINEZA UTUJE ELLA",
+    "json_name": "HABINEZA UTUJE ELLA",
+    "match_score": "100.0%",
+    "class": "P4B",
+    "photo_filename": "student-223-5872-1777560661013.jpg",
+    "timestamp": "2026-04-30T14:51:01.113Z"
+  },
+  {
+    "pic_id": 5873,
+    "student_id": 295,
+    "student_name": "UMUSABESE ROSINE",
+    "json_name": "UMUSABESE ROSINE",
+    "match_score": "100.0%",
+    "class": "P4B",
+    "photo_filename": "student-295-5873-1777560661120.jpg",
+    "timestamp": "2026-04-30T14:51:01.218Z"
+  },
+  {
+    "pic_id": 5874,
+    "student_id": 279,
+    "student_name": "NTWARI SHIMWA Maxime",
+    "json_name": "NTWARI SHIMWA Maxime",
+    "match_score": "100.0%",
+    "class": "P4B",
+    "photo_filename": "student-279-5874-1777560661226.jpg",
+    "timestamp": "2026-04-30T14:51:01.272Z"
+  },
+  {
+    "pic_id": 5876,
+    "student_id": 292,
+    "student_name": "SHYAKA Junior ALDO",
+    "json_name": "shyaka aldo junior",
+    "match_score": "86.7%",
+    "class": "P4B",
+    "photo_filename": "student-292-5876-1777560661289.jpg",
+    "timestamp": "2026-04-30T14:51:01.343Z"
+  },
+  {
+    "pic_id": 5877,
+    "student_id": 274,
+    "student_name": "NIYIGENA REYDEN",
+    "json_name": "niyigena rayden",
+    "match_score": "84.6%",
+    "class": "P4B",
+    "photo_filename": "student-274-5877-1777560661349.jpg",
+    "timestamp": "2026-04-30T14:51:01.447Z"
+  },
+  {
+    "pic_id": 5878,
+    "student_id": 235,
+    "student_name": "INEZA MIGAMBI PRINCE CLEVER",
+    "json_name": "ineza migambi prince clever",
+    "match_score": "100.0%",
+    "class": "P4B",
+    "photo_filename": "student-235-5878-1777560661458.jpg",
+    "timestamp": "2026-04-30T14:51:01.607Z"
+  },
+  {
+    "pic_id": 5879,
+    "student_id": 231,
+    "student_name": "IMFURA MUSONI YANNICK",
+    "json_name": "imfura musoni yannik",
+    "match_score": "91.4%",
+    "class": "P4B",
+    "photo_filename": "student-231-5879-1777560661613.jpg",
+    "timestamp": "2026-04-30T14:51:01.691Z"
+  },
+  {
+    "pic_id": 5880,
+    "student_id": 230,
+    "student_name": "IMENA BLESS EVAN",
+    "json_name": "imena bless",
+    "match_score": "81.8%",
+    "class": "P4B",
+    "photo_filename": "student-230-5880-1777560661695.jpg",
+    "timestamp": "2026-04-30T14:51:01.744Z"
+  },
+  {
+    "pic_id": 5881,
+    "student_id": 256,
+    "student_name": "MANZI IMFURA BRIGHTON",
+    "json_name": "imfura brighton",
+    "match_score": "83.9%",
+    "class": "P4B",
+    "photo_filename": "student-256-5881-1777560661757.jpg",
+    "timestamp": "2026-04-30T14:51:01.804Z"
+  },
+  {
+    "pic_id": 5882,
+    "student_id": 233,
+    "student_name": "INEZA EVAN RYAN",
+    "json_name": "ineza evan ryan",
+    "match_score": "100.0%",
+    "class": "P4B",
+    "photo_filename": "student-233-5882-1777560661813.jpg",
+    "timestamp": "2026-04-30T14:51:01.853Z"
+  },
+  {
+    "pic_id": 5883,
+    "student_id": 277,
+    "student_name": "NTANGO CYUSA ABIAH",
+    "json_name": "ntango cyusa abiah",
+    "match_score": "100.0%",
+    "class": "P4B",
+    "photo_filename": "student-277-5883-1777560661862.jpg",
+    "timestamp": "2026-04-30T14:51:01.903Z"
+  },
+  {
+    "pic_id": 5884,
+    "student_id": 287,
+    "student_name": "SHAMIWAMUGISHA Promise",
+    "json_name": "shami mugisha promise",
+    "match_score": "89.5%",
+    "class": "P4B",
+    "photo_filename": "student-287-5884-1777560661912.jpg",
+    "timestamp": "2026-04-30T14:51:01.964Z"
+  },
+  {
+    "pic_id": 5885,
+    "student_id": 238,
+    "student_name": "IRACYANYIBUKA ELIE",
+    "json_name": "iracyanyibuka elie",
+    "match_score": "100.0%",
+    "class": "P4B",
+    "photo_filename": "student-238-5885-1777560661973.jpg",
+    "timestamp": "2026-04-30T14:51:02.018Z"
+  },
+  {
+    "pic_id": 5886,
+    "student_id": 207,
+    "student_name": "AKA LUCKY KING",
+    "json_name": "lucky king",
+    "match_score": "84.2%",
+    "class": "P4B",
+    "photo_filename": "student-207-5886-1777560662025.jpg",
+    "timestamp": "2026-04-30T14:51:02.060Z"
+  },
+  {
+    "pic_id": 5810,
+    "student_id": 258,
+    "student_name": "MICOMYIZA Ganza",
+    "json_name": "Micyomyiza Ganza",
+    "match_score": "88.9%",
+    "class": "p4",
+    "photo_filename": "student-258-5810-1777560662113.jpg",
+    "timestamp": "2026-04-30T14:51:02.161Z"
+  },
+  {
+    "pic_id": 5811,
+    "student_id": 264,
+    "student_name": "MUGISHA Obded",
+    "json_name": "Mugisha Obed",
+    "match_score": "85.7%",
+    "class": "p4",
+    "photo_filename": "student-264-5811-1777560662165.jpg",
+    "timestamp": "2026-04-30T14:51:02.214Z"
+  },
+  {
+    "pic_id": 5812,
+    "student_id": 250,
+    "student_name": "KAMIKAZI LINDA SYLIVIE",
+    "json_name": "Kamikazi Linda Sylvie",
+    "match_score": "91.9%",
+    "class": "p4",
+    "photo_filename": "student-250-5812-1777560662222.jpg",
+    "timestamp": "2026-04-30T14:51:02.276Z"
+  },
+  {
+    "pic_id": 5813,
+    "student_id": 297,
+    "student_name": "UWASE CLEMANCE",
+    "json_name": "Uwase Clemante",
+    "match_score": "83.3%",
+    "class": "p4",
+    "photo_filename": "student-297-5813-1777560662281.jpg",
+    "timestamp": "2026-04-30T14:51:02.328Z"
+  },
+  {
+    "pic_id": 5815,
+    "student_id": 225,
+    "student_name": "HIRWA BRUNO DANNY",
+    "json_name": "Hirwa Bruno Daminy",
+    "match_score": "82.8%",
+    "class": "p4",
+    "photo_filename": "student-225-5815-1777560662343.jpg",
+    "timestamp": "2026-04-30T14:51:02.359Z"
+  },
+  {
+    "pic_id": 5820,
+    "student_id": 226,
+    "student_name": "HIRWA Ornella",
+    "json_name": "Hirwa Ornella",
+    "match_score": "100.0%",
+    "class": "p4",
+    "photo_filename": "student-226-5820-1777560662394.jpg",
+    "timestamp": "2026-04-30T14:51:02.438Z"
+  },
+  {
+    "pic_id": 5821,
+    "student_id": 284,
+    "student_name": "SANGWA MUSONERA TONNY",
+    "json_name": "Salgwa Musonera Tony",
+    "match_score": "85.7%",
+    "class": "p4",
+    "photo_filename": "student-284-5821-1777560662445.jpg",
+    "timestamp": "2026-04-30T14:51:02.469Z"
+  },
+  {
+    "pic_id": 5788,
+    "student_id": 152,
+    "student_name": "GANZA Lewis",
+    "json_name": "Ganza Lewis",
+    "match_score": "100.0%",
+    "class": "p4",
+    "photo_filename": "student-152-5788-1777560662501.jpg",
+    "timestamp": "2026-04-30T14:51:02.552Z"
+  },
+  {
+    "pic_id": 5790,
+    "student_id": 135,
+    "student_name": "INEZA NTWARI ARNOLD",
+    "json_name": "Ntwari Neza Arnold",
+    "match_score": "90.3%",
+    "class": "p4",
+    "photo_filename": "student-135-5790-1777560662565.jpg",
+    "timestamp": "2026-04-30T14:51:02.585Z"
+  },
+  {
+    "pic_id": 5791,
+    "student_id": 147,
+    "student_name": "BISINGIZO ANNE TESSA",
+    "json_name": "Bisingizo Anne Tessa",
+    "match_score": "100.0%",
+    "class": "p4",
+    "photo_filename": "student-147-5791-1777560662595.jpg",
+    "timestamp": "2026-04-30T14:51:02.638Z"
+  },
+  {
+    "pic_id": 5792,
+    "student_id": 179,
+    "student_name": "KAMANZI ENZO",
+    "json_name": "Kamanzi Enzo",
+    "match_score": "100.0%",
+    "class": "p4",
+    "photo_filename": "student-179-5792-1777560662645.jpg",
+    "timestamp": "2026-04-30T14:51:02.718Z"
+  },
+  {
+    "pic_id": 5793,
+    "student_id": 136,
+    "student_name": "ABAMI KARAMBIZI BRIAN",
+    "json_name": "Abami Karambizi Brian",
+    "match_score": "100.0%",
+    "class": "p4",
+    "photo_filename": "student-136-5793-1777560662728.jpg",
+    "timestamp": "2026-04-30T14:51:02.802Z"
+  },
+  {
+    "pic_id": 5795,
+    "student_id": 183,
+    "student_name": "MANZI RYAN",
+    "json_name": "Manzi Ryan",
+    "match_score": "100.0%",
+    "class": "p4",
+    "photo_filename": "student-183-5795-1777560662807.jpg",
+    "timestamp": "2026-04-30T14:51:02.967Z"
+  },
+  {
+    "pic_id": 5800,
+    "student_id": 143,
+    "student_name": "ASHIMWE NDIZIHIWE DAISY",
+    "json_name": "Ashimwe Ndizihiwe Daisy",
+    "match_score": "100.0%",
+    "class": "p4",
+    "photo_filename": "student-143-5800-1777560662997.jpg",
+    "timestamp": "2026-04-30T14:51:03.238Z"
+  },
+  {
+    "pic_id": 5802,
+    "student_id": 200,
+    "student_name": "TURIKUMWE SHIMWA Fidella",
+    "json_name": "Turikumwe Shimwa Fidella",
+    "match_score": "100.0%",
+    "class": "p4",
+    "photo_filename": "student-200-5802-1777560663251.jpg",
+    "timestamp": "2026-04-30T14:51:03.470Z"
+  },
+  {
+    "pic_id": 5804,
+    "student_id": 181,
+    "student_name": "KARIZA CHANCE Francine",
+    "json_name": "Kariza Chance Francine",
+    "match_score": "100.0%",
+    "class": "p4",
+    "photo_filename": "student-181-5804-1777560663487.jpg",
+    "timestamp": "2026-04-30T14:51:03.744Z"
+  },
+  {
+    "pic_id": 5805,
+    "student_id": 203,
+    "student_name": "UMWARI SONGA JENIFFA",
+    "json_name": "Umwari Songa Jeniffa",
+    "match_score": "100.0%",
+    "class": "p4",
+    "photo_filename": "student-203-5805-1777560663757.jpg",
+    "timestamp": "2026-04-30T14:51:03.840Z"
+  },
+  {
+    "pic_id": 5827,
+    "student_id": 245,
+    "student_name": "ISHIMWE Eric",
+    "json_name": "Ishimwe Eric",
+    "match_score": "100.0%",
+    "class": "p4",
+    "photo_filename": "student-245-5827-1777560663844.jpg",
+    "timestamp": "2026-04-30T14:51:03.902Z"
+  },
+  {
+    "pic_id": 5828,
+    "student_id": 219,
+    "student_name": "GANZA IVAN LEO BRIGHT",
+    "json_name": "Ganza Ivan Bright",
+    "match_score": "83.9%",
+    "class": "p4",
+    "photo_filename": "student-219-5828-1777560663908.jpg",
+    "timestamp": "2026-04-30T14:51:03.949Z"
+  },
+  {
+    "pic_id": 5832,
+    "student_id": 293,
+    "student_name": "SUGIRA MUPENZI ALDON",
+    "json_name": "Sugira Mupenzi Alelo",
+    "match_score": "82.4%",
+    "class": "p4",
+    "photo_filename": "student-293-5832-1777560663980.jpg",
+    "timestamp": "2026-04-30T14:51:04.076Z"
+  },
+  {
+    "pic_id": 5836,
+    "student_id": 259,
+    "student_name": "MUCYO Yazid",
+    "json_name": "Mucyo Yazidi",
+    "match_score": "94.7%",
+    "class": "p4",
+    "photo_filename": "student-259-5836-1777560664102.jpg",
+    "timestamp": "2026-04-30T14:51:04.290Z"
+  },
+  {
+    "pic_id": 5840,
+    "student_id": 474,
+    "student_name": "MUGISHA IVAN",
+    "json_name": "Mugisha Ivan",
+    "match_score": "100.0%",
+    "class": "p4",
+    "photo_filename": "student-474-5840-1777560664323.jpg",
+    "timestamp": "2026-04-30T14:51:04.407Z"
+  },
+  {
+    "pic_id": 5841,
+    "student_id": 282,
+    "student_name": "RUKUNDO BLESSING",
+    "json_name": "Pukundo Blessing",
+    "match_score": "92.9%",
+    "class": "p4",
+    "photo_filename": "student-282-5841-1777560664420.jpg",
+    "timestamp": "2026-04-30T14:51:04.493Z"
+  },
+  {
+    "pic_id": 5845,
+    "student_id": 278,
+    "student_name": "NTWARI BLAISE",
+    "json_name": "Ntwali Blaise",
+    "match_score": "81.8%",
+    "class": "p4",
+    "photo_filename": "student-278-5845-1777560664517.jpg",
+    "timestamp": "2026-04-30T14:51:04.533Z"
+  },
+  {
+    "pic_id": 5847,
+    "student_id": 220,
+    "student_name": "GASANA MARIE JANVIERE",
+    "json_name": "Gasana Marie Janvier",
+    "match_score": "97.1%",
+    "class": "p4",
+    "photo_filename": "student-220-5847-1777560664546.jpg",
+    "timestamp": "2026-04-30T14:51:04.576Z"
+  },
+  {
+    "pic_id": 5849,
+    "student_id": 298,
+    "student_name": "UWINEZA MARIE",
+    "json_name": "Uwineza Mario",
+    "match_score": "90.9%",
+    "class": "p4",
+    "photo_filename": "student-298-5849-1777560664590.jpg",
+    "timestamp": "2026-04-30T14:51:04.608Z"
+  },
+  {
+    "pic_id": 5888,
+    "student_id": 617,
+    "student_name": "ISHIMWE NYURWA HUBERT",
+    "json_name": "ishimwe nyurwa hubert",
+    "match_score": "100.0%",
+    "class": "S1A",
+    "photo_filename": "student-617-5888-1777560664615.jpg",
+    "timestamp": "2026-04-30T14:51:04.631Z"
+  },
+  {
+    "pic_id": 5890,
+    "student_id": 626,
+    "student_name": "NIYITANGAZA M. Elohim",
+    "json_name": "NIYITANGAZA MAHORO Elohim",
+    "match_score": "82.1%",
+    "class": "S1A",
+    "photo_filename": "student-626-5890-1777560664640.jpg",
+    "timestamp": "2026-04-30T14:51:04.657Z"
+  },
+  {
+    "pic_id": 5892,
+    "student_id": 614,
+    "student_name": "IMENA HIRWA Clevis",
+    "json_name": "imena hirwa clevis",
+    "match_score": "100.0%",
+    "class": "S1A",
+    "photo_filename": "student-614-5892-1777560664673.jpg",
+    "timestamp": "2026-04-30T14:51:04.707Z"
+  },
+  {
+    "pic_id": 5895,
+    "student_id": 636,
+    "student_name": "UWINEZA BAHATI SHAMI",
+    "json_name": "UWINEZA BAHATI SHAMI",
+    "match_score": "100.0%",
+    "class": "S1A",
+    "photo_filename": "student-636-5895-1777560664714.jpg",
+    "timestamp": "2026-04-30T14:51:04.734Z"
+  },
+  {
+    "pic_id": 5896,
+    "student_id": 628,
+    "student_name": "NKUMBUYIMFURA TETA INEZA Mireille",
+    "json_name": "NKUMBUYIMFURA INEZA Mireill",
+    "match_score": "90.6%",
+    "class": "S1A",
+    "photo_filename": "student-628-5896-1777560664745.jpg",
+    "timestamp": "2026-04-30T14:51:04.763Z"
+  },
+  {
+    "pic_id": 5898,
+    "student_id": 610,
+    "student_name": "GWIZA UWAMUNGU Charlize",
+    "json_name": "GWIZA UWAMUNGU Charlize",
+    "match_score": "100.0%",
+    "class": "S1A",
+    "photo_filename": "student-610-5898-1777560664773.jpg",
+    "timestamp": "2026-04-30T14:51:04.823Z"
+  },
+  {
+    "pic_id": 5899,
+    "student_id": 635,
+    "student_name": "URUSARO LEAN Iness",
+    "json_name": "URUSARO LEAN Iness",
+    "match_score": "100.0%",
+    "class": "S1A",
+    "photo_filename": "student-635-5899-1777560664829.jpg",
+    "timestamp": "2026-04-30T14:51:04.852Z"
+  },
+  {
+    "pic_id": 5900,
+    "student_id": 622,
+    "student_name": "MIGISHA Queen Light",
+    "json_name": "MIGISHA Queen Light",
+    "match_score": "100.0%",
+    "class": "S1A",
+    "photo_filename": "student-622-5900-1777560664860.jpg",
+    "timestamp": "2026-04-30T14:51:04.880Z"
+  },
+  {
+    "pic_id": 5902,
+    "student_id": 615,
+    "student_name": "IRIZA SHEBA KETIA",
+    "json_name": "IRIZA SHEBA KETIA",
+    "match_score": "100.0%",
+    "class": "S1A",
+    "photo_filename": "student-615-5902-1777560664889.jpg",
+    "timestamp": "2026-04-30T14:51:04.941Z"
+  },
+  {
+    "pic_id": 5904,
+    "student_id": 611,
+    "student_name": "HAFASHIMANA Thiery",
+    "json_name": "HAFASHIMANA Thiery",
+    "match_score": "100.0%",
+    "class": "S1A",
+    "photo_filename": "student-611-5904-1777560664950.jpg",
+    "timestamp": "2026-04-30T14:51:05.034Z"
+  },
+  {
+    "pic_id": 5905,
+    "student_id": 616,
+    "student_name": "ISARO KALISA Gavina",
+    "json_name": "isaro kalisa gavina",
+    "match_score": "100.0%",
+    "class": "S1A",
+    "photo_filename": "student-616-5905-1777560665040.jpg",
+    "timestamp": "2026-04-30T14:51:05.110Z"
+  },
+  {
+    "pic_id": 5910,
+    "student_id": 605,
+    "student_name": "BYUKUSENGE Benitha",
+    "json_name": "byukusenge benitha",
+    "match_score": "100.0%",
+    "class": "S1A",
+    "photo_filename": "student-605-5910-1777560665117.jpg",
+    "timestamp": "2026-04-30T14:51:05.212Z"
+  },
+  {
+    "pic_id": 5911,
+    "student_id": 627,
+    "student_name": "NIYITEGEKA SENGA Gloria",
+    "json_name": "niyitegeka senga gloria",
+    "match_score": "100.0%",
+    "class": "S1A",
+    "photo_filename": "student-627-5911-1777560665232.jpg",
+    "timestamp": "2026-04-30T14:51:05.327Z"
+  },
+  {
+    "pic_id": 5913,
+    "student_id": 604,
+    "student_name": "INEZA GANZA ORNELLA",
+    "json_name": "ineza ganza ornella",
+    "match_score": "100.0%",
+    "class": "S1A",
+    "photo_filename": "student-604-5913-1777560665337.jpg",
+    "timestamp": "2026-04-30T14:51:05.632Z"
+  },
+  {
+    "pic_id": 5915,
+    "student_id": 634,
+    "student_name": "TUYISABE Patience",
+    "json_name": "tuyisabe patience",
+    "match_score": "100.0%",
+    "class": "S1A",
+    "photo_filename": "student-634-5915-1777560665642.jpg",
+    "timestamp": "2026-04-30T14:51:05.886Z"
+  },
+  {
+    "pic_id": 5917,
+    "student_id": 625,
+    "student_name": "NGIRIMANA KEZA Emelyne",
+    "json_name": "ngirimana keza emelyne",
+    "match_score": "100.0%",
+    "class": "S1A",
+    "photo_filename": "student-625-5917-1777560665893.jpg",
+    "timestamp": "2026-04-30T14:51:06.035Z"
+  },
+  {
+    "pic_id": 5918,
+    "student_id": 608,
+    "student_name": "GAJU Light",
+    "json_name": "gaju light",
+    "match_score": "100.0%",
+    "class": "S1A",
+    "photo_filename": "student-608-5918-1777560666040.jpg",
+    "timestamp": "2026-04-30T14:51:06.114Z"
+  },
+  {
+    "pic_id": 5920,
+    "student_id": 607,
+    "student_name": "DUSHIME JABO Michael",
+    "json_name": "dushime jabo michael",
+    "match_score": "100.0%",
+    "class": "S1A",
+    "photo_filename": "student-607-5920-1777560666123.jpg",
+    "timestamp": "2026-04-30T14:51:06.164Z"
+  },
+  {
+    "pic_id": 5924,
+    "student_id": 621,
+    "student_name": "MANZI Ian BADEGE",
+    "json_name": "badege manzi ian",
+    "match_score": "92.3%",
+    "class": "S1A",
+    "photo_filename": "student-621-5924-1777560666172.jpg",
+    "timestamp": "2026-04-30T14:51:06.216Z"
+  },
+  {
+    "pic_id": 5926,
+    "student_id": 623,
+    "student_name": "MUCYO Philemon RUSINE",
+    "json_name": "rusine mucyo philemon",
+    "match_score": "94.4%",
+    "class": "S1A",
+    "photo_filename": "student-623-5926-1777560666226.jpg",
+    "timestamp": "2026-04-30T14:51:06.270Z"
+  },
+  {
+    "pic_id": 5927,
+    "student_id": 631,
+    "student_name": "SHEMA David",
+    "json_name": "shema david",
+    "match_score": "100.0%",
+    "class": "S1A",
+    "photo_filename": "student-631-5927-1777560666277.jpg",
+    "timestamp": "2026-04-30T14:51:06.317Z"
+  },
+  {
+    "pic_id": 5932,
+    "student_id": 633,
+    "student_name": "SHUMBUSHO Samuel",
+    "json_name": "shumbusho samuel",
+    "match_score": "100.0%",
+    "class": "S1A",
+    "photo_filename": "student-633-5932-1777560666323.jpg",
+    "timestamp": "2026-04-30T14:51:06.370Z"
+  },
+  {
+    "pic_id": 5935,
+    "student_id": 619,
+    "student_name": "KWIZERA CYUSA ROMEO",
+    "json_name": "kwizera cyusa romeo",
+    "match_score": "100.0%",
+    "class": "S1A",
+    "photo_filename": "student-619-5935-1777560666375.jpg",
+    "timestamp": "2026-04-30T14:51:06.428Z"
+  },
+  {
+    "pic_id": 5937,
+    "student_id": 632,
+    "student_name": "SHEMA GANZA Taliq",
+    "json_name": "shema ganza tariq",
+    "match_score": "85.7%",
+    "class": "S1A",
+    "photo_filename": "student-632-5937-1777560666438.jpg",
+    "timestamp": "2026-04-30T14:51:06.478Z"
+  },
+  {
+    "pic_id": 5940,
+    "student_id": 613,
+    "student_name": "IHIRWE GANZA Ness",
+    "json_name": "ihirwe ganza ness",
+    "match_score": "100.0%",
+    "class": "S1A",
+    "photo_filename": "student-613-5940-1777560666492.jpg",
+    "timestamp": "2026-04-30T14:51:06.522Z"
+  },
+  {
+    "pic_id": 5889,
+    "student_id": 669,
+    "student_name": "UWIDUHAYE Seraphine",
+    "json_name": "uwiduhaye seraphine",
+    "match_score": "100.0%",
+    "class": "S1B",
+    "photo_filename": "student-669-5889-1777560666529.jpg",
+    "timestamp": "2026-04-30T14:51:06.551Z"
+  },
+  {
+    "pic_id": 5893,
+    "student_id": 606,
+    "student_name": "DUHIRWE Acsah Bernice",
+    "json_name": "DUHIRWE Acsah Bernice",
+    "match_score": "100.0%",
+    "class": "S1B",
+    "photo_filename": "student-606-5893-1777560666558.jpg",
+    "timestamp": "2026-04-30T14:51:06.576Z"
+  },
+  {
+    "pic_id": 5894,
+    "student_id": 649,
+    "student_name": "ISIMBI Romey Arielle",
+    "json_name": "ISIMBI Romey Arielle",
+    "match_score": "100.0%",
+    "class": "S1B",
+    "photo_filename": "student-649-5894-1777560666586.jpg",
+    "timestamp": "2026-04-30T14:51:06.604Z"
+  },
+  {
+    "pic_id": 5897,
+    "student_id": 664,
+    "student_name": "SANO MUGABO Bryan",
+    "json_name": "SANO MUGABO Bryan",
+    "match_score": "100.0%",
+    "class": "S1B",
+    "photo_filename": "student-664-5897-1777560666612.jpg",
+    "timestamp": "2026-04-30T14:51:06.643Z"
+  },
+  {
+    "pic_id": 5901,
+    "student_id": 639,
+    "student_name": "IHIRWE Ange",
+    "json_name": "IHIRWE Ange",
+    "match_score": "100.0%",
+    "class": "S1B",
+    "photo_filename": "student-639-5901-1777560666648.jpg",
+    "timestamp": "2026-04-30T14:51:06.666Z"
+  },
+  {
+    "pic_id": 5903,
+    "student_id": 651,
+    "student_name": "KAYISHEJA MPANO Lievinne",
+    "json_name": "KAYISHEJA MPANO Lievinne",
+    "match_score": "100.0%",
+    "class": "S1B",
+    "photo_filename": "student-651-5903-1777560666674.jpg",
+    "timestamp": "2026-04-30T14:51:06.707Z"
+  },
+  {
+    "pic_id": 5906,
+    "student_id": 668,
+    "student_name": "UMURISA TUYISHIME Ornella",
+    "json_name": "umurisa tuyishime ornella",
+    "match_score": "100.0%",
+    "class": "S1B",
+    "photo_filename": "student-668-5906-1777560666714.jpg",
+    "timestamp": "2026-04-30T14:51:06.789Z"
+  },
+  {
+    "pic_id": 5908,
+    "student_id": 637,
+    "student_name": "BENINGWA Brinelle Helene",
+    "json_name": "brinele beningwa helene",
+    "match_score": "87.8%",
+    "class": "S1B",
+    "photo_filename": "student-637-5908-1777560666799.jpg",
+    "timestamp": "2026-04-30T14:51:06.858Z"
+  },
+  {
+    "pic_id": 5912,
+    "student_id": 657,
+    "student_name": "MUNYANA Lina Narada",
+    "json_name": "munyana lina narada",
+    "match_score": "100.0%",
+    "class": "S1B",
+    "photo_filename": "student-657-5912-1777560666868.jpg",
+    "timestamp": "2026-04-30T14:51:07.017Z"
+  },
+  {
+    "pic_id": 5914,
+    "student_id": 641,
+    "student_name": "INEZA Brian",
+    "json_name": "ineza brian",
+    "match_score": "100.0%",
+    "class": "S1B",
+    "photo_filename": "student-641-5914-1777560667022.jpg",
+    "timestamp": "2026-04-30T14:51:07.158Z"
+  },
+  {
+    "pic_id": 5916,
+    "student_id": 654,
+    "student_name": "MBARAGA NDANYUZWE Endris",
+    "json_name": "mbaraga ndanyuzwe endris",
+    "match_score": "100.0%",
+    "class": "S1B",
+    "photo_filename": "student-654-5916-1777560667169.jpg",
+    "timestamp": "2026-04-30T14:51:07.419Z"
+  },
+  {
+    "pic_id": 5919,
+    "student_id": 653,
+    "student_name": "MBANANAYO Jonathan",
+    "json_name": "mbananayo jonathan",
+    "match_score": "100.0%",
+    "class": "S1B",
+    "photo_filename": "student-653-5919-1777560667428.jpg",
+    "timestamp": "2026-04-30T14:51:07.536Z"
+  },
+  {
+    "pic_id": 5922,
+    "student_id": 650,
+    "student_name": "IZAMUKUZA Yvette",
+    "json_name": "izamukuza yvete",
+    "match_score": "96.3%",
+    "class": "S1B",
+    "photo_filename": "student-650-5922-1777560667553.jpg",
+    "timestamp": "2026-04-30T14:51:07.629Z"
+  },
+  {
+    "pic_id": 5925,
+    "student_id": 642,
+    "student_name": "INEZA FEZA Leslie",
+    "json_name": "ineza feza leslie",
+    "match_score": "100.0%",
+    "class": "S1B",
+    "photo_filename": "student-642-5925-1777560667637.jpg",
+    "timestamp": "2026-04-30T14:51:07.710Z"
+  },
+  {
+    "pic_id": 5928,
+    "student_id": 647,
+    "student_name": "IRUMVA S.Vainqueur",
+    "json_name": "irumva vainqueur",
+    "match_score": "89.7%",
+    "class": "S1B",
+    "photo_filename": "student-647-5928-1777560667716.jpg",
+    "timestamp": "2026-04-30T14:51:07.781Z"
+  },
+  {
+    "pic_id": 5929,
+    "student_id": 662,
+    "student_name": "NYIRAMUGISHA Gloria",
+    "json_name": "nyamugisha gloria",
+    "match_score": "87.5%",
+    "class": "S1B",
+    "photo_filename": "student-662-5929-1777560667791.jpg",
+    "timestamp": "2026-04-30T14:51:07.869Z"
+  },
+  {
+    "pic_id": 5931,
+    "student_id": 640,
+    "student_name": "IHIRWE Belyse",
+    "json_name": "ihirwe belise",
+    "match_score": "81.8%",
+    "class": "S1B",
+    "photo_filename": "student-640-5931-1777560667885.jpg",
+    "timestamp": "2026-04-30T14:51:07.940Z"
+  },
+  {
+    "pic_id": 5933,
+    "student_id": 656,
+    "student_name": "MUGISHA Hero Liver",
+    "json_name": "mugisha hero liven",
+    "match_score": "93.3%",
+    "class": "S1B",
+    "photo_filename": "student-656-5933-1777560667947.jpg",
+    "timestamp": "2026-04-30T14:51:07.998Z"
+  },
+  {
+    "pic_id": 5934,
+    "student_id": 648,
+    "student_name": "ISHIMWE Joy",
+    "json_name": "ishimwe joy",
+    "match_score": "100.0%",
+    "class": "S1B",
+    "photo_filename": "student-648-5934-1777560668005.jpg",
+    "timestamp": "2026-04-30T14:51:08.063Z"
+  },
+  {
+    "pic_id": 5936,
+    "student_id": 638,
+    "student_name": "CYUSA Abdoulaziz",
+    "json_name": "abdoul aziz cyusa",
+    "match_score": "92.9%",
+    "class": "S1B",
+    "photo_filename": "student-638-5936-1777560668071.jpg",
+    "timestamp": "2026-04-30T14:51:08.314Z"
+  },
+  {
+    "pic_id": 5938,
+    "student_id": 663,
+    "student_name": "RWEMA Prince",
+    "json_name": "rwema prince",
+    "match_score": "100.0%",
+    "class": "S1B",
+    "photo_filename": "student-663-5938-1777560668321.jpg",
+    "timestamp": "2026-04-30T14:51:08.337Z"
+  },
+  {
+    "pic_id": 5941,
+    "student_id": 661,
+    "student_name": "NTWARI Justin Fiston",
+    "json_name": "justin fiston ntwari",
+    "match_score": "94.1%",
+    "class": "S1B",
+    "photo_filename": "student-661-5941-1777560668343.jpg",
+    "timestamp": "2026-04-30T14:51:08.362Z"
+  },
+  {
+    "pic_id": 6110,
+    "student_id": 652,
+    "student_name": "MANZI Bruce",
+    "json_name": "manzi bruce",
+    "match_score": "100.0%",
+    "class": "S1B",
+    "photo_filename": "student-652-6110-1777560668369.jpg",
+    "timestamp": "2026-04-30T14:51:08.383Z"
+  },
+  {
+    "pic_id": 6111,
+    "student_id": 666,
+    "student_name": "UMUCYO Delphin",
+    "json_name": "umucyo delphin",
+    "match_score": "100.0%",
+    "class": "S1B",
+    "photo_filename": "student-666-6111-1777560668390.jpg",
+    "timestamp": "2026-04-30T14:51:08.406Z"
+  },
+  {
+    "pic_id": 6112,
+    "student_id": 655,
+    "student_name": "MPAMIRA MANZI Allain Crinovi",
+    "json_name": "MPAMIRA MANZI Allain Crinovi",
+    "match_score": "100.0%",
+    "class": "S1B",
+    "photo_filename": "student-655-6112-1777560668419.jpg",
+    "timestamp": "2026-04-30T14:51:08.438Z"
+  },
+  {
+    "pic_id": 6113,
+    "student_id": 659,
+    "student_name": "NKURUNZIZA Nicky Brian",
+    "json_name": "NKURUNZIZA Nicky Brian",
+    "match_score": "100.0%",
+    "class": "S1B",
+    "photo_filename": "student-659-6113-1777560668447.jpg",
+    "timestamp": "2026-04-30T14:51:08.475Z"
+  },
+  {
+    "pic_id": 6114,
+    "student_id": 665,
+    "student_name": "UFITINEMA Kelly Bruno",
+    "json_name": "UFITINEMA Kelly Bruno",
+    "match_score": "100.0%",
+    "class": "S1B",
+    "photo_filename": "student-665-6114-1777560668485.jpg",
+    "timestamp": "2026-04-30T14:51:08.506Z"
+  },
+  {
+    "pic_id": 5942,
+    "student_id": 746,
+    "student_name": "TUYISHIMIRE Claudette",
+    "json_name": "tuyishimire clodete",
+    "match_score": "83.3%",
+    "class": "S2",
+    "photo_filename": "student-746-5942-1777560668515.jpg",
+    "timestamp": "2026-04-30T14:51:08.537Z"
+  },
+  {
+    "pic_id": 5943,
+    "student_id": 729,
+    "student_name": "MANZI Lionel",
+    "json_name": "MANZI Lionel",
+    "match_score": "100.0%",
+    "class": "S2",
+    "photo_filename": "student-729-5943-1777560668544.jpg",
+    "timestamp": "2026-04-30T14:51:08.563Z"
+  },
+  {
+    "pic_id": 5944,
+    "student_id": 745,
+    "student_name": "TUMUKUNDE Bria Yusra",
+    "json_name": "TUMUKUNDE Bria Yusra",
+    "match_score": "100.0%",
+    "class": "S2",
+    "photo_filename": "student-745-5944-1777560668573.jpg",
+    "timestamp": "2026-04-30T14:51:08.590Z"
+  },
+  {
+    "pic_id": 5945,
+    "student_id": 732,
+    "student_name": "MUGISHA Akram",
+    "json_name": "MUGISHA Akram",
+    "match_score": "100.0%",
+    "class": "S2",
+    "photo_filename": "student-732-5945-1777560668597.jpg",
+    "timestamp": "2026-04-30T14:51:08.615Z"
+  },
+  {
+    "pic_id": 5947,
+    "student_id": 716,
+    "student_name": "HIRWA MANZI Regis",
+    "json_name": "HIRWA MANZI Regis",
+    "match_score": "100.0%",
+    "class": "S2",
+    "photo_filename": "student-716-5947-1777560668624.jpg",
+    "timestamp": "2026-04-30T14:51:08.641Z"
+  },
+  {
+    "pic_id": 5948,
+    "student_id": 733,
+    "student_name": "MUHAWENIMANA Samuel",
+    "json_name": "MUHAWENIMANA Samuel",
+    "match_score": "100.0%",
+    "class": "S2",
+    "photo_filename": "student-733-5948-1777560668650.jpg",
+    "timestamp": "2026-04-30T14:51:08.671Z"
+  },
+  {
+    "pic_id": 5949,
+    "student_id": 739,
+    "student_name": "NGABONZIZA ZIMURINDA Ponchelin",
+    "json_name": "NGABONZIZA ZIMURINDA Ponchelin",
+    "match_score": "100.0%",
+    "class": "S2",
+    "photo_filename": "student-739-5949-1777560668697.jpg",
+    "timestamp": "2026-04-30T14:51:08.725Z"
+  },
+  {
+    "pic_id": 5950,
+    "student_id": 741,
+    "student_name": "NZOVU David",
+    "json_name": "NZOVU David",
+    "match_score": "100.0%",
+    "class": "S2",
+    "photo_filename": "student-741-5950-1777560668732.jpg",
+    "timestamp": "2026-04-30T14:51:08.758Z"
+  },
+  {
+    "pic_id": 5952,
+    "student_id": 718,
+    "student_name": "IGANZE Lenny",
+    "json_name": "IGANZE Lenny",
+    "match_score": "100.0%",
+    "class": "S2",
+    "photo_filename": "student-718-5952-1777560668764.jpg",
+    "timestamp": "2026-04-30T14:51:08.789Z"
+  },
+  {
+    "pic_id": 5953,
+    "student_id": 721,
+    "student_name": "INTWARI KALISA Gabin",
+    "json_name": "iNTWARI KALISA Gabin",
+    "match_score": "100.0%",
+    "class": "S2",
+    "photo_filename": "student-721-5953-1777560668810.jpg",
+    "timestamp": "2026-04-30T14:51:08.831Z"
+  },
+  {
+    "pic_id": 5954,
+    "student_id": 728,
+    "student_name": "KWIZERA Irene",
+    "json_name": "KWIZERA Irene",
+    "match_score": "100.0%",
+    "class": "S2",
+    "photo_filename": "student-728-5954-1777560668837.jpg",
+    "timestamp": "2026-04-30T14:51:08.862Z"
+  },
+  {
+    "pic_id": 5955,
+    "student_id": 726,
+    "student_name": "KAMIKAZI Yvanelle",
+    "json_name": "KAMIKAZI Yvanelle",
+    "match_score": "100.0%",
+    "class": "S2",
+    "photo_filename": "student-726-5955-1777560668871.jpg",
+    "timestamp": "2026-04-30T14:51:08.924Z"
+  },
+  {
+    "pic_id": 5956,
+    "student_id": 711,
+    "student_name": "DUSHIME ATETE Daniella",
+    "json_name": "DUSHIME ATETE Daniella",
+    "match_score": "100.0%",
+    "class": "S2",
+    "photo_filename": "student-711-5956-1777560668936.jpg",
+    "timestamp": "2026-04-30T14:51:08.960Z"
+  },
+  {
+    "pic_id": 5957,
+    "student_id": 734,
+    "student_name": "MUTESI Ines Danica",
+    "json_name": "MUTESI Ines Danica",
+    "match_score": "100.0%",
+    "class": "S2",
+    "photo_filename": "student-734-5957-1777560668968.jpg",
+    "timestamp": "2026-04-30T14:51:08.986Z"
+  },
+  {
+    "pic_id": 5958,
+    "student_id": 744,
+    "student_name": "SHAMI Ethan",
+    "json_name": "SHAMI Ethan",
+    "match_score": "100.0%",
+    "class": "S2",
+    "photo_filename": "student-744-5958-1777560668993.jpg",
+    "timestamp": "2026-04-30T14:51:09.058Z"
+  },
+  {
+    "pic_id": 5960,
+    "student_id": 723,
+    "student_name": "ISHIMWE Ange Ornella",
+    "json_name": "ISHIMWE Ange Ornella",
+    "match_score": "100.0%",
+    "class": "S2",
+    "photo_filename": "student-723-5960-1777560669092.jpg",
+    "timestamp": "2026-04-30T14:51:09.131Z"
+  },
+  {
+    "pic_id": 5961,
+    "student_id": 743,
+    "student_name": "SENGA Adonai Credo",
+    "json_name": "SENGA Adonai Credo",
+    "match_score": "100.0%",
+    "class": "S2",
+    "photo_filename": "student-743-5961-1777560669140.jpg",
+    "timestamp": "2026-04-30T14:51:09.339Z"
+  },
+  {
+    "pic_id": 5963,
+    "student_id": 731,
+    "student_name": "MANZI Tresor",
+    "json_name": "MANZI Tresor",
+    "match_score": "100.0%",
+    "class": "S2",
+    "photo_filename": "student-731-5963-1777560669346.jpg",
+    "timestamp": "2026-04-30T14:51:09.411Z"
+  },
+  {
+    "pic_id": 5964,
+    "student_id": 724,
+    "student_name": "KAGIMBURA Ayan Elijah",
+    "json_name": "KAGIMBURA Ayan Elijah",
+    "match_score": "100.0%",
+    "class": "S2",
+    "photo_filename": "student-724-5964-1777560669422.jpg",
+    "timestamp": "2026-04-30T14:51:09.554Z"
+  },
+  {
+    "pic_id": 5965,
+    "student_id": 725,
+    "student_name": "KAKIRA TETA Rebecca",
+    "json_name": "KAKIRA TETA Rebecca",
+    "match_score": "100.0%",
+    "class": "S2",
+    "photo_filename": "student-725-5965-1777560669560.jpg",
+    "timestamp": "2026-04-30T14:51:09.910Z"
+  },
+  {
+    "pic_id": 5966,
+    "student_id": 715,
+    "student_name": "HIRWA Brave",
+    "json_name": "HIRWA Brave",
+    "match_score": "100.0%",
+    "class": "S2",
+    "photo_filename": "student-715-5966-1777560669930.jpg",
+    "timestamp": "2026-04-30T14:51:10.023Z"
+  },
+  {
+    "pic_id": 5967,
+    "student_id": 749,
+    "student_name": "UWASE Jolie",
+    "json_name": "UWASE Jolie",
+    "match_score": "100.0%",
+    "class": "S2",
+    "photo_filename": "student-749-5967-1777560670043.jpg",
+    "timestamp": "2026-04-30T14:51:10.112Z"
+  },
+  {
+    "pic_id": 5968,
+    "student_id": 742,
+    "student_name": "RUTIKANGA Brian",
+    "json_name": "RUTIKANGA Brian",
+    "match_score": "100.0%",
+    "class": "S2",
+    "photo_filename": "student-742-5968-1777560670120.jpg",
+    "timestamp": "2026-04-30T14:51:10.159Z"
+  },
+  {
+    "pic_id": 5969,
+    "student_id": 747,
+    "student_name": "UMUBERARUGO TETA Sabrine",
+    "json_name": "UMUBERARUGO TETA Sabrine",
+    "match_score": "100.0%",
+    "class": "S2",
+    "photo_filename": "student-747-5969-1777560670169.jpg",
+    "timestamp": "2026-04-30T14:51:10.207Z"
+  },
+  {
+    "pic_id": 5970,
+    "student_id": 736,
+    "student_name": "MUVUNYI USANASE Aurore",
+    "json_name": "MUVUNYI USANASE Aurore",
+    "match_score": "100.0%",
+    "class": "S2",
+    "photo_filename": "student-736-5970-1777560670214.jpg",
+    "timestamp": "2026-04-30T14:51:10.262Z"
+  },
+  {
+    "pic_id": 5971,
+    "student_id": 727,
+    "student_name": "KARIZA Erryne KAGABO",
+    "json_name": "KARIZA Erryne KAGABO",
+    "match_score": "100.0%",
+    "class": "S2",
+    "photo_filename": "student-727-5971-1777560670268.jpg",
+    "timestamp": "2026-04-30T14:51:10.308Z"
+  },
+  {
+    "pic_id": 5972,
+    "student_id": 738,
+    "student_name": "NEZA MUHIRWA Nervin",
+    "json_name": "NEZA MUHIRWA Nervin",
+    "match_score": "100.0%",
+    "class": "S2",
+    "photo_filename": "student-738-5972-1777560670314.jpg",
+    "timestamp": "2026-04-30T14:51:10.349Z"
+  },
+  {
+    "pic_id": 5973,
+    "student_id": 722,
+    "student_name": "IRAKARAMA Brave Laurene",
+    "json_name": "IRAKARAMA Brave Laurene",
+    "match_score": "100.0%",
+    "class": "S2",
+    "photo_filename": "student-722-5973-1777560670356.jpg",
+    "timestamp": "2026-04-30T14:51:10.403Z"
+  },
+  {
+    "pic_id": 5974,
+    "student_id": 713,
+    "student_name": "GANZA MUGISHA Brighton",
+    "json_name": "GANZA MUGISHA Brighton",
+    "match_score": "100.0%",
+    "class": "S2",
+    "photo_filename": "student-713-5974-1777560670422.jpg",
+    "timestamp": "2026-04-30T14:51:10.499Z"
+  },
+  {
+    "pic_id": 5975,
+    "student_id": 737,
+    "student_name": "UWINEZA Sonia",
+    "json_name": "UWINEZA Sonia",
+    "match_score": "100.0%",
+    "class": "S2",
+    "photo_filename": "student-737-5975-1777560670513.jpg",
+    "timestamp": "2026-04-30T14:51:10.528Z"
+  },
+  {
+    "pic_id": 5976,
+    "student_id": 717,
+    "student_name": "HIRWA Marvin Carter",
+    "json_name": "HIRWA Marvin Carter",
+    "match_score": "100.0%",
+    "class": "S2",
+    "photo_filename": "student-717-5976-1777560670539.jpg",
+    "timestamp": "2026-04-30T14:51:10.556Z"
+  },
+  {
+    "pic_id": 5977,
+    "student_id": 740,
+    "student_name": "NKUBITO Gandhi",
+    "json_name": "NKUBITO Gandhi",
+    "match_score": "100.0%",
+    "class": "S2",
+    "photo_filename": "student-740-5977-1777560670562.jpg",
+    "timestamp": "2026-04-30T14:51:10.576Z"
+  },
+  {
+    "pic_id": 5978,
+    "student_id": 326,
+    "student_name": "IHIRWE THEA",
+    "json_name": "ihirwe thea",
+    "match_score": "100.0%",
+    "class": "P5C",
+    "photo_filename": "student-326-5978-1777560670581.jpg",
+    "timestamp": "2026-04-30T14:51:10.598Z"
+  },
+  {
+    "pic_id": 5979,
+    "student_id": 339,
+    "student_name": "ISHIMWE ANDY PRINCE",
+    "json_name": "ishimwe andy prince irene",
+    "match_score": "86.5%",
+    "class": "P5C",
+    "photo_filename": "student-339-5979-1777560670607.jpg",
+    "timestamp": "2026-04-30T14:51:10.704Z"
+  },
+  {
+    "pic_id": 5981,
+    "student_id": 328,
+    "student_name": "IKAZE HAPPY",
+    "json_name": "ikaze happy",
+    "match_score": "100.0%",
+    "class": "P5C",
+    "photo_filename": "student-328-5981-1777560670719.jpg",
+    "timestamp": "2026-04-30T14:51:10.886Z"
+  },
+  {
+    "pic_id": 5982,
+    "student_id": 358,
+    "student_name": "MANZI BENSON BRYAN",
+    "json_name": "manzi bryan benson",
+    "match_score": "100.0%",
+    "class": "P5C",
+    "photo_filename": "student-358-5982-1777560670894.jpg",
+    "timestamp": "2026-04-30T14:51:11.109Z"
+  },
+  {
+    "pic_id": 5983,
+    "student_id": 360,
+    "student_name": "MANZI Fabrice",
+    "json_name": "manzi fabrice",
+    "match_score": "100.0%",
+    "class": "P5C",
+    "photo_filename": "student-360-5983-1777560671118.jpg",
+    "timestamp": "2026-04-30T14:51:11.808Z"
+  },
+  {
+    "pic_id": 5984,
+    "student_id": 384,
+    "student_name": "TUYIZERE HIRWA HONORE",
+    "json_name": "tuyizere hirwa honore",
+    "match_score": "100.0%",
+    "class": "P5C",
+    "photo_filename": "student-384-5984-1777560671818.jpg",
+    "timestamp": "2026-04-30T14:51:12.103Z"
+  },
+  {
+    "pic_id": 5986,
+    "student_id": 309,
+    "student_name": "CYUZUZO KEILLA NTAMBARA",
+    "json_name": "cyuzuzo kella ntambara",
+    "match_score": "92.3%",
+    "class": "P5C",
+    "photo_filename": "student-309-5986-1777560672116.jpg",
+    "timestamp": "2026-04-30T14:51:12.377Z"
+  },
+  {
+    "pic_id": 5988,
+    "student_id": 335,
+    "student_name": "INEZA KENDRA",
+    "json_name": "ineza kendra",
+    "match_score": "100.0%",
+    "class": "P5C",
+    "photo_filename": "student-335-5988-1777560672412.jpg",
+    "timestamp": "2026-04-30T14:51:12.971Z"
+  },
+  {
+    "pic_id": 5990,
+    "student_id": 350,
+    "student_name": "KAYIGAMBA ISHEJA ORNELLA",
+    "json_name": "kayigamba isheja oernela",
+    "match_score": "90.5%",
+    "class": "P5C",
+    "photo_filename": "student-350-5990-1777560672989.jpg",
+    "timestamp": "2026-04-30T14:51:13.123Z"
+  },
+  {
+    "pic_id": 5991,
+    "student_id": 315,
+    "student_name": "HAKIZIMANA BRUCE",
+    "json_name": "hakizimana bruce",
+    "match_score": "100.0%",
+    "class": "P5C",
+    "photo_filename": "student-315-5991-1777560673132.jpg",
+    "timestamp": "2026-04-30T14:51:13.314Z"
+  },
+  {
+    "pic_id": 5992,
+    "student_id": 392,
+    "student_name": "UWINEZA KETTY",
+    "json_name": "uwineza ketty",
+    "match_score": "100.0%",
+    "class": "P5C",
+    "photo_filename": "student-392-5992-1777560673329.jpg",
+    "timestamp": "2026-04-30T14:51:13.395Z"
+  },
+  {
+    "pic_id": 5993,
+    "student_id": 334,
+    "student_name": "INEZA JOVAN",
+    "json_name": "ineza jovan",
+    "match_score": "100.0%",
+    "class": "P5C",
+    "photo_filename": "student-334-5993-1777560673402.jpg",
+    "timestamp": "2026-04-30T14:51:13.450Z"
+  },
+  {
+    "pic_id": 5994,
+    "student_id": 349,
+    "student_name": "KARARA IREME BIANCA",
+    "json_name": "KARARA IREME bianca",
+    "match_score": "100.0%",
+    "class": "P5C",
+    "photo_filename": "student-349-5994-1777560673460.jpg",
+    "timestamp": "2026-04-30T14:51:13.500Z"
+  },
+  {
+    "pic_id": 5995,
+    "student_id": 369,
+    "student_name": "MWENYEZIMOLA Ndandu Adonai",
+    "json_name": "mwenyezimola ndandu adonai",
+    "match_score": "100.0%",
+    "class": "P5C",
+    "photo_filename": "student-369-5995-1777560673511.jpg",
+    "timestamp": "2026-04-30T14:51:13.546Z"
+  },
+  {
+    "pic_id": 5996,
+    "student_id": 348,
+    "student_name": "KAMANZI NAILLAH",
+    "json_name": "kamanzi naila",
+    "match_score": "91.7%",
+    "class": "P5C",
+    "photo_filename": "student-348-5996-1777560673553.jpg",
+    "timestamp": "2026-04-30T14:51:13.597Z"
+  },
+  {
+    "pic_id": 5997,
+    "student_id": 321,
+    "student_name": "IGIRANEZA JOSHUA",
+    "json_name": "igiraneza joshua",
+    "match_score": "100.0%",
+    "class": "P5C",
+    "photo_filename": "student-321-5997-1777560673606.jpg",
+    "timestamp": "2026-04-30T14:51:13.642Z"
+  },
+  {
+    "pic_id": 5998,
+    "student_id": 362,
+    "student_name": "MIGISHA UWITONDA LIZA",
+    "json_name": "migisha uwitonda liza",
+    "match_score": "100.0%",
+    "class": "P5C",
+    "photo_filename": "student-362-5998-1777560673652.jpg",
+    "timestamp": "2026-04-30T14:51:13.684Z"
+  },
+  {
+    "pic_id": 5999,
+    "student_id": 314,
+    "student_name": "GISA MUKASA ALLAN",
+    "json_name": "igiza mukasa allan",
+    "match_score": "82.8%",
+    "class": "P5C",
+    "photo_filename": "student-314-5999-1777560673693.jpg",
+    "timestamp": "2026-04-30T14:51:13.738Z"
+  },
+  {
+    "pic_id": 6000,
+    "student_id": 385,
+    "student_name": "TUYUBAHE ELIE",
+    "json_name": "tuyubahe ellie",
+    "match_score": "95.7%",
+    "class": "P5C",
+    "photo_filename": "student-385-6000-1777560673746.jpg",
+    "timestamp": "2026-04-30T14:51:13.825Z"
+  },
+  {
+    "pic_id": 6001,
+    "student_id": 312,
+    "student_name": "GANZA GAELLA STACY",
+    "json_name": "ganza gaella stacy",
+    "match_score": "100.0%",
+    "class": "P5C",
+    "photo_filename": "student-312-6001-1777560673832.jpg",
+    "timestamp": "2026-04-30T14:51:13.915Z"
+  },
+  {
+    "pic_id": 6002,
+    "student_id": 377,
+    "student_name": "NTWARI PRINCE",
+    "json_name": "ntwari prince",
+    "match_score": "100.0%",
+    "class": "P5C",
+    "photo_filename": "student-377-6002-1777560673938.jpg",
+    "timestamp": "2026-04-30T14:51:13.969Z"
+  },
+  {
+    "pic_id": 6005,
+    "student_id": 375,
+    "student_name": "NIYOMUGABO Thierry",
+    "json_name": "niyomugabo thierry",
+    "match_score": "100.0%",
+    "class": "P5C",
+    "photo_filename": "student-375-6005-1777560673975.jpg",
+    "timestamp": "2026-04-30T14:51:14.027Z"
+  },
+  {
+    "pic_id": 6006,
+    "student_id": 365,
+    "student_name": "MUGABO IVAN",
+    "json_name": "mugabo ivan",
+    "match_score": "100.0%",
+    "class": "P5C",
+    "photo_filename": "student-365-6006-1777560674032.jpg",
+    "timestamp": "2026-04-30T14:51:14.055Z"
+  },
+  {
+    "pic_id": 6008,
+    "student_id": 330,
+    "student_name": "IMFURA MPANO BRIGHT",
+    "json_name": "imfura mpano bright",
+    "match_score": "100.0%",
+    "class": "P5A",
+    "photo_filename": "student-330-6008-1777560674073.jpg",
+    "timestamp": "2026-04-30T14:51:14.112Z"
+  },
+  {
+    "pic_id": 6009,
+    "student_id": 391,
+    "student_name": "UWINEZA Alliance",
+    "json_name": "uwineza alliance bewulla",
+    "match_score": "80.0%",
+    "class": "P5A",
+    "photo_filename": "student-391-6009-1777560674123.jpg",
+    "timestamp": "2026-04-30T14:51:14.146Z"
+  },
+  {
+    "pic_id": 6010,
+    "student_id": 367,
+    "student_name": "MUNEZERO FABRICE",
+    "json_name": "munezero fabrice",
+    "match_score": "100.0%",
+    "class": "P5A",
+    "photo_filename": "student-367-6010-1777560674154.jpg",
+    "timestamp": "2026-04-30T14:51:14.173Z"
+  },
+  {
+    "pic_id": 6011,
+    "student_id": 300,
+    "student_name": "ISHIMWE GISUBIZO LYAN",
+    "json_name": "ishimwe gisubizo lyan",
+    "match_score": "100.0%",
+    "class": "P5A",
+    "photo_filename": "student-300-6011-1777560674182.jpg",
+    "timestamp": "2026-04-30T14:51:14.231Z"
+  },
+  {
+    "pic_id": 6012,
+    "student_id": 388,
+    "student_name": "USANASE ISHEJA EDVALDO",
+    "json_name": "usanase isheja edvaldo",
+    "match_score": "100.0%",
+    "class": "P5A",
+    "photo_filename": "student-388-6012-1777560674241.jpg",
+    "timestamp": "2026-04-30T14:51:14.299Z"
+  },
+  {
+    "pic_id": 6015,
+    "student_id": 333,
+    "student_name": "INEZA GANZA BRYAN",
+    "json_name": "ineza ganza bryan",
+    "match_score": "100.0%",
+    "class": "P5A",
+    "photo_filename": "student-333-6015-1777560674324.jpg",
+    "timestamp": "2026-04-30T14:51:14.420Z"
+  },
+  {
+    "pic_id": 6016,
+    "student_id": 322,
+    "student_name": "IGIRANEZA JOYCE ANAELA",
+    "json_name": "igiraneza joice anaela",
+    "match_score": "89.5%",
+    "class": "P5A",
+    "photo_filename": "student-322-6016-1777560674430.jpg",
+    "timestamp": "2026-04-30T14:51:14.667Z"
+  },
+  {
+    "pic_id": 6018,
+    "student_id": 389,
+    "student_name": "UWACU TETA SANDRA",
+    "json_name": "uwacu teta sandra",
+    "match_score": "100.0%",
+    "class": "P5A",
+    "photo_filename": "student-389-6018-1777560674677.jpg",
+    "timestamp": "2026-04-30T14:51:14.826Z"
+  },
+  {
+    "pic_id": 6019,
+    "student_id": 383,
+    "student_name": "SUGIRA LYDIVINE",
+    "json_name": "sugira lydivine",
+    "match_score": "100.0%",
+    "class": "P5A",
+    "photo_filename": "student-383-6019-1777560674854.jpg",
+    "timestamp": "2026-04-30T14:51:14.940Z"
+  },
+  {
+    "pic_id": 6020,
+    "student_id": 324,
+    "student_name": "IHIRWE KARIWABO NAELLA",
+    "json_name": "ihirwe kariwabo naela",
+    "match_score": "97.3%",
+    "class": "P5A",
+    "photo_filename": "student-324-6020-1777560674945.jpg",
+    "timestamp": "2026-04-30T14:51:15.000Z"
+  },
+  {
+    "pic_id": 6022,
+    "student_id": 347,
+    "student_name": "KABARISA TETA GRACE",
+    "json_name": "kabarisa teta grace",
+    "match_score": "100.0%",
+    "class": "P5A",
+    "photo_filename": "student-347-6022-1777560675010.jpg",
+    "timestamp": "2026-04-30T14:51:15.079Z"
+  },
+  {
+    "pic_id": 6023,
+    "student_id": 382,
+    "student_name": "SIBOMANA IRUMVA GAD",
+    "json_name": "sibomana irumva Gad",
+    "match_score": "100.0%",
+    "class": "P5A",
+    "photo_filename": "student-382-6023-1777560675086.jpg",
+    "timestamp": "2026-04-30T14:51:15.146Z"
+  },
+  {
+    "pic_id": 6024,
+    "student_id": 323,
+    "student_name": "IGIRANEZA NISSI KENNEDY",
+    "json_name": "igiraneza niss kennedy",
+    "match_score": "92.3%",
+    "class": "P5A",
+    "photo_filename": "student-323-6024-1777560675155.jpg",
+    "timestamp": "2026-04-30T14:51:15.226Z"
+  },
+  {
+    "pic_id": 6026,
+    "student_id": 302,
+    "student_name": "ASHIMWE JOANA",
+    "json_name": "ashimwe joana",
+    "match_score": "100.0%",
+    "class": "P5A",
+    "photo_filename": "student-302-6026-1777560675239.jpg",
+    "timestamp": "2026-04-30T14:51:15.303Z"
+  },
+  {
+    "pic_id": 6029,
+    "student_id": 359,
+    "student_name": "MANZI BRIGHT BRAVE",
+    "json_name": "manzi bright brave",
+    "match_score": "100.0%",
+    "class": "P5A",
+    "photo_filename": "student-359-6029-1777560675319.jpg",
+    "timestamp": "2026-04-30T14:51:15.358Z"
+  },
+  {
+    "pic_id": 6030,
+    "student_id": 380,
+    "student_name": "SANO JUNIOR",
+    "json_name": "sano junior",
+    "match_score": "100.0%",
+    "class": "P5A",
+    "photo_filename": "student-380-6030-1777560675362.jpg",
+    "timestamp": "2026-04-30T14:51:15.419Z"
+  },
+  {
+    "pic_id": 6031,
+    "student_id": 363,
+    "student_name": "MUDAHIGWA HUSSEIN",
+    "json_name": "mudahigwa hussen",
+    "match_score": "89.7%",
+    "class": "P5A",
+    "photo_filename": "student-363-6031-1777560675426.jpg",
+    "timestamp": "2026-04-30T14:51:15.476Z"
+  },
+  {
+    "pic_id": 6032,
+    "student_id": 316,
+    "student_name": "HARERIMANA Reagan Junior",
+    "json_name": "harerimana reagan junior",
+    "match_score": "100.0%",
+    "class": "P5A",
+    "photo_filename": "student-316-6032-1777560675500.jpg",
+    "timestamp": "2026-04-30T14:51:15.545Z"
+  },
+  {
+    "pic_id": 6033,
+    "student_id": 305,
+    "student_name": "BYIRINGIRO DANILO",
+    "json_name": "byiringiro danilo junior",
+    "match_score": "83.3%",
+    "class": "P5A",
+    "photo_filename": "student-305-6033-1777560675567.jpg",
+    "timestamp": "2026-04-30T14:51:15.654Z"
+  },
+  {
+    "pic_id": 6034,
+    "student_id": 373,
+    "student_name": "NGAMIJE Stallon",
+    "json_name": "ngamije stallon",
+    "match_score": "100.0%",
+    "class": "P5A",
+    "photo_filename": "student-373-6034-1777560675659.jpg",
+    "timestamp": "2026-04-30T14:51:15.803Z"
+  },
+  {
+    "pic_id": 6035,
+    "student_id": 381,
+    "student_name": "SHIMWA GIFT STANLEY",
+    "json_name": "shimwa gift stanley messi",
+    "match_score": "86.5%",
+    "class": "P5B",
+    "photo_filename": "student-381-6035-1777560675809.jpg",
+    "timestamp": "2026-04-30T14:51:15.833Z"
+  },
+  {
+    "pic_id": 6036,
+    "student_id": 361,
+    "student_name": "MICOMYIZA IZADOREN",
+    "json_name": "micomyiza izadora",
+    "match_score": "90.3%",
+    "class": "P5B",
+    "photo_filename": "student-361-6036-1777560675840.jpg",
+    "timestamp": "2026-04-30T14:51:15.855Z"
+  },
+  {
+    "pic_id": 6038,
+    "student_id": 338,
+    "student_name": "IRAKOZE Divin",
+    "json_name": "irakoze divin",
+    "match_score": "100.0%",
+    "class": "P5B",
+    "photo_filename": "student-338-6038-1777560675867.jpg",
+    "timestamp": "2026-04-30T14:51:15.884Z"
+  },
+  {
+    "pic_id": 6039,
+    "student_id": 343,
+    "student_name": "IZERE MUGABEKAZI ANNET",
+    "json_name": "izere mugabekazi anete",
+    "match_score": "94.7%",
+    "class": "P5B",
+    "photo_filename": "student-343-6039-1777560675890.jpg",
+    "timestamp": "2026-04-30T14:51:15.905Z"
+  },
+  {
+    "pic_id": 6040,
+    "student_id": 317,
+    "student_name": "HIRWA Angelo",
+    "json_name": "hirwa angelo",
+    "match_score": "100.0%",
+    "class": "P5B",
+    "photo_filename": "student-317-6040-1777560675912.jpg",
+    "timestamp": "2026-04-30T14:51:15.927Z"
+  },
+  {
+    "pic_id": 6041,
+    "student_id": 346,
+    "student_name": "KABALISA THALES",
+    "json_name": "kabalisa thales",
+    "match_score": "100.0%",
+    "class": "P5B",
+    "photo_filename": "student-346-6041-1777560675945.jpg",
+    "timestamp": "2026-04-30T14:51:15.966Z"
+  },
+  {
+    "pic_id": 6042,
+    "student_id": 341,
+    "student_name": "ITUZE Divine",
+    "json_name": "ituze divine",
+    "match_score": "100.0%",
+    "class": "P5B",
+    "photo_filename": "student-341-6042-1777560675971.jpg",
+    "timestamp": "2026-04-30T14:51:15.987Z"
+  },
+  {
+    "pic_id": 6043,
+    "student_id": 311,
+    "student_name": "DUKUZUMUREMYI Navin",
+    "json_name": "dukuze umuremyi navin",
+    "match_score": "91.4%",
+    "class": "P5B",
+    "photo_filename": "student-311-6043-1777560675993.jpg",
+    "timestamp": "2026-04-30T14:51:16.007Z"
+  },
+  {
+    "pic_id": 6044,
+    "student_id": 376,
+    "student_name": "NKWAYA MIELLA RITHA",
+    "json_name": "nkwaya miella ritha",
+    "match_score": "100.0%",
+    "class": "P5B",
+    "photo_filename": "student-376-6044-1777560676027.jpg",
+    "timestamp": "2026-04-30T14:51:16.044Z"
+  },
+  {
+    "pic_id": 6045,
+    "student_id": 310,
+    "student_name": "DUKUNDANE HAMZA",
+    "json_name": "dukundane hamza",
+    "match_score": "100.0%",
+    "class": "P5B",
+    "photo_filename": "student-310-6045-1777560676051.jpg",
+    "timestamp": "2026-04-30T14:51:16.075Z"
+  },
+  {
+    "pic_id": 6046,
+    "student_id": 329,
+    "student_name": "IKUZWE REMY",
+    "json_name": "ikuzwe remy",
+    "match_score": "100.0%",
+    "class": "P5B",
+    "photo_filename": "student-329-6046-1777560676081.jpg",
+    "timestamp": "2026-04-30T14:51:16.099Z"
+  },
+  {
+    "pic_id": 6048,
+    "student_id": 378,
+    "student_name": "NYIRAMUGISHA NOELLA",
+    "json_name": "nyiramugisha noella",
+    "match_score": "100.0%",
+    "class": "P5B",
+    "photo_filename": "student-378-6048-1777560676125.jpg",
+    "timestamp": "2026-04-30T14:51:16.139Z"
+  },
+  {
+    "pic_id": 6050,
+    "student_id": 332,
+    "student_name": "INEZA Gad Owen",
+    "json_name": "ineza gad owen",
+    "match_score": "100.0%",
+    "class": "P5B",
+    "photo_filename": "student-332-6050-1777560676151.jpg",
+    "timestamp": "2026-04-30T14:51:16.167Z"
+  },
+  {
+    "pic_id": 6053,
+    "student_id": 337,
+    "student_name": "IRAFASHA REMY",
+    "json_name": "irafasha remy",
+    "match_score": "100.0%",
+    "class": "P5B",
+    "photo_filename": "student-337-6053-1777560676202.jpg",
+    "timestamp": "2026-04-30T14:51:16.237Z"
+  },
+  {
+    "pic_id": 6054,
+    "student_id": 304,
+    "student_name": "BISAMAZA KEVINE",
+    "json_name": "bisamaza kevin",
+    "match_score": "96.0%",
+    "class": "P5B",
+    "photo_filename": "student-304-6054-1777560676245.jpg",
+    "timestamp": "2026-04-30T14:51:16.268Z"
+  },
+  {
+    "pic_id": 6055,
+    "student_id": 318,
+    "student_name": "HIRWA IGIHOZO LUCIE",
+    "json_name": "hirwa igihozo lucie",
+    "match_score": "100.0%",
+    "class": "P5B",
+    "photo_filename": "student-318-6055-1777560676288.jpg",
+    "timestamp": "2026-04-30T14:51:16.307Z"
+  },
+  {
+    "pic_id": 6056,
+    "student_id": 379,
+    "student_name": "RUGIRA CHRISTA",
+    "json_name": "rugira christar",
+    "match_score": "96.0%",
+    "class": "P5B",
+    "photo_filename": "student-379-6056-1777560676322.jpg",
+    "timestamp": "2026-04-30T14:51:16.350Z"
+  },
+  {
+    "pic_id": 6057,
+    "student_id": 313,
+    "student_name": "GATETE AIME FISTON",
+    "json_name": "gateme aime fiston",
+    "match_score": "86.7%",
+    "class": "P5B",
+    "photo_filename": "student-313-6057-1777560676357.jpg",
+    "timestamp": "2026-04-30T14:51:16.377Z"
+  },
+  {
+    "pic_id": 6058,
+    "student_id": 301,
+    "student_name": "AGANZE Prince",
+    "json_name": "aganze prince",
+    "match_score": "100.0%",
+    "class": "P5B",
+    "photo_filename": "student-301-6058-1777560676384.jpg",
+    "timestamp": "2026-04-30T14:51:16.404Z"
+  },
+  {
+    "pic_id": 6059,
+    "student_id": 327,
+    "student_name": "IHIRWE HABIMANA ISAAC",
+    "json_name": "ihurwe habimana isaac",
+    "match_score": "88.9%",
+    "class": "P5B",
+    "photo_filename": "student-327-6059-1777560676414.jpg",
+    "timestamp": "2026-04-30T14:51:16.435Z"
+  },
+  {
+    "pic_id": 6060,
+    "student_id": 340,
+    "student_name": "ISHIMWE LUCKY DANNY",
+    "json_name": "ishimwe lucky danny",
+    "match_score": "100.0%",
+    "class": "P5B",
+    "photo_filename": "student-340-6060-1777560676441.jpg",
+    "timestamp": "2026-04-30T14:51:16.457Z"
+  },
+  {
+    "pic_id": 6061,
+    "student_id": 320,
+    "student_name": "IGENO GICANDA MAEVA DANICA",
+    "json_name": "igeno gicanda meava danica",
+    "match_score": "86.4%",
+    "class": "P5B",
+    "photo_filename": "student-320-6061-1777560676468.jpg",
+    "timestamp": "2026-04-30T14:51:16.492Z"
+  },
+  {
+    "pic_id": 6062,
+    "student_id": 342,
+    "student_name": "IZERE JANAAN",
+    "json_name": "izere janaan",
+    "match_score": "100.0%",
+    "class": "P5B",
+    "photo_filename": "student-342-6062-1777560676506.jpg",
+    "timestamp": "2026-04-30T14:51:16.533Z"
+  },
+  {
+    "pic_id": 6063,
+    "student_id": 387,
+    "student_name": "UMULISA NADIA",
+    "json_name": "umurisa nadia",
+    "match_score": "81.8%",
+    "class": "P5B",
+    "photo_filename": "student-387-6063-1777560676538.jpg",
+    "timestamp": "2026-04-30T14:51:16.595Z"
+  },
+  {
+    "pic_id": 6064,
+    "student_id": 336,
+    "student_name": "INEZABYUKUSENGE PAMELLA",
+    "json_name": "ineza byukusenge pamella",
+    "match_score": "100.0%",
+    "class": "P5B",
+    "photo_filename": "student-336-6064-1777560676602.jpg",
+    "timestamp": "2026-04-30T14:51:16.675Z"
+  },
+  {
+    "pic_id": 6065,
+    "student_id": 308,
+    "student_name": "CYUZUZO ESTHER",
+    "json_name": "cyuzuzo esther",
+    "match_score": "100.0%",
+    "class": "P5B",
+    "photo_filename": "student-308-6065-1777560676681.jpg",
+    "timestamp": "2026-04-30T14:51:16.780Z"
+  },
+  {
+    "pic_id": 6066,
+    "student_id": 848,
+    "student_name": "ITETO Kisha",
+    "json_name": "ITETO Kisha",
+    "match_score": "100.0%",
+    "class": "STREAM II",
+    "photo_filename": "student-848-6066-1777560676787.jpg",
+    "timestamp": "2026-04-30T14:51:16.877Z"
+  },
+  {
+    "pic_id": 6068,
+    "student_id": 843,
+    "student_name": "AGAHIRE SHAMI Neilla",
+    "json_name": "AGAHIRE SHAMI Neilla",
+    "match_score": "100.0%",
+    "class": "STREAM II",
+    "photo_filename": "student-843-6068-1777560676887.jpg",
+    "timestamp": "2026-04-30T14:51:17.011Z"
+  },
+  {
+    "pic_id": 6069,
+    "student_id": 853,
+    "student_name": "NGABO Innocent",
+    "json_name": "NGABO Innocent",
+    "match_score": "100.0%",
+    "class": "STREAM II",
+    "photo_filename": "student-853-6069-1777560677020.jpg",
+    "timestamp": "2026-04-30T14:51:17.188Z"
+  },
+  {
+    "pic_id": 6070,
+    "student_id": 847,
+    "student_name": "INEZA Benithe",
+    "json_name": "INEZA Benithe",
+    "match_score": "100.0%",
+    "class": "STREAM II",
+    "photo_filename": "student-847-6070-1777560677197.jpg",
+    "timestamp": "2026-04-30T14:51:17.349Z"
+  },
+  {
+    "pic_id": 6071,
+    "student_id": 857,
+    "student_name": "NYIRINKWAYA MANZI Cedrick",
+    "json_name": "NYIRINKWAYA MANZI Cedrick",
+    "match_score": "100.0%",
+    "class": "STREAM II",
+    "photo_filename": "student-857-6071-1777560677376.jpg",
+    "timestamp": "2026-04-30T14:51:17.581Z"
+  },
+  {
+    "pic_id": 6072,
+    "student_id": 851,
+    "student_name": "MURENZI Cedrick",
+    "json_name": "MURENZI Cedrick",
+    "match_score": "100.0%",
+    "class": "STREAM II",
+    "photo_filename": "student-851-6072-1777560677604.jpg",
+    "timestamp": "2026-04-30T14:51:17.786Z"
+  },
+  {
+    "pic_id": 6073,
+    "student_id": 852,
+    "student_name": "NEZERWA Albert",
+    "json_name": "NEZERWA Albert",
+    "match_score": "100.0%",
+    "class": "STREAM II",
+    "photo_filename": "student-852-6073-1777560677800.jpg",
+    "timestamp": "2026-04-30T14:51:18.003Z"
+  },
+  {
+    "pic_id": 6074,
+    "student_id": 850,
+    "student_name": "MUGISHA Eric",
+    "json_name": "MUGISHA Eric",
+    "match_score": "100.0%",
+    "class": "STREAM II",
+    "photo_filename": "student-850-6074-1777560678025.jpg",
+    "timestamp": "2026-04-30T14:51:18.071Z"
+  },
+  {
+    "pic_id": 6075,
+    "student_id": 845,
+    "student_name": "HABIMANA Zuhud",
+    "json_name": "HABIMANA Zuhud",
+    "match_score": "100.0%",
+    "class": "STREAM II",
+    "photo_filename": "student-845-6075-1777560678077.jpg",
+    "timestamp": "2026-04-30T14:51:18.111Z"
+  },
+  {
+    "pic_id": 6076,
+    "student_id": 855,
+    "student_name": "NKUNZIMANA Isaac",
+    "json_name": "nkunzimana isaac",
+    "match_score": "100.0%",
+    "class": "STREAM II",
+    "photo_filename": "student-855-6076-1777560678119.jpg",
+    "timestamp": "2026-04-30T14:51:18.151Z"
+  },
+  {
+    "pic_id": 6077,
+    "student_id": 856,
+    "student_name": "NKURUNZIZA CYUBAHIRO Briand",
+    "json_name": "NKURUNZIZA CYUBAHIRO Briand",
+    "match_score": "100.0%",
+    "class": "STREAM II",
+    "photo_filename": "student-856-6077-1777560678159.jpg",
+    "timestamp": "2026-04-30T14:51:18.187Z"
+  },
+  {
+    "pic_id": 6078,
+    "student_id": 846,
+    "student_name": "HIRWA Kenny",
+    "json_name": "HIRWA Kenny",
+    "match_score": "100.0%",
+    "class": "STREAM II",
+    "photo_filename": "student-846-6078-1777560678191.jpg",
+    "timestamp": "2026-04-30T14:51:18.239Z"
+  },
+  {
+    "pic_id": 6079,
+    "student_id": 844,
+    "student_name": "GIRAMATA Ritha",
+    "json_name": "GIRAMATA Ritha",
+    "match_score": "100.0%",
+    "class": "STREAM II",
+    "photo_filename": "student-844-6079-1777560678246.jpg",
+    "timestamp": "2026-04-30T14:51:18.286Z"
+  },
+  {
+    "pic_id": 6080,
+    "student_id": 835,
+    "student_name": "INEZA Elie d'Honneur",
+    "json_name": "INEZA ELIE D'Honneur",
+    "match_score": "100.0%",
+    "class": "STREAM I",
+    "photo_filename": "student-835-6080-1777560678296.jpg",
+    "timestamp": "2026-04-30T14:51:18.407Z"
+  },
+  {
+    "pic_id": 6081,
+    "student_id": 836,
+    "student_name": "IRADUKUNZA NZIZA Ornella",
+    "json_name": "IRADUKUNZA NZIZA Ornella",
+    "match_score": "100.0%",
+    "class": "STREAM I",
+    "photo_filename": "student-836-6081-1777560678441.jpg",
+    "timestamp": "2026-04-30T14:51:18.545Z"
+  },
+  {
+    "pic_id": 6082,
+    "student_id": 840,
+    "student_name": "Moise Steven",
+    "json_name": "Moise Steven",
+    "match_score": "100.0%",
+    "class": "STREAM I",
+    "photo_filename": "student-840-6082-1777560678554.jpg",
+    "timestamp": "2026-04-30T14:51:18.611Z"
+  },
+  {
+    "pic_id": 6083,
+    "student_id": 838,
+    "student_name": "KANYESHURI Patrick",
+    "json_name": "KANYESHURI Patrick",
+    "match_score": "100.0%",
+    "class": "STREAM I",
+    "photo_filename": "student-838-6083-1777560678620.jpg",
+    "timestamp": "2026-04-30T14:51:18.666Z"
+  },
+  {
+    "pic_id": 6084,
+    "student_id": 834,
+    "student_name": "ICHAKA Anyach Immaculate",
+    "json_name": "ICHAKA Anyach Immaculate",
+    "match_score": "100.0%",
+    "class": "STREAM I",
+    "photo_filename": "student-834-6084-1777560678678.jpg",
+    "timestamp": "2026-04-30T14:51:18.734Z"
+  },
+  {
+    "pic_id": 6085,
+    "student_id": 839,
+    "student_name": "MBITSE Ghislain",
+    "json_name": "MBITSE Ghislain",
+    "match_score": "100.0%",
+    "class": "STREAM I",
+    "photo_filename": "student-839-6085-1777560678742.jpg",
+    "timestamp": "2026-04-30T14:51:18.795Z"
+  },
+  {
+    "pic_id": 6086,
+    "student_id": 837,
+    "student_name": "ISHEJA Claudeson Ritha",
+    "json_name": "ISHEJA Claudeson Ritha",
+    "match_score": "100.0%",
+    "class": "STREAM I",
+    "photo_filename": "student-837-6086-1777560678806.jpg",
+    "timestamp": "2026-04-30T14:51:18.854Z"
+  },
+  {
+    "pic_id": 6088,
+    "student_id": 842,
+    "student_name": "SHEJA Bryan",
+    "json_name": "SHEJA Bryan",
+    "match_score": "100.0%",
+    "class": "STREAM I",
+    "photo_filename": "student-842-6088-1777560678861.jpg",
+    "timestamp": "2026-04-30T14:51:18.911Z"
+  },
+  {
+    "pic_id": 6089,
+    "student_id": 841,
+    "student_name": "MUGISHA Bienvenue",
+    "json_name": "MUGISHA Bienvenue",
+    "match_score": "100.0%",
+    "class": "STREAM I",
+    "photo_filename": "student-841-6089-1777560678920.jpg",
+    "timestamp": "2026-04-30T14:51:18.967Z"
+  },
+  {
+    "pic_id": 6095,
+    "student_id": 818,
+    "student_name": "MUHAWENIMANA Jeannette",
+    "json_name": "MUHAWENIMANA Jeannette",
+    "match_score": "100.0%",
+    "class": "S5 ANP",
+    "photo_filename": "student-818-6095-1777560679040.jpg",
+    "timestamp": "2026-04-30T14:51:19.116Z"
+  },
+  {
+    "pic_id": 6097,
+    "student_id": 821,
+    "student_name": "UWUMUNEZERO Fatuma",
+    "json_name": "UWUMUNEZERO Fatuma",
+    "match_score": "100.0%",
+    "class": "S5 ANP",
+    "photo_filename": "student-821-6097-1777560679125.jpg",
+    "timestamp": "2026-04-30T14:51:19.179Z"
+  },
+  {
+    "pic_id": 6099,
+    "student_id": 822,
+    "student_name": "IMANIRUMVA Adalbert",
+    "json_name": "IMANIRUMVA Adalbert",
+    "match_score": "100.0%",
+    "class": "S5 ANP",
+    "photo_filename": "student-822-6099-1777560679190.jpg",
+    "timestamp": "2026-04-30T14:51:19.205Z"
+  },
+  {
+    "pic_id": 6101,
+    "student_id": 819,
+    "student_name": "NGABIRE Hogoza",
+    "json_name": "Hogoza NGABIRE",
+    "match_score": "91.7%",
+    "class": "S5 ANP",
+    "photo_filename": "student-819-6101-1777560679211.jpg",
+    "timestamp": "2026-04-30T14:51:19.228Z"
+  },
+  {
+    "pic_id": 6102,
+    "student_id": 820,
+    "student_name": "UMWALI Fridaus",
+    "json_name": "UMWALI Fridaus",
+    "match_score": "100.0%",
+    "class": "S5 ANP",
+    "photo_filename": "student-820-6102-1777560679236.jpg",
+    "timestamp": "2026-04-30T14:51:19.265Z"
+  },
+  {
+    "pic_id": 6096,
+    "student_id": 815,
+    "student_name": "HATEGEKIMANA Natacha",
+    "json_name": "HATEGEKIMANA Natacha",
+    "match_score": "100.0%",
+    "class": "S5 NURSING",
+    "photo_filename": "student-815-6096-1777560679275.jpg",
+    "timestamp": "2026-04-30T14:51:19.304Z"
+  },
+  {
+    "pic_id": 6105,
+    "student_id": 801,
+    "student_name": "NYIRABUZIMA Emerance",
+    "json_name": "nyirabuzima emerance",
+    "match_score": "100.0%",
+    "class": "S4 ANP",
+    "photo_filename": "student-801-6105-1777560679324.jpg",
+    "timestamp": "2026-04-30T14:51:19.348Z"
+  },
+  {
+    "pic_id": 6106,
+    "student_id": 797,
+    "student_name": "IZERE Eunice",
+    "json_name": "izere eunice",
+    "match_score": "100.0%",
+    "class": "S4 ANP",
+    "photo_filename": "student-797-6106-1777560679355.jpg",
+    "timestamp": "2026-04-30T14:51:19.375Z"
+  },
+  {
+    "pic_id": 6107,
+    "student_id": 805,
+    "student_name": "UWASE RUTAYISIRE Ines",
+    "json_name": "uwase rutayisire ines",
+    "match_score": "100.0%",
+    "class": "S4 ANP",
+    "photo_filename": "student-805-6107-1777560679384.jpg",
+    "timestamp": "2026-04-30T14:51:19.421Z"
+  },
+  {
+    "pic_id": 6109,
+    "student_id": 803,
+    "student_name": "UMURERWA Joyeuse",
+    "json_name": "umurerwa joyeuse",
+    "match_score": "100.0%",
+    "class": "S4 ANP",
+    "photo_filename": "student-803-6109-1777560679429.jpg",
+    "timestamp": "2026-04-30T14:51:19.451Z"
+  }
+]

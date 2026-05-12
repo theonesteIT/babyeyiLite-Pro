@@ -12,6 +12,8 @@ import ShuleAvance from './frontend/src/pages/ShuleAvance'
 import TichaAI from './frontend/src/pages/TichaAI'
 import FeaturePlaceholders from './frontend/src/pages/FeaturePlaceholders'
 import ChatCenter from '../shared/pages/ChatCenter'
+import SchoolCalendarPage from '../shared/pages/SchoolCalendarPage'
+import librarianApi from './frontend/src/services/api'
 
 function LoadingScreen() {
   return (
@@ -44,6 +46,7 @@ function LibrarianRoutesInner() {
       <Route path="payroll" element={<Navigate to="my-payroll" replace />} />
       <Route path="shule-avance" element={<ProtectedRoute title="Shule Avance"><ShuleAvance /></ProtectedRoute>} />
       <Route path="ticha-ai" element={<ProtectedRoute title="TichaAI"><TichaAI /></ProtectedRoute>} />
+      <Route path="school-calendar" element={<ProtectedRoute title="School Calendar"><SchoolCalendarPage api={librarianApi} /></ProtectedRoute>} />
       <Route path="chat" element={<ProtectedRoute title="Chat center"><ChatCenter /></ProtectedRoute>} />
       <Route path="settings" element={<ProtectedRoute title="Settings"><FeaturePlaceholders feature="Library Settings" icon="⚙️" /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/librarian" replace />} />

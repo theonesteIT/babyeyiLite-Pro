@@ -24,6 +24,7 @@ import {
   Paperclip,
   Eye,
   Pencil,
+  Send,
 } from 'lucide-react';
 import { teacherInnerSearchCls, teacherInnerSelectCls } from '../utils/teacherGradebookUi';
 
@@ -45,6 +46,13 @@ const STATUS_BADGE = {
 
 
 
+const DESTINATION_OPTIONS = [
+  { value: 'dos', label: 'DOS (Dean of Studies)', icon: '🎓' },
+  { value: 'accountant', label: 'Accountant', icon: '💰' },
+  { value: 'store', label: 'Store Manager', icon: '📦' },
+  { value: 'all', label: 'All Departments', icon: '🏫' },
+];
+
 function AddModal({ open, onClose, defaultRequester, onSubmit, initialData = null, submitLabel = 'Submit to Finance' }) {
   const [dept, setDept] = useState('');
   const [requester, setRequester] = useState(defaultRequester || '');
@@ -53,6 +61,7 @@ function AddModal({ open, onClose, defaultRequester, onSubmit, initialData = nul
   const [submitted, setSubmitted] = useState(() => new Date().toISOString().slice(0, 10));
   const [attachment, setAttachment] = useState(null);
   const [description, setDescription] = useState('');
+  const [destination, setDestination] = useState('accountant');
   const [activeStep, setActiveStep] = useState(1);
 
   useEffect(() => {
@@ -63,6 +72,7 @@ function AddModal({ open, onClose, defaultRequester, onSubmit, initialData = nul
       setAmount(initialData?.amount != null ? String(Number(initialData.amount) || '') : '');
       setSubmitted(initialData?.submitted ? String(initialData.submitted).slice(0, 10) : new Date().toISOString().slice(0, 10));
       setDescription(initialData?.description || initialData?.note || '');
+      setDestination(initialData?.destination || 'accountant');
       setAttachment(null);
       setActiveStep(1);
     }
@@ -182,10 +192,38 @@ function AddModal({ open, onClose, defaultRequester, onSubmit, initialData = nul
                   <textarea
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Write clear description for accountant review..."
+                    placeholder="Write clear description for review..."
                     rows={2}
                     className="w-full rounded-[20px] bg-re-bg px-4 py-3 font-bold text-xs outline-none border border-transparent shadow-inner focus:border-re-orange/30 focus:bg-white focus:ring-2 focus:ring-re-orange/15 transition-all resize-none"
                   />
+                </div>
+
+                <div className="space-y-2 sm:col-span-2">
+                  <label className="text-[10px] font-bold text-re-text-muted opacity-60 ml-1">
+                    Send To <span className="text-red-400 ml-0.5">*</span>
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {DESTINATION_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setDestination(opt.value)}
+                        className={`relative flex flex-col items-center gap-1.5 p-3 rounded-[16px] border-2 transition-all duration-200 ${
+                          destination === opt.value
+                            ? 'border-re-orange bg-gradient-to-b from-orange-50 to-white shadow-[0_2px_12px_rgba(255,140,0,0.15)] scale-[1.02]'
+                            : 'border-transparent bg-re-bg hover:border-black/10 hover:bg-white'
+                        }`}
+                      >
+                        {destination === opt.value && (
+                          <div className="absolute top-1.5 right-1.5">
+                            <CheckCircle size={12} className="text-re-orange" />
+                          </div>
+                        )}
+                        <span className="text-lg">{opt.icon}</span>
+                        <span className="text-[10px] font-bold text-center leading-tight">{opt.label}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
@@ -264,11 +302,12 @@ function AddModal({ open, onClose, defaultRequester, onSubmit, initialData = nul
                   attachmentName: attachment?.name || '',
                   description: description.trim(),
                   note: description.trim(),
+                  destination,
                 });
               }}
               className="h-11 px-8 rounded-[16px] bg-re-grad-orange text-white font-bold text-[11px] shadow-re-glow active:scale-95 transition-all inline-flex items-center gap-2 group"
             >
-              <CheckCircle size={14} /> {submitLabel}
+              <Send size={14} /> Submit Request
             </button>
           )}
         </div>
@@ -369,6 +408,7 @@ export default function Requisitions() {
         attachmentName: payload.attachmentName,
         description: payload.description,
         note: payload.description,
+        destination: payload.destination || 'accountant',
       });
       setModal(false);
       load();
@@ -499,9 +539,19 @@ export default function Requisitions() {
                       <p className="font-bold text-re-text text-sm">{r.dept}</p>
                       <p className="text-[11px] font-bold text-slate-500 mt-0.5">{r.requester}</p>
                       <p className="text-xs text-slate-600 mt-2 max-w-2xl">{r.items}</p>
-                      <p className="text-[10px] font-bold text-slate-400 mt-2 font-mono">
-                        {r.id} · {fmtDate(r.submitted)}
-                        {r.attachmentName ? ` · 📎 ${r.attachmentName}` : ''}
+                      <p className="text-[10px] font-bold text-slate-400 mt-2 font-mono inline-flex items-center gap-2 flex-wrap">
+                        <span>{r.id} · {fmtDate(r.submitted)}</span>
+                        {r.attachmentName ? <span>📎 {r.attachmentName}</span> : null}
+                        {r.destination && (
+                          <span className={`px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase border ${
+                            r.destination === 'dos' ? 'bg-violet-50 text-violet-700 border-violet-200'
+                            : r.destination === 'store' ? 'bg-cyan-50 text-cyan-700 border-cyan-200'
+                            : r.destination === 'all' ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                            : 'bg-amber-50 text-amber-700 border-amber-200'
+                          }`}>
+                            → {r.destination === 'store' ? 'Store' : r.destination === 'all' ? 'All Depts' : r.destination === 'dos' ? 'DOS' : 'Accountant'}
+                          </span>
+                        )}
                       </p>
                       {r.description || r.note ? (
                         <p className="text-[10px] text-slate-500 mt-1 italic">

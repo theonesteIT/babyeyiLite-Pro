@@ -16,6 +16,9 @@ import FeaturePlaceholders from './frontend/src/pages/FeaturePlaceholders'
 import BabyeyiFees from './frontend/src/pages/BabyeyiFees'
 import SalaryPayment from './frontend/src/pages/SalaryPayment'
 import ChatCenter from '../shared/pages/ChatCenter'
+import SchoolCalendarPage from '../shared/pages/SchoolCalendarPage'
+import AccountantOchreHero from './frontend/src/components/AccountantOchreHero'
+import accountantApi from './frontend/src/services/api'
 
 function LoadingScreen() {
   return (
@@ -55,6 +58,7 @@ function AccountantRoutesInner() {
       <Route path="payroll/config" element={<ProtectedRoute title="Configure Payroll"><PayrollConfig /></ProtectedRoute>} />
       <Route path="payroll/salary-payment" element={<ProtectedRoute title="Salary Payment"><SalaryPayment /></ProtectedRoute>} />
       <Route path="my-payroll" element={<ProtectedRoute title="My Payroll"><StaffPayroll /></ProtectedRoute>} />
+      <Route path="school-calendar" element={<ProtectedRoute title="School Calendar"><SchoolCalendarPage api={accountantApi} HeroComponent={AccountantOchreHero} heroProps={{ eyebrow: 'School', titleLine: 'School', titleAccent: 'Calendar', subtitle: 'View school events, holidays, exams, and important dates.' }} /></ProtectedRoute>} />
       <Route path="chat" element={<ProtectedRoute title="Chat center"><ChatCenter /></ProtectedRoute>} />
 
       <Route path="settings" element={<ProtectedRoute title="Settings"><FeaturePlaceholders feature="Settings" icon="⚙️" /></ProtectedRoute>} />

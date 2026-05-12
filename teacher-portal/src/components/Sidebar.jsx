@@ -3,9 +3,9 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import useChatUnread from '../hooks/useChatUnread';
 import {
-  LayoutDashboard, Users, BookOpen, Calendar, ClipboardCheck,
+  LayoutDashboard, Users, BookOpen, Calendar, CalendarDays, ClipboardCheck,
   Wallet, MessageSquare, ClipboardList, Eye, PenLine, FileSpreadsheet,
-  Building2, LogOut, WifiOff, GraduationCap, ChevronDown, DollarSign,
+  Building2, LogOut, WifiOff, GraduationCap, ChevronDown, DollarSign, Shield,
 } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5100';
@@ -159,6 +159,8 @@ const Sidebar = ({ onClose }) => {
           <NavItem icon={DollarSign} name="My Payroll" path="/payroll" onClose={onClose} />
           <NavItem icon={Wallet} name="Shule Avance" path="/shule-avance" onClose={onClose} />
           <NavItem icon={FileSpreadsheet} name="Requisitions" path="/requisitions" onClose={onClose} />
+          <NavItem icon={Shield} name="Permissions" path="/permissions" onClose={onClose} />
+          <NavItem icon={CalendarDays} name="School Calendar" path="/school-calendar" onClose={onClose} />
 
           <SectionLabel label="Communication" />
           <NavItem icon={MessageSquare} name="TichaAI" path="/ticha-ai" onClose={onClose} />
