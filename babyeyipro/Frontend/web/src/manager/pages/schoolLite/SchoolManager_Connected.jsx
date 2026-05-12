@@ -125,7 +125,7 @@ const ALL_SECTIONS = [
   { id: "cta",           label: "Call to Action", icon: "🔔" },
 ];
 
-const LEADER_ROLES = ["Head Teacher","Director of Study","Director of Discipline","Secretary"];
+const LEADER_ROLE_SUGGESTIONS = ["Head Teacher","Director of Study","Director of Discipline","Secretary","Deputy Head Teacher","Dean of Students","Bursar","Accountant","Librarian","IT Manager","Counselor","Sports Director"];
 
 const STEPS = [
   { id: 1,  label: "Identity",    icon: School },
@@ -608,14 +608,14 @@ function S5Connected({ form, set }) {
     set(f => {
       const cur = Array.isArray(f.leaders) ? f.leaders : [];
       const nextId = `leader-${Date.now()}-${Math.round(Math.random() * 1e6)}`;
-      const unusedRole = LEADER_ROLES.find((r) => !cur.some((x) => String(x.role || '').trim().toLowerCase() === r.toLowerCase())) || "";
+      const usedR = cur.map(x => String(x.role || '').trim().toLowerCase());
+      const unusedRole = LEADER_ROLE_SUGGESTIONS.find(r => !usedR.includes(r.toLowerCase())) || "";
       return {
         ...f,
         leaders: [...cur, { id: nextId, name: "", role: unusedRole, phone: "", email: "", photoPreview: null, photoFile: null }],
       };
     });
   };
-  const usedRoles = leaders.map(l => String(l.role || "").trim()).filter(Boolean);
 
   return (
     <div className="space-y-5">
@@ -693,10 +693,10 @@ function S5Connected({ form, set }) {
                         <div><Lbl>Full Name</Lbl><Inp value={l.name || ""} onChange={e => updL(idx, "name", e.target.value)} placeholder="Leader name" /></div>
                         <div>
                           <Lbl>Role</Lbl>
-                          <Sel value={l.role || ""} onChange={e => updL(idx, "role", e.target.value)}>
-                            <option value="">Select role…</option>
-                            {LEADER_ROLES.map(r => { const takenByOther = usedRoles.includes(r) && r !== l.role; return <option key={r} value={r} disabled={takenByOther}>{r}{takenByOther ? " (used)" : ""}</option>; })}
-                          </Sel>
+                          <Inp list={`role-suggestions-${idx}`} value={l.role || ""} onChange={e => updL(idx, "role", e.target.value)} placeholder="Type or select role…" />
+                          <datalist id={`role-suggestions-${idx}`}>
+                            {LEADER_ROLE_SUGGESTIONS.map(r => <option key={r} value={r} />)}
+                          </datalist>
                         </div>
                         <div><Lbl>Phone</Lbl><Inp value={l.phone || ""} onChange={e => updL(idx, "phone", e.target.value)} placeholder="+250 7xx xxx xxx" /></div>
                         <div><Lbl>Email</Lbl><Inp type="email" value={l.email || ""} onChange={e => updL(idx, "email", e.target.value)} placeholder="name@school.ac.rw" /></div>
@@ -1502,11 +1502,21 @@ function S11Connected({ form, miniId, saving, saveErr, onSave, onPublish, canPub
 }
 
 // ─── API LAYER ────────────────────────────────────────────────────────────────
-async function apiFetchList()         { const r = await fetch(API, { credentials: "include" }); if (!r.ok) throw new Error("Failed to load schools"); return r.json(); }
-async function apiFetchSchool(sid)    { const r = await fetch(`${API}/school/${sid}`, { credentials: "include" }); if (!r.ok) throw new Error("School not found"); return r.json(); }
-async function apiCreate(fd)          { const r = await fetch(API, { method: "POST", body: fd, credentials: "include" }); if (!r.ok) { const e = await r.json(); throw new Error(e.message || "Create failed"); } return r.json(); }
-async function apiUpdate(mid, fd)     { const r = await fetch(`${API}/${mid}`, { method: "PUT", body: fd, credentials: "include" }); if (!r.ok) { const e = await r.json(); throw new Error(e.message || "Update failed"); } return r.json(); }
-async function apiPublish(mid)        { const r = await fetch(`${API}/${mid}/publish`, { method: "PATCH", credentials: "include" }); if (!r.ok) { const e = await r.json(); throw new Error(e.message || "Publish failed"); } return r.json(); }
+async function safeJson(r) {
+  try { return await r.json(); } catch { return null; }
+}
+function httpErrorMsg(status, fallback) {
+  if (status === 413) return "Upload too large — try reducing image sizes or uploading fewer photos at once.";
+  if (status === 408) return "Request timed out — please try again.";
+  if (status === 429) return "Too many requests — please wait a moment and try again.";
+  if (status === 502 || status === 503 || status === 504) return "Server is temporarily unavailable — please try again later.";
+  return fallback;
+}
+async function apiFetchList()         { const r = await fetch(API, { credentials: "include" }); if (!r.ok) { const e = await safeJson(r); throw new Error(e?.message || httpErrorMsg(r.status, "Failed to load schools")); } return r.json(); }
+async function apiFetchSchool(sid)    { const r = await fetch(`${API}/school/${sid}`, { credentials: "include" }); if (!r.ok) { const e = await safeJson(r); throw new Error(e?.message || httpErrorMsg(r.status, "School not found")); } return r.json(); }
+async function apiCreate(fd)          { const r = await fetch(API, { method: "POST", body: fd, credentials: "include" }); if (!r.ok) { const e = await safeJson(r); throw new Error(e?.message || httpErrorMsg(r.status, "Create failed")); } return r.json(); }
+async function apiUpdate(mid, fd)     { const r = await fetch(`${API}/${mid}`, { method: "PUT", body: fd, credentials: "include" }); if (!r.ok) { const e = await safeJson(r); throw new Error(e?.message || httpErrorMsg(r.status, "Update failed")); } return r.json(); }
+async function apiPublish(mid)        { const r = await fetch(`${API}/${mid}/publish`, { method: "PATCH", credentials: "include" }); if (!r.ok) { const e = await safeJson(r); throw new Error(e?.message || httpErrorMsg(r.status, "Publish failed")); } return r.json(); }
 
 function buildFormData(form, schoolId) {
   const fd = new FormData();

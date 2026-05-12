@@ -2,11 +2,13 @@ import { useState, useRef, useEffect } from 'react';
 import { Menu, Search, Bell, ChevronDown, LogOut, Settings, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import ProfileModal from '../../shared/components/ProfileModal';
 
 const TopNav = ({ title, onMenuClick }) => {
     const navigate = useNavigate();
-    const { manager, logout } = useAuth();
+    const { manager, setManager, logout } = useAuth();
     const [userOpen, setUserOpen] = useState(false);
+    const [profileOpen, setProfileOpen] = useState(false);
     const [search, setSearch] = useState('');
     const userRef = useRef(null);
 
@@ -24,6 +26,7 @@ const TopNav = ({ title, onMenuClick }) => {
         : '?';
 
     return (
+    <>
         <header className="h-14 sm:h-[3.75rem] flex items-center gap-3 sm:gap-4 px-3 sm:px-5 md:px-7 bg-white border-b border-slate-200/90 shadow-[0_1px_0_rgba(15,23,42,0.06)] sticky top-0 z-20 font-sans transition-all duration-300">
 
             {/* Left — gold menu + page title */}
@@ -144,7 +147,7 @@ const TopNav = ({ title, onMenuClick }) => {
                             {/* Menu */}
                             <div className="py-1">
                                 <button
-                                    onClick={() => { navigate('/profile'); setUserOpen(false); }}
+                                    onClick={() => { setProfileOpen(true); setUserOpen(false); }}
                                     className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-re-text-muted hover:bg-navy-50 hover:text-re-navy transition-all"
                                 >
                                     <User size={13} /> My Profile
@@ -170,6 +173,14 @@ const TopNav = ({ title, onMenuClick }) => {
                 </div>
             </div>
         </header>
+
+        <ProfileModal
+            open={profileOpen}
+            onClose={() => setProfileOpen(false)}
+            user={manager}
+            onUserUpdate={(updates) => setManager?.((prev) => ({ ...prev, ...updates }))}
+        />
+    </>
     );
 };
 

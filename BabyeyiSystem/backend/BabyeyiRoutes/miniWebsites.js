@@ -47,8 +47,8 @@ const upload = multer({
   },
 });
 
-// Main wizard fields: cover + aboutImage + missionImage + up to 20 leader photos
-const LEADER_FIELDS = Array.from({ length: 20 }, (_, i) => ({ name: `leaderPhoto_${i}`, maxCount: 1 }));
+// Main wizard fields: cover + aboutImage + missionImage + up to 50 leader photos
+const LEADER_FIELDS = Array.from({ length: 50 }, (_, i) => ({ name: `leaderPhoto_${i}`, maxCount: 1 }));
 const miniFields = upload.fields([
   { name: 'cover',        maxCount: 1 },
   { name: 'aboutImage',   maxCount: 1 },

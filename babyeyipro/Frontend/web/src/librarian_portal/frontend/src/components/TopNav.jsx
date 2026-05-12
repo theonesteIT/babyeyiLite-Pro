@@ -3,11 +3,13 @@ import { Menu, Search, Bell, ChevronDown, LogOut, Settings, User } from 'lucide-
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { PORTAL } from '../config/portal';
+import ProfileModal from '../../../../../shared/components/ProfileModal';
 
 const TopNav = ({ title, onMenuClick }) => {
     const navigate = useNavigate();
     const { staff, logout } = useAuth();
     const [userOpen, setUserOpen] = useState(false);
+    const [profileOpen, setProfileOpen] = useState(false);
     const [search, setSearch] = useState('');
     const userRef = useRef(null);
 
@@ -24,6 +26,7 @@ const TopNav = ({ title, onMenuClick }) => {
         : '?';
 
     return (
+    <>
         <header className="h-14 flex items-center justify-between px-4 md:px-6 bg-white/80 backdrop-blur-xl border-b border-black/5 sticky top-0 z-30 gap-3 font-sans">
 
             {/* Left — hamburger + page title */}
@@ -121,7 +124,7 @@ const TopNav = ({ title, onMenuClick }) => {
                             {/* Menu */}
                             <div className="py-1">
                                 <button
-                                    onClick={() => { navigate('/profile'); setUserOpen(false); }}
+                                    onClick={() => { setProfileOpen(true); setUserOpen(false); }}
                                     className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-re-text-muted hover:bg-re-navy/5 hover:text-re-navy transition-all"
                                 >
                                     <User size={13} /> My Profile
@@ -147,6 +150,13 @@ const TopNav = ({ title, onMenuClick }) => {
                 </div>
             </div>
         </header>
+
+        <ProfileModal
+            open={profileOpen}
+            onClose={() => setProfileOpen(false)}
+            user={staff}
+        />
+    </>
     );
 };
 

@@ -136,8 +136,8 @@ app.use(session({
   },
 }));
 
-const jsonParser = express.json({ limit: '10mb' });
-const urlencodedParser = express.urlencoded({ extended: true, limit: '10mb' });
+const jsonParser = express.json({ limit: '50mb' });
+const urlencodedParser = express.urlencoded({ extended: true, limit: '50mb' });
 app.use((req, res, next) => {
   const ct = String(req.headers['content-type'] || '').toLowerCase();
   if (ct.includes('multipart/form-data')) return next();
@@ -490,7 +490,7 @@ app.use((req, res) => res.status(404).json({
 // eslint-disable-next-line no-unused-vars
 app.use((err, _req, res, _next) => {
   console.error('❌  Global error:', err.message);
-  if (err.code === 'LIMIT_FILE_SIZE')       return res.status(400).json({ success: false, message: 'File too large' });
+  if (err.code === 'LIMIT_FILE_SIZE')       return res.status(400).json({ success: false, message: 'File too large — each image must be under 30 MB. Please reduce the image size and try again.' });
   if (err.code === 'LIMIT_UNEXPECTED_FILE') return res.status(400).json({ success: false, message: `Unexpected field: ${err.field}` });
   res.status(err.status || 500).json({
     success: false, message: err.message || 'Internal Server Error',

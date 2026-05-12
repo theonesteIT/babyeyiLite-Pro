@@ -340,7 +340,7 @@ async function syncLeaders(conn, schoolId, leaders) {
   const head = clean.find(l => isHeadTeacherRole(l.role)) || null;
   const others = clean.filter(l => !isHeadTeacherRole(l.role));
 
-  // Replace "other" leaders fully (3 fixed roles in UI)
+  // Replace "other" leaders fully (unlimited custom roles in UI)
   await conn.query(
     "DELETE FROM school_leaders WHERE school_id = ? AND role_type = 'other'",
     [schoolId]
