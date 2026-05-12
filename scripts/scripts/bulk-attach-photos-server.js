@@ -22,7 +22,18 @@ const fs = require('fs');
 const path = require('path');
 const stringSimilarity = require('string-similarity');
 const mysql = require('mysql2/promise');
-require('dotenv').config({ path: path.join(__dirname, '../.env') });
+const envPaths = [
+  path.join(__dirname, '../.env'),
+  path.join(__dirname, '../../.env'),
+  path.join(__dirname, '../../backend/.env'),
+];
+for (const p of envPaths) {
+  if (fs.existsSync(p)) {
+    require('dotenv').config({ path: p });
+    console.log(`📂 Loaded .env from: ${p}`);
+    break;
+  }
+}
 
 // ════════════════════════════════════════════════════════════════
 // PARSE CLI ARGS
@@ -32,17 +43,29 @@ function parseArgs() {
   const args = process.argv.slice(2);
   let schoolCode = null;
   let inputFile = null;
+  let dbUser = null;
+  let dbPassword = null;
+  let dbName = null;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--school-code' && args[i + 1]) {
       schoolCode = args[i + 1];
+      i++;
+    } else if (args[i] === '--db-user' && args[i + 1]) {
+      dbUser = args[i + 1];
+      i++;
+    } else if (args[i] === '--db-password' && args[i + 1]) {
+      dbPassword = args[i + 1];
+      i++;
+    } else if (args[i] === '--db-name' && args[i + 1]) {
+      dbName = args[i + 1];
       i++;
     } else if (!args[i].startsWith('--')) {
       inputFile = args[i];
     }
   }
 
-  return { schoolCode, inputFile };
+  return { schoolCode, inputFile, dbUser, dbPassword, dbName };
 }
 
 const cliArgs = parseArgs();
@@ -54,9 +77,9 @@ const cliArgs = parseArgs();
 const CONFIG = {
   DB_HOST: process.env.DB_HOST || 'localhost',
   DB_PORT: parseInt(process.env.DB_PORT || 3306),
-  DB_USER: process.env.DB_USER || 'root',
-  DB_PASSWORD: process.env.DB_PASSWORD || '',
-  DB_NAME: process.env.DB_NAME || 'babyeyi',
+  DB_USER: cliArgs.dbUser || process.env.DB_USER || 'root',
+  DB_PASSWORD: cliArgs.dbPassword || process.env.DB_PASSWORD || '',
+  DB_NAME: cliArgs.dbName || process.env.DB_NAME || 'babyeyi',
 
   SCHOOL_CODE: cliArgs.schoolCode,
   SCHOOL_ID: null,
