@@ -1518,7 +1518,34 @@ async function apiCreate(fd)          { const r = await fetch(API, { method: "PO
 async function apiUpdate(mid, fd)     { const r = await fetch(`${API}/${mid}`, { method: "PUT", body: fd, credentials: "include" }); if (!r.ok) { const e = await safeJson(r); throw new Error(e?.message || httpErrorMsg(r.status, "Update failed")); } return r.json(); }
 async function apiPublish(mid)        { const r = await fetch(`${API}/${mid}/publish`, { method: "PATCH", credentials: "include" }); if (!r.ok) { const e = await safeJson(r); throw new Error(e?.message || httpErrorMsg(r.status, "Publish failed")); } return r.json(); }
 
-function buildFormData(form, schoolId) {
+function compressImage(file, maxWidth = 1200, quality = 0.75) {
+  return new Promise((resolve) => {
+    if (!(file instanceof File) || !file.type.startsWith("image/")) return resolve(file);
+    if (file.size <= 500 * 1024) return resolve(file);
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let w = img.width, h = img.height;
+      if (w > maxWidth) { h = Math.round(h * (maxWidth / w)); w = maxWidth; }
+      const canvas = document.createElement("canvas");
+      canvas.width = w; canvas.height = h;
+      canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+      canvas.toBlob(
+        (blob) => {
+          if (!blob || blob.size >= file.size) return resolve(file);
+          resolve(new File([blob], file.name, { type: "image/jpeg", lastModified: Date.now() }));
+        },
+        "image/jpeg",
+        quality
+      );
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+    img.src = url;
+  });
+}
+
+async function buildFormData(form, schoolId) {
   const fd = new FormData();
   if (schoolId) fd.append("schoolId", String(schoolId));
   ["background","mission","vision","facebook","twitter","instagram","template","colorTheme"].forEach(k => { if (form[k] != null) fd.append(k, form[k]); });
@@ -1539,10 +1566,13 @@ function buildFormData(form, schoolId) {
   fd.append("albums", JSON.stringify(cleanAlbums));
   const leadersData = (form.leaders || []).map(l => ({ id: l.id, name: l.name, role: l.role, phone: l.phone || null, email: l.email || null, photoPreview: l.photoFile ? null : (l.photoPreview || null) }));
   fd.append("leaders", JSON.stringify(leadersData));
-  (form.leaders || []).forEach((l, idx) => { if (l.photoFile instanceof File) fd.append(`leaderPhoto_${idx}`, l.photoFile); });
-  if (form.cover        instanceof File) fd.append("cover",        form.cover);
-  if (form.aboutImage   instanceof File) fd.append("aboutImage",   form.aboutImage);
-  if (form.missionImage instanceof File) fd.append("missionImage", form.missionImage);
+  for (let idx = 0; idx < (form.leaders || []).length; idx++) {
+    const l = form.leaders[idx];
+    if (l.photoFile instanceof File) fd.append(`leaderPhoto_${idx}`, await compressImage(l.photoFile));
+  }
+  if (form.cover        instanceof File) fd.append("cover",        await compressImage(form.cover));
+  if (form.aboutImage   instanceof File) fd.append("aboutImage",   await compressImage(form.aboutImage));
+  if (form.missionImage instanceof File) fd.append("missionImage", await compressImage(form.missionImage));
   return fd;
 }
 
@@ -1705,7 +1735,7 @@ export default function App({ initialSchoolId, initialSchoolName, initialStep = 
   const handleSave = async () => {
     setSaving(true); setSaveErr(null);
     try {
-      const fd  = buildFormData(form, schoolId);
+      const fd  = await buildFormData(form, schoolId);
       const res = miniId ? await apiUpdate(miniId, fd) : await apiCreate(fd);
       if (res.data?.miniId) setMiniId(res.data.miniId);
     } catch (e) { setSaveErr(e.message); } finally { setSaving(false); }
@@ -1716,7 +1746,7 @@ export default function App({ initialSchoolId, initialSchoolName, initialStep = 
     if (!gate.canPublish) { setSaveErr(`Complete: ${gate.missing.join(", ")}.`); return; }
     setSaving(true); setSaveErr(null);
     try {
-      const fd = buildFormData(form, schoolId);
+      const fd = await buildFormData(form, schoolId);
       let id   = miniId;
       if (id)  { await apiUpdate(id, fd); }
       else     { const res = await apiCreate(fd); id = res.data?.miniId; setMiniId(id); }
