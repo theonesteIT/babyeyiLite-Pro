@@ -88,7 +88,7 @@ const CONFIG = {
   INPUT_JSON: cliArgs.inputFile
     ? path.resolve(cliArgs.inputFile)
     : path.join(__dirname, 'input-students.json'),
-  UPLOAD_DIR: path.join(__dirname, '../uploads/student-profile-photos'),
+  UPLOAD_DIR: path.join(__dirname, '../../BabyeyiSystem/backend/uploads/student-profile-photos'),
   RESULTS_DIR: path.join(__dirname, '../results-bulk-attach'),
 };
 

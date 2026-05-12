@@ -256,7 +256,6 @@ export async function renderCardToCanvas(student, template, photoImg, logoImg, f
 
   /* ── 2. School logo + school name + phone (top, centered) ── */
   const schoolTitle = (template?.school_name || student.school || 'SCHOOL').toUpperCase();
-  const schoolPhone = (template?.school_phone || student.phone || '').trim();
   const logoSz = 86 * s;
   const logoX = W / 2 - logoSz / 2;
   const logoY = 6 * s;
@@ -275,18 +274,12 @@ export async function renderCardToCanvas(student, template, photoImg, logoImg, f
 
   const schoolNameY = logoY + logoSz + 18 * s;
   ctx.fillStyle = C.navy;
-  ctx.font = `900 ${18.5 * s}px ${FONT_STACK}`;
+  ctx.font = `900 ${13 * s}px ${FONT_STACK}`;
   ctx.textAlign = 'center';
   ctx.fillText(schoolTitle, W / 2, schoolNameY);
 
-  if (schoolPhone) {
-    ctx.fillStyle = C.sub;
-    ctx.font = `700 ${12.5 * s}px ${FONT_STACK}`;
-    ctx.fillText(schoolPhone, W / 2, schoolNameY + 16 * s);
-  }
-
-  /* Space between phone (or school title) and photo */
-  const afterHeaderBaseline = schoolPhone ? schoolNameY + 16 * s + 14 * s : schoolNameY + 10 * s;
+  /* Space between school title and photo */
+  const afterHeaderBaseline = schoolNameY + 10 * s;
   const gapBeforePhoto = 18 * s;
   const photoZoneTop = afterHeaderBaseline + gapBeforePhoto;
 
@@ -333,6 +326,16 @@ export async function renderCardToCanvas(student, template, photoImg, logoImg, f
   }
   ctx.restore(); /* restore-C */
 
+  /* ── Amber border around photo ── */
+  ctx.save();
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = C.amber;
+  ctx.lineWidth = 4 * s;
+  ctx.beginPath();
+  ctx.arc(photoCX, photoCY, innerSize / 2, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+
   /* ── 5. Info fields ── */
   ctx.globalAlpha = 1; /* RESET */
   const infoTopY = photoZoneTop + photoSize + 18 * s;
@@ -345,7 +348,7 @@ export async function renderCardToCanvas(student, template, photoImg, logoImg, f
   /* Student name only — no “Name:” label, slightly larger */
   ctx.textAlign = 'center';
   ctx.fillStyle = C.navy;
-  ctx.font = `900 ${19.5 * s}px ${FONT_STACK}`;
+  ctx.font = `900 ${14 * s}px ${FONT_STACK}`;
   ctx.fillText(student.fullName, W / 2, infoY);
   infoY += 38 * s;
   ctx.textAlign = 'left';
@@ -475,7 +478,6 @@ export function IDCardT2({ student, template, scale = 1 }) {
   const [logoTry, setLogoTry] = useState(0);
   const logoSrc = logoCandidates[Math.min(logoTry, logoCandidates.length - 1)];
   useEffect(() => { setLogoTry(0); }, [logoCandidates]);
-  const schoolPhone = (template?.school_phone || student.phone || '').trim();
   const photoOffsetX = Number(template?.photo_offset_x) || 0;
   const photoOffsetY = Number(template?.photo_offset_y) || 0;
   const photoZoom = Math.max(0.85, Math.min(2.2, Number(template?.photo_zoom) || 1));
@@ -505,16 +507,11 @@ export function IDCardT2({ student, template, scale = 1 }) {
             onError={() => setLogoTry((n) => n + 1)}
           />
         </div>
-        <div style={{ fontSize: 18.5, fontWeight: 900, color: C.navy, textAlign: 'center', lineHeight: 1.15, letterSpacing: 0.25, marginBottom: 2 }}>{schoolTitle}</div>
-        {schoolPhone ? (
-          <div style={{ fontSize: 12.5, fontWeight: 700, color: C.sub, textAlign: 'center', lineHeight: 1.15, marginBottom: 18 }}>{schoolPhone}</div>
-        ) : (
-          <div style={{ marginBottom: 12 }} />
-        )}
+        <div style={{ fontSize: 13, fontWeight: 900, color: C.navy, textAlign: 'center', lineHeight: 1.15, letterSpacing: 0.25, marginBottom: 12 }}>{schoolTitle}</div>
 
         {/* Photo */}
         <div style={{ position: 'relative', width: 172, height: 172, marginBottom: 8, flexShrink: 0 }}>
-          <div style={{ position: 'absolute', left: '50%', top: 0, transform: 'translateX(-50%)', width: 172, height: 172, borderRadius: '50%', overflow: 'hidden', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3, boxSizing: 'border-box' }}>
+          <div style={{ position: 'absolute', left: '50%', top: 0, transform: 'translateX(-50%)', width: 172, height: 172, borderRadius: '50%', overflow: 'hidden', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3, boxSizing: 'border-box', border: `4px solid ${C.amber}` }}>
             {student.photo ? (
               <img
                 src={student.photo}
@@ -541,7 +538,7 @@ export function IDCardT2({ student, template, scale = 1 }) {
         {/* Student name (no label) + ID / Section */}
         <div style={{ width: '100%', paddingLeft: 12, paddingRight: 12, paddingTop: 0, paddingBottom: 2, zIndex: 4, position: 'relative', flexShrink: 0 }}>
           <div style={{ width: '100%', maxWidth: 288, margin: '0 auto', textAlign: 'center' }}>
-            <div style={{ fontSize: 19, fontWeight: 900, color: C.navy, lineHeight: 1.2, marginBottom: 10, letterSpacing: 0.02 }}>{student.fullName}</div>
+            <div style={{ fontSize: 14, fontWeight: 900, color: C.navy, lineHeight: 1.2, marginBottom: 10, letterSpacing: 0.02 }}>{student.fullName}</div>
             <div style={{ width: 'fit-content', margin: '0 auto', textAlign: 'left' }}>
               {infoRows.map(({ label, value, bold }) => (
                 <div
