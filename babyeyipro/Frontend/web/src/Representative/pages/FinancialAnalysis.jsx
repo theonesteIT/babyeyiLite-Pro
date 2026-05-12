@@ -1,5 +1,7 @@
-import { useState } from "react";
-import { SCHOOLS, MONTHLY_COLLECTIONS } from "../data/financeData";
+import { useCallback, useEffect, useState } from "react";
+import { useRepresentativeData } from "../context/RepresentativeContext";
+import { fetchRepresentativeFinancialAnalytics } from "../services/api";
+import { Loader2 } from "lucide-react";
 
 const Ic = ({ d, size = 18 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
@@ -23,13 +25,13 @@ const ProgressBar = ({ value, max = 100, color = "#000435" }) => {
   );
 };
 
-// Dual line chart: Revenue vs Expenses
 const DualLineChart = ({ data, height = 220 }) => {
+  if (!data?.length) return null;
   const W = 700, H = height, P = { t: 18, b: 30, l: 48, r: 12 };
   const iW = W - P.l - P.r, iH = H - P.t - P.b;
   const fees = data.map(d => d.fees), payrolls = data.map(d => d.payroll);
   const max = Math.max(...fees, ...payrolls, 1);
-  const xs = data.map((_, i) => P.l + (i / (data.length - 1)) * iW);
+  const xs = data.map((_, i) => P.l + (i / Math.max(data.length - 1, 1)) * iW);
   const yFees = fees.map(v => P.t + (1 - v / max) * iH);
   const yPayr = payrolls.map(v => P.t + (1 - v / max) * iH);
   const pathF = xs.map((x, i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)},${yFees[i].toFixed(1)}`).join(" ");
@@ -94,15 +96,59 @@ const KpiCard = ({ label, value, sub, color, icon: Icon, trend }) => (
 );
 
 export default function FinancialAnalytics() {
-  const totalFees    = MONTHLY_COLLECTIONS.reduce((s, d) => s + d.fees, 0);
-  const totalPayroll = MONTHLY_COLLECTIONS.reduce((s, d) => s + d.payroll, 0);
-  const profit       = totalFees - totalPayroll;
-  const profitPct    = Math.round((profit / totalFees) * 100);
+  const { activeSchool, activeSchoolId } = useRepresentativeData();
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const schoolParam = activeSchoolId != null && activeSchoolId !== '' ? Number(activeSchoolId) : undefined;
+      const res = await fetchRepresentativeFinancialAnalytics(schoolParam);
+      if (!res?.success) { setError(res?.message || 'Failed to load'); return; }
+      setData(res.data);
+    } catch (e) {
+      setError(e?.response?.data?.message || e.message || 'Failed to load financial analytics.');
+    } finally {
+      setLoading(false);
+    }
+  }, [activeSchoolId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="w-8 h-8 animate-spin text-[#000435]" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
+        <p className="text-sm font-semibold text-rose-600">{error}</p>
+        <button onClick={load} className="px-4 py-2 rounded-xl bg-[#000435] text-white text-xs font-bold uppercase tracking-widest">Retry</button>
+      </div>
+    );
+  }
+
+  const kpis = data?.kpis || {};
+  const monthly = data?.monthly_collections || [];
+  const schools = data?.schools || [];
+  const ratios = data?.financial_ratios || {};
+  const yearlyGrowth = data?.yearly_growth || [];
+
+  const totalFees    = kpis.annual_revenue || 0;
+  const totalPayroll = kpis.annual_payroll || 0;
+  const profit       = kpis.net_surplus || 0;
+  const profitPct    = kpis.profit_margin_pct || 0;
 
   return (
     <div className="animate-in fade-in duration-500 bg-[#f0f2f8] min-h-full pb-20">
 
-      {/* PAGE HEADER */}
       <div className="relative overflow-hidden" style={{ background: "linear-gradient(135deg,#000435 0%,#000320 60%,#00021a 100%)" }}>
         <div className="absolute -top-16 -right-16 w-56 h-56 rounded-full border border-white/[0.04] pointer-events-none" />
         <div className="absolute bottom-0 left-0 right-0 h-px" style={{ background: "linear-gradient(90deg,transparent,rgba(245,158,11,.3),transparent)" }} />
@@ -116,7 +162,9 @@ export default function FinancialAnalytics() {
               <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight uppercase" style={{ fontFamily: "'Montserrat',sans-serif" }}>
                 Financial Analytics
               </h1>
-              <p className="text-sm text-white/50 mt-1">Executive-level financial KPIs, growth trends & school rankings</p>
+              <p className="text-sm text-white/50 mt-1">
+                {activeSchool ? `Showing ${activeSchool.school_name}` : 'Network-wide financial KPIs, growth trends & school rankings'}
+              </p>
             </div>
             <button className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest text-[#000435]"
               style={{ background: "linear-gradient(135deg,#f59e0b,#d97706)", boxShadow: "0 4px 12px rgba(245,158,11,.35)" }}>
@@ -128,15 +176,13 @@ export default function FinancialAnalytics() {
 
       <div className="px-4 sm:px-6 lg:px-8 -mt-6 relative z-20 max-w-[1600px] mx-auto space-y-5">
 
-        {/* EXECUTIVE KPIs */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <KpiCard label="Annual Revenue"       value={`${fmtRWF(totalFees)} RWF`}    sub="All fees collected" color="#000435" icon={CoinIc}  trend="+14.2%" />
-          <KpiCard label="Annual Payroll"        value={`${fmtRWF(totalPayroll)} RWF`} sub="All staff salaries" color="#f59e0b" icon={TrendIc} trend="+8.1%" />
-          <KpiCard label="Net Surplus"           value={`${fmtRWF(profit)} RWF`}       sub="Revenue − Payroll"  color="#10b981" icon={StarIc}  trend="+22%" />
-          <KpiCard label="Profit Margin"         value={`${profitPct}%`}               sub="Financial health"   color="#000435" icon={ChartIc} trend="+3.4%" />
+          <KpiCard label="Annual Revenue"  value={`${fmtRWF(totalFees)} RWF`}    sub="All fees collected" color="#000435" icon={CoinIc}  trend={kpis.revenue_trend || null} />
+          <KpiCard label="Annual Payroll"  value={`${fmtRWF(totalPayroll)} RWF`} sub="All staff salaries" color="#f59e0b" icon={TrendIc} trend={kpis.payroll_trend || null} />
+          <KpiCard label="Net Surplus"     value={`${fmtRWF(profit)} RWF`}       sub="Revenue − Payroll"  color="#10b981" icon={StarIc}  trend={kpis.surplus_trend || null} />
+          <KpiCard label="Profit Margin"   value={`${profitPct}%`}               sub="Financial health"   color="#000435" icon={ChartIc} />
         </div>
 
-        {/* DUAL CHART */}
         <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm">
           <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
             <div>
@@ -152,19 +198,24 @@ export default function FinancialAnalytics() {
               </span>
             </div>
           </div>
-          <DualLineChart data={MONTHLY_COLLECTIONS} height={220} />
+          {monthly.length > 0
+            ? <DualLineChart data={monthly} height={220} />
+            : <p className="text-center text-sm text-slate-400 py-10">No monthly data available yet.</p>}
         </div>
 
-        {/* SCHOOL FINANCIAL RANKING + KPIs */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
           <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm">
             <h2 className="text-sm font-black text-slate-800 mb-4">School Financial Ranking</h2>
             <div className="space-y-3">
-              {[...SCHOOLS]
-                .sort((a, b) => (b.fees_collected / b.fees_expected) - (a.fees_collected / a.fees_expected))
+              {schools.length === 0 && <p className="text-[12px] text-slate-400 py-4 text-center">No school data available.</p>}
+              {[...schools]
+                .sort((a, b) => {
+                  const pctA = a.fees_expected > 0 ? a.fees_collected / a.fees_expected : 0;
+                  const pctB = b.fees_expected > 0 ? b.fees_collected / b.fees_expected : 0;
+                  return pctB - pctA;
+                })
                 .map((school, i) => {
-                  const pct = Math.round((school.fees_collected / school.fees_expected) * 100);
-                  const surplus = school.fees_collected - school.fees_expected * 0.6;
+                  const pct = school.fees_expected > 0 ? Math.round((school.fees_collected / school.fees_expected) * 100) : 0;
                   return (
                     <div key={school.id} className="p-3 rounded-xl bg-[#f8fafc] border border-slate-100">
                       <div className="flex items-center gap-3 mb-2">
@@ -186,15 +237,14 @@ export default function FinancialAnalytics() {
           </div>
 
           <div className="space-y-5">
-            {/* Fee efficiency */}
             <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm">
               <h2 className="text-sm font-black text-slate-800 mb-4">Key Financial Ratios</h2>
               <div className="space-y-3">
                 {[
-                  { label: "Fee Collection Efficiency", value: 81, target: 100, unit: "%", color: "#000435" },
-                  { label: "Salary Expense Ratio",      value: 43, target: 100, unit: "%", color: "#f59e0b" },
-                  { label: "Budget Utilization",         value: 67, target: 100, unit: "%", color: "#10b981" },
-                  { label: "Revenue Growth (YoY)",       value: 14, target: 25,  unit: "%", color: "#6366f1" },
+                  { label: "Fee Collection Efficiency", value: ratios.fee_collection_efficiency || 0, target: 100, unit: "%", color: "#000435" },
+                  { label: "Salary Expense Ratio",      value: ratios.salary_expense_ratio || 0, target: 100, unit: "%", color: "#f59e0b" },
+                  { label: "Budget Utilization",         value: ratios.budget_utilization || 0, target: 100, unit: "%", color: "#10b981" },
+                  { label: "Revenue Growth (YoY)",       value: ratios.revenue_growth_yoy || 0, target: 25,  unit: "%", color: "#6366f1" },
                 ].map(r => (
                   <div key={r.label}>
                     <div className="flex items-center justify-between mb-1.5">
@@ -204,13 +254,12 @@ export default function FinancialAnalytics() {
                         <span className="text-[10px] text-slate-400">/ {r.target}{r.unit}</span>
                       </div>
                     </div>
-                    <ProgressBar value={r.value} max={r.target} color={r.color} />
+                    <ProgressBar value={Math.abs(r.value)} max={r.target} color={r.color} />
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Monthly summary table */}
             <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm">
               <h2 className="text-sm font-black text-slate-800 mb-3">Monthly Financial Summary</h2>
               <div className="overflow-x-auto">
@@ -223,7 +272,7 @@ export default function FinancialAnalytics() {
                     </tr>
                   </thead>
                   <tbody>
-                    {MONTHLY_COLLECTIONS.slice(-6).map(m => {
+                    {monthly.slice(-6).map(m => {
                       const surplus = m.fees - m.payroll;
                       return (
                         <tr key={m.month} className="border-t border-slate-50 hover:bg-[#f8fafc] transition-colors">
@@ -243,28 +292,24 @@ export default function FinancialAnalytics() {
           </div>
         </div>
 
-        {/* GROWTH FORECAST BAR */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm">
-          <h2 className="text-sm font-black text-slate-800 mb-1">Yearly Growth Overview</h2>
-          <p className="text-[11px] text-slate-400 mb-4">Comparative performance across fiscal years</p>
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
-            {[
-              { year: "2021", growth: 5,  revenue: 48 },
-              { year: "2022", growth: 9,  revenue: 62 },
-              { year: "2023", growth: 12, revenue: 78 },
-              { year: "2024", growth: 11, revenue: 95 },
-              { year: "2025", growth: 14, revenue: 112 },
-              { year: "2026", growth: 18, revenue: 125, current: true },
-            ].map(y => (
-              <div key={y.year} className={`p-3 rounded-2xl text-center border ${y.current ? "border-amber-400/40 bg-amber-50" : "border-slate-100 bg-[#f8fafc]"}`}>
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">{y.year}</p>
-                <p className="text-xl font-black tabular-nums" style={{ color: y.current ? "#000435" : "#64748b" }}>{y.revenue}M</p>
-                <p className="text-[9px] font-semibold mt-0.5" style={{ color: "#10b981" }}>+{y.growth}%</p>
-                {y.current && <span className="inline-block mt-1 text-[8px] font-black uppercase px-1.5 py-0.5 rounded-md bg-amber-400 text-[#000435]">Current</span>}
-              </div>
-            ))}
+        {yearlyGrowth.length > 0 && (
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm">
+            <h2 className="text-sm font-black text-slate-800 mb-1">Yearly Growth Overview</h2>
+            <p className="text-[11px] text-slate-400 mb-4">Comparative performance across fiscal years</p>
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+              {yearlyGrowth.map(y => (
+                <div key={y.year} className={`p-3 rounded-2xl text-center border ${y.current ? "border-amber-400/40 bg-amber-50" : "border-slate-100 bg-[#f8fafc]"}`}>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">{y.year}</p>
+                  <p className="text-xl font-black tabular-nums" style={{ color: y.current ? "#000435" : "#64748b" }}>{fmtRWF(y.revenue)}</p>
+                  <p className="text-[9px] font-semibold mt-0.5" style={{ color: y.growth >= 0 ? "#10b981" : "#f43f5e" }}>
+                    {y.growth >= 0 ? "+" : ""}{y.growth}%
+                  </p>
+                  {y.current && <span className="inline-block mt-1 text-[8px] font-black uppercase px-1.5 py-0.5 rounded-md bg-amber-400 text-[#000435]">Current</span>}
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

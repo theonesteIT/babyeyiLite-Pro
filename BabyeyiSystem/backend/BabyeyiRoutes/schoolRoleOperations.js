@@ -18,6 +18,7 @@ const GATE_ATTENDANCE_ADMIN_ROLES = [
   'DISCIPLINE',
   'DISCIPLINE_STAFF',
   'TEACHER',
+  'SCHOOL_REPRESENTATIVE',
 ];
 
 let tablesReady = false;
@@ -25,6 +26,8 @@ let permissionTrackingReady = false;
 
 function resolveSchoolId(req) {
   return (
+    req.query?.school_id ||
+    req.body?.school_id ||
     req.user?.school_id ||
     req.session?.school_id ||
     req.session?.user?.school_id ||

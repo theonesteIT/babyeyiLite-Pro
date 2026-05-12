@@ -26,6 +26,8 @@ function requireTeacherRole(req, res, next) {
 
 function resolveSchoolId(req) {
     return (
+        req.query?.school_id ||
+        req.body?.school_id ||
         req.session?.school_id ||
         req.session?.user?.school_id ||
         req.user?.school_id ||

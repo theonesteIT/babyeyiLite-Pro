@@ -8,7 +8,12 @@ import {
   GraduationCap,
   ShieldAlert,
   ClipboardCheck,
+  Clock,
+  DoorOpen,
+  ClipboardList,
+  UserCheck,
   Bus,
+  Warehouse,
   MessageSquare,
   FileSearch,
   FolderOpen,
@@ -198,10 +203,7 @@ export default function RepresentativeSidebar({ onClose }) {
 
         <SectionLabel label="Network" />
         <NavItem icon={Building2} name="Schools" path="/schools" onClose={onClose} />
-
-        <SectionLabel label="Intelligence" />
-        <NavItem icon={BarChart3} name="Analytics" path="/analytics" onClose={onClose} />
-        <NavItem icon={Sparkles} name="AI insights" path="/insights" onClose={onClose} badgeCount={2} />
+       
 
         <SectionLabel label="Operations" />
         <ExpandableNavItem
@@ -220,7 +222,17 @@ export default function RepresentativeSidebar({ onClose }) {
         />
         <NavItem icon={GraduationCap} name="Academic reports" path="/academic" onClose={onClose} />
         <NavItem icon={ShieldAlert} name="Discipline" path="/discipline" onClose={onClose} />
-        <NavItem icon={ClipboardCheck} name="Attendance" path="/attendance" onClose={onClose} />
+        <NavItem icon={Warehouse} name="Store & Inventory" path="/store" onClose={onClose} />
+        <ExpandableNavItem
+          icon={ClipboardCheck}
+          name="Attendance"
+          activePrefix="/attendance"
+          onClose={onClose}
+          subItems={[
+            { path: '/attendance', name: 'General Attendance', icon: ClipboardCheck },
+            { path: '/attendance/teacher-period', name: 'Teacher Period Attendance', icon: Clock },
+          ]}
+        />
 
         <SectionLabel label="Logistics" />
         <NavItem icon={Bus} name="Transport" path="/transport" onClose={onClose} />

@@ -14,7 +14,9 @@ import Reports from './pages/Reports';
 import BudgetAndExpense from './pages/BudgetAndExpense';
 import RepresentativeAcademic from './pages/AcademicReports';
 import RepresentativeDiscipline from './pages/Discipline';
+import RepresentativeStoreInventory from './pages/StoreInventory';
 import RepresentativeAttendance from './pages/Attendance';
+import TeacherClassPeriodEntryExit from './pages/AttendanceModule/TeacherClassPeriodEntryExit';
 import RepresentativeTransport from './pages/Transport';
 import RepresentativeCommunication from './pages/Communication';
 import RepresentativeInspections from './pages/Inspections';
@@ -55,7 +57,9 @@ function RepresentativeRoutesInner() {
       <Route path="finance" element={<ProtectedRoute title="Finance"><RepresentativeFinance /></ProtectedRoute>} />
       <Route path="academic" element={<ProtectedRoute title="Academic reports"><RepresentativeAcademic /></ProtectedRoute>} />
       <Route path="discipline" element={<ProtectedRoute title="Discipline"><RepresentativeDiscipline /></ProtectedRoute>} />
+      <Route path="store" element={<ProtectedRoute title="Store & Inventory"><RepresentativeStoreInventory /></ProtectedRoute>} />
       <Route path="attendance" element={<ProtectedRoute title="Attendance"><RepresentativeAttendance /></ProtectedRoute>} />
+      <Route path="attendance/teacher-period" element={<ProtectedRoute title="Teacher Period Attendance"><TeacherClassPeriodEntryExit /></ProtectedRoute>} />
       <Route path="transport" element={<ProtectedRoute title="Transport"><RepresentativeTransport /></ProtectedRoute>} />
       <Route path="communication" element={<ProtectedRoute title="Communication"><RepresentativeCommunication /></ProtectedRoute>} />
       <Route path="inspections" element={<ProtectedRoute title="Inspections"><RepresentativeInspections /></ProtectedRoute>} />

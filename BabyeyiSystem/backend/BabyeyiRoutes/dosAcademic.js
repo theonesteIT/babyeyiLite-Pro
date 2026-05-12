@@ -23,7 +23,7 @@ const { normalizeGradebookLabel, sqlNormLabelEquals } = require('../utils/gradeb
 
 const router = express.Router();
 const DOS_ONLY = ['DOS'];
-const DOS_DASHBOARD_ROLES = ['DOS', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER', 'ACCOUNTANT'];
+const DOS_DASHBOARD_ROLES = ['DOS', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER', 'ACCOUNTANT', 'SCHOOL_REPRESENTATIVE'];
 const REGISTRY_READ_ROLES = ['DOS', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER', 'TEACHER', 'HOD', 'ACCOUNTANT'];
 /** Timetables, subjects catalogue, teaching staff — school academic leads */
 const DOS_ACADEMIC_ADMIN = ['DOS', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER'];
@@ -40,6 +40,8 @@ const DOS_ACADEMIC_CALENDAR_GET = [
 
 function resolveSchoolId(req) {
   return (
+    req.query?.school_id ||
+    req.body?.school_id ||
     req.session?.school_id ||
     req.session?.user?.school_id ||
     req.session?.user?.school?.id ||

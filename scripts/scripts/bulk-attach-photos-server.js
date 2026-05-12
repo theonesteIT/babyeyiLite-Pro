@@ -61,7 +61,7 @@ const CONFIG = {
   SCHOOL_CODE: cliArgs.schoolCode,
   SCHOOL_ID: null,
   CONFIDENCE_THRESHOLD: 0.80,
-  PHOTOS_BASE_DIR: '/root/wisdom_compressed_photos',
+  PHOTOS_BASE_DIR: path.join(__dirname, 'uploads', 'student-profile-photos'),
   INPUT_JSON: cliArgs.inputFile
     ? path.resolve(cliArgs.inputFile)
     : path.join(__dirname, 'input-students.json'),

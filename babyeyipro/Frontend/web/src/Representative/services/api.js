@@ -65,4 +65,110 @@ export const fetchRepresentativeStaffPayroll = (schoolId, opts = {}) =>
     })
     .then((r) => r.data);
 
+/** Financial analytics — revenue vs payroll, school rankings, ratios */
+export const fetchRepresentativeFinancialAnalytics = (schoolId) =>
+  api
+    .get('/representative/financial-analytics', {
+      params:
+        schoolId != null && schoolId !== '' ? { school_id: schoolId } : {},
+    })
+    .then((r) => r.data);
+
+/** Reports & export center — report catalog with real record counts */
+export const fetchRepresentativeReports = (schoolId) =>
+  api
+    .get('/representative/reports', {
+      params:
+        schoolId != null && schoolId !== '' ? { school_id: schoolId } : {},
+    })
+    .then((r) => r.data);
+
+/** Budget & expenses — quarterly plan, expense tracking, approvals, procurement */
+export const fetchRepresentativeBudgetExpenses = (schoolId) =>
+  api
+    .get('/representative/budget-expenses', {
+      params:
+        schoolId != null && schoolId !== '' ? { school_id: schoolId } : {},
+    })
+    .then((r) => r.data);
+
+/** Full expenses list across assigned schools */
+export const fetchRepresentativeExpenses = (schoolId) =>
+  api
+    .get('/representative/expenses', {
+      params: schoolId != null && schoolId !== '' ? { school_id: schoolId } : {},
+    })
+    .then((r) => r.data);
+
+/** Approve or reject an expense — decision = 'approved' | 'rejected' */
+export const patchRepresentativeExpenseDecision = (dbId, decision, note = '') =>
+  api.patch(`/representative/expenses/${dbId}/decision`, { decision, note }).then((r) => r.data);
+
+/** Full requisitions list across assigned schools */
+export const fetchRepresentativeRequisitions = (schoolId) =>
+  api
+    .get('/representative/requisitions', {
+      params: schoolId != null && schoolId !== '' ? { school_id: schoolId } : {},
+    })
+    .then((r) => r.data);
+
+/** Approve or reject a requisition — decision = 'approved' | 'rejected' */
+export const patchRepresentativeRequisitionDecision = (dbId, decision, note = '') =>
+  api.patch(`/representative/requisitions/${dbId}/decision`, { decision, note }).then((r) => r.data);
+
+/** Discipline overview — KPIs, class breakdown, school comparison, recent cases */
+export const fetchRepresentativeDisciplineOverview = (schoolId) =>
+  api
+    .get('/representative/discipline/overview', {
+      params: schoolId != null && schoolId !== '' ? { school_id: schoolId } : {},
+    })
+    .then((r) => r.data);
+
+/** All students with discipline marks for selected school */
+export const fetchRepresentativeDisciplineStudents = (schoolId, opts = {}) =>
+  api
+    .get('/representative/discipline/students', {
+      params: {
+        ...(schoolId != null && schoolId !== '' ? { school_id: schoolId } : {}),
+        ...(opts.class_name ? { class_name: opts.class_name } : {}),
+        ...(opts.q ? { q: opts.q } : {}),
+      },
+    })
+    .then((r) => r.data);
+
+/** Store overview — KPIs, school breakdown */
+export const fetchRepresentativeStoreOverview = (schoolId) =>
+  api
+    .get('/representative/store/overview', {
+      params: schoolId != null && schoolId !== '' ? { school_id: schoolId } : {},
+    })
+    .then((r) => r.data);
+
+/** Store inventory items for selected school(s) */
+export const fetchRepresentativeStoreInventory = (schoolId) =>
+  api
+    .get('/representative/store/inventory', {
+      params: schoolId != null && schoolId !== '' ? { school_id: schoolId } : {},
+    })
+    .then((r) => r.data);
+
+/** Store suppliers for selected school(s) */
+export const fetchRepresentativeStoreSuppliers = (schoolId) =>
+  api
+    .get('/representative/store/suppliers', {
+      params: schoolId != null && schoolId !== '' ? { school_id: schoolId } : {},
+    })
+    .then((r) => r.data);
+
+/** Store movements — stock in/out/returned/adjusted */
+export const fetchRepresentativeStoreMovements = (schoolId, opts = {}) =>
+  api
+    .get('/representative/store/movements', {
+      params: {
+        ...(schoolId != null && schoolId !== '' ? { school_id: schoolId } : {}),
+        ...(opts.type ? { type: opts.type } : {}),
+      },
+    })
+    .then((r) => r.data);
+
 export default api;

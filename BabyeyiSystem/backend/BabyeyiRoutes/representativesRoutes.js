@@ -1491,6 +1491,1122 @@ repRouter.get('/staff-payroll', requireRole(REP_ROLE), async (req, res) => {
   }
 });
 
+// ════════════════════════════════════════════════════════════════
+// Financial Analytics — /api/representative/financial-analytics
+// ════════════════════════════════════════════════════════════════
+repRouter.get('/financial-analytics', requireRole(REP_ROLE), async (req, res) => {
+  try {
+    const scope = await resolveRepresentativeSchoolScope(req);
+    if (!scope.ok) return res.status(scope.status).json({ success: false, message: scope.message });
+    const ids = scope.ids;
+    const nameById = new Map(scope.assignments.map((a) => [Number(a.id), a.school_name]));
+
+    if (!ids.length) {
+      return res.json({
+        success: true,
+        data: {
+          kpis: { annual_revenue: 0, annual_payroll: 0, net_surplus: 0, profit_margin_pct: 0 },
+          monthly_collections: [],
+          schools: [],
+          financial_ratios: { fee_collection_efficiency: 0, salary_expense_ratio: 0, budget_utilization: 0, revenue_growth_yoy: 0 },
+          yearly_growth: [],
+        },
+      });
+    }
+
+    const ph = ids.map(() => '?').join(',');
+
+    let annual_revenue = 0;
+    try {
+      const [[r]] = await promisePool.query(
+        `SELECT COALESCE(SUM(total_rwf),0) AS total
+           FROM babyeyi_payment_intents
+          WHERE school_id IN (${ph})
+            AND (UPPER(COALESCE(invoice_status,''))='PAID' OR LOWER(COALESCE(status,''))='paid')
+            AND YEAR(COALESCE(invoice_paid_at, created_at)) = YEAR(CURDATE())`,
+        ids
+      );
+      annual_revenue = Number(r?.total || 0);
+    } catch (_) {}
+
+    let annual_payroll = 0;
+    try {
+      const [[r]] = await promisePool.query(
+        `SELECT COALESCE(SUM(amount),0) AS total
+           FROM payroll_requests
+          WHERE school_id IN (${ph}) AND status = 'Paid' AND deleted_at IS NULL
+            AND year = YEAR(CURDATE())`,
+        ids
+      );
+      annual_payroll = Number(r?.total || 0);
+    } catch (_) {}
+
+    const net_surplus = annual_revenue - annual_payroll;
+    const profit_margin_pct = annual_revenue > 0 ? Math.round((net_surplus / annual_revenue) * 100) : 0;
+
+    let monthlyCollections = [];
+    try {
+      const rows = await query(
+        `SELECT MONTH(COALESCE(invoice_paid_at, created_at)) AS m,
+                COALESCE(SUM(total_rwf),0) AS fees
+           FROM babyeyi_payment_intents
+          WHERE school_id IN (${ph})
+            AND (UPPER(COALESCE(invoice_status,''))='PAID' OR LOWER(COALESCE(status,''))='paid')
+            AND YEAR(COALESCE(invoice_paid_at, created_at)) = YEAR(CURDATE())
+          GROUP BY m ORDER BY m`,
+        ids
+      );
+      const payRows = await query(
+        `SELECT month AS m, COALESCE(SUM(amount),0) AS payroll
+           FROM payroll_requests
+          WHERE school_id IN (${ph}) AND status = 'Paid' AND deleted_at IS NULL
+            AND year = YEAR(CURDATE())
+          GROUP BY m ORDER BY m`,
+        ids
+      );
+      const payMap = new Map(payRows.map((r) => [Number(r.m), Number(r.payroll)]));
+      const feeMap = new Map(rows.map((r) => [Number(r.m), Number(r.fees)]));
+      const MONTH_LABELS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      for (let i = 1; i <= 12; i++) {
+        monthlyCollections.push({
+          month: MONTH_LABELS[i - 1],
+          fees: feeMap.get(i) || 0,
+          payroll: payMap.get(i) || 0,
+        });
+      }
+    } catch (_) {}
+
+    let schools = [];
+    try {
+      const rows = await query(
+        `SELECT s.id, s.school_name AS name,
+                COALESCE((SELECT SUM(total_rwf) FROM babyeyi_payment_intents pi
+                  WHERE pi.school_id = s.id
+                    AND (UPPER(COALESCE(pi.invoice_status,''))='PAID' OR LOWER(COALESCE(pi.status,''))='paid')), 0) AS fees_collected,
+                COALESCE((SELECT SUM(total_rwf) FROM babyeyi_payment_intents pi2
+                  WHERE pi2.school_id = s.id), 0) AS fees_expected
+           FROM schools s WHERE s.id IN (${ph}) AND s.deleted_at IS NULL
+          ORDER BY s.school_name`,
+        ids
+      );
+      schools = rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        fees_collected: Number(r.fees_collected || 0),
+        fees_expected: Number(r.fees_expected || 0),
+      }));
+    } catch (_) {}
+
+    let fee_collection_efficiency = 0;
+    const totalExpected = schools.reduce((s, sc) => s + sc.fees_expected, 0);
+    const totalCollected = schools.reduce((s, sc) => s + sc.fees_collected, 0);
+    if (totalExpected > 0) fee_collection_efficiency = Math.round((totalCollected / totalExpected) * 100);
+
+    const salary_expense_ratio = annual_revenue > 0 ? Math.round((annual_payroll / annual_revenue) * 100) : 0;
+
+    let operating_expenses = 0;
+    try {
+      const [[e]] = await promisePool.query(
+        `SELECT COALESCE(SUM(amount_rwf),0) AS total
+           FROM accountant_expenses
+          WHERE school_id IN (${ph}) AND deleted_at IS NULL
+            AND YEAR(COALESCE(created_at, NOW())) = YEAR(CURDATE())`,
+        ids
+      );
+      operating_expenses = Number(e?.total || 0);
+    } catch (_) {}
+
+    let totalAnnualBudget = 0;
+    try {
+      const [[b]] = await promisePool.query(
+        `SELECT COALESCE(SUM(annual_budget),0) AS total FROM schools WHERE id IN (${ph}) AND deleted_at IS NULL`,
+        ids
+      );
+      totalAnnualBudget = Number(b?.total || 0);
+    } catch (_) {}
+    const budget_utilization = totalAnnualBudget > 0 ? Math.round((operating_expenses / totalAnnualBudget) * 100) : 0;
+
+    let prev_year_revenue = 0;
+    try {
+      const [[r]] = await promisePool.query(
+        `SELECT COALESCE(SUM(total_rwf),0) AS total
+           FROM babyeyi_payment_intents
+          WHERE school_id IN (${ph})
+            AND (UPPER(COALESCE(invoice_status,''))='PAID' OR LOWER(COALESCE(status,''))='paid')
+            AND YEAR(COALESCE(invoice_paid_at, created_at)) = YEAR(CURDATE()) - 1`,
+        ids
+      );
+      prev_year_revenue = Number(r?.total || 0);
+    } catch (_) {}
+    const revenue_growth_yoy = prev_year_revenue > 0
+      ? Math.round(((annual_revenue - prev_year_revenue) / prev_year_revenue) * 100)
+      : 0;
+
+    let yearly_growth = [];
+    try {
+      const rows = await query(
+        `SELECT YEAR(COALESCE(invoice_paid_at, created_at)) AS yr,
+                COALESCE(SUM(total_rwf),0) AS revenue
+           FROM babyeyi_payment_intents
+          WHERE school_id IN (${ph})
+            AND (UPPER(COALESCE(invoice_status,''))='PAID' OR LOWER(COALESCE(status,''))='paid')
+            AND YEAR(COALESCE(invoice_paid_at, created_at)) >= YEAR(CURDATE()) - 5
+          GROUP BY yr ORDER BY yr`,
+        ids
+      );
+      const currentYear = new Date().getFullYear();
+      let prevRev = 0;
+      yearly_growth = rows.map((r, i) => {
+        const rev = Number(r.revenue || 0);
+        const growth = prevRev > 0 ? Math.round(((rev - prevRev) / prevRev) * 100) : 0;
+        prevRev = rev;
+        return {
+          year: String(r.yr),
+          revenue: rev,
+          growth,
+          current: Number(r.yr) === currentYear,
+        };
+      });
+    } catch (_) {}
+
+    res.json({
+      success: true,
+      data: {
+        kpis: {
+          annual_revenue,
+          annual_payroll,
+          net_surplus,
+          profit_margin_pct,
+          revenue_trend: revenue_growth_yoy > 0 ? `+${revenue_growth_yoy}%` : `${revenue_growth_yoy}%`,
+          payroll_trend: null,
+          surplus_trend: null,
+        },
+        monthly_collections: monthlyCollections,
+        schools,
+        financial_ratios: {
+          fee_collection_efficiency,
+          salary_expense_ratio,
+          budget_utilization,
+          revenue_growth_yoy,
+        },
+        yearly_growth,
+      },
+    });
+  } catch (err) {
+    console.error('[representative financial-analytics]', err);
+    res.status(500).json({ success: false, message: err.message || 'Failed' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+// Reports & Export — /api/representative/reports
+// ════════════════════════════════════════════════════════════════
+repRouter.get('/reports', requireRole(REP_ROLE), async (req, res) => {
+  try {
+    const scope = await resolveRepresentativeSchoolScope(req);
+    if (!scope.ok) return res.status(scope.status).json({ success: false, message: scope.message });
+    const ids = scope.ids;
+    const nameById = new Map(scope.assignments.map((a) => [Number(a.id), a.school_name]));
+
+    if (!ids.length) {
+      return res.json({
+        success: true,
+        data: {
+          reports: [],
+          export_history: [],
+          schools: [],
+        },
+      });
+    }
+
+    const ph = ids.map(() => '?').join(',');
+
+    let fee_collection_count = 0;
+    let fee_collection_rwf = 0;
+    try {
+      const [[r]] = await promisePool.query(
+        `SELECT COUNT(*) AS cnt, COALESCE(SUM(total_rwf),0) AS total
+           FROM babyeyi_payment_intents
+          WHERE school_id IN (${ph})
+            AND (UPPER(COALESCE(invoice_status,''))='PAID' OR LOWER(COALESCE(status,''))='paid')`,
+        ids
+      );
+      fee_collection_count = Number(r?.cnt || 0);
+      fee_collection_rwf = Number(r?.total || 0);
+    } catch (_) {}
+
+    let payroll_count = 0;
+    let payroll_rwf = 0;
+    try {
+      const [[r]] = await promisePool.query(
+        `SELECT COUNT(*) AS cnt, COALESCE(SUM(amount),0) AS total
+           FROM payroll_requests
+          WHERE school_id IN (${ph}) AND deleted_at IS NULL`,
+        ids
+      );
+      payroll_count = Number(r?.cnt || 0);
+      payroll_rwf = Number(r?.total || 0);
+    } catch (_) {}
+
+    let pending_fees_count = 0;
+    let pending_fees_rwf = 0;
+    try {
+      const [[r]] = await promisePool.query(
+        `SELECT COUNT(*) AS cnt, COALESCE(SUM(total_rwf),0) AS total
+           FROM babyeyi_payment_intents
+          WHERE school_id IN (${ph})
+            AND UPPER(COALESCE(invoice_status,'NOT_PAID')) <> 'PAID'
+            AND LOWER(COALESCE(status,'')) <> 'paid'`,
+        ids
+      );
+      pending_fees_count = Number(r?.cnt || 0);
+      pending_fees_rwf = Number(r?.total || 0);
+    } catch (_) {}
+
+    let student_payment_count = 0;
+    try {
+      const [[r]] = await promisePool.query(
+        `SELECT COUNT(*) AS cnt FROM school_fee_collections WHERE school_id IN (${ph})`,
+        ids
+      );
+      student_payment_count = Number(r?.cnt || 0);
+    } catch (_) {}
+
+    let salary_payment_count = 0;
+    try {
+      const [[r]] = await promisePool.query(
+        `SELECT COUNT(*) AS cnt FROM payroll_requests WHERE school_id IN (${ph}) AND status = 'Paid' AND deleted_at IS NULL`,
+        ids
+      );
+      salary_payment_count = Number(r?.cnt || 0);
+    } catch (_) {}
+
+    let expense_count = 0;
+    let expense_rwf = 0;
+    try {
+      const [[r]] = await promisePool.query(
+        `SELECT COUNT(*) AS cnt, COALESCE(SUM(amount_rwf),0) AS total
+           FROM accountant_expenses
+          WHERE school_id IN (${ph}) AND deleted_at IS NULL`,
+        ids
+      );
+      expense_count = Number(r?.cnt || 0);
+      expense_rwf = Number(r?.total || 0);
+    } catch (_) {}
+
+    const reports = [
+      {
+        id: 'fee-collection',
+        title: 'Fee Collection Report',
+        description: `${fee_collection_count} paid invoices totalling RWF ${fee_collection_rwf.toLocaleString()} across ${ids.length} school(s).`,
+        accent: '#000435',
+        record_count: fee_collection_count,
+        total_rwf: fee_collection_rwf,
+      },
+      {
+        id: 'payroll',
+        title: 'Payroll Report',
+        description: `${payroll_count} payroll records totalling RWF ${payroll_rwf.toLocaleString()}.`,
+        accent: '#f59e0b',
+        record_count: payroll_count,
+        total_rwf: payroll_rwf,
+      },
+      {
+        id: 'pending-fees',
+        title: 'Pending Fees Report',
+        description: `${pending_fees_count} outstanding invoices worth RWF ${pending_fees_rwf.toLocaleString()}.`,
+        accent: '#f43f5e',
+        record_count: pending_fees_count,
+        total_rwf: pending_fees_rwf,
+      },
+      {
+        id: 'school-financial',
+        title: 'School Financial Report',
+        description: `P&L snapshot for ${ids.length} school(s) — revenue RWF ${fee_collection_rwf.toLocaleString()}, expenses RWF ${expense_rwf.toLocaleString()}.`,
+        accent: '#10b981',
+        record_count: ids.length,
+        total_rwf: fee_collection_rwf - expense_rwf,
+      },
+      {
+        id: 'student-payment',
+        title: 'Student Payment Report',
+        description: `${student_payment_count} line-level fee collections recorded by school accountants.`,
+        accent: '#6366f1',
+        record_count: student_payment_count,
+        total_rwf: null,
+      },
+      {
+        id: 'salary-payment',
+        title: 'Salary Payment Report',
+        description: `${salary_payment_count} completed salary payments across all schools.`,
+        accent: '#14b8a6',
+        record_count: salary_payment_count,
+        total_rwf: null,
+      },
+    ];
+
+    const schoolList = scope.assignments.map((a) => ({
+      id: Number(a.id),
+      name: a.school_name,
+      school_code: a.school_code,
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        reports,
+        schools: schoolList,
+        network_summary: {
+          total_schools: ids.length,
+          total_revenue_rwf: fee_collection_rwf,
+          total_expenses_rwf: expense_rwf,
+          total_payroll_rwf: payroll_rwf,
+        },
+      },
+    });
+  } catch (err) {
+    console.error('[representative reports]', err);
+    res.status(500).json({ success: false, message: err.message || 'Failed' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+// Budget & Expenses — /api/representative/budget-expenses
+// ════════════════════════════════════════════════════════════════
+repRouter.get('/budget-expenses', requireRole(REP_ROLE), async (req, res) => {
+  try {
+    const scope = await resolveRepresentativeSchoolScope(req);
+    if (!scope.ok) return res.status(scope.status).json({ success: false, message: scope.message });
+    const ids = scope.ids;
+    const nameById = new Map(scope.assignments.map((a) => [Number(a.id), a.school_name]));
+
+    if (!ids.length) {
+      return res.json({
+        success: true,
+        data: {
+          kpis: { annual_budget: 0, spend_ytd: 0, pending_approval_rwf: 0, pending_approval_count: 0, active_procurement: 0 },
+          quarterly_plan: [],
+          expense_categories: [],
+          department_budgets: [],
+          recent_expenses: [],
+          approval_queue: [],
+          procurement: [],
+          school_expense_compare: [],
+        },
+      });
+    }
+
+    const ph = ids.map(() => '?').join(',');
+
+    let spend_ytd = 0;
+    let expenseRows = [];
+    try {
+      expenseRows = await query(
+        `SELECT id, school_id, title, category, vendor, amount_rwf,
+                due_date, status, note, created_at
+           FROM accountant_expenses
+          WHERE school_id IN (${ph}) AND deleted_at IS NULL
+          ORDER BY created_at DESC`,
+        ids
+      );
+      spend_ytd = expenseRows
+        .filter((r) => {
+          const d = new Date(r.due_date || r.created_at);
+          return d.getFullYear() === new Date().getFullYear();
+        })
+        .reduce((s, r) => s + Number(r.amount_rwf || 0), 0);
+    } catch (_) {}
+
+    let annual_budget = 0;
+    try {
+      const [[b]] = await promisePool.query(
+        `SELECT COALESCE(SUM(annual_budget),0) AS total FROM schools WHERE id IN (${ph}) AND deleted_at IS NULL`,
+        ids
+      );
+      annual_budget = Number(b?.total || 0);
+    } catch (_) {}
+
+    const currentYear = new Date().getFullYear();
+    const quarterlySpend = [0, 0, 0, 0];
+    for (const r of expenseRows) {
+      const d = new Date(r.due_date || r.created_at);
+      if (d.getFullYear() === currentYear) {
+        const q = Math.floor(d.getMonth() / 3);
+        quarterlySpend[q] += Number(r.amount_rwf || 0);
+      }
+    }
+    const qAlloc = annual_budget > 0 ? Math.round(annual_budget / 4) : 0;
+    const quarterly_plan = ['Q1', 'Q2', 'Q3', 'Q4'].map((quarter, i) => ({
+      quarter,
+      allocated: qAlloc,
+      spent: quarterlySpend[i],
+    }));
+
+    const catMap = new Map();
+    for (const r of expenseRows) {
+      const cat = r.category || 'Other';
+      const d = new Date(r.due_date || r.created_at);
+      if (d.getFullYear() === currentYear) {
+        catMap.set(cat, (catMap.get(cat) || 0) + Number(r.amount_rwf || 0));
+      }
+    }
+    const CAT_COLORS = ['#000435', '#f59e0b', '#10b981', '#6366f1', '#ec4899', '#14b8a6', '#d97706'];
+    const expense_categories = [...catMap.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([label, spent], i) => ({
+        key: label.toLowerCase().replace(/\s+/g, '_'),
+        label,
+        budget: Math.round(annual_budget > 0 ? (spent / (spend_ytd || 1)) * annual_budget : spent * 1.2),
+        spent,
+        color: CAT_COLORS[i % CAT_COLORS.length],
+      }));
+
+    let department_budgets = [];
+    try {
+      const rows = await query(
+        `SELECT r.department, COALESCE(SUM(r.amount),0) AS spent
+           FROM payroll_requests r
+          WHERE r.school_id IN (${ph}) AND r.deleted_at IS NULL
+            AND r.year = YEAR(CURDATE())
+          GROUP BY r.department
+          ORDER BY spent DESC`,
+        ids
+      );
+      department_budgets = rows.map((r, i) => ({
+        dept: r.department || 'Other',
+        budget: Math.round(Number(r.spent || 0) * 1.15),
+        spent: Number(r.spent || 0),
+        color: CAT_COLORS[i % CAT_COLORS.length],
+      }));
+    } catch (_) {}
+
+    const recent_expenses = expenseRows.slice(0, 10).map((r) => ({
+      id: r.id,
+      ref: r.title || `EXP-${r.id}`,
+      school: nameById.get(Number(r.school_id)) || 'School',
+      category: r.category || '—',
+      vendor: r.vendor || '—',
+      amount: Number(r.amount_rwf || 0),
+      date: r.due_date ? new Date(r.due_date).toISOString().slice(0, 10) : null,
+      status: (r.status || 'posted').toLowerCase(),
+    }));
+
+    let approval_queue = [];
+    try {
+      const rows = await query(
+        `SELECT id, school_id, title, category, vendor, amount_rwf,
+                created_at, note
+           FROM accountant_expenses
+          WHERE school_id IN (${ph}) AND deleted_at IS NULL
+            AND LOWER(COALESCE(status,'')) IN ('pending','awaiting_approval')
+          ORDER BY created_at ASC`,
+        ids
+      );
+      approval_queue = rows.map((r) => ({
+        id: r.id,
+        title: r.note || r.title || r.category || 'Expense request',
+        school: nameById.get(Number(r.school_id)) || 'School',
+        amount: Number(r.amount_rwf || 0),
+        requester: r.vendor || '—',
+        ageDays: Math.max(1, Math.round((Date.now() - new Date(r.created_at).getTime()) / 86400000)),
+      }));
+    } catch (_) {}
+
+    let procurement = [];
+    try {
+      const rows = await query(
+        `SELECT id, school_id, title, vendor, category, amount_rwf, status, note, created_at
+           FROM accountant_expenses
+          WHERE school_id IN (${ph}) AND deleted_at IS NULL
+            AND amount_rwf >= 5000000
+          ORDER BY created_at DESC
+          LIMIT 10`,
+        ids
+      );
+      procurement = rows.map((r) => ({
+        po: r.title || `PO-${r.id}`,
+        vendor: r.vendor || '—',
+        school: nameById.get(Number(r.school_id)) || 'School',
+        description: r.note || r.category || '—',
+        amount: Number(r.amount_rwf || 0),
+        status: (r.status || 'pending').toLowerCase(),
+      }));
+    } catch (_) {}
+
+    let school_expense_compare = [];
+    try {
+      const rows = await query(
+        `SELECT e.school_id, COALESCE(SUM(e.amount_rwf),0) AS spend
+           FROM accountant_expenses e
+          WHERE e.school_id IN (${ph}) AND e.deleted_at IS NULL
+            AND YEAR(COALESCE(e.due_date, e.created_at)) = YEAR(CURDATE())
+          GROUP BY e.school_id`,
+        ids
+      );
+      const spendMap = new Map(rows.map((r) => [Number(r.school_id), Number(r.spend || 0)]));
+      for (const sid of ids) {
+        let studentCount = 0;
+        try {
+          const [[sc]] = await promisePool.query(
+            `SELECT COUNT(*) AS n FROM students WHERE school_id = ? AND (deleted_at IS NULL OR deleted_at = 0)`,
+            [sid]
+          );
+          studentCount = Number(sc?.n || 0);
+        } catch (_) {}
+        school_expense_compare.push({
+          schoolId: sid,
+          name: nameById.get(sid) || 'School',
+          operatingSpend: spendMap.get(sid) || 0,
+          studentCount,
+        });
+      }
+    } catch (_) {}
+
+    const pending_approval_rwf = approval_queue.reduce((s, a) => s + a.amount, 0);
+
+    res.json({
+      success: true,
+      data: {
+        kpis: {
+          annual_budget,
+          spend_ytd,
+          pending_approval_rwf,
+          pending_approval_count: approval_queue.length,
+          active_procurement: procurement.filter((p) => p.status !== 'paid').length,
+        },
+        quarterly_plan,
+        expense_categories,
+        department_budgets,
+        recent_expenses,
+        approval_queue,
+        procurement,
+        school_expense_compare,
+      },
+    });
+  } catch (err) {
+    console.error('[representative budget-expenses]', err);
+    res.status(500).json({ success: false, message: err.message || 'Failed' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+// Representative — Full Expenses list + approve / reject
+// ════════════════════════════════════════════════════════════════
+repRouter.get('/expenses', requireRole(REP_ROLE), async (req, res) => {
+  try {
+    const scope = await resolveRepresentativeSchoolScope(req);
+    if (!scope.ok) return res.status(scope.status).json({ success: false, message: scope.message });
+    const ids = scope.ids;
+    if (!ids.length) return res.json({ success: true, data: [] });
+    const ph = ids.map(() => '?').join(',');
+    const nameById = new Map(scope.assignments.map((a) => [Number(a.id), a.school_name]));
+
+    const [rows] = await promisePool.query(
+      `SELECT id, school_id, category, title, vendor, amount_rwf, due_date, status, note, created_at
+         FROM accountant_expenses
+        WHERE school_id IN (${ph}) AND deleted_at IS NULL
+        ORDER BY id DESC`,
+      ids
+    );
+
+    const [payments] = await promisePool.query(
+      `SELECT id, expense_id, school_id, amount_rwf, method, reference, note, paid_at
+         FROM accountant_expense_payments
+        WHERE school_id IN (${ph}) AND deleted_at IS NULL
+        ORDER BY id DESC`,
+      ids
+    );
+    const byExpense = new Map();
+    for (const p of payments) {
+      const list = byExpense.get(p.expense_id) || [];
+      list.push({ id: `PAY-${p.id}`, amount: Number(p.amount_rwf || 0), method: p.method || '', reference: p.reference || '', note: p.note || '', date: p.paid_at });
+      byExpense.set(p.expense_id, list);
+    }
+
+    res.json({
+      success: true,
+      data: rows.map((r) => ({
+        db_id: r.id,
+        id: `EXP-${r.id}`,
+        school_id: r.school_id,
+        school: nameById.get(Number(r.school_id)) || 'School',
+        category: r.category || 'General',
+        title: r.title || '',
+        vendor: r.vendor || '',
+        amount: Number(r.amount_rwf || 0),
+        due_date: r.due_date,
+        status: r.status || 'pending',
+        note: r.note || '',
+        created_at: r.created_at,
+        payments: byExpense.get(r.id) || [],
+      })),
+    });
+  } catch (err) {
+    console.error('[representative expenses GET]', err);
+    res.status(500).json({ success: false, message: err.message || 'Failed' });
+  }
+});
+
+repRouter.patch('/expenses/:id/decision', requireRole(REP_ROLE), async (req, res) => {
+  try {
+    const scope = await resolveRepresentativeSchoolScope(req);
+    if (!scope.ok) return res.status(scope.status).json({ success: false, message: scope.message });
+    const ids = scope.ids;
+    const id = parseInt(req.params.id, 10);
+    const decision = String(req.body?.decision || req.body?.status || '').toLowerCase();
+    const note = String(req.body?.note || '').trim();
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid expense id' });
+    if (!['approved', 'rejected'].includes(decision)) return res.status(400).json({ success: false, message: 'Decision must be approved or rejected' });
+    const ph = ids.map(() => '?').join(',');
+    const [r] = await promisePool.query(
+      `UPDATE accountant_expenses SET status = ?, note = CASE WHEN ? = '' THEN note WHEN note IS NULL OR note = '' THEN ? ELSE CONCAT(note, '\n[Rep decision] ', ?) END WHERE id = ? AND school_id IN (${ph}) AND deleted_at IS NULL`,
+      [decision, note, `[Rep decision] ${note}`, note, id, ...ids]
+    );
+    if (!r.affectedRows) return res.status(404).json({ success: false, message: 'Expense not found or not in your scope' });
+    res.json({ success: true, message: `Expense ${decision}` });
+  } catch (err) {
+    console.error('[representative expenses decision]', err);
+    res.status(500).json({ success: false, message: err.message || 'Failed' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+// Representative — Full Requisitions list + approve / reject
+// ════════════════════════════════════════════════════════════════
+repRouter.get('/requisitions', requireRole(REP_ROLE), async (req, res) => {
+  try {
+    const scope = await resolveRepresentativeSchoolScope(req);
+    if (!scope.ok) return res.status(scope.status).json({ success: false, message: scope.message });
+    const ids = scope.ids;
+    if (!ids.length) return res.json({ success: true, data: [] });
+    const ph = ids.map(() => '?').join(',');
+    const nameById = new Map(scope.assignments.map((a) => [Number(a.id), a.school_name]));
+
+    const [rows] = await promisePool.query(
+      `SELECT r.id, r.school_id, r.item_id, i.name AS item_name, r.quantity_requested, r.dept, r.requester,
+              r.items, r.purpose, r.priority_level, r.expected_return_date, r.amount_rwf,
+              r.submitted_at, r.approved_at, r.issued_at, r.returned_at,
+              r.status_note, r.attachment_name, r.note, r.status, r.source_portal, r.destination, r.forwarded_to
+         FROM portal_requisitions r
+         LEFT JOIN store_inventory_items i ON i.id = r.item_id AND i.school_id = r.school_id AND i.deleted_at IS NULL
+        WHERE r.school_id IN (${ph}) AND r.deleted_at IS NULL
+        ORDER BY r.id DESC`,
+      ids
+    );
+
+    const data = rows.map((r) => ({
+      db_id: r.id,
+      id: `REQ-${r.id}`,
+      school_id: r.school_id,
+      school: nameById.get(Number(r.school_id)) || 'School',
+      item_name: r.item_name || '',
+      qty: Number(r.quantity_requested || 0),
+      dept: r.dept || 'General',
+      requester: r.requester || 'Unknown',
+      items: r.items || '',
+      purpose: r.purpose || '',
+      priority_level: r.priority_level || '',
+      amount: Number(r.amount_rwf || 0),
+      submitted: r.submitted_at,
+      approved_at: r.approved_at || null,
+      issued_at: r.issued_at || null,
+      status_note: r.status_note || '',
+      note: r.note || '',
+      status: r.status || 'pending',
+      source_portal: r.source_portal || 'teacher',
+      forwarded_to: r.forwarded_to || null,
+    }));
+
+    const summary = {
+      total: data.length,
+      pending: data.filter((x) => x.status === 'pending').length,
+      approved: data.filter((x) => x.status === 'approved').length,
+      rejected: data.filter((x) => x.status === 'rejected').length,
+      issued: data.filter((x) => x.status === 'issued').length,
+      forwarded: data.filter((x) => x.status === 'forwarded').length,
+    };
+
+    res.json({ success: true, data, summary });
+  } catch (err) {
+    console.error('[representative requisitions GET]', err);
+    res.status(500).json({ success: false, message: err.message || 'Failed' });
+  }
+});
+
+repRouter.patch('/requisitions/:id/decision', requireRole(REP_ROLE), async (req, res) => {
+  try {
+    const scope = await resolveRepresentativeSchoolScope(req);
+    if (!scope.ok) return res.status(scope.status).json({ success: false, message: scope.message });
+    const ids = scope.ids;
+    const id = parseInt(req.params.id, 10);
+    const decision = String(req.body?.decision || req.body?.status || '').toLowerCase();
+    const note = String(req.body?.note || '').trim();
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid requisition id' });
+    if (!['approved', 'rejected'].includes(decision)) return res.status(400).json({ success: false, message: 'Decision must be approved or rejected' });
+    const ph = ids.map(() => '?').join(',');
+    const [r] = await promisePool.query(
+      `UPDATE portal_requisitions SET status = ?, approved_at = CASE WHEN ? = 'approved' THEN NOW() ELSE approved_at END, note = CASE WHEN ? = '' THEN note WHEN note IS NULL OR note = '' THEN ? ELSE CONCAT(note, '\n[Rep decision] ', ?) END WHERE id = ? AND school_id IN (${ph}) AND deleted_at IS NULL`,
+      [decision, decision, note, `[Rep decision] ${note}`, note, id, ...ids]
+    );
+    if (!r.affectedRows) return res.status(404).json({ success: false, message: 'Requisition not found or not in your scope' });
+    res.json({ success: true, message: `Requisition ${decision}` });
+  } catch (err) {
+    console.error('[representative requisitions decision]', err);
+    res.status(500).json({ success: false, message: err.message || 'Failed' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+// DISCIPLINE — read-only oversight for representatives
+// ════════════════════════════════════════════════════════════════
+
+repRouter.get('/discipline/overview', requireRole(REP_ROLE), async (req, res) => {
+  try {
+    const scope = await resolveRepresentativeSchoolScope(req);
+    if (!scope.ok) return res.status(scope.status).json({ success: false, message: scope.message });
+    const ids = scope.ids;
+    const ph = ids.map(() => '?').join(',');
+
+    let hasDisciplineCol = true;
+    try {
+      await promisePool.query(`SELECT discipline_marks FROM students LIMIT 0`);
+    } catch { hasDisciplineCol = false; }
+
+    const [settingsRows] = await promisePool.query(
+      `SELECT s.id AS school_id, s.school_name, 100 AS total_marks, 40 AS default_marks
+       FROM schools s
+       WHERE s.id IN (${ph}) AND s.deleted_at IS NULL`,
+      ids
+    ).catch(() => [[]]);
+
+    let classRows = [];
+    let schoolSummary = [];
+
+    if (hasDisciplineCol) {
+      [classRows] = await promisePool.query(
+        `SELECT st.school_id, st.class_name,
+                COUNT(*) AS student_count,
+                ROUND(AVG(COALESCE(st.discipline_marks, 0)), 2) AS avg_marks,
+                MIN(COALESCE(st.discipline_marks, 0)) AS min_marks,
+                MAX(COALESCE(st.discipline_marks, 0)) AS max_marks,
+                SUM(CASE WHEN COALESCE(st.discipline_marks, 0) < 20 THEN 1 ELSE 0 END) AS critical_count
+         FROM students st
+         WHERE st.school_id IN (${ph})
+         GROUP BY st.school_id, st.class_name
+         ORDER BY st.class_name ASC`,
+        ids
+      ).catch(() => [[]]);
+
+      [schoolSummary] = await promisePool.query(
+        `SELECT st.school_id, sc.school_name,
+                COUNT(*) AS total_students,
+                ROUND(AVG(COALESCE(st.discipline_marks, 0)), 2) AS avg_marks,
+                SUM(CASE WHEN COALESCE(st.discipline_marks, 0) < 20 THEN 1 ELSE 0 END) AS critical_count,
+                SUM(CASE WHEN COALESCE(st.discipline_marks, 0) >= 20 AND COALESCE(st.discipline_marks, 0) < 50 THEN 1 ELSE 0 END) AS warning_count,
+                SUM(CASE WHEN COALESCE(st.discipline_marks, 0) >= 50 THEN 1 ELSE 0 END) AS good_count
+         FROM students st
+         JOIN schools sc ON sc.id = st.school_id
+         WHERE st.school_id IN (${ph})
+         GROUP BY st.school_id, sc.school_name`,
+        ids
+      ).catch(() => [[]]);
+    } else {
+      [classRows] = await promisePool.query(
+        `SELECT st.school_id, st.class_name,
+                COUNT(*) AS student_count, 0 AS avg_marks, 0 AS min_marks, 0 AS max_marks, 0 AS critical_count
+         FROM students st
+         WHERE st.school_id IN (${ph})
+         GROUP BY st.school_id, st.class_name
+         ORDER BY st.class_name ASC`,
+        ids
+      ).catch(() => [[]]);
+
+      [schoolSummary] = await promisePool.query(
+        `SELECT st.school_id, sc.school_name,
+                COUNT(*) AS total_students, 0 AS avg_marks, 0 AS critical_count, 0 AS warning_count,
+                COUNT(*) AS good_count
+         FROM students st
+         JOIN schools sc ON sc.id = st.school_id
+         WHERE st.school_id IN (${ph})
+         GROUP BY st.school_id, sc.school_name`,
+        ids
+      ).catch(() => [[]]);
+    }
+
+    const [recentCases] = await promisePool.query(
+      `SELECT dc.id, dc.school_id, sc.school_name, dc.student_id,
+              CONCAT(COALESCE(st.first_name,''),' ',COALESCE(st.last_name,'')) AS student_name,
+              st.class_name, dc.lesson_subject, dc.description, dc.marks_deducted,
+              dc.marks_remaining_after, dc.created_at
+       FROM discipline_cases dc
+       JOIN schools sc ON sc.id = dc.school_id
+       JOIN students st ON st.id = dc.student_id
+       WHERE dc.school_id IN (${ph})
+       ORDER BY dc.created_at DESC
+       LIMIT 50`,
+      ids
+    ).catch(() => [[]]);
+
+    const totalStudents = schoolSummary.reduce((s, r) => s + Number(r.total_students || 0), 0);
+    const overallAvg = totalStudents > 0
+      ? Math.round(schoolSummary.reduce((s, r) => s + Number(r.avg_marks || 0) * Number(r.total_students || 0), 0) / totalStudents * 100) / 100
+      : 0;
+    const totalCritical = schoolSummary.reduce((s, r) => s + Number(r.critical_count || 0), 0);
+    const totalWarning = schoolSummary.reduce((s, r) => s + Number(r.warning_count || 0), 0);
+    const totalGood = schoolSummary.reduce((s, r) => s + Number(r.good_count || 0), 0);
+
+    res.json({
+      success: true,
+      data: {
+        kpis: { total_students: totalStudents, avg_marks: overallAvg, critical: totalCritical, warning: totalWarning, good: totalGood },
+        settings: settingsRows,
+        classes: classRows.map(r => ({ ...r, student_count: Number(r.student_count), avg_marks: Number(r.avg_marks), min_marks: Number(r.min_marks), max_marks: Number(r.max_marks), critical_count: Number(r.critical_count) })),
+        school_comparison: schoolSummary.map(r => ({ school_id: r.school_id, school_name: r.school_name, total_students: Number(r.total_students), avg_marks: Number(r.avg_marks), critical: Number(r.critical_count), warning: Number(r.warning_count), good: Number(r.good_count) })),
+        recent_cases: recentCases.map(r => ({ ...r, marks_deducted: Number(r.marks_deducted || 0), marks_remaining_after: Number(r.marks_remaining_after || 0) })),
+      },
+    });
+  } catch (err) {
+    console.error('[representative discipline overview]', err);
+    res.status(500).json({ success: false, message: err.message || 'Failed' });
+  }
+});
+
+repRouter.get('/discipline/students', requireRole(REP_ROLE), async (req, res) => {
+  try {
+    const scope = await resolveRepresentativeSchoolScope(req);
+    if (!scope.ok) return res.status(scope.status).json({ success: false, message: scope.message });
+    const ids = scope.ids;
+    const ph = ids.map(() => '?').join(',');
+    const className = String(req.query?.class_name || '').trim();
+    const q = String(req.query?.q || '').trim();
+
+    let hasDisciplineCol = true;
+    try { await promisePool.query(`SELECT discipline_marks FROM students LIMIT 0`); } catch { hasDisciplineCol = false; }
+
+    let where = `st.school_id IN (${ph})`;
+    const params = [...ids];
+    if (className) { where += ' AND st.class_name = ?'; params.push(className); }
+    if (q) { where += ` AND (CONCAT(COALESCE(st.first_name,''),' ',COALESCE(st.last_name,'')) LIKE ? OR COALESCE(st.student_code,'') LIKE ?)`; params.push(`%${q}%`, `%${q}%`); }
+
+    const marksExpr = hasDisciplineCol ? 'COALESCE(st.discipline_marks, 0)' : '0';
+    const [rows] = await promisePool.query(
+      `SELECT st.id, st.student_code, st.student_uid, st.first_name, st.last_name,
+              st.class_name, st.school_id, sc.school_name,
+              ${marksExpr} AS discipline_marks
+       FROM students st
+       JOIN schools sc ON sc.id = st.school_id
+       WHERE ${where}
+       ORDER BY st.class_name ASC, st.last_name ASC, st.first_name ASC
+       LIMIT 2000`,
+      params
+    );
+
+    res.json({
+      success: true,
+      data: rows.map(r => ({
+        id: r.id,
+        code: r.student_code || r.student_uid || `ST-${r.id}`,
+        name: `${(r.first_name || '').trim()} ${(r.last_name || '').trim()}`.trim() || `Student ${r.id}`,
+        class_name: r.class_name || 'Unassigned',
+        school_id: r.school_id,
+        school_name: r.school_name,
+        discipline_marks: Number(r.discipline_marks || 0),
+      })),
+    });
+  } catch (err) {
+    console.error('[representative discipline students]', err);
+    res.status(500).json({ success: false, message: err.message || 'Failed' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+// STORE / INVENTORY — read-only oversight for representatives
+// ════════════════════════════════════════════════════════════════
+
+repRouter.get('/store/overview', requireRole(REP_ROLE), async (req, res) => {
+  try {
+    const scope = await resolveRepresentativeSchoolScope(req);
+    if (!scope.ok) return res.status(scope.status).json({ success: false, message: scope.message });
+    const ids = scope.ids;
+    const ph = ids.map(() => '?').join(',');
+
+    const [inventoryRows] = await promisePool.query(
+      `SELECT i.school_id, sc.school_name,
+              COUNT(*) AS item_count,
+              SUM(i.quantity) AS total_stock,
+              SUM(i.quantity * i.unit_cost) AS total_value,
+              SUM(CASE WHEN i.quantity <= i.reorder_level AND i.reorder_level > 0 THEN 1 ELSE 0 END) AS low_stock_count
+       FROM store_inventory_items i
+       JOIN schools sc ON sc.id = i.school_id
+       WHERE i.school_id IN (${ph}) AND i.deleted_at IS NULL
+       GROUP BY i.school_id, sc.school_name`,
+      ids
+    ).catch(() => [[]]);
+
+    const [supplierRows] = await promisePool.query(
+      `SELECT school_id, COUNT(*) AS supplier_count
+       FROM store_suppliers
+       WHERE school_id IN (${ph}) AND deleted_at IS NULL
+       GROUP BY school_id`,
+      ids
+    ).catch(() => [[]]);
+
+    const [movementSummary] = await promisePool.query(
+      `SELECT m.school_id,
+              SUM(CASE WHEN m.type IN ('stock_in','received') THEN m.quantity ELSE 0 END) AS total_in,
+              SUM(CASE WHEN m.type IN ('stock_out','issued') THEN m.quantity ELSE 0 END) AS total_out,
+              COUNT(*) AS movement_count
+       FROM store_movements m
+       WHERE m.school_id IN (${ph}) AND m.deleted_at IS NULL
+         AND m.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+       GROUP BY m.school_id`,
+      ids
+    ).catch(() => [[]]);
+
+    const supMap = Object.fromEntries(supplierRows.map(r => [r.school_id, Number(r.supplier_count)]));
+    const movMap = Object.fromEntries(movementSummary.map(r => [r.school_id, r]));
+
+    const totalItems = inventoryRows.reduce((s, r) => s + Number(r.item_count), 0);
+    const totalValue = inventoryRows.reduce((s, r) => s + Number(r.total_value || 0), 0);
+    const totalLowStock = inventoryRows.reduce((s, r) => s + Number(r.low_stock_count), 0);
+    const totalSuppliers = supplierRows.reduce((s, r) => s + Number(r.supplier_count), 0);
+    const totalIn = movementSummary.reduce((s, r) => s + Number(r.total_in || 0), 0);
+    const totalOut = movementSummary.reduce((s, r) => s + Number(r.total_out || 0), 0);
+
+    res.json({
+      success: true,
+      data: {
+        kpis: { total_items: totalItems, total_value: totalValue, low_stock: totalLowStock, total_suppliers: totalSuppliers, stock_in_30d: totalIn, stock_out_30d: totalOut },
+        school_breakdown: inventoryRows.map(r => ({
+          school_id: r.school_id, school_name: r.school_name,
+          item_count: Number(r.item_count), total_stock: Number(r.total_stock || 0),
+          total_value: Number(r.total_value || 0), low_stock: Number(r.low_stock_count),
+          suppliers: supMap[r.school_id] || 0,
+          movements_30d: Number(movMap[r.school_id]?.movement_count || 0),
+          stock_in_30d: Number(movMap[r.school_id]?.total_in || 0),
+          stock_out_30d: Number(movMap[r.school_id]?.total_out || 0),
+        })),
+      },
+    });
+  } catch (err) {
+    console.error('[representative store overview]', err);
+    res.status(500).json({ success: false, message: err.message || 'Failed' });
+  }
+});
+
+repRouter.get('/store/inventory', requireRole(REP_ROLE), async (req, res) => {
+  try {
+    const scope = await resolveRepresentativeSchoolScope(req);
+    if (!scope.ok) return res.status(scope.status).json({ success: false, message: scope.message });
+    const ids = scope.ids;
+    const ph = ids.map(() => '?').join(',');
+
+    const [rows] = await promisePool.query(
+      `SELECT i.id, i.school_id, sc.school_name, i.name, i.category, i.unit,
+              i.quantity, i.reorder_level, i.unit_cost, i.location, i.note, i.updated_at
+       FROM store_inventory_items i
+       JOIN schools sc ON sc.id = i.school_id
+       WHERE i.school_id IN (${ph}) AND i.deleted_at IS NULL
+       ORDER BY i.name ASC`,
+      ids
+    ).catch(() => [[]]);
+
+    res.json({
+      success: true,
+      data: rows.map(r => ({
+        ...r,
+        quantity: Number(r.quantity),
+        reorder_level: Number(r.reorder_level),
+        unit_cost: Number(r.unit_cost),
+        total_value: Number(r.quantity) * Number(r.unit_cost),
+        low_stock: Number(r.quantity) <= Number(r.reorder_level) && Number(r.reorder_level) > 0,
+      })),
+    });
+  } catch (err) {
+    console.error('[representative store inventory]', err);
+    res.status(500).json({ success: false, message: err.message || 'Failed' });
+  }
+});
+
+repRouter.get('/store/suppliers', requireRole(REP_ROLE), async (req, res) => {
+  try {
+    const scope = await resolveRepresentativeSchoolScope(req);
+    if (!scope.ok) return res.status(scope.status).json({ success: false, message: scope.message });
+    const ids = scope.ids;
+    const ph = ids.map(() => '?').join(',');
+
+    const [rows] = await promisePool.query(
+      `SELECT s.id, s.school_id, sc.school_name, s.name, s.contact_person,
+              s.phone, s.email, s.address, s.categories, s.note, s.updated_at
+       FROM store_suppliers s
+       JOIN schools sc ON sc.id = s.school_id
+       WHERE s.school_id IN (${ph}) AND s.deleted_at IS NULL
+       ORDER BY s.name ASC`,
+      ids
+    ).catch(() => [[]]);
+
+    res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('[representative store suppliers]', err);
+    res.status(500).json({ success: false, message: err.message || 'Failed' });
+  }
+});
+
+repRouter.get('/store/movements', requireRole(REP_ROLE), async (req, res) => {
+  try {
+    const scope = await resolveRepresentativeSchoolScope(req);
+    if (!scope.ok) return res.status(scope.status).json({ success: false, message: scope.message });
+    const ids = scope.ids;
+    const ph = ids.map(() => '?').join(',');
+    const typeFilter = String(req.query?.type || '').trim().toLowerCase();
+
+    let where = `m.school_id IN (${ph}) AND m.deleted_at IS NULL`;
+    const params = [...ids];
+    if (typeFilter === 'stock_in') { where += ` AND m.type IN ('stock_in','received')`; }
+    else if (typeFilter === 'stock_out') { where += ` AND m.type IN ('stock_out','issued')`; }
+    else if (typeFilter === 'returned') { where += ` AND m.type = 'returned'`; }
+
+    const [rows] = await promisePool.query(
+      `SELECT m.id, m.school_id, sc.school_name, m.item_id, i.name AS item_name,
+              m.type, m.quantity, m.stock_after, m.unit_cost, m.ref, m.note,
+              m.movement_date, m.created_at
+       FROM store_movements m
+       JOIN schools sc ON sc.id = m.school_id
+       LEFT JOIN store_inventory_items i ON i.id = m.item_id AND i.deleted_at IS NULL
+       WHERE ${where}
+       ORDER BY m.id DESC
+       LIMIT 500`,
+      params
+    ).catch(() => [[]]);
+
+    const normalizeType = (raw) => {
+      const t = String(raw || '').toLowerCase();
+      if (t === 'received' || t === 'stock_in') return 'stock_in';
+      if (t === 'issued' || t === 'stock_out') return 'stock_out';
+      if (t === 'returned') return 'returned';
+      return 'adjusted';
+    };
+
+    res.json({
+      success: true,
+      data: rows.map(r => ({
+        id: r.id, school_id: r.school_id, school_name: r.school_name,
+        item_id: r.item_id, item_name: r.item_name || 'Unknown',
+        type: normalizeType(r.type),
+        quantity: Number(r.quantity || 0),
+        stock_after: Number(r.stock_after || 0),
+        unit_cost: Number(r.unit_cost || 0),
+        ref: r.ref || '', note: r.note || '',
+        date: r.movement_date || r.created_at,
+        created_at: r.created_at,
+      })),
+    });
+  } catch (err) {
+    console.error('[representative store movements]', err);
+    res.status(500).json({ success: false, message: err.message || 'Failed' });
+  }
+});
+
 module.exports = {
   adminRouter,
   repRouter,
