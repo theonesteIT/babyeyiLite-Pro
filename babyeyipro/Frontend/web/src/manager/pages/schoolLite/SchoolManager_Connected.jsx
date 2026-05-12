@@ -1522,7 +1522,7 @@ function compressImage(file, maxWidth = 1200, quality = 0.75) {
   return new Promise((resolve) => {
     if (!(file instanceof File) || !file.type.startsWith("image/")) return resolve(file);
     if (file.size <= 500 * 1024) return resolve(file);
-    const img = new Image();
+    const img = document.createElement("img");
     const url = URL.createObjectURL(file);
     img.onload = () => {
       URL.revokeObjectURL(url);
