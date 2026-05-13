@@ -33,6 +33,8 @@ const {
   logParentAuditEvent,
   listParentAuditEvents,
 } = require('../utils/parentAuditLog');
+const teacherPortalRouter = require('./teacherPortal');
+const { normalizeGradebookLabel } = require('../utils/gradebookLabels');
 
 const router = express.Router();
 router.use((req, res, next) => {
@@ -89,6 +91,22 @@ function inferAcademicYearFromDate(date = new Date()) {
   const y = date.getFullYear();
   const m = date.getMonth() + 1;
   return m >= 9 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
+}
+
+/** teacher_round_roll_call_records.status → parent class-period row label */
+function mapRoundRollStatusForParent(raw) {
+  const k = String(raw || '').toLowerCase().trim();
+  if (k === 'present') return 'Present';
+  if (k === 'absent' || k === 'sick') return 'Absent';
+  if (k === 'excused' || k === 'permission') return 'Excused';
+  if (k === 'late') return 'Late';
+  return 'NotMarked';
+}
+
+async function ensureTeacherAttendanceTablesForParent() {
+  if (typeof teacherPortalRouter.ensureAcademicTables === 'function') {
+    await teacherPortalRouter.ensureAcademicTables();
+  }
 }
 
 async function resolveAcademicContext(schoolId, academicYearRaw, termRaw) {
@@ -3401,6 +3419,8 @@ router.get('/parent-portal/student-details/filters', async (req, res) => {
     if (!st) return res.status(403).json({ success: false, message: 'No access to this student' });
     const studentId = Number(st.id);
 
+    await ensureTeacherAttendanceTablesForParent();
+
     const [yearsRows] = await promisePool.query(
       `SELECT DISTINCT academic_year FROM students WHERE id = ? AND academic_year IS NOT NULL AND TRIM(academic_year) <> ''
        UNION DISTINCT
@@ -3410,15 +3430,21 @@ router.get('/parent-portal/student-details/filters', async (req, res) => {
        UNION DISTINCT
        SELECT DISTINCT academic_year FROM attendance_class WHERE id IN (
          SELECT DISTINCT attendance_id FROM attendance_class_details WHERE student_id = ?
-       )
+       ) AND academic_year IS NOT NULL AND TRIM(academic_year) <> ''
        UNION DISTINCT
        SELECT DISTINCT tt.academic_year
        FROM academic_attendance_logs al
        INNER JOIN academic_attendance_records ar ON ar.log_id = al.id
        INNER JOIN academic_timetables tt ON tt.id = al.timetable_id AND tt.school_id = al.school_id
        WHERE ar.student_id = ? AND tt.academic_year IS NOT NULL AND TRIM(tt.academic_year) <> ''
-       ) AND academic_year IS NOT NULL AND TRIM(academic_year) <> ''`,
-      [studentId, studentId, studentId, studentId, studentId]
+       UNION DISTINCT
+       SELECT DISTINCT
+         CASE WHEN MONTH(lg.record_date) >= 9 THEN CONCAT(YEAR(lg.record_date), '-', YEAR(lg.record_date)+1)
+              ELSE CONCAT(YEAR(lg.record_date)-1, '-', YEAR(lg.record_date)) END AS academic_year
+       FROM teacher_round_roll_call_logs lg
+       INNER JOIN teacher_round_roll_call_records rr ON rr.log_id = lg.id
+       WHERE rr.student_id = ?`,
+      [studentId, studentId, studentId, studentId, studentId, studentId]
     ).catch(() => [[]]);
 
     const [termsRows] = await promisePool.query(
@@ -3428,15 +3454,24 @@ router.get('/parent-portal/student-details/filters', async (req, res) => {
        UNION DISTINCT
        SELECT DISTINCT term FROM attendance_class WHERE id IN (
          SELECT DISTINCT attendance_id FROM attendance_class_details WHERE student_id = ?
-       )
+       ) AND term IS NOT NULL AND TRIM(term) <> ''
        UNION DISTINCT
        SELECT DISTINCT tt.term
        FROM academic_attendance_logs al
        INNER JOIN academic_attendance_records ar ON ar.log_id = al.id
        INNER JOIN academic_timetables tt ON tt.id = al.timetable_id AND tt.school_id = al.school_id
        WHERE ar.student_id = ? AND tt.term IS NOT NULL AND TRIM(tt.term) <> ''
-       ) AND term IS NOT NULL AND TRIM(term) <> ''`,
-      [studentId, studentId, studentId, studentId]
+       UNION DISTINCT
+       SELECT DISTINCT
+         CASE
+           WHEN MONTH(lg.record_date) IN (9,10,11,12) THEN 'Term 1'
+           WHEN MONTH(lg.record_date) IN (1,2,3,4) THEN 'Term 2'
+           ELSE 'Term 3'
+         END AS term
+       FROM teacher_round_roll_call_logs lg
+       INNER JOIN teacher_round_roll_call_records rr ON rr.log_id = lg.id
+       WHERE rr.student_id = ?`,
+      [studentId, studentId, studentId, studentId, studentId]
     ).catch(() => [[]]);
 
     const years = Array.from(new Set((yearsRows || []).map((r) => String(r.academic_year || '').trim()).filter(Boolean)));
@@ -3521,6 +3556,8 @@ router.get('/parent-portal/student-details/attendance-dos-proxy', async (req, re
     if (!st) return res.status(403).json({ success: false, message: 'No access to this student' });
     const studentId = Number(st.id);
 
+    await ensureTeacherAttendanceTablesForParent();
+
     const toSqlDateLocal = (v) => {
       const d = v ? new Date(v) : new Date();
       if (Number.isNaN(d.getTime())) return new Date().toISOString().slice(0, 10);
@@ -3577,6 +3614,26 @@ router.get('/parent-portal/student-details/attendance-dos-proxy', async (req, re
     classSql += ' ORDER BY d.period ASC';
     const [detailRows] = await promisePool.query(classSql, classParams).catch(() => [[]]);
 
+    const cnNorm = normalizeGradebookLabel(className);
+    const [rrCandidates] = await promisePool.query(
+      `SELECT rr.status, rr.remarks, lg.class_name AS lg_class, lg.roll_label
+       FROM teacher_round_roll_call_logs lg
+       INNER JOIN teacher_round_roll_call_records rr ON rr.log_id = lg.id
+       WHERE rr.student_id = ? AND lg.school_id = ? AND lg.record_date = ?`,
+      [studentId, st.school_id, date]
+    ).catch(() => [[]]);
+    const rrMatching = (rrCandidates || []).filter(
+      (x) => normalizeGradebookLabel(String(x.lg_class || '')) === cnNorm
+    );
+    const rrPeriodKey = (rollLabelRaw) => {
+      const label = String(rollLabelRaw || '').trim();
+      return label ? `Round roll · ${label}` : 'Round roll';
+    };
+    const rrByPeriodKey = new Map();
+    for (const x of rrMatching) {
+      rrByPeriodKey.set(rrPeriodKey(x.roll_label), x);
+    }
+
     const uniqueStarts = Array.from(
       new Set((ttRows || []).map((r) => String(r.start_time || '').trim()).filter(Boolean))
     ).sort();
@@ -3585,6 +3642,7 @@ router.get('/parent-portal/student-details/attendance-dos-proxy', async (req, re
       new Set([
         ...(detailRows || []).map((r) => String(r.period || '').trim()).filter(Boolean),
         ...(ttRows || []).map((r) => periodByStart.get(String(r.start_time || '').trim()) || '').filter(Boolean),
+        ...Array.from(rrByPeriodKey.keys()),
       ])
     ).sort((a, b) => {
       const na = Number(String(a).replace(/[^\d]/g, ''));
@@ -3600,6 +3658,19 @@ router.get('/parent-portal/student-details/attendance-dos-proxy', async (req, re
       ttByPeriod.set(p, r);
     }
     const periods = periodCodes.map((p) => {
+      if (String(p || '').startsWith('Round roll')) {
+        const suffix = String(p).replace(/^Round roll · ?/, '').trim();
+        return {
+          period: p,
+          subject: suffix ? `Round roll · ${suffix}` : 'Round roll call',
+          roll_label: suffix || null,
+          start_time: null,
+          end_time: null,
+          day_of_week: selectedDay || null,
+          timetable_id: null,
+          teacher_name: '',
+        };
+      }
       const meta = ttByPeriod.get(p);
       return {
         period: p,
@@ -3616,6 +3687,16 @@ router.get('/parent-portal/student-details/attendance-dos-proxy', async (req, re
     const periodStatuses = {};
     const remarksLines = [];
     for (const p of periodCodes) {
+      if (String(p || '').startsWith('Round roll')) {
+        const rrRow = rrByPeriodKey.get(p);
+        if (rrRow) {
+          periodStatuses[p] = mapRoundRollStatusForParent(rrRow.status);
+          if (rrRow.remarks) remarksLines.push(`${p}: ${rrRow.remarks}`);
+        } else {
+          periodStatuses[p] = 'NotMarked';
+        }
+        continue;
+      }
       const row = statusByPeriod.get(p);
       periodStatuses[p] = row?.status || 'NotMarked';
       if (row?.remarks) remarksLines.push(`${p}: ${row.remarks}`);
@@ -3666,6 +3747,8 @@ router.get('/parent-portal/student-attendance', async (req, res) => {
     const st = await resolveParentStudentAccessByRef(parentPhone, studentRef);
     if (!st) return res.status(403).json({ success: false, message: 'No access to this student' });
     const studentId = Number(st.id);
+
+    await ensureTeacherAttendanceTablesForParent();
 
     const type = String(req.query?.type || 'class').trim().toLowerCase(); // class | entry_exit
     const academicYearQ = String(req.query?.academic_year || '').trim();
@@ -3784,6 +3867,69 @@ router.get('/parent-portal/student-attendance', async (req, res) => {
       const [fallbackRows] = await promisePool.query(fallbackSql, fallbackParams).catch(() => [[]]);
       filtered = (fallbackRows || []).filter((r) => !weekday || dayNameFromDate(r.attendance_date) === weekday);
     }
+
+    // Round roll call (full-class daily marks from teacher portal)
+    let termListForRr = ['Term 1', 'Term 2', 'Term 3'];
+    try {
+      const [[setRow]] = await promisePool.query(
+        `SELECT active_terms_json FROM school_academic_settings WHERE school_id = ? LIMIT 1`,
+        [st.school_id]
+      );
+      if (setRow?.active_terms_json) {
+        const parsed = Array.isArray(setRow.active_terms_json)
+          ? setRow.active_terms_json
+          : JSON.parse(setRow.active_terms_json);
+        if (Array.isArray(parsed) && parsed.length) {
+          termListForRr = parsed.map((x) => String(x || '').trim()).filter(Boolean);
+        }
+      }
+    } catch (_) {}
+
+    const rrBind = [studentId, st.school_id];
+    let rrSql = `
+      SELECT lg.record_date, rr.status, rr.remarks, lg.roll_label
+      FROM teacher_round_roll_call_logs lg
+      INNER JOIN teacher_round_roll_call_records rr ON rr.log_id = lg.id
+      WHERE rr.student_id = ? AND lg.school_id = ?
+    `;
+    if (specificDate) {
+      rrSql += ' AND lg.record_date = ?';
+      rrBind.push(specificDate);
+    }
+    rrSql += ' ORDER BY lg.record_date DESC LIMIT 1000';
+    const [rrRows] = await promisePool.query(rrSql, rrBind).catch(() => [[]]);
+
+    const rrDecorated = (rrRows || []).map((row) => {
+      const ds = String(row.record_date || '').slice(0, 10);
+      const d = new Date(`${ds}T12:00:00`);
+      if (Number.isNaN(d.getTime())) return null;
+      const ay = inferAcademicYearFromDate(d);
+      const tm = inferTermFromMonth(termListForRr, d);
+      const rl = String(row.roll_label || '').trim();
+      const periodLabel = rl ? `Round roll · ${rl}` : 'Round roll';
+      return {
+        attendance_date: ds,
+        term: tm,
+        academic_year: ay,
+        period: periodLabel,
+        course_name: rl ? `Round roll · ${rl}` : 'Round roll call',
+        roll_label: rl || null,
+        status: mapRoundRollStatusForParent(row.status),
+        remarks: row.remarks || null,
+      };
+    }).filter(Boolean);
+
+    let rrFiltered = rrDecorated;
+    if (academicYear) rrFiltered = rrFiltered.filter((r) => String(r.academic_year) === String(academicYear));
+    if (term) rrFiltered = rrFiltered.filter((r) => String(r.term) === String(term));
+    rrFiltered = rrFiltered.filter((r) => !weekday || dayNameFromDate(r.attendance_date) === weekday);
+
+    filtered = [...filtered, ...rrFiltered].sort((a, b) => {
+      const ta = new Date(String(a.attendance_date).slice(0, 10)).getTime();
+      const tb = new Date(String(b.attendance_date).slice(0, 10)).getTime();
+      if (tb !== ta) return tb - ta;
+      return String(a.period || '').localeCompare(String(b.period || ''));
+    });
 
     // Attach course name for class-period rows by mapping timetable day + period.
     if (type === 'class' && filtered.length) {

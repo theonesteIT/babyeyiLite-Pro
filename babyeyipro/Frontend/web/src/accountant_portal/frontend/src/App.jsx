@@ -16,6 +16,7 @@ import StaffPayroll from './pages/StaffPayroll';
 import ShuleAvance from './pages/ShuleAvance';
 import FeaturePlaceholders from './pages/FeaturePlaceholders';
 import BabyeyiFees from './pages/BabyeyiFees';
+import ExaminationList from './pages/ExaminationList';
 import './index.css';
 import { PORTAL } from './config/portal';
 
@@ -58,6 +59,15 @@ function AppContent() {
       <Route
         path="/fees/babyeyi-fees"
         element={<ProtectedRoute title="Babyeyi fee cards"><BabyeyiFees /></ProtectedRoute>}
+      />
+      <Route
+        path="/examination-list"
+        element={<ProtectedRoute title="Examination list"><ExaminationList /></ProtectedRoute>}
+      />
+      {/* Alias: avoids broken links if an older build used underscores */}
+      <Route
+        path="/examination_list"
+        element={<ProtectedRoute title="Examination list"><ExaminationList /></ProtectedRoute>}
       />
       <Route path="/invoices" element={<ProtectedRoute title="Invoices"><Invoices /></ProtectedRoute>} />
       <Route path="/invoices/settings" element={<ProtectedRoute title="Configure Invoices"><InvoiceSettings /></ProtectedRoute>} />

@@ -6,6 +6,7 @@ import {
   LayoutDashboard, Users, BookOpen, Calendar, CalendarDays, ClipboardCheck,
   Wallet, MessageSquare, ClipboardList, Eye, PenLine, FileSpreadsheet,
   Building2, LogOut, WifiOff, GraduationCap, ChevronDown, DollarSign, Shield,
+  ListChecks,
 } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5100';
@@ -45,6 +46,10 @@ const ExpandableNavItem = ({ icon: Icon, name, subItems, onClose }) => {
   const location = useLocation();
   const isAnyActive = subItems.some(s => location.pathname === s.path);
   const [open, setOpen] = useState(isAnyActive);
+
+  useEffect(() => {
+    if (isAnyActive) setOpen(true);
+  }, [isAnyActive]);
 
   return (
     <div className="space-y-1">
@@ -161,6 +166,7 @@ const Sidebar = ({ onClose }) => {
             subItems={[
               { name: 'View Student Marks', path: '/marks/view', icon: Eye },
               { name: 'Record Marks', path: '/marks/record', icon: PenLine },
+              { name: 'Examination list', path: '/exam-eligibility', icon: ListChecks },
             ]}
           />
 

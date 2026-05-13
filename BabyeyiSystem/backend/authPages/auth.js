@@ -217,13 +217,16 @@ router.post('/login', loginLimiter, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Identifier and password are required' });
     }
 
-    const id = String(identifierRaw).trim().toLowerCase();
+    const idRaw = String(identifierRaw).trim();
+    const id = idRaw.toLowerCase();
+    /** Compare after removing spaces so "ST 001" matches HR staff_id "ST001" */
+    const idStaffCompact = idRaw.toLowerCase().replace(/\s+/g, '');
     const scNorm = schoolCode != null && String(schoolCode).trim() !== ''
       ? String(schoolCode).trim().toUpperCase()
       : '';
 
     // School managers must send school code so login joins exactly their school (no other school’s dashboard).
-    // Identifier matches: email, platform username, user_uid, HR staff number (staff.staff_id), staff username, Avance org login.
+    // Teachers/staff: email OR staff code (staff.staff_id from HR), plus username / user_uid / Avance login.
     const [roleProbe] = await promisePool.query(
       `SELECT r.role_code AS role_code
        FROM users u
@@ -236,11 +239,12 @@ router.post('/login', loginLimiter, async (req, res) => {
            OR LOWER(TRIM(u.username)) = ?
            OR LOWER(TRIM(u.user_uid)) = ?
            OR LOWER(TRIM(st.staff_id)) = ?
+           OR (TRIM(IFNULL(st.staff_id,'')) <> '' AND REPLACE(LOWER(TRIM(st.staff_id)), ' ', '') = ?)
            OR LOWER(TRIM(st.username)) = ?
            OR LOWER(TRIM(sao.login_username)) = ?
          )
        LIMIT 1`,
-      [id, id, id, id, id, id]
+      [id, id, id, id, idStaffCompact, id, id]
     );
     const probeRole = String(roleProbe[0]?.role_code || '').toUpperCase();
     if (
@@ -300,6 +304,7 @@ router.post('/login', loginLimiter, async (req, res) => {
         OR LOWER(TRIM(u.username)) = ?
         OR LOWER(TRIM(u.user_uid)) = ?
         OR LOWER(TRIM(st.staff_id)) = ?
+        OR (TRIM(IFNULL(st.staff_id,'')) <> '' AND REPLACE(LOWER(TRIM(st.staff_id)), ' ', '') = ?)
         OR LOWER(TRIM(st.username)) = ?
         OR LOWER(TRIM(sao.login_username)) = ?
       )
@@ -307,7 +312,7 @@ router.post('/login', loginLimiter, async (req, res) => {
       ${scNorm ? 'AND sc.school_code = ?' : ''}
       LIMIT 1
     `;
-    const params = [id, id, id, id, id, id];
+    const params = [id, id, id, id, idStaffCompact, id, id];
     if (scNorm) params.push(scNorm);
 
     const [users] = await promisePool.query(sql, params);

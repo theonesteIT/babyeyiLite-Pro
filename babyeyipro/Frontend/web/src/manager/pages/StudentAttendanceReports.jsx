@@ -47,6 +47,7 @@ const StudentAttendanceReports = () => {
     });
     const [range, setRange] = useState({ from: '', to: '' });
     const [classRows, setClassRows] = useState([]);
+    const [roundRollSessions, setRoundRollSessions] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
@@ -67,7 +68,8 @@ const StudentAttendanceReports = () => {
                 setError(res.data.message || 'Failed to load');
                 return;
             }
-            const { stats: s, classes } = res.data.data || {};
+            const { stats: s, classes, round_roll_sessions } = res.data.data || {};
+            setRoundRollSessions(Array.isArray(round_roll_sessions) ? round_roll_sessions : []);
             if (s) {
                 setStats({
                     globalPresence: s.globalPresence ?? '—',
@@ -82,6 +84,7 @@ const StudentAttendanceReports = () => {
             console.error(e);
             setError(e.response?.data?.message || e.message || 'Could not load report');
             setClassRows([]);
+            setRoundRollSessions([]);
         } finally {
             setLoading(false);
         }
@@ -124,7 +127,7 @@ const StudentAttendanceReports = () => {
                         </div>
                         <h1 className="text-2xl md:text-3xl font-semibold text-white tracking-tight leading-none mb-2 mt-2 uppercase" style={{ fontFamily: "'Montserrat', sans-serif" }}>Attendance Reports</h1>
                         <p className="text-[10px] font-medium text-white/60 max-w-lg leading-relaxed uppercase tracking-widest" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-                            Class-level presence from lesson attendance records
+                            Class presence from period attendance + named round roll calls
                         </p>
                     </div>
                 </div>
@@ -342,11 +345,51 @@ const StudentAttendanceReports = () => {
                         </table>
                     </div>
 
+                    {roundRollSessions.length > 0 && (
+                        <div className="border-t border-black/10 bg-white px-4 py-6 sm:px-8">
+                            <div className="mb-4 flex items-center gap-2">
+                                <ClipboardCheck size={16} style={{ color: '#FEBF10' }} />
+                                <h3 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-re-text">
+                                    Round roll calls (by name)
+                                </h3>
+                            </div>
+                            <p className="mb-4 text-[10px] font-medium text-re-text-muted">
+                                Each named roll (e.g. Morning Prep) from ShuleTicha is listed below with mark counts for the selected date range.
+                            </p>
+                            <div className="overflow-x-auto rounded-xl border border-black/5">
+                                <table className="w-full text-left text-sm">
+                                    <thead>
+                                        <tr className="bg-re-bg/40 border-b border-black/5">
+                                            <th className="px-4 py-3 text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Class</th>
+                                            <th className="px-4 py-3 text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Roll name</th>
+                                            <th className="px-4 py-3 text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Marks</th>
+                                            <th className="px-4 py-3 text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Present</th>
+                                            <th className="px-4 py-3 text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Absent</th>
+                                            <th className="px-4 py-3 text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Rate</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-black/5">
+                                        {roundRollSessions.map((row, idx) => (
+                                            <tr key={`${row.class_name}-${row.roll_label}-${idx}`} className="hover:bg-re-bg/30">
+                                                <td className="px-4 py-3 font-semibold text-re-text">{row.class_name}</td>
+                                                <td className="px-4 py-3 text-re-text">{row.roll_label || '—'}</td>
+                                                <td className="px-4 py-3 tabular-nums">{row.total_marks}</td>
+                                                <td className="px-4 py-3 tabular-nums text-emerald-700">{row.present_count}</td>
+                                                <td className="px-4 py-3 tabular-nums text-red-600">{row.absent_count}</td>
+                                                <td className="px-4 py-3 tabular-nums font-semibold">{row.presence_rate}%</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+
                     <div className="flex px-4 sm:px-8 py-5 bg-re-bg/20 border-t border-black/5 flex-row items-center justify-between gap-4">
                         <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
                             <div className="hidden xs:flex items-center gap-2">
                                 <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full animate-pulse" style={{ background: '#FEBF10' }} />
-                                <p className="text-[6px] sm:text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.2em] opacity-40 italic whitespace-nowrap">Live from academic_attendance_*</p>
+                                <p className="text-[6px] sm:text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.2em] opacity-40 italic whitespace-nowrap">Live from attendance + round rolls</p>
                             </div>
                             <div className="hidden xs:block w-px h-3 bg-black/10" />
                             <p className="text-[6px] sm:text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.2em] opacity-40 italic whitespace-nowrap">

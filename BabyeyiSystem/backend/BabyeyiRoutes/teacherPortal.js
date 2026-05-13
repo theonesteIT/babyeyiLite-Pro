@@ -12,6 +12,8 @@ const {
     resolveTimetableClassLabels,
 } = require('../utils/gradebookLabels');
 
+const accountantFeesRoutes = require('./accountantFees');
+
 const router = express.Router();
 const USSD_AUTO_APPROVAL_RATIO = 0.4;
 const USSD_SESSION_TTL_MINUTES = Math.max(5, Number(process.env.TEACHER_USSD_SESSION_TTL_MINUTES || 30));
@@ -661,12 +663,20 @@ async function ensureTeacherTables() {
         school_id INT UNSIGNED NOT NULL,
         class_name VARCHAR(160) NOT NULL,
         record_date DATE NOT NULL,
+        roll_label VARCHAR(160) NOT NULL DEFAULT '',
         recorded_by_user_id INT UNSIGNED NOT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE KEY uq_rrc_day_class (school_id, class_name, record_date),
+        UNIQUE KEY uq_rrc_day_class_roll (school_id, class_name, record_date, roll_label),
         INDEX idx_rrc_school_date (school_id, record_date)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
+    await promisePool.query(
+        'ALTER TABLE teacher_round_roll_call_logs ADD COLUMN roll_label VARCHAR(160) NOT NULL DEFAULT \'\''
+    ).catch(() => {});
+    await promisePool.query('ALTER TABLE teacher_round_roll_call_logs DROP INDEX uq_rrc_day_class').catch(() => {});
+    await promisePool.query(
+        'ALTER TABLE teacher_round_roll_call_logs ADD UNIQUE KEY uq_rrc_day_class_roll (school_id, class_name, record_date, roll_label)'
+    ).catch(() => {});
 
     await promisePool.query(`
       CREATE TABLE IF NOT EXISTS teacher_round_roll_call_records (
@@ -690,6 +700,10 @@ function roundRollDbToUi(dbStatus) {
     if (s === 'absent' || s === 'sick') return 'absent';
     if (s === 'excused' || s === 'permission') return 'excused';
     return 'present';
+}
+
+function normalizeRollLabel(raw) {
+    return String(raw ?? '').trim().slice(0, 160);
 }
 
 function normalizePeriodLabel(startTime) {
@@ -1699,7 +1713,49 @@ router.get('/classes', requireTeacherRole, async (req, res) => {
 });
 
 // ============================================================
-// GET /api/teacher-portal/round-roll-call  ?class_name=&date=
+// GET /api/teacher-portal/round-roll-call/sessions  ?class_name=&date=
+// Saved roll names for this class + date (for picker / switching)
+// ============================================================
+router.get('/round-roll-call/sessions', requireTeacherRole, async (req, res) => {
+    try {
+        await ensureTeacherTables();
+        const schoolId = resolveSchoolId(req);
+        if (!schoolId) return res.status(400).json({ success: false, message: 'No school linked' });
+
+        const className = normalizeGradebookLabel(req.query.class_name || '');
+        const recordDate = toSqlDate(req.query.date || new Date().toISOString().slice(0, 10));
+        if (!className) {
+            return res.status(400).json({ success: false, message: 'class_name is required' });
+        }
+
+        const [rows] = await promisePool.query(
+            `SELECT lg.roll_label,
+                    lg.id AS log_id,
+                    (SELECT COUNT(*) FROM teacher_round_roll_call_records r WHERE r.log_id = lg.id) AS record_count
+             FROM teacher_round_roll_call_logs lg
+             WHERE lg.school_id = ?
+               AND (${sqlNormLabelEquals('lg.class_name')})
+               AND lg.record_date = ?
+             ORDER BY lg.roll_label ASC`,
+            [schoolId, className, recordDate]
+        );
+
+        const sessions = (rows || []).map((r) => ({
+            roll_label: String(r.roll_label ?? ''),
+            log_exists: Number(r.record_count) > 0,
+            record_count: Number(r.record_count) || 0,
+            log_id: r.log_id,
+        }));
+
+        res.json({ success: true, data: { sessions } });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: 'Failed to list round roll sessions' });
+    }
+});
+
+// ============================================================
+// GET /api/teacher-portal/round-roll-call  ?class_name=&date=&roll_label=
 // Full-class roll (no period) — present / absent / excused
 // ============================================================
 router.get('/round-roll-call', requireTeacherRole, async (req, res) => {
@@ -1710,6 +1766,7 @@ router.get('/round-roll-call', requireTeacherRole, async (req, res) => {
 
         const className = normalizeGradebookLabel(req.query.class_name || '');
         const recordDate = toSqlDate(req.query.date || new Date().toISOString().slice(0, 10));
+        const rollLabel = normalizeRollLabel(req.query.roll_label);
         if (!className) {
             return res.status(400).json({ success: false, message: 'class_name is required' });
         }
@@ -1732,9 +1789,9 @@ router.get('/round-roll-call', requireTeacherRole, async (req, res) => {
 
         const [logs] = await promisePool.query(
             `SELECT id FROM teacher_round_roll_call_logs
-             WHERE school_id = ? AND (${sqlNormLabelEquals('class_name')}) AND record_date = ?
+             WHERE school_id = ? AND (${sqlNormLabelEquals('class_name')}) AND record_date = ? AND roll_label = ?
              LIMIT 1`,
-            [schoolId, className, recordDate]
+            [schoolId, className, recordDate, rollLabel]
         );
         let byStudentId = {};
         if (logs.length) {
@@ -1767,6 +1824,7 @@ router.get('/round-roll-call', requireTeacherRole, async (req, res) => {
             data: {
                 class_name: className,
                 date: recordDate,
+                roll_label: rollLabel,
                 log_exists: !!logs.length,
                 roster,
             },
@@ -1779,7 +1837,7 @@ router.get('/round-roll-call', requireTeacherRole, async (req, res) => {
 
 // ============================================================
 // POST /api/teacher-portal/round-roll-call
-// Body: { class_name, date, records: [{ student_id, status, remarks? }] }
+// Body: { class_name, date, roll_label, records: [{ student_id, status, remarks? }] }
 // ============================================================
 router.post('/round-roll-call', requireTeacherRole, async (req, res) => {
     const conn = await promisePool.getConnection();
@@ -1791,26 +1849,30 @@ router.post('/round-roll-call', requireTeacherRole, async (req, res) => {
 
         const className = normalizeGradebookLabel(req.body?.class_name || '');
         const recordDate = toSqlDate(req.body?.date || new Date().toISOString().slice(0, 10));
+        const rollLabel = normalizeRollLabel(req.body?.roll_label);
         const records = req.body?.records;
         if (!className || !Array.isArray(records)) {
             return res.status(400).json({ success: false, message: 'class_name and records[] are required' });
+        }
+        if (!rollLabel) {
+            return res.status(400).json({ success: false, message: 'roll_label is required (e.g. Morning Prep)' });
         }
 
         await conn.beginTransaction();
 
         const [existing] = await conn.query(
             `SELECT id FROM teacher_round_roll_call_logs
-             WHERE school_id = ? AND (${sqlNormLabelEquals('class_name')}) AND record_date = ?
+             WHERE school_id = ? AND (${sqlNormLabelEquals('class_name')}) AND record_date = ? AND roll_label = ?
              LIMIT 1`,
-            [schoolId, className, recordDate]
+            [schoolId, className, recordDate, rollLabel]
         );
 
         let logId = existing[0]?.id;
         if (!logId) {
             const [ins] = await conn.query(
-                `INSERT INTO teacher_round_roll_call_logs (school_id, class_name, record_date, recorded_by_user_id)
-                 VALUES (?, ?, ?, ?)`,
-                [schoolId, className, recordDate, userId]
+                `INSERT INTO teacher_round_roll_call_logs (school_id, class_name, record_date, roll_label, recorded_by_user_id)
+                 VALUES (?, ?, ?, ?, ?)`,
+                [schoolId, className, recordDate, rollLabel, userId]
             );
             logId = ins.insertId;
         } else {
@@ -2819,6 +2881,37 @@ router.post('/avance/ussd/cashout-request', requireUssdTeacherSession, async (re
     } catch (err) {
         console.error('[teacher-portal/avance/ussd cashout-request]:', err.message);
         return res.status(500).json({ success: false, message: 'Failed to create cashout request' });
+    }
+});
+
+// GET /api/teacher-portal/examination-list?class_name=&academic_year=&term=
+// Published examination eligibility (same fee rules + accountant overrides as accountant portal).
+router.get('/examination-list', requireTeacherRole, async (req, res) => {
+    try {
+        const schoolId = resolveSchoolId(req);
+        if (!schoolId) return res.status(400).json({ success: false, message: 'No school linked' });
+
+        const className = String(req.query.class_name || '').trim();
+        const academicYear = String(req.query.academic_year || req.query.year || '').trim();
+        const term = String(req.query.term || '').trim();
+        if (!className) {
+            return res.status(400).json({ success: false, message: 'class_name is required' });
+        }
+
+        const data = await accountantFeesRoutes.examinationListPayload(
+            schoolId,
+            academicYear,
+            term,
+            className,
+            { audience: 'teacher' }
+        );
+        return res.json({ success: true, data });
+    } catch (err) {
+        console.error('[teacher-portal/examination-list]', err);
+        return res.status(500).json({
+            success: false,
+            message: err.message || 'Failed to load examination list',
+        });
     }
 });
 

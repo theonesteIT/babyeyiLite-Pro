@@ -14,6 +14,7 @@ import StaffPayroll from './frontend/src/pages/StaffPayroll'
 import ShuleAvance from './frontend/src/pages/ShuleAvance'
 import FeaturePlaceholders from './frontend/src/pages/FeaturePlaceholders'
 import BabyeyiFees from './frontend/src/pages/BabyeyiFees'
+import ExaminationList from './frontend/src/pages/ExaminationList'
 import SalaryPayment from './frontend/src/pages/SalaryPayment'
 import ChatCenter from '../shared/pages/ChatCenter'
 import SchoolCalendarPage from '../shared/pages/SchoolCalendarPage'
@@ -48,6 +49,14 @@ function AccountantRoutesInner() {
       <Route
         path="fees/babyeyi-fees"
         element={<ProtectedRoute title="Babyeyi fee cards"><BabyeyiFees /></ProtectedRoute>}
+      />
+      <Route
+        path="examination-list"
+        element={<ProtectedRoute title="Examination list"><ExaminationList /></ProtectedRoute>}
+      />
+      <Route
+        path="examination_list"
+        element={<ProtectedRoute title="Examination list"><ExaminationList /></ProtectedRoute>}
       />
       <Route path="invoices" element={<ProtectedRoute title="Invoices"><Invoices /></ProtectedRoute>} />
       <Route path="invoices/settings" element={<ProtectedRoute title="Configure Invoices"><InvoiceSettings /></ProtectedRoute>} />

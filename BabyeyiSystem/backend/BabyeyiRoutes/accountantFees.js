@@ -116,6 +116,51 @@ async function ensureCollectionsTable() {
   collectionsTableReady = true;
 }
 
+let examinationListTablesReady = false;
+async function ensureExaminationListTables() {
+  if (examinationListTablesReady) return;
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS school_examination_lists (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      school_id INT UNSIGNED NOT NULL,
+      academic_year VARCHAR(64) NOT NULL,
+      term VARCHAR(64) NOT NULL,
+      class_name VARCHAR(160) NOT NULL,
+      published_at DATETIME NULL,
+      published_by_user_id INT UNSIGNED NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_exam_list_scope (school_id, academic_year, term, class_name),
+      KEY idx_exam_list_school (school_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS school_examination_list_overrides (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      list_id INT UNSIGNED NOT NULL,
+      student_id INT UNSIGNED NOT NULL,
+      override_mode ENUM('auto','allow','deny') NOT NULL DEFAULT 'auto',
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_exam_ov_student (list_id, student_id),
+      KEY idx_exam_ov_student (student_id),
+      KEY idx_exam_ov_list (list_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+  examinationListTablesReady = true;
+}
+
+function resolveActorUserId(req) {
+  return req.session?.userId || req.session?.user?.id || req.user?.id || null;
+}
+
+/** Fee rule: cleared fees → allowed; unpaid / partial / no Babyeyi card → blocked by default */
+function defaultFeesAllowExam(row) {
+  const st = String(row.status || '');
+  if (st === 'full_pay' || st === 'full') return true;
+  if (st === 'not_paid' || st === 'remain_pay' || st === 'no_fee_card') return false;
+  return false;
+}
+
 /** Match babyeyi academic_year column (may be YEAR or string) to UI values like 2025-2026 */
 function yearMatchesRow(rowYear, inputLabel) {
   const a = rowYear === null || rowYear === undefined ? '' : String(rowYear);
@@ -399,6 +444,123 @@ async function buildAccountantPaymentReport(schoolId, academicYear, term, classF
   };
 }
 
+async function getOrCreateExaminationListRow(schoolId, academicYear, term, className, { createIfMissing }) {
+  const cn = trimStr(className);
+  const ay = trimStr(academicYear);
+  const tm = trimStr(term);
+  const [existing] = await promisePool.query(
+    `SELECT id, published_at, published_by_user_id FROM school_examination_lists
+     WHERE school_id = ? AND academic_year = ? AND term = ? AND class_name = ?
+     LIMIT 1`,
+    [schoolId, ay, tm, cn]
+  );
+  if (existing.length) return existing[0];
+  if (!createIfMissing) return null;
+  const [ins] = await promisePool.query(
+    `INSERT INTO school_examination_lists (school_id, academic_year, term, class_name)
+     VALUES (?, ?, ?, ?)`,
+    [schoolId, ay, tm, cn]
+  );
+  return {
+    id: ins.insertId,
+    published_at: null,
+    published_by_user_id: null,
+  };
+}
+
+/**
+ * @param {'accountant'|'teacher'} options.audience — Teachers only see data after publish.
+ */
+async function examinationListPayload(schoolId, academicYearIn, termIn, classNameRaw, options = {}) {
+  await ensureExaminationListTables();
+  await ensureCollectionsTable();
+  const audience = options.audience === 'teacher' ? 'teacher' : 'accountant';
+  const { academicYear, term } = await resolveAcademicContext(schoolId, academicYearIn, termIn);
+  const className = trimStr(classNameRaw);
+  if (!className) {
+    const err = new Error('class_name is required');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const report = await buildAccountantPaymentReport(schoolId, academicYear, term, className, '');
+  let listRow = await getOrCreateExaminationListRow(schoolId, academicYear, term, className, {
+    createIfMissing: audience === 'accountant',
+  });
+
+  if (!listRow) {
+    return {
+      published: false,
+      academic_year: academicYear,
+      term,
+      class_name: className,
+      message:
+        'Examination eligibility for this class has not been published by finance yet.',
+      students: [],
+      counts: { allowed: 0, blocked: 0, total: 0 },
+    };
+  }
+
+  if (audience === 'teacher' && !listRow.published_at) {
+    return {
+      published: false,
+      academic_year: academicYear,
+      term,
+      class_name: className,
+      message:
+        'Examination eligibility for this class has not been published by finance yet.',
+      students: [],
+      counts: { allowed: 0, blocked: 0, total: 0 },
+    };
+  }
+
+  const [ovRows] = await promisePool.query(
+    `SELECT student_id, override_mode FROM school_examination_list_overrides WHERE list_id = ?`,
+    [listRow.id]
+  );
+  const ovMap = new Map((ovRows || []).map((o) => [Number(o.student_id), String(o.override_mode || 'auto')]));
+
+  const students = report.rows.map((r) => {
+    const sid = Number(r.student_id);
+    const ov = ovMap.get(sid) || 'auto';
+    const feesWouldAllow = defaultFeesAllowExam(r);
+    const allowed = ov === 'allow' ? true : ov === 'deny' ? false : feesWouldAllow;
+    return {
+      student_id: sid,
+      student_uid: r.student_uid,
+      student_code: r.student_code,
+      first_name: r.first_name,
+      last_name: r.last_name,
+      class_name: r.class_name,
+      fee_status: r.status,
+      total_due: r.total_due,
+      total_paid: r.total_paid,
+      remaining: r.remaining,
+      override_mode: ov,
+      fees_allow_exam: feesWouldAllow,
+      allowed_for_exam: allowed,
+    };
+  });
+
+  const counts = { allowed: 0, blocked: 0, total: students.length };
+  for (const s of students) {
+    if (s.allowed_for_exam) counts.allowed += 1;
+    else counts.blocked += 1;
+  }
+
+  return {
+    published: Boolean(listRow.published_at),
+    published_at: listRow.published_at || null,
+    academic_year: academicYear,
+    term,
+    class_name: className,
+    list_id: listRow.id,
+    students,
+    counts,
+    class_names: report.class_names,
+  };
+}
+
 // ════════════════════════════════════════════════════════════════
 // GET /api/accountant/overview
 // ════════════════════════════════════════════════════════════════
@@ -611,6 +773,131 @@ router.get('/accountant/reports/payments', requireRole(ACCOUNTANT_ONLY), async (
   } catch (err) {
     console.error('GET /accountant/reports/payments:', err);
     return res.status(500).json({ success: false, message: 'Failed to build report' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+// Examination eligibility (fees + overrides, publish for teachers)
+// GET /api/accountant/examination-list?academic_year=&term=&class_name=
+// PATCH /api/accountant/examination-list/override
+// POST /api/accountant/examination-list/publish
+// ════════════════════════════════════════════════════════════════
+router.get('/accountant/examination-list', requireRole(ACCOUNTANT_ONLY), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) {
+      return res.status(400).json({ success: false, message: 'School not found in session.' });
+    }
+    const className = trimStr(req.query.class_name || req.query.class || '');
+    const academicYearQ = trimStr(req.query.academic_year || req.query.year || '');
+    const termQ = trimStr(req.query.term || '');
+    const data = await examinationListPayload(schoolId, academicYearQ, termQ, className, {
+      audience: 'accountant',
+    });
+    return res.json({ success: true, data });
+  } catch (err) {
+    if (err.statusCode === 400) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    console.error('GET /accountant/examination-list:', err);
+    return res.status(500).json({ success: false, message: 'Failed to load examination list' });
+  }
+});
+
+router.patch('/accountant/examination-list/override', requireRole(ACCOUNTANT_ONLY), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) {
+      return res.status(400).json({ success: false, message: 'School not found in session.' });
+    }
+    const className = trimStr(req.body?.class_name || '');
+    const academicYearQ = trimStr(req.body?.academic_year || req.body?.year || '');
+    const termQ = trimStr(req.body?.term || '');
+    const studentId = Number(req.body?.student_id);
+    let mode = trimStr(req.body?.override_mode || req.body?.override || '').toLowerCase();
+    if (!className || !studentId) {
+      return res.status(400).json({ success: false, message: 'class_name and student_id are required' });
+    }
+    if (!['auto', 'allow', 'deny'].includes(mode)) {
+      return res.status(400).json({ success: false, message: 'override_mode must be auto, allow, or deny' });
+    }
+
+    await ensureExaminationListTables();
+    const { academicYear, term } = await resolveAcademicContext(schoolId, academicYearQ, termQ);
+    let listRow = await getOrCreateExaminationListRow(schoolId, academicYear, term, className, {
+      createIfMissing: true,
+    });
+    if (!listRow) {
+      return res.status(500).json({ success: false, message: 'Could not create examination list row' });
+    }
+
+    if (mode === 'auto') {
+      await promisePool.query(
+        `DELETE FROM school_examination_list_overrides WHERE list_id = ? AND student_id = ?`,
+        [listRow.id, studentId]
+      );
+    } else {
+      await promisePool.query(
+        `INSERT INTO school_examination_list_overrides (list_id, student_id, override_mode)
+         VALUES (?, ?, ?)
+         ON DUPLICATE KEY UPDATE override_mode = VALUES(override_mode), updated_at = CURRENT_TIMESTAMP`,
+        [listRow.id, studentId, mode]
+      );
+    }
+
+    const data = await examinationListPayload(schoolId, academicYearQ, termQ, className, {
+      audience: 'accountant',
+    });
+    return res.json({ success: true, data });
+  } catch (err) {
+    if (err.statusCode === 400) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    console.error('PATCH /accountant/examination-list/override:', err);
+    return res.status(500).json({ success: false, message: 'Failed to update override' });
+  }
+});
+
+router.post('/accountant/examination-list/publish', requireRole(ACCOUNTANT_ONLY), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) {
+      return res.status(400).json({ success: false, message: 'School not found in session.' });
+    }
+    const className = trimStr(req.body?.class_name || '');
+    const academicYearQ = trimStr(req.body?.academic_year || req.body?.year || '');
+    const termQ = trimStr(req.body?.term || '');
+    if (!className) {
+      return res.status(400).json({ success: false, message: 'class_name is required' });
+    }
+
+    await ensureExaminationListTables();
+    const { academicYear, term } = await resolveAcademicContext(schoolId, academicYearQ, termQ);
+    let listRow = await getOrCreateExaminationListRow(schoolId, academicYear, term, className, {
+      createIfMissing: true,
+    });
+    if (!listRow) {
+      return res.status(500).json({ success: false, message: 'Could not create examination list row' });
+    }
+
+    const uid = resolveActorUserId(req);
+    await promisePool.query(
+      `UPDATE school_examination_lists
+       SET published_at = NOW(), published_by_user_id = ?
+       WHERE id = ? AND school_id = ?`,
+      [uid, listRow.id, schoolId]
+    );
+
+    const data = await examinationListPayload(schoolId, academicYearQ, termQ, className, {
+      audience: 'accountant',
+    });
+    return res.json({ success: true, data, message: 'Examination list published for teachers.' });
+  } catch (err) {
+    if (err.statusCode === 400) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    console.error('POST /accountant/examination-list/publish:', err);
+    return res.status(500).json({ success: false, message: 'Failed to publish examination list' });
   }
 });
 
@@ -1292,5 +1579,6 @@ router.yearMatchesRow = yearMatchesRow;
 router.termMatchesRow = termMatchesRow;
 router.trimStr = trimStr;
 router.collectionYearMatchesFilter = collectionYearMatchesFilter;
+router.examinationListPayload = examinationListPayload;
 
 module.exports = router;

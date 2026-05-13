@@ -16,6 +16,7 @@ import FeaturePlaceholders from './pages/FeaturePlaceholders';
 import Timetable from './pages/Timetable';
 import Attendance from './pages/Attendance';
 import RoundRollCall from './pages/RoundRollCall';
+import ExaminationEligibility from './pages/ExaminationEligibility';
 import TeacherAttendanceView from './pages/TeacherAttendanceView';
 import RecordMarks from './pages/RecordMarks';
 import ViewMarks from './pages/ViewMarks';
@@ -73,6 +74,10 @@ function AppContent() {
       <Route path="/payroll" element={<ProtectedRoute title="My Payroll">          <StaffPayroll />                                                 </ProtectedRoute>} />
       <Route path="/marks/view" element={<ProtectedRoute title="View Student Marks"><ViewMarks /></ProtectedRoute>} />
       <Route path="/marks/record" element={<ProtectedRoute title="Record Marks">      <RecordMarks /></ProtectedRoute>} />
+      <Route
+        path="/exam-eligibility"
+        element={<ProtectedRoute title="Examination list"><ExaminationEligibility /></ProtectedRoute>}
+      />
       <Route path="/permissions" element={<ProtectedRoute title="Permissions"><Permissions /></ProtectedRoute>} />
       <Route path="/school-calendar" element={<ProtectedRoute title="School Calendar"><SchoolCalendar /></ProtectedRoute>} />
 

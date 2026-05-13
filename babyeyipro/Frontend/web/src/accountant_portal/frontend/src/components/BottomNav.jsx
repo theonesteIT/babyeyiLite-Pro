@@ -14,13 +14,13 @@ import { h } from '../utils/href';
 const BottomNav = () => {
     const unreadCount = useChatUnread();
     const navItems = [
-        { icon: LayoutDashboard, name: 'Home', path: h('/'), exact: true },
-        { icon: Receipt, name: 'Fees', path: h('/fees') },
-        { icon: Banknote, name: 'Expenses', path: h('/expenses') },
-        { icon: ClipboardCheck, name: 'Payroll', path: h('/payroll/history') },
-        { icon: DollarSign, name: 'My Payroll', path: h('/my-payroll') },
-        { icon: Wallet, name: 'Avance', path: h('/shule-avance') },
-        { icon: MessageSquare, name: 'Chat', path: h('/chat'), badgeCount: unreadCount },
+        { icon: LayoutDashboard, name: 'Home', path: '/', exact: true },
+        { icon: Receipt, name: 'Fees', path: '/fees' },
+        { icon: Banknote, name: 'Expenses', path: '/expenses' },
+        { icon: ClipboardCheck, name: 'Payroll', path: '/payroll/history' },
+        { icon: DollarSign, name: 'My Payroll', path: '/my-payroll' },
+        { icon: Wallet, name: 'Avance', path: '/shule-avance' },
+        { icon: MessageSquare, name: 'Chat', path: '/chat', badgeCount: unreadCount },
     ];
 
     return (
@@ -29,7 +29,7 @@ const BottomNav = () => {
                 {navItems.map((item) => (
                     <NavLink
                         key={item.path}
-                        to={item.path}
+                        to={h(item.path)}
                         end={item.exact}
                         className={({ isActive }) => `
               flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors

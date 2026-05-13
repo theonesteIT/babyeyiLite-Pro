@@ -22,6 +22,7 @@ import {
   Headphones,
   History,
   CalendarDays,
+  GraduationCap,
 } from 'lucide-react';
 import useChatUnread from '../../../../shared/hooks/useChatUnread';
 import { h } from '../utils/href';
@@ -51,7 +52,7 @@ const AppStatusBadge = ({ status = 'online' }) => {
 
 const NavItem = ({ icon, name, path, exact, onClose, badgeCount = 0 }) => (
   <NavLink
-    to={path}
+    to={h(path)}
     end={exact}
     onClick={onClose}
     className={({ isActive }) =>
@@ -87,7 +88,15 @@ const ExpandableNavItem = ({ icon, name, subItems, onClose }) => {
   const location = useLocation();
   const pathMatches = (path) => {
     if (!path) return false;
-    return location.pathname === h(path);
+    const full = h(path);
+    if (path.includes('?')) {
+      return `${location.pathname}${location.search}` === full;
+    }
+    const querySiblingActive = subItems.some(
+      (x) => x.path && x.path.includes('?') && `${location.pathname}${location.search}` === h(x.path)
+    );
+    if (location.pathname === full && querySiblingActive) return false;
+    return location.pathname === full;
   };
   const isAnyActive = subItems.some((s) => pathMatches(s.path));
   const [open, setOpen] = useState(isAnyActive);
@@ -190,14 +199,15 @@ const Sidebar = ({ onClose }) => {
         aria-label="Accountant navigation"
       >
         <SectionLabel label="Main" />
-        <NavItem icon={LayoutDashboard} name="Dashboard" path={h('/')} exact onClose={onClose} />
+        <NavItem icon={LayoutDashboard} name="Dashboard" path="/" exact onClose={onClose} />
 
         <SectionLabel label="Finance operations" />
-        <NavItem icon={Receipt} name="Student Fees" path={h('/fees')} onClose={onClose} />
-        <NavItem icon={FileSpreadsheet} name="Babyeyi Fee Cards" path={h('/fees/babyeyi-fees')} onClose={onClose} />
-        <NavItem icon={FileText} name="Invoice Registry" path={h('/invoices')} onClose={onClose} />
-        <NavItem icon={Banknote} name="Expenses" path={h('/expenses')} onClose={onClose} />
-        <NavItem icon={FileSpreadsheet} name="Requisitions" path={h('/requisitions')} onClose={onClose} />
+        <NavItem icon={Receipt} name="Student Fees" path="/fees" onClose={onClose} />
+        <NavItem icon={FileSpreadsheet} name="Babyeyi Fee Cards" path="/fees/babyeyi-fees" onClose={onClose} />
+        <NavItem icon={GraduationCap} name="Examination list" path="/examination-list" onClose={onClose} />
+        <NavItem icon={FileText} name="Invoice Registry" path="/invoices" onClose={onClose} />
+        <NavItem icon={Banknote} name="Expenses" path="/expenses" onClose={onClose} />
+        <NavItem icon={FileSpreadsheet} name="Requisitions" path="/requisitions" onClose={onClose} />
         <ExpandableNavItem
           icon={ClipboardCheck}
           name="Payroll"
@@ -208,12 +218,12 @@ const Sidebar = ({ onClose }) => {
           ]}
         />
 
-        <NavItem icon={CalendarDays} name="School Calendar" path={h('/school-calendar')} onClose={onClose} />
+        <NavItem icon={CalendarDays} name="School Calendar" path="/school-calendar" onClose={onClose} />
 
         <SectionLabel label="Services" />
-        <NavItem icon={DollarSign} name="My Payroll" path={h('/my-payroll')} onClose={onClose} />
-        <NavItem icon={Wallet} name="Teacher Avance" path={h('/shule-avance')} onClose={onClose} />
-        <NavItem icon={MessageSquare} name="Chat Center" path={h('/chat')} onClose={onClose} badgeCount={unreadCount} />
+        <NavItem icon={DollarSign} name="My Payroll" path="/my-payroll" onClose={onClose} />
+        <NavItem icon={Wallet} name="Teacher Avance" path="/shule-avance" onClose={onClose} />
+        <NavItem icon={MessageSquare} name="Chat Center" path="/chat" onClose={onClose} badgeCount={unreadCount} />
       </nav>
 
       <div className="p-4 pt-2 shrink-0 border-t border-white/[0.06] space-y-3">

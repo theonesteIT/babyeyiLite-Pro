@@ -62,6 +62,55 @@ function trimStr(v) {
   return String(v).trim();
 }
 
+/** Period attendance + round roll call rows merged by normalized class name */
+function mergeClassAttendanceBuckets(lessonRows, roundRows) {
+  const map = new Map();
+  const add = (rawName, total, pres, abs) => {
+    const k = normalizeGradebookLabel(rawName);
+    if (!k) return;
+    const cur = map.get(k) || { total_marks: 0, present_count: 0, absent_count: 0 };
+    map.set(k, {
+      total_marks: cur.total_marks + (Number(total) || 0),
+      present_count: cur.present_count + (Number(pres) || 0),
+      absent_count: cur.absent_count + (Number(abs) || 0),
+    });
+  };
+  for (const r of lessonRows || []) add(r.class_name, r.total_marks, r.present_count, r.absent_count);
+  for (const r of roundRows || []) add(r.class_name, r.total_marks, r.present_count, r.absent_count);
+  return map;
+}
+
+/** Lesson marks + round roll marks merged by teacher user id */
+function mergeTeacherAttendanceBuckets(lessonRows, roundRows) {
+  const map = new Map();
+  const add = (staffId, total, pres, abs, name, dept) => {
+    const id = Number(staffId);
+    if (!Number.isFinite(id) || id <= 0) return;
+    const cur = map.get(id) || {
+      total_marks: 0,
+      present_count: 0,
+      absent_count: 0,
+      teacher_name: name || '—',
+      department: dept || 'TEACHER',
+    };
+    map.set(id, {
+      staff_id: id,
+      total_marks: cur.total_marks + (Number(total) || 0),
+      present_count: cur.present_count + (Number(pres) || 0),
+      absent_count: cur.absent_count + (Number(abs) || 0),
+      teacher_name: (name && String(name).trim()) || cur.teacher_name,
+      department: (dept && String(dept).trim()) || cur.department,
+    });
+  };
+  for (const r of lessonRows || []) {
+    add(r.staff_id, r.total_marks, r.present_count, r.absent_count, r.teacher_name, r.department);
+  }
+  for (const r of roundRows || []) {
+    add(r.staff_id, r.total_marks, r.present_count, r.absent_count, r.teacher_name, r.department);
+  }
+  return map;
+}
+
 function parsePagination(req) {
   const page = Math.max(1, Number(req.query.page) || 1);
   const limit = Math.min(100, Math.max(10, Number(req.query.limit) || 20));
@@ -2397,7 +2446,7 @@ router.get('/dos/attendance/term-progress', requireRole(DOS_ATTENDANCE_ROLES), a
 // ════════════════════════════════════════════════════════════════
 // GET /api/dos/reports/attendance/by-class
 //   ?from=YYYY-MM-DD&to=YYYY-MM-DD&days=90
-// Returns per-class attendance summary from lesson roll-call records.
+// Returns per-class attendance summary: period (timetable) marks + round roll call marks.
 // ════════════════════════════════════════════════════════════════
 
 router.get('/dos/reports/attendance/by-class', requireRole(DOS_ATTENDANCE_ROLES), async (req, res) => {
@@ -2425,8 +2474,25 @@ router.get('/dos/reports/attendance/by-class', requireRole(DOS_ATTENDANCE_ROLES)
       [schoolId, from, to]
     );
 
+    const [rrRows] = await promisePool.query(
+      `SELECT
+         lg.class_name,
+         COUNT(rr.id) AS total_marks,
+         SUM(CASE WHEN LOWER(TRIM(rr.status)) IN ('present','late','permission','excused') THEN 1 ELSE 0 END) AS present_count,
+         SUM(CASE WHEN LOWER(TRIM(rr.status)) IN ('absent','sick') THEN 1 ELSE 0 END) AS absent_count
+       FROM teacher_round_roll_call_logs lg
+       INNER JOIN teacher_round_roll_call_records rr ON rr.log_id = lg.id
+       WHERE lg.school_id = ? AND lg.record_date BETWEEN ? AND ?
+       GROUP BY lg.class_name`,
+      [schoolId, from, to]
+    ).catch(() => [[]]);
+
+    const mergedByClass = mergeClassAttendanceBuckets(rows, rrRows);
+    const classKeys = Array.from(mergedByClass.keys()).sort((a, b) => a.localeCompare(b));
+
     let totalPresent = 0, totalAbsent = 0;
-    const classes = rows.map((r) => {
+    const classes = classKeys.map((k) => {
+      const r = mergedByClass.get(k);
       const total   = Number(r.total_marks)   || 0;
       const present = Number(r.present_count) || 0;
       const absent  = Number(r.absent_count)  || 0;
@@ -2434,8 +2500,8 @@ router.get('/dos/reports/attendance/by-class', requireRole(DOS_ATTENDANCE_ROLES)
       totalPresent += present;
       totalAbsent  += absent;
       return {
-        id:           r.class_name,
-        class:        r.class_name,
+        id:           k,
+        class:        k,
         headTeacher:  '—',
         absences:     absent,
         presenceRate: rate,
@@ -2449,6 +2515,36 @@ router.get('/dos/reports/attendance/by-class', requireRole(DOS_ATTENDANCE_ROLES)
     const chronicAbsentees = classes.filter((c) => c.presenceRate < 75).length;
     const top = classes.reduce((best, c) => (!best || c.presenceRate > best.presenceRate ? c : best), null);
 
+    const [rrSessions] = await promisePool.query(
+      `SELECT
+         lg.class_name,
+         lg.roll_label,
+         COUNT(rr.id) AS total_marks,
+         SUM(CASE WHEN LOWER(TRIM(rr.status)) IN ('present','late','permission','excused') THEN 1 ELSE 0 END) AS present_count,
+         SUM(CASE WHEN LOWER(TRIM(rr.status)) IN ('absent','sick') THEN 1 ELSE 0 END) AS absent_count
+       FROM teacher_round_roll_call_logs lg
+       INNER JOIN teacher_round_roll_call_records rr ON rr.log_id = lg.id
+       WHERE lg.school_id = ? AND lg.record_date BETWEEN ? AND ?
+       GROUP BY lg.class_name, lg.roll_label
+       ORDER BY lg.class_name ASC, lg.roll_label ASC`,
+      [schoolId, from, to]
+    ).catch(() => [[]]);
+
+    const round_roll_sessions = (rrSessions || []).map((r) => {
+      const total = Number(r.total_marks) || 0;
+      const present = Number(r.present_count) || 0;
+      const absent = Number(r.absent_count) || 0;
+      const rate = total > 0 ? Math.round((present / total) * 100) : 0;
+      return {
+        class_name: normalizeGradebookLabel(r.class_name || ''),
+        roll_label: String(r.roll_label ?? '').trim(),
+        total_marks: total,
+        present_count: present,
+        absent_count: absent,
+        presence_rate: rate,
+      };
+    });
+
     res.json({
       success: true,
       data: {
@@ -2460,6 +2556,7 @@ router.get('/dos/reports/attendance/by-class', requireRole(DOS_ATTENDANCE_ROLES)
           range: { from, to },
         },
         classes,
+        round_roll_sessions,
       },
     });
   } catch (err) {
@@ -2471,7 +2568,7 @@ router.get('/dos/reports/attendance/by-class', requireRole(DOS_ATTENDANCE_ROLES)
 // ════════════════════════════════════════════════════════════════
 // GET /api/dos/reports/attendance/by-teacher
 //   ?from=YYYY-MM-DD&to=YYYY-MM-DD&days=90
-// Returns per-teacher attendance summary inferred from lesson roll-call.
+// Returns per-teacher summary: lesson roll-call + round roll call (recorded_by_user_id).
 // ════════════════════════════════════════════════════════════════
 router.get('/dos/reports/attendance/by-teacher', requireRole(DOS_ATTENDANCE_ROLES), async (req, res) => {
   try {
@@ -2501,8 +2598,30 @@ router.get('/dos/reports/attendance/by-teacher', requireRole(DOS_ATTENDANCE_ROLE
       [schoolId, from, to]
     );
 
+    const [rrTeach] = await promisePool.query(
+      `SELECT
+         lg.recorded_by_user_id AS staff_id,
+         MAX(TRIM(CONCAT(COALESCE(u.first_name,''), ' ', COALESCE(u.last_name,'')))) AS teacher_name,
+         MAX(COALESCE(r.role_code, 'TEACHER')) AS department,
+         COUNT(rr.id) AS total_marks,
+         SUM(CASE WHEN LOWER(TRIM(rr.status)) IN ('present','late','permission','excused') THEN 1 ELSE 0 END) AS present_count,
+         SUM(CASE WHEN LOWER(TRIM(rr.status)) IN ('absent','sick') THEN 1 ELSE 0 END) AS absent_count
+       FROM teacher_round_roll_call_logs lg
+       INNER JOIN teacher_round_roll_call_records rr ON rr.log_id = lg.id
+       LEFT JOIN users u ON u.id = lg.recorded_by_user_id
+       LEFT JOIN roles r ON r.id = u.role_id
+       WHERE lg.school_id = ? AND lg.record_date BETWEEN ? AND ?
+       GROUP BY lg.recorded_by_user_id`,
+      [schoolId, from, to]
+    ).catch(() => [[]]);
+
+    const mergedByTeacher = mergeTeacherAttendanceBuckets(rows, rrTeach);
+    const staffSorted = Array.from(mergedByTeacher.values()).sort((a, b) =>
+      String(a.teacher_name || '').localeCompare(String(b.teacher_name || ''))
+    );
+
     let totalPresent = 0, totalAbsent = 0;
-    const staff = rows.map((r) => {
+    const staff = staffSorted.map((r) => {
       const total   = Number(r.total_marks)   || 0;
       const present = Number(r.present_count) || 0;
       const absent  = Number(r.absent_count)  || 0;

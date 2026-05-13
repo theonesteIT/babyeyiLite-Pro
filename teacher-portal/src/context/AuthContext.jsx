@@ -84,7 +84,7 @@ export const AuthProvider = ({ children }) => {
 
   /**
    * Same contract as BabyeyiSystem/frontend: POST /api/auth/login with
-   * identifier, password, schoolCode (optional), remember_me.
+   * identifier (email or HR staff code / staff_id), password, schoolCode (optional), remember_me.
    * Shule Teacher portal accepts only TEACHER role.
    */
   const login = async (identifier, password, { schoolCode = '', rememberMe = false } = {}) => {
