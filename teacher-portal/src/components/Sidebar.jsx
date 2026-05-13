@@ -144,7 +144,16 @@ const Sidebar = ({ onClose }) => {
           <NavItem icon={Users} name="Students" path="/students" onClose={onClose} />
           <NavItem icon={BookOpen} name="English Club" path="/english-club" onClose={onClose} />
           <NavItem icon={Calendar} name="Timetable" path="/timetable" onClose={onClose} />
-          <NavItem icon={ClipboardCheck} name="Attendance" path="/attendance" onClose={onClose} />
+          <ExpandableNavItem
+            icon={ClipboardCheck}
+            name="Attendance"
+            onClose={onClose}
+            subItems={[
+              { name: 'Period attendance', path: '/attendance', icon: ClipboardCheck },
+              { name: 'Round roll call', path: '/round-roll-call', icon: Users },
+              { name: 'Teacher attendance', path: '/teacher-attendance', icon: GraduationCap },
+            ]}
+          />
           <ExpandableNavItem
             icon={ClipboardList}
             name="Marks Sheet"

@@ -129,7 +129,7 @@ const Login = () => {
                      {/* Email or Username */}
                      <div>
                         <label className="block text-[11.5px] font-semibold text-gray-700 uppercase tracking-wide mb-1.5">
-                           Email or Username
+                           Email, username, or staff number
                         </label>
                         <div className="group flex items-center rounded-xl border-[1.5px] border-gray-200 bg-gray-50 overflow-hidden transition-all focus-within:border-[#FF8C00] focus-within:bg-orange-50/60 focus-within:shadow-[0_0_0_3px_rgba(255,140,0,0.15)]">
                            <span className="w-10 flex items-center justify-center shrink-0 text-gray-300 group-focus-within:text-[#FF8C00] transition-colors">
@@ -140,11 +140,15 @@ const Login = () => {
                               autoComplete="username"
                               value={identifier}
                               onChange={e => setIdentifier(e.target.value)}
-                              placeholder="Enter your email..."
+                              placeholder="Email, username, or HR staff number"
                               className="w-full py-2.5 pr-3 bg-transparent outline-none text-[13.5px] text-gray-900 placeholder:text-gray-300 font-normal"
                               required
                            />
                         </div>
+                        <p className="mt-1.5 text-[11px] text-gray-400 leading-snug">
+                           Use the staff number your manager entered in HR Center (same as the Staff ID on your profile),
+                           or your school email / username, with your password.
+                        </p>
                      </div>
 
                      {/* Password */}

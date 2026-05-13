@@ -588,19 +588,26 @@ export default function TeacherViewAttendance() {
 
       <div className="tv-page">
         {/* Navigation Toggle identical to Attendance.jsx */}
-        <div className="mb-4 bg-white border border-black/5 rounded-2xl p-2 flex gap-2 w-full md:w-fit shadow-sm">
+        <div className="mb-4 bg-white border border-black/5 rounded-2xl p-2 flex flex-wrap gap-2 w-full md:w-fit shadow-sm">
             <button
                 type="button"
                 onClick={() => navigate('/attendance')}
                 className="px-4 h-10 rounded-xl text-[10px] font-black uppercase tracking-widest bg-re-bg text-re-text-muted hover:bg-black/5 transition-all"
             >
-                StudentAttendance
+                Period attendance
+            </button>
+            <button
+                type="button"
+                onClick={() => navigate('/round-roll-call')}
+                className="px-4 h-10 rounded-xl text-[10px] font-black uppercase tracking-widest bg-re-bg text-re-text-muted hover:bg-black/5 transition-all"
+            >
+                Round roll call
             </button>
             <button
                 type="button"
                 className="px-4 h-10 rounded-xl text-[10px] font-black uppercase tracking-widest bg-re-grad-orange text-white"
             >
-                TeacherAttendance
+                Teacher attendance
             </button>
         </div>
 

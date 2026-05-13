@@ -223,6 +223,7 @@ router.post('/login', loginLimiter, async (req, res) => {
       : '';
 
     // School managers must send school code so login joins exactly their school (no other school’s dashboard).
+    // Identifier matches: email, platform username, user_uid, HR staff number (staff.staff_id), staff username, Avance org login.
     const [roleProbe] = await promisePool.query(
       `SELECT r.role_code AS role_code
        FROM users u
@@ -231,14 +232,15 @@ router.post('/login', loginLimiter, async (req, res) => {
        LEFT JOIN pro_shule_avance_organizations sao ON sao.user_id = u.id
        WHERE u.deleted_at IS NULL
          AND (
-           u.email = ?
-           OR u.user_uid = ?
-           OR st.staff_id = ?
-           OR st.username = ?
+           LOWER(TRIM(u.email)) = ?
+           OR LOWER(TRIM(u.username)) = ?
+           OR LOWER(TRIM(u.user_uid)) = ?
+           OR LOWER(TRIM(st.staff_id)) = ?
+           OR LOWER(TRIM(st.username)) = ?
            OR LOWER(TRIM(sao.login_username)) = ?
          )
        LIMIT 1`,
-      [id, id, id, id, id]
+      [id, id, id, id, id, id]
     );
     const probeRole = String(roleProbe[0]?.role_code || '').toUpperCase();
     if (
@@ -294,17 +296,18 @@ router.post('/login', loginLimiter, async (req, res) => {
         OR sc.id           = u.school_id
       )
       WHERE (
-        u.email     = ?
-        OR u.user_uid = ?
-        OR st.staff_id = ?
-        OR st.username = ?
+        LOWER(TRIM(u.email)) = ?
+        OR LOWER(TRIM(u.username)) = ?
+        OR LOWER(TRIM(u.user_uid)) = ?
+        OR LOWER(TRIM(st.staff_id)) = ?
+        OR LOWER(TRIM(st.username)) = ?
         OR LOWER(TRIM(sao.login_username)) = ?
       )
       AND u.deleted_at IS NULL
       ${scNorm ? 'AND sc.school_code = ?' : ''}
       LIMIT 1
     `;
-    const params = [id, id, id, id, id];
+    const params = [id, id, id, id, id, id];
     if (scNorm) params.push(scNorm);
 
     const [users] = await promisePool.query(sql, params);

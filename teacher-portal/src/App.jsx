@@ -15,6 +15,7 @@ import Students from './pages/Students';
 import FeaturePlaceholders from './pages/FeaturePlaceholders';
 import Timetable from './pages/Timetable';
 import Attendance from './pages/Attendance';
+import RoundRollCall from './pages/RoundRollCall';
 import TeacherAttendanceView from './pages/TeacherAttendanceView';
 import RecordMarks from './pages/RecordMarks';
 import ViewMarks from './pages/ViewMarks';
@@ -64,6 +65,7 @@ function AppContent() {
       <Route path="/students" element={<ProtectedRoute title="Students">          <Students />                                                     </ProtectedRoute>} />
       <Route path="/timetable" element={<ProtectedRoute title="Timetable">         <Timetable />                                                    </ProtectedRoute>} />
       <Route path="/attendance" element={<ProtectedRoute title="Attendance">        <Attendance />                                                   </ProtectedRoute>} />
+      <Route path="/round-roll-call" element={<ProtectedRoute title="Round Roll Call"> <RoundRollCall /> </ProtectedRoute>} />
       <Route path="/teacher-attendance" element={<ProtectedRoute title="Teacher Attendance"> <TeacherAttendanceView /> </ProtectedRoute>} />
       <Route path="/requisitions" element={<ProtectedRoute title="Requisitions">    <Requisitions />                                                 </ProtectedRoute>} />
       <Route path="/requisitionsRes" element={<ProtectedRoute title="Requisitions"> <RequisitionsRes />                                              </ProtectedRoute>} />

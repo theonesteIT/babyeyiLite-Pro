@@ -278,20 +278,27 @@ export default function Attendance() {
 
             {/* ── Main Content Area ── */}
             <div className="relative z-30 max-w-[1600px] mx-auto px-2 md:px-6 -mt-10">
-                <div className="mb-3 bg-white border border-black/5 rounded-2xl p-2 flex gap-2 w-full md:w-fit">
+                <div className="mb-3 bg-white border border-black/5 rounded-2xl p-2 flex flex-wrap gap-2 w-full md:w-fit">
                     <button
                         type="button"
                         aria-current="page"
                         className="px-4 h-10 rounded-xl text-[10px] font-black uppercase tracking-widest bg-re-grad-orange text-white"
                     >
-                        Student Attendance
+                        Period attendance
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => navigate('/round-roll-call')}
+                        className="px-4 h-10 rounded-xl text-[10px] font-black uppercase tracking-widest bg-re-bg text-re-text-muted transition-colors hover:bg-re-bg/80"
+                    >
+                        Round roll call
                     </button>
                     <button
                         type="button"
                         onClick={() => navigate('/teacher-attendance')}
                         className="px-4 h-10 rounded-xl text-[10px] font-black uppercase tracking-widest bg-re-bg text-re-text-muted transition-colors hover:bg-re-bg/80"
                     >
-                        Teacher Attendance
+                        Teacher attendance
                     </button>
                 </div>
 

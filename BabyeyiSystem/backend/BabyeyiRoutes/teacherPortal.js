@@ -372,6 +372,8 @@ async function ensureTeacherTables() {
             'attendance_teacher',
             'attendance_teacher_class',
             'parent_notification_queue',
+            'teacher_round_roll_call_logs',
+            'teacher_round_roll_call_records',
         ];
         try {
             const [rows] = await promisePool.query(
@@ -653,7 +655,41 @@ async function ensureTeacherTables() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
 
+    await promisePool.query(`
+      CREATE TABLE IF NOT EXISTS teacher_round_roll_call_logs (
+        id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        school_id INT UNSIGNED NOT NULL,
+        class_name VARCHAR(160) NOT NULL,
+        record_date DATE NOT NULL,
+        recorded_by_user_id INT UNSIGNED NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_rrc_day_class (school_id, class_name, record_date),
+        INDEX idx_rrc_school_date (school_id, record_date)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+
+    await promisePool.query(`
+      CREATE TABLE IF NOT EXISTS teacher_round_roll_call_records (
+        id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        log_id INT UNSIGNED NOT NULL,
+        student_id INT UNSIGNED NOT NULL,
+        status VARCHAR(32) NOT NULL,
+        remarks VARCHAR(255) NULL,
+        UNIQUE KEY uq_rrc_student (log_id, student_id),
+        INDEX idx_rrc_student (student_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+
     teacherTablesReady = true;
+}
+
+/** Round roll — DB → UI (present | absent | excused) */
+function roundRollDbToUi(dbStatus) {
+    const s = String(dbStatus || '').toLowerCase().trim();
+    if (s === 'present') return 'present';
+    if (s === 'absent' || s === 'sick') return 'absent';
+    if (s === 'excused' || s === 'permission') return 'excused';
+    return 'present';
 }
 
 function normalizePeriodLabel(startTime) {
@@ -1659,6 +1695,155 @@ router.get('/classes', requireTeacherRole, async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ success: false, message: 'Failed to fetch classes' });
+    }
+});
+
+// ============================================================
+// GET /api/teacher-portal/round-roll-call  ?class_name=&date=
+// Full-class roll (no period) — present / absent / excused
+// ============================================================
+router.get('/round-roll-call', requireTeacherRole, async (req, res) => {
+    try {
+        await ensureTeacherTables();
+        const schoolId = resolveSchoolId(req);
+        if (!schoolId) return res.status(400).json({ success: false, message: 'No school linked' });
+
+        const className = normalizeGradebookLabel(req.query.class_name || '');
+        const recordDate = toSqlDate(req.query.date || new Date().toISOString().slice(0, 10));
+        if (!className) {
+            return res.status(400).json({ success: false, message: 'class_name is required' });
+        }
+
+        const lookupDate = recordDate;
+        const [stuRows] = await promisePool.query(
+            `SELECT s.id AS row_id, s.student_uid,
+                    TRIM(CONCAT(COALESCE(s.first_name, ''), ' ', COALESCE(s.last_name, ''))) AS student_name,
+                    s.gender, s.class_name,
+                    (SELECT permission_type FROM student_permissions
+                     WHERE student_id = s.id AND status = 'APPROVED'
+                     AND (DATE(starts_at) = ? OR DATE(ends_at) = ? OR (? BETWEEN DATE(starts_at) AND DATE(ends_at)))
+                     LIMIT 1) AS active_permission
+             FROM students s
+             WHERE s.school_id = ? AND (${sqlNormLabelEquals('s.class_name')})
+             ORDER BY s.first_name ASC, s.last_name ASC
+             LIMIT 500`,
+            [lookupDate, lookupDate, lookupDate, schoolId, className]
+        );
+
+        const [logs] = await promisePool.query(
+            `SELECT id FROM teacher_round_roll_call_logs
+             WHERE school_id = ? AND (${sqlNormLabelEquals('class_name')}) AND record_date = ?
+             LIMIT 1`,
+            [schoolId, className, recordDate]
+        );
+        let byStudentId = {};
+        if (logs.length) {
+            const logId = logs[0].id;
+            const [recs] = await promisePool.query(
+                'SELECT student_id, status, remarks FROM teacher_round_roll_call_records WHERE log_id = ?',
+                [logId]
+            );
+            byStudentId = Object.fromEntries(
+                recs.map((r) => [r.student_id, { status: r.status, remarks: r.remarks || '' }])
+            );
+        }
+
+        const roster = (stuRows || []).map((s) => {
+            const saved = byStudentId[s.row_id];
+            const statusUi = saved ? roundRollDbToUi(saved.status) : 'present';
+            return {
+                id: s.row_id,
+                adm: s.student_uid,
+                name: String(s.student_name || '').trim() || '—',
+                gender: s.gender === 'Male' ? 'M' : s.gender === 'Female' ? 'F' : '—',
+                status: statusUi,
+                remarks: saved?.remarks || '',
+                active_permission: s.active_permission,
+            };
+        });
+
+        res.json({
+            success: true,
+            data: {
+                class_name: className,
+                date: recordDate,
+                log_exists: !!logs.length,
+                roster,
+            },
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: 'Failed to load round roll call' });
+    }
+});
+
+// ============================================================
+// POST /api/teacher-portal/round-roll-call
+// Body: { class_name, date, records: [{ student_id, status, remarks? }] }
+// ============================================================
+router.post('/round-roll-call', requireTeacherRole, async (req, res) => {
+    const conn = await promisePool.getConnection();
+    try {
+        await ensureTeacherTables();
+        const schoolId = resolveSchoolId(req);
+        const userId = resolveUserId(req);
+        if (!schoolId) return res.status(400).json({ success: false, message: 'No school linked' });
+
+        const className = normalizeGradebookLabel(req.body?.class_name || '');
+        const recordDate = toSqlDate(req.body?.date || new Date().toISOString().slice(0, 10));
+        const records = req.body?.records;
+        if (!className || !Array.isArray(records)) {
+            return res.status(400).json({ success: false, message: 'class_name and records[] are required' });
+        }
+
+        await conn.beginTransaction();
+
+        const [existing] = await conn.query(
+            `SELECT id FROM teacher_round_roll_call_logs
+             WHERE school_id = ? AND (${sqlNormLabelEquals('class_name')}) AND record_date = ?
+             LIMIT 1`,
+            [schoolId, className, recordDate]
+        );
+
+        let logId = existing[0]?.id;
+        if (!logId) {
+            const [ins] = await conn.query(
+                `INSERT INTO teacher_round_roll_call_logs (school_id, class_name, record_date, recorded_by_user_id)
+                 VALUES (?, ?, ?, ?)`,
+                [schoolId, className, recordDate, userId]
+            );
+            logId = ins.insertId;
+        } else {
+            await conn.query(
+                'UPDATE teacher_round_roll_call_logs SET recorded_by_user_id = ? WHERE id = ?',
+                [userId, logId]
+            );
+            await conn.query('DELETE FROM teacher_round_roll_call_records WHERE log_id = ?', [logId]);
+        }
+
+        for (const r of records) {
+            const sid = Number(r.student_id || 0);
+            if (!sid) continue;
+            const rawStatus = String(r.status || 'present').toLowerCase();
+            let st = 'Present';
+            if (rawStatus === 'absent') st = 'Absent';
+            else if (rawStatus === 'excused' || rawStatus === 'permission') st = 'Excused';
+            else st = normalizeAttendanceStatusDb(r.status);
+            await conn.query(
+                `INSERT INTO teacher_round_roll_call_records (log_id, student_id, status, remarks)
+                 VALUES (?, ?, ?, ?)`,
+                [logId, sid, st, r.remarks ? String(r.remarks).slice(0, 255) : null]
+            );
+        }
+
+        await conn.commit();
+        res.json({ success: true, message: 'Round roll call saved', data: { log_id: logId } });
+    } catch (err) {
+        await conn.rollback().catch(() => {});
+        console.error(err);
+        res.status(500).json({ success: false, message: 'Failed to save round roll call' });
+    } finally {
+        conn.release();
     }
 });
 
