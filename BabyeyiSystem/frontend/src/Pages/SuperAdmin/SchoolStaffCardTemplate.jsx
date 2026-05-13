@@ -212,7 +212,6 @@ export async function renderStaffCardToCanvas(staff, template, photoImg, logoImg
   /* ── 2. School logo (no top accent bar — matches React preview) ── */
   const topPad = 16 * s;
   const schoolTitle = (template?.school_name || staff.school || 'SCHOOL').toUpperCase();
-  const schoolPhone = (template?.school_phone || staff.school_phone || '').trim();
   const logoSz = 86 * s;
   const logoX = W / 2 - logoSz / 2;
   const logoY = topPad;
@@ -233,18 +232,12 @@ export async function renderStaffCardToCanvas(staff, template, photoImg, logoImg
 
   const schoolNameY = logoY + logoSz + 18 * s;
   ctx.fillStyle = C.navy;
-  ctx.font = `900 ${18.5 * s}px ${FONT_STACK}`;
+  ctx.font = `900 ${14 * s}px ${FONT_STACK}`;
   ctx.textAlign = 'center';
   ctx.fillText(schoolTitle, W / 2, schoolNameY);
 
-  if (schoolPhone) {
-    ctx.fillStyle = C.sub;
-    ctx.font = `700 ${12.5 * s}px ${FONT_STACK}`;
-    ctx.fillText(schoolPhone, W / 2, schoolNameY + 16 * s);
-  }
-
   /* ── "STAFF IDENTITY CARD" badge — white fill, amber border/text (same as IDCardStaff / all downloads) ── */
-  const badgeY = schoolPhone ? schoolNameY + 16 * s + 14 * s : schoolNameY + 8 * s;
+  const badgeY = schoolNameY + 14 * s;
   const badgeW = 116 * s;
   const badgeH = 19 * s;
   const badgeX = W / 2 - badgeW / 2;
@@ -445,7 +438,6 @@ function CardLogoImg({ maxWidth = 210, height = 34 }) {
 export function IDCardStaff({ staff, template, scale = 1 }) {
   const schoolTitle = (template?.school_name || staff.school || 'SCHOOL').toUpperCase();
   const schoolLogoSrc = resolveMediaUrl(template?.school_logo_url) || resolveMediaUrl(staff.school_logo_full);
-  const schoolPhone = (template?.school_phone || staff.school_phone || '').trim();
   const photoOffsetX = Number(template?.photo_offset_x) || 0;
   const photoOffsetY = Number(template?.photo_offset_y) || 0;
   const photoZoom = Math.max(0.85, Math.min(2.2, Number(template?.photo_zoom) || 1));
@@ -475,12 +467,19 @@ export function IDCardStaff({ staff, template, scale = 1 }) {
             <SchoolLogoSVG size={86} />
           )}
         </div>
-        <div style={{ fontSize: 18.5, fontWeight: 900, color: C.navy, textAlign: 'center', lineHeight: 1.15, letterSpacing: 0.25, marginBottom: 2 }}>{schoolTitle}</div>
-        {schoolPhone ? (
-          <div style={{ fontSize: 12.5, fontWeight: 700, color: C.sub, textAlign: 'center', lineHeight: 1.15, marginBottom: 6 }}>{schoolPhone}</div>
-        ) : (
-          <div style={{ marginBottom: 4 }} />
-        )}
+        <div style={{
+          fontSize: 14,
+          fontWeight: 900,
+          color: C.navy,
+          textAlign: 'center',
+          lineHeight: 1.2,
+          letterSpacing: 0.2,
+          marginBottom: 8,
+          maxWidth: 292,
+          paddingLeft: 8,
+          paddingRight: 8,
+          wordWrap: 'break-word',
+        }}>{schoolTitle}</div>
 
         {/* STAFF ID badge — white (matches canvas PNG/JPEG/PDF/ZIP) */}
         <div style={{
