@@ -147,14 +147,22 @@ async function ensureTable() {
     ['auto_approved', 'TINYINT(1) NOT NULL DEFAULT 0'],
     ['auto_approved_at', 'DATETIME NULL'],
   ];
+  const failedAlters = [];
   for (const [name, def] of cols) {
     try {
       await promisePool.query(`ALTER TABLE shule_avance_requests ADD COLUMN ${name} ${def}`);
     } catch (e) {
-      if (e.code !== 'ER_DUP_FIELDNAME') {
-        console.warn(`[shule-avance] ALTER add ${name}:`, e.message);
-      }
+      if (e.code === 'ER_DUP_FIELDNAME') continue;
+      console.warn(`[shule-avance] ALTER add ${name}:`, e.message);
+      failedAlters.push({ name, message: e.message, code: e.code });
     }
+  }
+  if (failedAlters.length) {
+    throw new Error(
+      `[shule-avance] shule_avance_requests is missing column(s): ${failedAlters.map((f) => f.name).join(', ')}. ` +
+        'Grant ALTER on this table to the app DB user or run the migrations manually. ' +
+        `First error: ${failedAlters[0].message}`
+    );
   }
 
   await ensureShuleAvanceTeacherCatalogTable();
@@ -634,6 +642,9 @@ async function handleApplicantList(req, res) {
     });
   } catch (error) {
     console.error('[shule-avance] applicant list:', error.message);
+    if (error.sqlMessage) console.error('[shule-avance] applicant list sql:', error.sqlMessage);
+    if (error.code) console.error('[shule-avance] applicant list code:', error.code);
+    console.error(error.stack);
     res.status(500).json({ success: false, message: 'Failed to load your ShuleAvance requests' });
   }
 }
