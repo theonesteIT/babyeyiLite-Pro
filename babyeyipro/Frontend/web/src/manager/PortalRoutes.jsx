@@ -39,6 +39,7 @@ import ChatCenter from '../shared/pages/ChatCenter'
 import AuditCenter from './pages/AuditCenter'
 import StockReports from './pages/StockReports'
 import LibraryReports from './pages/LibraryReports'
+import ManagerProfile from './pages/ManagerProfile'
 import { PORTAL } from './config/portal'
 import { h } from './utils/href'
 
@@ -132,6 +133,7 @@ function ManagerRoutesInner() {
       <Route path="reports/discipline" element={<ProtectedRoute title="Student Discipline"><DisciplineReports /></ProtectedRoute>} />
 
       <Route path="settings" element={<ProtectedRoute title="System Configuration"><SystemConfiguration /></ProtectedRoute>} />
+      <Route path="profile" element={<ProtectedRoute title="My profile"><ManagerProfile /></ProtectedRoute>} />
       <Route path="settings/gradebook" element={<Navigate to={h('/operations?tab=gradebook')} replace />} />
       <Route path="permissions" element={<ProtectedRoute title="Student Permissions"><PermissionsManager /></ProtectedRoute>} />
       <Route path="teacher-permission-reports" element={<ProtectedRoute title="Teacher Permission Reports"><TeacherPermissionReports /></ProtectedRoute>} />

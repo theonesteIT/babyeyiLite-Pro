@@ -2,13 +2,13 @@ import { useState, useRef, useEffect } from 'react';
 import { Menu, Search, Bell, ChevronDown, LogOut, Settings, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import ProfileModal from '../../shared/components/ProfileModal';
+import { h } from '../utils/href';
+import { resolveUserPhotoUrl } from '../../shared/utils/userPhotoUrl';
 
 const TopNav = ({ title, onMenuClick }) => {
     const navigate = useNavigate();
-    const { manager, setManager, logout } = useAuth();
+    const { manager, logout } = useAuth();
     const [userOpen, setUserOpen] = useState(false);
-    const [profileOpen, setProfileOpen] = useState(false);
     const [search, setSearch] = useState('');
     const userRef = useRef(null);
 
@@ -24,6 +24,7 @@ const TopNav = ({ title, onMenuClick }) => {
     const initials = manager
         ? `${(manager.first_name || '')[0] || ''}${(manager.last_name || '')[0] || ''}`.toUpperCase()
         : '?';
+    const avatarPhoto = manager?.photo ? resolveUserPhotoUrl(manager.photo) : null;
 
     return (
     <>
@@ -102,9 +103,13 @@ const TopNav = ({ title, onMenuClick }) => {
                     >
                         <div className="relative">
                             <div
-                                className="w-9 h-9 rounded-full bg-gradient-to-br from-re-navy to-re-navy-dark text-re-gold flex items-center justify-center font-semibold text-xs border-2 border-white shadow-md transition-transform"
+                                className="w-9 h-9 rounded-full bg-gradient-to-br from-re-navy to-re-navy-dark text-re-gold flex items-center justify-center font-semibold text-xs border-2 border-white shadow-md transition-transform overflow-hidden"
                             >
-                                {initials}
+                                {avatarPhoto ? (
+                                    <img src={avatarPhoto} alt="" className="h-full w-full object-cover" />
+                                ) : (
+                                    initials
+                                )}
                             </div>
                             <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full" />
                         </div>
@@ -128,10 +133,14 @@ const TopNav = ({ title, onMenuClick }) => {
                             <div className="px-4 py-3 border-b border-black/5">
                                 <div className="flex items-center gap-3">
                                     <div
-                                        className="w-9 h-9 rounded-xl text-white flex items-center justify-center font-medium text-sm shadow-sm border border-white/20 shrink-0"
+                                        className="w-9 h-9 rounded-xl text-white flex items-center justify-center font-medium text-sm shadow-sm border border-white/20 shrink-0 overflow-hidden"
                                         style={{ background: 'linear-gradient(135deg,#FEBF10,#D9A400)' }}
                                     >
-                                        {initials}
+                                        {avatarPhoto ? (
+                                            <img src={avatarPhoto} alt="" className="h-full w-full object-cover" />
+                                        ) : (
+                                            initials
+                                        )}
                                     </div>
                                     <div>
                                         <p className="text-xs font-medium text-re-navy uppercase tracking-tight">
@@ -147,13 +156,13 @@ const TopNav = ({ title, onMenuClick }) => {
                             {/* Menu */}
                             <div className="py-1">
                                 <button
-                                    onClick={() => { setProfileOpen(true); setUserOpen(false); }}
+                                    onClick={() => { navigate(h('/profile')); setUserOpen(false); }}
                                     className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-re-text-muted hover:bg-navy-50 hover:text-re-navy transition-all"
                                 >
                                     <User size={13} /> My Profile
                                 </button>
                                 <button
-                                    onClick={() => { navigate('/settings'); setUserOpen(false); }}
+                                    onClick={() => { navigate(h('/settings')); setUserOpen(false); }}
                                     className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-re-text-muted hover:bg-navy-50 hover:text-re-navy transition-all"
                                 >
                                     <Settings size={13} /> Settings
@@ -173,13 +182,6 @@ const TopNav = ({ title, onMenuClick }) => {
                 </div>
             </div>
         </header>
-
-        <ProfileModal
-            open={profileOpen}
-            onClose={() => setProfileOpen(false)}
-            user={manager}
-            onUserUpdate={(updates) => setManager?.((prev) => ({ ...prev, ...updates }))}
-        />
     </>
     );
 };

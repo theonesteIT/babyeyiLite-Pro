@@ -1,11 +1,17 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Mail, Lock, Eye, EyeOff, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { resolveUserPhotoUrl } from '../utils/userPhotoUrl';
 
 const API = (import.meta.env.VITE_API_URL || 'http://localhost:5100') + '/api';
 
-const ProfileModal = ({ open, onClose, user, onUserUpdate }) => {
+const ProfileModal = ({ open, onClose, user, onUserUpdate, variant = 'modal' }) => {
+    const isInline = variant === 'inline';
     const [tab, setTab] = useState('email');
     const [email, setEmail] = useState(user?.email || '');
+
+    useEffect(() => {
+        setEmail(user?.email || '');
+    }, [user?.email]);
     const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -15,11 +21,12 @@ const ProfileModal = ({ open, onClose, user, onUserUpdate }) => {
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState(null);
 
-    if (!open) return null;
+    if (!isInline && !open) return null;
 
     const initials = user
         ? `${(user.first_name || '')[0] || ''}${(user.last_name || '')[0] || ''}`.toUpperCase()
         : '?';
+    const photoUrl = user?.photo ? resolveUserPhotoUrl(user.photo) : null;
 
     const resetForm = () => {
         setCurrentPassword('');
@@ -91,21 +98,25 @@ const ProfileModal = ({ open, onClose, user, onUserUpdate }) => {
         }
     };
 
-    return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center">
-            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    const card = (
+            <div className={`relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden ${isInline ? 'border border-slate-200 shadow-sm' : 'mx-4 animate-in fade-in zoom-in-95 duration-200'}`}>
                 {/* Header */}
                 <div className="relative bg-gradient-to-r from-[#000435] to-[#1E3A5F] px-6 py-5">
+                    {!isInline && (
                     <button
                         onClick={onClose}
                         className="absolute top-4 right-4 p-1 text-white/60 hover:text-white hover:bg-white/10 rounded-lg transition-all"
                     >
                         <X size={18} />
                     </button>
+                    )}
                     <div className="flex items-center gap-4">
-                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#FEBF10] to-[#D9A400] flex items-center justify-center text-white font-bold text-lg shadow-lg border-2 border-white/20">
-                            {initials}
+                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#FEBF10] to-[#D9A400] flex items-center justify-center text-white font-bold text-lg shadow-lg border-2 border-white/20 overflow-hidden shrink-0">
+                            {photoUrl ? (
+                                <img src={photoUrl} alt="" className="h-full w-full object-cover" />
+                            ) : (
+                                initials
+                            )}
                         </div>
                         <div>
                             <h2 className="text-white font-semibold text-base tracking-tight">
@@ -249,6 +260,16 @@ const ProfileModal = ({ open, onClose, user, onUserUpdate }) => {
                     )}
                 </div>
             </div>
+    );
+
+    if (isInline) {
+        return card;
+    }
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+            {card}
         </div>
     );
 };
