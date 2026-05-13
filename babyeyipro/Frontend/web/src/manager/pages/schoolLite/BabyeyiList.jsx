@@ -11,7 +11,7 @@ import { getLegacyBabyeyiUI, getParentMessageForDisplay, getParentMessageForMach
 import { BABYEYI_AUTO_LANG_OPTIONS, isCoreBabyeyiLang, normalizeBabyeyiLang } from '../../schoolLiteSupport/babyeyiTranslateLangs.js';
 import { useBabyeyiUiT } from '../../schoolLiteSupport/hooks/useBabyeyiUiT.js';
 import { translateLongText, translateWithLingvaCached } from '../../schoolLiteSupport/lib/lingvaTranslate.js';
-import { API_BASE, SERVER_BASE as ASSET_BASE, FRONTEND_ORIGIN } from '../../lib/schoolLiteApi';
+import { API_BASE, SERVER_BASE as ASSET_BASE, babyeyiVerifyScanUrl } from '../../lib/schoolLiteApi';
 import {
   Eye,
   Pencil,
@@ -33,7 +33,64 @@ import {
 } from 'lucide-react';
 
 const FONT = `"MTN Brighter Sans","Nunito","Varela Round",sans-serif`;
-const verifyUrl = (docId) => docId ? `${FRONTEND_ORIGIN}/babyeyi/verify/${docId}` : "";
+/** Apply ensureQRCode result to state (client data URL or server PNG). */
+export async function applyQrToState(result, setQrB64, setVUrl) {
+  if (!result) return;
+  if (result.qrDataUrl) {
+    setQrB64(result.qrDataUrl);
+    setVUrl(result.vUrl);
+  } else if (result.qrUrl) {
+    const b64 = await toBase64(toAssetUrl(result.qrUrl));
+    setQrB64(b64);
+    setVUrl(result.vUrl);
+  }
+}
+
+// ── QR helpers ────────────────────────────────────────────────
+export async function ensureQRCode(rec) {
+  if (!rec?.id) return null;
+  const vUrlFallback = babyeyiVerifyScanUrl(rec.docId, rec.integrityHash);
+  if (rec.docId) {
+    try {
+      const scanUrl = babyeyiVerifyScanUrl(rec.docId, rec.integrityHash);
+      const QRCode = (await import("qrcode")).default;
+      const qrDataUrl = await QRCode.toDataURL(scanUrl, {
+        errorCorrectionLevel: "M",
+        width: 240,
+        margin: 1,
+        color: { dark: "#0f172a", light: "#ffffff" },
+      });
+      return { qrDataUrl, vUrl: scanUrl };
+    } catch (e) {
+      console.warn("[ensureQRCode] client QR:", e?.message || e);
+    }
+  }
+  try {
+    const res = await fetch(`${API_BASE}/babyeyi/${rec.id}/qrcode`, { credentials: "include" });
+    const json = await res.json();
+    if (json.success && json.data?.qr_code_url) {
+      return {
+        qrUrl: json.data.qr_code_url,
+        vUrl: json.data.qr_view_url || vUrlFallback,
+      };
+    }
+  } catch {}
+  try {
+    const res = await fetch(`${API_BASE}/babyeyi/${rec.id}/regenerate-docs`, { method: "POST", credentials: "include" });
+    const json = await res.json();
+    if (json.success) {
+      const qrRes = await fetch(`${API_BASE}/babyeyi/${rec.id}/qrcode`, { credentials: "include" });
+      const qrJson = await qrRes.json();
+      if (qrJson.success && qrJson.data?.qr_code_url) {
+        return {
+          qrUrl: qrJson.data.qr_code_url,
+          vUrl: qrJson.data.qr_view_url || vUrlFallback,
+        };
+      }
+    }
+  } catch {}
+  return null;
+}
 
 /** `session.userRole` values allowed to PATCH Kinyarwanda `content_i18n` (extend if your API uses other codes). */
 const BABYEYI_RW_EDITOR_ROLE_CODES = new Set([
@@ -236,26 +293,6 @@ async function captureDocAsImage({ rec, schoolLogoB64, otherLogoB64, sigB64, sta
     const canvas = await window.html2canvas(root, babyeyiDocHtml2CanvasOptions("__by_c__"));
     return canvas.toDataURL("image/jpeg", 0.95);
   } finally { document.body.removeChild(host); document.head.removeChild(style); }
-}
-
-// ── QR helpers ────────────────────────────────────────────────
-async function ensureQRCode(rec) {
-  if (!rec?.id) return null;
-  try {
-    const res = await fetch(`${API_BASE}/babyeyi/${rec.id}/qrcode`, { credentials: "include" });
-    const json = await res.json();
-    if (json.success && json.data?.qr_code_url) return { qrUrl: json.data.qr_code_url, vUrl: json.data.qr_view_url || verifyUrl(rec.docId) };
-  } catch {}
-  try {
-    const res = await fetch(`${API_BASE}/babyeyi/${rec.id}/regenerate-docs`, { method: "POST", credentials: "include" });
-    const json = await res.json();
-    if (json.success) {
-      const qrRes = await fetch(`${API_BASE}/babyeyi/${rec.id}/qrcode`, { credentials: "include" });
-      const qrJson = await qrRes.json();
-      if (qrJson.success && qrJson.data?.qr_code_url) return { qrUrl: qrJson.data.qr_code_url, vUrl: qrJson.data.qr_view_url || verifyUrl(rec.docId) };
-    }
-  } catch {}
-  return null;
 }
 
 async function patchRwContentI18n(babyeyiId, body) {
@@ -487,7 +524,7 @@ function ShareModal({ rec, onClose, schoolLogoB64, otherLogoB64, sigB64, stampB6
   const [step, setStep] = useState("capturing");
   const [imgUrl, setImgUrl] = useState(null);
   const [errMsg, setErrMsg] = useState(null);
-  const shareVerifyUrl = vUrl || verifyUrl(rec.docId);
+  const shareVerifyUrl = vUrl || babyeyiVerifyScanUrl(rec.docId, rec.integrityHash);
 
   useEffect(() => {
     setStep("capturing");
@@ -863,10 +900,10 @@ function OfficialDoc({
       toBase64(toAssetUrl(originalRec.stampPath)),
     ]).then(([logo, otherLogo, sig, stamp]) => { setSchoolLogoB64(logo); setOtherLogoB64(otherLogo); setSigB64(sig); setStampB64(stamp); });
     setQrLoading(true);
-    ensureQRCode(originalRec).then(async result => {
-      if (result) { const b64 = await toBase64(toAssetUrl(result.qrUrl)); setQrB64(b64); setVUrl(result.vUrl); }
+    ensureQRCode(originalRec).then(async (result) => {
+      await applyQrToState(result, setQrB64, setVUrl);
     }).finally(() => setQrLoading(false));
-  }, [originalRec.id]);
+  }, [originalRec.id, originalRec.docId, originalRec.integrityHash]);
 
   useEffect(() => {
     if (globalLang) setLang(normalizeBabyeyiLang(globalLang));
@@ -924,7 +961,7 @@ function OfficialDoc({
       const json = await res.json();
       if (json.success) {
         const result = await ensureQRCode(rec);
-        if (result) { const b64 = await toBase64(toAssetUrl(result.qrUrl)); setQrB64(b64); setVUrl(result.vUrl); }
+        await applyQrToState(result, setQrB64, setVUrl);
       }
     } catch (e) { alert("Error: " + e.message); }
     finally { setRegenerating(false); }
@@ -964,7 +1001,7 @@ function OfficialDoc({
             <span className={`w-1.5 h-1.5 rounded-full inline-block ${st.dot}`} /> {st.label}
           </span>
           {rec.docId && (
-            <a href={verifyUrl(rec.docId)} target="_blank" rel="noreferrer"
+            <a href={babyeyiVerifyScanUrl(rec.docId, rec.integrityHash)} target="_blank" rel="noreferrer"
               className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 rounded-xl text-[10px] font-bold shrink-0 hover:bg-emerald-500/25">
               <Check className="w-3 h-3 shrink-0" strokeWidth={3} aria-hidden /> {T.verify || "Verify"}
             </a>
@@ -1426,6 +1463,7 @@ const mapRow = (row) => {
     sector: row.school_sector || row.sector || "", createdAt: row.created_at || "",
     bankName: row.bank_name || "", bankAccountNo: row.bank_account_no || "", bankAccountName: row.bank_account_name || "",
     banksJson: row.banks_json || null, parentMessage: row.parent_message || "", docId: row.doc_id || null,
+    integrityHash: row.integrity_hash != null ? String(row.integrity_hash) : null,
     schoolLogoPath: row.school_logo_url || null, otherLogoPath: row.other_logo_url || null,
     qrCodeUrl: row.qr_code_url || row.qr_code_path || null, qrViewUrl: row.qr_view_url || null,
     pdfPath: row.pdf_url || row.pdf_path || null, signaturePath: null, stampPath: null,
@@ -1483,6 +1521,7 @@ async function loadFullRecord(sumRec, docLang = "en") {
     qrViewUrl: sig.qr_view_url || d.qr_view_url || null,
     pdfPath: norm(d.pdf_path) || norm(d.pdf_url) || null,
     docId: d.doc_id || sumRec.docId || null,
+    integrityHash: d.integrity_hash != null ? String(d.integrity_hash) : sumRec.integrityHash || null,
     totalFee: Number(d.total_fee || d.total_amount || payments.reduce((s, p) => s + Number(p.amount || 0), 0) || 0),
     parentMessage: d.parent_message || sumRec.parentMessage || "",
     banksJson: d.banks_json || sumRec.banksJson || null,
@@ -1621,7 +1660,7 @@ export default function BabyeyiList({ session }) {
       )}
       {editing && <EditWizardModal rec={editing} session={session} onClose={() => setEditing(null)} onSaved={u => { handleSaved(u); setEditing(null); }} />}
       {deleting && <DeleteModal rec={deleting} onConfirm={handleDelete} onCancel={() => setDeleting(null)} T={T} />}
-      {sharing && !isBlocked(sharing.status) && <ShareModal rec={sharing} onClose={() => setSharing(null)} schoolLogoB64={null} otherLogoB64={null} sigB64={null} stampB64={null} qrB64={null} vUrl={sharing.qrViewUrl || verifyUrl(sharing.docId)} lang={lang} T={T} />}
+      {sharing && !isBlocked(sharing.status) && <ShareModal rec={sharing} onClose={() => setSharing(null)} schoolLogoB64={null} otherLogoB64={null} sigB64={null} stampB64={null} qrB64={null} vUrl={babyeyiVerifyScanUrl(sharing.docId, sharing.integrityHash) || sharing.qrViewUrl} lang={lang} T={T} />}
 
       {!schoolId && (
         <div className="bg-red-600 text-white text-center text-[12px] font-bold py-2 px-4 rounded-xl mb-4">School session not found. Please log out and log back in.</div>

@@ -23,6 +23,22 @@ function getTermRange(selectedYear, selectedTerm) {
     return { from: `${a}-09-01`, to: `${b}-08-31` };
 }
 
+function clipToToday(isoDate) {
+    const t = new Date().toISOString().slice(0, 10);
+    return !isoDate || isoDate > t ? t : isoDate;
+}
+
+function resolveStaffReportRange(selectedYear, selectedTerm, specificDate, academic) {
+    if (specificDate) return { from: specificDate, to: specificDate };
+    if (selectedTerm === 'Annual Review') return getTermRange(selectedYear, selectedTerm);
+    const termName = String(selectedTerm || '').replace(/\s*\(Current\)\s*/i, '').trim();
+    if (academic?.getTermDates && termName) {
+        const cfg = academic.getTermDates(termName);
+        if (cfg && cfg.start && cfg.end) return { from: cfg.start, to: cfg.end };
+    }
+    return getTermRange(selectedYear, selectedTerm);
+}
+
 /** Presence attributed to the teacher on the timetable row for each roll-call mark. */
 const StaffAttendanceReports = () => {
     const academic = useAcademic();
@@ -58,12 +74,22 @@ const StaffAttendanceReports = () => {
         setLoading(true);
         setError(null);
         try {
-            const termRange = getTermRange(selectedYear, selectedTerm);
-            const from = specificDate || termRange.from;
-            const to = specificDate || termRange.to;
-            const res = await api.get('/dos/reports/attendance/by-teacher', {
-                params: { from, to, days: TERM_DAYS[selectedTerm] || 90 },
-            });
+            const { from: rawFrom, to: rawTo } = resolveStaffReportRange(selectedYear, selectedTerm, specificDate, academic);
+            const from = rawFrom;
+            const to = specificDate ? rawTo : clipToToday(rawTo);
+            const termParam = String(selectedTerm || '').replace(/\s*\(Current\)\s*/i, '').trim();
+            const useExplicitDates = Boolean(specificDate) || selectedTerm === 'Annual Review';
+            const metricsParams = useExplicitDates
+                ? { from, to }
+                : { term: termParam };
+
+            const [res, metricsRes] = await Promise.all([
+                api.get('/dos/reports/attendance/by-teacher', {
+                    params: { from, to, days: TERM_DAYS[selectedTerm] || 90 },
+                }),
+                api.get('/dos/reports/hr/staff-metrics', { params: metricsParams }).catch(() => ({ data: { success: false } })),
+            ]);
+
             if (!res.data.success) {
                 setError(res.data.message || 'Failed to load');
                 return;
@@ -76,9 +102,20 @@ const StaffAttendanceReports = () => {
                     mostPresentClass: s.mostPresentClass ?? '—',
                     termSync: s.termSync ?? 'Live',
                 });
-                if (s.range) setRange(s.range);
             }
-            setStaffRows(Array.isArray(staff) ? staff : []);
+            setRange({ from, to });
+
+            const metricsData = metricsRes.data?.success ? metricsRes.data.data : null;
+            const byUser = new Map((metricsData?.staff || []).map((m) => [Number(m.user_id), m]));
+            const enriched = (Array.isArray(staff) ? staff : []).map((row) => {
+                const m = byUser.get(Number(row.id));
+                return {
+                    ...row,
+                    gateReliabilityPct: m?.reliability_pct ?? null,
+                    performanceOutOf100: m?.performance_out_of_100 ?? null,
+                };
+            });
+            setStaffRows(enriched);
         } catch (e) {
             console.error(e);
             setError(e.response?.data?.message || e.message || 'Could not load report');
@@ -89,8 +126,8 @@ const StaffAttendanceReports = () => {
     };
 
     useEffect(() => {
-        if (selectedTerm && selectedYear) load();
-    }, [selectedTerm, selectedYear, specificDate]);
+        if (selectedTerm && selectedYear && !academic.loading) load();
+    }, [selectedTerm, selectedYear, specificDate, academic.loading, academic.termDates]);
 
     const filteredAnalytics = useMemo(
         () =>
@@ -122,7 +159,7 @@ const StaffAttendanceReports = () => {
                         </div>
                         <h1 className="text-2xl md:text-3xl font-semibold text-white tracking-tight leading-none mb-2 mt-2 uppercase" style={{ fontFamily: "'Montserrat', sans-serif" }}>Staff Attendance</h1>
                         <p className="text-[10px] font-medium text-white/60 max-w-xl leading-relaxed uppercase tracking-widest" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-                            Student presence in periods tied to each teacher on the timetable
+                            Roll-call presence plus gate morning / evening reliability for the selected term (dates from Preferences when configured)
                         </p>
                     </div>
                 </div>
@@ -267,8 +304,9 @@ const StaffAttendanceReports = () => {
                             <thead>
                                 <tr className="bg-re-bg/20 border-b border-black/5">
                                     <th className="px-4 sm:px-8 py-3 sm:py-4 text-[7px] sm:text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5 last:border-r-0">Teacher</th>
-                                    <th className="hidden md:table-cell px-8 py-4 text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Absent marks</th>
-                                    <th className="hidden md:table-cell px-8 py-4 text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Presence</th>
+                                    <th className="hidden md:table-cell px-8 py-4 text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Roll-call</th>
+                                    <th className="hidden md:table-cell px-8 py-4 text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Gate reliability</th>
+                                    <th className="hidden md:table-cell px-8 py-4 text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Score /100</th>
                                     <th className="hidden md:table-cell px-8 py-4 text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Status</th>
                                     <th className="px-4 sm:px-8 py-3 sm:py-4 text-[7px] sm:text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.2em] opacity-40 text-right">Action</th>
                                 </tr>
@@ -302,22 +340,32 @@ const StaffAttendanceReports = () => {
                                                 </div>
                                             </td>
                                             <td className="hidden md:table-cell px-8 py-5">
-                                                <div className="flex flex-col gap-0.5">
+                                                <div className="space-y-1.5 max-w-[140px]">
                                                     <div className="flex items-center gap-2">
-                                                        <p className="text-[10px] font-semibold text-re-text uppercase tracking-tight">{cls.absences} absent marks</p>
+                                                        <p className="text-[9px] font-semibold text-re-text uppercase tracking-tight">{cls.absences} absent</p>
                                                         {cls.trend === 'up' ? <TrendingDown size={10} className="text-emerald-500" /> : <Activity size={10} className="text-red-500" />}
                                                     </div>
-                                                </div>
-                                            </td>
-                                            <td className="hidden md:table-cell px-8 py-5">
-                                                <div className="space-y-1.5 max-w-[120px]">
-                                                    <div className="flex items-center justify-between">
-                                                        <p className="text-[9px] font-semibold text-re-text">{cls.presenceRate}% present</p>
+                                                    <div className="flex items-center justify-between gap-1">
+                                                        <p className="text-[9px] font-semibold text-re-text">{cls.presenceRate}%</p>
                                                     </div>
                                                     <div className="w-full h-1.5 bg-black/5 rounded-full overflow-hidden">
                                                         <div className="h-full" style={{ width: `${cls.presenceRate}%`, background: cls.presenceRate >= 95 ? 'linear-gradient(135deg, #1E3A5F 0%, #3D5A80 100%)' : (cls.presenceRate >= 85 ? '#FEBF10' : '#ef4444') }} />
                                                     </div>
                                                 </div>
+                                            </td>
+                                            <td className="hidden md:table-cell px-8 py-5">
+                                                <div className="space-y-1 max-w-[100px]">
+                                                    <p className="text-[10px] font-semibold text-re-text">
+                                                        {cls.gateReliabilityPct != null ? `${cls.gateReliabilityPct}%` : '—'}
+                                                    </p>
+                                                    <p className="text-[7px] font-bold text-re-text-muted uppercase tracking-wider opacity-60">morning + evening</p>
+                                                </div>
+                                            </td>
+                                            <td className="hidden md:table-cell px-8 py-5">
+                                                <p className="text-sm font-bold text-[#1E3A5F]">
+                                                    {cls.performanceOutOf100 != null ? `${cls.performanceOutOf100}` : '—'}
+                                                    <span className="text-[9px] font-semibold text-re-text-muted"> /100</span>
+                                                </p>
                                             </td>
                                             <td className="hidden md:table-cell px-8 py-5">
                                                 <div className={`inline-flex px-3 py-1.5 rounded-lg text-[8px] font-semibold uppercase tracking-widest ring-1 ring-inset ${cls.status === 'Exceptional' ? 'bg-emerald-50 text-emerald-600 ring-emerald-500/20' :

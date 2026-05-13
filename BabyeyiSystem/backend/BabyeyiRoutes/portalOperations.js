@@ -1437,10 +1437,13 @@ router.get('/accountant/expenses', requireRole(ACCOUNTANT_READ_ROLES), async (re
   try {
     const { schoolId } = req.ctx;
     const [rows] = await promisePool.query(
-      `SELECT id, category, title, vendor, amount_rwf, due_date, status, note, created_at
-       FROM accountant_expenses
-       WHERE school_id = ? AND deleted_at IS NULL
-       ORDER BY id DESC`,
+      `SELECT e.id, e.category, e.title, e.vendor, e.amount_rwf, e.due_date, e.status, e.note, e.created_at, e.created_by_user_id,
+              TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))) AS created_by_display_name,
+              u.email AS created_by_email
+       FROM accountant_expenses e
+       LEFT JOIN users u ON u.id = e.created_by_user_id AND u.deleted_at IS NULL
+       WHERE e.school_id = ? AND e.deleted_at IS NULL
+       ORDER BY e.id DESC`,
       [schoolId]
     );
     const [payments] = await promisePool.query(
@@ -1477,6 +1480,9 @@ router.get('/accountant/expenses', requireRole(ACCOUNTANT_READ_ROLES), async (re
         status: r.status || 'pending',
         note: r.note || '',
         created_at: r.created_at,
+        created_by_user_id: r.created_by_user_id ? Number(r.created_by_user_id) : null,
+        created_by_name: String(r.created_by_display_name || '').trim() || null,
+        created_by_email: r.created_by_email || '',
         payments: byExpense.get(r.id) || [],
       })),
     });

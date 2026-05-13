@@ -412,6 +412,20 @@ export async function renderStaffCardToCanvas(staff, template, photoImg, logoImg
   return canvas;
 }
 
+function SchoolLogoSVG({ size = 64, px }) {
+  const dim = px ?? size;
+  return (
+    <svg width={dim} height={dim} viewBox="0 0 100 100">
+      <circle cx="50" cy="50" r="47" fill={C.navy} stroke={C.gold} strokeWidth="2.5" />
+      <circle cx="50" cy="50" r="39" fill="#fff" />
+      <rect x="24" y="44" width="24" height="18" rx="2" fill={C.navy} />
+      <rect x="52" y="44" width="24" height="18" rx="2" fill={C.navyLight} />
+      <rect x="47" y="30" width="6" height="14" rx="2" fill={C.gold} />
+      <ellipse cx="50" cy="28" rx="5" ry="7" fill="#f5a623" />
+    </svg>
+  );
+}
+
 /* ══════════════════════════════════════════════════════════════════════
    CardLogoImg
 ══════════════════════════════════════════════════════════════════════ */

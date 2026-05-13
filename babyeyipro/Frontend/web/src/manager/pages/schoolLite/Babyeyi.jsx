@@ -113,41 +113,24 @@ const ic = {
 };
 const I = ({ n, size = 16, color }) => <Svg d={ic[n] || ic.info} size={size} color={color} />;
 
-// ── Constants ─────────────────────────────────────────────────
-const LEVEL_CLASSES = {
-  // Pre-Primary
-  Nursery:    ["N1","N2","N3"],
-  "Pre-Primary Education": ["N1","N2","N3"],
+// ── NESA fee_limits `level` must match national fee table labels ───────────
+function inferEducationLevelFromClassLabel(label) {
+  const raw = String(label || "").trim();
+  if (!raw) return "Primary Education";
+  const u = raw.toUpperCase();
+  if (/^(N[123]|PRE[- ]?PRIMARY|NURSERY)/.test(u) || /\bN[123]\b/.test(u)) return "Pre-Primary Education";
+  if (/\bP[1-6]\b/.test(u) || /^P[1-6]$/i.test(raw)) return "Primary Education";
+  if (/\bS[4-6]\b/.test(u)) return "Upper Secondary Education (A'Level)";
+  if (/\bS[1-3]\b/.test(u)) return "Lower Secondary Education (O'Level)";
+  if (/\b(L[1-3]|YEAR\s*1|Y1)\b/i.test(raw)) return "University";
+  return "Primary Education";
+}
 
-  // Primary
-  Primary:    ["P1","P2","P3","P4","P5","P6"],
-  "Primary Education": ["P1","P2","P3","P4","P5","P6"],
-
-  // Lower / Upper Secondary + programs
-  Secondary:  ["S1","S2","S3","S4","S5","S6"],
-  "Lower Secondary Education (O'Level)": ["S1","S2","S3"],
-  "Upper Secondary Education (A'Level)": ["S4","S5","S6"],
-  "Associate Nursing Program": ["S4","S5","S6"],
-
-  // Grade mapping + international track
-  "Grade 1-12": ["P1","P2","P3","P4","P5","P6","S1","S2","S3","S4","S5","S6"],
-  "International Students": ["N1","N2","N3","P1","P2","P3","P4","P5","P6","S1","S2","S3","S4","S5","S6"],
-
-  University: ["L1","L2","L3"],
-};
-
-const getDefaultClassesForLevel = (lvl) => {
-  // If you select International Students, pre-fill with Pre-Primary + Primary.
-  if (lvl === "International Students") {
-    return ["N1","N2","N3","P1","P2","P3","P4","P5","P6"];
-  }
-  // If you select Grade 1-12, start from Grade 1.
-  if (lvl === "Grade 1-12") return ["P1"];
-  // If you select Associate Nursing Program, start from Senior 4 (S4).
-  if (lvl === "Associate Nursing Program") return ["S4"];
-  // Otherwise: first class within that level.
-  return LEVEL_CLASSES[lvl]?.[0] ? [LEVEL_CLASSES[lvl][0]] : ["P1"];
-};
+/** Keep multi-select order aligned with the school catalog list. */
+function sortSelectedClassesByCatalog(selected, catalogOrder) {
+  const set = new Set(Array.isArray(selected) ? selected : []);
+  return catalogOrder.filter((c) => set.has(c));
+}
 
 const RW_LOCATIONS = {
   "Kigali City": {
@@ -262,8 +245,7 @@ const buildBlankForm = (school = {}, categoryOverride) => ({
   schoolLogo:           null,
   otherLogo:            null,
   includeSchoolDetails: true,
-  level:                "Primary",
-  classes:              ["P1"],
+  classes:              [],
   parentMessage:        "Dear Parents and Guardians,\n\nWe are pleased to inform you of the school fees for the upcoming term. Please find the detailed breakdown below.\n\nThank you for your continued support.",
   academicYear:         "2025-2026",
   term:                 "Term 1",
@@ -328,7 +310,7 @@ function FileZone({ label, sublabel, required, file, onFile, accept = "image/*,a
           {fromDB && !file && previewUrl && (
             <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold border"
               style={{ background: "#d1fae5", color: "#065f46", borderColor: "#6ee7b7" }}>
-              ✓ From DB
+              
             </span>
           )}
         </p>
@@ -374,27 +356,6 @@ function FileZone({ label, sublabel, required, file, onFile, accept = "image/*,a
   );
 }
 
-function ClassSelector({ level, selected, onChange }) {
-  const classes = LEVEL_CLASSES[level] || [];
-  const toggle = cls => {
-    if (selected.includes(cls)) { if (selected.length === 1) return; onChange(selected.filter(c => c !== cls)); }
-    else onChange([...selected, cls].sort((a,b) => classes.indexOf(a) - classes.indexOf(b)));
-  };
-  return (
-    <div className="flex flex-wrap gap-2">
-      {classes.map(cls => (
-        <button key={cls} type="button" onClick={() => toggle(cls)}
-          className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl font-semibold text-sm transition-all border-2 active:scale-95"
-          style={selected.includes(cls)
-            ? { background: C.gold, color: C.dark, borderColor: C.gold, boxShadow: "0 4px 12px rgba(254,191,16,0.4)" }
-            : { background: "#fff", color: "#475569", borderColor: C.goldBorder }}>
-          {cls}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 function DocPreview({ form, previews }) {
   const total = form.payments.reduce((s,p) => s + (Number(p.amount)||0), 0);
   const allBanks = [];
@@ -434,13 +395,13 @@ function DocPreview({ form, previews }) {
           <div className="w-14 h-14 border border-slate-300 rounded flex items-center justify-center bg-slate-50 shrink-0 overflow-hidden">
             {previews.otherLogo
               ? <img src={previews.otherLogo} className="w-full h-full object-contain" alt="other logo"/>
-              : <span className="text-xl">📋</span>}
+              : <span className="text-xl"></span>}
           </div>
         </div>
       </div>
       <div className="px-5 py-2 flex items-center justify-between"
         style={{ background: C.dark }}>
-        <div className="flex gap-2">{form.classes.map(c => (
+        <div className="flex gap-2">{(form.classes && form.classes.length ? form.classes : ["—"]).map(c => (
           <span key={c} className="px-2 py-0.5 rounded text-[9px] font-semibold"
             style={{ background: C.gold, color: C.dark }}>{c}</span>
         ))}</div>
@@ -576,6 +537,9 @@ export default function App({ session }) {
   const [studentReqCatalog, setStudentReqCatalog] = useState([]);
   const [studentReqCatalogLoading, setStudentReqCatalogLoading] = useState(true);
   const [studentReqCatalogError, setStudentReqCatalogError] = useState(null);
+  /** Distinct class labels from school_classes + students (GET /api/schools/:id/classes). */
+  const [registeredClassOptions, setRegisteredClassOptions] = useState([]);
+  const [registeredClassesLoading, setRegisteredClassesLoading] = useState(false);
 
   useEffect(() => {
     setForm(buildBlankForm({
@@ -658,6 +622,34 @@ export default function App({ session }) {
   }, [schoolId]);
 
   useEffect(() => {
+    if (!schoolId) return;
+    let cancelled = false;
+    setRegisteredClassesLoading(true);
+    fetch(`${API_BASE}/schools/${schoolId}/classes`, { credentials: "include" })
+      .then((r) => r.json().catch(() => ({})))
+      .then((json) => {
+        if (cancelled) return;
+        const opts = Array.isArray(json.class_name_options) ? json.class_name_options : [];
+        setRegisteredClassOptions(opts);
+        if (!opts.length) return;
+        setForm((prev) => {
+          if (!prev) return prev;
+          const prevArr = Array.isArray(prev.classes) ? prev.classes : [];
+          const kept = sortSelectedClassesByCatalog(prevArr, opts);
+          if (kept.length) return { ...prev, classes: kept };
+          return { ...prev, classes: [opts[0]] };
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setRegisteredClassOptions([]);
+      })
+      .finally(() => {
+        if (!cancelled) setRegisteredClassesLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [schoolId]);
+
+  useEffect(() => {
     if (!form || step !== 1) return;
     const opts = categoryOptionsForWizard(schoolKind, form.feeTargetStudents);
     if (!opts.includes(form.category)) {
@@ -720,8 +712,9 @@ export default function App({ session }) {
       setNesaLimitLoading(false);
       return;
     }
-    const { category, level, term, academicYear } = form;
-    if (!category || !level || !term || !academicYear) return;
+    const { category, term, academicYear } = form;
+    const level = inferEducationLevelFromClassLabel(form.classes?.[0] || "");
+    if (!category || !term || !academicYear) return;
     setNesaLimit(null);
     setNesaLimitSource("loading");
     const qp = `category=${encodeURIComponent(category)}&level=${encodeURIComponent(level)}&term=${encodeURIComponent(term)}&academic_year=${encodeURIComponent(academicYear)}`;
@@ -746,7 +739,7 @@ export default function App({ session }) {
       .catch(err => { if (err?.name !== "AbortError") applyNotFound(); })
       .finally(() => { if (!ac.signal.aborted) setNesaLimitLoading(false); });
     return () => ac.abort();
-  }, [form?.category, form?.level, form?.term, form?.academicYear, form?.feeTargetStudents, schoolFeeScope]);
+  }, [form?.category, form?.classes, form?.term, form?.academicYear, form?.feeTargetStudents, schoolFeeScope]);
 
   if (!form) {
     return (
@@ -795,6 +788,20 @@ export default function App({ session }) {
   };
 
   const handleNext = () => {
+    if (step === 1) {
+      if (registeredClassesLoading) {
+        showToast("Still loading your school classes…", "error");
+        return;
+      }
+      if (!registeredClassOptions.length) {
+        showToast("No registered classes found. Add classes in School Registry or enrol students first.", "error");
+        return;
+      }
+      if (!form?.classes?.length) {
+        showToast("Please select at least one class.", "error");
+        return;
+      }
+    }
     if (step === 2 && !validateStep2()) { showToast("Please fix the highlighted fields", "error"); return; }
     setErrors({});
     setStep(s => s + 1);
@@ -804,7 +811,12 @@ export default function App({ session }) {
     if (step === 8 && !validateStep2()) { showToast("Validation errors in Step 2.", "error"); return; }
     if (!schoolId) { showToast("School ID missing from session.", "error"); return; }
 
-    const classesToCreate = form.classes?.length ? form.classes : ["P1"];
+    const classesToCreate = form.classes?.length ? form.classes : [];
+    if (!classesToCreate.length) {
+      showToast("Select at least one class before submitting.", "error");
+      return;
+    }
+    const derivedEducationLevel = inferEducationLevelFromClassLabel(classesToCreate[0]);
     setSaving(true);
     const createdIds = [];
 
@@ -828,8 +840,8 @@ export default function App({ session }) {
       fd.append("class_name",        primaryClass);
       fd.append("class",             primaryClass);
       fd.append("classes",           JSON.stringify(classesToCreate));
-      fd.append("education_level",   form.level);
-      fd.append("level",             form.level);
+      fd.append("education_level",   derivedEducationLevel);
+      fd.append("level",             derivedEducationLevel);
       fd.append("school_category",   form.category);
       fd.append("category",          form.category);
       fd.append(
@@ -1273,23 +1285,18 @@ export default function App({ session }) {
               </div>
             )}
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {[
                 { label:"Academic Year", key:"academicYear", opts:["2025-2026","2024-2025","2026-2027"], lock:false },
                 { label:"Term",          key:"term",         opts:["Term 1","Term 2","Term 3"], lock:false },
                 { label:"Category",      key:"category",     opts: categoryFieldOpts, lock: categoryFieldLocked },
-                { label:"Level",         key:"level",        opts:Object.keys(LEVEL_CLASSES), lock:false,
-                  onChange: v => {
-                    up("level", v);
-                    up("classes", getDefaultClassesForLevel(v));
-                  } },
               ].map(f => (
                 <div key={f.key}>
                   <label className="block text-[10px] font-bold uppercase mb-1" style={{ color: C.darkMid }}>
                     {f.label}
                     {f.lock && (
                       <span className="ml-1 normal-case font-semibold text-[9px]" style={{ color: C.goldDark }}>
-                        (from school profile)
+                       
                       </span>
                     )}
                   </label>
@@ -1328,18 +1335,67 @@ export default function App({ session }) {
             </div>
 
             <div className="bg-white border rounded-2xl p-4" style={{ borderColor: C.goldBorder }}>
-              <label className="block text-[10px] font-semibold uppercase tracking-widest mb-3" style={{ color: C.darkMid }}>
-                Select Classes
+              <label className="block text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: C.darkMid }}>
+                Select classes
                 <span className="ml-2 font-normal normal-case text-[10px]" style={{ color: C.goldDark }}>
-                  — multi-select within same level
+                  — tick all that apply (registered at your school)
                 </span>
               </label>
-              <ClassSelector level={form.level} selected={form.classes} onChange={cls => up("classes", cls)} />
-              {form.classes.length > 1 && (
-                <div className="mt-3 flex items-center gap-2 text-xs font-semibold rounded-xl px-3 py-2"
-                  style={{ background: C.goldBg, color: C.goldDark }}>
-                  <I n="layers" size={13} /> {form.classes.length} classes selected — one Babyeyi per class
-                </div>
+              {registeredClassesLoading ? (
+                <p className="text-xs font-semibold flex items-center gap-2" style={{ color: C.darkMid }}>
+                  <svg className="w-4 h-4 animate-spin shrink-0" fill="none" viewBox="0 0 24 24" style={{ color: C.goldDark }}>
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                  </svg>
+                  Loading classes…
+                </p>
+              ) : !registeredClassOptions.length ? (
+                <p className="text-xs font-semibold leading-relaxed rounded-xl px-3 py-2.5 border"
+                  style={{ background: C.amberBg, color: C.darkMid, borderColor: C.amberBord }}>
+                  No classes found. Add classes under <strong>School Registry</strong> or ensure students are enrolled so classes appear here.
+                </p>
+              ) : (
+                <>
+                  {(() => {
+                    const selectedSet = new Set(form.classes || []);
+                    return (
+                  <div className="max-h-52 overflow-y-auto rounded-xl border p-2 space-y-0.5"
+                    style={{ borderColor: C.goldBorder, background: C.goldBg }}>
+                    {registeredClassOptions.map((c) => {
+                      const checked = selectedSet.has(c);
+                      return (
+                        <label
+                          key={c}
+                          className="flex items-center gap-2.5 px-2 py-2 rounded-lg cursor-pointer text-sm font-semibold transition-colors hover:bg-white/80"
+                          style={{ color: C.dark }}>
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => {
+                              const cur = Array.isArray(form.classes) ? [...form.classes] : [];
+                              if (checked) {
+                                if (cur.length <= 1) return;
+                                up("classes", sortSelectedClassesByCatalog(cur.filter((x) => x !== c), registeredClassOptions));
+                              } else {
+                                up("classes", sortSelectedClassesByCatalog([...cur, c], registeredClassOptions));
+                              }
+                            }}
+                            className="size-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500 shrink-0"
+                          />
+                          <span className="min-w-0 break-words">{c}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                    );
+                  })()}
+                  {form.classes.length > 1 && (
+                    <div className="mt-3 flex items-center gap-2 text-xs font-semibold rounded-xl px-3 py-2"
+                      style={{ background: C.goldBg, color: C.goldDark }}>
+                      <I n="layers" size={13} /> {form.classes.length} classes selected — one Babyeyi shared across these classes
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
@@ -1385,7 +1441,7 @@ export default function App({ session }) {
                   <p className="font-semibold text-white text-sm">Tuition Smart Checker</p>
                   <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.75)" }}>
                     {nesaLimitLoading ? "Fetching limit…"
-                      : nesaLimitSource === "none" ? `No fee limit configured for ${form.level} ${form.term}`
+                      : nesaLimitSource === "none" ? `No fee limit configured for ${inferEducationLevelFromClassLabel(form.classes?.[0])} ${form.term}`
                       : nesaLimit !== null ? `Limit: RWF ${nesaLimit.toLocaleString()}` : "No limit set"}
                   </p>
                 </div>
@@ -1460,7 +1516,7 @@ export default function App({ session }) {
                     className={`${inp} w-full sm:w-[158px] shrink-0 text-[11px] font-semibold`}
                     style={{ borderColor: C.goldBorder }}
                   >
-                    <option value="babyeyi">Pay via Babyeyi</option>
+                    <option value="babyeyi">Pay on Babyeyi</option>
                     <option value="school">Paid at school</option>
                   </select>
                   <div className="relative w-28 sm:w-36">
@@ -1713,12 +1769,10 @@ export default function App({ session }) {
                         className={`${inp} text-[13px] font-semibold`}
                         style={{ borderColor: C.goldBorder }}
                       >
-                        <option value="babyeyi">Pay via Babyeyi (online / MoMo)</option>
-                        <option value="school">Paid at school (counter / cash at office)</option>
+                        <option value="babyeyi">Pay on Babyeyi </option>
+                        <option value="school">Paid at school</option>
                       </select>
-                      <p className="text-[10px] mt-1 leading-snug" style={{ color: C.slate500 }}>
-                        Counter lines are grouped with tuition on the public pay page. Online items appear under other requirements.
-                      </p>
+
                       {r.pay_channel === "school" && (
                         <div className="mt-2.5">
                           <label className="text-[9px] font-semibold uppercase tracking-wider mb-1 block" style={{ color: C.slate500 }}>
@@ -1751,9 +1805,7 @@ export default function App({ session }) {
                   <label className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: C.darkMid }}>
                     Other School Information
                   </label>
-                  <p className="text-[10px] mt-0.5" style={{ color: C.slate }}>
-                    Rules, schedules, notices — stored in <span className="font-mono bg-slate-100 px-1 rounded">babyeyi_class_requirements</span>
-                  </p>
+                  
                 </div>
                 <button type="button" onClick={() => up("otherInfos",[...(form.otherInfos||[]),{item:""}])}
                   className="flex items-center gap-1 text-xs font-bold hover:opacity-80 px-2 py-1 rounded-lg shrink-0"
@@ -1971,15 +2023,7 @@ export default function App({ session }) {
       // ════════════════════════════════════════════════
       case 6: return (
         <div className="space-y-4">
-          <div className="rounded-xl p-3 flex gap-2 border" style={{ background: C.goldBg, borderColor: C.goldBorder }}>
-            <I n="info" size={13} color={C.goldDark} />
-            <div>
-              <p className="text-xs font-bold" style={{ color: C.goldDark }}>Other Information</p>
-              <p className="text-[10px] mt-0.5" style={{ color: C.goldDeep }}>
-                Stored in <span className="font-mono font-bold">babyeyi_class_requirements</span> table.
-              </p>
-            </div>
-          </div>
+         
           <div className="flex items-center justify-between">
             <label className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: C.darkMid }}>Other School Information</label>
             <button type="button" onClick={() => up("otherInfos",[...(form.otherInfos||[]),{item:""}])}
@@ -2028,17 +2072,7 @@ export default function App({ session }) {
         return (
           <div className="space-y-4">
             {/* Info banner */}
-            <div className="rounded-xl p-3 flex gap-2 border"
-              style={{ background: C.goldBg, borderColor: C.goldBorder }}>
-              <I n="users" size={13} color={C.goldDark} />
-              <div>
-                <p className="text-xs font-bold" style={{ color: C.goldDark }}>School Leadership Contacts</p>
-                <p className="text-[10px] mt-0.5" style={{ color: C.goldDeep }}>
-                  These contacts are saved in the <span className="font-mono font-bold">babyeyi_leaders</span> table
-                  and printed on the Babyeyi document so parents know who to reach.
-                </p>
-              </div>
-            </div>
+            
 
             {/* Leader cards */}
             <div className="space-y-3">
@@ -2221,7 +2255,7 @@ export default function App({ session }) {
           <div className="space-y-4">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {[
-                { label:"Classes",   val:form.classes.join(", "),         bg:C.goldBg,   border:C.goldBorder,  color:C.darkMid },
+                { label:"Classes",   val:(form.classes && form.classes.length) ? form.classes.join(", ") : "—",         bg:C.goldBg,   border:C.goldBorder,  color:C.darkMid },
                 { label:"Total Fee", val:`RWF ${totalFee.toLocaleString()}`, bg:exceeds?"#fef2f2":C.goldBg, border:exceeds?"#fca5a5":C.goldBorder, color:exceeds?C.red:C.darkMid },
                 { label:"NESA",      val:!nesaApplies?(form.feeTargetStudents==="private"?"— Private cohort":"— Not applied"):exceeds?"⚠ Exceeds":"✅ OK", bg:!nesaApplies?C.goldBg:exceeds?"#fef2f2":"#f0fdf4", border:!nesaApplies?C.goldBorder:exceeds?"#fca5a5":"#6ee7b7", color:!nesaApplies?C.darkMid:exceeds?C.red:C.emerald },
                 { label:"Leaders",   val:`${validLeadersCount} contact${validLeadersCount!==1?"s":""}`, bg:C.goldBg, border:C.goldBorder, color:C.darkMid },
@@ -2340,12 +2374,12 @@ export default function App({ session }) {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: "rgba(254,191,16,0.2)" }}>
-                <span className="text-base">📋</span>
+                <span className="text-base"></span>
               </div>
               <div>
                 <h1 className="font-semibold text-white text-sm sm:text-base leading-tight">Create Babyeyi</h1>
                 <p className="text-[10px]" style={{ color: C.goldLight }}>
-                  {form.schoolName || session?.schoolName || "School"} · {form.classes.join(", ")} · {form.level} · {form.term}
+                  {form.schoolName || session?.schoolName || "School"} · {(form.classes && form.classes.length) ? form.classes.join(", ") : "—"} · {form.term}
                 </p>
               </div>
             </div>
@@ -2541,7 +2575,7 @@ export default function App({ session }) {
                     if(errors.parentApprovalDoc) setErrors(p=>({...p,parentApprovalDoc:""}));
                   }}
                   accept="application/pdf,image/*"
-                  icon="📋"
+                  icon=""
                 />
                 {errors.parentApprovalDoc && (
                   <p className="text-xs font-semibold mt-1" style={{ color: C.red }}>{errors.parentApprovalDoc}</p>

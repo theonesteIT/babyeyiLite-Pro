@@ -713,9 +713,18 @@ const verifyIntegrityHash = (fields, providedHash) => {
   } catch { return false; }
 };
 
+// ── Public verify host (QR + qr_view_url). Prefer BABYEYI_VERIFY_PUBLIC_ORIGIN for production (e.g. https://babyeyi.rw). ──
+const getBabyeyiPublicVerifyOrigin = () =>
+  String(
+    process.env.BABYEYI_VERIFY_PUBLIC_ORIGIN ||
+      process.env.BABYEYI_PUBLIC_URL ||
+      process.env.FRONTEND_URL ||
+      "http://localhost:5173"
+  ).replace(/\/+$/, "");
+
 // ── v13: QR encodes full verify URL so phone opens browser directly ──
 const buildQRPayload = (docId, hash) => {
-  const base = (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, "");
+  const base = getBabyeyiPublicVerifyOrigin();
   return `${base}/babyeyi/verify/${docId}?h=${hash}`;
 };
 
@@ -1449,7 +1458,7 @@ const generateDocuments = async ({
   });
   console.log(`[generateDocuments] PDF file=${pdf.filePath}`);
 
-  const viewUrl = `${process.env.FRONTEND_URL || "http://localhost:5173"}/babyeyi/verify/${docId}`;
+  const viewUrl = `${getBabyeyiPublicVerifyOrigin()}/babyeyi/verify/${docId}?h=${integrityHash}`;
 
   try {
     await query(
@@ -2803,7 +2812,15 @@ router.post("/:id/qrcode", (req, res) => {
       const babyeyi = rows[0];
 
       const qrPath  = `/${UPLOAD_DIR}${qrFile.filename}`;
-      const viewUrl = `${process.env.FRONTEND_URL || "http://localhost:5173"}/babyeyi/verify/${babyeyi.doc_id || id}`;
+      const publicBase = getBabyeyiPublicVerifyOrigin();
+      const docIdNorm = babyeyi.doc_id && /^BY-\d{4}-\d{5}$/i.test(String(babyeyi.doc_id).trim())
+        ? String(babyeyi.doc_id).trim().toUpperCase()
+        : String(babyeyi.doc_id || id || "").trim();
+      const rawH = babyeyi.integrity_hash != null ? String(babyeyi.integrity_hash).trim().toLowerCase() : "";
+      const h16 = /^[0-9a-f]{16}$/.test(rawH) ? rawH : (rawH.length >= 16 && /^[0-9a-f]+$/.test(rawH) ? rawH.slice(0, 16) : "");
+      const viewUrl = h16 && /^BY-\d{4}-\d{5}$/.test(docIdNorm)
+        ? `${publicBase}/babyeyi/verify/${docIdNorm}?h=${h16}`
+        : `${publicBase}/babyeyi/verify/${docIdNorm}`;
 
       const existing = await query("SELECT id FROM babyeyi_signatures WHERE babyeyi_id=?", [id]).catch(() => []);
       if (existing.length) {

@@ -268,8 +268,7 @@ const Sidebar = ({ onClose }) => {
           subItems={[
             { name: 'School Profile',       path: '/registry',   icon: Building2 },
             { name: 'System Configuration', path: '/settings',   icon: Settings },
-            { name: 'Academic Planner',     path: '/timetable',  icon: GraduationCap },
-            { name: 'School Operations',    path: '/operations', icon: Activity },
+
           ]}
         />
       </nav>

@@ -2664,6 +2664,186 @@ router.get('/dos/reports/attendance/by-teacher', requireRole(DOS_ATTENDANCE_ROLE
 });
 
 // ════════════════════════════════════════════════════════════════
+// GET /api/dos/reports/hr/staff-metrics
+//   ?term=Term 1  OR  ?from=YYYY-MM-DD&to=YYYY-MM-DD
+// Gate reliability: (morning check-ins + evening exits) / (2 × working days elapsed in range).
+// Blends with lesson/round-roll presence for a single performance score /100.
+// ════════════════════════════════════════════════════════════════
+router.get('/dos/reports/hr/staff-metrics', requireRole(DOS_ATTENDANCE_ROLES), async (req, res) => {
+  try {
+    await ensureAcademicTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(403).json({ success: false, message: 'No active school context' });
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const fromQ = trimStr(req.query.from);
+    const toQ = trimStr(req.query.to);
+    const termQ = trimStr(req.query.term);
+
+    let from = fromQ;
+    let to = toQ;
+    let termLabel = termQ || '';
+    let rangeSource = 'custom';
+
+    if (!from || !to) {
+      const calendar = await getAcademicCalendarSettings(schoolId);
+      const termDates = Array.isArray(calendar.term_dates) ? calendar.term_dates : [];
+      const pickTerm = termQ || (Array.isArray(calendar.active_terms) && calendar.active_terms[0]) || 'Term 1';
+      const termCfg = termDates.find((t) => t && String(t.name || '').trim() === pickTerm);
+      if (termCfg && termCfg.start && termCfg.end) {
+        from = String(termCfg.start).trim();
+        to = String(termCfg.end).trim();
+        termLabel = String(termCfg.name || pickTerm).trim();
+        rangeSource = 'term_calendar';
+      } else {
+        const d1 = new Date();
+        d1.setDate(d1.getDate() - 89);
+        from = d1.toISOString().slice(0, 10);
+        to = todayStr;
+        termLabel = termQ || 'Last 90 days';
+        rangeSource = 'fallback_90d';
+      }
+    }
+
+    if (!from || !to) {
+      return res.json({
+        success: true,
+        data: {
+          term: termLabel,
+          range: { from: '', to: '', elapsed_to: '', expected_slots: 0, source: 'empty' },
+          staff: [],
+        },
+      });
+    }
+
+    const elapsedTo = to < todayStr ? to : todayStr;
+    const elapsedFrom = from;
+    let expectedSlots = 0;
+    if (elapsedFrom <= elapsedTo) {
+      expectedSlots = countWorkingDays(elapsedFrom, elapsedTo) * 2;
+    }
+
+    const [lessonRows] = await promisePool.query(
+      `SELECT
+         tt.staff_id,
+         TRIM(CONCAT(COALESCE(u.first_name,''), ' ', COALESCE(u.last_name,''))) AS teacher_name,
+         COALESCE(r.role_code, 'TEACHER')                                        AS department,
+         COUNT(ar.id)                                                             AS total_marks,
+         SUM(CASE WHEN LOWER(ar.status) IN ('present','late','permission') THEN 1 ELSE 0 END) AS present_count,
+         SUM(CASE WHEN LOWER(ar.status) = 'absent'                         THEN 1 ELSE 0 END) AS absent_count
+       FROM academic_attendance_logs  al
+       JOIN academic_timetables       tt ON tt.id = al.timetable_id AND tt.school_id = al.school_id
+       JOIN academic_attendance_records ar ON ar.log_id = al.id
+       JOIN users                     u  ON u.id = tt.staff_id
+       LEFT JOIN roles                r  ON r.id = u.role_id
+       WHERE al.school_id = ? AND al.record_date BETWEEN ? AND ?
+       GROUP BY tt.staff_id`,
+      [schoolId, from, elapsedTo]
+    );
+
+    const [rrTeach] = await promisePool.query(
+      `SELECT
+         lg.recorded_by_user_id AS staff_id,
+         MAX(TRIM(CONCAT(COALESCE(u.first_name,''), ' ', COALESCE(u.last_name,'')))) AS teacher_name,
+         MAX(COALESCE(r.role_code, 'TEACHER')) AS department,
+         COUNT(rr.id) AS total_marks,
+         SUM(CASE WHEN LOWER(TRIM(rr.status)) IN ('present','late','permission','excused') THEN 1 ELSE 0 END) AS present_count,
+         SUM(CASE WHEN LOWER(TRIM(rr.status)) IN ('absent','sick') THEN 1 ELSE 0 END) AS absent_count
+       FROM teacher_round_roll_call_logs lg
+       INNER JOIN teacher_round_roll_call_records rr ON rr.log_id = lg.id
+       LEFT JOIN users u ON u.id = lg.recorded_by_user_id
+       LEFT JOIN roles r ON r.id = u.role_id
+       WHERE lg.school_id = ? AND lg.record_date BETWEEN ? AND ?
+       GROUP BY lg.recorded_by_user_id`,
+      [schoolId, from, elapsedTo]
+    ).catch(() => [[]]);
+
+    const merged = mergeTeacherAttendanceBuckets(lessonRows, rrTeach);
+    const lessonPctByUser = new Map();
+    for (const v of merged.values()) {
+      const tot = Number(v.total_marks) || 0;
+      const pres = Number(v.present_count) || 0;
+      lessonPctByUser.set(Number(v.staff_id), tot > 0 ? Math.round((pres / tot) * 100) : 0);
+    }
+
+    let gateRows = [];
+    try {
+      const [g] = await promisePool.query(
+        `SELECT person_id AS user_id,
+           SUM(CASE WHEN morning_check_in IS NOT NULL THEN 1 ELSE 0 END) AS morning_hits,
+           SUM(CASE WHEN evening_check_out IS NOT NULL THEN 1 ELSE 0 END) AS evening_hits
+         FROM school_gate_attendance_records
+         WHERE school_id = ? AND person_type = 'STAFF'
+           AND attendance_date BETWEEN ? AND ?
+         GROUP BY person_id`,
+        [schoolId, from, elapsedTo]
+      );
+      gateRows = g || [];
+    } catch (_) {
+      gateRows = [];
+    }
+
+    const gateMap = new Map();
+    for (const row of gateRows) {
+      const uid = Number(row.user_id);
+      if (!Number.isFinite(uid) || uid <= 0) continue;
+      gateMap.set(uid, {
+        morning_hits: Number(row.morning_hits) || 0,
+        evening_hits: Number(row.evening_hits) || 0,
+      });
+    }
+
+    const allUserIds = new Set([...lessonPctByUser.keys(), ...gateMap.keys()]);
+    const staff = [];
+    for (const uid of allUserIds) {
+      const g = gateMap.get(uid) || { morning_hits: 0, evening_hits: 0 };
+      const slotsFilled = g.morning_hits + g.evening_hits;
+      const reliabilityPct = expectedSlots > 0
+        ? Math.min(100, Math.round((100 * slotsFilled) / expectedSlots))
+        : 0;
+      const lessonPresencePct = lessonPctByUser.get(uid) || 0;
+      let performanceOutOf100 = 0;
+      if (expectedSlots <= 0 && lessonPresencePct <= 0) {
+        performanceOutOf100 = 0;
+      } else if (expectedSlots <= 0) {
+        performanceOutOf100 = lessonPresencePct;
+      } else if (lessonPresencePct <= 0) {
+        performanceOutOf100 = reliabilityPct;
+      } else {
+        performanceOutOf100 = Math.min(100, Math.round(reliabilityPct * 0.55 + lessonPresencePct * 0.45));
+      }
+      staff.push({
+        user_id: uid,
+        gate_morning_days: g.morning_hits,
+        gate_evening_days: g.evening_hits,
+        reliability_pct: reliabilityPct,
+        lesson_presence_pct: lessonPresencePct,
+        performance_out_of_100: performanceOutOf100,
+      });
+    }
+    staff.sort((a, b) => a.user_id - b.user_id);
+
+    res.json({
+      success: true,
+      data: {
+        term: termLabel,
+        range: {
+          from,
+          to,
+          elapsed_to: elapsedTo,
+          expected_slots: expectedSlots,
+          source: rangeSource,
+        },
+        staff,
+      },
+    });
+  } catch (err) {
+    console.error('[GET /dos/reports/hr/staff-metrics]', err);
+    res.status(500).json({ success: false, message: 'Failed to load HR staff metrics' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
 // GET  /api/dos/attendance/morning/students
 //   ?date=YYYY-MM-DD&class_name=
 // POST /api/dos/attendance/morning/students

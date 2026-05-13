@@ -13,7 +13,6 @@ import BabyeyiList from './schoolLite/BabyeyiList';
 import StudentsPage from './schoolLite/StudentsPage';
 import StudentTransferPage from './schoolLite/StudentTransferPage';
 import SchoolMiniWebsitePage from './schoolLite/SchoolMiniWebsitePage';
-import { AnalyticsPage } from './schoolLite/OtherPages';
 import { TRANSLATIONS } from './schoolLite/utils/constants';
 import { Toast } from './schoolLite/UI';
 
@@ -94,7 +93,6 @@ export default function SchoolLiteSuite() {
         {tab === 'students' && <StudentsPage session={session} toast={toast} />}
         {tab === 'student_transfer' && <StudentTransferPage {...commonProps} />}
         {tab === 'school_mini_website' && <SchoolMiniWebsitePage session={session} toast={toast} />}
-        {tab === 'analytics' && <AnalyticsPage {...commonProps} />}
       </div>
 
       <Toast toasts={toasts} remove={removeToast} />

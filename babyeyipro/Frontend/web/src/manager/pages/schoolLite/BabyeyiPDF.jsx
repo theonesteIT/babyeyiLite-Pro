@@ -4,12 +4,11 @@
  */
 
 import { useState, useEffect } from "react";
-import { buildWordDocHTML, babyeyiDocHtml2CanvasOptions, addCanvasToPdfAndSave } from "./BabyeyiList";
+import { buildWordDocHTML, babyeyiDocHtml2CanvasOptions, addCanvasToPdfAndSave, ensureQRCode, applyQrToState } from "./BabyeyiList";
 import { getLegacyBabyeyiUI, getParentMessageForDisplay, getStatusLabelSafe } from '../../schoolLiteSupport/i18n/index.js';
-import { API_BASE, SERVER_BASE as ASSET_BASE, FRONTEND_ORIGIN } from '../../lib/schoolLiteApi';
+import { API_BASE, SERVER_BASE as ASSET_BASE, babyeyiVerifyScanUrl } from '../../lib/schoolLiteApi';
 
 const FONT = `"MTN Brighter Sans","Nunito","Varela Round",sans-serif`;
-const verifyUrl = (docId) => docId ? `${FRONTEND_ORIGIN}/babyeyi/verify/${docId}` : "";
 
 const toAssetUrl = (path) => {
   if (!path) return null;
@@ -225,6 +224,7 @@ export default function BabyeyiPdf() {
           schoolName: d.school_name || "", district: d.school_district || d.district || "", sector: d.school_sector || d.sector || "",
           bankName: d.bank_name || "", bankAccountNo: d.bank_account_no || "", bankAccountName: d.bank_account_name || "",
           banksJson: d.banks_json || null, parentMessage: d.parent_message || "", docId: d.doc_id || null,
+          integrityHash: d.integrity_hash != null ? String(d.integrity_hash) : null,
           totalFee: Number(d.total_fee || d.total_amount || payments.reduce((s, p) => s + Number(p.amount || 0), 0) || 0),
           schoolLogoPath: norm(sig.school_logo_path) || null, otherLogoPath: norm(sig.other_logo_path) || null,
           signaturePath: norm(sig.director_sig_path) || null, stampPath: norm(sig.stamp_path) || null,
@@ -237,15 +237,11 @@ export default function BabyeyiPdf() {
         const [logo, otherLogo, sigImg, stamp] = await Promise.all([toBase64(toAssetUrl(built.schoolLogoPath)), toBase64(toAssetUrl(built.otherLogoPath)), toBase64(toAssetUrl(built.signaturePath)), toBase64(toAssetUrl(built.stampPath))]);
         setSchoolLogoB64(logo); setOtherLogoB64(otherLogo); setSigB64(sigImg); setStampB64(stamp);
         setQrLoading(true);
-        if (built.qrCodeUrl) {
-          const qb64 = await toBase64(toAssetUrl(built.qrCodeUrl));
-          setQrB64(qb64); setVUrl(built.qrViewUrl || verifyUrl(built.docId));
-        } else {
-          try {
-            const qr = await fetch(`${API_BASE}/babyeyi/${built.id}/qrcode`, { credentials: "include" });
-            const qrj = await qr.json();
-            if (qrj.success && qrj.data?.qr_code_url) { const qb64 = await toBase64(toAssetUrl(qrj.data.qr_code_url)); setQrB64(qb64); setVUrl(qrj.data.qr_view_url || verifyUrl(built.docId)); }
-          } catch {}
+        try {
+          await applyQrToState(await ensureQRCode(built), setQrB64, setVUrl);
+        } catch {
+          setQrB64(null);
+          setVUrl(babyeyiVerifyScanUrl(built.docId, built.integrityHash));
         }
         setQrLoading(false);
       } catch (e) { setError(e.message || "Failed to load document"); }
@@ -326,7 +322,7 @@ export default function BabyeyiPdf() {
           </div>
           <div className="flex items-center gap-2 flex-wrap shrink-0">
             {rec.docId && (
-              <a href={verifyUrl(rec.docId)} target="_blank" rel="noreferrer"
+              <a href={babyeyiVerifyScanUrl(rec.docId, rec.integrityHash)} target="_blank" rel="noreferrer"
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/12 border border-emerald-500/25 text-emerald-400 rounded-xl text-[11px] font-bold hover:bg-emerald-500/20 transition-all">
                 ✓ {Tb.verify || "Verify"}
               </a>

@@ -566,7 +566,7 @@ const Preferences = () => {
 
 // ─── MAIN PAGE ─────────────────────────────────────────────────
 const TABS = [
-    { id: 'events',   label: 'Attendance Events', icon: Watch },
+
     { id: 'calendar', label: 'School Calendar',   icon: Calendar },
     { id: 'prefs',    label: 'Preferences',        icon: Globe },
 ];

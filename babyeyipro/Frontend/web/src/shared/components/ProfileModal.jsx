@@ -72,17 +72,17 @@ const ProfileModal = ({ open, onClose, user, onUserUpdate, variant = 'modal' }) 
         e.preventDefault();
         if (!currentPassword) return setMessage({ type: 'error', text: 'Current password is required.' });
         if (!newPassword) return setMessage({ type: 'error', text: 'New password is required.' });
-        if (newPassword.length < 6) return setMessage({ type: 'error', text: 'Password must be at least 6 characters.' });
+        if (newPassword.length < 8) return setMessage({ type: 'error', text: 'New password must be at least 8 characters.' });
         if (newPassword !== confirmPassword) return setMessage({ type: 'error', text: 'Passwords do not match.' });
 
         setLoading(true);
         setMessage(null);
         try {
-            const res = await fetch(`${API}/session/change-password`, {
-                method: 'POST',
+            const res = await fetch(`${API}/auth/change-password`, {
+                method: 'PUT',
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+                body: JSON.stringify({ currentPassword, newPassword }),
             });
             const json = await res.json().catch(() => ({}));
             if (res.ok && (json.success !== false)) {

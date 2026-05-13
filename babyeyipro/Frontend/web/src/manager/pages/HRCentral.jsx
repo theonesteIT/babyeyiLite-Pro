@@ -9,7 +9,9 @@ import {
     Fingerprint, CreditCard, IdCard, Edit3
 } from 'lucide-react';
 import staffService from '../services/staffService';
+import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useAcademic } from '../context/AcademicContext';
 
 // ── Staff Detail Modal (Drawer Style) ──────────────────────────────────────
 const StaffModal = ({ staff, onClose }) => {
@@ -104,17 +106,17 @@ const StaffModal = ({ staff, onClose }) => {
                     <div className="grid grid-cols-2 gap-4">
                         <div className="bg-re-bg rounded-3xl p-5 border border-black/5 shadow-inner relative overflow-hidden group">
                             <div className="absolute top-0 right-0 w-16 h-16 bg-re-grad-purple opacity-5 rounded-full -mr-6 -mt-6 group-hover:scale-125 transition-transform duration-700" />
-                            <p className="text-[8px] text-re-text-muted uppercase tracking-[0.2em] font-semibold mb-1 relative z-10 opacity-60">Evaluation Score</p>
+                            <p className="text-[8px] text-re-text-muted uppercase tracking-[0.2em] font-semibold mb-1 relative z-10 opacity-60">Performance score</p>
                             <div className="flex items-baseline gap-1 relative z-10">
-                                <span className="text-2xl font-semibold text-re-text tracking-tighter">{staff.evaluation || 85}</span>
-                                <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "#FEBF10" }}>%</span>
+                                <span className="text-2xl font-semibold text-re-text tracking-tighter">{staff.performanceOutOf100 != null ? staff.performanceOutOf100 : '—'}</span>
+                                <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "#FEBF10" }}>/100</span>
                             </div>
                         </div>
                         <div className="bg-re-bg rounded-3xl p-5 border border-black/5 shadow-inner relative overflow-hidden group text-right">
                             <div className="absolute top-0 left-0 w-16 h-16 opacity-5 rounded-full -ml-6 -mt-6 group-hover:scale-125 transition-transform duration-700" style={{ background: "#FEBF10" }} />
-                            <p className="text-[8px] text-re-text-muted uppercase tracking-[0.2em] font-semibold mb-1 relative z-10 opacity-60">Attendance</p>
+                            <p className="text-[8px] text-re-text-muted uppercase tracking-[0.2em] font-semibold mb-1 relative z-10 opacity-60">Gate reliability</p>
                             <div className="flex items-baseline gap-1 justify-end relative z-10">
-                                <span className="text-2xl font-semibold text-re-text tracking-tighter">{staff.attendance || 90}</span>
+                                <span className="text-2xl font-semibold text-re-text tracking-tighter">{staff.reliabilityPct != null ? staff.reliabilityPct : '—'}</span>
                                 <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "#FEBF10" }}>%</span>
                             </div>
                         </div>
@@ -1037,6 +1039,7 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
 
 const HRCentral = () => {
     const { manager } = useAuth();
+    const academic = useAcademic();
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedStaff, setSelectedStaff] = useState(null);
     const [openDropdownId, setOpenDropdownId] = useState(null);
@@ -1120,109 +1123,146 @@ const HRCentral = () => {
         activePercent: '100%',
         presentCount: 0,
         absentCount: 0,
-        avgEvaluation: '85%',
+        avgEvaluation: '—',
         retentionRate: '98%'
     });
     const [loading, setLoading] = useState(true);
+    const [hrTerm, setHrTerm] = useState('');
+    const [metricsRange, setMetricsRange] = useState(null);
+
+    useEffect(() => {
+        if (!academic.loading && academic.currentTerm && !hrTerm) {
+            setHrTerm(academic.currentTerm);
+        }
+    }, [academic.loading, academic.currentTerm, hrTerm]);
 
     const fetchStaff = async () => {
         if (!manager?.school_id) return;
         setLoading(true);
         try {
-            const res = await staffService.getStaff();
-            if (res.success) {
-                const mapped = (res.data || []).map(s => {
-                    // Semi-deterministic variation for evaluation and attendance for a "live" feel
-                    const seed = (s.id || 0) % 15;
-                    const evalScore = 80 + seed;
-                    const attenScore = 90 + (seed % 10);
+            const termParam = hrTerm || academic.currentTerm || 'Term 1';
+            const [staffRes, metricsRes] = await Promise.allSettled([
+                staffService.getStaff(),
+                api.get('/dos/reports/hr/staff-metrics', { params: { term: termParam } }),
+            ]);
 
-                    return {
-                        _raw: s,
-                        id: s.user_uid || s.id,
-                        real_id: s.id,
-                        name: s.full_name || `${s.first_name || ''} ${s.last_name || ''}`.trim(),
-                        role: s.role_name || s.role_code,
-                        role_code: s.role_code || '',
-                        department: s.department || (s.role_code === 'TEACHER' ? 'Academic Staff' :
-                            ['HOD', 'DOS'].includes(s.role_code) ? 'Leadership' :
-                                ['ACCOUNTANT'].includes(s.role_code) ? 'Administration' : 'Support Staff'),
-                        phone: s.phone || 'N/A',
-                        email: s.email,
-                        photo: s.photo,
-                        location: s.sector ? `${s.sector}, ${s.district}` : (s.district || 'N/A'),
-                        status: s.is_active ? 'Expected' : 'Inactive',
-                        evaluation: evalScore,
-                        attendance: attenScore,
-                        joinedDate: s.created_at ? new Date(s.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A',
-                        staffId: s.staff_id || null,
-                        gender: s.gender || null,
-                        date_of_birth: s.date_of_birth || '',
-                        dateOfBirth: s.date_of_birth ? new Date(s.date_of_birth).toLocaleDateString('en-GB') : null,
-                        nationalId: s.national_id || s.passport_number || null,
-                        passportNumber: s.passport_number || null,
-                        address: s.address || null,
-                        employmentType: s.employment_type || null,
-                        jobTitle: s.job_title || null,
-                        date_of_employment: s.date_of_employment || '',
-                        dateOfEmployment: s.date_of_employment ? new Date(s.date_of_employment).toLocaleDateString('en-GB') : null,
-                        contract_start_date: s.contract_start_date || '',
-                        contractStartDate: s.contract_start_date ? new Date(s.contract_start_date).toLocaleDateString('en-GB') : null,
-                        contract_end_date: s.contract_end_date || '',
-                        contractEndDate: s.contract_end_date ? new Date(s.contract_end_date).toLocaleDateString('en-GB') : null,
-                        fullContract: s.employment_type === 'Contract' && !s.contract_end_date,
-                        employmentStatus: s.employment_status || null,
-                        subDepartment: s.sub_department || null,
-                        payrollBasicSalary: s.payroll_basic_salary,
-                        payrollTransportAllowance: s.payroll_transport_allowance,
-                        payrollHousingAllowance: s.payroll_housing_allowance,
-                        payrollMealAllowance: s.payroll_meal_allowance,
-                        payrollOtherAllowances: s.payroll_other_allowances,
-                        payrollTaxPercent: s.payroll_tax_percent,
-                        payrollPensionAmount: s.payroll_pension_amount,
-                        payrollOtherDeductions: s.payroll_other_deductions,
-                        payrollPartTimeRate: s.payroll_part_time_rate,
-                        payrollPartTimeUnit: s.payroll_part_time_unit,
-                        payrollPaymentFrequency: s.payroll_payment_frequency || null,
-                        payrollPaymentMethod: s.payroll_payment_method || null,
-                        payrollBankName: s.payroll_bank_name || null,
-                        payrollAccountNumber: s.payroll_account_number || null,
-                        payrollMobileMoneyPhone: s.payroll_mobile_money_phone || null,
-                        allowAdvance: !!s.allow_advance,
-                        maxAdvanceLimit: s.max_advance_limit,
-                        advanceDeductionType: s.advance_deduction_type || null,
-                        advanceDeductionValue: s.advance_deduction_value,
-                        accountEnabled: s.account_enabled !== 0,
-                        username: s.staff_login_username || s.username || null,
-                        rfid_uid: s.rfid_uid,
-                        fingerprint_id: s.fingerprint_id,
-                        identity_remarks: s.identity_remarks
-                    };
-                });
-                setStaff(mapped);
+            const metricsPayload =
+                metricsRes.status === 'fulfilled' && metricsRes.value.data?.success
+                    ? metricsRes.value.data.data
+                    : null;
+            const byUser = new Map(
+                (metricsPayload?.staff || []).map((row) => [Number(row.user_id), row])
+            );
+            const expectedSlots = Number(metricsPayload?.range?.expected_slots || 0);
+            setMetricsRange(metricsPayload?.range || null);
 
-                // Calculate real stats
-                const total = mapped.length;
-                const active = mapped.filter(s => s.status === 'Expected').length;
-                const activePct = total > 0 ? Math.round((active / total) * 100) : 0;
-
-                // Calculate Average Evaluation (Scale 1-10)
-                const avgEval = mapped.length > 0
-                    ? (mapped.reduce((acc, curr) => acc + curr.evaluation, 0) / (mapped.length * 10)).toFixed(1)
-                    : '0.0';
-
-                // Calculate Retention Rate (Mocked logic but based on active/total)
-                const retention = total > 0 ? (95 + (activePct / 20)).toFixed(1) : '0.0';
-
-                setStats({
-                    totalStaff: total.toString(),
-                    activePercent: `${activePct}%`,
-                    presentCount: active,
-                    absentCount: total - active,
-                    avgEvaluation: avgEval,
-                    retentionRate: `${retention}%`
-                });
+            if (staffRes.status !== 'fulfilled' || !staffRes.value.success) {
+                setStaff([]);
+                setStats((prev) => ({ ...prev, totalStaff: '0', activePercent: '0%', presentCount: 0, absentCount: 0, avgEvaluation: '—' }));
+                return;
             }
+
+            const res = staffRes.value;
+            const mapped = (res.data || []).map((s) => {
+                const pk = Number(s.id);
+                const m = Number.isFinite(pk) ? byUser.get(pk) : null;
+                const reliabilityPct =
+                    m != null
+                        ? m.reliability_pct
+                        : expectedSlots > 0
+                          ? 0
+                          : null;
+                const performanceOutOf100 = m != null ? m.performance_out_of_100 : null;
+                const lessonPresencePct = m != null ? m.lesson_presence_pct : null;
+
+                return {
+                    _raw: s,
+                    id: s.user_uid || s.id,
+                    real_id: s.id,
+                    userPk: pk,
+                    name: s.full_name || `${s.first_name || ''} ${s.last_name || ''}`.trim(),
+                    role: s.role_name || s.role_code,
+                    role_code: s.role_code || '',
+                    department: s.department || (s.role_code === 'TEACHER' ? 'Academic Staff' :
+                        ['HOD', 'DOS'].includes(s.role_code) ? 'Leadership' :
+                            ['ACCOUNTANT'].includes(s.role_code) ? 'Administration' : 'Support Staff'),
+                    phone: s.phone || 'N/A',
+                    email: s.email,
+                    photo: s.photo,
+                    location: s.sector ? `${s.sector}, ${s.district}` : (s.district || 'N/A'),
+                    status: s.is_active ? 'Expected' : 'Inactive',
+                    evaluation: performanceOutOf100 != null ? performanceOutOf100 : null,
+                    attendance: reliabilityPct != null ? reliabilityPct : null,
+                    reliabilityPct,
+                    performanceOutOf100,
+                    lessonPresencePct,
+                    joinedDate: s.created_at ? new Date(s.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A',
+                    staffId: s.staff_id || null,
+                    gender: s.gender || null,
+                    date_of_birth: s.date_of_birth || '',
+                    dateOfBirth: s.date_of_birth ? new Date(s.date_of_birth).toLocaleDateString('en-GB') : null,
+                    nationalId: s.national_id || s.passport_number || null,
+                    passportNumber: s.passport_number || null,
+                    address: s.address || null,
+                    employmentType: s.employment_type || null,
+                    jobTitle: s.job_title || null,
+                    date_of_employment: s.date_of_employment || '',
+                    dateOfEmployment: s.date_of_employment ? new Date(s.date_of_employment).toLocaleDateString('en-GB') : null,
+                    contract_start_date: s.contract_start_date || '',
+                    contractStartDate: s.contract_start_date ? new Date(s.contract_start_date).toLocaleDateString('en-GB') : null,
+                    contract_end_date: s.contract_end_date || '',
+                    contractEndDate: s.contract_end_date ? new Date(s.contract_end_date).toLocaleDateString('en-GB') : null,
+                    fullContract: s.employment_type === 'Contract' && !s.contract_end_date,
+                    employmentStatus: s.employment_status || null,
+                    subDepartment: s.sub_department || null,
+                    payrollBasicSalary: s.payroll_basic_salary,
+                    payrollTransportAllowance: s.payroll_transport_allowance,
+                    payrollHousingAllowance: s.payroll_housing_allowance,
+                    payrollMealAllowance: s.payroll_meal_allowance,
+                    payrollOtherAllowances: s.payroll_other_allowances,
+                    payrollTaxPercent: s.payroll_tax_percent,
+                    payrollPensionAmount: s.payroll_pension_amount,
+                    payrollOtherDeductions: s.payroll_other_deductions,
+                    payrollPartTimeRate: s.payroll_part_time_rate,
+                    payrollPartTimeUnit: s.payroll_part_time_unit,
+                    payrollPaymentFrequency: s.payroll_payment_frequency || null,
+                    payrollPaymentMethod: s.payroll_payment_method || null,
+                    payrollBankName: s.payroll_bank_name || null,
+                    payrollAccountNumber: s.payroll_account_number || null,
+                    payrollMobileMoneyPhone: s.payroll_mobile_money_phone || null,
+                    allowAdvance: !!s.allow_advance,
+                    maxAdvanceLimit: s.max_advance_limit,
+                    advanceDeductionType: s.advance_deduction_type || null,
+                    advanceDeductionValue: s.advance_deduction_value,
+                    accountEnabled: s.account_enabled !== 0,
+                    username: s.staff_login_username || s.username || null,
+                    rfid_uid: s.rfid_uid,
+                    fingerprint_id: s.fingerprint_id,
+                    identity_remarks: s.identity_remarks
+                };
+            });
+            setStaff(mapped);
+
+            const total = mapped.length;
+            const active = mapped.filter((s) => s.status === 'Expected').length;
+            const activePct = total > 0 ? Math.round((active / total) * 100) : 0;
+
+            const scored = mapped.filter((s) => s.performanceOutOf100 != null);
+            const avgEval =
+                scored.length > 0
+                    ? `${Math.round(scored.reduce((a, c) => a + c.performanceOutOf100, 0) / scored.length)}/100`
+                    : '—';
+
+            const retention = total > 0 ? (95 + (activePct / 20)).toFixed(1) : '0.0';
+
+            setStats({
+                totalStaff: total.toString(),
+                activePercent: `${activePct}%`,
+                presentCount: active,
+                absentCount: total - active,
+                avgEvaluation: avgEval,
+                retentionRate: `${retention}%`
+            });
         } catch (err) {
             console.error("Failed to fetch staff:", err);
         } finally {
@@ -1231,8 +1271,9 @@ const HRCentral = () => {
     };
 
     useEffect(() => {
+        if (!manager?.school_id || academic.loading) return;
         fetchStaff();
-    }, [manager]);
+    }, [manager, hrTerm, academic.loading, academic.currentTerm]);
 
     const handleHire = async (payload, photoFile) => {
         try {
@@ -1383,7 +1424,7 @@ const HRCentral = () => {
                     {/* Top Layer: Stats Grid + Actions (Dashboard Style) */}
                     <div className={`${!isDeptSelected ? 'hidden md:grid' : 'grid'} grid-cols-1 lg:grid-cols-4 border-b border-black/5`}>
                         {/* Stats (3 columns on lg) */}
-                        <div className="lg:col-span-3 grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-black/5">
+                        <div className="lg:col-span-3 grid grid-cols-2 md:grid-cols-3 divide-x divide-y md:divide-y-0 divide-black/5">
                             {[
                                 { label: 'Total Personnel', value: stats.totalStaff, icon: <Users size={12} className="mb-1.5" /> },
                                 {
@@ -1392,8 +1433,8 @@ const HRCentral = () => {
                                     subValue: `${stats.presentCount} present | ${stats.absentCount} absent`,
                                     icon: <Activity size={12} className="mb-1.5" />
                                 },
-                                { label: 'Evaluation Avg', value: stats.avgEvaluation, icon: <Award size={12} className="mb-1.5" /> },
-                                { label: 'Retention Rate', value: stats.retentionRate, icon: <TrendingUp size={12} className="mb-1.5" /> }
+                                { label: 'Performance avg', value: stats.avgEvaluation, icon: <Award size={12} className="mb-1.5" /> },
+                                
                             ].map((stat, i) => (
                                 <div key={i} className="p-3 sm:p-5 flex flex-col items-center justify-center text-center group hover:bg-re-bg/20 transition-all cursor-default">
                                     <div className="mb-1 sm:mb-1.5 opacity-40 shrink-0" style={{ color: "#FEBF10" }}>
@@ -1494,6 +1535,25 @@ const HRCentral = () => {
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 className="w-full h-9 sm:h-10 bg-re-bg rounded-xl pl-11 pr-4 font-extrabold outline-none border border-transparent focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-re-text text-sm sm:text-xs tracking-tight shadow-inner"
                             />
+                        </div>
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
+                            <div className="flex flex-col gap-1 min-w-[140px]">
+                                <span className="text-[7px] font-bold uppercase tracking-widest text-re-text-muted opacity-60 px-1">Term (Preferences dates)</span>
+                                <select
+                                    value={hrTerm || academic.currentTerm || 'Term 1'}
+                                    onChange={(e) => setHrTerm(e.target.value)}
+                                    className="h-9 sm:h-10 px-3 rounded-xl border border-black/10 bg-white text-[10px] font-bold uppercase tracking-wider text-[#1E3A5F] outline-none focus:ring-2 focus:ring-[#FEBF10]/30"
+                                >
+                                    {(academic.activeTerms?.length ? academic.activeTerms : ['Term 1', 'Term 2', 'Term 3']).map((t) => (
+                                        <option key={t} value={t}>{t}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            {metricsRange?.elapsed_to && metricsRange?.from ? (
+                                <p className="text-[8px] font-semibold text-re-text-muted uppercase tracking-tight max-w-[220px] leading-snug sm:self-end sm:pb-2">
+                                    Gate + roll-call window {metricsRange.from} → {metricsRange.elapsed_to}
+                                </p>
+                            ) : null}
                         </div>
                         <div className="flex items-center gap-2 w-full md:w-auto">
                             <button
@@ -1679,21 +1739,37 @@ const HRCentral = () => {
                                                         </div>
                                                     </td>
                                                     <td className="hidden md:table-cell px-8 py-5">
-                                                        <div className="space-y-1.5 max-w-[100px]">
-                                                            <div className="flex items-center justify-between">
-                                                                <p className="text-[9px] font-semibold text-re-text">{s.attendance}% Present</p>
+                                                        <div className="space-y-1.5 max-w-[120px]">
+                                                            <div className="flex items-center justify-between gap-1">
+                                                                <p className="text-[9px] font-semibold text-re-text">
+                                                                    {s.reliabilityPct != null ? `${s.reliabilityPct}%` : '—'}
+                                                                </p>
+                                                                <span className="text-[7px] font-bold uppercase text-re-text-muted opacity-50 shrink-0">gate</span>
                                                             </div>
+                                                         
                                                             <div className="w-full h-1 bg-black/5 rounded-full overflow-hidden">
-                                                                <div className="h-full" style={{ width: `${s.attendance}%`, background: s.attendance >= 95 ? "linear-gradient(135deg, #1E3A5F 0%, #3D5A80 100%)" : "#FEBF10" }}></div>
+                                                                <div
+                                                                    className="h-full transition-all"
+                                                                    style={{
+                                                                        width: `${Math.min(100, s.reliabilityPct ?? 0)}%`,
+                                                                        background: (s.reliabilityPct ?? 0) >= 95
+                                                                            ? 'linear-gradient(135deg, #1E3A5F 0%, #3D5A80 100%)'
+                                                                            : '#FEBF10',
+                                                                    }}
+                                                                />
                                                             </div>
                                                         </div>
                                                     </td>
                                                     <td className="hidden md:table-cell px-8 py-5">
-                                                        <div className={`inline-flex px-3 py-1.5 rounded-lg text-[8px] font-semibold uppercase tracking-widest ring-1 ring-inset ${s.status === 'Exceptional' ? 'bg-emerald-50 text-emerald-600 ring-emerald-500/20' :
+                                                        <div className={`inline-flex items-baseline gap-1 px-3 py-1.5 rounded-lg text-[8px] font-semibold uppercase tracking-widest ring-1 ring-inset ${s.status === 'Exceptional' ? 'bg-emerald-50 text-emerald-600 ring-emerald-500/20' :
                                                             s.status === 'Expected' ? 'bg-blue-50 text-blue-600 ring-blue-500/20' :
                                                                 'bg-re-navy/5 text-re-navy ring-re-navy/20'
                                                             }`} style={s.status !== 'Exceptional' && s.status !== 'Expected' ? { color: "#1E3A5F" } : {}}>
-                                                            {s.status} Score: {s.evaluation}
+                                                            <span className="text-sm font-bold tracking-tight normal-case">
+                                                                {s.performanceOutOf100 != null ? s.performanceOutOf100 : '—'}
+                                                            </span>
+                                                            <span className="opacity-70">/100</span>
+                                                            <span className="block w-full text-[7px] font-bold opacity-50 mt-0.5 normal-case">roll-call + gate</span>
                                                         </div>
                                                     </td>
                                                     <td className="px-4 sm:px-8 py-3 sm:py-5 text-right relative">

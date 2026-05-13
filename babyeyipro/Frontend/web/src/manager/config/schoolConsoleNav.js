@@ -5,7 +5,6 @@ import {
   Users,
   ArrowLeftRight,
   Globe,
-  BarChart3,
 } from 'lucide-react'
 
 /**
@@ -18,7 +17,6 @@ export const SCHOOL_CONSOLE_NAV = [
   { id: 'students', label: 'Students', icon: Users, pathSuffix: '?tab=students' },
   { id: 'student_transfer', label: 'Student Transfer', icon: ArrowLeftRight, pathSuffix: '?tab=student_transfer' },
   { id: 'school_mini_website', label: 'School Website', icon: Globe, pathSuffix: '?tab=school_mini_website' },
-  { id: 'analytics', label: 'Analytics', icon: BarChart3, pathSuffix: '?tab=analytics' },
 ]
 
 /** Tab ids rendered inside SchoolLiteSuite. */
