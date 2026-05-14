@@ -8,6 +8,7 @@ import {
   LayoutDashboard, Users, ClipboardCheck,
   Wallet, MessageSquare, FileSpreadsheet, LogOut, WifiOff,
   ChevronDown, DollarSign, ShieldCheck, Headphones, ClipboardList,
+  ShoppingBag,
 } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5100';
@@ -162,6 +163,7 @@ const Sidebar = ({ onClose }) => {
         <NavItem icon={ShieldCheck} name="Permission" path="/permission" onClose={onClose} />
         <NavItem icon={DollarSign} name="My Payroll" path="/payroll" onClose={onClose} />
         <NavItem icon={Wallet} name="Shule Avance" path="/shule-avance" onClose={onClose} />
+        <NavItem icon={ShoppingBag} name="Ticha Deals" path="/ticha-deals" onClose={onClose} />
         <NavItem icon={FileSpreadsheet} name="Requisitions" path="/requisitions" onClose={onClose} />
 
         <SectionLabel label="Communication" />

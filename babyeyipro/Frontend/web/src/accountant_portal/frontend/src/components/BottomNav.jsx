@@ -19,7 +19,7 @@ const BottomNav = () => {
         { icon: Banknote, name: 'Expenses', path: '/expenses' },
         { icon: ClipboardCheck, name: 'Payroll', path: '/payroll/history' },
         { icon: DollarSign, name: 'My Payroll', path: '/my-payroll' },
-        { icon: Wallet, name: 'Avance', path: '/shule-avance' },
+        { icon: Wallet, name: 'My Avance', path: '/my-shule-avance' },
         { icon: MessageSquare, name: 'Chat', path: '/chat', badgeCount: unreadCount },
     ];
 

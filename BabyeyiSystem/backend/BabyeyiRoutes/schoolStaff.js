@@ -184,6 +184,64 @@ function trimStr(v) {
   return String(v).trim();
 }
 
+/** True if any row uses this human-readable staff_id (UNIQUE on staff.staff_id is global). */
+async function isStaffHumanIdTaken(conn, code) {
+  const c = trimStr(code);
+  if (!c) return false;
+  const [[row]] = await conn.query(
+    'SELECT id FROM staff WHERE UPPER(TRIM(staff_id)) = UPPER(TRIM(?)) LIMIT 1',
+    [c]
+  );
+  return !!row;
+}
+
+/**
+ * Returns a unique staff_id. Uses the client's preferred value when free globally;
+ * otherwise bumps XX-### for that prefix using all rows (matches UNIQUE staff.staff_id).
+ */
+async function allocateUniqueStaffSchoolCode(conn, schoolId, preferredRaw) {
+  void schoolId;
+  const preferred = trimStr(preferredRaw);
+  if (preferred && !(await isStaffHumanIdTaken(conn, preferred))) {
+    return preferred;
+  }
+
+  let prefix = 'ST';
+  const prefUp = preferred.toUpperCase();
+  const prefMatch = prefUp.match(/^([A-Z]{2})-/);
+  if (prefMatch) prefix = prefMatch[1];
+
+  const [rows] = await conn.query(
+    'SELECT staff_id FROM staff WHERE staff_id IS NOT NULL AND TRIM(staff_id) <> \'\''
+  );
+
+  let maxNum = 0;
+  for (const row of rows || []) {
+    const code = trimStr(row.staff_id).toUpperCase();
+    const m = code.match(/^([A-Z]{2})-(\d+)$/);
+    if (m && m[1] === prefix) {
+      const n = parseInt(m[2], 10);
+      if (Number.isFinite(n)) maxNum = Math.max(maxNum, n);
+    }
+  }
+  if (preferred) {
+    const pm = prefUp.match(/^([A-Z]{2})-(\d+)$/);
+    if (pm && pm[1] === prefix) {
+      const n = parseInt(pm[2], 10);
+      if (Number.isFinite(n)) maxNum = Math.max(maxNum, n);
+    }
+  }
+
+  let next = maxNum + 1;
+  let candidate = `${prefix}-${String(next).padStart(3, '0')}`;
+  for (let guard = 0; guard < 5000; guard += 1) {
+    if (!(await isStaffHumanIdTaken(conn, candidate))) return candidate;
+    next += 1;
+    candidate = `${prefix}-${String(next).padStart(3, '0')}`;
+  }
+  return generateUserUID(prefix);
+}
+
 function normalizeCustomRoleCode(raw) {
   const normalized = String(raw || '')
     .trim()
@@ -261,9 +319,22 @@ async function resolveStaffAssignableRole(conn, rawRoleCode, customRoleName = ''
   }
 
   // Do not allow assigning non-creatable system roles via this endpoint.
+  // Non-creatable code: allow assigning an existing *custom* role (is_system_role = 0),
+  // otherwise only allow creating a brand-new code that matches CUSTOM_ROLE_CODE_RE.
   const existing = await findActiveRoleByCode(conn, roleCode);
   if (existing) {
-    return { ok: false, message: `Role must be one of: ${CREATABLE_ROLE_CODES.join(', ')} or a new custom role.` };
+    const [[roleMeta]] = await conn.query(
+      'SELECT COALESCE(is_system_role, 1) AS is_system_role FROM roles WHERE id = ? LIMIT 1',
+      [existing.id]
+    );
+    const isSystem = Number(roleMeta?.is_system_role) === 1;
+    if (!isSystem) {
+      return { ok: true, roleRow: existing };
+    }
+    return {
+      ok: false,
+      message: `Role must be one of: ${CREATABLE_ROLE_CODES.join(', ')} or a new custom role.`,
+    };
   }
 
   if (!CUSTOM_ROLE_CODE_RE.test(roleCode)) {
@@ -757,13 +828,12 @@ router.post('/school/staff', requireRole(CREATOR_ROLES), async (req, res) => {
     const body = req.body || {};
     const firstName = trimStr(body.first_name);
     const lastName = trimStr(body.last_name);
-    const email = trimStr(body.email).toLowerCase();
     const username = trimStr(body.username);
     let password = body.password != null ? String(body.password) : '';
     const phone = trimStr(body.phone) || null;
     const customRoleName = trimStr(body.custom_role_name || body.role_name || body.job_title);
     const roleCode = trimStr(body.role_code).toUpperCase();
-    const staffIdLabel = trimStr(body.staff_id) || null;
+    const staffIdPreferred = trimStr(body.staff_id || body.staff_code) || '';
     const fullName = trimStr(body.full_name) || `${firstName} ${lastName}`.trim();
     const gender = trimStr(body.gender) || null;
     const dateOfBirth = trimStr(body.date_of_birth) || null;
@@ -799,12 +869,21 @@ router.post('/school/staff', requireRole(CREATOR_ROLES), async (req, res) => {
     const advanceDeductionValue = body.advance_deduction_value ?? null;
     const accountEnabled = body.account_enabled === false ? 0 : 1;
 
+    const STAFF_NO_EMAIL_DOMAIN = 'staff.noemail.local';
+
     if (!firstName || !lastName) {
       return res.status(400).json({ success: false, message: 'First and last name are required.' });
     }
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return res.status(400).json({ success: false, message: 'Valid email is required.' });
+    const emailInput = trimStr(body.email).toLowerCase();
+    if (emailInput && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailInput)) {
+      return res.status(400).json({ success: false, message: 'Email format is invalid.', field: 'email' });
     }
+    const userUid = generateUserUID('ST');
+    const email =
+      emailInput && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailInput)
+        ? emailInput
+        : `${userUid.toLowerCase().replace(/[^a-z0-9]/g, '')}@${STAFF_NO_EMAIL_DOMAIN}`;
+    const usedPlaceholderEmail = email.endsWith(`@${STAFF_NO_EMAIL_DOMAIN}`);
     if (!username || username.length < 3) {
       return res.status(400).json({ success: false, message: 'Username must be at least 3 characters.' });
     }
@@ -894,8 +973,9 @@ router.post('/school/staff', requireRole(CREATOR_ROLES), async (req, res) => {
       }
     }
 
+    const staffIdLabel = await allocateUniqueStaffSchoolCode(conn, schoolId, staffIdPreferred);
+
     const passwordHash = await bcrypt.hash(password, 12);
-    const userUid = generateUserUID('ST');
 
     await conn.beginTransaction();
 
@@ -953,31 +1033,48 @@ router.post('/school/staff', requireRole(CREATOR_ROLES), async (req, res) => {
 
     await conn.commit();
 
-    sendStaffCredentialsEmail({
-      to: email,
-      firstName,
-      schoolName,
-      username,
-      password,
-    });
+    if (!usedPlaceholderEmail) {
+      sendStaffCredentialsEmail({
+        to: email,
+        firstName,
+        schoolName,
+        username,
+        password,
+      });
+    }
 
     return res.status(201).json({
       success: true,
-      message: autoPassword
-        ? 'Staff account created. A temporary password was sent by email.'
-        : 'Staff account created.',
+      message: usedPlaceholderEmail
+        ? autoPassword
+          ? 'Staff created. No work email was provided — share login details securely (welcome email was not sent).'
+          : 'Staff created.'
+        : autoPassword
+          ? 'Staff account created. A temporary password was sent by email.'
+          : 'Staff account created.',
       data: {
         id: newUserId,
         user_uid: userUid,
-        email,
+        email: usedPlaceholderEmail ? null : email,
         username,
         role_code: roleRow.role_code || roleCode,
-        password_sent_by_email: autoPassword,
+        password_sent_by_email: autoPassword && !usedPlaceholderEmail,
+        staff_id: staffIdLabel,
       },
     });
   } catch (err) {
     await conn.rollback().catch(() => {});
     console.error('POST /api/school/staff:', err);
+    const raw = String(err?.message || '');
+    if (raw.includes('Duplicate') && raw.toLowerCase().includes('staff_id')) {
+      return res.status(409).json({
+        success: false,
+        code: 'DUPLICATE_STAFF_ID',
+        field: 'staff_id',
+        message:
+          'That staff ID is already used at your school. Please reopen Add Staff to get the next available code, or contact support.',
+      });
+    }
     return res.status(500).json({ success: false, message: err.message || 'Failed to create staff' });
   } finally {
     conn.release();

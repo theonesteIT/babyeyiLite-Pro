@@ -23,6 +23,8 @@ import {
   History,
   CalendarDays,
   GraduationCap,
+  ShoppingBag,
+  Sparkles,
 } from 'lucide-react';
 import useChatUnread from '../../../../shared/hooks/useChatUnread';
 import { h } from '../utils/href';
@@ -208,6 +210,7 @@ const Sidebar = ({ onClose }) => {
         <NavItem icon={FileText} name="Invoice Registry" path="/invoices" onClose={onClose} />
         <NavItem icon={Banknote} name="Expenses" path="/expenses" onClose={onClose} />
         <NavItem icon={FileSpreadsheet} name="Requisitions" path="/requisitions" onClose={onClose} />
+        <NavItem icon={Wallet} name="Avance approval queue" path="/shule-avance" onClose={onClose} />
         <ExpandableNavItem
           icon={ClipboardCheck}
           name="Payroll"
@@ -222,7 +225,15 @@ const Sidebar = ({ onClose }) => {
 
         <SectionLabel label="Services" />
         <NavItem icon={DollarSign} name="My Payroll" path="/my-payroll" onClose={onClose} />
-        <NavItem icon={Wallet} name="Teacher Avance" path="/shule-avance" onClose={onClose} />
+        <ExpandableNavItem
+          icon={Sparkles}
+          name="Tools"
+          onClose={onClose}
+          subItems={[
+            { name: 'Ticha Deals', path: '/ticha-deals', icon: ShoppingBag },
+            { name: 'My Shule Avance', path: '/my-shule-avance', icon: Wallet },
+          ]}
+        />
         <NavItem icon={MessageSquare} name="Chat Center" path="/chat" onClose={onClose} badgeCount={unreadCount} />
       </nav>
 

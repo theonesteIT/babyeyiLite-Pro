@@ -65,7 +65,7 @@ const FeaturePlaceholders = ({ feature = 'Module', icon = '🚀' }) => {
                 <p className="text-[10px] font-semibold text-re-purple tracking-tighter">78% COMPLETE</p>
               </div>
               <div className="w-full h-2 bg-white rounded-full overflow-hidden shadow-inner flex">
-                <div className="h-full bg-re-grad-purple w-[78%] shadow-none rounded-full">
+                <div className="h-full bg-re-grad-purple w-[78%] shadow-none rounded-full" />
               </div>
               <p className="text-[7px] text-center font-semibold text-re-text-muted uppercase tracking-[0.3em] opacity-40">Planned for a future release</p>
             </div>

@@ -1,12 +1,15 @@
 import { useState, useRef, useEffect } from 'react';
-import { Menu, Search, Bell, ChevronDown, LogOut, Settings, User } from 'lucide-react';
+import { Menu, Search, Bell, ChevronDown, LogOut, Settings, User, ShoppingBag } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useMasterAuth } from '../../context/MasterAuthContext';
 import { h } from '../utils/href';
 import ProfileModal from '../../shared/components/ProfileModal';
+import { resolveUserPhotoUrl } from '../../shared/utils/userPhotoUrl';
 
 const TopNav = ({ title, onMenuClick }) => {
     const navigate = useNavigate();
+    const { patchUser } = useMasterAuth();
     const { teacher, logout } = useAuth();
     const [userOpen, setUserOpen] = useState(false);
     const [profileOpen, setProfileOpen] = useState(false);
@@ -25,6 +28,7 @@ const TopNav = ({ title, onMenuClick }) => {
     const initials = teacher
         ? `${(teacher.first_name || '')[0] || ''}${(teacher.last_name || '')[0] || ''}`.toUpperCase()
         : '?';
+    const avatarPhoto = teacher?.photo ? resolveUserPhotoUrl(teacher.photo) : null;
 
     return (
     <>
@@ -79,10 +83,14 @@ const TopNav = ({ title, onMenuClick }) => {
                     >
                         <div className="relative">
                             <div
-                                className="w-8 h-8 rounded-xl text-white flex items-center justify-center font-semibold text-xs shadow-sm group-hover:scale-105 transition-transform"
+                                className="w-8 h-8 rounded-xl text-white flex items-center justify-center font-semibold text-xs shadow-sm group-hover:scale-105 transition-transform overflow-hidden"
                                 style={{ background: 'linear-gradient(135deg,#1E3A5F,#0D2644)' }}
                             >
-                                {initials}
+                                {avatarPhoto ? (
+                                    <img src={avatarPhoto} alt="" className="h-full w-full object-cover" />
+                                ) : (
+                                    initials
+                                )}
                             </div>
                             <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-400 border-2 border-white rounded-full" />
                         </div>
@@ -106,10 +114,14 @@ const TopNav = ({ title, onMenuClick }) => {
                             <div className="px-4 py-3 border-b border-black/5">
                                 <div className="flex items-center gap-3">
                                     <div
-                                        className="w-9 h-9 rounded-xl text-white flex items-center justify-center font-semibold text-sm shadow-sm shrink-0"
+                                        className="w-9 h-9 rounded-xl text-white flex items-center justify-center font-semibold text-sm shadow-sm shrink-0 overflow-hidden"
                                         style={{ background: 'linear-gradient(135deg,#1E3A5F,#0D2644)' }}
                                     >
-                                        {initials}
+                                        {avatarPhoto ? (
+                                            <img src={avatarPhoto} alt="" className="h-full w-full object-cover" />
+                                        ) : (
+                                            initials
+                                        )}
                                     </div>
                                     <div>
                                         <p className="text-xs font-semibold text-re-text tracking-tight">
@@ -136,6 +148,13 @@ const TopNav = ({ title, onMenuClick }) => {
                                 >
                                     <Settings size={13} /> Settings
                                 </button>
+                                <button
+                                    type="button"
+                                    onClick={() => { navigate(h('/ticha-deals')); setUserOpen(false); }}
+                                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-re-text-muted hover:bg-re-bg hover:text-[#1E3A5F] transition-all"
+                                >
+                                    <ShoppingBag size={13} /> Ticha Deals
+                                </button>
                             </div>
 
                             <div className="border-t border-black/5 py-1">
@@ -156,6 +175,7 @@ const TopNav = ({ title, onMenuClick }) => {
             open={profileOpen}
             onClose={() => setProfileOpen(false)}
             user={teacher}
+            onUserUpdate={(updates) => patchUser(updates)}
         />
     </>
     );

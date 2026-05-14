@@ -8,7 +8,7 @@ import {
 import { createPortal } from 'react-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import DosOchreHero from '../../../../dos/components/DosOchreHero';
+import AccountantOchreHero from '../components/AccountantOchreHero';
 import {
    Wallet,
    Zap,
@@ -194,7 +194,7 @@ function computeStatusTransitionAlerts(prevMap, rows) {
    return alerts;
 }
 
-export default function ShuleAvance() {
+export default function PersonalShuleAvance() {
    const { staff: teacher } = useAuth();
    const [rows, setRows] = useState([]);
    const [loading, setLoading] = useState(true);
@@ -614,11 +614,11 @@ export default function ShuleAvance() {
 
    if (loading && !rows.length) return (
       <div className="animate-in fade-in duration-500 bg-re-bg min-h-screen font-sans">
-         <DosOchreHero
-            eyebrow="Financial services"
+         <AccountantOchreHero
+            eyebrow="Staff services · Personal"
             titleLine="Shule"
             titleAccent="Avance"
-            subtitle="Cashouts, staff deals, and payroll-backed advances — track requests and repayment in one place."
+            subtitle="Your own cashouts and deal financing — this is separate from the finance approval queue for school staff."
             icon={Wallet}
          />
          <div className="flex justify-center py-24 relative z-20 -mt-6">
@@ -749,11 +749,11 @@ export default function ShuleAvance() {
 
    return (
       <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen font-sans">
-         <DosOchreHero
-            eyebrow="Financial services"
+         <AccountantOchreHero
+            eyebrow="Staff services · Personal"
             titleLine="Shule"
             titleAccent="Avance"
-            subtitle="Cashouts, staff deals, and payroll-backed advances — track requests and repayment in one place."
+            subtitle="Your own cashouts and deal financing — this is separate from the finance approval queue for school staff."
             icon={Wallet}
          />
          {/* ── Status alert toasts — portalled to body so CSS stacking contexts can't clip them ── */}

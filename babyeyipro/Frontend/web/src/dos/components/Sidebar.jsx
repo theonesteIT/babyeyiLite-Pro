@@ -33,6 +33,7 @@ import {
   ShieldCheck,
   FileText,
   Headphones,
+  ShoppingBag,
 } from 'lucide-react';
 import { PORTAL } from '../config/portal';
 import { h } from '../utils/href';
@@ -257,6 +258,7 @@ const Sidebar = ({ onClose }) => {
           onClose={onClose}
           subItems={[
             { name: 'Shule Avance', path: '/shule-avance', icon: Wallet },
+            { name: 'Ticha Deals', path: '/ticha-deals', icon: ShoppingBag },
             { name: 'Ticha AI', path: '/ticha-ai', icon: MessageSquare },
             { name: 'English Club', path: '/english-club', icon: BookOpen },
           ]}

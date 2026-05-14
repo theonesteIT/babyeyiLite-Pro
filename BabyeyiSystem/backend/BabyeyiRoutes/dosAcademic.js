@@ -588,7 +588,9 @@ router.get('/dos/class-enrollment', requireRole(DOS_DASHBOARD_ROLES), async (req
     const [rows] = await promisePool.query(
       `SELECT
          COALESCE(NULLIF(TRIM(class_name), ''), 'Unknown') AS class_name,
-         COUNT(*) AS student_count
+         COUNT(*) AS student_count,
+         SUM(CASE WHEN UPPER(TRIM(COALESCE(gender, ''))) = 'MALE' THEN 1 ELSE 0 END) AS boys_count,
+         SUM(CASE WHEN UPPER(TRIM(COALESCE(gender, ''))) = 'FEMALE' THEN 1 ELSE 0 END) AS girls_count
        FROM students
        WHERE school_id = ?
        GROUP BY COALESCE(NULLIF(TRIM(class_name), ''), 'Unknown')
@@ -599,7 +601,12 @@ router.get('/dos/class-enrollment', requireRole(DOS_DASHBOARD_ROLES), async (req
     return res.json({
       success: true,
       data: {
-        rows: rows.map((r) => ({ class_name: r.class_name, student_count: Number(r.student_count || 0) })),
+        rows: rows.map((r) => ({
+          class_name: r.class_name,
+          student_count: Number(r.student_count || 0),
+          boys_count: Number(r.boys_count || 0),
+          girls_count: Number(r.girls_count || 0),
+        })),
         total,
       },
     });

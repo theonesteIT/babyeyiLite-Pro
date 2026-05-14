@@ -9,6 +9,12 @@ import Returns from './frontend/src/pages/Returns'
 import Reports from './frontend/src/pages/Reports'
 import StaffPayroll from './frontend/src/pages/StaffPayroll'
 import ShuleAvance from './frontend/src/pages/ShuleAvance'
+import {
+  TichaDeals,
+  TichaDealDetails,
+  TichaDealPayments,
+  TrackingTichaDeals,
+} from './frontend/src/pages/staffTichaDeals'
 import TichaAI from './frontend/src/pages/TichaAI'
 import FeaturePlaceholders from './frontend/src/pages/FeaturePlaceholders'
 import ChatCenter from '../shared/pages/ChatCenter'
@@ -45,6 +51,10 @@ function LibrarianRoutesInner() {
       <Route path="my-payroll" element={<ProtectedRoute title="My Payroll"><StaffPayroll /></ProtectedRoute>} />
       <Route path="payroll" element={<Navigate to="my-payroll" replace />} />
       <Route path="shule-avance" element={<ProtectedRoute title="Shule Avance"><ShuleAvance /></ProtectedRoute>} />
+      <Route path="ticha-deals/tracking" element={<ProtectedRoute title="Deal tracking"><TrackingTichaDeals /></ProtectedRoute>} />
+      <Route path="ticha-deals/pay" element={<ProtectedRoute title="Pay deal"><TichaDealPayments /></ProtectedRoute>} />
+      <Route path="ticha-deals/:id" element={<ProtectedRoute title="Deal details"><TichaDealDetails /></ProtectedRoute>} />
+      <Route path="ticha-deals" element={<ProtectedRoute title="Ticha Deals"><TichaDeals /></ProtectedRoute>} />
       <Route path="ticha-ai" element={<ProtectedRoute title="TichaAI"><TichaAI /></ProtectedRoute>} />
       <Route path="school-calendar" element={<ProtectedRoute title="School Calendar"><SchoolCalendarPage api={librarianApi} /></ProtectedRoute>} />
       <Route path="chat" element={<ProtectedRoute title="Chat center"><ChatCenter /></ProtectedRoute>} />

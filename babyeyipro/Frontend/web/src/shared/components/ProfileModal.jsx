@@ -1,10 +1,20 @@
-import { useState, useEffect } from 'react';
-import { X, Mail, Lock, Eye, EyeOff, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { X, Mail, Lock, Eye, EyeOff, CheckCircle, AlertCircle, Loader2, User, Upload } from 'lucide-react';
 import { resolveUserPhotoUrl } from '../utils/userPhotoUrl';
 
 const API = (import.meta.env.VITE_API_URL || 'http://localhost:5100') + '/api';
 
-const ProfileModal = ({ open, onClose, user, onUserUpdate, variant = 'modal' }) => {
+const ProfileModal = ({
+    open,
+    onClose,
+    user,
+    onUserUpdate,
+    variant = 'modal',
+    /** When true (modal only), show profile photo upload above email/password card */
+    includePhotoSection = false,
+    /** Called after a successful photo upload (e.g. refresh session) */
+    onAfterPhotoUpload,
+}) => {
     const isInline = variant === 'inline';
     const [tab, setTab] = useState('email');
     const [email, setEmail] = useState(user?.email || '');
@@ -20,6 +30,35 @@ const ProfileModal = ({ open, onClose, user, onUserUpdate, variant = 'modal' }) 
     const [showConfirmPw, setShowConfirmPw] = useState(false);
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState(null);
+
+    const photoInputRef = useRef(null);
+    const [photoPreview, setPhotoPreview] = useState(null);
+    const [photoFile, setPhotoFile] = useState(null);
+    const [photoSaving, setPhotoSaving] = useState(false);
+    const [photoMsg, setPhotoMsg] = useState(null);
+
+    useEffect(() => {
+        if (isInline) return;
+        if (!open) {
+            setPhotoFile(null);
+            setPhotoMsg(null);
+            setPhotoPreview((prev) => {
+                if (prev) URL.revokeObjectURL(prev);
+                return null;
+            });
+            if (photoInputRef.current) photoInputRef.current.value = '';
+            return;
+        }
+        setTab('email');
+        setMessage(null);
+        setPhotoFile(null);
+        setPhotoMsg(null);
+        setPhotoPreview((prev) => {
+            if (prev) URL.revokeObjectURL(prev);
+            return null;
+        });
+        if (photoInputRef.current) photoInputRef.current.value = '';
+    }, [open, isInline]);
 
     if (!isInline && !open) return null;
 
@@ -98,8 +137,105 @@ const ProfileModal = ({ open, onClose, user, onUserUpdate, variant = 'modal' }) 
         }
     };
 
+    const photoSection =
+        includePhotoSection && !isInline ? (
+            <div className="w-full rounded-2xl border border-slate-200 bg-white p-5 shadow-lg animate-in fade-in zoom-in-95 duration-200">
+                <h3 className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-700">
+                    <User size={14} className="text-[#000435]" strokeWidth={2} />
+                    Profile photo
+                </h3>
+                <div className="flex flex-wrap items-center gap-6">
+                    <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-full border-4 border-[#FEBF10]/90 bg-slate-100 shadow-inner">
+                        {photoPreview || photoUrl ? (
+                            <img src={photoPreview || photoUrl} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#000435] to-[#1E3A5F] text-lg font-bold text-[#FEBF10]">
+                                {initials}
+                            </div>
+                        )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                        <input
+                            ref={photoInputRef}
+                            type="file"
+                            accept="image/jpeg,image/jpg,image/png,image/webp"
+                            className="hidden"
+                            onChange={(e) => {
+                                const file = e.target?.files?.[0];
+                                if (file) {
+                                    setPhotoFile(file);
+                                    setPhotoPreview((prev) => {
+                                        if (prev) URL.revokeObjectURL(prev);
+                                        return URL.createObjectURL(file);
+                                    });
+                                    setPhotoMsg(null);
+                                }
+                            }}
+                        />
+                        <button
+                            type="button"
+                            onClick={() => photoInputRef.current?.click()}
+                            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-xs font-bold text-slate-800 transition-colors hover:border-[#FEBF10]/50 hover:bg-white"
+                        >
+                            <Upload size={14} strokeWidth={2} />
+                            Choose image
+                        </button>
+                        {photoFile && (
+                            <button
+                                type="button"
+                                disabled={photoSaving}
+                                onClick={async () => {
+                                    setPhotoSaving(true);
+                                    setPhotoMsg(null);
+                                    try {
+                                        const fd = new FormData();
+                                        fd.append('photo', photoFile);
+                                        const res = await fetch(`${API}/auth/profile/photo`, {
+                                            method: 'POST',
+                                            credentials: 'include',
+                                            body: fd,
+                                        });
+                                        const json = await res.json().catch(() => ({}));
+                                        if (res.ok && json.success && json.data?.photo) {
+                                            setPhotoFile(null);
+                                            if (photoPreview) URL.revokeObjectURL(photoPreview);
+                                            setPhotoPreview(null);
+                                            if (photoInputRef.current) photoInputRef.current.value = '';
+                                            onUserUpdate?.({ photo: json.data.photo });
+                                            await onAfterPhotoUpload?.();
+                                            setPhotoMsg({ type: 'ok', text: 'Profile photo updated.' });
+                                        } else {
+                                            setPhotoMsg({ type: 'err', text: json.message || 'Upload failed.' });
+                                        }
+                                    } catch {
+                                        setPhotoMsg({ type: 'err', text: 'Network error. Try again.' });
+                                    } finally {
+                                        setPhotoSaving(false);
+                                    }
+                                }}
+                                className="ml-2 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#000435] to-[#1E3A5F] px-4 py-2.5 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50"
+                            >
+                                {photoSaving ? <Loader2 size={14} className="animate-spin" /> : null}
+                                {photoSaving ? 'Uploading…' : 'Upload'}
+                            </button>
+                        )}
+                        <p className="mt-2 text-[11px] text-slate-500">
+                            JPEG, PNG or WebP. This photo appears in the header for all manager pages.
+                        </p>
+                        {photoMsg && (
+                            <p
+                                className={`mt-2 text-xs font-semibold ${photoMsg.type === 'ok' ? 'text-emerald-600' : 'text-red-600'}`}
+                            >
+                                {photoMsg.text}
+                            </p>
+                        )}
+                    </div>
+                </div>
+            </div>
+        ) : null;
+
     const card = (
-            <div className={`relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden ${isInline ? 'border border-slate-200 shadow-sm' : 'mx-4 animate-in fade-in zoom-in-95 duration-200'}`}>
+            <div className={`relative w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl ${isInline ? 'border border-slate-200 shadow-sm' : 'animate-in fade-in zoom-in-95 duration-200'}`}>
                 {/* Header */}
                 <div className="relative bg-gradient-to-r from-[#000435] to-[#1E3A5F] px-6 py-5">
                     {!isInline && (
@@ -112,8 +248,8 @@ const ProfileModal = ({ open, onClose, user, onUserUpdate, variant = 'modal' }) 
                     )}
                     <div className="flex items-center gap-4">
                         <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#FEBF10] to-[#D9A400] flex items-center justify-center text-white font-bold text-lg shadow-lg border-2 border-white/20 overflow-hidden shrink-0">
-                            {photoUrl ? (
-                                <img src={photoUrl} alt="" className="h-full w-full object-cover" />
+                            {photoPreview || photoUrl ? (
+                                <img src={photoPreview || photoUrl} alt="" className="h-full w-full object-cover" />
                             ) : (
                                 initials
                             )}
@@ -267,9 +403,12 @@ const ProfileModal = ({ open, onClose, user, onUserUpdate, variant = 'modal' }) 
     }
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto p-4">
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-            {card}
+            <div className="relative z-10 my-auto flex w-full max-w-md flex-col gap-4">
+                {photoSection}
+                {card}
+            </div>
         </div>
     );
 };

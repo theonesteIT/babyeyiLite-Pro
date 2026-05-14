@@ -18,4 +18,6 @@ export const PORTAL = {
   heroImage: '/teacher.jpg',
   heroImageAlt: 'School library',
   searchPlaceholder: 'Search books, borrowers…',
+  /** NavLink prefix — mounted at /librarian/* */
+  basePath: '/librarian',
 };

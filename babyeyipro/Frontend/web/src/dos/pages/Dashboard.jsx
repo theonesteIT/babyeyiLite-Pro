@@ -19,6 +19,7 @@ import {
   TrendingUp,
   BookMarked,
   LayoutDashboard,
+  ShoppingBag,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
@@ -141,6 +142,13 @@ const Dashboard = () => {
         icon: <Wallet size={18} />,
         accent: '#FEBF10',
         path: '/shule-avance',
+      },
+      {
+        title: 'Ticha Deals',
+        desc: 'Browse staff deals and payroll-friendly purchases.',
+        icon: <ShoppingBag size={18} />,
+        accent: '#f59e0b',
+        path: '/ticha-deals',
       },
       {
         title: 'English Club',

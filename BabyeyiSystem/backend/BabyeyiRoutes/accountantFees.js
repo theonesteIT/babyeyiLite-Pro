@@ -18,6 +18,8 @@ const { requireRole } = require('../middleware/deoAuth');
 
 const router = express.Router();
 const ACCOUNTANT_ONLY = ['ACCOUNTANT'];
+/** Read-only finance dashboards for school leadership (same fee queries as accountant). */
+const ACCOUNTANT_OR_MANAGER_READ = ['ACCOUNTANT', 'SCHOOL_MANAGER', 'SCHOOL_ADMIN'];
 const FINANCE_REPORT_READ_ROLES = ['ACCOUNTANT', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER'];
 
 function resolveSchoolId(req) {
@@ -564,7 +566,7 @@ async function examinationListPayload(schoolId, academicYearIn, termIn, classNam
 // ════════════════════════════════════════════════════════════════
 // GET /api/accountant/overview
 // ════════════════════════════════════════════════════════════════
-router.get('/accountant/overview', requireRole(ACCOUNTANT_ONLY), async (req, res) => {
+router.get('/accountant/overview', requireRole(ACCOUNTANT_OR_MANAGER_READ), async (req, res) => {
   try {
     const schoolId = resolveSchoolId(req);
     if (!schoolId) {
@@ -755,7 +757,7 @@ router.get('/accountant/babyeyi-fee', requireRole(ACCOUNTANT_ONLY), async (req, 
 // GET /api/accountant/reports/payments?academic_year=&term=&class_name=
 // Per student: expected fee from Babyeyi, sum paid from collections, status
 // ════════════════════════════════════════════════════════════════
-router.get('/accountant/reports/payments', requireRole(ACCOUNTANT_ONLY), async (req, res) => {
+router.get('/accountant/reports/payments', requireRole(ACCOUNTANT_OR_MANAGER_READ), async (req, res) => {
   try {
     const schoolId = resolveSchoolId(req);
     if (!schoolId) {

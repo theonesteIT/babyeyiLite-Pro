@@ -19,6 +19,7 @@ import {
   Landmark,
   Headphones,
   CalendarDays,
+  ShoppingBag,
 } from 'lucide-react';
 import { PORTAL } from '../config/portal';
 import useChatUnread from '../../../../shared/hooks/useChatUnread';
@@ -128,6 +129,7 @@ const Sidebar = ({ onClose }) => {
         <SectionLabel label="Services" />
         <NavItem icon={DollarSign} name="My Payroll" path={h('/my-payroll')} onClose={onClose} />
         <NavItem icon={Sparkles} name="Shule Avance" path={h('/shule-avance')} onClose={onClose} />
+        <NavItem icon={ShoppingBag} name="Ticha Deals" path={h('/ticha-deals')} onClose={onClose} />
         <NavItem icon={Store} name="Ticha AI" path={h('/ticha-ai')} onClose={onClose} />
         <NavItem icon={MessageSquare} name="Chat Center" path={h('/chat')} onClose={onClose} badgeCount={unreadCount} />
       </nav>

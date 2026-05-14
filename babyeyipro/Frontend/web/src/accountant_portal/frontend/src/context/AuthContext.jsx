@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
 
 const AuthContext = createContext();
@@ -8,23 +8,27 @@ export const AuthProvider = ({ children }) => {
   const [staff, setStaff] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const boot = async () => {
-      try {
-        const res = await api.get('/session/me');
-        if (res.data?.success) {
-          const user = res.data?.data || res.data?.user || null;
-          setStaff(user);
-        } else setStaff(null);
-      } catch (err) {
-        console.error('[AuthContext] Session check failed:', err.message);
-        setStaff(null);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const refresh = useCallback(async () => {
+    try {
+      const res = await api.get('/session/me');
+      if (res.data?.success) setStaff(res.data?.data || res.data?.user || null);
+      else setStaff(null);
+    } catch (err) {
+      console.error('[AuthContext] Session refresh failed:', err.message);
+      setStaff(null);
+    }
+  }, []);
 
-    boot();
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      await refresh();
+      setLoading(false);
+    })();
+  }, [refresh]);
+
+  const patchStaff = useCallback((updates) => {
+    setStaff((prev) => (prev ? { ...prev, ...updates } : prev));
   }, []);
 
   const login = async () => ({ success: false, message: 'Use the main Babyeyi login page.' });
@@ -40,7 +44,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ staff, loading, login, logout }}>
+    <AuthContext.Provider value={{ staff, loading, login, logout, patchStaff, refresh }}>
       {children}
     </AuthContext.Provider>
   );

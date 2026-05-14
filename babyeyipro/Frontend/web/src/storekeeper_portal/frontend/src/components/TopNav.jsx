@@ -1,13 +1,16 @@
 import { useState, useRef, useEffect } from 'react';
-import { Menu, Search, Bell, ChevronDown, LogOut, Settings, User } from 'lucide-react';
+import { Menu, Search, Bell, ChevronDown, LogOut, Settings, User, ShoppingBag } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useMasterAuth } from '../../../../context/MasterAuthContext';
 import { PORTAL } from '../config/portal';
 import ProfileModal from '../../../../shared/components/ProfileModal';
+import { resolveUserPhotoUrl } from '../../../../shared/utils/userPhotoUrl';
 
 const TopNav = ({ title, onMenuClick }) => {
     const navigate = useNavigate();
-    const { staff, logout } = useAuth();
+    const { patchUser } = useMasterAuth();
+    const { staff, logout, patchStaff } = useAuth();
     const [userOpen, setUserOpen] = useState(false);
     const [profileOpen, setProfileOpen] = useState(false);
     const [search, setSearch] = useState('');
@@ -24,6 +27,7 @@ const TopNav = ({ title, onMenuClick }) => {
     const initials = staff
         ? `${(staff.first_name || '')[0] || ''}${(staff.last_name || '')[0] || ''}`.toUpperCase()
         : '?';
+    const avatarPhoto = staff?.photo ? resolveUserPhotoUrl(staff.photo) : null;
 
     return (
     <>
@@ -78,10 +82,14 @@ const TopNav = ({ title, onMenuClick }) => {
                     >
                         <div className="relative">
                             <div
-                                className="w-8 h-8 rounded-xl text-white flex items-center justify-center font-semibold text-xs shadow-sm group-hover:scale-105 transition-transform"
+                                className="w-8 h-8 rounded-xl text-white flex items-center justify-center font-semibold text-xs shadow-sm group-hover:scale-105 transition-transform overflow-hidden"
                                 style={{ background: 'linear-gradient(135deg,#1E3A5F,#3D5A80)' }}
                             >
-                                {initials}
+                                {avatarPhoto ? (
+                                    <img src={avatarPhoto} alt="" className="h-full w-full object-cover" />
+                                ) : (
+                                    initials
+                                )}
                             </div>
                             <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-400 border-2 border-white rounded-full" />
                         </div>
@@ -105,10 +113,14 @@ const TopNav = ({ title, onMenuClick }) => {
                             <div className="px-4 py-3 border-b border-black/5">
                                 <div className="flex items-center gap-3">
                                     <div
-                                        className="w-9 h-9 rounded-xl text-white flex items-center justify-center font-semibold text-sm shadow-sm shrink-0"
+                                        className="w-9 h-9 rounded-xl text-white flex items-center justify-center font-semibold text-sm shadow-sm shrink-0 overflow-hidden"
                                         style={{ background: 'linear-gradient(135deg,#1E3A5F,#3D5A80)' }}
                                     >
-                                        {initials}
+                                        {avatarPhoto ? (
+                                            <img src={avatarPhoto} alt="" className="h-full w-full object-cover" />
+                                        ) : (
+                                            initials
+                                        )}
                                     </div>
                                     <div>
                                         <p className="text-xs font-semibold text-re-text uppercase tracking-tight">
@@ -124,21 +136,31 @@ const TopNav = ({ title, onMenuClick }) => {
                             {/* Menu */}
                             <div className="py-1">
                                 <button
+                                    type="button"
                                     onClick={() => { setProfileOpen(true); setUserOpen(false); }}
                                     className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-re-text-muted hover:bg-re-navy/5 hover:text-re-navy transition-all"
                                 >
                                     <User size={13} /> My Profile
                                 </button>
                                 <button
-                                    onClick={() => { navigate('/settings'); setUserOpen(false); }}
+                                    type="button"
+                                    onClick={() => { navigate('settings'); setUserOpen(false); }}
                                     className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-re-text-muted hover:bg-re-navy/5 hover:text-re-navy transition-all"
                                 >
                                     <Settings size={13} /> Settings
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => { navigate('ticha-deals'); setUserOpen(false); }}
+                                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-re-text-muted hover:bg-re-navy/5 hover:text-re-navy transition-all"
+                                >
+                                    <ShoppingBag size={13} /> Ticha Deals
                                 </button>
                             </div>
 
                             <div className="border-t border-black/5 py-1">
                                 <button
+                                    type="button"
                                     onClick={logout}
                                     className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-red-500 hover:bg-red-50 transition-all"
                                 >
@@ -155,6 +177,10 @@ const TopNav = ({ title, onMenuClick }) => {
             open={profileOpen}
             onClose={() => setProfileOpen(false)}
             user={staff}
+            onUserUpdate={(updates) => {
+                patchStaff(updates);
+                patchUser(updates);
+            }}
         />
     </>
     );

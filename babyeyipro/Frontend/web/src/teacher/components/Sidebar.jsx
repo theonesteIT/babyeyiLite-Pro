@@ -7,6 +7,7 @@ import {
   LayoutDashboard, Users, BookOpen, Calendar, ClipboardCheck,
   Wallet, MessageSquare, ClipboardList, Eye, PenLine,
   User, LogOut, Wifi, WifiOff, RefreshCw, GraduationCap, ChevronDown, Package,
+  ShoppingBag,
 } from 'lucide-react';
 
 // ── Status Badge ──────────────────────────────────────────────
@@ -150,6 +151,7 @@ const Sidebar = ({ onClose }) => {
 
         <SectionLabel label="Services" />
         <NavItem icon={Wallet} name="Shule Avance" path="/shule-avance" onClose={onClose} />
+        <NavItem icon={ShoppingBag} name="Ticha Deals" path="/ticha-deals" onClose={onClose} />
 
         <SectionLabel label="Tools" />
         <NavItem icon={MessageSquare} name="TichaAI" path="/ticha-ai" onClose={onClose} />

@@ -20,6 +20,9 @@ import {
   AlertCircle,
 } from 'lucide-react';
 
+/** Matches manager theme; drawer is portaled so it needs its own stack. */
+const FC_FONT = "'Montserrat', system-ui, sans-serif";
+
 /* ─── helpers ─── */
 function getAcademicYears() {
   const now = new Date().getFullYear();
@@ -111,7 +114,7 @@ function Toast({ toast }) {
   if (!toast?.message) return null;
   const isError = toast.type === 'error';
   return (
-    <div className="fixed top-5 right-5 z-[400] max-w-xs">
+    <div className="fixed top-5 right-5 z-[400] max-w-xs" style={{ fontFamily: FC_FONT }}>
       <div
         style={{
           background: isError ? '#fff0f0' : '#fff8e6',
@@ -121,7 +124,7 @@ function Toast({ toast }) {
           padding: '12px 16px',
           fontSize: 12,
           fontWeight: 700,
-          letterSpacing: '0.04em',
+          letterSpacing: '0.02em',
           boxShadow: '0 4px 24px rgba(0,4,53,0.10)',
           display: 'flex',
           alignItems: 'center',
@@ -139,14 +142,14 @@ function Toast({ toast }) {
 function DecisionModal({ open, title, actionLabel, loading, note, onNoteChange, onCancel, onConfirm, isApprove }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[350]" style={{ backdropFilter: 'blur(4px)' }}>
+    <div className="fixed inset-0 z-[350]" style={{ backdropFilter: 'blur(4px)', fontFamily: FC_FONT }}>
       <div className="absolute inset-0 bg-black/30" onClick={onCancel} />
       <div className="absolute inset-0 flex items-center justify-center p-4">
         <div style={{
           background: '#fff',
           border: '1.5px solid rgba(0,4,53,0.10)',
           borderRadius: 20,
-          boxShadow: '0 20px 60px rgba(0,4,53,0.15)',
+          boxShadow: '0 24px 64px rgba(14,31,53,0.14)',
           width: '100%',
           maxWidth: 460,
           overflow: 'hidden',
@@ -256,7 +259,7 @@ function FinanceDetailDrawer({ open, kind, row, onClose }) {
   if (!open || !row) return null;
 
   const portal = (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 360, display: 'flex', justifyContent: 'flex-end' }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 360, display: 'flex', justifyContent: 'flex-end', fontFamily: FC_FONT }}>
       <button
         aria-label="Close"
         onClick={onClose}
@@ -618,10 +621,13 @@ export default function FinanceCenter() {
     [activeTab, expenseStatusFilter, requisitionStatusFilter, headerStats]
   );
 
-  const fieldClass = 'h-11 w-full min-w-0 rounded-xl border border-slate-200/90 bg-white px-3 text-xs font-semibold text-slate-800 shadow-sm outline-none transition focus:border-[#1E3A5F]/35 focus:ring-2 focus:ring-[#1E3A5F]/10';
+  const fieldClass = 'h-11 w-full min-w-0 rounded-xl border border-slate-200/90 bg-white px-3 text-xs font-semibold text-slate-800 shadow-sm outline-none transition focus:border-[#1E3A5F]/35 focus:ring-2 focus:ring-[#1E3A5F]/10 placeholder:text-slate-400';
 
   return (
-    <div className="animate-in fade-in duration-500 bg-re-bg min-h-screen pb-16 sm:pb-20 lg:pb-12">
+    <div
+      className="animate-in fade-in duration-500 bg-re-bg min-h-screen pb-16 sm:pb-20 lg:pb-12 antialiased"
+      style={{ fontFamily: FC_FONT }}
+    >
       <Toast toast={toast} />
       <DecisionModal
         open={decisionModal.open}
@@ -660,14 +666,11 @@ export default function FinanceCenter() {
                   <span className="w-5 h-1 rounded-full bg-[#FEBF10]" aria-hidden />
                 </div>
                 <p className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-[0.28em] text-[#FEBF10]">School manager</p>
-                <h1
-                  className="text-xl sm:text-2xl md:text-3xl font-semibold text-white tracking-tight leading-tight uppercase"
-                  style={{ fontFamily: "'Montserrat', sans-serif" }}
-                >
+                <h1 className="text-xl sm:text-2xl md:text-3xl font-semibold text-white tracking-tight leading-tight uppercase">
                   Financial overview
                 </h1>
-                <p className="text-[10px] sm:text-xs font-medium text-white/60 max-w-xl uppercase tracking-widest leading-relaxed">
-                  Approvals and requisitions — use filters below to match your reporting window
+                <p className="text-xs sm:text-sm font-medium text-white/80 max-w-xl leading-relaxed tracking-wide">
+                  Approvals and requisitions in one workspace — refine the view with the filters below.
                 </p>
               </div>
             </div>
@@ -686,7 +689,7 @@ export default function FinanceCenter() {
       </div>
 
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 -mt-4 sm:-mt-5 md:-mt-6 pt-2 relative z-20 mb-6 sm:mb-8">
-        <div className="bg-white rounded-t-[28px] sm:rounded-t-[32px] rounded-b-[20px] sm:rounded-b-[28px] shadow-sm border border-black/10 overflow-hidden flex flex-col">
+        <div className="bg-white rounded-t-[28px] sm:rounded-t-[32px] rounded-b-[20px] sm:rounded-b-[28px] shadow-[0_12px_48px_-18px_rgba(14,31,53,0.12)] border border-slate-200/90 overflow-hidden flex flex-col">
           <div className="grid grid-cols-2 divide-x divide-y divide-black/5">
             {financeHeroTiles.map((stat) => {
               const Icon = stat.icon;
@@ -869,6 +872,7 @@ export default function FinanceCenter() {
                           return (
                             <div
                               key={r.id}
+                              className="transition-colors duration-150 hover:bg-slate-50/90"
                               style={{
                                 display: 'grid', gridTemplateColumns: '3fr 2fr 1.5fr 1fr 2.5fr', gap: 16,
                                 alignItems: 'center', padding: '14px 24px',
@@ -931,6 +935,7 @@ export default function FinanceCenter() {
                           return (
                             <div
                               key={r.id}
+                              className="transition-colors duration-150 hover:bg-slate-50/90"
                               style={{
                                 display: 'grid', gridTemplateColumns: '3fr 2fr 1.5fr 1fr 2.5fr', gap: 16,
                                 alignItems: 'center', padding: '14px 24px',
@@ -990,14 +995,15 @@ function TableHeader({ cols, widths }) {
     <div style={{
       display: 'grid',
       gridTemplateColumns: widths.join(' '),
-      gap: 16, padding: '10px 24px',
-      background: '#F7F8FB',
-      borderBottom: '1px solid rgba(0,4,53,0.06)',
+      gap: 16, padding: '12px 24px',
+      background: 'linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%)',
+      borderBottom: '1px solid rgba(0,4,53,0.07)',
+      fontFamily: FC_FONT,
     }}>
       {cols.map((c, i) => (
         <span key={c} style={{
-          fontSize: 9, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase',
-          color: '#94a3b8', textAlign: i === cols.length - 1 ? 'right' : 'left',
+          fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
+          color: '#64748b', textAlign: i === cols.length - 1 ? 'right' : 'left',
         }}>{c}</span>
       ))}
     </div>

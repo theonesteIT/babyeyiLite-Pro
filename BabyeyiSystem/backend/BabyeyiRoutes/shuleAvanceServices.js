@@ -23,9 +23,33 @@ const router = express.Router();
 const ROLE_ACCOUNTANT = 'ACCOUNTANT';
 const MANAGER_ROLES = ['SCHOOL_ADMIN', 'SCHOOL_MANAGER'];
 const DEAL_PRODUCT_ADMIN_ROLES = ['SUPER_ADMIN'];
-/** Teachers, school staff (HOD/DOS), and accountants can submit requests */
-const APPLICANT_ROLES = ['TEACHER', 'HOD', 'DOS', 'ACCOUNTANT'];
-const LEGACY_APPLICANT_ROLES = ['TEACHER', 'HOD', 'DOS', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER', 'ACCOUNTANT'];
+/** Teachers, school staff (HOD/DOS), accountants, and other staff portals using applicant UI */
+const APPLICANT_ROLES = [
+  'TEACHER',
+  'HOD',
+  'DOS',
+  'ACCOUNTANT',
+  'LIBRARIAN',
+  'STOREKEEPER',
+  'STORE_MANAGER',
+  'DISCIPLINE',
+  'DISCIPLINE_STAFF',
+  'HEAD_OF_DISCIPLINE',
+];
+const LEGACY_APPLICANT_ROLES = [
+  'TEACHER',
+  'HOD',
+  'DOS',
+  'SCHOOL_ADMIN',
+  'SCHOOL_MANAGER',
+  'ACCOUNTANT',
+  'LIBRARIAN',
+  'STOREKEEPER',
+  'STORE_MANAGER',
+  'DISCIPLINE',
+  'DISCIPLINE_STAFF',
+  'HEAD_OF_DISCIPLINE',
+];
 
 const STATUS = {
   PENDING_ACCOUNTANT: 'pending_accountant',
@@ -35,6 +59,12 @@ const STATUS = {
   REJECTED_BY_MANAGER: 'rejected_by_manager',
 };
 const CASHOUT_AUTO_APPROVAL_RATIO = 0.40;
+
+/** Shared money parser for policy + payroll helpers */
+function toMoney(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
 
 let tableReady = false;
 let teacherDealProductsReady = false;
@@ -259,7 +289,6 @@ async function getTeacherNetSalaryFromStaff(schoolId, userId) {
       [schoolId, userId]
     );
     if (!row) return 0;
-    const toMoney = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
     const parseList = (raw) => {
       if (Array.isArray(raw)) return raw;
       if (typeof raw !== 'string' || !raw.trim()) return [];

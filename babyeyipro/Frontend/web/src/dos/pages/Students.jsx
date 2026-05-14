@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 import ConductMarksModal from '../components/ConductMarksModal';
-import DosOchreHero from '../components/DosOchreHero';
+// import DosOchreHero from '../components/DosOchreHero';
 import { PORTAL } from '../config/portal';
 
 // ── Student Detail Modal (Drawer Style) ──────────────────────────────────────
@@ -285,13 +285,13 @@ const Students = () => {
                 </div>, document.body
             )}
 
-            <DosOchreHero
+            {/* <DosOchreHero
                 eyebrow="Student registry"
                 titleLine="Students"
                 titleAccent="list"
                 subtitle={`Rosters and analytics for ${PORTAL.roleLabel.toLowerCase()} oversight.`}
                 icon={Users}
-            />
+            /> */}
 
             <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 -mt-4 sm:-mt-5 md:-mt-6 pt-2 relative z-20 pb-20">
                 <div className="bg-white rounded-t-[32px] shadow-sm border border-black/10 overflow-hidden flex flex-col">

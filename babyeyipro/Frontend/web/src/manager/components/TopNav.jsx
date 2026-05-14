@@ -4,11 +4,13 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { h } from '../utils/href';
 import { resolveUserPhotoUrl } from '../../shared/utils/userPhotoUrl';
+import ProfileModal from '../../shared/components/ProfileModal';
 
 const TopNav = ({ title, onMenuClick }) => {
     const navigate = useNavigate();
-    const { manager, logout } = useAuth();
+    const { manager, logout, setManager, refresh } = useAuth();
     const [userOpen, setUserOpen] = useState(false);
+    const [profileOpen, setProfileOpen] = useState(false);
     const [search, setSearch] = useState('');
     const userRef = useRef(null);
 
@@ -156,7 +158,11 @@ const TopNav = ({ title, onMenuClick }) => {
                             {/* Menu */}
                             <div className="py-1">
                                 <button
-                                    onClick={() => { navigate(h('/profile')); setUserOpen(false); }}
+                                    type="button"
+                                    onClick={() => {
+                                        setProfileOpen(true);
+                                        setUserOpen(false);
+                                    }}
                                     className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-re-text-muted hover:bg-navy-50 hover:text-re-navy transition-all"
                                 >
                                     <User size={13} /> My Profile
@@ -182,6 +188,15 @@ const TopNav = ({ title, onMenuClick }) => {
                 </div>
             </div>
         </header>
+
+        <ProfileModal
+            open={profileOpen}
+            onClose={() => setProfileOpen(false)}
+            user={manager}
+            onUserUpdate={(updates) => setManager((prev) => (prev ? { ...prev, ...updates } : prev))}
+            includePhotoSection
+            onAfterPhotoUpload={refresh}
+        />
     </>
     );
 };

@@ -6,6 +6,12 @@ import StaffSmartAccessPage from '../manager/pages/StaffSmartAccessPage'
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import ShuleAvance from './pages/ShuleAvance'
+import {
+  TichaDeals,
+  TichaDealDetails,
+  TichaDealPayments,
+  TrackingTichaDeals,
+} from './pages/staffTichaDeals'
 import TichaAI from './pages/TichaAI'
 import EnglishClub from './pages/EnglishClub'
 import Students from './pages/Students'
@@ -71,6 +77,10 @@ function DosRoutesInner() {
     <Routes>
       <Route index element={<ProtectedRoute title="Dashboard"><Dashboard /></ProtectedRoute>} />
       <Route path="shule-avance" element={<ProtectedRoute title="Shule Avance"><ShuleAvance /></ProtectedRoute>} />
+      <Route path="ticha-deals/tracking" element={<ProtectedRoute title="Deal tracking"><TrackingTichaDeals /></ProtectedRoute>} />
+      <Route path="ticha-deals/pay" element={<ProtectedRoute title="Pay deal"><TichaDealPayments /></ProtectedRoute>} />
+      <Route path="ticha-deals/:id" element={<ProtectedRoute title="Deal details"><TichaDealDetails /></ProtectedRoute>} />
+      <Route path="ticha-deals" element={<ProtectedRoute title="Ticha Deals"><TichaDeals /></ProtectedRoute>} />
       <Route path="ticha-ai" element={<ProtectedRoute title="TichaAI"><TichaAI /></ProtectedRoute>} />
       <Route path="english-club" element={<ProtectedRoute title="English Club"><EnglishClub /></ProtectedRoute>} />
 

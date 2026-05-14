@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import {
     Users, Search, Plus, MoreVertical, Briefcase,
@@ -56,19 +56,14 @@ const StaffModal = ({ staff, onClose }) => {
 
     return createPortal(
         <>
-            {/* Backdrop Blur */}
             <div
                 className="fixed inset-0 bg-black/40 backdrop-blur-md z-[100] animate-in fade-in duration-300"
                 onClick={onClose}
             />
-
-            {/* Right Side Drawer */}
-            <div className="fixed inset-y-0 right-0 z-[110] w-full md:w-[420px] bg-white shadow-[-20px_0_60px_-15px_rgba(0,0,0,0.1)] flex flex-col animate-in slide-in-from-right duration-500 ease-out">
-
-                {/* Drawer Header */}
+            <div className="fixed inset-y-0 right-0 z-[110] w-full md:w-[420px] bg-white flex flex-col animate-in slide-in-from-right duration-500 ease-out border-l border-black/10">
                 <div className="flex items-center justify-between px-6 py-4 border-b border-black/5 bg-white shrink-0">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-re-bg border border-black/5 flex items-center justify-center text-re-text font-semibold text-base shadow-inner relative overflow-hidden">
+                        <div className="w-10 h-10 rounded-xl bg-re-bg border border-black/5 flex items-center justify-center text-re-text font-semibold text-base relative overflow-hidden">
                             <span className="relative z-10" style={{ color: "#1E3A5F" }}>{staff.name?.charAt(0)}</span>
                             <div className="absolute inset-0 opacity-5" style={{ background: "#FEBF10" }}></div>
                         </div>
@@ -80,18 +75,11 @@ const StaffModal = ({ staff, onClose }) => {
                             </p>
                         </div>
                     </div>
-                    <button
-                        onClick={onClose}
-                        className="p-2 hover:bg-re-bg rounded-lg transition-all text-re-text-muted hover:text-[#1E3A5F] group"
-                    >
+                    <button onClick={onClose} className="p-2 hover:bg-re-bg rounded-lg transition-all text-re-text-muted hover:text-[#1E3A5F] group">
                         <X size={16} className="group-hover:rotate-90 transition-transform duration-300" />
                     </button>
                 </div>
-
-                {/* Drawer Body (Scrollable) */}
                 <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6 custom-scrollbar">
-
-                    {/* Status Alert (Premium Badge) */}
                     <div className={`flex items-center gap-3 px-4 py-3 rounded-2xl border ${staff.status === 'Exceptional' ? 'bg-emerald-50 border-emerald-100/50' : 'bg-re-navy/5 border-re-navy/10'}`}>
                         <div className={`p-1.5 rounded-lg ${staff.status === 'Exceptional' ? 'bg-emerald-500' : 'bg-[#1E3A5F]'} text-white`}>
                             <ShieldCheck size={14} />
@@ -101,28 +89,22 @@ const StaffModal = ({ staff, onClose }) => {
                             <p className="text-[9px] text-re-text/40 font-bold uppercase tracking-tight leading-none mt-0.5">Performance aligned with Core Values</p>
                         </div>
                     </div>
-
-                    {/* HR Hero Section (Evaluation & Presence) */}
                     <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-re-bg rounded-3xl p-5 border border-black/5 shadow-inner relative overflow-hidden group">
-                            <div className="absolute top-0 right-0 w-16 h-16 bg-re-grad-purple opacity-5 rounded-full -mr-6 -mt-6 group-hover:scale-125 transition-transform duration-700" />
-                            <p className="text-[8px] text-re-text-muted uppercase tracking-[0.2em] font-semibold mb-1 relative z-10 opacity-60">Performance score</p>
-                            <div className="flex items-baseline gap-1 relative z-10">
+                        <div className="bg-re-bg rounded-3xl p-5 border border-black/5 relative overflow-hidden group">
+                            <p className="text-[8px] text-re-text-muted uppercase tracking-[0.2em] font-semibold mb-1 opacity-60">Performance score</p>
+                            <div className="flex items-baseline gap-1">
                                 <span className="text-2xl font-semibold text-re-text tracking-tighter">{staff.performanceOutOf100 != null ? staff.performanceOutOf100 : '—'}</span>
                                 <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "#FEBF10" }}>/100</span>
                             </div>
                         </div>
-                        <div className="bg-re-bg rounded-3xl p-5 border border-black/5 shadow-inner relative overflow-hidden group text-right">
-                            <div className="absolute top-0 left-0 w-16 h-16 opacity-5 rounded-full -ml-6 -mt-6 group-hover:scale-125 transition-transform duration-700" style={{ background: "#FEBF10" }} />
-                            <p className="text-[8px] text-re-text-muted uppercase tracking-[0.2em] font-semibold mb-1 relative z-10 opacity-60">Gate reliability</p>
-                            <div className="flex items-baseline gap-1 justify-end relative z-10">
+                        <div className="bg-re-bg rounded-3xl p-5 border border-black/5 relative overflow-hidden group text-right">
+                            <p className="text-[8px] text-re-text-muted uppercase tracking-[0.2em] font-semibold mb-1 opacity-60">Gate reliability</p>
+                            <div className="flex items-baseline gap-1 justify-end">
                                 <span className="text-2xl font-semibold text-re-text tracking-tighter">{staff.reliabilityPct != null ? staff.reliabilityPct : '—'}</span>
                                 <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "#FEBF10" }}>%</span>
                             </div>
                         </div>
                     </div>
-
-                    {/* Detailed Info Matrix */}
                     <div className="space-y-5">
                         {[
                             {
@@ -198,7 +180,6 @@ const StaffModal = ({ staff, onClose }) => {
                                 ))}
                             </div>
                         ))}
-
                         <div className="rounded-2xl border border-[#1E3A5F]/15 bg-[#1E3A5F]/5 p-3">
                             <div className="flex items-center gap-2 mb-2">
                                 <span className="text-[9px] font-semibold text-[#1E3A5F] uppercase tracking-[0.25em]">Payroll Summary</span>
@@ -220,14 +201,11 @@ const StaffModal = ({ staff, onClose }) => {
                             </div>
                         </div>
                     </div>
-
-                    {/* Behavioral Activity Log (HR History) */}
                     <div>
                         <div className="flex items-center gap-2 mb-4">
                             <span className="text-[9px] font-semibold text-re-text-muted uppercase tracking-[0.3em] opacity-40">Personnel Activity Log</span>
                             <div className="flex-1 h-px bg-black/5" />
                         </div>
-
                         <div className="space-y-3">
                             {[
                                 { type: 'Appraisal', date: 'Last Month', msg: 'Termly performance review finalized at Expected level.', icon: FileSignature, color: 'text-emerald-500', bg: 'bg-emerald-50' },
@@ -251,12 +229,10 @@ const StaffModal = ({ staff, onClose }) => {
                         </div>
                     </div>
                 </div>
-
-                {/* Drawer Footer (Actions) */}
                 <div className="px-6 py-4 border-t border-black/5 bg-re-bg/20 flex flex-col gap-2.5">
                     <button
                         onClick={() => onClose()}
-                        className="h-10 w-full flex items-center justify-center gap-2 text-white rounded-xl font-medium text-[9px] uppercase tracking-widest shadow-sm active:scale-95 transition-all"
+                        className="h-10 w-full flex items-center justify-center gap-2 text-white rounded-xl font-medium text-[9px] uppercase tracking-widest active:scale-95 transition-all"
                         style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)" }}
                     >
                         <FileSignature size={14} /> Request Formal Appraisal
@@ -275,6 +251,7 @@ const StaffModal = ({ staff, onClose }) => {
         document.body
     );
 };
+
 const HIRE_STEPS = [
     'Personal Information',
     'Employment Details',
@@ -290,7 +267,7 @@ const getRoleAbbr = (roleCode) => {
     if (role.includes('DIRECTOR')) return 'SD';
     if (role.includes('ACCOUNTANT')) return 'AC';
     if (role.includes('TEACHER')) return 'TR';
-    return 'SS'; // Support Staff default
+    return 'SS';
 };
 
 const getNextStaffCode = (roleCode, existingStaff = [], currentStaffId = null) => {
@@ -298,10 +275,11 @@ const getNextStaffCode = (roleCode, existingStaff = [], currentStaffId = null) =
     let maxCodeNumber = 0;
     (existingStaff || []).forEach((s) => {
         if (currentStaffId && String(s?.id) === String(currentStaffId)) return;
-        const rawCode = String(s?.staff_id || s?.staffId || '').trim().toUpperCase();
-        const match = rawCode.match(/^[A-Z]{2}-(\d{1,})$/);
-        if (match) {
-            const n = Number(match[1]);
+        if (currentStaffId && String(s?.real_id) === String(currentStaffId)) return;
+        const rawCode = String(s?.staff_id || s?.staffId || s?._raw?.staff_id || '').trim().toUpperCase();
+        const match = rawCode.match(/^([A-Z]{2})-(\d+)$/);
+        if (match && match[1] === prefix) {
+            const n = Number(match[2]);
             if (Number.isFinite(n)) maxCodeNumber = Math.max(maxCodeNumber, n);
         }
     });
@@ -309,18 +287,45 @@ const getNextStaffCode = (roleCode, existingStaff = [], currentStaffId = null) =
 };
 
 const KNOWN_ROLE_CODES = new Set([
-    'TEACHER',
-    'ACCOUNTANT',
-    'HR',
-    'DOS',
-    'STORE_MANAGER',
-    'LIBRARIAN',
-    'DISCIPLINE',
-    'SECRETARY',
-    'HOD',
-    'SCHOOL_MANAGER',
-    'SCHOOL_DIRECTOR',
+    'TEACHER', 'ACCOUNTANT', 'HR', 'DOS', 'STORE_MANAGER',
+    'LIBRARIAN', 'DISCIPLINE', 'SECRETARY', 'HOD', 'SCHOOL_MANAGER', 'SCHOOL_DIRECTOR',
 ]);
+
+// ── Clean Field Component ──────────────────────────────────────────────────
+const Field = ({ label, required, error, hint, children, className = '', fullWidth = false }) => (
+    <div className={`flex flex-col gap-1.5 ${fullWidth ? 'col-span-2' : ''} ${className}`}>
+        <label className="flex items-center gap-1.5">
+            <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider leading-none">
+                {label}
+            </span>
+            {required && <span className="text-[#c87800] text-xs leading-none font-bold">*</span>}
+            {hint && <span className="text-[10px] text-slate-400 font-medium normal-case tracking-normal">{hint}</span>}
+        </label>
+        {children}
+        {error && (
+            <p className="text-[10px] font-semibold text-red-600 flex items-center gap-1">
+                <span className="w-1 h-1 rounded-full bg-red-500 inline-block"></span>
+                {error}
+            </p>
+        )}
+    </div>
+);
+
+// ── Section Divider ────────────────────────────────────────────────────────
+const SectionHeader = ({ title, icon: Icon, subtitle }) => (
+    <div className="col-span-2 pt-2 pb-1 space-y-1">
+        <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+                {Icon && <Icon size={13} className="text-[#c87800]" />}
+                <span className="text-[10px] font-bold text-[#1E3A5F] uppercase tracking-[0.2em]">{title}</span>
+            </div>
+            <div className="flex-1 h-px bg-slate-100" />
+        </div>
+        {subtitle ? (
+            <p className="text-[11px] text-slate-500 font-medium leading-snug pl-0.5">{subtitle}</p>
+        ) : null}
+    </div>
+);
 
 const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaff }) => {
     const isEditMode = !!editingStaff;
@@ -331,52 +336,23 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
     const [photo, setPhoto] = useState(null);
     const [preview, setPreview] = useState(null);
     const [formData, setFormData] = useState({
-        full_name: '',
-        gender: '',
-        date_of_birth: '',
-        national_id: '',
-        passport_number: '',
-        phone: '',
-        email: '',
-        address: '',
-        staff_id: '',
-        employment_type: 'Full-time',
-        job_title: '',
-        date_of_employment: '',
-        contract_start_date: '',
-        contract_end_date: '',
-        full_contract: false,
-        employment_status: 'Active',
-        department: 'Academics',
-        sub_department: '',
-        role_code: 'TEACHER',
-        custom_role_name: '',
-        payroll_basic_salary: '',
-        payroll_transport_allowance: '',
-        payroll_housing_allowance: '',
-        payroll_meal_allowance: '',
+        full_name: '', gender: '', date_of_birth: '', national_id: '',
+        passport_number: '', phone: '', email: '', address: '',
+        staff_id: '', employment_type: 'Full-time', job_title: '',
+        date_of_employment: '', contract_start_date: '', contract_end_date: '',
+        full_contract: false, employment_status: 'Active', department: 'Academics',
+        sub_department: '', role_code: 'TEACHER', custom_role_name: '',
+        payroll_basic_salary: '', payroll_transport_allowance: '',
+        payroll_housing_allowance: '', payroll_meal_allowance: '',
         payroll_other_allowances: [{ label: '', amount: '' }],
-        payroll_tax_percent: '',
-        payroll_pension_amount: '',
+        payroll_tax_percent: '', payroll_pension_amount: '',
         payroll_other_deductions: [{ label: '', amount: '' }],
-        payroll_payment_frequency: 'Monthly',
-        payroll_payment_method: 'Bank Transfer',
-        payroll_bank_name: '',
-        payroll_account_number: '',
-        payroll_mobile_money_phone: '',
-        payroll_part_time_rate: '',
-        payroll_part_time_unit: 'hour',
-        allow_advance: false,
-        max_advance_limit: '',
-        advance_deduction_type: 'percent',
-        advance_deduction_value: '',
-        account_enabled: true,
-        username: '',
-        password: '',
-        confirm_password: '',
-        rfid_uid: '',
-        fingerprint_id: '',
-        identity_remarks: ''
+        payroll_payment_frequency: 'Monthly', payroll_payment_method: 'Bank Transfer',
+        payroll_bank_name: '', payroll_account_number: '', payroll_mobile_money_phone: '',
+        payroll_part_time_rate: '', payroll_part_time_unit: 'hour',
+        allow_advance: false, max_advance_limit: '', advance_deduction_type: 'percent',
+        advance_deduction_value: '', account_enabled: true, username: '',
+        password: '', confirm_password: '', rfid_uid: '', fingerprint_id: '', identity_remarks: ''
     });
 
     useEffect(() => {
@@ -389,30 +365,18 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
                 try {
                     const out = JSON.parse(val);
                     return Array.isArray(out) && out.length ? out : [{ label: '', amount: '' }];
-                } catch {
-                    return [{ label: '', amount: '' }];
-                }
+                } catch { return [{ label: '', amount: '' }]; }
             };
-            const normalizedDepartment =
-                editingStaff.department === 'Academic Staff'
-                    ? 'Academics'
-                    : editingStaff.department || 'Administration';
+            const normalizedDepartment = editingStaff.department === 'Academic Staff' ? 'Academics' : editingStaff.department || 'Administration';
             const resolvedRoleCode = String(editingStaff.role_code || 'TEACHER').toUpperCase().replace(/\s+/g, '_');
             const isKnownRole = KNOWN_ROLE_CODES.has(resolvedRoleCode);
-            const resolvedCustomRole = !isKnownRole
-                ? String(editingStaff.role_name || editingStaff.role || editingStaff.jobTitle || resolvedRoleCode)
-                    .replace(/_/g, ' ')
-                    .trim()
-                : '';
+            const resolvedCustomRole = !isKnownRole ? String(editingStaff.role_name || editingStaff.role || editingStaff.jobTitle || resolvedRoleCode).replace(/_/g, ' ').trim() : '';
             setFormData({
-                full_name: editingStaff.name || '',
-                gender: editingStaff.gender || '',
-                date_of_birth: editingStaff.date_of_birth || '',
-                national_id: editingStaff.nationalId || '',
+                full_name: editingStaff.name || '', gender: editingStaff.gender || '',
+                date_of_birth: editingStaff.date_of_birth || '', national_id: editingStaff.nationalId || '',
                 passport_number: editingStaff.passportNumber || '',
                 phone: editingStaff.phone !== 'N/A' ? editingStaff.phone : '',
-                email: editingStaff.email || '',
-                address: editingStaff.address || '',
+                email: editingStaff.email || '', address: editingStaff.address || '',
                 staff_id: String(editingStaff.staffId || editingStaff.id || ''),
                 employment_type: editingStaff.employmentType || 'Full-time',
                 job_title: editingStaff.jobTitle || editingStaff.role || '',
@@ -421,10 +385,8 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
                 contract_end_date: editingStaff.contract_end_date || '',
                 full_contract: !!(editingStaff.employmentType === 'Contract' && !editingStaff.contract_end_date),
                 employment_status: editingStaff.employmentStatus || (editingStaff.status === 'Inactive' ? 'Suspended' : 'Active'),
-                department: normalizedDepartment,
-                sub_department: editingStaff.subDepartment || '',
-                role_code: isKnownRole ? resolvedRoleCode : 'CUSTOM',
-                custom_role_name: resolvedCustomRole,
+                department: normalizedDepartment, sub_department: editingStaff.subDepartment || '',
+                role_code: isKnownRole ? resolvedRoleCode : 'CUSTOM', custom_role_name: resolvedCustomRole,
                 payroll_basic_salary: editingStaff.payrollBasicSalary ?? '',
                 payroll_transport_allowance: editingStaff.payrollTransportAllowance ?? '',
                 payroll_housing_allowance: editingStaff.payrollHousingAllowance ?? '',
@@ -440,16 +402,13 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
                 payroll_mobile_money_phone: editingStaff.payrollMobileMoneyPhone || '',
                 payroll_part_time_rate: editingStaff.payrollPartTimeRate ?? '',
                 payroll_part_time_unit: editingStaff.payrollPartTimeUnit || 'hour',
-                allow_advance: !!editingStaff.allowAdvance,
-                max_advance_limit: editingStaff.maxAdvanceLimit ?? '',
+                allow_advance: !!editingStaff.allowAdvance, max_advance_limit: editingStaff.maxAdvanceLimit ?? '',
                 advance_deduction_type: editingStaff.advanceDeductionType || 'percent',
                 advance_deduction_value: editingStaff.advanceDeductionValue ?? '',
                 account_enabled: editingStaff.accountEnabled !== false,
                 username: editingStaff.username || (editingStaff.email || `${parts[0] || ''}.${parts[1] || ''}`).split('@')[0],
-                password: '',
-                confirm_password: '',
-                rfid_uid: editingStaff.rfid_uid || '',
-                fingerprint_id: editingStaff.fingerprint_id || '',
+                password: '', confirm_password: '',
+                rfid_uid: editingStaff.rfid_uid || '', fingerprint_id: editingStaff.fingerprint_id || '',
                 identity_remarks: editingStaff.identity_remarks || ''
             });
             setPreview(editingStaff.photo ? (import.meta.env.VITE_API_URL || 'http://localhost:5100') + editingStaff.photo : null);
@@ -457,53 +416,23 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
             const defaultRole = 'TEACHER';
             const defaultStaffCode = getNextStaffCode(defaultRole, existingStaff);
             setFormData((prev) => ({
-                ...prev,
-                full_name: '',
-                gender: '',
-                date_of_birth: '',
-                national_id: '',
-                passport_number: '',
-                phone: '',
-                email: '',
-                address: '',
-                staff_id: defaultStaffCode,
-                employment_type: 'Full-time',
-                job_title: '',
-                date_of_employment: '',
-                contract_start_date: '',
-                contract_end_date: '',
-                full_contract: false,
-                employment_status: 'Active',
-                department: 'Academics',
-                sub_department: '',
-                role_code: defaultRole,
-                custom_role_name: '',
-                payroll_basic_salary: '',
-                payroll_transport_allowance: '',
-                payroll_housing_allowance: '',
-                payroll_meal_allowance: '',
+                ...prev, full_name: '', gender: '', date_of_birth: '', national_id: '',
+                passport_number: '', phone: '', email: '', address: '',
+                staff_id: defaultStaffCode, employment_type: 'Full-time', job_title: '',
+                date_of_employment: '', contract_start_date: '', contract_end_date: '',
+                full_contract: false, employment_status: 'Active', department: 'Academics',
+                sub_department: '', role_code: defaultRole, custom_role_name: '',
+                payroll_basic_salary: '', payroll_transport_allowance: '',
+                payroll_housing_allowance: '', payroll_meal_allowance: '',
                 payroll_other_allowances: [{ label: '', amount: '' }],
-                payroll_tax_percent: '',
-                payroll_pension_amount: '',
+                payroll_tax_percent: '', payroll_pension_amount: '',
                 payroll_other_deductions: [{ label: '', amount: '' }],
-                payroll_payment_frequency: 'Monthly',
-                payroll_payment_method: 'Bank Transfer',
-                payroll_bank_name: '',
-                payroll_account_number: '',
-                payroll_mobile_money_phone: '',
-                payroll_part_time_rate: '',
-                payroll_part_time_unit: 'hour',
-                allow_advance: false,
-                max_advance_limit: '',
-                advance_deduction_type: 'percent',
-                advance_deduction_value: '',
-                account_enabled: true,
-                username: '',
-                password: '',
-                confirm_password: '',
-                rfid_uid: '',
-                fingerprint_id: '',
-                identity_remarks: ''
+                payroll_payment_frequency: 'Monthly', payroll_payment_method: 'Bank Transfer',
+                payroll_bank_name: '', payroll_account_number: '', payroll_mobile_money_phone: '',
+                payroll_part_time_rate: '', payroll_part_time_unit: 'hour',
+                allow_advance: false, max_advance_limit: '', advance_deduction_type: 'percent',
+                advance_deduction_value: '', account_enabled: true, username: '',
+                password: '', confirm_password: '', rfid_uid: '', fingerprint_id: '', identity_remarks: ''
             }));
             setPreview(null);
         }
@@ -524,31 +453,39 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
             return next;
         });
     };
+
     const toNumberOrNull = (v) => {
         if (v === '' || v == null) return null;
         const n = Number(v);
         return Number.isFinite(n) ? n : null;
     };
+
     const sameEmail = (existingStaff || []).find((s) => String(s.email || '').toLowerCase() === String(formData.email || '').toLowerCase() && String(s.id) !== String(editingStaff?.id));
     const sameNationalId = (existingStaff || []).find((s) => String(s.national_id || '') && String(s.national_id) === String(formData.national_id || '') && String(s.id) !== String(editingStaff?.id));
 
     const validateStep = () => {
         if (step === 0) {
-            if (!formData.full_name || !formData.email || !formData.phone || !formData.gender || !formData.national_id) return 'Fill all required personal fields.';
-            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) return 'Email format is invalid.';
+            if (!formData.full_name || !formData.phone || !formData.gender) return 'Fill all required personal fields (name, gender, phone).';
+            const emailTrim = String(formData.email || '').trim();
+            if (emailTrim && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrim)) return 'Email format is invalid.';
+            if (emailTrim && sameEmail) return 'Email already exists.';
+            const nidTrim = String(formData.national_id || '').trim();
+            if (nidTrim && sameNationalId) return 'National ID/Passport already exists.';
             if (!/^[+]?[\d\s-]{9,20}$/.test(formData.phone)) return 'Phone format is invalid.';
-            if (sameEmail) return 'Email already exists.';
-            if (sameNationalId) return 'National ID/Passport already exists.';
         }
         if (step === 1) {
             if (!formData.staff_id || !formData.job_title || !formData.date_of_employment) return 'Employment details are required.';
+            const dupCode = (existingStaff || []).find((s) => {
+                if (String(s?.real_id) === String(editingStaff?.real_id || editingStaff?.id)) return false;
+                const c = String(s?.staff_id || s?.staffId || s?._raw?.staff_id || '').trim().toUpperCase();
+                return c && c === String(formData.staff_id || '').trim().toUpperCase();
+            });
+            if (!isEditMode && dupCode) return 'This staff ID is already assigned. Change role or refresh the form.';
             if (formData.employment_type === 'Contract' && !formData.contract_start_date) return 'Contract start date is required.';
             if (formData.employment_type === 'Contract' && !formData.full_contract && !formData.contract_end_date) return 'Contract end date is required unless Full Contract is checked.';
         }
         if (step === 2 && (!formData.department || !formData.role_code)) return 'Department and role are required.';
-        if (step === 2 && formData.role_code === 'CUSTOM' && !String(formData.custom_role_name || '').trim()) {
-            return 'Custom role name is required.';
-        }
+        if (step === 2 && formData.role_code === 'CUSTOM' && !String(formData.custom_role_name || '').trim()) return 'Custom role name is required.';
         if (step === 4 && formData.account_enabled) {
             if (!formData.username) return 'Username is required when account is enabled.';
             if (!isEditMode && String(formData.password || '').length < 8) return 'Password must be at least 8 characters.';
@@ -574,36 +511,21 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
         const [first_name, ...rest] = String(formData.full_name || '').trim().split(/\s+/);
         const last_name = rest.join(' ') || '-';
         const payload = {
-            first_name,
-            last_name,
-            full_name: formData.full_name,
-            gender: formData.gender,
-            date_of_birth: formData.date_of_birth || null,
-            national_id: formData.national_id || null,
-            passport_number: formData.passport_number || null,
-            phone: formData.phone || null,
-            email: formData.email,
-            address: formData.address || null,
-            staff_id: formData.staff_id || null,
-            staff_code: formData.staff_id || null,
-            employment_type: formData.employment_type,
-            job_title: formData.job_title,
+            first_name, last_name, full_name: formData.full_name,
+            gender: formData.gender, date_of_birth: formData.date_of_birth || null,
+            national_id: formData.national_id || null, passport_number: formData.passport_number || null,
+            phone: formData.phone || null, email: String(formData.email || '').trim() || null, address: formData.address || null,
+            staff_id: formData.staff_id || null, staff_code: formData.staff_id || null,
+            employment_type: formData.employment_type, job_title: formData.job_title,
             date_of_employment: formData.date_of_employment || null,
             contract_start_date: formData.employment_type === 'Contract' ? formData.contract_start_date || null : null,
             contract_end_date: formData.employment_type === 'Contract' ? (formData.full_contract ? null : (formData.contract_end_date || null)) : null,
-            employment_status: formData.employment_status,
-            department: formData.department,
+            employment_status: formData.employment_status, department: formData.department,
             sub_department: formData.sub_department || null,
-            role_code: formData.role_code === 'CUSTOM'
-                ? String(formData.custom_role_name || '').trim().toUpperCase().replace(/\s+/g, '_')
-                : formData.role_code,
-            role_name: formData.role_code === 'CUSTOM'
-                ? String(formData.custom_role_name || '').trim() || null
-                : null,
+            role_code: formData.role_code === 'CUSTOM' ? String(formData.custom_role_name || '').trim().toUpperCase().replace(/\s+/g, '_') : formData.role_code,
+            role_name: formData.role_code === 'CUSTOM' ? String(formData.custom_role_name || '').trim() || null : null,
             payroll_basic_salary: toNumberOrNull(formData.payroll_basic_salary),
-            payroll_transport_allowance: null,
-            payroll_housing_allowance: null,
-            payroll_meal_allowance: null,
+            payroll_transport_allowance: null, payroll_housing_allowance: null, payroll_meal_allowance: null,
             payroll_other_allowances: formData.payroll_other_allowances.filter((a) => a.label || a.amount),
             payroll_tax_percent: toNumberOrNull(formData.payroll_tax_percent),
             payroll_pension_amount: null,
@@ -620,9 +542,8 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
             advance_deduction_type: formData.allow_advance ? formData.advance_deduction_type : null,
             advance_deduction_value: formData.allow_advance ? toNumberOrNull(formData.advance_deduction_value) : null,
             account_enabled: !!formData.account_enabled,
-            username: formData.username || String(formData.email || '').split('@')[0],
-            rfid_uid: formData.rfid_uid || null,
-            fingerprint_id: formData.fingerprint_id || null,
+            username: formData.username || (String(formData.email || '').trim() ? String(formData.email || '').trim().split('@')[0] : ''),
+            rfid_uid: formData.rfid_uid || null, fingerprint_id: formData.fingerprint_id || null,
             identity_remarks: formData.identity_remarks || null
         };
         if (!isEditMode && formData.account_enabled) payload.password = formData.password;
@@ -644,352 +565,503 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
         setFieldErrors({});
         setIsSubmitting(true);
         const payload = preparePayload();
+        if (!isEditMode) {
+            const roleKey = formData.role_code === 'CUSTOM' ? (formData.custom_role_name || 'CUSTOM') : formData.role_code;
+            const nextStaffId = getNextStaffCode(roleKey, existingStaff);
+            payload.staff_id = nextStaffId;
+            payload.staff_code = nextStaffId;
+        }
         const result = isEditMode ? await onEdit(editingStaff.real_id || editingStaff.id, payload, photo) : await onHire(payload, photo);
         setIsSubmitting(false);
-        if (result?.ok) {
-            onClose();
-            return;
-        }
+        if (result?.ok) { onClose(); return; }
         setError(result?.message || 'Unable to save this staff record. Please review highlighted fields.');
         if (result?.field) {
-            const backendToUiField = {
-                email: 'email',
-                phone: 'phone',
-                username: 'username',
-                national_id: 'national_id'
-            };
+            const backendToUiField = { email: 'email', phone: 'phone', username: 'username', national_id: 'national_id', staff_id: 'staff_id' };
             const uiField = backendToUiField[result.field] || null;
             if (uiField) {
                 setFieldErrors((prev) => ({ ...prev, [uiField]: result.message || 'Invalid value' }));
                 if (uiField === 'email' || uiField === 'phone' || uiField === 'national_id') setStep(0);
                 if (uiField === 'username') setStep(4);
+                if (uiField === 'staff_id') setStep(1);
             }
         }
     };
 
-    const inputCls = 'w-full h-9 bg-re-bg/80 border border-black/5 rounded-xl px-3 text-[10px] font-semibold outline-none focus:ring-1 ring-re-navy/10 transition-all shadow-inner';
-    const inputClsWithError = (field) => `${inputCls} ${fieldErrors[field] ? 'border-red-400 focus:border-red-500 ring-red-200' : ''}`;
-    const parseAmount = (v) => {
-        const n = Number(v);
-        return Number.isFinite(n) ? n : 0;
-    };
+    // ── Shared input styles — clean, flat, no shadows ──────────────────────
+    const inp = 'w-full h-10 bg-white border border-slate-200 rounded-lg px-3 text-[12px] font-medium text-slate-800 outline-none focus:border-[#1E3A5F] focus:ring-2 focus:ring-[#1E3A5F]/10 transition-all placeholder:text-slate-300 placeholder:font-normal';
+    const inpErr = (field) => `${inp} ${fieldErrors[field] ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : ''}`;
+    const sel = `${inp} cursor-pointer appearance-none bg-[url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")] bg-no-repeat bg-[right_12px_center]`;
+    const inpDisabled = `${inp} bg-slate-50 text-slate-400 cursor-not-allowed border-slate-100`;
+
+    const parseAmount = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
     const formatRwf = (v) => new Intl.NumberFormat('en-RW').format(Math.max(0, Math.round(v || 0)));
     const basicSalaryValue = parseAmount(formData.payroll_basic_salary);
-    const fixedAllowancesValue = 0;
-    const extraAllowancesValue = (formData.payroll_other_allowances || [])
-        .reduce((sum, row) => sum + parseAmount(row.amount), 0);
-    const grossSalary = basicSalaryValue + fixedAllowancesValue + extraAllowancesValue;
+    const extraAllowancesValue = (formData.payroll_other_allowances || []).reduce((sum, row) => sum + parseAmount(row.amount), 0);
+    const grossSalary = basicSalaryValue + extraAllowancesValue;
     const taxPercentValue = parseAmount(formData.payroll_tax_percent);
     const taxAmount = taxPercentValue > 0 ? (grossSalary * taxPercentValue) / 100 : 0;
-    const pensionAmount = 0;
-    const otherDeductionsValue = (formData.payroll_other_deductions || [])
-        .reduce((sum, row) => sum + parseAmount(row.amount), 0);
-    const totalDeductions = taxAmount + pensionAmount + otherDeductionsValue;
+    const otherDeductionsValue = (formData.payroll_other_deductions || []).reduce((sum, row) => sum + parseAmount(row.amount), 0);
+    const totalDeductions = taxAmount + otherDeductionsValue;
     const netSalary = grossSalary - totalDeductions;
+
     const section = () => {
-        if (step === 0) {
-            return (
-                <div className="space-y-4">
-                    <div className="flex items-center gap-4">
-                        <div className="relative">
-                            <div className="w-20 h-20 rounded-2xl bg-re-bg border border-black/10 flex items-center justify-center overflow-hidden">
-                                {preview ? <img src={preview} alt="preview" className="w-full h-full object-cover" /> : <Camera size={20} className="opacity-40" />}
-                            </div>
-                            <input type="file" accept="image/*" onChange={handlePhotoChange} className="absolute inset-0 opacity-0 cursor-pointer" />
-                        </div>
-                        <div className="text-[9px] font-bold text-re-text-muted uppercase tracking-widest">Profile Photo (with preview)</div>
+        if (step === 0) return (
+            <div className="grid grid-cols-2 gap-x-5 gap-y-4">
+                {/* Photo upload — full width */}
+                <div className="col-span-2 flex items-center gap-5 p-4 bg-slate-50 rounded-xl border border-slate-100">
+                    <div className="relative w-20 h-20 rounded-xl border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden bg-white shrink-0 hover:border-[#c87800] transition-colors group">
+                        {preview
+                            ? <img src={preview} alt="preview" className="w-full h-full object-cover" />
+                            : <div className="flex flex-col items-center gap-1">
+                                <Camera size={20} className="text-slate-300 group-hover:text-[#c87800] transition-colors" />
+                                <span className="text-[9px] font-semibold text-slate-300 uppercase tracking-wider group-hover:text-[#c87800] transition-colors">Photo</span>
+                              </div>
+                        }
+                        <input type="file" accept="image/*" onChange={handlePhotoChange} className="absolute inset-0 opacity-0 cursor-pointer" />
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
-                        <label className="space-y-1">
-                            <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Full Name</p>
-                            <input className={inputCls} placeholder="e.g. Juma Ally" value={formData.full_name} onChange={(e) => setField('full_name', e.target.value)} />
-                        </label>
-                        <label className="space-y-1">
-                            <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Gender</p>
-                            <select className={inputCls} value={formData.gender} onChange={(e) => setField('gender', e.target.value)}><option value="">Select gender</option><option>Male</option><option>Female</option></select>
-                        </label>
-                        <label className="space-y-1">
-                            <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Date of Birth</p>
-                            <input type="date" className={inputCls} value={formData.date_of_birth} onChange={(e) => setField('date_of_birth', e.target.value)} />
-                        </label>
-                        <label className="space-y-1">
-                            <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">National ID / Passport</p>
-                            <input className={inputClsWithError('national_id')} placeholder="ID or Passport Number" value={formData.national_id} onChange={(e) => setField('national_id', e.target.value)} />
-                            {fieldErrors.national_id && <p className="text-[9px] font-bold text-red-600">{fieldErrors.national_id}</p>}
-                        </label>
-                        <label className="space-y-1">
-                            <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Phone Number</p>
-                            <input className={inputClsWithError('phone')} placeholder="e.g. 07XXXXXXXX" value={formData.phone} onChange={(e) => setField('phone', e.target.value)} />
-                            {fieldErrors.phone && <p className="text-[9px] font-bold text-red-600">{fieldErrors.phone}</p>}
-                        </label>
-                        <label className="space-y-1">
-                            <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Email Address</p>
-                            <input type="email" className={inputClsWithError('email')} placeholder="e.g. name@gmail.com" value={formData.email} onChange={(e) => setField('email', e.target.value)} />
-                            {fieldErrors.email && <p className="text-[9px] font-bold text-red-600">{fieldErrors.email}</p>}
-                        </label>
+                    <div>
+                        <p className="text-[12px] font-semibold text-slate-700 mb-0.5">Profile Photo</p>
+                        <p className="text-[11px] text-slate-400 font-medium">Upload a clear passport-style photo.<br/>JPG or PNG, max 2MB.</p>
                     </div>
-                    <label className="space-y-1">
-                        <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Address</p>
-                        <input className={inputCls} placeholder="e.g. Kigali, Gasabo, Kimironko" value={formData.address} onChange={(e) => setField('address', e.target.value)} />
-                    </label>
                 </div>
-            );
-        }
-        if (step === 1) {
-            return (
-                <div className="grid grid-cols-2 gap-3">
-                    <label className="space-y-1">
-                        <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Staff ID / Code (Auto Generated)</p>
-                        <input className={`${inputCls} bg-black/5 opacity-80 cursor-not-allowed`} placeholder="e.g. TR-007" value={formData.staff_id} readOnly />
-                    </label>
-                    <label className="space-y-1">
-                        <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Employment Type</p>
-                        <select className={inputCls} value={formData.employment_type} onChange={(e) => setField('employment_type', e.target.value)}><option>Full-time</option><option>Part-time</option><option>Contract</option><option>Temporary</option></select>
-                    </label>
-                    <label className="space-y-1">
-                        <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Job Title / Position</p>
-                        <input className={inputCls} placeholder="e.g. Teacher, Accountant, DOS" value={formData.job_title} onChange={(e) => setField('job_title', e.target.value)} />
-                    </label>
-                    <label className="space-y-1">
-                        <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Date of Employment</p>
-                        <input type="date" className={inputCls} value={formData.date_of_employment} onChange={(e) => setField('date_of_employment', e.target.value)} />
-                    </label>
-                    {formData.employment_type === 'Contract' && (
-                        <label className="space-y-1">
-                            <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Contract Start Date</p>
-                            <input type="date" className={inputCls} value={formData.contract_start_date} onChange={(e) => setField('contract_start_date', e.target.value)} />
-                        </label>
-                    )}
-                    {formData.employment_type === 'Contract' && (
-                        <label className="col-span-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-[#1E3A5F] bg-[#1E3A5F]/5 border border-[#1E3A5F]/15 rounded-xl px-3 py-2">
+
+                <SectionHeader title="Basic Information" icon={User} />
+
+                <Field label="Full Name" required error={fieldErrors.full_name}>
+                    <input className={inpErr('full_name')} placeholder="e.g. Juma Ally" value={formData.full_name} onChange={(e) => setField('full_name', e.target.value)} />
+                </Field>
+
+                <Field label="Gender" required>
+                    <select className={sel} value={formData.gender} onChange={(e) => setField('gender', e.target.value)}>
+                        <option value="">Select gender</option>
+                        <option>Male</option>
+                        <option>Female</option>
+                    </select>
+                </Field>
+
+                <Field label="Date of Birth">
+                    <input type="date" className={inp} value={formData.date_of_birth} onChange={(e) => setField('date_of_birth', e.target.value)} />
+                </Field>
+
+                <Field label="National ID / Passport" hint="(optional)" error={fieldErrors.national_id}>
+                    <input className={inpErr('national_id')} placeholder="ID or passport (optional)" value={formData.national_id} onChange={(e) => setField('national_id', e.target.value)} />
+                </Field>
+
+                <SectionHeader title="Contact Details" icon={Phone} />
+
+                <Field label="Phone Number" required error={fieldErrors.phone}>
+                    <input className={inpErr('phone')} placeholder="e.g. 07XXXXXXXX" value={formData.phone} onChange={(e) => setField('phone', e.target.value)} />
+                </Field>
+
+                <Field label="Email Address" hint="(optional)" error={fieldErrors.email}>
+                    <input type="email" className={inpErr('email')} placeholder="e.g. name@gmail.com (optional)" value={formData.email} onChange={(e) => setField('email', e.target.value)} />
+                </Field>
+
+                <Field label="Residential Address" fullWidth>
+                    <input className={inp} placeholder="e.g. Kigali, Gasabo, Kimironko" value={formData.address} onChange={(e) => setField('address', e.target.value)} />
+                </Field>
+            </div>
+        );
+
+        if (step === 1) return (
+            <div className="grid grid-cols-2 gap-x-5 gap-y-4">
+                <SectionHeader title="Role & Contract" icon={Briefcase} />
+
+                <Field label="Staff ID / Code" hint="(Auto-generated)" error={fieldErrors.staff_id}>
+                    <input className={inpDisabled} value={formData.staff_id} readOnly />
+                </Field>
+
+                <Field label="Employment Type" required>
+                    <select className={sel} value={formData.employment_type} onChange={(e) => setField('employment_type', e.target.value)}>
+                        <option>Full-time</option>
+                        <option>Part-time</option>
+                        <option>Contract</option>
+                        <option>Temporary</option>
+                    </select>
+                </Field>
+
+                <Field label="Job Title / Position" required>
+                    <input className={inp} placeholder="e.g. Teacher, Accountant, DOS" value={formData.job_title} onChange={(e) => setField('job_title', e.target.value)} />
+                </Field>
+
+                <Field label="Date of Employment" required>
+                    <input type="date" className={inp} value={formData.date_of_employment} onChange={(e) => setField('date_of_employment', e.target.value)} />
+                </Field>
+
+                {formData.employment_type === 'Contract' && (
+                    <Field label="Contract Start Date" required>
+                        <input type="date" className={inp} value={formData.contract_start_date} onChange={(e) => setField('contract_start_date', e.target.value)} />
+                    </Field>
+                )}
+
+                {formData.employment_type === 'Contract' && (
+                    <div className="col-span-2">
+                        <label className="flex items-center gap-3 p-3 bg-[#1E3A5F]/5 border border-[#1E3A5F]/15 rounded-lg cursor-pointer hover:bg-[#1E3A5F]/10 transition-colors">
                             <input
                                 type="checkbox"
                                 checked={!!formData.full_contract}
                                 onChange={(e) => {
-                                    const checked = e.target.checked;
-                                    setField('full_contract', checked);
-                                    if (checked) setField('contract_end_date', '');
+                                    setField('full_contract', e.target.checked);
+                                    if (e.target.checked) setField('contract_end_date', '');
                                 }}
+                                className="w-4 h-4 accent-[#1E3A5F]"
                             />
-                            Full Contract (No End Date)
+                            <div>
+                                <p className="text-[12px] font-semibold text-[#1E3A5F]">Full Contract — No Fixed End Date</p>
+                                <p className="text-[10px] text-slate-500 font-medium mt-0.5">Check this if the contract has no scheduled end date.</p>
+                            </div>
                         </label>
-                    )}
-                    {formData.employment_type === 'Contract' && (
-                        <label className="space-y-1">
-                            <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Contract End Date</p>
-                            <input
-                                type="date"
-                                className={`${inputCls} ${formData.full_contract ? 'opacity-60 cursor-not-allowed bg-slate-100' : ''}`}
-                                value={formData.contract_end_date}
-                                onChange={(e) => setField('contract_end_date', e.target.value)}
-                                disabled={!!formData.full_contract}
-                            />
-                        </label>
-                    )}
-                    <label className="space-y-1">
-                        <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Employment Status</p>
-                        <select className={inputCls} value={formData.employment_status} onChange={(e) => setField('employment_status', e.target.value)}><option>Active</option><option>On Leave</option><option>Suspended</option></select>
-                    </label>
-                </div>
-            );
-        }
-        if (step === 2) {
-            return (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <label className="space-y-1">
-                        <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Department</p>
-                        <select className={inputCls} value={formData.department} onChange={(e) => setField('department', e.target.value)}>
-                            <option>Academics</option><option>Administration</option><option>Finance</option><option>Discipline</option><option>HR</option><option>Library</option><option>Store</option>
-                        </select>
-                    </label>
-                    <label className="space-y-1">
-                        <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Sub-department (Optional)</p>
-                        <input className={inputCls} placeholder="e.g. Secondary Section, Accounts Unit" value={formData.sub_department} onChange={(e) => setField('sub_department', e.target.value)} />
-                    </label>
-                    <label className="space-y-1">
-                        <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Role Assignment</p>
-                        <select className={inputCls} value={formData.role_code} onChange={(e) => {
-                            const val = e.target.value;
-                            setField('role_code', val);
-                            if (val !== 'CUSTOM') setField('custom_role_name', '');
-                            if (!isEditMode) {
-                                setField('staff_id', getNextStaffCode(val, existingStaff));
-                            }
-                        }}>
-                            <option value="TEACHER">Teacher</option>
-                            <option value="ACCOUNTANT">Accountant</option>
-                            <option value="HR">HR</option>
-                            <option value="DOS">DOS</option>
-                            <option value="STORE_MANAGER">Store Manager</option>
-                            <option value="LIBRARIAN">Librarian</option>
-                            <option value="DISCIPLINE">Head of Discipline</option>
-                            <option value="GATE_KEEPER">Gate Keeper</option>
-                            <option value="SECRETARY">Secretary</option>
-                            <option value="HOD">Staff</option>
-                            <option value="SCHOOL_MANAGER">School Manager</option>
-                            <option value="SCHOOL_DIRECTOR">School Director</option>
-                            <option value="CUSTOM">Custom</option>
-                        </select>
-                    </label>
-                    {formData.role_code === 'CUSTOM' && (
-                        <label className="space-y-1 md:col-span-2">
-                            <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Custom Role Name</p>
-                            <input
-                                className={inputCls}
-                                placeholder="e.g. Welfare Officer, Lab Assistant"
-                                value={formData.custom_role_name}
-                                onChange={(e) => {
-                                    const roleName = e.target.value;
-                                    setField('custom_role_name', roleName);
-                                    if (!isEditMode) {
-                                        setField('staff_id', getNextStaffCode(roleName, existingStaff));
-                                    }
-                                }}
-                            />
-                        </label>
-                    )}
-                </div>
-            );
-        }
-        if (step === 3) {
-            return (
-                <div className="space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
-                        <label className="space-y-1">
-                            <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Basic Salary (Amount)</p>
-                            <input type="number" className={inputCls} placeholder="0" value={formData.payroll_basic_salary} onChange={(e) => setField('payroll_basic_salary', e.target.value)} />
-                        </label>
-                        <label className="space-y-1">
-                            <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Tax (%) Optional</p>
-                            <input type="number" className={inputCls} placeholder="e.g. 30" value={formData.payroll_tax_percent} onChange={(e) => setField('payroll_tax_percent', e.target.value)} />
-                        </label>
-                        <label className="space-y-1">
-                            <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Payment Frequency</p>
-                            <select className={inputCls} value={formData.payroll_payment_frequency} onChange={(e) => setField('payroll_payment_frequency', e.target.value)}><option>Monthly</option><option>Weekly</option></select>
-                        </label>
-                        <label className="space-y-1">
-                            <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Payment Method</p>
-                            <select className={inputCls} value={formData.payroll_payment_method} onChange={(e) => setField('payroll_payment_method', e.target.value)}><option>Bank Transfer</option><option>Mobile Money</option></select>
-                        </label>
-                        {formData.payroll_payment_method === 'Bank Transfer' ? (
-                            <label className="space-y-1">
-                                <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Bank Name</p>
-                                <input className={inputCls} placeholder="Bank Name" value={formData.payroll_bank_name} onChange={(e) => setField('payroll_bank_name', e.target.value)} />
-                            </label>
-                        ) : (
-                            <label className="space-y-1">
-                                <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Mobile Money Phone</p>
-                                <input className={inputCls} placeholder="250..." value={formData.payroll_mobile_money_phone} onChange={(e) => setField('payroll_mobile_money_phone', e.target.value)} />
-                            </label>
-                        )}
-                        {formData.payroll_payment_method === 'Bank Transfer' ? (
-                            <label className="space-y-1">
-                                <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Account Number</p>
-                                <input className={inputCls} placeholder="Account Number" value={formData.payroll_account_number} onChange={(e) => setField('payroll_account_number', e.target.value)} />
-                            </label>
-                        ) : null}
-                        {formData.employment_type === 'Part-time' ? (
-                            <label className="space-y-1">
-                                <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Part-time Rate (Optional)</p>
-                                <input type="number" className={inputCls} placeholder="0" value={formData.payroll_part_time_rate} onChange={(e) => setField('payroll_part_time_rate', e.target.value)} />
-                            </label>
-                        ) : null}
-                        {formData.employment_type === 'Part-time' ? (
-                            <label className="space-y-1">
-                                <p className="text-[8px] font-semibold uppercase tracking-widest text-re-text-muted">Rate Unit</p>
-                                <select className={inputCls} value={formData.payroll_part_time_unit} onChange={(e) => setField('payroll_part_time_unit', e.target.value)}><option value="hour">Per Hour</option><option value="session">Per Session</option></select>
-                            </label>
-                        ) : null}
                     </div>
-                    <div className="border border-black/5 rounded-xl p-3 space-y-2">
-                        <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-semibold uppercase tracking-widest">Allowances (Add Many)</span>
-                            <button type="button" onClick={() => setField('payroll_other_allowances', [...formData.payroll_other_allowances, { label: '', amount: '' }])} className="text-[9px] font-semibold uppercase">Add</button>
+                )}
+
+                {formData.employment_type === 'Contract' && !formData.full_contract && (
+                    <Field label="Contract End Date" required>
+                        <input type="date" className={inp} value={formData.contract_end_date} onChange={(e) => setField('contract_end_date', e.target.value)} />
+                    </Field>
+                )}
+
+                <Field label="Employment Status" required>
+                    <select className={sel} value={formData.employment_status} onChange={(e) => setField('employment_status', e.target.value)}>
+                        <option>Active</option>
+                        <option>On Leave</option>
+                        <option>Suspended</option>
+                    </select>
+                </Field>
+            </div>
+        );
+
+        if (step === 2) return (
+            <div className="grid grid-cols-2 gap-x-5 gap-y-4">
+                <SectionHeader title="Department Assignment" icon={Building2} />
+
+                <Field label="Department" required>
+                    <select className={sel} value={formData.department} onChange={(e) => setField('department', e.target.value)}>
+                        <option>Academics</option>
+                        <option>Administration</option>
+                        <option>Finance</option>
+                        <option>Discipline</option>
+                        <option>HR</option>
+                        <option>Library</option>
+                        <option>Store</option>
+                    </select>
+                </Field>
+
+                <Field label="Sub-department" hint="(Optional)">
+                    <input className={inp} placeholder="e.g. Secondary Section, Accounts Unit" value={formData.sub_department} onChange={(e) => setField('sub_department', e.target.value)} />
+                </Field>
+
+                <SectionHeader title="Role Assignment" icon={ShieldCheck} />
+
+                <Field label="Role / Permission Level" required>
+                    <select className={sel} value={formData.role_code} onChange={(e) => {
+                        const val = e.target.value;
+                        setField('role_code', val);
+                        if (val !== 'CUSTOM') setField('custom_role_name', '');
+                        if (!isEditMode) setField('staff_id', getNextStaffCode(val, existingStaff));
+                    }}>
+                        <option value="TEACHER">Teacher</option>
+                        <option value="ACCOUNTANT">Accountant</option>
+                        <option value="HR">HR</option>
+                        <option value="DOS">DOS</option>
+                        <option value="STORE_MANAGER">Store Manager</option>
+                        <option value="LIBRARIAN">Librarian</option>
+                        <option value="DISCIPLINE">Head of Discipline</option>
+                        <option value="GATE_KEEPER">Gate Keeper</option>
+                        <option value="SECRETARY">Secretary</option>
+                        <option value="HOD">Staff</option>
+                        <option value="SCHOOL_MANAGER">School Manager</option>
+                        <option value="SCHOOL_DIRECTOR">School Director</option>
+                        <option value="CUSTOM">Custom Role…</option>
+                    </select>
+                </Field>
+
+                {formData.role_code === 'CUSTOM' && (
+                    <Field label="Custom Role Name" required fullWidth>
+                        <input
+                            className={inp}
+                            placeholder="e.g. Welfare Officer, Lab Assistant"
+                            value={formData.custom_role_name}
+                            onChange={(e) => {
+                                const roleName = e.target.value;
+                                setField('custom_role_name', roleName);
+                                if (!isEditMode) setField('staff_id', getNextStaffCode(roleName, existingStaff));
+                            }}
+                        />
+                    </Field>
+                )}
+            </div>
+        );
+
+        if (step === 3) return (
+            <div className="space-y-5">
+                {/* Salary */}
+                <div className="grid grid-cols-2 gap-x-5 gap-y-4">
+                    <SectionHeader title="Salary Structure" icon={CreditCard} subtitle="All fields on this step are optional — you can set payroll later." />
+
+                    <Field label="Basic Salary" hint="(RWF, optional)">
+                        <input type="number" className={inp} placeholder="Leave blank if not set yet" value={formData.payroll_basic_salary} onChange={(e) => setField('payroll_basic_salary', e.target.value)} />
+                    </Field>
+
+                    <Field label="Income Tax Rate" hint="(%, optional)">
+                        <input type="number" className={inp} placeholder="e.g. 30" value={formData.payroll_tax_percent} onChange={(e) => setField('payroll_tax_percent', e.target.value)} />
+                    </Field>
+
+                    <Field label="Payment Frequency" hint="(optional)">
+                        <select className={sel} value={formData.payroll_payment_frequency} onChange={(e) => setField('payroll_payment_frequency', e.target.value)}>
+                            <option>Monthly</option>
+                            <option>Weekly</option>
+                        </select>
+                    </Field>
+
+                    <Field label="Payment Method" hint="(optional)">
+                        <select className={sel} value={formData.payroll_payment_method} onChange={(e) => setField('payroll_payment_method', e.target.value)}>
+                            <option>Bank Transfer</option>
+                            <option>Mobile Money</option>
+                        </select>
+                    </Field>
+
+                    {formData.payroll_payment_method === 'Bank Transfer' ? (
+                        <>
+                            <Field label="Bank Name">
+                                <input className={inp} placeholder="e.g. BK, Equity, I&M" value={formData.payroll_bank_name} onChange={(e) => setField('payroll_bank_name', e.target.value)} />
+                            </Field>
+                            <Field label="Bank Account Number">
+                                <input className={inp} placeholder="Account Number" value={formData.payroll_account_number} onChange={(e) => setField('payroll_account_number', e.target.value)} />
+                            </Field>
+                        </>
+                    ) : (
+                        <Field label="Mobile Money Phone">
+                            <input className={inp} placeholder="250..." value={formData.payroll_mobile_money_phone} onChange={(e) => setField('payroll_mobile_money_phone', e.target.value)} />
+                        </Field>
+                    )}
+
+                    {formData.employment_type === 'Part-time' && (
+                        <>
+                            <Field label="Part-time Rate" hint="(per unit)">
+                                <input type="number" className={inp} placeholder="0" value={formData.payroll_part_time_rate} onChange={(e) => setField('payroll_part_time_rate', e.target.value)} />
+                            </Field>
+                            <Field label="Rate Unit">
+                                <select className={sel} value={formData.payroll_part_time_unit} onChange={(e) => setField('payroll_part_time_unit', e.target.value)}>
+                                    <option value="hour">Per Hour</option>
+                                    <option value="session">Per Session</option>
+                                </select>
+                            </Field>
+                        </>
+                    )}
+                </div>
+
+                {/* Allowances */}
+                <div className="border border-slate-100 rounded-xl overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-b border-slate-100">
+                        <div className="flex items-center gap-2">
+                            <TrendingUp size={13} className="text-[#c87800]" />
+                            <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Additional Allowances</span>
                         </div>
+                        <button
+                            type="button"
+                            onClick={() => setField('payroll_other_allowances', [...formData.payroll_other_allowances, { label: '', amount: '' }])}
+                            className="flex items-center gap-1.5 px-3 h-7 text-[10px] font-bold uppercase tracking-wider text-[#1E3A5F] bg-[#1E3A5F]/10 rounded-lg hover:bg-[#1E3A5F]/20 transition-colors"
+                        >
+                            <Plus size={11} /> Add Row
+                        </button>
+                    </div>
+                    <div className="p-4 space-y-2.5">
+                        {formData.payroll_other_allowances.length === 0 && (
+                            <p className="text-[11px] text-slate-400 text-center py-2">No allowances added yet.</p>
+                        )}
                         {formData.payroll_other_allowances.map((item, idx) => (
-                            <div key={`allow-${idx}`} className="grid grid-cols-5 gap-2">
-                                <input className={`col-span-3 ${inputCls}`} placeholder="Allowance Label (e.g. Night Shift)" value={item.label} onChange={(e) => updateListItem('payroll_other_allowances', idx, 'label', e.target.value)} />
-                                <input type="number" className={inputCls} placeholder="Amount (optional)" value={item.amount} onChange={(e) => updateListItem('payroll_other_allowances', idx, 'amount', e.target.value)} />
-                                <button type="button" onClick={() => setField('payroll_other_allowances', formData.payroll_other_allowances.filter((_, i) => i !== idx))} className="text-red-500"><X size={14} /></button>
+                            <div key={`allow-${idx}`} className="grid grid-cols-[1fr_140px_32px] gap-2 items-end">
+                                <Field label={idx === 0 ? "Allowance Label" : ""}>
+                                    <input className={inp} placeholder="e.g. Night Shift, Overtime" value={item.label} onChange={(e) => updateListItem('payroll_other_allowances', idx, 'label', e.target.value)} />
+                                </Field>
+                                <Field label={idx === 0 ? "Amount (RWF)" : ""}>
+                                    <input type="number" className={inp} placeholder="0" value={item.amount} onChange={(e) => updateListItem('payroll_other_allowances', idx, 'amount', e.target.value)} />
+                                </Field>
+                                <button
+                                    type="button"
+                                    onClick={() => setField('payroll_other_allowances', formData.payroll_other_allowances.filter((_, i) => i !== idx))}
+                                    className="h-10 w-8 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                >
+                                    <X size={14} />
+                                </button>
                             </div>
                         ))}
                     </div>
-                    <div className="border border-black/5 rounded-xl p-3 space-y-2">
-                        <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-semibold uppercase tracking-widest">Other Deductions (Optional)</span>
-                            <button type="button" onClick={() => setField('payroll_other_deductions', [...formData.payroll_other_deductions, { label: '', amount: '' }])} className="text-[9px] font-semibold uppercase">Add</button>
+                </div>
+
+                {/* Deductions */}
+                <div className="border border-slate-100 rounded-xl overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-b border-slate-100">
+                        <div className="flex items-center gap-2">
+                            <FileText size={13} className="text-[#c87800]" />
+                            <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Other Deductions</span>
+                            <span className="text-[10px] text-slate-400 font-medium">(optional)</span>
                         </div>
-                        {formData.payroll_other_deductions.map((item, idx) => (
-                            <div key={`ded-${idx}`} className="grid grid-cols-5 gap-2">
-                                <input className={`col-span-3 ${inputCls}`} placeholder="Deduction Label" value={item.label} onChange={(e) => updateListItem('payroll_other_deductions', idx, 'label', e.target.value)} />
-                                <input type="number" className={inputCls} placeholder="Amount (optional)" value={item.amount} onChange={(e) => updateListItem('payroll_other_deductions', idx, 'amount', e.target.value)} />
-                                <button type="button" onClick={() => setField('payroll_other_deductions', formData.payroll_other_deductions.filter((_, i) => i !== idx))} className="text-red-500"><X size={14} /></button>
-                            </div>
-                        ))}
+                        <button
+                            type="button"
+                            onClick={() => setField('payroll_other_deductions', [...formData.payroll_other_deductions, { label: '', amount: '' }])}
+                            className="flex items-center gap-1.5 px-3 h-7 text-[10px] font-bold uppercase tracking-wider text-[#1E3A5F] bg-[#1E3A5F]/10 rounded-lg hover:bg-[#1E3A5F]/20 transition-colors"
+                        >
+                            <Plus size={11} /> Add Row
+                        </button>
                     </div>
-                    <div className="border border-black/5 rounded-xl p-3 space-y-2">
-                        <label className="flex items-center gap-2 text-[10px] font-semibold uppercase"><input type="checkbox" checked={formData.allow_advance} onChange={(e) => setField('allow_advance', e.target.checked)} /> Allow Advance / Loan</label>
-                        {formData.allow_advance && (
-                            <div className="grid grid-cols-3 gap-3">
-                                <input type="number" className={inputCls} placeholder="Max Advance Limit" value={formData.max_advance_limit} onChange={(e) => setField('max_advance_limit', e.target.value)} />
-                                <select className={inputCls} value={formData.advance_deduction_type} onChange={(e) => setField('advance_deduction_type', e.target.value)}><option value="percent">Percent</option><option value="fixed">Fixed</option></select>
-                                <input type="number" className={inputCls} placeholder="Deduction Value" value={formData.advance_deduction_value} onChange={(e) => setField('advance_deduction_value', e.target.value)} />
-                            </div>
+                    <div className="p-4 space-y-2.5">
+                        {formData.payroll_other_deductions.length === 0 && (
+                            <p className="text-[11px] text-slate-400 text-center py-2">No deductions added yet.</p>
                         )}
-                    </div>
-                    <div className="border border-[#1E3A5F]/20 bg-[#1E3A5F]/5 rounded-xl p-3">
-                        <p className="text-[9px] font-semibold uppercase tracking-widest text-[#1E3A5F] mb-2">Auto Payroll Calculation</p>
-                        <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-[9px] font-semibold uppercase tracking-wider">
-                            <div className="bg-white rounded-lg border border-black/5 p-2">
-                                <p className="text-re-text-muted text-[8px]">Gross</p>
-                                <p>{formatRwf(grossSalary)} RWF</p>
+                        {formData.payroll_other_deductions.map((item, idx) => (
+                            <div key={`ded-${idx}`} className="grid grid-cols-[1fr_140px_32px] gap-2 items-end">
+                                <Field label={idx === 0 ? "Deduction Label" : ""}>
+                                    <input className={inp} placeholder="e.g. Pension, Union Fee" value={item.label} onChange={(e) => updateListItem('payroll_other_deductions', idx, 'label', e.target.value)} />
+                                </Field>
+                                <Field label={idx === 0 ? "Amount (RWF)" : ""}>
+                                    <input type="number" className={inp} placeholder="0" value={item.amount} onChange={(e) => updateListItem('payroll_other_deductions', idx, 'amount', e.target.value)} />
+                                </Field>
+                                <button
+                                    type="button"
+                                    onClick={() => setField('payroll_other_deductions', formData.payroll_other_deductions.filter((_, i) => i !== idx))}
+                                    className="h-10 w-8 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                >
+                                    <X size={14} />
+                                </button>
                             </div>
-                            <div className="bg-white rounded-lg border border-black/5 p-2">
-                                <p className="text-re-text-muted text-[8px]">Tax</p>
-                                <p>{taxPercentValue > 0 ? `${taxPercentValue}%` : 'Not set'}</p>
-                            </div>
-                            <div className="bg-white rounded-lg border border-black/5 p-2">
-                                <p className="text-re-text-muted text-[8px]">Tax Amount</p>
-                                <p>{formatRwf(taxAmount)} RWF</p>
-                            </div>
-                            <div className="bg-white rounded-lg border border-black/5 p-2">
-                                <p className="text-re-text-muted text-[8px]">Deductions</p>
-                                <p>{formatRwf(totalDeductions)} RWF</p>
-                            </div>
-                            <div className="bg-white rounded-lg border border-black/5 p-2">
-                                <p className="text-re-text-muted text-[8px]">Net Salary</p>
-                                <p>{formatRwf(netSalary)} RWF</p>
-                            </div>
-                        </div>
+                        ))}
                     </div>
                 </div>
-            );
-        }
-        if (step === 4) {
-            return (
-                <div className="space-y-3">
-                    <label className="flex items-center gap-2 text-[10px] font-semibold uppercase"><input type="checkbox" checked={formData.account_enabled} onChange={(e) => setField('account_enabled', e.target.checked)} /> Create Login Account</label>
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1">
-                            <input className={inputClsWithError('username')} placeholder="Username" value={formData.username} onChange={(e) => setField('username', e.target.value)} />
-                            {fieldErrors.username && <p className="text-[9px] font-bold text-red-600">{fieldErrors.username}</p>}
-                        </div>
-                        {!isEditMode && <input type="password" className={inputCls} placeholder="Password" value={formData.password} onChange={(e) => setField('password', e.target.value)} />}
-                        {!isEditMode && <input type="password" className={inputCls} placeholder="Confirm Password" value={formData.confirm_password} onChange={(e) => setField('confirm_password', e.target.value)} />}
-                        <input className={inputCls} placeholder="RFID UID (Optional)" value={formData.rfid_uid} onChange={(e) => setField('rfid_uid', e.target.value)} />
-                        <input className={inputCls} placeholder="Fingerprint ID (Optional)" value={formData.fingerprint_id} onChange={(e) => setField('fingerprint_id', e.target.value)} />
+
+                {/* Advance */}
+                <div className="border border-slate-100 rounded-xl overflow-hidden">
+                    <div className="px-4 py-3 bg-slate-50 border-b border-slate-100">
+                        <label className="flex items-center gap-3 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={formData.allow_advance}
+                                onChange={(e) => setField('allow_advance', e.target.checked)}
+                                className="w-4 h-4 accent-[#1E3A5F]"
+                            />
+                            <div>
+                                <p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Allow Advance / Salary Loan</p>
+                                <p className="text-[10px] text-slate-400 font-medium mt-0.5">Enable salary advance requests for this staff member.</p>
+                            </div>
+                        </label>
                     </div>
-                    <textarea className="w-full min-h-[70px] bg-re-bg/80 border border-black/5 rounded-xl p-3 text-[10px] font-semibold outline-none" placeholder="Identity remarks" value={formData.identity_remarks} onChange={(e) => setField('identity_remarks', e.target.value)} />
+                    {formData.allow_advance && (
+                        <div className="p-4 grid grid-cols-3 gap-4">
+                            <Field label="Max Advance Limit" hint="(RWF)">
+                                <input type="number" className={inp} placeholder="e.g. 50000" value={formData.max_advance_limit} onChange={(e) => setField('max_advance_limit', e.target.value)} />
+                            </Field>
+                            <Field label="Deduction Type">
+                                <select className={sel} value={formData.advance_deduction_type} onChange={(e) => setField('advance_deduction_type', e.target.value)}>
+                                    <option value="percent">Percentage (%)</option>
+                                    <option value="fixed">Fixed Amount</option>
+                                </select>
+                            </Field>
+                            <Field label="Deduction Value">
+                                <input type="number" className={inp} placeholder="0" value={formData.advance_deduction_value} onChange={(e) => setField('advance_deduction_value', e.target.value)} />
+                            </Field>
+                        </div>
+                    )}
                 </div>
-            );
-        }
+
+                {/* Live Payroll Summary */}
+                <div className="rounded-xl border border-[#1E3A5F]/15 bg-[#1E3A5F]/4 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-[#1E3A5F]/10 bg-[#1E3A5F]/5">
+                        <p className="text-[11px] font-bold text-[#1E3A5F] uppercase tracking-wider">Live Payroll Calculation</p>
+                    </div>
+                    <div className="p-4 grid grid-cols-5 gap-3">
+                        {[
+                            { label: 'Basic', value: `${formatRwf(basicSalaryValue)} RWF` },
+                            { label: 'Gross', value: `${formatRwf(grossSalary)} RWF` },
+                            { label: 'Tax', value: taxPercentValue > 0 ? `${taxPercentValue}% (${formatRwf(taxAmount)} RWF)` : 'Not set' },
+                            { label: 'Total Deductions', value: `${formatRwf(totalDeductions)} RWF` },
+                            { label: 'Net Salary', value: `${formatRwf(netSalary)} RWF`, highlight: true },
+                        ].map((item) => (
+                            <div key={item.label} className={`rounded-lg border p-3 ${item.highlight ? 'bg-[#1E3A5F] border-[#1E3A5F]' : 'bg-white border-slate-100'}`}>
+                                <p className={`text-[9px] font-semibold uppercase tracking-wider mb-1 ${item.highlight ? 'text-white/60' : 'text-slate-400'}`}>{item.label}</p>
+                                <p className={`text-[11px] font-bold leading-tight ${item.highlight ? 'text-white' : 'text-slate-700'}`}>{item.value}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        );
+
+        if (step === 4) return (
+            <div className="grid grid-cols-2 gap-x-5 gap-y-4">
+                <SectionHeader title="Login Account" icon={UserCheck} />
+
+                <div className="col-span-2">
+                    <label className="flex items-center gap-3 p-4 bg-slate-50 border border-slate-100 rounded-xl cursor-pointer hover:bg-slate-100/60 transition-colors">
+                        <input
+                            type="checkbox"
+                            checked={formData.account_enabled}
+                            onChange={(e) => setField('account_enabled', e.target.checked)}
+                            className="w-4 h-4 accent-[#1E3A5F]"
+                        />
+                        <div>
+                            <p className="text-[12px] font-semibold text-slate-700">Create Login Account</p>
+                            <p className="text-[11px] text-slate-400 font-medium mt-0.5">This staff member will be able to log in to the system.</p>
+                        </div>
+                    </label>
+                </div>
+
+                <Field label="Username" required={formData.account_enabled} error={fieldErrors.username}>
+                    <input
+                        className={`${inpErr('username')} ${!formData.account_enabled ? 'opacity-50' : ''}`}
+                        placeholder="e.g. juma.ally"
+                        value={formData.username}
+                        onChange={(e) => setField('username', e.target.value)}
+                        disabled={!formData.account_enabled}
+                    />
+                </Field>
+
+                {!isEditMode && (
+                    <Field label="Password" required={formData.account_enabled} hint="(min. 8 characters)">
+                        <input
+                            type="password"
+                            className={`${inp} ${!formData.account_enabled ? 'opacity-50' : ''}`}
+                            placeholder="••••••••"
+                            value={formData.password}
+                            onChange={(e) => setField('password', e.target.value)}
+                            disabled={!formData.account_enabled}
+                        />
+                    </Field>
+                )}
+
+                {!isEditMode && (
+                    <Field label="Confirm Password" required={formData.account_enabled}>
+                        <input
+                            type="password"
+                            className={`${inp} ${!formData.account_enabled ? 'opacity-50' : ''}`}
+                            placeholder="••••••••"
+                            value={formData.confirm_password}
+                            onChange={(e) => setField('confirm_password', e.target.value)}
+                            disabled={!formData.account_enabled}
+                        />
+                    </Field>
+                )}
+
+
+                
+            </div>
+        );
+
+        // Step 5 — Review
         return (
-            <div className="space-y-2 text-[10px] font-bold uppercase">
-                <p><span className="text-re-text-muted">Personal:</span> {formData.full_name} | {formData.email}</p>
-                <p><span className="text-re-text-muted">Employment:</span> {formData.staff_id} | {formData.employment_type} | {formData.job_title}</p>
-                <p><span className="text-re-text-muted">Role:</span> {formData.department} / {formData.role_code}</p>
-                <p><span className="text-re-text-muted">Payroll:</span> {formData.payroll_payment_frequency} / {formData.payroll_payment_method}</p>
-                <p><span className="text-re-text-muted">Account:</span> {formData.account_enabled ? `Enabled (${formData.username || 'auto'})` : 'Disabled'}</p>
+            <div className="space-y-3">
+                <p className="text-[11px] text-slate-500 font-medium">Review all information before saving. Click any step tab above to go back and make changes.</p>
+                {[
+                    { label: 'Personal', value: `${formData.full_name} · ${formData.email} · ${formData.gender}` },
+                    { label: 'Employment', value: `${formData.staff_id} · ${formData.employment_type} · ${formData.job_title}` },
+                    { label: 'Role', value: `${formData.department} / ${formData.role_code === 'CUSTOM' ? formData.custom_role_name : formData.role_code}` },
+                    { label: 'Payroll', value: `Basic: ${formatRwf(basicSalaryValue)} RWF · Net: ${formatRwf(netSalary)} RWF · ${formData.payroll_payment_method}` },
+                    { label: 'Account', value: formData.account_enabled ? `Enabled · Username: ${formData.username || 'auto-assigned'}` : 'No login account' },
+                ].map((row) => (
+                    <div key={row.label} className="flex gap-4 p-3.5 rounded-xl bg-slate-50 border border-slate-100">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider w-24 shrink-0 pt-0.5">{row.label}</span>
+                        <span className="text-[12px] font-semibold text-slate-700">{row.value}</span>
+                    </div>
+                ))}
             </div>
         );
     };
@@ -997,39 +1069,97 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
     return createPortal(
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
             <div className="fixed inset-0 bg-[#0a192f]/70 backdrop-blur-sm animate-in fade-in duration-300" onClick={onClose} />
-            <div className="relative bg-white w-full max-w-3xl rounded-[2rem] shadow-sm overflow-hidden animate-in zoom-in-95 duration-300 border border-white/10 flex flex-col max-h-[92vh]">
-                <div className="px-6 py-3 flex items-center justify-between shadow-md shrink-0" style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)" }}>
-                    <div className="flex items-center gap-2">
-                        <UserPlus size={14} className="text-re-gold" />
-                        <h3 className="text-[10px] font-semibold text-white uppercase tracking-widest">{isEditMode ? 'Edit Staff' : 'Add New Staff'} - HR Central</h3>
+            <div className="relative bg-white w-full max-w-3xl rounded-2xl overflow-hidden animate-in zoom-in-95 duration-300 flex flex-col max-h-[92vh] border border-slate-200">
+
+                {/* Header */}
+                <div className="px-6 py-4 flex items-center justify-between border-b border-slate-100 shrink-0" style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)" }}>
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
+                            <UserPlus size={15} className="text-[#FEBF10]" />
+                        </div>
+                        <div>
+                            <h3 className="text-[13px] font-bold text-white tracking-tight">{isEditMode ? 'Edit Staff Profile' : 'Add New Staff Member'}</h3>
+                            <p className="text-[10px] text-white/50 font-medium mt-0.5 uppercase tracking-widest">HR Central — Step {step + 1} of {HIRE_STEPS.length}</p>
+                        </div>
                     </div>
-                    <button onClick={onClose} className="text-white/70 hover:text-re-gold"><X size={14} /></button>
+                    <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 text-white/70 hover:bg-white/20 hover:text-white transition-all">
+                        <X size={15} />
+                    </button>
                 </div>
-                <div className="px-5 py-3 bg-re-bg/30 border-b border-black/5 grid grid-cols-2 md:grid-cols-6 gap-2">
+
+                {/* Step Tabs */}
+                <div className="px-5 py-3 bg-slate-50 border-b border-slate-100 flex gap-1.5 overflow-x-auto shrink-0">
                     {HIRE_STEPS.map((label, i) => (
-                        <button key={label} type="button" onClick={() => setStep(i)} className={`h-8 rounded-lg text-[8px] font-semibold uppercase tracking-widest border ${i === step ? 'bg-[#1E3A5F] text-white border-[#1E3A5F]' : i < step ? 'bg-[#1E3A5F]/10 text-[#1E3A5F] border-[#1E3A5F]/30' : 'bg-white text-re-text-muted border-black/10'}`}>
+                        <button
+                            key={label}
+                            type="button"
+                            onClick={() => setStep(i)}
+                            className={`h-8 px-3 rounded-lg text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                                i === step
+                                    ? 'bg-[#1E3A5F] text-white'
+                                    : i < step
+                                    ? 'bg-[#1E3A5F]/10 text-[#1E3A5F]'
+                                    : 'bg-white text-slate-400 border border-slate-200'
+                            }`}
+                        >
+                            {i < step && <CheckCircle size={10} />}
                             {label}
                         </button>
                     ))}
                 </div>
-                <form id="hr-staff-stepper-form" onSubmit={onSubmit} className="p-5 space-y-4 overflow-y-auto">
-                    {error && (
-                        <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2">
-                            <p className="text-[10px] font-semibold uppercase tracking-widest text-rose-700">Action failed</p>
-                            <p className="text-[11px] font-bold text-rose-800 mt-0.5">{error}</p>
+
+                {/* Error Banner */}
+                {error && (
+                    <div className="mx-5 mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 flex items-start gap-3">
+                        <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center shrink-0 mt-0.5">
+                            <X size={10} className="text-white" />
                         </div>
-                    )}
+                        <div>
+                            <p className="text-[11px] font-bold text-red-700 uppercase tracking-wider">Action Failed</p>
+                            <p className="text-[12px] font-semibold text-red-800 mt-0.5">{error}</p>
+                        </div>
+                    </div>
+                )}
+
+                {/* Form Body */}
+                <form id="hr-staff-stepper-form" onSubmit={onSubmit} className="flex-1 overflow-y-auto px-6 py-5">
                     {section()}
                 </form>
-                <div className="px-5 py-3 bg-white border-t border-black/5 flex items-center justify-between">
-                    <button type="button" onClick={step === 0 ? onClose : () => setStep((s) => Math.max(0, s - 1))} className="h-9 px-4 rounded-lg border border-black/10 text-[9px] font-semibold uppercase tracking-widest text-[#1E3A5F]">Back</button>
-                    {step < HIRE_STEPS.length - 1 ? (
-                        <button type="button" onClick={onNext} className="h-9 px-5 rounded-lg bg-re-grad-navy text-white font-medium text-[9px] uppercase tracking-widest flex items-center gap-1">Next <ChevronRight size={12} /></button>
-                    ) : (
-                        <button type="submit" form="hr-staff-stepper-form" disabled={isSubmitting} className="h-9 px-5 rounded-lg bg-re-gold text-[#1E3A5F] font-medium text-[9px] uppercase tracking-widest flex items-center gap-1 disabled:opacity-60">
-                            {isSubmitting ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />} {isSubmitting ? 'Saving...' : 'Review & Save'}
-                        </button>
-                    )}
+
+                {/* Footer */}
+                <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between shrink-0">
+                    <button
+                        type="button"
+                        onClick={step === 0 ? onClose : () => setStep((s) => Math.max(0, s - 1))}
+                        className="h-9 px-5 rounded-lg border border-slate-200 text-[11px] font-semibold text-slate-600 hover:bg-white hover:border-slate-300 transition-all"
+                    >
+                        {step === 0 ? 'Cancel' : '← Back'}
+                    </button>
+
+                    <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-medium text-slate-400">{step + 1}/{HIRE_STEPS.length}</span>
+                        {step < HIRE_STEPS.length - 1 ? (
+                            <button
+                                type="button"
+                                onClick={onNext}
+                                className="h-9 px-6 rounded-lg text-white font-semibold text-[11px] flex items-center gap-2 transition-all active:scale-95"
+                                style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)" }}
+                            >
+                                Continue <ChevronRight size={13} />
+                            </button>
+                        ) : (
+                            <button
+                                type="submit"
+                                form="hr-staff-stepper-form"
+                                disabled={isSubmitting}
+                                className="h-9 px-6 rounded-lg font-semibold text-[11px] flex items-center gap-2 text-[#1E3A5F] transition-all active:scale-95 disabled:opacity-60"
+                                style={{ background: "linear-gradient(135deg, #FEBF10 0%, #e6ab00 100%)" }}
+                            >
+                                {isSubmitting ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle size={13} />}
+                                {isSubmitting ? 'Saving…' : 'Save Staff Profile'}
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>,
@@ -1042,7 +1172,8 @@ const HRCentral = () => {
     const academic = useAcademic();
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedStaff, setSelectedStaff] = useState(null);
-    const [openDropdownId, setOpenDropdownId] = useState(null);
+    const [staffRowMenu, setStaffRowMenu] = useState(null);
+    const closeStaffRowMenu = useCallback(() => setStaffRowMenu(null), []);
     const [showDeptFilter, setShowDeptFilter] = useState(false);
     const [selectedDept, setSelectedDept] = useState('All Departments');
     const [showAllDeptsModal, setShowAllDeptsModal] = useState(false);
@@ -1055,21 +1186,11 @@ const HRCentral = () => {
     const notify = (type, message) => {
         const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
         setNotifications((prev) => [...prev, { id, type, message }]);
-        setTimeout(() => {
-            setNotifications((prev) => prev.filter((n) => n.id !== id));
-        }, 4200);
+        setTimeout(() => { setNotifications((prev) => prev.filter((n) => n.id !== id)); }, 4200);
     };
 
-    const openEditModal = (staffMember) => {
-        setEditingStaff(staffMember);
-        setShowHireModal(true);
-        setOpenDropdownId(null);
-    };
-
-    const closeHireModal = () => {
-        setShowHireModal(false);
-        setEditingStaff(null);
-    };
+    const openEditModal = (staffMember) => { setEditingStaff(staffMember); setShowHireModal(true); closeStaffRowMenu(); };
+    const closeHireModal = () => { setShowHireModal(false); setEditingStaff(null); };
 
     const [staff, setStaff] = useState([]);
     const [isActionLoading, setIsActionLoading] = useState(false);
@@ -1083,10 +1204,7 @@ const HRCentral = () => {
             notify('success', 'Invitation resent successfully.');
         } catch (error) {
             notify('error', error.response?.data?.message || 'Failed to resend invitation.');
-        } finally {
-            setIsActionLoading(false);
-            setOpenDropdownId(null);
-        }
+        } finally { setIsActionLoading(false); closeStaffRowMenu(); }
     };
 
     const handleDeleteStaff = async (staffId, name) => {
@@ -1098,10 +1216,7 @@ const HRCentral = () => {
             await fetchStaff();
         } catch (error) {
             notify('error', error.response?.data?.message || 'Failed to delete staff.');
-        } finally {
-            setIsActionLoading(false);
-            setOpenDropdownId(null);
-        }
+        } finally { setIsActionLoading(false); closeStaffRowMenu(); }
     };
 
     const handleToggleActive = async (staffId, isCurrentlyActive) => {
@@ -1112,28 +1227,16 @@ const HRCentral = () => {
             await fetchStaff();
         } catch (error) {
             notify('error', error.response?.data?.message || 'Failed to update staff status.');
-        } finally {
-            setIsActionLoading(false);
-            setOpenDropdownId(null);
-        }
+        } finally { setIsActionLoading(false); closeStaffRowMenu(); }
     };
 
-    const [stats, setStats] = useState({
-        totalStaff: '0',
-        activePercent: '100%',
-        presentCount: 0,
-        absentCount: 0,
-        avgEvaluation: '—',
-        retentionRate: '98%'
-    });
+    const [stats, setStats] = useState({ totalStaff: '0', activePercent: '100%', presentCount: 0, absentCount: 0, avgEvaluation: '—', retentionRate: '98%' });
     const [loading, setLoading] = useState(true);
     const [hrTerm, setHrTerm] = useState('');
     const [metricsRange, setMetricsRange] = useState(null);
 
     useEffect(() => {
-        if (!academic.loading && academic.currentTerm && !hrTerm) {
-            setHrTerm(academic.currentTerm);
-        }
+        if (!academic.loading && academic.currentTerm && !hrTerm) setHrTerm(academic.currentTerm);
     }, [academic.loading, academic.currentTerm, hrTerm]);
 
     const fetchStaff = async () => {
@@ -1145,14 +1248,8 @@ const HRCentral = () => {
                 staffService.getStaff(),
                 api.get('/dos/reports/hr/staff-metrics', { params: { term: termParam } }),
             ]);
-
-            const metricsPayload =
-                metricsRes.status === 'fulfilled' && metricsRes.value.data?.success
-                    ? metricsRes.value.data.data
-                    : null;
-            const byUser = new Map(
-                (metricsPayload?.staff || []).map((row) => [Number(row.user_id), row])
-            );
+            const metricsPayload = metricsRes.status === 'fulfilled' && metricsRes.value.data?.success ? metricsRes.value.data.data : null;
+            const byUser = new Map((metricsPayload?.staff || []).map((row) => [Number(row.user_id), row]));
             const expectedSlots = Number(metricsPayload?.range?.expected_slots || 0);
             setMetricsRange(metricsPayload?.range || null);
 
@@ -1166,79 +1263,43 @@ const HRCentral = () => {
             const mapped = (res.data || []).map((s) => {
                 const pk = Number(s.id);
                 const m = Number.isFinite(pk) ? byUser.get(pk) : null;
-                const reliabilityPct =
-                    m != null
-                        ? m.reliability_pct
-                        : expectedSlots > 0
-                          ? 0
-                          : null;
+                const reliabilityPct = m != null ? m.reliability_pct : expectedSlots > 0 ? 0 : null;
                 const performanceOutOf100 = m != null ? m.performance_out_of_100 : null;
-                const lessonPresencePct = m != null ? m.lesson_presence_pct : null;
-
                 return {
-                    _raw: s,
-                    id: s.user_uid || s.id,
-                    real_id: s.id,
-                    userPk: pk,
+                    _raw: s, id: s.user_uid || s.id, real_id: s.id, userPk: pk,
                     name: s.full_name || `${s.first_name || ''} ${s.last_name || ''}`.trim(),
-                    role: s.role_name || s.role_code,
-                    role_code: s.role_code || '',
-                    department: s.department || (s.role_code === 'TEACHER' ? 'Academic Staff' :
-                        ['HOD', 'DOS'].includes(s.role_code) ? 'Leadership' :
-                            ['ACCOUNTANT'].includes(s.role_code) ? 'Administration' : 'Support Staff'),
-                    phone: s.phone || 'N/A',
-                    email: s.email,
-                    photo: s.photo,
+                    role: s.role_name || s.role_code, role_code: s.role_code || '',
+                    department: s.department || (s.role_code === 'TEACHER' ? 'Academic Staff' : ['HOD', 'DOS'].includes(s.role_code) ? 'Leadership' : ['ACCOUNTANT'].includes(s.role_code) ? 'Administration' : 'Support Staff'),
+                    phone: s.phone || 'N/A', email: s.email, photo: s.photo,
                     location: s.sector ? `${s.sector}, ${s.district}` : (s.district || 'N/A'),
                     status: s.is_active ? 'Expected' : 'Inactive',
-                    evaluation: performanceOutOf100 != null ? performanceOutOf100 : null,
-                    attendance: reliabilityPct != null ? reliabilityPct : null,
-                    reliabilityPct,
-                    performanceOutOf100,
-                    lessonPresencePct,
+                    evaluation: performanceOutOf100, attendance: reliabilityPct,
+                    reliabilityPct, performanceOutOf100, lessonPresencePct: m?.lesson_presence_pct ?? null,
                     joinedDate: s.created_at ? new Date(s.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A',
-                    staffId: s.staff_id || null,
-                    gender: s.gender || null,
-                    date_of_birth: s.date_of_birth || '',
-                    dateOfBirth: s.date_of_birth ? new Date(s.date_of_birth).toLocaleDateString('en-GB') : null,
-                    nationalId: s.national_id || s.passport_number || null,
-                    passportNumber: s.passport_number || null,
-                    address: s.address || null,
-                    employmentType: s.employment_type || null,
-                    jobTitle: s.job_title || null,
-                    date_of_employment: s.date_of_employment || '',
+                    staffId: s.staff_id || null, gender: s.gender || null,
+                    date_of_birth: s.date_of_birth || '', dateOfBirth: s.date_of_birth ? new Date(s.date_of_birth).toLocaleDateString('en-GB') : null,
+                    nationalId: s.national_id || s.passport_number || null, passportNumber: s.passport_number || null,
+                    address: s.address || null, employmentType: s.employment_type || null,
+                    jobTitle: s.job_title || null, date_of_employment: s.date_of_employment || '',
                     dateOfEmployment: s.date_of_employment ? new Date(s.date_of_employment).toLocaleDateString('en-GB') : null,
                     contract_start_date: s.contract_start_date || '',
                     contractStartDate: s.contract_start_date ? new Date(s.contract_start_date).toLocaleDateString('en-GB') : null,
                     contract_end_date: s.contract_end_date || '',
                     contractEndDate: s.contract_end_date ? new Date(s.contract_end_date).toLocaleDateString('en-GB') : null,
                     fullContract: s.employment_type === 'Contract' && !s.contract_end_date,
-                    employmentStatus: s.employment_status || null,
-                    subDepartment: s.sub_department || null,
-                    payrollBasicSalary: s.payroll_basic_salary,
-                    payrollTransportAllowance: s.payroll_transport_allowance,
-                    payrollHousingAllowance: s.payroll_housing_allowance,
-                    payrollMealAllowance: s.payroll_meal_allowance,
-                    payrollOtherAllowances: s.payroll_other_allowances,
-                    payrollTaxPercent: s.payroll_tax_percent,
-                    payrollPensionAmount: s.payroll_pension_amount,
-                    payrollOtherDeductions: s.payroll_other_deductions,
-                    payrollPartTimeRate: s.payroll_part_time_rate,
-                    payrollPartTimeUnit: s.payroll_part_time_unit,
-                    payrollPaymentFrequency: s.payroll_payment_frequency || null,
-                    payrollPaymentMethod: s.payroll_payment_method || null,
-                    payrollBankName: s.payroll_bank_name || null,
-                    payrollAccountNumber: s.payroll_account_number || null,
-                    payrollMobileMoneyPhone: s.payroll_mobile_money_phone || null,
-                    allowAdvance: !!s.allow_advance,
-                    maxAdvanceLimit: s.max_advance_limit,
-                    advanceDeductionType: s.advance_deduction_type || null,
-                    advanceDeductionValue: s.advance_deduction_value,
-                    accountEnabled: s.account_enabled !== 0,
+                    employmentStatus: s.employment_status || null, subDepartment: s.sub_department || null,
+                    payrollBasicSalary: s.payroll_basic_salary, payrollTransportAllowance: s.payroll_transport_allowance,
+                    payrollHousingAllowance: s.payroll_housing_allowance, payrollMealAllowance: s.payroll_meal_allowance,
+                    payrollOtherAllowances: s.payroll_other_allowances, payrollTaxPercent: s.payroll_tax_percent,
+                    payrollPensionAmount: s.payroll_pension_amount, payrollOtherDeductions: s.payroll_other_deductions,
+                    payrollPartTimeRate: s.payroll_part_time_rate, payrollPartTimeUnit: s.payroll_part_time_unit,
+                    payrollPaymentFrequency: s.payroll_payment_frequency || null, payrollPaymentMethod: s.payroll_payment_method || null,
+                    payrollBankName: s.payroll_bank_name || null, payrollAccountNumber: s.payroll_account_number || null,
+                    payrollMobileMoneyPhone: s.payroll_mobile_money_phone || null, allowAdvance: !!s.allow_advance,
+                    maxAdvanceLimit: s.max_advance_limit, advanceDeductionType: s.advance_deduction_type || null,
+                    advanceDeductionValue: s.advance_deduction_value, accountEnabled: s.account_enabled !== 0,
                     username: s.staff_login_username || s.username || null,
-                    rfid_uid: s.rfid_uid,
-                    fingerprint_id: s.fingerprint_id,
-                    identity_remarks: s.identity_remarks
+                    rfid_uid: s.rfid_uid, fingerprint_id: s.fingerprint_id, identity_remarks: s.identity_remarks
                 };
             });
             setStaff(mapped);
@@ -1246,23 +1307,10 @@ const HRCentral = () => {
             const total = mapped.length;
             const active = mapped.filter((s) => s.status === 'Expected').length;
             const activePct = total > 0 ? Math.round((active / total) * 100) : 0;
-
             const scored = mapped.filter((s) => s.performanceOutOf100 != null);
-            const avgEval =
-                scored.length > 0
-                    ? `${Math.round(scored.reduce((a, c) => a + c.performanceOutOf100, 0) / scored.length)}/100`
-                    : '—';
-
+            const avgEval = scored.length > 0 ? `${Math.round(scored.reduce((a, c) => a + c.performanceOutOf100, 0) / scored.length)}/100` : '—';
             const retention = total > 0 ? (95 + (activePct / 20)).toFixed(1) : '0.0';
-
-            setStats({
-                totalStaff: total.toString(),
-                activePercent: `${activePct}%`,
-                presentCount: active,
-                absentCount: total - active,
-                avgEvaluation: avgEval,
-                retentionRate: `${retention}%`
-            });
+            setStats({ totalStaff: total.toString(), activePercent: `${activePct}%`, presentCount: active, absentCount: total - active, avgEvaluation: avgEval, retentionRate: `${retention}%` });
         } catch (err) {
             console.error("Failed to fetch staff:", err);
         } finally {
@@ -1285,16 +1333,19 @@ const HRCentral = () => {
                     photoData.append('photo', photoFile);
                     await staffService.updateStaffPhoto(createdId, photoData);
                 }
-                notify('success', 'Personnel account created successfully.');
+                notify('success', res?.data?.staff_id ? `Personnel account created (Staff ID: ${res.data.staff_id}).` : 'Personnel account created successfully.');
                 fetchStaff();
                 return { ok: true };
             }
             notify('error', res?.message || 'Hiring failed. Please check inputs.');
             return { ok: false, field: res?.field, message: res?.message };
         } catch (err) {
-            console.error("Failed to hire staff:", err);
-            const field = err?.response?.data?.field;
-            const message = err?.response?.data?.message || 'Hiring failed. Please check inputs.';
+            const data = err?.response?.data || {};
+            const field = data.field;
+            let message = data.message || 'Hiring failed. Please check inputs.';
+            if (data.code === 'DUPLICATE_STAFF_ID' || /duplicate entry.*staff_id/i.test(String(message))) {
+                message = 'That staff ID is already used. Close and re-open the form to get the next available code.';
+            }
             notify('error', message);
             return { ok: false, field, message };
         }
@@ -1304,18 +1355,15 @@ const HRCentral = () => {
         try {
             const res = await staffService.updateStaff(staffId, payload);
             if (!res.success) throw new Error(res.message || 'Update failed');
-
             if (photoFile) {
                 const photoData = new FormData();
                 photoData.append('photo', photoFile);
                 await staffService.updateStaffPhoto(staffId, photoData);
             }
-
             notify('success', 'Staff profile updated successfully.');
             fetchStaff();
             return { ok: true };
         } catch (err) {
-            console.error("Failed to update staff:", err);
             const field = err?.response?.data?.field;
             const message = err.response?.data?.message || err.message || 'Update failed. Please try again.';
             notify('error', message);
@@ -1330,65 +1378,44 @@ const HRCentral = () => {
         (selectedDept === 'All Departments' || s.department === selectedDept)
     );
 
+    useEffect(() => {
+        if (!staffRowMenu) return undefined;
+        const onReposition = () => closeStaffRowMenu();
+        window.addEventListener('scroll', onReposition, true);
+        window.addEventListener('resize', onReposition);
+        return () => { window.removeEventListener('scroll', onReposition, true); window.removeEventListener('resize', onReposition); };
+    }, [staffRowMenu, closeStaffRowMenu]);
+
     return (
         <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen">
+            {/* Notifications */}
             <div className="fixed top-5 right-5 z-[220] flex flex-col gap-2 w-[320px] max-w-[calc(100vw-24px)]">
                 {notifications.map((n) => (
-                    <div
-                        key={n.id}
-                        className={`rounded-xl border shadow-sm px-4 py-3 animate-in slide-in-from-right-5 duration-300 ${n.type === 'success'
-                            ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                            : 'bg-rose-50 border-rose-200 text-rose-800'
-                            }`}
-                    >
-                        <p className="text-[10px] font-semibold uppercase tracking-widest">
-                            {n.type === 'success' ? 'Success' : 'Action Failed'}
-                        </p>
+                    <div key={n.id} className={`rounded-xl border px-4 py-3 animate-in slide-in-from-right-5 duration-300 ${n.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-rose-200 text-rose-800'}`}>
+                        <p className="text-[10px] font-semibold uppercase tracking-widest">{n.type === 'success' ? 'Success' : 'Action Failed'}</p>
                         <p className="text-[11px] font-bold mt-0.5 tracking-tight">{n.message}</p>
                     </div>
                 ))}
             </div>
-            <StaffModal
-                staff={selectedStaff}
-                onClose={() => setSelectedStaff(null)}
-            />
 
-            <HireModal
-                isOpen={showHireModal}
-                onClose={closeHireModal}
-                onHire={handleHire}
-                onEdit={handleEditStaff}
-                editingStaff={editingStaff}
-                existingStaff={staff}
-            />
+            <StaffModal staff={selectedStaff} onClose={() => setSelectedStaff(null)} />
+            <HireModal isOpen={showHireModal} onClose={closeHireModal} onHire={handleHire} onEdit={handleEditStaff} editingStaff={editingStaff} existingStaff={staff} />
 
-            {/* Mobile "More Departments" Modal */}
             {showAllDeptsModal && createPortal(
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in" onClick={() => setShowAllDeptsModal(false)} />
-                    <div className="relative bg-white w-full max-w-sm rounded-[2rem] shadow-sm overflow-hidden animate-in zoom-in-95 duration-200">
+                    <div className="relative bg-white w-full max-w-sm rounded-[2rem] overflow-hidden animate-in zoom-in-95 duration-200">
                         <div className="px-6 py-5 border-b border-black/5 flex items-center justify-between">
                             <div>
                                 <h3 className="text-sm font-semibold text-re-text uppercase tracking-widest">Select Department</h3>
                                 <p className="text-[10px] text-re-text-muted font-bold mt-0.5">Filter the staff overview</p>
                             </div>
-                            <button onClick={() => setShowAllDeptsModal(false)} className="w-8 h-8 flex items-center justify-center rounded-xl bg-re-bg text-re-text-muted hover:bg-black/10 transition-colors">
-                                <X size={14} />
-                            </button>
+                            <button onClick={() => setShowAllDeptsModal(false)} className="w-8 h-8 flex items-center justify-center rounded-xl bg-re-bg text-re-text-muted hover:bg-black/10 transition-colors"><X size={14} /></button>
                         </div>
                         <div className="p-4 grid grid-cols-2 gap-2">
                             {departments.map(dept => (
-                                <button
-                                    key={dept}
-                                    onClick={() => {
-                                        setSelectedDept(dept);
-                                        setShowAllDeptsModal(false);
-                                    }}
-                                    className={`h-12 flex items-center gap-2 px-4 rounded-xl border text-[10px] font-semibold uppercase tracking-widest transition-all ${selectedDept === dept
-                                        ? 'bg-re-navy/10 border-re-navy/30 text-re-navy ring-1 ring-re-navy/30'
-                                        : 'bg-white border-black/5 text-re-text-muted hover:border-black/10'
-                                        }`}
-                                >
+                                <button key={dept} onClick={() => { setSelectedDept(dept); setShowAllDeptsModal(false); }}
+                                    className={`h-12 flex items-center gap-2 px-4 rounded-xl border text-[10px] font-semibold uppercase tracking-widest transition-all ${selectedDept === dept ? 'bg-re-navy/10 border-re-navy/30 text-re-navy ring-1 ring-re-navy/30' : 'bg-white border-black/5 text-re-text-muted hover:border-black/10'}`}>
                                     {selectedDept === dept && <CheckCircle size={14} className="text-re-navy" />}
                                     {dept}
                                 </button>
@@ -1398,14 +1425,12 @@ const HRCentral = () => {
                 </div>, document.body
             )}
 
-            {/* ── High-Fidelity Hero Section (Institutional Pattern) ── */}
+            {/* Hero */}
             <div className="relative w-full min-h-[220px] overflow-hidden bg-[#c87800]">
                 <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full border border-white/5 pointer-events-none" />
                 <div className="absolute -top-12 -right-12 w-64 h-64 rounded-full border border-white/5 pointer-events-none" />
                 <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-[#FEBF10]/30 to-transparent pointer-events-none" />
-
                 <div className="relative z-20 max-w-[1600px] mx-auto px-6 md:px-12 pt-12 pb-16 flex items-center gap-8">
-                    {/* Big Icon for Desktop */}
                     <div className="space-y-1">
                         <div className="flex items-center gap-2 mb-1">
                             <span className="w-5 h-1 rounded-full animate-pulse" style={{ background: "#FEBF10" }}></span>
@@ -1417,243 +1442,112 @@ const HRCentral = () => {
                 </div>
             </div>
 
-            {/* ── Consolidated High-Fidelity Card (Dashboard Stats Style) ── */}
+            {/* Main Content */}
             <div className="max-w-[1600px] mx-auto px-6 md:px-12 -mt-4 sm:-mt-5 md:-mt-6 pt-2 relative z-20 pb-20">
-                <div className="bg-white rounded-t-[32px] shadow-sm border border-black/10 overflow-hidden flex flex-col">
+                <div className="bg-white rounded-t-[32px] border border-black/10 overflow-hidden flex flex-col">
 
-                    {/* Top Layer: Stats Grid + Actions (Dashboard Style) */}
                     <div className={`${!isDeptSelected ? 'hidden md:grid' : 'grid'} grid-cols-1 lg:grid-cols-4 border-b border-black/5`}>
-                        {/* Stats (3 columns on lg) */}
                         <div className="lg:col-span-3 grid grid-cols-2 md:grid-cols-3 divide-x divide-y md:divide-y-0 divide-black/5">
                             {[
                                 { label: 'Total Personnel', value: stats.totalStaff, icon: <Users size={12} className="mb-1.5" /> },
-                                {
-                                    label: 'Active Present',
-                                    value: stats.activePercent,
-                                    subValue: `${stats.presentCount} present | ${stats.absentCount} absent`,
-                                    icon: <Activity size={12} className="mb-1.5" />
-                                },
+                                { label: 'Active Present', value: stats.activePercent, subValue: `${stats.presentCount} present | ${stats.absentCount} absent`, icon: <Activity size={12} className="mb-1.5" /> },
                                 { label: 'Performance avg', value: stats.avgEvaluation, icon: <Award size={12} className="mb-1.5" /> },
-                                
                             ].map((stat, i) => (
                                 <div key={i} className="p-3 sm:p-5 flex flex-col items-center justify-center text-center group hover:bg-re-bg/20 transition-all cursor-default">
-                                    <div className="mb-1 sm:mb-1.5 opacity-40 shrink-0" style={{ color: "#FEBF10" }}>
-                                        {stat.icon}
-                                    </div>
-                                    <span className="text-sm sm:text-xl font-semibold text-re-text tracking-tighter group-hover:text-[#1E3A5F] transition-colors">
-                                        {stat.value}
-                                    </span>
-                                    <p className="text-[6px] sm:text-[7px] font-semibold text-re-text-muted uppercase tracking-[0.2em] mt-0.5 opacity-60">
-                                        {stat.label}
-                                    </p>
-                                    {stat.subValue && (
-                                        <p className="text-[6px] sm:text-[7px] font-semibold uppercase tracking-widest mt-0.5 opacity-30" style={{ color: "#1E3A5F" }}>
-                                            {stat.subValue}
-                                        </p>
-                                    )}
+                                    <div className="mb-1 sm:mb-1.5 opacity-40 shrink-0" style={{ color: "#FEBF10" }}>{stat.icon}</div>
+                                    <span className="text-sm sm:text-xl font-semibold text-re-text tracking-tighter group-hover:text-[#1E3A5F] transition-colors">{stat.value}</span>
+                                    <p className="text-[6px] sm:text-[7px] font-semibold text-re-text-muted uppercase tracking-[0.2em] mt-0.5 opacity-60">{stat.label}</p>
+                                    {stat.subValue && <p className="text-[6px] sm:text-[7px] font-semibold uppercase tracking-widest mt-0.5 opacity-30" style={{ color: "#1E3A5F" }}>{stat.subValue}</p>}
                                 </div>
                             ))}
                         </div>
 
-                        {/* Right Side Actions Section (Desktop) */}
                         <div className="hidden lg:flex flex-col border-l border-black/5 bg-re-bg/30 p-6 justify-center gap-3 relative">
-                            {/* Export Dropdown */}
                             <div className="relative">
-                                <button
-                                    onClick={() => setActiveDropdown(activeDropdown === 'export' ? null : 'export')}
-                                    className="w-full h-11 flex items-center justify-center gap-2 text-white rounded-xl font-medium text-[9px] uppercase tracking-widest shadow-sm active:scale-95 transition-all"
-                                    style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)" }}
-                                >
-                                    <Download size={14} />
-                                    <span>Export Records</span>
-                                    <ChevronDown size={12} className={`transition-transform duration-300 ${activeDropdown === 'export' ? 'rotate-180' : ''}`} />
+                                <button onClick={() => setActiveDropdown(activeDropdown === 'export' ? null : 'export')} className="w-full h-11 flex items-center justify-center gap-2 text-white rounded-xl font-medium text-[9px] uppercase tracking-widest active:scale-95 transition-all" style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)" }}>
+                                    <Download size={14} /><span>Export Records</span><ChevronDown size={12} className={`transition-transform duration-300 ${activeDropdown === 'export' ? 'rotate-180' : ''}`} />
                                 </button>
-
-                                {activeDropdown === 'export' && (
-                                    <>
-                                        <div className="fixed inset-0 z-[40]" onClick={() => setActiveDropdown(null)} />
-                                        <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-black/10 shadow-md rounded-2xl overflow-hidden py-1 z-[50] animate-in slide-in-from-top-2 duration-200">
-                                            <button className="w-full text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-re-text hover:bg-re-bg transition-colors flex items-center gap-2.5">
-                                                <FileText size={14} style={{ color: "#FEBF10" }} /> Export into PDF
-                                            </button>
-                                            <button className="w-full text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-re-text hover:bg-re-bg transition-colors flex items-center gap-2.5 border-t border-black/5">
-                                                <FileSpreadsheet size={14} style={{ color: "#FEBF10" }} /> Export into Excel
-                                            </button>
-                                        </div>
-                                    </>
-                                )}
+                                {activeDropdown === 'export' && (<>
+                                    <div className="fixed inset-0 z-[40]" onClick={() => setActiveDropdown(null)} />
+                                    <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-black/10 rounded-2xl overflow-hidden py-1 z-[50] animate-in slide-in-from-top-2 duration-200">
+                                        <button className="w-full text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-re-text hover:bg-re-bg transition-colors flex items-center gap-2.5"><FileText size={14} style={{ color: "#FEBF10" }} /> Export into PDF</button>
+                                        <button className="w-full text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-re-text hover:bg-re-bg transition-colors flex items-center gap-2.5 border-t border-black/5"><FileSpreadsheet size={14} style={{ color: "#FEBF10" }} /> Export into Excel</button>
+                                    </div>
+                                </>)}
                             </div>
 
-                            {/* Quick Actions Dropdown */}
                             <div className="relative">
-                                <button
-                                    onClick={() => setActiveDropdown(activeDropdown === 'actions' ? null : 'actions')}
-                                    className="w-full h-11 flex items-center justify-center gap-2 bg-white border border-black/5 text-re-text font-medium text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg hover:shadow-re-soft transition-all"
-                                >
-                                    <ShieldCheck size={14} style={{ color: "#FEBF10" }} />
-                                    <span>HR Actions</span>
-                                    <ChevronDown size={12} className={`transition-transform duration-300 ${activeDropdown === 'actions' ? 'rotate-180' : ''}`} />
+                                <button onClick={() => setActiveDropdown(activeDropdown === 'actions' ? null : 'actions')} className="w-full h-11 flex items-center justify-center gap-2 bg-white border border-black/5 text-re-text font-medium text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg transition-all">
+                                    <ShieldCheck size={14} style={{ color: "#FEBF10" }} /><span>HR Actions</span><ChevronDown size={12} className={`transition-transform duration-300 ${activeDropdown === 'actions' ? 'rotate-180' : ''}`} />
                                 </button>
-
-                                {activeDropdown === 'actions' && (
-                                    <>
-                                        <div className="fixed inset-0 z-[40]" onClick={() => setActiveDropdown(null)} />
-                                        <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-black/10 shadow-md rounded-2xl overflow-hidden py-1 z-[50] animate-in slide-in-from-top-2 duration-200">
-                                            <button
-                                                onClick={() => { setShowHireModal(true); setActiveDropdown(null); }}
-                                                className="w-full text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-[#1E3A5F] hover:bg-re-navy/5 transition-colors flex items-center gap-2.5"
-                                            >
-                                                <UserPlus size={14} /> Hire New Staff
-                                            </button>
-                                            <button className="w-full text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-re-text hover:bg-re-bg transition-colors flex items-center gap-2.5 border-t border-black/5">
-                                                <Upload size={14} style={{ color: "#FEBF10" }} /> Import Roster
-                                            </button>
-                                        </div>
-                                    </>
-                                )}
+                                {activeDropdown === 'actions' && (<>
+                                    <div className="fixed inset-0 z-[40]" onClick={() => setActiveDropdown(null)} />
+                                    <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-black/10 rounded-2xl overflow-hidden py-1 z-[50] animate-in slide-in-from-top-2 duration-200">
+                                        <button onClick={() => { setShowHireModal(true); setActiveDropdown(null); }} className="w-full text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-[#1E3A5F] hover:bg-re-navy/5 transition-colors flex items-center gap-2.5"><UserPlus size={14} /> Hire New Staff</button>
+                                        <button className="w-full text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-re-text hover:bg-re-bg transition-colors flex items-center gap-2.5 border-t border-black/5"><Upload size={14} style={{ color: "#FEBF10" }} /> Import Roster</button>
+                                    </div>
+                                </>)}
                             </div>
 
-                            {/* Direct CTA: Add New Staff */}
-                            <button
-                                onClick={() => { setShowHireModal(true); setActiveDropdown(null); }}
-                                className="w-full h-11 flex items-center justify-center gap-2 rounded-xl font-medium text-[9px] uppercase tracking-widest text-[#1E3A5F] border border-[#FEBF10]/40 bg-[#FEBF10]/15 hover:bg-[#FEBF10]/25 transition-all"
-                            >
-                                <UserPlus size={14} />
-                                Add New Staff
+                            <button onClick={() => { setShowHireModal(true); setActiveDropdown(null); }} className="w-full h-11 flex items-center justify-center gap-2 rounded-xl font-medium text-[9px] uppercase tracking-widest text-[#1E3A5F] border border-[#FEBF10]/40 bg-[#FEBF10]/15 hover:bg-[#FEBF10]/25 transition-all">
+                                <UserPlus size={14} />Add New Staff
                             </button>
                         </div>
                     </div>
 
-                    {/* Middle Layer: Management Control (Integrated Search & Filter) */}
+                    {/* Search Bar */}
                     <div className={`${!isDeptSelected ? 'hidden md:flex' : 'flex'} p-4 md:px-8 border-b border-black/5 flex-col md:flex-row items-center gap-3 bg-white/50`}>
                         <div className="relative flex-1 w-full group">
                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-re-text-muted/40 group-focus-within:text-[#1E3A5F] transition-colors" size={14} />
-                            <input
-                                type="text"
-                                placeholder="Search by name, ID or role..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full h-9 sm:h-10 bg-re-bg rounded-xl pl-11 pr-4 font-extrabold outline-none border border-transparent focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-re-text text-sm sm:text-xs tracking-tight shadow-inner"
-                            />
+                            <input type="text" placeholder="Search by name, ID or role..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full h-9 sm:h-10 bg-re-bg rounded-xl pl-11 pr-4 font-extrabold outline-none border border-transparent focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-re-text text-sm sm:text-xs tracking-tight" />
                         </div>
                         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
                             <div className="flex flex-col gap-1 min-w-[140px]">
                                 <span className="text-[7px] font-bold uppercase tracking-widest text-re-text-muted opacity-60 px-1">Term (Preferences dates)</span>
-                                <select
-                                    value={hrTerm || academic.currentTerm || 'Term 1'}
-                                    onChange={(e) => setHrTerm(e.target.value)}
-                                    className="h-9 sm:h-10 px-3 rounded-xl border border-black/10 bg-white text-[10px] font-bold uppercase tracking-wider text-[#1E3A5F] outline-none focus:ring-2 focus:ring-[#FEBF10]/30"
-                                >
-                                    {(academic.activeTerms?.length ? academic.activeTerms : ['Term 1', 'Term 2', 'Term 3']).map((t) => (
-                                        <option key={t} value={t}>{t}</option>
-                                    ))}
+                                <select value={hrTerm || academic.currentTerm || 'Term 1'} onChange={(e) => setHrTerm(e.target.value)} className="h-9 sm:h-10 px-3 rounded-xl border border-black/10 bg-white text-[10px] font-bold uppercase tracking-wider text-[#1E3A5F] outline-none focus:ring-2 focus:ring-[#FEBF10]/30">
+                                    {(academic.activeTerms?.length ? academic.activeTerms : ['Term 1', 'Term 2', 'Term 3']).map((t) => (<option key={t} value={t}>{t}</option>))}
                                 </select>
                             </div>
-                            {metricsRange?.elapsed_to && metricsRange?.from ? (
-                                <p className="text-[8px] font-semibold text-re-text-muted uppercase tracking-tight max-w-[220px] leading-snug sm:self-end sm:pb-2">
-                                    Gate + roll-call window {metricsRange.from} → {metricsRange.elapsed_to}
-                                </p>
-                            ) : null}
+                            {metricsRange?.elapsed_to && metricsRange?.from && (<p className="text-[8px] font-semibold text-re-text-muted uppercase tracking-tight max-w-[220px] leading-snug sm:self-end sm:pb-2">Gate + roll-call window {metricsRange.from} → {metricsRange.elapsed_to}</p>)}
                         </div>
                         <div className="flex items-center gap-2 w-full md:w-auto">
-                            <button
-                                onClick={() => { setShowHireModal(true); setActiveDropdown(null); }}
-                                className="h-9 sm:h-10 px-3 sm:px-5 bg-[#FEBF10]/15 border border-[#FEBF10]/40 rounded-xl flex items-center gap-1.5 sm:gap-2 text-[#1E3A5F] font-semibold text-[8px] sm:text-[9px] uppercase tracking-widest hover:bg-[#FEBF10]/25 transition-all shadow-sm whitespace-nowrap"
-                            >
-                                <UserPlus size={13} />
-                                Add New Staff
-                            </button>
-                            <button
-                                onClick={() => setShowDeptFilter(!showDeptFilter)}
-                                className="h-9 sm:h-10 px-3 sm:px-5 bg-white border border-black/5 rounded-xl flex items-center gap-1.5 sm:gap-2 text-re-text-muted font-semibold text-[8px] sm:text-[9px] uppercase tracking-widest hover:bg-re-bg transition-all shadow-sm whitespace-nowrap"
-                            >
-                                <Filter size={13} style={{ color: "#FEBF10" }} />
-                                Filter By Dept
-                            </button>
+                            <button onClick={() => { setShowHireModal(true); setActiveDropdown(null); }} className="h-9 sm:h-10 px-3 sm:px-5 bg-[#FEBF10]/15 border border-[#FEBF10]/40 rounded-xl flex items-center gap-1.5 sm:gap-2 text-[#1E3A5F] font-semibold text-[8px] sm:text-[9px] uppercase tracking-widest hover:bg-[#FEBF10]/25 transition-all whitespace-nowrap"><UserPlus size={13} />Add New Staff</button>
+                            <button onClick={() => setShowDeptFilter(!showDeptFilter)} className="h-9 sm:h-10 px-3 sm:px-5 bg-white border border-black/5 rounded-xl flex items-center gap-1.5 sm:gap-2 text-re-text-muted font-semibold text-[8px] sm:text-[9px] uppercase tracking-widest hover:bg-re-bg transition-all whitespace-nowrap"><Filter size={13} style={{ color: "#FEBF10" }} />Filter By Dept</button>
                         </div>
                     </div>
 
-                    {/* Conditional Dept Filter Section */}
                     {showDeptFilter && (
                         <div className={`${!isDeptSelected ? 'hidden md:flex' : 'flex'} px-6 md:px-8 py-4 bg-re-bg/20 border-b border-black/5 items-center overflow-x-auto gap-2 custom-scrollbar animate-in slide-in-from-top-2 fade-in duration-300`}>
-
-                            {/* All Depts Option */}
-                            <button
-                                onClick={() => setSelectedDept('All Departments')}
-                                className={`flex items-center justify-center gap-1.5 shrink-0 h-7 sm:h-9 px-3 sm:px-5 rounded-lg sm:rounded-xl border font-medium text-[7px] sm:text-[9px] uppercase tracking-widest transition-all whitespace-nowrap ${selectedDept === 'All Departments'
-                                    ? 'text-white shadow-sm'
-                                    : 'bg-white border-black/5 text-re-text-muted hover:bg-re-bg hover:text-re-text'
-                                    }`}
-                                style={selectedDept === 'All Departments' ? { background: "#1E3A5F", borderColor: "#1E3A5F" } : {}}
-                            >
-                                {selectedDept === 'All Departments' && <CheckCircle size={10} className="sm:w-3 sm:h-3 opacity-80" />}
-                                All Departments
+                            <button onClick={() => setSelectedDept('All Departments')} className={`flex items-center justify-center gap-1.5 shrink-0 h-7 sm:h-9 px-3 sm:px-5 rounded-lg sm:rounded-xl border font-medium text-[7px] sm:text-[9px] uppercase tracking-widest transition-all whitespace-nowrap ${selectedDept === 'All Departments' ? 'text-white' : 'bg-white border-black/5 text-re-text-muted hover:bg-re-bg'}`} style={selectedDept === 'All Departments' ? { background: "#1E3A5F", borderColor: "#1E3A5F" } : {}}>
+                                {selectedDept === 'All Departments' && <CheckCircle size={10} />} All Departments
                             </button>
-
-                            {/* Individual Depts */}
                             {departments.map((dept, idx) => (
-                                <button
-                                    key={dept}
-                                    onClick={() => setSelectedDept(dept)}
-                                    className={`flex items-center justify-center gap-1.5 shrink-0 h-7 sm:h-9 px-3 sm:px-5 rounded-lg sm:rounded-xl border font-medium text-[7px] sm:text-[9px] uppercase tracking-widest transition-all whitespace-nowrap ${idx > 1 ? 'hidden md:flex' : ''} ${selectedDept === dept
-                                        ? 'text-white shadow-sm'
-                                        : 'bg-white border-black/5 text-re-text-muted hover:bg-re-bg hover:text-re-text'
-                                        }`}
-                                    style={selectedDept === dept ? { background: "#1E3A5F", borderColor: "#1E3A5F" } : {}}
-                                >
-                                    {selectedDept === dept && <CheckCircle size={10} className="sm:w-3 sm:h-3 opacity-80" />}
-                                    {dept}
+                                <button key={dept} onClick={() => setSelectedDept(dept)} className={`flex items-center justify-center gap-1.5 shrink-0 h-7 sm:h-9 px-3 sm:px-5 rounded-lg sm:rounded-xl border font-medium text-[7px] sm:text-[9px] uppercase tracking-widest transition-all whitespace-nowrap ${idx > 1 ? 'hidden md:flex' : ''} ${selectedDept === dept ? 'text-white' : 'bg-white border-black/5 text-re-text-muted hover:bg-re-bg'}`} style={selectedDept === dept ? { background: "#1E3A5F", borderColor: "#1E3A5F" } : {}}>
+                                    {selectedDept === dept && <CheckCircle size={10} />} {dept}
                                 </button>
                             ))}
-
-                            {/* More Trigger for Mobile */}
-                            <button
-                                onClick={() => setShowAllDeptsModal(true)}
-                                className="md:hidden flex items-center justify-center gap-1.5 shrink-0 h-7 px-3 rounded-lg border border-black/5 bg-white font-semibold text-[7px] uppercase tracking-widest transition-all shadow-sm active:scale-95"
-                                style={{ color: "#FEBF10" }}
-                            >
+                            <button onClick={() => setShowAllDeptsModal(true)} className="md:hidden flex items-center justify-center gap-1.5 shrink-0 h-7 px-3 rounded-lg border border-black/5 bg-white font-semibold text-[7px] uppercase tracking-widest transition-all active:scale-95" style={{ color: "#FEBF10" }}>
                                 <Plus size={10} /> More
                             </button>
                         </div>
                     )}
 
-                    {/* Bottom Layer: Selection Gatekeeper or Records Repository */}
                     {!isDeptSelected && (
                         <div className="md:hidden p-4 sm:p-6 bg-re-bg/20 flex flex-col items-center justify-center text-center py-8 sm:py-12 animate-in fade-in zoom-in-95 duration-500">
-                            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white rounded-2xl sm:rounded-[2rem] shadow-sm flex items-center justify-center mb-4 sm:mb-6 border border-black/5 animate-bounce" style={{ color: "#FEBF10" }}>
-                                <Briefcase size={24} className="sm:w-8 sm:h-8" />
-                            </div>
+                            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white rounded-2xl sm:rounded-[2rem] flex items-center justify-center mb-4 sm:mb-6 border border-black/5 animate-bounce" style={{ color: "#FEBF10" }}><Briefcase size={24} className="sm:w-8 sm:h-8" /></div>
                             <h2 className="text-lg sm:text-xl font-semibold text-re-text tracking-tighter uppercase mb-1 sm:mb-2">Select a Division</h2>
                             <p className="text-[8px] sm:text-[10px] text-re-text-muted font-bold uppercase tracking-widest leading-relaxed mb-6 sm:mb-8 max-w-[200px] sm:max-w-[240px]">Select a specific institutional department to view personnel.</p>
-
                             <div className="grid grid-cols-2 gap-2 sm:gap-3 w-full max-w-sm">
                                 {departments.map(dept => (
-                                    <button
-                                        key={dept}
-                                        onClick={() => {
-                                            setSelectedDept(dept);
-                                            setIsDeptSelected(true);
-                                        }}
-                                        className="h-14 sm:h-16 flex  items-center justify-center gap-2.5 sm:gap-2 bg-white border border-black/5 rounded-xl sm:rounded-2xl shadow-sm transition-all group active:scale-95"
-                                    >
+                                    <button key={dept} onClick={() => { setSelectedDept(dept); setIsDeptSelected(true); }} className="h-14 sm:h-16 flex items-center justify-center gap-2.5 sm:gap-2 bg-white border border-black/5 rounded-xl sm:rounded-2xl transition-all group active:scale-95">
                                         <div className="flex flex-col items-center gap-0.5">
                                             <span className="text-[9px] sm:text-[10px] font-semibold text-re-text group-hover:text-[#1E3A5F] uppercase">{dept}</span>
                                             <span className="text-[6px] sm:text-[7px] font-bold text-re-text-muted uppercase tracking-widest opacity-40 italic">View Roster</span>
                                         </div>
                                         <ChevronRight size={14} className="text-re-text-muted" />
-
                                     </button>
                                 ))}
-                                <button
-                                    onClick={() => {
-                                        setSelectedDept('All Departments');
-                                        setIsDeptSelected(true);
-                                    }}
-                                    className="col-span-2 h-12 sm:h-14 text-white rounded-xl sm:rounded-2xl font-semibold text-[8px] sm:text-[9px] uppercase tracking-widest shadow-sm active:scale-95 transition-all mt-1 sm:mt-2"
-                                    style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)" }}
-                                >
-                                    View All Personnel
-                                </button>
+                                <button onClick={() => { setSelectedDept('All Departments'); setIsDeptSelected(true); }} className="col-span-2 h-12 sm:h-14 text-white rounded-xl sm:rounded-2xl font-semibold text-[8px] sm:text-[9px] uppercase tracking-widest active:scale-95 transition-all mt-1 sm:mt-2" style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)" }}>View All Personnel</button>
                             </div>
                         </div>
                     )}
@@ -1661,23 +1555,14 @@ const HRCentral = () => {
                     <div className={`${!isDeptSelected ? 'hidden md:block' : 'block'} overflow-x-auto bg-white`}>
                         {isDeptSelected && (
                             <div className="md:hidden px-6 py-3 bg-white border-b border-black/5 flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <div className="w-1.5 h-1.5 rounded-full" style={{ background: "#FEBF10" }}></div>
-                                    <span className="text-[9px] font-semibold text-re-text uppercase tracking-widest">{selectedDept} Roster</span>
-                                </div>
-                                <button
-                                    onClick={() => setIsDeptSelected(false)}
-                                    className="text-[8px] font-semibold uppercase tracking-widest hover:underline"
-                                    style={{ color: "#FEBF10" }}
-                                >
-                                    Change Dept
-                                </button>
+                                <div className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full" style={{ background: "#FEBF10" }}></div><span className="text-[9px] font-semibold text-re-text uppercase tracking-widest">{selectedDept} Roster</span></div>
+                                <button onClick={() => setIsDeptSelected(false)} className="text-[8px] font-semibold uppercase tracking-widest hover:underline" style={{ color: "#FEBF10" }}>Change Dept</button>
                             </div>
                         )}
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-re-bg/20 border-b border-black/5">
-                                    <th className="px-4 sm:px-8 py-2.5 sm:py-3 text-[7px] sm:text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5 last:border-r-0">Personnel Info</th>
+                                    <th className="px-4 sm:px-8 py-2.5 sm:py-3 text-[7px] sm:text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Personnel Info</th>
                                     <th className="hidden md:table-cell px-8 py-3 text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Designation</th>
                                     <th className="hidden md:table-cell px-8 py-3 text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Reliability</th>
                                     <th className="hidden md:table-cell px-8 py-3 text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.2em] opacity-40 border-r border-black/5">Performance</th>
@@ -1686,184 +1571,83 @@ const HRCentral = () => {
                             </thead>
                             <tbody className="divide-y divide-black/5">
                                 {loading ? (
-                                    <tr>
-                                        <td colSpan="5" className="p-12 text-center">
-                                            <div className="w-8 h-8 border-4 border-re-navy border-t-transparent rounded-full animate-spin mx-auto mb-4" style={{ borderColor: "#1E3A5F #0000 0000 0000" }}></div>
-                                            <p className="text-[10px] font-semibold text-re-text-muted uppercase tracking-widest">Querying Personnel DB...</p>
-                                        </td>
-                                    </tr>
+                                    <tr><td colSpan="5" className="p-12 text-center">
+                                        <div className="w-8 h-8 border-4 border-t-transparent rounded-full animate-spin mx-auto mb-4" style={{ borderColor: "#1E3A5F transparent transparent transparent" }}></div>
+                                        <p className="text-[10px] font-semibold text-re-text-muted uppercase tracking-widest">Querying Personnel DB...</p>
+                                    </td></tr>
                                 ) : (
                                     <>
-                                        {filteredStaff.map((s, index) => {
-                                            const isLastItems = index >= filteredStaff.length - 2 && filteredStaff.length > 2;
-                                            return (
-                                                <tr
-                                                    key={s.id}
-                                                    onClick={() => setSelectedStaff(s)}
-                                                    className="hover:bg-re-bg/60 even:bg-re-bg/20 transition-colors group cursor-pointer"
-                                                >
-                                                    <td className="px-4 sm:px-8 py-2 sm:py-3 border-r border-black/5 last:border-r-0">
-                                                        <div className="flex items-center gap-3 sm:gap-4">
-                                                            <div className="w-8 h-8 rounded-full bg-re-bg border border-black/5 flex-shrink-0 flex items-center justify-center text-re-text-muted transition-colors relative shadow-inner overflow-hidden group-hover:bg-white">
-                                                                {s.photo ? (
-                                                                    <img
-                                                                        src={(import.meta.env.VITE_API_URL || 'http://localhost:5100') + s.photo}
-                                                                        className="w-full h-full object-cover"
-                                                                        alt={s.name}
-                                                                    />
-                                                                ) : (
-                                                                    <User size={12} className="sm:w-3.5 sm:h-3.5 opacity-40 text-re-text-muted" />
-                                                                )}
-                                                                <div className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-white border border-black/5 rounded-full flex items-center justify-center">
-                                                                    <div className={`w-1 h-1 sm:w-1.5 h-1.5 rounded-full ${s.status === 'Expected' ? 'bg-emerald-500' : 'bg-red-400'}`}></div>
+                                        {filteredStaff.map((s) => (
+                                            <tr key={s.id} onClick={() => setSelectedStaff(s)} className="hover:bg-re-bg/60 even:bg-re-bg/20 transition-colors group cursor-pointer">
+                                                <td className="px-4 sm:px-8 py-2 sm:py-3 border-r border-black/5">
+                                                    <div className="flex items-center gap-3 sm:gap-4">
+                                                        <div className="w-8 h-8 rounded-full bg-re-bg border border-black/5 flex-shrink-0 flex items-center justify-center relative overflow-hidden group-hover:bg-white">
+                                                            {s.photo ? <img src={(import.meta.env.VITE_API_URL || 'http://localhost:5100') + s.photo} className="w-full h-full object-cover" alt={s.name} /> : <User size={12} className="opacity-40 text-re-text-muted" />}
+                                                            <div className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-white border border-black/5 rounded-full flex items-center justify-center">
+                                                                <div className={`w-1 h-1 rounded-full ${s.status === 'Expected' ? 'bg-emerald-500' : 'bg-red-400'}`}></div>
+                                                            </div>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-[11px] font-semibold text-re-text tracking-tight uppercase leading-none mb-0.5 group-hover:text-[#1E3A5F] transition-colors">{s.name}</p>
+                                                            <p className="text-[7px] sm:text-[8px] font-bold text-re-text-muted opacity-30 uppercase tracking-widest leading-none font-mono italic">{s.id}</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="hidden md:table-cell px-8 py-5">
+                                                    <div className="flex flex-col gap-0.5">
+                                                        <p className="text-[10px] font-semibold text-re-text uppercase tracking-tight truncate max-w-[150px]">{s.role}</p>
+                                                        <div className="flex items-center gap-2">
+                                                            <p className="text-[9px] font-bold text-re-text-muted opacity-50 uppercase tracking-widest">{s.department}</p>
+                                                            {(s.rfid_uid || s.fingerprint_id) && (
+                                                                <div className="flex items-center gap-1 bg-black/5 px-1.5 py-0.5 rounded ml-1">
+                                                                    {s.rfid_uid && <IdCard size={10} className="text-[#1E3A5F] opacity-70" />}
+                                                                    {s.fingerprint_id && <Fingerprint size={10} className="text-emerald-500 opacity-70" />}
                                                                 </div>
-                                                            </div>
-                                                            <div>
-                                                                <p className="text-[11px] font-semibold text-re-text tracking-tight uppercase leading-none mb-0.5 group-hover:text-[#1E3A5F] transition-colors">{s.name}</p>
-                                                                <p className="text-[7px] sm:text-[8px] font-bold text-re-text-muted opacity-30 uppercase tracking-widest leading-none font-mono italic">{s.id}</p>
-                                                            </div>
+                                                            )}
                                                         </div>
-                                                    </td>
-                                                    <td className="hidden md:table-cell px-8 py-5">
-                                                        <div className="flex flex-col gap-0.5">
-                                                            <p className="text-[10px] font-semibold text-re-text uppercase tracking-tight truncate max-w-[150px]">{s.role}</p>
-                                                            <div className="flex items-center gap-2">
-                                                                <p className="text-[9px] font-bold text-re-text-muted opacity-50 uppercase tracking-widest">{s.department}</p>
-                                                                {(s.rfid_uid || s.fingerprint_id) && (
-                                                                    <div className="flex items-center gap-1 bg-black/5 px-1.5 py-0.5 rounded ml-1">
-                                                                        {s.rfid_uid && <IdCard size={10} className="text-[#1E3A5F] opacity-70" title="RFID Card Assigned" />}
-                                                                        {s.fingerprint_id && <Fingerprint size={10} className="text-emerald-500 opacity-70" title="Biometric Fingerprint Assigned" />}
-                                                                    </div>
-                                                                )}
-                                                            </div>
+                                                    </div>
+                                                </td>
+                                                <td className="hidden md:table-cell px-8 py-5">
+                                                    <div className="space-y-1.5 max-w-[120px]">
+                                                        <div className="flex items-center justify-between gap-1">
+                                                            <p className="text-[9px] font-semibold text-re-text">{s.reliabilityPct != null ? `${s.reliabilityPct}%` : '—'}</p>
+                                                            <span className="text-[7px] font-bold uppercase text-re-text-muted opacity-50 shrink-0">gate</span>
                                                         </div>
-                                                    </td>
-                                                    <td className="hidden md:table-cell px-8 py-5">
-                                                        <div className="space-y-1.5 max-w-[120px]">
-                                                            <div className="flex items-center justify-between gap-1">
-                                                                <p className="text-[9px] font-semibold text-re-text">
-                                                                    {s.reliabilityPct != null ? `${s.reliabilityPct}%` : '—'}
-                                                                </p>
-                                                                <span className="text-[7px] font-bold uppercase text-re-text-muted opacity-50 shrink-0">gate</span>
-                                                            </div>
-                                                         
-                                                            <div className="w-full h-1 bg-black/5 rounded-full overflow-hidden">
-                                                                <div
-                                                                    className="h-full transition-all"
-                                                                    style={{
-                                                                        width: `${Math.min(100, s.reliabilityPct ?? 0)}%`,
-                                                                        background: (s.reliabilityPct ?? 0) >= 95
-                                                                            ? 'linear-gradient(135deg, #1E3A5F 0%, #3D5A80 100%)'
-                                                                            : '#FEBF10',
-                                                                    }}
-                                                                />
-                                                            </div>
+                                                        <div className="w-full h-1 bg-black/5 rounded-full overflow-hidden">
+                                                            <div className="h-full transition-all" style={{ width: `${Math.min(100, s.reliabilityPct ?? 0)}%`, background: (s.reliabilityPct ?? 0) >= 95 ? 'linear-gradient(135deg, #1E3A5F 0%, #3D5A80 100%)' : '#FEBF10' }} />
                                                         </div>
-                                                    </td>
-                                                    <td className="hidden md:table-cell px-8 py-5">
-                                                        <div className={`inline-flex items-baseline gap-1 px-3 py-1.5 rounded-lg text-[8px] font-semibold uppercase tracking-widest ring-1 ring-inset ${s.status === 'Exceptional' ? 'bg-emerald-50 text-emerald-600 ring-emerald-500/20' :
-                                                            s.status === 'Expected' ? 'bg-blue-50 text-blue-600 ring-blue-500/20' :
-                                                                'bg-re-navy/5 text-re-navy ring-re-navy/20'
-                                                            }`} style={s.status !== 'Exceptional' && s.status !== 'Expected' ? { color: "#1E3A5F" } : {}}>
-                                                            <span className="text-sm font-bold tracking-tight normal-case">
-                                                                {s.performanceOutOf100 != null ? s.performanceOutOf100 : '—'}
-                                                            </span>
-                                                            <span className="opacity-70">/100</span>
-                                                            <span className="block w-full text-[7px] font-bold opacity-50 mt-0.5 normal-case">roll-call + gate</span>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-4 sm:px-8 py-3 sm:py-5 text-right relative">
-                                                        <div className="flex items-center gap-2 sm:gap-3 justify-end">
-                                                            <button
-                                                                className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-re-text-muted hover:bg-re-bg transition-all border border-transparent hover:border-black/5"
-                                                                style={{ color: "inherit" }}
-                                                                onClick={(e) => { e.stopPropagation(); }}
-                                                            >
-                                                                <Phone size={12} className="sm:w-3.5 sm:h-3.5" />
-                                                            </button>
-                                                            <div className="relative">
-                                                                <button
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        setOpenDropdownId(openDropdownId === s.id ? null : s.id);
-                                                                    }}
-                                                                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-re-text-muted hover:bg-re-bg transition-all border border-transparent hover:border-black/5"
-                                                                >
-                                                                    <MoreVertical size={12} className="sm:w-3.5 sm:h-3.5" />
-                                                                </button>
-
-                                                                {/* Dropdown Menu */}
-                                                                {openDropdownId === s.id && (
-                                                                    <>
-                                                                        <div
-                                                                            className="fixed inset-0 z-[40]"
-                                                                            onClick={(e) => { e.stopPropagation(); setOpenDropdownId(null); }}
-                                                                        />
-                                                                        <div
-                                                                            className={`absolute right-0 ${isLastItems ? 'bottom-full mb-2 origin-bottom-right' : 'top-full mt-2 origin-top-right'} w-48 bg-white border border-black/10 shadow-md rounded-2xl z-[50] overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-150`}
-                                                                            onClick={(e) => e.stopPropagation()}
-                                                                        >
-                                                                            <button
-                                                                                className="w-full text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-[#1E3A5F] hover:bg-re-navy/5 transition-colors flex items-center gap-2.5"
-                                                                                onClick={() => { setSelectedStaff(s); setOpenDropdownId(null); }}
-                                                                            >
-                                                                                <Eye size={13} /> View Full File
-                                                                            </button>
-                                                                            <button
-                                                                                className="w-full text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-emerald-600 hover:bg-emerald-50 transition-colors flex items-center gap-2.5 border-t border-black/5"
-                                                                                onClick={() => openEditModal(s)}
-                                                                            >
-                                                                                <Edit3 size={13} /> Edit Staff
-                                                                            </button>
-                                                                            <button
-                                                                                className="w-full text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-re-text hover:bg-re-bg transition-colors flex items-center gap-2.5 border-t border-black/5"
-                                                                                onClick={() => handleResendInvite(s.real_id || s.id)}
-                                                                                disabled={isActionLoading}
-                                                                            >
-                                                                                {isActionLoading ? <Loader2 size={13} className="animate-spin" /> : <Mail size={13} className="text-[#FEBF10]" />}
-                                                                                Resend Invitation
-                                                                            </button>
-                                                                            <button
-                                                                                className="w-full text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-indigo-700 hover:bg-indigo-50 transition-colors flex items-center gap-2.5 border-t border-black/5"
-                                                                                onClick={() => handleToggleActive(s.real_id || s.id, s.status !== 'Inactive')}
-                                                                                disabled={isActionLoading}
-                                                                            >
-                                                                                {isActionLoading ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
-                                                                                {s.status === 'Inactive' ? 'Activate Staff' : 'Deactivate Staff'}
-                                                                            </button>
-                                                                            <button
-                                                                                className="w-full text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2.5 border-t border-black/5"
-                                                                                onClick={() => handleDeleteStaff(s.real_id || s.id, s.name)}
-                                                                                disabled={isActionLoading}
-                                                                            >
-                                                                                {isActionLoading ? <Loader2 size={13} className="animate-spin" /> : <X size={13} />}
-                                                                                Delete Staff
-                                                                            </button>
-                                                                            <button
-                                                                                className="w-full text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-re-text hover:bg-re-bg transition-colors flex items-center gap-2.5 border-t border-black/5"
-                                                                                onClick={() => setOpenDropdownId(null)}
-                                                                            >
-                                                                                <FileSignature size={13} className="text-re-text-muted" /> Add Appraisal
-                                                                            </button>
-                                                                            <button
-                                                                                className="w-full text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-re-text hover:bg-re-bg transition-colors flex items-center gap-2.5 border-t border-black/5"
-                                                                                onClick={() => setOpenDropdownId(null)}
-                                                                            >
-                                                                                <Printer size={13} className="text-re-text-muted" /> Export Profile
-                                                                            </button>
-                                                                        </div>
-                                                                    </>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                        {filteredStaff.length === 0 && (
-                                            <tr>
-                                                <td colSpan="5" className="p-12 text-center text-[10px] font-semibold text-re-text-muted uppercase tracking-widest italic opacity-40">No personnel records found matching your criteria.</td>
+                                                    </div>
+                                                </td>
+                                                <td className="hidden md:table-cell px-8 py-5">
+                                                    <div className={`inline-flex items-baseline gap-1 px-3 py-1.5 rounded-lg text-[8px] font-semibold uppercase tracking-widest ring-1 ring-inset ${s.status === 'Exceptional' ? 'bg-emerald-50 text-emerald-600 ring-emerald-500/20' : s.status === 'Expected' ? 'bg-blue-50 text-blue-600 ring-blue-500/20' : 'bg-re-navy/5 text-re-navy ring-re-navy/20'}`} style={s.status !== 'Exceptional' && s.status !== 'Expected' ? { color: "#1E3A5F" } : {}}>
+                                                        <span className="text-sm font-bold tracking-tight normal-case">{s.performanceOutOf100 != null ? s.performanceOutOf100 : '—'}</span>
+                                                        <span className="opacity-70">/100</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 sm:px-8 py-3 sm:py-5 text-right relative">
+                                                    <div className="flex items-center gap-2 sm:gap-3 justify-end">
+                                                        <button className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-re-text-muted hover:bg-re-bg transition-all border border-transparent hover:border-black/5" onClick={(e) => e.stopPropagation()}>
+                                                            <Phone size={12} />
+                                                        </button>
+                                                        <button type="button" onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            if (staffRowMenu?.staff?.id === s.id) { closeStaffRowMenu(); return; }
+                                                            const rect = e.currentTarget.getBoundingClientRect();
+                                                            const MENU_W = 192, MENU_H = 280;
+                                                            const spaceBelow = window.innerHeight - rect.bottom;
+                                                            const openUp = spaceBelow < MENU_H && rect.top > MENU_H + 16;
+                                                            const left = Math.min(Math.max(8, rect.right - MENU_W), window.innerWidth - MENU_W - 8);
+                                                            const top = openUp ? rect.top - MENU_H - 8 : rect.bottom + 8;
+                                                            setStaffRowMenu({ staff: s, left, top });
+                                                        }} className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-re-text-muted hover:bg-re-bg transition-all border border-transparent hover:border-black/5">
+                                                            <MoreVertical size={12} />
+                                                        </button>
+                                                    </div>
+                                                </td>
                                             </tr>
+                                        ))}
+                                        {filteredStaff.length === 0 && (
+                                            <tr><td colSpan="5" className="p-12 text-center text-[10px] font-semibold text-re-text-muted uppercase tracking-widest italic opacity-40">No personnel records found matching your criteria.</td></tr>
                                         )}
                                     </>
                                 )}
@@ -1871,8 +1655,7 @@ const HRCentral = () => {
                         </table>
                     </div>
 
-                    {/* Table Footer */}
-                    <div className={`${!isDeptSelected ? 'hidden md:flex' : 'flex'} px-4 sm:px-8 py-4 bg-re-bg/20 border-t border-black/5 flex flex-row items-center justify-between gap-4`}>
+                    <div className={`${!isDeptSelected ? 'hidden md:flex' : 'flex'} px-4 sm:px-8 py-4 bg-re-bg/20 border-t border-black/5 flex-row items-center justify-between gap-4`}>
                         <div className="flex items-center gap-3 sm:gap-4">
                             <div className="hidden xs:flex items-center gap-2">
                                 <div className="w-1 h-1 rounded-full animate-pulse" style={{ background: "#FEBF10" }}></div>
@@ -1881,21 +1664,34 @@ const HRCentral = () => {
                             <div className="hidden xs:block w-px h-3 bg-black/10"></div>
                             <p className="text-[6px] sm:text-[7px] font-semibold text-re-text-muted uppercase tracking-[0.2em] opacity-40 italic whitespace-nowrap">Displaying {filteredStaff.length} Records</p>
                         </div>
-
                         <div className="flex items-center gap-1 sm:gap-1.5">
-                            <button className="h-7 sm:h-7.5 px-2 sm:px-3 rounded-lg bg-white border border-black/5 text-[7px] sm:text-[8px] font-semibold text-re-text-muted tracking-tighter opacity-40 hover:opacity-100 transition-all font-mono italic">Prev_set</button>
-                            <div className="h-7 sm:h-7.5 px-3 sm:px-4 rounded-lg flex items-center justify-center bg-white border border-black/5 text-[7px] sm:text-[8px] font-semibold text-re-text tracking-tighter">Page 01</div>
-                            <button
-                                className="h-7 sm:h-7.5 px-3 sm:px-4 rounded-lg text-white text-[7px] sm:text-[8px] font-semibold shadow-sm tracking-tighter"
-                                style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)" }}
-                            >
-                                Next_set
-                            </button>
+                            <button className="h-7 px-2 sm:px-3 rounded-lg bg-white border border-black/5 text-[7px] sm:text-[8px] font-semibold text-re-text-muted tracking-tighter opacity-40 hover:opacity-100 transition-all font-mono italic">Prev_set</button>
+                            <div className="h-7 px-3 sm:px-4 rounded-lg flex items-center justify-center bg-white border border-black/5 text-[7px] sm:text-[8px] font-semibold text-re-text tracking-tighter">Page 01</div>
+                            <button className="h-7 px-3 sm:px-4 rounded-lg text-white text-[7px] sm:text-[8px] font-semibold tracking-tighter" style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)" }}>Next_set</button>
                         </div>
                     </div>
                 </div>
 
-                {/* Brand/System Metadata */}
+                {staffRowMenu && createPortal(
+                    <>
+                        <button type="button" className="fixed inset-0 z-[190] cursor-default bg-black/[0.03]" onClick={(e) => { e.stopPropagation(); closeStaffRowMenu(); }} />
+                        <div role="menu" className="fixed z-[200] w-48 bg-white border border-slate-200/90 shadow-[0_16px_48px_-12px_rgba(15,23,42,0.2)] rounded-2xl overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-150" style={{ left: staffRowMenu.left, top: staffRowMenu.top, fontFamily: "'Montserrat', system-ui, sans-serif" }} onClick={(e) => e.stopPropagation()}>
+                            {(() => {
+                                const ms = staffRowMenu.staff;
+                                return (<>
+                                    <button type="button" className="w-full text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-[#1E3A5F] hover:bg-re-navy/5 transition-colors flex items-center gap-2.5" onClick={() => { setSelectedStaff(ms); closeStaffRowMenu(); }}><Eye size={13} /> View Full File</button>
+                                    <button type="button" className="w-full text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-emerald-600 hover:bg-emerald-50 transition-colors flex items-center gap-2.5 border-t border-black/5" onClick={() => openEditModal(ms)}><Edit3 size={13} /> Edit Staff</button>
+                                    <button type="button" className="w-full text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-re-text hover:bg-re-bg transition-colors flex items-center gap-2.5 border-t border-black/5" onClick={() => handleResendInvite(ms.real_id || ms.id)} disabled={isActionLoading}>{isActionLoading ? <Loader2 size={13} className="animate-spin" /> : <Mail size={13} className="text-[#FEBF10]" />}Resend Invitation</button>
+                                    <button type="button" className="w-full text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-indigo-700 hover:bg-indigo-50 transition-colors flex items-center gap-2.5 border-t border-black/5" onClick={() => handleToggleActive(ms.real_id || ms.id, ms.status !== 'Inactive')} disabled={isActionLoading}>{isActionLoading ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}{ms.status === 'Inactive' ? 'Activate Staff' : 'Deactivate Staff'}</button>
+                                    <button type="button" className="w-full text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2.5 border-t border-black/5" onClick={() => handleDeleteStaff(ms.real_id || ms.id, ms.name)} disabled={isActionLoading}>{isActionLoading ? <Loader2 size={13} className="animate-spin" /> : <X size={13} />}Delete Staff</button>
+                                    <button type="button" className="w-full text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-re-text hover:bg-re-bg transition-colors flex items-center gap-2.5 border-t border-black/5" onClick={() => closeStaffRowMenu()}><FileSignature size={13} className="text-re-text-muted" /> Add Appraisal</button>
+                                    <button type="button" className="w-full text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-re-text hover:bg-re-bg transition-colors flex items-center gap-2.5 border-t border-black/5" onClick={() => closeStaffRowMenu()}><Printer size={13} className="text-re-text-muted" /> Export Profile</button>
+                                </>);
+                            })()}
+                        </div>
+                    </>, document.body
+                )}
+
                 <div className="flex flex-col md:flex-row items-center justify-between mt-8 px-4 gap-4">
                     <p className="text-[7px] text-re-text-muted font-semibold uppercase tracking-[0.3em] opacity-30 italic">Developed & Engineered by Babyeyi Intelligence Systems</p>
                     <div className="flex items-center gap-4 opacity-20">

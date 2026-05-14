@@ -12,6 +12,13 @@ import PayrollHistory from './frontend/src/pages/PayrollHistory'
 import PayrollConfig from './frontend/src/pages/PayrollConfig'
 import StaffPayroll from './frontend/src/pages/StaffPayroll'
 import ShuleAvance from './frontend/src/pages/ShuleAvance'
+import PersonalShuleAvance from './frontend/src/pages/PersonalShuleAvance'
+import {
+  TichaDeals,
+  TichaDealDetails,
+  TichaDealPayments,
+  TrackingTichaDeals,
+} from './frontend/src/pages/staffTichaDeals'
 import FeaturePlaceholders from './frontend/src/pages/FeaturePlaceholders'
 import BabyeyiFees from './frontend/src/pages/BabyeyiFees'
 import ExaminationList from './frontend/src/pages/ExaminationList'
@@ -43,7 +50,15 @@ function AccountantRoutesInner() {
   return (
     <Routes>
       <Route path="" element={<ProtectedRoute title="Dashboard"><Dashboard /></ProtectedRoute>} />
-      <Route path="shule-avance" element={<ProtectedRoute title="Shule Avance"><ShuleAvance /></ProtectedRoute>} />
+      <Route path="shule-avance" element={<ProtectedRoute title="Avance approvals"><ShuleAvance /></ProtectedRoute>} />
+      <Route
+        path="my-shule-avance"
+        element={<ProtectedRoute title="My Shule Avance"><PersonalShuleAvance /></ProtectedRoute>}
+      />
+      <Route path="ticha-deals/tracking" element={<ProtectedRoute title="Deal tracking"><TrackingTichaDeals /></ProtectedRoute>} />
+      <Route path="ticha-deals/pay" element={<ProtectedRoute title="Pay deal"><TichaDealPayments /></ProtectedRoute>} />
+      <Route path="ticha-deals/:id" element={<ProtectedRoute title="Deal details"><TichaDealDetails /></ProtectedRoute>} />
+      <Route path="ticha-deals" element={<ProtectedRoute title="Ticha Deals"><TichaDeals /></ProtectedRoute>} />
 
       <Route path="fees" element={<ProtectedRoute title="Student Fees"><Fees /></ProtectedRoute>} />
       <Route

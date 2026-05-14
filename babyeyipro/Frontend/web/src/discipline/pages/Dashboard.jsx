@@ -12,6 +12,7 @@ import {
   Calendar,
   FileSpreadsheet,
   ClipboardList,
+  ShoppingBag,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
@@ -91,6 +92,13 @@ const Dashboard = () => {
       icon: <Wallet size={20} />,
       color: 'text-re-orange',
       path: '/shule-avance',
+    },
+    {
+      title: 'Ticha Deals',
+      desc: 'Staff deals and payroll-friendly purchases.',
+      icon: <ShoppingBag size={20} />,
+      color: 'text-amber-600',
+      path: '/ticha-deals',
     },
     {
       title: 'Requisitions',

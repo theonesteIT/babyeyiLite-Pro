@@ -216,8 +216,7 @@ const Sidebar = ({ onClose }) => {
             { name: 'Library Reports',      path: '/reports/library',  icon: BookOpen },
           ]}
         />
-        <SectionLabel label="Payroll center" />
-        <NavItem icon={ClipboardCheck} name="Payroll" path="/payroll" onClose={onClose} />
+       
 
         <SectionLabel label="Services" />
         <NavItem icon={DollarSign} name="My Payroll" path="/my-payroll" onClose={onClose} />
