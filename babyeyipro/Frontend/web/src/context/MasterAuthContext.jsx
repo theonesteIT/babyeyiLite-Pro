@@ -46,7 +46,15 @@ export function MasterAuthProvider({ children }) {
       await fetch(`${API}/session/logout`, { method: 'POST', credentials: 'include' })
     } catch (_) {}
     setUser(false)
-    window.location.href = import.meta.env.VITE_BABYEYI_LOGIN_URL || 'http://localhost:5173/login'
+    const configured = String(import.meta.env.VITE_BABYEYI_LOGIN_URL || '').trim()
+    if (configured) {
+      window.location.assign(configured)
+      return
+    }
+    // Same SPA (e.g. /pro/): land on Pro home so the user can sign in again with the correct basename.
+    const base = String(import.meta.env.BASE_URL || '/')
+    const path = base.endsWith('/') ? base : `${base}/`
+    window.location.assign(`${window.location.origin}${path}`)
   }, [])
 
   const roleCode = user && user !== false ? String(user.role?.code || user.role_code || '').toUpperCase() : ''

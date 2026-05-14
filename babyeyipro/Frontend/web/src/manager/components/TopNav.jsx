@@ -4,13 +4,11 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { h } from '../utils/href';
 import { resolveUserPhotoUrl } from '../../shared/utils/userPhotoUrl';
-import ProfileModal from '../../shared/components/ProfileModal';
 
 const TopNav = ({ title, onMenuClick }) => {
     const navigate = useNavigate();
-    const { manager, logout, setManager, refresh } = useAuth();
+    const { manager, logout } = useAuth();
     const [userOpen, setUserOpen] = useState(false);
-    const [profileOpen, setProfileOpen] = useState(false);
     const [search, setSearch] = useState('');
     const userRef = useRef(null);
 
@@ -30,7 +28,7 @@ const TopNav = ({ title, onMenuClick }) => {
 
     return (
     <>
-        <header className="h-14 sm:h-[3.75rem] flex items-center gap-3 sm:gap-4 px-3 sm:px-5 md:px-7 bg-white border-b border-slate-200/90 shadow-[0_1px_0_rgba(15,23,42,0.06)] sticky top-0 z-20 font-sans transition-all duration-300">
+        <header className="h-14 sm:h-[3.75rem] flex items-center gap-3 sm:gap-4 px-3 sm:px-5 md:px-7 bg-white border-b border-slate-200/90 shadow-[0_1px_0_rgba(15,23,42,0.06)] sticky top-0 z-30 shrink-0 font-sans transition-all duration-300">
 
             {/* Left — gold menu + page title */}
             <div className="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0">
@@ -130,7 +128,7 @@ const TopNav = ({ title, onMenuClick }) => {
                     </button>
 
                     {userOpen && (
-                        <div className="absolute right-0 mt-1.5 w-52 bg-white rounded-2xl shadow-sm border border-black/10 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                        <div className="absolute right-0 mt-1.5 w-52 bg-white rounded-2xl shadow-sm border border-black/10 z-[200] overflow-hidden animate-in fade-in zoom-in-95 duration-150">
                             {/* Header */}
                             <div className="px-4 py-3 border-b border-black/5">
                                 <div className="flex items-center gap-3">
@@ -160,16 +158,17 @@ const TopNav = ({ title, onMenuClick }) => {
                                 <button
                                     type="button"
                                     onClick={() => {
-                                        setProfileOpen(true);
                                         setUserOpen(false);
+                                        navigate(h('/profile'));
                                     }}
-                                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-re-text-muted hover:bg-navy-50 hover:text-re-navy transition-all"
+                                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-re-text-muted hover:bg-navy-50 hover:text-re-navy transition-all text-left"
                                 >
-                                    <User size={13} /> My Profile
+                                    <User size={13} /> My profile
                                 </button>
                                 <button
+                                    type="button"
                                     onClick={() => { navigate(h('/settings')); setUserOpen(false); }}
-                                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-re-text-muted hover:bg-navy-50 hover:text-re-navy transition-all"
+                                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-re-text-muted hover:bg-navy-50 hover:text-re-navy transition-all text-left"
                                 >
                                     <Settings size={13} /> Settings
                                 </button>
@@ -177,8 +176,14 @@ const TopNav = ({ title, onMenuClick }) => {
 
                             <div className="border-t border-black/5 py-1">
                                 <button
-                                    onClick={logout}
-                                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-red-500 hover:bg-red-50 transition-all"
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setUserOpen(false);
+                                        void logout();
+                                    }}
+                                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-red-500 hover:bg-red-50 transition-all text-left"
                                 >
                                     <LogOut size={13} /> Sign out
                                 </button>
@@ -188,15 +193,6 @@ const TopNav = ({ title, onMenuClick }) => {
                 </div>
             </div>
         </header>
-
-        <ProfileModal
-            open={profileOpen}
-            onClose={() => setProfileOpen(false)}
-            user={manager}
-            onUserUpdate={(updates) => setManager((prev) => (prev ? { ...prev, ...updates } : prev))}
-            includePhotoSection
-            onAfterPhotoUpload={refresh}
-        />
     </>
     );
 };
