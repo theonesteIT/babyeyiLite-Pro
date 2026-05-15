@@ -22,11 +22,12 @@ const BRAND_LOGO = "/1BABYEYI LOGO FINAL.png";
 import { useAuth } from "../../../context/AuthContext";
 import { BABYEYI_PAGE_BG } from "../../../theme/babyeyiDashboardTheme";
 import { getPostLogoutLoginPath } from "../../../utils/postLogoutLoginPath";
+import { getApiOrigin, getApiBase } from "../../../utils/apiBase";
 import FeeLimitsView from "./FeeLimitsView";
 
-// ── CONFIG ──────────────────────────────────────────────────────
-const BASE_URL    = import.meta.env?.VITE_API_BASE?.replace('/api','') || "http://localhost:5100";
-const API_BASE    = `${BASE_URL}/api`;
+// ── CONFIG (same origin as AuthContext / login — required for session cookie) ──
+const BASE_URL    = getApiOrigin();
+const API_BASE    = getApiBase();
 const NESA_API    = `${API_BASE}/nesa/babyeyi`;
 const FEE_API     = `${API_BASE}/fee-limits`;
 const SCHOOLS_API = `${API_BASE}/schools`;
@@ -738,7 +739,7 @@ export default function NESABABYEYIDashboard() {
   const removeToast = useCallback(id=>setToasts(p=>p.filter(t=>t.id!==id)),[]);
   const switchTab = (id) => { setTab(id); setMobileOpen(false); };
 
-  if (authLoading) {
+  if (authLoading || !isLoggedIn) {
     return (
       <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", background:BABYEYI_PAGE_BG, fontFamily:font }}>
         <Loader2 style={{ width:40, height:40, color:C.gold, animation:"spin 0.8s linear infinite" }}/>

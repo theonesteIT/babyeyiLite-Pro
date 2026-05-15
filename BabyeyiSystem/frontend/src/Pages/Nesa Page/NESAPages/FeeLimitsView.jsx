@@ -13,6 +13,7 @@ import {
   School, ChevronLeft, ChevronRight,
   History, DollarSign
 } from "lucide-react";
+import { getApiBase } from "../../../utils/apiBase";
 
 // ── Gold Palette ──────────────────────────────────────────────
 const C = {
@@ -63,9 +64,8 @@ const inp = {
   outline: "none", fontFamily: font, boxSizing: "border-box",
 };
 
-// ── API ───────────────────────────────────────────────────────
-const BASE_URL = "http://localhost:5100";
-const API_BASE = `${BASE_URL}/api/fee-limits`;
+// ── API (must match AuthContext VITE_API_URL so session cookie is sent) ──
+const API_BASE = `${getApiBase()}/fee-limits`;
 
 async function apiFetch(url, options = {}) {
   const res = await fetch(url, {

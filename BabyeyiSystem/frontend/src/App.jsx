@@ -417,7 +417,7 @@ export default function App() {
 
           {/* ── NESA Admin ─────────────────────────────────────── */}
           <Route path="/nesa-babyeyi-dashboard" element={
-            <ProtectedRoute role="NESA_ADMIN">
+            <ProtectedRoute role={['NESA_ADMIN', 'NESA_OFFICER', 'SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER']}>
               <NESABABYEYIDashboard />
             </ProtectedRoute>
           } />

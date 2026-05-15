@@ -15,7 +15,7 @@ import { getProEntryUrl, shouldUseProApp } from '../../utils/proAppEntry';
 import babyeyi from "../../assets/1BABYEYI LOGO FINAL.png";
 import loginImage1 from "../../assets/login-image1.png";
 
-const API = import.meta.env.VITE_API_URL;
+const API = import.meta.env.VITE_API_URL || 'http://localhost:5100';
 
 const STAFF_LOGIN_PREFS_KEY = 'babyeyi_staff_login_prefs';
 

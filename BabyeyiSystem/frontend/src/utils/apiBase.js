@@ -1,9 +1,12 @@
 /**
  * VITE_API_URL should be the API origin only, e.g. http://localhost:5100
- * (not .../api). If /api was appended by mistake, strip it so we don't get /api/api/...
+ * (not .../api). VITE_API_BASE is supported as a legacy alias (…/api or origin).
+ * If /api was appended by mistake, strip it so we don't get /api/api/...
  */
 export function getApiOrigin() {
-  const raw = String(import.meta.env.VITE_API_URL || 'http://localhost:5100')
+  const raw = String(
+    import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE || 'http://localhost:5100'
+  )
     .trim()
     .replace(/\/+$/, '');
   const withoutApi = raw.replace(/\/api\/?$/i, '');
