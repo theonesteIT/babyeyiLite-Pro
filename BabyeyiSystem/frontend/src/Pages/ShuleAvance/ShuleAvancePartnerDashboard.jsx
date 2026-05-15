@@ -28,6 +28,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { getPostLogoutLoginPath } from '../../utils/postLogoutLoginPath';
 import babyeyiLogo from '../../assets/1BABYEYI LOGO FINAL.png';
 
 const API = `${import.meta.env.VITE_API_URL || 'http://localhost:5100'}/api`;
@@ -316,7 +317,7 @@ export default function ShuleAvancePartnerDashboard() {
 
   const logout = async () => {
     await auth.logout();
-    navigate('/login', { replace: true });
+    navigate(getPostLogoutLoginPath(), { replace: true });
   };
 
   const act = async (id, action) => {

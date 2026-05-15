@@ -9,6 +9,7 @@ import {
   ArrowLeft, School, MapPin, Loader2, Check, Layers, Building2,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { getPostLogoutLoginPath } from '../../utils/postLogoutLoginPath';
 import { PROVINCES } from '../../data/rwandaSchoolProvinces';
 import { getDistrictCode } from '../../utils/rwandaDistrictCodes';
 
@@ -77,7 +78,7 @@ export default function AddAllSchools() {
       && (!auth.isLoggedIn
         || !['SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER'].includes(auth.role))
     ) {
-      navigate('/login', { replace: true });
+      navigate(getPostLogoutLoginPath(), { replace: true });
     }
   }, [auth.loading, auth.isLoggedIn, auth.role, navigate]);
 

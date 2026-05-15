@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import LogoutButton from '../Auth/LogoutButton';
+import { getPostLogoutLoginPath } from '../../utils/postLogoutLoginPath';
 
 const API = `${import.meta.env.VITE_API_URL || 'http://localhost:5100'}/api`;
 
@@ -134,7 +135,7 @@ export default function SuperAdministratorControl() {
       await loadSuperAdmins();
       if (!nextActive && Number(row.id) === myUserId) {
         await logout();
-        window.location.href = '/login';
+        window.location.href = getPostLogoutLoginPath();
       } else {
         await refresh?.();
       }

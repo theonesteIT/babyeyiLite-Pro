@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import LogoutButton from '../Auth/LogoutButton';
+import { getPostLogoutLoginPath } from '../../utils/postLogoutLoginPath';
 import SuperAdminDashboardSchoolPeek from './SmartAccess/SuperAdminDashboardSchoolPeek';
 import { BABYEYI_FONT_STACK, BABYEYI_NAVY, BABYEYI_PAGE_BG } from '../../theme/babyeyiDashboardTheme';
 
@@ -2949,7 +2950,7 @@ export default function SuperAdminDashboard() {
   // ── Session guard ────────────────────────────────────────────
   useEffect(() => {
     if (auth.loading) return;
-    if (!auth.isLoggedIn) { navigate('/login', { replace: true }); return; }
+    if (!auth.isLoggedIn) { navigate(getPostLogoutLoginPath(), { replace: true }); return; }
     if (auth.role !== 'SUPER_ADMIN') navigate('/unauthorized', { replace: true });
   }, [auth.loading, auth.isLoggedIn, auth.role, navigate]);
 

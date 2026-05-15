@@ -5,7 +5,11 @@
 //   /                          → PublicPage (landing)
 //   /schools                   → AllSchools (browse all published schools)
 //   /school/:slug              → SchoolPublicRoute (individual school mini-site)
-//   /login                     → Login
+//   /login                     → Login (legacy staff; may redirect to Pro when school has Pro)
+//   /login-portal-select       → LoginPortalSelect (ShuleManager Lite vs Pro chooser)
+//   /login/lite                → LoginLite (BabyeyiSystem dashboards only)
+//   /login/pro                 → LoginPro (school manager; Pro handoff when enabled)
+//   /school-manager/login      → same as /login/pro (backward-compatible URL)
 //   /parents/login             → ParentLogin (phone + password)
 //   /parents/register          → ParentRegister (new parent account)
 //   /parents/reset-phone       → ParentResetPhone (email self-service phone reset)
@@ -55,7 +59,9 @@ import ShuleKitPay from './Pages/Public Page/ShuleKitPay';
 import InvoiceVerify from './Pages/Public Page/InvoiceVerify';
 import ApplicationStatusTracker from "./Pages/Public Page/ApplicationStatusTracker";
 import SchoolRegistration from './Pages/Public Page/SchoolRegistration';
-import SchoolManagerLogin from './Pages/Public Page/schoolManagerLogin';
+import LoginPortalSelect from './Pages/Public Page/LoginPortalSelect';
+import LoginLite from './Pages/Public Page/LoginLite';
+import LoginPro from './Pages/Public Page/LoginPro';
 import ServicePage from './Pages/Public Page/Service';
 import FindAgent from './Pages/Public Page/FindAgent';
 import AgentShop from './Pages/Public Page/AgentShop';
@@ -161,6 +167,7 @@ import ParentSchoolChat         from './Pages/Parents/ParentSchoolChat';
 import InvoicesListPage         from './Pages/Shared/InvoicesListPage';
 import ParentPortalGate from './components/ParentPortalGate';
 import StudentDashboard from './Pages/Student/student_dashboard';
+import { getPostLogoutLoginPath } from './utils/postLogoutLoginPath';
 
 export default function App() {
   return (
@@ -216,8 +223,11 @@ export default function App() {
           <Route path="/track" element={<ApplicationStatusTracker />} />
 
           {/* ── Auth ──────────────────────────────────────────── */}
+          <Route path="/login-portal-select" element={<LoginPortalSelect />} />
+          <Route path="/login/lite" element={<LoginLite />} />
+          <Route path="/login/pro" element={<LoginPro />} />
           <Route path="/login"              element={<Login />} />
-          <Route path="/school-manager/login" element={<SchoolManagerLogin />} />
+          <Route path="/school-manager/login" element={<LoginPro />} />
           <Route path="/parents/login"      element={<ParentLogin />} />
           <Route path="/parents/register"   element={<ParentRegister />} />
           <Route path="/parents/reset-phone" element={<ParentResetPhone />} />
@@ -505,7 +515,7 @@ export default function App() {
               <div style={{ textAlign: 'center', color: 'white', fontFamily: 'sans-serif' }}>
                 <h1 style={{ fontSize: 48, marginBottom: 8 }}>403</h1>
                 <p style={{ color: 'rgba(148,163,184,.7)' }}>You don&apos;t have access to this page.</p>
-                <a href="/login" style={{ color: '#60a5fa', marginTop: 16, display: 'block' }}>← Back to Login</a>
+                <a href={getPostLogoutLoginPath()} style={{ color: '#60a5fa', marginTop: 16, display: 'block' }}>← Back to Login</a>
               </div>
             </div>
           } />

@@ -12,6 +12,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import { getPostLogoutLoginPath } from '../utils/postLogoutLoginPath';
+
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5100';
 
 // ── Context ───────────────────────────────────────────────────
@@ -113,7 +115,7 @@ export function useRequireAuth(requiredRole = null) {
   useEffect(() => {
     if (auth.loading) return;                  // wait for session check
     if (!auth.isLoggedIn) {
-      navigate('/login', { replace: true });
+      navigate(getPostLogoutLoginPath(), { replace: true });
       return;
     }
     if (requiredRole && auth.role !== requiredRole) {

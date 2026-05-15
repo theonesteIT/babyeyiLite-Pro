@@ -335,7 +335,7 @@ export default function SchoolBabyeyiDashboard() {
     }
   }, [isProSchool, tab]);
 
-  const commonProps = { toast, t, setTab: switchTab, session };
+  const commonProps = { toast, t, setTab: switchTab, session, lang, setLang };
 
   // ── Loading spinner ───────────────────────────────────────
   if (auth.loading) {

@@ -5,18 +5,35 @@
 // ================================================================
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Mail, Lock, Eye, EyeOff, LogIn, Building,
-  AlertCircle, CheckCircle, Loader,
+  AlertCircle, CheckCircle, Loader, ArrowLeft,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getProEntryUrl, shouldUseProApp } from '../../utils/proAppEntry';
+import { setPostLogoutLoginPath } from '../../utils/postLogoutLoginPath';
 import loginShulemanagerLogo from '../../assets/login-logo.png';
 import loginDecor from '../../assets/login-bg-removebg.png';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5100';
 const STAFF_LOGIN_PREFS_KEY = 'babyeyi_staff_login_prefs';
+const SM_LOGIN_PREFS_KEY = 'babyeyi_school_manager_login_prefs';
+
+function loadSmLoginPrefs() {
+  try {
+    const raw = localStorage.getItem(SM_LOGIN_PREFS_KEY);
+    if (!raw) return { remember: false, email: '', schoolCode: '' };
+    const p = JSON.parse(raw);
+    return {
+      remember: !!p.remember,
+      email: typeof p.email === 'string' ? p.email : '',
+      schoolCode: typeof p.schoolCode === 'string' ? p.schoolCode : '',
+    };
+  } catch {
+    return { remember: false, email: '', schoolCode: '' };
+  }
+}
 
 function loadStaffLoginPrefs() {
   try {
@@ -55,9 +72,25 @@ const DASHBOARD = {
 
 const GOOGLE_AUTH_URL = `${API}/api/auth/google`;
 
-const Login = () => {
+/**
+ * @param {{
+ *   forceLitePortal?: boolean;
+ *   variant?: 'staff' | 'schoolManager';
+ *   portalBrand?: null | 'lite' | 'pro';
+ *   portalNav?: null | { backHref: string; backLabel: string; secondaryHref?: string; secondaryLabel?: string };
+ * }} [props]
+ * `forceLitePortal`: Lite URL only — no Pro web redirect; Pro-enabled schools are blocked here.
+ * `variant="schoolManager"`: email + required school code (same API as legacy school manager login).
+ */
+const Login = ({
+  forceLitePortal = false,
+  variant = 'staff',
+  portalBrand = null,
+  portalNav = null,
+} = {}) => {
   const navigate = useNavigate();
   const auth = useAuth();
+  const isSchoolManager = variant === 'schoolManager';
 
   useEffect(() => {
     fetch(`${API}/api/auth/system-config/public`, { credentials: 'include' })
@@ -67,18 +100,35 @@ const Login = () => {
   }, []);
 
   useEffect(() => {
-    if (!auth.loading && auth.isLoggedIn && auth.role && auth.user && auth.user !== false) {
-      const roleCode = String(auth.role).toUpperCase();
-      if (shouldUseProApp(auth.user)) {
-        const proUrl = getProEntryUrl(roleCode);
-        if (proUrl) { window.location.replace(proUrl); return; }
-      }
-      const target = DASHBOARD[roleCode];
-      if (target) navigate(target, { replace: true });
-    }
-  }, [auth.loading, auth.isLoggedIn, auth.role, auth.user, navigate]);
+    if (auth.loading || !auth.isLoggedIn || !auth.role || !auth.user || auth.user === false) return;
+    const roleCode = String(auth.role).toUpperCase();
 
-  const [prefsLoaded] = useState(() => loadStaffLoginPrefs());
+    if (
+      forceLitePortal && shouldUseProApp(auth.user)
+      && (roleCode === 'SCHOOL_ADMIN' || roleCode === 'SCHOOL_MANAGER')
+    ) {
+      navigate('/login/pro', { replace: true });
+      return;
+    }
+    if (isSchoolManager && portalBrand === 'pro' && (roleCode === 'SCHOOL_ADMIN' || roleCode === 'SCHOOL_MANAGER') && !shouldUseProApp(auth.user)) {
+      navigate('/login/lite', { replace: true });
+      return;
+    }
+    if (!forceLitePortal && shouldUseProApp(auth.user)) {
+      const proUrl = getProEntryUrl(roleCode);
+      if (proUrl) { window.location.replace(proUrl); return; }
+    }
+    const target = DASHBOARD[roleCode];
+    if (target) navigate(target, { replace: true });
+  }, [auth.loading, auth.isLoggedIn, auth.role, auth.user, navigate, forceLitePortal, isSchoolManager, portalBrand]);
+
+  const [prefsLoaded] = useState(() => {
+    if (isSchoolManager) {
+      const sm = loadSmLoginPrefs();
+      return { remember: sm.remember, identifier: sm.email, schoolCode: sm.schoolCode };
+    }
+    return loadStaffLoginPrefs();
+  });
   const [form, setForm] = useState({
     identifier: prefsLoaded.identifier,
     password: '',
@@ -103,9 +153,15 @@ const Login = () => {
       notify(`Account locked. Try again in ${mins} minute${mins !== 1 ? 's' : ''}.`);
       return;
     }
-    if (!form.identifier.trim()) { notify('Enter your email or username'); return; }
-    if (!form.password.trim())   { notify('Enter your password'); return; }
     const schoolCodeTrim = form.schoolCode.trim().toUpperCase();
+    if (isSchoolManager) {
+      if (!form.identifier.trim()) { notify('Enter your school manager email'); return; }
+      if (!schoolCodeTrim) { notify('Enter your school code (e.g. 04001 — same as in the directory).'); return; }
+    } else if (!form.identifier.trim()) {
+      notify('Enter your email or username');
+      return;
+    }
+    if (!form.password.trim()) { notify('Enter your password'); return; }
 
     setUi(p => ({ ...p, loading: true, error: null }));
     try {
@@ -116,7 +172,7 @@ const Login = () => {
         body: JSON.stringify({
           identifier: form.identifier.trim(),
           password: form.password,
-          schoolCode: schoolCodeTrim || undefined,
+          schoolCode: isSchoolManager ? schoolCodeTrim : (schoolCodeTrim || undefined),
           remember_me: rememberMe,
         }),
       });
@@ -147,20 +203,66 @@ const Login = () => {
         return;
       }
 
+      const roleCode = json.role ? String(json.role).toUpperCase() : null;
+
+      if (isSchoolManager && roleCode !== 'SCHOOL_ADMIN' && roleCode !== 'SCHOOL_MANAGER') {
+        await auth.logout();
+        notify(
+          'This page is for school managers only. Teachers and other staff should use Staff / Lite login.',
+          'error'
+        );
+        return;
+      }
+
       if (rememberMe) {
-        localStorage.setItem(STAFF_LOGIN_PREFS_KEY, JSON.stringify({
-          remember: true, identifier: form.identifier.trim(), schoolCode: schoolCodeTrim || '',
-        }));
+        if (isSchoolManager) {
+          localStorage.setItem(SM_LOGIN_PREFS_KEY, JSON.stringify({
+            remember: true,
+            email: form.identifier.trim(),
+            schoolCode: schoolCodeTrim,
+          }));
+        } else {
+          localStorage.setItem(STAFF_LOGIN_PREFS_KEY, JSON.stringify({
+            remember: true, identifier: form.identifier.trim(), schoolCode: schoolCodeTrim || '',
+          }));
+        }
       } else {
-        localStorage.removeItem(STAFF_LOGIN_PREFS_KEY);
+        localStorage.removeItem(isSchoolManager ? SM_LOGIN_PREFS_KEY : STAFF_LOGIN_PREFS_KEY);
       }
 
       const sessionUser = await auth.login();
-      notify('Welcome! Redirecting…', 'success');
       setAttempts(0);
 
-      const roleCode = json.role ? String(json.role).toUpperCase() : null;
-      if (sessionUser && shouldUseProApp(sessionUser) && roleCode) {
+      if (
+        forceLitePortal && sessionUser && shouldUseProApp(sessionUser)
+        && roleCode && (roleCode === 'SCHOOL_ADMIN' || roleCode === 'SCHOOL_MANAGER')
+      ) {
+        await auth.logout();
+        notify('Not allowed: your school uses ShuleManager Pro. Sign in from the Pro portal instead.');
+        return;
+      }
+
+      if (
+        isSchoolManager && portalBrand === 'pro' && sessionUser && roleCode
+        && (roleCode === 'SCHOOL_ADMIN' || roleCode === 'SCHOOL_MANAGER')
+        && !shouldUseProApp(sessionUser)
+      ) {
+        await auth.logout();
+        notify('Not allowed: your school is on ShuleManager Lite. Use the Lite portal to sign in.');
+        return;
+      }
+
+      if (forceLitePortal) {
+        setPostLogoutLoginPath('/login/lite');
+      } else if (isSchoolManager && portalBrand === 'pro') {
+        setPostLogoutLoginPath('/login/pro');
+      } else {
+        setPostLogoutLoginPath('/login');
+      }
+
+      notify('Welcome! Redirecting…', 'success');
+
+      if (!forceLitePortal && sessionUser && shouldUseProApp(sessionUser) && roleCode) {
         const proUrl = getProEntryUrl(roleCode);
         if (proUrl) { setTimeout(() => window.location.assign(proUrl), 400); return; }
       }
@@ -252,6 +354,58 @@ const Login = () => {
           line-height: 1.15;
           margin-bottom: 0.3rem;
         }
+        .lx-h1-grad {
+          background: linear-gradient(135deg, #FBBF24, #FDE68A, #F59E0B);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+        .lx-portal-nav {
+          font-family: 'Plus Jakarta Sans', sans-serif;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          flex-wrap: wrap;
+          gap: 10px;
+          padding: 0 clamp(1rem, 4vw, 2.5rem);
+          min-height: 56px;
+          background: #000435;
+          border-bottom: 1px solid rgba(251,191,36,0.2);
+        }
+        .lx-portal-nav-back {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          color: rgba(255,255,255,0.78);
+          text-decoration: none;
+          border: 1px solid rgba(255,255,255,0.14);
+          border-radius: 10px;
+          padding: 8px 14px;
+          background: rgba(255,255,255,0.05);
+        }
+        .lx-portal-nav-back:hover { color: #FBBF24; border-color: rgba(251,191,36,0.45); }
+        .lx-portal-nav-secondary {
+          font-size: 11px;
+          font-weight: 800;
+          color: #FBBF24;
+          text-decoration: none;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+        .lx-portal-nav-secondary:hover { color: #fff; }
+        .lx-reg-note {
+          margin-top: 1.1rem;
+          font-size: 0.72rem;
+          color: #777;
+          text-align: center;
+          line-height: 1.45;
+        }
+        .lx-reg-note a { color: #f59e0b; font-weight: 700; text-decoration: none; }
+        .lx-reg-note a:hover { text-decoration: underline; }
         .lx-sub {
           font-size: 0.84rem;
           color: #999;
@@ -587,6 +741,17 @@ const Login = () => {
         }
       `}</style>
 
+      {portalNav && (
+        <nav className="lx-portal-nav">
+          <Link to={portalNav.backHref} className="lx-portal-nav-back">
+            <ArrowLeft size={16} strokeWidth={2.5} /> {portalNav.backLabel}
+          </Link>
+          {portalNav.secondaryHref && portalNav.secondaryLabel ? (
+            <Link to={portalNav.secondaryHref} className="lx-portal-nav-secondary">{portalNav.secondaryLabel}</Link>
+          ) : <span aria-hidden="true" />}
+        </nav>
+      )}
+
       <div className="lx-page">
         <div className="lx-card">
 
@@ -602,8 +767,18 @@ const Login = () => {
             </div>
 
             <div className="lx-left-body">
-            <h1 className="lx-h1">Welcome Back</h1>
-            <p className="lx-sub">Sign in to continue to your portal</p>
+            <h1 className="lx-h1">
+              {portalBrand ? (
+                <>ShuleManager <span className="lx-h1-grad">{portalBrand === 'lite' ? 'Lite' : 'Pro'}</span></>
+              ) : (
+                'Welcome Back'
+              )}
+            </h1>
+            <p className="lx-sub">
+              {portalBrand === 'lite' && 'Sign in on BabyeyiSystem (Lite). Schools on ShuleManager Pro must use the Pro portal.'}
+              {portalBrand === 'pro' && 'School manager sign-in — school code required. Lite-only schools cannot use this page.'}
+              {!portalBrand && 'Sign in to continue to your portal'}
+            </p>
 
             {sysPublic?.maintenance_mode && (
               <div className="lx-alert warn">
@@ -623,14 +798,17 @@ const Login = () => {
             <form onSubmit={handleSubmit}>
 
               <div className="lx-field">
-                <label className="lx-label" htmlFor="identifier">Email / Username / Staff ID</label>
+                <label className="lx-label" htmlFor="identifier">
+                  {isSchoolManager ? 'Manager email' : 'Email / Username / Staff ID'}
+                </label>
                 <div className="lx-iw">
                   <span className="lx-icon"><Mail size={15}/></span>
                   <input
-                    id="identifier" name="identifier" className="lx-input" type="text"
+                    id="identifier" name="identifier" className="lx-input" type={isSchoolManager ? 'email' : 'text'}
                     value={form.identifier} disabled={ui.loading}
                     onChange={e => setForm(p => ({...p, identifier: e.target.value}))}
-                    placeholder="admin@school.rw" autoComplete="username"
+                    placeholder={isSchoolManager ? 'manager@school.rw' : 'admin@school.rw'}
+                    autoComplete={isSchoolManager ? 'email' : 'username'}
                   />
                 </div>
               </div>
@@ -638,7 +816,12 @@ const Login = () => {
               <div className="lx-field">
                 <label className="lx-label" htmlFor="schoolCode">
                   School code
-                  <span className="lx-label-note">Required for school staff; leave blank for Super Admin / NESA / DEO</span>
+                  {!isSchoolManager && (
+                    <span className="lx-label-note">Required for school staff; leave blank for Super Admin / NESA / DEO</span>
+                  )}
+                  {isSchoolManager && (
+                    <span className="lx-label-note">Required — same code as in the school directory</span>
+                  )}
                 </label>
                 <div className="lx-iw">
                   <span className="lx-icon"><Building size={15}/></span>
@@ -678,7 +861,9 @@ const Login = () => {
                     onChange={e => setRememberMe(e.target.checked)} />
                   Remember me on this device
                 </label>
-                <a href="/forgot-password" className="lx-forgot">Forgot password?</a>
+                {!isSchoolManager && (
+                  <a href="/forgot-password" className="lx-forgot">Forgot password?</a>
+                )}
               </div>
 
               <button type="submit" className="lx-btn" disabled={ui.loading || locked}>
@@ -708,7 +893,13 @@ const Login = () => {
               Sign in with Google
             </a> */}
 
-            <p className="lx-footer">© 2026 Edupoto · All rights reserved.</p>
+            <p className="lx-footer">© 2026 Edupoto · All rights reserved</p>
+            {isSchoolManager && (
+              <p className="lx-reg-note">
+                Need to register your school?{' '}
+                <Link to="/register">Register your school</Link>
+              </p>
+            )}
             </div>
           </div>
 

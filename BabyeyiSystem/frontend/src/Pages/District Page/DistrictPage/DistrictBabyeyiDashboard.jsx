@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
 import { BABYEYI_PAGE_BG } from "../../../theme/babyeyiDashboardTheme";
+import { getPostLogoutLoginPath } from "../../../utils/postLogoutLoginPath";
 
 // ── API ───────────────────────────────────────────────────────────
 const API     = import.meta.env?.VITE_API_BASE    || "http://localhost:5100/api";
@@ -606,7 +607,7 @@ function LogoutButton({ compact = false, style: extStyle = {} }) {
     setLoading(true); setShowConfirm(false);
     try { await logout(); } finally {
       setLoading(false);
-      navigate("/login", { replace: true });
+      navigate(getPostLogoutLoginPath(), { replace: true });
     }
   };
 
@@ -1915,7 +1916,7 @@ export default function DistrictBabyeyiDashboard() {
   }, []);
 
   useEffect(() => {
-    if (!authLoading && !isLoggedIn) navigate("/login", { replace: true });
+    if (!authLoading && !isLoggedIn) navigate(getPostLogoutLoginPath(), { replace: true });
   }, [authLoading, isLoggedIn, navigate]);
 
   useEffect(() => {
@@ -2070,7 +2071,7 @@ export default function DistrictBabyeyiDashboard() {
           </div>
           <h2 style={{ fontWeight: 900, color: C.dark, fontSize: 18, margin: "0 0 8px" }}>Access Denied</h2>
           <p style={{ color: C.goldDark, fontSize: 13, margin: "0 0 24px" }}>{authErr}</p>
-          <a href="/login" style={{
+          <a href={getPostLogoutLoginPath()} style={{
             display: "inline-flex", alignItems: "center", gap: 8,
             padding: "12px 24px", background: `linear-gradient(135deg, ${C.dark}, ${C.darkMid})`,
             color: C.gold, borderRadius: 14, fontSize: 13, fontWeight: 700,

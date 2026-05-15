@@ -537,7 +537,7 @@ function DocPreview({ form, previews }) {
 // ════════════════════════════════════════════════════════════
 // MAIN APP
 // ════════════════════════════════════════════════════════════
-export default function App({ session }) {
+export default function App({ session, lang, setLang }) {
   const schoolId = session?.schoolId ?? null;
 
   const [view,      setView]      = useState("wizard");
@@ -969,7 +969,7 @@ export default function App({ session }) {
             <I n="chevL" size={12} /> Back to Wizard
           </button>
         </div>
-        <BabyeyiList session={session} />
+        <BabyeyiList session={session} lang={lang} setLang={setLang} />
       </div>
     );
   }

@@ -35,7 +35,11 @@ function loadSmLoginPrefs() {
   }
 }
 
-export default function SchoolManagerLogin() {
+export default function SchoolManagerLogin({
+  staffLoginHref = '/login',
+  backHref = '/',
+  backLabel = 'Back to home',
+} = {}) {
   const navigate = useNavigate();
   const auth = useAuth();
 
@@ -238,12 +242,12 @@ export default function SchoolManagerLogin() {
       <div className="sm-right">
       <header className="shrink-0 px-4 sm:px-6 py-4 flex items-center justify-between border-b border-white/10">
         <Link
-          to="/"
+          to={backHref}
           className="inline-flex items-center gap-2 text-sm font-semibold text-white/70 hover:text-amber-300 transition-colors"
         >
-          <ArrowLeft size={16} /> Back to home
+          <ArrowLeft size={16} /> {backLabel}
         </Link>
-        <Link to="/login" className="text-xs sm:text-sm font-semibold text-amber-400/90 hover:text-amber-300">
+        <Link to={staffLoginHref} className="text-xs sm:text-sm font-semibold text-amber-400/90 hover:text-amber-300">
           Staff &amp; accountant login
         </Link>
       </header>

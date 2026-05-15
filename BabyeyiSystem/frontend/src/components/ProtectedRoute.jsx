@@ -12,6 +12,7 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { getPostLogoutLoginPath } from '../utils/postLogoutLoginPath';
 
 const Spinner = () => (
   <div style={{
@@ -36,6 +37,8 @@ export default function ProtectedRoute({ children, role = null, redirectTo = '/l
   const { loading, isLoggedIn, role: userRoleRaw } = useAuth();
   const location = useLocation();
 
+  const signInPath = redirectTo === '/login' ? getPostLogoutLoginPath() : redirectTo;
+
   // Normalise role values so comparisons are case-insensitive and
   // can accept either a single role string or an array of roles.
   const normalizedUserRole = userRoleRaw ? String(userRoleRaw).toUpperCase() : null;
@@ -50,7 +53,7 @@ export default function ProtectedRoute({ children, role = null, redirectTo = '/l
 
   // Not logged in → sign-in page (default /login), preserving intended destination
   if (!isLoggedIn) {
-    return <Navigate to={redirectTo} state={{ from: location }} replace />;
+    return <Navigate to={signInPath} state={{ from: location }} replace />;
   }
 
   // Wrong role → to unauthorized page

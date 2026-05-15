@@ -838,11 +838,22 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null }
       .then(json => {
         if (ac.signal.aborted) return;
         if (json.success && json.data?.max_amount != null) { applyLimit(json.data.max_amount, "backend"); return; }
-        return fetch(`${API_BASE}/fee-limits?${qp}&limit=1&active=1`, { credentials:"include", signal:ac.signal })
+        return fetch(
+          `${API_BASE}/fee-limits?category=${encodeURIComponent(category)}&level=${encodeURIComponent(level)}&academic_year=${encodeURIComponent(academicYear)}&active=1&limit=50`,
+          { credentials: "include", signal: ac.signal }
+        )
           .then(r2 => r2.json())
           .then(j2 => {
             if (ac.signal.aborted) return;
-            const m = j2?.data?.find(row => row.category===category && row.level===level && row.term===term && row.academic_year===academicYear);
+            const rows = Array.isArray(j2?.data) ? j2.data : [];
+            const matches = rows.filter(
+              (row) =>
+                row.category === category &&
+                row.level === level &&
+                row.academic_year === academicYear &&
+                (row.term === term || (term !== "Full Year" && row.term === "Full Year"))
+            );
+            const m = matches.find((row) => row.term === term) || matches.find((row) => row.term === "Full Year");
             if (m?.max_amount != null) applyLimit(m.max_amount, "backend");
             else applyNotFound();
           });

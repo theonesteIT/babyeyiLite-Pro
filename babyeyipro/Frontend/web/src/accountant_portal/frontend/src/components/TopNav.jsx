@@ -1,13 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
-import { Menu, Search, Bell, ChevronDown, LogOut, Settings, User, ShoppingBag } from 'lucide-react';
+import { Menu, Search, Bell, ChevronDown, LogOut, Settings, User, ShoppingBag, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { h } from '../utils/href';
 import { useAuth } from '../context/AuthContext';
 import { useMasterAuth } from '../../../../context/MasterAuthContext';
 import { PORTAL } from '../config/portal';
 import ProfileModal from '../../../../shared/components/ProfileModal';
 import { resolveUserPhotoUrl } from '../../../../shared/utils/userPhotoUrl';
 
-const TopNav = ({ title, onMenuClick }) => {
+const TopNav = ({ title, onMenuClick, hidePortalSidebar = false }) => {
     const navigate = useNavigate();
     const { patchUser } = useMasterAuth();
     const { staff, logout, patchStaff } = useAuth();
@@ -33,15 +34,33 @@ const TopNav = ({ title, onMenuClick }) => {
     <>
         <header className="h-14 flex items-center justify-between px-4 md:px-6 bg-white/80 backdrop-blur-xl border-b border-black/5 sticky top-0 z-20 gap-3 font-sans">
 
-            {/* Left — hamburger + page title */}
-            <div className="flex items-center gap-3 shrink-0">
-                <button
-                    onClick={onMenuClick}
-                    className="lg:hidden p-2 text-re-text-muted hover:bg-re-navy/5 hover:text-re-navy rounded-xl transition-all"
+            {/* Left — hamburger (or back when portal sidebar hidden) + page title */}
+            <div className="flex items-center gap-3 shrink-0 min-w-0">
+                {hidePortalSidebar ? (
+                    <button
+                        type="button"
+                        onClick={() => navigate(h('/'))}
+                        className="flex items-center gap-2 p-2 pr-3 text-re-text-muted hover:bg-re-navy/5 hover:text-re-navy rounded-xl transition-all"
+                        aria-label="Back to accountant portal"
+                    >
+                        <ArrowLeft size={18} strokeWidth={2} aria-hidden />
+                        <span className="text-sm font-medium text-re-text tracking-tight">Back</span>
+                    </button>
+                ) : (
+                    <button
+                        type="button"
+                        onClick={onMenuClick}
+                        className="lg:hidden p-2 text-re-text-muted hover:bg-re-navy/5 hover:text-re-navy rounded-xl transition-all"
+                        aria-label="Open menu"
+                    >
+                        <Menu size={18} />
+                    </button>
+                )}
+                <h1
+                    className={`text-sm font-medium text-re-text tracking-tight truncate ${
+                        hidePortalSidebar ? 'hidden sm:block' : 'hidden lg:block'
+                    }`}
                 >
-                    <Menu size={18} />
-                </button>
-                <h1 className="hidden lg:block text-sm font-medium text-re-text tracking-tight">
                     {title || 'Dashboard'}
                 </h1>
             </div>

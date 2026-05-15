@@ -8,14 +8,15 @@ export function mapSchoolOwnershipToFeeScope(ownershipRaw) {
     return { feeScope: "aided", schoolKind: "government_aided", category: null, lockCategory: false };
   }
   if (o === "government" || o.startsWith("government")) {
-    return { feeScope: "public", schoolKind: "government", category: "Public", lockCategory: true };
+    /** Public vs Boarding must match NESA fee_limits rows — category is user-chosen on the wizard. */
+    return { feeScope: "public", schoolKind: "government", category: "Public", lockCategory: false };
   }
   return { feeScope: "unknown", schoolKind: "unknown", category: null, lockCategory: false };
 }
 
 export function categoryOptionsForWizard(schoolKind, feeTargetStudents) {
   if (schoolKind === "private") return ["Private"];
-  if (schoolKind === "government") return ["Public"];
+  if (schoolKind === "government") return ["Public", "Boarding"];
   if (schoolKind === "government_aided" && feeTargetStudents === "public") return ["Public", "Boarding", "TVET"];
   if (schoolKind === "government_aided" && feeTargetStudents === "private") return ["Private"];
   return ["Public", "Private", "Boarding", "TVET"];

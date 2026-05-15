@@ -8,23 +8,24 @@ const DashboardLayout = ({ children, title }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const location = useLocation();
   const isChatFocused = location.pathname.endsWith('/chat');
+  const isSchoolBudget = location.pathname.includes('school-budget');
 
   return (
     <div className="flex h-screen bg-re-bg font-sans overflow-hidden">
-      {!isChatFocused && (
+      {!isChatFocused && !isSchoolBudget && (
         <div className="hidden lg:flex w-[304px] shrink-0 min-h-0 h-full flex-col overflow-hidden bg-[#0b1530]">
           <Sidebar />
         </div>
       )}
 
       {/* Sidebar — Mobile overlay */}
-      {!isChatFocused && isSidebarOpen && (
+      {!isChatFocused && !isSchoolBudget && isSidebarOpen && (
         <div
           className="fixed inset-0 z-40 lg:hidden bg-gray-900/40 backdrop-blur-md"
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
-      {!isChatFocused && <div
+      {!isChatFocused && !isSchoolBudget && <div
         className={`fixed inset-y-0 left-0 z-50 w-[304px] max-w-[88vw] flex flex-col min-h-0 overflow-hidden bg-[#0b1530] transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] lg:hidden ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
       >
@@ -33,9 +34,19 @@ const DashboardLayout = ({ children, title }) => {
 
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
-        {!isChatFocused && <TopNav title={title} onMenuClick={() => setIsSidebarOpen(true)} />}
+        {!isChatFocused && (
+          <TopNav
+            title={title}
+            onMenuClick={() => setIsSidebarOpen(true)}
+            hidePortalSidebar={isSchoolBudget}
+          />
+        )}
 
-        <main className={`flex-1 overflow-y-auto relative ${isChatFocused ? 'pb-0' : 'pb-[5.75rem] lg:pb-0'}`}>
+        <main
+          className={`flex-1 overflow-y-auto relative ${
+            isChatFocused ? 'pb-0' : isSchoolBudget ? 'pb-0' : 'pb-[5.75rem] lg:pb-0'
+          }`}
+        >
           {/* Background glows */}
           <div className="fixed bottom-0 right-0 w-96 h-96 bg-re-orange/5 blur-[120px] rounded-full pointer-events-none z-0" />
           <div className="fixed top-0 left-0 w-72 h-72 bg-re-purple/5 blur-[100px] rounded-full pointer-events-none z-0" />
@@ -46,7 +57,7 @@ const DashboardLayout = ({ children, title }) => {
         </main>
 
         {/* Mobile Bottom Nav */}
-        {!isChatFocused && <BottomNav />}
+        {!isChatFocused && !isSchoolBudget && <BottomNav />}
       </div>
     </div>
   );

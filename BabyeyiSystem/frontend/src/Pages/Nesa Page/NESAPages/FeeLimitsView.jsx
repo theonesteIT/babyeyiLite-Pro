@@ -255,10 +255,17 @@ export default function FeeLimitsView({ toast }) {
       toast("Please fill in Category, Level and Maximum Amount", "error");
       return;
     }
+    if (!String(form.academic_year || "").trim()) {
+      toast("Academic year is required (e.g. 2025-2026)", "error");
+      return;
+    }
     setSaving(true);
     try {
       const fd = new FormData();
-      Object.entries(form).forEach(([k, v]) => { if (v !== "") fd.append(k, v); });
+      Object.entries(form).forEach(([k, v]) => {
+        if (v === "" || v == null) return;
+        fd.append(k, k === "academic_year" ? String(v).trim() : v);
+      });
       if (pdfFile) fd.append("regulation_pdf", pdfFile);
       if (editItem) {
         await apiFetchForm(`${API_BASE}/${editItem.id}`, "PUT", fd);
@@ -474,12 +481,10 @@ export default function FeeLimitsView({ toast }) {
         <Modal title={editItem ? `Edit Fee Limit #${editItem.id}` : "Set New Fee Limit"} onClose={closeForm}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
 
-            {/* Category */}
             {[
-              { label: "School Category", key: "category", type: "select", opts: ["Public","Private","Boarding","TVET"], req: true },
-              { label: "Education Level",  key: "level",    type: "select", opts: ["Nursery","Primary","Secondary","University"], req: true },
-              { label: "Term",             key: "term",     type: "select", opts: ["Term 1","Term 2","Term 3","Full Year"] },
-              { label: "Academic Year",    key: "academic_year", type: "select", opts: ["2024-2025","2025-2026","2026-2027"], req: true },
+              { label: "School Category", key: "category", opts: ["Public", "Private", "Boarding", "TVET"], req: true },
+              { label: "Education Level", key: "level", opts: ["Nursery", "Primary", "Secondary", "University"], req: true },
+              { label: "Term", key: "term", opts: ["Term 1", "Term 2", "Term 3", "Full Year"], req: false },
             ].map(({ label, key, opts, req }) => (
               <div key={key}>
                 <label style={{ display: "block", fontSize: 10, fontWeight: 900, color: C.goldDark, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6, fontFamily: font }}>
@@ -488,8 +493,36 @@ export default function FeeLimitsView({ toast }) {
                 <select value={form[key]} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))} style={inp}>
                   {opts.map(o => <option key={o}>{o}</option>)}
                 </select>
+                {key === "term" && form.term === "Full Year" && (
+                  <p style={{ fontSize: 10, color: C.goldDark, marginTop: 6, lineHeight: 1.45, fontFamily: font }}>
+                    Full Year applies to <strong>Term 1</strong>, <strong>Term 2</strong>, and <strong>Term 3</strong> for this category, level, and academic year.
+                  </p>
+                )}
               </div>
             ))}
+
+            <div>
+              <label style={{ display: "block", fontSize: 10, fontWeight: 900, color: C.goldDark, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6, fontFamily: font }}>
+                Academic Year <span style={{ color: C.red }}>*</span>
+              </label>
+              <input
+                type="text"
+                value={form.academic_year}
+                onChange={e => setForm(f => ({ ...f, academic_year: e.target.value }))}
+                placeholder="e.g. 2025-2026"
+                list="nesa-fee-limit-years"
+                style={inp}
+              />
+              <datalist id="nesa-fee-limit-years">
+                <option value="2024-2025" />
+                <option value="2025-2026" />
+                <option value="2026-2027" />
+                <option value="2027-2028" />
+              </datalist>
+              <p style={{ fontSize: 10, color: C.goldDark, marginTop: 6, lineHeight: 1.45, fontFamily: font }}>
+                Type the academic year you want (not limited to a fixed list).
+              </p>
+            </div>
 
             {/* Max Amount */}
             <div>

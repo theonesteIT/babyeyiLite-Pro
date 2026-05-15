@@ -563,6 +563,22 @@ const classToLevel = (cls) => {
   return "Primary";
 };
 
+/** Match fee_limits row: exact term first; Term 1/2/3 also match a stored "Full Year" cap. */
+async function queryActiveNesaFeeLimit(category, level, term, academicYear) {
+  const t = String(term || "").trim();
+  const year = String(academicYear || "").trim();
+  if (!category || !level || !t || !year) return null;
+  const rows = await query(
+    `SELECT id, max_amount, regulation_ref, notes, term FROM fee_limits
+     WHERE category=? AND level=? AND academic_year=? AND is_active=1
+       AND (term=? OR (? <> 'Full Year' AND term='Full Year'))
+     ORDER BY CASE WHEN term=? THEN 0 WHEN term='Full Year' THEN 1 ELSE 2 END
+     LIMIT 1`,
+    [category, level, year, t, t, t]
+  );
+  return rows[0] || null;
+}
+
 const normalise = (r) => {
   if (!r) return r;
   return {
@@ -1765,12 +1781,8 @@ router.get("/nesa-limit", async (req, res) => {
     const { category, level, term, academic_year } = req.query;
     if (!category || !level || !term || !academic_year)
       return res.json({ success: true, data: null, message: "Parameters missing" });
-    const rows = await query(
-      `SELECT id, max_amount, regulation_ref, notes FROM fee_limits
-       WHERE category=? AND level=? AND term=? AND academic_year=? AND is_active=1 LIMIT 1`,
-      [category, level, term, academic_year]
-    );
-    res.json({ success: true, data: rows[0] || null });
+    const row = await queryActiveNesaFeeLimit(category, level, term, academic_year);
+    res.json({ success: true, data: row });
   } catch (err) {
     res.status(500).json({ success: false, message: "Failed to fetch NESA limit" });
   }
@@ -2293,13 +2305,10 @@ router.post("/", (req, res) => {
       const skipNesa          = shouldSkipNesaFeeLimits(schoolOwnership, feeTargetStudents);
       const categoryForRow    = skipNesa ? "Private" : fv(body.category, "Public");
 
-      const nesaRows = skipNesa
-        ? []
-        : await query(
-            `SELECT max_amount FROM fee_limits WHERE category=? AND level=? AND term=? AND academic_year=? AND is_active=1 LIMIT 1`,
-            [categoryForRow, level, body.term, body.academic_year]
-          ).catch(() => []);
-      const nesaLimit       = skipNesa ? null : (nesaRows[0]?.max_amount ?? null);
+      const nesaRow = skipNesa
+        ? null
+        : await queryActiveNesaFeeLimit(categoryForRow, level, body.term, body.academic_year).catch(() => null);
+      const nesaLimit       = skipNesa ? null : (nesaRow?.max_amount ?? null);
       const exceeds         = !skipNesa && nesaLimit !== null && totalFee > Number(nesaLimit);
       const requestIncrease = body.request_increase === "true" || body.request_increase === true;
 
@@ -2889,13 +2898,10 @@ router.put("/:id", (req, res) => {
       const incomingCategory  = body.category !== undefined ? body.category : old.school_category;
       const categoryForRow    = skipNesa ? "Private" : incomingCategory;
 
-      const nesaRows = skipNesa
-        ? []
-        : await query(
-            `SELECT max_amount FROM fee_limits WHERE category=? AND level=? AND term=? AND academic_year=? AND is_active=1 LIMIT 1`,
-            [categoryForRow, level, newTerm, newYear]
-          ).catch(() => []);
-      const nesaLimit       = skipNesa ? null : (nesaRows[0]?.max_amount ?? null);
+      const nesaRow = skipNesa
+        ? null
+        : await queryActiveNesaFeeLimit(categoryForRow, level, newTerm, newYear).catch(() => null);
+      const nesaLimit       = skipNesa ? null : (nesaRow?.max_amount ?? null);
       const exceeds         = !skipNesa && nesaLimit !== null && totalFee > Number(nesaLimit);
       const requestIncrease = body.request_increase === "true" || body.request_increase === true;
       const status          = !exceeds ? "approved" : requestIncrease ? "pending" : ["approved"].includes(old.status) ? old.status : "draft";

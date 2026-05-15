@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useId } from "react";
 import { createPortal } from 'react-dom';
 import { useAuth } from "../context/AuthContext";
 import { useAcademic } from "../context/AcademicContext";
@@ -350,7 +350,60 @@ function ClassBarChart({ data = [] }) {
 // ✨ NEW: FEE COLLECTION BAR CHART
 // Replaces the donut — clear collected / outstanding / remaining bars
 // ================================================================
-function FeeCollectionBarChart({ termFinance, feeLayout, feeTermCaption, canReadTermFees }) {
+function FeeDailyVerticalBars({ data = [], height = 112 }) {
+    const uid = useId().replace(/:/g, '');
+    const gradId = `feeDailyGrad-${uid}`;
+    if (!data.length) return null;
+    const W = 420;
+    const H = height;
+    const pad = { l: 6, r: 6, t: 10, b: 22 };
+    const innerW = W - pad.l - pad.r;
+    const innerH = H - pad.t - pad.b;
+    const vals = data.map((d) => Number(d.value) || 0);
+    const max = Math.max(...vals, 1);
+    const n = data.length;
+    const gap = Math.min(5, Math.max(1.5, (innerW / n) * 0.12));
+    const barW = Math.max(2, (innerW - gap * (n - 1)) / n);
+    return (
+        <div style={{ marginTop: 22, paddingTop: 18, borderTop: '1.5px solid rgba(0,4,53,0.06)' }}>
+            <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#94a3b8', marginBottom: 10 }}>Collections per day · last {n} days</p>
+            <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: H, display: 'block' }} preserveAspectRatio="xMidYMid meet">
+                <defs>
+                    <linearGradient id={gradId} x1="0" y1="1" x2="0" y2="0">
+                        <stop offset="0%" stopColor={NAVY} stopOpacity="0.95" />
+                        <stop offset="55%" stopColor="#0c4a6e" stopOpacity="1" />
+                        <stop offset="100%" stopColor={GOLD} stopOpacity="0.85" />
+                    </linearGradient>
+                </defs>
+                {data.map((d, i) => {
+                    const v = vals[i];
+                    const hBar = (v / max) * innerH;
+                    const x = pad.l + i * (barW + gap);
+                    const y = pad.t + innerH - hBar;
+                    return (
+                        <g key={`${d.label}-${i}`}>
+                            <title>{`${d.label}: ${formatRwfDashboard(v)}`}</title>
+                            <rect
+                                x={x}
+                                y={y}
+                                width={barW}
+                                height={v > 0 ? Math.max(hBar, 3) : 0}
+                                rx={3}
+                                fill={v > 0 ? `url(#${gradId})` : '#f1f5f9'}
+                                style={{ transition: 'opacity 0.15s ease' }}
+                            />
+                            <text x={x + barW / 2} y={H - 4} textAnchor="middle" fontSize="7" fill="#94a3b8" fontWeight="700">
+                                {d.label}
+                            </text>
+                        </g>
+                    );
+                })}
+            </svg>
+        </div>
+    );
+}
+
+function FeeCollectionBarChart({ termFinance, feeLayout, feeTermCaption, canReadTermFees, collections14d = [] }) {
     const { expected, collected, outstanding } = termFinance;
     const remaining = feeLayout.remainingVsTerm;
 
@@ -451,6 +504,8 @@ function FeeCollectionBarChart({ termFinance, feeLayout, feeTermCaption, canRead
                     </p>
                 </div>
             )}
+
+            {collections14d.length > 0 && <FeeDailyVerticalBars data={collections14d} />}
         </div>
     );
 }
@@ -507,6 +562,37 @@ function toNumber(value, fallback = 0) {
     return Number.isFinite(n) ? n : fallback;
 }
 
+/** Session may expose role as a string, { code }, or { name }; normalize to UPPER_SNAKE for RBAC checks. */
+function normalizeRoleToken(v) {
+    if (v == null || v === '') return '';
+    if (typeof v === 'object') {
+        const code = v.code ?? v.role_code ?? v.roleCode;
+        if (code != null && code !== '') return normalizeRoleToken(code);
+        const name = v.name ?? v.role_name ?? v.label;
+        if (name != null && name !== '') return String(name).trim().toUpperCase().replace(/\s+/g, '_');
+        return '';
+    }
+    const s = String(v).trim();
+    if (s.toLowerCase() === '[object object]') return '';
+    return s.toUpperCase().replace(/\s+/g, '_');
+}
+
+function buildRoleTokens(manager) {
+    const set = new Set();
+    const add = (x) => {
+        const t = normalizeRoleToken(x);
+        if (t) set.add(t);
+    };
+    if (!manager) return set;
+    add(manager.role_code);
+    add(manager.role);
+    add(manager.user_type);
+    add(manager.staff_role);
+    add(manager.account_type);
+    (Array.isArray(manager.roles) ? manager.roles : []).forEach(add);
+    return set;
+}
+
 const DEFAULT_TOTAL_MARKS = 100;
 function getMarksPct(student, totalMarks) {
     const raw = toNumber(student?.marks_remaining, 0);
@@ -523,13 +609,7 @@ const Dashboard = () => {
     const navigate = useNavigate();
     const academic = useAcademic();
 
-    const roleTokens = useMemo(() => {
-        const set = new Set();
-        const add = (v) => { const s = String(v || '').trim().toUpperCase(); if (s) set.add(s); };
-        add(manager?.role); add(manager?.user_type); add(manager?.staff_role); add(manager?.account_type);
-        (Array.isArray(manager?.roles) ? manager.roles : []).forEach(add);
-        return set;
-    }, [manager]);
+    const roleTokens = useMemo(() => buildRoleTokens(manager), [manager]);
 
     const canUseDiscipline = useMemo(() => ['HOD', 'HEAD_OF_DISCIPLINE', 'DISCIPLINE', 'DISCIPLINE_STAFF'].some((r) => roleTokens.has(r)), [roleTokens]);
     const canUseAccountant = useMemo(() => roleTokens.has('ACCOUNTANT'), [roleTokens]);
@@ -1064,7 +1144,7 @@ const Dashboard = () => {
                                 <p style={sectionSubStyle}>Student fee ledger · {feeTermCaption || `${filters.academic_year} · ${filters.term}`}</p>
                             </div>
                         </div>
-                        <FeeCollectionBarChart termFinance={stats.termFinance} feeLayout={feeLayout} feeTermCaption={feeTermCaption} canReadTermFees={canReadTermFees} />
+                        <FeeCollectionBarChart termFinance={stats.termFinance} feeLayout={feeLayout} feeTermCaption={feeTermCaption} canReadTermFees={canReadTermFees} collections14d={stats.collections14d} />
                         <Link to={h('/finance')} style={{ marginTop: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, fontSize: 13, fontWeight: 700, color: NAVY, textDecoration: 'none' }}>
                             Open finance center <ChevronRight size={15} />
                         </Link>
@@ -1133,8 +1213,8 @@ const Dashboard = () => {
                 {/* ══════════════════════════════════════════════════
                     TREND CHARTS
                 ══════════════════════════════════════════════════ */}
-                <section style={{ display: 'grid', gridTemplateColumns: canUseAccountant && stats.collections14d.length > 0 ? 'repeat(auto-fit, minmax(min(100%, 440px), 1fr))' : '1fr', gap: 20 }}>
-                    {canUseAccountant && stats.collections14d.length > 0 && (
+                <section style={{ display: 'grid', gridTemplateColumns: canReadTermFees && stats.collections14d.length > 0 ? 'repeat(auto-fit, minmax(min(100%, 440px), 1fr))' : '1fr', gap: 20 }}>
+                    {canReadTermFees && stats.collections14d.length > 0 && (
                         <div style={cardStyle}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                                 <h3 style={{ fontSize: 13, fontWeight: 800, color: NAVY, display: 'flex', alignItems: 'center', gap: 8 }}>

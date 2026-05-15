@@ -4,22 +4,134 @@
 // ================================================================
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { WizardContent } from "./UpdateBabyeyi";
-import { parseTranslationsJson } from "../../../utils/applyBabyeyiTranslations";
-import { getLegacyBabyeyiUI, getParentMessageForDisplay, getStatusLabelSafe } from "../../../i18n";
+import { parseTranslationsJson } from '../schoolLiteSupport/utils/applyBabyeyiTranslations';
+import { getLegacyBabyeyiUI, getParentMessageForDisplay, getParentMessageForMachineTranslation, getStatusLabelSafe } from '../schoolLiteSupport/i18n/index.js';
+import { BABYEYI_AUTO_LANG_OPTIONS, isCoreBabyeyiLang, normalizeBabyeyiLang } from '../schoolLiteSupport/babyeyiTranslateLangs.js';
+import { useBabyeyiUiT } from '../schoolLiteSupport/hooks/useBabyeyiUiT.js';
+import { translateLongText, translateWithLingvaCached } from '../schoolLiteSupport/lib/lingvaTranslate.js';
+import { API_BASE, SERVER_BASE as ASSET_BASE, babyeyiVerifyScanUrl } from '../lib/schoolLiteApi';
+import qrcodeLib from "qrcode";
+import {
+  Eye,
+  Pencil,
+  Lock,
+  Trash2,
+  ClipboardList,
+  X,
+  SlidersHorizontal,
+  CircleCheck,
+  Info,
+  CircleX,
+  QrCode,
+  ChevronDown,
+  Search,
+  FileText,
+  RefreshCw,
+  Check,
+  Stamp as StampLucide,
+} from 'lucide-react';
 
 const FONT = `"MTN Brighter Sans","Nunito","Varela Round",sans-serif`;
-const API_BASE        = "http://localhost:5100/api";
-const ASSET_BASE      = "http://localhost:5100";
-const FRONTEND_ORIGIN = typeof window !== "undefined" ? window.location.origin : "http://localhost:5174";
-const verifyUrl = (docId) => docId ? `${FRONTEND_ORIGIN}/babyeyi/verify/${docId}` : "";
+/** Apply ensureQRCode result to state (client data URL or server PNG). */
+export async function applyQrToState(result, setQrB64, setVUrl) {
+  if (!result) return;
+  if (result.qrDataUrl) {
+    setQrB64(result.qrDataUrl);
+    setVUrl(result.vUrl);
+  } else if (result.qrUrl) {
+    const b64 = await toBase64(toAssetUrl(result.qrUrl));
+    setQrB64(b64);
+    setVUrl(result.vUrl);
+  }
+}
 
-// ── Translation dicts ─────────────────────────────────────────
-const LANGS = {
-  en: { flag: "🇬🇧", name: "English", code: "en" },
-  rw: { flag: "🇷🇼", name: "Kinyarwanda", code: "rw" },
-  fr: { flag: "🇫🇷", name: "Français", code: "fr" },
-};
+// ── QR helpers ────────────────────────────────────────────────
+export async function ensureQRCode(rec) {
+  if (!rec?.id) return null;
+  const vUrlFallback = babyeyiVerifyScanUrl(rec.docId, rec.integrityHash);
+  if (rec.docId) {
+    try {
+      const scanUrl = babyeyiVerifyScanUrl(rec.docId, rec.integrityHash);
+      const qrDataUrl = await qrcodeLib.toDataURL(scanUrl, {
+        errorCorrectionLevel: "M",
+        width: 240,
+        margin: 1,
+        color: { dark: "#0f172a", light: "#ffffff" },
+      });
+      return { qrDataUrl, vUrl: scanUrl };
+    } catch (e) {
+      console.warn("[ensureQRCode] client QR:", e?.message || e);
+    }
+  }
+  try {
+    const res = await fetch(`${API_BASE}/babyeyi/${rec.id}/qrcode`, { credentials: "include" });
+    const json = await res.json();
+    if (json.success && json.data?.qr_code_url) {
+      return {
+        qrUrl: json.data.qr_code_url,
+        vUrl: json.data.qr_view_url || vUrlFallback,
+      };
+    }
+  } catch {}
+  try {
+    const res = await fetch(`${API_BASE}/babyeyi/${rec.id}/regenerate-docs`, { method: "POST", credentials: "include" });
+    const json = await res.json();
+    if (json.success) {
+      const qrRes = await fetch(`${API_BASE}/babyeyi/${rec.id}/qrcode`, { credentials: "include" });
+      const qrJson = await qrRes.json();
+      if (qrJson.success && qrJson.data?.qr_code_url) {
+        return {
+          qrUrl: qrJson.data.qr_code_url,
+          vUrl: qrJson.data.qr_view_url || vUrlFallback,
+        };
+      }
+    }
+  } catch {}
+  return null;
+}
+
+/** `session.userRole` values allowed to PATCH Kinyarwanda `content_i18n` (extend if your API uses other codes). */
+const BABYEYI_RW_EDITOR_ROLE_CODES = new Set([
+  "MANAGER",
+  "SCHOOL_MANAGER",
+  // Pro manager portal: PORTAL_ROLES.manager = SCHOOL_ADMIN + SCHOOL_MANAGER
+  "SCHOOL_ADMIN",
+  "HEAD_TEACHER",
+  "DIRECTOR",
+  "PRINCIPAL",
+  "ADMIN",
+  "SUPER_ADMIN",
+]);
+
+function normalizeSessionRoleCode(raw) {
+  return String(raw ?? "")
+    .trim()
+    .toUpperCase()
+    .replace(/-/g, "_")
+    .replace(/\s+/g, "_");
+}
+
+/** @param {{ schoolId?: unknown, userRole?: string | null } | null | undefined} session */
+export function canSessionEditKinyarwandaRw(session) {
+  if (!session?.schoolId) return false;
+  const code = normalizeSessionRoleCode(session.userRole);
+  if (!code) return true;
+  return BABYEYI_RW_EDITOR_ROLE_CODES.has(code);
+}
+
+// ── Language picker (official JSON + Lingva machine translate) ─
+const CORE_LANG_OPTIONS = [
+  { code: "en", flag: "🇬🇧", name: "English" },
+  { code: "rw", flag: "🇷🇼", name: "Kinyarwanda" },
+  { code: "fr", flag: "🇫🇷", name: "Français" },
+];
+const ALL_LANG_OPTIONS = [...CORE_LANG_OPTIONS, ...BABYEYI_AUTO_LANG_OPTIONS];
+function langMeta(code) {
+  const n = normalizeBabyeyiLang(code);
+  return ALL_LANG_OPTIONS.find((x) => x.code === n) || { code: n, flag: "🌐", name: String(n || "en").toUpperCase() };
+}
 
 // ── Shared helpers ────────────────────────────────────────────
 const toAssetUrl = (path) => {
@@ -47,6 +159,57 @@ function loadScript(src) {
   });
 }
 
+/** html2canvas: force light white document (no UI chrome / dark-mode tint); matches on-screen View. */
+export function babyeyiDocHtml2CanvasOptions(rootId) {
+  return {
+    scale: 2,
+    useCORS: true,
+    allowTaint: false,
+    backgroundColor: "#ffffff",
+    logging: false,
+    windowWidth: 794,
+    onclone: (doc) => {
+      doc.documentElement.style.backgroundColor = "#ffffff";
+      doc.body.style.backgroundColor = "#ffffff";
+      const el = doc.getElementById(rootId);
+      if (el) {
+        el.style.backgroundColor = "#ffffff";
+        el.style.color = "#1e293b";
+      }
+    },
+  };
+}
+
+/** Rasterize long canvas to A4 PDF pages as PNG (no JPEG color cast). */
+export function addCanvasToPdfAndSave(canvas, filename) {
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const pW = 210;
+  const pH = 297;
+  const imgH = (canvas.height / canvas.width) * pW;
+  const pngFull = canvas.toDataURL("image/png");
+  if (imgH <= pH) {
+    pdf.addImage(pngFull, "PNG", 0, 0, pW, imgH);
+  } else {
+    let yPos = 0;
+    let page = 0;
+    while (yPos < imgH) {
+      if (page > 0) pdf.addPage();
+      const srcYPx = Math.floor((yPos / imgH) * canvas.height);
+      const sliceHPx = Math.min(Math.ceil((pH / imgH) * canvas.height), canvas.height - srcYPx);
+      if (sliceHPx <= 0) break;
+      const sl = document.createElement("canvas");
+      sl.width = canvas.width;
+      sl.height = sliceHPx;
+      sl.getContext("2d").drawImage(canvas, 0, srcYPx, canvas.width, sliceHPx, 0, 0, canvas.width, sliceHPx);
+      pdf.addImage(sl.toDataURL("image/png"), "PNG", 0, 0, pW, (sliceHPx / canvas.height) * imgH);
+      yPos += pH;
+      page++;
+    }
+  }
+  pdf.save(filename);
+}
+
 function parseBanks(rec) {
   if (rec.banksJson) { try { const raw = typeof rec.banksJson === "string" ? JSON.parse(rec.banksJson) : rec.banksJson; if (Array.isArray(raw) && raw.length) return raw; } catch {} }
   if (rec.bankName) return [{ bankName: rec.bankName, accountNumber: rec.bankAccountNo || "", accountName: rec.bankAccountName || "", isPrimary: true }];
@@ -64,20 +227,20 @@ const DOC = {
 };
 
 const STATUS_CFG = {
-  approved:    { label:"Approved",    bg:"bg-emerald-500/15", text:"text-emerald-400",  dot:"bg-emerald-400",  border:"border-emerald-500/25" },
-  pending:     { label:"Pending",     bg:"bg-amber-400/15",   text:"text-amber-400",    dot:"bg-amber-400",    border:"border-amber-400/25" },
-  recommended: { label:"Recommended", bg:"bg-blue-500/15",    text:"text-blue-400",     dot:"bg-blue-400",     border:"border-blue-500/25" },
-  rejected:    { label:"Rejected",    bg:"bg-red-500/15",     text:"text-red-400",      dot:"bg-red-500",      border:"border-red-500/25" },
-  draft:       { label:"Draft",       bg:"bg-white/8",        text:"text-white/50",     dot:"bg-white/40",     border:"border-white/15" },
-  submitted:   { label:"Submitted",   bg:"bg-blue-500/15",    text:"text-blue-400",     dot:"bg-blue-400",     border:"border-blue-500/25" },
+  approved:    { label:"Approved",    bg:"bg-amber-50",  text:"text-[#000435]", dot:"bg-amber-500", border:"border-amber-200" },
+  pending:     { label:"Pending",     bg:"bg-amber-50",  text:"text-[#000435]", dot:"bg-amber-500", border:"border-amber-200" },
+  recommended: { label:"Recommended", bg:"bg-amber-50",  text:"text-[#000435]", dot:"bg-amber-500", border:"border-amber-200" },
+  rejected:    { label:"Rejected",    bg:"bg-amber-50",  text:"text-[#000435]", dot:"bg-amber-500", border:"border-amber-200" },
+  draft:       { label:"Draft",       bg:"bg-amber-50",  text:"text-[#000435]", dot:"bg-amber-500", border:"border-amber-200" },
+  submitted:   { label:"Submitted",   bg:"bg-amber-50",  text:"text-[#000435]", dot:"bg-amber-500", border:"border-amber-200" },
 };
 
 const BLOCKED_STATUSES = new Set(["pending","draft","submitted"]);
 const isBlocked = (s) => BLOCKED_STATUSES.has(s);
 
-export function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLogoB64, sigB64, stampB64, qrB64, vUrl, lang = "en" }) {
-  const T = getLegacyBabyeyiUI(lang);
-  const parentMsg = getParentMessageForDisplay(rec, lang, T);
+export function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLogoB64, sigB64, stampB64, qrB64, vUrl, lang = "en", T: TOverride, parentMsgOverride }) {
+  const T = TOverride || getLegacyBabyeyiUI(lang);
+  const parentMsg = parentMsgOverride != null ? parentMsgOverride : getParentMessageForDisplay(rec, lang, T);
   const payments = Array.isArray(rec.payments) ? rec.payments : [];
   const classNotes = Array.isArray(rec.classNotes) ? rec.classNotes : [];
   const reqs = Array.isArray(rec.requirements) ? rec.requirements : [];
@@ -112,12 +275,12 @@ export function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLog
 }
 
 // ── Capture doc image ─────────────────────────────────────────
-async function captureDocAsImage({ rec, schoolLogoB64, otherLogoB64, sigB64, stampB64, qrB64, vUrl, lang = "en" }) {
+async function captureDocAsImage({ rec, schoolLogoB64, otherLogoB64, sigB64, stampB64, qrB64, vUrl, lang = "en", T, parentMsgOverride }) {
   await loadScript("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js");
   const payments = Array.isArray(rec.payments) ? rec.payments : [];
   const totalFee = payments.reduce((s, p) => s + Number(p.amount || 0), 0);
   const today = new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
-  const html = buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLogoB64, sigB64, stampB64, qrB64, vUrl, lang });
+  const html = buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLogoB64, sigB64, stampB64, qrB64, vUrl, lang, T, parentMsgOverride });
   const style = document.createElement("style");
   style.textContent = `#__by_c__ * { box-sizing:border-box; color-scheme:light only; } #__by_c__ { all:initial;display:block;background:#fff; }`;
   document.head.appendChild(style);
@@ -127,81 +290,261 @@ async function captureDocAsImage({ rec, schoolLogoB64, otherLogoB64, sigB64, sta
   host.appendChild(root); document.body.appendChild(host);
   try {
     await new Promise(r => setTimeout(r, 500));
-    const canvas = await window.html2canvas(root, { scale: 2, useCORS: true, allowTaint: false, backgroundColor: "#fff", logging: false });
+    const canvas = await window.html2canvas(root, babyeyiDocHtml2CanvasOptions("__by_c__"));
     return canvas.toDataURL("image/jpeg", 0.95);
   } finally { document.body.removeChild(host); document.head.removeChild(style); }
 }
 
-// ── QR helpers ────────────────────────────────────────────────
-async function ensureQRCode(rec) {
-  if (!rec?.id) return null;
+async function patchRwContentI18n(babyeyiId, body) {
+  const res = await fetch(`${API_BASE}/babyeyi/${babyeyiId}/content-i18n/rw`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(body),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || json.success === false) throw new Error(json.message || "Save failed");
+  return json;
+}
+
+/** Fetch server-generated PDF (cookie auth) and trigger browser download. */
+async function downloadBabyeyiPdfFromServerPath(pdfPath, filename = "Babyeyi.pdf") {
+  if (!pdfPath || typeof pdfPath !== "string") return;
+  const url = toAssetUrl(pdfPath.replace(/\\/g, "/"));
+  const res = await fetch(url, { credentials: "include" });
+  if (!res.ok) throw new Error(`PDF HTTP ${res.status}`);
+  const blob = await res.blob();
+  const objectUrl = URL.createObjectURL(blob);
   try {
-    const res = await fetch(`${API_BASE}/babyeyi/${rec.id}/qrcode`, { credentials: "include" });
-    const json = await res.json();
-    if (json.success && json.data?.qr_code_url) return { qrUrl: json.data.qr_code_url, vUrl: json.data.qr_view_url || verifyUrl(rec.docId) };
-  } catch {}
-  try {
-    const res = await fetch(`${API_BASE}/babyeyi/${rec.id}/regenerate-docs`, { method: "POST", credentials: "include" });
-    const json = await res.json();
-    if (json.success) {
-      const qrRes = await fetch(`${API_BASE}/babyeyi/${rec.id}/qrcode`, { credentials: "include" });
-      const qrJson = await qrRes.json();
-      if (qrJson.success && qrJson.data?.qr_code_url) return { qrUrl: qrJson.data.qr_code_url, vUrl: qrJson.data.qr_view_url || verifyUrl(rec.docId) };
-    }
-  } catch {}
-  return null;
+    const safeName = String(filename || "Babyeyi.pdf").replace(/[/\\?%*:|"<>]/g, "-");
+    const a = document.createElement("a");
+    a.href = objectUrl;
+    a.download = safeName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
 }
 
 // ── Language switcher ─────────────────────────────────────────
-function LangSwitcher({ lang, setLang, compact = false }) {
+function LangSwitcher({ lang, setLang, compact = false, mtLoading = false, moreHint, searchPlaceholder = "Search language…" }) {
   const [open, setOpen] = useState(false);
+  const [searchQ, setSearchQ] = useState("");
   const ref = useRef(null);
   useEffect(() => {
     const fn = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
     document.addEventListener("mousedown", fn);
     return () => document.removeEventListener("mousedown", fn);
   }, []);
-  const current = LANGS[lang];
+  useEffect(() => { if (!open) setSearchQ(""); }, [open]);
+  const current = langMeta(lang);
+  const q = searchQ.trim().toLowerCase();
+  const match = (opt) =>
+    !q || `${opt.name} ${opt.code}`.toLowerCase().includes(q);
+  const coreFiltered = CORE_LANG_OPTIONS.filter(match);
+  const autoFiltered = BABYEYI_AUTO_LANG_OPTIONS.filter(match);
   return (
     <div className="relative" ref={ref}>
-      <button onClick={() => setOpen(o => !o)}
-        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-black transition-all border ${
+      <button type="button" onClick={() => setOpen(o => !o)}
+        className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-[11px] sm:text-[12px] font-semibold transition-all border ${
           open ? "bg-amber-400 text-[#000435] border-amber-400" : "bg-white/8 text-white border-white/15 hover:bg-white/14"
         }`}
         style={{ fontFamily: FONT }}>
-        <span className="text-[13px]">{current.flag}</span>
-        <span className="hidden sm:inline">{current.name}</span>
-        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><path d="M6 9l6 6 6-6"/></svg>
+        {mtLoading ? (
+          <span className="w-3.5 h-3.5 border-2 border-white/25 border-t-amber-400 rounded-full animate-spin shrink-0" />
+        ) : (
+          <span className="text-[13px]">{current.flag}</span>
+        )}
+        <span className="inline max-w-[90px] truncate">{current.code}</span>
+        <span className="hidden md:inline max-w-[140px] truncate">{current.name}</span>
+        <ChevronDown className="w-2 h-2 shrink-0 opacity-70" aria-hidden strokeWidth={3} />
       </button>
       {open && (
-        <div className="absolute right-0 top-full mt-1.5 rounded-2xl shadow-2xl z-50 min-w-[150px] bg-[#000435] border border-amber-400/30 overflow-hidden">
-          {Object.values(LANGS).map(l => (
-            <button key={l.code} onClick={() => { setLang(l.code); setOpen(false); }}
-              className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] font-bold transition-all text-left ${
-                lang === l.code ? "bg-amber-400/15 text-amber-400" : "text-white/70 hover:bg-white/8"
-              }`} style={{ fontFamily: FONT }}>
-              <span className="text-[14px]">{l.flag}</span> {l.name}
-              {lang === l.code && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-amber-400" />}
-            </button>
-          ))}
+        <div className="absolute top-full mt-1.5 left-1/2 -translate-x-1/2 sm:left-auto sm:right-0 sm:translate-x-0 rounded-2xl shadow-sm z-[90] w-[min(100vw-1rem,340px)] sm:w-[min(100vw-2rem,320px)] flex flex-col bg-[#000435] border border-amber-400/30 max-h-[min(72vh,460px)]">
+          <div className="p-2 border-b border-white/10 shrink-0 sticky top-0 bg-[#000435] rounded-t-2xl">
+            <input
+              type="search"
+              value={searchQ}
+              onChange={(e) => setSearchQ(e.target.value)}
+              placeholder={searchPlaceholder}
+              className="w-full px-3 py-2 rounded-xl bg-white/8 border border-white/15 text-[12px] text-white placeholder:text-white/35 outline-none focus:border-amber-400/50"
+              style={{ fontFamily: FONT }}
+              autoFocus
+            />
+          </div>
+          <div className="overflow-y-auto flex-1 min-h-0 py-1">
+            {coreFiltered.map((l) => (
+              <button type="button" key={l.code} onClick={() => { setLang(l.code); setOpen(false); }}
+                className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] font-bold transition-all text-left ${
+                  lang === l.code ? "bg-amber-400/15 text-amber-400" : "text-white/70 hover:bg-white/8"
+                }`} style={{ fontFamily: FONT }}>
+                <span className="text-[14px]">{l.flag}</span>
+                <span className="flex-1 min-w-0"><span className="font-mono text-[10px] text-white/40 mr-1">{l.code}</span>{l.name}</span>
+                {lang === l.code && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />}
+              </button>
+            ))}
+            {moreHint && autoFiltered.length > 0 && (
+              <p className="px-4 pt-2 pb-1 text-[9px] font-semibold uppercase tracking-widest text-white/30 border-t border-white/10">{moreHint}</p>
+            )}
+            {autoFiltered.map((l) => (
+              <button type="button" key={l.code} onClick={() => { setLang(l.code); setOpen(false); }}
+                className={`w-full flex items-center gap-2.5 px-4 py-2 text-[11px] font-bold transition-all text-left ${
+                  lang === l.code ? "bg-amber-400/15 text-amber-400" : "text-white/60 hover:bg-white/8"
+                }`} style={{ fontFamily: FONT }}>
+                <span className="text-[13px]">{l.flag}</span>
+                <span className="flex-1 min-w-0"><span className="font-mono text-[10px] text-white/40 mr-1">{l.code}</span>{l.name}</span>
+                {lang === l.code && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />}
+              </button>
+            ))}
+            {q && coreFiltered.length === 0 && autoFiltered.length === 0 && (
+              <p className="px-4 py-6 text-center text-[11px] text-white/40 font-bold">No matches</p>
+            )}
+          </div>
         </div>
       )}
     </div>
   );
 }
 
+/** Best-effort single-string MT; keeps original English if Lingva fails. */
+async function safeTranslateString(text, source, target) {
+  const s = String(text ?? "").trim();
+  if (!s) return text;
+  try {
+    return await translateWithLingvaCached(s, source, target);
+  } catch {
+    return text;
+  }
+}
+
+async function safeTranslateLong(text, source, target) {
+  const s = String(text ?? "").trim();
+  if (!s) return "";
+  try {
+    return await translateLongText(s, source, target);
+  } catch {
+    return s;
+  }
+}
+
+/** Machine-translate dynamic document fields (parent letter, fees, tables) for non-core languages. */
+function useMachineDocBody(lang, rec) {
+  const [state, setState] = useState(() => ({
+    parentMsg: getParentMessageForMachineTranslation(rec, lang),
+    merged: rec,
+    banks: parseBanks(rec),
+    busy: false,
+  }));
+
+  useEffect(() => {
+    const pm0 = getParentMessageForMachineTranslation(rec, lang);
+    if (isCoreBabyeyiLang(lang)) {
+      setState({ parentMsg: pm0, merged: rec, banks: parseBanks(rec), busy: false });
+      return;
+    }
+    let cancelled = false;
+    setState((s) => ({ ...s, busy: true }));
+    (async () => {
+      try {
+        const parentMsg = pm0.trim() ? await safeTranslateLong(pm0, "en", lang) : "";
+        const payments = await Promise.all(
+          (rec.payments || []).map(async (p) => ({
+            ...p,
+            name: p.name ? await safeTranslateString(String(p.name), "en", lang) : p.name,
+          }))
+        );
+        const requirements = await Promise.all(
+          (rec.requirements || []).map(async (r) => ({
+            ...r,
+            item: r.item ? await safeTranslateString(String(r.item), "en", lang) : r.item,
+            description: r.description ? await safeTranslateString(String(r.description), "en", lang) : r.description,
+          }))
+        );
+        const otherInfos = await Promise.all(
+          (rec.otherInfos || []).map(async (n) => ({
+            ...n,
+            item: n.item ? await safeTranslateString(String(n.item), "en", lang) : n.item,
+            details: n.details ? await safeTranslateString(String(n.details), "en", lang) : n.details,
+          }))
+        );
+        const classNotes = await Promise.all(
+          (rec.classNotes || []).map(async (n) => ({
+            ...n,
+            item: n.item ? await safeTranslateString(String(n.item), "en", lang) : n.item,
+            details: n.details ? await safeTranslateString(String(n.details), "en", lang) : n.details,
+          }))
+        );
+        const leaders = await Promise.all(
+          (rec.leaders || []).map(async (l) => ({
+            ...l,
+            name: l.name ? await safeTranslateString(String(l.name), "en", lang) : l.name,
+            role: l.role ? await safeTranslateString(String(l.role), "en", lang) : l.role,
+          }))
+        );
+        const br = parseBanks(rec);
+        const banks = await Promise.all(
+          br.map(async (bk) => ({
+            ...bk,
+            bankName:
+              bk.bankName && String(bk.bankName).trim() && bk.bankName !== "—"
+                ? await safeTranslateString(String(bk.bankName), "en", lang)
+                : bk.bankName,
+            accountName:
+              bk.accountName && String(bk.accountName).trim() && bk.accountName !== "—"
+                ? await safeTranslateString(String(bk.accountName), "en", lang)
+                : bk.accountName,
+          }))
+        );
+        const merged = {
+          ...rec,
+          payments,
+          requirements,
+          otherInfos,
+          classNotes,
+          leaders,
+          banksJson: JSON.stringify(banks),
+        };
+        if (!cancelled) setState({ parentMsg, merged, banks, busy: false });
+      } catch {
+        if (!cancelled) setState({ parentMsg: pm0, merged: rec, banks: parseBanks(rec), busy: false });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [lang, rec]);
+
+  return state;
+}
+
 // ── Share modal ───────────────────────────────────────────────
-function ShareModal({ rec, onClose, schoolLogoB64, otherLogoB64, sigB64, stampB64, qrB64, vUrl, lang = "en", T }) {
+function ShareModal({ rec, onClose, schoolLogoB64, otherLogoB64, sigB64, stampB64, qrB64, vUrl, lang = "en", T, parentMsgOverride }) {
   const [step, setStep] = useState("capturing");
   const [imgUrl, setImgUrl] = useState(null);
   const [errMsg, setErrMsg] = useState(null);
-  const shareVerifyUrl = vUrl || verifyUrl(rec.docId);
+  const shareVerifyUrl = vUrl || babyeyiVerifyScanUrl(rec.docId, rec.integrityHash);
 
   useEffect(() => {
-    captureDocAsImage({ rec, schoolLogoB64, otherLogoB64, sigB64, stampB64, qrB64, vUrl: shareVerifyUrl, lang })
+    setStep("capturing");
+    setImgUrl(null);
+    setErrMsg(null);
+    captureDocAsImage({
+      rec,
+      schoolLogoB64,
+      otherLogoB64,
+      sigB64,
+      stampB64,
+      qrB64,
+      vUrl: shareVerifyUrl,
+      lang,
+      T,
+      parentMsgOverride,
+    })
       .then(url => { setImgUrl(url); setStep("ready"); })
       .catch(e => { setErrMsg(e.message); setStep("error"); });
-  }, []);
+  }, [rec.id, shareVerifyUrl, lang, T, schoolLogoB64, otherLogoB64, sigB64, stampB64, qrB64, parentMsgOverride]);
 
   const downloadImage = () => {
     if (!imgUrl) return;
@@ -226,13 +569,13 @@ function ShareModal({ rec, onClose, schoolLogoB64, otherLogoB64, sigB64, stampB6
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-sm">
-      <div className="w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl bg-[#000435] border-2 border-amber-400/30 flex flex-col max-h-[92vh]" style={{ fontFamily: FONT }}>
+      <div className="w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-sm bg-[#000435] border-2 border-amber-400/30 flex flex-col max-h-[92vh]" style={{ fontFamily: FONT }}>
         <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between shrink-0 bg-[#000435]">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-amber-400/15 flex items-center justify-center text-xl">📤</div>
             <div>
-              <p className="font-black text-white text-[14px]">Share Document</p>
-              <p className="text-[10px] text-white/40">{rec.class} · {rec.docId || rec.id} · {LANGS[lang]?.flag}</p>
+              <p className="font-semibold text-white text-[14px]">{T.shareDoc || "Share Document"}</p>
+              <p className="text-[10px] text-white/40">{rec.class} · {rec.docId || rec.id} · {langMeta(lang).flag}</p>
             </div>
           </div>
           <button onClick={onClose} className="w-8 h-8 rounded-xl bg-white/8 border border-white/15 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/14">
@@ -244,25 +587,30 @@ function ShareModal({ rec, onClose, schoolLogoB64, otherLogoB64, sigB64, stampB6
             {step === "capturing" && (
               <div className="text-center p-6">
                 <div className="w-8 h-8 border-2 border-amber-400/30 border-t-amber-400 rounded-full animate-spin mx-auto mb-3" />
-                <p className="text-white/50 text-[12px]">Rendering document…</p>
+                <p className="text-white/50 text-[12px]">{T.capturing || "Rendering document…"}</p>
               </div>
             )}
-            {step === "error" && <p className="text-red-400 text-[12px] text-center p-4">❌ {errMsg}</p>}
+            {step === "error" && (
+              <p className="text-red-400 text-[12px] text-center p-4 flex items-center justify-center gap-2">
+                <CircleX className="w-4 h-4 shrink-0" strokeWidth={2.5} aria-hidden />
+                {errMsg}
+              </p>
+            )}
             {step === "ready" && imgUrl && (
               <img src={imgUrl} className="w-full max-h-[250px] object-cover object-top" alt="Preview" />
             )}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <button onClick={shareWhatsApp} disabled={step !== "ready"}
-              className="flex items-center justify-center gap-2 py-3.5 rounded-xl text-[13px] font-black text-white disabled:opacity-40 transition-all"
+              className="flex items-center justify-center gap-2 py-3.5 rounded-xl text-[13px] font-semibold text-white disabled:opacity-40 transition-all"
               style={{ background: step === "ready" ? "linear-gradient(135deg,#25D366,#128C7E)" : "#1a2035" }}>
               <svg viewBox="0 0 24 24" width="16" height="16" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
               {T.whatsapp || "WhatsApp"}
             </button>
             <button onClick={downloadImage} disabled={step !== "ready"}
-              className="flex items-center justify-center gap-2 py-3.5 rounded-xl text-[13px] font-black text-[#000435] bg-amber-400 hover:bg-amber-300 disabled:opacity-40 transition-all">
+              className="flex items-center justify-center gap-2 py-3.5 rounded-xl text-[13px] font-semibold text-[#000435] bg-amber-400 hover:bg-amber-300 disabled:opacity-40 transition-all">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-              Save Image
+              {T.saveImage || "Save Image"}
             </button>
           </div>
         </div>
@@ -277,8 +625,228 @@ function ShareModal({ rec, onClose, schoolLogoB64, otherLogoB64, sigB64, stampB6
   );
 }
 
+/** Modal: edit a single Kinyarwanda narrative slice; PATCH server bundle + PDF regen */
+function KinyarwandaSectionEditModal({ target, recId, docId, onClose, onSaved, T }) {
+  const [saving, setSaving] = useState(false);
+  const [v, setV] = useState(() => ({}));
+  useEffect(() => {
+    if (!target?.type) return;
+    if (target.type === "parent") setV({ text: target.text ?? "" });
+    else if (target.type === "payment") setV({ name: target.name ?? "" });
+    else if (target.type === "requirement") setV({ item: target.item ?? "", description: target.description ?? "" });
+    else if (target.type === "otherInfo") setV({ item: target.item ?? "" });
+    else if (target.type === "classNote") setV({ item: target.item ?? "", details: target.details ?? "" });
+    else if (target.type === "leader") setV({ role: target.role ?? "" });
+  }, [target]);
+
+  const previewRw =
+    target?.type === "parent"
+      ? v.text
+      : target?.type === "payment"
+        ? v.name
+        : target?.type === "requirement"
+          ? `${v.item || ""}${v.description ? `\n${v.description}` : ""}`
+          : target?.type === "otherInfo"
+            ? v.item
+            : target?.type === "classNote"
+              ? `${v.item || ""}${v.details ? `\n${v.details}` : ""}`
+              : target?.type === "leader"
+                ? v.role
+                : "";
+
+  const handleSave = async () => {
+    if (!target || saving) return;
+    setSaving(true);
+    try {
+      let body = {};
+      if (target.type === "parent") body = { parentMessage: v.text ?? "" };
+      else if (target.type === "payment") body = { payments: [{ index: target.index, name: v.name ?? "" }] };
+      else if (target.type === "requirement") {
+        body = { requirements: [{ index: target.index, item: v.item ?? "", description: v.description ?? "" }] };
+      } else if (target.type === "otherInfo") body = { otherInfos: [{ index: target.index, item: v.item ?? "" }] };
+      else if (target.type === "classNote") {
+        body = { classNotes: [{ index: target.index, item: v.item ?? "", details: v.details ?? "" }] };
+      }       else if (target.type === "leader") body = { leaders: [{ index: target.index, role: v.role ?? "" }] };
+      const json = await patchRwContentI18n(recId, body);
+      const pdfPath = json?.data?.pdfPath;
+      // Do not auto-download server PDF after saving Requirements (user uses PDF button when needed).
+      if (pdfPath && target.type !== "requirement") {
+        try {
+          const fname = `Babyeyi-${docId || recId}-RW.pdf`;
+          await downloadBabyeyiPdfFromServerPath(pdfPath, fname);
+        } catch (dlErr) {
+          console.warn("[KinyarwandaSectionEditModal] PDF download:", dlErr);
+          alert(T.pdfSaveDownloadFailed || "Saved. The server PDF could not be downloaded — use the PDF button.");
+        }
+      }
+      await onSaved?.();
+      onClose();
+    } catch (e) {
+      alert(e?.message || "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!target) return null;
+
+  const title =
+    target.type === "parent"
+      ? T.parentMessageHeading || "Parent message"
+      : target.type === "payment"
+        ? `${T.thPaymentItem || "Payment"} #${(target.index ?? 0) + 1}`
+        : target.type === "requirement"
+          ? `${T.secRequirements || "Requirements"} #${(target.index ?? 0) + 1}`
+          : target.type === "otherInfo"
+            ? `${T.secOtherInfo || "Other information"} #${(target.index ?? 0) + 1}`
+            : target.type === "classNote"
+              ? `${T.secClassNotes || "Class notes"} #${(target.index ?? 0) + 1}`
+              : target.type === "leader"
+                ? `${T.thRole || "Role"} #${(target.index ?? 0) + 1}`
+                : "Edit";
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[120] overflow-y-auto overscroll-contain bg-black/70 backdrop-blur-sm px-3 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]"
+      onClick={(e) => e.target === e.currentTarget && !saving && onClose()}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div className="flex min-h-full w-full items-center justify-center py-4">
+        <div
+          className="w-full max-w-lg rounded-2xl border border-amber-400/30 bg-[#000435] shadow-sm p-4 sm:p-5 max-h-[min(85dvh,720px)] overflow-y-auto shrink-0"
+          style={{ fontFamily: FONT }}
+          onClick={(e) => e.stopPropagation()}
+        >
+        <div className="flex items-start justify-between gap-2 mb-3">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-amber-400/80 mb-0.5">Kinyarwanda</p>
+            <p className="text-white font-semibold text-[15px] leading-tight">{title}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => !saving && onClose()}
+            className="w-8 h-8 rounded-xl bg-white/8 border border-white/15 flex items-center justify-center text-white/60 hover:text-white"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          {target.type === "parent" && (
+            <textarea
+              value={v.text ?? ""}
+              onChange={(e) => setV((s) => ({ ...s, text: e.target.value }))}
+              rows={8}
+              className="w-full rounded-xl bg-white/8 border border-white/15 text-white text-[13px] p-3 outline-none focus:border-amber-400/40 placeholder:text-white/30"
+              placeholder="Andika mu Kinyarwanda…"
+            />
+          )}
+          {target.type === "payment" && (
+            <input
+              value={v.name ?? ""}
+              onChange={(e) => setV((s) => ({ ...s, name: e.target.value }))}
+              className="w-full rounded-xl bg-white/8 border border-white/15 text-white text-[13px] p-3 outline-none focus:border-amber-400/40"
+            />
+          )}
+          {target.type === "requirement" && (
+            <>
+              <input
+                value={v.item ?? ""}
+                onChange={(e) => setV((s) => ({ ...s, item: e.target.value }))}
+                className="w-full rounded-xl bg-white/8 border border-white/15 text-white text-[13px] p-3 outline-none focus:border-amber-400/40"
+                placeholder={T.thItem || "Item"}
+              />
+              <textarea
+                value={v.description ?? ""}
+                onChange={(e) => setV((s) => ({ ...s, description: e.target.value }))}
+                rows={4}
+                className="w-full rounded-xl bg-white/8 border border-white/15 text-white text-[13px] p-3 outline-none focus:border-amber-400/40"
+                placeholder={T.thDescription || "Description"}
+              />
+            </>
+          )}
+          {target.type === "otherInfo" && (
+            <textarea
+              value={v.item ?? ""}
+              onChange={(e) => setV((s) => ({ ...s, item: e.target.value }))}
+              rows={5}
+              className="w-full rounded-xl bg-white/8 border border-white/15 text-white text-[13px] p-3 outline-none focus:border-amber-400/40"
+            />
+          )}
+          {target.type === "classNote" && (
+            <>
+              <input
+                value={v.item ?? ""}
+                onChange={(e) => setV((s) => ({ ...s, item: e.target.value }))}
+                className="w-full rounded-xl bg-white/8 border border-white/15 text-white text-[13px] p-3 outline-none focus:border-amber-400/40"
+                placeholder={T.thItem || "Item"}
+              />
+              <textarea
+                value={v.details ?? ""}
+                onChange={(e) => setV((s) => ({ ...s, details: e.target.value }))}
+                rows={4}
+                className="w-full rounded-xl bg-white/8 border border-white/15 text-white text-[13px] p-3 outline-none focus:border-amber-400/40"
+                placeholder={T.thDetails || "Details"}
+              />
+            </>
+          )}
+          {target.type === "leader" && (
+            <textarea
+              value={v.role ?? ""}
+              onChange={(e) => setV((s) => ({ ...s, role: e.target.value }))}
+              rows={3}
+              className="w-full rounded-xl bg-white/8 border border-white/15 text-white text-[13px] p-3 outline-none focus:border-amber-400/40"
+            />
+          )}
+
+          <div>
+            <p className="text-[9px] font-semibold uppercase tracking-wider text-white/35 mb-1">{T.livePreviewLabel || "Live preview"}</p>
+            <div className="rounded-xl border border-white/10 bg-white p-3 text-[12px] text-[#1e293b] max-h-[140px] overflow-y-auto whitespace-pre-wrap" style={{ fontFamily: "Georgia,'Times New Roman',serif" }}>
+              {previewRw || "—"}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex gap-2 mt-4">
+          <button
+            type="button"
+            onClick={() => !saving && onClose()}
+            className="flex-1 py-2.5 rounded-xl border border-white/15 text-white/70 text-[12px] font-bold hover:bg-white/8"
+          >
+            {T.cancelBtn || "Cancel"}
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className="flex-1 py-2.5 rounded-xl bg-amber-400 text-[#000435] text-[12px] font-semibold disabled:opacity-50"
+          >
+            {saving ? "…" : T.save || "Save"}
+          </button>
+        </div>
+        <p className="text-[9px] text-white/35 mt-2 leading-snug">
+          {T.rwEditFooterNote || "After saving, the on-screen preview and school PDF are updated. Your Kinyarwanda text is stored for next time."}
+        </p>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 // ── Official doc modal ────────────────────────────────────────
-function OfficialDoc({ rec: originalRec, onClose, globalLang }) {
+function OfficialDoc({
+  rec: originalRec,
+  onClose,
+  globalLang,
+  onLangChange,
+  T: parentT,
+  apiLang: parentApiLang,
+  mtLoading: parentMtLoading,
+  session,
+  onRecordRefresh,
+}) {
   const [lang, setLang] = useState(globalLang || "en");
   const [downloading, setDownloading] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
@@ -290,23 +858,39 @@ function OfficialDoc({ rec: originalRec, onClose, globalLang }) {
   const [vUrl, setVUrl] = useState(null);
   const [showShare, setShowShare] = useState(false);
   const [qrLoading, setQrLoading] = useState(true);
+  const [editRwTarget, setEditRwTarget] = useState(null);
 
-  const rec = originalRec;
-  const T = getLegacyBabyeyiUI(lang);
-  const parentMsg = getParentMessageForDisplay(rec, lang, T);
-  const payments = Array.isArray(rec.payments) ? rec.payments : [];
+  const [rec, setRec] = useState(originalRec);
+  useEffect(() => {
+    setRec(originalRec);
+  }, [originalRec]);
+  const T = parentT || getLegacyBabyeyiUI(lang);
+  const apiLang = parentApiLang ?? (["en", "rw", "fr"].includes(lang) ? lang : "en");
+  const docBody = useMachineDocBody(lang, rec);
+  const parentMsg = docBody.parentMsg;
+  const payments = Array.isArray(docBody.merged.payments) ? docBody.merged.payments : [];
   const totalFee = payments.reduce((s, p) => s + Number(p.amount || 0), 0);
   const today = new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
-  const st = { ...(STATUS_CFG[rec.status] || STATUS_CFG.draft), label: getStatusLabelSafe(lang, rec.status) };
+  const stKeyDoc = String(rec.status || "draft").toLowerCase();
+  const st = { ...(STATUS_CFG[rec.status] || STATUS_CFG.draft), label: T[`status_${stKeyDoc}`] || getStatusLabelSafe(lang, rec.status) };
   const blocked = isBlocked(rec.status);
-  const banks = parseBanks(rec);
+  const banks = docBody.banks;
   const classesArr = Array.isArray(rec.classes) && rec.classes.length ? rec.classes : [rec.class];
   const classLabel = classesArr.filter(Boolean).join(", ");
   const levelLabel = rec.level || rec.education_level || "";
-  const reqs = Array.isArray(rec.requirements) ? rec.requirements : [];
-  const otherInfos = Array.isArray(rec.otherInfos) ? rec.otherInfos : [];
-  const leaders = Array.isArray(rec.leaders) ? rec.leaders : [];
-  const classNotes = Array.isArray(rec.classNotes) ? rec.classNotes : [];
+  const reqs = Array.isArray(docBody.merged.requirements) ? docBody.merged.requirements : [];
+  const otherInfos = Array.isArray(docBody.merged.otherInfos) ? docBody.merged.otherInfos : [];
+  const leaders = Array.isArray(docBody.merged.leaders) ? docBody.merged.leaders : [];
+  const classNotes = Array.isArray(docBody.merged.classNotes) ? docBody.merged.classNotes : [];
+  const isRwLocale = normalizeBabyeyiLang(lang) === "rw";
+  const canSaveRwEdits = canSessionEditKinyarwandaRw(session);
+  const openRwEdit = (target) => {
+    if (!canSaveRwEdits) {
+      alert(T.rwEditDenied || "You do not have permission to edit Kinyarwanda fields. Contact your school administrator.");
+      return;
+    }
+    setEditRwTarget(target);
+  };
 
   useEffect(() => {
     Promise.all([
@@ -316,14 +900,23 @@ function OfficialDoc({ rec: originalRec, onClose, globalLang }) {
       toBase64(toAssetUrl(originalRec.stampPath)),
     ]).then(([logo, otherLogo, sig, stamp]) => { setSchoolLogoB64(logo); setOtherLogoB64(otherLogo); setSigB64(sig); setStampB64(stamp); });
     setQrLoading(true);
-    ensureQRCode(originalRec).then(async result => {
-      if (result) { const b64 = await toBase64(toAssetUrl(result.qrUrl)); setQrB64(b64); setVUrl(result.vUrl); }
+    ensureQRCode(originalRec).then(async (result) => {
+      await applyQrToState(result, setQrB64, setVUrl);
     }).finally(() => setQrLoading(false));
-  }, [originalRec.id]);
+  }, [originalRec.id, originalRec.docId, originalRec.integrityHash]);
 
-  useEffect(() => { if (globalLang) setLang(globalLang); }, [globalLang, originalRec?.id]);
+  useEffect(() => {
+    if (globalLang) setLang(normalizeBabyeyiLang(globalLang));
+  }, [globalLang, originalRec?.id]);
 
-  const handleLangChange = (newLang) => { setLang(newLang); try { localStorage.setItem("babyeyi_lang", newLang); } catch {} };
+  const handleLangChange = (newLang) => {
+    const n = normalizeBabyeyiLang(newLang);
+    setLang(n);
+    try {
+      localStorage.setItem("babyeyi_lang", n);
+    } catch {}
+    onLangChange?.(n);
+  };
 
   const handlePDF = async () => {
     if (blocked) return;
@@ -331,7 +924,20 @@ function OfficialDoc({ rec: originalRec, onClose, globalLang }) {
     try {
       await loadScript("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js");
       await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
-      const html = buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLogoB64, sigB64, stampB64, qrB64, vUrl, lang });
+      const html = buildWordDocHTML({
+        rec: docBody.merged,
+        totalFee,
+        today,
+        schoolLogoB64,
+        otherLogoB64,
+        sigB64,
+        stampB64,
+        qrB64,
+        vUrl,
+        lang,
+        T,
+        parentMsgOverride: docBody.parentMsg,
+      });
       const style = document.createElement("style");
       style.textContent = `#__by_p__ * { box-sizing:border-box; color-scheme:light only; } #__by_p__ { all:initial;display:block;background:#fff; }`;
       document.head.appendChild(style);
@@ -341,26 +947,8 @@ function OfficialDoc({ rec: originalRec, onClose, globalLang }) {
       host.appendChild(root); document.body.appendChild(host);
       try {
         await new Promise(r => setTimeout(r, 500));
-        const canvas = await window.html2canvas(root, { scale: 2, useCORS: true, backgroundColor: "#fff", logging: false, windowWidth: 794 });
-        const { jsPDF } = window.jspdf;
-        const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-        const pW = 210, pH = 297;
-        const imgH = (canvas.height / canvas.width) * pW;
-        if (imgH <= pH) { pdf.addImage(canvas.toDataURL("image/jpeg", 0.95), "JPEG", 0, 0, pW, imgH); }
-        else {
-          let yPos = 0, page = 0;
-          while (yPos < imgH) {
-            if (page > 0) pdf.addPage();
-            const srcYPx = Math.floor((yPos / imgH) * canvas.height);
-            const sliceHPx = Math.min(Math.ceil((pH / imgH) * canvas.height), canvas.height - srcYPx);
-            if (sliceHPx <= 0) break;
-            const sl = document.createElement("canvas"); sl.width = canvas.width; sl.height = sliceHPx;
-            sl.getContext("2d").drawImage(canvas, 0, srcYPx, canvas.width, sliceHPx, 0, 0, canvas.width, sliceHPx);
-            pdf.addImage(sl.toDataURL("image/jpeg", 0.95), "JPEG", 0, 0, pW, (sliceHPx / canvas.height) * imgH);
-            yPos += pH; page++;
-          }
-        }
-        pdf.save(`Babyeyi-${rec.docId || rec.class}-${rec.term}${lang !== "en" ? `-${lang.toUpperCase()}` : ""}.pdf`);
+        const canvas = await window.html2canvas(root, babyeyiDocHtml2CanvasOptions("__by_p__"));
+        addCanvasToPdfAndSave(canvas, `Babyeyi-${rec.docId || rec.class}-${rec.term}${lang !== "en" ? `-${lang.toUpperCase()}` : ""}.pdf`);
       } finally { document.body.removeChild(host); document.head.removeChild(style); }
     } catch (e) { alert("PDF error: " + e.message); }
     finally { setDownloading(false); }
@@ -369,11 +957,11 @@ function OfficialDoc({ rec: originalRec, onClose, globalLang }) {
   const handleRegen = async () => {
     setRegenerating(true);
     try {
-      const res = await fetch(`${API_BASE}/babyeyi/${originalRec.id}/regenerate-docs?lang=${encodeURIComponent(lang)}`, { method: "POST", credentials: "include" });
+      const res = await fetch(`${API_BASE}/babyeyi/${rec.id}/regenerate-docs?lang=${encodeURIComponent(apiLang)}`, { method: "POST", credentials: "include" });
       const json = await res.json();
       if (json.success) {
-        const result = await ensureQRCode(originalRec);
-        if (result) { const b64 = await toBase64(toAssetUrl(result.qrUrl)); setQrB64(b64); setVUrl(result.vUrl); }
+        const result = await ensureQRCode(rec);
+        await applyQrToState(result, setQrB64, setVUrl);
       }
     } catch (e) { alert("Error: " + e.message); }
     finally { setRegenerating(false); }
@@ -396,25 +984,32 @@ function OfficialDoc({ rec: originalRec, onClose, globalLang }) {
             ← {T.backBtn || "Back"}
           </button>
           <div className="flex-1 min-w-0 hidden sm:block">
-            <p className="text-white font-black text-[13px] truncate">
+            <p className="text-white font-semibold text-[13px] truncate">
               {rec.schoolName} — {levelLabel} · {classLabel} · {rec.term} · {rec.academicYear}
               {rec.docId && <span className="ml-2 px-2 py-0.5 bg-amber-400/15 text-amber-400 rounded text-[8px] font-mono">{rec.docId}</span>}
             </p>
           </div>
-          <LangSwitcher lang={lang} setLang={handleLangChange} compact />
-          <span className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black border shrink-0 ${st.bg} ${st.text} ${st.border}`}>
+          <LangSwitcher
+            lang={lang}
+            setLang={handleLangChange}
+            compact
+            moreHint={T.moreLanguagesHint}
+            mtLoading={!!parentMtLoading || docBody.busy}
+            searchPlaceholder="Search language or code…"
+          />
+          <span className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-semibold border shrink-0 ${st.bg} ${st.text} ${st.border}`}>
             <span className={`w-1.5 h-1.5 rounded-full inline-block ${st.dot}`} /> {st.label}
           </span>
           {rec.docId && (
-            <a href={verifyUrl(rec.docId)} target="_blank" rel="noreferrer"
+            <a href={babyeyiVerifyScanUrl(rec.docId, rec.integrityHash)} target="_blank" rel="noreferrer"
               className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 rounded-xl text-[10px] font-bold shrink-0 hover:bg-emerald-500/25">
-              ✓ Verify
+              <Check className="w-3 h-3 shrink-0" strokeWidth={3} aria-hidden /> {T.verify || "Verify"}
             </a>
           )}
           <button onClick={handleRegen} disabled={regenerating}
             className="flex items-center gap-1 px-2.5 py-1.5 bg-white/8 border border-white/15 text-white/70 rounded-xl text-[10px] font-bold disabled:opacity-50 shrink-0 hover:bg-white/14">
-            {regenerating ? <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : "↻"} Regen
-          </button>
+            {regenerating ? <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <RefreshCw className="w-3 h-3 shrink-0" strokeWidth={2.5} aria-hidden />} {T.regen || "Regen"}
+            </button>
           {!blocked ? (
             <button onClick={() => setShowShare(true)}
               className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-bold shrink-0 text-white"
@@ -423,33 +1018,48 @@ function OfficialDoc({ rec: originalRec, onClose, globalLang }) {
               {T.share || "Share"}
             </button>
           ) : (
-            <span className="flex items-center gap-1 px-2.5 py-1.5 bg-white/5 text-white/30 rounded-xl text-[10px] font-bold shrink-0">🔒 {T.locked || "Locked"}</span>
+            <span className="flex items-center gap-1 px-2.5 py-1.5 bg-white/5 text-white/30 rounded-xl text-[10px] font-bold shrink-0"><Lock className="w-3 h-3 shrink-0 opacity-70" aria-hidden /> {T.locked || "Locked"}</span>
           )}
           {!blocked ? (
             <button onClick={handlePDF} disabled={downloading}
               className="flex items-center gap-1 px-2.5 py-1.5 bg-red-600 hover:bg-red-500 disabled:opacity-60 text-white rounded-xl text-[10px] font-bold shrink-0">
-              {downloading ? <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : "📄"} {T.pdfBtn || "PDF"} {lang !== "en" ? LANGS[lang]?.flag : ""}
+              {downloading ? <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <FileText className="w-3 h-3 shrink-0" strokeWidth={2.5} aria-hidden />} {T.pdfBtn || "PDF"} {lang !== "en" ? langMeta(lang).flag : ""}
             </button>
           ) : (
-            <span className="flex items-center gap-1 px-2.5 py-1.5 bg-white/5 text-white/30 rounded-xl text-[10px] font-bold shrink-0">🔒 PDF</span>
+            <span className="flex items-center gap-1 px-2.5 py-1.5 bg-white/5 text-white/30 rounded-xl text-[10px] font-bold shrink-0"><Lock className="w-3 h-3 shrink-0 opacity-70" aria-hidden /> PDF</span>
           )}
         </div>
 
         {blocked && (
           <div className="bg-amber-400/10 border-x border-amber-400/20 px-4 py-2 flex items-center gap-2">
-            <span className="text-amber-400 text-[11px]">🔒</span>
+            <Lock className="w-3.5 h-3.5 shrink-0 text-amber-400" aria-hidden strokeWidth={2.5} />
             <p className="text-amber-400 text-[10px] font-bold">{T.lockedPdfWhatsapp || "PDF and sharing locked until approved."}</p>
           </div>
         )}
+        <div className="sm:hidden bg-[#000435] border-x border-white/10 px-4 py-2">
+          <p className="text-[10px] text-amber-300/95 font-bold tracking-wide text-center">
+            Swipe left/right to view full document
+          </p>
+        </div>
 
         {/* Doc body — white background for official doc look */}
-        <div className="bg-white shadow-2xl rounded-b-2xl overflow-hidden" style={{ fontFamily: "Georgia,'Times New Roman',serif" }}>
-          <div style={{ height: "3px", background: "#1e3a5f" }} />
+        <div className="relative bg-white shadow-sm rounded-b-2xl overflow-hidden" style={{ fontFamily: "Georgia,'Times New Roman',serif" }}>
+          {docBody.busy && !isCoreBabyeyiLang(lang) && (
+            <div className="absolute inset-0 z-10 bg-white/75 backdrop-blur-[2px] flex items-center justify-center p-4">
+              <div className="flex flex-col items-center gap-2 text-[#000435]">
+                <span className="w-8 h-8 border-2 border-amber-400/30 border-t-amber-500 rounded-full animate-spin" />
+                <p className="text-[11px] font-semibold text-center">{T.translating || "Translating document…"}</p>
+              </div>
+            </div>
+          )}
+          <div className="overflow-x-auto overscroll-x-contain">
+            <div style={{ minWidth: "760px" }}>
+              <div style={{ height: "3px", background: "#1e3a5f" }} />
           {/* Header */}
           <div style={{ padding: "20px 40px 16px", borderBottom: "2px solid #1e3a5f" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
               <div style={{ flexShrink: 0, width: "110px", height: "110px", border: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-                {schoolLogoB64 ? <img src={schoolLogoB64} style={{ width: "110px", height: "110px", objectFit: "contain" }} alt="Logo" /> : <span style={{ fontSize: "8px", color: "#64748b", textAlign: "center", fontWeight: 700, padding: "4px" }}>SCHOOL LOGO</span>}
+                {schoolLogoB64 ? <img src={schoolLogoB64} style={{ width: "110px", height: "110px", objectFit: "contain" }} alt="Logo" /> : <span style={{ fontSize: "8px", color: "#64748b", textAlign: "center", fontWeight: 700, padding: "4px" }}>{T.schoolLogoPlaceholder || "SCHOOL LOGO"}</span>}
               </div>
               <div style={{ flex: 1, textAlign: "center" }}>
                 <p style={{ fontSize: "10px", color: "#64748b", margin: "0", letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 600, lineHeight: "1.8" }}>{T.republic}</p>
@@ -471,18 +1081,47 @@ function OfficialDoc({ rec: originalRec, onClose, globalLang }) {
 
           {/* Body */}
           <div style={{ padding: "20px 40px 28px" }}>
-            {parentMsg && (
+            {(parentMsg || isRwLocale) && (
               <div style={DOC.section}>
-                <div style={{ paddingBottom: "5px", marginBottom: "8px" }}><span style={DOC.heading}>{T.parentMessageHeading}</span></div>
-                <p style={{ ...DOC.body, whiteSpace: "pre-line", margin: 0, paddingLeft: "16px" }}>{parentMsg}</p>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: "5px", marginBottom: "8px", gap: "8px" }}>
+                  <span style={DOC.heading}>{T.parentMessageHeading}</span>
+                  {isRwLocale && (
+                    <button
+                      type="button"
+                      onClick={() => openRwEdit({ type: "parent", text: parentMsg })}
+                      style={{ fontSize: "10px", fontWeight: 700, color: "#4f46e5", border: "none", background: "none", cursor: "pointer", flexShrink: 0 }}
+                    >
+                      {T.editBtn}
+                    </button>
+                  )}
+                </div>
+                {parentMsg ? (
+                  <p style={{ ...DOC.body, whiteSpace: "pre-line", margin: 0, paddingLeft: "16px" }}>{parentMsg}</p>
+                ) : (
+                  isRwLocale && <p style={{ ...DOC.body, color: "#94a3b8", margin: 0, paddingLeft: "16px", fontStyle: "italic" }}>—</p>
+                )}
               </div>
             )}
             {payments.length > 0 && (
               <div style={DOC.section}>
                 <div style={{ paddingBottom: "5px", marginBottom: "12px" }}><span style={DOC.heading}>{T.secFee}</span></div>
                 <table style={tblStyle}>
-                  <thead><tr><Th w="42px" center>#</Th><Th>{T.thPaymentItem}</Th><Th>Amount</Th></tr></thead>
-                  <tbody>{payments.map((p, i) => (<tr key={i}><Td center color="#64748b">{i + 1}</Td><Td>{p.name}</Td><td style={{ ...DOC.td, textAlign: "right", fontFamily: "monospace", fontWeight: 600 }}>{Number(p.amount || 0).toLocaleString()}</td></tr>))}</tbody>
+                  <thead><tr><Th w="42px" center>#</Th><Th>{T.thPaymentItem}</Th><Th>{T.thAmount || "Amount"}</Th></tr></thead>
+                  <tbody>{payments.map((p, i) => (
+                    <tr key={i}>
+                      <Td center color="#64748b">{i + 1}</Td>
+                      <Td>
+                        <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                          <span>{p.name}</span>
+                          {isRwLocale && (
+                            <button type="button" onClick={() => openRwEdit({ type: "payment", index: i, name: p.name })}
+                              style={{ fontSize: "10px", fontWeight: 700, color: "#4f46e5", border: "none", background: "none", cursor: "pointer", flexShrink: 0 }}>{T.editBtn}</button>
+                          )}
+                        </span>
+                      </Td>
+                      <td style={{ ...DOC.td, textAlign: "right", fontFamily: "monospace", fontWeight: 600 }}>{Number(p.amount || 0).toLocaleString()}</td>
+                    </tr>
+                  ))}</tbody>
                   <tfoot><tr><td colSpan={2} style={{ padding: "9px 12px", fontSize: "14px", fontWeight: 700, color: "#1e3a5f", borderTop: "2px solid #1e3a5f" }}>{T.thTotalLabel}</td><td style={{ padding: "9px 12px", fontSize: "14px", fontWeight: 700, color: "#1e3a5f", borderTop: "2px solid #1e3a5f", textAlign: "right", fontFamily: "monospace" }}>RWF {totalFee.toLocaleString()}</td></tr></tfoot>
                 </table>
               </div>
@@ -491,7 +1130,7 @@ function OfficialDoc({ rec: originalRec, onClose, globalLang }) {
               <div style={DOC.section}>
                 <div style={{ paddingBottom: "5px", marginBottom: "12px" }}><span style={DOC.heading}>{T.secBanking}</span></div>
                 <table style={tblStyle}>
-                  <thead><tr><Th w="40px" center>#</Th><Th>Bank</Th><Th>Account No.</Th><Th>Name</Th><Th w="70px" center>Primary</Th></tr></thead>
+                  <thead><tr><Th w="40px" center>#</Th><Th>{T.thBank || "Bank"}</Th><Th>{T.thAccount || "Account"}</Th><Th>{T.thAccountName || "Name"}</Th><Th w="70px" center>{T.thPrimary || "Primary"}</Th></tr></thead>
                   <tbody>{banks.map((bk, i) => (<tr key={i}><Td center color="#64748b">{i + 1}</Td><Td bold>{bk.bankName || "—"}</Td><Td mono>{bk.accountNumber || "—"}</Td><Td>{bk.accountName || "—"}</Td><Td center color="#059669" bold>{bk.isPrimary || i === 0 ? "✓" : ""}</Td></tr>))}</tbody>
                 </table>
               </div>
@@ -500,8 +1139,23 @@ function OfficialDoc({ rec: originalRec, onClose, globalLang }) {
               <div style={DOC.section}>
                 <div style={{ paddingBottom: "5px", marginBottom: "12px" }}><span style={DOC.heading}>{T.secRequirements}</span></div>
                 <table style={tblStyle}>
-                  <thead><tr><Th w="42px" center>#</Th><Th>Item</Th><Th>Description</Th><Th w="80px" center>Qty</Th></tr></thead>
-                  <tbody>{reqs.map((r, i) => (<tr key={i}><Td center color="#64748b">{i + 1}</Td><Td>{(r && r.item) || r}</Td><Td>{r && r.description}</Td><Td center>{r && r.quantity}</Td></tr>))}</tbody>
+                  <thead><tr><Th w="42px" center>#</Th><Th>{T.thItem || "Item"}</Th><Th>{T.thDescription || "Description"}</Th><Th w="80px" center>{T.thQuantity || "Qty"}</Th></tr></thead>
+                  <tbody>{reqs.map((r, i) => (
+                    <tr key={i}>
+                      <Td center color="#64748b">{i + 1}</Td>
+                      <Td>
+                        <span style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+                          <span>{(r && r.item) || r}</span>
+                          {isRwLocale && (
+                            <button type="button" onClick={() => openRwEdit({ type: "requirement", index: i, item: r.item, description: r.description || "" })}
+                              style={{ fontSize: "10px", fontWeight: 700, color: "#4f46e5", border: "none", background: "none", cursor: "pointer", flexShrink: 0 }}>{T.editBtn}</button>
+                          )}
+                        </span>
+                      </Td>
+                      <Td>{r && r.description}</Td>
+                      <Td center>{r && r.quantity}</Td>
+                    </tr>
+                  ))}</tbody>
                 </table>
               </div>
             )}
@@ -509,8 +1163,22 @@ function OfficialDoc({ rec: originalRec, onClose, globalLang }) {
               <div style={DOC.section}>
                 <div style={{ paddingBottom: "5px", marginBottom: "12px" }}><span style={DOC.heading}>{T.secOtherInfo}</span></div>
                 <table style={tblStyle}>
-                  <thead><tr><Th w="42px" center>#</Th><Th>Item</Th><Th>Details</Th></tr></thead>
-                  <tbody>{otherInfos.map((n, i) => (<tr key={i}><Td center color="#64748b">{i + 1}</Td><Td bold>{n.item}</Td><Td>{n.details}</Td></tr>))}</tbody>
+                  <thead><tr><Th w="42px" center>#</Th><Th>{T.thItem || "Item"}</Th><Th>{T.thDetails || "Details"}</Th></tr></thead>
+                  <tbody>{otherInfos.map((n, i) => (
+                    <tr key={i}>
+                      <Td center color="#64748b">{i + 1}</Td>
+                      <Td bold>
+                        <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                          <span>{n.item}</span>
+                          {isRwLocale && (
+                            <button type="button" onClick={() => openRwEdit({ type: "otherInfo", index: i, item: n.item })}
+                              style={{ fontSize: "10px", fontWeight: 700, color: "#4f46e5", border: "none", background: "none", cursor: "pointer", flexShrink: 0 }}>{T.editBtn}</button>
+                          )}
+                        </span>
+                      </Td>
+                      <Td>{n.details}</Td>
+                    </tr>
+                  ))}</tbody>
                 </table>
               </div>
             )}
@@ -518,8 +1186,24 @@ function OfficialDoc({ rec: originalRec, onClose, globalLang }) {
               <div style={DOC.section}>
                 <div style={{ paddingBottom: "5px", marginBottom: "12px" }}><span style={DOC.heading}>{T.secLeadership}</span></div>
                 <table style={tblStyle}>
-                  <thead><tr><Th w="36px" center>#</Th><Th>Full Name</Th><Th>Role</Th><Th>Phone</Th><Th>Email</Th></tr></thead>
-                  <tbody>{leaders.map((l, i) => (<tr key={l.id || i}><Td center color="#64748b">{i + 1}</Td><Td bold color="#1e3a5f">{l.name || "—"}</Td><Td italic color="#475569">{l.role || "—"}</Td><td style={{ ...DOC.td, fontFamily: "monospace", fontSize: "11px" }}>{l.phone ? `+250 ${l.phone}` : "—"}</td><td style={{ ...DOC.td, fontSize: "11px", color: "#2563eb" }}>{l.email || "—"}</td></tr>))}</tbody>
+                  <thead><tr><Th w="36px" center>#</Th><Th>{T.thFullName || "Full Name"}</Th><Th>{T.thRole || "Role"}</Th><Th>{T.thPhone || "Phone"}</Th><Th>{T.thEmail || "Email"}</Th></tr></thead>
+                  <tbody>{leaders.map((l, i) => (
+                    <tr key={l.id || i}>
+                      <Td center color="#64748b">{i + 1}</Td>
+                      <Td bold color="#1e3a5f">{l.name || "—"}</Td>
+                      <Td italic color="#475569">
+                        <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                          <span>{l.role || "—"}</span>
+                          {isRwLocale && (
+                            <button type="button" onClick={() => openRwEdit({ type: "leader", index: i, role: l.role || "" })}
+                              style={{ fontSize: "10px", fontWeight: 700, color: "#4f46e5", border: "none", background: "none", cursor: "pointer", flexShrink: 0 }}>{T.editBtn}</button>
+                          )}
+                        </span>
+                      </Td>
+                      <td style={{ ...DOC.td, fontFamily: "monospace", fontSize: "11px" }}>{l.phone ? `+250 ${l.phone}` : "—"}</td>
+                      <td style={{ ...DOC.td, fontSize: "11px", color: "#2563eb" }}>{l.email || "—"}</td>
+                    </tr>
+                  ))}</tbody>
                 </table>
               </div>
             )}
@@ -527,8 +1211,22 @@ function OfficialDoc({ rec: originalRec, onClose, globalLang }) {
               <div style={DOC.section}>
                 <div style={{ paddingBottom: "5px", marginBottom: "12px" }}><span style={DOC.heading}>{T.secClassNotes}</span></div>
                 <table style={tblStyle}>
-                  <thead><tr><Th w="42px" center>#</Th><Th>Item</Th><Th>Details</Th></tr></thead>
-                  <tbody>{classNotes.map((n, i) => (<tr key={i}><Td center color="#64748b">{i + 1}</Td><Td bold>{n.item}</Td><Td>{n.details || "—"}</Td></tr>))}</tbody>
+                  <thead><tr><Th w="42px" center>#</Th><Th>{T.thItem || "Item"}</Th><Th>{T.thDetails || "Details"}</Th></tr></thead>
+                  <tbody>{classNotes.map((n, i) => (
+                    <tr key={i}>
+                      <Td center color="#64748b">{i + 1}</Td>
+                      <Td bold>
+                        <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                          <span>{n.item}</span>
+                          {isRwLocale && (
+                            <button type="button" onClick={() => openRwEdit({ type: "classNote", index: i, item: n.item, details: n.details || "" })}
+                              style={{ fontSize: "10px", fontWeight: 700, color: "#4f46e5", border: "none", background: "none", cursor: "pointer", flexShrink: 0 }}>{T.editBtn}</button>
+                          )}
+                        </span>
+                      </Td>
+                      <Td>{n.details || "—"}</Td>
+                    </tr>
+                  ))}</tbody>
                 </table>
               </div>
             )}
@@ -555,30 +1253,54 @@ function OfficialDoc({ rec: originalRec, onClose, globalLang }) {
                   ) : qrLoading ? (
                     <div className="flex flex-col items-center gap-2">
                       <div className="w-5 h-5 border-2 border-amber-400/30 border-t-amber-400 rounded-full animate-spin" />
-                      <span style={{ fontSize: "10px", color: "#4f46e5", fontWeight: 700 }}>Generating…</span>
+                      <span style={{ fontSize: "10px", color: "#4f46e5", fontWeight: 700 }}>{T.generatingQr || "Generating…"}</span>
                     </div>
                   ) : (
                     <div style={{ width: 80, height: 80, border: "1px dashed #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <span style={{ fontSize: "22px", opacity: .1 }}>▣</span>
+                      <QrCode className="w-8 h-8 text-slate-300 opacity-35" aria-hidden strokeWidth={1.75} />
                     </div>
                   )}
                 </div>
                 <div style={{ border: "1px solid #e2e8f0", padding: "14px", textAlign: "center" }}>
                   <p style={{ ...DOC.label, textTransform: "uppercase", fontSize: "11px", margin: "0 0 8px" }}>{T.sigStamp}</p>
                   <div style={{ width: "80px", height: "80px", border: "1px dashed #e2e8f0", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", margin: "0 auto 6px" }}>
-                    {stampB64 ? <img src={stampB64} style={{ width: "76px", height: "76px", objectFit: "contain", borderRadius: "50%" }} alt="Stamp" /> : <span style={{ fontSize: "22px", opacity: .08 }}>🔏</span>}
+                    {stampB64 ? <img src={stampB64} style={{ width: "76px", height: "76px", objectFit: "contain", borderRadius: "50%" }} alt="Stamp" /> : <StampLucide className="w-8 h-8 text-slate-300 opacity-[0.14]" aria-hidden strokeWidth={1.5} />}
                   </div>
                   <p style={{ fontSize: "11px", color: "#94a3b8", margin: 0 }}>{T.sigCachet}</p>
                 </div>
               </div>
             </div>
           </div>
-          <div style={{ height: "3px", background: "#1e3a5f" }} />
+              <div style={{ height: "3px", background: "#1e3a5f" }} />
+            </div>
+          </div>
         </div>
       </div>
 
       {showShare && !blocked && (
-        <ShareModal rec={rec} onClose={() => setShowShare(false)} schoolLogoB64={schoolLogoB64} otherLogoB64={otherLogoB64} sigB64={sigB64} stampB64={stampB64} qrB64={qrB64} vUrl={vUrl} lang={lang} T={T} />
+        <ShareModal
+          rec={docBody.merged}
+          onClose={() => setShowShare(false)}
+          schoolLogoB64={schoolLogoB64}
+          otherLogoB64={otherLogoB64}
+          sigB64={sigB64}
+          stampB64={stampB64}
+          qrB64={qrB64}
+          vUrl={vUrl}
+          lang={lang}
+          T={T}
+          parentMsgOverride={docBody.parentMsg}
+        />
+      )}
+      {editRwTarget && (
+        <KinyarwandaSectionEditModal
+          target={editRwTarget}
+          recId={rec.id}
+          docId={rec.docId}
+          onClose={() => setEditRwTarget(null)}
+          onSaved={onRecordRefresh}
+          T={T}
+        />
       )}
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
@@ -591,18 +1313,18 @@ function EditWizardModal({ rec, session, onClose, onSaved }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-[#000435]/85 backdrop-blur-md"
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="bg-[#000435] border-2 border-amber-400/30 rounded-3xl w-full flex flex-col shadow-2xl"
+      <div className="bg-[#000435] border-2 border-amber-400/30 rounded-3xl w-full flex flex-col shadow-sm"
         style={{ maxWidth: "680px", maxHeight: "94vh", overflowY: "auto", animation: "modalIn 0.25s cubic-bezier(0.34,1.56,0.64,1)", fontFamily: FONT }}>
         <div className="px-5 py-4 shrink-0 flex items-center justify-between sticky top-0 z-10 bg-[#000435] border-b border-amber-400/20">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-amber-400/15 border border-amber-400/20 flex items-center justify-center text-[16px]">✏️</div>
+            <div className="w-9 h-9 rounded-xl bg-amber-400/15 border border-amber-400/20 flex items-center justify-center text-amber-400"><Pencil className="w-4 h-4" strokeWidth={2.25} aria-hidden /></div>
             <div>
-              <h1 className="font-black text-white text-[14px]">Edit Babyeyi</h1>
+              <h1 className="font-semibold text-white text-[14px]">Edit Babyeyi</h1>
               <p className="text-[10px] text-amber-400/60">{rec.class} · {rec.term} · {rec.academicYear}</p>
             </div>
           </div>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl bg-white/8 border border-white/15 text-white/60 hover:text-white hover:bg-white/14">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          <button type="button" onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl bg-white/8 border border-white/15 text-white/60 hover:text-white hover:bg-white/14" aria-label="Close">
+            <X className="w-3.5 h-3.5" strokeWidth={2} />
           </button>
         </div>
         <div style={{ flex: 1, minHeight: 0 }}>
@@ -618,14 +1340,14 @@ function EditWizardModal({ rec, session, onClose, onSaved }) {
 function DeleteModal({ rec, onConfirm, onCancel, T }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" style={{ fontFamily: FONT }}>
-      <div className="bg-[#000435] border-2 border-red-500/40 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+      <div className="bg-[#000435] border-2 border-red-500/40 rounded-2xl shadow-sm w-full max-w-sm overflow-hidden">
         <div className="bg-red-600 px-5 py-4">
-          <p className="font-black text-white text-[14px]">{T.deleteTitle || "Delete Babyeyi"}</p>
+          <p className="font-semibold text-white text-[14px]">{T.deleteTitle || "Delete Babyeyi"}</p>
           <p className="text-red-100 text-[11px] mt-0.5">{T.deleteWarning || "This action cannot be undone."}</p>
         </div>
         <div className="p-5">
           <div className="rounded-xl border border-white/10 bg-white/4 p-4 mb-4">
-            <p className="font-black text-white text-[14px]">{rec.class} · {rec.term} · {rec.academicYear}</p>
+            <p className="font-semibold text-white text-[14px]">{rec.class} · {rec.term} · {rec.academicYear}</p>
             {rec.docId && <p className="text-[10px] font-mono text-amber-400/60 mt-1">{rec.docId}</p>}
           </div>
           <div className="flex gap-3">
@@ -644,7 +1366,8 @@ function DeleteModal({ rec, onConfirm, onCancel, T }) {
 
 // ── Babyeyi card ──────────────────────────────────────────────
 function BabyeyiCard({ rec, onView, onEdit, onDelete, onShare, T, lang }) {
-  const st = { ...(STATUS_CFG[rec.status] || STATUS_CFG.draft), label: getStatusLabelSafe(lang, rec.status) };
+  const stKeyCard = String(rec.status || "draft").toLowerCase();
+  const st = { ...(STATUS_CFG[rec.status] || STATUS_CFG.draft), label: T[`status_${stKeyCard}`] || getStatusLabelSafe(lang, rec.status) };
   const classes = Array.isArray(rec.classes) && rec.classes.length ? rec.classes : [rec.class];
   const payments = Array.isArray(rec.payments) ? rec.payments : [];
   const fee = rec.totalFee ?? payments.reduce((s, p) => s + Number(p.amount || 0), 0);
@@ -652,71 +1375,72 @@ function BabyeyiCard({ rec, onView, onEdit, onDelete, onShare, T, lang }) {
   const blocked = isBlocked(rec.status);
 
   return (
-    <div className="rounded-2xl border border-amber-400/15 bg-[#000435] overflow-hidden hover:border-amber-400/40 transition-all hover:shadow-lg hover:shadow-black/20" style={{ fontFamily: FONT }}>
+    <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden hover:border-amber-300 transition-all hover:shadow-md" style={{ fontFamily: FONT }}>
       {/* Top accent by status */}
-      <div className={`h-[3px] w-full ${rec.status === "approved" ? "bg-emerald-500" : rec.status === "rejected" ? "bg-red-500" : "bg-amber-400"}`} />
+      <div className="h-[3px] w-full bg-amber-400" />
       <div className="p-4">
         {/* Header row */}
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-11 h-11 rounded-xl bg-amber-400 flex items-center justify-center shrink-0 shadow-md shadow-amber-900/30">
-              <span className="text-[#000435] font-black text-[10px] text-center leading-tight">{classes.join(", ")}</span>
+            <div className="w-11 h-11 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center shrink-0">
+              <span className="text-amber-800 font-medium text-[10px] text-center leading-tight">{classes.join(", ")}</span>
             </div>
             <div className="min-w-0">
-              <p className="font-black text-white text-[13px] truncate">{rec.term} · {rec.academicYear}</p>
+              <p className="font-semibold text-slate-900 text-[13px] truncate">{rec.term} · {rec.academicYear}</p>
               <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                <span className="text-[10px] font-bold text-white/40">{rec.level}</span>
-                {rec.docId && <span className="px-1.5 py-0.5 rounded text-[8px] font-mono font-black bg-amber-400/10 text-amber-400 border border-amber-400/20">{rec.docId}</span>}
-                {blocked && <span className="text-[9px] font-black text-white/30">🔒</span>}
+                <span className="text-[10px] font-medium text-slate-500">{rec.level}</span>
+                {rec.docId && <span className="px-1.5 py-0.5 rounded text-[8px] font-mono font-medium bg-amber-50 text-amber-700 border border-amber-200">{rec.docId}</span>}
+                {blocked && <Lock className="w-3 h-3 text-slate-300 shrink-0" aria-hidden strokeWidth={2.25} />}
               </div>
             </div>
           </div>
-          <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black border shrink-0 ${st.bg} ${st.text} ${st.border}`}>
+          <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-semibold border shrink-0 ${st.bg} ${st.text} ${st.border}`}>
             <span className={`w-1.5 h-1.5 rounded-full inline-block ${st.dot}`} /> {st.label}
           </span>
         </div>
 
         {/* Stats row */}
         <div className="grid grid-cols-2 gap-2 mb-3">
-          <div className={`rounded-xl px-3 py-2.5 border ${rec.exceedsLimit ? "bg-red-500/10 border-red-500/25" : "bg-emerald-500/8 border-emerald-500/20"}`}>
-            <p className="text-[9px] font-black uppercase tracking-wider text-white/35 mb-0.5">Total Fee</p>
-            <p className={`text-[14px] font-black font-mono ${rec.exceedsLimit ? "text-red-400" : "text-emerald-400"}`}>
+          <div className="rounded-xl px-3 py-2.5 border bg-amber-50 border-amber-200">
+            <p className="text-[9px] font-medium uppercase tracking-wider text-slate-500 mb-0.5">{T.cardTotalFee || "Total fee"}</p>
+            <p className="text-[14px] font-semibold font-mono text-[#000435]">
               {fee.toLocaleString()} <span className="text-[10px]">RWF</span>
             </p>
-            {rec.exceedsLimit && <p className="text-[9px] text-red-400/70 font-semibold">+{over.toLocaleString()} over NESA</p>}
+            {rec.exceedsLimit && <p className="text-[9px] text-amber-700 font-medium">+{over.toLocaleString()} {T.overNesaHint || "over NESA"}</p>}
           </div>
-          <div className="rounded-xl px-3 py-2.5 border bg-white/4 border-white/10">
-            <p className="text-[9px] font-black uppercase tracking-wider text-white/35 mb-0.5">Bank</p>
-            <p className="text-[11px] font-bold text-white/70 truncate">{rec.bankName || "—"}</p>
-            {rec.bankAccountNo && <p className="text-[9px] text-white/30 font-mono truncate">{rec.bankAccountNo}</p>}
+          <div className="rounded-xl px-3 py-2.5 border bg-slate-50 border-slate-200">
+            <p className="text-[9px] font-medium uppercase tracking-wider text-slate-500 mb-0.5">{T.bankShort || "Bank"}</p>
+            <p className="text-[11px] font-medium text-slate-700 truncate">{rec.bankName || "—"}</p>
+            {rec.bankAccountNo && <p className="text-[9px] text-slate-400 font-mono truncate">{rec.bankAccountNo}</p>}
           </div>
         </div>
 
         {/* Action row */}
         <div className="flex items-center gap-2">
           {/* View/PDF */}
-          <button onClick={() => onView(rec)}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-amber-400 text-[#000435] font-black text-[12px] hover:bg-amber-300 transition-all active:scale-[.98]">
-            👁 {T.viewBtn || "View"}
+          <button type="button" onClick={() => onView(rec)}
+            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-amber-400 text-[#000435] font-medium text-[12px] hover:bg-amber-300 transition-all active:scale-[.98]">
+            <Eye className="w-4 h-4 shrink-0" strokeWidth={2.5} aria-hidden /> {T.viewBtn || "View"}
           </button>
           {/* Edit */}
-          <button onClick={() => onEdit(rec)}
-            className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/8 border border-white/15 text-white/60 hover:text-amber-400 hover:bg-amber-400/10 hover:border-amber-400/30 transition-all"
-            title={T.editBtn || "Edit"}>✏️</button>
+          <button type="button" onClick={() => onEdit(rec)}
+            className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-50 border border-slate-200 text-slate-500 hover:text-amber-700 hover:bg-amber-50 hover:border-amber-200 transition-all"
+            title={T.editBtn || "Edit"}><Pencil className="w-4 h-4" strokeWidth={2} aria-hidden /></button>
           {/* Share/WhatsApp */}
           {blocked ? (
-            <div className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/4 text-white/20 cursor-not-allowed">🔒</div>
+            <div className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-100 text-slate-300 cursor-not-allowed"><Lock className="w-4 h-4" aria-hidden /></div>
           ) : (
-            <button onClick={() => onShare(rec)}
-              className="w-9 h-9 flex items-center justify-center rounded-xl transition-all"
-              style={{ background: "#dcfce7", color: "#16a34a" }}>
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="#16a34a"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+            <button type="button" onClick={() => onShare(rec)}
+              className="w-9 h-9 flex items-center justify-center rounded-xl border border-amber-200 transition-all bg-amber-50 text-[#000435] hover:bg-amber-100"
+              aria-label={T.share || "Share"}>
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="#000435" aria-hidden><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
             </button>
           )}
           {/* Delete */}
-          <button onClick={() => onDelete(rec)}
-            className="w-9 h-9 flex items-center justify-center rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-all">
-            🗑
+          <button type="button" onClick={() => onDelete(rec)}
+            className="w-9 h-9 flex items-center justify-center rounded-xl bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 transition-all"
+            aria-label={T.confirmDelete || "Delete"}>
+            <Trash2 className="w-4 h-4" strokeWidth={2.25} aria-hidden />
           </button>
         </div>
       </div>
@@ -739,6 +1463,7 @@ const mapRow = (row) => {
     sector: row.school_sector || row.sector || "", createdAt: row.created_at || "",
     bankName: row.bank_name || "", bankAccountNo: row.bank_account_no || "", bankAccountName: row.bank_account_name || "",
     banksJson: row.banks_json || null, parentMessage: row.parent_message || "", docId: row.doc_id || null,
+    integrityHash: row.integrity_hash != null ? String(row.integrity_hash) : null,
     schoolLogoPath: row.school_logo_url || null, otherLogoPath: row.other_logo_url || null,
     qrCodeUrl: row.qr_code_url || row.qr_code_path || null, qrViewUrl: row.qr_view_url || null,
     pdfPath: row.pdf_url || row.pdf_path || null, signaturePath: null, stampPath: null,
@@ -780,7 +1505,7 @@ async function loadFullRecord(sumRec, docLang = "en") {
   else { try { const lRes = await fetch(`${API_BASE}/babyeyi/${sumRec.id}/leaders`, { credentials: "include" }); const lJson = await lRes.json(); if (lJson.success && Array.isArray(lJson.data)) leaders = lJson.data; } catch {} }
   return {
     ...sumRec, payments,
-    requirements: (d.student_requirements || []).map(r => ({
+    requirements: (d.student_requirements || []).map((r) => ({
       item: r.item,
       description: r.description || "",
       quantity: r.quantity || "",
@@ -796,6 +1521,7 @@ async function loadFullRecord(sumRec, docLang = "en") {
     qrViewUrl: sig.qr_view_url || d.qr_view_url || null,
     pdfPath: norm(d.pdf_path) || norm(d.pdf_url) || null,
     docId: d.doc_id || sumRec.docId || null,
+    integrityHash: d.integrity_hash != null ? String(d.integrity_hash) : sumRec.integrityHash || null,
     totalFee: Number(d.total_fee || d.total_amount || payments.reduce((s, p) => s + Number(p.amount || 0), 0) || 0),
     parentMessage: d.parent_message || sumRec.parentMessage || "",
     banksJson: d.banks_json || sumRec.banksJson || null,
@@ -806,11 +1532,59 @@ async function loadFullRecord(sumRec, docLang = "en") {
 // ════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ════════════════════════════════════════════════════════════
-export default function BabyeyiList({ session }) {
+export default function BabyeyiList({ session, lang: dashboardLang, setLang: setDashboardLang }) {
   const schoolId = session?.schoolId ?? null;
-  const [lang, setLang] = useState(() => { try { return localStorage.getItem("babyeyi_lang") || "en"; } catch { return "en"; } });
-  const T = getLegacyBabyeyiUI(lang);
-  const handleLangChange = (newLang) => { setLang(newLang); try { localStorage.setItem("babyeyi_lang", newLang); } catch {} };
+  const dashboardLangSync =
+    typeof setDashboardLang === "function" &&
+    dashboardLang != null &&
+    String(dashboardLang).trim() !== "";
+
+  const [lang, setLang] = useState(() => {
+    try {
+      const raw = localStorage.getItem("babyeyi_lang");
+      if (raw != null && String(raw).trim() !== "") {
+        return normalizeBabyeyiLang(raw);
+      }
+      if (dashboardLang != null && String(dashboardLang).trim() !== "") {
+        return normalizeBabyeyiLang(dashboardLang);
+      }
+    } catch {
+      /* use fallthrough */
+    }
+    return "en";
+  });
+
+  const prevDashboardLang = useRef();
+  useEffect(() => {
+    if (!dashboardLangSync) return;
+    const next = normalizeBabyeyiLang(dashboardLang);
+    if (prevDashboardLang.current === undefined) {
+      prevDashboardLang.current = next;
+      return;
+    }
+    if (prevDashboardLang.current === next) return;
+    prevDashboardLang.current = next;
+    setLang(next);
+    try {
+      localStorage.setItem("babyeyi_lang", next);
+    } catch {}
+  }, [dashboardLang, dashboardLangSync]);
+
+  const { T, apiLang, mtLoading, mtError, machineActive } = useBabyeyiUiT(lang);
+  const handleLangChange = useCallback(
+    (newLang) => {
+      const n = normalizeBabyeyiLang(newLang);
+      setLang(n);
+      try {
+        localStorage.setItem("babyeyi_lang", n);
+      } catch {}
+      if (dashboardLangSync && isCoreBabyeyiLang(n)) {
+        setDashboardLang(n);
+        prevDashboardLang.current = n;
+      }
+    },
+    [dashboardLangSync, setDashboardLang]
+  );
 
   const [records, setRecords] = useState([]);
   const [viewing, setViewing] = useState(null);
@@ -900,56 +1674,91 @@ export default function BabyeyiList({ session }) {
 
   return (
     <>
-      <style>{`@keyframes slideIn{from{transform:translateX(100px);opacity:0}to{transform:translateX(0);opacity:1}} @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}} .card-enter{animation:fadeUp .3s ease-out both}`}</style>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Varela+Round&display=swap'); @keyframes slideIn{from{transform:translateX(100px);opacity:0}to{transform:translateX(0);opacity:1}} @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}} .card-enter{animation:fadeUp .3s ease-out both}`}</style>
 
-      {viewing && <OfficialDoc key={viewing.id} rec={viewing} onClose={() => setViewing(null)} globalLang={lang} />}
+      {viewing && (
+        <OfficialDoc
+          key={viewing.id}
+          rec={viewing}
+          onClose={() => setViewing(null)}
+          globalLang={lang}
+          onLangChange={handleLangChange}
+          T={T}
+          apiLang={apiLang}
+          mtLoading={machineActive && mtLoading}
+          session={session}
+          onRecordRefresh={async () => {
+            const sumRec = records.find((r) => r.id === viewing.id) || { id: viewing.id };
+            setViewing(await loadFullRecord(sumRec, lang));
+            showToast(T.rwSectionSaved || "Kinyarwanda text saved.", "success");
+          }}
+        />
+      )}
       {editing && <EditWizardModal rec={editing} session={session} onClose={() => setEditing(null)} onSaved={u => { handleSaved(u); setEditing(null); }} />}
       {deleting && <DeleteModal rec={deleting} onConfirm={handleDelete} onCancel={() => setDeleting(null)} T={T} />}
-      {sharing && !isBlocked(sharing.status) && <ShareModal rec={sharing} onClose={() => setSharing(null)} schoolLogoB64={null} otherLogoB64={null} sigB64={null} stampB64={null} qrB64={null} vUrl={sharing.qrViewUrl || verifyUrl(sharing.docId)} lang={lang} T={T} />}
+      {sharing && !isBlocked(sharing.status) && <ShareModal rec={sharing} onClose={() => setSharing(null)} schoolLogoB64={null} otherLogoB64={null} sigB64={null} stampB64={null} qrB64={null} vUrl={babyeyiVerifyScanUrl(sharing.docId, sharing.integrityHash) || sharing.qrViewUrl} lang={lang} T={T} />}
 
       {!schoolId && (
         <div className="bg-red-600 text-white text-center text-[12px] font-bold py-2 px-4 rounded-xl mb-4">School session not found. Please log out and log back in.</div>
       )}
 
       {toast && (
-        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-2xl shadow-2xl text-[13px] font-bold flex items-center gap-2 max-w-xs border ${
+        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-2xl shadow-sm text-[13px] font-bold flex items-center gap-2 max-w-xs border ${
           toast.type === "success" ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/25" :
           toast.type === "info" ? "bg-amber-400/15 text-amber-400 border-amber-400/25" :
           "bg-red-500/15 text-red-400 border-red-500/25"
         } bg-[#000435]`} style={{ animation: "slideIn .3s ease-out", fontFamily: FONT }}>
-          {toast.type === "success" ? "✅" : toast.type === "info" ? "ℹ️" : "❌"} {toast.msg}
+          {toast.type === "success" ? <CircleCheck className="w-4 h-4 shrink-0" strokeWidth={2.5} aria-hidden /> :
+            toast.type === "info" ? <Info className="w-4 h-4 shrink-0" strokeWidth={2.5} aria-hidden /> :
+            <CircleX className="w-4 h-4 shrink-0" strokeWidth={2.5} aria-hidden />}
+          {toast.msg}
         </div>
       )}
 
       <div className="space-y-5" style={{ fontFamily: FONT }}>
         {/* Header */}
-        <div className="rounded-2xl bg-[#000435] border-2 border-amber-400/25 overflow-hidden">
+        <div className="rounded-2xl bg-white border border-slate-200 overflow-hidden shadow-sm">
           <div className="h-[3px] bg-amber-400" />
           <div className="px-5 py-5">
             <div className="flex items-center justify-between gap-4 mb-5">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-400/15 border border-amber-400/20 flex items-center justify-center text-xl">📋</div>
+                <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center shrink-0 text-amber-700">
+                  <ClipboardList className="w-5 h-5" strokeWidth={2} aria-hidden />
+                </div>
                 <div>
-                  <h1 className="font-black text-white text-[18px] xl:text-xl">{T.title || "Babyeyi Documents"}</h1>
-                  <p className="text-[11px] text-white/40">{session?.schoolName || "School"}</p>
+                  <h1 className="font-semibold text-slate-900 text-[18px] xl:text-xl">{T.title || "Babyeyi Documents"}</h1>
+                  <p className="text-[11px] text-slate-500">{session?.schoolName || "School"}</p>
                 </div>
               </div>
               <div className="flex flex-col items-end gap-2">
-                <p className="text-[9px] font-bold uppercase tracking-widest text-white/35">{T.language || "Language"}</p>
-                <LangSwitcher lang={lang} setLang={handleLangChange} compact />
+                <p className="text-[9px] font-medium uppercase tracking-widest text-slate-400">{T.language || "Language"}</p>
+                <LangSwitcher
+                  lang={lang}
+                  setLang={handleLangChange}
+                  compact
+                  mtLoading={machineActive && mtLoading}
+                  moreHint={T.moreLanguagesHint}
+                  searchPlaceholder="Search language or code…"
+                />
+                {machineActive && mtError && (
+                  <p className="text-[9px] text-red-500 max-w-[200px] text-right">{mtError}</p>
+                )}
+                {machineActive && !mtLoading && !mtError && (
+                  <p className="text-[9px] text-slate-400 max-w-[220px] text-right leading-tight">{T.machineTranslateNote}</p>
+                )}
               </div>
             </div>
             {/* Stats row */}
-            <div className="grid grid-cols-4 gap-2 xl:gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 xl:gap-3">
               {[
-                { label: T.total || "Total", value: stats.total, color: "text-white" },
-                { label: T.approved || "Approved", value: stats.approved, color: "text-emerald-400" },
-                { label: T.pending || "Pending", value: stats.pending, color: "text-amber-400" },
-                { label: T.rejected || "Rejected", value: stats.rejected, color: "text-red-400" },
+                { label: T.total || "Total", value: stats.total, color: "text-[#000435]" },
+                { label: T.approved || "Approved", value: stats.approved, color: "text-[#000435]" },
+                { label: T.pending || "Pending", value: stats.pending, color: "text-[#000435]" },
+                { label: T.rejected || "Rejected", value: stats.rejected, color: "text-[#000435]" },
               ].map(s => (
-                <div key={s.label} className="rounded-xl bg-white/4 border border-white/8 p-3 text-center">
-                  <p className={`text-xl xl:text-2xl font-black ${s.color}`}>{s.value}</p>
-                  <p className="text-[10px] text-white/50 font-bold">{s.label}</p>
+                <div key={s.label} className="rounded-xl bg-slate-50 border border-slate-200 p-3 text-center">
+                  <p className={`text-xl xl:text-2xl font-semibold ${s.color}`}>{s.value}</p>
+                  <p className="text-[10px] text-slate-500 font-medium">{s.label}</p>
                 </div>
               ))}
             </div>
@@ -959,48 +1768,57 @@ export default function BabyeyiList({ session }) {
         {/* Search + filters */}
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 21l-6-6m2-5a7 7 0 1 1-14 0 7 7 0 0 1 14 0z"/></svg>
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none w-[15px] h-[15px]" strokeWidth={2} aria-hidden />
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder={T.searchPlaceholder || "Search by class, term, year, doc ID…"}
-              className="w-full pl-9 pr-4 py-3 bg-[#000435] border border-amber-400/20 rounded-xl text-[13px] text-white placeholder:text-white/25 outline-none focus:border-amber-400/50 transition-all" style={{ fontFamily: FONT }} />
-            {search && <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60">✕</button>}
+              className="w-full pl-9 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-[13px] text-slate-700 placeholder:text-slate-400 outline-none focus:border-amber-400/60 transition-all" style={{ fontFamily: FONT }} />
+            {search && (
+              <button type="button" onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded" aria-label="Clear search">
+                <X className="w-4 h-4" strokeWidth={2.5} />
+              </button>
+            )}
           </div>
           <div className="flex gap-2 shrink-0">
-            <button onClick={() => setShowFilters(!showFilters)}
+            <button type="button" onClick={() => setShowFilters(!showFilters)}
               className={`flex items-center gap-2 px-4 py-3 rounded-xl font-bold text-[12px] border-2 transition-all ${
                 showFilters || activeFilters > 0
                   ? "bg-amber-400 text-[#000435] border-amber-400"
-                  : "bg-[#000435] text-white/60 border-white/15 hover:border-amber-400/30"
+                  : "bg-white text-slate-600 border-slate-200 hover:border-amber-300"
               }`} style={{ fontFamily: FONT }}>
-              ⚙ Filters {activeFilters > 0 && <span className={`w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center ${showFilters || activeFilters>0?"bg-[#000435] text-amber-400":"bg-amber-400 text-[#000435]"}`}>{activeFilters}</span>}
+              <SlidersHorizontal className="w-3.5 h-3.5 shrink-0 opacity-90" strokeWidth={2.25} aria-hidden />
+              {T.filters || "Filters"} {activeFilters > 0 && <span className={`w-5 h-5 rounded-full text-[10px] font-semibold flex items-center justify-center ${showFilters || activeFilters>0?"bg-[#000435] text-amber-400":"bg-amber-400 text-[#000435]"}`}>{activeFilters}</span>}
             </button>
             <select value={sortBy} onChange={e => setSortBy(e.target.value)}
-              className="px-3 py-3 bg-[#000435] border border-white/15 rounded-xl text-[12px] text-white/70 font-bold outline-none focus:border-amber-400/40 cursor-pointer" style={{ fontFamily: FONT }}>
-              <option value="date_desc">Newest first</option>
-              <option value="date_asc">Oldest first</option>
-              <option value="fee_desc">Highest fee</option>
-              <option value="fee_asc">Lowest fee</option>
+              className="px-3 py-3 bg-white border border-slate-200 rounded-xl text-[12px] text-slate-700 font-medium outline-none focus:border-amber-400/50 cursor-pointer" style={{ fontFamily: FONT }}>
+              <option value="date_desc">{T.newestFirst || "Newest first"}</option>
+              <option value="date_asc">{T.oldestFirst || "Oldest first"}</option>
+              <option value="fee_desc">{T.highestFee || "Highest fee"}</option>
+              <option value="fee_asc">{T.lowestFee || "Lowest fee"}</option>
             </select>
           </div>
         </div>
 
         {/* Filter panel */}
         {showFilters && (
-          <div className="rounded-2xl bg-[#000435] border border-amber-400/20 p-4" style={{ fontFamily: FONT }}>
+          <div className="rounded-2xl bg-white border border-slate-200 p-4" style={{ fontFamily: FONT }}>
             <div className="flex items-center justify-between mb-3">
-              <p className="text-[11px] font-black uppercase tracking-widest text-white/40">Filters</p>
-              {activeFilters > 0 && <button onClick={() => setFilters({ status:"", level:"", term:"", year:"" })} className="text-[11px] text-red-400 font-bold flex items-center gap-1">✕ Clear all</button>}
+              <p className="text-[11px] font-medium uppercase tracking-widest text-slate-500">{T.filters || "Filters"}</p>
+              {activeFilters > 0 && (
+                <button type="button" onClick={() => setFilters({ status:"", level:"", term:"", year:"" })} className="text-[11px] text-red-400 font-bold flex items-center gap-1">
+                  <X className="w-3 h-3" strokeWidth={2.5} aria-hidden /> {T.clearAll || "Clear all"}
+                </button>
+              )}
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
-                { key: "status", label: "Status", opts: ["","approved","pending","recommended","rejected","draft"], labels: ["All","Approved","Pending","Recommended","Rejected","Draft"] },
-                { key: "level", label: "Level", opts: ["","Nursery","Primary","Secondary","University"], labels: ["All","Nursery","Primary","Secondary","University"] },
-                { key: "term", label: "Term", opts: ["","Term 1","Term 2","Term 3"], labels: ["All","Term 1","Term 2","Term 3"] },
-                { key: "year", label: "Year", opts: ["","2025","2026","2024"], labels: ["All","2025","2026","2024"] },
+                { key: "status", label: T.status || "Status", opts: ["","approved","pending","recommended","rejected","draft","submitted"], labels: [T.allOption || "All", T.status_approved || "Approved", T.status_pending || "Pending", T.status_recommended || "Recommended", T.status_rejected || "Rejected", T.status_draft || "Draft", T.status_submitted || "Submitted"] },
+                { key: "level", label: T.level || "Level", opts: ["","Nursery","Primary","Secondary","University"], labels: [T.allOption || "All", "Nursery", "Primary", "Secondary", "University"] },
+                { key: "term", label: T.term || "Term", opts: ["","Term 1","Term 2","Term 3"], labels: [T.allOption || "All", "Term 1", "Term 2", "Term 3"] },
+                { key: "year", label: T.year || "Year", opts: ["","2025","2026","2024"], labels: [T.allOption || "All", "2025", "2026", "2024"] },
               ].map(f => (
                 <div key={f.key}>
-                  <label className="block text-[10px] font-black uppercase tracking-widest text-white/35 mb-1">{f.label}</label>
+                  <label className="block text-[10px] font-medium uppercase tracking-widest text-slate-500 mb-1">{f.label}</label>
                   <select value={filters[f.key]} onChange={e => setFilters(p => ({ ...p, [f.key]: e.target.value }))}
-                    className="w-full px-3 py-2.5 bg-white/4 border border-white/10 rounded-xl text-[12px] text-white font-bold outline-none focus:border-amber-400/40 cursor-pointer" style={{ fontFamily: FONT }}>
+                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-[12px] text-slate-700 font-medium outline-none focus:border-amber-400/50 cursor-pointer" style={{ fontFamily: FONT }}>
                     {f.opts.map((o, i) => <option key={o} value={o}>{f.labels[i]}</option>)}
                   </select>
                 </div>
@@ -1011,9 +1829,9 @@ export default function BabyeyiList({ session }) {
 
         {/* Result count */}
         <div className="flex items-center justify-between">
-          <p className="text-[12px] font-bold text-white/40" style={{ fontFamily: FONT }}>
+          <p className="text-[12px] font-medium text-slate-500" style={{ fontFamily: FONT }}>
             {filtered.length} {filtered.length !== 1 ? (T.recordsPlural || "records") : (T.records || "record")}
-            {(search || activeFilters > 0) && <span className="text-amber-400"> — filtered</span>}
+            {(search || activeFilters > 0) && <span className="text-amber-400"> — {T.filtered ? String(T.filtered).replace(/^\(|\)$/g, "") : "filtered"}</span>}
           </p>
         </div>
 
@@ -1021,12 +1839,12 @@ export default function BabyeyiList({ session }) {
         {loading ? (
           <div className="text-center py-20">
             <div className="w-12 h-12 border-2 border-amber-400/20 border-t-amber-400 rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-white/40 font-semibold text-[13px]" style={{ fontFamily: FONT }}>{T.loading || "Loading…"}</p>
+            <p className="text-slate-500 font-medium text-[13px]" style={{ fontFamily: FONT }}>{T.loading || "Loading…"}</p>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="text-center py-20 rounded-2xl bg-[#000435] border border-white/8">
-            <div className="text-5xl mb-4 opacity-20">📋</div>
-            <p className="font-black text-white/40 text-lg" style={{ fontFamily: FONT }}>{T.noRecords || "No records found"}</p>
+          <div className="text-center py-20 rounded-2xl bg-white border border-slate-200">
+            <div className="text-slate-300 mb-4"><ClipboardList className="mx-auto w-14 h-14 opacity-25" strokeWidth={1.25} aria-hidden /></div>
+            <p className="font-medium text-slate-500 text-lg" style={{ fontFamily: FONT }}>{T.noRecords || "No records found"}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">

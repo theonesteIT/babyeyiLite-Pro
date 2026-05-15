@@ -21,6 +21,7 @@ import {
 const BRAND_LOGO = "/1BABYEYI LOGO FINAL.png";
 import { useAuth } from "../../../context/AuthContext";
 import { BABYEYI_PAGE_BG } from "../../../theme/babyeyiDashboardTheme";
+import { getPostLogoutLoginPath } from "../../../utils/postLogoutLoginPath";
 import FeeLimitsView from "./FeeLimitsView";
 
 // ── CONFIG ──────────────────────────────────────────────────────
@@ -396,7 +397,7 @@ function LogoutButton({ className = '', compact = false }) {
     setLoading(true); setShowConfirm(false);
     try { await logout(); } finally {
       setLoading(false);
-      navigate('/login', { replace: true });
+      navigate(getPostLogoutLoginPath(), { replace: true });
     }
   };
 
@@ -720,7 +721,7 @@ export default function NESABABYEYIDashboard() {
   const [profileOpen, setProfileOpen] = useState(false);
 
   useEffect(()=>{
-    if (!authLoading && !isLoggedIn) navigate('/login',{replace:true});
+    if (!authLoading && !isLoggedIn) navigate(getPostLogoutLoginPath(), { replace: true });
   },[authLoading,isLoggedIn,navigate]);
 
   useEffect(()=>{

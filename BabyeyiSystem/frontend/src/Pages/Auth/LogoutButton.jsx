@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { LogOut, Loader, AlertCircle, CheckCircle, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { getPostLogoutLoginPath } from '../../utils/postLogoutLoginPath';
 
 const LogoutButton = ({ 
   variant = 'sidebar', // 'sidebar', 'default', 'icon', 'text', 'dropdown'
@@ -48,7 +49,7 @@ const LogoutButton = ({
       showNotif('Session ended', 'error');
       if (onLogoutError) onLogoutError(err);
     } finally {
-      setTimeout(() => { window.location.href = '/login'; }, 800);
+      setTimeout(() => { window.location.href = getPostLogoutLoginPath(); }, 800);
       setLoading(false);
     }
   };

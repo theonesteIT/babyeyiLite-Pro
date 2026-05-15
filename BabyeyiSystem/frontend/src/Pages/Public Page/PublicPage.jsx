@@ -269,19 +269,19 @@ function Navbar() {
             className="px-4 py-2 rounded-xl text-[13px] font-semibold text-white/60 border border-white/10 hover:border-amber-400/50 hover:text-amber-400 transition-all duration-200">
             Register School
           </Link>
-          <a href="/login"
+          <Link to="/login-portal-select"
             className="btn-shine inline-flex items-center gap-2 min-h-[40px] xl:min-h-[42px] px-5 xl:px-6 rounded-xl font-black text-[13px] xl:text-[14px] text-[#000435] transition-all duration-200 hover:shadow-[0_4px_20px_rgba(251,191,36,.4)] active:scale-[.97]"
             style={{ background: "linear-gradient(135deg,#FBBF24 0%,#F59E0B 100%)" }}>
             <LogIn size={14} strokeWidth={2.5} />Login
-          </a>
+          </Link>
         </div>
 
         <div className="flex lg:hidden items-center gap-2">
-          <a href="/login"
+          <Link to="/login-portal-select"
             className="btn-shine inline-flex items-center gap-1.5 h-9 px-3.5 rounded-xl text-[#000435] text-[12px] font-black"
             style={{ background: "linear-gradient(135deg,#FBBF24,#F59E0B)" }}>
             <LogIn size={13} strokeWidth={2.5} /> Login
-          </a>
+          </Link>
           <button type="button" onClick={() => setOpen(!open)}
             className="w-9 h-9 rounded-xl flex items-center justify-center transition-colors"
             style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}>
@@ -305,11 +305,11 @@ function Navbar() {
               style={{ borderColor: "rgba(251,191,36,0.35)" }}>
               Register School
             </Link>
-            <a href="/login" onClick={() => setOpen(false)}
+            <Link to="/login-portal-select" onClick={() => setOpen(false)}
               className="btn-shine flex items-center justify-center gap-2 w-full px-4 py-3.5 rounded-xl text-[#000435] text-[14px] font-black"
               style={{ background: "linear-gradient(135deg,#FBBF24,#F59E0B)" }}>
               <LogIn size={16} strokeWidth={2.5} /> Login to Babyeyi
-            </a>
+            </Link>
           </div>
         </div>
       )}
@@ -1009,7 +1009,7 @@ function CTASection() {
             </Link>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Link to="/school-manager/login"
+            <Link to="/login-portal-select"
               className="inline-flex items-center justify-center gap-2 rounded-2xl font-semibold text-white transition-all hover:bg-amber-400/14"
               style={{ minHeight: "clamp(44px,5vw,52px)", fontSize: "clamp(12px,1.1vw,14px)", background: "rgba(251,191,36,0.07)" }}>
               <GraduationCap size={16} className="text-amber-400" /> School Manager
@@ -1034,7 +1034,7 @@ function Footer() {
   const cols = [
     { title: "Platform", links: [{ l: "About Babyeyi", h: "#about" }, { l: "Features", h: "/features", i: true }, { l: "Home page", h: "/", i: true }, { l: "Pricing", h: "#pricing" }] },
     { title: "Schools",  links: [{ l: "Search Schools", h: "/schools", i: true }, { l: "Pay by School Code", h: PUBLIC_COMBINED_PAY_PATH, i: true }, { l: "Register School", h: "/register", i: true }, { l: "TVET Trades", h: "/schools", i: true }] },
-    { title: "Accounts", links: [{ l: "School Manager Login", h: "/school-manager/login", i: true }, { l: "Parent Login", h: "/parents/login", i: true }, { l: "Staff Login", h: "/login", i: true }, { l: "Services", h: "/services", i: true }] },
+    { title: "Accounts", links: [{ l: "School Manager Login", h: "/login-portal-select", i: true }, { l: "Parent Login", h: "/parents/login", i: true }, { l: "Staff Login", h: "/login/lite", i: true }, { l: "Services", h: "/services", i: true }] },
     { title: "Support",  links: [{ l: "Help Center", h: "#" }, { l: "Contact Us", h: "#contact" }, { l: "Privacy Policy", h: "#" }, { l: "Terms of Service", h: "#" }] },
   ];
   return (
