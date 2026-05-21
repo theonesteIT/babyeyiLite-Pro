@@ -1,7 +1,7 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { createElement, useState } from 'react';
 import { Wifi, WifiOff, RefreshCw, Headphones, ChevronDown } from 'lucide-react';
-import babyeyiIcon from '../../dos/assets/babyeyi-icon.png';
+import babyeyiIcon from '../assets/babyeyi-icon.png';
 import '../litePortalChrome.css';
 
 const GOLD = '#FEBF10';
