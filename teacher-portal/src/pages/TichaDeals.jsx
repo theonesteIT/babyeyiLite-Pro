@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
-import { Package, Loader2, ArrowRight, Heart, ShoppingBag, ChevronRight, Tag, Star, AlertTriangle } from 'lucide-react';
+import { Package, Loader2, ArrowRight, ChevronRight, Tag, Star, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import TeacherOrangeHero from '../components/TeacherOrangeHero';
 
 const UPLOADS_BASE = (import.meta.env.VITE_UPLOADS_BASE || import.meta.env.VITE_API_URL || 'http://localhost:5100').replace(/\/$/, '');
 
@@ -20,6 +22,7 @@ function formatMoney(n) {
 
 export default function TichaDeals() {
   const navigate = useNavigate();
+  const { teacher } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [dealProducts, setDealProducts] = useState([]);
@@ -58,27 +61,18 @@ export default function TichaDeals() {
   return (
     <div className="min-h-screen bg-[#f0f2f9] pb-28 font-sans">
       
-      {/* ── Hero Banner ── */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-[#000435] to-[#0a116b] px-5 pt-10 pb-16 rounded-b-[36px] shadow-[0_12px_40px_rgba(0,4,53,0.18)]">
-        <div className="absolute inset-0 opacity-25" style={{ backgroundImage: 'radial-gradient(circle at 15% 60%, #f59e0b 0%, transparent 55%), radial-gradient(circle at 85% 15%, #ffffff 0%, transparent 45%)' }} />
-        
-        <div className="relative z-10 max-w-5xl mx-auto flex flex-col items-center text-center">
-          <div className="w-14 h-14 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20 shadow-inner mb-4">
-            <ShoppingBag size={26} className="text-[#f59e0b]" />
-          </div>
-          <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight mb-2">TichaDeals</h1>
-          <p className="text-white/65 text-xs md:text-sm font-semibold max-w-xs">
-            Exclusive products — pay monthly from your payroll.
-          </p>
-          <button
-            type="button"
-            onClick={() => navigate('/ticha-deals/tracking')}
-            className="mt-5 inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-amber-300 hover:text-white border border-amber-400/30 px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 transition-all"
-          >
-            <ArrowRight size={11} /> Track my requests
-          </button>
-        </div>
-      </div>
+      <TeacherOrangeHero
+        title={`Welcome back, ${teacher?.first_name || 'Teacher'}`}
+        subtitle="Exclusive products — pay monthly from your payroll."
+      >
+        <button
+          type="button"
+          onClick={() => navigate('/ticha-deals/tracking')}
+          className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-white border border-white/40 px-4 py-2 rounded-xl bg-white/15 hover:bg-white/25 transition-all"
+        >
+          <ArrowRight size={11} /> Track my requests
+        </button>
+      </TeacherOrangeHero>
 
       <div className="max-w-[1000px] mx-auto px-4 sm:px-6 -mt-8 relative z-20">
         

@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
+import { redirectToBabyeyiLogin } from '../../../../utils/postLogoutLoginPath';
 
 const AuthContext = createContext();
-const LOGIN_URL = import.meta.env.VITE_BABYEYI_LOGIN_URL || 'http://localhost:5173/login';
 
 export const AuthProvider = ({ children }) => {
   const [staff, setStaff] = useState(null);
@@ -35,7 +35,8 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try { await api.post('/session/logout'); } catch (e) { console.warn('[AuthContext] Logout error:', e.message); }
-    setStaff(null); window.location.href = LOGIN_URL;
+    setStaff(null);
+    redirectToBabyeyiLogin();
   };
 
   return (

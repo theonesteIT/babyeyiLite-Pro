@@ -8,7 +8,8 @@ import {
   ClipboardList, Sparkles, Shield, FlaskConical, Check,
 } from 'lucide-react';
 import api from '../services/api';
-import DosOchreHero from '../components/DosOchreHero';
+import TeacherOrangeHero from '../../shared/components/TeacherOrangeHero';
+import { useAuth } from '../context/AuthContext';
 import DndTimetableGrid from '../components/DndTimetableGrid';
 
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
@@ -52,6 +53,7 @@ const TABS = [
    ═══════════════════════════════════════════════════════════════ */
 export default function Timetable() {
   const exportRef = useRef(null);
+  const { teacher } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const TAB_IDS = TABS.map(t => t.id);
   const tabParam = searchParams.get('tab');
@@ -425,10 +427,28 @@ export default function Timetable() {
 
   return (
     <>
-      <DosOchreHero eyebrow="Academic System" titleLine="Smart" titleAccent="Timetable" subtitle="Manage teachers, courses, schedule, assignments, and auto-generate conflict-free timetables." icon={Calendar}
-        rightSlot={activeTab==='timetable'?<div className="flex flex-wrap gap-2"><button onClick={exportPdf} disabled={exporting} className="h-10 px-5 rounded-xl text-[11px] font-black uppercase tracking-widest inline-flex items-center gap-2 bg-white text-[#0f172a] border border-black/10 shadow-md hover:shadow-lg hover:bg-[#f8fafc] transition disabled:opacity-50"><Download size={14}/>Export PDF</button><Btn onClick={()=>openCreateTT()}><Plus size={13}/>Add slot</Btn></div>:null}
+      <TeacherOrangeHero
+        title={`Welcome back, ${teacher?.first_name || 'Director'}`}
+        subtitle="Manage teachers, courses, schedule, assignments, and auto-generate conflict-free timetables."
+        rightSlot={
+          activeTab === 'timetable' ? (
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={exportPdf}
+                disabled={exporting}
+                className="h-10 px-5 rounded-xl text-[11px] font-black uppercase tracking-widest inline-flex items-center gap-2 bg-white text-[#0f172a] border border-black/10 shadow-md hover:shadow-lg hover:bg-[#f8fafc] transition disabled:opacity-50"
+              >
+                <Download size={14} /> Export PDF
+              </button>
+              <Btn onClick={() => openCreateTT()}>
+                <Plus size={13} /> Add slot
+              </Btn>
+            </div>
+          ) : null
+        }
       />
-      <div className="max-w-[1600px] mx-auto px-3 sm:px-6 lg:px-8 -mt-4 sm:-mt-5 md:-mt-6 pt-2 relative z-20 pb-10">
+      <div className="max-w-[1600px] mx-auto px-3 sm:px-6 lg:px-8 -mt-10 pt-2 relative z-20 pb-10">
 
       {notice && <div className={`rounded-2xl border px-4 py-3 text-sm font-bold flex items-start gap-2 mb-4 ${notice.type==='success'?'bg-emerald-50 border-emerald-100 text-emerald-900':'bg-red-50 border-red-100 text-red-900'}`}>{notice.type==='success'?<CheckCircle2 size={16} className="shrink-0 mt-0.5"/>:<AlertCircle size={16} className="shrink-0 mt-0.5"/>}<span>{notice.text}</span></div>}
 

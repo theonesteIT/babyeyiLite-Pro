@@ -324,7 +324,7 @@ function StudentDetailModal({ student, onClose, onEdit }) {
           <Section title="School enrolment" icon={GraduationCap}>
             <Field label="Class" value={student.class_name} />
             <Field label="Academic year" value={student.academic_year} />
-            <Field label="SDM ID" value={student.sdm_code} />
+            <Field label="SDMS ID" value={student.sdm_code} />
             <Field label="RFID UID" value={student.rfid_uid} />
             <Field label="Fingerprint ID" value={student.fingerprint_id} />
             <Field label="Identity Remarks" value={student.identity_remarks} />
@@ -801,7 +801,7 @@ function StudentWizardModal({ open, onClose, session, toast, onSuccess, editStud
                     onChange={e => set("academic_year", e.target.value)}
                   />
                 </FormField>
-                <FormField label="SDM code (school entry)">
+                <FormField label="SDMS code (school entry)">
                   <input
                     type="text"
                     className={inputCls}
@@ -1363,7 +1363,7 @@ function StudentMobileCard({ student: s, hasMissing, selected, onToggleSelect, o
       </div>
       <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2.5 text-[12px]">
         <div className="min-w-0">
-          <dt className="text-[9px] font-black uppercase tracking-wider text-slate-400">SDM ID</dt>
+          <dt className="text-[9px] font-black uppercase tracking-wider text-slate-400">SDMS ID</dt>
           <dd className="font-mono text-slate-700 truncate mt-0.5">{s.sdm_code || "—"}</dd>
         </div>
         <div className="min-w-0">
@@ -1805,7 +1805,7 @@ export default function StudentsPage({ session, toast, rightHeaderAction = null 
                     </th>
                     <th className="px-3 sm:px-4 py-3 text-left font-black whitespace-nowrap">Photo</th>
                     <th className="px-3 sm:px-4 py-3 text-left font-black whitespace-nowrap">Student ID</th>
-                    <th className="px-3 sm:px-4 py-3 text-left font-black whitespace-nowrap">SDM ID</th>
+                    <th className="px-3 sm:px-4 py-3 text-left font-black whitespace-nowrap">SDMS ID</th>
                     <th className="px-3 sm:px-4 py-3 text-left font-black">Name</th>
                     <th className="px-3 sm:px-4 py-3 text-left font-black whitespace-nowrap">Class</th>
                     <th className="px-3 sm:px-4 py-3 text-left font-black whitespace-nowrap">Acad. year</th>

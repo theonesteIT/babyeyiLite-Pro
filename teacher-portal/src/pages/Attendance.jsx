@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import {
@@ -29,6 +29,7 @@ export default function Attendance() {
     const [weeklySummary, setWeeklySummary] = useState(null);
     const [selectedStudent, setSelectedStudent] = useState(null);
     const [showMobileChartPanel, setShowMobileChartPanel] = useState(false);
+    const [periodScope, setPeriodScope] = useState('daily');
 
     const getDayName = (dateStr) => {
         const date = new Date(dateStr + 'T12:00:00');
@@ -47,9 +48,19 @@ export default function Attendance() {
     const classOptionsFromLessons = Array.from(
         new Set((lessons || []).map((l) => rosterClassForLesson(l)).filter(Boolean))
     );
+
+    const dayNameForDate = getDayName(selectedDate);
+
+    const lessonsForScope = useMemo(() => {
+        if (periodScope !== 'daily') return lessons;
+        return lessons.filter(
+            (l) => String(l.day || '').toLowerCase() === dayNameForDate.toLowerCase()
+        );
+    }, [lessons, periodScope, dayNameForDate]);
+
     const periodOptions = selectedClassFilter
-        ? lessons.filter((l) => rosterClassForLesson(l) === selectedClassFilter)
-        : lessons;
+        ? lessonsForScope.filter((l) => rosterClassForLesson(l) === selectedClassFilter)
+        : lessonsForScope;
 
     const lessonClassDisplay = (lesson) => {
         if (!lesson) return '';
@@ -73,6 +84,16 @@ export default function Attendance() {
     }, [selectedDate]);
 
     useEffect(() => {
+        if (!selectedLesson) return;
+        const stillVisible = periodOptions.some((l) => l.id === selectedLesson.id);
+        if (!stillVisible) {
+            setSelectedLesson(null);
+            setIsClassSelected(false);
+            setSelectedClass(null);
+        }
+    }, [periodOptions, selectedLesson]);
+
+    useEffect(() => {
         if (selectedClass && selectedLesson) {
             fetchRosterAndSaved();
         }
@@ -86,7 +107,7 @@ export default function Attendance() {
     const fetchLessons = async () => {
         setLoading(true);
         try {
-            // User requested to fetch ALL periods always, regardless of the selected date.
+            // Full timetable; filtered client-side by day when periodScope is "daily".
             const res = await api.get('/teacher-portal/timetable');
             setLessons(res.data?.success ? (res.data.data || []) : []);
         } catch (err) {
@@ -291,7 +312,7 @@ export default function Attendance() {
                         onClick={() => navigate('/round-roll-call')}
                         className="px-4 h-10 rounded-xl text-[10px] font-black uppercase tracking-widest bg-re-bg text-re-text-muted transition-colors hover:bg-re-bg/80"
                     >
-                        Round roll call
+                        Round Roll Call
                     </button>
                     <button
                         type="button"
@@ -471,21 +492,42 @@ export default function Attendance() {
                     </div>
 
                     {/* ── Period Picker — visible on all screen sizes ── */}
-                    <div className="border-b border-black/5 bg-gradient-to-b from-re-bg/40 to-white/60 px-4 py-4 space-y-3">
+                    <div className="border-b border-black/5 bg-gradient-to-b from-re-bg/40 to-white/60 px-3 sm:px-4 py-4 space-y-3">
                         {/* Header row */}
-                        <div className="flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-2">
-                                <span className="w-5 h-5 rounded-lg bg-re-orange/10 flex items-center justify-center">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                            <div className="flex items-center gap-2 min-w-0">
+                                <span className="w-5 h-5 rounded-lg bg-re-orange/10 flex items-center justify-center shrink-0">
                                     <Clock size={11} className="text-re-orange" />
                                 </span>
-                                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-re-text">
-                                    {getDayName(selectedDate)}
+                                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-re-text truncate">
+                                    {dayNameForDate}
                                     <span className="text-re-text-muted font-bold normal-case ml-1">
-                                        — {periodOptions.length} period{periodOptions.length !== 1 ? 's' : ''} today
+                                        — {periodOptions.length} period{periodOptions.length !== 1 ? 's' : ''}
+                                        {periodScope === 'daily' ? ' today' : ' total'}
                                     </span>
                                 </p>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <div className="flex p-1 rounded-xl bg-re-bg border border-black/[0.06] w-full sm:w-auto">
+                                    {[
+                                        { id: 'daily', label: 'Daily', hint: 'This date only' },
+                                        { id: 'all', label: 'All periods', hint: 'Full week' },
+                                    ].map((opt) => (
+                                        <button
+                                            key={opt.id}
+                                            type="button"
+                                            title={opt.hint}
+                                            onClick={() => setPeriodScope(opt.id)}
+                                            className={`flex-1 sm:flex-none px-3 h-8 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                                                periodScope === opt.id
+                                                    ? 'bg-re-grad-orange text-white shadow-sm'
+                                                    : 'text-re-text-muted hover:text-re-text'
+                                            }`}
+                                        >
+                                            {opt.label}
+                                        </button>
+                                    ))}
+                                </div>
                                 {classOptionsFromLessons.length > 1 && (
                                     <select
                                         value={selectedClassFilter}
@@ -494,7 +536,7 @@ export default function Attendance() {
                                             setSelectedLesson(null);
                                             setIsClassSelected(false);
                                         }}
-                                        className="h-8 rounded-xl border border-black/10 px-2.5 text-[10px] font-black uppercase tracking-widest bg-white"
+                                        className="h-8 rounded-xl border border-black/10 px-2.5 text-[10px] font-black uppercase tracking-widest bg-white min-w-[7rem]"
                                     >
                                         <option value="">All classes</option>
                                         {classOptionsFromLessons.map((cn) => (
@@ -514,14 +556,14 @@ export default function Attendance() {
                             </div>
                         </div>
 
-                        {/* Period cards grid */}
+                        {/* Period cards — horizontal scroll on mobile, grid on larger screens */}
                         {loading && lessons.length === 0 ? (
                             <div className="flex items-center justify-center gap-2 py-6 text-[10px] font-black text-re-text-muted uppercase tracking-widest">
                                 <div className="w-4 h-4 border-2 border-re-orange border-t-transparent rounded-full animate-spin" />
                                 Loading schedule…
                             </div>
                         ) : periodOptions.length > 0 ? (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
+                            <div className="flex sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5 overflow-x-auto sm:overflow-visible pb-1 sm:pb-0 snap-x snap-mandatory sm:snap-none -mx-1 px-1 sm:mx-0 sm:px-0 custom-scrollbar">
                                 {periodOptions.map((lesson, idx) => {
                                     const active = selectedLesson?.id === lesson.id;
                                     const palette = [
@@ -538,19 +580,15 @@ export default function Attendance() {
                                             key={lesson.id}
                                             type="button"
                                             onClick={() => selectLesson(lesson)}
-                                            className={`relative text-left rounded-2xl border p-3 transition-all duration-200 overflow-hidden ${active
+                                            className={`relative shrink-0 w-[min(82vw,17rem)] sm:w-auto snap-start text-left rounded-2xl border p-3.5 transition-all duration-200 overflow-hidden ${active
                                                 ? 'border-re-orange bg-white shadow-lg ring-2 ring-re-orange/20 scale-[1.01]'
-                                                : 'border-black/[0.07] bg-white hover:shadow-md hover:border-re-orange/30 hover:scale-[1.005]'
+                                                : 'border-black/[0.07] bg-white hover:shadow-md hover:border-re-orange/30 active:scale-[0.99]'
                                                 }`}
                                         >
-                                            <span
-                                                className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-2xl"
-                                                style={{ backgroundColor: active ? '#f97316' : c.border }}
-                                            />
                                             {active && (
                                                 <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-re-orange animate-pulse" />
                                             )}
-                                            <div className="pl-2">
+                                            <div>
                                                 <p className="text-[11px] font-black text-re-text uppercase tracking-tight truncate leading-tight">
                                                     {lesson.subject}
                                                 </p>
@@ -558,9 +596,10 @@ export default function Attendance() {
                                                     {lessonClassDisplay(lesson)}
                                                 </p>
                                                 <span
-                                                    className="mt-1.5 inline-block text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-tight"
+                                                    className="mt-2 inline-flex items-center gap-1 text-[8px] font-black px-2 py-0.5 rounded-md uppercase tracking-tight"
                                                     style={{ backgroundColor: active ? '#fff7ed' : c.bg, color: active ? '#f97316' : c.border }}
                                                 >
+                                                    <Clock size={9} />
                                                     {lesson.day} · {lesson.time}
                                                 </span>
                                             </div>
@@ -569,16 +608,27 @@ export default function Attendance() {
                                 })}
                             </div>
                         ) : (
-                            <div className="flex flex-col items-center justify-center py-8 gap-2">
+                            <div className="flex flex-col items-center justify-center py-8 gap-2 px-4">
                                 <div className="w-10 h-10 rounded-full bg-re-bg flex items-center justify-center mb-1">
                                     <Calendar size={18} className="text-re-text-muted opacity-40" />
                                 </div>
                                 <p className="text-[10px] font-black text-re-text-muted uppercase tracking-widest text-center">
-                                    No periods scheduled
+                                    {periodScope === 'daily' ? 'No periods for this date' : 'No periods scheduled'}
                                 </p>
-                                <p className="text-[9px] font-bold text-re-text-muted text-center max-w-[240px] leading-relaxed">
-                                    No timetable entries found for {getDayName(selectedDate)}. Try a different date.
+                                <p className="text-[9px] font-bold text-re-text-muted text-center max-w-[280px] leading-relaxed">
+                                    {periodScope === 'daily'
+                                        ? `No timetable entries on ${dayNameForDate} (${selectedDate}). Try another date or switch to All periods.`
+                                        : 'No timetable entries found. Contact your school admin if this looks wrong.'}
                                 </p>
+                                {periodScope === 'daily' && lessons.length > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setPeriodScope('all')}
+                                        className="mt-1 text-[9px] font-black uppercase tracking-widest text-re-orange px-3 py-1.5 rounded-lg bg-re-orange/10"
+                                    >
+                                        Show all periods
+                                    </button>
+                                )}
                             </div>
                         )}
                     </div>

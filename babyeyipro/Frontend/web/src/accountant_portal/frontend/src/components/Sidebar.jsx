@@ -26,6 +26,7 @@ import {
   ShoppingBag,
   Sparkles,
   PieChart,
+  Target,
 } from 'lucide-react';
 import useChatUnread from '../../../../shared/hooks/useChatUnread';
 import { h } from '../utils/href';
@@ -212,6 +213,7 @@ const Sidebar = ({ onClose }) => {
         <NavItem icon={Banknote} name="Expenses" path="/expenses" onClose={onClose} />
         <NavItem icon={FileSpreadsheet} name="Requisitions" path="/requisitions" onClose={onClose} />
         <NavItem icon={PieChart} name="School Budget" path="/school-budget" onClose={onClose} />
+        <NavItem icon={Target} name="Action Plan" path="/action-plan" onClose={onClose} />
         <NavItem icon={Wallet} name="Avance approval queue" path="/shule-avance" onClose={onClose} />
         <ExpandableNavItem
           icon={ClipboardCheck}

@@ -9,23 +9,25 @@ const DashboardLayout = ({ children, title }) => {
   const location = useLocation();
   const isChatFocused = location.pathname.endsWith('/chat');
   const isSchoolBudget = location.pathname.includes('school-budget');
+  const isActionPlan = location.pathname.includes('action-plan');
+  const hideMainSidebar = isSchoolBudget || isActionPlan;
 
   return (
     <div className="flex h-screen bg-re-bg font-sans overflow-hidden">
-      {!isChatFocused && !isSchoolBudget && (
+      {!isChatFocused && !hideMainSidebar && (
         <div className="hidden lg:flex w-[304px] shrink-0 min-h-0 h-full flex-col overflow-hidden bg-[#0b1530]">
           <Sidebar />
         </div>
       )}
 
       {/* Sidebar — Mobile overlay */}
-      {!isChatFocused && !isSchoolBudget && isSidebarOpen && (
+      {!isChatFocused && !hideMainSidebar && isSidebarOpen && (
         <div
           className="fixed inset-0 z-40 lg:hidden bg-gray-900/40 backdrop-blur-md"
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
-      {!isChatFocused && !isSchoolBudget && <div
+      {!isChatFocused && !hideMainSidebar && <div
         className={`fixed inset-y-0 left-0 z-50 w-[304px] max-w-[88vw] flex flex-col min-h-0 overflow-hidden bg-[#0b1530] transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] lg:hidden ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
       >
@@ -38,13 +40,13 @@ const DashboardLayout = ({ children, title }) => {
           <TopNav
             title={title}
             onMenuClick={() => setIsSidebarOpen(true)}
-            hidePortalSidebar={isSchoolBudget}
+            hidePortalSidebar={hideMainSidebar}
           />
         )}
 
         <main
           className={`flex-1 overflow-y-auto relative ${
-            isChatFocused ? 'pb-0' : isSchoolBudget ? 'pb-0' : 'pb-[5.75rem] lg:pb-0'
+            isChatFocused ? 'pb-0' : hideMainSidebar ? 'pb-0' : 'pb-[5.75rem] lg:pb-0'
           }`}
         >
           {/* Background glows */}
@@ -57,7 +59,7 @@ const DashboardLayout = ({ children, title }) => {
         </main>
 
         {/* Mobile Bottom Nav */}
-        {!isChatFocused && !isSchoolBudget && <BottomNav />}
+        {!isChatFocused && !hideMainSidebar && <BottomNav />}
       </div>
     </div>
   );

@@ -13,9 +13,11 @@ import {
   Plus,
   ChevronRight
 } from 'lucide-react';
-import DosOchreHero from '../components/DosOchreHero';
+import TeacherOrangeHero from '../../shared/components/TeacherOrangeHero';
+import { useAuth } from '../context/AuthContext';
 
 const EnglishClub = () => {
+  const { teacher } = useAuth();
   const [resources, setResources] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
@@ -46,17 +48,14 @@ const EnglishClub = () => {
   );
 
   return (
-    <div className="relative w-full bg-re-bg min-h-screen font-sans">
-      <DosOchreHero
-        eyebrow="Professional excellence"
-        titleLine="English"
-        titleAccent="club"
-        subtitle="Sharpen pedagogy through linguistic mastery — resources, videos, and quizzes."
-        icon={BookOpen}
+    <div className="relative w-full bg-white min-h-screen font-sans">
+      <TeacherOrangeHero
+        title={`Welcome back, ${teacher?.first_name || 'Teacher'}`}
+        subtitle="English Club — sharpen pedagogy through linguistic mastery: resources, videos, and quizzes."
       />
 
       {/* ── Main Content Grid ── */}
-      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 -mt-4 sm:-mt-5 md:-mt-6 pt-2 relative z-20 pb-20">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 -mt-10 pt-2 relative z-20 pb-20">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
 
           {/* ── Main Gallery (Left Column) ── */}

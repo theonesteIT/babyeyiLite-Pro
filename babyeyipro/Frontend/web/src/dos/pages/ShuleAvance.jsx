@@ -613,7 +613,7 @@ export default function ShuleAvance() {
    };
 
    if (loading && !rows.length) return (
-      <div className="animate-in fade-in duration-500 bg-re-bg min-h-screen font-sans">
+      <div className="animate-in fade-in duration-500 bg-white min-h-screen font-sans">
          <DosOchreHero
             eyebrow="Financial services"
             titleLine="Shule"
@@ -748,7 +748,7 @@ export default function ShuleAvance() {
    };
 
    return (
-      <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen font-sans">
+      <div className="animate-in fade-in duration-700 bg-white min-h-screen font-sans">
          <DosOchreHero
             eyebrow="Financial services"
             titleLine="Shule"

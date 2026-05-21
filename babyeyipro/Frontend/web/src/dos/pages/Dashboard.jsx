@@ -18,14 +18,12 @@ import {
   FileBarChart,
   TrendingUp,
   BookMarked,
-  LayoutDashboard,
   ShoppingBag,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
-import { PORTAL } from '../config/portal';
 import { h } from '../utils/href';
-import DosOchreHero from '../components/DosOchreHero';
+import TeacherOrangeHero from '../../shared/components/TeacherOrangeHero';
 
 const Dashboard = () => {
   const { teacher, proAccessEffective } = useAuth();
@@ -163,7 +161,7 @@ const Dashboard = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-re-bg">
+      <div className="min-h-screen flex items-center justify-center bg-white">
         <div className="flex flex-col items-center gap-3">
           <div className="w-10 h-10 rounded-full border-4 border-[#000435]/20 border-t-[#000435] animate-spin" />
           <p className="text-sm font-medium text-re-text-muted">Loading dashboard…</p>
@@ -172,19 +170,14 @@ const Dashboard = () => {
     );
   }
 
-  const heroMeta = `${new Date().getFullYear()} · ${new Date().toLocaleString(undefined, { month: 'long' })} · ${teacher?.school?.name || PORTAL.brandLine}`;
-
   return (
-    <div className="animate-in fade-in duration-500 bg-re-bg min-h-full pb-24 lg:pb-10 font-sans">
-      <DosOchreHero
-        eyebrow={PORTAL.brandLine}
-        titleLine={`Welcome back, ${teacher?.first_name || 'Director'}`}
-        titleAccent=""
-        subtitle={heroMeta}
-        icon={LayoutDashboard}
+    <div className="animate-in fade-in duration-500 bg-white min-h-full pb-24 lg:pb-10 font-sans">
+      <TeacherOrangeHero
+        title={`Welcome back, ${teacher?.first_name || 'Director'}`}
+        subtitle="Ready to inspire your students today?"
         rightSlot={
           <>
-            <div className="inline-flex items-center gap-2 rounded-xl border border-[#FEBF10]/35 bg-[#FEBF10]/15 px-3 py-2 text-[10px] font-medium uppercase tracking-widest text-white">
+            <div className="inline-flex items-center gap-2 rounded-xl border border-white/25 bg-black/25 px-3 py-2 text-[10px] font-medium uppercase tracking-widest text-white">
               {refreshing ? 'Updating…' : liveOk ? 'Live data' : 'Offline'}
             </div>
             <button
@@ -201,13 +194,13 @@ const Dashboard = () => {
         }
       />
 
-      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 -mt-4 sm:-mt-5 md:-mt-6 pt-2 relative z-20 space-y-5 pb-10">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 -mt-10 pt-2 relative z-20 space-y-5 pb-10">
         {stats.length > 0 && (
           <div className="bg-white rounded-t-[32px] shadow-sm border border-black/10 overflow-hidden grid grid-cols-2 sm:grid-cols-4">
             {stats.map((stat, i) => (
               <div
                 key={i}
-                className={`p-5 flex flex-col items-center justify-center text-center min-h-[6.5rem] hover:bg-re-bg/35 transition-colors
+                className={`p-5 flex flex-col items-center justify-center text-center min-h-[6.5rem] hover:bg-slate-50 transition-colors
                   ${i % 2 === 0 && i < stats.length - 1 ? 'border-r border-black/5' : ''}
                   ${i < 2 && stats.length > 2 ? 'border-b border-black/5 sm:border-b-0' : ''}
                   ${i < stats.length - 2 ? 'sm:border-r border-black/5' : ''}`}
@@ -222,7 +215,7 @@ const Dashboard = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           <div className="lg:col-span-2 space-y-5">
             <div className="bg-white rounded-[24px] border border-black/10 shadow-sm overflow-hidden">
-              <div className="px-5 py-4 border-b border-black/5 bg-re-bg/50 flex items-center gap-2">
+              <div className="px-5 py-4 border-b border-black/5 bg-slate-50 flex items-center gap-2">
                 <TrendingUp size={15} className="text-[#000435]" />
                 <h3 className="text-xs font-semibold text-[#000435] tracking-tight">Quick access tools</h3>
               </div>
@@ -231,7 +224,7 @@ const Dashboard = () => {
                   <Link
                     to={h(tool.path)}
                     key={i}
-                    className="flex items-center gap-3 p-3.5 rounded-2xl bg-re-bg/40 border border-black/5 hover:bg-white hover:border-[#000435]/15 hover:shadow-sm transition-all group"
+                    className="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-50 border border-black/5 hover:bg-white hover:border-[#000435]/15 hover:shadow-sm transition-all group"
                   >
                     <div
                       className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors"
@@ -255,7 +248,7 @@ const Dashboard = () => {
 
           <div className="space-y-5 lg:sticky lg:top-6 h-fit">
             <div className="bg-white rounded-[24px] border border-black/10 shadow-sm overflow-hidden">
-              <div className="px-5 py-4 border-b border-black/5 bg-re-bg/50 flex items-center justify-between">
+              <div className="px-5 py-4 border-b border-black/5 bg-slate-50 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Calendar size={15} className="text-[#000435]" />
                   <h3 className="text-xs font-semibold text-[#000435] tracking-tight">Today&apos;s timetable</h3>
@@ -270,12 +263,12 @@ const Dashboard = () => {
                     <div
                       key={i}
                       className={`flex items-start gap-3 p-3 rounded-xl transition-all ${
-                        item.active ? 'bg-[#000435]/5 border border-[#FEBF10]/25' : 'hover:bg-re-bg/50'
+                        item.active ? 'bg-[#000435]/5 border border-amber-400/30' : 'hover:bg-slate-50'
                       }`}
                     >
                       <span
                         className={`text-[9px] font-medium min-w-[36px] pt-0.5 tabular-nums ${
-                          item.active ? 'text-[#FEBF10]' : 'text-[#000435]/35'
+                          item.active ? 'text-amber-500' : 'text-[#000435]/35'
                         }`}
                       >
                         {item.time}
@@ -288,7 +281,7 @@ const Dashboard = () => {
                           {[item.group, item.room].filter(Boolean).join(' · ') || '—'}
                         </p>
                       </div>
-                      {item.active && <div className="shrink-0 w-1.5 h-1.5 rounded-full bg-[#FEBF10] animate-pulse mt-1" />}
+                      {item.active && <div className="shrink-0 w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse mt-1" />}
                     </div>
                   ))
                 )}
@@ -303,17 +296,11 @@ const Dashboard = () => {
               </div>
             </div>
 
-            <div
-              className="relative rounded-[24px] p-6 text-white overflow-hidden border border-black/10 shadow-sm"
-              style={{ background: 'linear-gradient(135deg,#1e3a5f 0%,#0d2644 100%)' }}
-            >
-              <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-[#FEBF10]/30 to-transparent pointer-events-none" />
+            <div className="relative rounded-[24px] p-6 text-white overflow-hidden border border-[#000435]/10 shadow-sm bg-[#000435]">
+              <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-amber-400/40 to-transparent pointer-events-none" />
               <Link to={h('/marks/view')} className="relative z-10 flex flex-col gap-3">
-                <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center border border-[#FEBF10]/30"
-                  style={{ background: 'rgba(254,191,16,0.12)' }}
-                >
-                  <BookMarked size={18} className="text-[#FEBF10]" />
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center border border-amber-400/30 bg-amber-400/15">
+                  <BookMarked size={18} className="text-amber-400" />
                 </div>
                 <div>
                   <h4 className="font-medium text-sm text-white/95 tracking-tight">Academic pulse</h4>
@@ -321,7 +308,7 @@ const Dashboard = () => {
                     Open school-wide marks to spot classes that need follow-up with teachers.
                   </p>
                 </div>
-                <div className="flex items-center gap-1.5 text-[10px] font-medium text-[#FEBF10]">
+                <div className="flex items-center gap-1.5 text-[10px] font-medium text-amber-400">
                   View marks <ArrowRight size={12} />
                 </div>
               </Link>

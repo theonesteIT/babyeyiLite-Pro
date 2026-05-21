@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { redirectToBabyeyiLogin } from '../../../../utils/postLogoutLoginPath';
 
 // Supports both:
 // - JWT backends (Authorization header)
@@ -19,9 +20,8 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      const loginUrl = import.meta.env.VITE_BABYEYI_LOGIN_URL || 'http://localhost:5173/login';
       if (!window.location.pathname.includes('/login')) {
-        window.location.href = loginUrl;
+        redirectToBabyeyiLogin();
       }
     }
     return Promise.reject(error);

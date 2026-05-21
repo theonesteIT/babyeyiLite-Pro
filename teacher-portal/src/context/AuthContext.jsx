@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import api from '../services/api';
+import { isLiteSchoolTeacher } from '../utils/liteTeacherAccess';
 
 const AuthContext = createContext();
 
@@ -47,33 +48,27 @@ export const AuthProvider = ({ children }) => {
         }
       }
 
-      // ── 2. Regular session check (Babyeyi httpOnly cookie + local marker) ───
-      const loggedInMarker = localStorage.getItem('teacher_logged_in');
-      if (!loggedInMarker) {
-        setLoading(false);
-        return;
-      }
-
+      // ── 2. Session check (Babyeyi httpOnly cookie; marker optional) ───
       try {
         const res = await api.get('/session/me');
         if (res.data.success) {
           const data = res.data.data ?? res.data.user;
           const rc = roleCodeFromSessionPayload(data);
           if (data && rc === 'TEACHER') {
+            localStorage.setItem('teacher_logged_in', 'true');
             setTeacher(data);
           } else {
             localStorage.removeItem('teacher_logged_in');
-            try {
-              await api.post('/session/logout');
-            } catch (_) {}
             setTeacher(null);
           }
         } else {
           localStorage.removeItem('teacher_logged_in');
+          setTeacher(null);
         }
       } catch (err) {
         console.error('[AuthContext] Session check failed:', err.message);
         localStorage.removeItem('teacher_logged_in');
+        setTeacher(null);
       } finally {
         setLoading(false);
       }
@@ -128,7 +123,6 @@ export const AuthProvider = ({ children }) => {
           JSON.stringify({
             remember: true,
             identifier: String(identifier || '').trim(),
-            schoolCode: schoolCodeTrim || '',
           })
         );
       } else {
@@ -137,7 +131,7 @@ export const AuthProvider = ({ children }) => {
 
       localStorage.setItem('teacher_logged_in', 'true');
       setTeacher(data);
-      return { success: true };
+      return { success: true, isLiteSchool: isLiteSchoolTeacher(data) };
     } catch (err) {
       const body = err.response?.data;
       const code = body?.code;
@@ -176,8 +170,10 @@ export const AuthProvider = ({ children }) => {
     window.location.href = '/login';
   };
 
+  const isLiteSchool = useMemo(() => isLiteSchoolTeacher(teacher), [teacher]);
+
   return (
-    <AuthContext.Provider value={{ teacher, loading, login, logout }}>
+    <AuthContext.Provider value={{ teacher, loading, login, logout, isLiteSchool }}>
       {children}
     </AuthContext.Provider>
   );

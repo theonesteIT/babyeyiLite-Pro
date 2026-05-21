@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { LogOut, Loader, AlertCircle, CheckCircle, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { getPostLogoutLoginPath } from '../../utils/postLogoutLoginPath';
+import { getPostLogoutLoginPath, setPostLogoutLoginPath } from '../../utils/postLogoutLoginPath';
 
 const LogoutButton = ({ 
   variant = 'sidebar', // 'sidebar', 'default', 'icon', 'text', 'dropdown'
@@ -16,6 +16,7 @@ const LogoutButton = ({
   const [notification, setNotification] = useState(null);
 
   const clearSession = () => {
+    const postLogoutPath = getPostLogoutLoginPath();
     const keys = [
       'user','accessToken','refreshToken',
       'userId','userName','userEmail','userRole',
@@ -27,6 +28,7 @@ const LogoutButton = ({
     ];
     keys.forEach(k => localStorage.removeItem(k));
     sessionStorage.clear();
+    setPostLogoutLoginPath(postLogoutPath);
   };
 
   const showNotif = (message, type = 'success') => {

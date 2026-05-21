@@ -8,15 +8,14 @@ const STAFF_LOGIN_PREFS_KEY = 'babyeyi_staff_login_prefs';
 function loadStaffLoginPrefs() {
    try {
       const raw = localStorage.getItem(STAFF_LOGIN_PREFS_KEY);
-      if (!raw) return { remember: false, identifier: '', schoolCode: '' };
+      if (!raw) return { remember: false, identifier: '' };
       const p = JSON.parse(raw);
       return {
          remember: !!p.remember,
          identifier: typeof p.identifier === 'string' ? p.identifier : '',
-         schoolCode: typeof p.schoolCode === 'string' ? p.schoolCode : '',
       };
    } catch {
-      return { remember: false, identifier: '', schoolCode: '' };
+      return { remember: false, identifier: '' };
    }
 }
 
@@ -42,7 +41,7 @@ const Login = () => {
       setError(null);
       setLoading(true);
 
-      const result = await login(identifier, password, { schoolCode: '', rememberMe });
+      const result = await login(identifier, password, { rememberMe });
       if (result.success) {
          navigate('/');
       } else {

@@ -771,7 +771,7 @@ router.get('/students', requireRole(STUDENT_LIST_ROLES), async (req, res) => {
     let sql = `
       SELECT id, student_uid, student_code, school_id, first_name, last_name, gender, birth_year,
              nationality, province, district, sector, cell, village,
-             class_name, academic_year, sdm_code,
+             class_name, academic_year, sdm_code, discipline_marks,
              student_photo, rfid_uid, fingerprint_id, identity_remarks,
              father_full_name, father_phone, father_email,
              mother_full_name, mother_phone, mother_email,

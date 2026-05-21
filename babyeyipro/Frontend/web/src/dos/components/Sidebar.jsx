@@ -34,6 +34,7 @@ import {
   FileText,
   Headphones,
   ShoppingBag,
+  ArrowUpCircle,
 } from 'lucide-react';
 import { PORTAL } from '../config/portal';
 import { h } from '../utils/href';
@@ -170,18 +171,19 @@ const Sidebar = ({ onClose }) => {
     <div
       className="flex flex-col min-h-0 h-full w-full min-w-0 border-r border-white/[0.06] shadow-sm"
       style={{
-        background: 'linear-gradient(180deg,#0f2247 0%,#0b1530 40%,#060d1f 100%)',
+        background: '#000435',
         colorScheme: 'dark',
       }}
     >
       <div className="p-4 pb-3 shrink-0 border-b border-white/[0.06]">
-        <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/[0.08] ring-1 ring-white/10">
-            <img src={babyeyiIcon} alt="Babyeyi icon" className="h-7 w-7 object-contain" />
-          </div>
-          <div className="min-w-0">
-            <span className="text-lg font-medium tracking-tight text-white block leading-tight">Babyeyi</span>
-            <p className="text-[11px] font-medium tracking-wide text-re-gold/90 mt-0.5 capitalize">{PORTAL.roleLabel}</p>
+        <div className="flex flex-col items-center text-center gap-2">
+          <img src={babyeyiIcon} alt="Babyeyi" className="h-10 w-10 object-contain" />
+          <div className="min-w-0 w-full">
+            <span className="text-base font-semibold tracking-tight text-white block leading-tight">Babyeyi</span>
+            <p className="text-[10px] font-medium tracking-wide text-amber-400 mt-0.5 capitalize">{PORTAL.roleLabel}</p>
+            {teacher?.school?.name ? (
+              <p className="text-[10px] font-medium text-white/75 leading-snug line-clamp-2 mt-1.5">{teacher.school.name}</p>
+            ) : null}
           </div>
         </div>
       </div>
@@ -212,8 +214,8 @@ const Sidebar = ({ onClose }) => {
           name="Students"
           onClose={onClose}
           subItems={[
-           
             { name: 'Student Records', path: '/student-records', icon: IdCard },
+            { name: 'Student Promotion', path: '/student-promotion/dashboard', icon: ArrowUpCircle },
           ]}
         />
      

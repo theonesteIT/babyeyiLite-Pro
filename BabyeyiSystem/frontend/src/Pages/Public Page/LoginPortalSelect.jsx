@@ -1,18 +1,18 @@
 /**
  * LoginPortalSelect.jsx
- * Landing portal chooser — ShuleManager Lite vs Pro (light page: white + navy + amber).
- * Montserrat · fully responsive 320px → 2560px
+ * ShuleManager Lite vs Pro portal chooser — matches public marketing layout.
  */
 
 import { Link } from "react-router-dom";
 import {
   GraduationCap, Zap, Crown, ArrowRight, Check,
   Sparkles, Shield, Globe, BarChart3,
-  Users, Smartphone, Lock, Star, X, LogIn,
+  Users, Calendar, CreditCard,
+  Headphones, ClipboardCheck, X, LogIn,
+  Building2, ArrowLeft, UserCog,
 } from "lucide-react";
 import BabyeyiLogo from "../../assets/1BABYEYI LOGO FINAL.png";
 
-/* ─── style injection ─────────────────────────────────────────── */
 const Styles = () => (
   <style>{`
     @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap');
@@ -22,11 +22,8 @@ const Styles = () => (
     :root {
       --navy:   #000435;
       --navy2:  #000c6b;
-      --navy3:  #000120;
       --amber:  #FBBF24;
       --amber2: #F59E0B;
-      --amber3: #FDE68A;
-      --white:  #FFFFFF;
     }
 
     .lps-root {
@@ -38,7 +35,24 @@ const Styles = () => (
       position: relative;
     }
 
-    /* ── navbar ── */
+    .lps-bg-pattern {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.45;
+      background-image:
+        linear-gradient(rgba(0,4,53,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,4,53,0.03) 1px, transparent 1px);
+      background-size: 48px 48px;
+    }
+    .lps-bg-pattern::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(251,191,36,0.08), transparent 55%);
+    }
+
     .lps-nav {
       position: relative;
       z-index: 10;
@@ -54,50 +68,46 @@ const Styles = () => (
     .lps-nav-back {
       display: flex; align-items: center; gap: 7px;
       font-size: 12px; font-weight: 700;
-      color: rgba(255,255,255,0.72);
+      color: rgba(255,255,255,0.85);
       text-decoration: none;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      transition: color 0.2s, border-color 0.2s, background 0.2s;
-      padding: 8px 14px;
+      padding: 8px 16px;
       border-radius: 10px;
       border: 1px solid rgba(255,255,255,0.14);
-      background: rgba(255,255,255,0.04);
+      background: rgba(255,255,255,0.05);
+      transition: background 0.2s, border-color 0.2s;
     }
     .lps-nav-back:hover {
+      background: rgba(251,191,36,0.1);
+      border-color: rgba(251,191,36,0.35);
       color: var(--amber);
-      border-color: rgba(251,191,36,0.45);
-      background: rgba(251,191,36,0.08);
     }
 
-    /* ── main ── */
     .lps-main {
       position: relative;
       z-index: 1;
-      max-width: 1320px;
+      max-width: 1100px;
       margin: 0 auto;
-      padding: clamp(2.5rem, 6vw, 5rem) clamp(1rem, 4vw, 3rem) clamp(2rem, 5vw, 4rem);
+      padding: clamp(2rem, 5vw, 3.5rem) clamp(1rem, 4vw, 2rem) clamp(2.5rem, 5vw, 3.5rem);
     }
 
-    /* ── hero text ── */
-    .lps-hero { text-align: center; margin-bottom: clamp(2.5rem, 5vw, 4.5rem); }
+    .lps-hero { text-align: center; margin-bottom: clamp(2rem, 4vw, 3rem); }
     .lps-eyebrow {
       display: inline-flex; align-items: center; gap: 8px;
       font-size: 10px; font-weight: 800;
-      letter-spacing: 0.22em; text-transform: uppercase;
-      color: var(--amber);
-      background: rgba(251,191,36,0.08);
-      border: 1px solid rgba(251,191,36,0.22);
+      letter-spacing: 0.2em; text-transform: uppercase;
+      color: var(--amber2);
+      background: rgba(251,191,36,0.1);
+      border: 1px solid rgba(251,191,36,0.28);
       border-radius: 99px;
       padding: 6px 16px;
-      margin-bottom: 1.25rem;
+      margin-bottom: 1.1rem;
     }
     .lps-title {
-      font-size: clamp(2rem, 5.5vw, 4rem);
+      font-size: clamp(1.85rem, 4.5vw, 3.25rem);
       font-weight: 900;
-      line-height: 1.07;
+      line-height: 1.1;
       letter-spacing: -0.03em;
-      margin-bottom: 1rem;
+      margin-bottom: 0.85rem;
       color: var(--navy);
     }
     .lps-title span {
@@ -107,89 +117,83 @@ const Styles = () => (
       background-clip: text;
     }
     .lps-sub {
-      font-size: clamp(14px, 1.8vw, 17px);
+      font-size: clamp(13px, 1.6vw, 16px);
       font-weight: 500;
-      color: rgba(0,4,53,0.62);
-      max-width: 520px;
+      color: rgba(0,4,53,0.58);
+      max-width: 540px;
       margin: 0 auto;
-      line-height: 1.6;
+      line-height: 1.65;
     }
 
-    /* ── cards grid ── */
     .lps-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr));
-      gap: clamp(1rem, 2.5vw, 1.75rem);
+      grid-template-columns: repeat(2, 1fr);
+      gap: clamp(1rem, 2vw, 1.5rem);
       align-items: stretch;
     }
+    @media (min-width: 821px) {
+      .lps-card-pro { z-index: 2; }
+    }
+    @media (max-width: 820px) {
+      .lps-grid { grid-template-columns: 1fr; }
+    }
 
-    /* ── card base ── */
     .lps-card {
       position: relative;
-      border-radius: 28px;
+      border-radius: 24px;
       overflow: hidden;
-      cursor: pointer;
-      transition: transform 0.3s cubic-bezier(.22,1,.36,1), box-shadow 0.3s;
-      outline: none;
-      text-decoration: none;
+      transition: transform 0.28s ease, box-shadow 0.28s ease;
     }
-    .lps-card:hover  { transform: translateY(-6px); }
-    .lps-card:active { transform: translateY(-2px) scale(0.99); }
+    .lps-card:hover { transform: translateY(-4px); }
 
-    /* ── LITE card ── */
     .lps-card-lite {
-      background: #f8fafc;
-      border: 1.5px solid rgba(0,4,53,0.12);
-      box-shadow: 0 8px 32px rgba(0,4,53,0.06);
+      background: #ffffff;
+      border: 1.5px solid rgba(0,4,53,0.1);
+      box-shadow: 0 4px 24px rgba(0,4,53,0.06);
     }
     .lps-card-lite:hover {
-      border-color: rgba(251,191,36,0.75);
-      box-shadow: 0 20px 48px rgba(251,191,36,0.2), 0 8px 24px rgba(0,4,53,0.08);
+      border-color: rgba(251,191,36,0.5);
+      box-shadow: 0 16px 40px rgba(251,191,36,0.12);
     }
 
-    /* ── PRO card ── */
     .lps-card-pro {
-      background: linear-gradient(145deg, #000c6b 0%, #000435 55%, #000120 100%);
-      border: 1.5px solid rgba(251,191,36,0.35);
-      box-shadow: 0 8px 40px rgba(0,4,53,0.5), 0 0 0 1px rgba(251,191,36,0.1);
+      background: linear-gradient(145deg, #FDE68A 0%, #FBBF24 38%, #F59E0B 100%);
+      border: 2px solid rgba(0,4,53,0.12);
+      box-shadow:
+        0 4px 6px rgba(245,158,11,0.15),
+        0 20px 50px rgba(245,158,11,0.35),
+        inset 0 1px 0 rgba(255,255,255,0.45);
     }
-    .lps-card-pro:hover {
-      border-color: var(--amber);
-      box-shadow: 0 28px 70px rgba(251,191,36,0.22), 0 8px 24px rgba(0,0,0,0.4);
-    }
-
-    /* PRO glow ring */
-    .lps-card-pro::before {
+    .lps-card-pro::after {
       content: '';
       position: absolute;
-      inset: -1px;
-      border-radius: 28px;
-      padding: 1.5px;
-      background: linear-gradient(135deg, rgba(251,191,36,0.6), rgba(251,191,36,0.05), rgba(251,191,36,0.4));
-      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-      -webkit-mask-composite: xor;
-      mask-composite: exclude;
+      inset: 0;
+      background:
+        radial-gradient(circle at 100% 0%, rgba(255,255,255,0.35) 0%, transparent 45%),
+        radial-gradient(circle at 0% 100%, rgba(0,4,53,0.06) 0%, transparent 50%);
       pointer-events: none;
-      opacity: 0;
-      transition: opacity 0.3s;
     }
-    .lps-card-pro:hover::before { opacity: 1; }
+    .lps-card-pro:hover {
+      transform: translateY(-6px);
+      box-shadow:
+        0 8px 12px rgba(245,158,11,0.2),
+        0 28px 60px rgba(245,158,11,0.45),
+        inset 0 1px 0 rgba(255,255,255,0.5);
+    }
+    .lps-card-pro .lps-card-inner { position: relative; z-index: 1; }
 
-    /* ── card inner ── */
     .lps-card-inner {
-      padding: clamp(1.75rem, 3.5vw, 2.5rem);
+      padding: clamp(1.5rem, 3vw, 2rem);
       display: flex;
       flex-direction: column;
-      gap: 0;
       height: 100%;
     }
 
-    /* badge */
     .lps-badge {
       display: inline-flex; align-items: center; gap: 6px;
-      font-size: 9px; font-weight: 800; letter-spacing: 0.18em; text-transform: uppercase;
+      font-size: 9px; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase;
       border-radius: 99px; padding: 5px 12px;
-      margin-bottom: 1.5rem;
+      margin-bottom: 1.25rem;
       width: fit-content;
     }
     .lps-badge-lite {
@@ -198,292 +202,358 @@ const Styles = () => (
       color: var(--navy);
     }
     .lps-badge-pro {
-      background: rgba(251,191,36,0.14);
-      border: 1px solid rgba(251,191,36,0.4);
+      background: var(--navy);
+      border: none;
       color: var(--amber);
     }
 
-    /* icon */
     .lps-icon-wrap {
-      width: clamp(52px,6vw,64px); height: clamp(52px,6vw,64px);
-      border-radius: 18px;
+      width: 56px; height: 56px;
+      border-radius: 16px;
       display: flex; align-items: center; justify-content: center;
-      margin-bottom: 1.5rem;
-      flex-shrink: 0;
+      margin-bottom: 1.25rem;
     }
     .lps-icon-lite {
-      background: rgba(251,191,36,0.12);
-      border: 1.5px solid rgba(0,4,53,0.12);
+      background: rgba(251,191,36,0.14);
+      border: 1px solid rgba(251,191,36,0.35);
     }
     .lps-icon-pro {
-      background: linear-gradient(135deg, rgba(251,191,36,0.2), rgba(251,191,36,0.06));
-      border: 1.5px solid rgba(251,191,36,0.35);
+      background: rgba(0,4,53,0.08);
+      border: 2px solid rgba(0,4,53,0.12);
+      box-shadow: 0 4px 12px rgba(0,4,53,0.08);
     }
 
-    /* name + tagline */
+    .lps-card-headline {
+      font-size: clamp(13px, 1.45vw, 15px);
+      font-weight: 700;
+      color: var(--navy);
+      margin-bottom: 0.4rem;
+      line-height: 1.45;
+    }
+
+    .lps-features-label {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(0,4,53,0.45);
+      margin-bottom: 0.75rem;
+    }
+    .lps-card-pro .lps-features-label { color: rgba(0,4,53,0.55); }
+
+    .lps-card-desc {
+      font-size: clamp(11.5px, 1.2vw, 13px);
+      font-weight: 500;
+      color: rgba(0,4,53,0.65);
+      line-height: 1.55;
+      margin-bottom: 1.25rem;
+      padding: 0.9rem 1rem;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.55);
+      border: 1px solid rgba(0,4,53,0.08);
+    }
+    .lps-card-pro .lps-card-desc {
+      background: rgba(255,255,255,0.65);
+      border-color: rgba(0,4,53,0.1);
+      box-shadow: 0 2px 8px rgba(0,4,53,0.06);
+    }
+
     .lps-card-name {
-      font-size: clamp(1.4rem, 2.8vw, 2rem);
+      font-size: clamp(1.35rem, 2.5vw, 1.75rem);
       font-weight: 900;
-      letter-spacing: -0.025em;
-      line-height: 1.1;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
       margin-bottom: 0.5rem;
     }
     .lps-card-name-lite { color: var(--navy); }
-    .lps-card-name-pro  {
-      background: linear-gradient(135deg, #FBBF24 0%, #FDE68A 50%, #F59E0B 100%);
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-    }
+    .lps-card-name-pro { color: var(--navy); }
 
     .lps-card-tag {
-      font-size: clamp(12px, 1.4vw, 14px);
+      font-size: clamp(12px, 1.3vw, 14px);
       font-weight: 500;
       color: rgba(0,4,53,0.58);
-      margin-bottom: 2rem;
-      line-height: 1.5;
+      margin-bottom: 1.25rem;
+      line-height: 1.55;
     }
-    .lps-card-pro .lps-card-tag { color: rgba(255,255,255,0.5); }
+    .lps-card-pro .lps-card-tag { color: rgba(0,4,53,0.72); }
 
-    /* divider */
     .lps-divider {
       height: 1px;
-      margin-bottom: 1.75rem;
+      margin-bottom: 1.25rem;
       background: rgba(0,4,53,0.1);
     }
-    .lps-card-pro .lps-divider { background: rgba(251,191,36,0.14); }
+    .lps-card-pro .lps-divider { background: rgba(0,4,53,0.12); }
 
-    /* features */
-    .lps-features { display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 2rem; flex: 1; }
-    .lps-feature {
-      display: flex; align-items: flex-start; gap: 11px;
-      font-size: clamp(12px, 1.3vw, 13.5px);
-      font-weight: 600;
-      color: rgba(0,4,53,0.78);
-      line-height: 1.45;
+    .lps-features {
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+      margin-bottom: 1.75rem;
+      flex: 1;
     }
+    .lps-feature {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      color: rgba(0,4,53,0.8);
+      line-height: 1.4;
+    }
+    .lps-card-pro .lps-feature { color: rgba(0,4,53,0.88); }
     .lps-feature-icon {
       width: 20px; height: 20px;
       border-radius: 6px;
       display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0; margin-top: 1px;
+      flex-shrink: 0;
+      background: rgba(251,191,36,0.25);
+      border: 1px solid rgba(0,4,53,0.06);
     }
-    .lps-feature-icon-lite { background: rgba(251,191,36,0.15); border: 1px solid rgba(0,4,53,0.06); }
-    .lps-feature-icon-pro  { background: rgba(251,191,36,0.12); }
-    .lps-card-pro .lps-feature { color: rgba(255,255,255,0.72); }
+    .lps-card-pro .lps-feature-icon {
+      background: rgba(0,4,53,0.1);
+      border-color: rgba(0,4,53,0.12);
+    }
 
-    /* CTA button */
     .lps-cta {
       width: 100%;
-      display: flex; align-items: center; justify-content: center; gap: 10px;
-      border-radius: 16px;
-      padding: clamp(14px, 1.8vw, 17px) 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      border-radius: 14px;
+      padding: 15px 20px;
       font-family: 'Montserrat', sans-serif;
-      font-size: clamp(13px, 1.3vw, 14.5px);
+      font-size: 14px;
       font-weight: 800;
-      letter-spacing: 0.02em;
-      border: none;
-      cursor: pointer;
       text-decoration: none;
-      transition: all 0.25s cubic-bezier(.22,1,.36,1);
-      position: relative;
-      overflow: hidden;
-    }
-    .lps-cta::after {
-      content: '';
-      position: absolute;
-      top: 0; left: -100%;
-      width: 60%; height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent);
-      transform: skewX(-20deg);
-      transition: left 0.5s;
-    }
-    .lps-cta:hover::after { left: 130%; }
-
-    .lps-cta-lite {
       background: var(--navy);
-      border: 1.5px solid var(--navy);
-      color: #ffffff;
+      color: #fff;
+      border: none;
+      transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
     }
     .lps-cta-lite:hover {
-      background: linear-gradient(135deg, #FBBF24 0%, #F59E0B 100%);
-      border-color: transparent;
-      color: var(--navy);
       transform: translateY(-1px);
-      box-shadow: 0 10px 28px rgba(251,191,36,0.45);
+      box-shadow: 0 10px 28px rgba(0,4,53,0.25);
+      background: #000c6b;
     }
 
     .lps-cta-pro {
-      background: linear-gradient(135deg, #FBBF24 0%, #F59E0B 100%);
-      color: var(--navy);
-      box-shadow: 0 6px 24px rgba(251,191,36,0.35);
+      background: var(--navy);
+      color: #fff;
+      box-shadow: 0 8px 24px rgba(0,4,53,0.25);
     }
     .lps-cta-pro:hover {
       transform: translateY(-2px);
-      box-shadow: 0 14px 36px rgba(251,191,36,0.5);
-      filter: brightness(1.05);
+      box-shadow: 0 14px 32px rgba(0,4,53,0.35);
+      background: #000c6b;
     }
 
-    /* ── PRO POPULAR ribbon ── */
     .lps-ribbon {
       position: absolute;
-      top: 22px; right: -32px;
-      width: 130px;
-      background: var(--amber);
-      color: var(--navy);
+      top: 20px; right: -34px;
+      width: 140px;
+      background: var(--navy);
+      color: var(--amber);
       font-size: 8px; font-weight: 900;
-      letter-spacing: 0.14em; text-transform: uppercase;
+      letter-spacing: 0.12em; text-transform: uppercase;
       text-align: center;
-      padding: 6px 0;
+      padding: 7px 0;
       transform: rotate(38deg);
-      transform-origin: center;
       z-index: 2;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
     }
 
-    /* ── compare section ── */
-    .lps-compare { margin-top: clamp(2.5rem, 5vw, 4rem); }
-    .lps-compare-title {
-      text-align: center;
-      font-size: clamp(10px, 1.1vw, 11px);
-      font-weight: 800;
-      letter-spacing: 0.2em; text-transform: uppercase;
-      color: rgba(0,4,53,0.45);
-      margin-bottom: 1.5rem;
+    .lps-compare { margin-top: clamp(2.5rem, 4vw, 3.5rem); }
+    .lps-compare-head {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 1.25rem;
     }
+    .lps-compare-title {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(0,4,53,0.45);
+    }
+
     .lps-compare-grid {
       display: grid;
-      grid-template-columns: 1fr auto auto;
-      gap: 0;
-      background: #f8fafc;
-      border: 1px solid rgba(0,4,53,0.12);
+      grid-template-columns: 1fr 72px 72px;
+      background: #fff;
+      border: 1px solid rgba(0,4,53,0.1);
       border-radius: 20px;
       overflow: hidden;
+      box-shadow: 0 4px 20px rgba(0,4,53,0.05);
     }
-    .lps-cg-header {
-      display: contents;
+    @media (max-width: 600px) {
+      .lps-compare-grid { display: none; }
     }
+
     .lps-cg-h {
-      padding: 14px 20px;
-      font-size: 10px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase;
-      border-bottom: 1px solid rgba(0,4,53,0.1);
+      padding: 14px 16px;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      border-bottom: 1px solid rgba(0,4,53,0.08);
+      background: #f8fafc;
     }
-    .lps-cg-h:nth-child(1) { color: rgba(0,4,53,0.5); }
     .lps-cg-h:nth-child(2) {
-      text-align: center; color: rgba(0,4,53,0.65);
-      border-left: 1px solid rgba(0,4,53,0.1);
-      min-width: 80px;
-    }
-    .lps-cg-h:nth-child(3) {
-      text-align: center; color: var(--amber2);
-      border-left: 1px solid rgba(251,191,36,0.35);
-      background: rgba(251,191,36,0.1);
-      min-width: 80px;
-    }
-    .lps-cg-row { display: contents; }
-    .lps-cg-cell {
-      padding: 12px 20px;
-      font-size: clamp(11px, 1.2vw, 13px); font-weight: 600;
-      border-bottom: 1px solid rgba(0,4,53,0.06);
-      display: flex; align-items: center;
-    }
-    .lps-cg-row:last-child .lps-cg-cell { border-bottom: none; }
-    .lps-cg-cell:nth-child(1) { color: rgba(0,4,53,0.82); }
-    .lps-cg-cell:nth-child(2) {
-      justify-content: center;
+      text-align: center;
+      color: rgba(0,4,53,0.55);
       border-left: 1px solid rgba(0,4,53,0.08);
     }
-    .lps-cg-cell:nth-child(3) {
-      justify-content: center;
-      border-left: 1px solid rgba(251,191,36,0.25);
-      background: rgba(251,191,36,0.06);
-    }
-    .lps-tick { color: #15803d; font-size: 15px; }
-    .lps-cross { color: rgba(0,4,53,0.28); font-size: 15px; }
-    .lps-amber-tick { color: var(--amber); font-size: 15px; }
-
-    /* ── footer note ── */
-    .lps-footer-note {
+    .lps-cg-h:nth-child(3) {
       text-align: center;
-      margin-top: clamp(1.75rem, 3vw, 2.5rem);
-      font-size: 11px; font-weight: 600;
+      color: var(--amber2);
+      border-left: 1px solid rgba(251,191,36,0.25);
+      background: rgba(251,191,36,0.08);
+    }
+
+    .lps-cg-row { display: contents; }
+
+    .lps-cg-cell {
+      padding: 12px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      border-bottom: 1px solid rgba(0,4,53,0.06);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: rgba(0,4,53,0.82);
+    }
+    .lps-cg-row:last-child .lps-cg-cell { border-bottom: none; }
+    .lps-cg-cell.lps-cg-mid {
+      justify-content: center;
+      border-left: 1px solid rgba(0,4,53,0.06);
+    }
+    .lps-cg-cell.lps-cg-pro {
+      justify-content: center;
+      border-left: 1px solid rgba(251,191,36,0.2);
+      background: rgba(251,191,36,0.04);
+    }
+    .lps-cg-row-icon {
+      width: 28px; height: 28px;
+      border-radius: 8px;
+      background: rgba(0,4,53,0.05);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
       color: rgba(0,4,53,0.45);
-      letter-spacing: 0.04em;
     }
-    .lps-footer-note a { color: var(--amber2); text-decoration: none; font-weight: 700; }
-    .lps-footer-note a:hover { color: var(--navy); text-decoration: underline; }
+    .lps-tick { color: #16a34a; }
+    .lps-amber-tick { color: var(--amber2); }
+    .lps-cross { color: rgba(0,4,53,0.25); }
 
-    /* ── MOBILE SPECIFIC ── */
-    @media (max-width: 600px) {
-      .lps-compare-grid { display: none; } /* hide on very small — already covered by cards */
-      .lps-card { border-radius: 22px; }
+    .lps-footer {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-top: clamp(2rem, 4vw, 2.75rem);
+      padding-top: 1.5rem;
+      border-top: 1px solid rgba(0,4,53,0.08);
+    }
+    .lps-footer-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      color: rgba(0,4,53,0.55);
+    }
+    .lps-footer-left a {
+      color: var(--amber2);
+      font-weight: 700;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .lps-footer-left a:hover { text-decoration: underline; }
+    .lps-footer-copy {
+      font-size: 12px;
+      font-weight: 600;
+      color: rgba(0,4,53,0.4);
     }
 
-    /* ── animations ── */
     @keyframes fade-up {
-      from { opacity: 0; transform: translateY(24px); }
+      from { opacity: 0; transform: translateY(20px); }
       to   { opacity: 1; transform: translateY(0); }
     }
-    .au1 { animation: fade-up 0.6s 0.05s cubic-bezier(.22,1,.36,1) both; }
-    .au2 { animation: fade-up 0.6s 0.15s cubic-bezier(.22,1,.36,1) both; }
-    .au3 { animation: fade-up 0.6s 0.25s cubic-bezier(.22,1,.36,1) both; }
-    .au4 { animation: fade-up 0.6s 0.38s cubic-bezier(.22,1,.36,1) both; }
-    .au5 { animation: fade-up 0.6s 0.50s cubic-bezier(.22,1,.36,1) both; }
+    .au1 { animation: fade-up 0.55s 0.05s ease both; }
+    .au2 { animation: fade-up 0.55s 0.15s ease both; }
+    .au3 { animation: fade-up 0.55s 0.28s ease both; }
+    .au4 { animation: fade-up 0.55s 0.4s ease both; }
   `}</style>
 );
 
-/* ─── data ─────────────────────────────────────────────────────── */
 const LITE_FEATURES = [
-  { icon: Users,       text: "Student & staff register" },
-  { icon: BarChart3,   text: "Basic attendance tracking" },
-  { icon: GraduationCap, text: "Class & subject management" },
-  { icon: Globe,       text: "School mini-website" },
-  { icon: Shield,      text: "Fee collection & invoices" },
-  { icon: Smartphone,  text: "Mobile-friendly interface" },
+  "Babyeyi Wizard Setup",
+  "Student & Staff Register",
+  "Attendance Tracking",
+  "School Mini Website",
+  "TichaAvance",
+  "TichaDeals",
+  "Mobile-Friendly Interface",
 ];
 
 const PRO_FEATURES = [
-  { icon: Crown,       text: "Everything in Lite, unlocked" },
-  { icon: BarChart3,   text: "Advanced analytics & reports" },
-  { icon: Zap,         text: "AI-powered insights & alerts" },
-  { icon: Lock,        text: "Multi-role staff permissions" },
-  { icon: Star,        text: "Discipline & marks system" },
-  { icon: Sparkles,    text: "ShuleAvance payroll & HR" },
-  { icon: Globe,       text: "Multi-branch school support" },
-  { icon: Shield,      text: "Priority support & SLA" },
+  "Everything in Babyeyi Lite",
+  "Babyeyi Wizard",
+  "Tuition & Paid-at-School Payments",
+  "Advanced Analytics & Reports",
+  "Attendance Management",
+  "Multi-Role Staff Permissions",
+  "Discipline & Marks System",
+  "ShuleAvance Payroll & HR",
+  "TichaDeals",
+  "Multi-Branch School Support",
+  "Priority Support & SLA",
 ];
 
 const COMPARE_ROWS = [
-  { label: "Student register & profiles",  lite: true,  pro: true },
-  { label: "Fee collection & invoices",    lite: true,  pro: true },
-  { label: "School mini-website",          lite: true,  pro: true },
-  { label: "Basic attendance",             lite: true,  pro: true },
-  { label: "Advanced analytics & AI",      lite: false, pro: true },
-  { label: "Discipline marks system",      lite: false, pro: true },
-  { label: "Multi-role permissions",       lite: false, pro: true },
-  { label: "Payroll & HR (ShuleAvance)",   lite: false, pro: true },
-  { label: "Priority support",             lite: false, pro: true },
+  { label: "Student & Staff Register", icon: GraduationCap, lite: true, pro: true },
+  { label: "School Mini Website", icon: Globe, lite: true, pro: true },
+  { label: "Basic Attendance Tracking", icon: Calendar, lite: true, pro: true },
+  { label: "TichaAvance & TichaDeals", icon: Sparkles, lite: true, pro: true },
+  { label: "Tuition & Paid-at-School Pay", icon: CreditCard, lite: false, pro: true },
+  { label: "Attendance Management", icon: ClipboardCheck, lite: false, pro: true },
+  { label: "Advanced Analytics & Reports", icon: BarChart3, lite: false, pro: true },
+  { label: "Discipline & Marks System", icon: Shield, lite: false, pro: true },
+  { label: "Multi-Role Permissions", icon: Users, lite: false, pro: true },
+  { label: "Payroll & HR (ShuleAvance)", icon: UserCog, lite: false, pro: true },
+  { label: "Priority Support & SLA", icon: Headphones, lite: false, pro: true },
 ];
 
-/* ─── component ────────────────────────────────────────────────── */
 export default function LoginPortalSelect() {
   return (
     <>
       <Styles />
       <div className="lps-root">
+        <div className="lps-bg-pattern" aria-hidden />
 
-        {/* navbar */}
         <nav className="lps-nav">
           <Link to="/">
-            <img src={BabyeyiLogo} alt="Babyeyi" className="lps-nav-logo"
-              onError={e => { e.currentTarget.src = "/1BABYEYI LOGO FINAL.png"; }} />
+            <img
+              src={BabyeyiLogo}
+              alt="Babyeyi"
+              className="lps-nav-logo"
+              onError={(e) => { e.currentTarget.src = "/1BABYEYI LOGO FINAL.png"; }}
+            />
           </Link>
           <Link to="/" className="lps-nav-back">
-            <X size={13} /> Back to home
+            <ArrowLeft size={14} strokeWidth={2.5} />
+            Back to Home
           </Link>
         </nav>
 
-        {/* main */}
         <main className="lps-main">
-
-          {/* hero */}
           <div className="lps-hero au1">
             <div className="lps-eyebrow">
               <Sparkles size={11} /> Choose your portal
@@ -492,127 +562,141 @@ export default function LoginPortalSelect() {
               Sign in to <span>ShuleManager</span>
             </h1>
             <p className="lps-sub">
-              Select the platform that matches your school — both run on Babyeyi's trusted infrastructure.
+              Select the platform that matches your school — both run on Babyeyi&apos;s trusted infrastructure.
             </p>
           </div>
 
-          {/* cards */}
           <div className="lps-grid au2">
-
-            {/* ── LITE ── */}
-            <div
-              className="lps-card lps-card-lite"
-            >
+            {/* LITE */}
+            <div className="lps-card lps-card-lite">
               <div className="lps-card-inner">
                 <div className="lps-badge lps-badge-lite">
-                  <Zap size={10} /> Lite
+                  <Zap size={10} /> Babyeyi Lite
                 </div>
-
                 <div className="lps-icon-wrap lps-icon-lite">
-                  <GraduationCap size={28} color="#000435" />
+                  <GraduationCap size={26} color="#000435" strokeWidth={2} />
                 </div>
-
-                <div className="lps-card-name lps-card-name-lite">ShuleManager<br />Lite</div>
-                <p className="lps-card-tag">
-                  Smart, fast, and simple — all the essentials for everyday school management.
+                <div className="lps-card-name lps-card-name-lite">Babyeyi Lite</div>
+                <p className="lps-card-headline">
+                  Smart, simple, and affordable school management
                 </p>
-
+                <p className="lps-card-tag">
+                  Perfect for small and growing schools that need essential daily management tools.
+                </p>
                 <div className="lps-divider" />
-
+                <p className="lps-features-label">Features</p>
                 <div className="lps-features">
-                  {LITE_FEATURES.map(({ icon: Icon, text }) => (
+                  {LITE_FEATURES.map((text) => (
                     <div className="lps-feature" key={text}>
-                      <div className="lps-feature-icon lps-feature-icon-lite">
+                      <div className="lps-feature-icon">
                         <Check size={11} color="#000435" strokeWidth={2.5} />
                       </div>
                       {text}
                     </div>
                   ))}
                 </div>
-
+                <p className="lps-card-desc">
+                  Simple tools to manage students, staff, attendance, and communication from anywhere.
+                </p>
                 <Link to="/login/lite" className="lps-cta lps-cta-lite">
                   <LogIn size={16} strokeWidth={2.5} />
-                  Sign in — Lite portal
+                  Sign in — Lite Portal
                   <ArrowRight size={15} />
                 </Link>
               </div>
             </div>
 
-            {/* ── PRO ── */}
-            <div
-              className="lps-card lps-card-pro"
-            >
-              {/* popular ribbon */}
+            {/* PRO */}
+            <div className="lps-card lps-card-pro">
               <div className="lps-ribbon">Most Popular</div>
-
               <div className="lps-card-inner">
                 <div className="lps-badge lps-badge-pro">
-                  <Crown size={10} /> Pro · Premium
+                  <Crown size={10} /> Babyeyi Pro
                 </div>
-
                 <div className="lps-icon-wrap lps-icon-pro">
-                  <Crown size={28} color="#FBBF24" />
+                  <Crown size={26} color="#000435" strokeWidth={2} />
                 </div>
-
-                <div className="lps-card-name lps-card-name-pro">ShuleManager<br />Pro</div>
-                <p className="lps-card-tag">
-                  Full power — AI insights, payroll, discipline, multi-role access and beyond.
+                <div className="lps-card-name lps-card-name-pro">Babyeyi Pro</div>
+                <p className="lps-card-headline">
+                  Complete digital transformation for modern schools
                 </p>
-
+                <p className="lps-card-tag">
+                  Designed for advanced schools needing finance, HR, analytics, and multi-role management.
+                </p>
                 <div className="lps-divider" />
-
+                <p className="lps-features-label">Features</p>
                 <div className="lps-features">
-                  {PRO_FEATURES.map(({ icon: Icon, text }) => (
+                  {PRO_FEATURES.map((text) => (
                     <div className="lps-feature" key={text}>
-                      <div className="lps-feature-icon lps-feature-icon-pro">
-                        <Check size={11} color="#FBBF24" strokeWidth={2.5} />
+                      <div className="lps-feature-icon">
+                        <Check size={11} color="#000435" strokeWidth={2.5} />
                       </div>
                       {text}
                     </div>
                   ))}
                 </div>
-
+                <p className="lps-card-desc">
+                  Full power for finance, staff, discipline, payroll, reporting, and large school operations.
+                </p>
                 <Link to="/login/pro" className="lps-cta lps-cta-pro">
                   <Crown size={16} strokeWidth={2.5} />
-                  Sign in — Pro portal
+                  Sign in — Pro Portal
                   <ArrowRight size={15} />
                 </Link>
               </div>
             </div>
           </div>
 
-          {/* compare table */}
-          <div className="lps-compare au4">
-            <p className="lps-compare-title">Feature comparison</p>
+          {/* Feature comparison */}
+          <div className="lps-compare au3">
+            <div className="lps-compare-head">
+              <BarChart3 size={14} className="text-amber-500" strokeWidth={2.5} />
+              <p className="lps-compare-title">Feature comparison</p>
+            </div>
             <div className="lps-compare-grid">
-              <div className="lps-cg-header">
-                <div className="lps-cg-h">Feature</div>
-                <div className="lps-cg-h">Lite</div>
-                <div className="lps-cg-h">Pro</div>
-              </div>
-              {COMPARE_ROWS.map(({ label, lite, pro }) => (
+              <div className="lps-cg-h">Feature</div>
+              <div className="lps-cg-h">Lite</div>
+              <div className="lps-cg-h">Pro</div>
+              {COMPARE_ROWS.map(({ label, icon: Icon, lite, pro }) => (
                 <div className="lps-cg-row" key={label}>
-                  <div className="lps-cg-cell">{label}</div>
                   <div className="lps-cg-cell">
-                    {lite
-                      ? <Check size={16} className="lps-tick" strokeWidth={2.5} />
-                      : <X size={14} className="lps-cross" strokeWidth={2} />}
+                    <span className="lps-cg-row-icon">
+                      <Icon size={14} strokeWidth={2} />
+                    </span>
+                    {label}
                   </div>
-                  <div className="lps-cg-cell">
-                    {pro
-                      ? <Check size={16} className="lps-amber-tick" strokeWidth={2.5} />
-                      : <X size={14} className="lps-cross" strokeWidth={2} />}
+                  <div className="lps-cg-cell lps-cg-mid">
+                    {lite ? (
+                      <Check size={18} className="lps-tick" strokeWidth={2.5} />
+                    ) : (
+                      <X size={16} className="lps-cross" strokeWidth={2} />
+                    )}
+                  </div>
+                  <div className="lps-cg-cell lps-cg-pro">
+                    {pro ? (
+                      <Check size={18} className="lps-amber-tick" strokeWidth={2.5} />
+                    ) : (
+                      <X size={16} className="lps-cross" strokeWidth={2} />
+                    )}
                   </div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* footer note */}
-          <p className="lps-footer-note au5">
-            Not sure which to choose? <Link to="/schools">Browse schools</Link> · © {new Date().getFullYear()} Babyeyi Rwanda
-          </p>
-
+          <footer className="lps-footer au4">
+            <div className="lps-footer-left">
+              <Building2 size={18} className="text-amber-500 shrink-0" strokeWidth={2} />
+              <span>
+                Not sure which to choose?{" "}
+                <Link to="/schools">
+                  Browse schools
+                  <ArrowRight size={14} strokeWidth={2.5} />
+                </Link>
+              </span>
+            </div>
+            <p className="lps-footer-copy">© {new Date().getFullYear()} Babyeyi Rwanda</p>
+          </footer>
         </main>
       </div>
     </>

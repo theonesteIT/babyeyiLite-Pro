@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
+import TeacherOrangeHero from '../components/TeacherOrangeHero';
 
 const Dashboard = () => {
   const { teacher } = useAuth();
@@ -54,33 +55,10 @@ const Dashboard = () => {
   return (
     <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen">
 
-      {/* HERO — solid amber #FF8C00 (no gradients / glow blobs) */}
-      <section className="relative flex min-h-[260px] items-center overflow-hidden bg-[#FF8C00] text-white md:min-h-[300px] shadow-none">
-        {/* Teacher image + flat tint for legibility (no gradient scrims) */}
-        <div className="absolute inset-0 z-[1]">
-          <img
-            src="/teacher.png"
-            alt=""
-            className="block h-full w-full object-cover object-top transition-transform duration-[8s] ease-in-out hover:scale-[1.04]"
-          />
-          <div className="absolute inset-0 z-[2] bg-black/25" aria-hidden />
-        </div>
-
-        {/* Secure pill */}
-        <div className="absolute left-6 top-6 z-10 hidden md:flex items-center gap-2 rounded-full border border-white/25 bg-black/25 px-4 py-1.5 text-[10px] font-semibold tracking-[0.14em] text-white/95 backdrop-blur-md">
-          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-white" />
-          ShuleTicha · Secure
-        </div>
-
-        <div className="relative z-10 w-full max-w-4xl px-7 pb-10 pt-14 md:px-10 md:pb-12 md:pt-12">
-          <h1 className="mb-2 font-sans text-2xl font-extrabold tracking-tight md:text-3xl">
-            Welcome back, {teacher?.first_name || 'Teacher'}
-          </h1>
-          <p className="max-w-2xl text-sm font-semibold text-white/90 md:text-base">
-            Ready to inspire your students today?
-          </p>
-        </div>
-      </section>
+      <TeacherOrangeHero
+        title={`Welcome back, ${teacher?.first_name || 'Teacher'}`}
+        subtitle="Ready to inspire your students today?"
+      />
 
       {/* MAIN */}
       <div className="max-w-[1300px] mx-auto px-5 md:px-8 -mt-10 relative z-20 pb-14">

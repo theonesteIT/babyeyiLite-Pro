@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { Package, Loader2, ArrowRight, ShoppingBag, Tag, Star, AlertTriangle } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { createHref } from '../../lib/hrefFactory'
+import TeacherOrangeHero from '../components/TeacherOrangeHero'
 
 const UPLOADS_BASE = (import.meta.env.VITE_UPLOADS_BASE || import.meta.env.VITE_API_URL || 'http://localhost:5100').replace(/\/$/, '')
 
@@ -18,7 +19,7 @@ function formatMoney(n) {
   return `${Math.round(v).toLocaleString()} RWF`
 }
 
-export default function TichaDeals({ api, basePath }) {
+export default function TichaDeals({ api, basePath, dealsHeroVariant = 'legacy', staffUser }) {
   const navigate = useNavigate()
   const h = useMemo(() => createHref(basePath || ''), [basePath])
   const [loading, setLoading] = useState(true)
@@ -56,9 +57,28 @@ export default function TichaDeals({ api, basePath }) {
   const featuredProduct = dealProducts[0] || null
   const popularDeals = dealProducts.slice(1)
 
+  const heroFirst =
+    staffUser?.first_name ||
+    (typeof staffUser?.name === 'string' ? staffUser.name.split(/\s+/)[0] : null) ||
+    'Teacher'
+
   return (
     <div className="min-h-screen bg-[#f0f2f9] pb-28 font-sans">
 
+      {dealsHeroVariant === 'orange' ? (
+        <TeacherOrangeHero
+          title={`Welcome back, ${heroFirst}`}
+          subtitle="Exclusive products — pay monthly from your payroll."
+        >
+          <button
+            type="button"
+            onClick={() => navigate(h('/ticha-deals/tracking'))}
+            className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-white border border-white/40 px-4 py-2 rounded-xl bg-white/15 hover:bg-white/25 transition-all"
+          >
+            <ArrowRight size={11} /> Track my requests
+          </button>
+        </TeacherOrangeHero>
+      ) : (
       <div className="relative overflow-hidden bg-gradient-to-br from-[#000435] to-[#0a116b] px-5 pt-10 pb-16 rounded-b-[36px] shadow-[0_12px_40px_rgba(0,4,53,0.18)]">
         <div className="absolute inset-0 opacity-25" style={{ backgroundImage: 'radial-gradient(circle at 15% 60%, #f59e0b 0%, transparent 55%), radial-gradient(circle at 85% 15%, #ffffff 0%, transparent 45%)' }} />
 
@@ -79,6 +99,7 @@ export default function TichaDeals({ api, basePath }) {
           </button>
         </div>
       </div>
+      )}
 
       <div className="max-w-[1000px] mx-auto px-4 sm:px-6 -mt-8 relative z-20">
 

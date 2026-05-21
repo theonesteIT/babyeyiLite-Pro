@@ -19,7 +19,7 @@ const path           = require('path');
 const fs             = require('fs');
 const http           = require('http');
 const { Server }     = require('socket.io');
-require('dotenv').config();
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const { testConnection, promisePool } = require('./config/database');
 const { validateEnvironment } = require('./config/env.js');

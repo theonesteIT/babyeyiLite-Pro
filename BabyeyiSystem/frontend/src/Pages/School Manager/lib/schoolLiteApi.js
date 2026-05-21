@@ -13,11 +13,13 @@ export const FRONTEND_ORIGIN =
 const stripTrailingSlashes = (s) => String(s || '').trim().replace(/\/+$/, '');
 
 /**
- * Base URL for Babyeyi verify links and QR payloads (e.g. https://babyeyi.rw).
- * Set VITE_BABYEYI_VERIFY_PUBLIC_URL in production so scans open the public site, not the manager origin.
+ * Base URL for Babyeyi verify / QR links.
+ * Dev: uses current app origin (e.g. http://localhost:5173). Production: set VITE_BABYEYI_VERIFY_PUBLIC_URL=https://babyeyi.rw
  */
 export const BABYEYI_VERIFY_PUBLIC_ORIGIN =
-  stripTrailingSlashes(import.meta.env.VITE_BABYEYI_VERIFY_PUBLIC_URL) || stripTrailingSlashes(FRONTEND_ORIGIN);
+  stripTrailingSlashes(import.meta.env.VITE_BABYEYI_VERIFY_PUBLIC_URL)
+  || stripTrailingSlashes(FRONTEND_ORIGIN)
+  || 'http://localhost:5173';
 
 /** First 16 hex chars of stored integrity hash (matches server QR / ?h=). */
 export function normalizeBabyeyiIntegrityHash16(h) {

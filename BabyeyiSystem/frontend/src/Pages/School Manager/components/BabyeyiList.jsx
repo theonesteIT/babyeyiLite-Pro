@@ -1,11 +1,11 @@
-// ================================================================
-// BabyeyiList.jsx — v12 redesign
-// #000435 navy + amber-400 · MTN font · Tailwind only · Mobile-first
+﻿// ================================================================
+// BabyeyiList.jsx â€” v12 redesign
+// #000435 navy + amber-400 Â· MTN font Â· Tailwind only Â· Mobile-first
 // ================================================================
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { WizardContent } from "./UpdateBabyeyi";
+import { CreateBabyeyiModal } from "./Babyeyi";
 import { parseTranslationsJson } from '../schoolLiteSupport/utils/applyBabyeyiTranslations';
 import { getLegacyBabyeyiUI, getParentMessageForDisplay, getParentMessageForMachineTranslation, getStatusLabelSafe } from '../schoolLiteSupport/i18n/index.js';
 import { BABYEYI_AUTO_LANG_OPTIONS, isCoreBabyeyiLang, normalizeBabyeyiLang } from '../schoolLiteSupport/babyeyiTranslateLangs.js';
@@ -47,7 +47,7 @@ export async function applyQrToState(result, setQrB64, setVUrl) {
   }
 }
 
-// ── QR helpers ────────────────────────────────────────────────
+// â”€â”€ QR helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export async function ensureQRCode(rec) {
   if (!rec?.id) return null;
   const vUrlFallback = babyeyiVerifyScanUrl(rec.docId, rec.integrityHash);
@@ -121,19 +121,19 @@ export function canSessionEditKinyarwandaRw(session) {
   return BABYEYI_RW_EDITOR_ROLE_CODES.has(code);
 }
 
-// ── Language picker (official JSON + Lingva machine translate) ─
+// â”€â”€ Language picker (official JSON + Lingva machine translate) â”€
 const CORE_LANG_OPTIONS = [
-  { code: "en", flag: "🇬🇧", name: "English" },
-  { code: "rw", flag: "🇷🇼", name: "Kinyarwanda" },
-  { code: "fr", flag: "🇫🇷", name: "Français" },
+  { code: "en", flag: "ðŸ‡¬ðŸ‡§", name: "English" },
+  { code: "rw", flag: "ðŸ‡·ðŸ‡¼", name: "Kinyarwanda" },
+  { code: "fr", flag: "ðŸ‡«ðŸ‡·", name: "FranÃ§ais" },
 ];
 const ALL_LANG_OPTIONS = [...CORE_LANG_OPTIONS, ...BABYEYI_AUTO_LANG_OPTIONS];
 function langMeta(code) {
   const n = normalizeBabyeyiLang(code);
-  return ALL_LANG_OPTIONS.find((x) => x.code === n) || { code: n, flag: "🌐", name: String(n || "en").toUpperCase() };
+  return ALL_LANG_OPTIONS.find((x) => x.code === n) || { code: n, flag: "ðŸŒ", name: String(n || "en").toUpperCase() };
 }
 
-// ── Shared helpers ────────────────────────────────────────────
+// â”€â”€ Shared helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const toAssetUrl = (path) => {
   if (!path) return null;
   if (path.startsWith("http")) return path;
@@ -216,7 +216,7 @@ function parseBanks(rec) {
   return [];
 }
 
-// ── Doc HTML builder (re-exported for BabyeyiPdf.jsx) ────────
+// â”€â”€ Doc HTML builder (re-exported for BabyeyiPdf.jsx) â”€â”€â”€â”€â”€â”€â”€â”€
 const DOC = {
   heading: { fontSize:"14px", fontWeight:700, color:"#1e3a5f", textTransform:"uppercase", letterSpacing:"0.05em" },
   body:    { fontSize:"12px", color:"#1e293b", lineHeight:"1.7" },
@@ -258,23 +258,23 @@ export function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLog
   const parentSection = parentMsg ? `<div style="margin-bottom:22px">${hdg(T.parentMessageHeading)}<div style="padding-left:16px;margin-top:4px"><p style="font-size:12px;color:#1e293b;line-height:1.7;white-space:pre-line;margin:0">${parentMsg}</p></div></div>` : "";
   const payRows = payments.map((p,i) => `<tr><td style="${tdS};text-align:center;color:#64748b;width:42px">${i+1}</td><td style="${tdS}">${p.name||""}</td><td style="${tdS};text-align:right;font-family:monospace;font-weight:600">${Number(p.amount||0).toLocaleString()}</td></tr>`).join("");
   const paySection = payments.length > 0 ? `<div style="margin-bottom:22px">${hdg(T.secFee)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:42px;text-align:center">${T.thNo}</th><th style="${thS}">${T.thPaymentItem}</th><th style="${thS};text-align:right">${T.thAmount}</th></tr></thead><tbody>${payRows}</tbody><tfoot><tr><td colspan="2" style="padding:9px 12px;font-size:14px;font-weight:700;color:#1e3a5f;border-top:2px solid #1e3a5f">${T.thTotalLabel}</td><td style="padding:9px 12px;font-size:14px;font-weight:700;color:#1e3a5f;border-top:2px solid #1e3a5f;text-align:right;font-family:monospace">RWF ${totalFee.toLocaleString()}</td></tr></tfoot></table></div>` : "";
-  const bankRows = banks.map((bk,i) => `<tr><td style="${tdS};text-align:center;color:#64748b;width:40px">${i+1}</td><td style="${tdS};font-weight:600">${bk.bankName||"—"}</td><td style="${tdS};font-family:monospace">${bk.accountNumber||"—"}</td><td style="${tdS}">${bk.accountName||"—"}</td><td style="${tdS};text-align:center;color:#059669;font-weight:700">${bk.isPrimary||i===0?"✓":""}</td></tr>`).join("");
+  const bankRows = banks.map((bk,i) => `<tr><td style="${tdS};text-align:center;color:#64748b;width:40px">${i+1}</td><td style="${tdS};font-weight:600">${bk.bankName||"â€”"}</td><td style="${tdS};font-family:monospace">${bk.accountNumber||"â€”"}</td><td style="${tdS}">${bk.accountName||"â€”"}</td><td style="${tdS};text-align:center;color:#059669;font-weight:700">${bk.isPrimary||i===0?"âœ“":""}</td></tr>`).join("");
   const banksSection = banks.length > 0 ? `<div style="margin-bottom:22px">${hdg(T.secBanking)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:40px;text-align:center">#</th><th style="${thS}">Bank</th><th style="${thS}">Account</th><th style="${thS}">Name</th><th style="${thS};text-align:center;width:70px">Primary</th></tr></thead><tbody>${bankRows}</tbody></table></div>` : "";
   const reqRows = reqs.map((r,i) => `<tr><td style="${tdS};text-align:center;color:#64748b;width:42px">${i+1}</td><td style="${tdS}">${(r&&r.item)||r||""}</td><td style="${tdS}">${(r&&r.description)||""}</td><td style="${tdS};text-align:center">${(r&&r.quantity)||""}</td></tr>`).join("");
   const reqSection = reqs.length > 0 ? `<div style="margin-bottom:22px">${hdg(T.secRequirements)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:42px;text-align:center">#</th><th style="${thS}">Item</th><th style="${thS}">Description</th><th style="${thS};text-align:center;width:80px">Qty</th></tr></thead><tbody>${reqRows}</tbody></table></div>` : "";
   const otherRows = otherInfos.map((n,i) => `<tr><td style="${tdS};text-align:center;color:#64748b;width:42px">${i+1}</td><td style="${tdS};font-weight:600">${n.item||""}</td><td style="${tdS}">${n.details||""}</td></tr>`).join("");
   const otherSection = otherInfos.length > 0 ? `<div style="margin-bottom:22px">${hdg(T.secOtherInfo)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:42px;text-align:center">#</th><th style="${thS}">Item</th><th style="${thS}">Details</th></tr></thead><tbody>${otherRows}</tbody></table></div>` : "";
-  const leaderRows = leaders.map((l,i) => `<tr><td style="${tdS};text-align:center;color:#64748b;width:36px;font-size:11px">${i+1}</td><td style="${tdS};font-weight:700;color:#1e3a5f">${l.name||"—"}</td><td style="${tdS};color:#475569;font-style:italic">${l.role||"—"}</td><td style="${tdS};font-family:monospace;font-size:11px">${l.phone?`+250 ${l.phone}`:"—"}</td><td style="${tdS};font-size:11px;color:#2563eb">${l.email||"—"}</td></tr>`).join("");
+  const leaderRows = leaders.map((l,i) => `<tr><td style="${tdS};text-align:center;color:#64748b;width:36px;font-size:11px">${i+1}</td><td style="${tdS};font-weight:700;color:#1e3a5f">${l.name||"â€”"}</td><td style="${tdS};color:#475569;font-style:italic">${l.role||"â€”"}</td><td style="${tdS};font-family:monospace;font-size:11px">${l.phone?`+250 ${l.phone}`:"â€”"}</td><td style="${tdS};font-size:11px;color:#2563eb">${l.email||"â€”"}</td></tr>`).join("");
   const leadersSection = leaders.length > 0 ? `<div style="margin-bottom:22px">${hdg(T.secLeadership)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:36px;text-align:center">#</th><th style="${thS}">Full Name</th><th style="${thS}">Role</th><th style="${thS}">Phone</th><th style="${thS}">Email</th></tr></thead><tbody>${leaderRows}</tbody></table></div>` : "";
-  const noteRows = classNotes.map((n,i) => `<tr><td style="${tdS};text-align:center;color:#64748b;width:42px">${i+1}</td><td style="${tdS};font-weight:600">${n.item||""}</td><td style="${tdS}">${n.details||"—"}</td></tr>`).join("");
+  const noteRows = classNotes.map((n,i) => `<tr><td style="${tdS};text-align:center;color:#64748b;width:42px">${i+1}</td><td style="${tdS};font-weight:600">${n.item||""}</td><td style="${tdS}">${n.details||"â€”"}</td></tr>`).join("");
   const notesSection = classNotes.length > 0 ? `<div style="margin-bottom:22px">${hdg(T.secClassNotes)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:42px;text-align:center">#</th><th style="${thS}">Item</th><th style="${thS}">Details</th></tr></thead><tbody>${noteRows}</tbody></table></div>` : "";
-  const qrBlock = qrB64 ? `<div style="display:flex;flex-direction:column;align-items:center;gap:4px"><div style="background:white;border:1px solid #e2e8f0;padding:6px;border-radius:6px"><img src="${qrB64}" style="width:80px;height:80px;object-fit:contain;display:block"/></div><p style="font-size:10px;color:#1e3a5f;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin:0">${T.sigScanVerify}</p>${rec.docId?`<p style="font-size:10px;color:#64748b;font-family:monospace;margin:0">ID: ${rec.docId}</p>`:""}</div>` : `<div style="width:80px;height:80px;border:1px dashed #e2e8f0;display:flex;align-items:center;justify-content:center"><span style="font-size:20px;opacity:.1">▣</span></div>`;
+  const qrBlock = qrB64 ? `<div style="display:flex;flex-direction:column;align-items:center;gap:4px"><div style="background:white;border:1px solid #e2e8f0;padding:6px;border-radius:6px"><img src="${qrB64}" style="width:80px;height:80px;object-fit:contain;display:block"/></div><p style="font-size:10px;color:#1e3a5f;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin:0">${T.sigScanVerify}</p>${rec.docId?`<p style="font-size:10px;color:#64748b;font-family:monospace;margin:0">ID: ${rec.docId}</p>`:""}</div>` : `<div style="width:80px;height:80px;border:1px dashed #e2e8f0;display:flex;align-items:center;justify-content:center"><span style="font-size:20px;opacity:.1">â–£</span></div>`;
   const schoolLogoHtml = schoolLogoB64 ? `<img src="${schoolLogoB64}" style="width:92px;height:92px;object-fit:contain;display:block"/>` : `<div style="width:92px;height:92px;display:flex;align-items:center;justify-content:center;border:1px dashed #e2e8f0"><span style="font-size:8px;color:#64748b;text-align:center;font-weight:700">SCHOOL LOGO</span></div>`;
   const otherLogoHtml = otherLogoB64 ? `<img src="${otherLogoB64}" style="width:70px;height:70px;object-fit:contain;display:block"/>` : "";
-  return `<div style="width:794px;background:#fff;font-family:Georgia,'Times New Roman',serif;color:#1e293b"><div style="height:3px;background:#1e3a5f"></div><div style="padding:20px 40px 16px;border-bottom:2px solid #1e3a5f"><div style="display:flex;align-items:center;gap:20px"><div style="flex-shrink:0;width:110px;height:110px;display:flex;align-items:center;justify-content:center">${schoolLogoHtml}</div><div style="flex:1;text-align:center"><p style="font-size:10px;color:#64748b;margin:0 0 2px;letter-spacing:0.08em;text-transform:uppercase;font-weight:600">${T.republic}</p><p style="font-size:9px;color:#64748b;margin:0 0 2px">${T.district}: ${rec.district||"—"}</p><p style="font-size:9px;color:#64748b;margin:0 0 6px">${T.sector}: ${rec.sector||"—"}</p><h1 style="font-size:17px;font-weight:700;color:#1e3a5f;margin:0 0 6px;text-transform:uppercase;letter-spacing:.03em">${rec.schoolName||""}</h1><div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:center">${[[T.academicYear,rec.academicYear],[T.termLabel,rec.term],[T.levelLabel,levelLabel],[T.classLabel,classLabel]].map(([l,v])=>`<span style="font-size:12px;color:#1e293b"><strong style="color:#1e3a5f">${l}:</strong> ${v||"—"}</span>`).join("")}${rec.docId?`<span style="font-size:11px;font-family:monospace;font-weight:700;color:#3730a3;padding:1px 8px">${rec.docId}</span>`:""}</div></div><div style="flex-shrink:0;width:80px;height:80px;display:flex;align-items:center;justify-content:center;overflow:hidden">${otherLogoHtml}</div></div></div><div style="padding:20px 40px 28px">${parentSection}${paySection}${banksSection}${reqSection}${otherSection}${leadersSection}${notesSection}<div style="margin-bottom:22px"><div style="border-bottom:1.5px solid #1e3a5f;padding-bottom:5px;margin-bottom:12px;margin-top:20px"><span style="font-size:14px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.05em">${T.secAuth}</span></div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-top:12px"><div style="border:1px solid #e2e8f0;padding:14px;text-align:center"><p style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;margin:0 0 8px">${T.sigHeadTeacher}</p><div style="height:52px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:4px">${sigB64?`<img src="${sigB64}" style="max-height:48px;max-width:140px;object-fit:contain"/>`:`<div style="width:100%;height:1px;border-bottom:1px solid #cbd5e1"></div>`}</div><p style="font-size:11px;color:#94a3b8;margin:4px 0 0">${sigB64?T.sigSigned:T.sigRequired}</p></div><div style="border:1px solid #e2e8f0;padding:14px;display:flex;flex-direction:column;align-items:center;justify-content:center">${qrBlock}</div><div style="border:1px solid #e2e8f0;padding:14px;text-align:center"><p style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;margin:0 0 8px">${T.sigStamp}</p><div style="width:80px;height:80px;border:1px dashed #e2e8f0;border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden;margin:0 auto 6px">${stampB64?`<img src="${stampB64}" style="width:76px;height:76px;object-fit:contain;border-radius:50%"/>`:`<span style="font-size:22px;opacity:.08">🔏</span>`}</div><p style="font-size:11px;color:#94a3b8;margin:0">${T.sigCachet}</p></div></div></div></div><div style="border-top:1px solid #1e3a5f;padding:8px 40px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:11px;color:#64748b">${rec.schoolName||""} · ${rec.district||""}</span><span style="font-size:11px;color:#1e3a5f;font-weight:700;text-transform:uppercase">${T.docOfficial}</span><span style="font-size:11px;color:#64748b">${T.docFooterLeft} ${rec.docId||"—"} · ${today}</span></div><div style="height:3px;background:#1e3a5f"></div></div>`;
+  return `<div style="width:794px;background:#fff;font-family:Georgia,'Times New Roman',serif;color:#1e293b"><div style="height:3px;background:#1e3a5f"></div><div style="padding:20px 40px 16px;border-bottom:2px solid #1e3a5f"><div style="display:flex;align-items:center;gap:20px"><div style="flex-shrink:0;width:110px;height:110px;display:flex;align-items:center;justify-content:center">${schoolLogoHtml}</div><div style="flex:1;text-align:center"><p style="font-size:10px;color:#64748b;margin:0 0 2px;letter-spacing:0.08em;text-transform:uppercase;font-weight:600">${T.republic}</p><p style="font-size:9px;color:#64748b;margin:0 0 2px">${T.district}: ${rec.district||"â€”"}</p><p style="font-size:9px;color:#64748b;margin:0 0 6px">${T.sector}: ${rec.sector||"â€”"}</p><h1 style="font-size:17px;font-weight:700;color:#1e3a5f;margin:0 0 6px;text-transform:uppercase;letter-spacing:.03em">${rec.schoolName||""}</h1><div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:center">${[[T.academicYear,rec.academicYear],[T.termLabel,rec.term],[T.levelLabel,levelLabel],[T.classLabel,classLabel]].map(([l,v])=>`<span style="font-size:12px;color:#1e293b"><strong style="color:#1e3a5f">${l}:</strong> ${v||"â€”"}</span>`).join("")}${rec.docId?`<span style="font-size:11px;font-family:monospace;font-weight:700;color:#3730a3;padding:1px 8px">${rec.docId}</span>`:""}</div></div><div style="flex-shrink:0;width:80px;height:80px;display:flex;align-items:center;justify-content:center;overflow:hidden">${otherLogoHtml}</div></div></div><div style="padding:20px 40px 28px">${parentSection}${paySection}${banksSection}${reqSection}${otherSection}${leadersSection}${notesSection}<div style="margin-bottom:22px"><div style="border-bottom:1.5px solid #1e3a5f;padding-bottom:5px;margin-bottom:12px;margin-top:20px"><span style="font-size:14px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.05em">${T.secAuth}</span></div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-top:12px"><div style="border:1px solid #e2e8f0;padding:14px;text-align:center"><p style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;margin:0 0 8px">${T.sigHeadTeacher}</p><div style="height:52px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:4px">${sigB64?`<img src="${sigB64}" style="max-height:48px;max-width:140px;object-fit:contain"/>`:`<div style="width:100%;height:1px;border-bottom:1px solid #cbd5e1"></div>`}</div><p style="font-size:11px;color:#94a3b8;margin:4px 0 0">${sigB64?T.sigSigned:T.sigRequired}</p></div><div style="border:1px solid #e2e8f0;padding:14px;display:flex;flex-direction:column;align-items:center;justify-content:center">${qrBlock}</div><div style="border:1px solid #e2e8f0;padding:14px;text-align:center"><p style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;margin:0 0 8px">${T.sigStamp}</p><div style="width:80px;height:80px;border:1px dashed #e2e8f0;border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden;margin:0 auto 6px">${stampB64?`<img src="${stampB64}" style="width:76px;height:76px;object-fit:contain;border-radius:50%"/>`:`<span style="font-size:22px;opacity:.08">ðŸ”</span>`}</div><p style="font-size:11px;color:#94a3b8;margin:0">${T.sigCachet}</p></div></div></div></div><div style="border-top:1px solid #1e3a5f;padding:8px 40px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:11px;color:#64748b">${rec.schoolName||""} Â· ${rec.district||""}</span><span style="font-size:11px;color:#1e3a5f;font-weight:700;text-transform:uppercase">${T.docOfficial}</span><span style="font-size:11px;color:#64748b">${T.docFooterLeft} ${rec.docId||"â€”"} Â· ${today}</span></div><div style="height:3px;background:#1e3a5f"></div></div>`;
 }
 
-// ── Capture doc image ─────────────────────────────────────────
+// â”€â”€ Capture doc image â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function captureDocAsImage({ rec, schoolLogoB64, otherLogoB64, sigB64, stampB64, qrB64, vUrl, lang = "en", T, parentMsgOverride }) {
   await loadScript("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js");
   const payments = Array.isArray(rec.payments) ? rec.payments : [];
@@ -328,8 +328,8 @@ async function downloadBabyeyiPdfFromServerPath(pdfPath, filename = "Babyeyi.pdf
   }
 }
 
-// ── Language switcher ─────────────────────────────────────────
-function LangSwitcher({ lang, setLang, compact = false, mtLoading = false, moreHint, searchPlaceholder = "Search language…" }) {
+// â”€â”€ Language switcher â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function LangSwitcher({ lang, setLang, compact = false, mtLoading = false, moreHint, searchPlaceholder = "Search languageâ€¦" }) {
   const [open, setOpen] = useState(false);
   const [searchQ, setSearchQ] = useState("");
   const ref = useRef(null);
@@ -488,11 +488,11 @@ function useMachineDocBody(lang, rec) {
           br.map(async (bk) => ({
             ...bk,
             bankName:
-              bk.bankName && String(bk.bankName).trim() && bk.bankName !== "—"
+              bk.bankName && String(bk.bankName).trim() && bk.bankName !== "â€”"
                 ? await safeTranslateString(String(bk.bankName), "en", lang)
                 : bk.bankName,
             accountName:
-              bk.accountName && String(bk.accountName).trim() && bk.accountName !== "—"
+              bk.accountName && String(bk.accountName).trim() && bk.accountName !== "â€”"
                 ? await safeTranslateString(String(bk.accountName), "en", lang)
                 : bk.accountName,
           }))
@@ -519,7 +519,7 @@ function useMachineDocBody(lang, rec) {
   return state;
 }
 
-// ── Share modal ───────────────────────────────────────────────
+// â”€â”€ Share modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function ShareModal({ rec, onClose, schoolLogoB64, otherLogoB64, sigB64, stampB64, qrB64, vUrl, lang = "en", T, parentMsgOverride }) {
   const [step, setStep] = useState("capturing");
   const [imgUrl, setImgUrl] = useState(null);
@@ -572,10 +572,10 @@ function ShareModal({ rec, onClose, schoolLogoB64, otherLogoB64, sigB64, stampB6
       <div className="w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-sm bg-[#000435] border-2 border-amber-400/30 flex flex-col max-h-[92vh]" style={{ fontFamily: FONT }}>
         <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between shrink-0 bg-[#000435]">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-amber-400/15 flex items-center justify-center text-xl">📤</div>
+            <div className="w-9 h-9 rounded-xl bg-amber-400/15 flex items-center justify-center text-xl">ðŸ“¤</div>
             <div>
               <p className="font-semibold text-white text-[14px]">{T.shareDoc || "Share Document"}</p>
-              <p className="text-[10px] text-white/40">{rec.class} · {rec.docId || rec.id} · {langMeta(lang).flag}</p>
+              <p className="text-[10px] text-white/40">{rec.class} Â· {rec.docId || rec.id} Â· {langMeta(lang).flag}</p>
             </div>
           </div>
           <button onClick={onClose} className="w-8 h-8 rounded-xl bg-white/8 border border-white/15 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/14">
@@ -587,7 +587,7 @@ function ShareModal({ rec, onClose, schoolLogoB64, otherLogoB64, sigB64, stampB6
             {step === "capturing" && (
               <div className="text-center p-6">
                 <div className="w-8 h-8 border-2 border-amber-400/30 border-t-amber-400 rounded-full animate-spin mx-auto mb-3" />
-                <p className="text-white/50 text-[12px]">{T.capturing || "Rendering document…"}</p>
+                <p className="text-white/50 text-[12px]">{T.capturing || "Rendering documentâ€¦"}</p>
               </div>
             )}
             {step === "error" && (
@@ -676,7 +676,7 @@ function KinyarwandaSectionEditModal({ target, recId, docId, onClose, onSaved, T
           await downloadBabyeyiPdfFromServerPath(pdfPath, fname);
         } catch (dlErr) {
           console.warn("[KinyarwandaSectionEditModal] PDF download:", dlErr);
-          alert(T.pdfSaveDownloadFailed || "Saved. The server PDF could not be downloaded — use the PDF button.");
+          alert(T.pdfSaveDownloadFailed || "Saved. The server PDF could not be downloaded  use the PDF button.");
         }
       }
       await onSaved?.();
@@ -728,7 +728,7 @@ function KinyarwandaSectionEditModal({ target, recId, docId, onClose, onSaved, T
             onClick={() => !saving && onClose()}
             className="w-8 h-8 rounded-xl bg-white/8 border border-white/15 flex items-center justify-center text-white/60 hover:text-white"
           >
-            ×
+            Ã—
           </button>
         </div>
 
@@ -739,7 +739,7 @@ function KinyarwandaSectionEditModal({ target, recId, docId, onClose, onSaved, T
               onChange={(e) => setV((s) => ({ ...s, text: e.target.value }))}
               rows={8}
               className="w-full rounded-xl bg-white/8 border border-white/15 text-white text-[13px] p-3 outline-none focus:border-amber-400/40 placeholder:text-white/30"
-              placeholder="Andika mu Kinyarwanda…"
+              placeholder="Andika mu Kinyarwandaâ€¦"
             />
           )}
           {target.type === "payment" && (
@@ -803,7 +803,7 @@ function KinyarwandaSectionEditModal({ target, recId, docId, onClose, onSaved, T
           <div>
             <p className="text-[9px] font-semibold uppercase tracking-wider text-white/35 mb-1">{T.livePreviewLabel || "Live preview"}</p>
             <div className="rounded-xl border border-white/10 bg-white p-3 text-[12px] text-[#1e293b] max-h-[140px] overflow-y-auto whitespace-pre-wrap" style={{ fontFamily: "Georgia,'Times New Roman',serif" }}>
-              {previewRw || "—"}
+              {previewRw || "â€”"}
             </div>
           </div>
         </div>
@@ -822,7 +822,7 @@ function KinyarwandaSectionEditModal({ target, recId, docId, onClose, onSaved, T
             disabled={saving}
             className="flex-1 py-2.5 rounded-xl bg-amber-400 text-[#000435] text-[12px] font-semibold disabled:opacity-50"
           >
-            {saving ? "…" : T.save || "Save"}
+            {saving ? "â€¦" : T.save || "Save"}
           </button>
         </div>
         <p className="text-[9px] text-white/35 mt-2 leading-snug">
@@ -835,8 +835,8 @@ function KinyarwandaSectionEditModal({ target, recId, docId, onClose, onSaved, T
   );
 }
 
-// ── Official doc modal ────────────────────────────────────────
-function OfficialDoc({
+// â”€â”€ Official doc modal (also embedded on public verify page) â”€
+export function BabyeyiOfficialDocViewer({
   rec: originalRec,
   onClose,
   globalLang,
@@ -846,6 +846,8 @@ function OfficialDoc({
   mtLoading: parentMtLoading,
   session,
   onRecordRefresh,
+  embedded = false,
+  publicVerify = false,
 }) {
   const [lang, setLang] = useState(globalLang || "en");
   const [downloading, setDownloading] = useState(false);
@@ -882,8 +884,8 @@ function OfficialDoc({
   const otherInfos = Array.isArray(docBody.merged.otherInfos) ? docBody.merged.otherInfos : [];
   const leaders = Array.isArray(docBody.merged.leaders) ? docBody.merged.leaders : [];
   const classNotes = Array.isArray(docBody.merged.classNotes) ? docBody.merged.classNotes : [];
-  const isRwLocale = normalizeBabyeyiLang(lang) === "rw";
-  const canSaveRwEdits = canSessionEditKinyarwandaRw(session);
+  const isRwLocale = !publicVerify && normalizeBabyeyiLang(lang) === "rw";
+  const canSaveRwEdits = !publicVerify && canSessionEditKinyarwandaRw(session);
   const openRwEdit = (target) => {
     if (!canSaveRwEdits) {
       alert(T.rwEditDenied || "You do not have permission to edit Kinyarwanda fields. Contact your school administrator.");
@@ -976,16 +978,21 @@ function OfficialDoc({
   const tblStyle = { width: "100%", borderCollapse: "collapse", marginTop: "8px" };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/75 backdrop-blur-sm p-2 sm:p-4 overflow-y-auto" style={{ fontFamily: FONT }}>
-      <div className="w-full max-w-3xl my-4">
+    <div
+      className={embedded ? "w-full" : "fixed inset-0 z-50 flex items-start justify-center bg-black/75 backdrop-blur-sm p-2 sm:p-4 overflow-y-auto"}
+      style={{ fontFamily: FONT }}
+    >
+      <div className={embedded ? "w-full" : "w-full max-w-3xl my-4"}>
         {/* Toolbar */}
-        <div className="bg-[#000435] border-2 border-amber-400/30 rounded-t-2xl px-3 sm:px-4 py-3 flex items-center gap-2 flex-wrap">
+        <div className={`bg-[#000435] border-2 border-amber-400/30 px-3 sm:px-4 py-3 flex items-center gap-2 flex-wrap ${embedded ? "rounded-2xl mb-3" : "rounded-t-2xl"}`}>
+          {onClose && (
           <button onClick={onClose} className="flex items-center gap-1 px-3 py-1.5 bg-white/8 border border-white/15 hover:bg-white/14 text-white rounded-xl text-[11px] font-bold shrink-0">
-            ← {T.backBtn || "Back"}
+            â† {publicVerify ? (T.closeBtn || "Close") : (T.backBtn || "Back")}
           </button>
+          )}
           <div className="flex-1 min-w-0 hidden sm:block">
             <p className="text-white font-semibold text-[13px] truncate">
-              {rec.schoolName} — {levelLabel} · {classLabel} · {rec.term} · {rec.academicYear}
+              {rec.schoolName} â€” {levelLabel} Â· {classLabel} Â· {rec.term} Â· {rec.academicYear}
               {rec.docId && <span className="ml-2 px-2 py-0.5 bg-amber-400/15 text-amber-400 rounded text-[8px] font-mono">{rec.docId}</span>}
             </p>
           </div>
@@ -995,22 +1002,24 @@ function OfficialDoc({
             compact
             moreHint={T.moreLanguagesHint}
             mtLoading={!!parentMtLoading || docBody.busy}
-            searchPlaceholder="Search language or code…"
+            searchPlaceholder="Search language or codeâ€¦"
           />
           <span className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-semibold border shrink-0 ${st.bg} ${st.text} ${st.border}`}>
             <span className={`w-1.5 h-1.5 rounded-full inline-block ${st.dot}`} /> {st.label}
           </span>
-          {rec.docId && (
+          {!publicVerify && rec.docId && (
             <a href={babyeyiVerifyScanUrl(rec.docId, rec.integrityHash)} target="_blank" rel="noreferrer"
               className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 rounded-xl text-[10px] font-bold shrink-0 hover:bg-emerald-500/25">
               <Check className="w-3 h-3 shrink-0" strokeWidth={3} aria-hidden /> {T.verify || "Verify"}
             </a>
           )}
+          {!publicVerify && (
           <button onClick={handleRegen} disabled={regenerating}
             className="flex items-center gap-1 px-2.5 py-1.5 bg-white/8 border border-white/15 text-white/70 rounded-xl text-[10px] font-bold disabled:opacity-50 shrink-0 hover:bg-white/14">
             {regenerating ? <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <RefreshCw className="w-3 h-3 shrink-0" strokeWidth={2.5} aria-hidden />} {T.regen || "Regen"}
             </button>
-          {!blocked ? (
+          )}
+          {!publicVerify && !blocked ? (
             <button onClick={() => setShowShare(true)}
               className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-bold shrink-0 text-white"
               style={{ background: "linear-gradient(135deg,#25D366,#128C7E)" }}>
@@ -1030,7 +1039,7 @@ function OfficialDoc({
           )}
         </div>
 
-        {blocked && (
+        {blocked && !publicVerify && (
           <div className="bg-amber-400/10 border-x border-amber-400/20 px-4 py-2 flex items-center gap-2">
             <Lock className="w-3.5 h-3.5 shrink-0 text-amber-400" aria-hidden strokeWidth={2.5} />
             <p className="text-amber-400 text-[10px] font-bold">{T.lockedPdfWhatsapp || "PDF and sharing locked until approved."}</p>
@@ -1042,13 +1051,13 @@ function OfficialDoc({
           </p>
         </div>
 
-        {/* Doc body — white background for official doc look */}
+        {/* Doc body â€” white background for official doc look */}
         <div className="relative bg-white shadow-sm rounded-b-2xl overflow-hidden" style={{ fontFamily: "Georgia,'Times New Roman',serif" }}>
           {docBody.busy && !isCoreBabyeyiLang(lang) && (
             <div className="absolute inset-0 z-10 bg-white/75 backdrop-blur-[2px] flex items-center justify-center p-4">
               <div className="flex flex-col items-center gap-2 text-[#000435]">
                 <span className="w-8 h-8 border-2 border-amber-400/30 border-t-amber-500 rounded-full animate-spin" />
-                <p className="text-[11px] font-semibold text-center">{T.translating || "Translating document…"}</p>
+                <p className="text-[11px] font-semibold text-center">{T.translating || "Translating documentâ€¦"}</p>
               </div>
             </div>
           )}
@@ -1063,12 +1072,12 @@ function OfficialDoc({
               </div>
               <div style={{ flex: 1, textAlign: "center" }}>
                 <p style={{ fontSize: "10px", color: "#64748b", margin: "0", letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 600, lineHeight: "1.8" }}>{T.republic}</p>
-                <p style={{ fontSize: "10px", color: "#64748b", margin: "0", lineHeight: "1.8" }}>{T.district}: <strong style={{ color: "#1e3a5f" }}>{rec.district || "—"}</strong></p>
-                <p style={{ fontSize: "10px", color: "#64748b", margin: "0 0 6px", lineHeight: "1.8" }}>{T.sector}: <strong style={{ color: "#1e3a5f" }}>{rec.sector || "—"}</strong></p>
+                <p style={{ fontSize: "10px", color: "#64748b", margin: "0", lineHeight: "1.8" }}>{T.district}: <strong style={{ color: "#1e3a5f" }}>{rec.district || "â€”"}</strong></p>
+                <p style={{ fontSize: "10px", color: "#64748b", margin: "0 0 6px", lineHeight: "1.8" }}>{T.sector}: <strong style={{ color: "#1e3a5f" }}>{rec.sector || "â€”"}</strong></p>
                 <h1 style={{ fontSize: "17px", fontWeight: 700, color: "#1e3a5f", margin: "0 0 6px", textTransform: "uppercase", letterSpacing: ".03em" }}>{rec.schoolName}</h1>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "14px", alignItems: "center", justifyContent: "center", marginBottom: "8px" }}>
                   {[[T.academicYear, rec.academicYear], [T.termLabel, rec.term], [T.levelLabel, levelLabel], [T.classLabel, classLabel]].map(([l, v], i) => (
-                    <span key={i} style={DOC.body}><strong style={{ color: "#1e3a5f" }}>{l}:</strong> {v || "—"}</span>
+                    <span key={i} style={DOC.body}><strong style={{ color: "#1e3a5f" }}>{l}:</strong> {v || "â€”"}</span>
                   ))}
                   {rec.docId && <span style={{ ...DOC.body, fontFamily: "monospace", fontWeight: 700, color: "#3730a3", border: "1px solid #c7d2fe", padding: "1px 8px" }}>{rec.docId}</span>}
                 </div>
@@ -1098,7 +1107,7 @@ function OfficialDoc({
                 {parentMsg ? (
                   <p style={{ ...DOC.body, whiteSpace: "pre-line", margin: 0, paddingLeft: "16px" }}>{parentMsg}</p>
                 ) : (
-                  isRwLocale && <p style={{ ...DOC.body, color: "#94a3b8", margin: 0, paddingLeft: "16px", fontStyle: "italic" }}>—</p>
+                  isRwLocale && <p style={{ ...DOC.body, color: "#94a3b8", margin: 0, paddingLeft: "16px", fontStyle: "italic" }}>â€”</p>
                 )}
               </div>
             )}
@@ -1131,7 +1140,7 @@ function OfficialDoc({
                 <div style={{ paddingBottom: "5px", marginBottom: "12px" }}><span style={DOC.heading}>{T.secBanking}</span></div>
                 <table style={tblStyle}>
                   <thead><tr><Th w="40px" center>#</Th><Th>{T.thBank || "Bank"}</Th><Th>{T.thAccount || "Account"}</Th><Th>{T.thAccountName || "Name"}</Th><Th w="70px" center>{T.thPrimary || "Primary"}</Th></tr></thead>
-                  <tbody>{banks.map((bk, i) => (<tr key={i}><Td center color="#64748b">{i + 1}</Td><Td bold>{bk.bankName || "—"}</Td><Td mono>{bk.accountNumber || "—"}</Td><Td>{bk.accountName || "—"}</Td><Td center color="#059669" bold>{bk.isPrimary || i === 0 ? "✓" : ""}</Td></tr>))}</tbody>
+                  <tbody>{banks.map((bk, i) => (<tr key={i}><Td center color="#64748b">{i + 1}</Td><Td bold>{bk.bankName || "â€”"}</Td><Td mono>{bk.accountNumber || "â€”"}</Td><Td>{bk.accountName || "â€”"}</Td><Td center color="#059669" bold>{bk.isPrimary || i === 0 ? "âœ“" : ""}</Td></tr>))}</tbody>
                 </table>
               </div>
             )}
@@ -1190,18 +1199,18 @@ function OfficialDoc({
                   <tbody>{leaders.map((l, i) => (
                     <tr key={l.id || i}>
                       <Td center color="#64748b">{i + 1}</Td>
-                      <Td bold color="#1e3a5f">{l.name || "—"}</Td>
+                      <Td bold color="#1e3a5f">{l.name || "â€”"}</Td>
                       <Td italic color="#475569">
                         <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                          <span>{l.role || "—"}</span>
+                          <span>{l.role || "â€”"}</span>
                           {isRwLocale && (
                             <button type="button" onClick={() => openRwEdit({ type: "leader", index: i, role: l.role || "" })}
                               style={{ fontSize: "10px", fontWeight: 700, color: "#4f46e5", border: "none", background: "none", cursor: "pointer", flexShrink: 0 }}>{T.editBtn}</button>
                           )}
                         </span>
                       </Td>
-                      <td style={{ ...DOC.td, fontFamily: "monospace", fontSize: "11px" }}>{l.phone ? `+250 ${l.phone}` : "—"}</td>
-                      <td style={{ ...DOC.td, fontSize: "11px", color: "#2563eb" }}>{l.email || "—"}</td>
+                      <td style={{ ...DOC.td, fontFamily: "monospace", fontSize: "11px" }}>{l.phone ? `+250 ${l.phone}` : "â€”"}</td>
+                      <td style={{ ...DOC.td, fontSize: "11px", color: "#2563eb" }}>{l.email || "â€”"}</td>
                     </tr>
                   ))}</tbody>
                 </table>
@@ -1224,7 +1233,7 @@ function OfficialDoc({
                           )}
                         </span>
                       </Td>
-                      <Td>{n.details || "—"}</Td>
+                      <Td>{n.details || "â€”"}</Td>
                     </tr>
                   ))}</tbody>
                 </table>
@@ -1253,7 +1262,7 @@ function OfficialDoc({
                   ) : qrLoading ? (
                     <div className="flex flex-col items-center gap-2">
                       <div className="w-5 h-5 border-2 border-amber-400/30 border-t-amber-400 rounded-full animate-spin" />
-                      <span style={{ fontSize: "10px", color: "#4f46e5", fontWeight: 700 }}>{T.generatingQr || "Generating…"}</span>
+                      <span style={{ fontSize: "10px", color: "#4f46e5", fontWeight: 700 }}>{T.generatingQr || "Generatingâ€¦"}</span>
                     </div>
                   ) : (
                     <div style={{ width: 80, height: 80, border: "1px dashed #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -1307,36 +1316,26 @@ function OfficialDoc({
   );
 }
 
-// ── Edit wizard modal ─────────────────────────────────────────
+function OfficialDoc(props) {
+  return <BabyeyiOfficialDocViewer {...props} />;
+}
+
+// â”€â”€ Edit wizard modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function EditWizardModal({ rec, session, onClose, onSaved }) {
-  useEffect(() => { document.body.style.overflow = "hidden"; return () => { document.body.style.overflow = ""; }; }, []);
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-[#000435]/85 backdrop-blur-md"
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="bg-[#000435] border-2 border-amber-400/30 rounded-3xl w-full flex flex-col shadow-sm"
-        style={{ maxWidth: "680px", maxHeight: "94vh", overflowY: "auto", animation: "modalIn 0.25s cubic-bezier(0.34,1.56,0.64,1)", fontFamily: FONT }}>
-        <div className="px-5 py-4 shrink-0 flex items-center justify-between sticky top-0 z-10 bg-[#000435] border-b border-amber-400/20">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-amber-400/15 border border-amber-400/20 flex items-center justify-center text-amber-400"><Pencil className="w-4 h-4" strokeWidth={2.25} aria-hidden /></div>
-            <div>
-              <h1 className="font-semibold text-white text-[14px]">Edit Babyeyi</h1>
-              <p className="text-[10px] text-amber-400/60">{rec.class} · {rec.term} · {rec.academicYear}</p>
-            </div>
-          </div>
-          <button type="button" onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl bg-white/8 border border-white/15 text-white/60 hover:text-white hover:bg-white/14" aria-label="Close">
-            <X className="w-3.5 h-3.5" strokeWidth={2} />
-          </button>
-        </div>
-        <div style={{ flex: 1, minHeight: 0 }}>
-          <WizardContent session={session} editRecord={rec} onClose={onClose} onSuccess={() => { if (onSaved) onSaved(rec); onClose(); }} />
-        </div>
-      </div>
-      <style>{`@keyframes modalIn{from{opacity:0;transform:scale(.95) translateY(12px)}to{opacity:1;transform:scale(1) translateY(0)}} @keyframes spin{to{transform:rotate(360deg)}}`}</style>
-    </div>
+    <CreateBabyeyiModal
+      key={rec.id}
+      session={session}
+      isOpen
+      editRecord={rec}
+      onClose={onClose}
+      onSuccess={() => { if (onSaved) onSaved(rec); onClose(); }}
+    />
   );
 }
 
-// ── Delete modal ──────────────────────────────────────────────
+
+// â”€â”€ Delete modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function DeleteModal({ rec, onConfirm, onCancel, T }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" style={{ fontFamily: FONT }}>
@@ -1347,7 +1346,7 @@ function DeleteModal({ rec, onConfirm, onCancel, T }) {
         </div>
         <div className="p-5">
           <div className="rounded-xl border border-white/10 bg-white/4 p-4 mb-4">
-            <p className="font-semibold text-white text-[14px]">{rec.class} · {rec.term} · {rec.academicYear}</p>
+            <p className="font-semibold text-white text-[14px]">{rec.class} Â· {rec.term} Â· {rec.academicYear}</p>
             {rec.docId && <p className="text-[10px] font-mono text-amber-400/60 mt-1">{rec.docId}</p>}
           </div>
           <div className="flex gap-3">
@@ -1364,7 +1363,7 @@ function DeleteModal({ rec, onConfirm, onCancel, T }) {
   );
 }
 
-// ── Babyeyi card ──────────────────────────────────────────────
+// â”€â”€ Babyeyi card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function BabyeyiCard({ rec, onView, onEdit, onDelete, onShare, T, lang }) {
   const stKeyCard = String(rec.status || "draft").toLowerCase();
   const st = { ...(STATUS_CFG[rec.status] || STATUS_CFG.draft), label: T[`status_${stKeyCard}`] || getStatusLabelSafe(lang, rec.status) };
@@ -1386,7 +1385,7 @@ function BabyeyiCard({ rec, onView, onEdit, onDelete, onShare, T, lang }) {
               <span className="text-amber-800 font-medium text-[10px] text-center leading-tight">{classes.join(", ")}</span>
             </div>
             <div className="min-w-0">
-              <p className="font-semibold text-slate-900 text-[13px] truncate">{rec.term} · {rec.academicYear}</p>
+              <p className="font-semibold text-slate-900 text-[13px] truncate">{rec.term} Â· {rec.academicYear}</p>
               <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                 <span className="text-[10px] font-medium text-slate-500">{rec.level}</span>
                 {rec.docId && <span className="px-1.5 py-0.5 rounded text-[8px] font-mono font-medium bg-amber-50 text-amber-700 border border-amber-200">{rec.docId}</span>}
@@ -1410,7 +1409,7 @@ function BabyeyiCard({ rec, onView, onEdit, onDelete, onShare, T, lang }) {
           </div>
           <div className="rounded-xl px-3 py-2.5 border bg-slate-50 border-slate-200">
             <p className="text-[9px] font-medium uppercase tracking-wider text-slate-500 mb-0.5">{T.bankShort || "Bank"}</p>
-            <p className="text-[11px] font-medium text-slate-700 truncate">{rec.bankName || "—"}</p>
+            <p className="text-[11px] font-medium text-slate-700 truncate">{rec.bankName || "â€”"}</p>
             {rec.bankAccountNo && <p className="text-[9px] text-slate-400 font-mono truncate">{rec.bankAccountNo}</p>}
           </div>
         </div>
@@ -1448,7 +1447,7 @@ function BabyeyiCard({ rec, onView, onEdit, onDelete, onShare, T, lang }) {
   );
 }
 
-// ── Data mapping ──────────────────────────────────────────────
+// â”€â”€ Data mapping â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const mapRow = (row) => {
   let paymentsArr = [];
   try { const raw = row.payments; if (Array.isArray(raw)) paymentsArr = raw; else if (typeof raw === "string" && raw.startsWith("[")) paymentsArr = JSON.parse(raw); } catch {}
@@ -1459,8 +1458,15 @@ const mapRow = (row) => {
     id: row.id, class: row.class_name || row.class || (classes[0] || ""), classes,
     level: row.education_level || row.level || "Primary", term: row.term || "", academicYear: row.academic_year || "",
     status: row.status || "draft", totalFee: Number(totalFee || 0), nesaLimit: row.nesa_limit != null ? Number(row.nesa_limit) : null,
-    exceedsLimit: !!row.exceeds_limit, schoolName: row.school_name || "", district: row.school_district || row.district || "",
-    sector: row.school_sector || row.sector || "", createdAt: row.created_at || "",
+    exceedsLimit: !!row.exceeds_limit, schoolName: row.school_name || "",
+    province: row.school_province || row.province || "",
+    district: row.school_district || row.district || "",
+    sector: row.school_sector || row.sector || "",
+    cell: row.school_cell || row.cell || "",
+    village: row.school_village || row.village || "",
+    category: row.school_category || row.category || "Public",
+    language: row.language || row.document_language || "en",
+    createdAt: row.created_at || "",
     bankName: row.bank_name || "", bankAccountNo: row.bank_account_no || "", bankAccountName: row.bank_account_name || "",
     banksJson: row.banks_json || null, parentMessage: row.parent_message || "", docId: row.doc_id || null,
     integrityHash: row.integrity_hash != null ? String(row.integrity_hash) : null,
@@ -1473,7 +1479,7 @@ const mapRow = (row) => {
   };
 };
 
-async function loadFullRecord(sumRec, docLang = "en") {
+export async function loadFullRecord(sumRec, docLang = "en") {
   const code = ["en","rw","fr"].includes(docLang) ? docLang : "en";
   const res = await fetch(`${API_BASE}/babyeyi/${sumRec.id}?lang=${encodeURIComponent(code)}`, { credentials: "include" });
   const json = await res.json();
@@ -1503,8 +1509,43 @@ async function loadFullRecord(sumRec, docLang = "en") {
   let leaders = [];
   if (Array.isArray(d.leaders) && d.leaders.length) leaders = d.leaders;
   else { try { const lRes = await fetch(`${API_BASE}/babyeyi/${sumRec.id}/leaders`, { credentials: "include" }); const lJson = await lRes.json(); if (lJson.success && Array.isArray(lJson.data)) leaders = lJson.data; } catch {} }
+
+  let classes = Array.isArray(sumRec.classes) && sumRec.classes.length ? [...sumRec.classes] : [];
+  try {
+    const cj = d.classes_json;
+    if (cj) {
+      const raw = typeof cj === "string" ? JSON.parse(cj) : cj;
+      if (Array.isArray(raw) && raw.length) classes = raw.filter(Boolean);
+    }
+  } catch { /* ignore */ }
+  const primaryClass = d.class || d.class_name || sumRec.class || (classes[0] || "");
+  if (!classes.length && primaryClass) classes = [primaryClass];
+
+  const schoolLogoPath = norm(sig.school_logo_path) || norm(sumRec.schoolLogoPath) || null;
+  const signaturePath = norm(sig.director_sig_path) || norm(sumRec.signaturePath) || null;
+  const stampPath = norm(sig.stamp_path) || norm(sumRec.stampPath) || null;
+  const otherLogoPath = norm(sig.other_logo_path) || norm(sumRec.otherLogoPath) || null;
+  const inc = d.increase_request || null;
+  const category = d.category || d.school_category || sumRec.category || "Public";
+
   return {
-    ...sumRec, payments,
+    ...sumRec,
+    id: d.id ?? sumRec.id,
+    class: primaryClass,
+    className: primaryClass,
+    classes,
+    level: d.level || d.education_level || sumRec.level || "Primary",
+    term: d.term || sumRec.term || "",
+    academicYear: d.academic_year || sumRec.academicYear || "",
+    category,
+    language: d.language || d.document_language || sumRec.language || "en",
+    province: d.province || d.school_province || sumRec.province || "",
+    district: d.district || d.school_district || sumRec.district || "",
+    sector: d.sector || d.school_sector || sumRec.sector || "",
+    cell: d.cell || d.school_cell || sumRec.cell || "",
+    village: d.village || d.school_village || sumRec.village || "",
+    schoolName: d.school_name || sumRec.schoolName || "",
+    payments,
     requirements: (d.student_requirements || []).map((r) => ({
       item: r.item,
       description: r.description || "",
@@ -1512,11 +1553,23 @@ async function loadFullRecord(sumRec, docLang = "en") {
       pay_channel: String(r.pay_channel || r.payChannel || "").toLowerCase() === "school" ? "school" : "babyeyi",
       cost: r.cost != null && r.cost !== "" ? String(r.cost) : "",
     })),
-    classNotes, otherInfos, leaders, leadersCount: leaders.length,
-    increaseRequest: d.increase_request ? { requestTitle: d.increase_request.request_title || d.increase_request.reason, nesaStatus: d.increase_request.nesa_status } : null,
-    signaturePath: norm(sig.director_sig_path) || null, stampPath: norm(sig.stamp_path) || null,
-    schoolLogoPath: norm(sig.school_logo_path) || norm(sumRec.schoolLogoPath) || null,
-    otherLogoPath: norm(sig.other_logo_path) || norm(sumRec.otherLogoPath) || null,
+    classNotes,
+    classReqs: classNotes,
+    otherInfos,
+    leaders,
+    leadersCount: leaders.length,
+    increaseRequest: inc ? { requestTitle: inc.request_title || inc.reason, nesaStatus: inc.nesa_status } : null,
+    requestIncrease: !!inc,
+    requestTitle: inc?.request_title || inc?.reason || "",
+    requestDescription: inc?.description || "",
+    signaturePath,
+    stampPath,
+    schoolLogoPath,
+    otherLogoPath,
+    logoUrl: toAssetUrl(schoolLogoPath),
+    signatureUrl: toAssetUrl(signaturePath),
+    stampUrl: toAssetUrl(stampPath),
+    otherLogoUrl: toAssetUrl(otherLogoPath),
     qrCodeUrl: norm(sig.qr_code_path) || norm(d.qr_code_path) || norm(d.qr_code_url) || null,
     qrViewUrl: sig.qr_view_url || d.qr_view_url || null,
     pdfPath: norm(d.pdf_path) || norm(d.pdf_url) || null,
@@ -1525,13 +1578,16 @@ async function loadFullRecord(sumRec, docLang = "en") {
     totalFee: Number(d.total_fee || d.total_amount || payments.reduce((s, p) => s + Number(p.amount || 0), 0) || 0),
     parentMessage: d.parent_message || sumRec.parentMessage || "",
     banksJson: d.banks_json || sumRec.banksJson || null,
+    bankName: sumRec.bankName || d.bank_name || "",
+    bankAccountNo: sumRec.bankAccountNo || d.bank_account_no || "",
+    bankAccountName: sumRec.bankAccountName || d.bank_account_name || "",
     translationsJson: parseTranslationsJson(d.translations_json) ?? sumRec.translationsJson ?? null,
   };
 }
 
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // MAIN COMPONENT
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 export default function BabyeyiList({ session, lang: dashboardLang, setLang: setDashboardLang }) {
   const schoolId = session?.schoolId ?? null;
   const dashboardLangSync =
@@ -1626,7 +1682,7 @@ export default function BabyeyiList({ session, lang: dashboardLang, setLang: set
   const handleView = async (sumRec) => { try { setViewing(await loadFullRecord(sumRec, lang)); } catch (e) { showToast(e.message || "Failed to open", "error"); } };
 
   const handleEdit = async (sumRec) => {
-    showToast("Loading record…", "info");
+    showToast("Loading recordâ€¦", "info");
     try { const full = await loadFullRecord(sumRec, lang); setToast(null); setEditing(full); }
     catch (e) { showToast(e.message || "Failed to load", "error"); }
   };
@@ -1635,7 +1691,7 @@ export default function BabyeyiList({ session, lang: dashboardLang, setLang: set
 
   const handleShare = async (sumRec) => {
     if (isBlocked(sumRec.status)) { showToast("Sharing locked until approved.", "error"); return; }
-    showToast("Loading document…", "info");
+    showToast("Loading documentâ€¦", "info");
     try { const full = await loadFullRecord(sumRec, lang); setToast(null); setSharing(full); }
     catch (e) { showToast(e.message || "Failed", "error"); }
   };
@@ -1738,7 +1794,7 @@ export default function BabyeyiList({ session, lang: dashboardLang, setLang: set
                   compact
                   mtLoading={machineActive && mtLoading}
                   moreHint={T.moreLanguagesHint}
-                  searchPlaceholder="Search language or code…"
+                  searchPlaceholder="Search language or codeâ€¦"
                 />
                 {machineActive && mtError && (
                   <p className="text-[9px] text-red-500 max-w-[200px] text-right">{mtError}</p>
@@ -1769,7 +1825,7 @@ export default function BabyeyiList({ session, lang: dashboardLang, setLang: set
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none w-[15px] h-[15px]" strokeWidth={2} aria-hidden />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder={T.searchPlaceholder || "Search by class, term, year, doc ID…"}
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder={T.searchPlaceholder || "Search by class, term, year, doc IDâ€¦"}
               className="w-full pl-9 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-[13px] text-slate-700 placeholder:text-slate-400 outline-none focus:border-amber-400/60 transition-all" style={{ fontFamily: FONT }} />
             {search && (
               <button type="button" onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded" aria-label="Clear search">
@@ -1831,7 +1887,7 @@ export default function BabyeyiList({ session, lang: dashboardLang, setLang: set
         <div className="flex items-center justify-between">
           <p className="text-[12px] font-medium text-slate-500" style={{ fontFamily: FONT }}>
             {filtered.length} {filtered.length !== 1 ? (T.recordsPlural || "records") : (T.records || "record")}
-            {(search || activeFilters > 0) && <span className="text-amber-400"> — {T.filtered ? String(T.filtered).replace(/^\(|\)$/g, "") : "filtered"}</span>}
+            {(search || activeFilters > 0) && <span className="text-amber-400"> â€” {T.filtered ? String(T.filtered).replace(/^\(|\)$/g, "") : "filtered"}</span>}
           </p>
         </div>
 
@@ -1839,7 +1895,7 @@ export default function BabyeyiList({ session, lang: dashboardLang, setLang: set
         {loading ? (
           <div className="text-center py-20">
             <div className="w-12 h-12 border-2 border-amber-400/20 border-t-amber-400 rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-slate-500 font-medium text-[13px]" style={{ fontFamily: FONT }}>{T.loading || "Loading…"}</p>
+            <p className="text-slate-500 font-medium text-[13px]" style={{ fontFamily: FONT }}>{T.loading || "Loadingâ€¦"}</p>
           </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-20 rounded-2xl bg-white border border-slate-200">

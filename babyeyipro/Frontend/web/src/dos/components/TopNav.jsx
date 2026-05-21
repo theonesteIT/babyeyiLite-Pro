@@ -56,7 +56,7 @@ const TopNav = ({ title, onMenuClick }) => {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-re-bg border border-black/5 rounded-2xl py-2 pl-10 pr-4 text-xs font-medium outline-none focus:ring-2 transition-all text-re-text"
+            className="w-full bg-white border border-black/5 rounded-2xl py-2 pl-10 pr-4 text-xs font-medium outline-none focus:ring-2 transition-all text-re-text"
             style={{ '--tw-ring-color': 'rgba(254,191,16,0.25)' }}
             placeholder={`Search ${PORTAL.brandLine.toLowerCase()}…`}
           />

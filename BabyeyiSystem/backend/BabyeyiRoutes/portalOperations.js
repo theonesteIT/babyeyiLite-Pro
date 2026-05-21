@@ -3,6 +3,14 @@
 const express = require('express');
 const { promisePool } = require('../config/database');
 const { fetchActiveCatalogMaps } = require('./shuleAvanceCatalogStore');
+const {
+  upsertSubscription,
+  removeSubscription,
+  sendWebPushToUser,
+  sendWebPushToSchoolRoles,
+  getVapidPublicKey,
+  isWebPushConfigured,
+} = require('./webPushSubscriptions');
 
 const router = express.Router();
 
@@ -27,7 +35,22 @@ const STORE_WRITE_ROLES = ['STORE_MANAGER', 'STOREKEEPER'];
 const ADMIN_AUDIT_ROLES = ['SCHOOL_ADMIN', 'SCHOOL_MANAGER'];
 
 let tablesReady = false;
-const PORTAL_OPS_PREFIX_RE = /^\/(teacher-portal\/(?:requisitions|inventory-equipment|permissions)|reports\/(?:requisitions\/teacher|teacher-permissions)|accountant\/(?:requisitions|expenses|payroll(?:-requests)?)|manager\/(?:payroll-requests|requisitions)|staff\/payroll\/my|payroll\/audit-log|store\/(?:requisitions|inventory|suppliers|movements)|admin\/(?:portal-audit-logs|staff-logins)|tools\/ticha-ai)(\/|$)/i;
+const PORTAL_OPS_PREFIX_RE = /^\/(teacher-portal\/(?:requisitions|inventory-equipment|permissions)|reports\/(?:requisitions\/teacher|teacher-permissions)|accountant\/(?:requisitions|expenses|payroll(?:-requests)?|school-budgets|budget-lines|budget-line-usage|action-plans|action-plan-activities)|manager\/(?:payroll-requests|requisitions)|staff\/payroll\/my|payroll\/audit-log|store\/(?:requisitions|inventory|suppliers|movements)|admin\/(?:portal-audit-logs|staff-logins)|portal\/push|tools\/ticha-ai)(\/|$)/i;
+
+const BUDGET_LARGE_EXPENSE_RWF = Number(process.env.BUDGET_LARGE_EXPENSE_RWF || 5_000_000);
+
+function notifyBudgetSchoolRoles(schoolId, roleCodes, payload) {
+  setImmediate(() => {
+    sendWebPushToSchoolRoles(schoolId, roleCodes, payload).catch(() => {});
+  });
+}
+
+function notifyBudgetUser(userId, payload) {
+  if (!userId) return;
+  setImmediate(() => {
+    sendWebPushToUser(userId, payload).catch(() => {});
+  });
+}
 
 function resolveUserId(req) {
   return req.session?.userId || req.session?.user?.id || req.user?.id || null;
@@ -607,6 +630,104 @@ async function ensureTables() {
   await promisePool.query(`ALTER TABLE store_movements ADD COLUMN academic_year VARCHAR(64) NULL`).catch(() => {});
   await promisePool.query(`ALTER TABLE store_movements ADD COLUMN movement_date DATE NULL`).catch(() => {});
   await promisePool.query(`ALTER TABLE store_movements ADD COLUMN stock_after DECIMAL(14,2) NOT NULL DEFAULT 0`).catch(() => {});
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS school_budgets (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      school_id INT UNSIGNED NOT NULL,
+      created_by_user_id INT UNSIGNED NOT NULL,
+      budget_code VARCHAR(32) NOT NULL,
+      title VARCHAR(220) NOT NULL,
+      academic_year VARCHAR(64) NOT NULL,
+      term VARCHAR(64) NOT NULL,
+      budget_type VARCHAR(64) NOT NULL DEFAULT 'Term Budget',
+      status VARCHAR(32) NOT NULL DEFAULT 'draft',
+      start_date DATE NULL,
+      end_date DATE NULL,
+      description TEXT NULL,
+      approval_notes TEXT NULL,
+      total_expected_income_rwf DECIMAL(16,2) NOT NULL DEFAULT 0,
+      total_allocated_rwf DECIMAL(16,2) NOT NULL DEFAULT 0,
+      prepared_by_name VARCHAR(200) NULL,
+      submitted_at DATETIME NULL,
+      deleted_at DATETIME NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_school_budget_code (school_id, budget_code),
+      KEY idx_school_budgets_school (school_id, deleted_at),
+      KEY idx_school_budgets_status (school_id, status, deleted_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS school_budget_income_sources (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      budget_id INT UNSIGNED NOT NULL,
+      school_id INT UNSIGNED NOT NULL,
+      income_source_key VARCHAR(120) NOT NULL,
+      custom_source_name VARCHAR(220) NULL,
+      income_category VARCHAR(120) NULL,
+      expected_amount_rwf DECIMAL(16,2) NOT NULL DEFAULT 0,
+      collection_frequency VARCHAR(32) NULL,
+      description TEXT NULL,
+      sort_order INT UNSIGNED NOT NULL DEFAULT 0,
+      KEY idx_budget_income_budget (budget_id),
+      KEY idx_budget_income_school (school_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await promisePool.query(`ALTER TABLE school_budgets ADD COLUMN manager_reviewed_at DATETIME NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE school_budgets ADD COLUMN manager_reviewed_by_user_id INT UNSIGNED NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE school_budgets ADD COLUMN manager_review_notes TEXT NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE school_budget_lines ADD COLUMN is_frozen TINYINT(1) NOT NULL DEFAULT 0`).catch(() => {});
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS school_budget_lines (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      school_id INT UNSIGNED NOT NULL,
+      budget_id INT UNSIGNED NOT NULL,
+      created_by_user_id INT UNSIGNED NOT NULL,
+      line_name_key VARCHAR(120) NOT NULL,
+      custom_line_name VARCHAR(220) NULL,
+      budget_category VARCHAR(64) NOT NULL,
+      department VARCHAR(64) NOT NULL,
+      priority_level VARCHAR(32) NOT NULL DEFAULT 'Medium',
+      planned_amount_rwf DECIMAL(16,2) NOT NULL DEFAULT 0,
+      used_amount_rwf DECIMAL(16,2) NOT NULL DEFAULT 0,
+      allocation_date DATE NULL,
+      description TEXT NULL,
+      notes TEXT NULL,
+      reference_number VARCHAR(64) NULL,
+      attachments_json JSON NULL,
+      prepared_by_name VARCHAR(200) NULL,
+      reviewed_by_name VARCHAR(200) NULL,
+      approval_status VARCHAR(32) NOT NULL DEFAULT 'Pending',
+      approval_notes TEXT NULL,
+      deleted_at DATETIME NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      KEY idx_budget_lines_school (school_id, deleted_at),
+      KEY idx_budget_lines_budget (budget_id, deleted_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS school_budget_line_usage (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      school_id INT UNSIGNED NOT NULL,
+      budget_line_id INT UNSIGNED NOT NULL,
+      created_by_user_id INT UNSIGNED NOT NULL,
+      usage_amount_rwf DECIMAL(16,2) NOT NULL DEFAULT 0,
+      usage_date DATE NOT NULL,
+      expense_category VARCHAR(64) NULL,
+      payment_method VARCHAR(32) NULL,
+      description TEXT NULL,
+      receipt_name VARCHAR(255) NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_line_usage_line (budget_line_id),
+      KEY idx_line_usage_school (school_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
 
   await promisePool.query(`
     CREATE TABLE IF NOT EXISTS teacher_permissions (
@@ -4553,6 +4674,1360 @@ router.get('/admin/staff-logins', requireRole(ADMIN_AUDIT_ROLES), async (req, re
   }
 });
 
+// -------------------- School Budgets --------------------
+const SCHOOL_BUDGET_STATUSES = ['draft', 'pending_approval', 'approved', 'rejected', 'closed'];
+const SCHOOL_BUDGET_TYPES = ['Term Budget', 'Annual Budget', 'Department Budget', 'Project Budget', 'Emergency Budget', 'Supplementary Budget'];
+const SCHOOL_BUDGET_TERMS = ['Term 1', 'Term 2', 'Term 3', 'Full Academic Year'];
+const SCHOOL_BUDGET_FREQUENCIES = ['One Time', 'Daily', 'Weekly', 'Monthly', 'Per Term', 'Per Academic Year'];
+const SCHOOL_BUDGET_INCOME_CATEGORIES = [
+  'Academic Fees', 'Boarding & Welfare', 'Transport', 'Government Support',
+  'Projects & Business', 'Donations', 'Miscellaneous', 'Other',
+];
+const SCHOOL_BUDGET_INCOME_SOURCES = [
+  'Academic Fees', 'Tuition Fees', 'Registration Fees', 'Admission Fees', 'Re-admission Fees',
+  'Examination Fees', 'Academic Materials Fees', 'Library Fees', 'Laboratory Fees', 'ICT/Computer Lab Fees',
+  'Practical Training Fees', 'Certificate Processing Fees', 'Transcript Fees', 'Identity Card Fees',
+  'Boarding Fees', 'Feeding Fees', 'Dormitory Fees', 'Laundry Fees', 'Welfare Contributions',
+  'Transport Fees', 'School Bus Fees', 'Trip Contributions',
+  'Government Grants', 'MINEDUC Support', 'District Support Funds', 'Capitation Grants', 'TVET Funding', 'Development Grants',
+  'PTA Contributions', 'Parent Contributions', 'Community Donations', 'Church Support', 'Sponsorship Funds',
+  'School Canteen Income', 'School Shop Income', 'Agriculture Project Income', 'Livestock Project Income',
+  'School Production Sales', 'Event Ticket Sales', 'Hall Rental Income', 'School Farm Income', 'Uniform Sales', 'Bookshop Sales',
+  'NGO Donations', 'International Grants', 'Scholarship Funds', 'Sponsor Contributions', 'Charity Donations',
+  'Late Payment Penalties', 'Student Fines', 'Discipline Fines', 'Replacement Card Fees', 'Damage Compensation Fees',
+  'Bank Interest', 'Investment Income', 'Savings Interest', 'Graduation Contributions', 'Competition Participation Fees', 'Study Tour Contributions',
+  'Other',
+];
+
+function normalizeBudgetStatus(v) {
+  const raw = String(v || '').trim().toLowerCase().replace(/\s+/g, '_');
+  if (raw === 'pending' || raw === 'pendingapproval') return 'pending_approval';
+  if (raw === 'save_draft' || raw === 'savedraft') return 'draft';
+  return raw;
+}
+
+function budgetStatusToLabel(status) {
+  const map = {
+    draft: 'Draft',
+    pending_approval: 'Pending Approval',
+    approved: 'Approved',
+    rejected: 'Rejected',
+    closed: 'Closed',
+  };
+  return map[status] || status;
+}
+
+async function generateSchoolBudgetCode(schoolId, academicYear) {
+  const yearMatch = String(academicYear || '').match(/\d{4}/);
+  const year = yearMatch ? yearMatch[0] : String(new Date().getFullYear());
+  const prefix = `BGT-${year}-`;
+  const [[row]] = await promisePool.query(
+    `SELECT COUNT(*) AS cnt
+     FROM school_budgets
+     WHERE school_id = ? AND budget_code LIKE ? AND deleted_at IS NULL`,
+    [schoolId, `${prefix}%`]
+  );
+  const seq = Number(row?.cnt || 0) + 1;
+  return `${prefix}${String(seq).padStart(3, '0')}`;
+}
+
+function mapBudgetIncomeRow(r) {
+  const key = String(r.income_source_key || '');
+  const isOther = key.toLowerCase() === 'other';
+  return {
+    id: r.id,
+    incomeSource: isOther ? 'Other' : key,
+    incomeSourceKey: key,
+    customSourceName: r.custom_source_name || '',
+    incomeCategory: r.income_category || '',
+    expectedAmount: Number(r.expected_amount_rwf || 0),
+    collectionFrequency: r.collection_frequency || '',
+    description: r.description || '',
+    sortOrder: Number(r.sort_order || 0),
+  };
+}
+
+function mapBudgetRow(r, incomes = []) {
+  const totalIncome = Number(r.total_expected_income_rwf || 0);
+  const totalAllocated = Number(r.total_allocated_rwf || 0);
+  const remaining = totalIncome - totalAllocated;
+  const usagePct = totalIncome > 0 ? Math.round((totalAllocated / totalIncome) * 100) : 0;
+  return {
+    db_id: r.id,
+    id: `BGT-${r.id}`,
+    budgetCode: r.budget_code,
+    title: r.title,
+    academicYear: r.academic_year,
+    term: r.term,
+    budgetType: r.budget_type,
+    status: r.status,
+    statusLabel: budgetStatusToLabel(r.status),
+    startDate: r.start_date,
+    endDate: r.end_date,
+    description: r.description || '',
+    approvalNotes: r.approval_notes || '',
+    totalExpectedIncome: totalIncome,
+    totalAllocated,
+    remainingBalance: remaining,
+    budgetUsagePct: usagePct,
+    preparedByName: r.prepared_by_name || '',
+    createdByUserId: r.created_by_user_id ? Number(r.created_by_user_id) : null,
+    submittedAt: r.submitted_at,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+    incomeSources: incomes,
+  };
+}
+
+async function loadBudgetIncomes(budgetIds, schoolId) {
+  if (!budgetIds.length) return new Map();
+  const placeholders = budgetIds.map(() => '?').join(',');
+  const [rows] = await promisePool.query(
+    `SELECT id, budget_id, income_source_key, custom_source_name, income_category,
+            expected_amount_rwf, collection_frequency, description, sort_order
+     FROM school_budget_income_sources
+     WHERE school_id = ? AND budget_id IN (${placeholders})
+     ORDER BY sort_order ASC, id ASC`,
+    [schoolId, ...budgetIds]
+  );
+  const map = new Map();
+  for (const r of rows) {
+    const list = map.get(r.budget_id) || [];
+    list.push(mapBudgetIncomeRow(r));
+    map.set(r.budget_id, list);
+  }
+  return map;
+}
+
+router.get('/accountant/school-budgets/options', requireRole(ACCOUNTANT_READ_ROLES), async (req, res) => {
+  try {
+    const { schoolId } = req.ctx;
+    const ctx = await resolveAcademicContext(schoolId, req.query?.academic_year, req.query?.term);
+    const academicYear = String(req.query?.academic_year || '').trim() || ctx.academicYear;
+    const nextBudgetCode = await generateSchoolBudgetCode(schoolId, academicYear);
+
+    const [[schoolRow]] = await promisePool.query(
+      `SELECT name FROM schools WHERE id = ? AND deleted_at IS NULL LIMIT 1`,
+      [schoolId]
+    ).catch(() => [[null]]);
+
+    const years = new Set();
+    years.add(ctx.academicYear);
+    years.add(academicYear);
+    const y = new Date().getFullYear();
+    for (let i = -1; i <= 2; i += 1) {
+      const start = y + i;
+      years.add(`${start}-${start + 1}`);
+    }
+    const [[settingsRow]] = await promisePool.query(
+      `SELECT current_academic_year FROM school_academic_settings WHERE school_id = ? LIMIT 1`,
+      [schoolId]
+    ).catch(() => [[null]]);
+    if (settingsRow?.current_academic_year) years.add(String(settingsRow.current_academic_year).trim());
+
+    let terms = SCHOOL_BUDGET_TERMS.slice(0, 3);
+    try {
+      const [[row]] = await promisePool.query(
+        `SELECT active_terms_json FROM school_academic_settings WHERE school_id = ? LIMIT 1`,
+        [schoolId]
+      );
+      if (row?.active_terms_json) {
+        const parsed = Array.isArray(row.active_terms_json)
+          ? row.active_terms_json
+          : JSON.parse(row.active_terms_json);
+        if (Array.isArray(parsed) && parsed.length) {
+          terms = [...new Set([...parsed.map((x) => String(x || '').trim()).filter(Boolean), 'Full Academic Year'])];
+        }
+      }
+    } catch (_) {}
+
+    res.json({
+      success: true,
+      data: {
+        schoolName: schoolRow?.name || '',
+        academicYears: [...years].filter(Boolean).sort().reverse(),
+        terms,
+        budgetTypes: SCHOOL_BUDGET_TYPES,
+        budgetStatuses: SCHOOL_BUDGET_STATUSES.map((s) => ({ value: s, label: budgetStatusToLabel(s) })),
+        collectionFrequencies: SCHOOL_BUDGET_FREQUENCIES,
+        incomeCategories: SCHOOL_BUDGET_INCOME_CATEGORIES,
+        incomeSources: SCHOOL_BUDGET_INCOME_SOURCES,
+        defaultAcademicYear: ctx.academicYear,
+        defaultTerm: ctx.term,
+        nextBudgetCode,
+      },
+    });
+  } catch (e) {
+    console.error('[accountant/school-budgets/options GET]:', e.message);
+    res.status(500).json({ success: false, message: 'Failed to load budget form options' });
+  }
+});
+
+router.get('/accountant/school-budgets', requireRole(ACCOUNTANT_READ_ROLES), async (req, res) => {
+  try {
+    const { schoolId } = req.ctx;
+    const statusQ = normalizeBudgetStatus(req.query?.status);
+    const where = ['school_id = ?', 'deleted_at IS NULL'];
+    const params = [schoolId];
+    if (statusQ && SCHOOL_BUDGET_STATUSES.includes(statusQ)) {
+      where.push('status = ?');
+      params.push(statusQ);
+    }
+    const [rows] = await promisePool.query(
+      `SELECT id, school_id, created_by_user_id, budget_code, title, academic_year, term, budget_type,
+              status, start_date, end_date, description, approval_notes,
+              total_expected_income_rwf, total_allocated_rwf, prepared_by_name, submitted_at, created_at, updated_at
+       FROM school_budgets
+       WHERE ${where.join(' AND ')}
+       ORDER BY id DESC`,
+      params
+    );
+    const incomeMap = await loadBudgetIncomes(rows.map((r) => r.id), schoolId);
+    res.json({
+      success: true,
+      data: rows.map((r) => mapBudgetRow(r, incomeMap.get(r.id) || [])),
+    });
+  } catch (e) {
+    console.error('[accountant/school-budgets GET]:', e.message);
+    res.status(500).json({ success: false, message: 'Failed to load school budgets' });
+  }
+});
+
+router.get('/accountant/school-budgets/manager-overview', requireRole(ACCOUNTANT_READ_ROLES), async (req, res) => {
+  try {
+    const { schoolId } = req.ctx;
+    const [[budgetStats]] = await promisePool.query(
+      `SELECT COUNT(*) AS total_budgets,
+              SUM(CASE WHEN status = 'pending_approval' THEN 1 ELSE 0 END) AS pending_approval,
+              SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) AS approved_count,
+              SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) AS rejected_count,
+              SUM(CASE WHEN status = 'closed' THEN 1 ELSE 0 END) AS closed_count,
+              COALESCE(SUM(total_expected_income_rwf), 0) AS total_expected_income,
+              COALESCE(SUM(total_allocated_rwf), 0) AS total_allocated
+       FROM school_budgets WHERE school_id = ? AND deleted_at IS NULL`,
+      [schoolId]
+    );
+    const [[lineStats]] = await promisePool.query(
+      `SELECT COUNT(*) AS total_lines, COALESCE(SUM(planned_amount_rwf), 0) AS lines_planned,
+              COALESCE(SUM(used_amount_rwf), 0) AS lines_used,
+              SUM(CASE WHEN is_frozen = 1 THEN 1 ELSE 0 END) AS frozen_lines
+       FROM school_budget_lines WHERE school_id = ? AND deleted_at IS NULL`,
+      [schoolId]
+    );
+    const [exhaustedRows] = await promisePool.query(
+      `SELECT id FROM school_budget_lines WHERE school_id = ? AND deleted_at IS NULL AND is_frozen = 0
+         AND planned_amount_rwf > 0 AND used_amount_rwf >= planned_amount_rwf`,
+      [schoolId]
+    );
+    const [warningRows] = await promisePool.query(
+      `SELECT id, line_name_key, custom_line_name, planned_amount_rwf, used_amount_rwf
+       FROM school_budget_lines WHERE school_id = ? AND deleted_at IS NULL AND is_frozen = 0
+         AND planned_amount_rwf > 0 AND (used_amount_rwf / planned_amount_rwf) >= 0.8 LIMIT 12`,
+      [schoolId]
+    );
+    const totalExpected = Number(budgetStats?.total_expected_income || 0);
+    const totalAllocated = Number(budgetStats?.total_allocated || 0);
+    const linesUsed = Number(lineStats?.lines_used || 0);
+    const remaining = totalExpected - totalAllocated;
+    const usagePct = totalExpected > 0 ? Math.round((linesUsed / totalExpected) * 100) : 0;
+    const alerts = warningRows.map((r) => {
+      const planned = Number(r.planned_amount_rwf || 0);
+      const used = Number(r.used_amount_rwf || 0);
+      const pct = planned > 0 ? Math.round((used / planned) * 100) : 0;
+      const name = String(r.line_name_key).toLowerCase() === 'other' ? r.custom_line_name : r.line_name_key;
+      return { id: r.id, message: pct >= 100 ? `${name} budget line has been fully used.` : `${name} budget has reached ${pct}% usage.`, type: pct >= 100 ? 'danger' : 'warning' };
+    });
+    if (Number(budgetStats?.pending_approval || 0) > 0) {
+      alerts.unshift({ id: 'pending', message: `${budgetStats.pending_approval} budget(s) pending approval.`, type: 'info' });
+    }
+    res.json({
+      success: true,
+      data: {
+        totalBudgets: Number(budgetStats?.total_budgets || 0),
+        pendingApprovals: Number(budgetStats?.pending_approval || 0),
+        approvedCount: Number(budgetStats?.approved_count || 0),
+        rejectedCount: Number(budgetStats?.rejected_count || 0),
+        totalExpectedIncome: totalExpected,
+        totalAllocatedBudget: totalAllocated,
+        totalUsedBudget: linesUsed,
+        remainingBalance: remaining,
+        budgetUsagePct: usagePct,
+        totalBudgetLines: Number(lineStats?.total_lines || 0),
+        exhaustedLines: exhaustedRows.length,
+        frozenLines: Number(lineStats?.frozen_lines || 0),
+        alerts,
+      },
+    });
+  } catch (e) {
+    console.error('[school-budgets/manager-overview GET]:', e.message);
+    res.status(500).json({ success: false, message: 'Failed to load manager overview' });
+  }
+});
+
+router.get('/accountant/school-budgets/dashboard', requireRole(ACCOUNTANT_READ_ROLES), async (req, res) => {
+  try {
+    const { schoolId } = req.ctx;
+    const budget = await resolveActiveBudgetForLines(schoolId, req.query?.budget_id);
+
+    const [[schoolStats]] = await promisePool.query(
+      `SELECT COUNT(*) AS total_budgets,
+              SUM(CASE WHEN status = 'pending_approval' THEN 1 ELSE 0 END) AS pending_approval,
+              SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) AS approved_count,
+              COALESCE(SUM(total_expected_income_rwf), 0) AS total_expected_income
+       FROM school_budgets WHERE school_id = ? AND deleted_at IS NULL`,
+      [schoolId]
+    );
+
+    const [[lineStatsAll]] = await promisePool.query(
+      `SELECT COUNT(*) AS total_lines,
+              COALESCE(SUM(planned_amount_rwf), 0) AS lines_planned,
+              COALESCE(SUM(used_amount_rwf), 0) AS lines_used
+       FROM school_budget_lines WHERE school_id = ? AND deleted_at IS NULL`,
+      [schoolId]
+    );
+
+    const [recentBudgets] = await promisePool.query(
+      `SELECT id, title, budget_code, academic_year, term, status, total_expected_income_rwf, total_allocated_rwf, updated_at
+       FROM school_budgets WHERE school_id = ? AND deleted_at IS NULL
+       ORDER BY updated_at DESC LIMIT 8`,
+      [schoolId]
+    );
+
+    let activeBudget = null;
+    let incomeSources = [];
+    let budgetLines = [];
+    let monthlyData = [];
+    let departmentSpending = [];
+    let alerts = [];
+    let recentUsage = [];
+    let auditLogs = [];
+
+    if (budget) {
+      const budgetId = budget.id;
+      const incomeMapLoaded = await loadBudgetIncomes([budgetId], schoolId);
+      incomeSources = (incomeMapLoaded.get(budgetId) || []).map((inc) => ({
+        name: String(inc.incomeSource || '').toLowerCase() === 'other'
+          ? (inc.customSourceName || 'Other')
+          : (inc.incomeSource || 'Income'),
+        amount: Number(inc.expectedAmount || 0),
+        collected: Number(inc.expectedAmount || 0),
+      }));
+
+      const [lineRows] = await promisePool.query(
+        `SELECT id, line_name_key, custom_line_name, department, planned_amount_rwf, used_amount_rwf, is_frozen
+         FROM school_budget_lines WHERE budget_id = ? AND school_id = ? AND deleted_at IS NULL
+         ORDER BY planned_amount_rwf DESC`,
+        [budgetId, schoolId]
+      );
+      budgetLines = lineRows.map((r) => {
+        const mapped = mapBudgetLineRow(r);
+        return {
+          id: mapped.id,
+          name: mapped.lineName,
+          planned: mapped.plannedAmount,
+          used: mapped.usedAmount,
+          dept: mapped.department || 'Unassigned',
+          usagePct: mapped.usagePct,
+          statusKey: mapped.statusKey,
+          statusLabel: mapped.statusLabel,
+        };
+      });
+
+      const [usageRows] = await promisePool.query(
+        `SELECT u.id, u.budget_line_id, u.usage_amount_rwf, u.usage_date, u.expense_category,
+                u.payment_method, u.description, u.receipt_name, u.created_at,
+                l.line_name_key, l.custom_line_name,
+                TRIM(CONCAT(COALESCE(us.first_name,''), ' ', COALESCE(us.last_name,''))) AS recorded_by
+         FROM school_budget_line_usage u
+         INNER JOIN school_budget_lines l ON l.id = u.budget_line_id AND l.deleted_at IS NULL
+         LEFT JOIN users us ON us.id = u.created_by_user_id
+         WHERE l.budget_id = ? AND u.school_id = ?
+         ORDER BY u.id DESC LIMIT 50`,
+        [budgetId, schoolId]
+      );
+      recentUsage = usageRows.map((r) => ({
+        id: r.id,
+        budgetLineId: r.budget_line_id,
+        lineName: String(r.line_name_key || '').toLowerCase() === 'other' ? (r.custom_line_name || 'Other') : r.line_name_key,
+        amount: Number(r.usage_amount_rwf || 0),
+        usageDate: r.usage_date,
+        expenseCategory: r.expense_category || '',
+        paymentMethod: r.payment_method || '',
+        description: r.description || '',
+        receiptName: r.receipt_name || '',
+        reference: r.receipt_name ? String(r.receipt_name) : `USG-${r.id}`,
+        recordedBy: String(r.recorded_by || '').trim() || '—',
+        createdAt: r.created_at,
+      }));
+
+      const [auditRows] = await promisePool.query(
+        `SELECT a.id, a.user_id, a.role_code, a.action_name, a.entity_type, a.endpoint, a.created_at,
+                TRIM(CONCAT(COALESCE(u.first_name,''), ' ', COALESCE(u.last_name,''))) AS user_name
+         FROM portal_operation_audit_logs a
+         LEFT JOIN users u ON u.id = a.user_id
+         WHERE a.school_id = ?
+           AND (
+             a.entity_type IN ('school_budget', 'school_budget_line')
+             OR a.endpoint LIKE '%school-budget%'
+             OR a.endpoint LIKE '%budget-line%'
+           )
+         ORDER BY a.id DESC
+         LIMIT 80`,
+        [schoolId]
+      );
+      auditLogs = auditRows.map((r) => ({
+        id: r.id,
+        user: String(r.user_name || '').trim() || `User #${r.user_id || '—'}`,
+        action: `${r.action_name || 'update'} · ${r.entity_type || 'budget'}`.replace(/_/g, ' '),
+        date: r.created_at,
+        type: String(r.action_name || '').toLowerCase().includes('approve')
+          ? 'approve'
+          : String(r.action_name || '').toLowerCase().includes('create')
+            ? 'create'
+            : String(r.endpoint || '').includes('usage')
+              ? 'expense'
+              : 'edit',
+        entityType: r.entity_type,
+        roleCode: r.role_code,
+      }));
+
+      const [monthRows] = await promisePool.query(
+        `SELECT DATE_FORMAT(u.usage_date, '%Y-%m') AS ym,
+                DATE_FORMAT(u.usage_date, '%b') AS month_label,
+                COALESCE(SUM(u.usage_amount_rwf), 0) AS expenses
+         FROM school_budget_line_usage u
+         INNER JOIN school_budget_lines l ON l.id = u.budget_line_id AND l.deleted_at IS NULL
+         WHERE l.budget_id = ? AND u.school_id = ?
+         GROUP BY ym, month_label
+         ORDER BY ym ASC
+         LIMIT 12`,
+        [budgetId, schoolId]
+      );
+      monthlyData = monthRows.map((r) => ({
+        month: r.month_label,
+        expenses: Number(r.expenses || 0),
+        income: 0,
+      }));
+
+      const deptMap = {};
+      budgetLines.forEach((l) => {
+        const d = l.dept || 'Other';
+        if (!deptMap[d]) deptMap[d] = { department: d, planned: 0, used: 0 };
+        deptMap[d].planned += l.planned;
+        deptMap[d].used += l.used;
+      });
+      departmentSpending = Object.values(deptMap).sort((a, b) => b.used - a.used);
+
+      budgetLines.filter((l) => l.planned > 0 && l.usagePct >= 80).forEach((l) => {
+        alerts.push({
+          id: l.name,
+          message: l.usagePct >= 100
+            ? `${l.name} line is fully used.`
+            : `${l.name} has reached ${l.usagePct}% usage.`,
+          type: l.usagePct >= 100 ? 'danger' : 'warning',
+        });
+      });
+      if (String(budget.status) === 'pending_approval') {
+        alerts.unshift({ id: 'pending', message: 'This budget is awaiting manager approval.', type: 'info' });
+      }
+
+      const [[fullBudget]] = await promisePool.query(
+        `SELECT id, title, budget_code, academic_year, term, status,
+                total_expected_income_rwf, total_allocated_rwf,
+                prepared_by_name, submitted_at, created_at, updated_at,
+                manager_review_notes, manager_reviewed_at, approval_notes
+         FROM school_budgets WHERE id = ? AND school_id = ? AND deleted_at IS NULL LIMIT 1`,
+        [budgetId, schoolId]
+      );
+      const b = fullBudget || budget;
+      activeBudget = {
+        id: b.id,
+        title: b.title,
+        budgetCode: b.budget_code,
+        academicYear: b.academic_year,
+        term: b.term,
+        status: b.status,
+        statusLabel: budgetStatusToLabel(b.status),
+        totalExpectedIncome: Number(b.total_expected_income_rwf || 0),
+        totalAllocated: Number(b.total_allocated_rwf || 0),
+        preparedByName: b.prepared_by_name || null,
+        submittedAt: b.submitted_at,
+        createdAt: b.created_at,
+        updatedAt: b.updated_at,
+        managerReviewNotes: b.manager_review_notes || null,
+        managerReviewedAt: b.manager_reviewed_at,
+        approvalNotes: b.approval_notes || null,
+      };
+    }
+
+    const totalExpectedIncome = activeBudget
+      ? activeBudget.totalExpectedIncome
+      : Number(schoolStats?.total_expected_income || 0);
+    const linesPlanned = budgetLines.reduce((s, l) => s + l.planned, 0);
+    const totalAllocated = activeBudget ? linesPlanned : Number(lineStatsAll?.lines_planned || 0);
+    const totalUsed = budgetLines.reduce((s, l) => s + l.used, 0) || Number(lineStatsAll?.lines_used || 0);
+    const totalCollected = incomeSources.reduce((s, i) => s + i.collected, 0);
+    const remainingUnallocated = Math.max(0, totalExpectedIncome - totalAllocated);
+    const availableBalance = Math.max(0, totalAllocated - totalUsed);
+    const usagePct = totalAllocated > 0 ? Math.round((totalUsed / totalAllocated) * 100) : 0;
+
+    res.json({
+      success: true,
+      data: {
+        schoolOverview: {
+          totalBudgets: Number(schoolStats?.total_budgets || 0),
+          pendingApprovals: Number(schoolStats?.pending_approval || 0),
+          approvedCount: Number(schoolStats?.approved_count || 0),
+        },
+        activeBudget,
+        recentBudgets: recentBudgets.map((b) => ({
+          id: b.id,
+          title: b.title,
+          budgetCode: b.budget_code,
+          academicYear: b.academic_year,
+          term: b.term,
+          status: b.status,
+          statusLabel: budgetStatusToLabel(b.status),
+          totalExpectedIncome: Number(b.total_expected_income_rwf || 0),
+          updatedAt: b.updated_at,
+        })),
+        incomeSources,
+        budgetLines,
+        monthlyData,
+        departmentSpending,
+        alerts,
+        recentUsage,
+        auditLogs,
+        totals: {
+          totalExpectedIncome,
+          totalCollected,
+          totalAllocated,
+          totalUsed,
+          remainingUnallocated,
+          availableBalance,
+          usagePct,
+        },
+      },
+    });
+  } catch (e) {
+    console.error('[school-budgets/dashboard GET]:', e.message);
+    res.status(500).json({ success: false, message: 'Failed to load budget dashboard' });
+  }
+});
+
+router.get('/accountant/school-budgets/:id', requireRole(ACCOUNTANT_READ_ROLES), async (req, res) => {
+  try {
+    const { schoolId } = req.ctx;
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid budget id' });
+    const [[row]] = await promisePool.query(
+      `SELECT id, school_id, created_by_user_id, budget_code, title, academic_year, term, budget_type,
+              status, start_date, end_date, description, approval_notes,
+              total_expected_income_rwf, total_allocated_rwf, prepared_by_name, submitted_at, created_at, updated_at
+       FROM school_budgets
+       WHERE id = ? AND school_id = ? AND deleted_at IS NULL
+       LIMIT 1`,
+      [id, schoolId]
+    );
+    if (!row) return res.status(404).json({ success: false, message: 'Budget not found' });
+    const incomeMap = await loadBudgetIncomes([id], schoolId);
+    res.json({ success: true, data: mapBudgetRow(row, incomeMap.get(id) || []) });
+  } catch (e) {
+    console.error('[accountant/school-budgets/:id GET]:', e.message);
+    res.status(500).json({ success: false, message: 'Failed to load school budget' });
+  }
+});
+
+function parseBudgetDateOrNull(v) {
+  if (!v) return null;
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return null;
+  return d;
+}
+
+router.post('/accountant/school-budgets', requireRole(ACCOUNTANT_WRITE_ROLES), async (req, res) => {
+  const conn = await promisePool.getConnection();
+  try {
+    const { schoolId, userId, roleCode } = req.ctx;
+    const payload = req.body || {};
+    const title = String(payload.title || '').trim();
+    const academicYear = String(payload.academicYear || payload.academic_year || '').trim();
+    const term = String(payload.term || '').trim();
+    const budgetType = String(payload.budgetType || payload.budget_type || 'Term Budget').trim();
+    const status = normalizeBudgetStatus(payload.status || 'draft');
+    const startDate = parseBudgetDateOrNull(payload.startDate || payload.start_date);
+    const endDate = parseBudgetDateOrNull(payload.endDate || payload.end_date);
+    const description = String(payload.description || '').trim() || null;
+    const approvalNotes = String(payload.approvalNotes || payload.approval_notes || '').trim() || null;
+    const preparedByName = String(payload.preparedByName || payload.prepared_by_name || '').trim() || null;
+    const incomes = Array.isArray(payload.incomeSources) ? payload.incomeSources : [];
+    const submit = Boolean(payload.submit);
+
+    if (!title) {
+      return res.status(400).json({ success: false, message: 'Budget title is required' });
+    }
+    if (!academicYear) {
+      return res.status(400).json({ success: false, message: 'Academic year is required' });
+    }
+    if (!term) {
+      return res.status(400).json({ success: false, message: 'Term is required' });
+    }
+    if (!SCHOOL_BUDGET_TYPES.includes(budgetType)) {
+      return res.status(400).json({ success: false, message: 'Invalid budget type' });
+    }
+
+    let finalStatus = SCHOOL_BUDGET_STATUSES.includes(status) ? status : 'draft';
+    if (submit) finalStatus = 'pending_approval';
+    else if (finalStatus === 'pending_approval') finalStatus = 'draft';
+
+    const budgetCode = String(payload.budgetCode || payload.budget_code || '').trim()
+      || await generateSchoolBudgetCode(schoolId, academicYear);
+
+    const totalIncome = incomes.reduce((s, row) => s + toMoney(row.expectedAmount ?? row.expected_amount), 0);
+    const totalAllocated = toMoney(payload.totalAllocated ?? payload.total_allocated_rwf ?? 0);
+
+    if (totalAllocated > totalIncome && totalIncome > 0) {
+      return res.status(400).json({ success: false, message: 'Allocated amount cannot exceed expected income' });
+    }
+
+    let preparedName = preparedByName;
+    if (!preparedName) {
+      const [[u]] = await promisePool.query(
+        `SELECT TRIM(CONCAT(COALESCE(first_name,''), ' ', COALESCE(last_name,''))) AS full_name
+         FROM users WHERE id = ? AND deleted_at IS NULL LIMIT 1`,
+        [userId]
+      );
+      preparedName = String(u?.full_name || '').trim() || null;
+    }
+
+    await conn.beginTransaction();
+    const [ins] = await conn.query(
+      `INSERT INTO school_budgets
+       (school_id, created_by_user_id, budget_code, title, academic_year, term, budget_type, status,
+        start_date, end_date, description, approval_notes, total_expected_income_rwf, total_allocated_rwf,
+        prepared_by_name, submitted_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        schoolId, userId, budgetCode, title, academicYear, term, budgetType, finalStatus,
+        startDate,
+        endDate,
+        description, approvalNotes, totalIncome, totalAllocated, preparedName,
+        submit ? new Date() : null,
+      ]
+    );
+    const budgetId = ins.insertId;
+
+    for (let i = 0; i < incomes.length; i += 1) {
+      const row = incomes[i] || {};
+      const sourceLabel = String(row.incomeSource || row.income_source || '').trim();
+      const isOther = sourceLabel.toLowerCase() === 'other';
+      const key = isOther ? 'other' : sourceLabel;
+      const customName = isOther ? String(row.customSourceName || row.custom_source_name || '').trim() || null : null;
+      const category = String(row.incomeCategory || row.income_category || '').trim() || null;
+      const amount = toMoney(row.expectedAmount ?? row.expected_amount);
+      const frequency = String(row.collectionFrequency || row.collection_frequency || '').trim() || null;
+      const note = String(row.description || '').trim() || null;
+      if (!sourceLabel && amount <= 0) continue;
+      await conn.query(
+        `INSERT INTO school_budget_income_sources
+         (budget_id, school_id, income_source_key, custom_source_name, income_category,
+          expected_amount_rwf, collection_frequency, description, sort_order)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [budgetId, schoolId, key, customName, category, amount, frequency, note, i]
+      );
+    }
+
+    await conn.commit();
+    await appendAuditLog({
+      schoolId,
+      userId,
+      roleCode,
+      endpoint: '/accountant/school-budgets',
+      entityType: 'school_budget',
+      entityId: budgetId,
+      action: submit ? 'submit' : 'create',
+      afterState: { status: finalStatus, budget_code: budgetCode, total_expected_income_rwf: totalIncome },
+    });
+
+    if (finalStatus === 'pending_approval') {
+      notifyBudgetSchoolRoles(schoolId, ['SCHOOL_MANAGER', 'SCHOOL_ADMIN'], {
+        title: 'Budget pending approval',
+        body: `${title} (${budgetCode}) was submitted and needs your review.`,
+        tag: `budget-submit-${budgetId}`,
+        url: '/manager/finance/budgets',
+      });
+    }
+
+    res.status(201).json({
+      success: true,
+      message: submit ? 'Budget submitted for approval' : 'Budget saved as draft',
+      id: budgetId,
+      budgetCode,
+    });
+  } catch (e) {
+    await conn.rollback().catch(() => {});
+    console.error('[accountant/school-budgets POST]:', e.message);
+    const dup = String(e?.code || '') === 'ER_DUP_ENTRY';
+    res.status(dup ? 409 : 500).json({
+      success: false,
+      message: dup
+        ? 'A budget with this code already exists. Refresh the form to get a new code.'
+        : (e.message || 'Failed to create school budget'),
+    });
+  } finally {
+    conn.release();
+  }
+});
+
+router.patch('/accountant/school-budgets/:id', requireRole(ACCOUNTANT_WRITE_ROLES), async (req, res) => {
+  const conn = await promisePool.getConnection();
+  try {
+    const { schoolId, userId, roleCode } = req.ctx;
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid budget id' });
+
+    const [[existing]] = await conn.query(
+      `SELECT id, status FROM school_budgets WHERE id = ? AND school_id = ? AND deleted_at IS NULL LIMIT 1`,
+      [id, schoolId]
+    );
+    if (!existing) return res.status(404).json({ success: false, message: 'Budget not found' });
+    if (!['draft', 'rejected'].includes(String(existing.status))) {
+      return res.status(400).json({ success: false, message: 'Only draft or rejected budgets can be edited' });
+    }
+
+    const payload = req.body || {};
+    const title = String(payload.title || '').trim();
+    const academicYear = String(payload.academicYear || payload.academic_year || '').trim();
+    const term = String(payload.term || '').trim();
+    const budgetType = String(payload.budgetType || payload.budget_type || '').trim();
+    const status = normalizeBudgetStatus(payload.status || 'draft');
+    const startDate = parseBudgetDateOrNull(payload.startDate || payload.start_date);
+    const endDate = parseBudgetDateOrNull(payload.endDate || payload.end_date);
+    const description = String(payload.description || '').trim() || null;
+    const approvalNotes = String(payload.approvalNotes || payload.approval_notes || '').trim() || null;
+    const incomes = Array.isArray(payload.incomeSources) ? payload.incomeSources : null;
+    const submit = Boolean(payload.submit);
+
+    let finalStatus = SCHOOL_BUDGET_STATUSES.includes(status) ? status : 'draft';
+    if (submit) finalStatus = 'pending_approval';
+    else if (finalStatus === 'pending_approval') finalStatus = 'draft';
+
+    if (submit && !String(payload.title || '').trim()) {
+      return res.status(400).json({ success: false, message: 'Budget title is required' });
+    }
+
+    const totalIncome = incomes
+      ? incomes.reduce((s, row) => s + toMoney(row.expectedAmount ?? row.expected_amount), 0)
+      : null;
+    const totalAllocated = payload.totalAllocated != null || payload.total_allocated_rwf != null
+      ? toMoney(payload.totalAllocated ?? payload.total_allocated_rwf)
+      : null;
+
+    if (totalIncome != null && totalAllocated != null && totalAllocated > totalIncome && totalIncome > 0) {
+      return res.status(400).json({ success: false, message: 'Allocated amount cannot exceed expected income' });
+    }
+
+    const sets = [];
+    const vals = [];
+    if (title) { sets.push('title = ?'); vals.push(title); }
+    if (academicYear) { sets.push('academic_year = ?'); vals.push(academicYear); }
+    if (term) { sets.push('term = ?'); vals.push(term); }
+    if (budgetType && SCHOOL_BUDGET_TYPES.includes(budgetType)) { sets.push('budget_type = ?'); vals.push(budgetType); }
+    sets.push('status = ?'); vals.push(finalStatus);
+    sets.push('start_date = ?'); vals.push(startDate);
+    sets.push('end_date = ?'); vals.push(endDate);
+    sets.push('description = ?'); vals.push(description);
+    sets.push('approval_notes = ?'); vals.push(approvalNotes);
+    if (totalIncome != null) { sets.push('total_expected_income_rwf = ?'); vals.push(totalIncome); }
+    if (totalAllocated != null) { sets.push('total_allocated_rwf = ?'); vals.push(totalAllocated); }
+    if (submit) { sets.push('submitted_at = ?'); vals.push(new Date()); }
+    vals.push(id, schoolId);
+
+    await conn.beginTransaction();
+    await conn.query(
+      `UPDATE school_budgets SET ${sets.join(', ')} WHERE id = ? AND school_id = ?`,
+      vals
+    );
+
+    if (incomes) {
+      await conn.query(`DELETE FROM school_budget_income_sources WHERE budget_id = ? AND school_id = ?`, [id, schoolId]);
+      for (let i = 0; i < incomes.length; i += 1) {
+        const row = incomes[i] || {};
+        const sourceLabel = String(row.incomeSource || row.income_source || '').trim();
+        const isOther = sourceLabel.toLowerCase() === 'other';
+        const key = isOther ? 'other' : sourceLabel;
+        const customName = isOther ? String(row.customSourceName || row.custom_source_name || '').trim() || null : null;
+        const category = String(row.incomeCategory || row.income_category || '').trim() || null;
+        const amount = toMoney(row.expectedAmount ?? row.expected_amount);
+        const frequency = String(row.collectionFrequency || row.collection_frequency || '').trim() || null;
+        const note = String(row.description || '').trim() || null;
+        if (!sourceLabel && amount <= 0) continue;
+        await conn.query(
+          `INSERT INTO school_budget_income_sources
+           (budget_id, school_id, income_source_key, custom_source_name, income_category,
+            expected_amount_rwf, collection_frequency, description, sort_order)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [id, schoolId, key, customName, category, amount, frequency, note, i]
+        );
+      }
+    }
+
+    await conn.commit();
+    await appendAuditLog({
+      schoolId,
+      userId,
+      roleCode,
+      endpoint: '/accountant/school-budgets/:id',
+      entityType: 'school_budget',
+      entityId: id,
+      action: submit ? 'submit' : 'update',
+      afterState: { status: finalStatus },
+    });
+
+    if (submit && finalStatus === 'pending_approval') {
+      const [[meta]] = await promisePool.query(
+        `SELECT title, budget_code FROM school_budgets WHERE id = ? AND school_id = ? LIMIT 1`,
+        [id, schoolId]
+      );
+      const bTitle = meta?.title || title || 'School budget';
+      const bCode = meta?.budget_code || '';
+      notifyBudgetSchoolRoles(schoolId, ['SCHOOL_MANAGER', 'SCHOOL_ADMIN'], {
+        title: 'Budget pending approval',
+        body: `${bTitle}${bCode ? ` (${bCode})` : ''} was submitted and needs your review.`,
+        tag: `budget-submit-${id}`,
+        url: '/manager/finance/budgets',
+      });
+    }
+
+    res.json({
+      success: true,
+      message: submit ? 'Budget submitted for approval' : 'Budget updated',
+    });
+  } catch (e) {
+    await conn.rollback().catch(() => {});
+    console.error('[accountant/school-budgets/:id PATCH]:', e.message);
+    res.status(500).json({ success: false, message: 'Failed to update school budget' });
+  } finally {
+    conn.release();
+  }
+});
+
+// -------------------- School Budget Lines --------------------
+const BUDGET_LINE_APPROVAL = ['Pending', 'Approved', 'Rejected', 'Draft'];
+const BUDGET_LINE_PRIORITY = ['Low', 'Medium', 'High', 'Critical'];
+
+function mapBudgetLineRow(r) {
+  const planned = Number(r.planned_amount_rwf || 0);
+  const used = Number(r.used_amount_rwf || 0);
+  const remaining = planned - used;
+  const usagePct = planned > 0 ? Math.round((used / planned) * 100) : 0;
+  const isOther = String(r.line_name_key || '').toLowerCase() === 'other';
+  const isFrozen = Boolean(r.is_frozen);
+  let statusKey = 'active';
+  if (isFrozen) statusKey = 'frozen';
+  else if (usagePct >= 100) statusKey = 'exhausted';
+  else if (usagePct >= 90) statusKey = 'critical';
+  else if (usagePct >= 80) statusKey = 'warning';
+  return {
+    db_id: r.id,
+    id: r.id,
+    budgetId: r.budget_id,
+    lineName: isOther ? (r.custom_line_name || 'Other') : r.line_name_key,
+    lineNameKey: r.line_name_key,
+    customLineName: r.custom_line_name || '',
+    budgetCategory: r.budget_category,
+    department: r.department,
+    priorityLevel: r.priority_level,
+    plannedAmount: planned,
+    usedAmount: used,
+    remaining,
+    usagePct,
+    isFrozen,
+    statusKey,
+    statusLabel: isFrozen ? 'Frozen' : statusKey === 'exhausted' ? 'Exhausted' : statusKey === 'critical' ? 'Critical' : statusKey === 'warning' ? 'Warning' : 'Active',
+    allocationDate: r.allocation_date,
+    description: r.description || '',
+    notes: r.notes || '',
+    referenceNumber: r.reference_number || '',
+    preparedByName: r.prepared_by_name || '',
+    reviewedByName: r.reviewed_by_name || '',
+    approvalStatus: r.approval_status,
+    approvalNotes: r.approval_notes || '',
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  };
+}
+
+async function resolveActiveBudgetForLines(schoolId, budgetIdQ) {
+  const id = Number(budgetIdQ);
+  if (id) {
+    const [[row]] = await promisePool.query(
+      `SELECT id, title, budget_code, academic_year, term, total_expected_income_rwf, total_allocated_rwf, status
+       FROM school_budgets WHERE id = ? AND school_id = ? AND deleted_at IS NULL LIMIT 1`,
+      [id, schoolId]
+    );
+    return row || null;
+  }
+  const [[row]] = await promisePool.query(
+    `SELECT id, title, budget_code, academic_year, term, total_expected_income_rwf, total_allocated_rwf, status
+     FROM school_budgets
+     WHERE school_id = ? AND deleted_at IS NULL AND status IN ('approved', 'pending_approval')
+     ORDER BY FIELD(status, 'approved', 'pending_approval'), id DESC LIMIT 1`,
+    [schoolId]
+  );
+  return row || null;
+}
+
+router.get('/accountant/budget-lines/options', requireRole(ACCOUNTANT_READ_ROLES), async (req, res) => {
+  try {
+    const { schoolId } = req.ctx;
+    const budget = await resolveActiveBudgetForLines(schoolId, req.query?.budget_id);
+    const [budgets] = await promisePool.query(
+      `SELECT id, title, budget_code, status, total_expected_income_rwf, total_allocated_rwf
+       FROM school_budgets WHERE school_id = ? AND deleted_at IS NULL
+       ORDER BY id DESC LIMIT 50`,
+      [schoolId]
+    );
+    res.json({
+      success: true,
+      data: {
+        activeBudget: budget
+          ? {
+              id: budget.id,
+              title: budget.title,
+              budgetCode: budget.budget_code,
+              status: budget.status,
+              totalExpectedIncome: Number(budget.total_expected_income_rwf || 0),
+              totalAllocated: Number(budget.total_allocated_rwf || 0),
+            }
+          : null,
+        budgets: budgets.map((b) => ({
+          id: b.id,
+          title: b.title,
+          budgetCode: b.budget_code,
+          status: b.status,
+          totalExpectedIncome: Number(b.total_expected_income_rwf || 0),
+          totalAllocated: Number(b.total_allocated_rwf || 0),
+        })),
+        budgetLineNames: [
+          'School Feeding', 'Transport', 'Fuel', 'Cleaning Materials', 'Printing & Stationery',
+          'Medical Expenses', 'Security', 'Internet & ICT', 'Electricity', 'Water', 'Insurance', 'Emergency Fund',
+          'Teacher Salaries', 'Staff Salaries', 'Library', 'Laboratory', 'Examinations', 'Sports',
+          'Training & Workshops', 'Academic Materials', 'Construction', 'Furniture', 'Maintenance',
+          'School Renovation', 'ICT Equipment', 'Vehicle Maintenance', 'Other',
+        ],
+        budgetCategories: ['Operations', 'Academic', 'Infrastructure', 'Utilities', 'Transport', 'ICT', 'Emergency', 'Administration', 'Projects', 'Maintenance'],
+        departments: ['Administration', 'Finance', 'Academics', 'ICT', 'Kitchen', 'Transport', 'Sports', 'Library', 'Security', 'Maintenance', 'Procurement', 'Boarding'],
+        priorityLevels: BUDGET_LINE_PRIORITY,
+        approvalStatuses: BUDGET_LINE_APPROVAL,
+        expenseCategories: ['Food Purchase', 'Fuel', 'Transport', 'Maintenance', 'Utilities', 'Salaries', 'ICT Equipment', 'Medical', 'Emergency', 'Other'],
+        paymentMethods: ['Cash', 'Bank Transfer', 'Mobile Money', 'Cheque', 'Credit'],
+      },
+    });
+  } catch (e) {
+    console.error('[budget-lines/options GET]:', e.message);
+    res.status(500).json({ success: false, message: 'Failed to load budget line options' });
+  }
+});
+
+router.get('/accountant/budget-lines/summary', requireRole(ACCOUNTANT_READ_ROLES), async (req, res) => {
+  try {
+    const { schoolId } = req.ctx;
+    const budget = await resolveActiveBudgetForLines(schoolId, req.query?.budget_id);
+    if (!budget) {
+      return res.json({
+        success: true,
+        data: {
+          totalBudget: 0,
+          totalUsed: 0,
+          remainingBalance: 0,
+          usagePct: 0,
+          activeCount: 0,
+          exhaustedCount: 0,
+          lines: [],
+        },
+      });
+    }
+    const [lines] = await promisePool.query(
+      `SELECT id, line_name_key, custom_line_name, planned_amount_rwf, used_amount_rwf, department
+       FROM school_budget_lines WHERE budget_id = ? AND school_id = ? AND deleted_at IS NULL`,
+      [budget.id, schoolId]
+    );
+    const mapped = lines.map((r) => mapBudgetLineRow(r));
+    const totalLinesPlanned = mapped.reduce((s, l) => s + l.plannedAmount, 0);
+    const totalUsed = mapped.reduce((s, l) => s + l.usedAmount, 0);
+    const totalExpectedIncome = Number(budget.total_expected_income_rwf || 0);
+    const remainingBalance = totalLinesPlanned - totalUsed;
+    const unallocatedToLines = Math.max(0, totalExpectedIncome - totalLinesPlanned);
+    const usagePct = totalLinesPlanned > 0 ? Math.round((totalUsed / totalLinesPlanned) * 100) : 0;
+    const linesAllocationPct = totalExpectedIncome > 0 ? Math.round((totalLinesPlanned / totalExpectedIncome) * 100) : 0;
+    res.json({
+      success: true,
+      data: {
+        budgetId: budget.id,
+        budgetTitle: budget.title,
+        budgetCode: budget.budget_code,
+        budgetStatus: budget.status,
+        totalExpectedIncome,
+        totalBudget: totalLinesPlanned,
+        totalLinesPlanned,
+        totalUsed,
+        remainingBalance,
+        unallocatedToLines,
+        linesAllocationPct,
+        usagePct,
+        activeCount: mapped.filter((l) => l.statusKey === 'active').length,
+        exhaustedCount: mapped.filter((l) => l.statusKey === 'exhausted').length,
+        warningCount: mapped.filter((l) => ['warning', 'critical'].includes(l.statusKey)).length,
+        lines: mapped,
+      },
+    });
+  } catch (e) {
+    console.error('[budget-lines/summary GET]:', e.message);
+    res.status(500).json({ success: false, message: 'Failed to load budget summary' });
+  }
+});
+
+router.get('/accountant/budget-lines', requireRole(ACCOUNTANT_READ_ROLES), async (req, res) => {
+  try {
+    const { schoolId } = req.ctx;
+    const budgetId = Number(req.query?.budget_id);
+    const where = ['school_id = ?', 'deleted_at IS NULL'];
+    const params = [schoolId];
+    if (budgetId) {
+      where.push('budget_id = ?');
+      params.push(budgetId);
+    }
+    const [rows] = await promisePool.query(
+      `SELECT * FROM school_budget_lines WHERE ${where.join(' AND ')} ORDER BY id DESC`,
+      params
+    );
+    res.json({ success: true, data: rows.map(mapBudgetLineRow) });
+  } catch (e) {
+    console.error('[budget-lines GET]:', e.message);
+    res.status(500).json({ success: false, message: 'Failed to load budget lines' });
+  }
+});
+
+router.post('/accountant/budget-lines', requireRole(ACCOUNTANT_WRITE_ROLES), async (req, res) => {
+  try {
+    const { schoolId, userId } = req.ctx;
+    const p = req.body || {};
+    const budgetId = Number(p.budgetId || p.budget_id);
+    const lineName = String(p.lineName || p.line_name || '').trim();
+    const isOther = lineName.toLowerCase() === 'other';
+    const customName = isOther ? String(p.customLineName || p.custom_line_name || '').trim() : '';
+    const planned = toMoney(p.plannedAmount ?? p.planned_amount_rwf);
+    const category = String(p.budgetCategory || p.budget_category || '').trim();
+    const department = String(p.department || '').trim();
+    const priority = String(p.priorityLevel || p.priority_level || 'Medium').trim();
+
+    if (!budgetId) return res.status(400).json({ success: false, message: 'School budget is required' });
+    if (!lineName) return res.status(400).json({ success: false, message: 'Budget line name is required' });
+    if (isOther && !customName) return res.status(400).json({ success: false, message: 'Custom budget line name is required' });
+    if (planned <= 0) return res.status(400).json({ success: false, message: 'Planned amount must be greater than zero' });
+
+    const budget = await resolveActiveBudgetForLines(schoolId, budgetId);
+    if (!budget) return res.status(404).json({ success: false, message: 'School budget not found' });
+
+    const [[allocRow]] = await promisePool.query(
+      `SELECT COALESCE(SUM(planned_amount_rwf), 0) AS allocated
+       FROM school_budget_lines WHERE budget_id = ? AND school_id = ? AND deleted_at IS NULL`,
+      [budgetId, schoolId]
+    );
+    const alreadyAllocated = Number(allocRow?.allocated || 0);
+    const totalBudget = Number(budget.total_expected_income_rwf || 0);
+    const remaining = totalBudget - alreadyAllocated;
+    if (planned > remaining && totalBudget > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `This allocation exceeds remaining balance (${remaining.toLocaleString()} RWF available)`,
+      });
+    }
+
+    let preparedName = String(p.preparedByName || p.prepared_by_name || '').trim() || null;
+    if (!preparedName) {
+      const [[u]] = await promisePool.query(
+        `SELECT TRIM(CONCAT(COALESCE(first_name,''), ' ', COALESCE(last_name,''))) AS full_name FROM users WHERE id = ? LIMIT 1`,
+        [userId]
+      );
+      preparedName = u?.full_name || null;
+    }
+
+    const [ins] = await promisePool.query(
+      `INSERT INTO school_budget_lines
+       (school_id, budget_id, created_by_user_id, line_name_key, custom_line_name, budget_category, department,
+        priority_level, planned_amount_rwf, allocation_date, description, notes, reference_number,
+        prepared_by_name, reviewed_by_name, approval_status, approval_notes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        schoolId, budgetId, userId, isOther ? 'other' : lineName, isOther ? customName : null,
+        category || 'Operations', department || 'Administration',
+        BUDGET_LINE_PRIORITY.includes(priority) ? priority : 'Medium', planned,
+        parseBudgetDateOrNull(p.allocationDate || p.allocation_date),
+        String(p.description || '').trim() || null,
+        String(p.notes || '').trim() || null,
+        String(p.referenceNumber || p.reference_number || '').trim() || null,
+        preparedName,
+        String(p.reviewedByName || p.reviewed_by_name || '').trim() || null,
+        BUDGET_LINE_APPROVAL.includes(String(p.approvalStatus || 'Pending')) ? String(p.approvalStatus || 'Pending') : 'Pending',
+        String(p.approvalNotes || p.approval_notes || '').trim() || null,
+      ]
+    );
+
+    const newAllocated = alreadyAllocated + planned;
+    await promisePool.query(
+      `UPDATE school_budgets SET total_allocated_rwf = ? WHERE id = ? AND school_id = ?`,
+      [newAllocated, budgetId, schoolId]
+    );
+
+    res.status(201).json({
+      success: true,
+      message: 'Budget line successfully created',
+      id: ins.insertId,
+    });
+  } catch (e) {
+    console.error('[budget-lines POST]:', e.message);
+    res.status(500).json({ success: false, message: e.message || 'Failed to create budget line' });
+  }
+});
+
+router.post('/accountant/budget-line-usage', requireRole(ACCOUNTANT_WRITE_ROLES), async (req, res) => {
+  try {
+    const { schoolId, userId } = req.ctx;
+    const p = req.body || {};
+    const lineId = Number(p.budgetLineId || p.budget_line_id);
+    const amount = toMoney(p.usageAmount ?? p.usage_amount_rwf);
+    if (!lineId) return res.status(400).json({ success: false, message: 'Budget line is required' });
+    if (amount <= 0) return res.status(400).json({ success: false, message: 'Usage amount must be greater than zero' });
+
+    const [[line]] = await promisePool.query(
+      `SELECT id, planned_amount_rwf, used_amount_rwf, line_name_key, custom_line_name
+       FROM school_budget_lines WHERE id = ? AND school_id = ? AND deleted_at IS NULL LIMIT 1`,
+      [lineId, schoolId]
+    );
+    if (!line) return res.status(404).json({ success: false, message: 'Budget line not found' });
+
+    const planned = Number(line.planned_amount_rwf || 0);
+    const used = Number(line.used_amount_rwf || 0);
+    if (used + amount > planned) {
+      return res.status(400).json({ success: false, message: 'Usage amount exceeds remaining budget for this line' });
+    }
+
+    const usageDate = parseBudgetDateOrNull(p.usageDate || p.usage_date) || new Date();
+
+    await promisePool.query(
+      `INSERT INTO school_budget_line_usage
+       (school_id, budget_line_id, created_by_user_id, usage_amount_rwf, usage_date, expense_category, payment_method, description, receipt_name)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        schoolId, lineId, userId, amount, usageDate,
+        String(p.expenseCategory || '').trim() || null,
+        String(p.paymentMethod || '').trim() || null,
+        String(p.description || '').trim() || null,
+        String(p.receiptName || p.receipt_name || '').trim() || null,
+      ]
+    );
+
+    const newUsed = used + amount;
+    await promisePool.query(
+      `UPDATE school_budget_lines SET used_amount_rwf = ? WHERE id = ? AND school_id = ?`,
+      [newUsed, lineId, schoolId]
+    );
+
+    const usagePct = planned > 0 ? Math.round((newUsed / planned) * 100) : 0;
+    const lineLabel = line.custom_line_name || line.line_name_key;
+    let notify = null;
+    if (usagePct >= 100) notify = `${lineLabel} budget line has been fully used.`;
+    else if (usagePct >= 90) notify = `${lineLabel} budget is almost exhausted (${usagePct}%).`;
+    else if (usagePct >= 80) notify = `${lineLabel} budget has reached ${usagePct}% usage.`;
+
+    if (notify) {
+      notifyBudgetSchoolRoles(schoolId, ['SCHOOL_MANAGER', 'SCHOOL_ADMIN'], {
+        title: usagePct >= 100 ? 'Budget line exhausted' : 'Budget usage alert',
+        body: notify,
+        tag: `budget-line-${lineId}-${usagePct >= 100 ? 'exhausted' : 'warning'}`,
+        url: '/manager/finance/budgets',
+      });
+    }
+    if (amount >= BUDGET_LARGE_EXPENSE_RWF) {
+      const amtLabel = new Intl.NumberFormat('en-RW', { style: 'currency', currency: 'RWF', maximumFractionDigits: 0 }).format(amount);
+      notifyBudgetSchoolRoles(schoolId, ['SCHOOL_MANAGER', 'SCHOOL_ADMIN', 'ACCOUNTANT'], {
+        title: 'Large budget expense',
+        body: `${amtLabel} recorded on ${lineLabel}.`,
+        tag: `budget-large-${lineId}-${Date.now()}`,
+        url: '/manager/finance/budgets',
+      });
+    }
+
+    res.status(201).json({
+      success: true,
+      message: 'Budget usage registered',
+      notification: notify,
+      usagePct,
+      remaining: planned - newUsed,
+    });
+  } catch (e) {
+    console.error('[budget-line-usage POST]:', e.message);
+    res.status(500).json({ success: false, message: 'Failed to register budget usage' });
+  }
+});
+
+router.get('/accountant/budget-line-usage', requireRole(ACCOUNTANT_READ_ROLES), async (req, res) => {
+  try {
+    const { schoolId } = req.ctx;
+    const lineId = Number(req.query?.budget_line_id);
+    const budgetIdQ = Number(req.query?.budget_id);
+    const where = ['u.school_id = ?', 'l.deleted_at IS NULL'];
+    const params = [schoolId];
+    if (lineId) {
+      where.push('u.budget_line_id = ?');
+      params.push(lineId);
+    }
+    if (budgetIdQ) {
+      where.push('l.budget_id = ?');
+      params.push(budgetIdQ);
+    }
+    const [rows] = await promisePool.query(
+      `SELECT u.id, u.budget_line_id, u.usage_amount_rwf, u.usage_date, u.expense_category, u.payment_method,
+              u.description, u.receipt_name, u.created_at,
+              l.line_name_key, l.custom_line_name
+       FROM school_budget_line_usage u
+       JOIN school_budget_lines l ON l.id = u.budget_line_id
+       WHERE ${where.join(' AND ')}
+       ORDER BY u.id DESC LIMIT 100`,
+      params
+    );
+    res.json({
+      success: true,
+      data: rows.map((r) => ({
+        id: r.id,
+        budgetLineId: r.budget_line_id,
+        lineName: String(r.line_name_key).toLowerCase() === 'other' ? r.custom_line_name : r.line_name_key,
+        usageAmount: Number(r.usage_amount_rwf || 0),
+        usageDate: r.usage_date,
+        expenseCategory: r.expense_category,
+        paymentMethod: r.payment_method,
+        description: r.description,
+        receiptName: r.receipt_name,
+        createdAt: r.created_at,
+      })),
+    });
+  } catch (e) {
+    console.error('[budget-line-usage GET]:', e.message);
+    res.status(500).json({ success: false, message: 'Failed to load usage history' });
+  }
+});
+
+router.patch('/accountant/school-budgets/:id/review', requireRole(['SCHOOL_MANAGER', 'SCHOOL_ADMIN', 'SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER']), async (req, res) => {
+  try {
+    const { schoolId, userId, roleCode } = req.ctx;
+    const id = Number(req.params.id);
+    const decision = String(req.body?.decision || req.body?.approvalDecision || '').trim().toLowerCase();
+    const notes = String(req.body?.approvalNotes || req.body?.notes || '').trim();
+    const decisionMap = { approve: 'approved', approved: 'approved', reject: 'rejected', rejected: 'rejected', cancel: 'closed', cancelled: 'closed', closed: 'closed', 'request revision': 'rejected', revision: 'rejected' };
+    const finalStatus = decisionMap[decision];
+    if (!finalStatus) return res.status(400).json({ success: false, message: 'Invalid decision' });
+    if ((finalStatus === 'rejected' || finalStatus === 'closed') && !notes) {
+      return res.status(400).json({ success: false, message: 'Notes required for reject/cancel' });
+    }
+    const [[existing]] = await promisePool.query(
+      `SELECT id, status, title, budget_code, created_by_user_id FROM school_budgets WHERE id = ? AND school_id = ? AND deleted_at IS NULL LIMIT 1`,
+      [id, schoolId]
+    );
+    if (!existing) return res.status(404).json({ success: false, message: 'Budget not found' });
+    const returnToDraft = decision === 'request revision' || decision === 'revision';
+    const newStatus = returnToDraft ? 'draft' : finalStatus;
+    await promisePool.query(
+      `UPDATE school_budgets SET status = ?, manager_review_notes = ?, manager_reviewed_by_user_id = ?, manager_reviewed_at = NOW() WHERE id = ? AND school_id = ?`,
+      [newStatus, notes || null, userId, id, schoolId]
+    );
+    await appendAuditLog({ schoolId, userId, roleCode, endpoint: '/accountant/school-budgets/:id/review', entityType: 'school_budget', entityId: id, action: decision, afterState: { status: newStatus } });
+
+    const bLabel = `${existing.title || 'Budget'}${existing.budget_code ? ` (${existing.budget_code})` : ''}`;
+    let pushTitle = 'Budget updated';
+    let pushBody = bLabel;
+    if (returnToDraft) {
+      pushTitle = 'Budget returned for revision';
+      pushBody = `${bLabel} needs changes.${notes ? ` Note: ${notes}` : ''}`;
+    } else if (newStatus === 'approved') {
+      pushTitle = 'Budget approved';
+      pushBody = `${bLabel} was approved. You can activate budget lines.`;
+    } else if (newStatus === 'rejected') {
+      pushTitle = 'Budget rejected';
+      pushBody = `${bLabel} was rejected.${notes ? ` Reason: ${notes}` : ''}`;
+    } else if (newStatus === 'closed') {
+      pushTitle = 'Budget cancelled';
+      pushBody = `${bLabel} was cancelled.${notes ? ` Note: ${notes}` : ''}`;
+    }
+    notifyBudgetUser(Number(existing.created_by_user_id), {
+      title: pushTitle,
+      body: pushBody,
+      tag: `budget-review-${id}-${newStatus}`,
+      url: '/accountant/school-budget',
+    });
+
+    res.json({ success: true, message: returnToDraft ? 'Budget returned for revision' : finalStatus === 'approved' ? 'Budget approved' : finalStatus === 'rejected' ? 'Budget rejected' : 'Budget cancelled' });
+  } catch (e) {
+    console.error('[school-budgets/:id/review PATCH]:', e.message);
+    res.status(500).json({ success: false, message: 'Failed to review budget' });
+  }
+});
+
+router.patch('/accountant/budget-lines/:id/freeze', requireRole(['SCHOOL_MANAGER', 'SCHOOL_ADMIN', 'SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER']), async (req, res) => {
+  try {
+    const { schoolId, userId, roleCode } = req.ctx;
+    const id = Number(req.params.id);
+    const freeze = Boolean(req.body?.freeze ?? req.body?.is_frozen ?? true);
+    const [[row]] = await promisePool.query(`SELECT id FROM school_budget_lines WHERE id = ? AND school_id = ? AND deleted_at IS NULL LIMIT 1`, [id, schoolId]);
+    if (!row) return res.status(404).json({ success: false, message: 'Budget line not found' });
+    await promisePool.query(`UPDATE school_budget_lines SET is_frozen = ? WHERE id = ? AND school_id = ?`, [freeze ? 1 : 0, id, schoolId]);
+    await appendAuditLog({ schoolId, userId, roleCode, endpoint: '/accountant/budget-lines/:id/freeze', entityType: 'school_budget_line', entityId: id, action: freeze ? 'freeze' : 'unfreeze' });
+    res.json({ success: true, message: freeze ? 'Budget line frozen' : 'Budget line unfrozen' });
+  } catch (e) {
+    console.error('[budget-lines/:id/freeze PATCH]:', e.message);
+    res.status(500).json({ success: false, message: 'Failed to update budget line' });
+  }
+});
+
+// -------------------- Portal Web Push (budget & school alerts) --------------------
+const PORTAL_PUSH_ROLES = [...ALL_SCHOOL_ROLES];
+
+router.get('/portal/push/vapid-key', requireRole(PORTAL_PUSH_ROLES), (req, res) => {
+  const ok = isWebPushConfigured();
+  const publicKey = getVapidPublicKey();
+  res.json({
+    success: ok && !!publicKey,
+    configured: ok && !!publicKey,
+    publicKey: ok ? publicKey : null,
+    message: ok ? undefined : 'Web Push is not configured (set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY)',
+  });
+});
+
+router.post('/portal/push/subscribe', requireRole(PORTAL_PUSH_ROLES), async (req, res) => {
+  try {
+    if (!isWebPushConfigured()) {
+      return res.status(503).json({ success: false, message: 'Web Push is not configured on this server' });
+    }
+    await upsertSubscription(req.ctx.userId, req.body);
+    res.json({ success: true, message: 'Push subscription saved' });
+  } catch (error) {
+    console.error('[portal/push/subscribe]:', error.message);
+    const status = error.status === 400 ? 400 : 500;
+    res.status(status).json({ success: false, message: error.message || 'Failed to save subscription' });
+  }
+});
+
+router.post('/portal/push/unsubscribe', requireRole(PORTAL_PUSH_ROLES), async (req, res) => {
+  try {
+    await removeSubscription(req.ctx.userId, req.body?.endpoint);
+    res.json({ success: true, message: 'Subscription removed' });
+  } catch (error) {
+    console.error('[portal/push/unsubscribe]:', error.message);
+    res.status(500).json({ success: false, message: 'Failed to remove subscription' });
+  }
+});
+
 // -------------------- Ticha AI --------------------
 router.get('/tools/ticha-ai/history', requireRole(ALL_SCHOOL_ROLES), async (req, res) => {
   try {
@@ -4607,5 +6082,7 @@ router.post('/tools/ticha-ai/assist', requireRole(ALL_SCHOOL_ROLES), async (req,
     res.status(500).json({ success: false, message: 'Ticha AI assist failed' });
   }
 });
+
+router.use(require('./actionPlanRoutes'));
 
 module.exports = router;

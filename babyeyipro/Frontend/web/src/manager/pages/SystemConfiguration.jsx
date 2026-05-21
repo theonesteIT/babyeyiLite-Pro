@@ -435,79 +435,300 @@ const SchoolCalendar = () => {
 };
 
 // ─── PREFERENCES TAB ───────────────────────────────────────────
-const Preferences = () => {
-    const [academicYear,  setAcademicYear]  = useState('2025-2026');
-    const [activeTerms,   setActiveTerms]   = useState(['Term 1','Term 2','Term 3']);
-    const [termDates,     setTermDates]     = useState([]);
-    const [darkMode,      setDarkMode]      = useState(false);
-    const [isSaving,      setIsSaving]      = useState(false);
+const TERM_OPTIONS = ['Term 1', 'Term 2', 'Term 3'];
 
-    useEffect(() => {
-        (async () => {
-            try {
-                const res = await api.get('/dos/academic-calendar-settings');
-                if (res.data?.success) {
-                    const d = res.data.data || {};
-                    const terms = Array.isArray(d.active_terms) && d.active_terms.length ? d.active_terms : ['Term 1','Term 2','Term 3'];
-                    setAcademicYear(d.current_academic_year || '2025-2026');
-                    setActiveTerms(terms);
-                    const saved = Array.isArray(d.term_dates) ? d.term_dates : [];
-                    setTermDates(terms.map(n => saved.find(x => x.name === n) || { name: n, start: '', end: '' }));
-                }
-            } catch (_) {}
-        })();
+function emptyTermDates(terms) {
+    return terms.map((n) => ({ name: n, start: '', end: '' }));
+}
+
+const Preferences = () => {
+    const [registry, setRegistry] = useState([]);
+    const [academicYear, setAcademicYear] = useState('2026-2027');
+    const [newYear, setNewYear] = useState('');
+    const [activeTerms, setActiveTerms] = useState(['Term 1', 'Term 2', 'Term 3']);
+    const [termDates, setTermDates] = useState(emptyTermDates(['Term 1', 'Term 2', 'Term 3']));
+    const [darkMode, setDarkMode] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [loading, setLoading] = useState(true);
+
+    const load = useCallback(async () => {
+        setLoading(true);
+        try {
+            const res = await api.get('/dos/academic-calendar-settings');
+            if (res.data?.success) {
+                const d = res.data.data || {};
+                const list = Array.isArray(d.academic_years_registry) ? d.academic_years_registry : [];
+                setRegistry(list);
+                const current = list.find((r) => r.is_current) || list[0];
+                const year = d.current_academic_year || current?.academic_year || '2026-2027';
+                const terms =
+                    current?.active_terms?.length ? current.active_terms : ['Term 1', 'Term 2', 'Term 3'];
+                setAcademicYear(year);
+                setActiveTerms(terms);
+                const saved = current?.term_dates || d.term_dates || [];
+                setTermDates(terms.map((n) => saved.find((x) => x.name === n) || { name: n, start: '', end: '' }));
+            }
+        } catch (_) {
+            /* ignore */
+        } finally {
+            setLoading(false);
+        }
     }, []);
 
+    useEffect(() => {
+        load();
+    }, [load]);
+
     const setTermDate = (termName, field, value) => {
-        setTermDates(prev => {
-            const idx = prev.findIndex(d => d.name === termName);
-            if (idx === -1) return [...prev, { name: termName, start: field==='start'?value:'', end: field==='end'?value:'' }];
-            return prev.map((d, i) => i === idx ? { ...d, [field]: value } : d);
+        setTermDates((prev) => {
+            const idx = prev.findIndex((d) => d.name === termName);
+            if (idx === -1) return [...prev, { name: termName, start: field === 'start' ? value : '', end: field === 'end' ? value : '' }];
+            return prev.map((d, i) => (i === idx ? { ...d, [field]: value } : d));
         });
     };
 
     const handleActiveTermsChange = (checked, term) => {
-        const next = checked ? [...new Set([...activeTerms, term])] : activeTerms.filter(x => x !== term);
+        const next = checked ? [...new Set([...activeTerms, term])] : activeTerms.filter((x) => x !== term);
         setActiveTerms(next);
-        setTermDates(prev => next.map(n => prev.find(d => d.name === n) || { name: n, start: '', end: '' }));
+        setTermDates((prev) => next.map((n) => prev.find((d) => d.name === n) || { name: n, start: '', end: '' }));
     };
 
-    const handleSave = async () => {
+    const selectYearForEdit = (row) => {
+        setAcademicYear(row.academic_year);
+        setActiveTerms(row.active_terms?.length ? row.active_terms : TERM_OPTIONS);
+        setTermDates(
+            row.active_terms.map((n) => row.term_dates?.find((x) => x.name === n) || { name: n, start: '', end: '' })
+        );
+    };
+
+    const handleSaveCurrent = async () => {
         setIsSaving(true);
         try {
-            const terms = activeTerms.map(t => String(t).trim()).filter(Boolean);
-            await api.put('/dos/academic-calendar-settings', {
+            const terms = activeTerms.map((t) => String(t).trim()).filter(Boolean);
+            const res = await api.put('/dos/academic-calendar-settings', {
                 current_academic_year: academicYear,
                 active_terms: terms,
-                term_dates: termDates.filter(d => d.name && d.start && d.end),
+                term_dates: termDates,
             });
-            alert('Academic settings saved.');
-        } catch (err) { alert(err.response?.data?.message || 'Failed to save'); }
-        finally { setIsSaving(false); }
+            if (res.data?.success) {
+                setRegistry(res.data.data?.academic_years_registry || []);
+                alert('Current academic year saved.');
+            }
+        } catch (err) {
+            alert(err.response?.data?.message || 'Failed to save');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleRegisterYear = async () => {
+        const y = String(newYear || '').trim();
+        if (!/^\d{4}-\d{4}$/.test(y)) {
+            alert('Enter academic year as YYYY-YYYY (e.g. 2026-2027).');
+            return;
+        }
+        setIsSaving(true);
+        try {
+            const res = await api.post('/dos/academic-years', {
+                academic_year: y,
+                active_terms: activeTerms,
+                term_dates: termDates,
+                set_as_current: false,
+            });
+            if (res.data?.success) {
+                setRegistry(res.data.data?.academic_years_registry || []);
+                setNewYear('');
+                alert(`Academic year ${y} registered.`);
+            }
+        } catch (err) {
+            alert(err.response?.data?.message || 'Failed to register year');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleSetCurrent = async (year) => {
+        try {
+            const res = await api.patch(`/dos/academic-years/${encodeURIComponent(year)}/current`);
+            if (res.data?.success) {
+                const d = res.data.data || {};
+                setRegistry(d.academic_years_registry || []);
+                setAcademicYear(d.current_academic_year || year);
+                alert(`${year} is now the current academic year.`);
+                load();
+            }
+        } catch (err) {
+            alert(err.response?.data?.message || 'Failed to set current year');
+        }
+    };
+
+    const formatDate = (iso) => {
+        if (!iso) return '—';
+        try {
+            return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+        } catch {
+            return iso;
+        }
     };
 
     return (
         <div className="space-y-5">
             <div>
                 <h2 className="text-xl font-semibold text-[#1E3A5F] uppercase tracking-tighter">System Preferences</h2>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Manage academic settings and notifications</p>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                    Register academic years, terms, and dates — used across DOS promotion, attendance, and reports
+                </p>
             </div>
 
-            {/* Academic Calendar */}
+            {/* All academic years report */}
+            <div className="bg-white border border-black/5 rounded-2xl p-5 shadow-sm space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                        <BookOpen size={14} className="text-[#FEBF10]" />
+                        <h3 className="text-[10px] font-semibold uppercase tracking-widest text-[#1E3A5F]">
+                            All academic years
+                        </h3>
+                    </div>
+                    <button type="button" onClick={load} className="text-[10px] font-semibold text-[#1E3A5F] uppercase flex items-center gap-1">
+                        <RefreshCw size={12} /> Refresh
+                    </button>
+                </div>
+
+                {loading ? (
+                    <div className="py-10 flex justify-center">
+                        <Loader2 size={22} className="animate-spin text-[#1E3A5F]" />
+                    </div>
+                ) : registry.length === 0 ? (
+                    <p className="text-sm text-slate-400 text-center py-8">
+                        No academic years registered yet. Add your first year below.
+                    </p>
+                ) : (
+                    <div className="overflow-x-auto -mx-1">
+                        <table className="w-full text-left text-[11px] min-w-[640px]">
+                            <thead>
+                                <tr className="border-b border-black/10 text-[9px] uppercase tracking-wider text-slate-500">
+                                    <th className="py-2 px-2">Year</th>
+                                    <th className="py-2 px-2">Status</th>
+                                    <th className="py-2 px-2">Terms</th>
+                                    <th className="py-2 px-2">Term dates</th>
+                                    <th className="py-2 px-2 text-right">Students</th>
+                                    <th className="py-2 px-2 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {registry.map((row) => (
+                                    <tr
+                                        key={row.academic_year}
+                                        className={`border-b border-black/5 hover:bg-slate-50/80 ${row.academic_year === academicYear ? 'bg-amber-50/50' : ''}`}
+                                    >
+                                        <td className="py-3 px-2 font-bold text-[#1E3A5F]">{row.academic_year}</td>
+                                        <td className="py-3 px-2">
+                                            {row.is_current ? (
+                                                <span className="px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-800 text-[9px] font-bold uppercase">
+                                                    Current
+                                                </span>
+                                            ) : (
+                                                <span className="text-slate-400 text-[9px]">Registered</span>
+                                            )}
+                                        </td>
+                                        <td className="py-3 px-2 text-slate-600">{(row.active_terms || []).join(', ')}</td>
+                                        <td className="py-3 px-2">
+                                            <div className="space-y-1">
+                                                {(row.term_dates || []).map((t) => (
+                                                    <div key={t.name} className="text-[10px] text-slate-600">
+                                                        <span className="font-semibold text-[#1E3A5F]">{t.name}:</span>{' '}
+                                                        {t.start && t.end ? `${formatDate(t.start)} → ${formatDate(t.end)}` : 'Dates not set'}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </td>
+                                        <td className="py-3 px-2 text-right font-semibold tabular-nums">{row.student_count ?? 0}</td>
+                                        <td className="py-3 px-2 text-right">
+                                            <div className="flex justify-end gap-1 flex-wrap">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => selectYearForEdit(row)}
+                                                    className="px-2 py-1 rounded-lg bg-slate-100 text-[9px] font-semibold hover:bg-slate-200"
+                                                >
+                                                    Edit
+                                                </button>
+                                                {!row.is_current && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleSetCurrent(row.academic_year)}
+                                                        className="px-2 py-1 rounded-lg bg-[#1E3A5F] text-white text-[9px] font-semibold"
+                                                    >
+                                                        Set current
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </div>
+
+            {/* Register new year */}
+            <div className="bg-white border border-dashed border-amber-300/60 rounded-2xl p-5 shadow-sm space-y-4">
+                <h3 className="text-[10px] font-semibold uppercase tracking-widest text-amber-700 flex items-center gap-2">
+                    <Plus size={14} /> Register another academic year
+                </h3>
+                <div className="grid md:grid-cols-3 gap-4">
+                    <Field label="New academic year">
+                        <input
+                            value={newYear}
+                            onChange={(e) => setNewYear(e.target.value)}
+                            placeholder="2027-2028"
+                            className={inputCls}
+                        />
+                    </Field>
+                    <div className="md:col-span-2 flex items-end">
+                        <button
+                            type="button"
+                            disabled={isSaving}
+                            onClick={handleRegisterYear}
+                            className="h-11 px-5 rounded-xl bg-amber-500 text-[#000435] font-bold text-[10px] uppercase tracking-widest inline-flex items-center gap-2"
+                        >
+                            {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                            Add year to registry
+                        </button>
+                    </div>
+                </div>
+                <p className="text-[10px] text-slate-500">
+                    Configure terms and dates in the editor below, then add the year. Use &quot;Set current&quot; when it becomes the active school year.
+                </p>
+            </div>
+
+            {/* Edit current / selected year */}
             <div className="bg-white border border-black/5 rounded-2xl p-5 shadow-sm space-y-4">
                 <div className="flex items-center gap-2 mb-1">
-                    <BookOpen size={14} className="text-[#FEBF10]" />
-                    <h3 className="text-[10px] font-semibold uppercase tracking-widest text-[#1E3A5F]">Academic Calendar</h3>
+                    <Settings size={14} className="text-[#FEBF10]" />
+                    <h3 className="text-[10px] font-semibold uppercase tracking-widest text-[#1E3A5F]">
+                        Edit academic year — {academicYear}
+                    </h3>
                 </div>
                 <div className="grid md:grid-cols-2 gap-4">
-                    <Field label="Current Academic Year">
-                        <input value={academicYear} onChange={e => setAcademicYear(e.target.value)} placeholder="2025-2026" className={inputCls} />
+                    <Field label="Academic year (editor)">
+                        <input
+                            value={academicYear}
+                            onChange={(e) => setAcademicYear(e.target.value)}
+                            placeholder="2026-2027"
+                            className={inputCls}
+                        />
                     </Field>
-                    <Field label="Active Terms">
-                        <div className="flex gap-3 h-11 items-center pl-3">
-                            {['Term 1','Term 2','Term 3'].map(term => (
+                    <Field label="Active terms">
+                        <div className="flex gap-3 h-11 items-center pl-3 flex-wrap">
+                            {TERM_OPTIONS.map((term) => (
                                 <label key={term} className="inline-flex items-center gap-1.5 text-[11px] font-semibold cursor-pointer">
-                                    <input type="checkbox" checked={activeTerms.includes(term)} onChange={e => handleActiveTermsChange(e.target.checked, term)} className="accent-[#1E3A5F]" />
+                                    <input
+                                        type="checkbox"
+                                        checked={activeTerms.includes(term)}
+                                        onChange={(e) => handleActiveTermsChange(e.target.checked, term)}
+                                        className="accent-[#1E3A5F]"
+                                    />
                                     {term}
                                 </label>
                             ))}
@@ -516,25 +737,46 @@ const Preferences = () => {
                 </div>
                 {activeTerms.length > 0 && (
                     <div className="space-y-2 pt-1">
-                        <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-widest">Term Start &amp; End Dates</p>
-                        {activeTerms.map(term => {
-                            const cfg = termDates.find(d => d.name === term) || { start: '', end: '' };
+                        <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-widest">Term start &amp; end dates</p>
+                        {activeTerms.map((term) => {
+                            const cfg = termDates.find((d) => d.name === term) || { start: '', end: '' };
                             return (
-                                <div key={term} className="flex flex-col sm:flex-row sm:items-center gap-2 p-3 bg-slate-50 rounded-xl border border-black/5">
+                                <div
+                                    key={term}
+                                    className="flex flex-col sm:flex-row sm:items-center gap-2 p-3 bg-slate-50 rounded-xl border border-black/5"
+                                >
                                     <span className="text-[10px] font-semibold text-[#1E3A5F] uppercase w-16 shrink-0">{term}</span>
-                                    <input type="date" value={cfg.start} onChange={e => setTermDate(term,'start',e.target.value)} className="flex-1 h-9 px-3 rounded-xl border border-black/10 text-[11px] font-bold text-[#1E3A5F] outline-none focus:ring-2 ring-[#FEBF10]/40" />
+                                    <input
+                                        type="date"
+                                        value={cfg.start}
+                                        onChange={(e) => setTermDate(term, 'start', e.target.value)}
+                                        className="flex-1 h-9 px-3 rounded-xl border border-black/10 text-[11px] font-bold text-[#1E3A5F] outline-none focus:ring-2 ring-[#FEBF10]/40"
+                                    />
                                     <span className="text-slate-400 font-semibold text-xs shrink-0">→</span>
-                                    <input type="date" value={cfg.end} onChange={e => setTermDate(term,'end',e.target.value)} className="flex-1 h-9 px-3 rounded-xl border border-black/10 text-[11px] font-bold text-[#1E3A5F] outline-none focus:ring-2 ring-[#FEBF10]/40" />
-                                    {cfg.start && cfg.end && <span className="px-2 py-1 bg-emerald-50 text-emerald-700 text-[8px] font-semibold rounded-lg border border-emerald-100 shrink-0">✓ Set</span>}
+                                    <input
+                                        type="date"
+                                        value={cfg.end}
+                                        onChange={(e) => setTermDate(term, 'end', e.target.value)}
+                                        className="flex-1 h-9 px-3 rounded-xl border border-black/10 text-[11px] font-bold text-[#1E3A5F] outline-none focus:ring-2 ring-[#FEBF10]/40"
+                                    />
+                                    {cfg.start && cfg.end && (
+                                        <span className="px-2 py-1 bg-emerald-50 text-emerald-700 text-[8px] font-semibold rounded-lg border border-emerald-100 shrink-0">
+                                            Set
+                                        </span>
+                                    )}
                                 </div>
                             );
                         })}
                     </div>
                 )}
-                <button type="button" disabled={isSaving} onClick={handleSave}
-                    className="h-10 px-4 rounded-xl bg-[#1E3A5F] text-white font-medium text-[10px] uppercase tracking-widest inline-flex items-center gap-2 active:scale-95 transition-all">
-                    {isSaving ? <Loader2 size={14} className="animate-spin text-[#FEBF10]" /> : <Save size={14} style={{ color:'#FEBF10' }} />}
-                    Save Academic Calendar
+                <button
+                    type="button"
+                    disabled={isSaving}
+                    onClick={handleSaveCurrent}
+                    className="h-10 px-4 rounded-xl bg-[#1E3A5F] text-white font-medium text-[10px] uppercase tracking-widest inline-flex items-center gap-2 active:scale-95 transition-all"
+                >
+                    {isSaving ? <Loader2 size={14} className="animate-spin text-[#FEBF10]" /> : <Save size={14} style={{ color: '#FEBF10' }} />}
+                    Save &amp; set as current year
                 </button>
             </div>
 

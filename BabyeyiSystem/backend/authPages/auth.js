@@ -86,6 +86,7 @@ const {
   loadSchoolModules,
   loadPermissionKeysForRole,
   mergeLegacyRolePermissionsJson,
+  applyProUpgradeSideEffects,
 } = require('../utils/schoolSubscription');
 
 // ── Optional email service ─────────────────────────────────────
@@ -133,8 +134,11 @@ function redirectForRole(roleCode) {
     DEO:            '/district-babyeyi-dashboard',
     SCHOOL_ADMIN:   '/school-babyeyi-dashboard',
     SCHOOL_MANAGER: '/school-babyeyi-dashboard',
-    ACCOUNTANT:     '/accountant/dashboard',
-    DOS:            '/dos/students',
+    ACCOUNTANT:     '/lite/accountant',
+    DISCIPLINE:     '/lite/discipline',
+    DISCIPLINE_STAFF: '/lite/discipline',
+    HEAD_OF_DISCIPLINE: '/lite/discipline',
+    DOS:            '/lite/dos',
     HOD:            '/hod/students',
     TEACHER:        '/teacher/dashboard',
     GATE_OFFICER:   '/gatekeeper',
@@ -1062,8 +1066,35 @@ router.patch('/schools/:schoolId/subscription', async (req, res) => {
   if (!updates.length) {
     return res.status(400).json({ success: false, message: 'No valid fields to update' });
   }
+
+  const planBeingSet =
+    subscription_plan != null ? String(subscription_plan).toLowerCase() : null;
+  if (planBeingSet === 'pro' && pro_enabled == null) {
+    updates.push('pro_enabled = ?');
+    params.push(1);
+  }
+  if (planBeingSet === 'pro' && pro_start_date === undefined) {
+    const [[existing]] = await promisePool.query(
+      `SELECT subscription_plan, pro_enabled, pro_start_date, pro_end_date
+       FROM schools WHERE id = ? AND deleted_at IS NULL LIMIT 1`,
+      [schoolId]
+    );
+    if (existing && !existing.pro_start_date) {
+      updates.push('pro_start_date = COALESCE(pro_start_date, NOW())');
+    }
+  }
+
   params.push(schoolId);
   try {
+    const [[beforeRow]] = await promisePool.query(
+      `SELECT id, subscription_plan, pro_enabled, pro_start_date, pro_end_date
+       FROM schools WHERE id = ? AND deleted_at IS NULL LIMIT 1`,
+      [schoolId]
+    );
+    if (!beforeRow) {
+      return res.status(404).json({ success: false, message: 'School not found' });
+    }
+
     await promisePool.query(
       `UPDATE schools SET ${updates.join(', ')}, updated_at = NOW() WHERE id = ? AND deleted_at IS NULL`,
       params
@@ -1073,7 +1104,30 @@ router.patch('/schools/:schoolId/subscription', async (req, res) => {
        FROM schools WHERE id = ? LIMIT 1`,
       [schoolId]
     );
-    res.json({ success: true, message: 'School subscription updated', data: row });
+
+    const upgrade = await applyProUpgradeSideEffects(
+      promisePool,
+      schoolId,
+      beforeRow,
+      row
+    );
+
+    let message = 'School subscription updated';
+    if (upgrade.upgraded_from_lite) {
+      message =
+        'School upgraded to Pro. All existing Lite data (students, staff, attendance, Shule Avance, etc.) remains on this school and is now available in Pro portals.';
+    }
+
+    res.json({
+      success: true,
+      message,
+      data: {
+        ...row,
+        pro_access_effective: computeProAccessEffective(row),
+        upgraded_from_lite: upgrade.upgraded_from_lite,
+        data_retained: upgrade.data_retained,
+      },
+    });
   } catch (err) {
     console.error('❌  PATCH /schools/:id/subscription:', err);
     res.status(500).json({ success: false, message: 'Update failed', error: err.message });

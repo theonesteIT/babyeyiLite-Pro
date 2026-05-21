@@ -3,7 +3,6 @@ import {
     LayoutDashboard, Users, Calendar,
     ClipboardCheck, DollarSign,
 } from 'lucide-react';
-
 const BottomNav = () => {
     const navItems = [
         { icon: LayoutDashboard, name: 'Home', path: '/', exact: true },

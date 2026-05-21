@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Home, FileText, Send, FolderOpen, BarChart3, Bell,
   AlertCircle, Globe, Lock, Eye, EyeOff, Loader2, CheckCircle2, Users,
-  UserCog, Receipt, Wallet,
+  UserCog, Receipt, Wallet, Briefcase, DoorOpen,
 } from "lucide-react";
 
 import { useAuth } from "../../../context/AuthContext";
@@ -19,6 +19,8 @@ import BabyeyiPage   from "./Babyeyi";
 import BabyeyiList   from "./BabyeyiList";
 import StudentsPage  from "./StudentsPage";
 import SchoolWorkersPage from "./SchoolWorkersPage";
+import HRCenter from "./HRCenter";
+import GateAttendancePage from "./GateAttendancePage";
 import LogoutButton  from "../../Auth/LogoutButton";
 import { BABYEYI_FONT_STACK, BABYEYI_PAGE_BG } from "../../../theme/babyeyiDashboardTheme";
 
@@ -45,6 +47,8 @@ const NAV = [
   { id: "students",            label: "Students",          icon: Users },
   { id: "student_transfer",   label: "Student Transfer", icon: Users },
   { id: "school_team",         label: "School team",       icon: UserCog },
+  { id: "hr_center",           label: "HRCenter",          icon: Briefcase },
+  { id: "gate_attendance",     label: "Gate Attendance",   icon: DoorOpen },
   { id: "school_mini_website", label: "School Website",    icon: Globe },
   { id: "requests",            label: "Increase Requests", icon: Send },
   { id: "documents",           label: "Documents",         icon: FolderOpen },
@@ -395,11 +399,8 @@ export default function SchoolBabyeyiDashboard() {
         NAV={navItems}
         notifCount={notifCount}
         transferNotifCount={transferNotifCount}
-        online={online}
         mobileOpen={mobileOpen}
         setMobileOpen={setMobileOpen}
-        schoolProfile={schoolProfile}
-        session={session}
         showProLaunch={false}
         proAppBase={PRO_APP_BASE}
       />
@@ -455,6 +456,8 @@ export default function SchoolBabyeyiDashboard() {
           {tab === "students"      && <StudentsPage      session={session} toast={toast} />}
           {tab === "student_transfer" && <StudentTransferPage {...commonProps} />}
           {tab === "school_team" && isProSchool && <SchoolWorkersPage session={session} toast={toast} />}
+          {tab === "hr_center" && <HRCenter session={session} toast={toast} />}
+          {tab === "gate_attendance" && <GateAttendancePage toast={toast} />}
 
           {tab === "school_mini_website" && (
             <SchoolMiniWebsitePage session={session} toast={toast} />

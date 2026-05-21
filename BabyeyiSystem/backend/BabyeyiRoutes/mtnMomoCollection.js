@@ -90,8 +90,22 @@ function rejectPollResponseIfHtmlBlock(res, label) {
   }
 }
 
+/** Read credentials at call time so MOMO_* vars match momoRoutes.js / payments.jsx. */
+function readMomoCredentials() {
+  return {
+    subscriptionKey: String(
+      process.env.MTN_MOMO_SUBSCRIPTION_KEY || process.env.MOMO_SUBSCRIPTION_KEY || MTN_MOMO_SUBSCRIPTION_KEY || ''
+    ).trim(),
+    apiUser: String(
+      process.env.MTN_MOMO_API_USER || process.env.MOMO_API_USER_ID || MTN_MOMO_API_USER || ''
+    ).trim(),
+    apiKey: String(process.env.MTN_MOMO_API_KEY || process.env.MOMO_API_KEY || MTN_MOMO_API_KEY || '').trim(),
+  };
+}
+
 function mtnMomoEnabled() {
-  return !!(MTN_MOMO_SUBSCRIPTION_KEY && MTN_MOMO_API_USER && MTN_MOMO_API_KEY);
+  const { subscriptionKey, apiUser, apiKey } = readMomoCredentials();
+  return !!(subscriptionKey && apiUser && apiKey);
 }
 
 /** Human-readable hint for 503 responses when collection is disabled */

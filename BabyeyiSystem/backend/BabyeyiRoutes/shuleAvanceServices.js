@@ -17,6 +17,7 @@ const {
   getVapidPublicKey,
   isWebPushConfigured,
 } = require('./webPushSubscriptions');
+const { computeProAccessEffective } = require('../utils/schoolSubscription');
 
 const router = express.Router();
 
@@ -35,6 +36,10 @@ const APPLICANT_ROLES = [
   'DISCIPLINE',
   'DISCIPLINE_STAFF',
   'HEAD_OF_DISCIPLINE',
+  'GATE_OFFICER',
+  'GATE_KEEPER',
+  'SECRETARY',
+  'HR',
 ];
 const LEGACY_APPLICANT_ROLES = [
   'TEACHER',
@@ -58,7 +63,9 @@ const STATUS = {
   REJECTED_BY_ACCOUNTANT: 'rejected_by_accountant',
   REJECTED_BY_MANAGER: 'rejected_by_manager',
 };
-const CASHOUT_AUTO_APPROVAL_RATIO = 0.40;
+const DEFAULT_ADVANCE_MAX_PERCENT = 25;
+/** Fallback ratio when caller omits school policy (same as default max %, not a separate 40% cap). */
+const DEFAULT_ADVANCE_RATIO = DEFAULT_ADVANCE_MAX_PERCENT / 100;
 
 /** Shared money parser for policy + payroll helpers */
 function toMoney(v) {
@@ -176,6 +183,7 @@ async function ensureTable() {
     ['monthly_remaining_net_rwf', 'DECIMAL(14,2) NULL'],
     ['auto_approved', 'TINYINT(1) NOT NULL DEFAULT 0'],
     ['auto_approved_at', 'DATETIME NULL'],
+    ['exceeds_monthly_cap', 'TINYINT(1) NOT NULL DEFAULT 0'],
   ];
   const failedAlters = [];
   for (const [name, def] of cols) {
@@ -276,6 +284,94 @@ async function fetchTeacherDealProductsByIds(ids) {
   return (rows || []).map(toDealProductDto);
 }
 
+let schoolAdvanceColumnReady = false;
+
+async function ensureSchoolAdvancePolicyColumn() {
+  if (schoolAdvanceColumnReady) return;
+  await promisePool
+    .query(
+      `ALTER TABLE schools ADD COLUMN shule_avance_max_percent DECIMAL(5,2) NOT NULL DEFAULT ${DEFAULT_ADVANCE_MAX_PERCENT}`
+    )
+    .catch(() => {});
+  schoolAdvanceColumnReady = true;
+}
+
+async function getSchoolShuleAvanceMaxPercent(schoolId) {
+  await ensureSchoolAdvancePolicyColumn();
+  const [[row]] = await promisePool.query(
+    `SELECT shule_avance_max_percent FROM schools WHERE id = ? AND deleted_at IS NULL LIMIT 1`,
+    [schoolId]
+  );
+  const pct = Number(row?.shule_avance_max_percent);
+  if (!Number.isFinite(pct) || pct <= 0 || pct > 100) return DEFAULT_ADVANCE_MAX_PERCENT;
+  return pct;
+}
+
+async function isSchoolProEnabled(schoolId) {
+  const [[row]] = await promisePool.query(
+    `SELECT subscription_plan, pro_enabled, pro_end_date FROM schools WHERE id = ? AND deleted_at IS NULL LIMIT 1`,
+    [schoolId]
+  );
+  return computeProAccessEffective(row || null);
+}
+
+/** Deep-link for staff push notifications (BabyeyiSystem Lite vs Pro portal). */
+function staffShuleAvancePortalPath(isPro) {
+  return isPro ? '/shule-avance' : '/lite/shule-avance';
+}
+
+async function getStaffAllowAdvance(schoolId, userId) {
+  const [[row]] = await promisePool.query(
+    `SELECT st.allow_advance
+     FROM staff st
+     WHERE st.school_id = ? AND st.user_id = ?
+     LIMIT 1`,
+    [schoolId, userId]
+  );
+  return Number(row?.allow_advance) === 1;
+}
+
+async function buildStaffAdvanceEligibility(schoolId, userId) {
+  const allowed = await getStaffAllowAdvance(schoolId, userId);
+  const maxPercent = await getSchoolShuleAvanceMaxPercent(schoolId);
+  const netSalary = await getTeacherNetSalaryFromStaff(schoolId, userId);
+  const ratio = maxPercent / 100;
+  const policy = await getTeacherMonthlyCashoutPolicy(schoolId, userId, netSalary, monthKeyNow(), ratio);
+  const monthlyCap = Math.floor(policy.baseline_net_salary * ratio);
+  const remainingCap = Math.max(0, monthlyCap - policy.monthly_requested_total);
+
+  if (!allowed) {
+    return {
+      allowed: false,
+      allow_advance: false,
+      max_percent: maxPercent,
+      net_salary_rwf: Math.round(netSalary),
+      monthly_cap_rwf: monthlyCap,
+      monthly_requested_rwf: policy.monthly_requested_total,
+      remaining_cap_rwf: 0,
+      message: 'You are not allowed to use Shule Avance. Contact your school manager.',
+    };
+  }
+
+  return {
+    allowed: true,
+    allow_advance: true,
+    max_percent: maxPercent,
+    net_salary_rwf: Math.round(netSalary),
+    monthly_cap_rwf: monthlyCap,
+    monthly_requested_rwf: policy.monthly_requested_total,
+    remaining_cap_rwf: remainingCap,
+    auto_approval_percent: maxPercent,
+    auto_approval_limit_rwf: policy.auto_approval_limit,
+    auto_approval_used_rwf: policy.auto_approval_used,
+    auto_approval_remaining_rwf: policy.auto_approval_remaining,
+    message:
+      netSalary > 0
+        ? `You may request up to ${maxPercent}% of net salary per month (${remainingCap.toLocaleString()} RWF remaining). Cashouts up to ${policy.auto_approval_remaining.toLocaleString()} RWF are auto-approved instantly.`
+        : 'Your salary baseline is not set in HR — cashout limits may not apply until payroll is configured.',
+  };
+}
+
 /** Compute net salary from the staff HR table (same logic as teacher-portal payroll endpoint). */
 async function getTeacherNetSalaryFromStaff(schoolId, userId) {
   try {
@@ -318,7 +414,13 @@ function monthKeyNow() {
   return `${y}-${m}`;
 }
 
-async function getTeacherMonthlyCashoutPolicy(schoolId, userId, netSalary, monthKey = monthKeyNow()) {
+async function getTeacherMonthlyCashoutPolicy(
+  schoolId,
+  userId,
+  netSalary,
+  monthKey = monthKeyNow(),
+  advanceRatio = DEFAULT_ADVANCE_RATIO
+) {
   const [rows] = await promisePool.query(
     `SELECT
         COALESCE(
@@ -360,7 +462,9 @@ async function getTeacherMonthlyCashoutPolicy(schoolId, userId, netSalary, month
   );
   const stats = rows?.[0] || {};
   const baseline = Math.max(0, toMoney(stats.baseline_snapshot) || toMoney(netSalary));
-  const autoApprovalLimit = Math.floor(baseline * CASHOUT_AUTO_APPROVAL_RATIO);
+  const ratio =
+    Number(advanceRatio) > 0 && Number(advanceRatio) <= 1 ? Number(advanceRatio) : DEFAULT_ADVANCE_RATIO;
+  const autoApprovalLimit = Math.floor(baseline * ratio);
   const monthlyRequestedTotal = toMoney(stats.monthly_requested_total);
   const monthlyAutoApprovedTotal = toMoney(stats.monthly_auto_approved_total);
   return {
@@ -368,7 +472,7 @@ async function getTeacherMonthlyCashoutPolicy(schoolId, userId, netSalary, month
     baseline_net_salary: Math.round(baseline),
     monthly_requested_total: Math.round(monthlyRequestedTotal),
     monthly_remaining_net: Math.max(0, Math.round(baseline - monthlyRequestedTotal)),
-    auto_approval_ratio: CASHOUT_AUTO_APPROVAL_RATIO,
+    auto_approval_ratio: ratio,
     auto_approval_limit: autoApprovalLimit,
     auto_approval_used: Math.round(monthlyAutoApprovedTotal),
     auto_approval_remaining: Math.max(0, Math.round(autoApprovalLimit - monthlyAutoApprovedTotal)),
@@ -425,7 +529,9 @@ const ROW_SELECT = `r.id, r.school_id, r.teacher_user_id, r.amount_rwf, r.purpos
               r.vendor_label, r.details, r.invoice_file_name, r.status, r.accountant_note, r.manager_feedback,
               r.submitted_at, r.accountant_reviewed_at, r.manager_reviewed_at, r.created_at, r.updated_at,
               r.request_type, r.service_category, r.cashout_reason, r.cashout_category_slug,
-              r.deal_product_ids_json, r.deal_products_snapshot_json, r.deal_products_total_rwf`;
+              r.deal_product_ids_json, r.deal_products_snapshot_json, r.deal_products_total_rwf,
+              r.exceeds_monthly_cap, r.auto_approved, r.net_salary_baseline_rwf, r.auto_approval_limit_rwf,
+              r.monthly_requested_total_rwf, r.monthly_remaining_net_rwf`;
 
 async function parseCreateBody(req, maps) {
   const { servicesBySlug, cashoutsBySlug } = maps;
@@ -537,9 +643,25 @@ async function parseCreateBody(req, maps) {
   };
 }
 
+async function handleApplicantEligibility(req, res) {
+  try {
+    const { schoolId, userId } = req.ctx;
+    const data = await buildStaffAdvanceEligibility(schoolId, userId);
+    return res.json({ success: true, data });
+  } catch (error) {
+    console.error('[shule-avance] eligibility:', error.message);
+    return res.status(500).json({ success: false, message: 'Failed to load eligibility.' });
+  }
+}
+
 async function handleApplicantCreate(req, res) {
   try {
     const { schoolId, userId } = req.ctx;
+    const eligibility = await buildStaffAdvanceEligibility(schoolId, userId);
+    if (!eligibility.allowed) {
+      return res.status(403).json({ success: false, code: 'ADVANCE_NOT_ALLOWED', message: eligibility.message });
+    }
+
     await ensureShuleAvanceTeacherCatalogTable();
     const maps = await fetchActiveCatalogMaps();
     const parsed = await parseCreateBody(req, maps);
@@ -548,21 +670,49 @@ async function handleApplicantCreate(req, res) {
     }
     const v = parsed.value;
 
-    // ── 40% monthly baseline auto-approval rule for cashouts ─────────────────
-    let initialStatus = STATUS.PENDING_ACCOUNTANT;
+    const maxPercent = eligibility.max_percent;
+    const advanceRatio = maxPercent / 100;
+    const monthlyCap = eligibility.monthly_cap_rwf;
+    const projectedTotal = eligibility.monthly_requested_rwf + v.amount;
+    const exceedsMonthlyCap = monthlyCap > 0 && projectedTotal > monthlyCap;
+
+    const isPro = await isSchoolProEnabled(schoolId);
+    const isLite = !isPro;
+
+    // Pro schools: hard block over monthly cap. Lite: allow submit → school manager decides.
+    if (exceedsMonthlyCap && isPro) {
+      return res.status(400).json({
+        success: false,
+        code: 'EXCEEDS_MONTHLY_CAP',
+        message: `This request exceeds your monthly limit (${maxPercent}% of net salary — max ${monthlyCap.toLocaleString()} RWF). You have ${eligibility.remaining_cap_rwf.toLocaleString()} RWF remaining.`,
+      });
+    }
+
+    // ── Monthly cap + optional auto-approval for cashouts within school % ─────
+    let initialStatus = isPro ? STATUS.PENDING_ACCOUNTANT : STATUS.SENT_TO_MANAGER;
     let autoApproved = false;
     let cashoutPolicy = null;
     let requestedTotalAfter = null;
     let remainingAfter = null;
     if (v.requestType === 'cashout') {
       const netSalary = await getTeacherNetSalaryFromStaff(schoolId, userId);
-      cashoutPolicy = await getTeacherMonthlyCashoutPolicy(schoolId, userId, netSalary);
-      if (cashoutPolicy.baseline_net_salary > 0 && v.amount <= cashoutPolicy.auto_approval_remaining) {
+      cashoutPolicy = await getTeacherMonthlyCashoutPolicy(schoolId, userId, netSalary, monthKeyNow(), advanceRatio);
+      const canAutoApprove =
+        !exceedsMonthlyCap
+        && cashoutPolicy.baseline_net_salary > 0
+        && v.amount <= cashoutPolicy.auto_approval_remaining;
+      if (canAutoApprove) {
         initialStatus = STATUS.APPROVED;
         autoApproved = true;
+      } else {
+        initialStatus = STATUS.SENT_TO_MANAGER;
+        autoApproved = false;
       }
       requestedTotalAfter = Math.round(cashoutPolicy.monthly_requested_total + v.amount);
       remainingAfter = Math.max(0, Math.round(cashoutPolicy.baseline_net_salary - requestedTotalAfter));
+    } else if (isLite || exceedsMonthlyCap) {
+      initialStatus = STATUS.SENT_TO_MANAGER;
+      autoApproved = false;
     }
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -572,8 +722,8 @@ async function handleApplicantCreate(req, res) {
         invoice_file_name, status, request_type, service_category, cashout_reason, cashout_category_slug,
         deal_product_ids_json, deal_products_snapshot_json, deal_products_total_rwf,
         cashout_month_key, net_salary_baseline_rwf, auto_approval_limit_rwf, monthly_requested_total_rwf, monthly_remaining_net_rwf,
-        auto_approved, auto_approved_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        auto_approved, auto_approved_at, exceeds_monthly_cap)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         schoolId,
         userId,
@@ -598,20 +748,27 @@ async function handleApplicantCreate(req, res) {
         v.requestType === 'cashout' ? remainingAfter : null,
         autoApproved ? 1 : 0,
         autoApproved ? new Date() : null,
+        exceedsMonthlyCap ? 1 : 0,
       ]
     );
 
     const reqId = result.insertId;
     const responseMsg = autoApproved
       ? 'Cashout auto-approved — will be deducted from your next payroll'
-      : (v.requestType === 'cashout'
-        ? 'Cashout exceeds direct 40% auto-approval window: sent to accountant then manager review workflow'
-        : 'Request submitted to accountant');
+      : exceedsMonthlyCap && isLite
+        ? `This request exceeds your ${maxPercent}% monthly limit and was sent to your school manager for approval.`
+        : (v.requestType === 'cashout'
+          ? (isPro
+            ? `Cashout sent for finance review (within ${maxPercent}% monthly cap).`
+            : `Cashout sent to your school manager for approval.`)
+          : (isPro ? 'Request submitted to accountant' : 'Request sent to your school manager'));
     res.status(201).json({
       success: true,
       message: responseMsg,
       id: reqId,
       auto_approved: autoApproved,
+      exceeds_monthly_cap: exceedsMonthlyCap,
+      requires_manager_approval: initialStatus === STATUS.SENT_TO_MANAGER,
       requested_at: new Date().toISOString(),
       cashout_policy: cashoutPolicy ? {
         ...cashoutPolicy,
@@ -621,6 +778,7 @@ async function handleApplicantCreate(req, res) {
     });
 
     // ── Fire-and-forget push notifications ───────────────────────────────────
+    const staffPortalUrl = staffShuleAvancePortalPath(isPro);
     if (autoApproved) {
       // Notify the teacher that their cashout was instantly approved
       setImmediate(() => {
@@ -628,11 +786,21 @@ async function handleApplicantCreate(req, res) {
           title: 'Ticha Avance — Auto-approved ✓',
           body: `Your cashout of ${Math.round(v.amount).toLocaleString()} RWF was automatically approved and will be deducted from your next payroll.`,
           tag: `sa-${reqId}-auto-approved`,
-          url: '/shule-avance',
+          url: staffPortalUrl,
         }).catch((e) => console.warn('[shule-avance] push auto-approved:', e.message));
       });
+    } else if (initialStatus === STATUS.SENT_TO_MANAGER) {
+      setImmediate(() => {
+        sendWebPushToSchoolRoles(schoolId, MANAGER_ROLES, {
+          title: exceedsMonthlyCap ? 'Ticha Avance — Over monthly limit' : 'Ticha Avance — Approval needed',
+          body: exceedsMonthlyCap
+            ? `Staff request of ${Math.round(v.amount).toLocaleString()} RWF exceeds the ${maxPercent}% monthly cap and needs your decision.`
+            : `A new ${v.requestType === 'cashout' ? 'cashout' : 'advance'} request of ${Math.round(v.amount).toLocaleString()} RWF needs your approval.`,
+          tag: `sa-${reqId}-manager`,
+          url: '/school-manager',
+        });
+      });
     } else {
-      // Notify all accountants in the school that a new request is waiting
       setImmediate(() => {
         sendWebPushToSchoolRoles(schoolId, [ROLE_ACCOUNTANT], {
           title: 'Ticha Avance — New Request',
@@ -644,8 +812,17 @@ async function handleApplicantCreate(req, res) {
     }
     // ─────────────────────────────────────────────────────────────────────────
   } catch (error) {
-    console.error('[shule-avance] applicant create:', error.message);
-    res.status(500).json({ success: false, message: 'Failed to submit request' });
+    console.error('[shule-avance] applicant create:', error.code || '', error.message);
+    if (process.env.NODE_ENV !== 'production') {
+      console.error(error.stack);
+    }
+    res.status(500).json({
+      success: false,
+      message: 'Failed to submit request',
+      ...(process.env.NODE_ENV !== 'production' && error.message
+        ? { detail: error.message }
+        : {}),
+    });
   }
 }
 
@@ -660,7 +837,14 @@ async function handleApplicantList(req, res) {
       [schoolId, userId]
     );
     const netSalary = await getTeacherNetSalaryFromStaff(schoolId, userId);
-    const monthlyCashoutPolicy = await getTeacherMonthlyCashoutPolicy(schoolId, userId, netSalary);
+    const maxPercent = await getSchoolShuleAvanceMaxPercent(schoolId);
+    const monthlyCashoutPolicy = await getTeacherMonthlyCashoutPolicy(
+      schoolId,
+      userId,
+      netSalary,
+      monthKeyNow(),
+      maxPercent / 100
+    );
     res.json({
       success: true,
       data: rows,
@@ -967,6 +1151,57 @@ function toMsisdn250Deal(raw) {
 }
 
 /** Map MTN GET requesttopay status to success / fail / still waiting (202 RTP is only "prompt sent"). */
+const internalMomo = require('./internalMomoGateway');
+
+/** Prefer mtnMomoCollection; fall back to /api/momo (same as payments.jsx). */
+function resolveTeacherDealMomoGateway() {
+  let collection = null;
+  try {
+    collection = require('./mtnMomoCollection');
+  } catch (e) {
+    console.warn('[teacher-deal-momo] mtnMomoCollection load:', e.message);
+  }
+  if (collection?.mtnMomoEnabled?.()) {
+    return { mode: 'collection', mtnMomo: collection };
+  }
+  if (internalMomo.isInternalMomoConfigured()) {
+    return { mode: 'internal', mtnMomo: internalMomo.internalMomoStatusMapper };
+  }
+  return { mode: 'none', mtnMomo: null };
+}
+
+async function teacherDealMomoRequestToPay(gateway, params) {
+  if (gateway.mode === 'collection') {
+    return gateway.mtnMomo.requestToPay(params);
+  }
+  const json = await internalMomo.startInternalMomoRequestToPay({
+    phoneMsisdn250: params.msisdn250,
+    amountRwf: params.amount,
+    externalId: params.externalId,
+    payerMessage: params.payerMessage,
+    payeeNote: params.payeeNote,
+  });
+  return { referenceId: json.referenceId, statusCode: 202 };
+}
+
+async function teacherDealMomoGetStatus(gateway, referenceId) {
+  if (gateway.mode === 'collection') {
+    return gateway.mtnMomo.getRequestToPayStatus(referenceId);
+  }
+  return internalMomo.getInternalMomoRequestToPayStatus(referenceId);
+}
+
+function teacherDealMomoUnavailableDetail(gateway) {
+  if (gateway.mode !== 'none') return '';
+  let collectionReason = '';
+  try {
+    const c = require('./mtnMomoCollection');
+    if (typeof c.mtnMomoDisabledReason === 'function') collectionReason = c.mtnMomoDisabledReason();
+  } catch (_) { /* ignore */ }
+  const internalReason = internalMomo.internalMomoDisabledReason();
+  return collectionReason || internalReason || 'Configure MoMo credentials in backend .env (same as public payments page).';
+}
+
 function classifyTeacherDealMtnStatus(stData, mtnMomo) {
   if (stData && stData.mtnNotFound) {
     return { kind: 'pending', providerStatus: 'PENDING' };
@@ -1150,7 +1385,7 @@ router.post('/shule-avance/public/teacher-deal-pay-momo', async (req, res) => {
       if (payload.mtn_pending_reference_id) {
         let stData;
         try {
-          stData = await mtnMomo.getRequestToPayStatus(payload.mtn_pending_reference_id);
+          stData = await teacherDealMomoGetStatus(gateway, payload.mtn_pending_reference_id);
         } catch (gateErr) {
           await conn.rollback();
           return res.json({
@@ -1211,7 +1446,7 @@ router.post('/shule-avance/public/teacher-deal-pay-momo', async (req, res) => {
       }
 
       const externalId = `td-${token.slice(0, 10)}-${Date.now()}`.slice(0, 64);
-      const mtn = await mtnMomo.requestToPay({
+      const mtn = await teacherDealMomoRequestToPay(gateway, {
         amount,
         currency: 'RWF',
         externalId,
@@ -1281,19 +1516,15 @@ router.post('/shule-avance/public/teacher-deal-pay-momo', async (req, res) => {
 
 /** Poll MTN until the customer approves — token stays unconsumed until SUCCESSFUL. */
 router.post('/shule-avance/public/teacher-deal-pay-momo-status', async (req, res) => {
-  let mtnMomo = null;
-  try {
-    mtnMomo = require('./mtnMomoCollection');
-  } catch (e) {
-    console.error('[teacher-deal-pay-momo-status] require mtnMomoCollection failed:', e && e.message);
-  }
-  if (!mtnMomo || !mtnMomo.mtnMomoEnabled || !mtnMomo.mtnMomoEnabled()) {
+  const gateway = resolveTeacherDealMomoGateway();
+  if (gateway.mode === 'none') {
     return res.status(503).json({
       success: false,
       message: 'Mobile Money collection is not available right now.',
-      detail: typeof mtnMomo?.mtnMomoDisabledReason === 'function' ? mtnMomo.mtnMomoDisabledReason() : '',
+      detail: teacherDealMomoUnavailableDetail(gateway),
     });
   }
+  const { mtnMomo } = gateway;
   try {
     await ensureTeacherDealPayTokensTable();
     const token = String(req.body.token || '').trim();
@@ -1344,9 +1575,9 @@ router.post('/shule-avance/public/teacher-deal-pay-momo-status', async (req, res
 
     let stData;
     try {
-      stData = await mtnMomo.getRequestToPayStatus(referenceId);
+      stData = await teacherDealMomoGetStatus(gateway, referenceId);
     } catch (gateErr) {
-      const mtnStatus = gateErr.mtnStatus;
+      const mtnStatus = gateErr.mtnStatus || gateErr.httpStatus;
       const msg = String(gateErr.message || '');
       const transient =
         !!gateErr.networkError
@@ -1613,6 +1844,7 @@ router.use(async (_req, res, next) => {
 });
 
 // Applicant CRUD (teachers, HOD, DOS, accountants)
+router.get('/shule-avance/applicant/eligibility', requireRole(APPLICANT_ROLES), handleApplicantEligibility);
 router.get('/shule-avance/applicant/my-requests', requireRole(APPLICANT_ROLES), handleApplicantList);
 router.post('/shule-avance/applicant/requests', requireRole(APPLICANT_ROLES), handleApplicantCreate);
 router.put('/shule-avance/applicant/requests/:id', requireRole(APPLICANT_ROLES), handleApplicantUpdate);
@@ -1848,12 +2080,14 @@ router.patch('/shule-avance/finance/invoice-requests/:id/send-to-manager', requi
 
     // Notify the teacher their request has been forwarded
     if (Number.isFinite(teacherUserId) && teacherUserId > 0) {
+      const isPro = await isSchoolProEnabled(schoolId);
+      const staffPortalUrl = staffShuleAvancePortalPath(isPro);
       setImmediate(() => {
         sendWebPushToUser(teacherUserId, {
           title: 'Ticha Avance',
           body: `Request #${id} was sent to your school manager for review.`,
           tag: `sa-${id}-to-manager`,
-          url: '/shule-avance',
+          url: staffPortalUrl,
         }).catch((e) => console.warn('[shule-avance] web push send:', e.message));
       });
     }
@@ -1895,46 +2129,199 @@ router.patch('/shule-avance/finance/invoice-requests/:id/reject', requireRole(RO
   }
 });
 
-// Manager: list with optional status (default: awaiting manager decision)
+const MANAGER_REQUEST_JOINS = `
+       FROM shule_avance_requests r
+       LEFT JOIN users u ON u.id = r.teacher_user_id
+       LEFT JOIN roles rl ON rl.id = u.role_id`;
+
+function buildManagerRequestsWhere(schoolId, query = {}) {
+  let where = 'r.school_id = ?';
+  const params = [schoolId];
+  const raw = String(query?.status || 'needs_action').toLowerCase();
+  const requestType = String(query?.request_type || 'all').toLowerCase();
+  const search = String(query?.q || query?.search || '').trim();
+  const dateFrom = String(query?.date_from || '').trim();
+  const dateTo = String(query?.date_to || '').trim();
+  const exceedsCap = String(query?.exceeds_cap || 'all').toLowerCase();
+
+  if (raw === 'sent_to_manager' || raw === 'pending') {
+    where += ' AND r.status = ?';
+    params.push(STATUS.SENT_TO_MANAGER);
+  } else if (raw === 'pending_accountant' || raw === 'finance') {
+    where += ' AND r.status = ?';
+    params.push(STATUS.PENDING_ACCOUNTANT);
+  } else if (raw === 'awaiting' || raw === 'needs_action') {
+    where += ' AND r.status IN (?, ?)';
+    params.push(STATUS.PENDING_ACCOUNTANT, STATUS.SENT_TO_MANAGER);
+  } else if (raw === STATUS.APPROVED || raw === 'approved') {
+    where += ' AND r.status = ?';
+    params.push(STATUS.APPROVED);
+  } else if (raw === 'rejected') {
+    where += ' AND r.status IN (?, ?)';
+    params.push(STATUS.REJECTED_BY_MANAGER, STATUS.REJECTED_BY_ACCOUNTANT);
+  } else if (raw === 'auto_approved') {
+    where += ' AND r.auto_approved = 1 AND r.status = ?';
+    params.push(STATUS.APPROVED);
+  } else if (raw !== 'all') {
+    where += ' AND r.status = ?';
+    params.push(STATUS.SENT_TO_MANAGER);
+  }
+
+  if (requestType === 'cashout' || requestType === 'service') {
+    where += ' AND r.request_type = ?';
+    params.push(requestType);
+  }
+
+  if (search) {
+    where += ` AND (
+      CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, '')) LIKE ?
+      OR u.email LIKE ?
+      OR CAST(r.id AS CHAR) LIKE ?
+    )`;
+    const like = `%${search}%`;
+    params.push(like, like, like);
+  }
+
+  if (dateFrom) {
+    where += ' AND DATE(COALESCE(r.submitted_at, r.created_at)) >= ?';
+    params.push(dateFrom);
+  }
+  if (dateTo) {
+    where += ' AND DATE(COALESCE(r.submitted_at, r.created_at)) <= ?';
+    params.push(dateTo);
+  }
+
+  if (exceedsCap === '1' || exceedsCap === 'yes' || exceedsCap === 'true') {
+    where += ' AND COALESCE(r.exceeds_monthly_cap, 0) = 1';
+  } else if (exceedsCap === '0' || exceedsCap === 'no' || exceedsCap === 'false') {
+    where += ' AND COALESCE(r.exceeds_monthly_cap, 0) = 0';
+  }
+
+  return { where, params, filters: { raw, requestType, search, dateFrom, dateTo, exceedsCap } };
+}
+
+// Manager: list all advances with filters (status, type, dates, search)
 router.get('/shule-avance/manager/requests', requireRole(MANAGER_ROLES), async (req, res) => {
   try {
     const { schoolId } = req.ctx;
-    const raw = String(req.query?.status || 'sent_to_manager').toLowerCase();
-    let where = 'r.school_id = ?';
-    const params = [schoolId];
-
-    if (raw === 'sent_to_manager' || raw === 'pending') {
-      where += ' AND r.status = ?';
-      params.push(STATUS.SENT_TO_MANAGER);
-    } else if (raw === STATUS.APPROVED) {
-      where += ' AND r.status = ?';
-      params.push(STATUS.APPROVED);
-    } else if (raw === 'rejected') {
-      where += ' AND r.status = ?';
-      params.push(STATUS.REJECTED_BY_MANAGER);
-    } else if (raw === 'all') {
-      /* no extra filter */
-    } else {
-      where += ' AND r.status = ?';
-      params.push(STATUS.SENT_TO_MANAGER);
-    }
+    const { where, params } = buildManagerRequestsWhere(schoolId, req.query);
+    const sort = String(req.query?.sort || 'newest').toLowerCase();
+    const orderBy =
+      sort === 'oldest' ? 'r.id ASC' :
+      sort === 'amount_high' ? 'r.amount_rwf DESC, r.id DESC' :
+      sort === 'amount_low' ? 'r.amount_rwf ASC, r.id DESC' :
+      'r.id DESC';
 
     const [rows] = await promisePool.query(
       `SELECT ${ROW_SELECT},
               TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))) AS staff_name,
               u.email AS staff_email,
               COALESCE(rl.role_code, '') AS submitter_role_code
-       FROM shule_avance_requests r
-       LEFT JOIN users u ON u.id = r.teacher_user_id
-       LEFT JOIN roles rl ON rl.id = u.role_id
+       ${MANAGER_REQUEST_JOINS}
        WHERE ${where}
-       ORDER BY r.id DESC`,
+       ORDER BY ${orderBy}`,
       params
     );
-    res.json({ success: true, data: rows });
+    res.json({ success: true, data: rows, count: rows.length });
   } catch (error) {
     console.error('[shule-avance] manager requests:', error.message);
     res.status(500).json({ success: false, message: 'Failed to load manager queue' });
+  }
+});
+
+// Manager: aggregated reports for dashboard & exports (same filters as list)
+router.get('/shule-avance/manager/reports/summary', requireRole(MANAGER_ROLES), async (req, res) => {
+  try {
+    const { schoolId } = req.ctx;
+    const { where, params } = buildManagerRequestsWhere(schoolId, req.query);
+
+    const [[totals]] = await promisePool.query(
+      `SELECT
+          COUNT(*) AS total_count,
+          COALESCE(SUM(r.amount_rwf), 0) AS total_amount_rwf,
+          SUM(CASE WHEN r.status IN (?, ?) THEN 1 ELSE 0 END) AS pending_count,
+          COALESCE(SUM(CASE WHEN r.status IN (?, ?) THEN r.amount_rwf ELSE 0 END), 0) AS pending_amount_rwf,
+          SUM(CASE WHEN r.status = ? THEN 1 ELSE 0 END) AS approved_count,
+          COALESCE(SUM(CASE WHEN r.status = ? THEN r.amount_rwf ELSE 0 END), 0) AS approved_amount_rwf,
+          SUM(CASE WHEN r.status IN (?, ?) THEN 1 ELSE 0 END) AS rejected_count,
+          COALESCE(SUM(CASE WHEN r.status IN (?, ?) THEN r.amount_rwf ELSE 0 END), 0) AS rejected_amount_rwf,
+          SUM(CASE WHEN COALESCE(r.exceeds_monthly_cap, 0) = 1 THEN 1 ELSE 0 END) AS over_limit_count,
+          SUM(CASE WHEN COALESCE(r.auto_approved, 0) = 1 THEN 1 ELSE 0 END) AS auto_approved_count
+       ${MANAGER_REQUEST_JOINS}
+       WHERE ${where}`,
+      [
+        STATUS.PENDING_ACCOUNTANT,
+        STATUS.SENT_TO_MANAGER,
+        STATUS.PENDING_ACCOUNTANT,
+        STATUS.SENT_TO_MANAGER,
+        STATUS.APPROVED,
+        STATUS.APPROVED,
+        STATUS.REJECTED_BY_MANAGER,
+        STATUS.REJECTED_BY_ACCOUNTANT,
+        STATUS.REJECTED_BY_MANAGER,
+        STATUS.REJECTED_BY_ACCOUNTANT,
+        ...params,
+      ]
+    );
+
+    const [byStatus] = await promisePool.query(
+      `SELECT r.status, COUNT(*) AS count, COALESCE(SUM(r.amount_rwf), 0) AS amount_rwf
+       ${MANAGER_REQUEST_JOINS}
+       WHERE ${where}
+       GROUP BY r.status
+       ORDER BY count DESC`,
+      params
+    );
+
+    const [byType] = await promisePool.query(
+      `SELECT COALESCE(r.request_type, 'service') AS request_type,
+              COUNT(*) AS count,
+              COALESCE(SUM(r.amount_rwf), 0) AS amount_rwf
+       ${MANAGER_REQUEST_JOINS}
+       WHERE ${where}
+       GROUP BY COALESCE(r.request_type, 'service')
+       ORDER BY count DESC`,
+      params
+    );
+
+    const [byMonth] = await promisePool.query(
+      `SELECT DATE_FORMAT(COALESCE(r.submitted_at, r.created_at), '%Y-%m') AS month_key,
+              COUNT(*) AS count,
+              COALESCE(SUM(r.amount_rwf), 0) AS amount_rwf
+       ${MANAGER_REQUEST_JOINS}
+       WHERE ${where}
+       GROUP BY DATE_FORMAT(COALESCE(r.submitted_at, r.created_at), '%Y-%m')
+       ORDER BY month_key DESC
+       LIMIT 12`,
+      params
+    );
+
+    const [byRole] = await promisePool.query(
+      `SELECT COALESCE(rl.role_code, 'UNKNOWN') AS role_code,
+              COUNT(*) AS count,
+              COALESCE(SUM(r.amount_rwf), 0) AS amount_rwf
+       ${MANAGER_REQUEST_JOINS}
+       WHERE ${where}
+       GROUP BY COALESCE(rl.role_code, 'UNKNOWN')
+       ORDER BY count DESC
+       LIMIT 20`,
+      params
+    );
+
+    res.json({
+      success: true,
+      data: {
+        totals: totals || {},
+        by_status: byStatus || [],
+        by_type: byType || [],
+        by_month: (byMonth || []).reverse(),
+        by_role: byRole || [],
+        generated_at: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error('[shule-avance] manager reports:', error.message);
+    res.status(500).json({ success: false, message: 'Failed to load reports' });
   }
 });
 
@@ -1971,22 +2358,29 @@ router.patch('/shule-avance/manager/invoice-requests/:id/decision', requireRole(
       return res.status(400).json({ success: false, message: 'decision must be approved or rejected' });
     }
 
+    const isPro = await isSchoolProEnabled(schoolId);
+    const statusFilter = isPro
+      ? [STATUS.SENT_TO_MANAGER]
+      : [STATUS.SENT_TO_MANAGER, STATUS.PENDING_ACCOUNTANT];
+    const placeholders = statusFilter.map(() => '?').join(', ');
+
     const [before] = await promisePool.query(
-      `SELECT teacher_user_id FROM shule_avance_requests
-       WHERE id = ? AND school_id = ? AND status = ? LIMIT 1`,
-      [id, schoolId, STATUS.SENT_TO_MANAGER]
+      `SELECT teacher_user_id, status FROM shule_avance_requests
+       WHERE id = ? AND school_id = ? AND status IN (${placeholders}) LIMIT 1`,
+      [id, schoolId, ...statusFilter]
     );
     if (!before?.length) {
       return res.status(400).json({ success: false, message: 'Request not found or already handled' });
     }
     const teacherUserId = Number(before[0].teacher_user_id);
+    const priorStatus = before[0].status;
 
     const nextStatus = decision === 'approved' ? STATUS.APPROVED : STATUS.REJECTED_BY_MANAGER;
     const [result] = await promisePool.query(
       `UPDATE shule_avance_requests
        SET status = ?, manager_feedback = ?, manager_reviewed_at = NOW(), manager_reviewed_by = ?
        WHERE id = ? AND school_id = ? AND status = ?`,
-      [nextStatus, feedback || null, userId, id, schoolId, STATUS.SENT_TO_MANAGER]
+      [nextStatus, feedback || null, userId, id, schoolId, priorStatus]
     );
     if (!result.affectedRows) {
       return res.status(400).json({ success: false, message: 'Request not found or already handled' });
@@ -1994,13 +2388,15 @@ router.patch('/shule-avance/manager/invoice-requests/:id/decision', requireRole(
     res.json({ success: true, message: decision === 'approved' ? 'Request approved' : 'Request rejected' });
 
     if (Number.isFinite(teacherUserId) && teacherUserId > 0) {
+      const isPro = await isSchoolProEnabled(schoolId);
+      const staffPortalUrl = staffShuleAvancePortalPath(isPro);
       if (decision === 'approved') {
         setImmediate(() => {
           sendWebPushToUser(teacherUserId, {
             title: 'Ticha Avance',
             body: `Request #${id} was approved by your school manager.`,
             tag: `sa-${id}-approved`,
-            url: '/shule-avance',
+            url: staffPortalUrl,
           }).catch((e) => console.warn('[shule-avance] web push send:', e.message));
         });
       } else if (decision === 'rejected') {
@@ -2009,7 +2405,7 @@ router.patch('/shule-avance/manager/invoice-requests/:id/decision', requireRole(
             title: 'Ticha Avance',
             body: `Request #${id} was not approved by your school manager.`,
             tag: `sa-${id}-rejected`,
-            url: '/shule-avance',
+            url: staffPortalUrl,
           }).catch((e) => console.warn('[shule-avance] web push send:', e.message));
         });
       }

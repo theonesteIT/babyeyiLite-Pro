@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { redirectToBabyeyiLogin } from '../../../../utils/postLogoutLoginPath';
 
 const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5100') + '/api';
 
@@ -15,9 +16,8 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      const loginUrl = import.meta.env.VITE_BABYEYI_LOGIN_URL || 'http://localhost:5173/login';
       if (!window.location.pathname.includes('/login')) {
-        window.location.href = loginUrl;
+        redirectToBabyeyiLogin();
       }
     }
     return Promise.reject(error);

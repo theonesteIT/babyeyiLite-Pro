@@ -125,11 +125,45 @@ async function sendWebPushToUser(userId, payload) {
   }
 }
 
+/**
+ * Send web push to every subscribed user in a school matching role codes.
+ * @param {number} schoolId
+ * @param {string|string[]} roleCodes
+ * @param {{ title?: string, body?: string, tag?: string, url?: string }} payload
+ */
+async function sendWebPushToSchoolRoles(schoolId, roleCodes, payload) {
+  if (!configureVapid()) return;
+  const accepted = Array.isArray(roleCodes) ? roleCodes : [roleCodes];
+  if (!accepted.length) return;
+  try {
+    const placeholders = accepted.map(() => '?').join(',');
+    const [rows] = await promisePool.query(
+      `SELECT DISTINCT u.id
+       FROM users u
+       LEFT JOIN roles r ON r.id = u.role_id
+       WHERE u.school_id = ? AND r.role_code IN (${placeholders}) AND u.deleted_at IS NULL`,
+      [schoolId, ...accepted]
+    );
+    for (const row of rows || []) {
+      const uid = Number(row.id);
+      if (!uid) continue;
+      setImmediate(() => {
+        sendWebPushToUser(uid, payload).catch((e) =>
+          console.warn('[web-push] role notify:', e.message)
+        );
+      });
+    }
+  } catch (e) {
+    console.warn('[web-push] sendWebPushToSchoolRoles:', e.message);
+  }
+}
+
 module.exports = {
   ensureWebPushTable,
   upsertSubscription,
   removeSubscription,
   sendWebPushToUser,
+  sendWebPushToSchoolRoles,
   getVapidPublicKey,
   isWebPushConfigured,
 };

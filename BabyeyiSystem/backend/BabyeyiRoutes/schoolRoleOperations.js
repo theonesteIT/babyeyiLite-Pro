@@ -414,8 +414,21 @@ async function resolveAcademicContext(schoolId, academicYearRaw, termRaw, dateSt
   };
 }
 
+/** Gate attendance dashboard + RFID taps — available on Lite and Pro. */
+function isGateAttendanceFeaturePath(req) {
+  const orig = String(req.originalUrl || '').split('?')[0];
+  if (/^\/api\/gate\/attendance(\/|$)/i.test(orig)) return true;
+  if (/^\/api\/gate_attendance(\/|$)/i.test(orig)) return true;
+  const p = String(req.path || req.url || '').split('?')[0];
+  if (/^\/gate\/attendance(\/|$)/i.test(p)) return true;
+  return /^\/gate_attendance(\/|$)/i.test(p);
+}
+
 async function ensureProSchoolAccess(req, res, next) {
   try {
+    if (isGateAttendanceFeaturePath(req)) {
+      return next();
+    }
     const schoolId = resolveSchoolId(req);
     if (!schoolId) {
       return res.status(400).json({ success: false, message: 'School context missing.' });
@@ -734,15 +747,6 @@ router.post('/gate_attendance', async (req, res, next) => {
     const person = matches[0];
     const schoolId = Number(person.school_id || 0);
     if (!schoolId) return sendResult(400, { success: false, code: 'SCHOOL_NOT_FOUND', message: 'Card owner has no school.' }, { cardUid: cardUID });
-
-    const [[schoolRow]] = await promisePool.query(
-      `SELECT subscription_plan, pro_enabled, pro_end_date
-       FROM schools WHERE id = ? AND deleted_at IS NULL LIMIT 1`,
-      [schoolId]
-    );
-    if (!computeProAccessEffective(schoolRow || null)) {
-      return sendResult(403, { success: false, code: 'PRO_REQUIRED', message: 'Gate attendance is available for Pro schools only.' }, { schoolId, cardUid: cardUID });
-    }
 
     const settings = await getSchoolGateAttendanceSettings(schoolId);
     const { dateStr, mins } = currentSchoolDateAndMinutes();

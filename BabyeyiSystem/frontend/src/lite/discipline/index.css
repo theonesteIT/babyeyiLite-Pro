@@ -1,0 +1,91 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Montserrat", system-ui, sans-serif;
+  --font-heading: "Montserrat", system-ui, sans-serif;
+  --font-weight-bold: 800;
+
+  /* Manager-parity gold (sidebar active states) */
+  --color-re-gold: #febf10;
+  --color-re-gold-light: #ffd24d;
+  --color-re-gold-dark: #d9a400;
+  --color-re-navy: #000435;
+
+  /* Brand Colors - Clean & Premium */
+  --color-re-orange: #FF8C00;
+  --color-re-orange-light: #FFB800;
+  --color-re-orange-dark: #FF5E00;
+
+  --color-re-purple: #9D50BB;
+  --color-re-magenta: #6E48AA;
+
+  /* Backgrounds & Core */
+  --color-re-bg: #F8F9FA;
+  --color-re-card: #FFFFFF;
+  --color-re-row: #FFFFFF;
+  --color-re-text: #0E1F35;
+  --color-re-text-muted: #6B7280;
+
+  /* Supplemental Brand Colors */
+  --color-re-blue: #3B82F6;
+  --color-re-emerald: #10B981;
+  --color-re-slate: #1E293B;
+
+  /* Specific Border Colors from Screenshot */
+  --color-re-border-gold: #FFB800;
+  --color-re-border-purple: #9D50BB;
+  --color-re-border-light: #F1F3F6;
+
+  /* Premium Border Radius */
+  --radius-re-card: 32px;
+  --radius-re-row: 24px;
+  --radius-re-input: 16px;
+
+  /* Soft "Floating" Shadows */
+  --shadow-re-premium: 0 10px 40px -10px rgba(0, 0, 0, 0.08);
+  --shadow-re-row: 0 4px 20px -2px rgba(0, 0, 0, 0.04);
+}
+
+@layer base {
+  html,
+  body {
+    @apply bg-re-bg text-re-text font-sans antialiased;
+    font-family: "Montserrat", system-ui, sans-serif;
+  }
+
+  b,
+  strong {
+    font-weight: 800;
+  }
+}
+
+@layer components {
+  .btn-assist {
+    @apply flex flex-col items-center justify-center p-6 bg-white border-2 rounded-re-card transition-all duration-300 hover:scale-[1.02] active:scale-95 text-center;
+  }
+
+  .list-row {
+    @apply flex items-center gap-4 bg-white p-5 rounded-re-row shadow-re-row border border-re-border-light transition-all hover:bg-gray-50/50;
+  }
+
+  /* Utility Gradients & Glows */
+  .bg-re-grad-orange {
+    @apply bg-gradient-to-br from-re-orange-light via-re-orange to-re-orange-dark;
+  }
+
+  .bg-re-grad-purple {
+    @apply bg-gradient-to-br from-re-purple via-re-purple to-re-magenta;
+  }
+
+  .shadow-re-glow {
+    @apply shadow-[0_10px_30px_-5px_#FF8C0055];
+  }
+
+  .shadow-re-premium-purple {
+    @apply shadow-[0_12px_45px_-12px_#9D50BB66];
+  }
+
+  .icon-circle {
+    @apply w-12 h-12 rounded-full flex items-center justify-center font-bold text-white shadow-sm;
+  }
+}

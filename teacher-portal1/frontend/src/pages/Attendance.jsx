@@ -593,14 +593,10 @@ export default function Attendance() {
                                                 : 'border-black/[0.07] bg-white hover:shadow-md hover:border-re-orange/30 hover:scale-[1.005]'
                                                 }`}
                                         >
-                                            <span
-                                                className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-2xl"
-                                                style={{ backgroundColor: active ? '#f97316' : c.border }}
-                                            />
                                             {active && (
                                                 <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-re-orange animate-pulse" />
                                             )}
-                                            <div className="pl-2">
+                                            <div>
                                                 <p className="text-[11px] font-black text-re-text uppercase tracking-tight truncate leading-tight">
                                                     {lesson.subject}
                                                 </p>

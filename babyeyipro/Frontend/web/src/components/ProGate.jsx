@@ -2,7 +2,7 @@ import React from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useMasterAuth } from '../context/MasterAuthContext'
 
-const LOGIN_FALLBACK = 'http://localhost:5173/login'
+const LOGIN_FALLBACK = 'http://localhost:5173/login/pro'
 
 /** Roles allowed per Pro portal — keep in sync with BabyeyiSystem `proAppEntry.js` */
 export const PORTAL_ROLES = {
@@ -81,7 +81,7 @@ function Loading() {
 
 /**
  * Requires Babyeyi master API session + Pro school + role match.
- * Unauthenticated users are sent to Babyeyi Lite login (same credentials + school code).
+ * Unauthenticated users are sent to ShuleManager Pro login (email + school code + password).
  */
 export default function ProGate({ portal, children }) {
   const { user, loading, proAccessEffective, roleCode } = useMasterAuth()

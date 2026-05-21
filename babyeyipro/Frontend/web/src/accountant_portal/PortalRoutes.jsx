@@ -23,6 +23,7 @@ import FeaturePlaceholders from './frontend/src/pages/FeaturePlaceholders'
 import BabyeyiFees from './frontend/src/pages/BabyeyiFees'
 import ExaminationList from './frontend/src/pages/ExaminationList'
 import SchoolBudget from './frontend/src/pages/schoolBugdet'
+import ActionPlanManagement from './frontend/src/pages/actionPlan/ActionPlanManagement'
 import SalaryPayment from './frontend/src/pages/SalaryPayment'
 import ChatCenter from '../shared/pages/ChatCenter'
 import SchoolCalendarPage from '../shared/pages/SchoolCalendarPage'
@@ -81,6 +82,10 @@ function AccountantRoutesInner() {
       <Route
         path="school-budget"
         element={<ProtectedRoute title="School Budget"><SchoolBudget /></ProtectedRoute>}
+      />
+      <Route
+        path="action-plan"
+        element={<ProtectedRoute title="School Action Plan"><ActionPlanManagement /></ProtectedRoute>}
       />
       <Route path="payroll" element={<Navigate to="payroll/history" replace />} />
       <Route path="payroll/history" element={<ProtectedRoute title="Payroll History"><PayrollHistory /></ProtectedRoute>} />

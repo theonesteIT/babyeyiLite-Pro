@@ -1,4 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import {
+  babyeyiPlatformOrigin,
+  getPostLogoutLoginUrl,
+  setPostLogoutLoginPath,
+} from '../utils/postLogoutLoginPath'
 
 const API = (import.meta.env.VITE_API_URL || 'http://localhost:5100') + '/api'
 
@@ -16,6 +21,7 @@ export function MasterAuthProvider({ children }) {
       })
       const json = await res.json().catch(() => ({}))
       if (res.ok && json.success && json.data) {
+        setPostLogoutLoginPath('/login/pro')
         setUser(json.data)
         return json.data
       }
@@ -46,15 +52,7 @@ export function MasterAuthProvider({ children }) {
       await fetch(`${API}/session/logout`, { method: 'POST', credentials: 'include' })
     } catch (_) {}
     setUser(false)
-    const configured = String(import.meta.env.VITE_BABYEYI_LOGIN_URL || '').trim()
-    if (configured) {
-      window.location.assign(configured)
-      return
-    }
-    // Same SPA (e.g. /pro/): land on Pro home so the user can sign in again with the correct basename.
-    const base = String(import.meta.env.BASE_URL || '/')
-    const path = base.endsWith('/') ? base : `${base}/`
-    window.location.assign(`${window.location.origin}${path}`)
+    window.location.assign(getPostLogoutLoginUrl(babyeyiPlatformOrigin()))
   }, [])
 
   const roleCode = user && user !== false ? String(user.role?.code || user.role_code || '').toUpperCase() : ''

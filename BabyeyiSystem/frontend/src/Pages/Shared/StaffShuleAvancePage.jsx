@@ -150,10 +150,12 @@ function Modal({ open, onClose, title, children, wide }) {
   );
 }
 
-/** HOD / DOS — same Shule Avance flow as the teacher portal (session cookie auth). */
-export default function StaffShuleAvancePage() {
+/** Staff Shule Avance — teacher-portal style (session cookie). `liteMode` for LoginLite-only portal. */
+export default function StaffShuleAvancePage({ liteMode = false }) {
   const auth = useAuth();
   const user = auth.user && auth.user !== false ? auth.user : null;
+  const [eligibility, setEligibility] = useState(null);
+  const [eligibilityLoading, setEligibilityLoading] = useState(true);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -175,6 +177,19 @@ export default function StaffShuleAvancePage() {
 
   const [detailRow, setDetailRow] = useState(null);
   const [editRow, setEditRow] = useState(null);
+
+  const loadEligibility = useCallback(async () => {
+    setEligibilityLoading(true);
+    try {
+      const { data, ok } = await saFetch('GET', '/shule-avance/applicant/eligibility');
+      if (ok && data?.success) setEligibility(data.data || null);
+      else setEligibility(null);
+    } catch {
+      setEligibility(null);
+    } finally {
+      setEligibilityLoading(false);
+    }
+  }, []);
 
   const loadCatalog = useCallback(async () => {
     try {
@@ -211,8 +226,9 @@ export default function StaffShuleAvancePage() {
   }, [loadCatalog]);
 
   useEffect(() => {
+    loadEligibility();
     load(false);
-  }, [load]);
+  }, [load, loadEligibility]);
 
   useEffect(() => {
     const id = window.setInterval(() => load(true), 28000);
@@ -238,7 +254,13 @@ export default function StaffShuleAvancePage() {
     setStepCashoutCategory(null);
   };
 
+  const canRequest = eligibility?.allowed === true;
+
   const openService = () => {
+    if (!canRequest) {
+      setError(eligibility?.message || 'You are not allowed to use Shule Avance.');
+      return;
+    }
     resetForm();
     setFlowKind('service');
     setStepCategory(null);
@@ -246,6 +268,10 @@ export default function StaffShuleAvancePage() {
   };
 
   const openCashout = () => {
+    if (!canRequest) {
+      setError(eligibility?.message || 'You are not allowed to use Shule Avance.');
+      return;
+    }
     resetForm();
     setFlowKind('cashout');
     setStepCashoutCategory(null);
@@ -415,7 +441,7 @@ export default function StaffShuleAvancePage() {
     );
   }
 
-  if (loading && !rows.length) {
+  if ((loading || eligibilityLoading) && !rows.length) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center bg-[#FFFBF0]">
         <Loader2 className="h-10 w-10 animate-spin text-amber-600" />
@@ -423,8 +449,22 @@ export default function StaffShuleAvancePage() {
     );
   }
 
+  if (eligibility && eligibility.allowed === false) {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-12 sm:py-16">
+        <div className="rounded-3xl border border-red-200 bg-white p-8 text-center shadow-lg">
+          <AlertCircle className="mx-auto h-14 w-14 text-red-400 mb-4" />
+          <h2 className="text-xl font-black text-[#000435]">Shule Avance not available</h2>
+          <p className="mt-3 text-sm text-slate-600 leading-relaxed">
+            {eligibility.message || 'You are not allowed to request Shule Avance. Contact your school manager.'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="animate-in fade-in duration-500 bg-[#FFFBF0] min-h-screen pb-16">
+    <div className={`animate-in fade-in duration-500 bg-[#FFFBF0] pb-16 ${liteMode ? "" : "min-h-screen"}`}>
       <div className="relative w-full overflow-hidden border-b border-black/5 bg-[linear-gradient(135deg,#0E1F35,#1B3354)]">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,140,0,0.18),transparent_40%)]" />
         <div className="relative z-10 mx-auto max-w-[1200px] px-5 py-10 md:py-12">
@@ -444,6 +484,31 @@ export default function StaffShuleAvancePage() {
       </div>
 
       <div className="mx-auto max-w-[1200px] px-4 py-8 md:px-6">
+        {eligibility?.allowed && (
+          <div className="mb-6 rounded-2xl border border-amber-200/80 bg-gradient-to-r from-amber-50 to-white p-4 sm:p-5 shadow-sm">
+            <p className="text-[10px] font-black uppercase tracking-wider text-amber-800">Your advance limit</p>
+            <p className="mt-1 text-sm font-semibold text-slate-800">{eligibility.message}</p>
+            <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+              <div className="rounded-xl bg-white border border-slate-100 px-2 py-2">
+                <p className="text-[10px] text-slate-500 font-bold">Max %</p>
+                <p className="text-lg font-black text-[#000435]">{eligibility.max_percent}%</p>
+              </div>
+              <div className="rounded-xl bg-white border border-slate-100 px-2 py-2">
+                <p className="text-[10px] text-slate-500 font-bold">Net salary</p>
+                <p className="text-sm font-black text-[#000435]">{formatMoney(eligibility.net_salary_rwf)}</p>
+              </div>
+              <div className="rounded-xl bg-white border border-slate-100 px-2 py-2">
+                <p className="text-[10px] text-slate-500 font-bold">Used</p>
+                <p className="text-sm font-black text-amber-700">{formatMoney(eligibility.monthly_requested_rwf)}</p>
+              </div>
+              <div className="rounded-xl bg-white border border-emerald-100 px-2 py-2">
+                <p className="text-[10px] text-slate-500 font-bold">Remaining</p>
+                <p className="text-sm font-black text-emerald-700">{formatMoney(eligibility.remaining_cap_rwf)}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {error && (
           <div className="mb-4 flex items-start gap-2 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-bold text-red-700">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />

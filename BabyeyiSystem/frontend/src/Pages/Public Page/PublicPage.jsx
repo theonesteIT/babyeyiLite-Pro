@@ -26,6 +26,8 @@ import XentriLogo from "../../assets/PartnersLogo/xentriPay.png";
 import AitelLogo from "../../assets/PartnersLogo/Aitel.png";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5100";
+const TEACHER_PORTAL_URL =
+  import.meta.env.VITE_TEACHER_PORTAL_URL || "https://ticha.babyeyi.rw";
 
 /** Full checkout: tuition + requirement items + paid-at-school lines (`PaidAtSchool` with `includeRequirements`). Not the narrow `/paid-at-school` wizard. */
 const PUBLIC_COMBINED_PAY_PATH = "/combined-tution-requrement";
@@ -242,8 +244,8 @@ function Navbar() {
       }`}
       style={{ borderBottom: "1px solid rgba(251,191,36,0.18)" }}
     >
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 xl:px-10 2xl:px-16 flex items-center justify-between h-14 sm:h-[62px] xl:h-[70px]">
-        <Link to="/" className="flex items-center shrink-0 group">
+      <div className="max-w-[1400px] mx-auto px-3 sm:px-6 xl:px-10 2xl:px-16 flex items-center justify-between gap-2 h-12 sm:h-[62px] lg:h-14 xl:h-[70px]">
+        <Link to="/" className="flex items-center shrink min-w-0 group">
           <img
             src={BabyeyiLogo}
             alt="Babyeyi logo"
@@ -251,13 +253,13 @@ function Navbar() {
               e.currentTarget.onerror = null;
               e.currentTarget.src = "/1BABYEYI LOGO FINAL.png";
             }}
-            className="h-9 sm:h-10 xl:h-[42px] w-auto object-contain transition-all duration-300 group-hover:brightness-110" />
+            className="h-6 max-h-6 w-auto max-w-[88px] object-contain object-left transition-all duration-300 group-hover:brightness-110 sm:max-w-none sm:h-9 sm:max-h-none lg:h-10 xl:h-[42px]" />
         </Link>
 
         <div className="hidden lg:flex items-center">
           {links.map((l) => (
             <Link key={l.label} to={l.href}
-              className="relative px-3.5 xl:px-4 py-2 text-[13.5px] xl:text-[14px] font-semibold text-white/55 hover:text-amber-400 transition-colors duration-200 group">
+              className="relative px-3.5 xl:px-4 py-2 text-[13.5px] xl:text-[14px] font-semibold text-white hover:text-amber-400 transition-colors duration-200 group">
               {l.label}
               <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 h-[1.5px] w-0 bg-amber-400 rounded-full transition-all duration-300 group-hover:w-3/4" />
             </Link>
@@ -265,27 +267,54 @@ function Navbar() {
         </div>
 
         <div className="hidden lg:flex items-center gap-3">
-          <Link to="/register"
-            className="px-4 py-2 rounded-xl text-[13px] font-semibold text-white/60 border border-white/10 hover:border-amber-400/50 hover:text-amber-400 transition-all duration-200">
-            Register School
-          </Link>
+          <a
+            href={TEACHER_PORTAL_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group relative inline-flex items-center gap-2 min-h-[40px] xl:min-h-[42px] px-4 xl:px-5 rounded-xl text-[13px] xl:text-[14px] font-bold text-white overflow-hidden transition-all duration-300 hover:shadow-[0_6px_28px_rgba(56,189,248,0.35)] active:scale-[.97]"
+            style={{
+              background:
+                "linear-gradient(135deg, rgba(14,165,233,0.22) 0%, rgba(99,102,241,0.18) 100%)",
+              border: "1px solid rgba(125,211,252,0.45)",
+            }}
+          >
+            <span
+              className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+              style={{
+                background:
+                  "linear-gradient(135deg, rgba(56,189,248,0.35) 0%, rgba(129,140,248,0.28) 100%)",
+              }}
+              aria-hidden
+            />
+            <GraduationCap
+              size={15}
+              strokeWidth={2.5}
+              className="relative z-[1] text-sky-200 group-hover:text-white transition-colors"
+            />
+            <span className="relative z-[1] tracking-tight">Teacher Portal</span>
+            <ExternalLink
+              size={12}
+              strokeWidth={2.5}
+              className="relative z-[1] opacity-70 group-hover:opacity-100 transition-opacity"
+            />
+          </a>
           <Link to="/login-portal-select"
             className="btn-shine inline-flex items-center gap-2 min-h-[40px] xl:min-h-[42px] px-5 xl:px-6 rounded-xl font-black text-[13px] xl:text-[14px] text-[#000435] transition-all duration-200 hover:shadow-[0_4px_20px_rgba(251,191,36,.4)] active:scale-[.97]"
             style={{ background: "linear-gradient(135deg,#FBBF24 0%,#F59E0B 100%)" }}>
-            <LogIn size={14} strokeWidth={2.5} />Login
+            <LogIn size={14} strokeWidth={2.5} />ShuleManager
           </Link>
         </div>
 
-        <div className="flex lg:hidden items-center gap-2">
+        <div className="flex lg:hidden items-center gap-1.5 shrink-0">
           <Link to="/login-portal-select"
-            className="btn-shine inline-flex items-center gap-1.5 h-9 px-3.5 rounded-xl text-[#000435] text-[12px] font-black"
+            className="btn-shine inline-flex items-center gap-1 h-7 px-2.5 rounded-lg text-[#000435] text-[10px] font-bold whitespace-nowrap"
             style={{ background: "linear-gradient(135deg,#FBBF24,#F59E0B)" }}>
-            <LogIn size={13} strokeWidth={2.5} /> Login
+            <LogIn size={11} strokeWidth={2.5} /> ShuleManager
           </Link>
           <button type="button" onClick={() => setOpen(!open)}
-            className="w-9 h-9 rounded-xl flex items-center justify-center transition-colors"
+            className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors"
             style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}>
-            {open ? <X size={17} className="text-white" /> : <Menu size={17} className="text-white" />}
+            {open ? <X size={15} className="text-white" /> : <Menu size={15} className="text-white" />}
           </button>
         </div>
       </div>
@@ -295,20 +324,31 @@ function Navbar() {
           style={{ borderColor: "rgba(251,191,36,0.12)" }}>
           {links.map((l) => (
             <Link key={l.label} to={l.href} onClick={() => setOpen(false)}
-              className="flex px-4 py-3 rounded-xl text-[14px] font-semibold text-white/65 hover:bg-white/6 hover:text-amber-400 transition-all">
+              className="flex px-4 py-3 rounded-xl text-[14px] font-semibold text-white hover:bg-white/6 hover:text-amber-400 transition-all">
               {l.label}
             </Link>
           ))}
           <div className="pt-2 space-y-2">
-            <Link to="/register" onClick={() => setOpen(false)}
-              className="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-xl border text-amber-400 text-[14px] font-bold transition-all hover:bg-amber-400/8"
-              style={{ borderColor: "rgba(251,191,36,0.35)" }}>
-              Register School
-            </Link>
+            <a
+              href={TEACHER_PORTAL_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setOpen(false)}
+              className="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-xl text-[14px] font-bold text-white transition-all hover:shadow-[0_4px_20px_rgba(56,189,248,0.3)]"
+              style={{
+                background:
+                  "linear-gradient(135deg, rgba(14,165,233,0.25) 0%, rgba(99,102,241,0.2) 100%)",
+                border: "1px solid rgba(125,211,252,0.45)",
+              }}
+            >
+              <GraduationCap size={16} strokeWidth={2.5} className="text-sky-200" />
+              Teacher Portal
+              <ExternalLink size={13} strokeWidth={2.5} className="opacity-70" />
+            </a>
             <Link to="/login-portal-select" onClick={() => setOpen(false)}
               className="btn-shine flex items-center justify-center gap-2 w-full px-4 py-3.5 rounded-xl text-[#000435] text-[14px] font-black"
               style={{ background: "linear-gradient(135deg,#FBBF24,#F59E0B)" }}>
-              <LogIn size={16} strokeWidth={2.5} /> Login to Babyeyi
+              <LogIn size={16} strokeWidth={2.5} /> ShuleManager
             </Link>
           </div>
         </div>
@@ -328,10 +368,10 @@ function AISearchBox() {
   const pi = useRef(0); const ci = useRef(0);
 
   const prompts = [
-    "Enter student code or SDM ID (e.g. BEY123456789)…",
-    "Find me a good school in Musanze with TVET programs…",
-    "Which schools offer A-Level Sciences near Kigali?",
+    "Enter student code or SDMS ID (e.g. 010010001)…",
+    "See Babyeyi and Pay Fees for your child  ",
     "Look up my child's Babyeyi student UID…",
+    "Get all the Trades for TVET in the country",
   ];
 
   useEffect(() => {
@@ -367,7 +407,7 @@ function AISearchBox() {
       const sj = await sr.json().catch(() => ({}));
       if (sr.ok && sj.success && sj.data?.school) { setResult({ school: sj.data, lookupCode: q }); return; }
       setResult({ notFound: true });
-    } catch { setErr("Network error — check your connection."); }
+    } catch { setErr("Network error  check your connection."); }
     finally { setLoading(false); }
   };
 
@@ -515,7 +555,7 @@ function AISearchBox() {
                       <CreditCard size={15} strokeWidth={2.5} /> Pay fees (full checkout)
                     </Link>
                     <p className="text-[11px] text-white/45 text-center leading-snug px-1">
-                      Tuition, school requirements, and paid-at-school items — use your student code when asked.
+                      Tuition, school requirements, and paid-at-school items use your student code when asked.
                     </p>
                   </div>
                 );
@@ -820,8 +860,8 @@ function TestimonialsSection() {
 /* ── Get Started ───────────────────────────────────────────────── */
 function GetStartedSection() {
   const aa = [
-    { Icon: CreditCard,    title: "Pay School Fees",     desc: "Tuition, requirements, and paid-at-school lines — one checkout. MTN MoMo. No account needed.", cta: "Pay Now",           href: PUBLIC_COMBINED_PAY_PATH },
-    { Icon: Package,       title: "Order a ShuleKit",    desc: "Get your child's school kit — uniforms, shoes, stationery — delivered or collected at school.",    cta: "Shop Services",    href: "/services"      },
+    { Icon: CreditCard,    title: "Pay School Fees",     desc: "Tuition, requirements, and paid-at-school lines one checkout. MTN MoMo. No account needed.", cta: "Pay Now",           href: PUBLIC_COMBINED_PAY_PATH },
+    { Icon: Package,       title: "Order a ShuleKit",    desc: "Get your child's school kit   uniforms, shoes, stationery  delivered or collected at school.",    cta: "Shop Services",    href: "/services"      },
     { Icon: Search,        title: "Find a School",       desc: "Search 500+ schools by district, level, or TVET trade. Compare programs, fees, and facilities.",    cta: "Explore Schools",  href: "/schools"       },
     { Icon: GraduationCap, title: "Apply for Admission", desc: "Submit your child's admission application online. Get a reference number instantly.",               cta: "Start Application",href: "/schools"       },
   ];
@@ -890,7 +930,7 @@ function PartnersSection() {
         <p className="text-center font-semibold text-[#000435] max-w-2xl mx-auto leading-snug mb-12 sm:mb-14 xl:mb-16"
           style={{ fontSize: "clamp(15px, 1.75vw, 19px)" }}>
           <span style={{ color: "#F59E0B" }}>Trusted</span>
-          {" "}by schools, families, and partners across Rwanda — aligned with national education institutions and industry leaders.
+          {" "}by schools, families, and partners across Rwanda aligned with national education institutions and industry leaders.
         </p>
 
         {/* ── Partner cards: 3 per row (sm+), 2 per row on narrow phones — modern cards, mobile-first ── */}
@@ -1107,7 +1147,7 @@ function Footer() {
 /* ── Root ──────────────────────────────────────────────────────── */
 export default function PublicPage() {
   useEffect(() => {
-    document.title = "Babyeyi.rw — Connecting Schools & Communities in Rwanda";
+    document.title = "Babyeyi System";
   }, []);
 
   return (

@@ -2,7 +2,7 @@
 // Service worker for Web Push (Shule Avance). Served from site root as `/sw.js`.
 
 self.addEventListener('push', (event) => {
-  let payload = { title: 'Shule Avance', body: '', tag: 'shule-avance', url: '/dos/shule-avance' };
+  let payload = { title: 'Babyeyi', body: '', tag: 'babyeyi-portal', url: '/' };
   try {
     if (event.data) {
       const j = event.data.json();
@@ -37,7 +37,7 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const url = (event.notification.data && event.notification.data.url) || '/dos/shule-avance';
+  const url = (event.notification.data && event.notification.data.url) || '/';
   const openUrl = new URL(url, self.location.origin).href;
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {

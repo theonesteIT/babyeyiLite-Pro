@@ -18,3 +18,18 @@ export function getPostLogoutLoginPath() {
   const v = localStorage.getItem(KEY);
   return v && ALLOWED.has(v) ? v : '/login';
 }
+
+/** Full URL for cross-app logout (e.g. babyeyipro → BabyeyiSystem login). */
+export function getPostLogoutLoginUrl(platformOrigin) {
+  const path = getPostLogoutLoginPath();
+  const base = String(platformOrigin || '').replace(/\/$/, '') || '';
+  return base ? `${base}${path}` : path;
+}
+
+/** Same-origin redirect after session loss (lite DOS / accountant portals). */
+export function redirectToBabyeyiLogin() {
+  const path = getPostLogoutLoginPath();
+  if (typeof window !== 'undefined') {
+    window.location.assign(path.startsWith('/') ? path : `/${path}`);
+  }
+}

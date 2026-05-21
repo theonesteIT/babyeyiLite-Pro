@@ -3,24 +3,19 @@
  * #000435 navy + amber-400 · MTN font · Tailwind only
  */
 
-import { BookOpen, Wifi, WifiOff, X, ArrowLeft, Sparkles } from "lucide-react";
-import { Link } from "react-router-dom";
+import { BookOpen, X, Sparkles, ChevronRight } from "lucide-react";
 import LogoutButton from "../../Auth/LogoutButton";
 import babyeyiLogo from "../../../assets/1BABYEYI LOGO FINAL.png";
-
-const FONT = `"MTN Brighter Sans","Nunito","Varela Round",sans-serif`;
+const FONT = `"Montserrat", system-ui, sans-serif`;
 
 export default function Sidebar({
-  tab, switchTab, NAV, notifCount, online,
+  tab, switchTab, NAV, notifCount,
   transferNotifCount = 0,
-  mobileOpen, setMobileOpen, schoolProfile, session,
+  mobileOpen, setMobileOpen,
   /** When true and proAppBase is set, show CTA to open babyeyipro School Manager (same session). */
   showProLaunch = false,
   proAppBase = "",
 }) {
-  const displayName = session?.schoolName || schoolProfile?.name || "School Portal";
-  const schoolCode = session?.schoolCode || "";
-
   const NavItem = ({ item, onClick }) => {
     const isActive = tab === item.id;
     const badge =
@@ -55,7 +50,7 @@ export default function Sidebar({
             {badge > 9 ? "9+" : badge}
           </span>
         )}
-        {isActive && <span className="w-1.5 h-1.5 rounded-full bg-[#000435]/40 shrink-0" />}
+        {isActive && <ChevronRight size={14} className="text-[#000435]/50 shrink-0" />}
       </button>
     );
   };
@@ -64,36 +59,16 @@ export default function Sidebar({
     <div className="flex flex-col h-full" style={{ fontFamily: FONT }}>
       {/* Brand header */}
       <div className="px-4 pt-4 pb-4 border-b border-white/10">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="relative shrink-0">
-            <div className="rounded-xl bg-[#1F2937] border border-amber-400/30 px-2 py-1 shadow-lg shadow-amber-900/20">
-              <img src={babyeyiLogo} alt="Babyeyi logo" className="h-8 w-auto object-contain" />
-            </div>
-            <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#000435] ${
-              online ? "bg-emerald-400" : "bg-amber-400"
-            }`} />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[13px] font-black text-white leading-tight truncate">{displayName}</p>
-            {schoolCode && <p className="text-[10px] text-amber-400/70 font-semibold truncate">Code: {schoolCode}</p>}
-          </div>
+        <div className="flex flex-col items-center justify-center gap-1.5">
+          <img
+            src={babyeyiLogo}
+            alt="Babyeyi"
+            className="h-9 w-auto max-w-[150px] object-contain"
+          />
+          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-400/95">
+            School Manager
+          </p>
         </div>
-
-        {/* Connection status */}
-        <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-[11px] font-bold border ${
-          online
-            ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/20"
-            : "bg-amber-400/10 text-amber-400 border-amber-400/20"
-        }`}>
-          {online ? <Wifi size={12} /> : <WifiOff size={12} />}
-          {online ? "Connected · Rwanda" : "Offline Mode"}
-        </div>
-
-        {/* Back to admin */}
-        <Link to="/admin/dashboard"
-          className="mt-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-white/6 border border-white/10 text-white/60 text-[12px] font-bold hover:bg-white/10 hover:text-white transition-all">
-          <ArrowLeft size={14} /> Back to Dashboard
-        </Link>
       </div>
 
       {/* Navigation */}
