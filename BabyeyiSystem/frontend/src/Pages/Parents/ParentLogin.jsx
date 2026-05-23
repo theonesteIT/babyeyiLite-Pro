@@ -284,10 +284,8 @@ export default function ParentLogin() {
     step === "phone" ? Phone : step === "login" ? Lock : KeyRound;
 
   return (
-    <div
-      className="min-h-[100dvh] flex flex-col bg-[#FAFAF8]"
-    >
-      <header className="px-4 pt-4 pb-2 flex items-center justify-between max-w-md mx-auto w-full">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-orange-50 via-slate-50 to-white text-slate-900">
+      <header className="px-4 pt-8 pb-4 flex items-center justify-between max-w-2xl mx-auto w-full">
         <Link
           to="/"
           className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors"
@@ -303,14 +301,14 @@ export default function ParentLogin() {
         </Link>
       </header>
 
-      <main className="flex-1 flex flex-col items-center justify-start px-4 pb-12 pt-4 max-w-md mx-auto w-full">
-        <div className="w-full bg-white rounded-[2rem] shadow-xl shadow-orange-900/[0.06] border border-stone-100/90 p-6 sm:p-8">
+      <main className="flex-1 flex flex-col items-center justify-start px-4 pb-12 pt-2 max-w-2xl mx-auto w-full">
+        <div className="w-full bg-white rounded-[2rem] shadow-[0_20px_80px_rgba(245,158,11,0.15)] border border-slate-200/80 p-6 sm:p-10">
           <div className="flex flex-col items-center text-center mb-8">
-            <div className="w-14 h-14 rounded-2xl bg-amber-100 flex items-center justify-center mb-4 shadow-sm">
-              <StepIcon className="w-7 h-7 text-orange-500" strokeWidth={2} />
+            <div className="w-16 h-16 rounded-3xl bg-orange-100 flex items-center justify-center mb-4 shadow-sm shadow-orange-200/80">
+              <StepIcon className="w-8 h-8 text-orange-500" strokeWidth={2} />
             </div>
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{stepTitle}</h1>
-            <p className="mt-2 text-sm text-slate-500 leading-relaxed max-w-[320px]">{stepSubtitle}</p>
+            <h1 className="text-3xl font-semibold text-slate-900 tracking-tight">{stepTitle}</h1>
+            <p className="mt-2 text-sm text-slate-500 leading-relaxed max-w-[360px]">{stepSubtitle}</p>
           </div>
 
           {error && (

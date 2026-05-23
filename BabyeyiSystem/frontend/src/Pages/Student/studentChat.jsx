@@ -245,6 +245,7 @@ function MessageBubble({ m, mine, showSender, prevMine, onReply }) {
 export default function StudentChat({
   dashboardBackPath = "/online-service/dashboard",
   audienceSubtitle = "Stay connected with your teachers",
+  hideTopBar = false,
 } = {}) {
   const navigate = useNavigate();
   const [me, setMe] = useState(null);
@@ -793,19 +794,20 @@ export default function StudentChat({
     <div className="h-screen flex flex-col bg-[#f1f4fb]" style={{ fontFamily: "'Plus Jakarta Sans', 'Segoe UI', sans-serif" }}>
       <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
 
-      {/* Top bar */}
-      <div className="flex-shrink-0 bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between gap-3 z-10">
-        <button onClick={() => navigate(dashPath)}
-          className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-black text-[#000435] hover:border-[#000435]/30 hover:bg-[#000435]/5 transition">
-          <ArrowLeft size={14}/> Back to dashboard
-        </button>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"/>
-            <span className="text-[10px] font-black text-emerald-700">Connected</span>
+      {!hideTopBar && (
+        <div className="flex-shrink-0 bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between gap-3 z-10">
+          <button onClick={() => navigate(dashPath)}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-black text-[#000435] hover:border-[#000435]/30 hover:bg-[#000435]/5 transition">
+            <ArrowLeft size={14}/> Back to dashboard
+          </button>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"/>
+              <span className="text-[10px] font-black text-emerald-700">Connected</span>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Main */}
       <div className="flex-1 min-h-0 flex overflow-hidden">

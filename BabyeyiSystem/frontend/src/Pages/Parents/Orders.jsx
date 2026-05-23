@@ -155,17 +155,10 @@ export default function Orders() {
   }, []);
 
   return (
-    <div className="space-y-6 pb-6">
+    <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Link
-          to="/parents/home"
-          className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-          aria-label="Back to home"
-        >
-          <ArrowLeft size={20} />
-        </Link>
         <div>
-          <h1 className="text-xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">Order history</h1>
+          <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Order history</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400">
             ClassKit / ShuleKit — resumes and shop orders on this device
           </p>
@@ -173,11 +166,9 @@ export default function Orders() {
       </div>
 
       {orders.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-slate-200 bg-white/80 px-6 py-16 text-center dark:border-slate-600 dark:bg-slate-800/40">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 dark:bg-slate-700">
-            <ClipboardList className="h-7 w-7 text-slate-400" />
-          </div>
-          <p className="font-bold text-slate-800 dark:text-slate-200">No orders yet</p>
+        <div className="rounded-3xl border border-slate-100 bg-white/80 px-6 py-16 text-center dark:border-slate-100 shadow-sm dark:bg-slate-100/40">
+          
+          <p className="font-bold text-slate-800 dark:text-slate-700">No orders yet</p>
           <p className="mt-2 text-sm text-slate-500 dark:text-slate-400 max-w-sm mx-auto leading-relaxed">
             Start ClassKit or ShuleKit from Services — unfinished orders get a resume link you can share.
           </p>

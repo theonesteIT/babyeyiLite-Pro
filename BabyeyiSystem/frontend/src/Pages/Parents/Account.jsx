@@ -4,7 +4,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Wallet, CalendarDays, Filter, Home as HomeIcon, ShieldCheck, RefreshCw } from "lucide-react";
+import {
+  Wallet,
+  CalendarDays,
+  Filter,
+  Home as HomeIcon,
+  ShieldCheck,
+  RefreshCw,
+} from "lucide-react";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:5100";
 
@@ -38,7 +45,8 @@ export default function Account() {
         credentials: "include",
       });
       const json = await res.json().catch(() => ({}));
-      if (!res.ok || !json.success) throw new Error(json.message || "Failed to load security activity");
+      if (!res.ok || !json.success)
+        throw new Error(json.message || "Failed to load security activity");
       setAuditRows(Array.isArray(json.data) ? json.data : []);
     } catch (e) {
       setAuditRows([]);
@@ -62,37 +70,35 @@ export default function Account() {
   const securityRows = useMemo(() => auditRows.slice(0, 8), [auditRows]);
 
   return (
-    <div className="space-y-6 pb-4 max-w-lg mx-auto">
-      <div className="rounded-2xl bg-orange-500 px-4 py-4 flex items-center justify-between gap-3 text-white shadow-lg shadow-orange-500/20">
-        <div className="flex items-center gap-3 min-w-0">
-          <Wallet className="w-8 h-8 shrink-0 opacity-95" strokeWidth={2} />
-          <div className="min-w-0">
-            <h1 className="font-extrabold text-lg leading-tight">My Babyeyi Account</h1>
-            <p className="text-white/85 text-xs sm:text-sm">Manage your savings &amp; transactions</p>
+    <div className="space-y-6 pb-4">
+      <div className="rounded-2xl px-4 py-4 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 w-full">
+          <div className="w-full">
+            <h1 className="font-extrabold text-2xl sm:text-4xl text-center sm:text-left leading-tight text-slate-700">
+              My Babyeyi Account
+            </h1>
           </div>
         </div>
-        <Link
-          to="/parents/home"
-          className="shrink-0 w-11 h-11 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors border border-white/30"
-          aria-label="Home"
-        >
-          <HomeIcon size={20} />
-        </Link>
       </div>
 
-      <div className="rounded-3xl bg-gradient-to-r from-orange-600 to-orange-400 p-6 sm:p-8 text-white shadow-xl">
-        <p className="text-white/85 text-sm font-medium">Available balance</p>
-        <p className="text-3xl sm:text-4xl font-extrabold mt-2 tracking-tight">11,500 RWF</p>
-        <div className="flex flex-wrap gap-3 mt-8">
+      <div className="rounded-3xl flex flex-col sm:flex-row justify-between p-6 sm:p-8 text-slate-700 bg-white shadow-sm">
+        <div className="text-center sm:text-left">
+          <p className="text-slate-500/85 text-sm font-medium">Available balance</p>
+          <p className="text-3xl sm:text-4xl font-extrabold mt-2 tracking-tight">
+            11,500 RWF
+          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-3 justify-center sm:justify-start mt-8">
           <button
             type="button"
-            className="px-5 py-2.5 rounded-xl bg-white/20 hover:bg-white/30 font-bold text-sm border border-white/30 transition-colors"
+            className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 font-bold text-sm border border-amber-500 transition-colors"
           >
             + Add funds
           </button>
           <button
             type="button"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/20 hover:bg-white/30 font-bold text-sm border border-white/30 transition-colors"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 font-bold text-sm border border-amber-500 transition-colors"
           >
             <CalendarDays size={18} />
             All history
@@ -103,7 +109,11 @@ export default function Account() {
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
           <h2 className="font-bold text-slate-900">Recent transactions</h2>
-          <button type="button" className="p-2 rounded-lg text-slate-400 hover:bg-slate-50" aria-label="Filter">
+          <button
+            type="button"
+            className="p-2 rounded-lg text-slate-400 hover:bg-slate-50"
+            aria-label="Filter"
+          >
             <Filter size={18} />
           </button>
         </div>
@@ -113,7 +123,8 @@ export default function Account() {
           </div>
           <p className="font-bold text-slate-600">No transactions yet</p>
           <p className="text-sm text-slate-400 mt-1 max-w-xs mx-auto">
-            Your transaction history will appear here when you add funds or make payments.
+            Your transaction history will appear here when you add funds or make
+            payments.
           </p>
         </div>
       </div>
@@ -143,11 +154,21 @@ export default function Account() {
           ) : (
             <ul className="space-y-3">
               {securityRows.map((row) => (
-                <li key={row.id} className="rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-2">
-                  <p className="text-sm font-bold text-slate-900">{eventLabel(row)}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">{fmtWhen(row.created_at)}</p>
+                <li
+                  key={row.id}
+                  className="rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-2"
+                >
+                  <p className="text-sm font-bold text-slate-900">
+                    {eventLabel(row)}
+                  </p>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {fmtWhen(row.created_at)}
+                  </p>
                   <p className="text-xs text-slate-600 mt-1">
-                    Outcome: <span className="font-semibold">{row.outcome || "unknown"}</span>
+                    Outcome:{" "}
+                    <span className="font-semibold">
+                      {row.outcome || "unknown"}
+                    </span>
                     {row?.ip_address ? ` • IP: ${row.ip_address}` : ""}
                   </p>
                 </li>

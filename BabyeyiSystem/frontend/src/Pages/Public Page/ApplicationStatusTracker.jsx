@@ -269,10 +269,6 @@ export default function ApplicationStatusTracker({ schoolSlug }) {
           <div className="relative w-full max-w-md">
             {/* Brand */}
             <div className="text-center mb-10">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-500/15 border border-indigo-400/25 mb-5">
-                <Sparkles size={14} className="text-indigo-400" />
-                <span className="text-indigo-300 text-xs font-black uppercase tracking-widest">Application Tracker</span>
-              </div>
               <h1 className="text-4xl sm:text-5xl font-black text-white leading-none mb-3">
                 Track Your<br />
                 <span className="text-transparent bg-clip-text" style={{ backgroundImage: "linear-gradient(135deg,#818cf8,#c084fc)" }}>

@@ -62,25 +62,15 @@ const services = [
 
 export default function Services() {
   return (
-    <div className="pb-6 -mx-4 sm:-mx-6 px-0">
+    <div className="pb-6 px-0">
       <div
-        className="px-4 sm:px-6 pt-2 pb-8 rounded-b-3xl sm:rounded-b-[2rem] text-white shadow-lg"
-        style={{
-          background: "linear-gradient(90deg, #fb923c 0%, #ea580c 55%, #c2410c 100%)",
-        }}
+        className="px-4 sm:px-6 pt-2 pb-8 text-white"
       >
-        <div className="max-w-3xl mx-auto flex items-start justify-between gap-3">
+        <div className="mx-auto flex items-start justify-between gap-3">
           <div className="flex items-start gap-3 min-w-0">
-            <Link
-              to="/parents/home"
-              className="shrink-0 mt-1 p-2 rounded-xl bg-white/15 hover:bg-white/25 border border-white/20"
-              aria-label="Back"
-            >
-              <ArrowLeft size={20} />
-            </Link>
             <div>
-              <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight">Our Services</h1>
-              <p className="text-white/90 text-sm mt-1 leading-snug">
+              <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-slate-900">Our Services</h1>
+              <p className="text-slate-900 text-sm mt-1 leading-snug">
                 Browse all available services to help prepare your child for school.
               </p>
             </div>
@@ -95,7 +85,7 @@ export default function Services() {
         </div>
       </div>
 
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 -mt-2 space-y-5 pt-4">
+      <div className="mx-auto px-4 sm:px-6 -mt-2 space-y-5 pt-4">
         {services.map((s) => {
           const Icon = s.icon;
           const CardInner = (

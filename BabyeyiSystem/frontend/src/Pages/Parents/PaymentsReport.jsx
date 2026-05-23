@@ -185,17 +185,10 @@ export default function PaymentsReport() {
   };
 
   return (
-    <div className="space-y-5 pb-6">
+    <div className="space-y-5">
       <div className="flex items-center gap-3">
-        <Link
-          to="/parents/home"
-          className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50"
-          aria-label="Back To Home"
-        >
-          <ArrowLeft size={20} />
-        </Link>
         <div>
-          <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Payments & Loans Report</h1>
+          <h1 className="text-xl font-extrabold text-slate-900 tracking-tight text-2xl sm:text-4xl">Payments & Loans Report</h1>
           <p className="text-sm text-slate-500">Track Payments By Student, School, Term, And Academic Year</p>
         </div>
       </div>

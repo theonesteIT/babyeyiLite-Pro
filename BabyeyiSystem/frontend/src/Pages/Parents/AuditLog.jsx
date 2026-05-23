@@ -52,22 +52,14 @@ export default function AuditLog() {
   }, []);
 
   return (
-    <div className="space-y-6 pb-4 max-w-3xl mx-auto">
-      <div className="rounded-2xl bg-emerald-600 px-4 py-4 flex items-center justify-between gap-3 text-white shadow-lg shadow-emerald-500/20">
+    <div className="space-y-6">
+      <div className="px-4 py-4 flex items-center justify-between gap-3 text-slate-700">
         <div className="flex items-center gap-3 min-w-0">
-          <ShieldCheck className="w-8 h-8 shrink-0 opacity-95" strokeWidth={2} />
           <div className="min-w-0">
-            <h1 className="font-extrabold text-lg leading-tight">Audit Log</h1>
-            <p className="text-white/85 text-xs sm:text-sm">Security activity on your parent account</p>
+            <h1 className="font-extrabold text-xl sm:text-2xl leading-tight">Audit Log</h1>
+            <p className="text-slate-500 text-xs sm:text-sm">Security activity on your parent account</p>
           </div>
         </div>
-        <Link
-          to="/parents/home"
-          className="shrink-0 w-11 h-11 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors border border-white/30"
-          aria-label="Home"
-        >
-          <HomeIcon size={20} />
-        </Link>
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
