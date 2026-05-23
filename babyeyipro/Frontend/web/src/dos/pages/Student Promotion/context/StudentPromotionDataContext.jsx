@@ -7,6 +7,9 @@ import {
   mapApiStudentToPromotion,
   studentMatchesClassFilter,
   DEFAULT_TERMS,
+  ALL_YEAR_TERM,
+  appendAllYearTerm,
+  isAllYearTerm,
   isFinalYearPromotionStudent,
 } from '../utils/promotionMappers';
 import {
@@ -14,7 +17,11 @@ import {
   fetchAcademicCalendarSettings,
   fetchPromotionHistory,
   fetchProgressIndex,
+  fetchProgressIndexAllYear,
   fetchRegistryStats,
+  fetchCertificateBranding,
+  fetchPromotionSettings,
+  savePromotionSettings,
   fetchSchoolClasses,
   fetchSchoolStudents,
 } from '../services/studentPromotionService';
@@ -37,6 +44,8 @@ export function StudentPromotionDataProvider({ children }) {
   const [term, setTerm] = useState('Term 3');
   const [progressById, setProgressById] = useState({});
   const [academicYearsRegistry, setAcademicYearsRegistry] = useState([]);
+  const [promotionSettings, setPromotionSettings] = useState(null);
+  const [certificateBranding, setCertificateBranding] = useState(null);
 
   const catalog = useMemo(
     () => buildClassCatalog(classRows, apiClassNameOptions),
@@ -65,6 +74,11 @@ export function StudentPromotionDataProvider({ children }) {
     [academicYearsRegistry]
   );
 
+  const terms = useMemo(
+    () => appendAllYearTerm(termsForYear(academicYear)),
+    [academicYear, termsForYear]
+  );
+
   const promotionStudents = useMemo(
     () => rawStudents.map((row) => mapApiStudentToPromotion(row, progressById)),
     [rawStudents, progressById]
@@ -79,12 +93,17 @@ export function StudentPromotionDataProvider({ children }) {
     setLoading(true);
     setError(null);
     try {
-      const [{ classRows: rows, classNameOptions: opts }, students, stats, calendar] = await Promise.all([
-        fetchSchoolClasses(schoolId),
-        fetchSchoolStudents(),
-        fetchRegistryStats().catch(() => null),
-        fetchAcademicCalendarSettings().catch(() => ({})),
-      ]);
+      const [{ classRows: rows, classNameOptions: opts }, students, stats, calendar, settings, branding] =
+        await Promise.all([
+          fetchSchoolClasses(schoolId),
+          fetchSchoolStudents(),
+          fetchRegistryStats().catch(() => null),
+          fetchAcademicCalendarSettings().catch(() => ({})),
+          fetchPromotionSettings().catch(() => ({})),
+          fetchCertificateBranding().catch(() => null),
+        ]);
+      setPromotionSettings(settings);
+      setCertificateBranding(branding);
 
       setClassRows(rows);
       setApiClassNameOptions(opts);
@@ -105,7 +124,10 @@ export function StudentPromotionDataProvider({ children }) {
       const defaultTerm = defaultTerms[defaultTerms.length - 1] || DEFAULT_TERMS[2];
 
       setAcademicYear((prev) => prev || defaultYear);
-      setTerm((prev) => (prev && defaultTerms.includes(prev) ? prev : defaultTerm));
+      setTerm((prev) => {
+        if (prev && (defaultTerms.includes(prev) || prev === ALL_YEAR_TERM)) return prev;
+        return defaultTerm;
+      });
       setRawStudents(students);
       if (stats) setRegistryStats(stats);
 
@@ -132,12 +154,26 @@ export function StudentPromotionDataProvider({ children }) {
 
   useEffect(() => {
     if (!schoolId || !academicYear) return;
+    const termList = termsForYear(academicYear);
+    const termOptions = appendAllYearTerm(termList);
+    if (!termOptions.includes(term)) {
+      const regular = termList.filter((t) => !isAllYearTerm(t));
+      setTerm(regular[regular.length - 1] || termOptions[0] || DEFAULT_TERMS[2]);
+    }
+  }, [schoolId, academicYear, term, termsForYear]);
+
+  useEffect(() => {
+    if (!schoolId || !academicYear) return;
     let cancelled = false;
     const termList = termsForYear(academicYear);
-    const activeTerm = termList.includes(term) ? term : termList[termList.length - 1] || DEFAULT_TERMS[2];
+    const termOptions = appendAllYearTerm(termList);
+    if (!termOptions.includes(term)) return;
+
     (async () => {
       try {
-        const prog = await fetchProgressIndex(academicYear, activeTerm);
+        const prog = isAllYearTerm(term)
+          ? await fetchProgressIndexAllYear(academicYear, termList)
+          : await fetchProgressIndex(academicYear, term);
         if (!cancelled) setProgressById(prog);
         const hist = await fetchPromotionHistory(academicYear);
         if (!cancelled) setHistory(hist);
@@ -191,6 +227,24 @@ export function StudentPromotionDataProvider({ children }) {
     return { total, eligible, rep, grad, pending, pct };
   }, [promotionStudents, repeaters.length, graduated.length]);
 
+  const refreshHistory = useCallback(
+    async (year) => {
+      const loadAllYears = year === 'All' || year === '' || year == null;
+      const hist = await fetchPromotionHistory(loadAllYears ? undefined : year || academicYear).catch(
+        () => []
+      );
+      setHistory(hist);
+      return hist;
+    },
+    [academicYear]
+  );
+
+  const updatePromotionSettings = useCallback(async (payload) => {
+    const next = await savePromotionSettings(payload);
+    setPromotionSettings(next);
+    return next;
+  }, []);
+
   const submitPromotion = useCallback(
     async ({
       promoteIds,
@@ -230,14 +284,20 @@ export function StudentPromotionDataProvider({ children }) {
     streamsByGroup: catalog.streamsByGroup,
     academicYears,
     academicYearsRegistry,
-    terms: termsForYear(academicYear),
+    terms,
     termsForYear,
+    isAllYearTerm,
+    allYearTerm: ALL_YEAR_TERM,
     academicYear,
     setAcademicYear,
     term,
     setTerm,
     students: promotionStudents,
     history,
+    refreshHistory,
+    promotionSettings,
+    certificateBranding,
+    updatePromotionSettings,
     registryStats,
     getStudentsForClass,
     searchStudents,

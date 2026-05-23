@@ -46,7 +46,7 @@ const Dashboard = () => {
   const quickTools = [
     {
       title: 'Conduct overview',
-      desc: 'School conduct scale and how this portal fits your role.',
+      desc: 'Set maximum conduct marks and how this portal fits your role.',
       icon: <Shield size={20} />,
       color: 'text-amber-700',
       path: '/conduct',
@@ -264,7 +264,7 @@ const Dashboard = () => {
                 <div>
                   <h4 className="font-semibold text-xs tracking-wider uppercase leading-none opacity-90">Conduct hub</h4>
                   <p className="text-[10px] text-white font-medium leading-snug mt-2 opacity-80">
-                    Open the conduct overview for scale settings and how to use discipline tools with your school.
+                    Open the conduct hub to set maximum marks and apply them to learners.
                   </p>
                 </div>
                 <div className="flex items-center gap-1.5 text-[9px] font-medium uppercase tracking-wider group-hover:gap-2.5 transition-all">

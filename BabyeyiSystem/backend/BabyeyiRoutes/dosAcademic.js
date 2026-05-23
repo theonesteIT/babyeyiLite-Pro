@@ -135,10 +135,14 @@ async function ensureDosTables() {
     CREATE TABLE IF NOT EXISTS school_dos_settings (
       school_id INT UNSIGNED NOT NULL PRIMARY KEY,
       total_marks DECIMAL(8,2) NOT NULL DEFAULT 100.00,
+      promotion_settings_json JSON NULL,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       updated_by_user_id INT UNSIGNED NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
+  await promisePool.query(
+    `ALTER TABLE school_dos_settings ADD COLUMN IF NOT EXISTS promotion_settings_json JSON NULL`
+  ).catch(() => {});
 
   await promisePool.query(`
     CREATE TABLE IF NOT EXISTS dos_student_academic_records (
@@ -316,13 +320,32 @@ async function getTeacherPeriodSettings(schoolId) {
   };
 }
 
+/** Conduct maximum — same as Head of Discipline default_marks (not a fixed 100). */
 async function getTotalMarksForSchool(schoolId) {
-  const [[row]] = await promisePool.query(
+  try {
+    const [[defaultRow]] = await promisePool.query(
+      'SELECT default_marks FROM school_discipline_default_marks WHERE school_id = ? LIMIT 1',
+      [schoolId]
+    );
+    if (defaultRow?.default_marks != null) return Number(defaultRow.default_marks);
+  } catch (_) {
+    /* table may not exist yet */
+  }
+  try {
+    const [[discRow]] = await promisePool.query(
+      'SELECT total_marks FROM school_discipline_settings WHERE school_id = ? LIMIT 1',
+      [schoolId]
+    );
+    if (discRow?.total_marks != null) return Number(discRow.total_marks);
+  } catch (_) {
+    /* optional */
+  }
+  const [[dosRow]] = await promisePool.query(
     'SELECT total_marks FROM school_dos_settings WHERE school_id = ? LIMIT 1',
     [schoolId]
-  );
-  if (row && row.total_marks != null) return Number(row.total_marks);
-  return 100;
+  ).catch(() => [[null]]);
+  if (dosRow?.total_marks != null) return Number(dosRow.total_marks);
+  return 40;
 }
 
 const statusLabelForCode = (code, label) => {
@@ -547,6 +570,44 @@ function inferAcademicYearFromDate(date = new Date()) {
   const y = date.getFullYear();
   const m = date.getMonth() + 1;
   return m >= 9 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
+}
+
+function isAllYearTerm(termRaw) {
+  const t = trimStr(termRaw).toLowerCase();
+  return t === 'all year' || t === 'all-year' || t === 'allyear';
+}
+
+/** Gate / review date span: single term or full academic year from calendar term_dates. */
+function resolveReviewDateRange(calendar, term, allYear) {
+  const termDates = Array.isArray(calendar?.term_dates) ? calendar.term_dates : [];
+  const today = new Date().toISOString().slice(0, 10);
+
+  if (allYear && termDates.length) {
+    let from = '';
+    let to = today;
+    for (const td of termDates) {
+      if (!td) continue;
+      const s = trimStr(td.start);
+      const e = trimStr(td.end);
+      if (s && (!from || s < from)) from = s;
+      if (e && (!to || e > to)) to = e;
+    }
+    if (from) {
+      if (to > today) to = today;
+      return { from, to };
+    }
+  }
+
+  const termCfg = termDates.find((t) => t && String(t.name || '').trim() === term);
+  if (termCfg?.start && termCfg?.end) {
+    let to = String(termCfg.end).trim();
+    if (to > today) to = today;
+    return { from: String(termCfg.start).trim(), to };
+  }
+
+  const d1 = new Date();
+  d1.setDate(d1.getDate() - 89);
+  return { from: d1.toISOString().slice(0, 10), to: today };
 }
 
 async function resolveAcademicContext(schoolId, academicYearRaw, termRaw) {
@@ -1242,34 +1303,13 @@ router.get('/dos/promotion/class-review-metrics', requireRole(DOS_ONLY), async (
       academicYearQ ||
       trimStr(calendar.current_academic_year) ||
       inferAcademicYearFromDate();
-    const term = termQ || inferTermFromMonth(terms);
+    const allYear = isAllYearTerm(termQ);
+    const term = allYear ? 'All Year' : termQ || inferTermFromMonth(terms);
 
     const disciplineTotal = await getTotalMarksForSchool(schoolId);
-    let disciplineDefault = 40;
-    try {
-      const [[defaultRow]] = await promisePool.query(
-        'SELECT default_marks FROM school_discipline_default_marks WHERE school_id = ? LIMIT 1',
-        [schoolId]
-      );
-      if (defaultRow?.default_marks != null) disciplineDefault = Number(defaultRow.default_marks);
-    } catch (_) {
-      /* table may not exist yet */
-    }
+    const disciplineDefault = disciplineTotal;
 
-    let from = '';
-    let to = new Date().toISOString().slice(0, 10);
-    const termDates = Array.isArray(calendar.term_dates) ? calendar.term_dates : [];
-    const termCfg = termDates.find((t) => t && String(t.name || '').trim() === term);
-    if (termCfg?.start && termCfg?.end) {
-      from = String(termCfg.start).trim();
-      to = String(termCfg.end).trim();
-      const today = new Date().toISOString().slice(0, 10);
-      if (to > today) to = today;
-    } else {
-      const d1 = new Date();
-      d1.setDate(d1.getDate() - 89);
-      from = d1.toISOString().slice(0, 10);
-    }
+    const { from, to } = resolveReviewDateRange(calendar, term, allYear);
 
     let studentRows = [];
     const baseParams = [schoolId];
@@ -1287,6 +1327,16 @@ router.get('/dos/promotion/class-review-metrics', requireRole(DOS_ONLY), async (
       baseParams.push(className, className, groupPrefix);
     }
 
+    const disciplineDeductionJoin = allYear
+      ? `SELECT student_id, SUM(marks_deducted) AS deducted
+         FROM discipline_cases
+         WHERE school_id = ? AND academic_year = ?
+         GROUP BY student_id`
+      : `SELECT student_id, SUM(marks_deducted) AS deducted
+         FROM discipline_cases
+         WHERE school_id = ? AND academic_year = ? AND term = ?
+         GROUP BY student_id`;
+
     const disciplineSql = `
       SELECT
         s.id,
@@ -1298,24 +1348,25 @@ router.get('/dos/promotion/class-review-metrics', requireRole(DOS_ONLY), async (
         END AS discipline_remaining
       FROM students s
       LEFT JOIN (
-        SELECT student_id, SUM(marks_deducted) AS deducted
-        FROM discipline_cases
-        WHERE school_id = ? AND academic_year = ? AND term = ?
-        GROUP BY student_id
+        ${disciplineDeductionJoin}
       ) ded ON ded.student_id = s.id
       ${where}
     `;
 
+    const disciplineParams = allYear
+      ? [disciplineTotal, disciplineDefault, disciplineTotal, schoolId, academicYear, ...baseParams]
+      : [
+          disciplineTotal,
+          disciplineDefault,
+          disciplineTotal,
+          schoolId,
+          academicYear,
+          term,
+          ...baseParams,
+        ];
+
     try {
-      const [rows] = await promisePool.query(disciplineSql, [
-        disciplineTotal,
-        disciplineDefault,
-        disciplineTotal,
-        schoolId,
-        academicYear,
-        term,
-        ...baseParams,
-      ]);
+      const [rows] = await promisePool.query(disciplineSql, disciplineParams);
       studentRows = rows || [];
     } catch (discErr) {
       console.warn('[promotion/class-review-metrics] discipline_cases:', discErr.message);
@@ -1434,6 +1485,7 @@ router.get('/dos/promotion/class-review-metrics', requireRole(DOS_ONLY), async (
       meta: {
         academic_year: academicYear,
         term,
+        all_year: allYear,
         class_name: className || null,
         student_count: Object.keys(byStudentId).length,
         discipline_total: disciplineTotal,
@@ -1481,6 +1533,9 @@ router.get('/dos/promotion/history', requireRole(DOS_ONLY), async (req, res) => 
          r.updated_at,
          s.id AS student_id,
          s.student_uid,
+         s.student_code,
+         r.notes,
+         r.term,
          s.first_name,
          s.last_name,
          s.class_name AS current_class_name
@@ -1496,15 +1551,25 @@ router.get('/dos/promotion/history', requireRole(DOS_ONLY), async (req, res) => 
       const code = String(r.status_code || '').toLowerCase();
       let status = 'Promoted';
       if (code === 'repeated' || code === 'second_sitting') status = 'Repeated';
+      const notes = trimStr(r.notes);
+      let fromClass = trimStr(r.class_name) || trimStr(r.current_class_name);
+      let toClass = trimStr(r.current_class_name);
+      const arrow = notes.match(/→\s*([^|]+?)(?:\s*$|\s*\|)/) || notes.match(/→\s*(.+)$/);
+      if (arrow) toClass = trimStr(arrow[1]);
+      const pipeFrom = notes.match(/\|\s*([^→]+)\s*→/);
+      if (pipeFrom) fromClass = trimStr(pipeFrom[1]);
       return {
         id: r.id,
         student: `${r.first_name || ''} ${r.last_name || ''}`.trim(),
         student_id: r.student_id,
-        fromClass: trimStr(r.class_name) || trimStr(r.current_class_name),
-        toClass: trimStr(r.current_class_name),
+        student_code: r.student_uid || r.student_code || null,
+        fromClass,
+        toClass,
         stream: '',
         year: r.academic_year,
+        term: r.term,
         status,
+        notes,
         doneBy: 'DOS',
         date: r.updated_at ? String(r.updated_at).slice(0, 10) : '',
       };
@@ -1514,6 +1579,182 @@ router.get('/dos/promotion/history', requireRole(DOS_ONLY), async (req, res) => 
   } catch (err) {
     console.error('GET /dos/promotion/history:', err);
     return res.status(500).json({ success: false, message: 'Failed to load promotion history' });
+  }
+});
+
+function defaultPromotionSettings() {
+  return {
+    min_avg_marks: 50,
+    min_attendance: 75,
+    auto_suggest_repeaters: true,
+    fees_required: false,
+    discipline_block: true,
+    parent_notify: true,
+    lock_after_confirm: true,
+    auto_stream: false,
+    certificate_signatory: 'Head Teacher',
+    certificate_headline: 'Certificate of Graduation',
+    certificate_subtitle: 'This certifies successful completion of the academic programme',
+  };
+}
+
+async function loadPromotionSettings(schoolId) {
+  const [[row]] = await promisePool.query(
+    'SELECT promotion_settings_json FROM school_dos_settings WHERE school_id = ? LIMIT 1',
+    [schoolId]
+  ).catch(() => [[null]]);
+  const base = defaultPromotionSettings();
+  if (!row?.promotion_settings_json) return base;
+  try {
+    const parsed =
+      typeof row.promotion_settings_json === 'string'
+        ? JSON.parse(row.promotion_settings_json)
+        : row.promotion_settings_json;
+    return { ...base, ...(parsed && typeof parsed === 'object' ? parsed : {}) };
+  } catch (_) {
+    return base;
+  }
+}
+
+// GET /api/dos/promotion/certificate-branding — stamp & head signature from school registry
+router.get('/dos/promotion/certificate-branding', requireRole(DOS_ONLY), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School not found in session.' });
+
+    const [[school]] = await promisePool.query(
+      `SELECT school_name, head_teacher_name, head_signature_url, school_stamp_url, logo_url
+       FROM schools WHERE id = ? LIMIT 1`,
+      [schoolId]
+    );
+    if (!school) {
+      return res.status(404).json({ success: false, message: 'School not found.' });
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        school_name: trimStr(school.school_name) || '',
+        head_teacher_name: trimStr(school.head_teacher_name) || '',
+        head_signature_url: trimStr(school.head_signature_url) || null,
+        stamp_url: trimStr(school.school_stamp_url) || null,
+        logo_url: trimStr(school.logo_url) || null,
+      },
+    });
+  } catch (err) {
+    console.error('GET /dos/promotion/certificate-branding:', err);
+    return res.status(500).json({ success: false, message: 'Failed to load certificate branding' });
+  }
+});
+
+// GET /api/dos/promotion/settings
+router.get('/dos/promotion/settings', requireRole(DOS_ONLY), async (req, res) => {
+  try {
+    await ensureDosTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School not found in session.' });
+    const settings = await loadPromotionSettings(schoolId);
+    return res.json({ success: true, data: settings });
+  } catch (err) {
+    console.error('GET /dos/promotion/settings:', err);
+    return res.status(500).json({ success: false, message: 'Failed to load promotion settings' });
+  }
+});
+
+// PUT /api/dos/promotion/settings
+router.put('/dos/promotion/settings', requireRole(DOS_ONLY), async (req, res) => {
+  try {
+    await ensureDosTables();
+    const schoolId = resolveSchoolId(req);
+    const userId = resolveUserId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School not found in session.' });
+    const body = req.body || {};
+    const current = await loadPromotionSettings(schoolId);
+    const next = {
+      ...current,
+      min_avg_marks: Number(body.min_avg_marks ?? current.min_avg_marks),
+      min_attendance: Number(body.min_attendance ?? current.min_attendance),
+      auto_suggest_repeaters: !!body.auto_suggest_repeaters,
+      fees_required: !!body.fees_required,
+      discipline_block: !!body.discipline_block,
+      parent_notify: !!body.parent_notify,
+      lock_after_confirm: !!body.lock_after_confirm,
+      auto_stream: !!body.auto_stream,
+      certificate_signatory: trimStr(body.certificate_signatory) || current.certificate_signatory,
+      certificate_headline: trimStr(body.certificate_headline) || current.certificate_headline,
+      certificate_subtitle: trimStr(body.certificate_subtitle) || current.certificate_subtitle,
+    };
+    await promisePool.query(
+      `INSERT INTO school_dos_settings (school_id, total_marks, promotion_settings_json, updated_by_user_id)
+       VALUES (?, 100, ?, ?)
+       ON DUPLICATE KEY UPDATE
+         promotion_settings_json = VALUES(promotion_settings_json),
+         updated_by_user_id = VALUES(updated_by_user_id)`,
+      [schoolId, JSON.stringify(next), userId]
+    );
+    return res.json({ success: true, data: next });
+  } catch (err) {
+    console.error('PUT /dos/promotion/settings:', err);
+    return res.status(500).json({ success: false, message: 'Failed to save promotion settings' });
+  }
+});
+
+// GET /api/dos/promotion/summary?academic_year=
+router.get('/dos/promotion/summary', requireRole(DOS_ONLY), async (req, res) => {
+  try {
+    await ensureDosTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School not found in session.' });
+
+    const yearQ = trimStr(req.query.academic_year || req.query.year || '');
+    const calendar = await getAcademicCalendarSettings(schoolId);
+    const academicYear = yearQ || trimStr(calendar.current_academic_year) || inferAcademicYearFromDate();
+
+    const [[studentAgg]] = await promisePool.query(
+      `SELECT COUNT(*) AS total FROM students WHERE school_id = ?`,
+      [schoolId]
+    );
+
+    const [histRows] = await promisePool.query(
+      `SELECT status_code, class_name, notes
+       FROM dos_student_academic_records
+       WHERE school_id = ? AND academic_year = ? AND status_code IN ('promoted','repeated','second_sitting')`,
+      [schoolId, academicYear]
+    );
+
+    let promoted = 0;
+    let repeated = 0;
+    const byFromClass = {};
+    for (const r of histRows || []) {
+      const code = String(r.status_code || '').toLowerCase();
+      if (code === 'promoted') promoted += 1;
+      if (code === 'repeated' || code === 'second_sitting') repeated += 1;
+      const from = trimStr(r.class_name) || '—';
+      if (!byFromClass[from]) byFromClass[from] = { class_name: from, promote: 0, repeat: 0, total: 0 };
+      byFromClass[from].total += 1;
+      if (code === 'promoted') byFromClass[from].promote += 1;
+      else byFromClass[from].repeat += 1;
+    }
+
+    const totalStudents = Number(studentAgg?.total || 0);
+    const promotionRate = totalStudents ? Math.round((promoted / totalStudents) * 1000) / 10 : 0;
+    const repeatRate = totalStudents ? Math.round((repeated / totalStudents) * 1000) / 10 : 0;
+
+    return res.json({
+      success: true,
+      data: {
+        academic_year: academicYear,
+        total_students: totalStudents,
+        promoted,
+        repeated,
+        promotion_rate: promotionRate,
+        repeat_rate: repeatRate,
+        by_class: Object.values(byFromClass).sort((a, b) => b.total - a.total),
+      },
+    });
+  } catch (err) {
+    console.error('GET /dos/promotion/summary:', err);
+    return res.status(500).json({ success: false, message: 'Failed to load promotion summary' });
   }
 });
 
@@ -1599,7 +1840,7 @@ router.post('/dos/promotion/apply', requireRole(DOS_ONLY), async (req, res) => {
           null,
           0,
           totalMarks,
-          `Promotion: ${promotionType} → ${destClass}`,
+          `${promotionType} | ${sourceClass || row.class_name || ''} → ${destClass}`,
           userId,
         ]
       );

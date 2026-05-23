@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import {
-  CheckCircle2, FileSpreadsheet, FileText, Loader2, Plus, Search, X,
+  CheckCircle2, Loader2, Plus, Search, X,
   ChevronRight, Calculator, Banknote, Calendar, ChevronLeft, User,
   TrendingUp, AlertCircle, RefreshCw, Filter
 } from 'lucide-react';
@@ -9,6 +9,11 @@ import { createPortal } from 'react-dom';
 import PortalToast from '../components/PortalToast';
 import AccountantOchreHero from '../components/AccountantOchreHero';
 import api from '../services/api';
+import PayrollExportBar from '../../../../shared/payroll/PayrollExportBar';
+import PayrollPaymentTrackerPanel from '../../../../shared/payroll/PayrollPaymentTrackerPanel';
+import PayrollWorkspaceTabs from '../../../../shared/payroll/PayrollWorkspaceTabs';
+import { collectAcademicYears, findPayrollPeriodTemplate } from '../../../../shared/payroll/payrollHelpers';
+import { exportPayrollRequestsExcel, exportPayrollRequestsPdf } from '../../../../shared/payroll/payrollExport';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const STEP_LABELS = ['Select Staff', 'Salary Details', 'Amount to Pay', 'Review'];
@@ -27,7 +32,7 @@ const parseMaybeJson = (value) => {
   try { return Array.isArray(value) ? value : (typeof value === 'string' ? (JSON.parse(value) || []) : []); }
   catch { return []; }
 };
-const normalizeTerm = (t) => (String(t || '').includes('1') ? 'T1' : String(t || '').includes('3') ? 'T3' : 'T2');
+const normalizeTerm = (t) => (String(t || '').includes('1') ? 'Term 1' : String(t || '').includes('3') ? 'Term 3' : 'Term 2');
 const toPayrollYear = (y) => {
   const txt = String(y || '').trim();
   const m = txt.match(/\b(20\d{2}|19\d{2})\b/);
@@ -93,7 +98,8 @@ export default function PayrollConfig() {
 
   const [requests, setRequests] = useState([]);
   const [filters, setFilters] = useState({ month: 'All', role: 'All', query: '' });
-  const [loading, setLoading] = useState({ requests: false, staff: false, advance: false });
+  const [loading, setLoading] = useState({ requests: false, staff: false, advance: false, action: false });
+  const [paymentRequestModal, setPaymentRequestModal] = useState({ open: false, row: null, amount: '' });
   const [toast, setToast] = useState({ type: '', message: '' });
   const [openModal, setOpenModal] = useState(false);
   const [step, setStep] = useState(1);
@@ -112,6 +118,21 @@ export default function PayrollConfig() {
   const [advance, setAdvance] = useState({ monthlyDeduction: 0, deductionApplied: 0, approvedCount: 0 });
   const [detailRow, setDetailRow] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [workspaceTab, setWorkspaceTab] = useState('requests');
+
+  const schoolName = useMemo(() => {
+    try {
+      const u = JSON.parse(localStorage.getItem('user') || '{}');
+      return u?.school?.name || u?.school_name || '';
+    } catch {
+      return '';
+    }
+  }, []);
+
+  const trackerYearOptions = useMemo(
+    () => collectAcademicYears(requests, availableYears),
+    [requests, availableYears],
+  );
 
   const notify = useCallback((type, message) => {
     setToast({ type, message });
@@ -125,8 +146,11 @@ export default function PayrollConfig() {
     const params = { _ts: Date.now() };
     if (filters.month !== 'All') params.month = filters.month;
     api.get('/accountant/payroll-requests', { params })
-      .then((res) => setRequests(res.data?.data || []))
-      .catch((e) => notify('error', e?.response?.data?.message || 'Failed to load payroll'))
+      .then((res) => {
+        if (res.data?.success === false) throw new Error(res.data?.message || 'Failed to load payroll');
+        setRequests(Array.isArray(res.data?.data) ? res.data.data : []);
+      })
+      .catch((e) => notify('error', e?.response?.data?.message || e?.message || 'Failed to load payroll'))
       .finally(() => setLoading((p) => ({ ...p, requests: false })));
   }, [filters.month, notify]);
 
@@ -139,7 +163,11 @@ export default function PayrollConfig() {
     navigate(location.pathname, { replace: true, state: {} });
     setLoading((p) => ({ ...p, requests: true }));
     api.get('/accountant/payroll-requests', { params: { _ts: Date.now() } })
-      .then((res) => setRequests(res.data?.data || []))
+      .then((res) => {
+        if (res.data?.success !== false) {
+          setRequests(Array.isArray(res.data?.data) ? res.data.data : []);
+        }
+      })
       .catch(() => { })
       .finally(() => setLoading((p) => ({ ...p, requests: false })));
   }, [location.state?.payrollPaymentSaved]); // eslint-disable-line
@@ -310,6 +338,56 @@ export default function PayrollConfig() {
     });
   };
 
+  const openPaymentRequestModal = (trackerRow) => {
+    setPaymentRequestModal({
+      open: true,
+      row: trackerRow,
+      amount: String(Math.round(Number(trackerRow?.remaining || 0))),
+    });
+  };
+
+  const confirmPaymentRequest = async () => {
+    const trackerRow = paymentRequestModal.row;
+    const payAmount = Number(paymentRequestModal.amount || 0);
+    if (!trackerRow) return;
+    if (!(payAmount > 0)) return notify('error', 'Amount must be greater than zero.');
+    if (payAmount > Number(trackerRow.remaining || 0)) {
+      return notify('error', `Amount exceeds remaining balance (${fmt(trackerRow.remaining)} RWF).`);
+    }
+
+    const template = findPayrollPeriodTemplate(requests, trackerRow);
+    const finalPayable = Number(trackerRow.finalPayable || template?.finalPayable || payAmount);
+
+    setLoading((p) => ({ ...p, action: true }));
+    try {
+      const res = await api.post('/accountant/payroll-requests', {
+        staffUserId: Number(trackerRow.staffUserId),
+        staffCode: trackerRow.staffCode || template?.staffCode,
+        staffName: trackerRow.staffName || template?.staffName,
+        role: template?.role || 'STAFF',
+        department: template?.department || template?.role || 'STAFF',
+        month: trackerRow.month,
+        term: trackerRow.term,
+        year: Number(trackerRow.year),
+        academicYear: String(trackerRow.academicYear || trackerRow.year),
+        amount: payAmount,
+        basic: Number(template?.basic || 0),
+        allowances: Number(template?.allowances || 0),
+        deductions: Number(template?.deductions || 0),
+        netSalary: Number(template?.netSalary || finalPayable),
+        advance: Number(template?.advance || 0),
+        finalPayable,
+      });
+      notify('success', res.data?.message || 'Payment request sent to school manager for approval.');
+      setPaymentRequestModal({ open: false, row: null, amount: '' });
+      fetchRequests();
+    } catch (e) {
+      notify('error', e?.response?.data?.message || e?.message || 'Failed to submit payment request');
+    } finally {
+      setLoading((p) => ({ ...p, action: false }));
+    }
+  };
+
   const submitPayrollRequest = async () => {
     if (!selectedStaff) return notify('error', 'Select staff first.');
     if (!(payrollYear >= 2000 && payrollYear <= 3000)) return notify('error', 'Academic year format is invalid.');
@@ -356,26 +434,18 @@ export default function PayrollConfig() {
 
   const step3HasErrors = amountErrors.zero || amountErrors.exceeds || amountErrors.duplicate || amountErrors.fullyPaid;
 
-  // ── exports ─────────────────────────────────────────────────
-  const exportPdf = async () => {
-    const { jsPDF } = await import('jspdf');
-    const doc = new jsPDF();
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.text('Payroll Summary', 14, 20);
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(11); let y = 35;
-    requests.filter((r) => r.status === 'Paid').forEach((r) => { doc.text(`${r.month}: ${fmt(r.amount)} RWF`, 14, y); y += 8; });
-    if (y === 35) doc.text('No paid records found.', 14, y);
-    doc.save('payroll-summary.pdf');
-  };
+  const exportRequestsExcel = () => exportPayrollRequestsExcel({
+    rows: filtered,
+    portalLabel: 'Accountant — Payroll requests',
+    filename: `accountant-payroll-requests-${Date.now()}.xlsx`,
+  });
 
-  const exportCsv = () => {
-    const rows = [['Staff', 'Staff Code', 'Role', 'Month', 'Term', 'Year', 'Amount', 'Status'],
-    ...requests.map((r) => [r.staffName, r.staffCode, r.role, r.month, r.term, r.year, r.amount, r.status])];
-    const csv = rows.map((l) => l.map((x) => `"${String(x).replaceAll('"', '""')}"`).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    Object.assign(document.createElement('a'), { href: url, download: 'payroll-report.csv' }).click();
-    URL.revokeObjectURL(url);
-  };
+  const exportRequestsPdf = () => exportPayrollRequestsPdf({
+    rows: filtered,
+    portalLabel: 'Accountant — Payroll requests',
+    schoolName,
+    filename: `accountant-payroll-requests-${Date.now()}.pdf`,
+  });
 
   return (
     <>
@@ -408,62 +478,91 @@ export default function PayrollConfig() {
             </div>
 
             {/* Toolbar */}
-            <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex flex-wrap gap-3 items-center">
-              <div className="relative flex-1 min-w-[160px]">
-                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  value={filters.query}
-                  onChange={(e) => setFilters((p) => ({ ...p, query: e.target.value }))}
-                  placeholder="Search staff, code, role…"
-                  className="w-full h-9 pl-9 pr-4 rounded-xl bg-slate-50 border border-slate-200 text-[11px] font-semibold text-slate-700 placeholder:text-slate-400 outline-none focus:border-[#000435]/40 focus:bg-white transition-all"
-                />
+            <div className="px-4 sm:px-6 py-4 border-b border-slate-100 space-y-3">
+              <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+                <div className="relative flex-1 min-w-0">
+                  <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    value={filters.query}
+                    onChange={(e) => setFilters((p) => ({ ...p, query: e.target.value }))}
+                    placeholder="Search staff, code, role…"
+                    className="w-full h-10 pl-9 pr-4 rounded-xl bg-slate-50 border border-slate-200 text-[11px] font-semibold text-slate-700 placeholder:text-slate-400 outline-none focus:border-[#000435]/40 focus:bg-white transition-all"
+                  />
+                </div>
+                <PayrollWorkspaceTabs active={workspaceTab} onChange={setWorkspaceTab} className="w-full lg:w-auto shrink-0" />
               </div>
 
-              <button
-                onClick={() => setShowFilters((v) => !v)}
-                className="sm:hidden h-9 px-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 flex items-center gap-1.5 text-[10px] font-medium"
-              >
-                <Filter size={12} /> Filters
-              </button>
-
-              <div className={`flex gap-2 w-full sm:w-auto ${showFilters ? 'flex' : 'hidden sm:flex'}`}>
-                <select
-                  value={filters.month}
-                  onChange={(e) => setFilters((p) => ({ ...p, month: e.target.value }))}
-                  className="h-9 px-3 rounded-xl bg-slate-50 border border-slate-200 text-[10px] font-medium text-slate-700 outline-none focus:border-[#000435]/40 cursor-pointer"
-                >
-                  <option value="All">All Months</option>
-                  {MONTHS.map((m) => <option key={m}>{m}</option>)}
-                </select>
-                <select
-                  value={filters.role}
-                  onChange={(e) => setFilters((p) => ({ ...p, role: e.target.value }))}
-                  className="h-9 px-3 rounded-xl bg-slate-50 border border-slate-200 text-[10px] font-medium text-slate-700 outline-none focus:border-[#000435]/40 cursor-pointer"
-                >
-                  {roleOptions.map((r) => <option key={r}>{r}</option>)}
-                </select>
-              </div>
-
-              <div className="flex gap-2 ml-auto">
-                <button onClick={fetchRequests} className="h-9 w-9 flex items-center justify-center rounded-xl bg-slate-50 border border-slate-200 text-slate-500 hover:bg-slate-100 transition-all" title="Refresh">
-                  <RefreshCw size={13} />
-                </button>
-                <button onClick={exportCsv} className="h-9 px-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 text-[10px] font-medium flex items-center gap-1.5 hover:bg-slate-100 transition-all">
-                  <FileSpreadsheet size={12} /> CSV
-                </button>
-                <button onClick={exportPdf} className="h-9 px-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 text-[10px] font-medium flex items-center gap-1.5 hover:bg-slate-100 transition-all">
-                  <FileText size={12} /> PDF
-                </button>
-                <button
-                  onClick={openCreate}
-                  className="h-9 px-4 rounded-xl bg-[#000435] text-[#FEBF10] text-[10px] font-medium uppercase tracking-wider flex items-center gap-1.5 hover:bg-[#000435]/90 active:scale-95 transition-all shadow-lg shadow-[#000435]/20"
-                >
-                  <Plus size={13} /> <span className="hidden sm:inline">Create Payment</span><span className="sm:hidden">New</span>
-                </button>
+              <div className="flex flex-wrap gap-2 items-center">
+                {workspaceTab === 'requests' && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setShowFilters((v) => !v)}
+                      className="sm:hidden h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 flex items-center gap-1.5 text-[10px] font-bold uppercase"
+                    >
+                      <Filter size={12} /> Filters
+                    </button>
+                    <div className={`flex flex-wrap gap-2 flex-1 ${showFilters ? 'flex' : 'hidden sm:flex'}`}>
+                      <select
+                        value={filters.month}
+                        onChange={(e) => setFilters((p) => ({ ...p, month: e.target.value }))}
+                        className="h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-[10px] font-bold text-slate-700 outline-none focus:border-[#000435]/40 cursor-pointer min-w-[8rem]"
+                      >
+                        <option value="All">All Months</option>
+                        {MONTHS.map((m) => <option key={m}>{m}</option>)}
+                      </select>
+                      <select
+                        value={filters.role}
+                        onChange={(e) => setFilters((p) => ({ ...p, role: e.target.value }))}
+                        className="h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-[10px] font-bold text-slate-700 outline-none focus:border-[#000435]/40 cursor-pointer min-w-[8rem]"
+                      >
+                        {roleOptions.map((r) => <option key={r}>{r}</option>)}
+                      </select>
+                    </div>
+                  </>
+                )}
+                <div className="flex flex-wrap gap-2 ml-auto w-full sm:w-auto justify-end">
+                  <button type="button" onClick={fetchRequests} className="h-10 w-10 flex items-center justify-center rounded-xl bg-slate-50 border border-slate-200 text-slate-500 hover:bg-slate-100 transition-all" title="Refresh">
+                    <RefreshCw size={13} />
+                  </button>
+                  {workspaceTab === 'requests' && (
+                    <PayrollExportBar
+                      compact
+                      disabled={!filtered.length}
+                      onExportExcel={exportRequestsExcel}
+                      onExportPdf={exportRequestsPdf}
+                    />
+                  )}
+                  {workspaceTab === 'requests' && (
+                    <button
+                      type="button"
+                      onClick={openCreate}
+                      className="h-10 px-4 rounded-xl bg-[#000435] text-[#FEBF10] text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 hover:bg-[#000435]/90 active:scale-95 transition-all shadow-lg shadow-[#000435]/20"
+                    >
+                      <Plus size={13} /> <span className="hidden sm:inline">Create Payment</span><span className="sm:hidden">New</span>
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
-            {/* Table */}
+            {workspaceTab === 'tracker' && (
+              <PayrollPaymentTrackerPanel
+                requests={requests}
+                loading={loading.requests}
+                portalLabel="Accountant — Payment tracker"
+                schoolName={schoolName}
+                academicYearOptions={trackerYearOptions}
+                showFinishAction
+                canFinishPayment
+                finishActionLabel="Request payment"
+                finishActionHint="No remaining balance"
+                onFinishPayment={openPaymentRequestModal}
+              />
+            )}
+
+            {workspaceTab === 'requests' && (
+            <>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[500px]">
                 <thead>
@@ -541,14 +640,15 @@ export default function PayrollConfig() {
               </table>
             </div>
 
-            {/* Footer */}
-            <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+            <div className="px-4 sm:px-5 py-3 bg-slate-50 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-1.5">
                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                 <span className="text-[8px] font-medium text-slate-400 uppercase tracking-widest">Live</span>
               </div>
               <span className="text-[8px] font-medium text-slate-400 uppercase tracking-widest">{filtered.length} records</span>
             </div>
+            </>
+            )}
           </div>
         </div>
       </div>
@@ -908,6 +1008,67 @@ export default function PayrollConfig() {
           </div>
         </div>,
         document.body
+      )}
+
+      {paymentRequestModal.open && paymentRequestModal.row && (
+        <div className="fixed inset-0 z-[280] flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div
+            className="absolute inset-0 bg-black/55 backdrop-blur-sm"
+            onClick={() => setPaymentRequestModal({ open: false, row: null, amount: '' })}
+          />
+          <div className="relative w-full sm:max-w-lg rounded-t-3xl sm:rounded-2xl bg-white border border-slate-200 shadow-xl p-5 sm:p-6 max-h-[92vh] overflow-y-auto">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Request payment</p>
+            <h3 className="text-lg font-semibold text-[#000435] mt-1">{paymentRequestModal.row.staffName}</h3>
+            <p className="text-xs text-slate-500">
+              {paymentRequestModal.row.month} · {paymentRequestModal.row.term} · {paymentRequestModal.row.year}
+            </p>
+            <p className="mt-2 text-[11px] text-amber-800 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2 leading-relaxed">
+              This sends a <strong>pending</strong> payroll request to the school manager. After they approve it, they can mark it as paid to release the funds.
+            </p>
+            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm space-y-2">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Final payable</span>
+                <strong className="text-emerald-700">{fmt(paymentRequestModal.row.finalPayable)} RWF</strong>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Already paid</span>
+                <strong className="text-blue-700">{fmt(paymentRequestModal.row.paidAmount)} RWF</strong>
+              </div>
+              <div className="h-px bg-slate-200 my-1" />
+              <div className="flex justify-between">
+                <span className="font-semibold text-slate-700">Remaining</span>
+                <strong className="text-orange-600">{fmt(paymentRequestModal.row.remaining)} RWF</strong>
+              </div>
+            </div>
+            <div className="mt-4">
+              <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-600">Amount to request (RWF)</label>
+              <input
+                value={paymentRequestModal.amount}
+                onChange={(e) => setPaymentRequestModal((p) => ({ ...p, amount: e.target.value.replace(/[^\d]/g, '') }))}
+                className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 px-4 text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#FEBF10]/40 focus:bg-white transition"
+                placeholder="0"
+              />
+            </div>
+            <div className="mt-5 flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setPaymentRequestModal({ open: false, row: null, amount: '' })}
+                className="h-10 px-4 rounded-xl border border-slate-200 text-[11px] font-semibold uppercase tracking-widest hover:bg-slate-50 transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmPaymentRequest}
+                disabled={loading.action}
+                className="h-10 px-4 rounded-xl bg-[#000435] text-[#FEBF10] text-[11px] font-semibold uppercase tracking-widest inline-flex items-center justify-center gap-2 disabled:opacity-50 transition active:scale-95"
+              >
+                {loading.action ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+                Send to manager
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <PortalToast toast={toast} />

@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  AlertTriangle, BarChart3, Bell, CheckCircle2, ClipboardList, Download,
+  AlertTriangle, BarChart3, Bell, CheckCircle2, ChevronDown, ClipboardList, Download,
   FileText, Filter, LayoutDashboard, Loader2, MoreVertical, PieChart, RefreshCw, Scale,
-  Search, Shield, Snowflake, ThumbsDown, TrendingUp, X, XCircle,
+  Search, Shield, SlidersHorizontal, Snowflake, ThumbsDown, TrendingUp, X, XCircle,
 } from 'lucide-react';
 import {
   Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart as RePieChart,
@@ -16,19 +16,20 @@ import {
 import api from '../../services/api';
 import { exportBudgetReportExcel, exportBudgetReportPdf } from '../../utils/budgetExport';
 import BudgetPushBanner from '../../../shared/BudgetPushBanner';
+import ManagerOchreHeroShell from '../../components/ManagerOchreHeroShell';
 
 const NAVY = '#1E3A5F';
 const AMBER = '#F59E0B';
 const CHART_COLORS = ['#1E3A5F', '#F59E0B', '#10B981', '#6366F1', '#EF4444', '#8B5CF6', '#EC4899'];
 
 const TABS = [
-  { id: 'dashboard', label: 'Dashboard', Icon: LayoutDashboard },
-  { id: 'budgets', label: 'All Budgets', Icon: ClipboardList },
-  { id: 'lines', label: 'Budget Lines', Icon: Scale },
-  { id: 'tracking', label: 'Usage Tracking', Icon: TrendingUp },
-  { id: 'reports', label: 'Reports', Icon: FileText },
-  { id: 'analytics', label: 'Analytics', Icon: BarChart3 },
-  { id: 'audit', label: 'Audit Logs', Icon: Shield },
+  { id: 'dashboard', label: 'Dashboard', mobileLabel: 'Dashboard', Icon: LayoutDashboard },
+  { id: 'budgets', label: 'All Budgets', mobileLabel: 'Budgets', Icon: ClipboardList },
+  { id: 'lines', label: 'Budget Lines', mobileLabel: 'Lines', Icon: Scale },
+  { id: 'tracking', label: 'Usage Tracking', mobileLabel: 'Usage', Icon: TrendingUp },
+  { id: 'reports', label: 'Reports', mobileLabel: 'Reports', Icon: FileText },
+  { id: 'analytics', label: 'Analytics', mobileLabel: 'Analytics', Icon: BarChart3 },
+  { id: 'audit', label: 'Audit Logs', mobileLabel: 'Audit', Icon: Shield },
 ];
 
 const REPORT_ITEMS = [
@@ -113,6 +114,25 @@ function StatCard({ label, value, sub, accent = NAVY }) {
       {sub && <p className="text-[10px] text-slate-400 mt-0.5">{sub}</p>}
     </div>
   );
+}
+
+function FilterStatCard({ label, value, sub, accent = NAVY, icon: Icon }) {
+  return (
+    <div className="rounded-xl border border-slate-100/90 bg-gradient-to-br from-white to-slate-50/90 p-3 min-w-0 shadow-sm hover:border-[#1E3A5F]/15 transition-colors">
+      <div className="flex items-start justify-between gap-1.5">
+        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-snug">{label}</p>
+        {Icon ? <Icon size={11} className="shrink-0 opacity-35" style={{ color: accent }} aria-hidden /> : null}
+      </div>
+      <p className="text-sm sm:text-base font-bold mt-1.5 truncate tabular-nums" style={{ color: accent }}>{value}</p>
+      {sub ? <p className="text-[9px] text-slate-400 mt-0.5 truncate">{sub}</p> : null}
+    </div>
+  );
+}
+
+const EMPTY_FILTERS = { search: '', academicYear: '', term: '', status: '', department: '' };
+
+function countActiveFilters(filters) {
+  return Object.values(filters).filter(Boolean).length;
 }
 
 function Badge({ status }) {
@@ -351,57 +371,155 @@ function BudgetDetailModal({ budgetId, onClose }) {
   );
 }
 
-function FilterPanel({ filters, setFilters, years, departments }) {
+function FilterPanel({ filters, setFilters, years, departments, statCards, loading, open, onToggle }) {
+  const [statsOpen, setStatsOpen] = useState(true);
+  const activeCount = countActiveFilters(filters);
+  const fieldClass = 'w-full px-3 py-2.5 text-[11px] font-semibold border border-slate-200/90 rounded-xl bg-white text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1E3A5F]/15 focus:border-[#1E3A5F]/30';
+
   return (
-    <aside className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm space-y-3">
-      <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-        <Filter size={12} style={{ color: NAVY }} /> Filters
+    <aside className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden flex flex-col max-h-none lg:max-h-[calc(100vh-8rem)]">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="w-full flex items-center justify-between gap-2 p-4 text-left border-b border-slate-100 bg-gradient-to-r from-slate-50/90 to-white hover:bg-slate-50/80 transition-colors"
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="w-8 h-8 rounded-xl bg-[#1E3A5F]/8 flex items-center justify-center shrink-0">
+            <SlidersHorizontal size={14} style={{ color: NAVY }} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Filters & insights</p>
+            <p className="text-[9px] text-slate-400 font-semibold truncate">
+              {open
+                ? (activeCount ? `${activeCount} active · stats update live` : 'All records · adjust to refine')
+                : (activeCount ? `${activeCount} filter${activeCount !== 1 ? 's' : ''} applied · tap to open` : 'Tap to open filters & statistics')}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {activeCount > 0 && (
+            <span className="min-w-[1.25rem] h-5 px-1.5 rounded-full bg-[#1E3A5F] text-white text-[9px] font-bold flex items-center justify-center">
+              {activeCount}
+            </span>
+          )}
+          <ChevronDown
+            size={16}
+            className={`text-slate-400 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+            aria-hidden
+          />
+        </div>
+      </button>
+
+      {open && (
+        <>
+      <div className="p-4 border-b border-slate-100 bg-white space-y-3">
+        <div className="flex items-center justify-end">
+          {activeCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setFilters(EMPTY_FILTERS)}
+              className="text-[9px] font-bold uppercase tracking-wider text-red-600 hover:text-red-700 px-2 py-1 rounded-lg hover:bg-red-50"
+            >
+              Clear all
+            </button>
+          )}
+        </div>
+
+        <div className="relative">
+          <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            value={filters.search}
+            onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
+            placeholder="Search budgets, lines, usage…"
+            className={`${fieldClass} pl-8`}
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <select value={filters.academicYear} onChange={(e) => setFilters((f) => ({ ...f, academicYear: e.target.value }))} className={fieldClass}>
+            <option value="">All years</option>
+            {years.map((y) => <option key={y} value={y}>{y}</option>)}
+          </select>
+          <select value={filters.term} onChange={(e) => setFilters((f) => ({ ...f, term: e.target.value }))} className={fieldClass}>
+            <option value="">All terms</option>
+            <option value="Term 1">Term 1</option>
+            <option value="Term 2">Term 2</option>
+            <option value="Term 3">Term 3</option>
+          </select>
+          <select value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))} className={fieldClass}>
+            <option value="">All statuses</option>
+            {BUDGET_STATUSES.filter(Boolean).map((s) => (
+              <option key={s} value={s}>{statusBadge(s).label}</option>
+            ))}
+          </select>
+          <select value={filters.department} onChange={(e) => setFilters((f) => ({ ...f, department: e.target.value }))} className={fieldClass}>
+            <option value="">All departments</option>
+            {departments.map((d) => <option key={d} value={d}>{d}</option>)}
+          </select>
+        </div>
+
+        {activeCount > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {filters.academicYear && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#1E3A5F]/8 text-[9px] font-bold text-[#1E3A5F] uppercase">
+                {filters.academicYear}
+                <button type="button" onClick={() => setFilters((f) => ({ ...f, academicYear: '' }))} className="hover:text-red-600"><X size={10} /></button>
+              </span>
+            )}
+            {filters.term && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#1E3A5F]/8 text-[9px] font-bold text-[#1E3A5F] uppercase">
+                {filters.term}
+                <button type="button" onClick={() => setFilters((f) => ({ ...f, term: '' }))} className="hover:text-red-600"><X size={10} /></button>
+              </span>
+            )}
+            {filters.status && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/15 text-[9px] font-bold text-amber-900 uppercase">
+                {statusBadge(filters.status).label}
+                <button type="button" onClick={() => setFilters((f) => ({ ...f, status: '' }))} className="hover:text-red-600"><X size={10} /></button>
+              </span>
+            )}
+            {filters.department && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 text-[9px] font-bold text-slate-600 uppercase">
+                {filters.department}
+                <button type="button" onClick={() => setFilters((f) => ({ ...f, department: '' }))} className="hover:text-red-600"><X size={10} /></button>
+              </span>
+            )}
+          </div>
+        )}
       </div>
-      <div className="relative">
-        <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input
-          value={filters.search}
-          onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
-          placeholder="Search…"
-          className="w-full pl-8 pr-3 py-2 text-[11px] font-bold border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1E3A5F]/20"
-        />
+
+      <div className="border-b border-slate-100">
+        <button
+          type="button"
+          onClick={() => setStatsOpen((o) => !o)}
+          className="w-full flex items-center justify-between gap-2 px-4 py-3 text-left hover:bg-slate-50/80 transition-colors"
+        >
+          <span className="flex items-center gap-2 text-[10px] font-bold text-slate-600 uppercase tracking-widest">
+            <BarChart3 size={12} style={{ color: '#FEBF10' }} />
+            Budget statistics
+            {activeCount > 0 && (
+              <span className="px-1.5 py-0.5 rounded-md bg-[#1E3A5F] text-white text-[8px]">Filtered</span>
+            )}
+          </span>
+          <ChevronDown size={14} className={`text-slate-400 transition-transform ${statsOpen ? 'rotate-180' : ''}`} />
+        </button>
+        {statsOpen && (
+          <div className="px-3 pb-4 lg:overflow-y-auto lg:max-h-[min(28rem,calc(100vh-20rem))]">
+            {loading ? (
+              <div className="py-8"><Spinner /></div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                {statCards.map((c) => (
+                  <FilterStatCard key={c.key} label={c.label} value={c.value} sub={c.sub} accent={c.accent} icon={c.icon} />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
-      <select
-        value={filters.academicYear}
-        onChange={(e) => setFilters((f) => ({ ...f, academicYear: e.target.value }))}
-        className="w-full px-3 py-2 text-[11px] font-bold border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1E3A5F]/20 text-slate-600"
-      >
-        <option value="">All academic years</option>
-        {years.map((y) => <option key={y} value={y}>{y}</option>)}
-      </select>
-      <select
-        value={filters.term}
-        onChange={(e) => setFilters((f) => ({ ...f, term: e.target.value }))}
-        className="w-full px-3 py-2 text-[11px] font-bold border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1E3A5F]/20 text-slate-600"
-      >
-        <option value="">All terms</option>
-        <option value="Term 1">Term 1</option>
-        <option value="Term 2">Term 2</option>
-        <option value="Term 3">Term 3</option>
-      </select>
-      <select
-        value={filters.status}
-        onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}
-        className="w-full px-3 py-2 text-[11px] font-bold border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1E3A5F]/20 text-slate-600"
-      >
-        <option value="">All statuses</option>
-        {BUDGET_STATUSES.filter(Boolean).map((s) => (
-          <option key={s} value={s}>{statusBadge(s).label}</option>
-        ))}
-      </select>
-      <select
-        value={filters.department}
-        onChange={(e) => setFilters((f) => ({ ...f, department: e.target.value }))}
-        className="w-full px-3 py-2 text-[11px] font-bold border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1E3A5F]/20 text-slate-600"
-      >
-        <option value="">All departments</option>
-        {departments.map((d) => <option key={d} value={d}>{d}</option>)}
-      </select>
+        </>
+      )}
     </aside>
   );
 }
@@ -451,6 +569,7 @@ export default function SchoolBudgetManagement() {
   const [error, setError] = useState(null);
   const [toast, setToast] = useState(null);
   const [filters, setFilters] = useState({ search: '', academicYear: '', term: '', status: '', department: '' });
+  const [filtersOpen, setFiltersOpen] = useState(true);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [openMenuId, setOpenMenuId] = useState(null);
   const [approvalBudget, setApprovalBudget] = useState(null);
@@ -561,16 +680,29 @@ export default function SchoolBudgetManagement() {
   const filteredUsage = useMemo(() => {
     const q = filters.search.trim().toLowerCase();
     return usage.filter((u) => {
+      const lineId = u.lineId ?? u.budget_line_id ?? u.budgetLineId;
+      const line = lineId != null ? lines.find((l) => (l.db_id ?? l.id) === lineId) : null;
+      if (filters.department) {
+        const dept = line?.department || u.department;
+        if (dept !== filters.department) return false;
+      }
+      if (filters.academicYear || filters.term) {
+        const parent = line
+          ? budgets.find((b) => budgetDbId(b) === line.budgetId)
+          : null;
+        if (filters.academicYear && parent?.academicYear !== filters.academicYear) return false;
+        if (filters.term && parent?.term !== filters.term) return false;
+      }
       if (q) {
-        const hay = `${u.lineName} ${u.description} ${u.expenseCategory}`.toLowerCase();
+        const hay = `${u.lineName} ${u.description} ${u.expenseCategory} ${u.department || ''}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [usage, filters.search]);
+  }, [usage, lines, budgets, filters]);
 
   const advanced = useMemo(() => {
-    const approved = budgets.filter((b) => String(b.status).toLowerCase() === 'approved');
+    const approved = filteredBudgets.filter((b) => String(b.status).toLowerCase() === 'approved');
     const termBudget = approved.find((b) => (!filters.term || b.term === filters.term) && (!filters.academicYear || b.academicYear === filters.academicYear))
       || approved[0];
     const yearRows = filters.academicYear
@@ -580,23 +712,17 @@ export default function SchoolBudgetManagement() {
     const yearAllocated = yearRows.reduce((s, b) => s + Number(b.totalAllocated || 0), 0);
     const surplus = yearIncome - yearAllocated;
 
-    const monthlyMap = {};
-    usage.forEach((u) => {
-      const k = monthKey(u.usageDate || u.createdAt);
-      if (!k) return;
-      monthlyMap[k] = (monthlyMap[k] || 0) + Number(u.usageAmount || 0);
-    });
-    const monthlyTotal = Object.values(monthlyMap).reduce((a, b) => a + b, 0);
+    const monthlyTotal = filteredUsage.reduce((s, u) => s + Number(u.usageAmount || 0), 0);
 
     const deptSpend = {};
-    lines.forEach((l) => {
+    filteredLines.forEach((l) => {
       const d = l.department || 'Other';
       deptSpend[d] = (deptSpend[d] || 0) + Number(l.usedAmount || 0);
     });
     const topDept = Object.entries(deptSpend).sort((a, b) => b[1] - a[1])[0];
 
     return { termBudget, yearIncome, yearAllocated, surplus, monthlyTotal, topDept };
-  }, [budgets, lines, usage, filters.academicYear, filters.term]);
+  }, [filteredBudgets, filteredLines, filteredUsage, filters.academicYear, filters.term]);
 
   const pieData = useMemo(() => {
     const map = {};
@@ -732,17 +858,96 @@ export default function SchoolBudgetManagement() {
 
   const ov = overview || {};
 
-  const kpiCards = [
-    { label: 'Total budgets', value: ov.totalBudgets ?? '—', accent: NAVY },
-    { label: 'Expected income', value: compactMoney(ov.totalExpectedIncome), sub: money(ov.totalExpectedIncome), accent: NAVY },
-    { label: 'Allocated', value: compactMoney(ov.totalAllocatedBudget), sub: money(ov.totalAllocatedBudget), accent: AMBER },
-    { label: 'Used', value: compactMoney(ov.totalUsedBudget), sub: money(ov.totalUsedBudget), accent: AMBER },
-    { label: 'Remaining', value: compactMoney(ov.remainingBalance), sub: money(ov.remainingBalance) },
-    { label: 'Pending approvals', value: ov.pendingApprovals ?? 0, accent: AMBER },
-    { label: 'Rejected', value: ov.rejectedCount ?? 0 },
-    { label: 'Exhausted lines', value: ov.exhaustedLines ?? 0 },
-    { label: 'Budget usage', value: `${ov.budgetUsagePct ?? 0}%`, sub: 'of expected income' },
-  ];
+  const filteredStatCards = useMemo(() => {
+    const rows = filteredBudgets;
+    const lineRows = filteredLines;
+    const expectedIncome = rows.reduce((s, b) => s + Number(b.totalExpectedIncome || 0), 0);
+    const allocated = rows.reduce((s, b) => s + Number(b.totalAllocated || 0), 0);
+    const used = lineRows.reduce((s, l) => s + Number(l.usedAmount || 0), 0);
+    const remaining = rows.reduce((s, b) => s + Number(b.remainingBalance ?? 0), 0);
+    const pending = rows.filter((b) => String(b.status).toLowerCase() === 'pending_approval').length;
+    const rejected = rows.filter((b) => String(b.status).toLowerCase() === 'rejected').length;
+    const exhausted = lineRows.filter((l) => {
+      const k = String(l.statusKey || l.status || '').toLowerCase();
+      return k === 'exhausted';
+    }).length;
+    const usagePct = expectedIncome > 0 ? Math.round((used / expectedIncome) * 100) : 0;
+    const surplusAccent = advanced.surplus >= 0 ? '#10B981' : '#EF4444';
+
+    return [
+      { key: 'remaining', label: 'Remaining', value: compactMoney(remaining), sub: money(remaining), accent: NAVY, icon: PieChart },
+      { key: 'pending', label: 'Pending approvals', value: pending, sub: pending ? 'Needs review' : 'None waiting', accent: AMBER, icon: Bell },
+      { key: 'rejected', label: 'Rejected', value: rejected, accent: NAVY, icon: XCircle },
+      { key: 'exhausted', label: 'Exhausted lines', value: exhausted, accent: NAVY, icon: AlertTriangle },
+      { key: 'usage', label: 'Budget usage', value: `${usagePct}%`, sub: 'of expected income', accent: NAVY, icon: BarChart3 },
+      { key: 'term', label: 'Current term budget', value: advanced.termBudget?.title || '—', sub: advanced.termBudget ? money(advanced.termBudget.totalExpectedIncome) : undefined, accent: NAVY, icon: FileText },
+      { key: 'yearIncome', label: 'Academic year income', value: compactMoney(advanced.yearIncome), sub: money(advanced.yearIncome), accent: NAVY, icon: TrendingUp },
+      { key: 'yearAlloc', label: 'Year allocated', value: compactMoney(advanced.yearAllocated), sub: money(advanced.yearAllocated), accent: AMBER, icon: Scale },
+      {
+        key: 'surplus',
+        label: advanced.surplus >= 0 ? 'Surplus' : 'Deficit',
+        value: compactMoney(Math.abs(advanced.surplus)),
+        sub: money(advanced.surplus),
+        accent: surplusAccent,
+        icon: CheckCircle2,
+      },
+      { key: 'monthly', label: 'Monthly spending', value: compactMoney(advanced.monthlyTotal), sub: 'from usage records', accent: AMBER, icon: TrendingUp },
+      {
+        key: 'topDept',
+        label: 'Top spending dept',
+        value: advanced.topDept?.[0] || '—',
+        sub: advanced.topDept ? money(advanced.topDept[1]) : undefined,
+        accent: NAVY,
+        icon: Filter,
+      },
+      { key: 'total', label: 'Total budgets', value: rows.length, sub: `${rows.length} in view`, accent: NAVY, icon: ClipboardList },
+      { key: 'income', label: 'Expected income', value: compactMoney(expectedIncome), sub: money(expectedIncome), accent: NAVY, icon: TrendingUp },
+      { key: 'allocated', label: 'Allocated', value: compactMoney(allocated), sub: money(allocated), accent: AMBER, icon: Scale },
+      { key: 'used', label: 'Used', value: compactMoney(used), sub: money(used), accent: AMBER, icon: BarChart3 },
+    ];
+  }, [filteredBudgets, filteredLines, advanced]);
+
+  const budgetHeroKpis = useMemo(
+    () => [
+      { key: 'total', label: 'Total budgets', value: ov.totalBudgets ?? '—', subValue: 'All periods', icon: ClipboardList },
+      { key: 'income', label: 'Expected income', value: compactMoney(ov.totalExpectedIncome), subValue: money(ov.totalExpectedIncome), icon: TrendingUp },
+      { key: 'allocated', label: 'Allocated', value: compactMoney(ov.totalAllocatedBudget), subValue: money(ov.totalAllocatedBudget), icon: Scale },
+      { key: 'used', label: 'Used', value: compactMoney(ov.totalUsedBudget), subValue: money(ov.totalUsedBudget), icon: BarChart3 },
+    ],
+    [ov.totalBudgets, ov.totalExpectedIncome, ov.totalAllocatedBudget, ov.totalUsedBudget],
+  );
+
+  const budgetHeroActions = (compact = false) => (
+    <>
+      <button
+        type="button"
+        onClick={batchApprove}
+        disabled={reviewBusy || !pendingSelected.length}
+        className={`${compact ? 'flex-1 min-w-[10rem]' : 'w-full'} h-11 flex items-center justify-center gap-2 text-white rounded-xl font-medium text-[9px] uppercase tracking-widest border border-black/10 shadow-sm hover:opacity-95 active:scale-[0.98] transition-all disabled:opacity-50`}
+        style={{ background: NAVY }}
+      >
+        <CheckCircle2 size={14} />
+        <span>Approve selected ({pendingSelected.length})</span>
+      </button>
+      <button
+        type="button"
+        onClick={exportBudgetsCsv}
+        className={`${compact ? 'flex-1 min-w-[10rem]' : 'w-full'} h-11 flex items-center justify-center gap-2 bg-white border border-black/5 text-re-text font-medium text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg transition-all`}
+      >
+        <Download size={14} style={{ color: '#FEBF10' }} />
+        <span>Export CSV</span>
+      </button>
+      <button
+        type="button"
+        onClick={refreshAll}
+        disabled={loading}
+        className={`${compact ? 'flex-1 min-w-[10rem]' : 'w-full'} h-11 flex items-center justify-center gap-2 rounded-xl font-medium text-[9px] uppercase tracking-widest text-[#1E3A5F] border border-[#FEBF10]/40 bg-[#FEBF10]/15 hover:bg-[#FEBF10]/25 transition-all disabled:opacity-50`}
+      >
+        <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+        <span>Refresh data</span>
+      </button>
+    </>
+  );
 
   const renderBudgetRowActions = (b) => {
     const id = budgetDbId(b);
@@ -1127,25 +1332,10 @@ export default function SchoolBudgetManagement() {
   );
 
   const DashboardTab = () => (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        {kpiCards.map((c) => (
-          <StatCard key={c.label} label={c.label} value={c.value} sub={c.sub} accent={c.accent} />
-        ))}
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-        <StatCard label="Current term budget" value={advanced.termBudget?.title || '—'} sub={advanced.termBudget ? money(advanced.termBudget.totalExpectedIncome) : undefined} accent={NAVY} />
-        <StatCard label="Academic year income" value={compactMoney(advanced.yearIncome)} sub={money(advanced.yearIncome)} accent={NAVY} />
-        <StatCard label="Year allocated" value={compactMoney(advanced.yearAllocated)} sub={money(advanced.yearAllocated)} accent={AMBER} />
-        <StatCard
-          label={advanced.surplus >= 0 ? 'Surplus' : 'Deficit'}
-          value={compactMoney(Math.abs(advanced.surplus))}
-          sub={money(advanced.surplus)}
-          accent={advanced.surplus >= 0 ? '#10B981' : '#EF4444'}
-        />
-        <StatCard label="Monthly spending" value={compactMoney(advanced.monthlyTotal)} sub="from usage records" accent={AMBER} />
-        <StatCard label="Top spending dept" value={advanced.topDept?.[0] || '—'} sub={advanced.topDept ? money(advanced.topDept[1]) : undefined} />
-      </div>
+    <div className="space-y-4">
+      <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
+        Adjust filters in the left panel to refine statistics across all tabs.
+      </p>
       <div>
         <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Recent budgets</h3>
         <BudgetsTab />
@@ -1154,85 +1344,140 @@ export default function SchoolBudgetManagement() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50/60 pb-20" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+    <div style={{ fontFamily: "'Montserrat', sans-serif" }}>
       <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
 
-      <div className="relative px-5 md:px-8 py-10 overflow-hidden" style={{ background: `linear-gradient(135deg, ${NAVY} 0%, #0D2644 55%, ${AMBER} 140%)` }}>
-        <div className="absolute -top-16 -right-16 w-64 h-64 rounded-full border border-white/5 pointer-events-none" />
-        <div className="relative max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <p className="text-[9px] font-semibold uppercase tracking-[0.25em] text-white/60 mb-0.5">Finance</p>
-            <h1 className="text-2xl md:text-3xl font-semibold text-white uppercase tracking-tight">School Budget Management</h1>
-            <p className="text-[10px] font-medium text-white/60 uppercase tracking-widest mt-0.5">Approve, track &amp; analyze school budgets</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={refreshAll} disabled={loading} className="flex items-center gap-1.5 px-3 py-2.5 bg-white/10 border border-white/20 text-white rounded-xl text-[11px] font-semibold uppercase hover:bg-white/20 disabled:opacity-50">
-              <RefreshCw size={12} className={loading ? 'animate-spin' : ''} /> Refresh
-            </button>
-            <button type="button" onClick={batchApprove} disabled={reviewBusy || !pendingSelected.length} className="flex items-center gap-1.5 px-3 py-2.5 bg-[#F59E0B] text-[#1E3A5F] rounded-xl text-[11px] font-semibold uppercase hover:opacity-90 disabled:opacity-50">
-              <CheckCircle2 size={12} /> Approve selected ({pendingSelected.length})
-            </button>
-            <button type="button" onClick={exportBudgetsCsv} className="flex items-center gap-1.5 px-3 py-2.5 bg-white text-[#1E3A5F] rounded-xl text-[11px] font-semibold uppercase hover:bg-slate-50">
-              <Download size={12} /> Export CSV
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-4 md:px-8 py-6 space-y-6">
-        {error && (
-          <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-100 rounded-xl text-[11px] text-red-600 font-bold">
-            <AlertTriangle size={14} /> {error}
-          </div>
-        )}
-
-        {loading && tab === 'dashboard' ? (
-          <div className="py-20"><Spinner /></div>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-            <div className="lg:col-span-2 order-2 lg:order-1">
-              <FilterPanel filters={filters} setFilters={setFilters} years={years} departments={departments} />
-            </div>
-
-            <div className="lg:col-span-8 order-1 lg:order-2 space-y-4">
-              <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
-                <div className="flex overflow-x-auto border-b border-slate-100 bg-slate-50/60">
-                  {TABS.map((t) => {
-                    const Icon = t.Icon;
-                    const active = tab === t.id;
-                    return (
-                      <button
-                        key={t.id}
-                        type="button"
-                        onClick={() => setTab(t.id)}
-                        className={`flex items-center gap-2 px-4 py-3.5 text-[10px] sm:text-[11px] font-semibold uppercase tracking-widest whitespace-nowrap transition-all border-b-2 shrink-0 ${
-                          active ? 'border-[#1E3A5F] text-[#1E3A5F] bg-white' : 'border-transparent text-slate-400 hover:text-slate-600'
-                        }`}
-                      >
-                        <Icon size={13} />
-                        <span className="hidden xs:inline">{t.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-                <div className="p-4 md:p-6">
-                  {tab === 'dashboard' && <DashboardTab />}
-                  {tab === 'budgets' && <BudgetsTab />}
-                  {tab === 'lines' && <LinesTab />}
-                  {tab === 'tracking' && <TrackingTab />}
-                  {tab === 'reports' && <ReportsTab />}
-                  {tab === 'analytics' && <AnalyticsTab />}
-                  {tab === 'audit' && <AuditTab />}
-                </div>
+      <ManagerOchreHeroShell
+        outerClassName="animate-in fade-in duration-500 bg-re-bg min-h-screen pb-20"
+        overlapClassName="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 -mt-4 sm:-mt-5 md:-mt-6 pt-2 relative z-20 mb-6"
+        eyebrow="Finance"
+        title="School budget management"
+        subtitle="Approve, track & analyze school budgets"
+        HeroIcon={PieChart}
+        kpiTiles={[]}
+        cardBody={(
+          <>
+            <div className="grid grid-cols-1 lg:grid-cols-4 border-b border-black/5">
+              <div className="lg:col-span-3 grid grid-cols-2 xl:grid-cols-4 divide-x divide-y xl:divide-y-0 divide-black/5">
+                {budgetHeroKpis.map((stat) => {
+                  const Icon = stat.icon;
+                  return (
+                    <div
+                      key={stat.key}
+                      className="p-4 sm:p-5 flex flex-col items-center justify-center text-center group hover:bg-re-bg/40 transition-all min-h-[7.5rem]"
+                    >
+                      <div className="mb-1 sm:mb-1.5 opacity-40 shrink-0" style={{ color: '#FEBF10' }}>
+                        <Icon size={12} className="mb-1.5 mx-auto" strokeWidth={2} aria-hidden />
+                      </div>
+                      <span className="text-sm sm:text-lg font-semibold text-re-text tabular-nums tracking-tight leading-snug">
+                        {stat.value}
+                      </span>
+                      <p className="text-[7px] sm:text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.12em] mt-0.5 opacity-65">
+                        {stat.label}
+                      </p>
+                      {stat.subValue ? (
+                        <p className="text-[6px] sm:text-[7px] font-semibold uppercase tracking-[0.14em] mt-1 opacity-80 max-w-[11rem] text-[#1E3A5F]">
+                          {stat.subValue}
+                        </p>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="hidden lg:flex flex-col border-t lg:border-t-0 lg:border-l border-black/5 bg-re-bg/30 p-6 justify-center gap-3">
+                {budgetHeroActions(false)}
               </div>
             </div>
 
-            <div className="lg:col-span-2 order-3">
-              <NotificationsPanel alerts={ov.alerts} />
+            <div className="flex lg:hidden flex-wrap gap-2 p-4 border-b border-black/5 bg-slate-50/80">
+              {budgetHeroActions(true)}
             </div>
+
+            <nav
+              className="border-b border-slate-100 bg-gradient-to-b from-slate-50/90 to-white px-2 sm:px-4 py-2.5 sm:py-3"
+              aria-label="Budget sections"
+            >
+              <div
+                className="flex gap-1.5 sm:gap-2 overflow-x-auto overscroll-x-contain scroll-smooth snap-x snap-mandatory [-webkit-overflow-scrolling:touch] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300/80 lg:overflow-visible lg:flex-wrap lg:gap-1 lg:p-1 lg:rounded-xl lg:bg-slate-100/90 lg:border lg:border-slate-200/80 lg:snap-none"
+                role="tablist"
+              >
+                {TABS.map((t) => {
+                  const Icon = t.Icon;
+                  const active = tab === t.id;
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      aria-current={active ? 'page' : undefined}
+                      onClick={() => setTab(t.id)}
+                      className={`snap-start shrink-0 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 min-h-[3.25rem] sm:min-h-0 min-w-[4.75rem] sm:min-w-0 lg:flex-1 lg:min-w-[7rem] px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-xl sm:rounded-lg text-[9px] sm:text-[10px] font-bold uppercase tracking-wide sm:tracking-widest whitespace-nowrap transition-all border touch-manipulation ${
+                        active
+                          ? 'bg-[#1E3A5F] text-white border-[#1E3A5F] shadow-sm ring-1 ring-[#1E3A5F]/20'
+                          : 'bg-white text-slate-500 border-slate-200/90 hover:border-slate-300 hover:text-[#1E3A5F] hover:bg-slate-50 active:scale-[0.98]'
+                      }`}
+                    >
+                      <Icon size={15} className="shrink-0 sm:w-[14px] sm:h-[14px]" strokeWidth={active ? 2.25 : 2} aria-hidden />
+                      <span className="leading-tight text-center sm:text-left max-w-[5rem] sm:max-w-none">
+                        <span className="sm:hidden">{t.mobileLabel}</span>
+                        <span className="hidden sm:inline">{t.label}</span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-2 px-1 text-[9px] font-semibold text-slate-400 uppercase tracking-wider lg:hidden">
+                Swipe for more sections
+              </p>
+            </nav>
+          </>
+        )}
+        pageBody={(
+          <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pb-8 space-y-6">
+            {error && (
+              <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-100 rounded-xl text-[11px] text-red-600 font-bold">
+                <AlertTriangle size={14} /> {error}
+              </div>
+            )}
+
+            {loading && tab === 'dashboard' ? (
+              <div className="py-20"><Spinner /></div>
+            ) : (
+              <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
+                <div className={`order-1 ${filtersOpen ? 'xl:col-span-4' : 'xl:col-span-12'}`}>
+                  <FilterPanel
+                    filters={filters}
+                    setFilters={setFilters}
+                    years={years}
+                    departments={departments}
+                    statCards={filteredStatCards}
+                    loading={loading}
+                    open={filtersOpen}
+                    onToggle={() => setFiltersOpen((o) => !o)}
+                  />
+                </div>
+
+                <div className={`order-2 ${filtersOpen ? 'xl:col-span-6' : 'xl:col-span-8'}`}>
+                  <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden p-4 md:p-6">
+                    {tab === 'dashboard' && <DashboardTab />}
+                    {tab === 'budgets' && <BudgetsTab />}
+                    {tab === 'lines' && <LinesTab />}
+                    {tab === 'tracking' && <TrackingTab />}
+                    {tab === 'reports' && <ReportsTab />}
+                    {tab === 'analytics' && <AnalyticsTab />}
+                    {tab === 'audit' && <AuditTab />}
+                  </div>
+                </div>
+
+                <div className={`order-3 ${filtersOpen ? 'xl:col-span-2' : 'xl:col-span-4'}`}>
+                  <NotificationsPanel alerts={ov.alerts} />
+                </div>
+              </div>
+            )}
           </div>
         )}
-      </div>
+      />
 
       {toast && createPortal(
         <div className={`fixed top-5 right-5 z-[300] px-4 py-3 rounded-xl text-[11px] font-bold shadow-lg ${toast.type === 'error' ? 'bg-red-50 text-red-700 border border-red-100' : 'bg-emerald-50 text-emerald-800 border border-emerald-100'}`}>

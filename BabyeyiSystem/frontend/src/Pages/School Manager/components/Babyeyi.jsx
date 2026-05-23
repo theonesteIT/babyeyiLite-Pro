@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import BabyeyiList from "./BabyeyiList";
 import { mapSchoolOwnershipToFeeScope, categoryOptionsForWizard } from "./babyeyiWizardSchoolScope";
+import { useAcademic } from "../../../manager/context/AcademicContext";
 
 import { API_BASE, SERVER_BASE as ASSET_BASE, babyeyiVerifyScanUrl, BABYEYI_VERIFY_PUBLIC_ORIGIN } from '../lib/schoolLiteApi';
 
@@ -244,7 +245,7 @@ const BANKS = [
 
 const blankBank = () => ({ bankName: "", accountNumber: "", accountName: "" });
 
-const buildBlankForm = (school = {}, categoryOverride) => ({
+const buildBlankForm = (school = {}, categoryOverride, academicDefaults = {}) => ({
   schoolName:           school.name      || "",
   schoolCode:           school.code      || "",
   province:             school.province  || "",
@@ -257,8 +258,8 @@ const buildBlankForm = (school = {}, categoryOverride) => ({
   includeSchoolDetails: true,
   classes:              [],
   parentMessage:        "Dear Parents and Guardians,\n\nWe are pleased to inform you of the school fees for the upcoming term. Please find the detailed breakdown below.\n\nThank you for your continued support.",
-  academicYear:         "2025-2026",
-  term:                 "Term 1",
+  academicYear:         academicDefaults.academicYear || "2025-2026",
+  term:                 academicDefaults.term || "Term 1",
   category:             categoryOverride ?? "Public",
   /** NESA / fee_limits row key — Nursery | Primary | Secondary | University (same as NESA Fee Limits page). */
   nesaFeeLimitLevel:    "Primary",
@@ -513,6 +514,14 @@ function DocPreview({ form, previews }) {
 // ════════════════════════════════════════════════════════════
 export function WizardContent({ session, onClose, onSuccess, editRecord = null, embedded = false }) {
   const schoolId = session?.schoolId ?? null;
+  const academic = useAcademic();
+
+  const academicYearOptions = academic.academicYears?.length
+    ? academic.academicYears
+    : (academic.academicYear ? [academic.academicYear] : ["2025-2026", "2024-2025", "2026-2027"]);
+  const termOptions = academic.activeTerms?.length
+    ? academic.activeTerms
+    : ["Term 1", "Term 2", "Term 3"];
 
   const [step,      setStep]      = useState(1);
   const [form,      setForm]      = useState(null);
@@ -552,6 +561,39 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
   const [registeredClassOptions, setRegisteredClassOptions] = useState([]);
   const [registeredClassesLoading, setRegisteredClassesLoading] = useState(false);
   const [editId, setEditId] = useState(editRecord?.id ?? null);
+
+  useEffect(() => {
+    if (editRecord) return;
+    if (academic.loading) return;
+    const schoolPayload = {
+      name:     session?.schoolName     ?? "",
+      province: session?.schoolProvince ?? "",
+      district: session?.schoolDistrict ?? "",
+    };
+    const academicDefaults = {
+      academicYear: academic.academicYear,
+      term: academic.currentTerm,
+    };
+    setForm((prev) => {
+      if (!prev) return buildBlankForm(schoolPayload, undefined, academicDefaults);
+      if (prev._academicFromSettings) return prev;
+      if (!academicDefaults.academicYear) return prev;
+      return {
+        ...prev,
+        academicYear: academicDefaults.academicYear,
+        term: academicDefaults.term || prev.term,
+        _academicFromSettings: true,
+      };
+    });
+  }, [
+    editRecord,
+    academic.loading,
+    academic.academicYear,
+    academic.currentTerm,
+    session?.schoolName,
+    session?.schoolProvince,
+    session?.schoolDistrict,
+  ]);
 
   useEffect(() => {
     if (editRecord) {
@@ -660,14 +702,17 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
       });
       setEditId(rec.id);
     } else {
+      const academicDefaults = academic.loading
+        ? {}
+        : { academicYear: academic.academicYear, term: academic.currentTerm };
       setForm(buildBlankForm({
         name:     session?.schoolName     ?? "",
         province: session?.schoolProvince ?? "",
         district: session?.schoolDistrict ?? "",
-      }));
+      }, undefined, academicDefaults));
       setEditId(null);
     }
-  }, [editRecord?.id, session?.schoolName, session?.schoolProvince, session?.schoolDistrict]);
+  }, [editRecord?.id, session?.schoolName, session?.schoolProvince, session?.schoolDistrict, academic.loading, academic.academicYear, academic.currentTerm]);
 
   useEffect(() => {
     if (!schoolId) return;
@@ -1182,7 +1227,8 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
             setForm({
               ...buildBlankForm(
                 { name: session?.schoolName || "", province: session?.schoolProvince || "", district: session?.schoolDistrict || "" },
-                schoolKind === "private" ? "Private" : schoolKind === "government" ? "Public" : undefined
+                schoolKind === "private" ? "Private" : schoolKind === "government" ? "Public" : undefined,
+                { academicYear: academic.academicYear, term: academic.currentTerm }
               ),
               feeTargetStudents: schoolKind === "private" ? "private" : "public",
               category: schoolKind === "government_aided" ? "Public" : nextCat,
@@ -1493,8 +1539,14 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
 
             <div className={`grid grid-cols-1 gap-3 ${schoolKind === "government" ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
               {[
-                { label: "Academic Year", key: "academicYear", opts: ["2025-2026", "2024-2025", "2026-2027"], lock: false },
-                { label: "Term", key: "term", opts: ["Term 1", "Term 2", "Term 3"], lock: false },
+                {
+                  label: "Academic Year",
+                  key: "academicYear",
+                  opts: academicYearOptions,
+                  lock: false,
+                  isCurrent: form.academicYear === academic.academicYear,
+                },
+                { label: "Term", key: "term", opts: termOptions, lock: false, isCurrent: form.term === academic.currentTerm },
                 ...(schoolKind === "government"
                   ? []
                   : [{ label: "Category", key: "category", opts: categoryFieldOpts, lock: categoryFieldLocked }]),
@@ -1502,10 +1554,13 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
                 <div key={f.key}>
                   <label className="block text-[10px] font-bold uppercase mb-1" style={{ color: C.darkMid }}>
                     {f.label}
-                    {f.lock && (
-                      <span className="ml-1 normal-case font-semibold text-[9px]" style={{ color: C.goldDark }}>
-                       
+                    {f.isCurrent && (
+                      <span className="ml-1.5 normal-case font-semibold text-[9px] px-1.5 py-0.5 rounded-md" style={{ background: C.emeraldBg, color: C.emeraldDark }}>
+                        Current (settings)
                       </span>
+                    )}
+                    {f.lock && (
+                      <span className="ml-1 normal-case font-semibold text-[9px]" style={{ color: C.goldDark }} />
                     )}
                   </label>
                   {f.lock ? (
@@ -1514,6 +1569,13 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
                       value={f.key === "category" ? categorySelectValue : form[f.key]}
                       className={inp}
                       style={{ borderColor: C.goldBorder, background: "#f8fafc", cursor: "not-allowed" }}
+                    />
+                  ) : academic.loading && (f.key === "academicYear" || f.key === "term") ? (
+                    <input
+                      readOnly
+                      value="Loading from settings…"
+                      className={inp}
+                      style={{ borderColor: C.goldBorder, background: "#f8fafc", cursor: "wait" }}
                     />
                   ) : (
                     <select

@@ -1,10 +1,11 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
-import { redirectToBabyeyiLogin } from '../../../../utils/postLogoutLoginPath';
+import { useMasterAuth } from '../../../../context/MasterAuthContext';
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
+  const { logout: masterLogout } = useMasterAuth();
   const [staff, setStaff] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -33,9 +34,8 @@ export const AuthProvider = ({ children }) => {
   const login = async () => ({ success: false, message: 'Use the main Babyeyi login page.' });
 
   const logout = async () => {
-    try { await api.post('/session/logout'); } catch {}
     setStaff(null);
-    redirectToBabyeyiLogin();
+    await masterLogout();
   };
 
   return (

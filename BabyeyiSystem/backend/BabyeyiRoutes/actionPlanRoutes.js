@@ -218,10 +218,16 @@ async function ensureActionPlanTables() {
     'ALTER TABLE school_action_plans ADD COLUMN deleted_at DATETIME NULL',
     'ALTER TABLE school_action_plans ADD COLUMN strategic_objective TEXT NULL',
     'ALTER TABLE school_action_plans ADD COLUMN manager_review_notes TEXT NULL',
+    'ALTER TABLE school_action_plans ADD COLUMN manager_reviewed_at DATETIME NULL',
+    'ALTER TABLE school_action_plans ADD COLUMN submitted_at DATETIME NULL',
+    'ALTER TABLE school_action_plans ADD COLUMN budget_line_id INT UNSIGNED NULL',
+    'ALTER TABLE school_action_plans ADD COLUMN responsible_user_id INT UNSIGNED NULL',
+    'ALTER TABLE school_action_plans ADD COLUMN responsible_name VARCHAR(200) NULL',
     'ALTER TABLE school_action_plan_activities ADD COLUMN deleted_at DATETIME NULL',
     'ALTER TABLE school_action_plan_activities ADD COLUMN used_amount_rwf DECIMAL(16,2) NOT NULL DEFAULT 0',
     'ALTER TABLE school_action_plan_activities ADD COLUMN progress_pct TINYINT UNSIGNED NOT NULL DEFAULT 0',
     'ALTER TABLE school_action_plan_activities ADD COLUMN is_frozen TINYINT(1) NOT NULL DEFAULT 0',
+    'ALTER TABLE school_action_plan_activities ADD COLUMN budget_line_id INT UNSIGNED NULL',
   ];
   for (const sql of migrations) {
     await promisePool.query(sql).catch(() => {});
@@ -271,8 +277,8 @@ function mapPlanRow(r, activityStats = {}) {
     updatedAt: r.updated_at,
     activityCount: Number(activityStats.count || 0),
     usedBudget: Number(activityStats.used || 0),
-    completedActivities: Number(activityStats.completed || 0),
-    delayedActivities: Number(activityStats.delayed || 0),
+    completedActivities: Number(activityStats.completed_cnt || activityStats.completed || 0),
+    delayedActivities: Number(activityStats.delayed_cnt || activityStats.delayed || 0),
   };
 }
 
@@ -304,17 +310,44 @@ function mapActivityRow(r) {
 }
 
 async function activityStatsForPlan(planId, schoolId) {
-  const [[row]] = await promisePool.query(
-    `SELECT COUNT(*) AS count,
-            COALESCE(SUM(used_amount_rwf), 0) AS used,
-            SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS completed,
-            SUM(CASE WHEN status = 'delayed' THEN 1 ELSE 0 END) AS delayed,
-            SUM(CASE WHEN status = 'ongoing' THEN 1 ELSE 0 END) AS ongoing
-     FROM school_action_plan_activities
-     WHERE action_plan_id = ? AND school_id = ? AND deleted_at IS NULL`,
-    [planId, schoolId]
-  );
-  return row || {};
+  try {
+    const [[row]] = await promisePool.query(
+      `SELECT COUNT(*) AS count,
+              COALESCE(SUM(used_amount_rwf), 0) AS used,
+              SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS completed_cnt,
+              SUM(CASE WHEN status = 'delayed' THEN 1 ELSE 0 END) AS delayed_cnt,
+              SUM(CASE WHEN status = 'ongoing' THEN 1 ELSE 0 END) AS ongoing_cnt
+       FROM school_action_plan_activities
+       WHERE action_plan_id = ? AND school_id = ? AND deleted_at IS NULL`,
+      [planId, schoolId]
+    );
+    return row || {};
+  } catch (e) {
+    try {
+      const [[row]] = await promisePool.query(
+        `SELECT COUNT(*) AS count,
+                COALESCE(SUM(estimated_cost_rwf), 0) AS used,
+                0 AS completed_cnt, 0 AS delayed_cnt, 0 AS ongoing_cnt
+         FROM school_action_plan_activities
+         WHERE action_plan_id = ? AND school_id = ?`,
+        [planId, schoolId]
+      );
+      return row || {};
+    } catch (e2) {
+      console.warn('[activityStatsForPlan]', planId, e2.message);
+      return {};
+    }
+  }
+}
+
+async function mapPlanRowSafe(r, schoolId) {
+  try {
+    const stats = await activityStatsForPlan(r.id, schoolId);
+    return mapPlanRow(r, stats);
+  } catch (e) {
+    console.warn('[mapPlanRow]', r?.id, e.message);
+    return mapPlanRow(r, {});
+  }
 }
 
 router.use(requireAuth);
@@ -330,14 +363,20 @@ router.use(async (_req, res, next) => {
 router.get('/accountant/action-plans/options', requireRole(ACCOUNTANT_READ), async (req, res) => {
   try {
     const { schoolId } = req.ctx;
-    const [budgetLines] = await promisePool.query(
-      `SELECT id, line_name_key, custom_line_name, department, planned_amount_rwf, used_amount_rwf
-       FROM school_budget_lines WHERE school_id = ? AND deleted_at IS NULL ORDER BY id DESC LIMIT 200`,
-      [schoolId]
-    );
+    let budgetLines = [];
+    try {
+      const [rows] = await promisePool.query(
+        `SELECT id, line_name_key, custom_line_name, department, planned_amount_rwf, used_amount_rwf
+         FROM school_budget_lines WHERE school_id = ? AND deleted_at IS NULL ORDER BY id DESC LIMIT 200`,
+        [schoolId]
+      );
+      budgetLines = rows;
+    } catch (e) {
+      console.warn('[action-plans/options] budget lines:', e.message);
+    }
     const [staff] = await promisePool.query(
       `SELECT id, TRIM(CONCAT(COALESCE(first_name,''), ' ', COALESCE(last_name,''))) AS full_name
-       FROM users WHERE school_id = ? AND deleted_at IS NULL ORDER BY first_name LIMIT 100`,
+       FROM users WHERE school_id = ? ORDER BY first_name LIMIT 100`,
       [schoolId]
     ).catch(() => [[]]);
     const [plans] = await promisePool.query(
@@ -403,9 +442,9 @@ router.get('/accountant/action-plans/dashboard', requireRole(ACCOUNTANT_READ), a
       `SELECT COUNT(*) AS total_activities,
               COALESCE(SUM(estimated_cost_rwf), 0) AS planned_budget,
               COALESCE(SUM(used_amount_rwf), 0) AS used_budget,
-              SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS completed,
-              SUM(CASE WHEN status = 'ongoing' THEN 1 ELSE 0 END) AS ongoing,
-              SUM(CASE WHEN status = 'delayed' THEN 1 ELSE 0 END) AS delayed
+              SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS completed_cnt,
+              SUM(CASE WHEN status = 'ongoing' THEN 1 ELSE 0 END) AS ongoing_cnt,
+              SUM(CASE WHEN status = 'delayed' THEN 1 ELSE 0 END) AS delayed_cnt
        FROM school_action_plan_activities WHERE school_id = ? AND deleted_at IS NULL`,
       [schoolId]
     );
@@ -420,8 +459,7 @@ router.get('/accountant/action-plans/dashboard', requireRole(ACCOUNTANT_READ), a
         [planId, schoolId]
       );
       if (plan) {
-        const stats = await activityStatsForPlan(planId, schoolId);
-        activePlan = mapPlanRow(plan, stats);
+        activePlan = await mapPlanRowSafe(plan, schoolId);
         const [actRows] = await promisePool.query(
           `SELECT * FROM school_action_plan_activities WHERE action_plan_id = ? AND school_id = ? AND deleted_at IS NULL ORDER BY planned_start ASC`,
           [planId, schoolId]
@@ -453,13 +491,13 @@ router.get('/accountant/action-plans/dashboard', requireRole(ACCOUNTANT_READ), a
           plannedBudget: planned,
           usedBudget: used,
           remainingBudget: Math.max(0, planned - used),
-          completedActivities: Number(actStats?.completed || 0),
-          ongoingActivities: Number(actStats?.ongoing || 0),
-          delayedActivities: Number(actStats?.delayed || 0),
+          completedActivities: Number(actStats?.completed_cnt || actStats?.completed || 0),
+          ongoingActivities: Number(actStats?.ongoing_cnt || actStats?.ongoing || 0),
+          delayedActivities: Number(actStats?.delayed_cnt || actStats?.delayed || 0),
         },
         activePlan,
         activities,
-        recentPlans: await Promise.all(recentPlans.map(async (p) => mapPlanRow(p, await activityStatsForPlan(p.id, schoolId)))),
+        recentPlans: await Promise.all(recentPlans.map((p) => mapPlanRowSafe(p, schoolId))),
         notifications,
         departmentUsage: await (async () => {
           const [rows] = await promisePool.query(
@@ -493,14 +531,24 @@ router.get('/accountant/action-plans/dashboard', requireRole(ACCOUNTANT_READ), a
 router.get('/accountant/action-plans', requireRole(ACCOUNTANT_READ), async (req, res) => {
   try {
     const { schoolId } = req.ctx;
-    const [rows] = await promisePool.query(
-      `SELECT * FROM school_action_plans WHERE school_id = ? AND deleted_at IS NULL ORDER BY updated_at DESC`,
-      [schoolId]
-    );
-    const data = await Promise.all(rows.map(async (r) => mapPlanRow(r, await activityStatsForPlan(r.id, schoolId))));
+    let rows;
+    try {
+      [rows] = await promisePool.query(
+        `SELECT * FROM school_action_plans WHERE school_id = ? AND deleted_at IS NULL ORDER BY updated_at DESC`,
+        [schoolId]
+      );
+    } catch (qErr) {
+      console.warn('[action-plans GET] soft-delete filter:', qErr.message);
+      [rows] = await promisePool.query(
+        `SELECT * FROM school_action_plans WHERE school_id = ? ORDER BY updated_at DESC`,
+        [schoolId]
+      );
+    }
+    const data = await Promise.all(rows.map((r) => mapPlanRowSafe(r, schoolId)));
     res.json({ success: true, data });
   } catch (e) {
-    res.status(500).json({ success: false, message: 'Failed to load action plans' });
+    console.error('[action-plans GET]:', e.message, e.stack);
+    res.status(500).json({ success: false, message: e.message || 'Failed to load action plans' });
   }
 });
 
@@ -572,7 +620,7 @@ router.patch('/accountant/action-plans/:id', requireRole(ACCOUNTANT_WRITE), asyn
     params.push(id, schoolId);
     await promisePool.query(`UPDATE school_action_plans SET ${fields.join(', ')} WHERE id = ? AND school_id = ?`, params);
     const [[row]] = await promisePool.query(`SELECT * FROM school_action_plans WHERE id = ? AND school_id = ?`, [id, schoolId]);
-    res.json({ success: true, data: mapPlanRow(row, await activityStatsForPlan(id, schoolId)) });
+    res.json({ success: true, data: await mapPlanRowSafe(row, schoolId) });
   } catch (e) {
     res.status(500).json({ success: false, message: 'Failed to update action plan' });
   }
@@ -733,7 +781,7 @@ router.patch('/accountant/action-plans/:id/review', requireRole(MANAGER_REVIEW),
       [status, notes || null, id, schoolId]
     );
     const [[row]] = await promisePool.query(`SELECT * FROM school_action_plans WHERE id = ?`, [id]);
-    res.json({ success: true, data: mapPlanRow(row, await activityStatsForPlan(id, schoolId)) });
+    res.json({ success: true, data: await mapPlanRowSafe(row, schoolId) });
   } catch (e) {
     res.status(500).json({ success: false, message: 'Failed to review plan' });
   }

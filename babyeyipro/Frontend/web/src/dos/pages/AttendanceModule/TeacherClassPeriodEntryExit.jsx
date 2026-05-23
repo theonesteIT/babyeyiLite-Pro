@@ -7,6 +7,7 @@ import {
   ArrowRight, Layers, Hash, MapPin, ChevronRight
 } from "lucide-react";
 import api from "../../services/api";
+import DosOrangePageHero from "../../components/DosOrangePageHero";
 
 const NAVY = "#000435";
 const AMBER = "#f59e0b";
@@ -688,75 +689,54 @@ export default function TeacherClassPeriodEntryExit() {
       <AlertToast alerts={toastAlerts} onDismiss={(id)=>setToastAlerts((a)=>a.filter((x)=>x.id!==id))}/>
       <ReportDetailDrawer report={selectedReport} onClose={()=>setSelectedReport(null)}/>
 
-      <div className="tp-page">
+      <DosOrangePageHero
+        title="Teacher period attendance"
+        subtitle={`${liveDate} · ${liveClock} — monitor scans, live logs, reports, and alerts.`}
+        heroStats={[
+          { label: 'On time', value: String(onTimeCount) },
+          { label: 'Late', value: String(lateCount) },
+          { label: 'Early exit', value: String(beforeCount) },
+          { label: 'Missed', value: String(missedCount) },
+        ]}
+        onRefresh={loadPageData}
+        refreshing={loading}
+      />
 
-        {/* ══ HEADER ══ */}
-        <div style={{ background:`linear-gradient(140deg, ${NAVY} 0%, #000d6b 60%, #001280 100%)`, position:"relative", overflow:"hidden" }}>
-          {/* Decorative */}
-          <div style={{ position:"absolute",top:-80,right:-80,width:280,height:280,borderRadius:"50%",border:`2px solid ${AMBER}12`,pointerEvents:"none" }}/>
-          <div style={{ position:"absolute",top:-30,right:-30,width:160,height:160,borderRadius:"50%",border:`1.5px solid ${AMBER}1a`,pointerEvents:"none" }}/>
-          <div style={{ position:"absolute",bottom:-60,left:40,width:240,height:240,borderRadius:"50%",background:`${AMBER}05`,pointerEvents:"none" }}/>
-          <div style={{ position:"absolute",top:"40%",left:"30%",width:1,height:"60%",background:`linear-gradient(to bottom, ${AMBER}00, ${AMBER}10, ${AMBER}00)`,pointerEvents:"none" }}/>
-
-          <div style={{ position:"relative",zIndex:1,padding:"20px 20px 0" }}>
-            {/* Top nav */}
-            <div className="tp-header-row" style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20 }}>
-              <div style={{ display:"flex",alignItems:"center",gap:14 }}>
-                <div style={{ background:`${AMBER}1a`,border:`1px solid ${AMBER}30`,borderRadius:16,padding:"10px 12px" }}>
-                  <Shield size={24} color={AMBER}/>
-                </div>
-                <div>
-                  <p style={{ color:"rgba(255,255,255,0.45)",fontSize:11,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",margin:0 }}>Director of Studies</p>
-                  <h1 style={{ color:"#fff",fontSize:20,fontWeight:900,margin:0,letterSpacing:"-0.5px" }}>Period Entry / Exit Monitor</h1>
-                </div>
-              </div>
-              <div style={{ display:"flex",alignItems:"center",gap:10 }}>
-                <div style={{ display:"flex",alignItems:"center",gap:7,background:"rgba(16,185,129,0.14)",border:"1px solid rgba(16,185,129,0.28)",borderRadius:99,padding:"6px 13px" }}>
-                  <div style={{ width:7,height:7,borderRadius:"50%",background:"#10b981",animation:"tpPulse 1.5s ease infinite" }}/>
-                  <span style={{ color:"#10b981",fontSize:12,fontWeight:800 }}>LIVE</span>
-                </div>
-                <button type="button" className="tp-hide-mobile" style={{ width:40,height:40,borderRadius:12,background:`${AMBER}18`,border:`1px solid ${AMBER}30`,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer" }}>
-                  <RefreshCw size={15} color={AMBER} onClick={loadPageData}/>
-                </button>
-              </div>
-            </div>
-
-            {/* Clock + mini stats */}
-            <div className="tp-header-clock-grid" style={{ display:"grid",gridTemplateColumns:"auto 1fr 1fr 1fr 1fr",gap:10,marginBottom:0 }}>
-              <div style={{ background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:16,padding:"14px 20px",backdropFilter:"blur(10px)",minWidth:160 }}>
-                <p style={{ color:"rgba(255,255,255,0.4)",fontSize:9,fontWeight:800,letterSpacing:"0.12em",textTransform:"uppercase",margin:"0 0 3px" }}>Current Time</p>
-                <p style={{ color:"#fff",fontSize:28,fontWeight:900,margin:0,fontFamily:"'DM Mono',monospace",letterSpacing:3 }}>{liveClock}</p>
-                <p style={{ color:"rgba(255,255,255,0.35)",fontSize:10,margin:"4px 0 0",lineHeight:1.4 }}>{liveDate}</p>
-              </div>
-              {[
-                { label:"On Time",  val:onTimeCount,  color:"#10b981" },
-                { label:"Late",     val:lateCount,    color:AMBER },
-                { label:"Early Exit",val:beforeCount, color:"#818cf8" },
-                { label:"Missed",   val:missedCount,  color:"#f87171" },
-              ].map((s)=>(
-                <div key={s.label} style={{ background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.09)",borderRadius:16,padding:"14px 16px",backdropFilter:"blur(10px)" }}>
-                  <p style={{ color:"rgba(255,255,255,0.4)",fontSize:9,fontWeight:800,textTransform:"uppercase",letterSpacing:"0.1em",margin:"0 0 3px" }}>{s.label}</p>
-                  <p style={{ color:s.color,fontSize:28,fontWeight:900,margin:0,fontFamily:"'DM Mono',monospace" }}>{s.val}</p>
-                </div>
-              ))}
-            </div>
-
-            {/* Tabs */}
-            <div style={{ display:"flex",gap:2,padding:"16px 0 0",overflowX:"auto",scrollbarWidth:"none" }}>
-              {tabs.map(({ key,label,icon:Icon,badge })=>(
-                <button key={key} type="button" className={`tp-tab ${activeTab===key?"tp-tab-active":""}`} onClick={()=>setActiveTab(key)} style={{
-                  display:"flex",alignItems:"center",gap:7,padding:"11px 18px",borderRadius:"14px 14px 0 0",
-                  border:"none",cursor:"pointer",
-                  background:activeTab===key?"#fff":"rgba(255,255,255,0.07)",
-                  color:activeTab===key?NAVY:"rgba(255,255,255,0.55)",
-                  fontWeight:700,fontSize:13,whiteSpace:"nowrap",flexShrink:0,
-                }}>
-                  <Icon size={15}/>
-                  <span className="tp-tab-label">{label}</span>
-                  {badge>0&&<span style={{ background:"#ef4444",color:"#fff",borderRadius:99,padding:"1px 6px",fontSize:11,fontWeight:900 }}>{badge}</span>}
-                </button>
-              ))}
-            </div>
+      <div className="tp-page" style={{ maxWidth: 1600, margin: '0 auto' }}>
+        <div style={{ background: '#fff', borderRadius: '0 0 20px 20px', border: '1px solid #e5e7eb', borderTop: 'none', margin: '-1rem 12px 0', padding: '0 8px', overflowX: 'auto' }}>
+          <div style={{ display: 'flex', gap: 2, padding: '8px 0 0', minWidth: 'min-content' }}>
+            {tabs.map(({ key, label, icon: Icon, badge }) => (
+              <button
+                key={key}
+                type="button"
+                className={`tp-tab ${activeTab === key ? 'tp-tab-active' : ''}`}
+                onClick={() => setActiveTab(key)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 7,
+                  padding: '11px 18px',
+                  borderRadius: '14px 14px 0 0',
+                  border: 'none',
+                  cursor: 'pointer',
+                  background: activeTab === key ? '#fff' : '#f3f4f6',
+                  color: activeTab === key ? NAVY : '#6b7280',
+                  fontWeight: 700,
+                  fontSize: 13,
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                  boxShadow: activeTab === key ? `0 -3px 0 ${AMBER} inset` : 'none',
+                }}
+              >
+                <Icon size={15} />
+                <span className="tp-tab-label">{label}</span>
+                {badge > 0 && (
+                  <span style={{ background: '#ef4444', color: '#fff', borderRadius: 99, padding: '1px 6px', fontSize: 11, fontWeight: 900 }}>
+                    {badge}
+                  </span>
+                )}
+              </button>
+            ))}
           </div>
         </div>
 

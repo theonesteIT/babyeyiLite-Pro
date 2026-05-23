@@ -1,9 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import {
-  babyeyiPlatformOrigin,
-  getPostLogoutLoginUrl,
-  setPostLogoutLoginPath,
-} from '../utils/postLogoutLoginPath'
+import { performProLogout, setPostLogoutLoginPath } from '../utils/postLogoutLoginPath'
 
 const API = (import.meta.env.VITE_API_URL || 'http://localhost:5100') + '/api'
 
@@ -48,11 +44,8 @@ export function MasterAuthProvider({ children }) {
   }, [])
 
   const logout = useCallback(async () => {
-    try {
-      await fetch(`${API}/session/logout`, { method: 'POST', credentials: 'include' })
-    } catch (_) {}
     setUser(false)
-    window.location.assign(getPostLogoutLoginUrl(babyeyiPlatformOrigin()))
+    await performProLogout()
   }, [])
 
   const roleCode = user && user !== false ? String(user.role?.code || user.role_code || '').toUpperCase() : ''

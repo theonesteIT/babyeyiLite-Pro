@@ -1,36 +1,25 @@
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { createElement, useState } from 'react';
+import { createElement, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard,
-  Wallet,
   User,
   LogOut,
   Wifi,
   WifiOff,
   RefreshCw,
   ChevronDown,
-  Settings,
-  Receipt,
-  Landmark,
-  ClipboardCheck,
-  Banknote,
-  FileSpreadsheet,
-  FileText,
-  MessageSquare,
-  DollarSign,
   Headphones,
-  History,
-  CalendarDays,
+  Wallet,
   GraduationCap,
-  ShoppingBag,
-  Sparkles,
-  PieChart,
-  Target,
+  ClipboardList,
+  MessageSquare,
+  Wrench,
+  Search,
 } from 'lucide-react';
 import useChatUnread from '../../../../shared/hooks/useChatUnread';
 import { h } from '../utils/href';
-import babyeyiIcon from '../assets/babyeyi-icon.png';
+const babyeyiIcon = `${import.meta.env.BASE_URL || '/'}babyeyi-icon.png`;
 
 const statusConfig = {
   online: { label: 'Online', dot: 'bg-green-400', text: 'text-green-400', Icon: Wifi },
@@ -54,56 +43,114 @@ const AppStatusBadge = ({ status = 'online' }) => {
   );
 };
 
-const NavItem = ({ icon, name, path, exact, onClose, badgeCount = 0 }) => (
-  <NavLink
-    to={h(path)}
-    end={exact}
-    onClick={onClose}
-    className={({ isActive }) =>
-      `relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group text-[13px] font-medium tracking-tight border border-transparent
-      ${
-        isActive
-          ? 'bg-white/[0.12] text-re-gold shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] border-white/10'
-          : 'text-white/72 hover:bg-white/[0.06] hover:text-white'
-      }`
-    }
-  >
-    {({ isActive }) => (
-      <>
-        {createElement(icon, {
-          size: 18,
-          strokeWidth: 1.75,
-          className: isActive
-            ? 'text-re-gold shrink-0'
-            : 'text-white/45 group-hover:text-white/85 shrink-0 transition-colors',
-        })}
-        <span className="truncate">{name}</span>
-        {badgeCount > 0 && (
-          <span className="ml-auto text-[10px] leading-none px-1.5 py-0.5 rounded-md bg-re-gold/90 text-[#0B1530] font-medium">
-            {badgeCount > 99 ? '99+' : badgeCount}
-          </span>
-        )}
-      </>
-    )}
-  </NavLink>
-);
+const NAV_GROUPS = [
+  {
+    id: 'finance',
+    label: 'Finance Management',
+    icon: Wallet,
+    items: [
+      { name: 'Student Fees', path: '/fees' },
+      { name: 'Babyeyi Fee Cards', path: '/fees/babyeyi-fees' },
+      { name: 'Invoice', path: '/invoices' },
+      { name: 'Expenses', path: '/expenses' },
+      { name: 'School Budget', path: '/school-budget' },
+      { name: 'Payroll History', path: '/payroll/history' },
+      { name: 'Configure Payroll', path: '/payroll/config' },
+      { name: 'Salary Payment', path: '/payroll/salary-payment' },
+      { name: 'My Payroll', path: '/my-payroll' },
+    ],
+  },
+  {
+    id: 'academic',
+    label: 'Academic Operations',
+    icon: GraduationCap,
+    items: [
+      { name: 'Examination List', path: '/examination-list' },
+      { name: 'School Calendar', path: '/school-calendar' },
+    ],
+  },
+  {
+    id: 'requests',
+    label: 'Requests & Approvals',
+    icon: ClipboardList,
+    items: [
+      { name: 'Requisitions', path: '/requisitions' },
+      { name: 'Advance Approval Queue', path: '/shule-avance' },
+      { name: 'Action Plan', path: '/action-plan' },
+    ],
+  },
+  {
+    id: 'communication',
+    label: 'Communication',
+    icon: MessageSquare,
+    items: [
+      { name: 'Fee Reminders', path: '/auto-reminders' },
+      { name: 'Chat Center', path: '/chat', badgeKey: 'chat' },
+    ],
+  },
+  {
+    id: 'utilities',
+    label: 'Utilities',
+    icon: Wrench,
+    items: [
+      { name: 'Ticha Deals', path: '/ticha-deals' },
+      { name: 'My Shule Avance', path: '/my-shule-avance' },
+    ],
+  },
+];
 
-const ExpandableNavItem = ({ icon, name, subItems, onClose }) => {
-  const location = useLocation();
-  const pathMatches = (path) => {
-    if (!path) return false;
-    const full = h(path);
-    if (path.includes('?')) {
-      return `${location.pathname}${location.search}` === full;
-    }
-    const querySiblingActive = subItems.some(
-      (x) => x.path && x.path.includes('?') && `${location.pathname}${location.search}` === h(x.path)
-    );
-    if (location.pathname === full && querySiblingActive) return false;
-    return location.pathname === full;
-  };
-  const isAnyActive = subItems.some((s) => pathMatches(s.path));
-  const [open, setOpen] = useState(isAnyActive);
+const EXACT_ONLY_PATHS = new Set(['/fees', '/payroll/history', '/payroll/config', '/payroll/salary-payment']);
+
+function pathMatches(location, path) {
+  if (!path) return false;
+  const full = h(path);
+  if (path.includes('?')) {
+    return `${location.pathname}${location.search}` === full;
+  }
+  if (location.pathname === full) return true;
+  if (EXACT_ONLY_PATHS.has(path)) return false;
+  if (path !== '/' && location.pathname.startsWith(`${full}/`)) return true;
+  return false;
+}
+
+function SubNavLink({ name, path, onClose, badgeCount = 0 }) {
+  return (
+    <NavLink
+      to={h(path)}
+      onClick={onClose}
+      className={({ isActive }) =>
+        `flex items-center gap-2.5 px-3 py-2 rounded-lg text-[12px] font-medium transition-all
+        ${
+          isActive
+            ? 'text-re-gold bg-white/[0.08]'
+            : 'text-white/60 hover:text-white hover:bg-white/[0.05]'
+        }`
+      }
+    >
+      {({ isActive }) => (
+        <>
+          <span
+            className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+              isActive ? 'bg-re-gold' : 'bg-white/30'
+            }`}
+            aria-hidden
+          />
+          <span className="truncate flex-1">{name}</span>
+          {badgeCount > 0 && (
+            <span className="text-[10px] leading-none px-1.5 py-0.5 rounded-md bg-re-gold/90 text-[#0B1530] font-medium shrink-0">
+              {badgeCount > 99 ? '99+' : badgeCount}
+            </span>
+          )}
+        </>
+      )}
+    </NavLink>
+  );
+}
+
+function NavGroup({ group, onClose, location, badgeCounts, defaultOpen = false }) {
+  const isAnyActive = group.items.some((item) => pathMatches(location, item.path));
+  const [open, setOpen] = useState(defaultOpen || isAnyActive);
+  const GroupIcon = group.icon;
 
   return (
     <div>
@@ -117,14 +164,14 @@ const ExpandableNavItem = ({ icon, name, subItems, onClose }) => {
               : 'text-white/72 hover:bg-white/[0.06] hover:text-white'
           }`}
       >
-        {createElement(icon, {
-          size: 18,
-          strokeWidth: 1.75,
-          className: `${
+        <GroupIcon
+          size={18}
+          strokeWidth={1.75}
+          className={`${
             isAnyActive ? 'text-re-gold' : 'text-white/45 group-hover:text-white/85'
-          } transition-colors shrink-0`,
-        })}
-        <span className="flex-1 text-left">{name}</span>
+          } transition-colors shrink-0`}
+        />
+        <span className="flex-1 text-left truncate">{group.label}</span>
         <ChevronDown
           size={16}
           strokeWidth={2}
@@ -134,111 +181,121 @@ const ExpandableNavItem = ({ icon, name, subItems, onClose }) => {
 
       {open && (
         <div className="ml-2 mt-1 space-y-0.5 border-l border-white/15 pl-3">
-          {subItems.map((sub) => {
-            const subActive = pathMatches(sub.path);
-            return (
-              <NavLink
-                key={sub.path}
-                to={h(sub.path)}
-                onClick={onClose}
-                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[12px] font-medium transition-all
-                ${
-                  subActive
-                    ? 'text-re-gold bg-white/[0.08]'
-                    : 'text-white/60 hover:text-white hover:bg-white/[0.05]'
-                }`}
-              >
-                <sub.icon
-                  size={14}
-                  strokeWidth={1.75}
-                  className={subActive ? 'text-re-gold/90' : 'text-white/35'}
-                />
-                <span className="truncate">{sub.name}</span>
-              </NavLink>
-            );
-          })}
+          {group.items.map((item) => (
+            <SubNavLink
+              key={item.path}
+              name={item.name}
+              path={item.path}
+              onClose={onClose}
+              badgeCount={item.badgeKey ? badgeCounts[item.badgeKey] || 0 : 0}
+            />
+          ))}
         </div>
       )}
     </div>
   );
-};
-
-const SectionLabel = ({ label }) => (
-  <p className="text-[10px] font-medium uppercase tracking-widest text-slate-400/85 px-3 pt-4 pb-2 first:pt-1">
-    {label}
-  </p>
-);
+}
 
 const Sidebar = ({ onClose }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { staff, logout } = useAuth();
   const unreadCount = useChatUnread();
+  const [menuQuery, setMenuQuery] = useState('');
+
+  const badgeCounts = useMemo(() => ({ chat: unreadCount }), [unreadCount]);
+
+  const filteredGroups = useMemo(() => {
+    const q = menuQuery.trim().toLowerCase();
+    if (!q) return NAV_GROUPS;
+    return NAV_GROUPS.map((group) => {
+      const labelMatch = group.label.toLowerCase().includes(q);
+      const items = group.items.filter(
+        (item) => labelMatch || item.name.toLowerCase().includes(q)
+      );
+      if (!items.length) return null;
+      return { ...group, items };
+    }).filter(Boolean);
+  }, [menuQuery]);
+
+  const dashboardActive = pathMatches(location, '/');
 
   return (
     <div
-      className="flex flex-col min-h-0 h-full w-full min-w-0 border-r border-white/[0.08] shadow-sm"
-      style={{
-        background: 'linear-gradient(180deg,#0f2247 0%,#0b1530 40%,#060d1f 100%)',
-        colorScheme: 'dark',
-      }}
+      className="flex flex-col min-h-0 h-full w-full min-w-0 border-r border-white/[0.06] shadow-sm font-sans"
+      style={{ background: '#000435', colorScheme: 'dark', fontFamily: "'Montserrat', sans-serif" }}
     >
       <div className="p-4 pb-3 shrink-0 border-b border-white/[0.06]">
         <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/[0.08] ring-1 ring-white/10">
-            <img src={babyeyiIcon} alt="Babyeyi icon" className="h-7 w-7 object-contain" />
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm overflow-hidden">
+            <img src={babyeyiIcon} alt="Babyeyi" className="h-10 w-10 object-contain" />
           </div>
           <div className="min-w-0">
-            <span className="text-lg font-medium tracking-tight text-white block leading-tight">
+            <span className="text-base font-semibold tracking-tight text-white block leading-tight">
               Babyeyi
             </span>
-            <p className="text-[11px] font-medium tracking-wide text-re-gold/90 mt-0.5 capitalize">
+            <p className="text-[10px] font-medium tracking-wide text-amber-400 mt-0.5">
               Accountant portal
             </p>
           </div>
         </div>
       </div>
 
+      <div className="px-3 pt-3 shrink-0">
+        <div className="relative">
+          <Search
+            size={15}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-white/35 pointer-events-none"
+            aria-hidden
+          />
+          <input
+            type="search"
+            value={menuQuery}
+            onChange={(e) => setMenuQuery(e.target.value)}
+            placeholder="Search menu…"
+            className="w-full rounded-xl border border-white/10 bg-white/[0.06] py-2 pl-9 pr-3 text-[12px] font-medium text-white placeholder:text-white/35 focus:outline-none focus:border-white/20 focus:bg-white/[0.08]"
+            aria-label="Search menu"
+          />
+        </div>
+      </div>
+
       <nav
-        className="accountant-sidebar-scroll flex-1 min-h-0 px-3 py-3 overflow-y-auto overflow-x-hidden overscroll-y-contain space-y-0.5 pr-1"
+        className="accountant-sidebar-scroll flex-1 min-h-0 px-3 py-3 overflow-y-auto overflow-x-hidden overscroll-y-contain space-y-1 pr-1"
         aria-label="Accountant navigation"
       >
-        <SectionLabel label="Main" />
-        <NavItem icon={LayoutDashboard} name="Dashboard" path="/" exact onClose={onClose} />
+        <NavLink
+          to={h('/')}
+          end
+          onClick={onClose}
+          className={`relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-[13px] font-medium tracking-tight border border-transparent
+            ${
+              dashboardActive
+                ? 'bg-white/[0.12] text-re-gold shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] border-white/10'
+                : 'text-white/72 hover:bg-white/[0.06] hover:text-white'
+            }`}
+        >
+          <LayoutDashboard
+            size={18}
+            strokeWidth={1.75}
+            className={dashboardActive ? 'text-re-gold shrink-0' : 'text-white/45 shrink-0'}
+          />
+          <span className="truncate">Dashboard</span>
+        </NavLink>
 
-        <SectionLabel label="Finance operations" />
-        <NavItem icon={Receipt} name="Student Fees" path="/fees" onClose={onClose} />
-        <NavItem icon={FileSpreadsheet} name="Babyeyi Fee Cards" path="/fees/babyeyi-fees" onClose={onClose} />
-        <NavItem icon={GraduationCap} name="Examination list" path="/examination-list" onClose={onClose} />
-        <NavItem icon={FileText} name="Invoice Registry" path="/invoices" onClose={onClose} />
-        <NavItem icon={Banknote} name="Expenses" path="/expenses" onClose={onClose} />
-        <NavItem icon={FileSpreadsheet} name="Requisitions" path="/requisitions" onClose={onClose} />
-        <NavItem icon={PieChart} name="School Budget" path="/school-budget" onClose={onClose} />
-        <NavItem icon={Target} name="Action Plan" path="/action-plan" onClose={onClose} />
-        <NavItem icon={Wallet} name="Avance approval queue" path="/shule-avance" onClose={onClose} />
-        <ExpandableNavItem
-          icon={ClipboardCheck}
-          name="Payroll"
-          onClose={onClose}
-          subItems={[
-            { name: 'Payroll History', path: '/payroll/history', icon: History },
-            { name: 'Configure Payroll', path: '/payroll/config', icon: Settings },
-          ]}
-        />
-
-        <NavItem icon={CalendarDays} name="School Calendar" path="/school-calendar" onClose={onClose} />
-
-        <SectionLabel label="Services" />
-        <NavItem icon={DollarSign} name="My Payroll" path="/my-payroll" onClose={onClose} />
-        <ExpandableNavItem
-          icon={Sparkles}
-          name="Tools"
-          onClose={onClose}
-          subItems={[
-            { name: 'Ticha Deals', path: '/ticha-deals', icon: ShoppingBag },
-            { name: 'My Shule Avance', path: '/my-shule-avance', icon: Wallet },
-          ]}
-        />
-        <NavItem icon={MessageSquare} name="Chat Center" path="/chat" onClose={onClose} badgeCount={unreadCount} />
+        {filteredGroups.length === 0 ? (
+          <p className="px-3 py-4 text-[12px] text-white/45">No menu items match your search.</p>
+        ) : (
+          filteredGroups.map((group) => (
+            <NavGroup
+              key={`${group.id}-${menuQuery}`}
+              group={group}
+              onClose={onClose}
+              location={location}
+              badgeCounts={badgeCounts}
+              defaultOpen={!!menuQuery.trim()}
+            />
+          ))
+        )}
       </nav>
 
       <div className="p-4 pt-2 shrink-0 border-t border-white/[0.06] space-y-3">
@@ -250,7 +307,7 @@ const Sidebar = ({ onClose }) => {
             <div className="min-w-0">
               <p className="text-sm font-medium text-white">Help &amp; support</p>
               <p className="text-[12px] text-white/55 mt-1 leading-snug">
-                Reach finance ops from chat or contact your school admin.
+                Reach finance from chat or contact your school admin.
               </p>
             </div>
           </div>

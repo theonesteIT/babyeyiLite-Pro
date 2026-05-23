@@ -1,26 +1,22 @@
 import React, { useState } from 'react';
-import { ClipboardCheck } from 'lucide-react';
 import ClassAttendance from './AttendanceModule/ClassAttendance';
 import StudentAttendance from './AttendanceModule/StudentAttendance';
 import TeacherAttendance from './AttendanceModule/TeacherAttendance';
 import GateAttendance from './AttendanceModule/GateAttendance';
 import AllGateLogs from './AttendanceModule/AllGateLogs';
-import DosOchreHero from '../components/DosOchreHero';
+import DosOrangePageHero, { DosPageBody } from '../components/DosOrangePageHero';
 
 export default function Attendance() {
   const [tab, setTab] = useState('class');
 
   return (
     <div className="min-h-screen bg-white pb-10 font-sans">
-      <DosOchreHero
-        eyebrow="Attendance module"
-        titleLine="Smart attendance"
-        titleAccent="dashboard"
+      <DosOrangePageHero
+        title="General attendance"
         subtitle="Class period attendance, student entry and exit, teacher check-in, and gate logs — aligned in one workspace."
-        icon={ClipboardCheck}
       />
 
-      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 -mt-4 sm:-mt-5 md:-mt-6 pt-2 relative z-20 pb-10 space-y-4">
+      <DosPageBody className="-mt-4 sm:-mt-5 md:-mt-6 space-y-4">
         <div className="bg-white rounded-t-[32px] shadow-sm border border-black/10 overflow-hidden p-4 sm:p-6">
           <div className="flex flex-wrap gap-2 rounded-2xl border border-black/5 bg-re-bg/50 p-2">
             {[
@@ -51,7 +47,7 @@ export default function Attendance() {
             {tab === 'gate_logs' && <AllGateLogs />}
           </div>
         </div>
-      </div>
+      </DosPageBody>
     </div>
   );
 }

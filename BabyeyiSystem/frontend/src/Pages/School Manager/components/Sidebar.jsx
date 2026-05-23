@@ -18,9 +18,7 @@ export default function Sidebar({
 }) {
   const NavItem = ({ item, onClick }) => {
     const isActive = tab === item.id;
-    const badge =
-      item.id === "notifications" ? notifCount :
-      item.id === "student_transfer" ? transferNotifCount : 0;
+    const badge = item.id === "student_transfer" ? transferNotifCount : 0;
 
     return (
       <button
@@ -72,10 +70,19 @@ export default function Sidebar({
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-3 overflow-y-auto space-y-0.5">
-        {NAV.map(item => (
-          <NavItem key={item.id} item={item} onClick={onItemClick} />
-        ))}
+      <nav className="flex-1 px-3 py-3 overflow-y-auto flex flex-col min-h-0">
+        <div className="space-y-0.5 flex-1">
+          {NAV.filter((item) => !item.footer).map((item) => (
+            <NavItem key={item.id} item={item} onClick={onItemClick} />
+          ))}
+        </div>
+        {NAV.filter((item) => item.footer).length > 0 && (
+          <div className="pt-3 mt-2 border-t border-white/10 space-y-0.5 shrink-0">
+            {NAV.filter((item) => item.footer).map((item) => (
+              <NavItem key={item.id} item={item} onClick={onItemClick} />
+            ))}
+          </div>
+        )}
       </nav>
 
       {showProLaunch && proAppBase && (

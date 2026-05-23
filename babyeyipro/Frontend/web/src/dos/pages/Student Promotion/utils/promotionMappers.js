@@ -190,6 +190,19 @@ export function collectAcademicYears(students = []) {
 }
 
 export const DEFAULT_TERMS = ['Term 1', 'Term 2', 'Term 3'];
+export const ALL_YEAR_TERM = 'All Year';
+
+export function isAllYearTerm(term) {
+  const t = String(term || '').trim().toLowerCase();
+  return t === 'all year' || t === 'all-year' || t === 'allyear';
+}
+
+/** School terms plus combined full-year option for promotion review. */
+export function appendAllYearTerm(terms = []) {
+  const base = Array.isArray(terms) ? [...terms] : [];
+  if (!base.some((x) => isAllYearTerm(x))) base.push(ALL_YEAR_TERM);
+  return base;
+}
 
 /** National exit / final cohort class codes (group or class_name prefix). */
 export const FINAL_YEAR_CLASS_CODES = ['P6', 'S3', 'S6'];

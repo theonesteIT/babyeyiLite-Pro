@@ -4,6 +4,16 @@ import { AlertTriangle, Banknote, Calendar, CreditCard, Filter, Printer, Receipt
 import { jsPDF } from 'jspdf';
 import api from '../services/api';
 import AccountantOchreHero from '../components/AccountantOchreHero';
+import AccountantFormModal, {
+  FormDate,
+  FormFileUpload,
+  FormGrid,
+  FormInput,
+  FormSelect,
+  FormTextarea,
+} from '../components/AccountantFormModal';
+
+const EXPENSE_CATEGORIES = ['Utilities', 'Supplies', 'Salaries', 'Transport', 'Maintenance', 'Equipment', 'Other'];
 
 function formatMoneyRWF(value) {
   const n = Number(value) || 0;
@@ -203,303 +213,194 @@ const RecordExpensePaymentModal = ({ isOpen, onClose, expense, onSave }) => {
   const paidTotal = payments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
   const remaining = Math.max(0, (Number(expense.amount) || 0) - paidTotal);
 
-  return createPortal(
-    <div className="fixed inset-0 z-[240]">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-md" onClick={() => onClose?.()} />
-      <div className="absolute inset-x-0 top-10 md:top-16 mx-auto w-[92vw] max-w-2xl">
-        <div className="relative w-full max-h-[92vh] bg-re-bg rounded-3xl shadow-[0_32px_128px_-15px_rgba(30,58,95,0.35)] border border-white/20 flex flex-col overflow-hidden animate-in zoom-in-95 fade-in duration-500">
-          <div
-            className="relative z-10 px-5 py-3 shrink-0"
-            style={{ background: 'linear-gradient(135deg, #000435 0%, #0D2644 100%)' }}
-          >
-            <div className="flex items-center justify-between mb-2.5">
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="w-8 h-8 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20 text-re-gold shadow-md shadow-re-gold/10">
-                  <CreditCard size={16} />
-                </div>
-                <div className="min-w-0">
-                  <h1 className="text-[11px] font-medium text-white uppercase tracking-widest leading-none truncate">Record Payment</h1>
-                  <p className="text-[7px] font-medium text-white/40 uppercase tracking-tight mt-1 truncate">
-                    {expense.id} · {expense.vendor} · Remaining {formatMoneyRWF(remaining).replace('RWF', '')} RWF
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => onClose?.()}
-                className="p-1.5 bg-white/5 hover:bg-white/10 rounded-xl transition-all text-white/40 hover:text-re-gold group"
-                aria-label="Close modal"
-              >
-                <X size={14} className="group-hover:rotate-90 transition-all duration-300" />
-              </button>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
-              <p className="text-[10px] font-medium uppercase tracking-widest text-white/80">Partial payments allowed</p>
-            </div>
-          </div>
+  const handleSave = () => {
+    const amt = Number(amount) || 0;
+    if (amt <= 0) return;
+    onSave?.({
+      amount: amt,
+      method,
+      date,
+      methodRef: methodRef.trim(),
+      receiptFileName: receiptFile?.name || '',
+      note: note.trim(),
+    });
+    onClose?.();
+  };
 
-          <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar bg-re-bg/50 p-5 md:p-6 space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <input
-                value={amount}
-                onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ''))}
-                inputMode="numeric"
-                placeholder="Amount paid (RWF)"
-                className="w-full h-9 rounded-lg bg-white px-3 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] sm:text-[10px] font-medium uppercase tracking-widest shadow-sm placeholder:text-re-text-muted/40"
-              />
-              <select
-                value={method}
-                onChange={(e) => setMethod(e.target.value)}
-                className="w-full h-9 rounded-lg bg-white px-3 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] sm:text-[10px] font-medium uppercase tracking-widest shadow-sm cursor-pointer appearance-none pr-9"
-                style={{
-                  backgroundImage:
-                    "url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236b7280%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')",
-                  backgroundRepeat: 'no-repeat',
-                  backgroundPosition: 'right 0.75rem center',
-                  backgroundSize: '10px',
-                }}
-              >
-                {['Cash', 'Mobile Money', 'Bank Transfer', 'Card'].map((m) => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </select>
-
-              {/* Method-specific reference */}
-              <input
-                value={methodRef}
-                onChange={(e) => setMethodRef(e.target.value)}
-                placeholder={
-                  method === 'Bank Transfer'
-                    ? 'Bank account received (e.g., 100200300)'
-                    : method === 'Mobile Money'
-                      ? 'MoMo number / wallet (e.g., 07xx xxx xxx)'
-                      : method === 'Card'
-                        ? 'Card reference / last4'
-                        : 'Reference (optional)'
-                }
-                className="w-full h-9 rounded-lg bg-white px-3 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] sm:text-[10px] font-medium uppercase tracking-widest shadow-sm placeholder:text-re-text-muted/40 md:col-span-2"
-              />
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="w-full h-9 rounded-lg bg-white px-3 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] sm:text-[10px] font-medium uppercase tracking-widest shadow-sm"
-              />
-              <label className="w-full h-9 rounded-lg bg-white border border-black/5 px-3 flex items-center gap-2 cursor-pointer shadow-sm hover:bg-white hover:border-[#000435]/20 transition-all">
-                <Upload size={14} className="text-amber-500 opacity-80" />
-                <span className="text-[9px] font-medium uppercase tracking-widest text-re-text-muted/60 truncate">
-                  {receiptFile ? receiptFile.name : 'Upload receipt'}
-                </span>
-                <input
-                  type="file"
-                  accept="image/*,application/pdf"
-                  className="hidden"
-                  onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
-                />
-              </label>
-            </div>
-
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="Note (optional)"
-              className="w-full min-h-[90px] rounded-lg bg-white px-3 py-2.5 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] sm:text-[10px] font-medium tracking-tight shadow-sm placeholder:text-re-text-muted/40 resize-none"
-            />
-          </div>
-
-          <div className="bg-white border-t border-black/5 px-5 sm:px-6 py-2 flex items-center justify-between shrink-0 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-            <div className="flex items-center gap-2">
-              <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-              <p className="text-[7px] font-medium text-re-text-muted uppercase tracking-[0.2em] opacity-30 italic hidden sm:block">
-                Receipt upload optional
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => onClose?.()}
-                className="h-9 px-4 rounded-lg border border-black/5 text-re-navy font-medium text-[9px] uppercase tracking-widest hover:bg-re-bg transition-all active:scale-95"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const amt = Number(amount) || 0;
-                  if (amt <= 0) return;
-                  onSave?.({
-                    amount: amt,
-                    method,
-                    date,
-                    methodRef: methodRef.trim(),
-                    receiptFileName: receiptFile?.name || '',
-                    note: note.trim(),
-                  });
-                  onClose?.();
-                }}
-                className="h-9 px-6 rounded-lg text-white font-medium text-[9px] uppercase tracking-widest shadow-lg active:scale-95 transition-all"
-                style={{ background: 'linear-gradient(135deg, #000435 0%, #0D2644 100%)' }}
-              >
-                Save payment
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>,
-    document.body
+  return (
+    <AccountantFormModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Record Payment"
+      subtitle={`${expense.id} · ${expense.vendor}`}
+      statusHint={`Remaining ${formatMoneyRWF(remaining).replace('RWF', '').trim()} RWF · Partial payments allowed`}
+      footerHint="Receipt upload optional"
+      submitLabel="Save payment"
+      onSubmit={handleSave}
+      submitDisabled={!(Number(amount) > 0)}
+    >
+      <FormGrid>
+        <FormInput
+          label="Amount (RWF)"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ''))}
+          inputMode="numeric"
+          placeholder="0"
+        />
+        <FormSelect label="Payment method" value={method} onChange={(e) => setMethod(e.target.value)}>
+          {['Cash', 'Mobile Money', 'Bank Transfer', 'Card'].map((m) => (
+            <option key={m} value={m}>
+              {m}
+            </option>
+          ))}
+        </FormSelect>
+        <FormInput
+          label="Reference"
+          className="sm:col-span-2"
+          value={methodRef}
+          onChange={(e) => setMethodRef(e.target.value)}
+          placeholder={
+            method === 'Bank Transfer'
+              ? 'Bank account'
+              : method === 'Mobile Money'
+                ? 'MoMo number'
+                : 'Optional'
+          }
+        />
+        <FormDate label="Payment date" value={date} onChange={(e) => setDate(e.target.value)} />
+        <FormFileUpload
+          label="Upload receipt"
+          fileName={receiptFile?.name}
+          onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
+        />
+      </FormGrid>
+      <FormTextarea
+        label="Note (optional)"
+        className="mt-4"
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        placeholder="Additional details"
+        rows={3}
+      />
+    </AccountantFormModal>
   );
 };
 
 const AddExpenseModal = ({ isOpen, onClose, onCreate }) => {
   const [vendor, setVendor] = useState('');
   const [category, setCategory] = useState('');
+  const [categoryOther, setCategoryOther] = useState('');
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [amount, setAmount] = useState('');
   const [invoiceNo, setInvoiceNo] = useState('');
   const [invoiceFile, setInvoiceFile] = useState(null);
   const [note, setNote] = useState('');
 
+  useEffect(() => {
+    if (!isOpen) return;
+    setVendor('');
+    setCategory('');
+    setCategoryOther('');
+    setDate(new Date().toISOString().slice(0, 10));
+    setAmount('');
+    setInvoiceNo('');
+    setInvoiceFile(null);
+    setNote('');
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
-  return createPortal(
-    <div className="fixed inset-0 z-[230]">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-md" onClick={() => onClose?.()} />
-      <div className="absolute inset-x-0 top-10 md:top-16 mx-auto w-[92vw] max-w-2xl">
-        <div className="relative w-full max-h-[92vh] bg-re-bg rounded-3xl shadow-[0_32px_128px_-15px_rgba(30,58,95,0.35)] border border-white/20 flex flex-col overflow-hidden animate-in zoom-in-95 fade-in duration-500">
-          {/* Header (match school manager add-student modal) */}
-          <div
-            className="relative z-10 px-5 py-3 shrink-0"
-            style={{ background: 'linear-gradient(135deg, #000435 0%, #0D2644 100%)' }}
-          >
-            <div className="flex items-center justify-between mb-2.5">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20 text-re-gold shadow-md shadow-re-gold/10">
-                  <Receipt size={16} />
-                </div>
-                <div>
-                  <h1 className="text-[11px] font-medium text-white uppercase tracking-widest leading-none">Add Expense</h1>
-                  <p className="text-[7px] font-medium text-white/40 uppercase tracking-tight mt-1">Invoice · Expenses Registry</p>
-                </div>
-              </div>
-              <button
-                onClick={() => onClose?.()}
-                className="p-1.5 bg-white/5 hover:bg-white/10 rounded-xl transition-all text-white/40 hover:text-re-gold group"
-                aria-label="Close modal"
-              >
-                <X size={14} className="group-hover:rotate-90 transition-all duration-300" />
-              </button>
-            </div>
+  const isOtherCategory = category === 'Other';
+  const resolvedCategory = isOtherCategory ? categoryOther.trim() : category;
+  const amt = Number(amount) || 0;
+  const canSave = vendor.trim() && resolvedCategory && date && amt > 0;
 
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
-              <p className="text-[10px] font-medium uppercase tracking-widest text-white/80">RWF · Attach invoice if available</p>
-            </div>
-          </div>
+  const handleSave = () => {
+    if (!canSave) return;
+    onCreate?.({
+      vendor: vendor.trim(),
+      category: resolvedCategory,
+      date,
+      amount: amt,
+      invoiceNo: invoiceNo.trim(),
+      invoiceFileName: invoiceFile?.name || '',
+      note: note.trim(),
+    });
+    onClose?.();
+  };
 
-          <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar bg-re-bg/50 p-5 md:p-6 space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <input
-                value={vendor}
-                onChange={(e) => setVendor(e.target.value)}
-                placeholder="Vendor / Supplier"
-                className="w-full h-9 rounded-lg bg-white px-3 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] sm:text-[10px] font-medium uppercase tracking-widest shadow-sm placeholder:text-re-text-muted/40"
-              />
-
-              <input
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                placeholder="Expense category (e.g. Utilities)"
-                className="w-full h-9 rounded-lg bg-white px-3 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] sm:text-[10px] font-medium uppercase tracking-widest shadow-sm cursor-pointer appearance-none pr-9"
-              />
-
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="w-full h-9 rounded-lg bg-white px-3 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] sm:text-[10px] font-medium uppercase tracking-widest shadow-sm"
-              />
-
-              <input
-                value={amount}
-                onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ''))}
-                inputMode="numeric"
-                placeholder="Amount (RWF)"
-                className="w-full h-9 rounded-lg bg-white px-3 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] sm:text-[10px] font-medium uppercase tracking-widest shadow-sm placeholder:text-re-text-muted/40"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <input
-                value={invoiceNo}
-                onChange={(e) => setInvoiceNo(e.target.value)}
-                placeholder="Invoice number"
-                className="w-full h-9 rounded-lg bg-white px-3 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] sm:text-[10px] font-medium uppercase tracking-widest shadow-sm placeholder:text-re-text-muted/40"
-              />
-
-              <label className="w-full h-9 rounded-lg bg-white border border-black/5 px-3 flex items-center gap-2 cursor-pointer shadow-sm hover:bg-white hover:border-[#000435]/20 transition-all">
-                <Upload size={14} className="text-amber-500 opacity-80" />
-                <span className="text-[9px] font-medium uppercase tracking-widest text-re-text-muted/60 truncate">
-                  {invoiceFile ? invoiceFile.name : 'Upload invoice'}
-                </span>
-                <input
-                  type="file"
-                  accept="image/*,application/pdf"
-                  className="hidden"
-                  onChange={(e) => setInvoiceFile(e.target.files?.[0] || null)}
-                />
-              </label>
-            </div>
-
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="Note (optional)"
-              className="w-full min-h-[90px] rounded-lg bg-white px-3 py-2.5 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] sm:text-[10px] font-medium tracking-tight shadow-sm placeholder:text-re-text-muted/40 resize-none"
-            />
-          </div>
-
-          {/* Footer (match school manager modal footer) */}
-          <div className="bg-white border-t border-black/5 px-5 sm:px-6 py-2 flex items-center justify-between shrink-0 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-            <div className="flex items-center gap-2">
-              <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-              <p className="text-[7px] font-medium text-re-text-muted uppercase tracking-[0.2em] opacity-30 italic hidden sm:block">
-                Invoice attachment optional
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-            <button
-              onClick={() => onClose?.()}
-              className="h-9 px-4 rounded-lg border border-black/5 text-re-navy font-medium text-[9px] uppercase tracking-widest hover:bg-re-bg transition-all active:scale-95"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={() => {
-                const amt = Number(amount) || 0;
-                if (!vendor.trim() || !category || !date || amt <= 0) return;
-                onCreate?.({
-                  vendor: vendor.trim(),
-                  category,
-                  date,
-                  amount: amt,
-                  invoiceNo: invoiceNo.trim(),
-                  invoiceFileName: invoiceFile?.name || '',
-                  note: note.trim(),
-                });
-                onClose?.();
-              }}
-              className="h-9 px-6 rounded-lg text-white font-medium text-[9px] uppercase tracking-widest shadow-lg active:scale-95 transition-all"
-              style={{ background: 'linear-gradient(135deg, #000435 0%, #0D2644 100%)' }}
-            >
-              Save expense
-            </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>,
-    document.body
+  return (
+    <AccountantFormModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Add Expense"
+      subtitle="Invoice · Expenses registry"
+      statusHint="RWF · Attach invoice if available"
+      footerHint="Invoice attachment optional"
+      submitLabel="Save expense"
+      onSubmit={handleSave}
+      submitDisabled={!canSave}
+    >
+      <FormGrid>
+        <FormInput
+          label="Vendor / Supplier"
+          value={vendor}
+          onChange={(e) => setVendor(e.target.value)}
+          placeholder="Company name"
+        />
+        <FormSelect
+          label="Expense category"
+          value={category}
+          onChange={(e) => {
+            const next = e.target.value;
+            setCategory(next);
+            if (next !== 'Other') setCategoryOther('');
+          }}
+        >
+          <option value="">Select category</option>
+          {EXPENSE_CATEGORIES.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </FormSelect>
+        {isOtherCategory ? (
+          <FormInput
+            label="Specify category"
+            value={categoryOther}
+            onChange={(e) => setCategoryOther(e.target.value)}
+            placeholder="Enter category name"
+          />
+        ) : null}
+        <FormDate label="Date" value={date} onChange={(e) => setDate(e.target.value)} />
+        <FormInput
+          label="Amount (RWF)"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ''))}
+          inputMode="numeric"
+          placeholder="0"
+        />
+        <FormInput
+          label="Invoice number"
+          value={invoiceNo}
+          onChange={(e) => setInvoiceNo(e.target.value)}
+          placeholder="Optional"
+        />
+        <FormFileUpload
+          label="Upload invoice"
+          fileName={invoiceFile?.name}
+          onChange={(e) => setInvoiceFile(e.target.files?.[0] || null)}
+        />
+      </FormGrid>
+      <FormTextarea
+        label="Note (optional)"
+        className="mt-4"
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        placeholder="Additional details"
+        rows={3}
+      />
+    </AccountantFormModal>
   );
 };
 

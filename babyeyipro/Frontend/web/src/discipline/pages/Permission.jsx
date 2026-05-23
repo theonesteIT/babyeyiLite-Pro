@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import api from "../services/api";
+import DisciplineOchreHero from "../components/DisciplineOchreHero";
 import {
   Eye, Pencil, Trash2, X, Check, Ban, Search, Shield, AlertTriangle, CheckCircle2,
   ArrowUpRight, ArrowDownLeft, ClipboardList, Stethoscope, Scale, DoorOpen, BookOpen,
-  Home, Building2, Hospital, Bell, UserRoundCheck, GraduationCap, Plus, Save,
+  Home, Building2, Hospital, Bell, UserRoundCheck, Plus, Save,
 } from "lucide-react";
 
 const theme = {
@@ -89,6 +90,15 @@ const todayLocalDate = () => {
   return `${y}-${m}-${day}`;
 };
 
+const formatParentNotifySummary = (summary) => {
+  if (!summary || summary.error) return null;
+  const parts = [];
+  if (Number(summary.in_app?.sent) > 0) parts.push(`${summary.in_app.sent} in-app`);
+  if (Number(summary.push?.sent) > 0) parts.push(`${summary.push.sent} push`);
+  if (Number(summary.email?.sent) > 0) parts.push(`${summary.email.sent} email`);
+  return parts.length ? parts.join(", ") : null;
+};
+
 const parseReasonBlob = (text) => {
   const raw = String(text || "");
   const parts = raw.split("|").map((p) => p.trim()).filter(Boolean);
@@ -132,7 +142,7 @@ export default function PermissionManagement() {
     date: todayLocalDate(), timeOut: "", returnTime: "",
     notReturning: false, expectedReturnDate: "",
     customType: "",
-    parentNotified: false, comment: "",
+    parentNotified: true, comment: "",
   });
   const [suggestions, setSuggestions] = useState([]);
   const [toast, setToast] = useState(null);
@@ -144,7 +154,7 @@ export default function PermissionManagement() {
   const [exceededOnly, setExceededOnly] = useState(false);
 
   const resetForm = () => {
-    setFormData({ studentCode: "", studentName: "", selectedStudent: null, type: "", reason: "", destination: "", destinationAddress: "", priority: "Normal", date: todayLocalDate(), timeOut: "", returnTime: "", notReturning: false, expectedReturnDate: "", customType: "", parentNotified: false, comment: "" });
+    setFormData({ studentCode: "", studentName: "", selectedStudent: null, type: "", reason: "", destination: "", destinationAddress: "", priority: "Normal", date: todayLocalDate(), timeOut: "", returnTime: "", notReturning: false, expectedReturnDate: "", customType: "", parentNotified: true, comment: "" });
   };
 
   const closeFormModal = () => {
@@ -347,7 +357,9 @@ export default function PermissionManagement() {
           formData.reason || "",
           formData.destination ? `Destination: ${formData.destination}` : "",
           formData.destinationAddress ? `Address: ${formData.destinationAddress}` : "",
+          formData.comment?.trim() ? `Comment: ${formData.comment.trim()}` : "",
         ].filter(Boolean).join(" | "),
+        notify_parent: !!formData.parentNotified,
       };
       const isEdit = formMode === "edit" && editingPermission?.rawId;
       const res = isEdit
@@ -356,7 +368,16 @@ export default function PermissionManagement() {
       if (res?.data?.success) {
         closeFormModal();
         await fetchData();
-        showToast(isEdit ? "Permission updated successfully" : "Permission created successfully");
+        const notifySummary = formatParentNotifySummary(res?.data?.parent_notifications);
+        if (!isEdit && formData.parentNotified) {
+          showToast(
+            notifySummary
+              ? `Permission created. Parent notified (${notifySummary}).`
+              : "Permission created. Parent notification queued (email/push need parent contact on file)."
+          );
+        } else {
+          showToast(isEdit ? "Permission updated successfully" : "Permission created successfully");
+        }
       } else {
         showToast(isEdit ? "Failed to update permission" : "Failed to create permission", "error");
       }
@@ -387,9 +408,17 @@ export default function PermissionManagement() {
     if (!perm?.rawId) return;
     setActionLoading(true);
     try {
-      const res = await api.patch(`/permissions/${perm.rawId}/status`, { status: backendStatus });
+      const res = await api.patch(`/permissions/${perm.rawId}/status`, {
+        status: backendStatus,
+        notify_parent: backendStatus === "APPROVED",
+      });
       if (res?.data?.success) {
-        showToast(`Permission ${backendStatus.toLowerCase()} successfully`);
+        const notifySummary = formatParentNotifySummary(res?.data?.parent_notifications);
+        showToast(
+          notifySummary
+            ? `Permission ${backendStatus.toLowerCase()}. Parent notified (${notifySummary}).`
+            : `Permission ${backendStatus.toLowerCase()} successfully`
+        );
         await fetchData();
         setSelectedPermission(null);
       } else {
@@ -410,9 +439,24 @@ export default function PermissionManagement() {
     await updatePermissionStatus(perm, "CANCELLED");
   };
 
+  const todayLabel = new Date().toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
   return (
-    <div style={{ fontFamily: "'Montserrat', sans-serif", background: "#F0F2F8", minHeight: "100vh", fontWeight: 500 }}>
+    <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen pb-12" style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 500 }}>
       <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+
+      <DisciplineOchreHero
+        eyebrow="Discipline portal"
+        titleLine="Student permission"
+        titleAccent="control"
+        subtitle={`Approve leave requests, track returns, and monitor exceeded time — Discipline office · ${todayLabel}.`}
+        icon={UserRoundCheck}
+      />
 
       {/* Toast */}
       {toast && (
@@ -424,43 +468,34 @@ export default function PermissionManagement() {
         </div>
       )}
 
-      {/* Header */}
-      <div style={{ background: theme.navy, padding: "0 32px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 64, boxShadow: "0 4px 20px rgba(0,4,53,0.4)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ width: 36, height: 36, background: theme.amber, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <GraduationCap size={18} color={theme.navy} />
-          </div>
-          <div>
-            <div style={{ color: theme.white, fontWeight: 800, fontSize: 16, letterSpacing: "0.5px" }}>EduGate</div>
-            <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 10, fontWeight: 500, letterSpacing: "1px", textTransform: "uppercase" }}>Permission Control</div>
-          </div>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <select style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", padding: "6px 12px", borderRadius: 8, fontSize: 13, fontFamily: "Montserrat" }}>
-            <option>2024-2025</option>
-          </select>
-          <select style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", padding: "6px 12px", borderRadius: 8, fontSize: 13, fontFamily: "Montserrat" }}>
-            <option>Term 2</option><option>Term 1</option><option>Term 3</option>
-          </select>
-          <div style={{ width: 36, height: 36, background: theme.amber, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: theme.navy, fontSize: 14 }}>DM</div>
-        </div>
-      </div>
-
-      <div style={{ padding: "28px 32px", maxWidth: 1400, margin: "0 auto" }}>
-        {/* Page Title */}
-        <div style={{ marginBottom: 24 }}>
-          <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, color: theme.navy, letterSpacing: "-0.5px" }}>Student Permission Control</h1>
-          <p style={{ margin: "4px 0 0", color: theme.gray600, fontSize: 14, fontWeight: 500 }}>Discipline Office · {new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</p>
-        </div>
-
-        {/* Stats Row */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 12, marginBottom: 24 }}>
-          {Object.entries(statusConfig).map(([key, cfg]) => (
-            <div key={key} onClick={() => setFilterStatus(filterStatus === key ? "All" : key)} style={{ background: filterStatus === key ? cfg.bg : "#fff", border: `2px solid ${filterStatus === key ? cfg.color : "#E5E7EB"}`, borderRadius: 12, padding: "14px 16px", cursor: "pointer", transition: "all 0.2s" }}>
-              <div style={{ fontSize: 22, fontWeight: 800, color: cfg.color }}>{statusCounts[key] || 0}</div>
-              <div style={{ fontSize: 11, fontWeight: 600, color: theme.gray600, textTransform: "uppercase", letterSpacing: "0.5px", marginTop: 2 }}>{cfg.label}</div>
-            </div>
-          ))}
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 -mt-4 sm:-mt-5 md:-mt-6 pt-2 relative z-20">
+        {/* Stats — dashboard-style card */}
+        <div className="bg-white rounded-[24px] shadow-sm border border-black/10 overflow-hidden grid grid-cols-2 md:grid-cols-3 divide-x divide-y divide-gray-100 mb-6">
+          {Object.entries(statusConfig).map(([key, cfg]) => {
+            const active = filterStatus === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setFilterStatus(active ? "All" : key)}
+                className={`p-5 flex flex-col items-center justify-center text-center transition-colors hover:bg-re-bg/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#F59E0B]/40 ${
+                  active ? "bg-re-bg/60" : "bg-white"
+                }`}
+                aria-pressed={active}
+                title={active ? `Clear ${cfg.label} filter` : `Filter by ${cfg.label}`}
+              >
+                <span
+                  className={`text-xl md:text-2xl font-semibold tabular-nums ${active ? "" : "text-re-text"}`}
+                  style={active ? { color: cfg.color } : undefined}
+                >
+                  {statusCounts[key] || 0}
+                </span>
+                <p className="text-[9px] font-medium text-re-text-muted uppercase tracking-wider mt-1 opacity-60">
+                  {cfg.label}
+                </p>
+              </button>
+            );
+          })}
         </div>
 
         {/* Exceeded Report */}
@@ -803,8 +838,11 @@ export default function PermissionManagement() {
                   <div onClick={() => setFormData(p => ({ ...p, parentNotified: !p.parentNotified }))} style={{ display: "flex", alignItems: "center", gap: 12, padding: 16, border: `2px solid ${formData.parentNotified ? "#10B981" : "#E5E7EB"}`, borderRadius: 12, cursor: "pointer", background: formData.parentNotified ? "#F0FDF4" : "#fff" }}>
                     <div style={{ width: 22, height: 22, borderRadius: 6, background: formData.parentNotified ? "#10B981" : "#fff", border: `2px solid ${formData.parentNotified ? "#10B981" : "#D1D5DB"}`, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>{formData.parentNotified ? <Check size={14} /> : ""}</div>
                     <div>
-                      <div style={{ fontWeight: 600, fontSize: 14, color: theme.navy, display: "inline-flex", alignItems: "center", gap: 6 }}><Bell size={14} /> Parent Notified via SMS</div>
-                      <div style={{ fontSize: 12, color: theme.gray600 }}>Send: "Your child left school at {formData.timeOut || '--:--'}"</div>
+                      <div style={{ fontWeight: 600, fontSize: 14, color: theme.navy, display: "inline-flex", alignItems: "center", gap: 6 }}><Bell size={14} /> Notify assigned parent(s)</div>
+                      <div style={{ fontSize: 12, color: theme.gray600, lineHeight: 1.45 }}>
+                        Sends email, web push, and in-app alert to parents linked to this student (father/mother phone, portal access).
+                        {formData.timeOut ? ` Leave time: ${formData.timeOut}.` : ""}
+                      </div>
                     </div>
                   </div>
                   <div>
@@ -831,7 +869,7 @@ export default function PermissionManagement() {
                       ["Date", formData.date],
                       ["Time Out", formData.timeOut],
                       ["Return", formData.notReturning ? `${formData.expectedReturnDate || "Expected date not set"} ${formData.returnTime || ""}`.trim() : formData.returnTime],
-                      ["Parent Notified", formData.parentNotified ? "Yes" : "No"],
+                      ["Parent notification", formData.parentNotified ? "Email, push & in-app" : "No"],
                     ].map(([k, v]) => (
                       <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #E5E7EB", fontSize: 14 }}>
                         <span style={{ color: theme.gray600, fontWeight: 500 }}>{k}</span>

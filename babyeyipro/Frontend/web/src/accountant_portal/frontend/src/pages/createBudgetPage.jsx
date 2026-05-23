@@ -35,6 +35,13 @@ import { useIsMobile } from "../utils/useIsMobile";
 import api from "../services/api";
 import BudgetPushBanner from "@/shared/BudgetPushBanner";
 import { setSelectedBudgetId } from "../utils/selectedSchoolBudget";
+import SchoolBudgetPageShell from "../components/SchoolBudgetPageShell";
+import {
+  sbPageTitleClass,
+  sbPageSubtitleClass,
+  sbInput,
+  sbLabel,
+} from "../utils/schoolBudgetTypography";
 
 const COLORS = {
   navy: "#000435",
@@ -53,12 +60,8 @@ const COLORS = {
 
 const FLBL = {
   display: "block",
-  fontSize: 11,
-  fontWeight: 700,
-  color: COLORS.gray600,
+  ...sbLabel,
   marginBottom: 6,
-  textTransform: "uppercase",
-  letterSpacing: "0.06em",
 };
 const FINP = {
   width: "100%",
@@ -66,7 +69,7 @@ const FINP = {
   border: `1px solid ${COLORS.gray200}`,
   borderRadius: 8,
   padding: "10px 12px",
-  fontSize: 13,
+  ...sbInput,
   color: COLORS.navy,
   background: COLORS.white,
 };
@@ -133,7 +136,7 @@ function DetailRow({ label, value, highlight }) {
       <span
         style={{
           fontSize: 10,
-          fontWeight: 700,
+          fontWeight: 500,
           color: COLORS.gray400,
           textTransform: "uppercase",
           letterSpacing: "0.06em",
@@ -144,7 +147,7 @@ function DetailRow({ label, value, highlight }) {
       <span
         style={{
           fontSize: 14,
-          fontWeight: highlight ? 800 : 600,
+          fontWeight: highlight ? 600 : 500,
           color: highlight ? COLORS.amber : COLORS.navy,
           wordBreak: "break-word",
         }}
@@ -232,7 +235,7 @@ function BudgetViewModal({ open, onClose, budgetId, fmt, onEdit, isMobile }) {
           }}
         >
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: isMobile ? 16 : 18, fontWeight: 800, color: COLORS.amber }}>
+            <div style={{ fontSize: isMobile ? 16 : 18, fontWeight: 500, color: COLORS.amber }}>
               Budget Details
             </div>
             <div style={{ fontSize: 12, color: COLORS.amberLight, marginTop: 4 }}>
@@ -297,7 +300,7 @@ function BudgetViewModal({ open, onClose, budgetId, fmt, onEdit, isMobile }) {
                     borderRadius: 20,
                     padding: "4px 12px",
                     fontSize: 12,
-                    fontWeight: 700,
+                    fontWeight: 500,
                   }}
                 >
                   {budget.statusLabel || budget.status}
@@ -351,10 +354,10 @@ function BudgetViewModal({ open, onClose, budgetId, fmt, onEdit, isMobile }) {
                       border: `1px solid ${COLORS.gray200}`,
                     }}
                   >
-                    <div style={{ fontSize: 10, color: COLORS.gray400, fontWeight: 700, textTransform: "uppercase" }}>
+                    <div style={{ fontSize: 10, color: COLORS.gray400, fontWeight: 500, textTransform: "uppercase" }}>
                       {kpi.label}
                     </div>
-                    <div style={{ fontSize: isMobile ? 14 : 16, fontWeight: 800, color: kpi.color, marginTop: 4 }}>
+                    <div style={{ fontSize: isMobile ? 14 : 16, fontWeight: 500, color: kpi.color, marginTop: 4 }}>
                       {kpi.value}
                     </div>
                   </div>
@@ -363,7 +366,7 @@ function BudgetViewModal({ open, onClose, budgetId, fmt, onEdit, isMobile }) {
 
               {budget.description && (
                 <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontWeight: 700, color: COLORS.navy, fontSize: 13, marginBottom: 6 }}>
+                  <div style={{ fontWeight: 500, color: COLORS.navy, fontSize: 13, marginBottom: 6 }}>
                     Description
                   </div>
                   <p style={{ fontSize: 13, color: COLORS.gray600, margin: 0, lineHeight: 1.5 }}>{budget.description}</p>
@@ -372,12 +375,12 @@ function BudgetViewModal({ open, onClose, budgetId, fmt, onEdit, isMobile }) {
 
               {budget.approvalNotes && (
                 <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontWeight: 700, color: COLORS.navy, fontSize: 13, marginBottom: 6 }}>Approval Notes</div>
+                  <div style={{ fontWeight: 500, color: COLORS.navy, fontSize: 13, marginBottom: 6 }}>Approval Notes</div>
                   <p style={{ fontSize: 13, color: COLORS.gray600, margin: 0, lineHeight: 1.5 }}>{budget.approvalNotes}</p>
                 </div>
               )}
 
-              <div style={{ fontWeight: 800, color: COLORS.navy, fontSize: 14, marginBottom: 10 }}>
+              <div style={{ fontWeight: 500, color: COLORS.navy, fontSize: 14, marginBottom: 10 }}>
                 Income Sources ({incomes.length})
               </div>
               {incomes.length === 0 ? (
@@ -394,10 +397,10 @@ function BudgetViewModal({ open, onClose, budgetId, fmt, onEdit, isMobile }) {
                         background: COLORS.gray50,
                       }}
                     >
-                      <div style={{ fontWeight: 700, color: COLORS.navy, fontSize: 13, marginBottom: 6 }}>
+                      <div style={{ fontWeight: 500, color: COLORS.navy, fontSize: 13, marginBottom: 6 }}>
                         {row.incomeSource === "Other" ? row.customSourceName || "Other" : row.incomeSource}
                       </div>
-                      <div style={{ fontSize: 15, fontWeight: 800, color: COLORS.amber }}>{fmt(row.expectedAmount || 0)}</div>
+                      <div style={{ fontSize: 15, fontWeight: 500, color: COLORS.amber }}>{fmt(row.expectedAmount || 0)}</div>
                       <div style={{ fontSize: 11, color: COLORS.gray400, marginTop: 6 }}>
                         {row.collectionFrequency || "No frequency"}
                         {row.incomeCategory ? ` · ${row.incomeCategory}` : ""}
@@ -420,7 +423,7 @@ function BudgetViewModal({ open, onClose, budgetId, fmt, onEdit, isMobile }) {
                               padding: "10px 12px",
                               color: COLORS.white,
                               textAlign: "left",
-                              fontWeight: 600,
+                              fontWeight: 500,
                               fontSize: 11,
                               whiteSpace: "nowrap",
                             }}
@@ -433,11 +436,11 @@ function BudgetViewModal({ open, onClose, budgetId, fmt, onEdit, isMobile }) {
                     <tbody>
                       {incomes.map((row, i) => (
                         <tr key={row.id || i} style={{ borderBottom: `1px solid ${COLORS.gray100}` }}>
-                          <td style={{ padding: "10px 12px", fontWeight: 600, color: COLORS.navy }}>
+                          <td style={{ padding: "10px 12px", fontWeight: 500, color: COLORS.navy }}>
                             {row.incomeSource === "Other" ? row.customSourceName || "Other" : row.incomeSource}
                           </td>
                           <td style={{ padding: "10px 12px", color: COLORS.gray600 }}>{row.incomeCategory || "—"}</td>
-                          <td style={{ padding: "10px 12px", fontWeight: 700, color: COLORS.amber }}>
+                          <td style={{ padding: "10px 12px", fontWeight: 500, color: COLORS.amber }}>
                             {fmt(row.expectedAmount || 0)}
                           </td>
                           <td style={{ padding: "10px 12px", color: COLORS.gray600 }}>{row.collectionFrequency || "—"}</td>
@@ -473,7 +476,7 @@ function BudgetViewModal({ open, onClose, budgetId, fmt, onEdit, isMobile }) {
               borderRadius: 8,
               background: COLORS.white,
               color: COLORS.navy,
-              fontWeight: 700,
+              fontWeight: 500,
               fontSize: 13,
               cursor: "pointer",
               flex: isMobile ? "1 1 100%" : undefined,
@@ -494,7 +497,7 @@ function BudgetViewModal({ open, onClose, budgetId, fmt, onEdit, isMobile }) {
                 borderRadius: 8,
                 background: COLORS.amber,
                 color: COLORS.navy,
-                fontWeight: 700,
+                fontWeight: 500,
                 fontSize: 13,
                 cursor: "pointer",
                 display: "inline-flex",
@@ -660,7 +663,7 @@ function BudgetSummaryPanel({ fmt, totalIncome, totalAllocated, overAllocated })
         alignSelf: "flex-start",
       }}
     >
-      <div style={{ fontWeight: 800, fontSize: 14, color: COLORS.amber, marginBottom: 16 }}>
+      <div style={{ fontWeight: 500, fontSize: 14, color: COLORS.amber, marginBottom: 16 }}>
         Budget Summary
       </div>
       {[
@@ -681,7 +684,7 @@ function BudgetSummaryPanel({ fmt, totalIncome, totalAllocated, overAllocated })
           <div style={{ fontSize: 10, color: COLORS.amberLight, textTransform: "uppercase", letterSpacing: "0.05em" }}>
             {row.label}
           </div>
-          <div style={{ fontSize: 18, fontWeight: 800, color: row.color, marginTop: 4 }}>
+          <div style={{ fontSize: 18, fontWeight: 500, color: row.color, marginTop: 4 }}>
             {row.value}
           </div>
         </div>
@@ -769,8 +772,8 @@ function BudgetCard({ budget, fmt, onView, onEdit, isMobile }) {
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, marginBottom: 10 }}>
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontWeight: 800, color: COLORS.amber, fontSize: 13 }}>{budget.budgetCode}</div>
-          <div style={{ fontWeight: 700, color: COLORS.navy, fontSize: 14, marginTop: 4, wordBreak: "break-word" }}>
+          <div style={{ fontWeight: 500, color: COLORS.amber, fontSize: 13 }}>{budget.budgetCode}</div>
+          <div style={{ fontWeight: 500, color: COLORS.navy, fontSize: 14, marginTop: 4, wordBreak: "break-word" }}>
             {budget.title}
           </div>
         </div>
@@ -781,7 +784,7 @@ function BudgetCard({ budget, fmt, onView, onEdit, isMobile }) {
             borderRadius: 20,
             padding: "3px 10px",
             fontSize: 10,
-            fontWeight: 700,
+            fontWeight: 500,
             flexShrink: 0,
           }}
         >
@@ -791,15 +794,15 @@ function BudgetCard({ budget, fmt, onView, onEdit, isMobile }) {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, fontSize: 12, color: COLORS.gray600, marginBottom: 10 }}>
         <div>
           <span style={{ color: COLORS.gray400 }}>Year</span>
-          <div style={{ fontWeight: 600, color: COLORS.navy }}>{budget.academicYear}</div>
+          <div style={{ fontWeight: 500, color: COLORS.navy }}>{budget.academicYear}</div>
         </div>
         <div>
           <span style={{ color: COLORS.gray400 }}>Term</span>
-          <div style={{ fontWeight: 600, color: COLORS.navy }}>{budget.term}</div>
+          <div style={{ fontWeight: 500, color: COLORS.navy }}>{budget.term}</div>
         </div>
         <div style={{ gridColumn: "1 / -1" }}>
           <span style={{ color: COLORS.gray400 }}>Expected income</span>
-          <div style={{ fontWeight: 800, color: COLORS.navy, fontSize: 15 }}>{fmt(budget.totalExpectedIncome || 0)}</div>
+          <div style={{ fontWeight: 500, color: COLORS.navy, fontSize: 15 }}>{fmt(budget.totalExpectedIncome || 0)}</div>
         </div>
       </div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -818,7 +821,7 @@ function BudgetCard({ budget, fmt, onView, onEdit, isMobile }) {
             background: COLORS.white,
             color: COLORS.navy,
             fontSize: 12,
-            fontWeight: 700,
+            fontWeight: 500,
             cursor: "pointer",
           }}
         >
@@ -841,7 +844,7 @@ function BudgetCard({ budget, fmt, onView, onEdit, isMobile }) {
               background: COLORS.white,
               color: COLORS.navy,
               fontSize: 12,
-              fontWeight: 700,
+              fontWeight: 500,
               cursor: "pointer",
             }}
           >
@@ -1118,7 +1121,7 @@ function BudgetModal({
           }}
         >
           <div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: COLORS.amber }}>
+            <div style={{ fontSize: 18, fontWeight: 500, color: COLORS.amber }}>
               {isEdit ? "Edit School Budget" : "Create New School Budget"}
             </div>
             <div style={{ fontSize: 12, color: COLORS.amberLight, marginTop: 4 }}>
@@ -1185,7 +1188,7 @@ function BudgetModal({
               </div>
               <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 280px", gap: 20 }}>
                 <div>
-                  <div style={{ fontWeight: 800, color: COLORS.navy, fontSize: 16, marginBottom: 12 }}>
+                  <div style={{ fontWeight: 500, color: COLORS.navy, fontSize: 16, marginBottom: 12 }}>
                     {form.title || "Untitled Budget"}
                   </div>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, marginBottom: 16 }}>
@@ -1201,12 +1204,12 @@ function BudgetModal({
                       ].map(([k, v]) => (
                         <tr key={k} style={{ borderBottom: `1px solid ${COLORS.gray100}` }}>
                           <td style={{ padding: "8px 0", color: COLORS.gray400, width: "40%" }}>{k}</td>
-                          <td style={{ padding: "8px 0", fontWeight: 600, color: COLORS.navy }}>{v}</td>
+                          <td style={{ padding: "8px 0", fontWeight: 500, color: COLORS.navy }}>{v}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
-                  <div style={{ fontWeight: 700, color: COLORS.navy, marginBottom: 8 }}>Income Sources</div>
+                  <div style={{ fontWeight: 500, color: COLORS.navy, marginBottom: 8 }}>Income Sources</div>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                     <thead>
                       <tr style={{ background: COLORS.navy }}>
@@ -1227,7 +1230,7 @@ function BudgetModal({
                                 ? row.customSourceName || "Other"
                                 : row.incomeSource}
                             </td>
-                            <td style={{ padding: "8px 12px", fontWeight: 700 }}>{fmt(parseAmt(row.expectedAmount))}</td>
+                            <td style={{ padding: "8px 12px", fontWeight: 500 }}>{fmt(parseAmt(row.expectedAmount))}</td>
                             <td style={{ padding: "8px 12px", color: COLORS.gray600 }}>{row.collectionFrequency || "—"}</td>
                           </tr>
                         ))}
@@ -1235,7 +1238,7 @@ function BudgetModal({
                   </table>
                   {form.description && (
                     <div style={{ marginTop: 14 }}>
-                      <div style={{ fontWeight: 700, color: COLORS.navy, fontSize: 13 }}>Description</div>
+                      <div style={{ fontWeight: 500, color: COLORS.navy, fontSize: 13 }}>Description</div>
                       <div style={{ fontSize: 13, color: COLORS.gray600, marginTop: 4 }}>{form.description}</div>
                     </div>
                   )}
@@ -1263,7 +1266,7 @@ function BudgetModal({
                 >
                   <div
                     style={{
-                      fontWeight: 800,
+                      fontWeight: 500,
                       color: COLORS.navy,
                       fontSize: 14,
                       marginBottom: 14,
@@ -1287,7 +1290,7 @@ function BudgetModal({
                     </div>
                     <div>
                       <label style={FLBL}>Budget Code</label>
-                      <input value={form.budgetCode} readOnly style={{ ...FINP, background: COLORS.gray100, fontWeight: 700 }} />
+                      <input value={form.budgetCode} readOnly style={{ ...FINP, background: COLORS.gray100, fontWeight: 500 }} />
                     </div>
                     <div>
                       <SearchableSelect
@@ -1383,7 +1386,7 @@ function BudgetModal({
                   >
                     <div
                       style={{
-                        fontWeight: 800,
+                        fontWeight: 500,
                         color: COLORS.navy,
                         fontSize: 14,
                         display: "flex",
@@ -1406,7 +1409,7 @@ function BudgetModal({
                         color: COLORS.navy,
                         border: "none",
                         borderRadius: 8,
-                        fontWeight: 700,
+                        fontWeight: 500,
                         fontSize: 12,
                         cursor: "pointer",
                       }}
@@ -1568,7 +1571,7 @@ function BudgetModal({
                               borderRadius: 6,
                               padding: "4px 10px",
                               fontSize: 11,
-                              fontWeight: 700,
+                              fontWeight: 500,
                               cursor: "pointer",
                             }}
                           >
@@ -1578,7 +1581,7 @@ function BudgetModal({
                       </div>
                     );
                   })}
-                  <div style={{ textAlign: "right", fontWeight: 800, color: COLORS.green, fontSize: 14 }}>
+                  <div style={{ textAlign: "right", fontWeight: 500, color: COLORS.green, fontSize: 14 }}>
                     Total Income: {fmt(totalIncome)}
                   </div>
                 </div>
@@ -1594,7 +1597,7 @@ function BudgetModal({
                 >
                   <div
                     style={{
-                      fontWeight: 800,
+                      fontWeight: 500,
                       color: COLORS.navy,
                       fontSize: 14,
                       marginBottom: 14,
@@ -1690,7 +1693,7 @@ function BudgetModal({
               borderRadius: 8,
               background: COLORS.white,
               color: COLORS.navy,
-              fontWeight: 700,
+              fontWeight: 500,
               fontSize: 13,
               cursor: "pointer",
             }}
@@ -1707,7 +1710,7 @@ function BudgetModal({
                 borderRadius: 8,
                 background: COLORS.white,
                 color: COLORS.gray600,
-                fontWeight: 700,
+                fontWeight: 500,
                 fontSize: 13,
                 cursor: "pointer",
               }}
@@ -1733,7 +1736,7 @@ function BudgetModal({
                 borderRadius: 8,
                 background: COLORS.white,
                 color: COLORS.navy,
-                fontWeight: 700,
+                fontWeight: 500,
                 fontSize: 13,
                 cursor: "pointer",
                 display: "inline-flex",
@@ -1755,7 +1758,7 @@ function BudgetModal({
               borderRadius: 8,
               background: COLORS.white,
               color: COLORS.navy,
-              fontWeight: 700,
+              fontWeight: 500,
               fontSize: 13,
               cursor: saving || overAllocated ? "not-allowed" : "pointer",
               opacity: saving || overAllocated ? 0.6 : 1,
@@ -1777,7 +1780,7 @@ function BudgetModal({
               borderRadius: 8,
               background: COLORS.amber,
               color: COLORS.navy,
-              fontWeight: 700,
+              fontWeight: 500,
               fontSize: 13,
               cursor: saving || overAllocated ? "not-allowed" : "pointer",
               opacity: saving || overAllocated ? 0.6 : 1,
@@ -1872,11 +1875,12 @@ export function CreateBudgetPage({ fmt }) {
   }, [budgets, statusFilter]);
 
   return (
-    <div>
-      <div style={{ marginBottom: 14 }}>
+    <SchoolBudgetPageShell>
+      <div className="mb-4">
         <BudgetPushBanner api={api} />
       </div>
       <div
+        className="sb-page-header"
         style={{
           display: "flex",
           justifyContent: "space-between",
@@ -1887,34 +1891,11 @@ export function CreateBudgetPage({ fmt }) {
         }}
       >
         <div>
-          <div style={{ fontSize: 20, fontWeight: 800, color: COLORS.navy, marginBottom: 4 }}>
-            School Budgets
-          </div>
-          <div style={{ fontSize: 13, color: COLORS.gray400 }}>
-            Create and manage school budgets for each academic period
-          </div>
+          <h2 className={sbPageTitleClass} style={{ marginBottom: 4 }}>School Budgets</h2>
+          <p className={sbPageSubtitleClass}>Create and manage school budgets for each academic period</p>
         </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <a
-            href="/manager/finance/budgets"
-            style={{
-              padding: "10px 16px",
-              border: `1px solid ${COLORS.amber}`,
-              borderRadius: 8,
-              background: COLORS.white,
-              color: COLORS.navy,
-              fontWeight: 600,
-              fontSize: 13,
-              cursor: "pointer",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              textDecoration: "none",
-            }}
-          >
-            <ExternalLink size={16} />
-            {isMobile ? "Manager" : "Manager review"}
-          </a>
+          
           <button
             type="button"
             onClick={loadBudgets}
@@ -1925,7 +1906,7 @@ export function CreateBudgetPage({ fmt }) {
               borderRadius: 8,
               background: COLORS.white,
               color: COLORS.navy,
-              fontWeight: 600,
+              fontWeight: 500,
               fontSize: 13,
               cursor: "pointer",
               display: "inline-flex",
@@ -1945,7 +1926,7 @@ export function CreateBudgetPage({ fmt }) {
               borderRadius: 8,
               background: COLORS.amber,
               color: COLORS.navy,
-              fontWeight: 700,
+              fontWeight: 500,
               fontSize: 13,
               cursor: "pointer",
               display: "inline-flex",
@@ -1992,7 +1973,7 @@ export function CreateBudgetPage({ fmt }) {
           }}
         >
           <CircleCheck size={18} color={COLORS.green} />
-          <span style={{ fontSize: 13, color: "#065F46", fontWeight: 600 }}>{successMsg}</span>
+          <span style={{ fontSize: 13, color: "#065F46", fontWeight: 500 }}>{successMsg}</span>
         </div>
       )}
 
@@ -2051,7 +2032,7 @@ export function CreateBudgetPage({ fmt }) {
                     color: COLORS.navy,
                     border: "none",
                     borderRadius: 8,
-                    fontWeight: 700,
+                    fontWeight: 500,
                     fontSize: 12,
                     cursor: "pointer",
                   }}
@@ -2084,7 +2065,7 @@ export function CreateBudgetPage({ fmt }) {
                       padding: "12px 14px",
                       color: COLORS.white,
                       textAlign: "left",
-                      fontWeight: 600,
+                      fontWeight: 500,
                       fontSize: 12,
                     }}
                   >
@@ -2118,7 +2099,7 @@ export function CreateBudgetPage({ fmt }) {
                       color: COLORS.navy,
                       border: "none",
                       borderRadius: 8,
-                      fontWeight: 700,
+                      fontWeight: 500,
                       fontSize: 12,
                       cursor: "pointer",
                     }}
@@ -2141,12 +2122,12 @@ export function CreateBudgetPage({ fmt }) {
                       background: i % 2 === 0 ? COLORS.white : COLORS.gray50,
                     }}
                   >
-                    <td style={{ padding: "11px 14px", fontWeight: 700, color: COLORS.amber }}>{b.budgetCode}</td>
-                    <td style={{ padding: "11px 14px", fontWeight: 600, color: COLORS.navy }}>{b.title}</td>
+                    <td style={{ padding: "11px 14px", fontWeight: 500, color: COLORS.amber }}>{b.budgetCode}</td>
+                    <td style={{ padding: "11px 14px", fontWeight: 500, color: COLORS.navy }}>{b.title}</td>
                     <td style={{ padding: "11px 14px", color: COLORS.gray600 }}>{b.academicYear}</td>
                     <td style={{ padding: "11px 14px", color: COLORS.gray600 }}>{b.term}</td>
                     <td style={{ padding: "11px 14px", color: COLORS.gray600 }}>{b.budgetType}</td>
-                    <td style={{ padding: "11px 14px", fontWeight: 700, color: COLORS.navy }}>
+                    <td style={{ padding: "11px 14px", fontWeight: 500, color: COLORS.navy }}>
                       {fmt(b.totalExpectedIncome || 0)}
                     </td>
                     <td style={{ padding: "11px 14px" }}>
@@ -2157,7 +2138,7 @@ export function CreateBudgetPage({ fmt }) {
                           borderRadius: 20,
                           padding: "3px 10px",
                           fontSize: 11,
-                          fontWeight: 700,
+                          fontWeight: 500,
                         }}
                       >
                         {b.statusLabel || b.status}
@@ -2178,7 +2159,7 @@ export function CreateBudgetPage({ fmt }) {
                             background: COLORS.white,
                             color: COLORS.navy,
                             fontSize: 11,
-                            fontWeight: 700,
+                            fontWeight: 500,
                             cursor: "pointer",
                           }}
                         >
@@ -2199,7 +2180,7 @@ export function CreateBudgetPage({ fmt }) {
                               background: COLORS.white,
                               color: COLORS.navy,
                               fontSize: 11,
-                              fontWeight: 700,
+                              fontWeight: 500,
                               cursor: "pointer",
                             }}
                           >
@@ -2258,6 +2239,6 @@ export function CreateBudgetPage({ fmt }) {
           openEdit(b);
         }}
       />
-    </div>
+    </SchoolBudgetPageShell>
   );
 }

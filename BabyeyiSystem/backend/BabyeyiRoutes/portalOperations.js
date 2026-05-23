@@ -35,7 +35,7 @@ const STORE_WRITE_ROLES = ['STORE_MANAGER', 'STOREKEEPER'];
 const ADMIN_AUDIT_ROLES = ['SCHOOL_ADMIN', 'SCHOOL_MANAGER'];
 
 let tablesReady = false;
-const PORTAL_OPS_PREFIX_RE = /^\/(teacher-portal\/(?:requisitions|inventory-equipment|permissions)|reports\/(?:requisitions\/teacher|teacher-permissions)|accountant\/(?:requisitions|expenses|payroll(?:-requests)?|school-budgets|budget-lines|budget-line-usage|action-plans|action-plan-activities)|manager\/(?:payroll-requests|requisitions)|staff\/payroll\/my|payroll\/audit-log|store\/(?:requisitions|inventory|suppliers|movements)|admin\/(?:portal-audit-logs|staff-logins)|portal\/push|tools\/ticha-ai)(\/|$)/i;
+const PORTAL_OPS_PREFIX_RE = /^\/(teacher-portal\/(?:requisitions|inventory-equipment|permissions)|reports\/(?:requisitions\/teacher|teacher-permissions)|accountant\/(?:requisitions|expenses|payroll(?:-requests)?|school-budgets|budget-lines|budget-line-usage|action-plans|action-plan-activities|fee-reminders)|manager\/(?:payroll-requests|requisitions)|staff\/payroll\/my|payroll\/audit-log|store\/(?:requisitions|inventory|suppliers|movements)|admin\/(?:portal-audit-logs|staff-logins)|portal\/push|tools\/ticha-ai)(\/|$)/i;
 
 const BUDGET_LARGE_EXPENSE_RWF = Number(process.env.BUDGET_LARGE_EXPENSE_RWF || 5_000_000);
 
@@ -65,7 +65,9 @@ function resolveSchoolId(req) {
     req.session?.school_id ||
     req.session?.user?.school_id ||
     req.session?.user?.school?.id ||
+    req.session?.school?.id ||
     req.user?.school_id ||
+    req.user?.school?.id ||
     null
   );
 }
@@ -135,6 +137,110 @@ function payrollTermKeys(v) {
   if (term === 'T2') return ['T2', 'TERM2'];
   if (term === 'T3') return ['T3', 'TERM3'];
   return [term, term];
+}
+
+/** Only filter by term when the client sent one (avoids hiding rows stored as T1/T2 vs "Term 1"). */
+function appendExplicitPayrollTermFilter(where, params, termQ, columnExpr = 'r.term') {
+  const raw = String(termQ || '').trim();
+  if (!raw || /^all$/i.test(raw)) return;
+  const normalized = normalizePayrollTerm(raw);
+  if (!normalized) return;
+  const [keyA, keyB] = payrollTermKeys(normalized);
+  where.push(`UPPER(REPLACE(COALESCE(${columnExpr}, ''), ' ', '')) IN (?, ?)`);
+  params.push(keyA, keyB);
+}
+
+function paymentStatusToRequestStatus(status) {
+  const s = String(status || '').trim().toLowerCase();
+  if (s === 'paid') return 'Paid';
+  if (s === 'approved') return 'Approved';
+  if (s === 'rejected') return 'Rejected';
+  return 'Pending';
+}
+
+function mapPayrollRequestRow(r) {
+  return {
+    id: Number(r.id),
+    payrollId: `PAY-${r.id}`,
+    source: 'payroll_request',
+    staffUserId: Number(r.staff_user_id),
+    staffCode: r.staff_code || `STF-${r.staff_user_id}`,
+    staffName: r.staff_name || '',
+    role: r.role_code || 'STAFF',
+    department: r.department || '',
+    month: numberToMonthLabel(r.month),
+    monthNumber: Number(r.month || 0),
+    term: r.term || '',
+    year: String(r.year || ''),
+    amount: Number(r.amount || 0),
+    status: r.status || 'Pending',
+    basic: Number(r.basic || 0),
+    allowances: Number(r.allowances || 0),
+    deductions: Number(r.deductions || 0),
+    netSalary: Number(r.net_salary || 0),
+    advance: Number(r.advance || 0),
+    finalPayable: Number(r.final_payable || 0),
+    rejectedReason: r.rejected_reason || '',
+    managerNote: r.manager_note || '',
+    submittedBy: r.submit_actor_name || '',
+    submittedByRole: r.submit_actor_role || '',
+    submittedAt: r.created_at || null,
+    approvedByUserId: Number(r.approved_by_user_id || 0) || null,
+    paidByUserId: Number(r.paid_by_user_id || 0) || null,
+    approvedBy: r.approved_actor_name || '',
+    approvedByRole: r.approved_actor_role || '',
+    approvedAt: r.approved_at || null,
+    paidBy: r.paid_actor_name || '',
+    paidByRole: r.paid_actor_role || '',
+    paidAt: r.paid_at || null,
+    createdAt: r.created_at,
+  };
+}
+
+function mapPaymentRowToRequest(p) {
+  const status = paymentStatusToRequestStatus(p.payment_status);
+  return {
+    id: Number(p.id),
+    payrollId: `APAY-${p.id}`,
+    source: 'accountant_payment',
+    staffUserId: Number(p.staff_user_id),
+    staffCode: p.staff_code || `STF-${p.staff_user_id}`,
+    staffName: p.staff_name || '',
+    role: p.role_code || 'STAFF',
+    department: p.department || '',
+    month: numberToMonthLabel(p.pay_month),
+    monthNumber: Number(p.pay_month || 0),
+    term: normalizePayrollTerm(p.pay_term) || p.pay_term || '',
+    year: String(p.pay_year || ''),
+    amount: Number(p.net_salary_rwf || p.requested_amount_rwf || 0),
+    status,
+    basic: Number(p.basic_salary_rwf || 0),
+    allowances: Number(p.bonus_rwf || 0),
+    deductions: Number(p.deduction_rwf || 0),
+    netSalary: Number(p.net_salary_rwf || 0),
+    advance: 0,
+    finalPayable: Number(p.net_salary_rwf || p.requested_amount_rwf || 0),
+    rejectedReason: '',
+    managerNote: p.manager_note || '',
+    submittedBy: `${p.creator_first_name || ''} ${p.creator_last_name || ''}`.trim() || 'Accountant',
+    submittedByRole: 'ACCOUNTANT',
+    submittedAt: p.created_at || null,
+    approvedByUserId: Number(p.approved_by_user_id || 0) || null,
+    paidByUserId: null,
+    approvedBy: '',
+    approvedByRole: '',
+    approvedAt: p.approved_at || null,
+    paidBy: status === 'Paid' ? 'Accountant' : '',
+    paidByRole: status === 'Paid' ? 'ACCOUNTANT' : '',
+    paidAt: p.payment_date || p.last_payment_at || null,
+    createdAt: p.created_at,
+  };
+}
+
+function payrollPeriodKey(staffUserId, month, term, year) {
+  const m = monthLabelToNumber(month) || Number(month) || 0;
+  const t = normalizePayrollTerm(term) || String(term || '').trim().toUpperCase();
+  return `${staffUserId}|${m}|${t}|${parsePayrollYear(year)}`;
 }
 
 function parsePayrollYear(v) {
@@ -1930,11 +2036,14 @@ router.get('/accountant/payroll-requests', requireRole(ACCOUNTANT_READ_ROLES), a
     const status = String(req.query?.status || '').trim();
     const month = monthLabelToNumber(req.query?.month);
     const termQ = String(req.query?.term || '').trim();
-    const { term, academicYear } = await resolveAcademicContext(schoolId, '', termQ);
+    const academicYearQ = String(req.query?.academic_year || req.query?.academicYear || '').trim();
     const year = Number(req.query?.year || 0);
     const qRaw = String(req.query?.query || '').trim();
     const department = String(req.query?.department || '').trim();
     const q = `%${qRaw}%`;
+    const metaCtx = termQ || academicYearQ
+      ? await resolveAcademicContext(schoolId, academicYearQ, termQ)
+      : { term: '', academicYear: academicYearQ || '' };
 
     const where = ['r.school_id = ?', 'r.deleted_at IS NULL'];
     const params = [schoolId];
@@ -1946,10 +2055,7 @@ router.get('/accountant/payroll-requests', requireRole(ACCOUNTANT_READ_ROLES), a
       where.push('r.month = ?');
       params.push(month);
     }
-    if (term) {
-      where.push('r.term = ?');
-      params.push(term);
-    }
+    appendExplicitPayrollTermFilter(where, params, termQ, 'r.term');
     if (year >= 2000 && year <= 3000) {
       where.push('r.year = ?');
       params.push(year);
@@ -1988,44 +2094,69 @@ router.get('/accountant/payroll-requests', requireRole(ACCOUNTANT_READ_ROLES), a
       params
     );
 
+    const requestData = (rows || []).map(mapPayrollRequestRow);
+    const coveredPeriods = new Set(
+      requestData.map((r) => payrollPeriodKey(r.staffUserId, r.monthNumber || r.month, r.term, r.year))
+    );
+
+    const payWhere = ['p.school_id = ?', 'p.deleted_at IS NULL'];
+    const payParams = [schoolId];
+    if (status && ['Pending', 'Approved', 'Rejected', 'Paid'].includes(status)) {
+      payWhere.push('p.payment_status = ?');
+      payParams.push(status.toLowerCase());
+    }
+    if (month >= 1 && month <= 12) {
+      payWhere.push('p.pay_month = ?');
+      payParams.push(month);
+    }
+    appendExplicitPayrollTermFilter(payWhere, payParams, termQ, 'p.pay_term');
+    if (year >= 2000 && year <= 3000) {
+      payWhere.push('p.pay_year = ?');
+      payParams.push(year);
+    }
+    if (academicYearQ) {
+      payWhere.push('COALESCE(p.academic_year_label, "") = ?');
+      payParams.push(academicYearQ);
+    }
+    if (qRaw) {
+      payWhere.push('(p.staff_name LIKE ? OR COALESCE(p.staff_code, "") LIKE ?)');
+      payParams.push(q, q);
+    }
+    if (department) {
+      payWhere.push('LOWER(COALESCE(p.department, "")) = LOWER(?)');
+      payParams.push(department);
+    }
+
+    const [paymentRows] = await promisePool.query(
+      `SELECT p.id, p.staff_user_id, p.staff_code, p.staff_name, p.role_code, p.department,
+              p.basic_salary_rwf, p.bonus_rwf, p.deduction_rwf, p.net_salary_rwf,
+              p.pay_month, p.pay_year, p.pay_term, p.academic_year_label, p.payment_date, p.payment_status,
+              p.requested_amount_rwf, p.manager_note, p.created_by_user_id, p.approved_by_user_id, p.approved_at,
+              p.created_at, p.last_payment_at,
+              u.first_name AS creator_first_name, u.last_name AS creator_last_name
+       FROM accountant_payroll_payments p
+       LEFT JOIN users u ON u.id = p.created_by_user_id
+       WHERE ${payWhere.join(' AND ')}
+       ORDER BY p.id DESC
+       LIMIT 500`,
+      payParams
+    );
+
+    const paymentData = (paymentRows || [])
+      .map(mapPaymentRowToRequest)
+      .filter((row) => {
+        const key = payrollPeriodKey(row.staffUserId, row.monthNumber || row.month, row.term, row.year);
+        return !coveredPeriods.has(key);
+      });
+
+    const merged = [...requestData, ...paymentData].sort(
+      (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+    );
+
     return res.json({
       success: true,
-      meta: { term, academic_year: academicYear },
-      data: (rows || []).map((r) => ({
-        id: Number(r.id),
-        payrollId: `PAY-${r.id}`,
-        staffUserId: Number(r.staff_user_id),
-        staffCode: r.staff_code || `STF-${r.staff_user_id}`,
-        staffName: r.staff_name || '',
-        role: r.role_code || 'STAFF',
-        department: r.department || '',
-        month: numberToMonthLabel(r.month),
-        monthNumber: Number(r.month || 0),
-        term: r.term || '',
-        year: String(r.year || ''),
-        amount: Number(r.amount || 0),
-        status: r.status || 'Pending',
-        basic: Number(r.basic || 0),
-        allowances: Number(r.allowances || 0),
-        deductions: Number(r.deductions || 0),
-        netSalary: Number(r.net_salary || 0),
-        advance: Number(r.advance || 0),
-        finalPayable: Number(r.final_payable || 0),
-        rejectedReason: r.rejected_reason || '',
-        managerNote: r.manager_note || '',
-        submittedBy: r.submit_actor_name || '',
-        submittedByRole: r.submit_actor_role || '',
-        submittedAt: r.created_at || null,
-        approvedByUserId: Number(r.approved_by_user_id || 0) || null,
-        paidByUserId: Number(r.paid_by_user_id || 0) || null,
-        approvedBy: r.approved_actor_name || '',
-        approvedByRole: r.approved_actor_role || '',
-        approvedAt: r.approved_at || null,
-        paidBy: r.paid_actor_name || '',
-        paidByRole: r.paid_actor_role || '',
-        paidAt: r.paid_at || null,
-        createdAt: r.created_at,
-      })),
+      meta: { term: metaCtx.term || '', academic_year: metaCtx.academicYear || academicYearQ || '' },
+      data: merged,
     });
   } catch (e) {
     console.error('[accountant/payroll-requests GET]:', e.message);
@@ -2039,14 +2170,17 @@ router.get('/manager/payroll-requests', requireRole(PAYROLL_MANAGER_ROLES), asyn
     const status = String(req.query?.status || '').trim();
     const month = monthLabelToNumber(req.query?.month);
     const termQ = String(req.query?.term || '').trim();
-    const { term, academicYear } = await resolveAcademicContext(schoolId, '', termQ);
+    const academicYearQ = String(req.query?.academic_year || req.query?.academicYear || '').trim();
     const year = Number(req.query?.year || 0);
-    const qRaw = String(req.query?.query || '').trim();
+    const qRaw = String(req.query?.query || req.query?.search || '').trim();
     const department = String(req.query?.department || '').trim();
     const page = Math.max(1, Number(req.query?.page) || 1);
-    const limit = Math.min(100, Math.max(1, Number(req.query?.limit) || 20));
+    const limit = Math.min(500, Math.max(1, Number(req.query?.limit) || 20));
     const offset = (page - 1) * limit;
     const q = `%${qRaw}%`;
+    const metaCtx = termQ || academicYearQ
+      ? await resolveAcademicContext(schoolId, academicYearQ, termQ)
+      : { term: '', academicYear: academicYearQ || '' };
 
     const where = ['r.school_id = ?', 'r.deleted_at IS NULL'];
     const params = [schoolId];
@@ -2058,30 +2192,19 @@ router.get('/manager/payroll-requests', requireRole(PAYROLL_MANAGER_ROLES), asyn
       where.push('r.month = ?');
       params.push(month);
     }
-    if (term) {
-      where.push('r.term = ?');
-      params.push(term);
-    }
+    appendExplicitPayrollTermFilter(where, params, termQ, 'r.term');
     if (year >= 2000 && year <= 3000) {
       where.push('r.year = ?');
       params.push(year);
     }
     if (qRaw) {
-      where.push('(r.staff_name LIKE ? OR COALESCE(r.staff_code, "") LIKE ?)');
-      params.push(q, q);
+      where.push('(r.staff_name LIKE ? OR COALESCE(r.staff_code, "") LIKE ? OR COALESCE(r.role_code, "") LIKE ?)');
+      params.push(q, q, q);
     }
     if (department) {
       where.push('LOWER(COALESCE(r.department, "")) = LOWER(?)');
       params.push(department);
     }
-
-    const [countRows] = await promisePool.query(
-      `SELECT COUNT(*) AS total
-       FROM payroll_requests r
-       WHERE ${where.join(' AND ')}`,
-      params
-    );
-    const total = Number(countRows?.[0]?.total || 0);
 
     const [rows] = await promisePool.query(
       `SELECT r.id, r.staff_user_id, r.staff_code, r.staff_name, r.role_code, r.department,
@@ -2104,54 +2227,81 @@ router.get('/manager/payroll-requests', requireRole(PAYROLL_MANAGER_ROLES), asyn
        LEFT JOIN roles pyr ON pyr.id = pyu.role_id
        WHERE ${where.join(' AND ')}
        ORDER BY r.id DESC
-       LIMIT ? OFFSET ?`,
-      [...params, limit, offset]
+       LIMIT 2000`,
+      params
     );
+
+    const requestData = (rows || []).map(mapPayrollRequestRow);
+    const coveredPeriods = new Set(
+      requestData.map((r) => payrollPeriodKey(r.staffUserId, r.monthNumber || r.month, r.term, r.year))
+    );
+
+    const payWhere = ['p.school_id = ?', 'p.deleted_at IS NULL'];
+    const payParams = [schoolId];
+    if (status && ['Pending', 'Approved', 'Rejected', 'Paid'].includes(status)) {
+      payWhere.push('p.payment_status = ?');
+      payParams.push(status.toLowerCase());
+    }
+    if (month >= 1 && month <= 12) {
+      payWhere.push('p.pay_month = ?');
+      payParams.push(month);
+    }
+    appendExplicitPayrollTermFilter(payWhere, payParams, termQ, 'p.pay_term');
+    if (year >= 2000 && year <= 3000) {
+      payWhere.push('p.pay_year = ?');
+      payParams.push(year);
+    }
+    if (academicYearQ) {
+      payWhere.push('COALESCE(p.academic_year_label, "") = ?');
+      payParams.push(academicYearQ);
+    }
+    if (qRaw) {
+      payWhere.push('(p.staff_name LIKE ? OR COALESCE(p.staff_code, "") LIKE ? OR COALESCE(p.role_code, "") LIKE ?)');
+      payParams.push(q, q, q);
+    }
+    if (department) {
+      payWhere.push('LOWER(COALESCE(p.department, "")) = LOWER(?)');
+      payParams.push(department);
+    }
+
+    const [paymentRows] = await promisePool.query(
+      `SELECT p.id, p.staff_user_id, p.staff_code, p.staff_name, p.role_code, p.department,
+              p.basic_salary_rwf, p.bonus_rwf, p.deduction_rwf, p.net_salary_rwf,
+              p.pay_month, p.pay_year, p.pay_term, p.academic_year_label, p.payment_date, p.payment_status,
+              p.requested_amount_rwf, p.manager_note, p.created_by_user_id, p.approved_by_user_id, p.approved_at,
+              p.created_at, p.last_payment_at,
+              u.first_name AS creator_first_name, u.last_name AS creator_last_name
+       FROM accountant_payroll_payments p
+       LEFT JOIN users u ON u.id = p.created_by_user_id
+       WHERE ${payWhere.join(' AND ')}
+       ORDER BY p.id DESC
+       LIMIT 2000`,
+      payParams
+    );
+
+    const paymentData = (paymentRows || [])
+      .map(mapPaymentRowToRequest)
+      .filter((row) => {
+        const key = payrollPeriodKey(row.staffUserId, row.monthNumber || row.month, row.term, row.year);
+        return !coveredPeriods.has(key);
+      });
+
+    const merged = [...requestData, ...paymentData].sort(
+      (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+    );
+    const total = merged.length;
+    const pageData = merged.slice(offset, offset + limit);
 
     return res.json({
       success: true,
-      meta: { term, academic_year: academicYear },
+      meta: { term: metaCtx.term || '', academic_year: metaCtx.academicYear || academicYearQ || '' },
       pagination: {
         page,
         limit,
         total,
         totalPages: Math.max(1, Math.ceil(total / limit)),
       },
-      data: (rows || []).map((r) => ({
-        id: Number(r.id),
-        payrollId: `PAY-${r.id}`,
-        staffUserId: Number(r.staff_user_id),
-        staffCode: r.staff_code || `STF-${r.staff_user_id}`,
-        staffName: r.staff_name || '',
-        role: r.role_code || 'STAFF',
-        department: r.department || '',
-        month: numberToMonthLabel(r.month),
-        monthNumber: Number(r.month || 0),
-        term: r.term || '',
-        year: String(r.year || ''),
-        amount: Number(r.amount || 0),
-        status: r.status || 'Pending',
-        basic: Number(r.basic || 0),
-        allowances: Number(r.allowances || 0),
-        deductions: Number(r.deductions || 0),
-        netSalary: Number(r.net_salary || 0),
-        advance: Number(r.advance || 0),
-        finalPayable: Number(r.final_payable || 0),
-        rejectedReason: r.rejected_reason || '',
-        managerNote: r.manager_note || '',
-        submittedBy: r.submit_actor_name || '',
-        submittedByRole: r.submit_actor_role || '',
-        submittedAt: r.created_at || null,
-        approvedByUserId: Number(r.approved_by_user_id || 0) || null,
-        paidByUserId: Number(r.paid_by_user_id || 0) || null,
-        approvedBy: r.approved_actor_name || '',
-        approvedByRole: r.approved_actor_role || '',
-        approvedAt: r.approved_at || null,
-        paidBy: r.paid_actor_name || '',
-        paidByRole: r.paid_actor_role || '',
-        paidAt: r.paid_at || null,
-        createdAt: r.created_at,
-      })),
+      data: pageData,
     });
   } catch (e) {
     console.error('[manager/payroll-requests GET]:', e.message);
@@ -2512,7 +2662,9 @@ router.post('/accountant/payroll-requests', requireRole(ACCOUNTANT_WRITE_ROLES),
   }
 });
 
-router.post('/accountant/payroll-requests/finish-payment', requireRole(ACCOUNTANT_WRITE_ROLES), async (req, res) => {
+const PAYROLL_FINISH_PAYMENT_ROLES = ['SCHOOL_MANAGER', 'SCHOOL_ADMIN'];
+
+router.post('/accountant/payroll-requests/finish-payment', requireRole(PAYROLL_FINISH_PAYMENT_ROLES), async (req, res) => {
   const conn = await promisePool.getConnection();
   try {
     const { schoolId, userId, roleCode } = req.ctx;
@@ -2818,7 +2970,9 @@ router.get('/accountant/payroll', requireRole(ACCOUNTANT_READ_ROLES), async (req
     const year = Number(req.query?.year || 0);
     const termQ = String(req.query?.term || '').trim();
     const academicYearQ = String(req.query?.academic_year || req.query?.academicYear || '').trim();
-    const { term, academicYear } = await resolveAcademicContext(schoolId, academicYearQ, termQ);
+    const metaCtx = termQ || academicYearQ
+      ? await resolveAcademicContext(schoolId, academicYearQ, termQ)
+      : { term: '', academicYear: academicYearQ || '' };
     const where = ['p.school_id = ?', 'p.deleted_at IS NULL'];
     const params = [schoolId];
 
@@ -2843,13 +2997,10 @@ router.get('/accountant/payroll', requireRole(ACCOUNTANT_READ_ROLES), async (req
       where.push('p.pay_year = ?');
       params.push(year);
     }
-    if (term) {
-      where.push('COALESCE(p.pay_term, "") = ?');
-      params.push(term);
-    }
-    if (academicYear) {
+    appendExplicitPayrollTermFilter(where, params, termQ, 'p.pay_term');
+    if (academicYearQ) {
       where.push('COALESCE(p.academic_year_label, "") = ?');
-      params.push(academicYear);
+      params.push(academicYearQ);
     }
     const limit = Math.min(2000, Math.max(1, Number(req.query?.limit) || 500));
 
@@ -2869,7 +3020,7 @@ router.get('/accountant/payroll', requireRole(ACCOUNTANT_READ_ROLES), async (req
 
     res.json({
       success: true,
-      meta: { term, academic_year: academicYear },
+      meta: { term: metaCtx.term || '', academic_year: metaCtx.academicYear || academicYearQ || '' },
       data: rows.map((r) => ({
         db_id: r.id,
         payrollId: `PAY-${r.id}`,
@@ -6084,5 +6235,6 @@ router.post('/tools/ticha-ai/assist', requireRole(ALL_SCHOOL_ROLES), async (req,
 });
 
 router.use(require('./actionPlanRoutes'));
+router.use(require('./accountantReminders'));
 
 module.exports = router;

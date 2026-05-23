@@ -14,6 +14,7 @@ import { ArrowRight, Users, User, PlayCircle, FileBarChart } from 'lucide-react'
 import { sp } from '../utils/paths';
 import { useStudentPromotionData } from '../context/StudentPromotionDataContext';
 import PromotionDashboardHero from '../components/PromotionDashboardHero';
+import { PromotionPageBody } from '../components/PromotionPageHero';
 
 const NAVY = '#000435';
 const AMBER = '#F59E0B';
@@ -109,7 +110,7 @@ export default function Dashboard() {
         refreshing={loading}
       />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 space-y-6 sm:space-y-8 pt-6 sm:pt-8">
+      <PromotionPageBody className="space-y-6 sm:space-y-8">
         {/* Quick actions 2×2 */}
         <section>
           <div className="flex items-end justify-between gap-3 mb-4">
@@ -217,7 +218,7 @@ export default function Dashboard() {
             </div>
           )}
         </section>
-      </div>
+      </PromotionPageBody>
     </div>
   );
 }

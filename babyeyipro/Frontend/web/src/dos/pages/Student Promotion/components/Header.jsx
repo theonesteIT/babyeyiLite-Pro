@@ -5,8 +5,8 @@ import { useStudentPromotionData } from '../context/StudentPromotionDataContext'
 import { useAuth } from '../../../context/AuthContext';
 
 function HeaderSchoolLine() {
-  const { schoolName, academicYear } = useStudentPromotionData();
-  const line = [schoolName, academicYear].filter(Boolean).join(' · ');
+  const { schoolName, academicYear, term } = useStudentPromotionData();
+  const line = [schoolName, academicYear, term].filter(Boolean).join(' · ');
   return <>{line || 'School promotion'}</>;
 }
 

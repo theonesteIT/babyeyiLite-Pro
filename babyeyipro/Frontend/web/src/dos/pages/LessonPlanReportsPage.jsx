@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { FileText, Sparkles } from 'lucide-react';
 import { h } from '../utils/href';
-import DosOchreHero from '../components/DosOchreHero';
+import DosOrangePageHero, { DosPageBody } from '../components/DosOrangePageHero';
 
 /**
  * Landing for lesson-plan reporting in DOS. Teachers generate plans in Ticha AI;
@@ -10,14 +10,11 @@ import DosOchreHero from '../components/DosOchreHero';
 export default function LessonPlanReportsPage() {
   return (
     <>
-      <DosOchreHero
-        eyebrow="Teacher reports"
-        titleLine="Lesson plan"
-        titleAccent="reports"
+      <DosOrangePageHero
+        title="Lesson plan reports"
         subtitle="Create and refine lesson plans with Ticha AI. Use this area for school-level reviews and exports as your workflow grows."
-        icon={FileText}
       />
-      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 -mt-4 sm:-mt-5 md:-mt-6 pt-2 relative z-20 pb-10">
+      <DosPageBody className="-mt-4 sm:-mt-5 md:-mt-6 pb-10">
         <div className="max-w-2xl mx-auto space-y-5">
           <Link
             to={h('/ticha-ai')}
@@ -33,7 +30,7 @@ export default function LessonPlanReportsPage() {
             <FileText className="ml-auto shrink-0 text-slate-300" size={18} strokeWidth={1.75} />
           </Link>
         </div>
-      </div>
+      </DosPageBody>
     </>
   );
 }

@@ -11,6 +11,7 @@
 
 const express = require('express');
 const { promisePool } = require('../config/database');
+const { notifyStudentParentsPush } = require('./parentWebPush');
 const { requireRole } = require('../middleware/deoAuth');
 
 const router = express.Router();
@@ -121,13 +122,26 @@ async function ensurePermissionTrackingColumns() {
   permissionColumnsReady = true;
 }
 
+/** School conduct maximum — set by Head of Discipline as default_marks (starting balance for all learners). */
+async function getConductMaxMarks(schoolId) {
+  const { default_marks } = await getDefaultMarksForSchool(schoolId);
+  return default_marks;
+}
+
+/** @deprecated Use getConductMaxMarks — kept as alias for existing callers. */
 async function getTotalMarksForSchool(schoolId) {
-  const [[row]] = await promisePool.query(
-    'SELECT total_marks FROM school_discipline_settings WHERE school_id = ? LIMIT 1',
-    [schoolId]
+  return getConductMaxMarks(schoolId);
+}
+
+async function syncConductMaxMarks(schoolId, maxMarks, userId = null) {
+  await promisePool.query(
+    `INSERT INTO school_discipline_settings (school_id, total_marks, updated_by_user_id)
+     VALUES (?,?,?)
+     ON DUPLICATE KEY UPDATE
+       total_marks = VALUES(total_marks),
+       updated_by_user_id = VALUES(updated_by_user_id)`,
+    [schoolId, maxMarks, userId]
   );
-  if (row && row.total_marks != null) return Number(row.total_marks);
-  return 100;
 }
 
 async function getDefaultMarksForSchool(schoolId) {
@@ -141,6 +155,14 @@ async function getDefaultMarksForSchool(schoolId) {
       last_updated: row.last_updated || null,
       updated_by: row.updated_by || null,
     };
+  }
+  const [[legacy]] = await promisePool.query(
+    'SELECT total_marks FROM school_discipline_settings WHERE school_id = ? LIMIT 1',
+    [schoolId]
+  );
+  if (legacy?.total_marks != null) {
+    const legacyMarks = Number(legacy.total_marks);
+    return { default_marks: legacyMarks, last_updated: null, updated_by: null };
   }
   return { default_marks: 40, last_updated: null, updated_by: null };
 }
@@ -208,9 +230,16 @@ router.get('/discipline/settings', requireRole(DISCIPLINE_READ_ROLES), async (re
     if (!schoolId) {
       return res.status(400).json({ success: false, message: 'School not found in session.' });
     }
-    const total = await getTotalMarksForSchool(schoolId);
     const defaults = await getDefaultMarksForSchool(schoolId);
-    return res.json({ success: true, data: { total_marks: total, ...defaults } });
+    const maxMarks = defaults.default_marks;
+    return res.json({
+      success: true,
+      data: {
+        ...defaults,
+        total_marks: maxMarks,
+        max_marks: maxMarks,
+      },
+    });
   } catch (err) {
     console.error('GET /discipline/settings:', err);
     return res.status(500).json({ success: false, message: 'Failed to load settings' });
@@ -234,10 +263,10 @@ router.put('/discipline/settings/default-marks', requireRole(DISCIPLINE_WRITE_RO
     const applyTo = trimStr(req.body?.apply_to || 'new').toLowerCase();
     const confirmed = !!req.body?.confirmed_overwrite;
 
-    if (Number.isNaN(defaultMarks) || defaultMarks < 0 || defaultMarks > 100) {
+    if (Number.isNaN(defaultMarks) || defaultMarks < 1 || defaultMarks > 10000) {
       return res.status(400).json({
         success: false,
-        message: 'default_marks must be a number between 0 and 100.',
+        message: 'default_marks must be a number between 1 and 10000.',
       });
     }
     if (!['new', 'all'].includes(applyTo)) {
@@ -258,6 +287,7 @@ router.put('/discipline/settings/default-marks', requireRole(DISCIPLINE_WRITE_RO
          updated_by = VALUES(updated_by)`,
       [schoolId, defaultMarks, userId]
     );
+    await syncConductMaxMarks(schoolId, defaultMarks, userId);
 
     let updateSql = 'UPDATE students SET discipline_marks = ? WHERE school_id = ?';
     const updateParams = [defaultMarks, schoolId];
@@ -274,6 +304,8 @@ router.put('/discipline/settings/default-marks', requireRole(DISCIPLINE_WRITE_RO
         : 'Default marks saved and applied to new students only.',
       data: {
         ...defaults,
+        total_marks: defaults.default_marks,
+        max_marks: defaults.default_marks,
         updated_students: Number(updateResult?.affectedRows || 0),
         apply_to: applyTo,
       },
@@ -321,6 +353,8 @@ router.get('/discipline/students', requireRole(DISCIPLINE_READ_ROLES), async (re
     );
     const total = Number(countRow?.total || 0);
 
+    const { default_marks: conductMax } = await getDefaultMarksForSchool(schoolId);
+
     const [rows] = await promisePool.query(
       `SELECT
         s.id,
@@ -329,12 +363,12 @@ router.get('/discipline/students', requireRole(DISCIPLINE_READ_ROLES), async (re
         s.first_name,
         s.last_name,
         s.class_name,
-        COALESCE(s.discipline_marks, 0) AS discipline_marks
+        COALESCE(s.discipline_marks, ?) AS discipline_marks
       FROM students s
       ${whereSql}
       ORDER BY s.class_name ASC, s.last_name ASC, s.first_name ASC
       LIMIT ? OFFSET ?`,
-      [...whereParams, limit, offset]
+      [conductMax, ...whereParams, limit, offset]
     );
 
     const data = rows.map((r) => ({
@@ -445,11 +479,19 @@ router.post('/discipline/students/:studentId/marks', requireRole(DISCIPLINE_WRIT
       return res.status(404).json({ success: false, message: 'Student not found.' });
     }
 
-    const previousMarks = Number(student.discipline_marks || 0);
+    const maxMarks = await getConductMaxMarks(schoolId);
+    const previousMarks = Number(student.discipline_marks ?? maxMarks);
     const nextMarks = action === 'add' ? previousMarks + marks : previousMarks - marks;
     if (nextMarks < 0) {
       await conn.rollback();
       return res.status(400).json({ success: false, message: 'Resulting marks cannot be negative.' });
+    }
+    if (nextMarks > maxMarks) {
+      await conn.rollback();
+      return res.status(400).json({
+        success: false,
+        message: `Resulting marks cannot exceed the school maximum (${maxMarks}).`,
+      });
     }
 
     await conn.query(
@@ -464,7 +506,29 @@ router.post('/discipline/students/:studentId/marks', requireRole(DISCIPLINE_WRIT
       [schoolId, studentId, action, marks, reason.slice(0, 255), notes, actionDate || null, previousMarks, nextMarks, userId]
     );
 
+    const [[stName]] = await conn.query(
+      'SELECT first_name, last_name FROM students WHERE id = ? LIMIT 1',
+      [studentId]
+    );
     await conn.commit();
+
+    if (action === 'remove') {
+      const studentName =
+        `${trimStr(stName?.first_name)} ${trimStr(stName?.last_name)}`.trim() || 'Your child';
+      setImmediate(() => {
+        notifyStudentParentsPush(
+          studentId,
+          {
+            title: 'Discipline update',
+            body: `${studentName}: ${marks} mark(s) deducted — ${reason.slice(0, 120)}. Remaining: ${nextMarks}.`,
+            tag: `discipline-${studentId}`,
+            url: '/parents/home',
+          },
+          { category: 'discipline' }
+        ).catch((e) => console.warn('[discipline/push]', e.message));
+      });
+    }
+
     return res.status(201).json({
       success: true,
       message: 'Discipline marks updated successfully.',
@@ -572,13 +636,19 @@ router.put('/discipline/settings', requireRole(DISCIPLINE_WRITE_ROLES), async (r
         message: 'total_marks must be a number between 1 and 10000.',
       });
     }
+    await syncConductMaxMarks(schoolId, totalMarks, userId);
     await promisePool.query(
-      `INSERT INTO school_discipline_settings (school_id, total_marks, updated_by_user_id)
+      `INSERT INTO school_discipline_default_marks (school_id, default_marks, updated_by)
        VALUES (?,?,?)
-       ON DUPLICATE KEY UPDATE total_marks = VALUES(total_marks), updated_by_user_id = VALUES(updated_by_user_id)`,
+       ON DUPLICATE KEY UPDATE
+         default_marks = VALUES(default_marks),
+         updated_by = VALUES(updated_by)`,
       [schoolId, totalMarks, userId]
     );
-    return res.json({ success: true, data: { total_marks: totalMarks } });
+    return res.json({
+      success: true,
+      data: { total_marks: totalMarks, default_marks: totalMarks, max_marks: totalMarks },
+    });
   } catch (err) {
     console.error('PUT /discipline/settings:', err);
     return res.status(500).json({ success: false, message: 'Failed to save settings' });
@@ -740,6 +810,25 @@ router.post('/discipline/cases', requireRole(DISCIPLINE_WRITE_ROLES), async (req
         userId,
       ]
     );
+
+    const [[stName]] = await promisePool.query(
+      'SELECT first_name, last_name FROM students WHERE id = ? LIMIT 1',
+      [studentId]
+    );
+    const studentName =
+      `${trimStr(stName?.first_name)} ${trimStr(stName?.last_name)}`.trim() || 'Your child';
+    setImmediate(() => {
+      notifyStudentParentsPush(
+        studentId,
+        {
+          title: 'Discipline case recorded',
+          body: `${studentName}: ${marksDeducted} mark(s) — ${lessonSubject}. Remaining: ${remainAfter}.`,
+          tag: `discipline-case-${ins.insertId}`,
+          url: '/parents/home',
+        },
+        { category: 'discipline' }
+      ).catch((e) => console.warn('[discipline/case/push]', e.message));
+    });
 
     return res.status(201).json({
       success: true,

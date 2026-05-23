@@ -17,13 +17,30 @@ function loadWebPush() {
   return webPush;
 }
 
+function resolveVapidSubject() {
+  const explicit = trimStr(process.env.VAPID_SUBJECT);
+  if (explicit) return explicit;
+  const smtpUser = trimStr(process.env.SMTP_USER);
+  if (smtpUser && smtpUser.includes('@')) {
+    return smtpUser.startsWith('mailto:') ? smtpUser : `mailto:${smtpUser}`;
+  }
+  const smtpFrom = trimStr(process.env.SMTP_FROM);
+  const fromMatch = smtpFrom.match(/<([^>]+@[^>]+)>/);
+  if (fromMatch?.[1]) return `mailto:${fromMatch[1].trim()}`;
+  return 'mailto:admin@localhost';
+}
+
+function trimStr(v) {
+  return String(v ?? '').trim();
+}
+
 function configureVapid() {
   if (vapidConfigured) return true;
   const wp = loadWebPush();
   if (!wp) return false;
   const pub = process.env.VAPID_PUBLIC_KEY;
   const priv = process.env.VAPID_PRIVATE_KEY;
-  const sub = process.env.VAPID_SUBJECT || 'mailto:admin@localhost';
+  const sub = resolveVapidSubject();
   if (!pub || !priv) return false;
   wp.setVapidDetails(sub, pub, priv);
   vapidConfigured = true;
@@ -160,6 +177,7 @@ async function sendWebPushToSchoolRoles(schoolId, roleCodes, payload) {
 
 module.exports = {
   ensureWebPushTable,
+  configureVapid,
   upsertSubscription,
   removeSubscription,
   sendWebPushToUser,

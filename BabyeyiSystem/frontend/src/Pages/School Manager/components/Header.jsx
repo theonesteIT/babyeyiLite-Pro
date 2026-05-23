@@ -3,7 +3,7 @@
  * Single-row: title · search · utilities (#000435 + amber · Montserrat)
  */
 
-import { Bell, Menu, Wifi, WifiOff, Globe, BookOpen, ChevronDown, Search } from "lucide-react";
+import { Menu, Globe, BookOpen, ChevronDown, Search } from "lucide-react";
 import { useState } from "react";
 
 const SERVER_BASE = (import.meta.env.VITE_API_URL || "http://localhost:5100").replace(/\/api\/?$/, "") || "http://localhost:5100";
@@ -59,6 +59,10 @@ export default function Header({ current, online, notifCount, switchTab, setMobi
             ) : current?.id === "gate_attendance" ? (
               <p className="text-[10px] sm:text-[11px] text-slate-500 font-medium truncate">
                 Monitor morning and evening gate attendance.
+              </p>
+            ) : current?.id === "settings" ? (
+              <p className="text-[10px] sm:text-[11px] text-slate-500 font-medium truncate">
+                Profile, school identity, and academic calendar.
               </p>
             ) : schoolName ? (
               <p className="text-[10px] sm:text-[11px] text-slate-500 font-medium uppercase tracking-wide truncate">
@@ -123,19 +127,6 @@ export default function Header({ current, online, notifCount, switchTab, setMobi
               </div>
             )}
           </div>
-
-          <button
-            type="button"
-            onClick={() => switchTab("notifications")}
-            className="relative w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all"
-          >
-            <Bell size={18} />
-            {notifCount > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-amber-400 text-[#000435] text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white">
-                {notifCount > 9 ? "9+" : notifCount}
-              </span>
-            )}
-          </button>
 
           <button
             type="button"

@@ -3,7 +3,7 @@ import { jsPDF } from 'jspdf';
 import * as XLSX from 'xlsx';
 import { AlertTriangle, ArrowRightCircle, Banknote, Building2, Calendar, CheckCircle, ChevronRight, ClipboardList, Download, Eye, FileText, Loader2, Plus, RefreshCw, Send, ThumbsDown, ThumbsUp, Upload, User, Users, X } from 'lucide-react';
 import api from '../services/api';
-import DosOchreHero from '../components/DosOchreHero';
+import DosOrangePageHero, { DosPageBody } from '../components/DosOrangePageHero';
 
 const STATUS_OPTIONS = ['All', 'pending', 'approved', 'rejected', 'forwarded', 'issued', 'returned', 'cancelled'];
 const TERM_OPTIONS = ['All', 'Term 1', 'Term 2', 'Term 3'];
@@ -243,34 +243,24 @@ export default function TeacherRequisitionReports() {
 
   return (
     <div className="min-h-screen bg-white font-sans">
-      <DosOchreHero
-        eyebrow="DOS reports"
-        titleLine="Teacher"
-        titleAccent="requisitions"
+      <DosOrangePageHero
+        title="Teacher requisitions"
         subtitle="Filter, review, and export teacher requisition records."
-        icon={ClipboardList}
-        rightSlot={
-          <div className="flex flex-wrap gap-2 items-center">
+        onRefresh={load}
+        refreshing={loading}
+      >
             <button
               type="button"
               onClick={openAddModal}
-              className="h-9 px-4 rounded-xl bg-[#FEBF10] text-[#1E3A5F] text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 hover:bg-[#ffc933] transition-all shadow-lg shadow-[#FEBF10]/30"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-[#000435] px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-amber-400 shadow-lg transition hover:bg-[#0a0a52]"
             >
               <Plus size={14} strokeWidth={3} />
               Add Request
             </button>
             <button
               type="button"
-              onClick={load}
-              className="h-9 px-3 rounded-xl border border-white/20 bg-white/10 text-[10px] font-medium text-white flex items-center gap-1 hover:bg-white/15 transition-all"
-            >
-              <RefreshCw size={13} />
-              Refresh
-            </button>
-            <button
-              type="button"
               onClick={exportExcel}
-              className="h-9 px-3 rounded-xl border border-[#FEBF10]/40 bg-[#FEBF10]/15 text-[10px] font-medium text-white flex items-center gap-1"
+              className="inline-flex items-center gap-1 rounded-xl border border-white/35 bg-white/15 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-white transition hover:bg-white/25"
             >
               <Download size={13} />
               Excel
@@ -278,16 +268,14 @@ export default function TeacherRequisitionReports() {
             <button
               type="button"
               onClick={exportPdf}
-              className="h-9 px-3 rounded-xl border border-[#FEBF10]/40 bg-[#FEBF10]/15 text-[10px] font-medium text-white flex items-center gap-1"
+              className="inline-flex items-center gap-1 rounded-xl border border-white/35 bg-white/15 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-white transition hover:bg-white/25"
             >
               <Download size={13} />
               PDF
             </button>
-          </div>
-        }
-      />
+      </DosOrangePageHero>
 
-      <div className="animate-in fade-in duration-500 max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8 -mt-4 sm:-mt-5 md:-mt-6 pt-2 relative z-20 pb-10 space-y-4">
+      <DosPageBody className="max-w-[1500px] -mt-4 sm:-mt-5 md:-mt-6 space-y-4">
 
         {/* Tabs */}
         <div className="bg-white border border-black/5 rounded-2xl p-1.5 flex gap-1">
@@ -499,7 +487,7 @@ export default function TeacherRequisitionReports() {
             )}
           </div>
         )}
-      </div>
+      </DosPageBody>
 
       {/* Add Requisition Modal */}
       {showAddModal && (

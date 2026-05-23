@@ -10,12 +10,14 @@ const DashboardLayout = ({ children, title }) => {
   const isChatFocused = location.pathname.endsWith('/chat');
   const isSchoolBudget = location.pathname.includes('school-budget');
   const isActionPlan = location.pathname.includes('action-plan');
+  const isFeeReminders = location.pathname.includes('auto-reminders');
   const hideMainSidebar = isSchoolBudget || isActionPlan;
+  const fullBleedMain = isSchoolBudget || isActionPlan || isFeeReminders;
 
   return (
     <div className="flex h-screen bg-re-bg font-sans overflow-hidden">
       {!isChatFocused && !hideMainSidebar && (
-        <div className="hidden lg:flex w-[304px] shrink-0 min-h-0 h-full flex-col overflow-hidden bg-[#0b1530]">
+        <div className="hidden lg:flex w-[304px] shrink-0 min-h-0 h-full flex-col overflow-hidden bg-[#000435]">
           <Sidebar />
         </div>
       )}
@@ -28,7 +30,7 @@ const DashboardLayout = ({ children, title }) => {
         />
       )}
       {!isChatFocused && !hideMainSidebar && <div
-        className={`fixed inset-y-0 left-0 z-50 w-[304px] max-w-[88vw] flex flex-col min-h-0 overflow-hidden bg-[#0b1530] transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] lg:hidden ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        className={`fixed inset-y-0 left-0 z-50 w-[304px] max-w-[88vw] flex flex-col min-h-0 overflow-hidden bg-[#000435] transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] lg:hidden ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
       >
         <Sidebar onClose={() => setIsSidebarOpen(false)} />
@@ -47,13 +49,16 @@ const DashboardLayout = ({ children, title }) => {
         <main
           className={`flex-1 overflow-y-auto relative ${
             isChatFocused ? 'pb-0' : hideMainSidebar ? 'pb-0' : 'pb-[5.75rem] lg:pb-0'
-          }`}
+          } ${isFeeReminders ? 'bg-[#F0F2FF]' : ''}`}
         >
-          {/* Background glows */}
-          <div className="fixed bottom-0 right-0 w-96 h-96 bg-re-orange/5 blur-[120px] rounded-full pointer-events-none z-0" />
-          <div className="fixed top-0 left-0 w-72 h-72 bg-re-purple/5 blur-[100px] rounded-full pointer-events-none z-0" />
+          {!fullBleedMain && (
+            <>
+              <div className="fixed bottom-0 right-0 w-96 h-96 bg-re-orange/5 blur-[120px] rounded-full pointer-events-none z-0" />
+              <div className="fixed top-0 left-0 w-72 h-72 bg-re-purple/5 blur-[100px] rounded-full pointer-events-none z-0" />
+            </>
+          )}
 
-          <div className="relative max-w-[1600px] mx-auto">
+          <div className={fullBleedMain ? 'relative w-full min-h-full' : 'relative max-w-[1600px] mx-auto'}>
             {children}
           </div>
         </main>

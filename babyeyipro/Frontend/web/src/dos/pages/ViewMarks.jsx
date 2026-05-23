@@ -6,7 +6,7 @@ import {
     Users, BookOpen, Clock, Activity, Printer,
     ArrowUpRight, ArrowDownRight, Award, Filter, ChevronUp, User
 } from 'lucide-react';
-import DosOchreHero from '../components/DosOchreHero';
+import DosOrangePageHero from '../components/DosOrangePageHero';
 
 export default function ViewMarks() {
     const [selectedClass, setSelectedClass] = useState('Senior 3A');
@@ -71,32 +71,26 @@ export default function ViewMarks() {
     return (
         <div className="animate-in fade-in duration-500 bg-white min-h-screen pb-12 font-sans">
 
-            <DosOchreHero
-                eyebrow="Performance analytics"
-                titleLine="View"
-                titleAccent="marks"
+            <DosOrangePageHero
+                title="View marks"
                 subtitle={`Scholastic breakdown for ${selectedClass} · ${selectedSubject}.`}
-                icon={BarChart2}
+                heroStats={
+                    isClassSelected && marks.length
+                        ? [
+                            { label: 'Class average', value: `${stats.avg}%` },
+                            { label: 'Highest mark', value: `${stats.highest}%` },
+                            { label: 'Pass ratio', value: `${stats.passRate}%` },
+                            { label: 'Learners', value: String(marks.length) },
+                        ]
+                        : []
+                }
+                onRefresh={fetchMarks}
+                refreshing={loading}
             />
 
             {/* ── Main Content Area ── */}
             <div className="relative z-30 max-w-[1600px] mx-auto px-2 md:px-6 -mt-4 sm:-mt-5 md:-mt-6 pt-2">
                 <div className="bg-white rounded-t-[2.5rem] shadow-sm border border-black/10 overflow-hidden flex flex-col">
-
-                    {/* Integrated Stats Grid */}
-                    <div className={`${!isClassSelected ? 'hidden lg:grid' : 'grid'} grid-cols-2 lg:grid-cols-3 divide-x divide-y lg:divide-y-0 divide-black/5 border-b border-black/5`}>
-                        {[
-                            { label: 'Class Average', value: `${stats.avg}%`, icon: <Activity size={12} /> },
-                            { label: 'Highest Mark', value: `${stats.highest}%`, icon: <Award size={12} /> },
-                            { label: 'Pass Ratio', value: `${stats.passRate}%`, icon: <CheckCircle size={12} /> }
-                        ].map((s, i) => (
-                            <div key={i} className="p-4 sm:p-8 flex flex-col items-center justify-center text-center group hover:bg-re-bg/20 transition-all">
-                                <div className="text-re-orange opacity-40 mb-1.5 sm:mb-2">{s.icon}</div>
-                                <div className="text-sm sm:text-2xl font-black text-re-text tracking-tighter group-hover:text-re-orange">{s.value}</div>
-                                <div className="text-[6px] sm:text-[8px] font-black text-re-text-muted uppercase tracking-[0.2em] mt-0.5 opacity-60">{s.label}</div>
-                            </div>
-                        ))}
-                    </div>
 
                     {/* Controls Toolbar */}
                     <div className={`${!isClassSelected ? 'hidden lg:flex' : 'flex'} px-4 py-4 border-b border-black/5 flex flex-col lg:flex-row items-center justify-between gap-4 bg-re-bg/20`}>

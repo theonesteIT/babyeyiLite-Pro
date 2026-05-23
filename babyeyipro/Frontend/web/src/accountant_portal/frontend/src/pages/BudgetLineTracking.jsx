@@ -11,6 +11,8 @@ import BudgetPushBanner from "@/shared/BudgetPushBanner";
 import BudgetSelectorPanel from "../components/BudgetSelectorPanel";
 import BudgetAllocationSummary from "../components/BudgetAllocationSummary";
 import { getSelectedBudgetId, setSelectedBudgetId } from "../utils/selectedSchoolBudget";
+import SchoolBudgetPageShell from "../components/SchoolBudgetPageShell";
+import { sbPageTitleClass, sbPageSubtitleClass, sbSectionTitle, sbKpiValue, sbKpiLabel } from "../utils/schoolBudgetTypography";
 
 export default function BudgetLineTracking({ fmt }) {
   const { staff } = useAuth();
@@ -78,14 +80,14 @@ export default function BudgetLineTracking({ fmt }) {
   };
 
   return (
-    <div>
-      <div style={{ marginBottom: 14 }}>
+    <SchoolBudgetPageShell>
+      <div className="mb-4">
         <BudgetPushBanner api={api} />
       </div>
-      <div className="sb-page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+      <div className="sb-page-header flex flex-wrap items-start justify-between gap-3 mb-5">
         <div>
-          <div style={{ fontSize: isMobile ? 18 : 20, fontWeight: 800, color: COLORS.navy }}>Budget Usage Tracking</div>
-          <div style={{ fontSize: 13, color: COLORS.gray400, marginTop: 4 }}>Monitor spending and register usage against budget lines</div>
+          <h2 className={sbPageTitleClass}>Budget Usage Tracking</h2>
+          <p className={sbPageSubtitleClass}>Monitor spending and register usage against budget lines</p>
         </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <button type="button" onClick={load} disabled={loading} style={btnSecondary}>
@@ -113,7 +115,7 @@ export default function BudgetLineTracking({ fmt }) {
 
       {notifications.length > 0 && (
         <div style={{ marginBottom: 16, background: "#FFFBEB", border: `1px solid ${COLORS.amber}`, borderRadius: 10, padding: 14 }}>
-          <div style={{ fontWeight: 700, color: COLORS.navy, fontSize: 13, marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+          <div style={{ ...sbSectionTitle, marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
             <Bell size={16} color={COLORS.amber} /> Budget alerts
           </div>
           {notifications.slice(0, 5).map((n) => (
@@ -134,13 +136,13 @@ export default function BudgetLineTracking({ fmt }) {
           { label: "Exhausted Lines", value: summary?.exhaustedCount ?? "—" },
         ].map((c) => (
           <div key={c.label} style={{ background: COLORS.white, borderRadius: 10, padding: 14, border: `1px solid ${COLORS.gray200}` }}>
-            <div style={{ fontSize: 10, color: COLORS.gray400, textTransform: "uppercase", fontWeight: 700 }}>{c.label}</div>
-            <div style={{ fontSize: 17, fontWeight: 800, color: COLORS.navy, marginTop: 4 }}>{c.value}</div>
+            <div style={{ ...sbKpiLabel, marginBottom: 0 }}>{c.label}</div>
+            <div style={{ ...sbKpiValue, marginTop: 4 }}>{c.value}</div>
           </div>
         ))}
       </div>
 
-      <div style={{ fontWeight: 800, color: COLORS.navy, fontSize: 15, marginBottom: 10 }}>Budget usage by line</div>
+      <div style={{ ...sbSectionTitle, marginBottom: 10 }}>Budget usage by line</div>
       <div className="sb-table-scroll" style={{ background: COLORS.white, borderRadius: 12, border: `1px solid ${COLORS.gray200}`, overflow: "auto", marginBottom: 24 }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 640 }}>
           <thead>
@@ -164,10 +166,10 @@ export default function BudgetLineTracking({ fmt }) {
                 const st = statusStyle(b.statusKey);
                 return (
                   <tr key={b.db_id} style={{ borderBottom: `1px solid ${COLORS.gray100}`, background: i % 2 ? COLORS.gray50 : COLORS.white }}>
-                    <td style={{ padding: "10px 14px", fontWeight: 600 }}>{b.lineName}</td>
+                    <td style={{ padding: "10px 14px", fontWeight: 500 }}>{b.lineName}</td>
                     <td style={{ padding: "10px 14px" }}>{fmt(b.plannedAmount)}</td>
                     <td style={{ padding: "10px 14px" }}>{fmt(b.usedAmount)}</td>
-                    <td style={{ padding: "10px 14px", fontWeight: 700, color: COLORS.green }}>{fmt(b.remaining)}</td>
+                    <td style={{ padding: "10px 14px", fontWeight: 500, color: COLORS.green }}>{fmt(b.remaining)}</td>
                     <td style={{ padding: "10px 14px", minWidth: 120 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                         <div style={{ flex: 1, background: COLORS.gray200, borderRadius: 99, height: 6 }}>
@@ -180,11 +182,11 @@ export default function BudgetLineTracking({ fmt }) {
                             }}
                           />
                         </div>
-                        <span style={{ fontSize: 11, fontWeight: 700 }}>{b.usagePct}%</span>
+                        <span style={{ fontSize: 11, fontWeight: 500 }}>{b.usagePct}%</span>
                       </div>
                     </td>
                     <td style={{ padding: "10px 14px" }}>
-                      <span style={{ background: st.bg, color: st.color, borderRadius: 20, padding: "3px 10px", fontSize: 11, fontWeight: 700 }}>{b.statusLabel}</span>
+                      <span style={{ background: st.bg, color: st.color, borderRadius: 20, padding: "3px 10px", fontSize: 11, fontWeight: 500 }}>{b.statusLabel}</span>
                     </td>
                   </tr>
                 );
@@ -194,7 +196,7 @@ export default function BudgetLineTracking({ fmt }) {
         </table>
       </div>
 
-      <div style={{ fontWeight: 800, color: COLORS.navy, fontSize: 15, marginBottom: 10 }}>Recent usage history</div>
+      <div style={{ ...sbSectionTitle, marginBottom: 10 }}>Recent usage history</div>
       <div style={{ background: COLORS.white, borderRadius: 12, border: `1px solid ${COLORS.gray200}`, overflow: "hidden" }}>
         {usageHistory.length === 0 ? (
           <div style={{ padding: 24, textAlign: "center", color: COLORS.gray400, fontSize: 13 }}>No usage recorded yet.</div>
@@ -212,13 +214,13 @@ export default function BudgetLineTracking({ fmt }) {
               }}
             >
               <div>
-                <div style={{ fontWeight: 600, color: COLORS.navy, fontSize: 13 }}>{u.lineName}</div>
+                <div style={{ fontWeight: 500, color: COLORS.navy, fontSize: 13 }}>{u.lineName}</div>
                 <div style={{ fontSize: 11, color: COLORS.gray400, marginTop: 2 }}>
                   {u.expenseCategory || "—"} · {u.paymentMethod || "—"} · {u.usageDate}
                 </div>
                 {u.description && <div style={{ fontSize: 12, color: COLORS.gray600, marginTop: 4 }}>{u.description}</div>}
               </div>
-              <div style={{ fontWeight: 800, color: COLORS.amber }}>{fmt(u.usageAmount)}</div>
+              <div style={{ fontWeight: 600, color: COLORS.amber }}>{fmt(u.usageAmount)}</div>
             </div>
           ))
         )}
@@ -226,7 +228,7 @@ export default function BudgetLineTracking({ fmt }) {
 
       <RegisterBudgetUsageModal open={usageModalOpen} onClose={() => setUsageModalOpen(false)} fmt={fmt} lines={lines} onSaved={onUsageSaved} />
       <BudgetLineModal open={lineModalOpen} onClose={() => setLineModalOpen(false)} fmt={fmt} staff={staff} budgetId={budgetId} onSaved={load} />
-    </div>
+    </SchoolBudgetPageShell>
   );
 }
 
@@ -236,8 +238,11 @@ const btnPrimary = {
   borderRadius: 8,
   background: COLORS.amber,
   color: COLORS.navy,
-  fontWeight: 700,
-  fontSize: 13,
+  fontWeight: 500,
+  fontSize: 10,
+  fontFamily: "'Montserrat', sans-serif",
+  letterSpacing: '0.08em',
+  textTransform: 'uppercase',
   cursor: "pointer",
   display: "inline-flex",
   alignItems: "center",

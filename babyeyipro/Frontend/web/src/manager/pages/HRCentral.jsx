@@ -4,14 +4,15 @@ import {
     Users, Search, Plus, MoreVertical, Briefcase,
     TrendingUp, Download, Mail, ChevronRight,
     UserCheck, Award, Filter, Activity, UserPlus, X, User,
-    Phone, Clock, Home, Tag, Printer, Eye, CheckCircle, RefreshCw, Camera,
-    FileText, FileSpreadsheet, Upload, ChevronDown, Building2, ShieldCheck, FileSignature, Loader2,
+    Phone, Clock, Home, Tag, Printer, Eye, CheckCircle, RefreshCw, Camera, ChevronLeft,
+    FileText, FileSpreadsheet, ChevronDown, Building2, ShieldCheck, FileSignature, Loader2,
     Fingerprint, CreditCard, IdCard, Edit3, Wallet
 } from 'lucide-react';
 import staffService from '../services/staffService';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useAcademic } from '../context/AcademicContext';
+import { buildHrStaffExportRows, exportHrStaffPdf, exportHrStaffExcel } from '../utils/hrStaffExport';
 
 // ── Staff Detail Modal (Drawer Style) ──────────────────────────────────────
 const StaffModal = ({ staff, onClose }) => {
@@ -202,52 +203,86 @@ const StaffModal = ({ staff, onClose }) => {
                         </div>
                     </div>
                     <div>
-                        <div className="flex items-center gap-2 mb-4">
-                            <span className="text-[9px] font-semibold text-re-text-muted uppercase tracking-[0.3em] opacity-40">Personnel Activity Log</span>
-                            <div className="flex-1 h-px bg-black/5" />
-                        </div>
-                        <div className="space-y-3">
-                            {[
-                                { type: 'Appraisal', date: 'Last Month', msg: 'Termly performance review finalized at Expected level.', icon: FileSignature, color: 'text-emerald-500', bg: 'bg-emerald-50' },
-                                { type: 'Presence', date: '3 weeks ago', msg: 'Approved excused absence for professional development.', icon: UserCheck, color: 'text-re-purple', bg: 'bg-re-purple/5' },
-                                { type: 'Role Auth', date: '1 year ago', msg: 'Contract renewed successfully for upcoming academic cycle.', icon: ShieldCheck, color: 'text-[#1E3A5F]', bg: 'bg-slate-100' }
-                            ].map((log, i) => (
-                                <div key={i} className="flex items-start gap-3 p-4 rounded-2xl bg-re-bg/50 border border-black/[0.02] group hover:bg-white hover:border-black/5 transition-all">
-                                    <div className={`p-2 rounded-xl ${log.bg} ${log.color} shrink-0`}>
-                                        <log.icon size={14} />
-                                    </div>
-                                    <div className="min-w-0">
-                                        <div className="flex items-center gap-2 mb-0.5">
-                                            <span className="text-[8px] font-semibold uppercase tracking-widest text-re-text">{log.type}</span>
-                                            <span className="w-1 h-1 bg-black/10 rounded-full"></span>
-                                            <span className="text-[8px] font-bold text-re-text-muted opacity-40 uppercase">{log.date}</span>
-                                        </div>
-                                        <p className="text-[10px] font-bold text-re-text-muted leading-relaxed tracking-tight group-hover:text-re-text transition-colors">{log.msg}</p>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                        
+                        
                     </div>
                 </div>
-                <div className="px-6 py-4 border-t border-black/5 bg-re-bg/20 flex flex-col gap-2.5">
-                    <button
-                        onClick={() => onClose()}
-                        className="h-10 w-full flex items-center justify-center gap-2 text-white rounded-xl font-medium text-[9px] uppercase tracking-widest active:scale-95 transition-all"
-                        style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)" }}
-                    >
-                        <FileSignature size={14} /> Request Formal Appraisal
-                    </button>
-                    <div className="grid grid-cols-2 gap-2.5">
-                        <button className="h-10 flex items-center justify-center gap-2 bg-white border border-black/5 text-re-text font-medium text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg transition-all">
-                            <Mail size={14} style={{ color: "#FEBF10" }} /> Send Notice
-                        </button>
-                        <button className="h-10 flex items-center justify-center gap-2 bg-white border border-black/5 text-re-text font-medium text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg transition-all">
-                            <Printer size={14} style={{ color: "#FEBF10" }} /> Print HR File
-                        </button>
-                    </div>
-                </div>
+               
             </div>
         </>,
+        document.body
+    );
+};
+
+// ── Shule Avance policy modal ───────────────────────────────────────────────
+const ShuleAvancePolicyModal = ({ isOpen, onClose, advanceMaxPercent, setAdvanceMaxPercent, policySaving, onSave, enabledCount, totalCount }) => {
+    if (!isOpen) return null;
+    return createPortal(
+        <div className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center p-0 sm:p-4">
+            <button type="button" className="fixed inset-0 bg-black/40" aria-label="Close" onClick={onClose} />
+            <div
+                className="relative w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl border border-black/10 overflow-hidden animate-in slide-in-from-bottom sm:zoom-in-95 duration-200"
+                role="dialog"
+                aria-labelledby="avance-policy-title"
+            >
+                <div className="px-5 py-4 border-b border-black/5 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-xl bg-[#1E3A5F] text-[#FEBF10] flex items-center justify-center shrink-0">
+                            <Wallet size={18} />
+                        </div>
+                        <div className="min-w-0">
+                            <h3 id="avance-policy-title" className="text-sm font-bold text-[#1E3A5F] uppercase tracking-wide truncate">
+                                Avance rate
+                            </h3>
+                            <p className="text-[10px] text-slate-500 mt-0.5">Shule Avance monthly cap</p>
+                        </div>
+                    </div>
+                    <button type="button" onClick={onClose} className="w-9 h-9 flex items-center justify-center rounded-xl border border-black/5 text-slate-500 hover:bg-slate-50 shrink-0">
+                        <X size={16} />
+                    </button>
+                </div>
+                <div className="p-5 space-y-4">
+                    <p className="text-[12px] text-slate-600 leading-relaxed">
+                        Set the maximum advance each staff member may request per month, as a percentage of net salary.
+                        Enable access per person when hiring or from the staff row menu.
+                    </p>
+                    <p className="text-[11px] font-semibold text-[#1E3A5F]/80">
+                        {enabledCount} of {totalCount} staff with Shule Avance enabled
+                    </p>
+                    <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">
+                            Max % per month
+                        </label>
+                        <input
+                            type="number"
+                            min={1}
+                            max={100}
+                            value={advanceMaxPercent}
+                            onChange={(e) => setAdvanceMaxPercent(e.target.value)}
+                            className="w-full h-11 px-4 rounded-xl border border-slate-200 text-base font-bold text-[#1E3A5F] bg-white outline-none focus:border-[#1E3A5F] focus:ring-2 focus:ring-[#1E3A5F]/10"
+                        />
+                    </div>
+                </div>
+                <div className="px-5 py-4 border-t border-black/5 flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="h-11 px-5 rounded-xl border border-black/10 text-[11px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-50"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        disabled={policySaving}
+                        onClick={onSave}
+                        className="h-11 px-6 rounded-xl text-[11px] font-bold uppercase tracking-wider text-white disabled:opacity-60"
+                        style={{ background: 'linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)' }}
+                    >
+                        {policySaving ? 'Saving…' : 'Save policy'}
+                    </button>
+                </div>
+            </div>
+        </div>,
         document.body
     );
 };
@@ -260,6 +295,8 @@ const HIRE_STEPS = [
     'Account Setup',
     'Review & Save'
 ];
+
+const HIRE_STEP_SHORT = ['Personal', 'Employment', 'Department', 'Payroll', 'Account', 'Review'];
 
 const getRoleAbbr = (roleCode) => {
     const role = (roleCode || '').toUpperCase();
@@ -293,18 +330,18 @@ const KNOWN_ROLE_CODES = new Set([
 
 // ── Clean Field Component ──────────────────────────────────────────────────
 const Field = ({ label, required, error, hint, children, className = '', fullWidth = false }) => (
-    <div className={`flex flex-col gap-1.5 ${fullWidth ? 'col-span-2' : ''} ${className}`}>
-        <label className="flex items-center gap-1.5">
-            <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider leading-none">
+    <div className={`flex flex-col gap-1.5 ${fullWidth ? 'col-span-1 sm:col-span-2' : ''} ${className}`}>
+        <label className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+            <span className="text-[12px] sm:text-[11px] font-semibold text-slate-700 sm:text-slate-600 sm:uppercase sm:tracking-wider leading-snug">
                 {label}
             </span>
-            {required && <span className="text-[#c87800] text-xs leading-none font-bold">*</span>}
-            {hint && <span className="text-[10px] text-slate-400 font-medium normal-case tracking-normal">{hint}</span>}
+            {required && <span className="text-[#c87800] text-sm leading-none font-bold">*</span>}
+            {hint && <span className="text-[11px] sm:text-[10px] text-slate-400 font-medium">{hint}</span>}
         </label>
         {children}
         {error && (
-            <p className="text-[10px] font-semibold text-red-600 flex items-center gap-1">
-                <span className="w-1 h-1 rounded-full bg-red-500 inline-block"></span>
+            <p className="text-[11px] sm:text-[10px] font-semibold text-red-600 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
                 {error}
             </p>
         )}
@@ -313,16 +350,16 @@ const Field = ({ label, required, error, hint, children, className = '', fullWid
 
 // ── Section Divider ────────────────────────────────────────────────────────
 const SectionHeader = ({ title, icon: Icon, subtitle }) => (
-    <div className="col-span-2 pt-2 pb-1 space-y-1">
+    <div className="col-span-1 sm:col-span-2 pt-1 sm:pt-2 pb-1 space-y-1">
         <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-                {Icon && <Icon size={13} className="text-[#c87800]" />}
-                <span className="text-[10px] font-bold text-[#1E3A5F] uppercase tracking-[0.2em]">{title}</span>
+            <div className="flex items-center gap-2 min-w-0">
+                {Icon && <Icon size={14} className="text-[#c87800] shrink-0" />}
+                <span className="text-[11px] sm:text-[10px] font-bold text-[#1E3A5F] uppercase tracking-[0.15em] sm:tracking-[0.2em] truncate">{title}</span>
             </div>
             <div className="flex-1 h-px bg-slate-100" />
         </div>
         {subtitle ? (
-            <p className="text-[11px] text-slate-500 font-medium leading-snug pl-0.5">{subtitle}</p>
+            <p className="text-[12px] sm:text-[11px] text-slate-500 font-medium leading-snug">{subtitle}</p>
         ) : null}
     </div>
 );
@@ -587,11 +624,13 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
         }
     };
 
-    // ── Shared input styles — clean, flat, no shadows ──────────────────────
-    const inp = 'w-full h-10 bg-white border border-slate-200 rounded-lg px-3 text-[12px] font-medium text-slate-800 outline-none focus:border-[#1E3A5F] focus:ring-2 focus:ring-[#1E3A5F]/10 transition-all placeholder:text-slate-300 placeholder:font-normal';
+    // ── Shared input styles — touch-friendly on mobile ─────────────────────
+    const formGrid = 'grid grid-cols-1 sm:grid-cols-2 gap-x-4 sm:gap-x-5 gap-y-4';
+    const inp = 'w-full min-h-[44px] sm:h-10 bg-white border border-slate-200 rounded-xl sm:rounded-lg px-3.5 sm:px-3 text-[16px] sm:text-[12px] font-medium text-slate-800 outline-none focus:border-[#1E3A5F] focus:ring-2 focus:ring-[#1E3A5F]/10 transition-all placeholder:text-slate-400 placeholder:font-normal touch-manipulation';
     const inpErr = (field) => `${inp} ${fieldErrors[field] ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : ''}`;
-    const sel = `${inp} cursor-pointer appearance-none bg-[url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")] bg-no-repeat bg-[right_12px_center]`;
-    const inpDisabled = `${inp} bg-slate-50 text-slate-400 cursor-not-allowed border-slate-100`;
+    const sel = `${inp} cursor-pointer appearance-none pr-10 bg-[url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")] bg-no-repeat bg-[right_14px_center] sm:bg-[right_12px_center]`;
+    const inpDisabled = `${inp} bg-slate-50 text-slate-500 cursor-not-allowed border-slate-100`;
+    const stepProgress = Math.round(((step + 1) / HIRE_STEPS.length) * 100);
 
     const parseAmount = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
     const formatRwf = (v) => new Intl.NumberFormat('en-RW').format(Math.max(0, Math.round(v || 0)));
@@ -606,10 +645,10 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
 
     const section = () => {
         if (step === 0) return (
-            <div className="grid grid-cols-2 gap-x-5 gap-y-4">
+            <div className={formGrid}>
                 {/* Photo upload — full width */}
-                <div className="col-span-2 flex items-center gap-5 p-4 bg-slate-50 rounded-xl border border-slate-100">
-                    <div className="relative w-20 h-20 rounded-xl border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden bg-white shrink-0 hover:border-[#c87800] transition-colors group">
+                <div className="col-span-1 sm:col-span-2 flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-5 p-4 sm:p-5 bg-slate-50 rounded-2xl border border-slate-100">
+                    <div className="relative w-24 h-24 sm:w-20 sm:h-20 rounded-2xl border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden bg-white shrink-0 hover:border-[#c87800] transition-colors group">
                         {preview
                             ? <img src={preview} alt="preview" className="w-full h-full object-cover" />
                             : <div className="flex flex-col items-center gap-1">
@@ -619,9 +658,9 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
                         }
                         <input type="file" accept="image/*" onChange={handlePhotoChange} className="absolute inset-0 opacity-0 cursor-pointer" />
                     </div>
-                    <div>
-                        <p className="text-[12px] font-semibold text-slate-700 mb-0.5">Profile Photo</p>
-                        <p className="text-[11px] text-slate-400 font-medium">Upload a clear passport-style photo.<br/>JPG or PNG, max 2MB.</p>
+                    <div className="text-center sm:text-left">
+                        <p className="text-[13px] font-semibold text-slate-700 mb-1">Profile photo</p>
+                        <p className="text-[12px] text-slate-500 font-medium leading-relaxed">Tap to upload a clear passport-style photo. JPG or PNG, max 2MB.</p>
                     </div>
                 </div>
 
@@ -664,7 +703,7 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
         );
 
         if (step === 1) return (
-            <div className="grid grid-cols-2 gap-x-5 gap-y-4">
+            <div className={formGrid}>
                 <SectionHeader title="Role & Contract" icon={Briefcase} />
 
                 <Field label="Staff ID / Code" hint="(Auto-generated)" error={fieldErrors.staff_id}>
@@ -852,17 +891,17 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
 
                 {/* Allowances */}
                 <div className="border border-slate-100 rounded-xl overflow-hidden">
-                    <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-b border-slate-100">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-4 py-3 bg-slate-50 border-b border-slate-100">
                         <div className="flex items-center gap-2">
-                            <TrendingUp size={13} className="text-[#c87800]" />
-                            <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Additional Allowances</span>
+                            <TrendingUp size={14} className="text-[#c87800] shrink-0" />
+                            <span className="text-[12px] sm:text-[11px] font-bold text-slate-700 uppercase tracking-wider">Additional allowances</span>
                         </div>
                         <button
                             type="button"
                             onClick={() => setField('payroll_other_allowances', [...formData.payroll_other_allowances, { label: '', amount: '' }])}
-                            className="flex items-center gap-1.5 px-3 h-7 text-[10px] font-bold uppercase tracking-wider text-[#1E3A5F] bg-[#1E3A5F]/10 rounded-lg hover:bg-[#1E3A5F]/20 transition-colors"
+                            className="flex items-center justify-center gap-1.5 px-4 h-10 sm:h-8 text-[11px] font-bold uppercase tracking-wider text-[#1E3A5F] bg-[#1E3A5F]/10 rounded-xl hover:bg-[#1E3A5F]/20 transition-colors touch-manipulation w-full sm:w-auto"
                         >
-                            <Plus size={11} /> Add Row
+                            <Plus size={12} /> Add row
                         </button>
                     </div>
                     <div className="p-4 space-y-2.5">
@@ -870,19 +909,20 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
                             <p className="text-[11px] text-slate-400 text-center py-2">No allowances added yet.</p>
                         )}
                         {formData.payroll_other_allowances.map((item, idx) => (
-                            <div key={`allow-${idx}`} className="grid grid-cols-[1fr_140px_32px] gap-2 items-end">
-                                <Field label={idx === 0 ? "Allowance Label" : ""}>
+                            <div key={`allow-${idx}`} className="grid grid-cols-1 sm:grid-cols-[1fr_140px_40px] gap-3 sm:gap-2 sm:items-end">
+                                <Field label={idx === 0 ? 'Allowance label' : ''}>
                                     <input className={inp} placeholder="e.g. Night Shift, Overtime" value={item.label} onChange={(e) => updateListItem('payroll_other_allowances', idx, 'label', e.target.value)} />
                                 </Field>
-                                <Field label={idx === 0 ? "Amount (RWF)" : ""}>
+                                <Field label={idx === 0 ? 'Amount (RWF)' : ''}>
                                     <input type="number" className={inp} placeholder="0" value={item.amount} onChange={(e) => updateListItem('payroll_other_allowances', idx, 'amount', e.target.value)} />
                                 </Field>
                                 <button
                                     type="button"
                                     onClick={() => setField('payroll_other_allowances', formData.payroll_other_allowances.filter((_, i) => i !== idx))}
-                                    className="h-10 w-8 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                    className="h-11 sm:h-10 w-full sm:w-10 flex items-center justify-center gap-2 sm:gap-0 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-xl border border-slate-200 sm:border-0 transition-colors touch-manipulation"
                                 >
-                                    <X size={14} />
+                                    <X size={16} />
+                                    <span className="text-[11px] font-semibold sm:hidden">Remove</span>
                                 </button>
                             </div>
                         ))}
@@ -891,18 +931,18 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
 
                 {/* Deductions */}
                 <div className="border border-slate-100 rounded-xl overflow-hidden">
-                    <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-b border-slate-100">
-                        <div className="flex items-center gap-2">
-                            <FileText size={13} className="text-[#c87800]" />
-                            <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Other Deductions</span>
-                            <span className="text-[10px] text-slate-400 font-medium">(optional)</span>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-4 py-3 bg-slate-50 border-b border-slate-100">
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <FileText size={14} className="text-[#c87800] shrink-0" />
+                            <span className="text-[12px] sm:text-[11px] font-bold text-slate-700 uppercase tracking-wider">Other deductions</span>
+                            <span className="text-[11px] text-slate-400 font-medium">(optional)</span>
                         </div>
                         <button
                             type="button"
                             onClick={() => setField('payroll_other_deductions', [...formData.payroll_other_deductions, { label: '', amount: '' }])}
-                            className="flex items-center gap-1.5 px-3 h-7 text-[10px] font-bold uppercase tracking-wider text-[#1E3A5F] bg-[#1E3A5F]/10 rounded-lg hover:bg-[#1E3A5F]/20 transition-colors"
+                            className="flex items-center justify-center gap-1.5 px-4 h-10 sm:h-8 text-[11px] font-bold uppercase tracking-wider text-[#1E3A5F] bg-[#1E3A5F]/10 rounded-xl hover:bg-[#1E3A5F]/20 transition-colors touch-manipulation w-full sm:w-auto"
                         >
-                            <Plus size={11} /> Add Row
+                            <Plus size={12} /> Add row
                         </button>
                     </div>
                     <div className="p-4 space-y-2.5">
@@ -910,19 +950,20 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
                             <p className="text-[11px] text-slate-400 text-center py-2">No deductions added yet.</p>
                         )}
                         {formData.payroll_other_deductions.map((item, idx) => (
-                            <div key={`ded-${idx}`} className="grid grid-cols-[1fr_140px_32px] gap-2 items-end">
-                                <Field label={idx === 0 ? "Deduction Label" : ""}>
+                            <div key={`ded-${idx}`} className="grid grid-cols-1 sm:grid-cols-[1fr_140px_40px] gap-3 sm:gap-2 sm:items-end">
+                                <Field label={idx === 0 ? 'Deduction label' : ''}>
                                     <input className={inp} placeholder="e.g. Pension, Union Fee" value={item.label} onChange={(e) => updateListItem('payroll_other_deductions', idx, 'label', e.target.value)} />
                                 </Field>
-                                <Field label={idx === 0 ? "Amount (RWF)" : ""}>
+                                <Field label={idx === 0 ? 'Amount (RWF)' : ''}>
                                     <input type="number" className={inp} placeholder="0" value={item.amount} onChange={(e) => updateListItem('payroll_other_deductions', idx, 'amount', e.target.value)} />
                                 </Field>
                                 <button
                                     type="button"
                                     onClick={() => setField('payroll_other_deductions', formData.payroll_other_deductions.filter((_, i) => i !== idx))}
-                                    className="h-10 w-8 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                    className="h-11 sm:h-10 w-full sm:w-10 flex items-center justify-center gap-2 sm:gap-0 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-xl border border-slate-200 sm:border-0 transition-colors touch-manipulation"
                                 >
-                                    <X size={14} />
+                                    <X size={16} />
+                                    <span className="text-[11px] font-semibold sm:hidden">Remove</span>
                                 </button>
                             </div>
                         ))}
@@ -1069,98 +1110,189 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
     };
 
     return createPortal(
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
-            <div className="fixed inset-0 bg-[#0a192f]/70 backdrop-blur-sm animate-in fade-in duration-300" onClick={onClose} />
-            <div className="relative bg-white w-full max-w-3xl rounded-2xl overflow-hidden animate-in zoom-in-95 duration-300 flex flex-col max-h-[92vh] border border-slate-200">
-
+        <div className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center p-0 sm:p-4">
+            <button type="button" className="fixed inset-0 bg-[#0a192f]/60" aria-label="Close" onClick={onClose} />
+            <div
+                className="relative bg-white w-full sm:max-w-3xl rounded-t-[1.25rem] sm:rounded-2xl overflow-hidden animate-in slide-in-from-bottom sm:zoom-in-95 duration-300 flex flex-col max-h-[100dvh] sm:max-h-[92vh] border border-slate-200"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="hire-modal-title"
+            >
                 {/* Header */}
-                <div className="px-6 py-4 flex items-center justify-between border-b border-slate-100 shrink-0" style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)" }}>
-                    <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
-                            <UserPlus size={15} className="text-[#FEBF10]" />
+                <div className="px-4 sm:px-6 pt-4 sm:pt-5 pb-3 sm:pb-4 shrink-0 border-b border-white/10" style={{ background: 'linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)' }}>
+                    <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-10 h-10 sm:w-9 sm:h-9 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
+                                <UserPlus size={18} className="text-[#FEBF10]" />
+                            </div>
+                            <div className="min-w-0">
+                                <h3 id="hire-modal-title" className="text-[15px] sm:text-[13px] font-bold text-white tracking-tight leading-tight">
+                                    {isEditMode ? 'Edit staff profile' : 'Add new staff member'}
+                                </h3>
+                                <p className="text-[11px] text-white/55 font-medium mt-1 truncate">
+                                    {HIRE_STEPS[step]}
+                                </p>
+                            </div>
                         </div>
-                        <div>
-                            <h3 className="text-[13px] font-bold text-white tracking-tight">{isEditMode ? 'Edit Staff Profile' : 'Add New Staff Member'}</h3>
-                            <p className="text-[10px] text-white/50 font-medium mt-0.5 uppercase tracking-widest">HR Central — Step {step + 1} of {HIRE_STEPS.length}</p>
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="w-10 h-10 sm:w-9 sm:h-9 flex items-center justify-center rounded-xl bg-white/10 text-white/80 hover:bg-white/20 hover:text-white transition-all shrink-0 touch-manipulation"
+                            aria-label="Close"
+                        >
+                            <X size={18} />
+                        </button>
+                    </div>
+
+                    {/* Mobile progress */}
+                    <div className="mt-4 sm:hidden">
+                        <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-white/70 mb-2">
+                            <span>Step {step + 1} of {HIRE_STEPS.length}</span>
+                            <span>{stepProgress}%</span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-white/15 overflow-hidden">
+                            <div className="h-full rounded-full bg-[#FEBF10] transition-all duration-300" style={{ width: `${stepProgress}%` }} />
+                        </div>
+                        <div className="flex gap-1 mt-3 overflow-x-auto pb-0.5 -mx-1 px-1">
+                            {HIRE_STEP_SHORT.map((label, i) => (
+                                <button
+                                    key={label}
+                                    type="button"
+                                    onClick={() => setStep(i)}
+                                    className={`shrink-0 h-8 min-w-[4.5rem] px-2.5 rounded-lg text-[9px] font-bold uppercase tracking-wide transition-all touch-manipulation ${
+                                        i === step
+                                            ? 'bg-white text-[#1E3A5F]'
+                                            : i < step
+                                            ? 'bg-white/20 text-white'
+                                            : 'bg-white/5 text-white/45 border border-white/10'
+                                    }`}
+                                >
+                                    {i < step ? '✓ ' : ''}{label}
+                                </button>
+                            ))}
                         </div>
                     </div>
-                    <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 text-white/70 hover:bg-white/20 hover:text-white transition-all">
-                        <X size={15} />
-                    </button>
                 </div>
 
-                {/* Step Tabs */}
-                <div className="px-5 py-3 bg-slate-50 border-b border-slate-100 flex gap-1.5 overflow-x-auto shrink-0">
-                    {HIRE_STEPS.map((label, i) => (
-                        <button
-                            key={label}
-                            type="button"
-                            onClick={() => setStep(i)}
-                            className={`h-8 px-3 rounded-lg text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap transition-all flex items-center gap-1.5 ${
-                                i === step
-                                    ? 'bg-[#1E3A5F] text-white'
-                                    : i < step
-                                    ? 'bg-[#1E3A5F]/10 text-[#1E3A5F]'
-                                    : 'bg-white text-slate-400 border border-slate-200'
-                            }`}
-                        >
-                            {i < step && <CheckCircle size={10} />}
-                            {label}
-                        </button>
-                    ))}
+                {/* Desktop step tabs */}
+                <div className="hidden sm:block px-5 py-3 bg-slate-50/90 border-b border-slate-100 shrink-0">
+                    <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+                        {HIRE_STEPS.map((label, i) => (
+                            <button
+                                key={label}
+                                type="button"
+                                onClick={() => setStep(i)}
+                                className={`h-9 px-3.5 rounded-xl text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                                    i === step
+                                        ? 'bg-[#1E3A5F] text-white'
+                                        : i < step
+                                        ? 'bg-[#1E3A5F]/10 text-[#1E3A5F]'
+                                        : 'bg-white text-slate-400 border border-slate-200 hover:border-slate-300'
+                                }`}
+                            >
+                                {i < step && <CheckCircle size={11} />}
+                                {HIRE_STEP_SHORT[i]}
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
                 {/* Error Banner */}
                 {error && (
-                    <div className="mx-5 mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 flex items-start gap-3">
-                        <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center shrink-0 mt-0.5">
-                            <X size={10} className="text-white" />
+                    <div className="mx-4 sm:mx-5 mt-3 sm:mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 flex items-start gap-3 shrink-0">
+                        <div className="w-6 h-6 rounded-full bg-red-500 flex items-center justify-center shrink-0">
+                            <X size={12} className="text-white" />
                         </div>
-                        <div>
-                            <p className="text-[11px] font-bold text-red-700 uppercase tracking-wider">Action Failed</p>
-                            <p className="text-[12px] font-semibold text-red-800 mt-0.5">{error}</p>
+                        <div className="min-w-0">
+                            <p className="text-[11px] font-bold text-red-700 uppercase tracking-wider">Please fix this</p>
+                            <p className="text-[13px] sm:text-[12px] font-semibold text-red-800 mt-0.5 leading-snug">{error}</p>
                         </div>
                     </div>
                 )}
 
                 {/* Form Body */}
-                <form id="hr-staff-stepper-form" onSubmit={onSubmit} className="flex-1 overflow-y-auto px-6 py-5">
+                <form
+                    id="hr-staff-stepper-form"
+                    onSubmit={onSubmit}
+                    className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-4 sm:px-6 py-4 sm:py-5"
+                >
                     {section()}
                 </form>
 
                 {/* Footer */}
-                <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between shrink-0">
-                    <button
-                        type="button"
-                        onClick={step === 0 ? onClose : () => setStep((s) => Math.max(0, s - 1))}
-                        className="h-9 px-5 rounded-lg border border-slate-200 text-[11px] font-semibold text-slate-600 hover:bg-white hover:border-slate-300 transition-all"
-                    >
-                        {step === 0 ? 'Cancel' : '← Back'}
-                    </button>
+                <div className="px-4 sm:px-6 py-3 sm:py-4 bg-white border-t border-slate-100 shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-4">
+                    <div className="hidden sm:flex items-center justify-between gap-4">
+                        <button
+                            type="button"
+                            onClick={step === 0 ? onClose : () => setStep((s) => Math.max(0, s - 1))}
+                            className="h-10 px-5 rounded-xl border border-slate-200 text-[11px] font-semibold text-slate-600 hover:bg-slate-50 transition-all"
+                        >
+                            {step === 0 ? 'Cancel' : 'Back'}
+                        </button>
+                        <div className="flex items-center gap-3">
+                            <span className="text-[10px] font-medium text-slate-400 tabular-nums">{step + 1} / {HIRE_STEPS.length}</span>
+                            {step < HIRE_STEPS.length - 1 ? (
+                                <button
+                                    type="button"
+                                    onClick={onNext}
+                                    className="h-10 px-6 rounded-xl text-white font-semibold text-[11px] flex items-center gap-2 transition-all active:scale-[0.98] touch-manipulation"
+                                    style={{ background: 'linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)' }}
+                                >
+                                    Continue <ChevronRight size={14} />
+                                </button>
+                            ) : (
+                                <button
+                                    type="submit"
+                                    form="hr-staff-stepper-form"
+                                    disabled={isSubmitting}
+                                    className="h-10 px-6 rounded-xl font-semibold text-[11px] flex items-center gap-2 text-[#1E3A5F] transition-all active:scale-[0.98] disabled:opacity-60 touch-manipulation"
+                                    style={{ background: 'linear-gradient(135deg, #FEBF10 0%, #e6ab00 100%)' }}
+                                >
+                                    {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
+                                    {isSubmitting ? 'Saving…' : 'Save staff profile'}
+                                </button>
+                            )}
+                        </div>
+                    </div>
 
-                    <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-medium text-slate-400">{step + 1}/{HIRE_STEPS.length}</span>
-                        {step < HIRE_STEPS.length - 1 ? (
+                    {/* Mobile footer */}
+                    <div className="flex sm:hidden flex-col gap-2">
+                        <div className="flex items-center justify-center">
+                            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider tabular-nums">
+                                Step {step + 1} of {HIRE_STEPS.length}
+                            </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
                             <button
                                 type="button"
-                                onClick={onNext}
-                                className="h-9 px-6 rounded-lg text-white font-semibold text-[11px] flex items-center gap-2 transition-all active:scale-95"
-                                style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)" }}
+                                onClick={step === 0 ? onClose : () => setStep((s) => Math.max(0, s - 1))}
+                                className="h-12 rounded-xl border border-slate-200 text-[12px] font-bold text-slate-600 flex items-center justify-center gap-1.5 touch-manipulation active:bg-slate-50"
                             >
-                                Continue <ChevronRight size={13} />
+                                {step > 0 && <ChevronLeft size={16} />}
+                                {step === 0 ? 'Cancel' : 'Back'}
                             </button>
-                        ) : (
-                            <button
-                                type="submit"
-                                form="hr-staff-stepper-form"
-                                disabled={isSubmitting}
-                                className="h-9 px-6 rounded-lg font-semibold text-[11px] flex items-center gap-2 text-[#1E3A5F] transition-all active:scale-95 disabled:opacity-60"
-                                style={{ background: "linear-gradient(135deg, #FEBF10 0%, #e6ab00 100%)" }}
-                            >
-                                {isSubmitting ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle size={13} />}
-                                {isSubmitting ? 'Saving…' : 'Save Staff Profile'}
-                            </button>
-                        )}
+                            {step < HIRE_STEPS.length - 1 ? (
+                                <button
+                                    type="button"
+                                    onClick={onNext}
+                                    className="h-12 rounded-xl text-white font-bold text-[12px] flex items-center justify-center gap-1.5 touch-manipulation active:scale-[0.98]"
+                                    style={{ background: 'linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)' }}
+                                >
+                                    Continue <ChevronRight size={16} />
+                                </button>
+                            ) : (
+                                <button
+                                    type="submit"
+                                    form="hr-staff-stepper-form"
+                                    disabled={isSubmitting}
+                                    className="h-12 rounded-xl font-bold text-[12px] flex items-center justify-center gap-1.5 text-[#1E3A5F] disabled:opacity-60 touch-manipulation active:scale-[0.98]"
+                                    style={{ background: 'linear-gradient(135deg, #FEBF10 0%, #e6ab00 100%)' }}
+                                >
+                                    {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={16} />}
+                                    {isSubmitting ? 'Saving…' : 'Save'}
+                                </button>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1168,6 +1300,87 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
         document.body
     );
 };
+
+/** Export Records dropdown — PDF & Excel */
+const ExportRecordsMenu = ({
+    isOpen,
+    onToggle,
+    onClose,
+    recordCount,
+    exportLoading,
+    onExportPdf,
+    onExportExcel,
+    buttonClassName = 'w-full h-11',
+}) => (
+    <div className="relative">
+        <button
+            type="button"
+            onClick={onToggle}
+            disabled={!!exportLoading}
+            className={`${buttonClassName} flex items-center justify-center gap-2 text-white rounded-xl font-semibold text-[10px] sm:text-[9px] uppercase tracking-widest active:scale-[0.98] transition-all disabled:opacity-70`}
+            style={{ background: 'linear-gradient(135deg, #000435 0%, #0D2644 100%)' }}
+        >
+            {exportLoading ? (
+                <Loader2 size={14} className="animate-spin text-[#FEBF10]" />
+            ) : (
+                <Download size={14} />
+            )}
+            <span>{exportLoading ? 'Exporting…' : 'Export records'}</span>
+            {!exportLoading && (
+                <ChevronDown size={12} className={`transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+            )}
+        </button>
+
+        {isOpen && !exportLoading && (
+            <>
+                <button type="button" className="fixed inset-0 z-[40] cursor-default" aria-label="Close menu" onClick={onClose} />
+                <div className="absolute top-full left-0 right-0 mt-2 z-[50] rounded-2xl border border-[#1E3A5F]/15 bg-white overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200">
+                    <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/80">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-[#1E3A5F]">Download roster</p>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                            {recordCount} record{recordCount === 1 ? '' : 's'} (current filters)
+                        </p>
+                    </div>
+                    <div className="p-2 space-y-1">
+                        <button
+                            type="button"
+                            onClick={onExportPdf}
+                            disabled={recordCount === 0}
+                            className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left hover:bg-[#1E3A5F]/5 active:bg-[#1E3A5F]/10 transition-colors disabled:opacity-45 disabled:pointer-events-none group"
+                        >
+                            <div className="w-10 h-10 rounded-xl bg-red-50 border border-red-100 flex items-center justify-center shrink-0 group-hover:border-red-200">
+                                <FileText size={18} className="text-red-600" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <p className="text-[11px] font-bold uppercase tracking-wide text-[#1E3A5F]">PDF report</p>
+                                <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">Print-ready table · landscape A4</p>
+                            </div>
+                            <ChevronRight size={14} className="text-slate-300 shrink-0" />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={onExportExcel}
+                            disabled={recordCount === 0}
+                            className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left hover:bg-emerald-50/80 active:bg-emerald-50 transition-colors disabled:opacity-45 disabled:pointer-events-none group"
+                        >
+                            <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0 group-hover:border-emerald-200">
+                                <FileSpreadsheet size={18} className="text-emerald-700" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <p className="text-[11px] font-bold uppercase tracking-wide text-[#1E3A5F]">Excel workbook</p>
+                                <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">Spreadsheet with school metadata</p>
+                            </div>
+                            <ChevronRight size={14} className="text-slate-300 shrink-0" />
+                        </button>
+                    </div>
+                    {recordCount === 0 && (
+                        <p className="px-4 pb-3 text-[10px] text-amber-700 font-semibold">No personnel match your filters.</p>
+                    )}
+                </div>
+            </>
+        )}
+    </div>
+);
 
 const HRCentral = () => {
     const { manager } = useAuth();
@@ -1186,6 +1399,8 @@ const HRCentral = () => {
     const [notifications, setNotifications] = useState([]);
     const [advanceMaxPercent, setAdvanceMaxPercent] = useState(25);
     const [policySaving, setPolicySaving] = useState(false);
+    const [showAvancePolicyModal, setShowAvancePolicyModal] = useState(false);
+    const [exportLoading, setExportLoading] = useState(null);
 
     const notify = (type, message) => {
         const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -1291,11 +1506,17 @@ const HRCentral = () => {
                 return;
             }
             notify('success', res.message || 'Shule Avance policy saved.');
+            setShowAvancePolicyModal(false);
         } catch (err) {
             notify('error', err?.response?.data?.message || 'Failed to save policy.');
         } finally {
             setPolicySaving(false);
         }
+    };
+
+    const openAvancePolicyModal = () => {
+        setActiveDropdown(null);
+        setShowAvancePolicyModal(true);
     };
 
     const fetchStaff = async () => {
@@ -1437,6 +1658,40 @@ const HRCentral = () => {
         (selectedDept === 'All Departments' || s.department === selectedDept)
     );
 
+    const schoolName = manager?.school?.name || manager?.school_name || 'School';
+    const exportTerm = hrTerm || academic.currentTerm || 'Term 1';
+
+    const runStaffExport = async (format) => {
+        const rows = buildHrStaffExportRows(filteredStaff);
+        if (!rows.length) {
+            notify('error', 'No staff records to export. Clear filters or add personnel first.');
+            setActiveDropdown(null);
+            return;
+        }
+        setExportLoading(format);
+        setActiveDropdown(null);
+        try {
+            const ctx = {
+                schoolName,
+                term: exportTerm,
+                department: selectedDept,
+                stats,
+                rows,
+            };
+            if (format === 'pdf') {
+                exportHrStaffPdf(ctx);
+                notify('success', `PDF downloaded (${rows.length} staff).`);
+            } else {
+                exportHrStaffExcel(ctx);
+                notify('success', `Excel file downloaded (${rows.length} staff).`);
+            }
+        } catch (err) {
+            notify('error', err?.message || 'Export failed. Please try again.');
+        } finally {
+            setExportLoading(null);
+        }
+    };
+
     useEffect(() => {
         if (!staffRowMenu) return undefined;
         const onReposition = () => closeStaffRowMenu();
@@ -1466,6 +1721,16 @@ const HRCentral = () => {
                 editingStaff={editingStaff}
                 existingStaff={staff}
                 advanceMaxPercent={advanceMaxPercent}
+            />
+            <ShuleAvancePolicyModal
+                isOpen={showAvancePolicyModal}
+                onClose={() => setShowAvancePolicyModal(false)}
+                advanceMaxPercent={advanceMaxPercent}
+                setAdvanceMaxPercent={setAdvanceMaxPercent}
+                policySaving={policySaving}
+                onSave={saveAdvancePolicy}
+                enabledCount={staff.filter((s) => s.allowAdvance).length}
+                totalCount={staff.length}
             />
 
             {showAllDeptsModal && createPortal(
@@ -1510,49 +1775,8 @@ const HRCentral = () => {
             </div>
 
             {/* Main Content */}
-            <div className="max-w-[1600px] mx-auto px-6 md:px-12 -mt-4 sm:-mt-5 md:-mt-6 pt-2 relative z-20 pb-20">
-                <div className="bg-white rounded-t-[32px] border border-black/10 overflow-hidden flex flex-col">
-
-                    <div className="mx-4 sm:mx-6 mt-4 sm:mt-5 rounded-2xl border border-[#FEBF10]/35 bg-gradient-to-r from-[#FEBF10]/12 via-white to-[#1E3A5F]/5 p-4 sm:p-5">
-                        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                            <div className="flex items-start gap-3 min-w-0">
-                                <div className="w-11 h-11 rounded-xl bg-[#1E3A5F] text-[#FEBF10] flex items-center justify-center shrink-0">
-                                    <Wallet size={20} />
-                                </div>
-                                <div>
-                                    <h2 className="text-sm font-bold text-[#1E3A5F] uppercase tracking-wide">Shule Avance policy</h2>
-                                    <p className="text-[11px] text-slate-600 mt-1 max-w-xl leading-relaxed">
-                                        Monthly advance cap as % of net salary. Enable per staff in hire/edit payroll or via row menu.
-                                    </p>
-                                    <p className="text-[10px] font-semibold text-[#1E3A5F]/70 mt-2">
-                                        {staff.filter((s) => s.allowAdvance).length} of {staff.length} staff with Shule Avance enabled
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="flex items-end gap-2 shrink-0">
-                                <div>
-                                    <label className="block text-[9px] font-bold uppercase tracking-widest text-slate-500 mb-1">Max % / month</label>
-                                    <input
-                                        type="number"
-                                        min={1}
-                                        max={100}
-                                        value={advanceMaxPercent}
-                                        onChange={(e) => setAdvanceMaxPercent(e.target.value)}
-                                        className="w-24 h-10 px-3 rounded-xl border border-slate-200 text-sm font-bold text-[#1E3A5F] bg-white"
-                                    />
-                                </div>
-                                <button
-                                    type="button"
-                                    disabled={policySaving}
-                                    onClick={saveAdvancePolicy}
-                                    className="h-10 px-5 rounded-xl text-[10px] font-bold uppercase tracking-wider text-white disabled:opacity-60"
-                                    style={{ background: 'linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)' }}
-                                >
-                                    {policySaving ? 'Saving…' : 'Save policy'}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+            <div className="max-w-[1600px] mx-auto px-4 sm:px-6 md:px-12 -mt-3 sm:-mt-4 pt-2 relative z-20 pb-24 lg:pb-20">
+                <div className="bg-white rounded-t-2xl sm:rounded-t-[28px] border border-black/10 overflow-hidden flex flex-col">
 
                     <div className={`${!isDeptSelected ? 'hidden md:grid' : 'grid'} grid-cols-1 lg:grid-cols-4 border-b border-black/5`}>
                         <div className="lg:col-span-3 grid grid-cols-2 md:grid-cols-3 divide-x divide-y md:divide-y-0 divide-black/5">
@@ -1571,18 +1795,15 @@ const HRCentral = () => {
                         </div>
 
                         <div className="hidden lg:flex flex-col border-l border-black/5 bg-re-bg/30 p-6 justify-center gap-3 relative">
-                            <div className="relative">
-                                <button onClick={() => setActiveDropdown(activeDropdown === 'export' ? null : 'export')} className="w-full h-11 flex items-center justify-center gap-2 text-white rounded-xl font-medium text-[9px] uppercase tracking-widest active:scale-95 transition-all" style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)" }}>
-                                    <Download size={14} /><span>Export Records</span><ChevronDown size={12} className={`transition-transform duration-300 ${activeDropdown === 'export' ? 'rotate-180' : ''}`} />
-                                </button>
-                                {activeDropdown === 'export' && (<>
-                                    <div className="fixed inset-0 z-[40]" onClick={() => setActiveDropdown(null)} />
-                                    <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-black/10 rounded-2xl overflow-hidden py-1 z-[50] animate-in slide-in-from-top-2 duration-200">
-                                        <button className="w-full text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-re-text hover:bg-re-bg transition-colors flex items-center gap-2.5"><FileText size={14} style={{ color: "#FEBF10" }} /> Export into PDF</button>
-                                        <button className="w-full text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-re-text hover:bg-re-bg transition-colors flex items-center gap-2.5 border-t border-black/5"><FileSpreadsheet size={14} style={{ color: "#FEBF10" }} /> Export into Excel</button>
-                                    </div>
-                                </>)}
-                            </div>
+                            <ExportRecordsMenu
+                                isOpen={activeDropdown === 'export'}
+                                onToggle={() => setActiveDropdown(activeDropdown === 'export' ? null : 'export')}
+                                onClose={() => setActiveDropdown(null)}
+                                recordCount={filteredStaff.length}
+                                exportLoading={exportLoading}
+                                onExportPdf={() => runStaffExport('pdf')}
+                                onExportExcel={() => runStaffExport('excel')}
+                            />
 
                             <div className="relative">
                                 <button onClick={() => setActiveDropdown(activeDropdown === 'actions' ? null : 'actions')} className="w-full h-11 flex items-center justify-center gap-2 bg-white border border-black/5 text-re-text font-medium text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg transition-all">
@@ -1592,7 +1813,7 @@ const HRCentral = () => {
                                     <div className="fixed inset-0 z-[40]" onClick={() => setActiveDropdown(null)} />
                                     <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-black/10 rounded-2xl overflow-hidden py-1 z-[50] animate-in slide-in-from-top-2 duration-200">
                                         <button onClick={() => { setShowHireModal(true); setActiveDropdown(null); }} className="w-full text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-[#1E3A5F] hover:bg-re-navy/5 transition-colors flex items-center gap-2.5"><UserPlus size={14} /> Hire New Staff</button>
-                                        <button className="w-full text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-re-text hover:bg-re-bg transition-colors flex items-center gap-2.5 border-t border-black/5"><Upload size={14} style={{ color: "#FEBF10" }} /> Import Roster</button>
+                                        <button type="button" onClick={openAvancePolicyModal} className="w-full text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-re-text hover:bg-re-bg transition-colors flex items-center gap-2.5 border-t border-black/5"><Wallet size={14} style={{ color: "#FEBF10" }} /> Avance rate</button>
                                     </div>
                                 </>)}
                             </div>
@@ -1603,23 +1824,66 @@ const HRCentral = () => {
                         </div>
                     </div>
 
+                    {/* Mobile actions */}
+                    <div className={`${!isDeptSelected ? 'hidden' : 'flex'} lg:hidden p-4 border-b border-black/5 flex-col gap-2 bg-slate-50/80`}>
+                        <ExportRecordsMenu
+                            isOpen={activeDropdown === 'export-mobile'}
+                            onToggle={() => setActiveDropdown(activeDropdown === 'export-mobile' ? null : 'export-mobile')}
+                            onClose={() => setActiveDropdown(null)}
+                            recordCount={filteredStaff.length}
+                            exportLoading={exportLoading}
+                            onExportPdf={() => runStaffExport('pdf')}
+                            onExportExcel={() => runStaffExport('excel')}
+                            buttonClassName="w-full h-10"
+                        />
+                        <div className="flex gap-2">
+                            <div className="relative flex-1">
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveDropdown(activeDropdown === 'actions-mobile' ? null : 'actions-mobile')}
+                                    className="w-full h-10 flex items-center justify-center gap-2 bg-white border border-black/10 text-re-text font-semibold text-[10px] uppercase tracking-widest rounded-xl"
+                                >
+                                    <ShieldCheck size={14} style={{ color: '#FEBF10' }} />
+                                    <span>HR Actions</span>
+                                    <ChevronDown size={12} className={`transition-transform ${activeDropdown === 'actions-mobile' ? 'rotate-180' : ''}`} />
+                                </button>
+                                {activeDropdown === 'actions-mobile' && (
+                                    <>
+                                        <div className="fixed inset-0 z-[40]" onClick={() => setActiveDropdown(null)} />
+                                        <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-black/10 rounded-xl overflow-hidden py-1 z-[50]">
+                                            <button type="button" onClick={() => { setShowHireModal(true); setActiveDropdown(null); }} className="w-full text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-[#1E3A5F] hover:bg-re-navy/5 flex items-center gap-2.5"><UserPlus size={14} /> Hire new staff</button>
+                                            <button type="button" onClick={openAvancePolicyModal} className="w-full text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-re-text hover:bg-re-bg border-t border-black/5 flex items-center gap-2.5"><Wallet size={14} style={{ color: '#FEBF10' }} /> Avance rate</button>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setShowHireModal(true)}
+                                className="h-10 px-4 shrink-0 flex items-center justify-center gap-1.5 rounded-xl font-semibold text-[10px] uppercase tracking-widest text-[#1E3A5F] border border-[#FEBF10]/50 bg-[#FEBF10]/20"
+                            >
+                                <UserPlus size={14} /> Add staff
+                            </button>
+                        </div>
+                    </div>
+
                     {/* Search Bar */}
-                    <div className={`${!isDeptSelected ? 'hidden md:flex' : 'flex'} p-4 md:px-8 border-b border-black/5 flex-col md:flex-row items-center gap-3 bg-white/50`}>
+                    <div className={`${!isDeptSelected ? 'hidden md:flex' : 'flex'} p-4 md:px-8 border-b border-black/5 flex-col md:flex-row items-stretch md:items-center gap-3 bg-white`}>
                         <div className="relative flex-1 w-full group">
                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-re-text-muted/40 group-focus-within:text-[#1E3A5F] transition-colors" size={14} />
                             <input type="text" placeholder="Search by name, ID or role..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full h-9 sm:h-10 bg-re-bg rounded-xl pl-11 pr-4 font-extrabold outline-none border border-transparent focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-re-text text-sm sm:text-xs tracking-tight" />
                         </div>
                         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
                             <div className="flex flex-col gap-1 min-w-[140px]">
-                                <span className="text-[7px] font-bold uppercase tracking-widest text-re-text-muted opacity-60 px-1">Term (Preferences dates)</span>
+                                <span className="text-[7px] font-bold uppercase tracking-widest text-re-text-muted opacity-60 px-1">Term</span>
                                 <select value={hrTerm || academic.currentTerm || 'Term 1'} onChange={(e) => setHrTerm(e.target.value)} className="h-9 sm:h-10 px-3 rounded-xl border border-black/10 bg-white text-[10px] font-bold uppercase tracking-wider text-[#1E3A5F] outline-none focus:ring-2 focus:ring-[#FEBF10]/30">
                                     {(academic.activeTerms?.length ? academic.activeTerms : ['Term 1', 'Term 2', 'Term 3']).map((t) => (<option key={t} value={t}>{t}</option>))}
                                 </select>
                             </div>
-                            {metricsRange?.elapsed_to && metricsRange?.from && (<p className="text-[8px] font-semibold text-re-text-muted uppercase tracking-tight max-w-[220px] leading-snug sm:self-end sm:pb-2">Gate + roll-call window {metricsRange.from} → {metricsRange.elapsed_to}</p>)}
+                          
                         </div>
                         <div className="flex items-center gap-2 w-full md:w-auto">
-                            <button onClick={() => { setShowHireModal(true); setActiveDropdown(null); }} className="h-9 sm:h-10 px-3 sm:px-5 bg-[#FEBF10]/15 border border-[#FEBF10]/40 rounded-xl flex items-center gap-1.5 sm:gap-2 text-[#1E3A5F] font-semibold text-[8px] sm:text-[9px] uppercase tracking-widest hover:bg-[#FEBF10]/25 transition-all whitespace-nowrap"><UserPlus size={13} />Add New Staff</button>
+                           
                             <button onClick={() => setShowDeptFilter(!showDeptFilter)} className="h-9 sm:h-10 px-3 sm:px-5 bg-white border border-black/5 rounded-xl flex items-center gap-1.5 sm:gap-2 text-re-text-muted font-semibold text-[8px] sm:text-[9px] uppercase tracking-widest hover:bg-re-bg transition-all whitespace-nowrap"><Filter size={13} style={{ color: "#FEBF10" }} />Filter By Dept</button>
                         </div>
                     </div>
@@ -1660,7 +1924,64 @@ const HRCentral = () => {
                         </div>
                     )}
 
-                    <div className={`${!isDeptSelected ? 'hidden md:block' : 'block'} overflow-x-auto bg-white`}>
+                    {/* Mobile staff cards */}
+                    <div className={`${!isDeptSelected ? 'hidden' : 'block'} md:hidden bg-white`}>
+                        {loading ? (
+                            <div className="p-10 text-center">
+                                <div className="w-8 h-8 border-4 border-t-transparent rounded-full animate-spin mx-auto mb-3" style={{ borderColor: '#1E3A5F transparent transparent transparent' }} />
+                                <p className="text-[10px] font-semibold text-re-text-muted uppercase tracking-widest">Loading…</p>
+                            </div>
+                        ) : filteredStaff.length === 0 ? (
+                            <p className="p-10 text-center text-[10px] font-semibold text-re-text-muted uppercase tracking-widest opacity-50">No personnel found.</p>
+                        ) : (
+                            <ul className="divide-y divide-black/5">
+                                {filteredStaff.map((s) => (
+                                    <li key={s.id}>
+                                        <button
+                                            type="button"
+                                            onClick={() => setSelectedStaff(s)}
+                                            className="w-full text-left px-4 py-3.5 flex items-center gap-3 active:bg-re-bg/50"
+                                        >
+                                            <div className="w-10 h-10 rounded-full bg-re-bg border border-black/5 flex shrink-0 items-center justify-center overflow-hidden">
+                                                {s.photo ? <img src={(import.meta.env.VITE_API_URL || 'http://localhost:5100') + s.photo} className="w-full h-full object-cover" alt="" /> : <User size={14} className="opacity-40" />}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-[12px] font-semibold text-re-text uppercase truncate">{s.name}</p>
+                                                <p className="text-[9px] text-re-text-muted uppercase tracking-wider truncate">{s.role}</p>
+                                                <div className="flex flex-wrap gap-2 mt-1">
+                                                    <span className={`text-[8px] font-bold uppercase px-2 py-0.5 rounded-full ${s.allowAdvance ? 'bg-violet-100 text-violet-800' : 'bg-slate-100 text-slate-500'}`}>
+                                                        Avance {s.allowAdvance ? 'on' : 'off'}
+                                                    </span>
+                                                    <span className="text-[8px] font-bold uppercase text-slate-500">
+                                                        {s.performanceOutOf100 != null ? `${s.performanceOutOf100}/100` : '—'} perf
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (staffRowMenu?.staff?.id === s.id) { closeStaffRowMenu(); return; }
+                                                    const rect = e.currentTarget.getBoundingClientRect();
+                                                    const MENU_W = 192, MENU_H = 280;
+                                                    const spaceBelow = window.innerHeight - rect.bottom;
+                                                    const openUp = spaceBelow < MENU_H && rect.top > MENU_H + 16;
+                                                    const left = Math.min(Math.max(8, rect.right - MENU_W), window.innerWidth - MENU_W - 8);
+                                                    const top = openUp ? rect.top - MENU_H - 8 : rect.bottom + 8;
+                                                    setStaffRowMenu({ staff: s, left, top });
+                                                }}
+                                                className="w-9 h-9 rounded-lg border border-black/5 flex items-center justify-center text-re-text-muted shrink-0"
+                                            >
+                                                <MoreVertical size={14} />
+                                            </button>
+                                        </button>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </div>
+
+                    <div className={`${!isDeptSelected ? 'hidden md:block' : 'hidden md:block'} overflow-x-auto bg-white`}>
                         {isDeptSelected && (
                             <div className="md:hidden px-6 py-3 bg-white border-b border-black/5 flex items-center justify-between">
                                 <div className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full" style={{ background: "#FEBF10" }}></div><span className="text-[9px] font-semibold text-re-text uppercase tracking-widest">{selectedDept} Roster</span></div>
@@ -1739,10 +2060,7 @@ const HRCentral = () => {
                                                     </div>
                                                 </td>
                                                 <td className="px-4 sm:px-8 py-3 sm:py-5 text-right relative">
-                                                    <div className="flex items-center gap-2 sm:gap-3 justify-end">
-                                                        <button className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-re-text-muted hover:bg-re-bg transition-all border border-transparent hover:border-black/5" onClick={(e) => e.stopPropagation()}>
-                                                            <Phone size={12} />
-                                                        </button>
+                                                    <div className="flex items-center justify-end">
                                                         <button type="button" onClick={(e) => {
                                                             e.stopPropagation();
                                                             if (staffRowMenu?.staff?.id === s.id) { closeStaffRowMenu(); return; }
@@ -1789,7 +2107,7 @@ const HRCentral = () => {
                 {staffRowMenu && createPortal(
                     <>
                         <button type="button" className="fixed inset-0 z-[190] cursor-default bg-black/[0.03]" onClick={(e) => { e.stopPropagation(); closeStaffRowMenu(); }} />
-                        <div role="menu" className="fixed z-[200] w-48 bg-white border border-slate-200/90 shadow-[0_16px_48px_-12px_rgba(15,23,42,0.2)] rounded-2xl overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-150" style={{ left: staffRowMenu.left, top: staffRowMenu.top, fontFamily: "'Montserrat', system-ui, sans-serif" }} onClick={(e) => e.stopPropagation()}>
+                        <div role="menu" className="fixed z-[200] w-48 bg-white border border-slate-200 rounded-2xl overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-150" style={{ left: staffRowMenu.left, top: staffRowMenu.top, fontFamily: "'Montserrat', system-ui, sans-serif" }} onClick={(e) => e.stopPropagation()}>
                             {(() => {
                                 const ms = staffRowMenu.staff;
                                 return (<>
@@ -1806,6 +2124,19 @@ const HRCentral = () => {
                         </div>
                     </>, document.body
                 )}
+
+                {/* Mobile floating Add Staff */}
+                <div className="lg:hidden fixed inset-x-0 bottom-0 z-[90] pointer-events-none px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+                    <button
+                        type="button"
+                        onClick={() => setShowHireModal(true)}
+                        className="pointer-events-auto w-full h-12 flex items-center justify-center gap-2 rounded-2xl font-bold text-[11px] uppercase tracking-widest text-white border border-[#d4a20a]/30"
+                        style={{ background: 'linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)' }}
+                    >
+                        <UserPlus size={18} strokeWidth={2} />
+                        Add staff
+                    </button>
+                </div>
 
                 <div className="flex flex-col md:flex-row items-center justify-between mt-8 px-4 gap-4">
                     <p className="text-[7px] text-re-text-muted font-semibold uppercase tracking-[0.3em] opacity-30 italic">Developed & Engineered by Babyeyi Intelligence Systems</p>

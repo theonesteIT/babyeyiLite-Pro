@@ -58,6 +58,8 @@ export function AcademicProvider({ children }) {
     const [loading, setLoading]             = useState(true);
     const [error, setError]                 = useState(null);
 
+    const [academicYearsRegistry, setAcademicYearsRegistry] = useState(cached.academicYearsRegistry || []);
+
     const apply = useCallback((data) => {
         const year  = data.current_academic_year || '2025-2026';
         const terms = Array.isArray(data.active_terms) && data.active_terms.length
@@ -65,12 +67,20 @@ export function AcademicProvider({ children }) {
             : ['Term 1', 'Term 2', 'Term 3'];
         const term  = inferTerm(terms);
         const dates = Array.isArray(data.term_dates) ? data.term_dates : [];
+        const registry = Array.isArray(data.academic_years_registry) ? data.academic_years_registry : [];
         setAcademicYear(year);
         setActiveTerms(terms);
         setCurrentTerm(term);
         setTermDates(dates);
+        setAcademicYearsRegistry(registry);
         try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify({ academicYear: year, activeTerms: terms, currentTerm: term, termDates: dates }));
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                academicYear: year,
+                activeTerms: terms,
+                currentTerm: term,
+                termDates: dates,
+                academicYearsRegistry: registry,
+            }));
         } catch { /* storage quota – ignore */ }
     }, []);
 
@@ -96,8 +106,19 @@ export function AcademicProvider({ children }) {
 
     useEffect(() => { refresh(); }, [refresh]);
 
-    /** Descending list of academic years relative to the current configured year. */
-    const academicYears = buildYearList(academicYear, 5);
+    useEffect(() => {
+        const onUpdated = () => { refresh(); };
+        window.addEventListener('babyeyi-academic-settings-updated', onUpdated);
+        return () => window.removeEventListener('babyeyi-academic-settings-updated', onUpdated);
+    }, [refresh]);
+
+    /** Registered years from settings, else generated list from current year. */
+    const academicYears = useMemo(() => {
+        if (academicYearsRegistry.length) {
+            return academicYearsRegistry.map((r) => r.academic_year);
+        }
+        return buildYearList(academicYear, 5);
+    }, [academicYearsRegistry, academicYear]);
 
     /** Return the date config for a given term name, or null if not configured. */
     const getTermDates = useCallback((termName) => {
@@ -108,7 +129,8 @@ export function AcademicProvider({ children }) {
         academicYear,   // e.g. "2025-2026"
         currentTerm,    // inferred current term e.g. "Term 2"
         activeTerms,    // e.g. ["Term 1", "Term 2", "Term 3"]
-        academicYears,  // ["2025-2026", "2024-2025", "2023-2024", …]
+        academicYears,  // registered years or generated list
+        academicYearsRegistry,
         termDates,      // [{ name, start, end }, …]
         getTermDates,   // (termName) => { name, start, end } | null
         loading,

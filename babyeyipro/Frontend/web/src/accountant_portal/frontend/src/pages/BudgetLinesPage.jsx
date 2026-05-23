@@ -8,6 +8,8 @@ import { COLORS, statusStyle } from "../utils/budgetLineConstants";
 import { useIsMobile } from "../utils/useIsMobile";
 import { useAuth } from "../context/AuthContext";
 import { getSelectedBudgetId, setSelectedBudgetId } from "../utils/selectedSchoolBudget";
+import SchoolBudgetPageShell from "../components/SchoolBudgetPageShell";
+import { sbPageTitleClass, sbPageSubtitleClass, sbSectionTitle, sbKpiValue, sbKpiLabel } from "../utils/schoolBudgetTypography";
 
 export default function BudgetLinesPage({ fmt }) {
   const { staff } = useAuth();
@@ -50,11 +52,11 @@ export default function BudgetLinesPage({ fmt }) {
   const totalUsed = lines.reduce((s, l) => s + l.usedAmount, 0);
 
   return (
-    <div>
-      <div className="sb-page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+    <SchoolBudgetPageShell>
+      <div className="sb-page-header flex flex-wrap items-start justify-between gap-3 mb-5">
         <div>
-          <div style={{ fontSize: isMobile ? 18 : 20, fontWeight: 800, color: COLORS.navy }}>Budget Lines</div>
-          <div style={{ fontSize: 13, color: COLORS.gray400, marginTop: 4 }}>Select a school budget, then create allocations (budget lines)</div>
+          <h2 className={sbPageTitleClass}>Budget Lines</h2>
+          <p className={sbPageSubtitleClass}>Select a school budget, then create allocations (budget lines)</p>
         </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <button type="button" onClick={load} disabled={loading || !budgetId} style={btnSecondary}>
@@ -84,13 +86,13 @@ export default function BudgetLinesPage({ fmt }) {
           { label: "Total Used", value: fmt(totalUsed) },
         ].map((c) => (
           <div key={c.label} style={{ background: COLORS.white, borderRadius: 10, padding: 16, border: `1px solid ${COLORS.gray200}` }}>
-            <div style={{ fontSize: 11, color: COLORS.gray400, textTransform: "uppercase" }}>{c.label}</div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: COLORS.navy, marginTop: 4 }}>{c.value}</div>
+            <div style={{ ...sbKpiLabel, marginBottom: 0 }}>{c.label}</div>
+            <div style={{ ...sbKpiValue, marginTop: 4 }}>{c.value}</div>
           </div>
         ))}
       </div>
 
-      <div style={{ fontWeight: 800, color: COLORS.navy, fontSize: 15, marginBottom: 10 }}>Budget lines for selected budget</div>
+      <div style={{ ...sbSectionTitle, marginBottom: 10 }}>Budget lines for selected budget</div>
       <div className="sb-table-scroll" style={{ background: COLORS.white, borderRadius: 12, border: `1px solid ${COLORS.gray200}`, overflow: "auto" }}>
         {isMobile ? (
           <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
@@ -105,14 +107,14 @@ export default function BudgetLinesPage({ fmt }) {
                 const st = statusStyle(b.statusKey);
                 return (
                   <div key={b.db_id} style={{ border: `1px solid ${COLORS.gray200}`, borderRadius: 10, padding: 14 }}>
-                    <div style={{ fontWeight: 700, color: COLORS.navy }}>{b.lineName}</div>
+                    <div style={{ fontWeight: 500, color: COLORS.navy }}>{b.lineName}</div>
                     <div style={{ fontSize: 12, color: COLORS.gray600, marginTop: 4 }}>{b.department} · {b.budgetCategory}</div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 10, fontSize: 12 }}>
                       <div>Planned: <strong>{fmt(b.plannedAmount)}</strong></div>
                       <div>Used: <strong>{fmt(b.usedAmount)}</strong></div>
                       <div>Remaining: <strong style={{ color: COLORS.green }}>{fmt(b.remaining)}</strong></div>
                       <div>
-                        <span style={{ background: st.bg, color: st.color, borderRadius: 20, padding: "2px 8px", fontSize: 10, fontWeight: 700 }}>{b.statusLabel}</span>
+                        <span style={{ background: st.bg, color: st.color, borderRadius: 20, padding: "2px 8px", fontSize: 10, fontWeight: 500 }}>{b.statusLabel}</span>
                       </div>
                     </div>
                     <div style={{ marginTop: 8, background: COLORS.gray100, borderRadius: 99, height: 6 }}>
@@ -153,15 +155,15 @@ export default function BudgetLinesPage({ fmt }) {
                   const st = statusStyle(b.statusKey);
                   return (
                     <tr key={b.db_id} style={{ borderBottom: `1px solid ${COLORS.gray100}`, background: i % 2 ? COLORS.gray50 : COLORS.white }}>
-                      <td style={{ padding: "10px 14px", fontWeight: 600, color: COLORS.navy }}>{b.lineName}</td>
+                      <td style={{ padding: "10px 14px", fontWeight: 500, color: COLORS.navy }}>{b.lineName}</td>
                       <td style={{ padding: "10px 14px", color: COLORS.gray600 }}>{b.department}</td>
                       <td style={{ padding: "10px 14px", color: COLORS.gray600 }}>{b.budgetCategory}</td>
                       <td style={{ padding: "10px 14px" }}>{fmt(b.plannedAmount)}</td>
                       <td style={{ padding: "10px 14px" }}>{fmt(b.usedAmount)}</td>
-                      <td style={{ padding: "10px 14px", fontWeight: 700, color: COLORS.green }}>{fmt(b.remaining)}</td>
+                      <td style={{ padding: "10px 14px", fontWeight: 500, color: COLORS.green }}>{fmt(b.remaining)}</td>
                       <td style={{ padding: "10px 14px" }}>{b.usagePct}%</td>
                       <td style={{ padding: "10px 14px" }}>
-                        <span style={{ background: st.bg, color: st.color, borderRadius: 20, padding: "3px 10px", fontSize: 11, fontWeight: 700 }}>{b.statusLabel}</span>
+                        <span style={{ background: st.bg, color: st.color, borderRadius: 20, padding: "3px 10px", fontSize: 11, fontWeight: 500 }}>{b.statusLabel}</span>
                       </td>
                     </tr>
                   );
@@ -180,7 +182,7 @@ export default function BudgetLinesPage({ fmt }) {
         budgetId={budgetId}
         onSaved={load}
       />
-    </div>
+    </SchoolBudgetPageShell>
   );
 }
 
@@ -190,8 +192,11 @@ const btnPrimary = {
   borderRadius: 8,
   background: COLORS.amber,
   color: COLORS.navy,
-  fontWeight: 700,
-  fontSize: 13,
+  fontWeight: 500,
+  fontSize: 10,
+  fontFamily: "'Montserrat', sans-serif",
+  letterSpacing: '0.08em',
+  textTransform: 'uppercase',
   cursor: "pointer",
   display: "inline-flex",
   alignItems: "center",

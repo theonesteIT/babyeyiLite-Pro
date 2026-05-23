@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { Filter, Loader2, AlertCircle, ShieldCheck, ChevronLeft, ChevronRight, X, BookOpen } from "lucide-react";
 import api from "../services/api";
-import DosOchreHero from "../components/DosOchreHero";
+import DosOrangePageHero, { DosPageBody } from "../components/DosOrangePageHero";
 
 const TERMS = ["Term 1", "Term 2", "Term 3"];
 const ACADEMIC_YEARS = ["2023-2024", "2024-2025", "2025-2026", "2026-2027", "2027-2028"];
@@ -192,14 +192,11 @@ export default function DosAcademicProgressPage() {
 
   return (
     <>
-      <DosOchreHero
-        eyebrow="Academic progress"
-        titleLine="Student status"
-        titleAccent="& marks"
+      <DosOrangePageHero
+        title="Academic progress"
         subtitle="Select year and term, then set each learner’s status and marks. Remaining is calculated from your DOS default total marks."
-        icon={BookOpen}
       />
-      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 -mt-4 sm:-mt-5 md:-mt-6 pt-2 relative z-20 pb-10">
+      <DosPageBody className="-mt-4 sm:-mt-5 md:-mt-6">
 
       {error && (
         <div className="mb-4 flex items-start gap-2 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
@@ -391,7 +388,7 @@ export default function DosAcademicProgressPage() {
           </div>
         )}
       </div>
-      </div>
+      </DosPageBody>
 
       {modalStudent && (
         <div className="fixed inset-0 z-[200] flex items-end justify-center bg-black/55 p-3 backdrop-blur-sm sm:items-center sm:p-6">

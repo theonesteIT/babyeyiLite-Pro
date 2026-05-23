@@ -5,6 +5,13 @@ import { jsPDF } from 'jspdf';
 import api from '../services/api';
 import PortalToast from '../components/PortalToast';
 import AccountantOchreHero from '../components/AccountantOchreHero';
+import AccountantFormModal, {
+  FormDate,
+  FormFileUpload,
+  FormGrid,
+  FormInput,
+  FormTextarea,
+} from '../components/AccountantFormModal';
 
 function formatMoneyRWF(value) {
   const n = Number(value) || 0;
@@ -143,160 +150,100 @@ const AddRequisitionModal = ({ isOpen, onClose, onCreate }) => {
 
   if (!isOpen) return null;
 
-  return createPortal(
-    <div className="fixed inset-0 z-[230]">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-md" onClick={() => onClose?.()} />
-      <div className="absolute inset-x-0 top-10 md:top-16 mx-auto w-[92vw] max-w-2xl">
-        <div className="relative w-full max-h-[92vh] bg-re-bg rounded-3xl shadow-[0_32px_128px_-15px_rgba(30,58,95,0.35)] border border-white/20 flex flex-col overflow-hidden animate-in zoom-in-95 fade-in duration-500">
-          <div
-            className="relative z-10 px-5 py-3 shrink-0"
-            style={{ background: 'linear-gradient(135deg, #000435 0%, #0D2644 100%)' }}
-          >
-            <div className="flex items-center justify-between mb-2.5">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20 text-re-gold shadow-md shadow-re-gold/10">
-                  <ClipboardList size={16} />
-                </div>
-                <div>
-                  <h1 className="text-[11px] font-medium text-white uppercase tracking-widest leading-none">New Requisition</h1>
-                  <p className="text-[7px] font-medium text-white/40 uppercase tracking-tight mt-1">Procurement · Request form</p>
-                </div>
-              </div>
-              <button
-                onClick={() => onClose?.()}
-                className="p-1.5 bg-white/5 hover:bg-white/10 rounded-xl transition-all text-white/40 hover:text-re-gold group"
-                aria-label="Close modal"
-              >
-                <X size={14} className="group-hover:rotate-90 transition-all duration-300" />
-              </button>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
-              <p className="text-[10px] font-medium uppercase tracking-widest text-white/80">Attach quotation if available</p>
-            </div>
-          </div>
+  const amt = Number(amount) || 0;
+  const canSubmit = dept.trim() && requester.trim() && items.trim() && amt > 0;
 
-          <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar bg-re-bg/50 p-5 md:p-6 space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <input
-                value={dept}
-                onChange={(e) => setDept(e.target.value)}
-                placeholder="Department"
-                className="w-full h-9 rounded-lg bg-re-bg px-3 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] sm:text-[10px] font-medium uppercase tracking-widest shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.55)] placeholder:text-re-text-muted/40"
-              />
-              <input
-                value={requester}
-                onChange={(e) => setRequester(e.target.value)}
-                placeholder="Requester"
-                className="w-full h-9 rounded-lg bg-re-bg px-3 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] sm:text-[10px] font-medium uppercase tracking-widest shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.55)] placeholder:text-re-text-muted/40"
-              />
-              <input
-                type="date"
-                value={submitted}
-                onChange={(e) => setSubmitted(e.target.value)}
-                className="w-full h-9 rounded-lg bg-re-bg px-3 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] sm:text-[10px] font-medium uppercase tracking-widest shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.55)]"
-              />
-              <input
-                value={amount}
-                onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ''))}
-                inputMode="numeric"
-                placeholder="Amount (RWF)"
-                className="w-full h-9 rounded-lg bg-re-bg px-3 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] sm:text-[10px] font-medium uppercase tracking-widest shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.55)] placeholder:text-re-text-muted/40"
-              />
-            </div>
+  const handleSubmit = async () => {
+    const cleanDept = dept.trim();
+    const cleanRequester = requester.trim();
+    const cleanItems = items.trim();
+    if (!cleanDept || !cleanRequester || !cleanItems) {
+      setErrorMsg('Department, requester and requested items are required.');
+      return;
+    }
+    if (amt <= 0) {
+      setErrorMsg('Amount must be greater than zero.');
+      return;
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(submitted || ''))) {
+      setErrorMsg('Submitted date must be valid.');
+      return;
+    }
+    setErrorMsg('');
+    setSubmitting(true);
+    try {
+      await onCreate?.({
+        dept: cleanDept,
+        requester: cleanRequester,
+        items: cleanItems,
+        amount: amt,
+        submitted,
+        attachmentName: attachment?.name || '',
+        note: note.trim(),
+      });
+      onClose?.();
+    } catch (e) {
+      setErrorMsg(e?.response?.data?.message || e.message || 'Failed to submit requisition.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
-            <textarea
-              value={items}
-              onChange={(e) => setItems(e.target.value)}
-              placeholder="Items requested"
-              className="w-full min-h-[90px] rounded-lg bg-re-bg px-3 py-2.5 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] sm:text-[10px] font-medium tracking-tight shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.55)] placeholder:text-re-text-muted/40 resize-none"
-            />
-
-            <label className="w-full h-9 rounded-lg bg-re-bg border border-black/5 px-3 flex items-center gap-2 cursor-pointer shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.55)] hover:bg-white hover:border-[#000435]/20 transition-all">
-              <Upload size={14} className="text-amber-500 opacity-80" />
-              <span className="text-[9px] font-medium uppercase tracking-widest text-re-text-muted/60 truncate">
-                {attachment ? attachment.name : 'Upload attachment'}
-              </span>
-              <input
-                type="file"
-                accept="image/*,application/pdf"
-                className="hidden"
-                onChange={(e) => setAttachment(e.target.files?.[0] || null)}
-              />
-            </label>
-
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="Note (optional)"
-              className="w-full min-h-[80px] rounded-lg bg-re-bg px-3 py-2.5 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] sm:text-[10px] font-medium tracking-tight shadow-[inset_0_2px_8px_rgba(15,23,42,0.06),inset_0_-1px_0_rgba(255,255,255,0.55)] placeholder:text-re-text-muted/40 resize-none"
-            />
-            {!!errorMsg && (
-              <p className="text-[10px] font-medium text-red-600">{errorMsg}</p>
-            )}
-          </div>
-
-          <div className="bg-white border-t border-black/5 px-5 sm:px-6 py-2 flex items-center justify-between shrink-0 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-            <div className="flex items-center gap-2">
-              <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-              <p className="text-[7px] font-medium text-re-text-muted uppercase tracking-[0.2em] opacity-30 italic hidden sm:block">
-                Ready to submit
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <button type="button" onClick={() => onClose?.()} className="h-9 px-4 rounded-lg border border-black/5 text-re-navy font-medium text-[9px] uppercase tracking-widest hover:bg-re-bg transition-all active:scale-95">
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={submitting}
-                onClick={async () => {
-                  const amt = Number(amount) || 0;
-                  const cleanDept = dept.trim();
-                  const cleanRequester = requester.trim();
-                  const cleanItems = items.trim();
-                  if (!cleanDept || !cleanRequester || !cleanItems) {
-                    setErrorMsg('Department, requester and requested items are required.');
-                    return;
-                  }
-                  if (amt <= 0) {
-                    setErrorMsg('Amount must be greater than zero.');
-                    return;
-                  }
-                  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(submitted || ''))) {
-                    setErrorMsg('Submitted date must be valid.');
-                    return;
-                  }
-                  setErrorMsg('');
-                  setSubmitting(true);
-                  try {
-                    await onCreate?.({
-                      dept: cleanDept,
-                      requester: cleanRequester,
-                      items: cleanItems,
-                      amount: amt,
-                      submitted,
-                      attachmentName: attachment?.name || '',
-                      note: note.trim(),
-                    });
-                    onClose?.();
-                  } catch (e) {
-                    setErrorMsg(e?.response?.data?.message || e.message || 'Failed to submit requisition.');
-                  } finally {
-                    setSubmitting(false);
-                  }
-                }}
-                className="h-9 px-6 rounded-lg text-white font-medium text-[9px] uppercase tracking-widest shadow-lg active:scale-95 transition-all disabled:opacity-60 disabled:hover:scale-100"
-                style={{ background: 'linear-gradient(135deg, #000435 0%, #0D2644 100%)' }}
-              >
-                {submitting ? 'Submitting…' : 'Submit'}
-              </button>
-            </div>
-          </div>
-        </div>
+  return (
+    <AccountantFormModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="New Requisition"
+      subtitle="Procurement · Request form"
+      statusHint="Attach quotation if available"
+      footerHint="All required fields must be completed"
+      submitLabel="Submit requisition"
+      submitting={submitting}
+      onSubmit={handleSubmit}
+      submitDisabled={!canSubmit}
+    >
+      <FormGrid>
+        <FormInput label="Department" value={dept} onChange={(e) => setDept(e.target.value)} placeholder="e.g. Science" />
+        <FormInput
+          label="Requester"
+          value={requester}
+          onChange={(e) => setRequester(e.target.value)}
+          placeholder="Full name"
+        />
+        <FormDate label="Submitted date" value={submitted} onChange={(e) => setSubmitted(e.target.value)} />
+        <FormInput
+          label="Amount (RWF)"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ''))}
+          inputMode="numeric"
+          placeholder="0"
+        />
+      </FormGrid>
+      <FormTextarea
+        label="Items requested"
+        className="mt-4"
+        value={items}
+        onChange={(e) => setItems(e.target.value)}
+        placeholder="List items or description"
+        rows={3}
+      />
+      <div className="mt-4">
+        <FormFileUpload
+          label="Upload attachment"
+          fileName={attachment?.name}
+          onChange={(e) => setAttachment(e.target.files?.[0] || null)}
+        />
       </div>
-    </div>,
-    document.body
+      <FormTextarea
+        label="Note (optional)"
+        className="mt-4"
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        placeholder="Additional details"
+        rows={3}
+      />
+      {!!errorMsg && <p className="mt-3 text-[12px] font-normal text-red-600">{errorMsg}</p>}
+    </AccountantFormModal>
   );
 };
 

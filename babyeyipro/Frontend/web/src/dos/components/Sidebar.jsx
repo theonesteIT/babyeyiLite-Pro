@@ -39,7 +39,7 @@ import {
 import { PORTAL } from '../config/portal';
 import { h } from '../utils/href';
 import useChatUnread from '../../shared/hooks/useChatUnread';
-import babyeyiIcon from '../assets/babyeyi-icon.png';
+const babyeyiIcon = `${import.meta.env.BASE_URL || '/'}babyeyi-icon.png`;
 
 const statusConfig = {
   online: { label: 'Online', dot: 'bg-green-400', text: 'text-green-400', Icon: Wifi },
@@ -169,21 +169,23 @@ const Sidebar = ({ onClose }) => {
 
   return (
     <div
-      className="flex flex-col min-h-0 h-full w-full min-w-0 border-r border-white/[0.06] shadow-sm"
+      className="flex flex-col min-h-0 h-full w-full min-w-0 border-r border-white/[0.06] font-sans"
       style={{
         background: '#000435',
         colorScheme: 'dark',
+        fontFamily: "'Montserrat', sans-serif",
       }}
     >
       <div className="p-4 pb-3 shrink-0 border-b border-white/[0.06]">
-        <div className="flex flex-col items-center text-center gap-2">
-          <img src={babyeyiIcon} alt="Babyeyi" className="h-10 w-10 object-contain" />
-          <div className="min-w-0 w-full">
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm overflow-hidden">
+            <img src={babyeyiIcon} alt="Babyeyi" className="h-10 w-10 object-contain" />
+          </div>
+          <div className="min-w-0">
             <span className="text-base font-semibold tracking-tight text-white block leading-tight">Babyeyi</span>
-            <p className="text-[10px] font-medium tracking-wide text-amber-400 mt-0.5 capitalize">{PORTAL.roleLabel}</p>
-            {teacher?.school?.name ? (
-              <p className="text-[10px] font-medium text-white/75 leading-snug line-clamp-2 mt-1.5">{teacher.school.name}</p>
-            ) : null}
+            <p className="text-[10px] font-medium tracking-wide text-amber-400 mt-0.5 capitalize">
+              {PORTAL.roleLabel}
+            </p>
           </div>
         </div>
       </div>

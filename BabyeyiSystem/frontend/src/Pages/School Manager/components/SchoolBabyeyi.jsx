@@ -3,12 +3,13 @@
 
 import { useState, useEffect, useCallback } from "react";
 import {
-  Home, FileText, Send, FolderOpen, BarChart3, Bell,
+  Home, FileText, Send, FolderOpen, BarChart3, Settings,
   AlertCircle, Globe, Lock, Eye, EyeOff, Loader2, CheckCircle2, Users,
   UserCog, Receipt, Wallet, Briefcase, DoorOpen,
 } from "lucide-react";
 
 import { useAuth } from "../../../context/AuthContext";
+import { AcademicProvider } from "../../../manager/context/AcademicContext";
 import { getProEntryUrl, shouldUseProApp } from "../../../utils/proAppEntry";
 
 import Header        from "./Header";
@@ -55,7 +56,7 @@ const NAV = [
   { id: "invoices",            label: "Invoices",          icon: Receipt },
   { id: "shule_avance",        label: "Shule Avance",      icon: Wallet },
   { id: "analytics",           label: "Analytics",         icon: BarChart3 },
-  { id: "notifications",       label: "Notifications",     icon: Bell },
+  { id: "settings",            label: "Settings",          icon: Settings, footer: true },
 ];
 
 const DEFAULT_PROFILE = {
@@ -366,6 +367,7 @@ export default function SchoolBabyeyiDashboard() {
   const isMiniWebsite = tab === "school_mini_website";
 
   return (
+    <AcademicProvider>
     <div
       className="min-h-screen flex min-w-0 overflow-x-hidden text-slate-800 babyeyi-dash-shell"
       style={{
@@ -490,5 +492,6 @@ export default function SchoolBabyeyiDashboard() {
         />
       </div>
     </div>
+    </AcademicProvider>
   );
 }

@@ -11,6 +11,8 @@ self.addEventListener('push', (event) => {
         body: j.body || '',
         tag: j.tag || payload.tag,
         url: j.url || payload.url,
+        icon: j.icon || payload.icon,
+        badge: j.badge || payload.badge,
       };
     }
   } catch (_) {
@@ -25,8 +27,8 @@ self.addEventListener('push', (event) => {
   const title = payload.title;
   const options = {
     body: payload.body,
-    icon: '/babyeyilogo.png',
-    badge: '/babyeyilogo.png',
+    icon: payload.icon || '/babyeyilogo.png',
+    badge: payload.badge || '/babyeyilogo.png',
     tag: payload.tag,
     renotify: true,
     data: { url: payload.url || '/shule-avance' },

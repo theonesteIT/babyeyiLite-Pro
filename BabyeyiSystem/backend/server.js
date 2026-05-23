@@ -1027,6 +1027,14 @@ const startServer = async () => {
 ║  POST /api/chat/threads/:id/messages→ send chat message     ║
 ╚══════════════════════════════════════════════════════════════╝`);
     });
+
+    try {
+      const ruleScheduler = require('./BabyeyiRoutes/feeReminderRuleScheduler');
+      ruleScheduler.startFeeReminderRuleScheduler(60_000);
+      console.log('⏰  Fee reminder auto-rules scheduler active (checks every 60s)');
+    } catch (schedErr) {
+      console.warn('⚠️  Fee reminder scheduler not started:', schedErr.message);
+    }
   } catch (err) {
     console.error('❌  Failed to start:', err.message);
     process.exit(1);

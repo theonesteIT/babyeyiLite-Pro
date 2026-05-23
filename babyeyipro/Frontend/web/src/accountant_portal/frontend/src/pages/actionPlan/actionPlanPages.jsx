@@ -3,32 +3,33 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
 } from 'recharts';
 import {
-  Loader2, PlusCircle, Save, Check, TriangleAlert, Info, CalendarDays, Bell, Download,
+  Loader2, PlusCircle, TriangleAlert, CalendarDays, Bell,
   ClipboardList, Wallet, Target, Clock, CheckCircle2, AlertCircle,
 } from 'lucide-react';
 import { useActionPlanData } from '../../context/ActionPlanDataContext';
 import ActionPlanSelector from '../../components/ActionPlanSelector';
-import ActionPlanCreateForm from '../../components/ActionPlanCreateForm';
+import AccountantBudgetHeroShell from '../../components/AccountantBudgetHeroShell';
+import { useIsMobile } from '../../utils/useIsMobile';
 import { AP_COLORS } from '../../utils/actionPlanConstants';
 import {
   createActionPlan, createActionPlanActivity, recordActivityExpense, updateActionPlanActivity, reviewActionPlan,
 } from '../../services/actionPlanApi';
-import { useIsMobile } from '../../utils/useIsMobile';
 
 const NAVY = AP_COLORS.navy;
 const AMBER = AP_COLORS.amber;
 const CHART = [AMBER, NAVY];
 
-const inp = { width: '100%', boxSizing: 'border-box', border: `1px solid ${AP_COLORS.gray200}`, borderRadius: 8, padding: '10px 12px', fontSize: 13, color: NAVY };
-const lbl = { display: 'block', fontSize: 11, fontWeight: 700, color: AP_COLORS.gray400, marginBottom: 6, textTransform: 'uppercase' };
+const inp = { width: '100%', boxSizing: 'border-box', border: `1px solid ${AP_COLORS.gray200}`, borderRadius: 8, padding: '10px 12px', fontSize: 13, color: NAVY, fontFamily: "'Montserrat', sans-serif" };
+const lbl = { display: 'block', fontSize: 11, fontWeight: 600, color: AP_COLORS.gray400, marginBottom: 6, textTransform: 'uppercase' };
 
 function TabFrame({ title, subtitle, fmt, children, requirePlan = true }) {
-  const { planId, setPlanId, loading, error, reload, activePlan } = useActionPlanData();
+  const { planId, setPlanId, loading, error, reload, activePlan, recentPlans } = useActionPlanData();
+  const isMobile = useIsMobile();
   return (
-    <div>
-      <h2 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 800, color: NAVY }}>{title}</h2>
+    <div style={{ fontFamily: "'Montserrat', sans-serif" }}>
+      <h2 style={{ margin: '0 0 4px', fontSize: isMobile ? 18 : 20, fontWeight: 600, color: NAVY }}>{title}</h2>
       {subtitle && <p style={{ margin: '0 0 16px', fontSize: 13, color: AP_COLORS.gray400 }}>{subtitle}</p>}
-      <ActionPlanSelector planId={planId} onPlanIdChange={setPlanId} fmt={fmt} />
+      <ActionPlanSelector planId={planId} onPlanIdChange={setPlanId} fmt={fmt} fallbackPlans={recentPlans} />
       {error && (
         <div style={{ background: '#FEE2E2', color: '#991B1B', padding: 12, borderRadius: 8, marginBottom: 12, display: 'flex', justifyContent: 'space-between' }}>
           <span>{error}</span>
@@ -46,53 +47,55 @@ function TabFrame({ title, subtitle, fmt, children, requirePlan = true }) {
 
 export function ActionPlanDashboardPage({ fmt, onOpenCreate }) {
   const isMobile = useIsMobile();
-  const { planId, setPlanId, totals, activities, notifications, departmentUsage, activePlan, reload, loading, data } = useActionPlanData();
+  const { planId, setPlanId, totals, activities, notifications, departmentUsage, activePlan, reload, loading, data, recentPlans } = useActionPlanData();
   if (loading && !data) {
     return <div style={{ textAlign: 'center', padding: 48 }}><Loader2 size={36} color={AMBER} /></div>;
   }
-  const cards = [
-    { label: 'Total plans', value: totals.totalPlans, Icon: ClipboardList },
-    { label: 'Activities', value: totals.totalActivities, Icon: Target },
-    { label: 'Planned budget', value: fmt(totals.plannedBudget), Icon: Wallet },
-    { label: 'Used budget', value: fmt(totals.usedBudget), Icon: Wallet },
-    { label: 'Remaining', value: fmt(totals.remainingBudget), Icon: Wallet },
-    { label: 'Completed', value: totals.completedActivities, Icon: CheckCircle2 },
-    { label: 'Ongoing', value: totals.ongoingActivities, Icon: Clock },
-    { label: 'Delayed', value: totals.delayedActivities, Icon: AlertCircle },
+  const kpiTiles = [
+    { label: 'Total plans', value: totals.totalPlans ?? '—', icon: ClipboardList },
+    { label: 'Activities', value: totals.totalActivities ?? '—', icon: Target },
+    { label: 'Planned budget', value: fmt(totals.plannedBudget), icon: Wallet },
+    { label: 'Used budget', value: fmt(totals.usedBudget), icon: Wallet },
+    { label: 'Remaining', value: fmt(totals.remainingBudget), icon: Wallet },
+    { label: 'Completed', value: totals.completedActivities ?? '—', icon: CheckCircle2 },
+    { label: 'Ongoing', value: totals.ongoingActivities ?? '—', icon: Clock },
+    { label: 'Delayed', value: totals.delayedActivities ?? '—', icon: AlertCircle },
   ];
+  const heroActions = (
+    <>
+      <button
+        type="button"
+        onClick={() => onOpenCreate?.()}
+        className="inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold border-none cursor-pointer"
+        style={{ background: '#FEBF10', color: NAVY }}
+      >
+        <PlusCircle size={16} /> Create action plan
+      </button>
+      <button
+        type="button"
+        onClick={reload}
+        className="inline-flex items-center rounded-lg px-3.5 py-2 text-xs font-semibold cursor-pointer border border-white/30 text-white"
+        style={{ background: 'rgba(255,255,255,0.12)' }}
+      >
+        Refresh
+      </button>
+    </>
+  );
   return (
     <div>
-      <div className="ap-hero" style={{ background: `linear-gradient(135deg, ${NAVY}, #1e3a5f)`, borderRadius: 16, padding: isMobile ? 18 : 24, color: '#fff', marginBottom: 20 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', opacity: 0.8 }}>SCHOOL ACTION PLAN</div>
-        <h1 style={{ margin: '6px 0', fontSize: isMobile ? 22 : 28, fontWeight: 800 }}>Action Plan Dashboard</h1>
-        <p style={{ margin: 0, opacity: 0.85, fontSize: 14 }}>
-          {activePlan ? `${activePlan.title} Â· ${activePlan.term}` : 'Plan, monitor, and track school activities'}
-        </p>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 12 }}>
-          <button type="button" onClick={() => onOpenCreate?.()} style={{ background: AMBER, color: NAVY, border: 'none', borderRadius: 8, padding: '8px 14px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-            <PlusCircle size={16} /> Create action plan
-          </button>
-          <button type="button" onClick={reload} style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 8, padding: '8px 14px', fontWeight: 600, cursor: 'pointer' }}>Refresh</button>
-        </div>
-      </div>
-      <ActionPlanSelector planId={planId} onPlanIdChange={setPlanId} fmt={fmt} />
-      <div className="ap-grid-4" style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
-        {cards.map((c) => {
-          const Icon = c.Icon;
-          return (
-            <div key={c.label} style={{ background: '#fff', borderRadius: 12, padding: 16, border: `1px solid ${AP_COLORS.gray200}` }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: 10, fontWeight: 700, color: AP_COLORS.gray400, textTransform: 'uppercase' }}>{c.label}</span>
-                <Icon size={18} color={AMBER} />
-              </div>
-              <div style={{ fontSize: isMobile ? 16 : 20, fontWeight: 800, color: NAVY, marginTop: 8 }}>{c.value}</div>
-            </div>
-          );
-        })}
-      </div>
-      <div className="ap-grid-2" style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16 }}>
+      <AccountantBudgetHeroShell
+        eyebrow="School Action Plan"
+        title="Action Plan Dashboard"
+        subtitle={activePlan ? `${activePlan.title} · ${activePlan.term}` : 'Plan, monitor, and track school activities'}
+        headerRight={heroActions}
+        kpiTiles={kpiTiles}
+        kpiGridClassName="grid-cols-2 sm:grid-cols-4 xl:grid-cols-8"
+        pageBody={(
+          <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pb-8">
+      <ActionPlanSelector planId={planId} onPlanIdChange={setPlanId} fmt={fmt} fallbackPlans={recentPlans} />
+      <div className="ap-grid-2" style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16, marginTop: 8 }}>
         <div style={{ background: '#fff', borderRadius: 12, padding: 18, border: `1px solid ${AP_COLORS.gray200}` }}>
-          <div style={{ fontWeight: 700, color: NAVY, marginBottom: 12 }}>Department usage</div>
+          <div style={{ fontWeight: 600, color: NAVY, marginBottom: 12 }}>Department usage</div>
           {departmentUsage.length ? (
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={departmentUsage.map((d) => ({ name: (d.department || '').slice(0, 8), used: d.used / 1e6, planned: d.planned / 1e6 }))}>
@@ -106,7 +109,7 @@ export function ActionPlanDashboardPage({ fmt, onOpenCreate }) {
           ) : <p style={{ color: AP_COLORS.gray400 }}>No data yet</p>}
         </div>
         <div style={{ background: '#fff', borderRadius: 12, padding: 18, border: `1px solid ${AP_COLORS.gray200}` }}>
-          <div style={{ fontWeight: 700, color: NAVY, marginBottom: 12 }}>Alerts</div>
+          <div style={{ fontWeight: 600, color: NAVY, marginBottom: 12 }}>Alerts</div>
           {notifications.length ? notifications.slice(0, 5).map((n) => (
             <div key={n.id} style={{ fontSize: 12, padding: '8px 0', borderBottom: `1px solid ${AP_COLORS.gray100}`, display: 'flex', gap: 8 }}>
               <TriangleAlert size={14} color={AMBER} />
@@ -117,7 +120,8 @@ export function ActionPlanDashboardPage({ fmt, onOpenCreate }) {
       </div>
       {activities.length > 0 && (
         <div style={{ marginTop: 16, background: '#fff', borderRadius: 12, border: `1px solid ${AP_COLORS.gray200}`, overflow: 'hidden' }}>
-          <div style={{ padding: 14, fontWeight: 700, color: NAVY }}>Activity progress</div>
+          <div style={{ padding: 14, fontWeight: 600, color: NAVY }}>Activity progress</div>
+          <div className="ap-table-scroll">
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead><tr style={{ background: NAVY, color: '#fff' }}>{['Activity', 'Planned', 'Used', 'Progress'].map((h) => <th key={h} style={{ padding: 10, textAlign: 'left' }}>{h}</th>)}</tr></thead>
             <tbody>
@@ -131,8 +135,12 @@ export function ActionPlanDashboardPage({ fmt, onOpenCreate }) {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
+          </div>
+        )}
+      />
     </div>
   );
 }
@@ -197,10 +205,10 @@ export function CreateActionPlanPage({ fmt }) {
             </select>
           </div>
         </div>
-        {msg && <p style={{ marginTop: 12, color: NAVY, fontWeight: 600 }}>{msg}</p>}
+        {msg && <p style={{ marginTop: 12, color: NAVY, fontWeight: 500 }}>{msg}</p>}
         <div style={{ display: 'flex', gap: 10, marginTop: 16, flexWrap: 'wrap' }}>
-          <button type="button" disabled={saving} onClick={() => submit(false)} style={{ background: NAVY, color: '#fff', border: 'none', borderRadius: 8, padding: '10px 18px', fontWeight: 700, cursor: 'pointer' }}>Save draft</button>
-          <button type="button" disabled={saving} onClick={() => submit(true)} style={{ background: AMBER, color: NAVY, border: 'none', borderRadius: 8, padding: '10px 18px', fontWeight: 700, cursor: 'pointer' }}>Submit for approval</button>
+          <button type="button" disabled={saving} onClick={() => submit(false)} style={{ background: NAVY, color: '#fff', border: 'none', borderRadius: 8, padding: '10px 18px', fontWeight: 600, cursor: 'pointer' }}>Save draft</button>
+          <button type="button" disabled={saving} onClick={() => submit(true)} style={{ background: AMBER, color: NAVY, border: 'none', borderRadius: 8, padding: '10px 18px', fontWeight: 600, cursor: 'pointer' }}>Submit for approval</button>
         </div>
       </div>
     </TabFrame>
@@ -236,8 +244,8 @@ export function ActivitiesPage({ fmt }) {
   return (
     <TabFrame title="Activities" fmt={fmt}>
       <div style={{ background: '#fff', borderRadius: 12, padding: 16, border: `1px solid ${AP_COLORS.gray200}`, marginBottom: 16 }}>
-        <div style={{ fontWeight: 700, color: NAVY, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}><PlusCircle size={18} /> Add activity</div>
-        <div className="ap-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <div style={{ fontWeight: 600, color: NAVY, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}><PlusCircle size={18} /> Add activity</div>
+        <div className="ap-grid-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
           <input style={inp} placeholder="Activity name *" value={form.activityName} onChange={(e) => setForm({ ...form, activityName: e.target.value })} />
           <select style={inp} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
             <option value="">Category</option>
@@ -251,6 +259,7 @@ export function ActivitiesPage({ fmt }) {
         </div>
         <button type="button" disabled={saving} onClick={add} style={{ marginTop: 12, background: AMBER, color: NAVY, border: 'none', borderRadius: 8, padding: '10px 16px', fontWeight: 700, cursor: 'pointer' }}>Add activity</button>
       </div>
+      <div className="ap-table-scroll">
       <table style={{ width: '100%', background: '#fff', borderRadius: 12, borderCollapse: 'collapse', fontSize: 13, overflow: 'hidden' }}>
         <thead><tr style={{ background: NAVY, color: '#fff' }}>{['Activity', 'Dept', 'Planned', 'Used', 'Progress', 'Status'].map((h) => <th key={h} style={{ padding: 10, textAlign: 'left' }}>{h}</th>)}</tr></thead>
         <tbody>
@@ -266,6 +275,7 @@ export function ActivitiesPage({ fmt }) {
           ))}
         </tbody>
       </table>
+      </div>
     </TabFrame>
   );
 }
@@ -286,7 +296,7 @@ export function BudgetTrackingPage({ fmt }) {
   return (
     <TabFrame title="Budget Tracking" subtitle="Activity costs linked to school budget lines" fmt={fmt}>
       <div style={{ background: '#fff', padding: 16, borderRadius: 12, marginBottom: 16, border: `1px solid ${AP_COLORS.gray200}` }}>
-        <div style={{ fontWeight: 700, color: NAVY, marginBottom: 10 }}>Record expense</div>
+        <div style={{ fontWeight: 600, color: NAVY, marginBottom: 10 }}>Record expense</div>
         <select style={{ ...inp, marginBottom: 8 }} value={expForm.activityId} onChange={(e) => setExpForm({ ...expForm, activityId: e.target.value })}>
           <option value="">Select activity</option>
           {activities.map((a) => <option key={a.id} value={a.id}>{a.activityName}</option>)}
@@ -296,6 +306,7 @@ export function BudgetTrackingPage({ fmt }) {
         <input style={inp} placeholder="Description" value={expForm.description} onChange={(e) => setExpForm({ ...expForm, description: e.target.value })} />
         <button type="button" onClick={record} style={{ marginTop: 10, background: AMBER, color: NAVY, border: 'none', borderRadius: 8, padding: '10px 16px', fontWeight: 700, cursor: 'pointer' }}>Record expense</button>
       </div>
+      <div className="ap-table-scroll">
       <table style={{ width: '100%', background: '#fff', borderRadius: 12, borderCollapse: 'collapse', fontSize: 13 }}>
         <thead><tr style={{ background: NAVY, color: '#fff' }}>{['Activity', 'Planned', 'Used', 'Remaining', 'Usage %'].map((h) => <th key={h} style={{ padding: 10, textAlign: 'left' }}>{h}</th>)}</tr></thead>
         <tbody>
@@ -305,11 +316,12 @@ export function BudgetTrackingPage({ fmt }) {
               <td style={{ padding: 10 }}>{fmt(a.estimatedCost)}</td>
               <td style={{ padding: 10, color: a.usagePct >= 100 ? AMBER : NAVY }}>{fmt(a.usedAmount)}</td>
               <td style={{ padding: 10 }}>{fmt(a.remaining)}</td>
-              <td style={{ padding: 10, fontWeight: 700 }}>{a.usagePct}%</td>
+              <td style={{ padding: 10, fontWeight: 600 }}>{a.usagePct}%</td>
             </tr>
           ))}
         </tbody>
       </table>
+      </div>
     </TabFrame>
   );
 }
@@ -325,8 +337,8 @@ export function ProgressTrackingPage({ fmt }) {
       {activities.map((a) => (
         <div key={a.id} style={{ background: '#fff', borderRadius: 10, padding: 14, marginBottom: 10, border: `1px solid ${AP_COLORS.gray200}` }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-            <span style={{ fontWeight: 700, color: NAVY }}>{a.activityName}</span>
-            <span style={{ fontWeight: 700, color: AMBER }}>{a.progressPct}%</span>
+            <span style={{ fontWeight: 600, color: NAVY }}>{a.activityName}</span>
+            <span style={{ fontWeight: 600, color: AMBER }}>{a.progressPct}%</span>
           </div>
           <div style={{ background: AP_COLORS.gray100, borderRadius: 99, height: 8, overflow: 'hidden', marginBottom: 10 }}>
             <div style={{ width: `${a.progressPct}%`, height: '100%', background: AMBER }} />
@@ -351,7 +363,7 @@ export function ApprovalsPage({ fmt }) {
         <>
           <div style={{ background: '#fff', padding: 20, borderRadius: 12, border: `1px solid ${AP_COLORS.gray200}` }}>
             <div style={{ fontWeight: 700, fontSize: 16, color: NAVY }}>{activePlan.title}</div>
-            <p style={{ color: AP_COLORS.gray600 }}>Status: {activePlan.statusLabel} Â· {fmt(activePlan.estimatedBudget)}</p>
+            <p style={{ color: AP_COLORS.gray600 }}>Status: {activePlan.statusLabel} · {fmt(activePlan.estimatedBudget)}</p>
             <textarea style={{ ...inp, marginTop: 12, minHeight: 60 }} placeholder="Review notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
             <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
               <button type="button" onClick={() => reviewActionPlan(activePlan.id, { decision: 'approve', notes }).then(reload)} style={{ background: AMBER, color: NAVY, border: 'none', borderRadius: 8, padding: '8px 14px', fontWeight: 700, cursor: 'pointer' }}>Approve</button>
@@ -369,7 +381,7 @@ export function ReportsPage({ fmt }) {
   const reports = ['Action Plan Summary', 'Department Activity', 'Budget Utilization', 'Progress Report', 'Delayed Activities'];
   return (
     <TabFrame title="Reports" fmt={fmt} requirePlan={false}>
-      <div className="ap-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      <div className="ap-grid-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
         {reports.map((r) => (
           <div key={r} style={{ background: '#fff', padding: 16, borderRadius: 12, border: `1px solid ${AP_COLORS.gray200}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontWeight: 600, color: NAVY }}>{r}</span>
@@ -381,8 +393,8 @@ export function ReportsPage({ fmt }) {
         ))}
       </div>
       <div style={{ marginTop: 16, background: NAVY, color: '#fff', padding: 20, borderRadius: 12 }}>
-        <div style={{ color: AMBER, fontWeight: 700 }}>Quick summary â€” {activePlan?.title || 'All plans'}</div>
-        <p style={{ marginTop: 8 }}>Planned: {fmt(totals.plannedBudget)} Â· Used: {fmt(totals.usedBudget)} Â· Activities: {totals.totalActivities}</p>
+        <div style={{ color: AMBER, fontWeight: 600 }}>Quick summary — {activePlan?.title || 'All plans'}</div>
+        <p style={{ marginTop: 8 }}>Planned: {fmt(totals.plannedBudget)} · Used: {fmt(totals.usedBudget)} · Activities: {totals.totalActivities}</p>
       </div>
     </TabFrame>
   );
@@ -402,7 +414,7 @@ export function AnalyticsPage({ fmt }) {
           ) : <p style={{ color: AP_COLORS.gray400 }}>No spending data</p>}
         </div>
         <div style={{ background: '#fff', padding: 18, borderRadius: 12, border: `1px solid ${AP_COLORS.gray200}` }}>
-          <div style={{ fontWeight: 700, color: NAVY, marginBottom: 12 }}>Completion</div>
+          <div style={{ fontWeight: 600, color: NAVY, marginBottom: 12 }}>Completion</div>
           {activities.slice(0, 6).map((a) => (
             <div key={a.id} style={{ marginBottom: 10 }}>
               <div style={{ fontSize: 12, display: 'flex', justifyContent: 'space-between' }}><span>{a.activityName}</span><span>{a.progressPct}%</span></div>
@@ -425,7 +437,7 @@ export function CalendarPage() {
             <div style={{ fontWeight: 700, color: NAVY }}>{a.activityName}</div>
             <div style={{ fontSize: 12, color: AP_COLORS.gray600, marginTop: 6 }}>
               <CalendarDays size={12} style={{ verticalAlign: 'middle', marginRight: 4 }} />
-              {a.plannedStart || 'â€”'} â†’ {a.plannedEnd || 'â€”'}
+              {a.plannedStart || '—'} → {a.plannedEnd || '—'}
             </div>
           </div>
         ))}

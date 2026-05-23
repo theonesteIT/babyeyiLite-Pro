@@ -149,11 +149,12 @@ const Sidebar = ({ onClose }) => {
 
   const schoolConsoleSubItems = useMemo(
     () =>
-      SCHOOL_CONSOLE_NAV.map((item) =>
-        item.external
-          ? { name: item.label, path: item.path, icon: item.icon }
-          : { name: item.label, path: `/school-console${item.pathSuffix}`, icon: item.icon }
-      ),
+      SCHOOL_CONSOLE_NAV.map((item) => {
+        if (item.external || item.standalone) {
+          return { name: item.label, path: item.path, icon: item.icon };
+        }
+        return { name: item.label, path: `/school-console${item.pathSuffix}`, icon: item.icon };
+      }),
     []
   );
 

@@ -37,6 +37,7 @@ import SmartSchoolHardwarePage from './pages/SmartSchoolHardwarePage'
 import StaffSmartAccessPage from './pages/StaffSmartAccessPage'
 import ChatCenter from '../shared/pages/ChatCenter'
 import AuditCenter from './pages/AuditCenter'
+import HRCentral from './pages/HRCentral'
 import StockReports from './pages/StockReports'
 import LibraryReports from './pages/LibraryReports'
 import ManagerProfile from './pages/ManagerProfile'
@@ -117,7 +118,16 @@ function ManagerRoutesInner() {
       <Route path="marks/view" element={<ProtectedRoute title="View Student Marks"><ViewMarks /></ProtectedRoute>} />
       <Route path="marks/record" element={<ProtectedRoute title="Record Marks"><RecordMarks /></ProtectedRoute>} />
       <Route path="finance" element={<ProtectedRoute title="Finance Center"><FinanceCenter /></ProtectedRoute>} />
-      <Route path="hr" element={<Navigate to={h('/')} replace />} />
+      <Route
+        path="hr"
+        element={
+          <ProtectedRoute title="HR Central">
+            <SchoolConsoleGate>
+              <HRCentral />
+            </SchoolConsoleGate>
+          </ProtectedRoute>
+        }
+      />
       <Route path="payroll" element={<ProtectedRoute title="Payroll"><Payroll /></ProtectedRoute>} />
       <Route path="my-payroll" element={<ProtectedRoute title="My Payroll"><StaffPayroll /></ProtectedRoute>} />
       <Route path="finance/payments" element={<ProtectedRoute title="Student Fee Payments"><FeePayments /></ProtectedRoute>} />

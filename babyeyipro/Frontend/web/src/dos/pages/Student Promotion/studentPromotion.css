@@ -4,6 +4,11 @@
   -webkit-font-smoothing: antialiased;
 }
 
+/* Hero — uses shared dosPortalHero.css (.dos-hero-orange / .dos-hero-stats-panel) */
+.student-promotion-module .dos-page-hero {
+  margin-bottom: 0.5rem;
+}
+
 .student-promotion-module h1,
 .student-promotion-module h2,
 .student-promotion-module h3,

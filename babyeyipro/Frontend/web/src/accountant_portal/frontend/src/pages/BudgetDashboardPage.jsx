@@ -29,11 +29,14 @@ import {
   TrendingUp,
   Building2,
   FileText,
+  PieChart,
 } from "lucide-react";
 import BudgetSelectorPanel from "../components/BudgetSelectorPanel";
+import AccountantBudgetHeroShell from "../components/AccountantBudgetHeroShell";
 import { useSchoolBudgetData } from "../context/SchoolBudgetDataContext";
 import { COLORS } from "../utils/budgetLineConstants";
 import { useIsMobile } from "../utils/useIsMobile";
+import { sbSectionTitle, sbBody } from "../utils/schoolBudgetTypography";
 
 const CHART_COLORS = ["#F59E0B", "#000435"];
 
@@ -110,162 +113,105 @@ export default function BudgetDashboardPage({ fmt, fmtShort }) {
 
   const NAVY = "#000435";
   const AMBER = COLORS.amber;
-  const cards = [
+
+  const heroKpiTiles = [
     {
-      label: "Expected Income",
-      value: fmt(totalExpectedIncome),
-      Icon: CircleDollarSign,
-      color: NAVY,
-      sub: activeBudget ? `${activeBudget.term} · ${activeBudget.academicYear}` : "All school budgets",
+      key: "expected",
+      label: "Expected income",
+      value: `${fmtShort(totalExpectedIncome)} RWF`,
+      subValue: activeBudget ? `${activeBudget.term} · ${activeBudget.academicYear}` : "All school budgets",
+      icon: CircleDollarSign,
     },
     {
-      label: "Income Sources",
-      value: fmt(totalCollected),
-      Icon: Wallet,
-      color: AMBER,
-      sub: incomeSources.length ? `${incomeSources.length} sources · ${incomePct}% of target` : "No income rows yet",
+      key: "collected",
+      label: "Income collected",
+      value: `${fmtShort(totalCollected)} RWF`,
+      subValue: incomeSources.length ? `${incomePct}% of target` : "No income rows",
+      icon: Wallet,
     },
     {
-      label: "Allocated to Lines",
-      value: fmt(totalAllocated),
-      Icon: ClipboardList,
-      color: NAVY,
-      sub: `${allocPct}% of expected income`,
+      key: "allocated",
+      label: "Allocated to lines",
+      value: `${fmtShort(totalAllocated)} RWF`,
+      subValue: `${allocPct}% of expected`,
+      icon: ClipboardList,
     },
     {
-      label: "Spent (Usage)",
-      value: fmt(totalUsed),
-      Icon: Receipt,
-      color: AMBER,
-      sub: `${usagePct}% of allocated`,
+      key: "spent",
+      label: "Spent (usage)",
+      value: `${fmtShort(totalUsed)} RWF`,
+      subValue: `${usagePct}% of allocated`,
+      icon: Receipt,
     },
     {
-      label: "Available Balance",
-      value: fmt(availableBalance),
-      Icon: Landmark,
-      color: NAVY,
-      sub: "Remaining in budget lines",
+      key: "balance",
+      label: "Available balance",
+      value: `${fmtShort(availableBalance)} RWF`,
+      subValue: "In budget lines",
+      icon: Landmark,
     },
     {
+      key: "unalloc",
       label: "Unallocated",
-      value: fmt(remainingUnallocated),
-      Icon: BarChart3,
-      color: AMBER,
-      sub: "Income not yet on lines",
+      value: `${fmtShort(remainingUnallocated)} RWF`,
+      subValue: "Not on lines yet",
+      icon: BarChart3,
     },
   ];
 
+  const heroHeaderRight = (
+    <>
+      <div className="flex bg-white/10 backdrop-blur-md rounded-xl border border-white/20 px-3 py-2">
+        <span className="text-[10px] font-medium uppercase tracking-widest text-white/90">
+          {loading ? "Updating…" : "Live data"}
+        </span>
+      </div>
+      {activeBudget ? (
+        <span
+          className="rounded-full px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider"
+          style={{ background: statusStyle.bg, color: statusStyle.color }}
+        >
+          {activeBudget.statusLabel || activeBudget.status}
+        </span>
+      ) : null}
+      <button
+        type="button"
+        onClick={reload}
+        disabled={loading}
+        className="inline-flex items-center gap-2 rounded-xl border border-[#FEBF10]/35 bg-[#FEBF10]/15 px-4 py-2.5 text-[10px] font-medium uppercase tracking-widest text-white hover:bg-[#FEBF10]/25 transition-all active:scale-95 disabled:opacity-60"
+      >
+        <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+        Refresh
+      </button>
+      <button
+        type="button"
+        className="inline-flex items-center gap-2 rounded-xl bg-[#FEBF10] px-4 py-2.5 text-[10px] font-medium uppercase tracking-widest text-[#000435] hover:bg-amber-300 transition-all"
+      >
+        <Download size={14} />
+        Export
+      </button>
+    </>
+  );
+
   if (loading && !data) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 320, gap: 12 }}>
-        <Loader2 size={36} color={COLORS.amber} style={{ animation: "bd-spin 1s linear infinite" }} />
-        <div style={{ color: COLORS.gray600, fontWeight: 600 }}>Loading budget dashboard…</div>
+      <div className="flex flex-col items-center justify-center min-h-[320px] gap-3 font-sans" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+        <Loader2 size={36} className="text-[#F59E0B] animate-spin" />
+        <p className="text-[11px] font-medium text-slate-500">Loading budget dashboard…</p>
       </div>
     );
   }
 
-  return (
-    <div>
-      <style>{`
-        @keyframes bd-spin { to { transform: rotate(360deg); } }
-        .bd-hero { background: linear-gradient(135deg, ${COLORS.navy} 0%, #1e3a5f 55%, #0f172a 100%); }
-        .bd-kpi:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,4,53,0.08); }
-        .bd-kpi { transition: transform 0.2s, box-shadow 0.2s; }
-      `}</style>
-
-      <div className="bd-hero" style={{ borderRadius: 16, padding: isMobile ? "18px 16px" : "24px 28px", marginBottom: 20, color: COLORS.white }}>
-        <div className="sb-page-header" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", opacity: 0.75, marginBottom: 6 }}>
-              School Budget
-            </div>
-            <h1 style={{ margin: 0, fontSize: isMobile ? 22 : 28, fontWeight: 800, lineHeight: 1.2 }}>Budget Dashboard</h1>
-            <p style={{ margin: "8px 0 0", fontSize: 14, opacity: 0.85 }}>
-              {activeBudget
-                ? `${activeBudget.title} · ${activeBudget.term} · ${activeBudget.academicYear}`
-                : "Select a budget to view detailed analytics"}
-            </p>
-            {activeBudget?.budgetCode && (
-              <span style={{ display: "inline-block", marginTop: 10, fontSize: 12, background: "rgba(255,255,255,0.15)", padding: "4px 10px", borderRadius: 6 }}>
-                {activeBudget.budgetCode}
-              </span>
-            )}
-          </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-            {activeBudget && (
-              <span style={{ background: statusStyle.bg, color: statusStyle.color, borderRadius: 20, padding: "6px 14px", fontSize: 12, fontWeight: 700 }}>
-                {activeBudget.statusLabel || activeBudget.status}
-              </span>
-            )}
-            <button
-              type="button"
-              onClick={reload}
-              disabled={loading}
-              style={{
-                background: "rgba(255,255,255,0.12)",
-                color: COLORS.white,
-                border: "1px solid rgba(255,255,255,0.25)",
-                borderRadius: 8,
-                padding: "8px 14px",
-                fontWeight: 600,
-                cursor: loading ? "wait" : "pointer",
-                fontSize: 13,
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-              }}
-            >
-              <RefreshCw size={15} strokeWidth={2.5} style={loading ? { animation: "bd-spin 1s linear infinite" } : undefined} />
-              Refresh
-            </button>
-            <button
-              type="button"
-              style={{
-                background: COLORS.amber,
-                color: COLORS.navy,
-                border: "none",
-                borderRadius: 8,
-                padding: "8px 16px",
-                fontWeight: 700,
-                cursor: "pointer",
-                fontSize: 13,
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 8,
-              }}
-            >
-              <Download size={16} strokeWidth={2.5} aria-hidden />
-              Export
-            </button>
-          </div>
-        </div>
-
-        {!activeBudget && (
-          <div style={{ marginTop: 16, display: "flex", gap: 16, flexWrap: "wrap" }}>
-            <div style={{ background: "rgba(255,255,255,0.1)", borderRadius: 10, padding: "12px 16px", minWidth: 120 }}>
-              <div style={{ fontSize: 11, opacity: 0.8 }}>Total budgets</div>
-              <div style={{ fontSize: 22, fontWeight: 800 }}>{schoolOverview.totalBudgets ?? 0}</div>
-            </div>
-            <div style={{ background: "rgba(255,255,255,0.1)", borderRadius: 10, padding: "12px 16px", minWidth: 120 }}>
-              <div style={{ fontSize: 11, opacity: 0.8 }}>Pending approval</div>
-              <div style={{ fontSize: 22, fontWeight: 800 }}>{schoolOverview.pendingApprovals ?? 0}</div>
-            </div>
-            <div style={{ background: "rgba(255,255,255,0.1)", borderRadius: 10, padding: "12px 16px", minWidth: 120 }}>
-              <div style={{ fontSize: 11, opacity: 0.8 }}>Approved</div>
-              <div style={{ fontSize: 22, fontWeight: 800 }}>{schoolOverview.approvedCount ?? 0}</div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div style={{ marginBottom: 20 }}>
+  const pageContent = (
+    <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pb-10">
+      <div className="mb-5">
         <BudgetSelectorPanel budgetId={budgetId} onBudgetIdChange={setBudgetId} fmt={fmt} />
       </div>
 
       {error && (
         <div style={{ background: "#FEE2E2", color: "#991B1B", borderRadius: 10, padding: "12px 16px", marginBottom: 16, fontSize: 13, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
           <span>{error}</span>
-          <button type="button" onClick={reload} style={{ background: COLORS.white, border: "none", borderRadius: 6, padding: "6px 12px", fontWeight: 600, cursor: "pointer", fontSize: 12 }}>
+          <button type="button" onClick={reload} className="rounded-lg bg-white px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider text-[#000435] hover:bg-slate-50 transition">
             Retry
           </button>
         </div>
@@ -274,7 +220,7 @@ export default function BudgetDashboardPage({ fmt, fmtShort }) {
       {!activeBudget && !loading && (
         <div style={{ background: COLORS.white, borderRadius: 12, padding: 40, textAlign: "center", border: `1px solid ${COLORS.gray200}` }}>
           <FileText size={40} color={COLORS.gray400} style={{ margin: "0 auto 12px" }} />
-          <div style={{ fontWeight: 700, color: COLORS.navy, fontSize: 16 }}>No budget selected</div>
+          <div style={{ fontWeight: 500, color: COLORS.navy, fontSize: 16 }}>No budget selected</div>
           <p style={{ color: COLORS.gray600, fontSize: 14, marginTop: 8 }}>Create a budget or pick one above to see income, lines, and spending charts.</p>
         </div>
       )}
@@ -283,8 +229,8 @@ export default function BudgetDashboardPage({ fmt, fmtShort }) {
         <>
           <div style={{ background: COLORS.white, borderRadius: 12, padding: "16px 20px", marginBottom: 20, border: `1px solid ${COLORS.gray200}` }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, flexWrap: "wrap", gap: 8 }}>
-              <span style={{ fontWeight: 600, color: COLORS.navy, fontSize: 14 }}>Overall budget usage</span>
-              <span style={{ fontWeight: 700, color: usagePct > 90 ? "#000435" : COLORS.amber, fontSize: 14 }}>{usagePct}%</span>
+              <span style={{ ...sbSectionTitle }}>Overall budget usage</span>
+              <span style={{ ...sbSectionTitle, color: usagePct > 90 ? "#000435" : COLORS.amber }}>{usagePct}%</span>
             </div>
             <div style={{ background: COLORS.gray100, borderRadius: 99, height: 10, overflow: "hidden" }}>
               <div
@@ -303,26 +249,10 @@ export default function BudgetDashboardPage({ fmt, fmtShort }) {
             </div>
           </div>
 
-          <div className="sb-grid-3" style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)", gap: 14, marginBottom: 24 }}>
-            {cards.map((c, i) => {
-              const CardIcon = c.Icon;
-              return (
-                <div key={i} className="bd-kpi" style={{ background: COLORS.white, borderRadius: 12, padding: "16px 18px", border: `1px solid ${COLORS.gray200}` }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                    <div style={{ fontSize: 11, color: COLORS.gray400, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>{c.label}</div>
-                    <CardIcon size={22} color={c.color} strokeWidth={2} aria-hidden />
-                  </div>
-                  <div style={{ fontSize: isMobile ? 18 : 20, fontWeight: 800, color: COLORS.navy, marginTop: 6 }}>{c.value}</div>
-                  <div style={{ fontSize: 12, color: c.color, marginTop: 4, fontWeight: 600 }}>{c.sub}</div>
-                </div>
-              );
-            })}
-          </div>
-
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 320px", gap: 16, marginBottom: 20 }}>
             <div className="sb-grid-2" style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
               <div style={{ background: COLORS.white, borderRadius: 12, padding: 18, border: `1px solid ${COLORS.gray200}` }}>
-                <div style={{ fontWeight: 700, color: COLORS.navy, marginBottom: 14, fontSize: 14, display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ ...sbSectionTitle, marginBottom: 14, display: "flex", alignItems: "center", gap: 8 }}>
                   <TrendingUp size={18} color={COLORS.amber} />
                   Allocation by line
                 </div>
@@ -343,7 +273,7 @@ export default function BudgetDashboardPage({ fmt, fmtShort }) {
               </div>
 
               <div style={{ background: COLORS.white, borderRadius: 12, padding: 18, border: `1px solid ${COLORS.gray200}` }}>
-                <div style={{ fontWeight: 700, color: COLORS.navy, marginBottom: 14, fontSize: 14 }}>Monthly spending</div>
+                <div style={{ ...sbSectionTitle, marginBottom: 14 }}>Monthly spending</div>
                 {monthlyData.length ? (
                   <ResponsiveContainer width="100%" height={220}>
                     <AreaChart data={monthlyData}>
@@ -361,7 +291,7 @@ export default function BudgetDashboardPage({ fmt, fmtShort }) {
             </div>
 
             <div style={{ background: COLORS.white, borderRadius: 12, padding: 18, border: `1px solid ${COLORS.gray200}` }}>
-              <div style={{ fontWeight: 700, color: COLORS.navy, marginBottom: 12, fontSize: 14 }}>Alerts</div>
+              <div style={{ ...sbSectionTitle, marginBottom: 12 }}>Alerts</div>
               {alerts.length === 0 ? (
                 <p style={{ color: COLORS.gray400, fontSize: 13 }}>No alerts for this budget.</p>
               ) : (
@@ -379,7 +309,7 @@ export default function BudgetDashboardPage({ fmt, fmtShort }) {
 
           {deptBarData.length > 0 && (
             <div style={{ background: COLORS.white, borderRadius: 12, padding: 18, border: `1px solid ${COLORS.gray200}`, marginBottom: 20 }}>
-              <div style={{ fontWeight: 700, color: COLORS.navy, marginBottom: 14, fontSize: 14, display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ ...sbSectionTitle, marginBottom: 14, display: "flex", alignItems: "center", gap: 8 }}>
                 <Building2 size={18} color={COLORS.navy} />
                 Department spending (RWF millions)
               </div>
@@ -397,7 +327,7 @@ export default function BudgetDashboardPage({ fmt, fmtShort }) {
           )}
 
           <div style={{ background: COLORS.white, borderRadius: 12, padding: 18, border: `1px solid ${COLORS.gray200}`, marginBottom: 20 }}>
-            <div style={{ fontWeight: 700, color: COLORS.navy, marginBottom: 14, fontSize: 14 }}>Top lines: planned vs used (RWF millions)</div>
+            <div style={{ ...sbSectionTitle, marginBottom: 14 }}>Top lines: planned vs used (RWF millions)</div>
             {barData.length ? (
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={barData}>
@@ -416,13 +346,13 @@ export default function BudgetDashboardPage({ fmt, fmtShort }) {
 
           {recentBudgets.length > 0 && (
             <div style={{ background: COLORS.white, borderRadius: 12, border: `1px solid ${COLORS.gray200}`, overflow: "hidden" }}>
-              <div style={{ padding: "14px 18px", fontWeight: 700, color: COLORS.navy, borderBottom: `1px solid ${COLORS.gray200}` }}>Recent budgets</div>
+              <div style={{ padding: "14px 18px", ...sbSectionTitle, borderBottom: `1px solid ${COLORS.gray200}` }}>Recent budgets</div>
               <div className="sb-table-scroll" style={{ overflowX: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                   <thead>
                     <tr style={{ background: COLORS.gray50 }}>
                       {["Title", "Term", "Year", "Status", "Expected income"].map((h) => (
-                        <th key={h} style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, fontWeight: 600, color: COLORS.gray600 }}>
+                        <th key={h} style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, fontWeight: 500, color: COLORS.gray600 }}>
                           {h}
                         </th>
                       ))}
@@ -433,11 +363,11 @@ export default function BudgetDashboardPage({ fmt, fmtShort }) {
                       const st = statusBadgeStyle(b.status);
                       return (
                         <tr key={b.id} style={{ borderBottom: `1px solid ${COLORS.gray100}` }}>
-                          <td style={{ padding: "10px 14px", fontWeight: 600, color: COLORS.navy }}>{b.title}</td>
+                          <td style={{ padding: "10px 14px", fontWeight: 500, color: COLORS.navy }}>{b.title}</td>
                           <td style={{ padding: "10px 14px", color: COLORS.gray600 }}>{b.term}</td>
                           <td style={{ padding: "10px 14px", color: COLORS.gray600 }}>{b.academicYear}</td>
                           <td style={{ padding: "10px 14px" }}>
-                            <span style={{ background: st.bg, color: st.color, borderRadius: 20, padding: "3px 10px", fontSize: 11, fontWeight: 700 }}>
+                            <span style={{ background: st.bg, color: st.color, borderRadius: 20, padding: "3px 10px", fontSize: 11, fontWeight: 500 }}>
                               {b.statusLabel || b.status}
                             </span>
                           </td>
@@ -452,6 +382,42 @@ export default function BudgetDashboardPage({ fmt, fmtShort }) {
           )}
         </>
       )}
+
+      {!activeBudget && !loading && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+          {[
+            { label: "Total budgets", value: schoolOverview.totalBudgets ?? 0 },
+            { label: "Pending approval", value: schoolOverview.pendingApprovals ?? 0 },
+            { label: "Approved", value: schoolOverview.approvedCount ?? 0 },
+          ].map((item) => (
+            <div key={item.label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-400">{item.label}</p>
+              <p className="text-lg font-semibold text-[#000435] mt-1 tabular-nums">{item.value}</p>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
+  );
+
+  return (
+    <>
+      <style>{`@keyframes bd-spin { to { transform: rotate(360deg); } }`}</style>
+      <AccountantBudgetHeroShell
+        eyebrow="Finance · School budget"
+        title="Budget dashboard"
+        subtitle={
+          activeBudget
+            ? `${activeBudget.title} · ${activeBudget.term} · ${activeBudget.academicYear}${activeBudget.budgetCode ? ` · ${activeBudget.budgetCode}` : ""}`
+            : "Select a budget to view income, lines, and spending analytics"
+        }
+        HeroIcon={PieChart}
+        headerRight={heroHeaderRight}
+        kpiTiles={heroKpiTiles}
+        kpiGridClassName="grid-cols-2 sm:grid-cols-3 xl:grid-cols-6"
+        pageBody={pageContent}
+        outerClassName="min-h-full bg-slate-100"
+      />
+    </>
   );
 }

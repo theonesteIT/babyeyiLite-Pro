@@ -2,8 +2,9 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   Upload, Plus, Users, Loader2, CheckCircle2, AlertTriangle,
   Search, RefreshCw, Pencil, Trash2, FileSpreadsheet, FileText,
-  X, ChevronRight, Eye, MapPin, User, Phone, GraduationCap, ListFilter,
+  X, ChevronRight, Eye, MapPin, User, Phone, GraduationCap, ListFilter, Download,
 } from "lucide-react";
+import { downloadStudentImportTemplate } from "../../utils/studentImportTemplate";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:5100";
 
@@ -239,10 +240,10 @@ function StudentDetailModal({ student, onClose, onEdit }) {
     </div>
   );
 
-  const Field = ({ label, value, warn }) => (
+  const Field = ({ label, value, warn, mono }) => (
     <div className={`rounded-xl border px-3 py-2.5 sm:py-2 ${warn ? "border-red-200 bg-red-50" : "border-slate-100 bg-slate-50"}`}>
       <p className={`text-[9px] uppercase tracking-widest font-semibold mb-0.5 ${warn ? "text-red-500" : "text-slate-400"}`}>{label}</p>
-      <p className={`text-xs font-semibold break-words ${warn ? "text-red-700" : "text-slate-800"}`}>
+      <p className={`text-xs font-semibold break-words ${mono ? "font-mono" : ""} ${warn ? "text-red-700" : "text-slate-800"}`}>
         {value || (warn ? "⚠ Missing" : "—")}
       </p>
     </div>
@@ -338,14 +339,28 @@ function StudentDetailModal({ student, onClose, onEdit }) {
             <Field label="Village"  value={student.village}  warn={missing.has("village")} />
           </Section>
 
-          <Section title="Parents" icon={Phone}>
-            <Field label="Father Name"  value={student.father_full_name} />
-            <Field label="Father Phone" value={student.father_phone} />
-            <Field label="Father Email" value={student.father_email} />
-            <Field label="Mother Name"  value={student.mother_full_name} />
-            <Field label="Mother Phone" value={student.mother_phone} />
-            <Field label="Mother Email" value={student.mother_email} />
-          </Section>
+          <div className="mb-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Phone className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+              <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">Parents</p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="rounded-2xl border border-slate-200 bg-white p-3 space-y-2">
+                <p className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Father</p>
+                <Field label="Name" value={student.father_full_name} />
+                <Field label="Phone" value={student.father_phone} mono />
+                <Field label="Email" value={student.father_email} />
+                <Field label="National ID" value={student.father_national_id} mono />
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-white p-3 space-y-2">
+                <p className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Mother</p>
+                <Field label="Name" value={student.mother_full_name} />
+                <Field label="Phone" value={student.mother_phone} mono />
+                <Field label="Email" value={student.mother_email} />
+                <Field label="National ID" value={student.mother_national_id} mono />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -434,9 +449,11 @@ function StudentWizardModal({ open, onClose, session, toast, onSuccess, editStud
     father_full_name: "",
     father_phone:     "",
     father_email:     "",
+    father_national_id: "",
     mother_full_name: "",
     mother_phone:     "",
     mother_email:     "",
+    mother_national_id: "",
   };
 
   const [step,    setStep]    = useState(1);
@@ -473,9 +490,11 @@ function StudentWizardModal({ open, onClose, session, toast, onSuccess, editStud
         father_full_name: editStudent.father_full_name || "",
         father_phone:     editStudent.father_phone     || "",
         father_email:     editStudent.father_email     || "",
+        father_national_id: editStudent.father_national_id || "",
         mother_full_name: editStudent.mother_full_name || "",
         mother_phone:     editStudent.mother_phone     || "",
         mother_email:     editStudent.mother_email     || "",
+        mother_national_id: editStudent.mother_national_id || "",
         class_name:       editStudent.class_name       || "",
         academic_year:    editStudent.academic_year    ? String(editStudent.academic_year) : "",
         sdm_code:         editStudent.sdm_code         || "",
@@ -615,9 +634,11 @@ function StudentWizardModal({ open, onClose, session, toast, onSuccess, editStud
       father_full_name: form.father_full_name.trim() || undefined,
       father_phone:     form.father_phone.trim()     || undefined,
       father_email:     form.father_email.trim()     || undefined,
+      father_national_id: form.father_national_id.trim() || null,
       mother_full_name: form.mother_full_name.trim() || undefined,
       mother_phone:     form.mother_phone.trim()     || undefined,
       mother_email:     form.mother_email.trim()     || undefined,
+      mother_national_id: form.mother_national_id.trim() || null,
     };
 
     try {
@@ -941,6 +962,15 @@ function StudentWizardModal({ open, onClose, session, toast, onSuccess, editStud
                   value={form.father_email}
                   onChange={e => set("father_email", e.target.value)}
                 />
+                <FormField label="Father National ID">
+                  <input
+                    type="text"
+                    className={inputCls}
+                    placeholder="e.g. 1199080000000001"
+                    value={form.father_national_id}
+                    onChange={e => set("father_national_id", e.target.value)}
+                  />
+                </FormField>
               </div>
               {/* Mother */}
               <div className="rounded-2xl border border-slate-200 bg-white p-3 space-y-2.5">
@@ -966,6 +996,15 @@ function StudentWizardModal({ open, onClose, session, toast, onSuccess, editStud
                   value={form.mother_email}
                   onChange={e => set("mother_email", e.target.value)}
                 />
+                <FormField label="Mother National ID">
+                  <input
+                    type="text"
+                    className={inputCls}
+                    placeholder="e.g. 1199080000000002"
+                    value={form.mother_national_id}
+                    onChange={e => set("mother_national_id", e.target.value)}
+                  />
+                </FormField>
               </div>
             </div>
           )}
@@ -1076,7 +1115,8 @@ function ImportCard({ toast, onImported }) {
           <p className="text-sm font-semibold text-slate-800">Bulk import from Excel</p>
           <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
             <span className="font-semibold text-amber-700">1.</span> Class &amp; academic year for this batch ·{" "}
-            <span className="font-semibold text-amber-700">2.</span> Excel file · <span className="font-semibold text-amber-700">3.</span> Import. Urubuto / custom columns supported.
+            <span className="font-semibold text-amber-700">2.</span> Download template &amp; fill rows ·{" "}
+            <span className="font-semibold text-amber-700">3.</span> Upload &amp; import. Urubuto exports also work.
           </p>
         </div>
       </div>
@@ -1105,7 +1145,23 @@ function ImportCard({ toast, onImported }) {
       </div>
 
       <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3">
-        <label className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-all min-h-[44px] touch-manipulation">
+        <button
+          type="button"
+          onClick={() => {
+            try {
+              downloadStudentImportTemplate();
+              toast?.("Template downloaded. Fill rows and upload below.", "success");
+            } catch {
+              toast?.("Could not generate template.", "error");
+            }
+          }}
+          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-emerald-200 bg-emerald-50 text-[11px] font-semibold text-emerald-800 hover:bg-emerald-100 transition-all min-h-[44px] touch-manipulation"
+        >
+          <Download className="w-3.5 h-3.5 shrink-0" />
+          Download Excel template
+        </button>
+
+        <label className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-all min-h-[44px] touch-manipulation flex-1 sm:flex-initial sm:min-w-[200px]">
           <FileSpreadsheet className="w-4 h-4 text-emerald-600 shrink-0" />
           <span className="text-[11px] font-bold text-slate-700 truncate flex-1 min-w-0">
             {file ? file.name : "Choose Excel file (.xlsx)"}
@@ -1396,23 +1452,25 @@ function StudentMobileCard({ student: s, hasMissing, selected, onToggleSelect, o
           <dt className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">Residence</dt>
           <dd className="text-slate-600 mt-0.5 leading-snug break-words">{residence}</dd>
         </div>
-        {(s.father_full_name || s.father_phone || s.father_email) && (
+        {(s.father_full_name || s.father_phone || s.father_email || s.father_national_id) && (
           <div className="col-span-2 min-w-0">
             <dt className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">Father</dt>
             <dd className="text-slate-700 mt-0.5 text-[11px] leading-snug break-words">
               {s.father_full_name || "—"}
               {s.father_phone ? <span className="block font-mono text-[10px] text-slate-600">{s.father_phone}</span> : null}
               {s.father_email ? <span className="block text-[10px] text-slate-500 break-all">{s.father_email}</span> : null}
+              {s.father_national_id ? <span className="block font-mono text-[10px] text-slate-600">ID: {s.father_national_id}</span> : null}
             </dd>
           </div>
         )}
-        {(s.mother_full_name || s.mother_phone || s.mother_email) && (
+        {(s.mother_full_name || s.mother_phone || s.mother_email || s.mother_national_id) && (
           <div className="col-span-2 min-w-0">
             <dt className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">Mother</dt>
             <dd className="text-slate-700 mt-0.5 text-[11px] leading-snug break-words">
               {s.mother_full_name || "—"}
               {s.mother_phone ? <span className="block font-mono text-[10px] text-slate-600">{s.mother_phone}</span> : null}
               {s.mother_email ? <span className="block text-[10px] text-slate-500 break-all">{s.mother_email}</span> : null}
+              {s.mother_national_id ? <span className="block font-mono text-[10px] text-slate-600">ID: {s.mother_national_id}</span> : null}
             </dd>
           </div>
         )}
@@ -2104,6 +2162,9 @@ export default function StudentsPage({ session, toast, rightHeaderAction = null 
                             {s.father_email ? (
                               <span className="block text-[10px] text-slate-600 mt-0.5 break-all">{s.father_email}</span>
                             ) : null}
+                            {s.father_national_id ? (
+                              <span className="block font-mono text-[10px] text-slate-600 mt-0.5">ID: {s.father_national_id}</span>
+                            ) : null}
                           </span>
                         </td>
                         <td className="px-3 sm:px-4 py-3 text-slate-500 max-w-[140px]">
@@ -2114,6 +2175,9 @@ export default function StudentsPage({ session, toast, rightHeaderAction = null 
                             ) : null}
                             {s.mother_email ? (
                               <span className="block text-[10px] text-slate-600 mt-0.5 break-all">{s.mother_email}</span>
+                            ) : null}
+                            {s.mother_national_id ? (
+                              <span className="block font-mono text-[10px] text-slate-600 mt-0.5">ID: {s.mother_national_id}</span>
                             ) : null}
                           </span>
                         </td>

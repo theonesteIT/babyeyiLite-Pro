@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { PlayCircle, RotateCcw, TrendingUp, AlertTriangle, CheckCircle, ArrowRight, Eye, Sparkles } from "lucide-react";
+import { PlayCircle, RotateCcw, AlertTriangle, CheckCircle, ArrowRight, Eye, Sparkles } from "lucide-react";
 import { useStudentPromotionData } from "../context/StudentPromotionDataContext";
+import PromotionPageHero, { PromotionPageBody } from "../components/PromotionPageHero";
 
 export default function PromotionSimulation() {
-  const { groups, streams, streamsByGroup, getStudentsForClass } = useStudentPromotionData();
+  const { groups, streams, streamsByGroup, getStudentsForClass, academicYear, refresh, loading } =
+    useStudentPromotionData();
   const [fromClass, setFromClass] = useState("");
   const [fromStream, setFromStream] = useState("");
   const [toClass, setToClass] = useState("");
@@ -39,22 +41,31 @@ export default function PromotionSimulation() {
   const risky = cohort.filter((s) => s.status === "Risky");
   const repeaters = cohort.filter((s) => s.status === "Repeat Recommended");
 
+  const heroStats = useMemo(
+    () => [
+      { label: "Classes", value: String(groups.length) },
+      { label: "Cohort size", value: simulated ? String(cohort.length) : "—" },
+      { label: "Would promote", value: simulated ? String(eligible.length) : "—" },
+      { label: "Academic year", value: academicYear || "—" },
+    ],
+    [groups.length, simulated, cohort.length, eligible.length, academicYear]
+  );
+
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-5">
-      {/* Config panel */}
+    <div className="min-h-full bg-white animate-in fade-in duration-500">
+      <PromotionPageHero
+        title="Promotion Simulation"
+        subtitle="Preview outcomes before final promotion — no changes are saved to the registry."
+        heroStats={heroStats}
+        onRefresh={refresh}
+        refreshing={loading}
+      >
+        <span className="inline-flex items-center gap-2 rounded-xl border border-white/35 bg-white/15 px-3 py-2 text-xs font-bold uppercase tracking-wider text-white backdrop-blur-sm">
+          <Eye size={12} /> Preview mode
+        </span>
+      </PromotionPageHero>
+      <PromotionPageBody maxWidth="max-w-5xl" className="space-y-5">
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-        <div className="flex items-center gap-3 mb-5">
-          <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center">
-            <PlayCircle size={18} className="text-purple-600" />
-          </div>
-          <div>
-            <h3 className="text-base font-semibold text-gray-800">Promotion Simulation</h3>
-            <p className="text-xs text-gray-400">Preview outcomes before final promotion — no changes are saved</p>
-          </div>
-          <div className="ml-auto flex items-center gap-2 bg-purple-50 border border-purple-200 text-purple-700 text-xs font-bold px-3 py-1.5 rounded-full">
-            <Eye size={11} /> Preview Mode
-          </div>
-        </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
           {[
             { label: "From Class", val: fromClass, set: setFromClass, opts: groups },
@@ -131,9 +142,9 @@ export default function PromotionSimulation() {
             <h4 className="text-sm font-semibold text-gray-800 mb-4">Simulation Summary</h4>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
               {[
-                { label: "Total Students", value: mockStudents.length },
-                { label: "Promotion Rate", value: cohort.length ? `${Math.round(eligible.length / cohort.length * 100)}%` : "0%" },
-                { label: "Repeat Rate", value: `${Math.round(repeaters.length / mockStudents.length * 100)}%` },
+                { label: "Total Students", value: cohort.length },
+                { label: "Promotion Rate", value: cohort.length ? `${Math.round((eligible.length / cohort.length) * 100)}%` : "0%" },
+                { label: "Repeat Rate", value: cohort.length ? `${Math.round((repeaters.length / cohort.length) * 100)}%` : "0%" },
                 { label: "At-Risk", value: risky.length },
               ].map(m => (
                 <div key={m.label} className="text-center bg-gray-50 rounded-xl p-4">
@@ -174,6 +185,7 @@ export default function PromotionSimulation() {
           <p className="text-gray-400 text-sm">Configure the promotion parameters above and run the simulation to preview outcomes.</p>
         </div>
       )}
+      </PromotionPageBody>
     </div>
   );
 }

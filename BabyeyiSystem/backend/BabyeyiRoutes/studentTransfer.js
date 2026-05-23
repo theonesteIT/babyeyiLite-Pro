@@ -263,11 +263,11 @@ async function getLatestAcademicPeriodForStudent(schoolId, studentId) {
 
 async function getDisciplineSummaryAndCases(oldSchoolId, studentId, academicYear, term) {
   // total_marks default for remaining calculation
-  const [[settingsRow]] = await promisePool.query(
-    `SELECT total_marks FROM school_discipline_settings WHERE school_id = ? LIMIT 1`,
+  const [[defaultRow]] = await promisePool.query(
+    `SELECT default_marks FROM school_discipline_default_marks WHERE school_id = ? LIMIT 1`,
     [oldSchoolId]
   );
-  const totalMarks = Number(settingsRow?.total_marks || 100);
+  const totalMarks = Number(defaultRow?.default_marks || 40);
 
   const [caseRows] = await promisePool.query(
     `SELECT

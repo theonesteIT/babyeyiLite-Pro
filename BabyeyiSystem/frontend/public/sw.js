@@ -6,7 +6,7 @@ self.addEventListener('push', (event) => {
     title: 'Ticha Avance',
     body: '',
     tag: 'ticha-avance',
-    url: '/lite/shule-avance',
+    url: '/parents/home',
   };
   try {
     if (event.data) {
@@ -16,6 +16,8 @@ self.addEventListener('push', (event) => {
         body: j.body || '',
         tag: j.tag || payload.tag,
         url: j.url || payload.url,
+        icon: j.icon || payload.icon,
+        badge: j.badge || payload.badge,
       };
     }
   } catch (_) {
@@ -30,8 +32,8 @@ self.addEventListener('push', (event) => {
   const title = payload.title;
   const options = {
     body: payload.body,
-    icon: '/vite.svg',
-    badge: '/vite.svg',
+    icon: payload.icon || '/babyeyiLogo.png',
+    badge: payload.badge || '/babyeyiLogo.png',
     tag: payload.tag,
     renotify: true,
     data: { url: payload.url || '/lite/shule-avance' },

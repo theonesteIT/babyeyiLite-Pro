@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./dosPortalHero.css";
 
 @theme {
   --font-sans: "Montserrat", system-ui, sans-serif;

@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
-import { Package, Loader2, ArrowRight, ShoppingBag, Tag, Star, AlertTriangle } from 'lucide-react'
+import { Package, Loader2, ArrowRight, ShoppingBag, Tag, Star, AlertTriangle, RefreshCw } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { createHref } from '../../lib/hrefFactory'
 import TeacherOrangeHero from '../components/TeacherOrangeHero'
+import DosOrangePageHero from '../../dos/components/DosOrangePageHero'
+import AccountantOchreHero from '../../accountant_portal/frontend/src/components/AccountantOchreHero'
 
 const UPLOADS_BASE = (import.meta.env.VITE_UPLOADS_BASE || import.meta.env.VITE_API_URL || 'http://localhost:5100').replace(/\/$/, '')
 
@@ -62,46 +64,10 @@ export default function TichaDeals({ api, basePath, dealsHeroVariant = 'legacy',
     (typeof staffUser?.name === 'string' ? staffUser.name.split(/\s+/)[0] : null) ||
     'Teacher'
 
-  return (
-    <div className="min-h-screen bg-[#f0f2f9] pb-28 font-sans">
+  const isAccountantHero = dealsHeroVariant === 'accountant'
 
-      {dealsHeroVariant === 'orange' ? (
-        <TeacherOrangeHero
-          title={`Welcome back, ${heroFirst}`}
-          subtitle="Exclusive products — pay monthly from your payroll."
-        >
-          <button
-            type="button"
-            onClick={() => navigate(h('/ticha-deals/tracking'))}
-            className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-white border border-white/40 px-4 py-2 rounded-xl bg-white/15 hover:bg-white/25 transition-all"
-          >
-            <ArrowRight size={11} /> Track my requests
-          </button>
-        </TeacherOrangeHero>
-      ) : (
-      <div className="relative overflow-hidden bg-gradient-to-br from-[#000435] to-[#0a116b] px-5 pt-10 pb-16 rounded-b-[36px] shadow-[0_12px_40px_rgba(0,4,53,0.18)]">
-        <div className="absolute inset-0 opacity-25" style={{ backgroundImage: 'radial-gradient(circle at 15% 60%, #f59e0b 0%, transparent 55%), radial-gradient(circle at 85% 15%, #ffffff 0%, transparent 45%)' }} />
-
-        <div className="relative z-10 max-w-5xl mx-auto flex flex-col items-center text-center">
-          <div className="w-14 h-14 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20 shadow-inner mb-4">
-            <ShoppingBag size={26} className="text-[#f59e0b]" />
-          </div>
-          <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight mb-2">TichaDeals</h1>
-          <p className="text-white/65 text-xs md:text-sm font-semibold max-w-xs">
-            Exclusive products — pay monthly from your payroll.
-          </p>
-          <button
-            type="button"
-            onClick={() => navigate(h('/ticha-deals/tracking'))}
-            className="mt-5 inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-amber-300 hover:text-white border border-amber-400/30 px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 transition-all"
-          >
-            <ArrowRight size={11} /> Track my requests
-          </button>
-        </div>
-      </div>
-      )}
-
-      <div className="max-w-[1000px] mx-auto px-4 sm:px-6 -mt-8 relative z-20">
+  const catalogContent = (
+    <>
 
         {error && (
           <div className="mb-6 rounded-2xl border border-red-200 bg-white p-4 flex items-center gap-3 text-red-600 shadow-lg">
@@ -199,7 +165,100 @@ export default function TichaDeals({ api, basePath, dealsHeroVariant = 'legacy',
             <p className="text-xs font-bold text-slate-400 max-w-xs">Check back later for exclusive discounts and new product arrivals.</p>
           </div>
         )}
+    </>
+  )
 
+  return (
+    <div
+      className={`min-h-screen pb-28 font-sans animate-in fade-in duration-500 ${isAccountantHero ? 'bg-re-bg' : 'bg-[#f0f2f9]'}`}
+      style={isAccountantHero ? { fontFamily: "'Montserrat', sans-serif" } : undefined}
+    >
+      {dealsHeroVariant === 'accountant' ? (
+        <AccountantOchreHero
+          eyebrow="Staff benefits"
+          titleLine="Ticha"
+          titleAccent="Deals"
+          subtitle="Exclusive products — pay monthly from payroll"
+          rightSlot={
+            <>
+              <div className="flex rounded-xl border border-white/20 bg-white/10 px-3 py-2 backdrop-blur-md">
+                <span className="text-[10px] font-medium uppercase tracking-widest text-white/90">
+                  {loading ? 'Updating…' : 'Live catalog'}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => loadData()}
+                disabled={loading}
+                className="inline-flex items-center gap-2 rounded-xl border border-[#FEBF10]/35 bg-[#FEBF10]/15 px-4 py-2.5 text-[10px] font-medium uppercase tracking-widest text-white transition-all hover:bg-[#FEBF10]/25 active:scale-95 disabled:opacity-60"
+                title="Refresh catalog"
+              >
+                <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+                Refresh
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate(h('/ticha-deals/tracking'))}
+                className="inline-flex items-center gap-2 rounded-xl border border-white/25 bg-white/10 px-4 py-2.5 text-[10px] font-medium uppercase tracking-widest text-white transition-all hover:bg-white/20 active:scale-95"
+              >
+                <ArrowRight size={14} />
+                Track requests
+              </button>
+            </>
+          }
+        />
+      ) : dealsHeroVariant === 'orange' ? (
+        <DosOrangePageHero
+          title="Ticha Deals"
+          subtitle="Exclusive products — pay monthly from your payroll."
+          onRefresh={() => loadData()}
+          refreshing={loading}
+        >
+          <button
+            type="button"
+            onClick={() => navigate(h('/ticha-deals/tracking'))}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-white/35 bg-white/15 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-widest text-white transition hover:bg-white/25"
+          >
+            <ArrowRight size={11} /> Track my requests
+          </button>
+        </DosOrangePageHero>
+      ) : (
+        <div className="relative overflow-hidden bg-gradient-to-br from-[#000435] to-[#0a116b] px-5 pt-10 pb-16 rounded-b-[36px] shadow-[0_12px_40px_rgba(0,4,53,0.18)]">
+          <div
+            className="absolute inset-0 opacity-25"
+            style={{
+              backgroundImage:
+                'radial-gradient(circle at 15% 60%, #f59e0b 0%, transparent 55%), radial-gradient(circle at 85% 15%, #ffffff 0%, transparent 45%)',
+            }}
+          />
+
+          <div className="relative z-10 max-w-5xl mx-auto flex flex-col items-center text-center">
+            <div className="w-14 h-14 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20 shadow-inner mb-4">
+              <ShoppingBag size={26} className="text-[#f59e0b]" />
+            </div>
+            <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight mb-2">TichaDeals</h1>
+            <p className="text-white/65 text-xs md:text-sm font-semibold max-w-xs">
+              Exclusive products — pay monthly from your payroll.
+            </p>
+            <button
+              type="button"
+              onClick={() => navigate(h('/ticha-deals/tracking'))}
+              className="mt-5 inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-amber-300 hover:text-white border border-amber-400/30 px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 transition-all"
+            >
+              <ArrowRight size={11} /> Track my requests
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div
+        className={
+          isAccountantHero
+            ? 'acct-shell-standard relative z-20 -mt-10 pb-20 max-w-[1000px] mx-auto'
+            : 'max-w-[1000px] mx-auto px-4 sm:px-6 -mt-8 relative z-20'
+        }
+      >
+        {catalogContent}
       </div>
     </div>
   )

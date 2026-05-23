@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+﻿import { useState } from "react";
 import { CreateBudgetPage } from "./createBudgetPage";
 import BudgetLinesPage from "./BudgetLinesPage";
 import BudgetLineTracking from "./BudgetLineTracking";
@@ -19,64 +19,9 @@ import {
   AuditLogsPage,
 } from "./schoolBudgetSubPages";
 import { useIsMobile } from "../utils/useIsMobile";
-import {
-  PieChart as RechartsPie,
-  Pie,
-  Cell,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  LineChart,
-  Line,
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-} from "recharts";
-import {
-  LayoutDashboard,
-  PlusCircle,
-  Plus,
-  ClipboardList,
-  Building2,
-  Receipt,
-  Scale,
-  BadgeCheck,
-  FileText,
-  TrendingUp,
-  Landmark,
-  Package,
-  TrendingDown,
-  Gem,
-  ArrowLeftRight,
-  ScrollText,
-  GraduationCap,
-  Menu,
-  Bell,
-  Download,
-  CircleDollarSign,
-  Check,
-  Wallet,
-  BarChart3,
-  CalendarDays,
-  School,
-  Save,
-  TriangleAlert,
-  Sparkles,
-  FileSpreadsheet,
-  Pencil,
-  Search,
-  CircleAlert,
-  CircleCheck,
-  Lightbulb,
-  Info,
-  ArrowDownToLine,
-  ArrowUpFromLine,
-  X,
-} from "lucide-react";
+import SchoolBudgetSidebar from "../components/SchoolBudgetSidebar";
+import { schoolBudgetPageLabel } from "../utils/schoolBudgetNav";
+import { Menu, Bell, TriangleAlert, Info } from "lucide-react";
 
 const COLORS = {
   navy: "#000435",
@@ -104,36 +49,6 @@ const fmtShort = (n) => {
   return n;
 };
 
-const SIDEBAR_ITEMS = [
-  {
-    section: "Budget Management",
-    items: [
-      { id: "budget-dashboard", label: "Dashboard", Icon: LayoutDashboard },
-      { id: "create-budget", label: "Create Budget", Icon: PlusCircle },
-      { id: "budget-lines", label: "Budget Lines", Icon: ClipboardList },
-      { id: "budget-usage-tracking", label: "Usage Tracking", Icon: BarChart3 },
-      { id: "dept-budgets", label: "Department Budgets", Icon: Building2 },
-      { id: "expense-tracking", label: "Expense Tracking", Icon: Receipt },
-      { id: "budget-vs-actual", label: "Budget vs Actual", Icon: Scale },
-      { id: "approvals", label: "Approvals", Icon: BadgeCheck },
-      { id: "manager-review", label: "Manager Review", Icon: BadgeCheck, externalHref: "/manager/finance/budgets" },
-      { id: "financial-reports", label: "Financial Reports", Icon: FileText },
-      { id: "analytics", label: "Analytics", Icon: TrendingUp },
-    ],
-  },
-  {
-    section: "Financial Statements",
-    items: [
-      { id: "balance-sheet", label: "Balance Sheet", Icon: Landmark },
-      { id: "asset-register", label: "Asset Register", Icon: Package },
-      { id: "liabilities", label: "Liabilities Mgmt", Icon: TrendingDown },
-      { id: "equity", label: "Equity Management", Icon: Gem },
-      { id: "receivables", label: "Receivables & Payables", Icon: ArrowLeftRight },
-      { id: "audit-logs", label: "Audit Logs", Icon: ScrollText },
-    ],
-  },
-];
-
 const SB_RESPONSIVE_CSS = `
 @media (max-width: 768px) {
   .sb-grid-3 { grid-template-columns: 1fr !important; }
@@ -159,17 +74,21 @@ export default function SchoolBudget() {
 function SchoolBudgetShell() {
   const isMobile = useIsMobile();
   const [activePage, setActivePage] = useState("budget-dashboard");
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const sidebarOpen = isMobile ? mobileMenuOpen : desktopSidebarOpen;
   const [showNotif, setShowNotif] = useState(false);
   const { alerts, activeBudget } = useSchoolBudgetData();
 
-  useEffect(() => {
-    if (isMobile) setSidebarOpen(false);
-  }, [isMobile]);
+  const toggleSidebar = () => {
+    if (isMobile) setMobileMenuOpen((open) => !open);
+    else setDesktopSidebarOpen((open) => !open);
+  };
 
   const headerPeriod = activeBudget
     ? `${activeBudget.term} · ${activeBudget.academicYear}`
     : "Select a budget";
+  const pageTitle = schoolBudgetPageLabel(activePage);
 
   const pages = {
     "budget-dashboard": <BudgetDashboardPage fmt={fmt} fmtShort={fmtShort} />,
@@ -191,19 +110,16 @@ function SchoolBudgetShell() {
   };
 
   const closeSidebar = () => {
-    if (isMobile) setSidebarOpen(false);
+    if (isMobile) setMobileMenuOpen(false);
   };
 
   return (
     <div
+      className="flex min-h-0 overflow-hidden relative font-sans"
       style={{
-        display: "flex",
         height: "calc(100dvh - 3.5rem)",
         maxHeight: "100%",
-        background: COLORS.gray100,
-        fontFamily: "'Montserrat', system-ui, sans-serif",
-        overflow: "hidden",
-        position: "relative",
+        fontFamily: "'Montserrat', sans-serif",
       }}
     >
       <style>{SB_RESPONSIVE_CSS}</style>
@@ -212,133 +128,49 @@ function SchoolBudgetShell() {
           type="button"
           aria-label="Close menu"
           onClick={closeSidebar}
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 40,
-            border: "none",
-            background: "rgba(0,4,53,0.45)",
-            cursor: "pointer",
-          }}
+          className="fixed inset-0 z-40 border-0 cursor-pointer bg-[#000435]/45"
         />
       )}
-      {/* Sidebar */}
+
       <div
+        className={`flex shrink-0 flex-col min-h-0 transition-all duration-300 ${
+          isMobile ? 'fixed left-0 top-0 bottom-0 z-50 w-[280px] shadow-xl' : 'relative'
+        } ${isMobile && !sidebarOpen ? '-translate-x-full' : 'translate-x-0'}`}
         style={{
-          width: isMobile ? 280 : sidebarOpen ? 260 : 0,
-          minWidth: isMobile ? (sidebarOpen ? 280 : 0) : sidebarOpen ? 260 : 0,
-          background: COLORS.navy,
-          color: COLORS.white,
-          overflowY: "auto",
-          overflowX: "hidden",
-          transition: "all 0.3s",
-          display: "flex",
-          flexDirection: "column",
-          flexShrink: 0,
-          position: isMobile ? "fixed" : "relative",
-          zIndex: isMobile ? 50 : undefined,
-          left: 0,
-          top: 0,
-          bottom: 0,
-          transform: isMobile && !sidebarOpen ? "translateX(-100%)" : "translateX(0)",
-          boxShadow: isMobile && sidebarOpen ? "4px 0 24px rgba(0,0,0,0.2)" : undefined,
+          width: isMobile ? 280 : sidebarOpen ? 272 : 0,
+          minWidth: isMobile ? (sidebarOpen ? 280 : 0) : sidebarOpen ? 272 : 0,
+          overflow: 'hidden',
         }}
       >
-        <div style={{ padding: "20px 16px 12px", borderBottom: `1px solid rgba(255,255,255,0.1)` }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 8, background: COLORS.amber, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <GraduationCap size={22} color={COLORS.navy} strokeWidth={2.25} aria-hidden />
-            </div>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: 14, color: COLORS.white }}>Babyeyi System</div>
-              <div style={{ fontSize: 11, color: COLORS.amberLight }}>School Finance Manager</div>
-            </div>
-          </div>
-        </div>
-        <div style={{ padding: "8px 0", flex: 1 }}>
-          {SIDEBAR_ITEMS.map(section => (
-            <div key={section.section}>
-              <div style={{ padding: "10px 16px 4px", fontSize: 10, fontWeight: 700, color: COLORS.amber, letterSpacing: "0.1em", textTransform: "uppercase" }}>{section.section}</div>
-              {section.items.map((item) => {
-                const ItemIcon = item.Icon;
-                const active = activePage === item.id;
-                if (item.externalHref) {
-                  return (
-                    <a
-                      key={item.id}
-                      href={item.externalHref}
-                      onClick={closeSidebar}
-                      style={{
-                        width: "100%",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 10,
-                        padding: "9px 16px",
-                        border: "none",
-                        cursor: "pointer",
-                        fontSize: 13,
-                        fontWeight: 500,
-                        background: "transparent",
-                        color: "rgba(255,255,255,0.85)",
-                        borderLeft: "3px solid transparent",
-                        textDecoration: "none",
-                      }}
-                    >
-                      <ItemIcon size={18} strokeWidth={2} color="rgba(255,255,255,0.85)" aria-hidden />
-                      {item.label}
-                    </a>
-                  );
-                }
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => {
-                      setActivePage(item.id);
-                      closeSidebar();
-                    }}
-                    style={{
-                      width: "100%",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 10,
-                      padding: "9px 16px",
-                      border: "none",
-                      cursor: "pointer",
-                      fontSize: 13,
-                      fontWeight: active ? 600 : 400,
-                      background: active ? "rgba(245,158,11,0.15)" : "transparent",
-                      color: active ? COLORS.amber : "rgba(255,255,255,0.8)",
-                      borderLeft: active ? `3px solid ${COLORS.amber}` : "3px solid transparent",
-                      transition: "all 0.2s",
-                      textAlign: "left",
-                    }}
-                  >
-                    <ItemIcon size={18} strokeWidth={2} color={active ? COLORS.amber : "rgba(255,255,255,0.85)"} aria-hidden />
-                    {item.label}
-                  </button>
-                );
-              })}
-            </div>
-          ))}
-        </div>
-        <div style={{ padding: "12px 16px", borderTop: `1px solid rgba(255,255,255,0.1)`, fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Academic Year 2025â€“2026 Â· Term 1</div>
+        {sidebarOpen && (
+          <SchoolBudgetSidebar
+            activePage={activePage}
+            onSelectPage={setActivePage}
+            onClose={closeSidebar}
+            periodLabel={headerPeriod}
+          />
+        )}
       </div>
 
-      {/* Main */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-        {/* Header */}
-        <div style={{ background: COLORS.white, padding: isMobile ? "0 12px" : "0 24px", height: 56, display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: `1px solid ${COLORS.gray200}`, flexShrink: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <button type="button" onClick={() => setSidebarOpen(!sidebarOpen)} style={{ border: "none", background: "transparent", cursor: "pointer", color: COLORS.navy, display: "flex", alignItems: "center", justifyContent: "center", padding: 4 }} aria-label={sidebarOpen ? "Open menu" : "Close menu"}>
-              <Menu size={22} strokeWidth={2} aria-hidden />
+      <div className="flex flex-1 flex-col min-w-0 overflow-hidden bg-slate-100">
+        <div className="flex shrink-0 items-center justify-between border-b border-slate-200 bg-white px-3 sm:px-6 h-14">
+          <div className="flex items-center gap-3 min-w-0">
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              className="inline-flex items-center justify-center p-1 text-[#000435] hover:bg-slate-50 rounded-lg transition"
+              aria-label={sidebarOpen ? 'Collapse menu' : 'Open menu'}
+            >
+              <Menu size={22} strokeWidth={1.75} aria-hidden />
             </button>
-            <span style={{ fontWeight: 700, color: COLORS.navy, fontSize: isMobile ? 14 : 16, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: isMobile ? 160 : undefined }}>
-              {SIDEBAR_ITEMS.flatMap(s => s.items).find(i => i.id === activePage)?.label || "Dashboard"}
+            <span className="text-[14px] font-semibold text-[#000435] tracking-tight truncate">
+              {pageTitle}
             </span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12 }}>
-            <div className="sb-header-meta" style={{ fontSize: 12, color: COLORS.gray400, background: COLORS.gray100, borderRadius: 6, padding: "4px 10px" }}>{headerPeriod}</div>
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <div className="sb-header-meta text-[11px] font-medium text-slate-500 bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1 hidden sm:block">
+              {headerPeriod}
+            </div>
             <div style={{ position: "relative" }}>
               <button type="button" onClick={() => setShowNotif(!showNotif)} style={{ border: "none", background: "transparent", cursor: "pointer", position: "relative", color: COLORS.gray600, display: "flex", alignItems: "center", padding: 4 }} aria-label="Notifications">
                 <Bell size={22} strokeWidth={2} aria-hidden />
@@ -362,12 +194,10 @@ function SchoolBudgetShell() {
                 </div>
               )}
             </div>
-            <div style={{ width: 34, height: 34, borderRadius: "50%", background: COLORS.navy, color: COLORS.white, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 13 }}>UA</div>
           </div>
         </div>
 
-        {/* Page content */}
-        <div style={{ flex: 1, overflowY: "auto", padding: isMobile ? 12 : 24, WebkitOverflowScrolling: "touch" }}>
+        <div className="flex-1 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
           {pages[activePage]}
         </div>
       </div>

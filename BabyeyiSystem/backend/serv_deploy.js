@@ -391,9 +391,15 @@ app.get('/api/session/me', async (req, res) => {
 });
 
 app.post('/api/session/logout', (req, res) => {
-  req.session.destroy(err => {
+  const clearOpts = {
+    path: '/',
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+  };
+  req.session.destroy((err) => {
     if (err) return res.status(500).json({ success: false, message: 'Logout failed' });
-    res.clearCookie('babyeyi_sid');
+    res.clearCookie('babyeyi_sid', clearOpts);
     res.json({ success: true, message: 'Logged out successfully' });
   });
 });

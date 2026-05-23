@@ -3,8 +3,12 @@ import {
   CheckSquare, Square, Eye, Download, Printer, Save, ChevronRight,
   Users, AlertTriangle, TrendingUp, CheckCircle, X, User, Check, Loader2,
 } from "lucide-react";
+import { useAuth } from "../../../context/AuthContext";
 import { useStudentPromotionData } from "../context/StudentPromotionDataContext";
-import { buildClassNameFromParts } from "../utils/promotionMappers";
+import PromotionShareBar from "../components/PromotionShareBar";
+import PromotionPageHero, { PromotionPageBody } from "../components/PromotionPageHero";
+import { buildClassNameFromParts, isAllYearTerm } from "../utils/promotionMappers";
+import { disciplineColor, mergeReviewMetrics } from "../utils/promotionReviewMetrics";
 import { fetchClassReviewMetrics } from "../services/studentPromotionService";
 
 const statusColors = {
@@ -14,63 +18,20 @@ const statusColors = {
   "Graduating": "bg-purple-100 text-purple-700 border-purple-200",
 };
 
-function disciplineFromStudentRow(student) {
-  const raw = student._raw || {};
-  const marks = raw.discipline_marks;
-  if (marks != null && marks !== '' && !Number.isNaN(Number(marks))) {
-    return Number(marks);
-  }
-  return null;
-}
-
-function mergeReviewMetrics(student, metrics) {
-  const rawDiscipline = disciplineFromStudentRow(student);
-  if (!metrics) {
-    if (rawDiscipline == null) return student;
-    return {
-      ...student,
-      disciplineRemaining: rawDiscipline,
-      discipline: String(rawDiscipline),
-      disciplineDeducted: 0,
-    };
-  }
-  const remaining = Number(metrics.discipline_remaining);
-  const deducted = Number(metrics.discipline_deducted);
-  const total = Number(metrics.discipline_total);
-  const morning = metrics.gate_morning_days != null ? Number(metrics.gate_morning_days) : null;
-  const evening = metrics.gate_evening_days != null ? Number(metrics.gate_evening_days) : null;
-  const pct = metrics.gate_attendance_pct;
-  const finalRemaining = Number.isFinite(remaining)
-    ? remaining
-    : rawDiscipline != null
-      ? rawDiscipline
-      : null;
-  return {
-    ...student,
-    disciplineRemaining: finalRemaining,
-    disciplineDeducted: Number.isFinite(deducted) ? deducted : 0,
-    disciplineTotal: Number.isFinite(total) ? total : null,
-    discipline: finalRemaining != null ? String(finalRemaining) : student.discipline,
-    gateMorning: morning,
-    gateEvening: evening,
-    attendance: pct != null ? pct : student.attendance,
-    hasGateData: metrics != null,
-  };
-}
-
 const inputCls =
   "w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-800 bg-gray-50 focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100 transition";
 const selectCls = inputCls;
 
 export default function PromoteByClass() {
+  const { teacher } = useAuth();
   const {
     loading,
+    schoolName,
     groups,
     streams,
     streamsByGroup,
     academicYears,
     terms,
-    termsForYear,
     academicYear,
     setAcademicYear,
     term,
@@ -78,6 +39,8 @@ export default function PromoteByClass() {
     getStudentsForClass,
     buildDestinationLabel,
     submitPromotion,
+    refresh,
+    dashboardStats,
   } = useStudentPromotionData();
 
   const [step, setStep] = useState(1);
@@ -95,6 +58,7 @@ export default function PromoteByClass() {
   const [previewStudent, setPreviewStudent] = useState(null);
   const [showConfirm, setShowConfirm] = useState(false);
   const [promoted, setPromoted] = useState(false);
+  const [promotionReport, setPromotionReport] = useState(null);
   const [comments, setComments] = useState({});
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
@@ -110,9 +74,11 @@ export default function PromoteByClass() {
   }, [groups, currentClass]);
 
   useEffect(() => {
-    const tlist = termsForYear(academicYear);
-    if (tlist.length && !tlist.includes(term)) setTerm(tlist[tlist.length - 1]);
-  }, [academicYear, termsForYear, term, setTerm]);
+    if (terms.length && !terms.includes(term)) {
+      const regular = terms.filter((t) => !isAllYearTerm(t));
+      setTerm(regular[regular.length - 1] || terms[0]);
+    }
+  }, [academicYear, terms, term, setTerm]);
 
   const streamSuggestions = useMemo(() => {
     if (currentClass && streamsByGroup[currentClass]?.length) return streamsByGroup[currentClass];
@@ -140,7 +106,8 @@ export default function PromoteByClass() {
         studentIds: list.map((s) => s.id),
       });
       setReviewMeta(meta);
-      const enriched = list.map((s) => mergeReviewMetrics(s, byStudentId[s.id]));
+      const schoolMax = meta?.discipline_total ?? meta?.discipline_default;
+      const enriched = list.map((s) => mergeReviewMetrics(s, byStudentId[s.id], schoolMax));
       const initial = {};
       enriched.forEach((s) => {
         initial[s.id] = s.status !== "Repeat Recommended";
@@ -155,7 +122,7 @@ export default function PromoteByClass() {
       list.forEach((s) => {
         initial[s.id] = s.status !== "Repeat Recommended";
       });
-      setClassStudents(list.map((s) => mergeReviewMetrics(s, null)));
+      setClassStudents(list.map((s) => mergeReviewMetrics(s, null, null)));
       setSelected(initial);
       setStep(2);
     } finally {
@@ -184,6 +151,9 @@ export default function PromoteByClass() {
     const promoteIds = classStudents.filter((s) => selected[s.id]).map((s) => s.id);
     const repeaterIds = classStudents.filter((s) => !selected[s.id]).map((s) => s.id);
     const destination = buildDestinationLabel(destClassValue, destStream.trim());
+    const sourceClassName = buildClassNameFromParts(currentClass, currentStream.trim());
+    const promotedList = classStudents.filter((s) => selected[s.id]);
+    const repeaterList = classStudents.filter((s) => !selected[s.id]);
     setSaving(true);
     setSaveError(null);
     try {
@@ -191,10 +161,26 @@ export default function PromoteByClass() {
         promoteIds,
         repeaterIds,
         destinationClassName: destination,
-        sourceClassName: buildClassNameFromParts(currentClass, currentStream.trim()),
+        sourceClassName,
         promotionType: promoType,
         year: academicYear,
         term,
+      });
+      const officerName = teacher
+        ? `${teacher.first_name || ""} ${teacher.last_name || ""}`.trim()
+        : "";
+      setPromotionReport({
+        schoolName,
+        academicYear,
+        term,
+        promotionType: promoType,
+        sourceClass: sourceClassName,
+        destinationClass: destination,
+        performedBy: officerName,
+        generatedAt: new Date().toISOString(),
+        disciplineMax: reviewMeta?.discipline_total ?? reviewMeta?.discipline_default ?? null,
+        promoted: promotedList,
+        repeaters: repeaterList,
       });
       setShowConfirm(false);
       setPromoted(true);
@@ -207,50 +193,70 @@ export default function PromoteByClass() {
 
   const canLoadStudents = currentClass && destClassValue;
 
+  const heroStats = useMemo(
+    () => [
+      { label: "School students", value: String(dashboardStats.total) },
+      { label: "Eligible", value: String(dashboardStats.eligible) },
+      { label: "In class", value: String(classStudents.length) },
+      { label: "Academic year", value: academicYear || "—" },
+    ],
+    [dashboardStats, classStudents.length, academicYear]
+  );
+
   const selectedCount = Object.values(selected).filter(Boolean).length;
   const repeaterCount = classStudents.length - selectedCount;
 
-  const disciplineColor = (remaining, total) => {
-    if (!Number.isFinite(remaining) || !Number.isFinite(total) || total <= 0) return "text-gray-600";
-    const pct = (remaining / total) * 100;
-    if (pct >= 70) return "text-green-600";
-    if (pct >= 40) return "text-amber-600";
-    return "text-red-600";
-  };
-
   if (promoted) {
+    const destinationLabel =
+      promotionReport?.destinationClass ||
+      buildDestinationLabel(destClassValue, destStream.trim());
+    const promotedN = promotionReport?.promoted?.length ?? selectedCount;
+    const repeaterN = promotionReport?.repeaters?.length ?? repeaterCount;
+
     return (
       <div className="p-6 max-w-2xl mx-auto text-center">
-        <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-12">
+        <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-8 sm:p-12">
           <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
             <CheckCircle size={40} className="text-green-600" />
           </div>
-          <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-            Promotion Confirmed!
-          </h2>
-          <p className="text-gray-500 mb-6">
-            {selectedCount} students promoted to {buildDestinationLabel(destClassValue, destStream.trim())}. {repeaterCount} students marked as repeaters.
+          <h2 className="text-2xl font-semibold text-gray-900 mb-2">Promotion Confirmed!</h2>
+          <p className="text-gray-500 mb-2">
+            {promotedN} students promoted to <strong className="text-gray-800">{destinationLabel}</strong>.
+            {repeaterN > 0 ? ` ${repeaterN} marked as repeaters.` : " No repeaters."}
           </p>
-          <div className="flex justify-center gap-3">
-            <button type="button" className="flex items-center gap-2 bg-amber-500 text-white px-5 py-2.5 rounded-xl font-semibold text-sm hover:bg-amber-600 transition">
-              <Download size={16} /> Download Report
-            </button>
-            <button
-              type="button"
-              onClick={() => { setStep(1); setPromoted(false); }}
-              className="flex items-center gap-2 bg-gray-100 text-gray-700 px-5 py-2.5 rounded-xl font-semibold text-sm hover:bg-gray-200 transition"
-            >
-              New Promotion
-            </button>
-          </div>
+          <p className="text-xs text-gray-400 mb-6">
+            Download a PDF report or share a summary via WhatsApp and other apps.
+          </p>
+
+          <PromotionShareBar report={promotionReport} className="mb-4" />
+
+          <button
+            type="button"
+            onClick={() => {
+              setStep(1);
+              setPromoted(false);
+              setPromotionReport(null);
+            }}
+            className="flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg font-semibold text-xs hover:bg-gray-200 transition mx-auto"
+          >
+            New Promotion
+          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto w-full">
-      <div className="flex items-center gap-3 mb-6">
+    <div className="min-h-full bg-white animate-in fade-in duration-500">
+      <PromotionPageHero
+        title="Promote by Class"
+        subtitle={`${academicYear} · ${term} — bulk promote a full class with marks, discipline, and gate attendance review.`}
+        heroStats={heroStats}
+        onRefresh={refresh}
+        refreshing={loading}
+      />
+      <PromotionPageBody maxWidth="max-w-[1600px]" className="space-y-6">
+      <div className="flex items-center gap-3">
         {["Select Class", "Review Students", "Confirm & Promote"].map((label, i) => (
           <div key={i} className="flex items-center gap-2">
             <div className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all ${step === i + 1 ? "bg-amber-500 text-white shadow-lg shadow-amber-200" : step > i + 1 ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-400"}`}>
@@ -382,11 +388,14 @@ export default function PromoteByClass() {
           )}
           {reviewMeta && !loadError && (
             <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-[11px] text-slate-600 flex flex-wrap gap-x-4 gap-y-1">
+              {(reviewMeta.all_year || isAllYearTerm(term)) && (
+                <span>
+                  Combined <strong>all terms</strong> in {academicYear}
+                </span>
+              )}
               <span>
-                Discipline: max <strong>{reviewMeta.discipline_total}</strong> marks
-                {reviewMeta.discipline_default != null && (
-                  <> · school default <strong>{reviewMeta.discipline_default}</strong></>
-                )}
+                Discipline maximum: <strong>{reviewMeta.discipline_total ?? reviewMeta.discipline_default}</strong> marks
+                <span className="text-gray-500 font-normal"> (set by Head of Discipline)</span>
               </span>
               <span>
                 RFID gate ({reviewMeta.date_range?.from} → {reviewMeta.date_range?.to}): morning + evening scans
@@ -456,7 +465,10 @@ export default function PromoteByClass() {
                   {classStudents.map((student) => {
                     const isSelected = selected[student.id];
                     const rem = student.disciplineRemaining;
-                    const total = student.disciplineTotal;
+                    const total =
+                      student.disciplineTotal ??
+                      reviewMeta?.discipline_total ??
+                      reviewMeta?.discipline_default;
                     return (
                       <tr key={student.id} className={`border-b border-gray-50 hover:bg-gray-50 transition-colors ${!isSelected ? "opacity-60 bg-red-50/30" : ""}`}>
                         <td className="px-4 py-3">
@@ -566,7 +578,7 @@ export default function PromoteByClass() {
               {[
                 { label: "Average Marks", value: typeof previewStudent.avgMarks === "number" ? `${previewStudent.avgMarks}%` : previewStudent.avgMarks, color: "text-gray-800" },
                 {
-                  label: "RFID Gate (term)",
+                  label: isAllYearTerm(term) ? "RFID Gate (full year)" : "RFID Gate (term)",
                   value: previewStudent.hasGateData
                     ? `${previewStudent.attendance ?? 0}% · Morning ${previewStudent.gateMorning ?? 0} · Evening ${previewStudent.gateEvening ?? 0}`
                     : "No RFID scans in range",
@@ -633,6 +645,7 @@ export default function PromoteByClass() {
           </div>
         </div>
       )}
+      </PromotionPageBody>
     </div>
   );
 }

@@ -4,7 +4,7 @@ import {
   RefreshCw, Search, ShieldCheck, ThumbsDown, ThumbsUp, Users, X,
 } from 'lucide-react';
 import api from '../services/api';
-import DosOchreHero from '../components/DosOchreHero';
+import DosOrangePageHero, { DosPageBody } from '../components/DosOrangePageHero';
 
 const TYPE_EMOJI = { MEDICAL: '🏥', FAMILY: '👨‍👩‍👧', OFFICIAL: '📋', OTHER: '📝' };
 const QUICK_FILTERS = [
@@ -162,21 +162,14 @@ export default function DosStudentPermissions() {
 
   return (
     <div className="min-h-screen bg-white font-sans">
-      <DosOchreHero
-        eyebrow="Student management"
-        titleLine="Student"
-        titleAccent="Permissions"
+      <DosOrangePageHero
+        title="Student permissions"
         subtitle="View and manage all student leave and permission records."
-        icon={ShieldCheck}
-        rightSlot={
-          <button type="button" onClick={load}
-            className="h-9 px-3 rounded-xl border border-white/20 bg-white/10 text-[10px] font-medium text-white flex items-center gap-1 hover:bg-white/15 transition-all">
-            <RefreshCw size={13} /> Refresh
-          </button>
-        }
+        onRefresh={load}
+        refreshing={loading}
       />
 
-      <div className="animate-in fade-in duration-500 max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8 -mt-4 sm:-mt-5 md:-mt-6 pt-2 relative z-20 pb-10 space-y-4">
+      <DosPageBody className="max-w-[1500px] -mt-4 sm:-mt-5 md:-mt-6 space-y-4">
 
         {/* Quick filters */}
         <div className="flex flex-wrap gap-2">
@@ -333,7 +326,7 @@ export default function DosStudentPermissions() {
             </div>
           )}
         </div>
-      </div>
+      </DosPageBody>
 
       {/* View detail modal */}
       {viewPerm && (

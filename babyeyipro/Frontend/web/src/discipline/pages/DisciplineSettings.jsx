@@ -56,11 +56,11 @@ export default function DisciplineSettings() {
   }, []);
 
   const parsedMarks = Number(defaultMarks);
-  const marksValid = Number.isFinite(parsedMarks) && parsedMarks >= 0 && parsedMarks <= 100;
+  const marksValid = Number.isFinite(parsedMarks) && parsedMarks >= 1 && parsedMarks <= 10000;
 
   const runApply = async (confirmedAll = false) => {
     if (!marksValid) {
-      notify('error', 'Default marks must be a number between 0 and 100.');
+      notify('error', 'Maximum marks must be a number between 1 and 10000.');
       return;
     }
 
@@ -93,7 +93,7 @@ export default function DisciplineSettings() {
         eyebrow="Module configuration"
         titleLine="Discipline"
         titleAccent="settings"
-        subtitle="Configure default discipline marks and apply rules with a cleaner manager-style experience."
+        subtitle="Set the school maximum conduct marks (starting balance for every learner) and apply to students."
         icon={Settings2}
       />
 
@@ -144,7 +144,7 @@ export default function DisciplineSettings() {
               </div>
               <div>
                 <p className="text-[10px] font-medium uppercase tracking-[0.15em] text-re-text-muted">Discipline module</p>
-                <h1 className="text-lg md:text-xl font-semibold text-re-text">Default Discipline Marks</h1>
+                <h1 className="text-lg md:text-xl font-semibold text-re-text">Maximum conduct marks</h1>
               </div>
             </div>
             <button
@@ -161,11 +161,11 @@ export default function DisciplineSettings() {
         <div className="rounded-2xl bg-white border border-black/5 p-5 md:p-6 shadow-sm space-y-5">
           <div className="grid md:grid-cols-2 gap-4">
             <label className="space-y-2">
-              <span className="text-[11px] font-black uppercase tracking-widest text-re-text-muted">Default marks</span>
+              <span className="text-[11px] font-black uppercase tracking-widest text-re-text-muted">Maximum marks</span>
               <input
                 type="number"
-                min="0"
-                max="100"
+                min="1"
+                max="10000"
                 value={defaultMarks}
                 onChange={(e) => setDefaultMarks(e.target.value)}
                 className="w-full h-11 px-4 rounded-xl border border-black/10 bg-re-bg/30 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-orange-400"
@@ -219,8 +219,8 @@ export default function DisciplineSettings() {
           <h2 className="text-xs font-black uppercase tracking-widest text-re-text-muted mb-3">Current backend values</h2>
           <div className="grid sm:grid-cols-3 gap-3 text-sm">
             <div className="rounded-xl border border-black/10 bg-re-bg/30 px-4 py-3">
-              <p className="text-[10px] font-black uppercase tracking-widest text-re-text-muted">Default marks</p>
-              <p className="font-black text-re-text mt-1">{settings?.default_marks ?? '—'}</p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-re-text-muted">Maximum marks</p>
+              <p className="font-black text-re-text mt-1">{settings?.default_marks ?? settings?.max_marks ?? '—'}</p>
             </div>
             <div className="rounded-xl border border-black/10 bg-re-bg/30 px-4 py-3">
               <p className="text-[10px] font-black uppercase tracking-widest text-re-text-muted">Last updated</p>
