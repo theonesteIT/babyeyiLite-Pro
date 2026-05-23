@@ -31,6 +31,7 @@ import {
   Moon,
   Monitor,
   MoreVertical,
+  MenuIcon,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useParentShell } from "../../context/ParentShellContext";
@@ -199,8 +200,7 @@ export default function ParentDashboardLayout() {
             {navItemsDesktop.map((item) => (
               <NavButton key={item.to} {...item} mobile={false} />
             ))}
-          </nav>
-          <div className="p-4 border-t border-slate-100 dark:border-slate-700">
+            <div className="p-4 border-t border-slate-100 dark:border-slate-700">
             <button
               type="button"
               onClick={handleLogout}
@@ -210,10 +210,11 @@ export default function ParentDashboardLayout() {
               Log out
             </button>
           </div>
+          </nav>
         </aside>
 
         {/* ── Main column ── */}
-        <div className="flex-1 flex flex-col min-w-0 min-h-0">
+        <div className="flex-1 flex flex-col min-w-0 h-screen">
           {!hideGlobalHero && (
             <>
               <header className="relative overflow-visible bg-slate-900 text-white/90 dark:bg-slate-800 dark:text-white/80 border-b border-slate-700/80 px-1 sm:px-16 py-3">
@@ -236,16 +237,15 @@ export default function ParentDashboardLayout() {
                         <button
                           type="button"
                           onClick={() => setMobileMenuOpen((open) => !open)}
-                          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/25 bg-white/15 px-3 py-2 text-sm font-semibold text-white backdrop-blur-md transition hover:bg-white/25"
+                          className="inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-semibold text-white backdrop-blur-md transition hover:bg-white/25"
                           aria-haspopup="menu"
                           aria-expanded={mobileMenuOpen}
                         >
-                          <span>Menu</span>
-                          <MoreVertical size={18} />
+                          <MenuIcon className="w-5 h-5 text-bold" size={18} />
                         </button>
                         <div
                           className={
-                            "absolute right-0 top-full mt-2 w-72 min-w-[16rem] rounded-3xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/10 ring-1 ring-slate-900/5 transition-all duration-200 ease-out " +
+                            "absolute right-0 top-full mt-2 w-72 min-w-[16rem] rounded-3xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/10 ring-1 ring-slate-900/5 z-1 transition-all duration-200 ease-out " +
                             (mobileMenuOpen
                               ? "opacity-100 scale-100 visible"
                               : "opacity-0 scale-95 invisible")
@@ -317,8 +317,6 @@ export default function ParentDashboardLayout() {
                     <p className="text-white font-extrabold text-2xl sm:text-3xl tracking-tight truncate">
                       Parent portal
                     </p>
-                    {/* <p className="text-white/90 text-sm sm:text-base font-medium truncate">Hello, {greet}.</p> */}
-                    {/* <p className="text-white/80 text-xs sm:text-sm mt-1 max-w-sm">Manage children, pay school fees, chat with school staff, and track important updates from one place.</p> */}
                   </div>
                 </div>
                 <div className="hidden sm:block px-4 mt-2 mb-2 max-w-8xl mx-auto w-full">
@@ -410,13 +408,13 @@ export default function ParentDashboardLayout() {
               </div>
             </header>
 
-            <div className="sm:hidden px-4 py-4 border-b border-slate-200 bg-slate-50">
+            <div className="sm:hidden z-0 px-4 py-4 border-b border-slate-200 bg-slate-50">
               <form
                 onSubmit={submitSearch}
-                className="flex items-center gap-2 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md rounded-full px-3 shadow-xl shadow-orange-900/10 border border-white/90 dark:border-slate-600 ring-1 ring-orange-500/10 w-full"
+                className="flex items-center gap-2bg-slate-50/80 dark:bg-slate-700/80 backdrop-blur-md rounded-full pl-4 p-1 px-1 shadow-xl shadow-orange-900/10 border border-white/90 dark:border-slate-600 ring-1 ring-orange-500/10 w-full"
               >
                 <Search
-                  className="w-5 h-5 text-slate-400 dark:text-slate-500"
+                  className="w-5 h-5 text-slate-100"
                   aria-hidden
                 />
                 <input
@@ -424,7 +422,7 @@ export default function ParentDashboardLayout() {
                   value={studentCode}
                   onChange={(e) => setStudentCode(e.target.value)}
                   placeholder="Student code or SDM ID…"
-                  className="flex-1 min-w-0 py-3 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none bg-transparent"
+                  className="flex-1 min-w-0 py-3 text-sm text-slate-100 pl-4 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none "
                   aria-label="Search by student code or SDM ID"
                 />
                 <button
@@ -439,12 +437,10 @@ export default function ParentDashboardLayout() {
             </>
           )}
 
-          <main
-            className={`flex-1 px-4 sm:p-6 pb-8 max-w-5xl mx-auto w-full ${hideGlobalHero ? "pt-4 lg:pt-6" : ""}`}
-          >
+          <main className="p-6 pb-20 overflow-y-auto h-screen">
             <Outlet />
           </main>
-
+{/* 
           <footer className="shrink-0 border-t border-slate-200/90 bg-white/90 dark:bg-slate-900/90 dark:border-slate-700 backdrop-blur-md px-4 sm:px-6 py-4 mb-20 lg:mb-0">
             <div className="max-w-5xl mx-auto flex flex-col sm:flex-row flex-wrap items-center justify-between gap-3 text-[11px] sm:text-xs text-slate-500 dark:text-slate-400">
               <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
@@ -479,11 +475,8 @@ export default function ParentDashboardLayout() {
                   Support
                 </a>
               </div>
-              <span className="text-slate-400 dark:text-slate-500 tabular-nums">
-                Encrypted session · Babyeyi Parent
-              </span>
             </div>
-          </footer>
+          </footer> */}
         </div>
 
         <nav

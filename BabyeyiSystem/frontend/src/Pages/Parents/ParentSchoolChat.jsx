@@ -8,6 +8,7 @@ export default function ParentSchoolChat() {
     <StudentChat
       dashboardBackPath="/parents/home"
       audienceSubtitle="Message teachers and school staff at your children's schools"
+      hideTopBar={true}
     />
   );
 }

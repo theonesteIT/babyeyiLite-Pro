@@ -54,9 +54,10 @@ function SectionHeading({ title, subtitle, action }) {
             className="h-1 w-10 shrink-0 rounded-full bg-gradient-to-r from-orange-500 to-amber-400 shadow-sm shadow-orange-500/30"
             aria-hidden
           />
-          <h2 className="text-lg font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">{title}</h2>
+          <h2 className="text-lg font-extrabold text-slate-900 tracking-tight">
+            {title}
+          </h2>
         </div>
-        {subtitle ? <p className="text-sm text-slate-500 dark:text-slate-400 mt-1.5 sm:ml-[2.75rem] leading-snug">{subtitle}</p> : null}
       </div>
       {action ? <div className="shrink-0 sm:ml-4">{action}</div> : null}
     </div>
@@ -152,7 +153,13 @@ export default function Home() {
   const [addOpen, setAddOpen] = useState(false);
   const [hasPublicDraft, setHasPublicDraft] = useState(false);
 
-  const { merged: children, loading, error, refreshLocal, refreshApi } = useMergedParentChildren();
+  const {
+    merged: children,
+    loading,
+    error,
+    refreshLocal,
+    refreshApi,
+  } = useMergedParentChildren();
 
   useEffect(() => {
     if (searchParams.get("addStudent") !== "1") return;
@@ -173,7 +180,9 @@ export default function Home() {
       const name = `${c.first_name || ""} ${c.last_name || ""}`.toLowerCase();
       const sc = (c.student_code || "").toLowerCase();
       const sdm = (c.sdm_code || "").toLowerCase();
-      return uid.includes(q) || name.includes(q) || sc.includes(q) || sdm.includes(q);
+      return (
+        uid.includes(q) || name.includes(q) || sc.includes(q) || sdm.includes(q)
+      );
     });
   }, [children, q]);
 
@@ -215,9 +224,12 @@ export default function Home() {
         <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 sm:p-5 shadow-sm">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-sm font-extrabold text-amber-900">Complete your registration</p>
+              <p className="text-sm font-extrabold text-amber-900">
+                Complete your registration
+              </p>
               <p className="text-sm text-amber-800 mt-1">
-                Set a password on the login page to finish securing your account (you are redirected there automatically when needed).
+                Set a password on the login page to finish securing your account
+                (you are redirected there automatically when needed).
               </p>
             </div>
             <Link
@@ -235,8 +247,12 @@ export default function Home() {
         <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3.5 sm:p-4 shadow-sm">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-sm font-extrabold text-emerald-900">Continue Your Public Payment Draft</p>
-              <p className="text-xs text-emerald-800 mt-0.5">Resume in one tap and select your student to continue payment.</p>
+              <p className="text-sm font-extrabold text-emerald-900">
+                Continue Your Public Payment Draft
+              </p>
+              <p className="text-xs text-emerald-800 mt-0.5">
+                Resume in one tap and select your student to continue payment.
+              </p>
             </div>
             <Link
               to="/parents/quick-pay"
@@ -250,42 +266,37 @@ export default function Home() {
       )}
 
       {/* Welcome */}
-      <section className="relative overflow-hidden rounded-3xl border border-orange-100 dark:border-orange-900/40 bg-gradient-to-br from-white via-orange-50/40 to-amber-50/30 dark:from-slate-800 dark:via-slate-800/90 dark:to-slate-900 p-5 sm:p-6 shadow-sm shadow-orange-900/[0.04]">
-        <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-orange-200/30 blur-2xl pointer-events-none" />
-        <div className="absolute -left-6 bottom-0 h-24 w-24 rounded-full bg-amber-200/25 blur-xl pointer-events-none" />
+      <section className="relative overflow-hidden rounded-3xl p-4 ">
         <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
           <div className="min-w-0">
-            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-orange-600/90">
-              <Sun className="w-3.5 h-3.5" />
-              {dateLabel}
-            </div>
-            <h1 className="mt-2 text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">
+            <h1 className="mt-2 text-2xl text-center sm:text-left sm:text-4xl font-extrabold text-slate-900 tracking-tight">
               {greetingForTime()}, {first}
             </h1>
-            <p className="mt-1.5 text-sm text-slate-600 dark:text-slate-400 leading-relaxed max-w-xl">
-              Your family hub — school links, Classkit, and updates in one calm place.
-            </p>
           </div>
           <div className="flex flex-wrap gap-2.5 lg:flex-col xl:flex-row lg:items-stretch">
-            <div className="inline-flex items-center gap-3 rounded-2xl bg-white/90 dark:bg-slate-800/90 border border-slate-100 dark:border-slate-600 px-4 py-3 shadow-sm min-w-[10rem]">
+            <div className="inline-flex w-full sm:w-auto items-center gap-3 rounded-2xl bg-white/90 dark:bg-slate-800/90 border border-slate-100 dark:border-slate-600 px-4 py-3 shadow-sm min-w-[10rem]">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-100 dark:bg-orange-950/50 text-orange-600 dark:text-orange-400">
                 <GraduationCap className="w-5 h-5" strokeWidth={2.25} />
               </div>
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">Children</p>
-                <p className="text-lg font-extrabold text-slate-900 dark:text-slate-100 tabular-nums">{children.length}</p>
+                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                  Children
+                </p>
+                <p className="text-lg font-extrabold text-slate-900 dark:text-slate-100 tabular-nums">
+                  {children.length}
+                </p>
               </div>
             </div>
             <Link
               to="/parents/services"
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 px-5 py-3 text-sm font-bold text-white shadow-md shadow-orange-500/25 hover:brightness-105 active:scale-[0.99] transition-all"
+              className="inline-flex  w-full sm:w-auto items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 px-5 py-3 text-sm font-bold text-white shadow-md shadow-orange-500/25 hover:brightness-105 active:scale-[0.99] transition-all"
             >
               Explore services
               <ArrowUpRight className="w-4 h-4" strokeWidth={2.5} />
             </Link>
             <Link
               to="/track"
-              className="inline-flex items-center justify-center gap-2 rounded-2xl border-2 border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-200 hover:border-orange-200 dark:hover:border-orange-600 hover:bg-orange-50/50 dark:hover:bg-slate-700 transition-colors"
+              className="inline-flex  w-full sm:w-auto items-center justify-center gap-2 rounded-2xl border-2 border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-200 hover:border-orange-200 dark:hover:border-orange-600 hover:bg-orange-50/50 dark:hover:bg-slate-700 transition-colors"
             >
               Track application
             </Link>
@@ -296,7 +307,7 @@ export default function Home() {
       {/* Personal assistants */}
       <section>
         <SectionHeading
-          title="Your personal assistants"
+          title="Personal assistants"
           subtitle="Optional AI and human support — more skills coming soon."
         />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -307,8 +318,12 @@ export default function Home() {
             <div className="w-12 h-12 rounded-xl border-2 border-amber-400 flex items-center justify-center mb-3 mx-auto sm:mx-0 group-hover:scale-105 transition-transform">
               <Headphones className="w-6 h-6 text-orange-500" />
             </div>
-            <p className="font-bold text-slate-900 text-center sm:text-left">Agent assistance</p>
-            <p className="text-sm text-slate-500 mt-1 text-center sm:text-left">Quick help with fees, Classkit, and school questions.</p>
+            <p className="font-bold text-slate-900 text-center sm:text-left">
+              Agent assistance
+            </p>
+            <p className="text-sm text-slate-500 mt-1 text-center sm:text-left">
+              Quick help with fees, Classkit, and school questions.
+            </p>
           </button>
           <button
             type="button"
@@ -317,8 +332,12 @@ export default function Home() {
             <div className="w-12 h-12 rounded-xl border-2 border-purple-400 flex items-center justify-center mb-3 mx-auto sm:mx-0 group-hover:scale-105 transition-transform">
               <Bot className="w-6 h-6 text-purple-600" />
             </div>
-            <p className="font-bold text-slate-900 text-center sm:text-left">Babyeyi AI</p>
-            <p className="text-sm text-slate-500 mt-1 text-center sm:text-left">Smart tips for schedules, study habits, and reminders.</p>
+            <p className="font-bold text-slate-900 text-center sm:text-left">
+              Babyeyi AI
+            </p>
+            <p className="text-sm text-slate-500 mt-1 text-center sm:text-left">
+              Smart tips for schedules, study habits, and reminders.
+            </p>
           </button>
         </div>
       </section>
@@ -337,7 +356,9 @@ export default function Home() {
                 className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:border-slate-300 disabled:opacity-50 transition-colors"
                 title="Refresh list"
               >
-                <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+                <RefreshCw
+                  className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`}
+                />
                 Refresh
               </button>
               <button
@@ -361,15 +382,14 @@ export default function Home() {
         {loading && <ChildrenSkeleton />}
 
         {!loading && error && (
-          <p className="text-center text-red-600 text-sm py-8 rounded-2xl border border-red-100 bg-red-50">{error}</p>
+          <p className="text-center text-red-600 text-sm py-8 rounded-2xl border border-red-100 bg-red-50">
+            {error}
+          </p>
         )}
 
         {!loading && !error && filtered.length === 0 && (
           <div className="relative text-center py-12 px-4 rounded-2xl bg-white border border-slate-100 shadow-sm overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-b from-orange-50/50 to-transparent pointer-events-none" />
-            <div className="relative mx-auto w-14 h-14 rounded-2xl bg-orange-100 flex items-center justify-center mb-4">
-              <BookOpen className="w-7 h-7 text-orange-600" strokeWidth={2} />
-            </div>
             <p className="text-slate-800 font-bold text-lg">
               {children.length === 0 ? "No learners linked yet" : "No matches"}
             </p>
@@ -411,7 +431,8 @@ export default function Home() {
                             Added by you
                           </span>
                         )}
-                        {String(c.access_type || "").toUpperCase() === "LIMITED" && (
+                        {String(c.access_type || "").toUpperCase() ===
+                          "LIMITED" && (
                           <span className="text-[10px] font-bold uppercase tracking-wide text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
                             Limited access
                           </span>
@@ -420,7 +441,10 @@ export default function Home() {
                       <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-[11px] text-slate-500">
                         {u.school_name && (
                           <span className="inline-flex items-center gap-1">
-                            <GraduationCap size={12} className="text-orange-500 shrink-0" />
+                            <GraduationCap
+                              size={12}
+                              className="text-orange-500 shrink-0"
+                            />
                             {u.school_name}
                           </span>
                         )}
@@ -436,19 +460,27 @@ export default function Home() {
                           </span>
                         )}
                         {u.student_code && (
-                          <span className="inline-flex items-center gap-1 font-mono text-slate-600" title="Official student code">
+                          <span
+                            className="inline-flex items-center gap-1 font-mono text-slate-600"
+                            title="Official student code"
+                          >
                             Code {u.student_code}
                           </span>
                         )}
                         {u.sdm_code && (
-                          <span className="inline-flex items-center gap-1 font-mono text-slate-600" title="SDM ID">
+                          <span
+                            className="inline-flex items-center gap-1 font-mono text-slate-600"
+                            title="SDM ID"
+                          >
                             SDM {u.sdm_code}
                           </span>
                         )}
                         {(u.district || u.province) && (
                           <span className="inline-flex items-center gap-1">
                             <MapPin size={12} />
-                            {[u.district, u.province].filter(Boolean).join(", ")}
+                            {[u.district, u.province]
+                              .filter(Boolean)
+                              .join(", ")}
                           </span>
                         )}
                       </div>
@@ -461,26 +493,12 @@ export default function Home() {
           </ul>
         )}
       </section>
-
-      {/* Trust + tips */}
-      <section className="rounded-2xl border border-slate-200/80 dark:border-slate-600 bg-slate-50/80 dark:bg-slate-800/50 p-5 sm:p-6">
-        <div className="flex items-start gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-600 shadow-sm">
-            <ShieldCheck className="w-5 h-5 text-emerald-600" strokeWidth={2.25} />
-          </div>
-          <div className="min-w-0">
-            <h3 className="font-extrabold text-slate-900 dark:text-slate-100">Privacy &amp; trust</h3>
-            <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
-              Your session stays on secure Babyeyi servers — we never store your password in the browser. Use the header
-              search to jump to a learner by student code or SDM ID.
-            </p>
-          </div>
-        </div>
-      </section>
-
       {/* Quick actions */}
       <section>
-        <SectionHeading title="Quick actions" subtitle="Chat with school staff, payments, Classkit, and discovery." />
+        <SectionHeading
+          title="Quick actions"
+          subtitle="Chat with school staff, payments, Classkit, and discovery."
+        />
         <div className="space-y-3">
           {quickActions.map((action) => {
             const Icon = action.icon;
@@ -490,10 +508,16 @@ export default function Home() {
                   <Icon className="w-5 h-5 text-white" strokeWidth={2} />
                 </div>
                 <div className="flex-1 min-w-0 text-left">
-                  <p className="font-bold text-slate-900 dark:text-slate-100">{action.title}</p>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">{action.desc}</p>
+                  <p className="font-bold text-slate-900 dark:text-slate-100">
+                    {action.title}
+                  </p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    {action.desc}
+                  </p>
                   {action.value ? (
-                    <p className="text-sm font-bold text-orange-600 mt-1">{action.value}</p>
+                    <p className="text-sm font-bold text-orange-600 mt-1">
+                      {action.value}
+                    </p>
                   ) : null}
                 </div>
                 <ChevronRight className="w-5 h-5 text-slate-300 shrink-0 group-hover:translate-x-0.5 transition-transform" />
@@ -503,7 +527,10 @@ export default function Home() {
               "group w-full flex items-center gap-3 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-100 dark:border-slate-600 shadow-sm p-4 transition-all hover:shadow-md hover:border-orange-100 dark:hover:border-orange-900/50";
             if (action.disabled) {
               return (
-                <div key={action.title} className={`${className} opacity-60 cursor-not-allowed`}>
+                <div
+                  key={action.title}
+                  className={`${className} opacity-60 cursor-not-allowed`}
+                >
                   {inner}
                 </div>
               );
@@ -523,14 +550,6 @@ export default function Home() {
           })}
         </div>
       </section>
-
-      <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-xs text-slate-400 pb-2">
-        <Sparkles size={14} className="text-amber-400 shrink-0" />
-        <span>Staff at a school?</span>
-        <Link to="/login" className="font-bold text-orange-600 hover:underline">
-          School login
-        </Link>
-      </div>
     </div>
   );
 }
