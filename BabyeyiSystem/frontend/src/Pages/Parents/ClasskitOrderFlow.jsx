@@ -761,26 +761,14 @@ export default function ClasskitOrderFlow() {
     const TopIcon = icon || BookOpen;
     return (
     <div
-      className="-mx-4 sm:-mx-6 px-4 sm:px-6 pt-2 pb-6 mb-4 text-white rounded-b-3xl"
-      style={{ background: "linear-gradient(135deg, #ea580c 0%, #f97316 50%, #fb923c 100%)" }}
+      className="-mx-4 sm:-mx-6 px-4 sm:px-6 pt-2 pb-6 mb-4 text-slate-700 rounded-b-3xl"
     >
-      <div className="max-w-3xl mx-auto flex items-start justify-between gap-3">
+      <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-2 sm:gap-3 min-w-0">
-          <button
-            type="button"
-            onClick={goBack}
-            className="shrink-0 mt-0.5 p-2 rounded-xl bg-white/15 hover:bg-white/25 border border-white/20"
-            aria-label="Back"
-          >
-            <ArrowLeft size={20} />
-          </button>
           <div className="flex gap-3 min-w-0">
-            <div className="w-11 h-11 rounded-xl bg-white/20 flex items-center justify-center shrink-0 border border-white/25">
-              <TopIcon className="w-6 h-6 text-white" />
-            </div>
-            <div className="min-w-0">
+            
+            <div className="min-w-0 px-3">
               <h1 className="text-lg sm:text-xl font-extrabold leading-tight">{title}</h1>
-              {subtitle && <p className="text-white/85 text-xs sm:text-sm mt-1">{subtitle}</p>}
             </div>
           </div>
         </div>
@@ -863,7 +851,7 @@ export default function ClasskitOrderFlow() {
         <HeaderBar title="Order placed" subtitle="Thank you for your order." icon={CheckCircle2} />
       )}
 
-      <div className="px-4 sm:px-6 max-w-3xl mx-auto pb-8">
+      <div className="px-4 sm:px-6 pb-8">
         {step < 5 && <Stepper />}
 
         {/* Step 1 — select child (skipped messaging while shared link handshake runs) */}

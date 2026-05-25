@@ -72,9 +72,7 @@ export default function ParentDashboardLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [studentCode, setStudentCode] = useState("");
-  const hideGlobalHero =
-    /^\/parents\/classkit/.test(location.pathname) ||
-    /^\/parents\/chat/.test(location.pathname);
+  const hideGlobalHero = /^\/parents\/chat/.test(location.pathname);
 
   const {
     resolvedTheme,
