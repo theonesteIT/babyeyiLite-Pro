@@ -128,55 +128,6 @@ export default function Account() {
           </p>
         </div>
       </div>
-
-      <div className="rounded-2xl border border-emerald-200 bg-white shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-emerald-100">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="w-5 h-5 text-emerald-600" />
-            <h2 className="font-bold text-slate-900">Security activity</h2>
-          </div>
-          <button
-            type="button"
-            onClick={loadAudit}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50"
-          >
-            <RefreshCw size={14} />
-            Refresh
-          </button>
-        </div>
-        <div className="px-4 py-3">
-          {auditLoading ? (
-            <p className="text-sm text-slate-500">Loading security activity…</p>
-          ) : auditError ? (
-            <p className="text-sm text-red-600">{auditError}</p>
-          ) : securityRows.length === 0 ? (
-            <p className="text-sm text-slate-500">No security activity yet.</p>
-          ) : (
-            <ul className="space-y-3">
-              {securityRows.map((row) => (
-                <li
-                  key={row.id}
-                  className="rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-2"
-                >
-                  <p className="text-sm font-bold text-slate-900">
-                    {eventLabel(row)}
-                  </p>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    {fmtWhen(row.created_at)}
-                  </p>
-                  <p className="text-xs text-slate-600 mt-1">
-                    Outcome:{" "}
-                    <span className="font-semibold">
-                      {row.outcome || "unknown"}
-                    </span>
-                    {row?.ip_address ? ` • IP: ${row.ip_address}` : ""}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
     </div>
   );
 }

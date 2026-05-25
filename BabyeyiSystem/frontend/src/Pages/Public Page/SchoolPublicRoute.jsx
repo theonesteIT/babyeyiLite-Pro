@@ -151,17 +151,17 @@ function NavBar({ school, theme, active, onNav, menuOpen, setMenuOpen, onApply, 
     <>
       {/* ── DESKTOP (fixed: parent overflow-x-hidden breaks sticky) ── */}
       <header
-        className="hidden lg:flex items-center fixed top-0 left-0 right-0 z-50 w-full h-16 px-6 xl:px-10 transition-all duration-300"
-        style={{
-          background: minimal
-            ? (scrolled ? 'rgba(255,255,255,0.98)' : '#ffffff')
-            : (scrolled ? `${p}f8` : p),
-          boxShadow: minimal
-            ? (scrolled ? '0 4px 24px rgba(0,0,0,0.08)' : '0 1px 0 rgba(0,0,0,0.06)')
-            : (scrolled ? `0 4px 32px rgba(0,0,0,0.22)` : '0 2px 16px rgba(0,0,0,0.15)'),
-          backdropFilter: minimal ? 'blur(12px)' : 'blur(16px)',
-          borderBottom: minimal ? '1px solid rgba(0,0,0,0.06)' : undefined,
-        }}
+        className="hidden bg-slate-700 lg:flex items-center fixed top-0 left-0 right-0 z-50 w-full h-16 px-6 xl:px-10 transition-all duration-300"
+        // style={{
+        //   background: minimal
+        //     ? (scrolled ? 'rgba(255,255,255,0.98)' : '#ffffff')
+        //     : (scrolled ? `${p}f8` : p),
+        //   boxShadow: minimal
+        //     ? (scrolled ? '0 4px 24px rgba(0,0,0,0.08)' : '0 1px 0 rgba(0,0,0,0.06)')
+        //     : (scrolled ? `0 4px 32px rgba(0,0,0,0.22)` : '0 2px 16px rgba(0,0,0,0.15)'),
+        //   backdropFilter: minimal ? 'blur(12px)' : 'blur(16px)',
+        //   borderBottom: minimal ? '1px solid rgba(0,0,0,0.06)' : undefined,
+        // }}
       >
         {/* Logo + name */}
         <div className="flex items-center gap-3 mr-6 flex-shrink-0 w-full max-w-max">
@@ -189,8 +189,6 @@ function NavBar({ school, theme, active, onNav, menuOpen, setMenuOpen, onApply, 
           </span>
         </div>
 
-        <div className={`w-px h-6 mr-5 flex-shrink-0 ${minimal ? 'bg-black/10' : 'bg-white/15'}`} />
-
         {/* Nav links */}
         <nav className="flex items-center gap-0.5 flex-1 overflow-x-auto min-w-0">
           {navItems.map(item => {
@@ -214,20 +212,6 @@ function NavBar({ school, theme, active, onNav, menuOpen, setMenuOpen, onApply, 
             );
           })}
         </nav>
-
-        <Link
-          to="/"
-          className={`ml-3 flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-black text-xs transition flex-shrink-0 border ${
-            minimal
-              ? 'border-slate-200 bg-white text-[#1F2937] hover:bg-slate-50 shadow-sm'
-              : 'border-white/25 bg-white/10 text-white hover:bg-white/18'
-          }`}
-          style={syne}
-          title="Babyeyi platform landing page"
-        >
-          <Home size={13} strokeWidth={2.5} /> Landing
-        </Link>
-
         {/* CTA */}
         <button
           onClick={onApply}

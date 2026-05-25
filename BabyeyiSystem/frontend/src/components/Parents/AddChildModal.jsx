@@ -207,11 +207,6 @@ export default function AddChildModal({ open, onClose, onSaved, onLinked }) {
         </div>
 
         <div className="p-5 space-y-5">
-          <p className="text-sm text-slate-600 leading-relaxed">
-            Enter the <span className="font-bold text-slate-800">student code</span>, SDM ID, or UID from your school. If we find
-            a match, we link it to your account when your phone matches or can be filled in.
-          </p>
-
           <form onSubmit={searchStudents} className="space-y-3">
             <label className="block">
               <span className="text-sm font-bold text-slate-800 mb-1.5 flex items-center gap-2">

@@ -159,9 +159,6 @@ export default function Orders() {
       <div className="flex items-center gap-3">
         <div>
           <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Order history</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            ClassKit / ShuleKit — resumes and shop orders on this device
-          </p>
         </div>
       </div>
 

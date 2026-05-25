@@ -86,12 +86,6 @@ function ChildrenSkeleton() {
 
 const quickActions = [
   {
-    to: "/parents/chat",
-    title: "School chat",
-    desc: "Message teachers and school staff",
-    icon: MessageSquare,
-  },
-  {
     to: "/parents/orders",
     title: "Order history",
     desc: "Classkit and demo orders on this device",
@@ -99,16 +93,9 @@ const quickActions = [
   },
   {
     to: "/parents/services",
-    title: "Services & Classkit",
+    title: "Services",
     desc: "Classkit, shoes, paid at school & more",
     icon: LayoutGrid,
-  },
-  {
-    to: "/parents/account",
-    title: "My Babyeyi Account",
-    desc: "Manage your savings & deposits",
-    value: "11,500 FRW",
-    icon: Wallet,
   },
   {
     to: "/parents/shulecard",
@@ -118,7 +105,7 @@ const quickActions = [
   },
   {
     to: "/parents/shop",
-    title: "School Shop",
+    title: "Shule Papietrie",
     desc: "Stationery & learning materials",
     icon: Package,
   },
@@ -274,31 +261,12 @@ export default function Home() {
             </h1>
           </div>
           <div className="flex flex-wrap gap-2.5 lg:flex-col xl:flex-row lg:items-stretch">
-            <div className="inline-flex w-full sm:w-auto items-center gap-3 rounded-2xl bg-white/90 dark:bg-slate-800/90 border border-slate-100 dark:border-slate-600 px-4 py-3 shadow-sm min-w-[10rem]">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-100 dark:bg-orange-950/50 text-orange-600 dark:text-orange-400">
-                <GraduationCap className="w-5 h-5" strokeWidth={2.25} />
-              </div>
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">
-                  Children
-                </p>
-                <p className="text-lg font-extrabold text-slate-900 dark:text-slate-100 tabular-nums">
-                  {children.length}
-                </p>
-              </div>
-            </div>
             <Link
               to="/parents/services"
-              className="inline-flex  w-full sm:w-auto items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 px-5 py-3 text-sm font-bold text-white shadow-md shadow-orange-500/25 hover:brightness-105 active:scale-[0.99] transition-all"
+              className="inline-flex  w-full sm:w-auto items-center justify-center gap-2 rounded-2xl bg-amber-400 px-5 py-3 text-sm font-bold text-white shadow-md shadow-orange-500/25 hover:brightness-105 active:scale-[0.99] transition-all"
             >
               Explore services
               <ArrowUpRight className="w-4 h-4" strokeWidth={2.5} />
-            </Link>
-            <Link
-              to="/track"
-              className="inline-flex  w-full sm:w-auto items-center justify-center gap-2 rounded-2xl border-2 border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-200 hover:border-orange-200 dark:hover:border-orange-600 hover:bg-orange-50/50 dark:hover:bg-slate-700 transition-colors"
-            >
-              Track application
             </Link>
           </div>
         </div>
@@ -313,31 +281,33 @@ export default function Home() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <button
             type="button"
-            className="group text-left rounded-2xl border-2 border-amber-200/90 bg-white p-5 shadow-sm hover:shadow-lg hover:border-amber-300 transition-all duration-300"
+            className="group flex items-center gap-4 rounded-[1.75rem] border border-slate-900/10 bg-slate-950 p-4 shadow-[0_20px_80px_-40px_rgba(15,23,42,0.45)] text-left text-white transition hover:shadow-[0_25px_100px_-50px_rgba(15,23,42,0.5)]"
           >
-            <div className="w-12 h-12 rounded-xl border-2 border-amber-400 flex items-center justify-center mb-3 mx-auto sm:mx-0 group-hover:scale-105 transition-transform">
-              <Headphones className="w-6 h-6 text-orange-500" />
+            <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-amber-400 text-slate-950 shadow-lg shadow-amber-500/20">
+              <Headphones className="h-7 w-7" />
             </div>
-            <p className="font-bold text-slate-900 text-center sm:text-left">
-              Agent assistance
-            </p>
-            <p className="text-sm text-slate-500 mt-1 text-center sm:text-left">
-              Quick help with fees, Classkit, and school questions.
-            </p>
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold text-lg">Agent Assistance</p>
+              <p className="mt-1 text-sm text-slate-300">
+                Get quick help from a Babyeyi agent.
+              </p>
+            </div>
+            <ChevronRight className="h-5 w-5 text-slate-400" />
           </button>
           <button
             type="button"
-            className="group text-left rounded-2xl border-2 border-purple-200/90 bg-white p-5 shadow-sm hover:shadow-lg hover:border-purple-300 transition-all duration-300"
+            className="group flex items-center gap-4 rounded-[1.75rem] border border-slate-900/10 bg-slate-950 p-4 shadow-[0_20px_80px_-40px_rgba(15,23,42,0.45)] text-left text-white transition hover:shadow-[0_25px_100px_-50px_rgba(15,23,42,0.5)]"
           >
-            <div className="w-12 h-12 rounded-xl border-2 border-purple-400 flex items-center justify-center mb-3 mx-auto sm:mx-0 group-hover:scale-105 transition-transform">
-              <Bot className="w-6 h-6 text-purple-600" />
+            <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-amber-400 text-slate-950 shadow-lg shadow-amber-500/20">
+              <Bot className="h-7 w-7" />
             </div>
-            <p className="font-bold text-slate-900 text-center sm:text-left">
-              Babyeyi AI
-            </p>
-            <p className="text-sm text-slate-500 mt-1 text-center sm:text-left">
-              Smart tips for schedules, study habits, and reminders.
-            </p>
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold text-lg">Tools & Services</p>
+              <p className="mt-1 text-sm text-slate-300">
+                School support services & more.
+              </p>
+            </div>
+            <ChevronRight className="h-5 w-5 text-slate-400" />
           </button>
         </div>
       </section>
@@ -349,18 +319,6 @@ export default function Home() {
           subtitle="All learners linked to your phone on school records, plus students you add with limited financial access and local profiles."
           action={
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleRefreshChildren}
-                disabled={loading}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:border-slate-300 disabled:opacity-50 transition-colors"
-                title="Refresh list"
-              >
-                <RefreshCw
-                  className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`}
-                />
-                Refresh
-              </button>
               <button
                 type="button"
                 onClick={() => setAddOpen(true)}
@@ -417,7 +375,7 @@ export default function Home() {
               const u = normalizeChildForUi(c);
               return (
                 <li key={c.id}>
-                  <div className="flex items-center gap-3 rounded-2xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800/80 p-4 shadow-sm hover:shadow-md hover:border-orange-200/80 dark:hover:border-orange-700 transition-all duration-200">
+                  <div className="flex items-center gap-3 rounded-2xl border border-slate-200 dark:border-slate-600 bg-white p-4 shadow-sm hover:shadow-md hover:border-orange-200/80 dark:hover:border-orange-700 transition-all duration-200">
                     <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-extrabold text-lg shrink-0 ring-2 ring-white shadow-md">
                       {(u.first_name || "?")[0]}
                     </div>

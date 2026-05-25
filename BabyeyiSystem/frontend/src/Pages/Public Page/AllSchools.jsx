@@ -181,7 +181,7 @@ export default function AllSchools() {
   const [selTVET, setSelTVET] = useState([]);
   const [selDistrict, setSelDistrict] = useState("");
   const [mobileFilter, setMobileFilter] = useState(false);
-  const [view, setView] = useState("grid");
+  const [view, setView] = useState("list");
 
   useEffect(()=>{
     fetch(`${API}?status=published&limit=500`).then(r=>r.json()).then(d=>{
@@ -279,13 +279,13 @@ export default function AllSchools() {
     <div className="min-h-screen bg-slate-50">
       {/* Top bar */}
       <header className="sticky top-0 z-30 bg-[#000435] border-b-[3px] border-amber-400 h-14 sm:h-16">
-        <div className="max-w-[1400px] mx-auto h-full px-4 sm:px-6 xl:px-10 flex items-center gap-3">
+        <div className="h-full px-4 sm:px-6 xl:px-10 flex items-center gap-3">
           <button onClick={()=>navigate("/")} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/8 border border-white/12 text-white/70 font-semibold text-[13px] hover:bg-white/14 transition-all shrink-0">
             <ArrowLeft size={15}/><span className="hidden sm:inline">Back</span>
           </button>
-          <div className="hidden sm:flex items-center gap-2 shrink-0 pr-3 border-r border-white/10">
+          {/* <div className="hidden sm:flex items-center gap-2 shrink-0 pr-3 border-r border-white/10">
             <div className="w-7 h-7 rounded-lg bg-amber-400 flex items-center justify-center"><GraduationCap size={14} className="text-[#000435]"/></div>
-          </div>
+          </div> */}
 
           {/* Search */}
           <div className="flex-1 relative">
@@ -317,7 +317,7 @@ export default function AllSchools() {
 
       {/* Page hero strip */}
       <div className="bg-[#000435] py-6 sm:py-8 border-b border-amber-400/15">
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 xl:px-10 flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+        <div className="px-4 sm:px-6 xl:px-10 flex flex-col sm:flex-row sm:items-end justify-between gap-3">
           <div>
             <h1 className="text-2xl sm:text-3xl xl:text-4xl font-black text-white tracking-tight">
               Explore <span className="text-amber-400">Schools</span>
@@ -335,7 +335,7 @@ export default function AllSchools() {
       {/* Active filter chips */}
       {activeChips.length>0&&(
         <div className="bg-[#000435] border-b border-white/8 overflow-x-auto">
-          <div className="max-w-[1400px] mx-auto px-4 sm:px-6 xl:px-10 py-2 flex items-center gap-2 flex-nowrap">
+          <div className="px-4 sm:px-6 xl:px-10 py-2 flex items-center gap-2 flex-nowrap">
             {activeChips.map((chip,i)=>(
               <button key={i} onClick={chip.clear} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-black bg-amber-400 text-[#000435] shrink-0 hover:bg-amber-300 transition-all">
                 {chip.label} <X size={10}/>
@@ -346,7 +346,7 @@ export default function AllSchools() {
       )}
 
       {/* Main body */}
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 xl:px-10 py-6 xl:py-8 flex gap-6">
+      <div className="px-4 sm:px-6 xl:px-10 py-6 xl:py-8 flex gap-6">
         {/* Desktop sidebar */}
         <aside className="hidden lg:block w-64 xl:w-72 shrink-0">
           <div className="rounded-2xl border border-slate-200 bg-white shadow-sm sticky overflow-y-auto" style={{top:activeChips.length>0?116:80,maxHeight:"calc(100vh-100px)"}}>

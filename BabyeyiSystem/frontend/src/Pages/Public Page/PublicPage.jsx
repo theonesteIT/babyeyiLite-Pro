@@ -1043,10 +1043,6 @@ function Footer() {
         <div className="grid grid-cols-2 md:grid-cols-5 gap-8 xl:gap-12 mb-10 xl:mb-14">
           <div className="col-span-2 md:col-span-1">
             <Link to="/" className="flex items-center gap-2.5 mb-4">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-                style={{ background: "linear-gradient(135deg,#FBBF24,#F59E0B)" }}>
-                <GraduationCap size={17} className="text-[#000435]" />
-              </div>
               <span className="font-black text-[17px] text-white">
                 baby<span className="text-amber-400">eyi</span><span style={{ color: "rgba(251,191,36,0.5)" }}>.rw</span>
               </span>
