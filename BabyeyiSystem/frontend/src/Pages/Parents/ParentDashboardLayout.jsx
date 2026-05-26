@@ -58,7 +58,7 @@ const navItemsMobile = [
   { to: "/parents/services", label: "Services", Icon: LayoutGrid },
   { to: "/parents/shop", label: "Shop", Icon: ShoppingBag },
   { to: "/parents/shulecard", label: "Shulecard", Icon: CreditCard },
-  { to: "/parents/account", label: "Account", Icon: Wallet },
+  // { to: "/parents/account", label: "Account", Icon: Wallet },
 ];
 
 function firstGreetingName(fullName) {
@@ -251,6 +251,14 @@ export default function ParentDashboardLayout() {
                           role="menu"
                         >
                           <div className="flex flex-col gap-1 p-2">
+                            <a
+                              href="/parents/profile"
+                              className="group flex items-center gap-3 rounded-2xl px-4 py-3 text-slate-700 hover:bg-slate-100"
+                              role="menuitem"
+                            >
+                              <User className="w-5 h-5 text-orange-500" />
+                              <span>Profile</span>
+                            </a>
                             <a
                               href="mailto:hello@babyeyi.rw?subject=Parent%20portal%20help"
                               className="group flex items-center gap-3 rounded-2xl px-4 py-3 text-slate-700 hover:bg-slate-100"
