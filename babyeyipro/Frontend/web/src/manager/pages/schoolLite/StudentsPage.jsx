@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   Upload, Plus, Users, Loader2, CheckCircle2, AlertTriangle,
   Search, RefreshCw, Pencil, Trash2, FileSpreadsheet, FileText,
-  X, ChevronRight, Eye, MapPin, User, Phone, GraduationCap, ListFilter, Download,
+  X, ChevronRight, Eye, MapPin, User, Phone, GraduationCap, ListFilter, Download, Camera,
 } from "lucide-react";
 import { downloadStudentImportTemplate } from "../../utils/studentImportTemplate";
 
@@ -460,6 +460,8 @@ function StudentWizardModal({ open, onClose, session, toast, onSuccess, editStud
   const [form,    setForm]    = useState(BLANK_FORM);
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState(null);
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(null);
 
   // Location cascade
   const { districts, sectors, cells, villages, loading: locLoading, errors: locErrors } =
@@ -471,6 +473,8 @@ function StudentWizardModal({ open, onClose, session, toast, onSuccess, editStud
     setStep(1);
     setError(null);
     setLoading(false);
+    setPhotoFile(null);
+    setPhotoPreview(null);
 
     if (isEdit) {
       setForm({
@@ -588,6 +592,27 @@ function StudentWizardModal({ open, onClose, session, toast, onSuccess, editStud
 
   const prevStep = () => { setError(null); setStep(s => Math.max(1, s - 1)); };
 
+  const handlePhotoChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!["image/jpeg", "image/jpg", "image/png"].includes(file.type)) {
+      setError("Only JPG and PNG images are allowed.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Image size must be less than 5MB.");
+      return;
+    }
+    setPhotoFile(file);
+    const reader = new FileReader();
+    reader.onload = (ev) => setPhotoPreview(ev.target?.result || null);
+    reader.readAsDataURL(file);
+  };
+
+  const existingPhotoUrl = editStudent?.student_photo_url
+    ? `${API}${editStudent.student_photo_url}`
+    : null;
+
   // ── Submit ─────────────────────────────────────────────────────
   const handleSubmit = async () => {
     const phoneRe = /^0[27]\d{8}$/;
@@ -656,6 +681,23 @@ function StudentWizardModal({ open, onClose, session, toast, onSuccess, editStud
         setError(json.message || "Failed to save student.");
         setLoading(false);
         return;
+      }
+
+      const studentId = isEdit ? editStudent.id : json.data?.id;
+      if (photoFile && studentId) {
+        const photoData = new FormData();
+        photoData.append("photo", photoFile);
+        const pRes = await fetch(`${API}/api/students/${studentId}/identity/photo`, {
+          method: "PUT",
+          credentials: "include",
+          body: photoData,
+        });
+        const pJson = await pRes.json().catch(() => ({}));
+        if (!pRes.ok || !pJson.success) {
+          setError("Student saved, but photo upload failed. You can try again from Edit.");
+          setLoading(false);
+          return;
+        }
       }
 
       toast?.(isEdit ? "Student updated successfully." : "Student registered successfully.", "success");
@@ -755,6 +797,43 @@ function StudentWizardModal({ open, onClose, session, toast, onSuccess, editStud
                   Official ID format: district (2) + school code (3) + sequence (4), e.g. 010010001 — assigned on save.
                 </p>
               )}
+
+              <div className="flex flex-col sm:flex-row gap-4 rounded-2xl border border-slate-200 bg-white px-4 py-4">
+                <div className="flex flex-col items-center sm:items-start shrink-0">
+                  <label className={labelCls}>Profile photo (optional)</label>
+                  <div className="relative mt-1 w-28 h-28 rounded-2xl overflow-hidden border-2 border-dashed border-slate-200 hover:border-amber-400 bg-slate-50 flex flex-col items-center justify-center transition-colors">
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg"
+                      disabled={loading}
+                      className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                      onChange={handlePhotoChange}
+                    />
+                    {(photoPreview || existingPhotoUrl) ? (
+                      <img
+                        src={photoPreview || existingPhotoUrl}
+                        alt="Student"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <>
+                        <Camera className="w-6 h-6 text-slate-300 mb-1" />
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-2 text-center">
+                          Upload
+                        </span>
+                      </>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-slate-500 mt-2 max-w-[9rem] text-center sm:text-left">
+                    JPG or PNG, max 5MB. Used on student cards and class lists.
+                  </p>
+                </div>
+                <div className="flex-1 min-w-0 flex items-center">
+                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                    Add a clear portrait on this step. You can skip it now and upload later when editing the student.
+                  </p>
+                </div>
+              </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <FormField label="First Name" required>

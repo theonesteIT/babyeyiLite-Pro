@@ -8,7 +8,8 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 import ConductMarksModal from '../components/ConductMarksModal';
-import StudentIdentityRegistrationModal from '../components/StudentIdentityRegistrationModal';
+import StudentWizardModal from '../../manager/components/StudentWizardModal';
+import studentService from '../../manager/services/studentService';
 import TeacherOrangeHero from '../../shared/components/TeacherOrangeHero';
 import { PORTAL } from '../config/portal';
 import { useAuth } from '../context/AuthContext';
@@ -181,7 +182,8 @@ const Students = () => {
     const [selectedClass, setSelectedClass] = useState('View All');
     const [showAllClassesModal, setShowAllClassesModal] = useState(false);
     const [isClassSelected, setIsClassSelected] = useState(window.innerWidth >= 768);
-    const [showIdentityModal, setShowIdentityModal] = useState(false);
+    const [showEditWizard, setShowEditWizard] = useState(false);
+    const [editingStudent, setEditingStudent] = useState(null);
 
     // Conduct Modal State
     const [isConductModalOpen, setIsConductModalOpen] = useState(false);
@@ -202,21 +204,47 @@ const Students = () => {
     });
     const [loading, setLoading] = useState(true);
 
+    const reloadStudents = async () => {
+        try {
+            const res = await api.get('/teacher-portal/students');
+            if (res.data.success) {
+                setMockStudents(res.data.data || []);
+                if (res.data.stats) {
+                    setStats({
+                        totalEnrolled: res.data.stats.totalEnrolled?.toLocaleString(),
+                        epicPercent: res.data.stats.epicPercent + '%',
+                        avgAttendance: res.data.stats.avgAttendance + '%',
+                        diversityIndex: res.data.stats.diversityIndex
+                    });
+                }
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    const openEditWizard = async (s) => {
+        const studentPk = s.row_id;
+        if (!studentPk) return;
+        try {
+            const res = await studentService.getStudents({ q: s.id, limit: 50 });
+            const full = (res.data || []).find(
+                (st) => Number(st.id) === Number(studentPk) || st.student_uid === s.id
+            );
+            if (full) {
+                setEditingStudent(full);
+                setShowEditWizard(true);
+                setOpenDropdownId(null);
+            }
+        } catch (e) {
+            console.error('Failed to load student for edit:', e);
+        }
+    };
+
     useEffect(() => {
         const fetchStudents = async () => {
              try {
-                 const res = await api.get('/teacher-portal/students');
-                 if (res.data.success) {
-                     setMockStudents(res.data.data || []);
-                     if (res.data.stats) {
-                         setStats({
-                             totalEnrolled: res.data.stats.totalEnrolled?.toLocaleString(),
-                             epicPercent: res.data.stats.epicPercent + '%',
-                             avgAttendance: res.data.stats.avgAttendance + '%',
-                             diversityIndex: res.data.stats.diversityIndex
-                         });
-                     }
-                 }
+                 await reloadStudents();
              } catch (e) {
                  console.error(e);
              } finally {
@@ -260,18 +288,14 @@ const Students = () => {
                 initialStudent={conductStudent}
                 students={mockStudents}
             />
-            <StudentIdentityRegistrationModal
-                open={showIdentityModal}
-                onClose={() => setShowIdentityModal(false)}
-                session={{ schoolName: teacher?.school?.name || teacher?.school_name || 'School' }}
-                toast={() => {}}
-                onSaved={async () => {
-                    try {
-                        const res = await api.get('/teacher-portal/students');
-                        if (res.data?.success) {
-                            setMockStudents(res.data.data || []);
-                        }
-                    } catch (_) { /* noop */ }
+            <StudentWizardModal
+                open={showEditWizard}
+                onClose={() => { setShowEditWizard(false); setEditingStudent(null); }}
+                editStudent={editingStudent}
+                onSuccess={reloadStudents}
+                session={{
+                    schoolName: teacher?.school?.name || teacher?.school_name || 'School',
+                    school_id: teacher?.school_id,
                 }}
             />
 
@@ -594,12 +618,9 @@ const Students = () => {
                                                                             </button>
                                                                             <button
                                                                                 className="w-full text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-re-orange hover:bg-re-orange/5 transition-colors flex items-center gap-2.5 border-t border-black/5"
-                                                                                onClick={() => {
-                                                                                    setOpenDropdownId(null);
-                                                                                    setShowIdentityModal(true);
-                                                                                }}
+                                                                                onClick={() => openEditWizard(s)}
                                                                             >
-                                                                                <Edit3 size={13} /> Edit Identity / Photo
+                                                                                <Edit3 size={13} /> Edit Student
                                                                             </button>
                                                                         </div>
                                                                     </>

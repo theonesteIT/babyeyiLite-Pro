@@ -211,7 +211,8 @@ export default function StudentWizardModal({ open, onClose, session, toast, onSu
     { id: 4, label: "Credentials (Optional)", icon: Fingerprint },
   ];
 
-  const { manager } = useAuth();
+  const { manager, teacher } = useAuth();
+  const sessionUser = manager || teacher;
   const [classes, setClasses] = useState([]);
   const [fetchingClasses, setFetchingClasses] = useState(false);
 
@@ -245,7 +246,7 @@ export default function StudentWizardModal({ open, onClose, session, toast, onSu
     } else setForm(BLANK_FORM);
 
     const loadClasses = async () => {
-      const sid = manager?.school_id || manager?.schoolId || session?.school_id || session?.schoolId || session?.school?.id;
+      const sid = sessionUser?.school_id || sessionUser?.schoolId || session?.school_id || session?.schoolId || session?.school?.id;
       if (!sid) return;
       setFetchingClasses(true);
       try {
@@ -258,7 +259,25 @@ export default function StudentWizardModal({ open, onClose, session, toast, onSu
       }
     };
     loadClasses();
-  }, [open, editStudent?.id, manager?.school_id, session?.school_id]);
+  }, [open, editStudent?.id, sessionUser?.school_id, session?.school_id]);
+
+  useEffect(() => {
+    if (!open || !isEdit || !classes.length) return;
+    if (form.class_id) return;
+    const cn = String(form.class_name || editStudent?.class_name || "").trim();
+    if (!cn) return;
+    const match = classes.find((c) => {
+      const label = `${c.group_name || ""} ${c.stream_name || ""} ${c.combination || ""}`.trim();
+      return label === cn || String(c.group_name || "").trim() === cn;
+    });
+    if (match) {
+      setForm((prev) => ({
+        ...prev,
+        class_id: String(match.id),
+        class_name: `${match.group_name || ""} ${match.stream_name || ""} ${match.combination || ""}`.trim(),
+      }));
+    }
+  }, [open, isEdit, classes, editStudent?.id, editStudent?.class_name, form.class_id, form.class_name]);
 
   const set = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
 
@@ -273,8 +292,8 @@ export default function StudentWizardModal({ open, onClose, session, toast, onSu
       if (!form.last_name.trim()) return "Last name is required.";
       if (!form.gender) return "Gender is required.";
       if (!form.birth_year) return "Please select a birth year.";
-      if (!form.academic_year) return "Please select an academic year.";
-      if (!form.class_id) return "Please select a homeroom/class.";
+      if (!form.academic_year && !isEdit) return "Please select an academic year.";
+      if (!form.class_id && !String(form.class_name || "").trim()) return "Please select a homeroom/class.";
       if (!form.autoId && !form.student_uid.trim()) return "Enter a student ID or enable auto-generate.";
     }
     if (s === 2) {
@@ -469,6 +488,43 @@ export default function StudentWizardModal({ open, onClose, session, toast, onSu
                               </select>
                             </FormField>
                           </div>
+
+                          <div className="flex flex-col sm:flex-row gap-4 rounded-lg border border-black/5 bg-re-bg/30 p-4">
+                            <div className="flex flex-col items-center sm:items-start shrink-0">
+                              <label className="text-[8px] font-semibold text-[#1E3A5F] uppercase tracking-[0.2em] mb-1.5 opacity-80">
+                                Profile photo (optional)
+                              </label>
+                              <div className="relative w-28 h-28 rounded-2xl overflow-hidden border-2 border-dashed border-[#1E3A5F]/20 hover:border-re-gold bg-white flex flex-col justify-center items-center transition-colors">
+                                <input
+                                  type="file"
+                                  disabled={loading}
+                                  accept="image/png, image/jpeg"
+                                  className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                                  onChange={handlePhotoChange}
+                                />
+                                {(photoPreview || editStudent?.student_photo_url) ? (
+                                  <img
+                                    src={photoPreview || `${API}${editStudent.student_photo_url}`}
+                                    alt="Student"
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <>
+                                    <Camera size={20} className="text-[#1E3A5F]/30 mb-1.5" />
+                                    <span className="text-[7px] font-bold text-center text-[#1E3A5F]/50 uppercase tracking-widest px-2">
+                                      Upload
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                              <p className="text-[9px] text-re-text-muted mt-2 max-w-[9rem] text-center sm:text-left">
+                                JPG or PNG, max 5MB
+                              </p>
+                            </div>
+                            <p className="text-[10px] text-re-text-muted leading-relaxed flex-1 flex items-center">
+                              Optional portrait for student cards and class lists. You can add or change it anytime when editing.
+                            </p>
+                          </div>
                         </div>
                       )}
 
@@ -518,28 +574,10 @@ export default function StudentWizardModal({ open, onClose, session, toast, onSu
                           <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
                             <p className="text-[9px] font-semibold text-amber-800 uppercase tracking-wider">Optional step</p>
                             <p className="text-[10px] text-amber-700 mt-1">
-                              Profile photo, RFID UID, fingerprint ID, and remarks are optional. You can save now and edit these fields later anytime.
+                              RFID UID, fingerprint ID, and remarks are optional. Profile photo is on the Identity step.
                             </p>
                           </div>
-                          <div className="flex flex-col sm:flex-row gap-4">
-                            {/* Photo Upload Section */}
-                            <div className="w-full sm:w-1/3 flex flex-col items-center">
-                              <label className="text-[8px] font-semibold text-[#1E3A5F] uppercase tracking-[0.2em] mb-1.5 self-start opacity-80">Profile Portrait (Optional)</label>
-                              <div className="relative group cursor-pointer w-28 h-28 rounded-2xl overflow-hidden border-2 border-dashed border-[#1E3A5F]/20 hover:border-re-gold transition-colors bg-re-bg flex flex-col justify-center items-center">
-                                <input type="file" disabled={loading} accept="image/png, image/jpeg" className="absolute inset-0 opacity-0 cursor-pointer z-10" onChange={handlePhotoChange} />
-                                {(photoPreview || editStudent?.student_photo_url) ? (
-                                  <img src={photoPreview || `${API}${editStudent.student_photo_url}`} alt="Student" className="w-full h-full object-cover" />
-                                ) : (
-                                  <>
-                                    <Camera size={20} className="text-[#1E3A5F]/30 group-hover:text-re-gold transition-colors mb-1.5" />
-                                    <span className="text-[7px] font-bold text-center text-[#1E3A5F]/50 uppercase tracking-widest px-2 group-hover:text-[#1E3A5F] transition-colors">Select Upload</span>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Biometrics Section */}
-                            <div className="w-full sm:w-2/3 space-y-3">
+                          <div className="space-y-3">
                               <FormField label="RFID Gateway Tag UID (Optional)">
                                 <div className="relative">
                                   <CreditCard className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#1E3A5F]/30" size={16} />
@@ -560,7 +598,6 @@ export default function StudentWizardModal({ open, onClose, session, toast, onSu
                                   <textarea className={`${inputCls} pl-10 py-3 resize-none h-20 min-h-[80px]`} placeholder="Special access instructions..." value={form.identity_remarks} onChange={e => set("identity_remarks", e.target.value)} disabled={loading} />
                                 </div>
                               </FormField>
-                            </div>
                           </div>
                         </div>
                       )}

@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, BookOpen, Calendar, CalendarDays, ClipboardCheck,
   Wallet, MessageSquare, ClipboardList, Eye, PenLine, FileSpreadsheet,
   Building2, LogOut, WifiOff, GraduationCap, ChevronDown, DollarSign, Shield,
-  ListChecks,
+  ListChecks, UserCircle,
 } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5100';
@@ -185,6 +185,9 @@ const Sidebar = ({ onClose }) => {
           <SectionLabel label="Communication" />
           <NavItem icon={MessageSquare} name="TichaAI" path="/ticha-ai" onClose={onClose} />
           <NavItem icon={MessageSquare} name="Chat Center" path="/chat" onClose={onClose} badgeCount={unreadCount} />
+
+          <SectionLabel label="Account" />
+          <NavItem icon={UserCircle} name="My Profile" path="/profile" onClose={onClose} />
         </nav>
       </div>
 

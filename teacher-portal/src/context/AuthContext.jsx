@@ -170,10 +170,32 @@ export const AuthProvider = ({ children }) => {
     window.location.href = '/login';
   };
 
+  const refreshTeacher = async () => {
+    try {
+      const res = await api.get('/session/me');
+      if (res.data?.success) {
+        const data = res.data.data ?? res.data.user;
+        const rc = roleCodeFromSessionPayload(data);
+        if (data && rc === 'TEACHER') {
+          setTeacher(data);
+          return data;
+        }
+      }
+    } catch (err) {
+      console.warn('[AuthContext] refreshTeacher failed:', err.message);
+    }
+    return null;
+  };
+
+  const updateTeacher = (patch) => {
+    if (!patch || typeof patch !== 'object') return;
+    setTeacher((prev) => (prev ? { ...prev, ...patch } : prev));
+  };
+
   const isLiteSchool = useMemo(() => isLiteSchoolTeacher(teacher), [teacher]);
 
   return (
-    <AuthContext.Provider value={{ teacher, loading, login, logout, isLiteSchool }}>
+    <AuthContext.Provider value={{ teacher, loading, login, logout, isLiteSchool, refreshTeacher, updateTeacher }}>
       {children}
     </AuthContext.Provider>
   );

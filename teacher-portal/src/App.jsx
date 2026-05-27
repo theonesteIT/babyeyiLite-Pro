@@ -27,6 +27,7 @@ import ChatCenter from './pages/ChatCenter';
 import StaffPayroll from './pages/StaffPayroll';
 import Permissions from './pages/Permissions';
 import SchoolCalendar from './pages/SchoolCalendar';
+import TeacherProfile from './pages/TeacherProfile';
 import './index.css';
 
 // ── Loading screen ────────────────────────────────────────────
@@ -93,6 +94,7 @@ function AppContent() {
       />
       <Route path="/permissions" element={<ProtectedRoute title="Permissions"><Permissions /></ProtectedRoute>} />
       <Route path="/school-calendar" element={<ProtectedRoute title="School Calendar"><SchoolCalendar /></ProtectedRoute>} />
+      <Route path="/profile" element={<ProtectedRoute title="My Profile"><TeacherProfile /></ProtectedRoute>} />
 
       <Route path="*" element={<FallbackRoute />} />
     </Routes>
