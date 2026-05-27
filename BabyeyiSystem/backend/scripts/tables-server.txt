@@ -12,6 +12,7 @@ accountant_payroll_rates
 accountant_payroll_run_lines
 accountant_payroll_runs
 accountant_payroll_staff_overrides
+activity_logs
 admission_app_answers
 admission_applications
 admission_form_questions
@@ -25,6 +26,7 @@ attendance_student
 attendance_teacher
 attendance_teacher_class
 audit_log
+audit_trails
 babyeyi_audit_log
 babyeyi_class_requirements
 babyeyi_doc_ids
@@ -37,6 +39,7 @@ babyeyi_payments
 babyeyi_signatures
 babyeyi_student_requirements
 deo_reviewers
+deo_user_settings
 discipline_cases
 discipline_mark_logs
 dos_student_academic_records
@@ -50,8 +53,11 @@ gallery_albums
 gallery_images
 library_books
 library_borrowings
+login_attempts
 momo_transactions
+nesa_academic_years
 nesa_fee_limits
+nesa_user_settings
 parent_classkit_share_tokens
 parent_notification_queue
 parent_portal_accounts
@@ -62,10 +68,12 @@ parent_shulecard_topups
 parent_shulecard_wallets
 parent_student_access_requests
 parent_student_activity_logs
+parent_web_push_subscriptions
 payroll_details
 payroll_notifications
 payroll_requests
 permissions
+platform_activity_logs
 portal_operation_audit_logs
 portal_requisitions
 portal_ticha_ai_history
@@ -74,6 +82,8 @@ pro_shule_avance_organizations
 requirement_prices
 role_permissions
 roles
+schema_migrations
+schema_migrations_lock
 school_academic_settings
 school_academic_year_registry
 school_action_plan_activities
@@ -96,6 +106,10 @@ school_dos_settings
 school_examination_list_overrides
 school_examination_lists
 school_fee_collections
+school_fee_reminder_campaigns
+school_fee_reminder_logs
+school_fee_reminder_rule_runs
+school_fee_reminder_rules
 school_gate_attendance_events
 school_gate_attendance_records
 school_gate_attendance_settings
@@ -107,6 +121,7 @@ school_library_books
 school_library_checkouts
 school_mini_websites
 school_module_access
+school_monitoring_logs
 school_periods
 school_representative_assignments
 school_representative_profiles
@@ -126,6 +141,7 @@ shule_avance_teacher_deal_pay_alt_intents
 shule_avance_teacher_deal_pay_tokens
 shule_avance_teacher_deal_products
 staff
+staff_portal_notifications
 standard_shule_kit_request_payments
 standard_shule_kit_requests
 standard_shule_kit_requirements
@@ -140,7 +156,9 @@ student_requirements
 student_transfer_logs
 student_transfer_notifications
 student_transfer_requests
+student_year_enrollments
 students
+suspicious_activities
 system_settings
 teacher_attendance_logs
 teacher_avance_ussd_sessions
@@ -155,6 +173,9 @@ timetable_school_schedule
 timetable_teacher_profiles
 uniform_voucher_items
 uniform_voucher_orders
+user_devices
+user_sessions
+user_status_tracking
 users
 voucher_redemptions
 vouchers

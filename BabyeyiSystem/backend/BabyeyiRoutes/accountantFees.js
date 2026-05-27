@@ -124,6 +124,15 @@ async function ensureCollectionsTable() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
   const alters = [
+    'ALTER TABLE school_fee_collections ADD COLUMN total_due DECIMAL(14,2) NOT NULL DEFAULT 0',
+    'ALTER TABLE school_fee_collections ADD COLUMN amount_paid DECIMAL(14,2) NOT NULL DEFAULT 0',
+    'ALTER TABLE school_fee_collections ADD COLUMN balance_remaining DECIMAL(14,2) NOT NULL DEFAULT 0',
+    'ALTER TABLE school_fee_collections ADD COLUMN babyeyi_id INT UNSIGNED NULL',
+    'ALTER TABLE school_fee_collections ADD COLUMN academic_year_label VARCHAR(64) NOT NULL DEFAULT ""',
+    'ALTER TABLE school_fee_collections ADD COLUMN term VARCHAR(32) NOT NULL DEFAULT ""',
+    'ALTER TABLE school_fee_collections ADD COLUMN class_name VARCHAR(120) NULL',
+    'ALTER TABLE school_fee_collections ADD COLUMN recorded_by_user_id INT UNSIGNED NOT NULL DEFAULT 0',
+    'ALTER TABLE school_fee_collections ADD COLUMN notes TEXT NULL',
     'ALTER TABLE school_fee_collections ADD COLUMN payment_method VARCHAR(40) NULL',
     'ALTER TABLE school_fee_collections ADD COLUMN bank_name VARCHAR(120) NULL',
     'ALTER TABLE school_fee_collections ADD COLUMN paid_by VARCHAR(160) NULL',
@@ -141,6 +150,18 @@ async function ensureCollectionsTable() {
 function buildReceiptNo(schoolId, paymentId) {
   const year = new Date().getFullYear();
   return `RCP-${year}-${String(schoolId).padStart(4, '0')}-${String(paymentId).padStart(6, '0')}`;
+}
+
+function ymdFromSqlDate(v) {
+  if (!v) return '';
+  if (v instanceof Date) {
+    return [
+      v.getFullYear(),
+      String(v.getMonth() + 1).padStart(2, '0'),
+      String(v.getDate()).padStart(2, '0'),
+    ].join('-');
+  }
+  return String(v).slice(0, 10);
 }
 
 function mapPaymentRow(r) {
@@ -658,6 +679,7 @@ router.get('/accountant/overview', requireRole(ACCOUNTANT_OR_MANAGER_READ), asyn
     }
 
     await ensureCollectionsTable();
+    await promisePool.query('ALTER TABLE students ADD COLUMN class_name VARCHAR(120) NULL').catch(() => {});
 
     const [[{ cnt }]] = await promisePool.query(
       'SELECT COUNT(*) AS cnt FROM students WHERE school_id = ?',
@@ -683,35 +705,40 @@ router.get('/accountant/overview', requireRole(ACCOUNTANT_OR_MANAGER_READ), asyn
       [schoolId]
     );
 
-    const [dayRows] = await promisePool.query(
-      `SELECT
-         DATE_FORMAT(DATE(created_at), '%Y-%m-%d') AS d,
-         COALESCE(SUM(amount_paid), 0) AS total_paid
-       FROM school_fee_collections
-       WHERE school_id = ? AND created_at >= DATE_SUB(CURDATE(), INTERVAL 13 DAY)
-       GROUP BY DATE(created_at)
-       ORDER BY d ASC`,
-      [schoolId]
-    );
+    let collections_last_14_days = [];
+    try {
+      const [dayRows] = await promisePool.query(
+        `SELECT
+           DATE(created_at) AS d,
+           COALESCE(SUM(amount_paid), 0) AS total_paid
+         FROM school_fee_collections
+         WHERE school_id = ? AND created_at >= DATE_SUB(CURDATE(), INTERVAL 13 DAY)
+         GROUP BY DATE(created_at)
+         ORDER BY d ASC`,
+        [schoolId]
+      );
 
-    const byDay = new Map();
-    for (const row of dayRows || []) {
-      const key = String(row.d || '').slice(0, 10);
-      byDay.set(key, Number(row.total_paid || 0));
-    }
-    const collections_last_14_days = [];
-    for (let i = 13; i >= 0; i -= 1) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const key = [
-        d.getFullYear(),
-        String(d.getMonth() + 1).padStart(2, '0'),
-        String(d.getDate()).padStart(2, '0'),
-      ].join('-');
-      collections_last_14_days.push({
-        date: key,
-        total_paid: byDay.get(key) || 0,
-      });
+      const byDay = new Map();
+      for (const row of dayRows || []) {
+        const key = ymdFromSqlDate(row.d);
+        if (key) byDay.set(key, Number(row.total_paid || 0));
+      }
+      for (let i = 13; i >= 0; i -= 1) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const key = [
+          d.getFullYear(),
+          String(d.getMonth() + 1).padStart(2, '0'),
+          String(d.getDate()).padStart(2, '0'),
+        ].join('-');
+        collections_last_14_days.push({
+          date: key,
+          total_paid: byDay.get(key) || 0,
+        });
+      }
+    } catch (chartErr) {
+      console.warn('[accountant/overview] collections_last_14_days skipped:', chartErr.message);
+      collections_last_14_days = [];
     }
 
     /** Head-of-discipline-style snapshot (read-only for finance dashboard). */
@@ -764,8 +791,12 @@ router.get('/accountant/overview', requireRole(ACCOUNTANT_OR_MANAGER_READ), asyn
       },
     });
   } catch (err) {
-    console.error('GET /accountant/overview:', err);
-    return res.status(500).json({ success: false, message: 'Failed to load overview' });
+    console.error('GET /accountant/overview:', err.message, err.sqlMessage || '');
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to load overview',
+      detail: process.env.NODE_ENV === 'production' ? undefined : (err.sqlMessage || err.message),
+    });
   }
 });
 
