@@ -64,6 +64,7 @@ import LoginLite from './Pages/Public Page/LoginLite';
 import LoginPro from './Pages/Public Page/LoginPro';
 import ServicePage from './Pages/Public Page/Service';
 import FindAgent from './Pages/Public Page/FindAgent';
+import ParentFindAgent from './Pages/Parents/ParentFindAgent';
 import AgentShop from './Pages/Public Page/AgentShop';
 import AgentShopCheckout from './Pages/Public Page/AgentShopCheckout';
 import PublicStandardShuleKit from './Pages/Public Page/PublicStandardShuleKit';
@@ -240,7 +241,7 @@ export default function App() {
             <Route index element={<Navigate to="home" replace />} />
             <Route path="home" element={<ParentHome />} />
             <Route path="shop" element={<ParentShop />} />
-            <Route path="find-agent" element={<Navigate to="/find-agent" replace />} />
+            <Route path="find-agent" element={<ParentFindAgent />} />
             <Route path="shulecard" element={<ParentShulecard />} />
             <Route path="account" element={<ParentAccount />} />
             <Route path="profile" element={<ParentProfile />} />
