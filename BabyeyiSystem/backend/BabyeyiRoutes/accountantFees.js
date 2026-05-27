@@ -1455,6 +1455,182 @@ function normalizeClassesJsonInput(v) {
   return JSON.stringify([]);
 }
 
+function shouldAggregateAllTermsForBudget(term, budgetType) {
+  const t = trimStr(term).toLowerCase();
+  const bt = trimStr(budgetType).toLowerCase();
+  if (bt.includes('annual')) return true;
+  if (!t) return false;
+  return /full\s*academic|annual|all\s*year|full\s*year/.test(t);
+}
+
+function parseCardClassNames(row) {
+  const names = [];
+  const primary = trimStr(row.class_name);
+  if (primary) names.push(primary);
+  try {
+    const arr = typeof row.classes_json === 'string' ? JSON.parse(row.classes_json) : row.classes_json;
+    if (Array.isArray(arr)) {
+      for (const x of arr) {
+        const t = trimStr(x);
+        if (t) names.push(t);
+      }
+    }
+  } catch (_) {}
+  const seen = new Set();
+  const out = [];
+  for (const n of names) {
+    const k = n.toLowerCase();
+    if (!seen.has(k)) {
+      seen.add(k);
+      out.push(n);
+    }
+  }
+  return out;
+}
+
+function enrichBabyeyiCardsForBudget(feeRows, studentsByClassLower, { aggregateAll, filterTerm }) {
+  const cards = [];
+  for (const row of feeRows || []) {
+    if (!aggregateAll && filterTerm && !termMatchesRow(row.term, filterTerm)) continue;
+    const tuitionPer = Number(row.tuition_total || 0);
+    const paidPer = Number(row.paid_at_school_total || 0);
+    const perStudentDue = Number(row.total_due || 0) > 0
+      ? Number(row.total_due || 0)
+      : tuitionPer + paidPer;
+    const classNames = parseCardClassNames(row);
+    let studentCount = 0;
+    for (const cn of classNames) {
+      studentCount += studentsByClassLower.get(cn.toLowerCase()) || 0;
+    }
+    const projectedTuition = tuitionPer * studentCount;
+    const projectedPaidAtSchool = paidPer * studentCount;
+    const projectedTotalDue = perStudentDue * studentCount;
+    cards.push({
+      id: row.id,
+      babyeyi_id: row.babyeyi_id,
+      class_name: row.class_name,
+      classes_json: row.classes_json,
+      class_names: classNames,
+      term: row.term,
+      academic_year: row.academic_year,
+      tuition_total: tuitionPer,
+      paid_at_school_total: paidPer,
+      total_due: perStudentDue,
+      tuition_per_student: tuitionPer,
+      paid_at_school_per_student: paidPer,
+      per_student_due: perStudentDue,
+      student_count: studentCount,
+      projected_tuition_total: projectedTuition,
+      projected_paid_at_school_total: projectedPaidAtSchool,
+      projected_total_due: projectedTotalDue,
+      babyeyi_is_active: row.babyeyi_is_active,
+      babyeyi_status: row.babyeyi_status,
+      updated_at: row.updated_at,
+    });
+  }
+
+  const summary = {
+    card_count: cards.length,
+    total_students: cards.reduce((s, c) => s + Number(c.student_count || 0), 0),
+    tuition_total: cards.reduce((s, c) => s + Number(c.tuition_total || 0), 0),
+    paid_at_school_total: cards.reduce((s, c) => s + Number(c.paid_at_school_total || 0), 0),
+    total_due: cards.reduce((s, c) => s + Number(c.total_due || 0), 0),
+    projected_tuition_total: cards.reduce((s, c) => s + Number(c.projected_tuition_total || 0), 0),
+    projected_paid_at_school_total: cards.reduce((s, c) => s + Number(c.projected_paid_at_school_total || 0), 0),
+    projected_total_due: cards.reduce((s, c) => s + Number(c.projected_total_due || 0), 0),
+    by_term: [],
+  };
+
+  const termMap = new Map();
+  for (const c of cards) {
+    const key = trimStr(c.term) || '—';
+    const prev = termMap.get(key) || {
+      term: key,
+      card_count: 0,
+      student_count: 0,
+      projected_total_due: 0,
+    };
+    prev.card_count += 1;
+    prev.student_count += Number(c.student_count || 0);
+    prev.projected_total_due += Number(c.projected_total_due || 0);
+    termMap.set(key, prev);
+  }
+  summary.by_term = [...termMap.values()].sort((a, b) => a.term.localeCompare(b.term));
+
+  return { cards, summary };
+}
+
+// GET /api/accountant/babyeyi-fees/budget-analysis — fee cards + student counts + projected totals
+router.get('/accountant/babyeyi-fees/budget-analysis', requireRole(ACCOUNTANT_ONLY), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) {
+      return res.status(400).json({ success: false, message: 'School not found in session.' });
+    }
+    await ensureAccountantFeeTotalsTableAcct();
+
+    const year = trimStr(req.query.academic_year || req.query.year || '');
+    const termQ = trimStr(req.query.term || '');
+    const budgetType = trimStr(req.query.budget_type || req.query.budgetType || '');
+    if (!year) {
+      return res.status(400).json({ success: false, message: 'academic_year is required' });
+    }
+
+    const aggregateAll = shouldAggregateAllTermsForBudget(termQ, budgetType);
+    const where = ['school_id = ?', 'academic_year = ?'];
+    const args = [schoolId, year];
+    if (!aggregateAll && termQ) {
+      where.push('term = ?');
+      args.push(termQ);
+    }
+
+    const [feeRows] = await promisePool.query(
+      `SELECT id, babyeyi_id, academic_year, term, class_name, classes_json,
+              tuition_total, paid_at_school_total, total_due, babyeyi_is_active, babyeyi_status,
+              source_updated_at, updated_at, created_at
+       FROM accountant_babyeyi_fees
+       WHERE ${where.join(' AND ')}
+       ORDER BY term ASC, class_name ASC`,
+      args
+    );
+
+    const [classRows] = await promisePool.query(
+      `SELECT
+         COALESCE(NULLIF(TRIM(class_name), ''), '—') AS class_name,
+         COUNT(*) AS student_count
+       FROM students
+       WHERE school_id = ?
+       GROUP BY COALESCE(NULLIF(TRIM(class_name), ''), '—')`,
+      [schoolId]
+    );
+
+    const studentsByClassLower = new Map();
+    for (const r of classRows || []) {
+      studentsByClassLower.set(trimStr(r.class_name).toLowerCase(), Number(r.student_count || 0));
+    }
+
+    const { cards, summary } = enrichBabyeyiCardsForBudget(feeRows, studentsByClassLower, {
+      aggregateAll,
+      filterTerm: termQ,
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        cards,
+        summary,
+        aggregate_all_terms: aggregateAll,
+        academic_year: year,
+        term: termQ || null,
+        budget_type: budgetType || null,
+      },
+    });
+  } catch (err) {
+    console.error('GET /accountant/babyeyi-fees/budget-analysis:', err);
+    return res.status(500).json({ success: false, message: 'Failed to load Babyeyi budget analysis' });
+  }
+});
+
 router.get('/accountant/babyeyi-fees', requireRole(ACCOUNTANT_ONLY), async (req, res) => {
   try {
     const schoolId = resolveSchoolId(req);

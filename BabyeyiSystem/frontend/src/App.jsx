@@ -33,7 +33,11 @@
 //   /nesa-babyeyi-dashboard    → NESABABYEYIDashboard (NESA_ADMIN)
 //   /district-babyeyi-dashboard→ DistrictBABYEYIDashboard (DEO)
 //   /school-babyeyi-dashboard  → SchoolBabyeyiDashboard (SCHOOL_ADMIN | SCHOOL_MANAGER)
-//   /accountant/*                → AccountantLayout (ACCOUNTANT) — dashboard, payment, reports
+//   /lite/dos/*                  → Pro-parity DOS portal (lite schools)
+//   /lite/teacher/*              → Full Shule Teacher portal (lite schools, in-app)
+//   /lite/accountant/*           → Accountant portal (lite schools)
+//   /lite/discipline/*           → Head of Discipline portal (lite schools)
+//   /accountant/*, /dos/*, /discipline/* → redirect to lite portals
 //   /hod/*                       → HodLayout (HOD) — students, discipline marks settings, reports
 //   /paid-at-school            → PaidAtSchool (guest: student code → term/year → fees → pay)
 //   /babyeyi/verify/:docId     → BabyeyiVerifyPage
@@ -43,7 +47,13 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { MasterAuthProvider } from './context/MasterAuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import DosLitePortalRoutes from './lite/dos/PortalRoutes';
+import AccountantLitePortalRoutes from './lite/accountant_portal/PortalRoutes';
+import DisciplineLitePortalRoutes from './lite/discipline/PortalRoutes';
+import TeacherLitePortalRoutes from './lite/teacher/PortalRoutes';
+import { isLiteDisciplineStaff } from './utils/liteStaffEntry';
 
 // ── Public pages ────────────────────────────────────────────────
 import PublicPage        from './Pages/Public Page/PublicPage';
@@ -93,21 +103,12 @@ import SuperAdminDashboard      from './Pages/SuperAdmin/SuperAdminPage';
 import NESABABYEYIDashboard     from './Pages/Nesa Page/NESAPages/BabyeyiDashboard';
 import DistrictBABYEYIDashboard from './Pages/District Page/DistrictPage/DistrictBabyeyiDashboard';
 import SchoolBabyeyiDashboard   from './Pages/School Manager/components/SchoolBabyeyi';
-import AccountantLayout       from './Pages/Accountant/AccountantLayout';
-import AccountantDashboard    from './Pages/Accountant/AccountantDashboard';
-import AccountantPaymentPage  from './Pages/Accountant/AccountantPaymentPage';
-import AccountantReports      from './Pages/Accountant/AccountantReports';
-import AccountantShuleAvance  from './Pages/Accountant/AccountantShuleAvance';
 import HodLayout              from './Pages/HeadOfDiscipline/HodLayout';
 import HodStudentsPage        from './Pages/HeadOfDiscipline/HodStudentsPage';
 import HodSettingsPage        from './Pages/HeadOfDiscipline/HodSettingsPage';
 import HodReportsPage         from './Pages/HeadOfDiscipline/HodReportsPage';
 import StaffShuleAvancePage   from './Pages/Shared/StaffShuleAvancePage';
-import DosLayout              from './Pages/Dos/DosLayout';
-import DosStudentsPage        from './Pages/Dos/DosStudentsPage';
-import DosAcademicProgressPage from './Pages/Dos/DosAcademicProgressPage';
-import DosSettingsPage        from './Pages/Dos/DosSettingsPage';
-import DosReportsPage         from './Pages/Dos/DosReportsPage';
+import SchoolLiteShuleAvance  from './Pages/School Manager/components/SchoolLiteShuleAvance';
 import StaffRoleDashboard     from './Pages/StaffPortal/StaffRoleDashboard';
 import LibrarianPortalPage    from './Pages/StaffPortal/LibrarianPortalPage';
 import StoreManagerPortalPage from './Pages/StaffPortal/StoreManagerPortalPage';
@@ -176,6 +177,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <MasterAuthProvider>
         <Routes>
 
           {/* ── Landing / Home ────────────────────────────────── */}
@@ -228,6 +230,62 @@ export default function App() {
           {/* ── Auth ──────────────────────────────────────────── */}
           <Route path="/login-portal-select" element={<LoginPortalSelect />} />
           <Route path="/login/lite" element={<LoginLite />} />
+
+          <Route
+            path="/lite/shule-avance/*"
+            element={
+              <ProtectedRoute
+                role={[
+                  'HOD', 'LIBRARIAN', 'STORE_MANAGER', 'STOREKEEPER',
+                  'GATE_OFFICER', 'GATE_KEEPER', 'SECRETARY', 'HR',
+                ]}
+                redirectTo="/login/lite"
+              >
+                <SchoolLiteShuleAvance />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/lite/dos/*"
+            element={
+              <ProtectedRoute role="DOS" redirectTo="/login/lite">
+                <DosLitePortalRoutes />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/lite/teacher/*"
+            element={
+              <ProtectedRoute role="TEACHER" redirectTo="/login/lite">
+                <TeacherLitePortalRoutes />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/lite/accountant/*"
+            element={
+              <ProtectedRoute role="ACCOUNTANT" redirectTo="/login/lite">
+                <AccountantLitePortalRoutes />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/lite/discipline/*"
+            element={
+              <ProtectedRoute
+                role={['DISCIPLINE', 'DISCIPLINE_STAFF', 'HEAD_OF_DISCIPLINE']}
+                allowIf={isLiteDisciplineStaff}
+                redirectTo="/login/lite"
+              >
+                <DisciplineLitePortalRoutes />
+              </ProtectedRoute>
+            }
+          />
+
           <Route path="/login/pro" element={<LoginPro />} />
           <Route path="/login"              element={<Login />} />
           <Route path="/school-manager/login" element={<LoginPro />} />
@@ -447,17 +505,8 @@ export default function App() {
             </ProtectedRoute>
           } />
 
-          <Route path="/accountant" element={
-            <ProtectedRoute role="ACCOUNTANT">
-              <AccountantLayout />
-            </ProtectedRoute>
-          }>
-            <Route index element={<Navigate to="dashboard" replace />} />
-            <Route path="dashboard" element={<AccountantDashboard />} />
-            <Route path="payment" element={<AccountantPaymentPage />} />
-            <Route path="reports" element={<AccountantReports />} />
-            <Route path="shule-avance" element={<AccountantShuleAvance />} />
-          </Route>
+          <Route path="/accountant/*" element={<Navigate to="/lite/accountant" replace />} />
+          <Route path="/discipline/*" element={<Navigate to="/lite/discipline" replace />} />
 
           <Route path="/hod" element={
             <ProtectedRoute role="HOD">
@@ -471,18 +520,7 @@ export default function App() {
             <Route path="reports" element={<HodReportsPage />} />
           </Route>
 
-          <Route path="/dos" element={
-            <ProtectedRoute role="DOS">
-              <DosLayout />
-            </ProtectedRoute>
-          }>
-            <Route index element={<Navigate to="students" replace />} />
-            <Route path="students" element={<DosStudentsPage />} />
-            <Route path="progress" element={<DosAcademicProgressPage />} />
-            <Route path="shule-avance" element={<StaffShuleAvancePage />} />
-            <Route path="settings" element={<DosSettingsPage />} />
-            <Route path="reports" element={<DosReportsPage />} />
-          </Route>
+          <Route path="/dos/*" element={<Navigate to="/lite/dos" replace />} />
 
           <Route path="/teacher/dashboard" element={
             <ProtectedRoute role="TEACHER">
@@ -530,6 +568,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
 
         </Routes>
+        </MasterAuthProvider>
       </AuthProvider>
     </BrowserRouter>
   );

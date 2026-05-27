@@ -1,0 +1,220 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Calendar as CalendarIcon,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  RefreshCw,
+} from 'lucide-react';
+
+const EVENT_TYPE_COLORS = {
+  HOLIDAY: { bg: 'bg-red-100', text: 'text-red-700', dot: 'bg-red-500' },
+  EXAM: { bg: 'bg-amber-100', text: 'text-amber-700', dot: 'bg-amber-500' },
+  SPORT: { bg: 'bg-green-100', text: 'text-green-700', dot: 'bg-green-500' },
+  CEREMONY: { bg: 'bg-purple-100', text: 'text-purple-700', dot: 'bg-purple-500' },
+  MEETING: { bg: 'bg-blue-100', text: 'text-blue-700', dot: 'bg-blue-500' },
+  TERM: { bg: 'bg-indigo-100', text: 'text-indigo-700', dot: 'bg-indigo-500' },
+  OTHER: { bg: 'bg-slate-100', text: 'text-slate-700', dot: 'bg-slate-500' },
+};
+
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function calendarGrid(year, month) {
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const cells = [];
+  for (let i = 0; i < firstDay; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+  return cells;
+}
+
+function fmtDate(raw) {
+  if (!raw) return '—';
+  return new Date(raw).toLocaleDateString('en-RW', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+export default function SchoolCalendarPage({ api, HeroComponent, heroProps = {} }) {
+  const today = new Date();
+  const [year, setYear] = useState(today.getFullYear());
+  const [month, setMonth] = useState(today.getMonth());
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedDay, setSelectedDay] = useState(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await api.get('/school/calendar-events', { params: { year, month: month + 1 } });
+      if (res.data?.success) setEvents(Array.isArray(res.data.data) ? res.data.data : []);
+    } catch { setEvents([]); }
+    finally { setLoading(false); }
+  }, [year, month, api]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const eventsByDay = useMemo(() => {
+    const map = {};
+    events.forEach(e => {
+      const d = new Date(e.event_date).getDate();
+      if (!map[d]) map[d] = [];
+      map[d].push(e);
+    });
+    return map;
+  }, [events]);
+
+  const cells = calendarGrid(year, month);
+  const todayDay = today.getFullYear() === year && today.getMonth() === month ? today.getDate() : null;
+
+  const prevMonth = () => { if (month === 0) { setMonth(11); setYear(y => y - 1); } else setMonth(m => m - 1); setSelectedDay(null); };
+  const nextMonth = () => { if (month === 11) { setMonth(0); setYear(y => y + 1); } else setMonth(m => m + 1); setSelectedDay(null); };
+
+  const dayEvents = selectedDay ? (eventsByDay[selectedDay] || []) : [];
+  const upcomingEvents = events.filter(e => new Date(e.event_date) >= new Date(today.toDateString())).slice(0, 5);
+
+  return (
+    <div className="min-h-screen bg-re-bg font-sans">
+      {HeroComponent ? (
+        <HeroComponent
+          eyebrow={heroProps.eyebrow || 'School'}
+          titleLine={heroProps.titleLine || 'School'}
+          titleAccent={heroProps.titleAccent || 'Calendar'}
+          subtitle={heroProps.subtitle || 'View school events, holidays, exams, and important dates.'}
+          icon={CalendarIcon}
+          rightSlot={
+            <button type="button" onClick={load}
+              className="h-9 px-3 rounded-xl border border-white/20 bg-white/10 text-[10px] font-medium text-white flex items-center gap-1 hover:bg-white/15 transition-all">
+              <RefreshCw size={13} /> Refresh
+            </button>
+          }
+        />
+      ) : (
+        <div className="bg-[#c87800] relative w-full min-h-[180px] overflow-hidden">
+          <div className="absolute -top-28 -right-28 w-[22rem] h-[22rem] rounded-full border border-white/[0.07] pointer-events-none" />
+          <div className="relative z-10 max-w-[1200px] mx-auto px-6 pt-10 pb-16 flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <p className="text-[10px] font-bold text-[#FEBF10] uppercase tracking-widest mb-1">School</p>
+              <h1 className="text-2xl md:text-3xl font-bold text-white flex items-center gap-3">
+                <CalendarIcon className="text-[#FEBF10] shrink-0" size={28} /> School Calendar
+              </h1>
+              <p className="text-[11px] text-white/60 mt-1">View school events, holidays, exams, and important dates.</p>
+            </div>
+            <button type="button" onClick={load} className="h-9 px-3 rounded-xl border border-white/20 bg-white/10 text-[10px] font-medium text-white flex items-center gap-1 hover:bg-white/15 transition-all">
+              <RefreshCw size={13} /> Refresh
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className={`max-w-[1200px] mx-auto px-4 sm:px-6 ${HeroComponent ? '-mt-4 sm:-mt-5 md:-mt-6' : '-mt-6'} pt-2 relative z-20 pb-10`}>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-2 bg-white rounded-[24px] shadow-xl border border-black/5 overflow-hidden">
+            <div className="px-6 py-4 border-b border-black/5 flex items-center justify-between">
+              <button type="button" onClick={prevMonth} className="p-2 rounded-xl hover:bg-re-bg transition-colors"><ChevronLeft size={18} /></button>
+              <h2 className="text-sm font-bold text-slate-800">{MONTHS[month]} {year}</h2>
+              <button type="button" onClick={nextMonth} className="p-2 rounded-xl hover:bg-re-bg transition-colors"><ChevronRight size={18} /></button>
+            </div>
+
+            {loading ? (
+              <div className="flex items-center justify-center py-20 gap-3">
+                <Loader2 className="animate-spin text-[#1E3A5F]" size={22} />
+                <span className="text-sm font-bold text-slate-400">Loading…</span>
+              </div>
+            ) : (
+              <div className="p-4">
+                <div className="grid grid-cols-7 gap-px mb-2">
+                  {DAYS.map(d => (
+                    <div key={d} className="text-center text-[9px] font-bold text-slate-400 uppercase tracking-widest py-2">{d}</div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-7 gap-px">
+                  {cells.map((day, i) => {
+                    if (!day) return <div key={`e-${i}`} className="h-14" />;
+                    const hasEvents = !!eventsByDay[day];
+                    const isToday = day === todayDay;
+                    const isSelected = day === selectedDay;
+                    return (
+                      <button key={day} type="button"
+                        onClick={() => setSelectedDay(day === selectedDay ? null : day)}
+                        className={`h-14 rounded-xl flex flex-col items-center justify-center gap-1 transition-all ${
+                          isSelected ? 'bg-[#1E3A5F] text-white shadow-lg shadow-[#1E3A5F]/20 scale-105'
+                          : isToday ? 'bg-amber-50 border-2 border-[#FEBF10]/40 text-[#1E3A5F] font-bold'
+                          : 'hover:bg-re-bg text-slate-700'
+                        }`}>
+                        <span className={`text-sm font-bold ${isSelected ? 'text-white' : ''}`}>{day}</span>
+                        {hasEvents && (
+                          <div className="flex gap-0.5">
+                            {eventsByDay[day].slice(0, 3).map((e, j) => {
+                              const c = EVENT_TYPE_COLORS[e.event_type] || EVENT_TYPE_COLORS.OTHER;
+                              return <span key={j} className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-white' : c.dot}`} />;
+                            })}
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {selectedDay && dayEvents.length > 0 && (
+              <div className="px-6 py-4 border-t border-black/5 space-y-2">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Events on {selectedDay} {MONTHS[month]}</p>
+                {dayEvents.map(e => {
+                  const c = EVENT_TYPE_COLORS[e.event_type] || EVENT_TYPE_COLORS.OTHER;
+                  return (
+                    <div key={e.id} className={`flex items-start gap-3 p-3 rounded-xl ${c.bg}`}>
+                      <span className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${c.dot}`} />
+                      <div>
+                        <p className={`text-sm font-bold ${c.text}`}>{e.title}</p>
+                        <p className="text-[10px] text-slate-500 mt-0.5">{e.event_type} · {fmtDate(e.event_date)}{e.end_date ? ` → ${fmtDate(e.end_date)}` : ''}</p>
+                        {e.description && <p className="text-xs text-slate-600 mt-1">{e.description}</p>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-4">
+            <div className="bg-white rounded-[24px] shadow-xl border border-black/5 p-5">
+              <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Upcoming Events</h3>
+              {upcomingEvents.length === 0 ? (
+                <p className="text-xs text-slate-400 italic">No upcoming events this month</p>
+              ) : (
+                <div className="space-y-3">
+                  {upcomingEvents.map(e => {
+                    const c = EVENT_TYPE_COLORS[e.event_type] || EVENT_TYPE_COLORS.OTHER;
+                    return (
+                      <div key={e.id} className="flex items-start gap-3">
+                        <div className={`w-8 h-8 rounded-lg ${c.bg} flex items-center justify-center shrink-0`}>
+                          <span className={`text-xs font-bold ${c.text}`}>{new Date(e.event_date).getDate()}</span>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-slate-800 truncate">{e.title}</p>
+                          <p className="text-[9px] text-slate-400">{e.event_type}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="bg-white rounded-[24px] shadow-xl border border-black/5 p-5">
+              <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Event Types</h3>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(EVENT_TYPE_COLORS).map(([type, c]) => (
+                  <span key={type} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg ${c.bg} ${c.text} text-[9px] font-bold`}>
+                    <span className={`w-2 h-2 rounded-full ${c.dot}`} /> {type}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

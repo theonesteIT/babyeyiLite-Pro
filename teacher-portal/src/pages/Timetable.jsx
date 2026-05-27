@@ -5,6 +5,8 @@ import {
   BookMarked, Users, RefreshCw, FileText
 } from 'lucide-react';
 import api from '../services/api';
+import TeacherOrangeHero from '../components/TeacherOrangeHero';
+import { useAuth } from '../context/AuthContext';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
@@ -28,6 +30,7 @@ function getSubjectColor(subject, colorMap) {
 }
 
 export default function Timetable() {
+  const { teacher } = useAuth();
   const [view, setView] = useState('grid');
   const [selectedDay, setSelectedDay] = useState(DAYS[new Date().getDay() - 1] || 'Monday');
   const [schedule, setSchedule] = useState([]);
@@ -103,41 +106,32 @@ export default function Timetable() {
   return (
     <div style={{ fontFamily: "'Inter', sans-serif" }} className="min-h-screen bg-gray-50 pb-16">
 
-      {/* ── Hero Banner ── */}
-      <div className="relative overflow-hidden" style={{ background: '#000435', minHeight: 220 }}>
-        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 20% 50%, #f59e0b 0%, transparent 50%), radial-gradient(circle at 80% 20%, #000435 0%, transparent 40%)' }} />
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 md:px-10 pt-10 pb-16">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="h-0.5 w-8 rounded-full" style={{ backgroundColor: '#f59e0b' }} />
-            <span className="text-xs font-black uppercase tracking-widest" style={{ color: '#f59e0b' }}>Schedule Module</span>
-          </div>
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight mb-2">
-            My <span className="text-transparent bg-clip-text" style={{ backgroundImage: 'linear-gradient(90deg, #f59e0b, #fbbf24)' }}>Timetable</span>
-          </h1>
-          <p className="text-white/60 text-sm font-medium max-w-lg">
-            Full weekly teaching schedule — view all assigned classes, subjects, periods, and rooms at a glance.
-          </p>
-          {/* Quick Stats */}
-          <div className="flex gap-4 mt-6 flex-wrap">
-            {[
-              { icon: <BookOpen size={14} />, label: 'Total Periods', val: totalPeriods },
-              { icon: <BookMarked size={14} />, label: 'Subjects', val: uniqueSubjects },
-              { icon: <Users size={14} />, label: 'Classes', val: uniqueClasses },
-            ].map((s, i) => (
-              <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)' }}>
-                <span style={{ color: '#f59e0b' }}>{s.icon}</span>
-                <div>
-                  <div className="text-white font-black text-sm leading-none">{s.val}</div>
-                  <div className="text-white/40 text-[9px] font-bold uppercase tracking-widest mt-0.5">{s.label}</div>
-                </div>
+      <TeacherOrangeHero
+        title={`Welcome back, ${teacher?.first_name || 'Teacher'}`}
+        
+      >
+        <div className="flex flex-wrap gap-3">
+          {[
+            { icon: <BookOpen size={14} />, label: 'Total Periods', val: totalPeriods },
+            { icon: <BookMarked size={14} />, label: 'Subjects', val: uniqueSubjects },
+            { icon: <Users size={14} />, label: 'Classes', val: uniqueClasses },
+          ].map((s, i) => (
+            <div
+              key={i}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl border border-white/25 bg-black/20 text-white"
+            >
+              <span className="text-white/90">{s.icon}</span>
+              <div>
+                <div className="font-black text-sm leading-none">{s.val}</div>
+                <div className="text-white/55 text-[9px] font-bold uppercase tracking-widest mt-0.5">{s.label}</div>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
-      </div>
+      </TeacherOrangeHero>
 
       {/* ── Main Card ── */}
-      <div className="relative z-20 max-w-7xl mx-auto px-2 sm:px-4 md:px-6 -mt-6">
+      <div className="relative z-20 max-w-7xl mx-auto px-2 sm:px-4 md:px-6 -mt-10">
         <div className="bg-white rounded-3xl shadow-2xl border border-black/5 overflow-hidden">
 
           {/* Toolbar */}
@@ -258,8 +252,7 @@ export default function Timetable() {
                                   className="h-full rounded-xl p-2.5 flex flex-col gap-1 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 cursor-default relative overflow-hidden"
                                   style={{ background: color.bg, border: `1.5px solid ${color.border}30` }}
                                 >
-                                  <div className="absolute top-0 left-0 w-1 h-full rounded-l-xl" style={{ background: color.border }} />
-                                  <div className="pl-1.5">
+                                  <div>
                                     <div className="text-[10px] font-black uppercase tracking-wide leading-tight truncate" style={{ color: color.text }}>
                                       {session.subject}
                                     </div>
@@ -330,11 +323,9 @@ export default function Timetable() {
                       return (
                         <div
                           key={session.id || idx}
-                          className="group rounded-2xl p-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl relative overflow-hidden"
-                          style={{ background: '#fff', border: `1.5px solid ${color.border}25`, boxShadow: `0 2px 12px ${color.glow}` }}
+                          className="group rounded-2xl border border-gray-100 bg-white p-4 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md"
                         >
-                          <div className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl" style={{ background: `linear-gradient(90deg, ${color.border}, ${color.border}80)` }} />
-                          <div className="flex items-start justify-between mb-3 pt-1">
+                          <div className="flex items-start justify-between mb-3">
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider" style={{ background: color.bg, color: color.text }}>
                               <BookOpen size={9} /> {session.type || 'Lesson'}
                             </span>

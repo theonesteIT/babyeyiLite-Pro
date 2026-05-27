@@ -180,7 +180,10 @@ const TopNav = ({ title, onMenuClick, hidePortalSidebar = false }) => {
                             <div className="border-t border-black/5 py-1">
                                 <button
                                     type="button"
-                                    onClick={logout}
+                                    onClick={() => {
+                                        setUserOpen(false);
+                                        void logout();
+                                    }}
                                     className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-red-500 hover:bg-red-50 transition-all"
                                 >
                                     <LogOut size={13} /> Sign out

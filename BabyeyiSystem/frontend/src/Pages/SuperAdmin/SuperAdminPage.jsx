@@ -1637,12 +1637,26 @@ function SchoolsPage({ navigate, addToast }) {
         pro_start_date: subForm.pro_start_date ? subForm.pro_start_date : null,
         pro_end_date: subForm.pro_end_date ? subForm.pro_end_date : null,
       };
-      await axios.patch(
+      const res = await axios.patch(
         `${API}/auth/schools/${subscriptionSchool.id}/subscription`,
         payload,
         axCfg
       );
-      addToast('School plan & platform access updated', 'success');
+      const msg = res.data?.message || 'School plan & platform access updated';
+      const retained = res.data?.data?.data_retained;
+      if (res.data?.data?.upgraded_from_lite && retained && typeof retained === 'object') {
+        const parts = [];
+        if (retained.students != null) parts.push(`${retained.students} students`);
+        if (retained.staff != null) parts.push(`${retained.staff} staff`);
+        if (retained.period_attendance != null) parts.push(`${retained.period_attendance} attendance records`);
+        if (retained.shule_avance_requests != null) parts.push(`${retained.shule_avance_requests} Shule Avance requests`);
+        addToast(
+          parts.length ? `${msg} Retained: ${parts.join(', ')}.` : msg,
+          'success'
+        );
+      } else {
+        addToast(msg, 'success');
+      }
       setModal(null);
       setSubscriptionSchool(null);
       fetchSchools(page);
@@ -2516,6 +2530,9 @@ function SchoolsPage({ navigate, addToast }) {
             <p className="text-xs text-amber-800 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">
               <strong>{subscriptionSchool.school_name}</strong>
               <span className="text-amber-600"> — controls Lite vs Pro and platform suspension (separate from registration status in the table).</span>
+            </p>
+            <p className="text-xs text-violet-900 bg-violet-50 border border-violet-100 rounded-xl px-3 py-2">
+              Upgrading <strong>Lite → Pro</strong> keeps all existing school data (students, staff, attendance, Shule Avance, payroll, etc.) — same database, same school ID. Staff should sign out and back in to refresh Pro access.
             </p>
             <FieldUI label="Subscription plan">
               <select

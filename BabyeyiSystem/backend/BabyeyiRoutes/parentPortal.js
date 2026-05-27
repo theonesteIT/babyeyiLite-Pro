@@ -33,6 +33,15 @@ const {
   logParentAuditEvent,
   listParentAuditEvents,
 } = require('../utils/parentAuditLog');
+const {
+  upsertParentSubscription,
+  mirrorSubscriptionToStudentParentPhones,
+  removeParentSubscription,
+  updateParentPushPreferences,
+  getParentPushStatus,
+  isWebPushConfigured,
+  getVapidPublicKey,
+} = require('./parentWebPush');
 const teacherPortalRouter = require('./teacherPortal');
 const { normalizeGradebookLabel } = require('../utils/gradebookLabels');
 
@@ -4133,6 +4142,83 @@ router.get('/parent-portal/student-discipline', async (req, res) => {
   } catch (err) {
     console.error('[parent-portal/student-discipline]', err);
     return res.status(500).json({ success: false, message: 'Failed to load parent discipline' });
+  }
+});
+
+function requireParentSession(req, res, next) {
+  const role = (req.session?.user?.role?.code || req.session?.roleCode || '').toUpperCase();
+  const parentPhone = normalizePhone(req.session?.user?.parent_phone || '');
+  if (role !== 'PARENT' || !parentPhone) {
+    return res.status(401).json({ success: false, message: 'Not authenticated as parent' });
+  }
+  req.parentPhone = parentPhone;
+  next();
+}
+
+// ── Web Push (fee reminders, discipline, school alerts) ─────────────
+router.get('/parent-portal/push/vapid-key', authLimiter, requireParentSession, (req, res) => {
+  const ok = isWebPushConfigured();
+  const publicKey = getVapidPublicKey();
+  res.json({
+    success: ok && !!publicKey,
+    configured: ok && !!publicKey,
+    publicKey: ok ? publicKey : null,
+    message: ok ? undefined : 'Web Push is not configured on this server',
+  });
+});
+
+router.get('/parent-portal/push/status', authLimiter, requireParentSession, async (req, res) => {
+  try {
+    const data = await getParentPushStatus(req.parentPhone);
+    res.json({ success: true, data });
+  } catch (err) {
+    console.error('[parent-portal/push/status]', err);
+    res.status(500).json({ success: false, message: 'Failed to load push status' });
+  }
+});
+
+router.post('/parent-portal/push/subscribe', authLimiter, requireParentSession, async (req, res) => {
+  try {
+    if (!isWebPushConfigured()) {
+      return res.status(503).json({ success: false, message: 'Web Push is not configured on this server' });
+    }
+    const prefs = req.body?.preferences || req.body || {};
+    const subscription = req.body?.subscription || req.body;
+    const prefPayload = {
+      notify_fee_reminders: prefs.notify_fee_reminders,
+      notify_discipline: prefs.notify_discipline,
+      notify_school_activity: prefs.notify_school_activity,
+    };
+    await upsertParentSubscription(req.parentPhone, subscription, prefPayload);
+    await mirrorSubscriptionToStudentParentPhones(req.parentPhone, subscription, prefPayload);
+    const data = await getParentPushStatus(req.parentPhone);
+    res.json({ success: true, message: 'Push notifications enabled', data });
+  } catch (err) {
+    console.error('[parent-portal/push/subscribe]', err);
+    const status = err.status === 400 ? 400 : 500;
+    res.status(status).json({ success: false, message: err.message || 'Failed to save subscription' });
+  }
+});
+
+router.post('/parent-portal/push/unsubscribe', authLimiter, requireParentSession, async (req, res) => {
+  try {
+    await removeParentSubscription(req.parentPhone, req.body?.endpoint);
+    const data = await getParentPushStatus(req.parentPhone);
+    res.json({ success: true, message: 'Push notifications disabled on this device', data });
+  } catch (err) {
+    console.error('[parent-portal/push/unsubscribe]', err);
+    res.status(500).json({ success: false, message: 'Failed to remove subscription' });
+  }
+});
+
+router.patch('/parent-portal/push/preferences', authLimiter, requireParentSession, async (req, res) => {
+  try {
+    await updateParentPushPreferences(req.parentPhone, req.body || {});
+    const data = await getParentPushStatus(req.parentPhone);
+    res.json({ success: true, data });
+  } catch (err) {
+    console.error('[parent-portal/push/preferences]', err);
+    res.status(500).json({ success: false, message: 'Failed to update preferences' });
   }
 });
 

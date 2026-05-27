@@ -56,7 +56,7 @@ const TopNav = ({ title, onMenuClick }) => {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-re-bg border border-black/5 rounded-2xl py-2 pl-10 pr-4 text-xs font-medium outline-none focus:ring-2 transition-all text-re-text"
+            className="w-full bg-white border border-black/5 rounded-2xl py-2 pl-10 pr-4 text-xs font-medium outline-none focus:ring-2 transition-all text-re-text"
             style={{ '--tw-ring-color': 'rgba(254,191,16,0.25)' }}
             placeholder={`Search ${PORTAL.brandLine.toLowerCase()}…`}
           />
@@ -163,7 +163,10 @@ const TopNav = ({ title, onMenuClick }) => {
               <div className="border-t border-black/5 py-1">
                 <button
                   type="button"
-                  onClick={logout}
+                  onClick={() => {
+                    setUserOpen(false);
+                    void logout();
+                  }}
                   className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-red-500 hover:bg-red-50 transition-all"
                 >
                   <LogOut size={13} /> Sign out

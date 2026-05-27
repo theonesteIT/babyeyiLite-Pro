@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Calendar, CheckCircle, Clock, Eye, Loader2, RefreshCw, Shield, ThumbsDown, ThumbsUp, X } from 'lucide-react';
 import api from '../services/api';
-import DosOchreHero from '../components/DosOchreHero';
+import DosOrangePageHero, { DosPageBody } from '../components/DosOrangePageHero';
 
 const STATUS_OPTIONS = ['All', 'pending', 'approved', 'rejected'];
 
@@ -89,22 +89,21 @@ export default function DosTeacherStaffPermissions() {
   }), [rows]);
 
   return (
-    <div className="min-h-screen bg-re-bg font-sans">
-      <DosOchreHero
-        eyebrow="Staff management"
-        titleLine="Teacher"
-        titleAccent="Permissions"
+    <div className="min-h-screen bg-white font-sans">
+      <DosOrangePageHero
+        title="Staff permissions"
         subtitle="Review and manage teacher leave and permission requests."
-        icon={Shield}
-        rightSlot={
-          <button type="button" onClick={load}
-            className="h-9 px-3 rounded-xl border border-white/20 bg-white/10 text-[10px] font-medium text-white flex items-center gap-1 hover:bg-white/15 transition-all">
-            <RefreshCw size={13} /> Refresh
-          </button>
-        }
+        onRefresh={load}
+        refreshing={loading}
+        heroStats={[
+          { label: 'Total', value: String(stats.total) },
+          { label: 'Pending', value: String(stats.pending) },
+          { label: 'Approved', value: String(stats.approved) },
+          { label: 'Rejected', value: String(stats.rejected) },
+        ]}
       />
 
-      <div className="animate-in fade-in duration-500 max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8 -mt-4 sm:-mt-5 md:-mt-6 pt-2 relative z-20 pb-10 space-y-4">
+      <DosPageBody className="max-w-[1500px] -mt-4 sm:-mt-5 md:-mt-6 space-y-4">
         <div className="bg-white border border-black/5 rounded-2xl p-4 flex flex-wrap gap-2 items-center">
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-9 rounded-xl border border-black/10 px-3 text-[10px] font-black uppercase text-slate-600">
             {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
@@ -204,7 +203,7 @@ export default function DosTeacherStaffPermissions() {
             </div>
           )}
         </div>
-      </div>
+      </DosPageBody>
 
       {actionModal && (
         <div className="fixed inset-0 z-[320] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setActionModal(null)}>
@@ -250,7 +249,7 @@ export default function DosTeacherStaffPermissions() {
       {viewPerm && (
         <div className="fixed inset-0 z-[320] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setViewPerm(null)}>
           <div className="w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 duration-300" onClick={e => e.stopPropagation()}>
-            <div className={`p-5 ${viewPerm.status === 'approved' ? 'bg-gradient-to-br from-emerald-600 to-emerald-800' : viewPerm.status === 'rejected' ? 'bg-gradient-to-br from-red-600 to-red-800' : 'bg-gradient-to-br from-[#c87800] to-[#a06000]'}`}>
+            <div className={`p-5 ${viewPerm.status === 'approved' ? 'bg-gradient-to-br from-emerald-600 to-emerald-800' : viewPerm.status === 'rejected' ? 'bg-gradient-to-br from-red-600 to-red-800' : 'bg-gradient-to-br from-[#000435] to-[#0a1860]'}`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center">

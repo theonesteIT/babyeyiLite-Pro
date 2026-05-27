@@ -25,6 +25,7 @@ import {
   GraduationCap, Building2, DollarSign, CreditCard,
 } from 'lucide-react';
 import Heroimage from '../../assets/hero-image.png';
+import babyeyiLogo from '../../assets/1BABYEYI LOGO FINAL.png';
 import { BABYEYI_AUTO_LANG_OPTIONS, isCoreBabyeyiLang, normalizeBabyeyiLang } from '../../babyeyiPublic/babyeyiTranslateLangs.js';
 import { useBabyeyiUiT } from '../../babyeyiPublic/useBabyeyiUiT.js';
 import { useFinderDocBody } from '../../babyeyiPublic/useFinderDocBody.js';
@@ -383,7 +384,7 @@ function buildDocHTML({
 
   const otherLogoHtml = otherLogoB64
     ? `<img src="${otherLogoB64}" style="width:70px;height:70px;object-fit:contain;display:block"/>`
-    : ``;
+    : `<img src="${babyeyiLogo}" style="width:70px;height:70px;object-fit:contain;display:block" alt="Babyeyi"/>`;
 
   return `
 <div style="width:794px;background:#fff;font-family:Georgia,'Times New Roman',serif;color:#1e293b">
@@ -392,7 +393,6 @@ function buildDocHTML({
     <div style="display:flex;align-items:center;gap:20px">
       <div style="flex-shrink:0;width:110px;height:110px;display:flex;align-items:center;justify-content:center">${schoolLogoHtml}</div>
       <div style="flex:1;text-align:center">
-        <p style="font-size:10px;color:#64748b;margin:0 0 2px;letter-spacing:0.08em;text-transform:uppercase;font-weight:600">${L('republic', 'Republic of Rwanda · Ministry of Education — NESA')}</p>
         <p style="font-size:9px;color:#64748b;margin:0 0 2px">${L('district', 'District')}: ${rec.school_district || rec.district || '—'}</p>
         <p style="font-size:9px;color:#64748b;margin:0 0 6px">${L('sector', 'Sector')}: ${rec.school_sector || rec.sector || '—'}</p>
         <h1 style="font-size:17px;font-weight:700;color:#1e3a5f;margin:0 0 6px;text-transform:uppercase;letter-spacing:.03em">${rec.school_name || ''}</h1>
@@ -440,7 +440,7 @@ function buildDocHTML({
   </div>
   <div style="border-top:1px solid #1e3a5f;padding:8px 40px;display:flex;justify-content:space-between;align-items:center">
     <span style="font-size:11px;color:#64748b">${rec.school_name || ''} · ${rec.school_district || rec.district || ''}</span>
-    <span style="font-size:11px;color:#1e3a5f;font-weight:700;text-transform:uppercase">${L('docOfficial', 'Official Document — DO NOT FALSIFY')}</span>
+    <span style="font-size:11px;color:#1e3a5f;font-weight:700;text-transform:uppercase">${L('docOfficial', 'Official Document  DO NOT FALSIFY')}</span>
     <span style="font-size:11px;color:#64748b">${L('docFooterLeft', 'Doc:')} ${rec.doc_id || '—'} · ${today}</span>
   </div>
   <div style="height:3px;background:#1e3a5f"></div>
@@ -724,7 +724,7 @@ function DocumentViewer({ rec, theme, onClose, viewerLang, onViewerLangChange, d
           </button>
           <div className="flex-1 min-w-0">
             <p className="text-white font-black text-sm truncate">
-              {rec.school_name} — {getClassLabel(merged)} · {rec.term} · {rec.academic_year}
+              {rec.school_name}  {getClassLabel(merged)} · {rec.term} · {rec.academic_year}
               {rec.doc_id && (
                 <span className="ml-2 px-2 py-0.5 bg-indigo-600/40 text-indigo-200 rounded text-[9px] font-mono">{rec.doc_id}</span>
               )}
@@ -790,9 +790,6 @@ function DocumentViewer({ rec, theme, onClose, viewerLang, onViewerLangChange, d
               </div>
               {/* Center */}
               <div style={{ flex: 1, textAlign: 'center' }}>
-                <p style={{ fontSize: '10px', color: '#64748b', margin: '0', letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 600, lineHeight: '1.8' }}>
-                  {T.republic}
-                </p>
                 <p style={{ fontSize: '10px', color: '#64748b', margin: '0', lineHeight: '1.8' }}>
                   {T.district}: <strong style={{ color: '#1e3a5f' }}>{rec.school_district || rec.district || '—'}</strong>
                 </p>
@@ -817,7 +814,7 @@ function DocumentViewer({ rec, theme, onClose, viewerLang, onViewerLangChange, d
               <div style={{ flexShrink: 0, width: '84px', height: '84px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                 {otherLogoB64
                   ? <img src={otherLogoB64} style={{ width: '80px', height: '80px', objectFit: 'contain' }} alt="Other Logo" />
-                  : null}
+                  : <img src={babyeyiLogo} style={{ width: '72px', height: '72px', objectFit: 'contain' }} alt="Babyeyi" />}
               </div>
             </div>
           </div>
@@ -1138,7 +1135,7 @@ function ViewAndPayModal({ open, onClose, rec, schoolId, schoolName, theme, onCo
                 <h4 className="text-[10px] font-black uppercase tracking-widest text-amber-800 mb-2">School fee items</h4>
                 <p className="text-[11px] text-gray-500 mb-2">Uncheck any fee you are not paying now. Total updates automatically.</p>
                 {(data.school_fees || []).length === 0 ? (
-                  <p className="text-sm text-gray-400">No separate fee lines — see total fee on the document.</p>
+                  <p className="text-sm text-gray-400">No separate fee lines see total fee on the document.</p>
                 ) : (
                   <ul className="space-y-2">
                     {data.school_fees.map((f) => (
@@ -1249,7 +1246,7 @@ function ViewAndPayModal({ open, onClose, rec, schoolId, schoolName, theme, onCo
             className="flex-1 py-3 rounded-xl font-black text-white disabled:opacity-50"
             style={{ background: p }}
           >
-            Continue to payment
+            Continue to payment 
           </button>
         </div>
       </div>

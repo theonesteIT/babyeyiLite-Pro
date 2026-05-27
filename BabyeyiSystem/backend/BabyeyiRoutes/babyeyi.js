@@ -1965,7 +1965,9 @@ router.get("/verify/:docId", async (req, res) => {
     return res.json({
       success: true,
       data: {
+        id:           babyeyi.id,
         docId,
+        integrityHash: babyeyi.integrity_hash || null,
         status:       babyeyi.status,
         isValid:      babyeyi.status === "approved",
         schoolName:   rows[0].resolved_school_name || babyeyi.school_name || "Unknown School",
@@ -2007,8 +2009,10 @@ router.get("/verify/:docId", async (req, res) => {
 router.get("/stats", async (req, res) => {
   try {
     const schoolId = req.query.school_id || resolveSchoolId(req);
-    const params   = schoolId ? [schoolId] : [];
-    const where    = schoolId ? "WHERE b.school_id=? AND b.is_active=1" : "WHERE b.is_active=1";
+    const year = parseInt(req.query.year, 10) || new Date().getFullYear();
+    const params = schoolId ? [schoolId] : [];
+    const where = schoolId ? "WHERE b.school_id=? AND b.is_active=1" : "WHERE b.is_active=1";
+
     const [totals] = await query(
       `SELECT COUNT(*) AS total,
               SUM(b.status='approved')  AS approved,
@@ -2019,7 +2023,49 @@ router.get("/stats", async (req, res) => {
        FROM school_babyeyi b ${where}`,
       params
     );
-    res.json({ success: true, data: { ...totals } });
+
+    const monthlyWhere = schoolId
+      ? "WHERE b.school_id=? AND b.is_active=1 AND YEAR(b.created_at)=?"
+      : "WHERE b.is_active=1 AND YEAR(b.created_at)=?";
+    const monthlyParams = schoolId ? [schoolId, year] : [year];
+    const monthRows = await query(
+      `SELECT MONTH(b.created_at) AS month_num, COUNT(*) AS count
+       FROM school_babyeyi b ${monthlyWhere}
+       GROUP BY MONTH(b.created_at)
+       ORDER BY month_num ASC`,
+      monthlyParams
+    );
+
+    const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const byMonth = Object.fromEntries(
+      (monthRows || []).map((r) => [Number(r.month_num), Number(r.count || 0)])
+    );
+    const monthly_activity = MONTH_LABELS.map((label, i) => ({
+      label,
+      value: byMonth[i + 1] || 0,
+    }));
+
+    const approved = Number(totals?.approved || 0);
+    const pending = Number(totals?.pending || 0);
+    const rejected = Number(totals?.rejected || 0);
+    const draft = Number(totals?.draft || 0);
+
+    const status_overview = [
+      { label: "Approved", value: approved, color: "#000435" },
+      { label: "Pending", value: pending, color: "#fbbf24" },
+      { label: "Rejected", value: rejected, color: "#94a3b8" },
+      { label: "Draft", value: draft, color: "#cbd5e1" },
+    ];
+
+    res.json({
+      success: true,
+      data: {
+        ...totals,
+        year,
+        monthly_activity,
+        status_overview,
+      },
+    });
   } catch (err) {
     console.error("❌ /stats:", err.message);
     res.status(500).json({ success: false, message: "Failed to fetch stats" });

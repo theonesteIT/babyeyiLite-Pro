@@ -4,7 +4,7 @@ import {
   RefreshCw, Search, ShieldCheck, ThumbsDown, ThumbsUp, Users, X,
 } from 'lucide-react';
 import api from '../services/api';
-import DosOchreHero from '../components/DosOchreHero';
+import DosOrangePageHero, { DosPageBody } from '../components/DosOrangePageHero';
 
 const TYPE_EMOJI = { MEDICAL: '🏥', FAMILY: '👨‍👩‍👧', OFFICIAL: '📋', OTHER: '📝' };
 const QUICK_FILTERS = [
@@ -161,22 +161,15 @@ export default function DosStudentPermissions() {
   };
 
   return (
-    <div className="min-h-screen bg-re-bg font-sans">
-      <DosOchreHero
-        eyebrow="Student management"
-        titleLine="Student"
-        titleAccent="Permissions"
+    <div className="min-h-screen bg-white font-sans">
+      <DosOrangePageHero
+        title="Student permissions"
         subtitle="View and manage all student leave and permission records."
-        icon={ShieldCheck}
-        rightSlot={
-          <button type="button" onClick={load}
-            className="h-9 px-3 rounded-xl border border-white/20 bg-white/10 text-[10px] font-medium text-white flex items-center gap-1 hover:bg-white/15 transition-all">
-            <RefreshCw size={13} /> Refresh
-          </button>
-        }
+        onRefresh={load}
+        refreshing={loading}
       />
 
-      <div className="animate-in fade-in duration-500 max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8 -mt-4 sm:-mt-5 md:-mt-6 pt-2 relative z-20 pb-10 space-y-4">
+      <DosPageBody className="max-w-[1500px] -mt-4 sm:-mt-5 md:-mt-6 space-y-4">
 
         {/* Quick filters */}
         <div className="flex flex-wrap gap-2">
@@ -333,13 +326,13 @@ export default function DosStudentPermissions() {
             </div>
           )}
         </div>
-      </div>
+      </DosPageBody>
 
       {/* View detail modal */}
       {viewPerm && (
         <div className="fixed inset-0 z-[320] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setViewPerm(null)}>
           <div className="w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 duration-300 max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
-            <div className={`p-5 shrink-0 ${(viewPerm.status || '').toUpperCase() === 'APPROVED' ? 'bg-gradient-to-br from-emerald-600 to-emerald-800' : (viewPerm.status || '').toUpperCase() === 'REJECTED' ? 'bg-gradient-to-br from-red-600 to-red-800' : 'bg-gradient-to-br from-[#c87800] to-[#a06000]'}`}>
+            <div className={`p-5 shrink-0 ${(viewPerm.status || '').toUpperCase() === 'APPROVED' ? 'bg-gradient-to-br from-emerald-600 to-emerald-800' : (viewPerm.status || '').toUpperCase() === 'REJECTED' ? 'bg-gradient-to-br from-red-600 to-red-800' : 'bg-gradient-to-br from-[#000435] to-[#0a1860]'}`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center">

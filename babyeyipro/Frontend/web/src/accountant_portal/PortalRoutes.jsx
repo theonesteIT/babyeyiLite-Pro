@@ -23,6 +23,8 @@ import FeaturePlaceholders from './frontend/src/pages/FeaturePlaceholders'
 import BabyeyiFees from './frontend/src/pages/BabyeyiFees'
 import ExaminationList from './frontend/src/pages/ExaminationList'
 import SchoolBudget from './frontend/src/pages/schoolBugdet'
+import ActionPlanManagement from './frontend/src/pages/actionPlan/ActionPlanManagement'
+import AutoReminder from './frontend/src/pages/Reminder/AutoReminder'
 import SalaryPayment from './frontend/src/pages/SalaryPayment'
 import ChatCenter from '../shared/pages/ChatCenter'
 import SchoolCalendarPage from '../shared/pages/SchoolCalendarPage'
@@ -82,12 +84,20 @@ function AccountantRoutesInner() {
         path="school-budget"
         element={<ProtectedRoute title="School Budget"><SchoolBudget /></ProtectedRoute>}
       />
+      <Route
+        path="action-plan"
+        element={<ProtectedRoute title="School Action Plan"><ActionPlanManagement /></ProtectedRoute>}
+      />
       <Route path="payroll" element={<Navigate to="payroll/history" replace />} />
       <Route path="payroll/history" element={<ProtectedRoute title="Payroll History"><PayrollHistory /></ProtectedRoute>} />
       <Route path="payroll/config" element={<ProtectedRoute title="Configure Payroll"><PayrollConfig /></ProtectedRoute>} />
       <Route path="payroll/salary-payment" element={<ProtectedRoute title="Salary Payment"><SalaryPayment /></ProtectedRoute>} />
       <Route path="my-payroll" element={<ProtectedRoute title="My Payroll"><StaffPayroll /></ProtectedRoute>} />
       <Route path="school-calendar" element={<ProtectedRoute title="School Calendar"><SchoolCalendarPage api={accountantApi} HeroComponent={AccountantOchreHero} heroProps={{ eyebrow: 'School', titleLine: 'School', titleAccent: 'Calendar', subtitle: 'View school events, holidays, exams, and important dates.' }} /></ProtectedRoute>} />
+      <Route
+        path="auto-reminders"
+        element={<ProtectedRoute title="Fee Reminders"><AutoReminder /></ProtectedRoute>}
+      />
       <Route path="chat" element={<ProtectedRoute title="Chat center"><ChatCenter /></ProtectedRoute>} />
 
       <Route path="settings" element={<ProtectedRoute title="Settings"><FeaturePlaceholders feature="Settings" icon="⚙️" /></ProtectedRoute>} />

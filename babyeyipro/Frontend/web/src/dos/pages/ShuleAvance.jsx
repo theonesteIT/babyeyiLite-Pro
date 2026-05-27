@@ -8,7 +8,7 @@ import {
 import { createPortal } from 'react-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import DosOchreHero from '../components/DosOchreHero';
+import DosOrangePageHero, { DosPageBody } from '../components/DosOrangePageHero';
 import {
    Wallet,
    Zap,
@@ -613,13 +613,10 @@ export default function ShuleAvance() {
    };
 
    if (loading && !rows.length) return (
-      <div className="animate-in fade-in duration-500 bg-re-bg min-h-screen font-sans">
-         <DosOchreHero
-            eyebrow="Financial services"
-            titleLine="Shule"
-            titleAccent="Avance"
+      <div className="animate-in fade-in duration-500 bg-white min-h-screen font-sans">
+         <DosOrangePageHero
+            title="Shule Avance"
             subtitle="Cashouts, staff deals, and payroll-backed advances — track requests and repayment in one place."
-            icon={Wallet}
          />
          <div className="flex justify-center py-24 relative z-20 -mt-6">
             <Loader2 className="h-10 w-10 animate-spin text-re-orange" aria-hidden />
@@ -748,13 +745,10 @@ export default function ShuleAvance() {
    };
 
    return (
-      <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen font-sans">
-         <DosOchreHero
-            eyebrow="Financial services"
-            titleLine="Shule"
-            titleAccent="Avance"
+      <div className="animate-in fade-in duration-700 bg-white min-h-screen font-sans">
+         <DosOrangePageHero
+            title="Shule Avance"
             subtitle="Cashouts, staff deals, and payroll-backed advances — track requests and repayment in one place."
-            icon={Wallet}
          />
          {/* ── Status alert toasts — portalled to body so CSS stacking contexts can't clip them ── */}
          {statusAlerts.length > 0 && createPortal(

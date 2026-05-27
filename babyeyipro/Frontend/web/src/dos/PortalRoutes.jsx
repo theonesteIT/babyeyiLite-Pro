@@ -35,11 +35,12 @@ import dosApi from './services/api'
 import DosStudentRecordsPage from './pages/DosStudentRecordsPage'
 import StaffPayroll from './pages/StaffPayroll'
 import ChatCenter from '../shared/pages/ChatCenter'
+import StudentPromotionRoutes from './pages/Student Promotion/StudentPromotionRoutes'
 import { PORTAL } from './config/portal'
 import { h } from './utils/href'
 
 const LoadingScreen = () => (
-  <div className="min-h-screen bg-re-bg flex flex-col items-center justify-center gap-4 font-sans">
+  <div className="min-h-screen bg-white flex flex-col items-center justify-center gap-4 font-sans">
     <div
       className="w-12 h-12 rounded-2xl animate-pulse"
       style={{ background: 'linear-gradient(135deg,#FF8C00,#FF5E00)' }}
@@ -55,6 +56,14 @@ const ProtectedRoute = ({ children, title }) => {
   if (loading) return <LoadingScreen />
   if (!teacher) return <Navigate to="/" replace />
   return <Layout title={title}>{children}</Layout>
+}
+
+/** Student Promotion uses its own sidebar/header shell (no main DOS layout). */
+const PromotionProtectedRoute = ({ children }) => {
+  const { teacher, loading } = useAuth()
+  if (loading) return <LoadingScreen />
+  if (!teacher) return <Navigate to="/" replace />
+  return children
 }
 
 function ProSchoolGate({ children }) {
@@ -197,6 +206,15 @@ function DosRoutesInner() {
       <Route path="staff-permissions" element={<ProtectedRoute title="Staff permissions"><DosTeacherStaffPermissions /></ProtectedRoute>} />
       <Route path="school-calendar" element={<ProtectedRoute title="School calendar"><SchoolCalendarPage api={dosApi} HeroComponent={DosOchreHero} heroProps={{ eyebrow: 'Academic', titleLine: 'School', titleAccent: 'Calendar', subtitle: 'View school events, holidays, exams, and important dates.' }} /></ProtectedRoute>} />
       <Route path="chat" element={<ProtectedRoute title="Chat center"><ChatCenter /></ProtectedRoute>} />
+
+      <Route
+        path="student-promotion/*"
+        element={
+          <PromotionProtectedRoute>
+            <StudentPromotionRoutes />
+          </PromotionProtectedRoute>
+        }
+      />
 
       <Route path="*" element={<Navigate to={PORTAL.basePath} replace />} />
     </Routes>

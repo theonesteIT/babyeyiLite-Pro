@@ -1,0 +1,60 @@
+/* Student Promotion — match DOS portal typography (Montserrat via global index.css) */
+.student-promotion-module {
+  font-family: "Montserrat", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Hero — uses shared dosPortalHero.css (.dos-hero-orange / .dos-hero-stats-panel) */
+.student-promotion-module .dos-page-hero {
+  margin-bottom: 0.5rem;
+}
+
+.student-promotion-module h1,
+.student-promotion-module h2,
+.student-promotion-module h3,
+.student-promotion-module h4 {
+  font-family: inherit;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.student-promotion-module .sp-page-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-re-text, #0e1f35);
+  letter-spacing: -0.02em;
+}
+
+.student-promotion-module .sp-section-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-re-text, #0e1f35);
+}
+
+.student-promotion-module .sp-stat-value {
+  font-size: 1.25rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  color: #000435;
+}
+
+.student-promotion-module .sp-label {
+  font-size: 0.625rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-re-text-muted, #6b7280);
+}
+
+.student-promotion-module table th {
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.student-promotion-module table td {
+  font-size: 0.8125rem;
+  font-weight: 500;
+}

@@ -1,2 +1,4 @@
 # SPA fallback (Netlify / similar): deep links like /v/123 must serve index.html
+# Keep service worker as JavaScript (not index.html)
+/sw.js    /sw.js    200
 /*    /index.html   200

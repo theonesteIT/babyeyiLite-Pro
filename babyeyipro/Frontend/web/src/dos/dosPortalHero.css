@@ -1,0 +1,16 @@
+/* DOS portal — orange page hero (no teacher photo) */
+.dos-hero-orange {
+  background-color: #ff8c00;
+}
+
+.dos-hero-stats-panel {
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow:
+    0 4px 6px -1px rgba(0, 4, 53, 0.08),
+    0 10px 24px -4px rgba(0, 4, 53, 0.14),
+    0 18px 40px -12px rgba(0, 0, 0, 0.12);
+}
+
+.dos-page-hero {
+  margin-bottom: 0.5rem;
+}

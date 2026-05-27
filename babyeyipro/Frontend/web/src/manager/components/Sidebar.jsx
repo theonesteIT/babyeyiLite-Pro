@@ -149,11 +149,12 @@ const Sidebar = ({ onClose }) => {
 
   const schoolConsoleSubItems = useMemo(
     () =>
-      SCHOOL_CONSOLE_NAV.map((item) =>
-        item.external
-          ? { name: item.label, path: item.path, icon: item.icon }
-          : { name: item.label, path: `/school-console${item.pathSuffix}`, icon: item.icon }
-      ),
+      SCHOOL_CONSOLE_NAV.map((item) => {
+        if (item.external || item.standalone) {
+          return { name: item.label, path: item.path, icon: item.icon };
+        }
+        return { name: item.label, path: `/school-console${item.pathSuffix}`, icon: item.icon };
+      }),
     []
   );
 
@@ -201,7 +202,6 @@ const Sidebar = ({ onClose }) => {
         )}
         {/* <NavItem icon={Users} name="Students" path="/students" onClose={onClose} /> */}
         
-        <NavItem icon={UserCog} name="HRCenter" path="/hr" onClose={onClose} />
         <SectionLabel label="Finance center" />
         <ExpandableNavItem
           icon={Landmark}
@@ -209,7 +209,7 @@ const Sidebar = ({ onClose }) => {
           onClose={onClose}
           subItems={[
             { name: 'Financial Overview',   path: '/finance',          icon: PieChart },
-        
+            { name: 'School Budget Management', path: '/finance/budgets', icon: ClipboardList },
             { name: 'Student Fee Payment',  path: '/finance/payments', icon: Users },
             { name: 'Payroll',              path: '/payroll',          icon: ClipboardCheck },
             { name: 'Stock Reports',        path: '/reports/stock',    icon: Package },

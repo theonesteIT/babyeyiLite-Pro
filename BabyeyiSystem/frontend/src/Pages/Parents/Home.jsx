@@ -28,6 +28,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 import AddChildModal from "../../components/Parents/AddChildModal";
+import ParentPushNotificationsCard from "../../components/Parents/ParentPushNotificationsCard";
 import { useMergedParentChildren } from "../../hooks/useMergedParentChildren";
 import { normalizeChildForUi } from "../../utils/parentLocalChildren";
 import { useAuth } from "../../context/AuthContext";
@@ -268,6 +269,8 @@ export default function Home() {
           </div>
         </section>
       )}
+
+      <ParentPushNotificationsCard />
 
       {/* Welcome */}
       <section className="relative overflow-hidden rounded-3xl p-4 ">

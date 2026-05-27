@@ -10,11 +10,20 @@ import TrackingTichaDeals from './TrackingTichaDeals'
  * @param {import('axios').AxiosInstance} opts.api
  * @param {string} opts.basePath
  * @param {string} [opts.shuleAvanceListPath] — SPA subpath after Avance deal submit (default `/shule-avance`; accountants use `/my-shule-avance`).
+ * @param {'legacy'|'orange'|'accountant'} [opts.dealsHeroVariant] — `orange` = DOS/teacher welcome hero; `accountant` = ochre band like accountant Dashboard.
  */
-export function createStaffTichaDeals({ api, basePath, useStaffUser, shuleAvanceListPath }) {
+export function createStaffTichaDeals({ api, basePath, useStaffUser, shuleAvanceListPath, dealsHeroVariant }) {
   const avancePath = shuleAvanceListPath || '/shule-avance'
   function StaffTichaDeals() {
-    return <TichaDeals api={api} basePath={basePath} />
+    const staffUser = typeof useStaffUser === 'function' ? useStaffUser() : null
+    return (
+      <TichaDeals
+        api={api}
+        basePath={basePath}
+        dealsHeroVariant={dealsHeroVariant || 'legacy'}
+        staffUser={staffUser}
+      />
+    )
   }
   function StaffTrackingTichaDeals() {
     return <TrackingTichaDeals api={api} basePath={basePath} />

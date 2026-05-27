@@ -8,8 +8,7 @@ export const BABYEYI_AMBER_600 = "#d97706";
 export const BABYEYI_AMBER_50 = "#fffbeb";
 
 /** Same stack as School Manager Sidebar / Header */
-export const BABYEYI_FONT_STACK =
-  '"MTN Brighter Sans", "Nunito", "Varela Round", system-ui, sans-serif';
+export const BABYEYI_FONT_STACK = '"Montserrat", system-ui, sans-serif';
 
 export const babyeyiDashFontStyle = { fontFamily: BABYEYI_FONT_STACK };
 

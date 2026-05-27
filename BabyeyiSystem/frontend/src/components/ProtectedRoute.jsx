@@ -33,8 +33,14 @@ const Spinner = () => (
   </div>
 );
 
-export default function ProtectedRoute({ children, role = null, redirectTo = '/login' }) {
-  const { loading, isLoggedIn, role: userRoleRaw } = useAuth();
+export default function ProtectedRoute({
+  children,
+  role = null,
+  redirectTo = '/login',
+  /** Optional extra check (e.g. DOD stored as HOD role_code but role_name is Head of Discipline). */
+  allowIf = null,
+}) {
+  const { loading, isLoggedIn, role: userRoleRaw, user } = useAuth();
   const location = useLocation();
 
   const signInPath = redirectTo === '/login' ? getPostLogoutLoginPath() : redirectTo;
@@ -48,6 +54,12 @@ export default function ProtectedRoute({ children, role = null, redirectTo = '/l
       ? [String(role).toUpperCase()]
       : null;
 
+  const sessionUser = user && user !== false ? user : null;
+  const roleAllowed =
+    !allowedRoles ||
+    (normalizedUserRole && allowedRoles.includes(normalizedUserRole));
+  const extraAllowed = typeof allowIf === 'function' && allowIf(sessionUser);
+
   // Still fetching session from server
   if (loading) return <Spinner />;
 
@@ -57,7 +69,7 @@ export default function ProtectedRoute({ children, role = null, redirectTo = '/l
   }
 
   // Wrong role → to unauthorized page
-  if (allowedRoles && (!normalizedUserRole || !allowedRoles.includes(normalizedUserRole))) {
+  if (allowedRoles && !roleAllowed && !extraAllowed) {
     return <Navigate to="/unauthorized" replace />;
   }
 

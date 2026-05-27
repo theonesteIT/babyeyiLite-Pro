@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./dosPortalHero.css";
 
 @theme {
   --font-sans: "Montserrat", system-ui, sans-serif;
@@ -6,23 +7,23 @@
   --font-weight-bold: 550;
 
   /* Align with Babyeyi manager institutional palette */
-  --color-re-navy: #1e3a5f;
-  --color-re-navy-light: #3d5a80;
-  --color-re-navy-dark: #0d1b2a;
+  --color-re-navy: #000435;
+  --color-re-navy-light: #0a1860;
+  --color-re-navy-dark: #000228;
 
-  --color-re-gold: #febf10;
-  --color-re-gold-light: #ffd24d;
-  --color-re-gold-dark: #d9a400;
+  --color-re-gold: #fbbf24;
+  --color-re-gold-light: #fcd34d;
+  --color-re-gold-dark: #f59e0b;
 
-  /* Legacy token used across DOS JSX — maps to institutional gold */
-  --color-re-orange: #febf10;
-  --color-re-orange-light: #ffd24d;
-  --color-re-orange-dark: #d9a400;
+  /* Legacy token used across DOS JSX — maps to clear amber */
+  --color-re-orange: #fbbf24;
+  --color-re-orange-light: #fcd34d;
+  --color-re-orange-dark: #f59e0b;
 
   --color-re-purple: #9d50bb;
   --color-re-magenta: #6e48aa;
 
-  --color-re-bg: #f8f9fa;
+  --color-re-bg: #ffffff;
   --color-re-card: #ffffff;
   --color-re-row: #ffffff;
   --color-re-text: #0e1f35;
@@ -87,7 +88,11 @@
   }
 
   .bg-re-grad-orange {
-    @apply bg-gradient-to-br from-re-orange-light via-re-orange to-re-orange-dark;
+    @apply bg-gradient-to-br from-amber-300 via-amber-400 to-amber-500;
+  }
+
+  .dos-page {
+    @apply bg-white min-h-full font-sans;
   }
 
   .bg-re-grad-purple {

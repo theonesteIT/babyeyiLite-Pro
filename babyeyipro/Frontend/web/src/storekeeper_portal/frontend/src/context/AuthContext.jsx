@@ -1,10 +1,11 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
+import { useMasterAuth } from '../../../../context/MasterAuthContext';
 
 const AuthContext = createContext();
-const LOGIN_URL = import.meta.env.VITE_BABYEYI_LOGIN_URL || 'http://localhost:5173/login';
 
 export const AuthProvider = ({ children }) => {
+  const { logout: masterLogout } = useMasterAuth();
   const [staff, setStaff] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -34,8 +35,8 @@ export const AuthProvider = ({ children }) => {
   const login = async () => ({ success: false, message: 'Use the main Babyeyi login page.' });
 
   const logout = async () => {
-    try { await api.post('/session/logout'); } catch (e) { console.warn('[AuthContext] Logout error:', e.message); }
-    setStaff(null); window.location.href = LOGIN_URL;
+    setStaff(null);
+    await masterLogout();
   };
 
   return (

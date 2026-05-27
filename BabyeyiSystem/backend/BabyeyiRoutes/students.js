@@ -177,6 +177,13 @@ function normalizePhone(raw) {
 
 function trimStr(v) { return String(v ?? '').trim(); }
 
+/** Optional parent national ID — trim only, max 64 chars. */
+function optionalNationalId(v) {
+  const s = trimStr(v);
+  if (!s) return null;
+  return s.length > 64 ? s.slice(0, 64) : s;
+}
+
 function normalizeHeaderKey(key) {
   return String(key || '')
     .toLowerCase()
@@ -687,6 +694,8 @@ async function ensureStudentsExtraColumns() {
   await promisePool.query('ALTER TABLE students ADD COLUMN rfid_uid VARCHAR(64) NULL').catch(() => {});
   await promisePool.query('ALTER TABLE students ADD COLUMN fingerprint_id VARCHAR(128) NULL').catch(() => {});
   await promisePool.query('ALTER TABLE students ADD COLUMN identity_remarks TEXT NULL').catch(() => {});
+  await promisePool.query('ALTER TABLE students ADD COLUMN father_national_id VARCHAR(64) NULL').catch(() => {});
+  await promisePool.query('ALTER TABLE students ADD COLUMN mother_national_id VARCHAR(64) NULL').catch(() => {});
   await promisePool.query('ALTER TABLE students ADD KEY idx_students_school_rfid (school_id, rfid_uid)').catch(() => {});
   await promisePool.query('ALTER TABLE students ADD KEY idx_students_school_fingerprint (school_id, fingerprint_id)').catch(() => {});
 }
@@ -771,10 +780,10 @@ router.get('/students', requireRole(STUDENT_LIST_ROLES), async (req, res) => {
     let sql = `
       SELECT id, student_uid, student_code, school_id, first_name, last_name, gender, birth_year,
              nationality, province, district, sector, cell, village,
-             class_name, academic_year, sdm_code,
+             class_name, academic_year, sdm_code, discipline_marks,
              student_photo, rfid_uid, fingerprint_id, identity_remarks,
-             father_full_name, father_phone, father_email,
-             mother_full_name, mother_phone, mother_email,
+             father_full_name, father_phone, father_email, father_national_id,
+             mother_full_name, mother_phone, mother_email, mother_national_id,
              import_missing_fields, source_row_json, created_at, updated_at
       FROM students WHERE school_id = ?
     `;
@@ -980,15 +989,17 @@ router.put('/students/:id', requireRole(SCHOOL_ROLES), async (req, res) => {
       `UPDATE students SET student_uid=?, student_code=?, first_name=?, last_name=?, gender=?, birth_year=?,
        nationality=?, province=?, district=?, sector=?, cell=?, village=?,
        class_name=?, academic_year=?, sdm_code=?,
-       father_full_name=?, father_phone=?, father_email=?,
-       mother_full_name=?, mother_phone=?, mother_email=?, updated_at=NOW()
+       father_full_name=?, father_phone=?, father_email=?, father_national_id=?,
+       mother_full_name=?, mother_phone=?, mother_email=?, mother_national_id=?, updated_at=NOW()
        WHERE id=? AND school_id=?`,
       [
         studentUid, studentCodeVal, trimStr(body.first_name), trimStr(body.last_name), gender, year,
         body.nationality || 'Rwandan', body.province, body.district, body.sector, body.cell, body.village,
         cls, ay, sdm,
         body.father_full_name || null, fatherPhone, body.father_email || null,
+        optionalNationalId(body.father_national_id ?? body.fatherNationalId ?? body.FatherNational_ID),
         body.mother_full_name || null, motherPhone, body.mother_email || null,
+        optionalNationalId(body.mother_national_id ?? body.motherNationalId ?? body.MotherNational_ID),
         studentId, schoolId,
       ]
     );
@@ -1245,8 +1256,8 @@ router.get('/students/export.xlsx', requireRole(SCHOOL_ROLES), async (req, res) 
       `SELECT student_uid, student_code, first_name, last_name, gender, birth_year, nationality,
               province, district, sector, cell, village,
               class_name, academic_year, sdm_code,
-              father_full_name, father_phone, father_email,
-              mother_full_name, mother_phone, mother_email, created_at
+              father_full_name, father_phone, father_email, father_national_id,
+              mother_full_name, mother_phone, mother_email, mother_national_id, created_at
        FROM students WHERE school_id = ? ORDER BY created_at DESC`,
       [schoolId]
     );
@@ -1259,7 +1270,9 @@ router.get('/students/export.xlsx', requireRole(SCHOOL_ROLES), async (req, res) 
       ClassName: r.class_name || '', AcademicYear: r.academic_year || '', SDMCode: r.sdm_code || '',
       Province: r.province, District: r.district, Sector: r.sector, Cell: r.cell, Village: r.village,
       FatherName: r.father_full_name || '', FatherPhone: r.father_phone || '', FatherEmail: r.father_email || '',
+      FatherNational_ID: r.father_national_id || '',
       MotherName: r.mother_full_name || '', MotherPhone: r.mother_phone || '', MotherEmail: r.mother_email || '',
+      MotherNational_ID: r.mother_national_id || '',
       CreatedAt: r.created_at,
     }));
 
@@ -1335,9 +1348,15 @@ router.post('/students', requireRole(SCHOOL_ROLES), async (req, res) => {
       class_name, className,
       academic_year, academicYear,
       sdm_code, sdmCode,
-      father_full_name, father_phone, father_email,
-      mother_full_name, mother_phone, mother_email,
+      father_full_name, father_phone, father_email, father_national_id, fatherNationalId, FatherNational_ID,
+      mother_full_name, mother_phone, mother_email, mother_national_id, motherNationalId, MotherNational_ID,
     } = req.body || {};
+    const fatherNationalIdVal = optionalNationalId(
+      father_national_id ?? fatherNationalId ?? FatherNational_ID
+    );
+    const motherNationalIdVal = optionalNationalId(
+      mother_national_id ?? motherNationalId ?? MotherNational_ID
+    );
     const classNameVal = trimStr(class_name || className) || null;
     const academicYearVal = trimStr(academic_year || academicYear) || null;
     const sdmCodeVal = trimStr(sdm_code || sdmCode) || null;
@@ -1394,15 +1413,15 @@ router.post('/students', requireRole(SCHOOL_ROLES), async (req, res) => {
       `INSERT INTO students (student_uid, student_code, school_id, first_name, last_name, gender, birth_year, nationality,
          province, district, sector, cell, village,
          class_name, academic_year, sdm_code,
-         father_full_name, father_phone, father_email,
-         mother_full_name, mother_phone, mother_email)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+         father_full_name, father_phone, father_email, father_national_id,
+         mother_full_name, mother_phone, mother_email, mother_national_id)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [
         uid, officialCode, schoolId, trimStr(first_name), trimStr(last_name), normalizedGender, year,
         nationality || 'Rwandan', province, district, sector, cell, village,
         classNameVal, academicYearVal, sdmCodeVal,
-        father_full_name || null, fPhone, father_email || null,
-        mother_full_name || null, mPhone, mother_email || null,
+        father_full_name || null, fPhone, father_email || null, fatherNationalIdVal,
+        mother_full_name || null, mPhone, mother_email || null, motherNationalIdVal,
       ]
     );
     return res.status(201).json({
@@ -1883,9 +1902,19 @@ router.post(
             father_full_name: readFromRowByAliases(row, headerCells, ['FatherName','Father Name','Father Full Name']) || null,
             father_phone: fPhone,
             father_email: readFromRowByAliases(row, headerCells, ['Father Email.','Father Email','FatherEmail']) || null,
+            father_national_id: optionalNationalId(
+              readFromRowByAliases(row, headerCells, [
+                'Father National ID', 'FatherNational_ID', 'Father National Id', 'Father NID', 'Father NationalID',
+              ])
+            ),
             mother_full_name: readFromRowByAliases(row, headerCells, ['MotherName','Mother Name','Mother Full Name']) || null,
             mother_phone: mPhone,
             mother_email: readFromRowByAliases(row, headerCells, ['Mother Email.','Mother Email','MotherEmail']) || null,
+            mother_national_id: optionalNationalId(
+              readFromRowByAliases(row, headerCells, [
+                'Mother National ID', 'MotherNational_ID', 'Mother National Id', 'Mother NID', 'Mother NationalID',
+              ])
+            ),
             import_missing_fields: JSON.stringify(locationMissing),
             source_row_json: JSON.stringify(row),
           });
@@ -1957,8 +1986,8 @@ router.post(
                  province=?, district=?, sector=?, cell=?, village=?,
                  class_name=?, academic_year=?,
                  sdm_code=COALESCE(?, sdm_code),
-                 father_full_name=?, father_phone=?, father_email=?,
-                 mother_full_name=?, mother_phone=?, mother_email=?,
+                 father_full_name=?, father_phone=?, father_email=?, father_national_id=?,
+                 mother_full_name=?, mother_phone=?, mother_email=?, mother_national_id=?,
                  import_missing_fields=?, source_row_json=?, updated_at=NOW()
                WHERE id=?`,
               [
@@ -1966,8 +1995,8 @@ router.post(
                 locU(s.province), locU(s.district), locU(s.sector), locU(s.cell), locU(s.village),
                 s.class_name || null, s.academic_year || null,
                 trimStr(s.sdm_code) || null,
-                s.father_full_name, s.father_phone, s.father_email,
-                s.mother_full_name, s.mother_phone, s.mother_email,
+                s.father_full_name, s.father_phone, s.father_email, s.father_national_id || null,
+                s.mother_full_name, s.mother_phone, s.mother_email, s.mother_national_id || null,
                 s.import_missing_fields || null, s.source_row_json || null,
                 existing.id,
               ]
@@ -1995,17 +2024,17 @@ router.post(
                  student_uid, student_code, school_id, first_name, last_name, gender, birth_year, nationality,
                  province, district, sector, cell, village,
                  class_name, academic_year, sdm_code,
-                 father_full_name, father_phone, father_email,
-                 mother_full_name, mother_phone, mother_email,
+                 father_full_name, father_phone, father_email, father_national_id,
+                 mother_full_name, mother_phone, mother_email, mother_national_id,
                  import_missing_fields, source_row_json
-               ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+               ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
               [
                 officialNew, officialCode, schoolId,
                 s.first_name, s.last_name, s.gender, s.birth_year, nat,
                 loc(s.province), loc(s.district), loc(s.sector), loc(s.cell), loc(s.village),
                 s.class_name || null, s.academic_year || null, trimStr(s.sdm_code) || null,
-                s.father_full_name, s.father_phone, s.father_email,
-                s.mother_full_name, s.mother_phone, s.mother_email,
+                s.father_full_name, s.father_phone, s.father_email, s.father_national_id || null,
+                s.mother_full_name, s.mother_phone, s.mother_email, s.mother_national_id || null,
                 s.import_missing_fields || null, s.source_row_json || null,
               ]
             );

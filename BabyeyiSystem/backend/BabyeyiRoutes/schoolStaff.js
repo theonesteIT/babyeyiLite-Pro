@@ -34,7 +34,8 @@ const CREATABLE_ROLE_CODES = [
   'SECRETARY', 'HR', 'DISCIPLINE', 'SCHOOL_MANAGER', 'SCHOOL_DIRECTOR',
 ];
 const ROLE_CODE_ALIASES = {
-  DISCIPLINE: ['DISCIPLINE_STAFF', 'HOD'],
+  /** Do not alias to HOD — that sends DOD staff to Shule Avance instead of the conduct portal. */
+  DISCIPLINE: ['DISCIPLINE_STAFF', 'HEAD_OF_DISCIPLINE'],
   GATE_KEEPER: ['GATE_OFFICER'],
   GATE_OFFICER: ['GATE_KEEPER'],
   STORE_MANAGER: ['STOREKEEPER'],
@@ -182,6 +183,29 @@ function generateStaffPassword() {
 function trimStr(v) {
   if (v === undefined || v === null) return '';
   return String(v).trim();
+}
+
+function normalizeRfidUid(value) {
+  const raw = trimStr(value);
+  return raw ? raw.toUpperCase() : null;
+}
+
+async function assertRfidAvailable(poolOrConn, schoolId, rfid, excludeUserId = null) {
+  if (!rfid) return { ok: true, rfid: null };
+  const normalized = normalizeRfidUid(rfid);
+  if (!normalized) return { ok: true, rfid: null };
+  const params = [schoolId, normalized];
+  let sql = 'SELECT id FROM users WHERE school_id = ? AND rfid_uid = ? AND deleted_at IS NULL';
+  if (excludeUserId) {
+    sql += ' AND id != ?';
+    params.push(excludeUserId);
+  }
+  sql += ' LIMIT 1';
+  const [[dup]] = await poolOrConn.query(sql, params);
+  if (dup) {
+    return { ok: false, message: 'This RFID is already assigned at your school.' };
+  }
+  return { ok: true, rfid: normalized };
 }
 
 /** True if any row uses this human-readable staff_id (UNIQUE on staff.staff_id is global). */
@@ -426,7 +450,8 @@ async function ensureProSchoolForStaffFeature(req, res) {
     [schoolId]
   );
   const isPro = computeProAccessEffective(schoolRow || null);
-  if (!isPro && !elevated) {
+  const liteHrCreator = CREATOR_ROLES.includes(role);
+  if (!isPro && !elevated && !liteHrCreator) {
     res.status(403).json({
       success: false,
       code: 'PRO_REQUIRED',
@@ -1002,6 +1027,15 @@ router.post('/school/staff', requireRole(CREATOR_ROLES), async (req, res) => {
 
     const newUserId = userResult.insertId;
 
+    const rfidCheck = await assertRfidAvailable(conn, schoolId, body.rfid_uid || body.rfidUid);
+    if (!rfidCheck.ok) {
+      await conn.rollback();
+      return res.status(409).json({ success: false, message: rfidCheck.message, field: 'rfid_uid' });
+    }
+    if (rfidCheck.rfid) {
+      await conn.query('UPDATE users SET rfid_uid = ? WHERE id = ?', [rfidCheck.rfid, newUserId]);
+    }
+
     const staffInsertValues = [
       newUserId, schoolId, staffIdLabel, username, new Date(),
       fullName, gender, dateOfBirth, nationalId, passportNumber, address,
@@ -1163,6 +1197,14 @@ router.patch('/school/staff/:userId', requireRole(CREATOR_ROLES), async (req, re
       updates.push('role_id = ?');
       params.push(rr.id);
     }
+    if (body.rfid_uid !== undefined || body.rfidUid !== undefined) {
+      const rfidCheck = await assertRfidAvailable(promisePool, schoolId, body.rfid_uid || body.rfidUid, userId);
+      if (!rfidCheck.ok) {
+        return res.status(409).json({ success: false, message: rfidCheck.message, field: 'rfid_uid' });
+      }
+      updates.push('rfid_uid = ?');
+      params.push(rfidCheck.rfid);
+    }
 
     const staffSet = [];
     const staffParams = [];
@@ -1289,19 +1331,13 @@ router.put('/school/staff/:userId/identity', requireRole(SMART_ACCESS_STAFF_ROLE
     }
 
     const body = req.body || {};
-    const rfid = trimStr(body.rfid_uid || body.rfidUid) || null;
+    const rfidCheck = await assertRfidAvailable(promisePool, schoolId, body.rfid_uid || body.rfidUid, userId);
+    if (!rfidCheck.ok) {
+      return res.status(409).json({ success: false, message: rfidCheck.message });
+    }
+    const rfid = rfidCheck.rfid;
     const fp = trimStr(body.fingerprint_id || body.fingerprintId) || null;
     const remarks = trimStr(body.identity_remarks || body.identityRemarks);
-
-    if (rfid) {
-      const [[dupR]] = await promisePool.query(
-        `SELECT id FROM users WHERE school_id = ? AND rfid_uid = ? AND id != ? AND deleted_at IS NULL LIMIT 1`,
-        [schoolId, rfid, userId]
-      );
-      if (dupR) {
-        return res.status(409).json({ success: false, message: 'This RFID is already assigned at your school.' });
-      }
-    }
     if (fp) {
       const [[dupF]] = await promisePool.query(
         `SELECT id FROM users WHERE school_id = ? AND fingerprint_id = ? AND id != ? AND deleted_at IS NULL LIMIT 1`,
@@ -1394,5 +1430,62 @@ router.post(
     }
   }
 );
+
+// ════════════════════════════════════════════════════════════════
+// GET/PATCH /api/school/shule-avance-policy — school-wide max advance % (Lite + Pro managers)
+// ════════════════════════════════════════════════════════════════
+const DEFAULT_SHULE_AVANCE_MAX_PERCENT = 25;
+
+async function ensureSchoolShuleAvancePolicyColumn() {
+  await promisePool
+    .query(
+      `ALTER TABLE schools ADD COLUMN shule_avance_max_percent DECIMAL(5,2) NOT NULL DEFAULT ${DEFAULT_SHULE_AVANCE_MAX_PERCENT}`
+    )
+    .catch(() => {});
+}
+
+router.get('/school/shule-avance-policy', requireRole(CREATOR_ROLES), async (req, res) => {
+  try {
+    const ctx = await ensureProSchoolForStaffFeature(req, res);
+    if (!ctx) return;
+    await ensureSchoolShuleAvancePolicyColumn();
+    const [[row]] = await promisePool.query(
+      `SELECT shule_avance_max_percent FROM schools WHERE id = ? AND deleted_at IS NULL LIMIT 1`,
+      [ctx.schoolId]
+    );
+    const pct = Number(row?.shule_avance_max_percent);
+    return res.json({
+      success: true,
+      data: {
+        max_percent: Number.isFinite(pct) && pct > 0 && pct <= 100 ? pct : DEFAULT_SHULE_AVANCE_MAX_PERCENT,
+      },
+    });
+  } catch (err) {
+    console.error('GET /school/shule-avance-policy', err);
+    return res.status(500).json({ success: false, message: 'Failed to load policy.' });
+  }
+});
+
+router.patch('/school/shule-avance-policy', requireRole(CREATOR_ROLES), async (req, res) => {
+  try {
+    const ctx = await ensureProSchoolForStaffFeature(req, res);
+    if (!ctx) return;
+    const body = req.body || {};
+    const raw = body.max_percent ?? body.maxPercent ?? body.shule_avance_max_percent;
+    const pct = Number(raw);
+    if (!Number.isFinite(pct) || pct <= 0 || pct > 100) {
+      return res.status(400).json({ success: false, message: 'max_percent must be between 1 and 100.' });
+    }
+    await ensureSchoolShuleAvancePolicyColumn();
+    await promisePool.query(
+      `UPDATE schools SET shule_avance_max_percent = ?, updated_at = NOW() WHERE id = ?`,
+      [pct, ctx.schoolId]
+    );
+    return res.json({ success: true, message: 'Shule Avance policy saved.', data: { max_percent: pct } });
+  } catch (err) {
+    console.error('PATCH /school/shule-avance-policy', err);
+    return res.status(500).json({ success: false, message: 'Failed to save policy.' });
+  }
+});
 
 module.exports = router;

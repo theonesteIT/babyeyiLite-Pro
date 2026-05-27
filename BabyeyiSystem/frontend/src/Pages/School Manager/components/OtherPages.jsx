@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Badge, Modal, THead, StatCard, LineAreaChart, DonutChart, HBarChart, Empty } from "../components/UI";
 import { useAuth } from "../../../context/AuthContext";
+import AcademicPreferencesPanel from "./AcademicPreferencesPanel";
 
 const API_BASE = "http://localhost:5100/api";
 const SERVER_BASE = API_BASE.replace(/\/api\/?$/, "") || "http://localhost:5100";
@@ -1035,38 +1036,50 @@ export function SettingsPage({ toast, schoolProfile, setSchoolProfile }) {
   };
 
   const tabs = [
-    { id: "profile",  label: "👤 My Profile" },
-    { id: "identity", label: "🏫 Identity" },
-    { id: "assets",   label: "🖼 Assets"   },
-    { id: "defaults", label: "⚙️ Defaults" },
+    { id: "profile",  label: "My Profile" },
+    { id: "identity", label: "Identity" },
+    { id: "assets",   label: "Assets" },
+    { id: "defaults", label: "Defaults" },
+    { id: "academic", label: "Academic" },
   ];
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16, fontFamily: font }} className="anim">
+    <div className="anim flex flex-col gap-4 sm:gap-5 max-w-4xl w-full" style={{ fontFamily: font }}>
       <style>{globalStyles}</style>
-      <div>
-        <SectionTitle>🏢 School Settings</SectionTitle>
-        <SubTitle>Configure your school profile and defaults</SubTitle>
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
+        <h2 className="text-lg sm:text-xl font-bold text-[#000435] tracking-tight">School Settings</h2>
+        <p className="text-xs sm:text-sm text-slate-500 mt-1">Configure your school profile, assets, and academic calendar.</p>
       </div>
 
-      {/* Tab bar */}
-      <div style={{ display: "flex", background: "white", border: `1px solid ${C.goldBorder}`, borderRadius: 16, padding: 4, gap: 4, width: "fit-content" }}>
-        {tabs.map(t => (
-          <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
-            padding: "8px 16px", borderRadius: 12, fontSize: 12, fontWeight: 700,
-            border: "none", cursor: "pointer", fontFamily: font,
-            background: activeTab === t.id ? C.dark    : "transparent",
-            color:      activeTab === t.id ? C.gold    : C.goldDark,
-            boxShadow:  activeTab === t.id ? "0 2px 8px rgba(26,18,0,0.2)" : "none",
-            transition: "all 150ms",
-          }}>{t.label}</button>
-        ))}
+      {/* Tab bar — horizontal scroll on mobile */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm overflow-hidden">
+        <div
+          className="flex gap-1 overflow-x-auto scrollbar-none -mx-0.5 px-0.5 pb-0.5"
+          style={{ WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }}
+        >
+          {tabs.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setActiveTab(t.id)}
+              className={`shrink-0 px-3.5 sm:px-4 py-2.5 rounded-xl text-[11px] sm:text-xs font-bold transition-all duration-150 whitespace-nowrap ${
+                activeTab === t.id
+                  ? "bg-[#000435] text-amber-400 shadow-md shadow-[#000435]/20"
+                  : "text-slate-600 hover:bg-slate-50 hover:text-[#000435]"
+              }`}
+              style={{ fontFamily: font }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* My Profile — photo + change password */}
       {activeTab === "profile" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 24, fontFamily: font }}>
-          <div style={{ background: "white", border: `1px solid ${C.goldBorder}`, borderRadius: 20, padding: 20 }}>
+        <div className="flex flex-col gap-4 sm:gap-6" style={{ fontFamily: font }}>
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
             <h4 style={{ fontWeight: 700, color: C.dark, fontSize: 13, display: "flex", alignItems: "center", gap: 8, margin: "0 0 16px" }}>
               <User style={{ width: 16, height: 16, color: C.gold }}/> Profile Photo
             </h4>
@@ -1153,12 +1166,12 @@ export function SettingsPage({ toast, schoolProfile, setSchoolProfile }) {
             </div>
           </div>
 
-          <div style={{ background: "white", border: `1px solid ${C.goldBorder}`, borderRadius: 20, padding: 20 }}>
-            <h4 style={{ fontWeight: 700, color: C.dark, fontSize: 13, display: "flex", alignItems: "center", gap: 8, margin: "0 0 16px" }}>
-              <Lock style={{ width: 16, height: 16, color: C.gold }}/> Change Password
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
+            <h4 className="font-bold text-[#000435] text-sm flex items-center gap-2 mb-4">
+              <Lock className="w-4 h-4 text-amber-500 shrink-0" /> Change Password
             </h4>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, maxWidth: 480 }}>
-              <div style={{ gridColumn: "1 / -1" }}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 max-w-lg">
+              <div className="sm:col-span-2">
                 <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: C.goldDark, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>Current password</label>
                 <input
                   type="password"
@@ -1240,11 +1253,11 @@ export function SettingsPage({ toast, schoolProfile, setSchoolProfile }) {
 
       {/* Identity */}
       {activeTab === "identity" && (
-        <div style={{ background: "white", border: `1px solid ${C.goldBorder}`, borderRadius: 20, padding: 20 }}>
-          <h4 style={{ fontWeight: 700, color: C.dark, fontSize: 13, display: "flex", alignItems: "center", gap: 8, margin: "0 0 16px" }}>
-            <Building2 style={{ width: 16, height: 16, color: C.gold }}/> School Identity
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
+          <h4 className="font-bold text-[#000435] text-sm flex items-center gap-2 mb-4">
+            <Building2 className="w-4 h-4 text-amber-500 shrink-0" /> School Identity
           </h4>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             {[
               { label: "School Name *",     key: "name",        placeholder: "e.g. GS Kigali Heights"    },
               { label: "Head Teacher Name", key: "headTeacher", placeholder: "e.g. Jean Bosco NZEYIMANA" },
@@ -1284,20 +1297,20 @@ export function SettingsPage({ toast, schoolProfile, setSchoolProfile }) {
 
       {/* Assets */}
       {activeTab === "assets" && (
-        <div style={{ background: "white", border: `1px solid ${C.goldBorder}`, borderRadius: 20, padding: 20 }}>
-          <h4 style={{ fontWeight: 700, color: C.dark, fontSize: 13, display: "flex", alignItems: "center", gap: 8, margin: "0 0 6px" }}>
-            <Camera style={{ width: 16, height: 16, color: C.gold }}/> Upload Assets
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
+          <h4 className="font-bold text-[#000435] text-sm flex items-center gap-2 mb-1">
+            <Camera className="w-4 h-4 text-amber-500 shrink-0" /> Upload Assets
           </h4>
-          <p style={{ fontSize: 11, color: C.goldDark, margin: "0 0 16px" }}>
+          <p className="text-[11px] text-slate-500 mb-4">
             These assets will be used in all generated Babyeyi PDFs.
           </p>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {[
-              { label: "School Logo",            key: "logo",          icon: "🏫", desc: "PNG or JPG, max 2MB"                  },
-              { label: "Head Teacher Signature", key: "directorSig",   icon: "✍️", desc: "Clear signature on white background" },
-              { label: "Accountant Signature",   key: "accountantSig", icon: "✍️", desc: "Clear signature on white background" },
-              { label: "Official School Stamp",  key: "stamp",         icon: "🔏", desc: "PNG with transparent background"     },
-            ].map(({ label, key, icon, desc }) => (
+              { label: "School Logo",            key: "logo",          desc: "PNG or JPG, max 2MB" },
+              { label: "Head Teacher Signature", key: "directorSig",   desc: "Clear signature on white background" },
+              { label: "Accountant Signature",   key: "accountantSig", desc: "Clear signature on white background" },
+              { label: "Official School Stamp",  key: "stamp",         desc: "PNG with transparent background" },
+            ].map(({ label, key, desc }) => (
               <div key={key}>
                 <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: C.goldDark, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
                   {label}
@@ -1315,7 +1328,6 @@ export function SettingsPage({ toast, schoolProfile, setSchoolProfile }) {
                     </div>
                   ) : (
                     <div>
-                      <div style={{ fontSize: 28, marginBottom: 8 }}>{icon}</div>
                       <Upload style={{ width: 20, height: 20, color: C.goldBorder, margin: "0 auto 8px" }}/>
                       <p style={{ fontSize: 12, color: C.goldDark, fontWeight: 700, margin: "0 0 4px" }}>{label}</p>
                       <p style={{ fontSize: 10, color: C.goldDeep, margin: 0 }}>{desc}</p>
@@ -1330,45 +1342,43 @@ export function SettingsPage({ toast, schoolProfile, setSchoolProfile }) {
 
       {/* Defaults */}
       {activeTab === "defaults" && (
-        <div style={{ background: "white", border: `1px solid ${C.goldBorder}`, borderRadius: 20, padding: 20 }}>
-          <h4 style={{ fontWeight: 700, color: C.dark, fontSize: 13, margin: "0 0 16px" }}>⚙️ Default Settings</h4>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
+          <h4 className="font-bold text-[#000435] text-sm mb-4">Default Settings</h4>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div>
               <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: C.goldDark, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>
                 Default Language
               </label>
               <select value={form.defaultLang || "en"} onChange={e => up("defaultLang", e.target.value)} style={inpStyle}>
-                <option value="en">🇬🇧 English</option>
-                <option value="rw">🇷🇼 Kinyarwanda</option>
-                <option value="fr">🇫🇷 Français</option>
-              </select>
-            </div>
-            <div>
-              <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: C.goldDark, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>
-                Default Academic Year
-              </label>
-              <select value={form.defaultYear || "2024-2025"} onChange={e => up("defaultYear", e.target.value)} style={inpStyle}>
-                {["2024-2025","2025-2026"].map(y => <option key={y}>{y}</option>)}
+                <option value="en">English</option>
+                <option value="rw">Kinyarwanda</option>
+                <option value="fr">Français</option>
               </select>
             </div>
           </div>
           <div style={{ background: C.amberBg, border: `1px solid ${C.amberBord}`, borderRadius: 12, padding: 12, marginTop: 16 }}>
             <p style={{ fontSize: 12, color: "#92400e", margin: 0 }}>
-              <strong>Note:</strong> Default language affects Babyeyi PDF generation. You can override per document.
+              <strong>Note:</strong> Default language affects Babyeyi PDF generation. Academic year and term are set under the <strong>Academic</strong> tab.
             </p>
           </div>
         </div>
       )}
 
-      {activeTab !== "profile" && (
-        <button onClick={handleSave} disabled={saving} style={{
-          display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-          padding: "12px 24px", fontFamily: font, fontWeight: 700, fontSize: 13,
-          background: `linear-gradient(135deg, ${C.dark}, ${C.darkMid})`,
-          color: C.gold, border: "none", borderRadius: 14, cursor: saving ? "not-allowed" : "pointer",
-          boxShadow: "0 4px 16px rgba(26,18,0,0.2)", opacity: saving ? 0.7 : 1, transition: "all 150ms",
-          width: "fit-content",
-        }}>
+      {activeTab === "academic" && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
+          <h4 className="font-bold text-[#000435] text-sm mb-3 sm:mb-4">Academic Year &amp; Terms</h4>
+          <AcademicPreferencesPanel toast={toast} />
+        </div>
+      )}
+
+      {activeTab !== "profile" && activeTab !== "academic" && (
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saving}
+          className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-bold bg-[#000435] text-amber-400 shadow-lg shadow-[#000435]/20 hover:bg-[#000a50] disabled:opacity-60 disabled:cursor-not-allowed transition-all active:scale-[0.98]"
+          style={{ fontFamily: font }}
+        >
           {saving
             ? <><Loader2 style={{ width: 16, height: 16, animation: "spin 0.8s linear infinite" }}/> Saving…</>
             : <><Save style={{ width: 16, height: 16 }}/> Save Changes</>}

@@ -308,7 +308,6 @@ export default function ParentLogin() {
               <StepIcon className="w-8 h-8 text-orange-500" strokeWidth={2} />
             </div>
             <h1 className="text-3xl font-semibold text-slate-900 tracking-tight">{stepTitle}</h1>
-            <p className="mt-2 text-sm text-slate-500 leading-relaxed max-w-[360px]">{stepSubtitle}</p>
           </div>
 
           {error && (
@@ -436,7 +435,6 @@ export default function ParentLogin() {
                   to={registerHref}
                   className="font-bold text-orange-600 hover:text-orange-700 inline-flex items-center gap-1 justify-center"
                 >
-                  <Sparkles size={14} />
                   Register instead
                 </Link>
               </p>
@@ -532,10 +530,6 @@ export default function ParentLogin() {
             </form>
           )}
         </div>
-
-        <p className="mt-8 text-center text-xs text-slate-400 max-w-xs leading-relaxed px-2">
-          Your session uses a secure cookie. With &quot;Remember me&quot;, the session lasts longer and we may save your phone on this device only — never your password.
-        </p>
       </main>
     </div>
   );

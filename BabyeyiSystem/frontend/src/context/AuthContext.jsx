@@ -69,6 +69,9 @@ export function AuthProvider({ children }) {
         body: JSON.stringify({}),
       });
     } catch { /* ignore network errors on logout */ }
+    try {
+      localStorage.removeItem('teacher_logged_in');
+    } catch { /* ignore */ }
     setUser(false);
   }, []);
 

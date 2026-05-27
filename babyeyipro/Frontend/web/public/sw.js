@@ -2,7 +2,7 @@
 // Service worker for Web Push (Shule Avance). Served from site root as `/sw.js`.
 
 self.addEventListener('push', (event) => {
-  let payload = { title: 'Shule Avance', body: '', tag: 'shule-avance', url: '/dos/shule-avance' };
+  let payload = { title: 'Babyeyi', body: '', tag: 'babyeyi-portal', url: '/' };
   try {
     if (event.data) {
       const j = event.data.json();
@@ -11,6 +11,8 @@ self.addEventListener('push', (event) => {
         body: j.body || '',
         tag: j.tag || payload.tag,
         url: j.url || payload.url,
+        icon: j.icon || payload.icon,
+        badge: j.badge || payload.badge,
       };
     }
   } catch (_) {
@@ -25,8 +27,8 @@ self.addEventListener('push', (event) => {
   const title = payload.title;
   const options = {
     body: payload.body,
-    icon: '/favicon.svg',
-    badge: '/favicon.svg',
+    icon: payload.icon || '/babyeyiLogo.png',
+    badge: payload.badge || '/babyeyiLogo.png',
     tag: payload.tag,
     renotify: true,
     data: { url: payload.url || '/dos/shule-avance' },
@@ -37,7 +39,7 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const url = (event.notification.data && event.notification.data.url) || '/dos/shule-avance';
+  const url = (event.notification.data && event.notification.data.url) || '/';
   const openUrl = new URL(url, self.location.origin).href;
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {

@@ -12,8 +12,6 @@ const REASON_PRESETS = [
   'Other',
 ];
 
-const MAX_MARKS = 100;
-
 function Toast({ toast }) {
   if (!toast.message) return null;
   const isError = toast.type === 'error';
@@ -38,6 +36,7 @@ export default function SetDisciplineMarks() {
   const [limit, setLimit] = useState(15);
   const [meta, setMeta] = useState({ page: 1, limit: 15, total: 0, total_pages: 1 });
   const [toast, setToast] = useState({ type: '', message: '' });
+  const [maxMarks, setMaxMarks] = useState(40);
 
   const [form, setForm] = useState({
     action: 'remove',
@@ -74,6 +73,16 @@ export default function SetDisciplineMarks() {
       setLoadingStudents(false);
     }
   };
+
+  useEffect(() => {
+    disciplineService
+      .getSettings()
+      .then((res) => {
+        const m = res.data?.data?.default_marks ?? res.data?.data?.max_marks;
+        if (m != null && Number.isFinite(Number(m))) setMaxMarks(Number(m));
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -116,13 +125,13 @@ export default function SetDisciplineMarks() {
   const nextMarks = form.action === 'add' ? currentMarks + marksValue : currentMarks - marksValue;
   const validMarks = Number.isFinite(marksValue) && marksValue > 0;
   const validReason = reasonValue.length > 0;
-  const withinLimits = Number.isFinite(nextMarks) && nextMarks >= 0 && nextMarks <= MAX_MARKS;
+  const withinLimits = Number.isFinite(nextMarks) && nextMarks >= 0 && nextMarks <= maxMarks;
   const canSubmit = validMarks && validReason && withinLimits;
 
   const saveAction = async () => {
     if (!selectedStudent) return;
     if (!canSubmit) {
-      if (!withinLimits) notify('error', `Resulting marks must remain between 0 and ${MAX_MARKS}.`);
+      if (!withinLimits) notify('error', `Resulting marks must remain between 0 and ${maxMarks}.`);
       else notify('error', 'Please complete required fields before saving.');
       return;
     }
@@ -299,7 +308,7 @@ export default function SetDisciplineMarks() {
                 </div>
 
                 {!withinLimits && (
-                  <p className="text-xs font-bold text-red-600">Result must stay between 0 and {MAX_MARKS}.</p>
+                  <p className="text-xs font-bold text-red-600">Result must stay between 0 and {maxMarks}.</p>
                 )}
 
                 <div className="flex flex-wrap gap-2">

@@ -1,0 +1,140 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Montserrat", system-ui, sans-serif;
+  --font-heading: "Montserrat", system-ui, sans-serif;
+  --font-weight-bold: 550;
+
+  /* Align with Babyeyi manager institutional palette */
+  --color-re-navy: #000435;
+  --color-re-navy-light: #0a1860;
+  --color-re-navy-dark: #000228;
+
+  --color-re-gold: #febf10;
+  --color-re-gold-light: #ffd24d;
+  --color-re-gold-dark: #d9a400;
+
+  /* Legacy token used across DOS JSX — maps to clear amber */
+  --color-re-orange: #fbbf24;
+  --color-re-orange-light: #fcd34d;
+  --color-re-orange-dark: #f59e0b;
+
+  --color-re-purple: #9d50bb;
+  --color-re-magenta: #6e48aa;
+
+  --color-re-bg: #ffffff;
+  --color-re-card: #ffffff;
+  --color-re-row: #ffffff;
+  --color-re-text: #0e1f35;
+  --color-re-text-muted: #6b7280;
+
+  --color-re-blue: #3b82f6;
+  --color-re-emerald: #10b981;
+  --color-re-slate: #1e293b;
+
+  --color-re-border-gold: #febf10;
+  --color-re-border-purple: #1e3a5f;
+  --color-re-border-light: #f1f3f6;
+
+  --radius-re-card: 32px;
+  --radius-re-row: 24px;
+  --radius-re-input: 16px;
+
+  --shadow-re-premium: 0 10px 40px -10px rgba(0, 0, 0, 0.08);
+  --shadow-re-row: 0 4px 20px -2px rgba(0, 0, 0, 0.04);
+}
+
+@layer base {
+  html,
+  body {
+    @apply bg-re-bg text-re-text font-sans antialiased;
+    font-family: "Montserrat", system-ui, sans-serif;
+  }
+
+  b,
+  strong {
+    font-weight: 550;
+  }
+}
+
+@layer utilities {
+  .font-black,
+  .font-extrabold,
+  .font-bold {
+    font-weight: 500 !important;
+  }
+
+  .font-semibold {
+    font-weight: 520 !important;
+  }
+
+  .font-medium {
+    font-weight: 500 !important;
+  }
+
+  .font-normal {
+    font-weight: 400 !important;
+  }
+}
+
+@layer components {
+  .btn-assist {
+    @apply flex flex-col items-center justify-center p-6 bg-white border border-black/10 rounded-re-card transition-colors duration-200 hover:bg-re-bg/80 active:scale-[0.99] text-center shadow-sm;
+  }
+
+  .list-row {
+    @apply flex items-center gap-4 bg-white p-5 rounded-re-row shadow-re-row border border-re-border-light transition-all hover:bg-gray-50/50;
+  }
+
+  .bg-re-grad-orange {
+    @apply bg-gradient-to-br from-amber-300 via-amber-400 to-amber-500;
+  }
+
+  .dos-page {
+    @apply bg-white min-h-full font-sans;
+  }
+
+  .bg-re-grad-purple {
+    @apply bg-gradient-to-br from-re-purple via-re-purple to-re-magenta;
+  }
+
+  .shadow-re-glow {
+    @apply shadow-[0_10px_30px_-5px_rgba(254,191,16,0.15)];
+  }
+
+  .shadow-re-premium-purple {
+    @apply shadow-[0_12px_45px_-12px_#9d50bb66];
+  }
+
+  .icon-circle {
+    @apply w-12 h-12 rounded-full flex items-center justify-center font-medium text-white shadow-sm;
+  }
+
+  /* DOS sidebar — thin gold thumb (manager-aligned) */
+  .dos-sidebar-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(254, 191, 16, 0.45) rgba(255, 255, 255, 0.06);
+    scrollbar-gutter: stable;
+  }
+
+  .dos-sidebar-scroll::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .dos-sidebar-scroll::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 9999px;
+    margin: 4px 0;
+  }
+
+  .dos-sidebar-scroll::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, rgba(254, 191, 16, 0.35), rgba(254, 191, 16, 0.2));
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+
+  .dos-sidebar-scroll::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, rgba(254, 191, 16, 0.55), rgba(254, 191, 16, 0.35));
+  }
+}

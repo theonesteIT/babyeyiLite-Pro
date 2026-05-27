@@ -1,13 +1,17 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle, Ban, BarChart2, BadgeCheck, Bell, CheckCircle2,
-  ChevronDown, ChevronRight, Clock, DollarSign, Download, FileSpreadsheet,
-  FileText, Filter, Loader2, Lock, Search, Shield, Sliders, Square,
+  ChevronDown, ChevronRight, Clock, DollarSign, Filter, Loader2, Lock, Search, Shield, Sliders, Square,
   CheckSquare, TrendingUp, Users, X, XCircle, Eye, Calendar,
   Building2, Wallet, ArrowUpRight, MoreVertical, RefreshCw,
 } from 'lucide-react';
 import api from '../services/api';
 import ManagerOchreHeroShell from '../components/ManagerOchreHeroShell';
+import PayrollExportBar from '../../shared/payroll/PayrollExportBar';
+import PayrollPaymentTrackerPanel from '../../shared/payroll/PayrollPaymentTrackerPanel';
+import PayrollWorkspaceTabs from '../../shared/payroll/PayrollWorkspaceTabs';
+import { collectAcademicYears } from '../../shared/payroll/payrollHelpers';
+import { exportPayrollRequestsExcel, exportPayrollRequestsPdf } from '../../shared/payroll/payrollExport';
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DEPARTMENTS = ['All', 'Mathematics', 'Sciences', 'Finance', 'Library', 'ICT', 'Administration', 'Languages', 'Student Affairs'];
@@ -35,20 +39,16 @@ const fmtShort = (v) => {
   return String(n);
 };
 
+/** Rows from accountant_payroll_payments are read-only in manager workflow actions. */
+const isPayrollWorkflowRequest = (row) =>
+  row?.source !== 'accountant_payment' && !String(row?.payrollId || '').startsWith('APAY-');
+
 const STATUS_CFG = {
   Pending:  { badge: 'bg-amber-100 text-amber-800 border-amber-200',  dot: 'bg-amber-500',   row: 'hover:bg-amber-50/40'   },
   Approved: { badge: 'bg-emerald-100 text-emerald-800 border-emerald-200', dot: 'bg-emerald-500', row: 'hover:bg-emerald-50/40' },
   Rejected: { badge: 'bg-red-100 text-red-800 border-red-200',        dot: 'bg-red-500',     row: 'hover:bg-red-50/20'     },
   Paid:     { badge: 'bg-blue-100 text-blue-800 border-blue-200',     dot: 'bg-blue-500',    row: 'hover:bg-blue-50/20'    },
 };
-
-function downloadCsv(rows, filename) {
-  const csv = rows.map((r) => r.map((x) => `"${String(x).replaceAll('"','""')}"`).join(',')).join('\n');
-  const a = Object.assign(document.createElement('a'), {
-    href: URL.createObjectURL(new Blob([csv], { type: 'text/csv' })), download: filename,
-  });
-  a.click();
-}
 
 /* ─── Sub-components ─────────────────────────────────────────────────── */
 function StatusBadge({ status }) {
@@ -93,7 +93,9 @@ function DetailModal({ row, onClose, onDecide, loading }) {
 
   const canSubmitReject = finalReason.trim().length > 0;
 
+  const canWorkflowAction = isPayrollWorkflowRequest(row);
   const warnings = [];
+  if (!canWorkflowAction) warnings.push('This record comes from the accountant payroll ledger (read-only here).');
   if (row.amount > row.finalPayable) warnings.push('Requested amount exceeds final payable salary.');
   if (row.status === 'Rejected' || row.status === 'Paid') warnings.push('This record is locked and cannot be modified.');
 
@@ -132,7 +134,7 @@ function DetailModal({ row, onClose, onDecide, loading }) {
               {[
                 { label: 'Basic Salary',       value: fmt(row.basic),        color: 'text-slate-800' },
                 { label: 'Allowances',         value: `+ ${fmt(row.allowances)}`, color: 'text-emerald-700' },
-                { label: 'Deductions (RSSB)',  value: `− ${fmt(row.deductions)}`, color: 'text-red-600'     },
+                { label: 'Deductions ',  value: `− ${fmt(row.deductions)}`, color: 'text-red-600'     },
                 { label: 'Net Salary',         value: fmt(row.netSalary),    color: 'text-[#000435] font-semibold', divider: true },
                 { label: 'Advance Deduction',  value: `− ${fmt(row.advance)}`,   color: 'text-orange-600'  },
                 { label: 'Final Payable',      value: fmt(row.finalPayable), color: 'text-emerald-700 font-semibold text-base', divider: true },
@@ -199,7 +201,7 @@ function DetailModal({ row, onClose, onDecide, loading }) {
           </div>
 
           {/* Action area */}
-          {(row.status === 'Pending' || row.status === 'Approved') && !action && (
+          {canWorkflowAction && (row.status === 'Pending' || row.status === 'Approved') && !action && (
             <div className="flex flex-wrap gap-3">
               {row.status === 'Pending' && (
                 <button onClick={() => setAction('approve')} className="flex-1 h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-[11px] uppercase tracking-widest inline-flex items-center justify-center gap-2 transition active:scale-95">
@@ -398,7 +400,22 @@ export default function Payroll() {
   const [toast,       setToast]       = useState({ type: '', message: '' });
   const [notifications, setNotifications] = useState([]);
   const [showNotif, setShowNotif] = useState(false);
+  const [workspaceTab, setWorkspaceTab] = useState('requests');
   const notifRef = useRef(null);
+
+  const schoolName = useMemo(() => {
+    try {
+      const m = JSON.parse(localStorage.getItem('manager') || '{}');
+      return m?.school?.name || '';
+    } catch {
+      return '';
+    }
+  }, []);
+
+  const trackerYearOptions = useMemo(
+    () => collectAcademicYears(requests, ['2024', '2025', '2026', '2027', '2028']),
+    [requests],
+  );
   const roleTokens = useMemo(() => {
     const set = new Set();
     const add = (v) => {
@@ -445,8 +462,12 @@ export default function Payroll() {
       params.page = activePage;
       params.limit = activeLimit;
       const res = await api.get('/manager/payroll-requests', { params });
-      setRequests(res.data?.data || []);
-      setPagination(res.data?.pagination || { page: activePage, limit: activeLimit, total: (res.data?.data || []).length, totalPages: 1 });
+      if (res.data?.success === false) {
+        throw new Error(res.data?.message || 'Failed to load payroll requests');
+      }
+      const rows = Array.isArray(res.data?.data) ? res.data.data : [];
+      setRequests(rows);
+      setPagination(res.data?.pagination || { page: activePage, limit: activeLimit, total: rows.length, totalPages: 1 });
       setSelected([]);
     } catch (e) {
       notify('error', e?.response?.data?.message || e?.message || 'Failed to load payroll requests');
@@ -475,6 +496,11 @@ export default function Payroll() {
 
   /* decide */
   const decide = async (id, decision, reason = '') => {
+    const row = requests.find((r) => r.id === id);
+    if (row && !isPayrollWorkflowRequest(row)) {
+      notify('error', 'This record was created in the accountant payroll ledger and cannot be updated from manager workflow.');
+      return;
+    }
     setLoading((p) => ({ ...p, action: true }));
     try {
       await api.patch(`/manager/payroll-requests/${id}/decision`, { decision, reason });
@@ -537,41 +563,6 @@ export default function Payroll() {
 
   /* filtered rows */
   const filtered = useMemo(() => requests, [requests]);
-  const paymentTrackerRows = useMemo(() => {
-    const map = new Map();
-    filtered.forEach((r) => {
-      const key = `${r.staffUserId}__${r.month}__${r.term}__${r.year}`;
-      const cur = map.get(key) || {
-        key,
-        staffName: r.staffName,
-        staffCode: r.staffCode,
-        month: r.month,
-        term: r.term,
-        year: r.year,
-        finalPayable: Number(r.finalPayable || 0),
-        paidAmount: 0,
-        hasPending: false,
-        hasApproved: false,
-        hasRejected: false,
-      };
-      cur.finalPayable = Math.max(cur.finalPayable, Number(r.finalPayable || 0));
-      if (r.status === 'Paid') cur.paidAmount += Number(r.amount || 0);
-      if (r.status === 'Pending') cur.hasPending = true;
-      if (r.status === 'Approved') cur.hasApproved = true;
-      if (r.status === 'Rejected') cur.hasRejected = true;
-      map.set(key, cur);
-    });
-    return Array.from(map.values()).map((r) => {
-      const remaining = Math.max(0, r.finalPayable - r.paidAmount);
-      let status = 'Pending Approval';
-      if (r.hasPending) status = 'Pending Approval';
-      else if (r.hasApproved) status = 'Approved';
-      else if (remaining === 0 && r.paidAmount > 0) status = 'Fully Paid';
-      else if (r.paidAmount > 0 && remaining > 0) status = 'Partially Paid';
-      else if (r.hasRejected) status = 'Rejected';
-      return { ...r, remaining, status };
-    });
-  }, [filtered]);
 
   /* stats */
   const stats = useMemo(() => {
@@ -593,25 +584,18 @@ export default function Payroll() {
   const toggleAll    = () => setSelected(allSelected ? [] : filtered.map((r) => r.id));
   const toggleRow    = (id) => setSelected((p) => p.includes(id) ? p.filter((x) => x !== id) : [...p, id]);
 
-  const exportCsv = () => downloadCsv(
-    [['Staff','Code','Role','Dept','Month','Term','Year','Net Salary','Amount','Status'],
-     ...filtered.map((r) => [r.staffName,r.staffCode,r.role,r.department,r.month,r.term,r.year,r.netSalary,r.amount,r.status])],
-    'payroll-report.csv',
-  );
+  const exportRequestsExcel = () => exportPayrollRequestsExcel({
+    rows: filtered,
+    portalLabel: 'School Manager — Payroll requests',
+    filename: `manager-payroll-requests-${Date.now()}.xlsx`,
+  });
 
-  const exportPdf = async () => {
-    const { jsPDF } = await import('jspdf');
-    const doc = new jsPDF();
-    doc.setFont('helvetica','bold'); doc.setFontSize(16);
-    doc.text('School Manager — Payroll Report', 14, 20);
-    doc.setFont('helvetica','normal'); doc.setFontSize(9);
-    let y = 34;
-    filtered.forEach((r) => {
-      doc.text(`${r.staffName} | ${r.month} ${r.year} | ${fmt(r.amount)} | ${r.status}`, 14, y);
-      y += 7; if (y > 280) { doc.addPage(); y = 20; }
-    });
-    doc.save('payroll-report.pdf');
-  };
+  const exportRequestsPdf = () => exportPayrollRequestsPdf({
+    rows: filtered,
+    portalLabel: 'School Manager — Payroll requests',
+    schoolName,
+    filename: `manager-payroll-requests-${Date.now()}.pdf`,
+  });
 
   /* ─ Render ─────────────────────────────────────────────────────────── */
   return (
@@ -634,22 +618,14 @@ export default function Payroll() {
         HeroIcon={Wallet}
         headerRight={(
           <>
-            <button
-              type="button"
-              onClick={exportCsv}
-              className="h-9 px-3 rounded-xl border border-white/25 bg-white/10 text-[10px] font-semibold uppercase tracking-wider text-white inline-flex items-center gap-1.5 hover:bg-white/15 transition-colors"
-            >
-              <FileSpreadsheet size={12} />
-              CSV
-            </button>
-            <button
-              type="button"
-              onClick={exportPdf}
-              className="h-9 px-3 rounded-xl border border-white/25 bg-white/10 text-[10px] font-semibold uppercase tracking-wider text-white inline-flex items-center gap-1.5 hover:bg-white/15 transition-colors"
-            >
-              <FileText size={12} />
-              PDF
-            </button>
+            {workspaceTab === 'requests' && (
+              <PayrollExportBar
+                compact
+                disabled={!filtered.length}
+                onExportExcel={exportRequestsExcel}
+                onExportPdf={exportRequestsPdf}
+              />
+            )}
             <button
               type="button"
               onClick={() => setShowAnalytics((p) => !p)}
@@ -720,24 +696,30 @@ export default function Payroll() {
 
         {/* ── Filters ─────────────────────────────────────────────────── */}
         <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-          <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-5 py-3.5 border-b border-slate-100">
-            <div className="relative flex-1 min-w-[200px] max-w-xs">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                value={filters.search}
-                onChange={(e) => setFilters((p) => ({ ...p, search: e.target.value }))}
-                className="h-9 w-full pl-9 pr-3 rounded-xl border border-slate-200 text-xs font-semibold bg-slate-50 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:bg-white transition"
-                placeholder="Search by name or staff ID…"
-              />
+          <div className="px-4 sm:px-5 py-3.5 border-b border-slate-100 space-y-3">
+            <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+              <div className="relative flex-1 min-w-0 max-w-xl">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  value={filters.search}
+                  onChange={(e) => setFilters((p) => ({ ...p, search: e.target.value }))}
+                  className="h-10 w-full pl-9 pr-3 rounded-xl border border-slate-200 text-xs font-semibold bg-slate-50 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:bg-white transition"
+                  placeholder="Search by name or staff ID…"
+                />
+              </div>
+              <PayrollWorkspaceTabs active={workspaceTab} onChange={setWorkspaceTab} className="w-full lg:w-auto shrink-0" />
+              {workspaceTab === 'requests' && (
+                <button
+                  type="button"
+                  onClick={() => setShowFilters((p) => !p)}
+                  className={`h-10 px-3 rounded-xl border text-[10px] font-semibold uppercase tracking-wider inline-flex items-center justify-center gap-1.5 transition shrink-0 ${showFilters ? 'bg-[#000435] border-[#000435] text-white' : 'border-slate-200 text-slate-600 hover:border-amber-400'}`}
+                >
+                  <Sliders size={12} /> Filters {showFilters ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+                </button>
+              )}
             </div>
-            <button
-              onClick={() => setShowFilters((p) => !p)}
-              className={`h-9 px-3 rounded-xl border text-[10px] font-semibold uppercase tracking-wider inline-flex items-center gap-1.5 transition ${showFilters ? 'bg-[#000435] border-[#000435] text-white' : 'border-slate-200 text-slate-600 hover:border-amber-400'}`}
-            >
-              <Sliders size={12} /> Filters {showFilters ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
-            </button>
           </div>
-          {showFilters && (
+          {workspaceTab === 'requests' && showFilters && (
             <div className="px-4 sm:px-5 py-3 bg-slate-50 border-b border-slate-100 flex flex-wrap gap-2">
               {[
                 { key: 'month',      opts: ['All', ...MONTHS],                         label: 'Month'  },
@@ -748,6 +730,7 @@ export default function Payroll() {
               ].map(({ key, opts, label }) => (
                 <select
                   key={key}
+                  aria-label={label}
                   value={filters[key]}
                   onChange={(e) => setFilters((p) => ({ ...p, [key]: e.target.value }))}
                   className="h-8 px-2.5 rounded-lg border border-slate-200 text-[11px] font-bold bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-400"
@@ -762,8 +745,7 @@ export default function Payroll() {
             </div>
           )}
 
-          {/* Bulk actions bar */}
-          {someSelected && (
+          {workspaceTab === 'requests' && someSelected && (
             <div className="flex flex-wrap items-center gap-2 px-4 sm:px-5 py-2.5 bg-amber-50 border-b border-amber-100">
               <span className="text-xs font-semibold text-amber-800">{selected.length} selected</span>
               <div className="flex flex-wrap gap-2 ml-2">
@@ -775,7 +757,23 @@ export default function Payroll() {
             </div>
           )}
 
-          {/* Table */}
+          {workspaceTab === 'tracker' && (
+            <PayrollPaymentTrackerPanel
+              requests={requests}
+              loading={loading.fetch}
+              portalLabel="School Manager — Payment tracker"
+              schoolName={schoolName}
+              academicYearOptions={trackerYearOptions}
+              onFinishPayment={openFinishPaymentModal}
+              canFinishPayment={canActionFinishPayment}
+              showFinishAction
+              finishActionLabel="Mark paid"
+              finishActionHint="Approve pending requests first"
+            />
+          )}
+
+          {workspaceTab === 'requests' && (
+          <>
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
               <thead className="bg-slate-50 text-[9px] uppercase tracking-[0.15em] text-slate-400 border-b border-slate-200">
@@ -857,7 +855,7 @@ export default function Payroll() {
                           >
                             <Eye size={12} className="text-slate-500" />
                           </button>
-                          {row.status === 'Pending' && (
+                          {row.status === 'Pending' && isPayrollWorkflowRequest(row) && (
                             <>
                               <button onClick={() => decide(row.id, 'approve')} disabled={loading.action}
                                 className="h-7 px-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[9px] font-semibold uppercase tracking-wider disabled:opacity-40 transition active:scale-95">
@@ -869,7 +867,7 @@ export default function Payroll() {
                               </button>
                             </>
                           )}
-                          {row.status === 'Approved' && (
+                          {row.status === 'Approved' && isPayrollWorkflowRequest(row) && (
                             <button onClick={() => decide(row.id, 'pay')} disabled={loading.action}
                               className="h-7 px-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[9px] font-semibold uppercase tracking-wider disabled:opacity-40 transition active:scale-95">
                               Pay
@@ -887,7 +885,6 @@ export default function Payroll() {
             </table>
           </div>
 
-          {/* Table footer */}
           {filtered.length > 0 && (
             <div className="px-4 sm:px-5 py-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
               <p className="text-[11px] text-slate-400 font-semibold">
@@ -924,58 +921,8 @@ export default function Payroll() {
               </div>
             </div>
           )}
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-          <div className="px-4 sm:px-5 py-3.5 border-b border-slate-100">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">School Manager</p>
-            <h3 className="text-base font-semibold text-[#000435]">Payroll Payment Tracker</h3>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead className="bg-slate-50 text-[9px] uppercase tracking-[0.15em] text-slate-400 border-b border-slate-200">
-                <tr>
-                  <th className="px-4 py-3">Staff</th>
-                  <th className="px-4 py-3">Month</th>
-                  <th className="px-4 py-3">Final Payable</th>
-                  <th className="px-4 py-3">Paid</th>
-                  <th className="px-4 py-3">Remaining</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {paymentTrackerRows.length === 0 ? (
-                  <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400">No payroll tracker data.</td></tr>
-                ) : paymentTrackerRows.map((r) => (
-                  <tr key={`mgr-track-${r.key}`} className="hover:bg-slate-50/60 transition">
-                    <td className="px-4 py-3.5">
-                      <p className="font-bold text-[#000435]">{r.staffName}</p>
-                      <p className="text-[10px] text-slate-400 font-mono">{r.staffCode}</p>
-                    </td>
-                    <td className="px-4 py-3.5">{r.month} {r.year} · {r.term}</td>
-                    <td className="px-4 py-3.5 font-semibold text-emerald-700">{fmt(r.finalPayable)}</td>
-                    <td className="px-4 py-3.5 font-semibold text-blue-700">{fmt(r.paidAmount)}</td>
-                    <td className="px-4 py-3.5 font-semibold text-orange-600">{fmt(r.remaining)}</td>
-                    <td className="px-4 py-3.5">
-                      <StatusBadge status={r.status === 'Pending Approval' ? 'Pending' : (r.status === 'Fully Paid' ? 'Paid' : r.status)} />
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <div className="flex justify-end">
-                        <button
-                          onClick={() => openFinishPaymentModal(r)}
-                          disabled={r.remaining <= 0 || r.status === 'Pending Approval' || r.status === 'Approved'}
-                          className="h-8 px-3 rounded-lg bg-amber-500 hover:bg-amber-400 text-[#000435] text-[10px] font-semibold uppercase tracking-wider disabled:opacity-40 disabled:cursor-not-allowed transition active:scale-95"
-                        >
-                          {canActionFinishPayment ? 'Finish Payment' : 'View'}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          </>
+          )}
         </div>
 
         {/* ── Pending Alerts ──────────────────────────────────────────── */}

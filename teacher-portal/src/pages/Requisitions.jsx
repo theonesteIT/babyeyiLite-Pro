@@ -27,6 +27,7 @@ import {
   Send,
 } from 'lucide-react';
 import { teacherInnerSearchCls, teacherInnerSelectCls } from '../utils/teacherGradebookUi';
+import TeacherOrangeHero from '../components/TeacherOrangeHero';
 
 function fmtMoney(v) {
   return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'RWF', maximumFractionDigits: 0 }).format(Number(v) || 0);
@@ -435,42 +436,50 @@ export default function Requisitions() {
 
   return (
     <div className="animate-in fade-in duration-500 bg-re-bg min-h-screen pb-24">
-      <div className="relative w-full min-h-[200px] overflow-hidden">
-        <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(8,17,31,0.92),rgba(18,35,58,0.84),rgba(33,49,74,0.78))] z-10 backdrop-blur-[2px]" />
-        <div className="absolute inset-0 z-10 bg-[radial-gradient(circle_at_top_right,rgba(255,140,0,0.20),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(255,184,0,0.10),transparent_24%)]"></div>
-        <img src="/teacher.jpg" alt="" className="absolute inset-0 w-full h-full object-cover scale-105 opacity-90" />
-        <div className="relative z-20 max-w-[1200px] mx-auto px-6 py-12 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-[10px] font-bold text-re-orange opacity-80 mb-2">Procurement</p>
-            <h1 className="text-3xl md:text-4xl font-bold text-white flex items-center gap-3">
-              <FileSpreadsheet className="text-re-orange shrink-0" size={32} />
-              My requisitions
-            </h1>
-            <p className="text-[12px] font-bold text-white/75 mt-2 max-w-lg">
-              Submit requests for supplies or services. Your school accountant reviews and approves them here on Babyeyi.
-            </p>
-          </div>
-          <div className="flex gap-2">
+      <TeacherOrangeHero
+        title={`Welcome back, ${teacher?.first_name || 'Teacher'}`}
+        subtitle="Submit requests for supplies or services. Your school accountant reviews and approves them here on Babyeyi."
+        rightSlot={
+          <>
             <button
               type="button"
               onClick={() => load()}
-              className="p-2.5 rounded-xl bg-white/10 border border-white/20 text-white hover:bg-white/15"
+              className="inline-flex items-center justify-center rounded-xl border border-white/25 bg-white/10 w-11 h-11 text-white hover:bg-white/20 transition-all"
+              title="Refresh"
+              aria-label="Refresh requisitions"
             >
               <RefreshCw size={16} />
             </button>
             <button
               type="button"
               onClick={() => setModal(true)}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-white font-bold text-[11px] shadow-lg"
-              style={{ background: 'linear-gradient(135deg,#FF8C00,#FF5E00)' }}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-white font-bold text-[11px] border border-white/25 bg-white/15 hover:bg-white/25 transition-all"
             >
               <Plus size={16} /> New request
             </button>
-          </div>
+          </>
+        }
+      >
+        <div className="flex md:hidden gap-2">
+          <button
+            type="button"
+            onClick={() => load()}
+            className="inline-flex items-center justify-center rounded-xl border border-white/25 bg-white/10 w-11 h-11 text-white"
+            aria-label="Refresh requisitions"
+          >
+            <RefreshCw size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setModal(true)}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-white font-bold text-[11px] border border-white/25 bg-white/15"
+          >
+            <Plus size={16} /> New request
+          </button>
         </div>
-      </div>
+      </TeacherOrangeHero>
 
-      <div className="max-w-[1200px] mx-auto px-6 -mt-8 relative z-30">
+      <div className="max-w-[1200px] mx-auto px-6 -mt-10 relative z-30">
         {error && (
           <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-800">{error}</div>
         )}

@@ -12,7 +12,15 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getProEntryUrl, shouldUseProApp } from '../../utils/proAppEntry';
+import { getTeacherPortalUrl, isInternalTeacherPortalUrl, shouldUseTeacherPortal } from '../../utils/teacherPortalEntry';
 import { setPostLogoutLoginPath } from '../../utils/postLogoutLoginPath';
+import {
+  getLiteStaffHomePath,
+  isLiteDisciplineStaff,
+  LITE_DISCIPLINE_HOME,
+  LITE_ROLE_HOME,
+  LITE_SHULE_AVANCE_ONLY,
+} from '../../utils/liteStaffEntry';
 import loginShulemanagerLogo from '../../assets/login-logo.png';
 import loginDecor from '../../assets/login-bg-removebg.png';
 
@@ -50,18 +58,34 @@ function loadStaffLoginPrefs() {
   }
 }
 
+/** Lite portal staff — role-specific shells; teachers use teacher-portal instead. */
+function liteStaffDestination(roleCode, sessionUser) {
+  const rc = String(roleCode || '').toUpperCase();
+  if (shouldUseTeacherPortal(sessionUser, rc)) {
+    const url = getTeacherPortalUrl('/');
+    if (!url) return null;
+    return isInternalTeacherPortalUrl(url) ? { path: url } : { external: url };
+  }
+  const home = getLiteStaffHomePath(rc, sessionUser);
+  if (home) return { path: home };
+  return null;
+}
+
 const DASHBOARD = {
   SUPER_ADMIN:            '/superadmin/dashboard',
   FULL_SYSTEM_CONTROLLER: '/superadmin/control',
   SCHOOL_ADMIN:           '/school-babyeyi-dashboard',
   SCHOOL_MANAGER:         '/school-babyeyi-dashboard',
-  DOS:                    '/dos',
+  DOS:                    '/lite/dos',
   HOD:                    '/hod/students',
   TEACHER:                '/teacher/dashboard',
   GATE_OFFICER:           '/gate/scanner',
   LIBRARIAN:              '/library/dashboard',
   STORE_MANAGER:          '/store/dashboard',
-  ACCOUNTANT:             '/accountant/dashboard',
+  ACCOUNTANT:             '/lite/accountant',
+  DISCIPLINE:             LITE_DISCIPLINE_HOME,
+  DISCIPLINE_STAFF:       LITE_DISCIPLINE_HOME,
+  HEAD_OF_DISCIPLINE:     LITE_DISCIPLINE_HOME,
   STUDENT:                '/parents',
   PARENT:                 '/parents',
   NESA_ADMIN:             '/nesa-babyeyi-dashboard',
@@ -91,6 +115,7 @@ const Login = ({
   const navigate = useNavigate();
   const auth = useAuth();
   const isSchoolManager = variant === 'schoolManager';
+  const isProPortal = portalBrand === 'pro' && isSchoolManager;
 
   useEffect(() => {
     fetch(`${API}/api/auth/system-config/public`, { credentials: 'include' })
@@ -100,27 +125,66 @@ const Login = ({
   }, []);
 
   useEffect(() => {
+    if (forceLitePortal) {
+      setPostLogoutLoginPath('/login/lite');
+    } else if (isSchoolManager && portalBrand === 'pro') {
+      setPostLogoutLoginPath('/login/pro');
+    }
+  }, [forceLitePortal, isSchoolManager, portalBrand]);
+
+  useEffect(() => {
     if (auth.loading || !auth.isLoggedIn || !auth.role || !auth.user || auth.user === false) return;
     const roleCode = String(auth.role).toUpperCase();
 
-    if (
-      forceLitePortal && shouldUseProApp(auth.user)
-      && (roleCode === 'SCHOOL_ADMIN' || roleCode === 'SCHOOL_MANAGER')
-    ) {
+    if (forceLitePortal && shouldUseProApp(auth.user) && roleCode) {
       navigate('/login/pro', { replace: true });
       return;
     }
-    if (isSchoolManager && portalBrand === 'pro' && (roleCode === 'SCHOOL_ADMIN' || roleCode === 'SCHOOL_MANAGER') && !shouldUseProApp(auth.user)) {
+    if (isProPortal && !shouldUseProApp(auth.user)) {
       navigate('/login/lite', { replace: true });
       return;
     }
-    if (!forceLitePortal && shouldUseProApp(auth.user)) {
+    if (isProPortal && shouldUseProApp(auth.user)) {
       const proUrl = getProEntryUrl(roleCode);
-      if (proUrl) { window.location.replace(proUrl); return; }
+      if (proUrl) {
+        setPostLogoutLoginPath('/login/pro');
+        window.location.replace(proUrl);
+        return;
+      }
+    }
+    if (!forceLitePortal && !isProPortal && shouldUseProApp(auth.user)) {
+      const proUrl = getProEntryUrl(roleCode);
+      if (proUrl) {
+        setPostLogoutLoginPath('/login/pro');
+        window.location.replace(proUrl);
+        return;
+      }
+    }
+    if (forceLitePortal || isLiteDisciplineStaff(auth.user)) {
+      const liteDest = liteStaffDestination(roleCode, auth.user);
+      if (liteDest?.external) {
+        window.location.replace(liteDest.external);
+        return;
+      }
+      if (liteDest?.path) {
+        navigate(liteDest.path, { replace: true });
+        return;
+      }
+    }
+    if (!forceLitePortal && shouldUseTeacherPortal(auth.user, roleCode)) {
+      const url = getTeacherPortalUrl('/');
+      if (url) {
+        if (isInternalTeacherPortalUrl(url)) {
+          navigate(url, { replace: true });
+        } else {
+          window.location.replace(url);
+        }
+        return;
+      }
     }
     const target = DASHBOARD[roleCode];
     if (target) navigate(target, { replace: true });
-  }, [auth.loading, auth.isLoggedIn, auth.role, auth.user, navigate, forceLitePortal, isSchoolManager, portalBrand]);
+  }, [auth.loading, auth.isLoggedIn, auth.role, auth.user, navigate, forceLitePortal, isProPortal, isSchoolManager, portalBrand]);
 
   const [prefsLoaded] = useState(() => {
     if (isSchoolManager) {
@@ -155,7 +219,10 @@ const Login = ({
     }
     const schoolCodeTrim = form.schoolCode.trim().toUpperCase();
     if (isSchoolManager) {
-      if (!form.identifier.trim()) { notify('Enter your school manager email'); return; }
+      if (!form.identifier.trim()) {
+        notify(isProPortal ? 'Enter your work email' : 'Enter your school manager email');
+        return;
+      }
       if (!schoolCodeTrim) { notify('Enter your school code (e.g. 04001 — same as in the directory).'); return; }
     } else if (!form.identifier.trim()) {
       notify('Enter your email or username');
@@ -205,15 +272,6 @@ const Login = ({
 
       const roleCode = json.role ? String(json.role).toUpperCase() : null;
 
-      if (isSchoolManager && roleCode !== 'SCHOOL_ADMIN' && roleCode !== 'SCHOOL_MANAGER') {
-        await auth.logout();
-        notify(
-          'This page is for school managers only. Teachers and other staff should use Staff / Lite login.',
-          'error'
-        );
-        return;
-      }
-
       if (rememberMe) {
         if (isSchoolManager) {
           localStorage.setItem(SM_LOGIN_PREFS_KEY, JSON.stringify({
@@ -233,28 +291,27 @@ const Login = ({
       const sessionUser = await auth.login();
       setAttempts(0);
 
-      if (
-        forceLitePortal && sessionUser && shouldUseProApp(sessionUser)
-        && roleCode && (roleCode === 'SCHOOL_ADMIN' || roleCode === 'SCHOOL_MANAGER')
-      ) {
+      if (roleCode === 'TEACHER') {
+        try {
+          localStorage.setItem('teacher_logged_in', 'true');
+        } catch { /* ignore */ }
+      }
+
+      if (forceLitePortal && sessionUser && shouldUseProApp(sessionUser) && roleCode) {
         await auth.logout();
-        notify('Not allowed: your school uses ShuleManager Pro. Sign in from the Pro portal instead.');
+        notify('Your school uses ShuleManager Pro. Sign in from the Pro portal.');
         return;
       }
 
-      if (
-        isSchoolManager && portalBrand === 'pro' && sessionUser && roleCode
-        && (roleCode === 'SCHOOL_ADMIN' || roleCode === 'SCHOOL_MANAGER')
-        && !shouldUseProApp(sessionUser)
-      ) {
+      if (isProPortal && sessionUser && !shouldUseProApp(sessionUser)) {
         await auth.logout();
-        notify('Not allowed: your school is on ShuleManager Lite. Use the Lite portal to sign in.');
+        notify('Your school is on ShuleManager Lite. Use the Lite portal to sign in.');
         return;
       }
 
       if (forceLitePortal) {
         setPostLogoutLoginPath('/login/lite');
-      } else if (isSchoolManager && portalBrand === 'pro') {
+      } else if (isProPortal) {
         setPostLogoutLoginPath('/login/pro');
       } else {
         setPostLogoutLoginPath('/login');
@@ -262,17 +319,67 @@ const Login = ({
 
       notify('Welcome! Redirecting…', 'success');
 
-      if (!forceLitePortal && sessionUser && shouldUseProApp(sessionUser) && roleCode) {
+      if (isProPortal && sessionUser && shouldUseProApp(sessionUser) && roleCode) {
         const proUrl = getProEntryUrl(roleCode);
-        if (proUrl) { setTimeout(() => window.location.assign(proUrl), 400); return; }
+        if (proUrl) {
+          setTimeout(() => window.location.assign(proUrl), 400);
+          return;
+        }
+        await auth.logout();
+        notify('This account cannot sign in through ShuleManager Pro.');
+        return;
+      }
+
+      if (!forceLitePortal && !isProPortal && sessionUser && shouldUseProApp(sessionUser) && roleCode) {
+        const proUrl = getProEntryUrl(roleCode);
+        if (proUrl) {
+          setPostLogoutLoginPath('/login/pro');
+          setTimeout(() => window.location.assign(proUrl), 400);
+          return;
+        }
       }
       if (roleCode === 'SCHOOL_ADMIN' || roleCode === 'SCHOOL_MANAGER') {
         setTimeout(() => navigate(DASHBOARD.SCHOOL_ADMIN, { replace: true }), 900);
         return;
       }
+      if (forceLitePortal || isLiteDisciplineStaff(sessionUser)) {
+        const liteDest = liteStaffDestination(roleCode, sessionUser);
+        if (liteDest?.external) {
+          setTimeout(() => window.location.assign(liteDest.external), 400);
+          return;
+        }
+        if (liteDest?.path) {
+          setPostLogoutLoginPath('/login/lite');
+          setTimeout(() => navigate(liteDest.path, { replace: true }), 900);
+          return;
+        }
+      }
+      if (shouldUseTeacherPortal(sessionUser, roleCode)) {
+        const url = getTeacherPortalUrl('/');
+        if (url) {
+          if (isInternalTeacherPortalUrl(url)) {
+            setTimeout(() => navigate(url, { replace: true }), 900);
+          } else {
+            setTimeout(() => window.location.assign(url), 400);
+          }
+          return;
+        }
+      }
       let dest = json.redirect || (roleCode && DASHBOARD[roleCode]) || '/';
       if (dest === '/admin/dashboard' || dest === '/school-admin/dashboard') dest = DASHBOARD.SCHOOL_ADMIN;
+      if (dest === '/accountant/dashboard' || dest === '/accountant' || String(dest).startsWith('/accountant/')) {
+        dest = DASHBOARD.ACCOUNTANT;
+      }
+      if (dest === '/discipline' || String(dest).startsWith('/discipline/')) {
+        dest = DASHBOARD.DISCIPLINE;
+      }
       if (dest === '/login') { const mapped = roleCode && DASHBOARD[roleCode]; if (mapped) dest = mapped; }
+      if (roleCode === 'ACCOUNTANT' || dest === DASHBOARD.ACCOUNTANT) {
+        setPostLogoutLoginPath('/login/lite');
+      }
+      if (isLiteDisciplineStaff(sessionUser) || dest === DASHBOARD.DISCIPLINE) {
+        setPostLogoutLoginPath('/login/lite');
+      }
       setTimeout(() => navigate(dest, { replace: true }), 900);
 
     } catch (err) {
@@ -775,8 +882,8 @@ const Login = ({
               )}
             </h1>
             <p className="lx-sub">
-              {portalBrand === 'lite' && 'Sign in on BabyeyiSystem (Lite). Schools on ShuleManager Pro must use the Pro portal.'}
-              {portalBrand === 'pro' && 'School manager sign-in — school code required. Lite-only schools cannot use this page.'}
+              {portalBrand === 'lite' && ''}
+              {portalBrand === 'pro' && ''}
               {!portalBrand && 'Sign in to continue to your portal'}
             </p>
 
@@ -799,7 +906,7 @@ const Login = ({
 
               <div className="lx-field">
                 <label className="lx-label" htmlFor="identifier">
-                  {isSchoolManager ? 'Manager email' : 'Email / Username / Staff ID'}
+                  {isProPortal ? 'Work email' : isSchoolManager ? 'Manager email' : 'Email / Username / Staff ID'}
                 </label>
                 <div className="lx-iw">
                   <span className="lx-icon"><Mail size={15}/></span>
@@ -807,7 +914,7 @@ const Login = ({
                     id="identifier" name="identifier" className="lx-input" type={isSchoolManager ? 'email' : 'text'}
                     value={form.identifier} disabled={ui.loading}
                     onChange={e => setForm(p => ({...p, identifier: e.target.value}))}
-                    placeholder={isSchoolManager ? 'manager@school.rw' : 'admin@school.rw'}
+                    placeholder={isProPortal ? 'staff@school.rw' : isSchoolManager ? 'manager@school.rw' : 'admin@school.rw'}
                     autoComplete={isSchoolManager ? 'email' : 'username'}
                   />
                 </div>

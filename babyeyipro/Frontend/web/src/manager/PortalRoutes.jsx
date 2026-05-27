@@ -17,9 +17,9 @@ import RecordMarks from './pages/RecordMarks'
 import ViewMarks from './pages/ViewMarks'
 import Registry from './pages/Registry'
 import FinanceCenter from './pages/FinanceCenter'
+import SchoolBudgetManagement from './pages/budget/SchoolBudgetManagement'
 import FeePayments from './pages/FeePayments'
 import BabyeyiWizard from './pages/BabyeyiWizard'
-import HRCentral from './pages/HRCentral'
 import Payroll from './pages/Payroll'
 import StaffPayroll from './pages/StaffPayroll'
 import AcademicReports from './pages/AcademicReports'
@@ -37,6 +37,7 @@ import SmartSchoolHardwarePage from './pages/SmartSchoolHardwarePage'
 import StaffSmartAccessPage from './pages/StaffSmartAccessPage'
 import ChatCenter from '../shared/pages/ChatCenter'
 import AuditCenter from './pages/AuditCenter'
+import HRCentral from './pages/HRCentral'
 import StockReports from './pages/StockReports'
 import LibraryReports from './pages/LibraryReports'
 import ManagerProfile from './pages/ManagerProfile'
@@ -117,10 +118,20 @@ function ManagerRoutesInner() {
       <Route path="marks/view" element={<ProtectedRoute title="View Student Marks"><ViewMarks /></ProtectedRoute>} />
       <Route path="marks/record" element={<ProtectedRoute title="Record Marks"><RecordMarks /></ProtectedRoute>} />
       <Route path="finance" element={<ProtectedRoute title="Finance Center"><FinanceCenter /></ProtectedRoute>} />
-      <Route path="hr" element={<ProtectedRoute title="HRCentral"><HRCentral /></ProtectedRoute>} />
+      <Route
+        path="hr"
+        element={
+          <ProtectedRoute title="HR Central">
+            <SchoolConsoleGate>
+              <HRCentral />
+            </SchoolConsoleGate>
+          </ProtectedRoute>
+        }
+      />
       <Route path="payroll" element={<ProtectedRoute title="Payroll"><Payroll /></ProtectedRoute>} />
       <Route path="my-payroll" element={<ProtectedRoute title="My Payroll"><StaffPayroll /></ProtectedRoute>} />
       <Route path="finance/payments" element={<ProtectedRoute title="Student Fee Payments"><FeePayments /></ProtectedRoute>} />
+      <Route path="finance/budgets" element={<ProtectedRoute title="School Budget Management"><SchoolBudgetManagement /></ProtectedRoute>} />
       <Route path="finance/wizard" element={<ProtectedRoute title="Babyeyi Wizard"><BabyeyiWizard /></ProtectedRoute>} />
 
       <Route path="reports/academic" element={<ProtectedRoute title="Academic Reports"><AcademicReports /></ProtectedRoute>} />

@@ -19,7 +19,7 @@ const path           = require('path');
 const fs             = require('fs');
 const http           = require('http');
 const { Server }     = require('socket.io');
-require('dotenv').config();
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const { testConnection, promisePool } = require('./config/database');
 const { validateEnvironment } = require('./config/env.js');
@@ -1027,6 +1027,14 @@ const startServer = async () => {
 ║  POST /api/chat/threads/:id/messages→ send chat message     ║
 ╚══════════════════════════════════════════════════════════════╝`);
     });
+
+    try {
+      const ruleScheduler = require('./BabyeyiRoutes/feeReminderRuleScheduler');
+      ruleScheduler.startFeeReminderRuleScheduler(60_000);
+      console.log('⏰  Fee reminder auto-rules scheduler active (checks every 60s)');
+    } catch (schedErr) {
+      console.warn('⚠️  Fee reminder scheduler not started:', schedErr.message);
+    }
   } catch (err) {
     console.error('❌  Failed to start:', err.message);
     process.exit(1);

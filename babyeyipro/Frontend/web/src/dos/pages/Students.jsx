@@ -8,8 +8,9 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 import ConductMarksModal from '../components/ConductMarksModal';
-// import DosOchreHero from '../components/DosOchreHero';
+import TeacherOrangeHero from '../../shared/components/TeacherOrangeHero';
 import { PORTAL } from '../config/portal';
+import { useAuth } from '../context/AuthContext';
 
 // ── Student Detail Modal (Drawer Style) ──────────────────────────────────────
 const StudentModal = ({ student, onClose }) => {
@@ -163,6 +164,7 @@ const StudentModal = ({ student, onClose }) => {
 };
 
 const Students = () => {
+    const { teacher } = useAuth();
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedStudent, setSelectedStudent] = useState(null);
     const [openDropdownId, setOpenDropdownId] = useState(null);
@@ -233,7 +235,7 @@ const Students = () => {
     );
 
     return (
-        <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen">
+        <div className="animate-in fade-in duration-700 bg-white min-h-screen">
             <StudentModal
                 student={selectedStudent}
                 onClose={(openConduct) => {
@@ -285,15 +287,12 @@ const Students = () => {
                 </div>, document.body
             )}
 
-            {/* <DosOchreHero
-                eyebrow="Student registry"
-                titleLine="Students"
-                titleAccent="list"
-                subtitle={`Rosters and analytics for ${PORTAL.roleLabel.toLowerCase()} oversight.`}
-                icon={Users}
-            /> */}
+            <TeacherOrangeHero
+                title={`Welcome back, ${teacher?.first_name || 'Director'}`}
+                subtitle={`Student registry — rosters and analytics for ${PORTAL.roleLabel.toLowerCase()} oversight.`}
+            />
 
-            <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 -mt-4 sm:-mt-5 md:-mt-6 pt-2 relative z-20 pb-20">
+            <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 -mt-10 pt-2 relative z-20 pb-20">
                 <div className="bg-white rounded-t-[32px] shadow-sm border border-black/10 overflow-hidden flex flex-col">
 
                     {/* Top Layer: Stats Grid + Actions (Dashboard Style) */}

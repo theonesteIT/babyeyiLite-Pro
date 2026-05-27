@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import BabyeyiList from "./BabyeyiList";
 import { mapSchoolOwnershipToFeeScope, categoryOptionsForWizard } from "./babyeyiWizardSchoolScope";
+import { useAcademic } from "../../../manager/context/AcademicContext";
 
-import { API_BASE, SERVER_BASE as ASSET_BASE } from '../lib/schoolLiteApi';
+import { API_BASE, SERVER_BASE as ASSET_BASE, babyeyiVerifyScanUrl, BABYEYI_VERIFY_PUBLIC_ORIGIN } from '../lib/schoolLiteApi';
 
 const toAssetUrl = (path) => {
   if (!path) return null;
@@ -244,7 +245,7 @@ const BANKS = [
 
 const blankBank = () => ({ bankName: "", accountNumber: "", accountName: "" });
 
-const buildBlankForm = (school = {}, categoryOverride) => ({
+const buildBlankForm = (school = {}, categoryOverride, academicDefaults = {}) => ({
   schoolName:           school.name      || "",
   schoolCode:           school.code      || "",
   province:             school.province  || "",
@@ -257,8 +258,8 @@ const buildBlankForm = (school = {}, categoryOverride) => ({
   includeSchoolDetails: true,
   classes:              [],
   parentMessage:        "Dear Parents and Guardians,\n\nWe are pleased to inform you of the school fees for the upcoming term. Please find the detailed breakdown below.\n\nThank you for your continued support.",
-  academicYear:         "2025-2026",
-  term:                 "Term 1",
+  academicYear:         academicDefaults.academicYear || "2025-2026",
+  term:                 academicDefaults.term || "Term 1",
   category:             categoryOverride ?? "Public",
   /** NESA / fee_limits row key — Nursery | Primary | Secondary | University (same as NESA Fee Limits page). */
   nesaFeeLimitLevel:    "Primary",
@@ -509,12 +510,19 @@ function DocPreview({ form, previews }) {
 }
 
 // ════════════════════════════════════════════════════════════
-// MAIN APP
+// WIZARD (create + edit — shared by full page and modals)
 // ════════════════════════════════════════════════════════════
-export default function App({ session, lang, setLang }) {
+export function WizardContent({ session, onClose, onSuccess, editRecord = null, embedded = false }) {
   const schoolId = session?.schoolId ?? null;
+  const academic = useAcademic();
 
-  const [view,      setView]      = useState("wizard");
+  const academicYearOptions = academic.academicYears?.length
+    ? academic.academicYears
+    : (academic.academicYear ? [academic.academicYear] : ["2025-2026", "2024-2025", "2026-2027"]);
+  const termOptions = academic.activeTerms?.length
+    ? academic.activeTerms
+    : ["Term 1", "Term 2", "Term 3"];
+
   const [step,      setStep]      = useState(1);
   const [form,      setForm]      = useState(null);
   const [saving,    setSaving]    = useState(false);
@@ -552,14 +560,159 @@ export default function App({ session, lang, setLang }) {
   /** Distinct class labels from school_classes + students (GET /api/schools/:id/classes). */
   const [registeredClassOptions, setRegisteredClassOptions] = useState([]);
   const [registeredClassesLoading, setRegisteredClassesLoading] = useState(false);
+  const [editId, setEditId] = useState(editRecord?.id ?? null);
 
   useEffect(() => {
-    setForm(buildBlankForm({
+    if (editRecord) return;
+    if (academic.loading) return;
+    const schoolPayload = {
       name:     session?.schoolName     ?? "",
       province: session?.schoolProvince ?? "",
       district: session?.schoolDistrict ?? "",
-    }));
-  }, [session?.schoolName, session?.schoolProvince, session?.schoolDistrict]);
+    };
+    const academicDefaults = {
+      academicYear: academic.academicYear,
+      term: academic.currentTerm,
+    };
+    setForm((prev) => {
+      if (!prev) return buildBlankForm(schoolPayload, undefined, academicDefaults);
+      if (prev._academicFromSettings) return prev;
+      if (!academicDefaults.academicYear) return prev;
+      return {
+        ...prev,
+        academicYear: academicDefaults.academicYear,
+        term: academicDefaults.term || prev.term,
+        _academicFromSettings: true,
+      };
+    });
+  }, [
+    editRecord,
+    academic.loading,
+    academic.academicYear,
+    academic.currentTerm,
+    session?.schoolName,
+    session?.schoolProvince,
+    session?.schoolDistrict,
+  ]);
+
+  useEffect(() => {
+    if (editRecord) {
+      const rec = editRecord;
+      const normalizeReqRow = (r) => ({
+        item:         r?.item ?? "",
+        description:  r?.description ?? "",
+        quantity:     r?.quantity ?? "",
+        pay_channel:  String(r?.pay_channel || r?.payChannel || "").toLowerCase() === "school" ? "school" : "babyeyi",
+        cost:         r?.cost != null && r?.cost !== "" ? String(r.cost) : "",
+      });
+      const parsedPayments = (() => {
+        try {
+          const raw = typeof rec.payments === "string" ? JSON.parse(rec.payments) : (rec.payments || []);
+          if (!Array.isArray(raw)) return [];
+          return raw.map((p) => ({
+            name: p?.name ?? "",
+            amount: p?.amount != null && p?.amount !== "" ? String(p.amount) : "",
+            pay_channel:
+              String(p?.pay_channel || p?.payChannel || "babyeyi").toLowerCase() === "school" ? "school" : "babyeyi",
+          }));
+        } catch {
+          return [];
+        }
+      })();
+      const parsedReqsRaw = (() => {
+        try { return typeof rec.requirements === "string" ? JSON.parse(rec.requirements) : (rec.requirements || []); }
+        catch { return []; }
+      })();
+      const parsedReqs = Array.isArray(parsedReqsRaw) && parsedReqsRaw.length
+        ? parsedReqsRaw.map(normalizeReqRow)
+        : [normalizeReqRow({ item: "", description: "", quantity: "" })];
+      const parsedOtherInfos = (() => {
+        try { return typeof rec.otherInfos === "string" ? JSON.parse(rec.otherInfos) : (rec.otherInfos || []); }
+        catch { return []; }
+      })();
+      const parsedBanks = (() => {
+        try {
+          const b = typeof rec.banksJson === "string" ? JSON.parse(rec.banksJson) : (rec.banksJson || []);
+          return Array.isArray(b) ? b : [];
+        } catch { return []; }
+      })();
+      const parsedLeaders = (() => {
+        try {
+          const raw = rec.leaders;
+          if (!raw) return [blankLeader()];
+          const arr = typeof raw === "string" ? JSON.parse(raw) : raw;
+          return Array.isArray(arr) && arr.length ? arr : [blankLeader()];
+        } catch { return [blankLeader()]; }
+      })();
+      const primaryBank = parsedBanks[0] || {};
+      const extraBanks  = parsedBanks.slice(1);
+      const clsList = Array.isArray(rec.classes) && rec.classes.length
+        ? rec.classes
+        : (rec.class ? [rec.class] : (rec.className ? [rec.className] : ["P1"]));
+      const feeLevel = rec.nesaFeeLimitLevel || rec.level || inferNesaFeeLimitLevelFromClass(clsList[0] || "");
+      setForm({
+        ...buildBlankForm({ name: rec.schoolName || session?.schoolName || "" }),
+        schoolName:    rec.schoolName    || session?.schoolName || "",
+        province:      rec.province      || "",
+        district:      rec.district      || "",
+        sector:        rec.sector        || "",
+        cell:          rec.cell          || "",
+        village:       rec.village       || "",
+        academicYear:  rec.academicYear  || "2025-2026",
+        term:          rec.term          || "Term 1",
+        nesaFeeLimitLevel: NESA_FEE_LIMIT_LEVELS.includes(feeLevel) ? feeLevel : inferNesaFeeLimitLevelFromClass(clsList[0] || ""),
+        category:      rec.category      || "Public",
+        language:      rec.language      || "en",
+        classes:       clsList,
+        parentMessage: rec.parentMessage || "",
+        payments:      parsedPayments.length ? parsedPayments : [{ name: "Tuition Fee", amount: "", pay_channel: "babyeyi" }],
+        requirements:  parsedReqs,
+        otherInfos:    parsedOtherInfos.length ? parsedOtherInfos : [{ item: "" }],
+        bankName:      primaryBank.bankName      || rec.bankName      || "",
+        accountNumber: primaryBank.accountNumber || rec.bankAccountNo || "",
+        accountName:   primaryBank.accountName   || rec.bankAccountName || "",
+        extraBankAccounts: extraBanks,
+        schoolLogo: null, otherLogo: null, directorSignature: null, stamp: null,
+        requestIncrease: !!(rec.requestIncrease || rec.increaseRequest),
+        requestTitle: rec.requestTitle || rec.increaseRequest?.requestTitle || "",
+        requestReasons: Array.isArray(rec.requestReasons) ? rec.requestReasons : [],
+        requestDescription: rec.requestDescription || "",
+        requestOtherReason: rec.requestOtherReason || "",
+        classReqs: (Array.isArray(rec.classNotes) && rec.classNotes.length
+          ? rec.classNotes.map((n) => ({ item: n.item || "", details: n.details || "" }))
+          : (Array.isArray(rec.classReqs) && rec.classReqs.length
+            ? rec.classReqs
+            : [{ item: "", details: "" }])),
+        dateSigned: "",
+        leaders: parsedLeaders,
+        feeTargetStudents: String(rec.category || "").toLowerCase() === "private" ? "private" : "public",
+      });
+      const logoPreview = rec.logoUrl || toAssetUrl(rec.schoolLogoPath);
+      const sigPreview = rec.signatureUrl || toAssetUrl(rec.signaturePath);
+      const stampPreview = rec.stampUrl || toAssetUrl(rec.stampPath);
+      const otherLogoPreview = rec.otherLogoUrl || toAssetUrl(rec.otherLogoPath);
+      if (logoPreview) setPreviews((p) => ({ ...p, schoolLogo: logoPreview }));
+      if (otherLogoPreview) setPreviews((p) => ({ ...p, otherLogo: otherLogoPreview }));
+      if (sigPreview) setPreviews((p) => ({ ...p, directorSignature: sigPreview }));
+      if (stampPreview) setPreviews((p) => ({ ...p, stamp: stampPreview }));
+      setDbAssets({
+        schoolLogo: !!logoPreview,
+        directorSignature: !!sigPreview,
+        stamp: !!stampPreview,
+      });
+      setEditId(rec.id);
+    } else {
+      const academicDefaults = academic.loading
+        ? {}
+        : { academicYear: academic.academicYear, term: academic.currentTerm };
+      setForm(buildBlankForm({
+        name:     session?.schoolName     ?? "",
+        province: session?.schoolProvince ?? "",
+        district: session?.schoolDistrict ?? "",
+      }, undefined, academicDefaults));
+      setEditId(null);
+    }
+  }, [editRecord?.id, session?.schoolName, session?.schoolProvince, session?.schoolDistrict, academic.loading, academic.academicYear, academic.currentTerm]);
 
   useEffect(() => {
     if (!schoolId) return;
@@ -580,6 +733,8 @@ export default function App({ session, lang, setLang }) {
           setSchoolKind(mapped.schoolKind || "unknown");
           setCategoryLockedBySchool(!!mapped.lockCategory);
         }
+        const isEditing = !!(editRecord?.id);
+        if (!isEditing) {
         setForm(prev => {
           const base = prev || buildBlankForm({
             name:     info.school_name,
@@ -610,20 +765,21 @@ export default function App({ session, lang, setLang }) {
             category:    nextCategory,
           };
         });
+        }
         const logoUrl = toAssetUrl(info.logo_url);
         const sigUrl  = toAssetUrl(info.head_teacher_signature_url);
         const stmpUrl = toAssetUrl(info.stamp_url);
         setPreviews(prev => ({
           ...prev,
-          schoolLogo:        logoUrl  || prev.schoolLogo  || null,
-          directorSignature: sigUrl   || prev.directorSignature || null,
-          stamp:             stmpUrl  || prev.stamp       || null,
+          schoolLogo:        isEditing ? (prev.schoolLogo || logoUrl) : (logoUrl || prev.schoolLogo || null),
+          directorSignature: isEditing ? (prev.directorSignature || sigUrl) : (sigUrl || prev.directorSignature || null),
+          stamp:             isEditing ? (prev.stamp || stmpUrl) : (stmpUrl || prev.stamp || null),
         }));
-        setDbAssets({
-          schoolLogo:        !!logoUrl,
-          directorSignature: !!sigUrl,
-          stamp:             !!stmpUrl,
-        });
+        setDbAssets(prev => ({
+          schoolLogo:        isEditing ? (!!prev.schoolLogo || !!logoUrl) : !!logoUrl,
+          directorSignature: isEditing ? (!!prev.directorSignature || !!sigUrl) : !!sigUrl,
+          stamp:             isEditing ? (!!prev.stamp || !!stmpUrl) : !!stmpUrl,
+        }));
         setSchoolInfoLoaded(true);
       } catch (e) {
         console.warn("[school-info]", e.message);
@@ -631,7 +787,7 @@ export default function App({ session, lang, setLang }) {
       }
     })();
     return () => { cancelled = true; };
-  }, [schoolId]);
+  }, [schoolId, editRecord?.id]);
 
   useEffect(() => {
     if (!schoolId) return;
@@ -846,11 +1002,12 @@ export default function App({ session, lang, setLang }) {
     if (step === 8 && !validateStep2()) { showToast("Validation errors in Step 2.", "error"); return; }
     if (!schoolId) { showToast("School ID missing from session.", "error"); return; }
 
-    const classesToCreate = form.classes?.length ? form.classes : [];
-    if (!classesToCreate.length) {
+    const allClasses = form.classes?.length ? form.classes : [];
+    if (!allClasses.length) {
       showToast("Select at least one class before submitting.", "error");
       return;
     }
+    const classesToCreate = editId ? [allClasses[0]] : allClasses;
     const feeLimitLevel =
       form.nesaFeeLimitLevel ||
       inferNesaFeeLimitLevelFromClass(classesToCreate[0] || "");
@@ -926,25 +1083,39 @@ export default function App({ session, lang, setLang }) {
       if (form.parentApprovalDoc instanceof File) fd.append("parent_rep_doc",     form.parentApprovalDoc);
       if (form.schoolBudgetDoc   instanceof File) fd.append("budget_doc",         form.schoolBudgetDoc);
 
-      const res  = await fetch(`${API_BASE}/babyeyi`, { method: "POST", body: fd, credentials: "include" });
+      const url = editId ? `${API_BASE}/babyeyi/${editId}` : `${API_BASE}/babyeyi`;
+      const method = editId ? "PUT" : "POST";
+      const res  = await fetch(url, { method, body: fd, credentials: "include" });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || json.success === false) throw new Error(json.message || "Failed to save Babyeyi");
-      if (json.data?.id) createdIds.push({ id: json.data.id, classes: classesToCreate });
+      const savedId = json.data?.id ?? json.data?.ID ?? editId;
+      if (savedId) {
+        createdIds.push({
+          id: savedId,
+          classes: classesToCreate,
+          docId: json.data.doc_id || json.data.docId || null,
+          integrityHash: json.data.integrity_hash || json.data.integrityHash || null,
+        });
+      }
 
-      showToast("Babyeyi saved successfully!", "success");
+      showToast(editId ? "Babyeyi updated successfully!" : "Babyeyi saved successfully!", "success");
+      if (onSuccess) onSuccess();
       setQrGenerating(true);
 
       const qrResults = [];
-      for (const { id, classes } of createdIds) {
+      for (const { id, classes, docId, integrityHash } of createdIds) {
         try {
           const qrRes  = await fetch(`${API_BASE}/babyeyi/${id}/qrcode`, { credentials:"include" });
           const qrJson = await qrRes.json();
           if (qrJson.success && qrJson.data?.qr_code_url) {
+            const verifyDocId = docId || qrJson.data.doc_id || null;
             qrResults.push({
               id,
               classes,
               qrDataUrl: qrJson.data.qr_code_url,
-              viewUrl:   qrJson.data.qr_view_url || `${window.location.origin}/babyeyi/verify/${id}`,
+              viewUrl: verifyDocId
+                ? babyeyiVerifyScanUrl(verifyDocId, integrityHash)
+                : (qrJson.data.qr_view_url || `${BABYEYI_VERIFY_PUBLIC_ORIGIN}/babyeyi/verify`),
             });
           }
         } catch (e) { console.warn(`[QR] Failed for ${id}:`, e.message); }
@@ -1056,7 +1227,8 @@ export default function App({ session, lang, setLang }) {
             setForm({
               ...buildBlankForm(
                 { name: session?.schoolName || "", province: session?.schoolProvince || "", district: session?.schoolDistrict || "" },
-                schoolKind === "private" ? "Private" : schoolKind === "government" ? "Public" : undefined
+                schoolKind === "private" ? "Private" : schoolKind === "government" ? "Public" : undefined,
+                { academicYear: academic.academicYear, term: academic.currentTerm }
               ),
               feeTargetStudents: schoolKind === "private" ? "private" : "public",
               category: schoolKind === "government_aided" ? "Public" : nextCat,
@@ -1070,21 +1242,6 @@ export default function App({ session, lang, setLang }) {
             Create Another
           </button>
         </div>
-      </div>
-    );
-  }
-
-  if (view === "list") {
-    return (
-      <div className="min-h-screen" style={{ background: C.goldBg, fontFamily: "'Montserrat', sans-serif" }}>
-        <div className="fixed top-3 left-3 z-50">
-          <button onClick={() => setView("wizard")}
-            className="flex items-center gap-2 px-3 py-2 bg-white border text-slate-700 rounded-xl text-xs font-bold shadow-sm hover:bg-slate-100"
-            style={{ borderColor: C.goldBorder }}>
-            <I n="chevL" size={12} /> Back to Wizard
-          </button>
-        </div>
-        <BabyeyiList session={session} lang={lang} setLang={setLang} />
       </div>
     );
   }
@@ -1382,8 +1539,14 @@ export default function App({ session, lang, setLang }) {
 
             <div className={`grid grid-cols-1 gap-3 ${schoolKind === "government" ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
               {[
-                { label: "Academic Year", key: "academicYear", opts: ["2025-2026", "2024-2025", "2026-2027"], lock: false },
-                { label: "Term", key: "term", opts: ["Term 1", "Term 2", "Term 3"], lock: false },
+                {
+                  label: "Academic Year",
+                  key: "academicYear",
+                  opts: academicYearOptions,
+                  lock: false,
+                  isCurrent: form.academicYear === academic.academicYear,
+                },
+                { label: "Term", key: "term", opts: termOptions, lock: false, isCurrent: form.term === academic.currentTerm },
                 ...(schoolKind === "government"
                   ? []
                   : [{ label: "Category", key: "category", opts: categoryFieldOpts, lock: categoryFieldLocked }]),
@@ -1391,10 +1554,13 @@ export default function App({ session, lang, setLang }) {
                 <div key={f.key}>
                   <label className="block text-[10px] font-bold uppercase mb-1" style={{ color: C.darkMid }}>
                     {f.label}
-                    {f.lock && (
-                      <span className="ml-1 normal-case font-semibold text-[9px]" style={{ color: C.goldDark }}>
-                       
+                    {f.isCurrent && (
+                      <span className="ml-1.5 normal-case font-semibold text-[9px] px-1.5 py-0.5 rounded-md" style={{ background: C.emeraldBg, color: C.emeraldDark }}>
+                        Current (settings)
                       </span>
+                    )}
+                    {f.lock && (
+                      <span className="ml-1 normal-case font-semibold text-[9px]" style={{ color: C.goldDark }} />
                     )}
                   </label>
                   {f.lock ? (
@@ -1403,6 +1569,13 @@ export default function App({ session, lang, setLang }) {
                       value={f.key === "category" ? categorySelectValue : form[f.key]}
                       className={inp}
                       style={{ borderColor: C.goldBorder, background: "#f8fafc", cursor: "not-allowed" }}
+                    />
+                  ) : academic.loading && (f.key === "academicYear" || f.key === "term") ? (
+                    <input
+                      readOnly
+                      value="Loading from settings…"
+                      className={inp}
+                      style={{ borderColor: C.goldBorder, background: "#f8fafc", cursor: "wait" }}
                     />
                   ) : (
                     <select
@@ -1614,7 +1787,7 @@ export default function App({ session, lang, setLang }) {
                     className={`${inp} w-full sm:w-[158px] shrink-0 text-[11px] font-semibold`}
                     style={{ borderColor: C.goldBorder }}
                   >
-                    <option value="babyeyi">Pay on Babyeyi</option>
+                    <option value="babyeyi">Other requirements</option>
                     <option value="school">Paid at school</option>
                   </select>
                   <div className="relative w-28 sm:w-36">
@@ -1867,7 +2040,7 @@ export default function App({ session, lang, setLang }) {
                         className={`${inp} text-[13px] font-semibold`}
                         style={{ borderColor: C.goldBorder }}
                       >
-                        <option value="babyeyi">Pay on Babyeyi </option>
+                        <option value="babyeyi">Other requirements</option>
                         <option value="school">Paid at school</option>
                       </select>
 
@@ -2441,19 +2614,28 @@ export default function App({ session, lang, setLang }) {
 
   const isLast = step === STEPS.length;
 
+  const goToStep = (targetId) => {
+    if (targetId < 1 || targetId > STEPS.length || targetId === step) return;
+    setErrors({});
+    setStep(targetId);
+  };
+
   return (
     <>
-    <div className="min-h-screen flex items-center justify-center p-2 sm:p-4"
+    <div
+      className={embedded ? "flex flex-col h-full min-h-0" : "min-h-screen flex items-center justify-center p-2 sm:p-4"}
       style={{ fontFamily: "'Montserrat', sans-serif" }}>
+      {!embedded && (
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap');
         @keyframes slideIn { from { transform: translateX(100px); opacity:0; } to { transform: translateX(0); opacity:1; } }
         @keyframes fadeUp  { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
         .step-anim { animation: fadeUp 0.2s ease-out; }
       `}</style>
+      )}
 
       {toast && (
-        <div className="fixed top-4 right-4 z-50 px-4 py-3 rounded-2xl shadow-sm text-sm font-bold flex items-center gap-2 max-w-xs"
+        <div className={`fixed top-4 right-4 ${embedded ? "z-[9999]" : "z-50"} px-4 py-3 rounded-2xl shadow-sm text-sm font-bold flex items-center gap-2 max-w-xs`}
           style={{
             background: toast.type==="success" ? C.emerald : toast.type==="error" ? C.red : C.gold,
             color: toast.type==="info" ? C.dark : "#fff",
@@ -2463,10 +2645,11 @@ export default function App({ session, lang, setLang }) {
         </div>
       )}
 
-      <div className="bg-white rounded-3xl w-full max-w-2xl max-h-[96vh] flex flex-col shadow-sm overflow-hidden"
-        style={{ boxShadow: "0 25px 60px rgba(254,191,16,0.2), 0 0 0 1px rgba(254,191,16,0.1)" }}>
+      <div
+        className={embedded ? "flex flex-col flex-1 min-h-0 bg-white overflow-hidden" : "bg-white rounded-3xl w-full max-w-2xl max-h-[96vh] flex flex-col shadow-sm overflow-hidden"}
+        style={embedded ? undefined : { boxShadow: "0 25px 60px rgba(254,191,16,0.2), 0 0 0 1px rgba(254,191,16,0.1)" }}>
 
-        {/* Header */}
+        {!embedded && (
         <div className="px-4 sm:px-6 py-4 shrink-0"
           style={{ background: `linear-gradient(135deg, ${C.dark}, ${C.darkMid})` }}>
           <div className="flex items-center justify-between">
@@ -2475,19 +2658,22 @@ export default function App({ session, lang, setLang }) {
                 <span className="text-base"></span>
               </div>
               <div>
-                <h1 className="font-semibold text-white text-sm sm:text-base leading-tight">Create Babyeyi</h1>
+                <h1 className="font-semibold text-white text-sm sm:text-base leading-tight">{editId ? "Edit Babyeyi" : "Create Babyeyi"}</h1>
                 <p className="text-[10px]" style={{ color: C.goldLight }}>
                   {form.schoolName || session?.schoolName || "School"} · {(form.classes && form.classes.length) ? form.classes.join(", ") : "—"} · {form.term}
                 </p>
               </div>
             </div>
-            <button onClick={() => setView("list")}
+            {onClose && !embedded && (
+            <button onClick={onClose}
               className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-white rounded-xl text-[10px] font-bold"
               style={{ background: "rgba(254,191,16,0.15)", border: "1px solid rgba(254,191,16,0.25)" }}>
               <I n="eye" size={11} color="white" /> View Records
             </button>
+            )}
           </div>
         </div>
+        )}
 
         {/* Step indicator */}
         <div className="border-b px-3 sm:px-5 py-3 shrink-0"
@@ -2495,7 +2681,7 @@ export default function App({ session, lang, setLang }) {
           <div className="flex items-center gap-0.5 sm:gap-1 overflow-x-auto">
             {STEPS.map((s,i) => (
               <div key={s.id} className="flex items-center shrink-0">
-                <button onClick={() => step > s.id && setStep(s.id)}
+                <button type="button" onClick={() => (embedded ? goToStep(s.id) : (step > s.id && setStep(s.id)))}
                   className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl text-[10px] sm:text-xs font-bold transition-all whitespace-nowrap"
                   style={step===s.id
                     ? { background: C.gold, color: C.dark, boxShadow: "0 2px 8px rgba(254,191,16,0.4)" }
@@ -2557,9 +2743,9 @@ export default function App({ session, lang, setLang }) {
                 <>
                   <I n={exceeds&&form.requestIncrease?"send":"save"} size={14} color="#fff" />
                   <span className="hidden sm:inline">
-                    {form.classes.length>1 ? `Generate ${form.classes.length} Babyeyi` : exceeds&&form.requestIncrease ? "Submit + Request Approval" : "Generate Babyeyi"}
+                    {editId ? "Save changes" : form.classes.length>1 ? `Generate ${form.classes.length} Babyeyi` : exceeds&&form.requestIncrease ? "Submit + Request Approval" : "Generate Babyeyi"}
                   </span>
-                  <span className="sm:hidden">Generate</span>
+                  <span className="sm:hidden">{editId ? "Save" : "Generate"}</span>
                 </>
               )}
             </button>
@@ -2712,5 +2898,95 @@ export default function App({ session, lang, setLang }) {
       </div>
     )}
     </>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+// MODAL WRAPPER
+// ════════════════════════════════════════════════════════════
+export function CreateBabyeyiModal({ session, isOpen, onClose, onSuccess, editRecord = null }) {
+  useEffect(() => {
+    if (isOpen) { document.body.style.overflow = "hidden"; }
+    else { document.body.style.overflow = ""; }
+    return () => { document.body.style.overflow = ""; };
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4"
+      style={{ background: "rgba(10,8,0,0.75)", backdropFilter: "blur(6px)" }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div
+        className="bg-white rounded-3xl w-full flex flex-col overflow-hidden"
+        style={{
+          maxWidth: "680px",
+          maxHeight: "94vh",
+          boxShadow: "0 30px 80px rgba(254,191,16,0.25), 0 0 0 1px rgba(254,191,16,0.15)",
+          animation: "modalIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)",
+        }}
+      >
+        <div className="px-4 sm:px-6 py-4 shrink-0 flex items-center justify-between"
+          style={{ background: `linear-gradient(135deg, ${C.dark}, ${C.darkMid})` }}>
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center"
+              style={{ background: "rgba(254,191,16,0.2)" }}>
+              <span className="text-base">📋</span>
+            </div>
+            <div>
+              <h1 className="font-black text-white text-sm sm:text-base leading-tight">{editRecord ? "Edit Babyeyi" : "Create Babyeyi"}</h1>
+              <p className="text-[10px]" style={{ color: "#FED44A" }}>
+                {session?.schoolName || "School"} — {editRecord ? "Update document" : "New document"}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-xl transition-all hover:bg-white/20"
+            style={{ color: "rgba(255,255,255,0.7)" }}
+            title="Close">
+            <Svg d={ic.x} size={16} color="currentColor" />
+          </button>
+        </div>
+
+        <WizardContent session={session} onClose={onClose} onSuccess={onSuccess} editRecord={editRecord} embedded />
+      </div>
+
+      <style>{`
+        @keyframes modalIn { from { opacity:0; transform:scale(0.95) translateY(12px); } to { opacity:1; transform:scale(1) translateY(0); } }
+      `}</style>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+// MAIN APP (full-page create wizard + list)
+// ════════════════════════════════════════════════════════════
+export default function App({ session, lang, setLang }) {
+  const [view, setView] = useState("wizard");
+
+  if (view === "list") {
+    return (
+      <div className="min-h-screen" style={{ background: C.goldBg, fontFamily: "'Montserrat', sans-serif" }}>
+        <div className="fixed top-3 left-3 z-50">
+          <button onClick={() => setView("wizard")}
+            className="flex items-center gap-2 px-3 py-2 bg-white border text-slate-700 rounded-xl text-xs font-bold shadow-sm hover:bg-slate-100"
+            style={{ borderColor: C.goldBorder }}>
+            <I n="chevL" size={12} /> Back to Wizard
+          </button>
+        </div>
+        <BabyeyiList session={session} lang={lang} setLang={setLang} />
+      </div>
+    );
+  }
+
+  return (
+    <WizardContent
+      session={session}
+      onClose={() => setView("list")}
+      embedded={false}
+    />
   );
 }
