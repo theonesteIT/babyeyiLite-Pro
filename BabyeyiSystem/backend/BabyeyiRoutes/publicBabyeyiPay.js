@@ -38,6 +38,7 @@ const {
   mapMtnStatusToUpper,
 } = require('./mtnMomoCollection');
 const { resolveGuestShareFromReq, ensureClasskitShareTable } = require('./classkitShareService');
+const { resolveSchoolIdFromInput } = require('./schoolResolvePublic');
 
 const query = (sql, params = []) => db.query(sql, params);
 
@@ -1634,12 +1635,18 @@ router.get('/', (_req, res) => {
   res.json(getBabyeyiFinderDiscoveryPayload());
 });
 
-// GET /api/public/babyeyi-pay/pricing/:babyeyiId?school_id=
+// GET /api/public/babyeyi-pay/pricing/:babyeyiId?school_id= | ?school_code=
 router.get('/pricing/:babyeyiId', async (req, res) => {
   try {
     const babyeyiId = parseInt(req.params.babyeyiId, 10);
-    const schoolId = parseInt(req.query.school_id, 10);
-    const result = await loadApprovedBabyeyiPricing(babyeyiId, schoolId);
+    const resolved = await resolveSchoolIdFromInput(req.query);
+    if (!resolved.schoolId) {
+      return res.status(400).json({
+        success: false,
+        message: resolved.message || 'school_id or school_code is required',
+      });
+    }
+    const result = await loadApprovedBabyeyiPricing(babyeyiId, resolved.schoolId);
     if (!result.ok) {
       return res.status(result.status).json({ success: false, message: result.message });
     }
@@ -1654,8 +1661,15 @@ router.get('/pricing/:babyeyiId', async (req, res) => {
 router.post('/quote-balance', async (req, res) => {
   try {
     const body = req.body || {};
+    const resolved = await resolveSchoolIdFromInput(body);
+    if (!resolved.schoolId) {
+      return res.status(400).json({
+        success: false,
+        message: resolved.message || 'school_id or school_code is required',
+      });
+    }
     const result = await quoteBabyeyiPayBalance({
-      schoolId: body.school_id,
+      schoolId: resolved.schoolId,
       babyeyiId: body.babyeyi_id,
       selectedFeeIds: body.selected_fee_ids,
       selectedReqIds: body.selected_requirement_ids,
@@ -1731,10 +1745,18 @@ router.post('/intent', async (req, res) => {
       }
     }
 
-    const schoolId = parseInt(body.school_id, 10);
+    const resolved = await resolveSchoolIdFromInput(body);
+    if (!resolved.schoolId) {
+      return res.status(400).json({
+        success: false,
+        message: resolved.message || 'school_id or school_code is required',
+      });
+    }
+    const schoolId = resolved.schoolId;
+    body.school_id = schoolId;
     const babyeyiId = parseInt(body.babyeyi_id, 10);
     const total_rwf = parseFloat(body.total_rwf);
-    if (!schoolId || !babyeyiId || Number.isNaN(total_rwf) || total_rwf < 0) {
+    if (!babyeyiId || Number.isNaN(total_rwf) || total_rwf < 0) {
       return res.status(400).json({ success: false, message: 'Invalid payload' });
     }
     const [[b]] = await db.promisePool.execute(

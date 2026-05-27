@@ -1,12 +1,20 @@
 import { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import { Loader2, Shirt } from "lucide-react";
+import {
+  pageShell,
+  pageCardPad,
+  tableShell,
+  tableHeadRow,
+  tableHeadCell,
+  tableBodyRow,
+  selectClass,
+  ACCENT_SLATE,
+} from "./agentTheme";
+import AgentPageHeader from "./AgentPageHeader";
 
 const API = `${import.meta.env.VITE_API_URL || "http://localhost:5100"}/api`;
 const ax = { withCredentials: true };
-const FONT = `"MTN Brighter Sans", "Nunito", "Varela Round", sans-serif`;
-const NAVY = "#000435";
-const AMBER = "#FBBF24";
 
 const DELIVERY_OPTIONS = [
   "Waiting",
@@ -50,43 +58,27 @@ export default function AgentUniformVoucherOrdersPage() {
   };
 
   return (
-    <div style={{ fontFamily: FONT }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-        <div
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: 12,
-            background: NAVY,
-            border: `2px solid ${AMBER}`,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Shirt size={20} color={AMBER} />
-        </div>
-        <div>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: NAVY }}>Uniform voucher orders</h1>
-          <p style={{ margin: 0, fontSize: 13, color: "#64748b" }}>Only schools in your assigned district and sectors.</p>
-        </div>
-      </div>
+    <div className={`${pageShell} bg-white`}>
+      <AgentPageHeader
+        title="Uniform voucher orders"
+        description="Only schools in your assigned district and sectors."
+      />
 
-      {err && <p style={{ color: "#b91c1c", fontWeight: 600, marginBottom: 12 }}>{err}</p>}
+      {err && <div className="rounded-xl border border-red-200 bg-red-50 text-red-800 text-sm font-medium p-4">{err}</div>}
 
       {loading ? (
-        <div style={{ padding: 40, textAlign: "center" }}>
-          <Loader2 className="animate-spin" style={{ color: AMBER }} size={32} />
+        <div className="flex justify-center py-16">
+          <Loader2 className="w-8 h-8 animate-spin" style={{ color: ACCENT_SLATE }} />
         </div>
       ) : !rows.length ? (
-        <p style={{ color: "#64748b" }}>No orders in your coverage yet.</p>
+        <div className={`${pageCardPad} text-center text-slate-500 text-sm`}>No orders in your coverage yet.</div>
       ) : (
-        <div style={{ overflowX: "auto", borderRadius: 16, border: "1px solid #fde68a", background: "#fff" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+        <div className={`${tableShell} overflow-x-auto`}>
+          <table className="w-full text-sm min-w-[900px]">
             <thead>
-              <tr style={{ background: "#fffbeb", textAlign: "left" }}>
+              <tr className={tableHeadRow}>
                 {["Voucher", "Student", "School", "District", "Sector", "Total", "Payment", "Delivery", "Update"].map((h) => (
-                  <th key={h} style={{ padding: "10px 12px", fontWeight: 800, color: NAVY }}>
+                  <th key={h} className={tableHeadCell}>
                     {h}
                   </th>
                 ))}
@@ -107,23 +99,23 @@ export default function AgentUniformVoucherOrdersPage() {
                   sch = {};
                 }
                 return (
-                  <tr key={o.id} style={{ borderTop: "1px solid #fef3c7" }}>
-                    <td style={{ padding: "10px 12px", fontFamily: "monospace", fontSize: 11 }}>{o.voucher_number}</td>
-                    <td style={{ padding: "10px 12px" }}>
+                  <tr key={o.id} className={tableBodyRow}>
+                    <td className="py-3 px-4 font-mono text-xs text-slate-600">{o.voucher_number}</td>
+                    <td className="py-3 px-4 text-slate-800">
                       {st.first_name} {st.last_name}
-                      <div style={{ color: "#94a3b8" }}>{st.student_code}</div>
+                      <div className="text-xs text-slate-400">{st.student_code}</div>
                     </td>
-                    <td style={{ padding: "10px 12px" }}>{sch.school_name || "—"}</td>
-                    <td style={{ padding: "10px 12px" }}>{o.order_district || "—"}</td>
-                    <td style={{ padding: "10px 12px" }}>{o.order_sector || "—"}</td>
-                    <td style={{ padding: "10px 12px", fontWeight: 800 }}>{Number(o.total_rwf).toLocaleString()} Frw</td>
-                    <td style={{ padding: "10px 12px" }}>{o.payment_status}</td>
-                    <td style={{ padding: "10px 12px" }}>{o.delivery_status}</td>
-                    <td style={{ padding: "10px 12px" }}>
+                    <td className="py-3 px-4 text-slate-700">{sch.school_name || "—"}</td>
+                    <td className="py-3 px-4 text-slate-700">{o.order_district || "—"}</td>
+                    <td className="py-3 px-4 text-slate-700">{o.order_sector || "—"}</td>
+                    <td className="py-3 px-4 font-bold text-[#000435]">{Number(o.total_rwf).toLocaleString()} Frw</td>
+                    <td className="py-3 px-4 text-slate-600">{o.payment_status}</td>
+                    <td className="py-3 px-4 text-slate-600">{o.delivery_status}</td>
+                    <td className="py-3 px-4">
                       <select
                         value={o.delivery_status}
                         onChange={(e) => patch(o.id, e.target.value)}
-                        style={{ maxWidth: 200, padding: 8, borderRadius: 10, border: "2px solid #e2e8f0", fontSize: 11 }}
+                        className={`${selectClass} max-w-[200px] text-xs py-2`}
                       >
                         {[...new Set([...(DELIVERY_OPTIONS || []), o.delivery_status].filter(Boolean))].map((s) => (
                           <option key={s} value={s}>

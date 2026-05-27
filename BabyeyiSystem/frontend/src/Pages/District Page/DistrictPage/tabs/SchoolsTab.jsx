@@ -1,127 +1,162 @@
-import React, { useState, useCallback, useEffect } from "react";
-import { Building2, Search } from "lucide-react";
-import { C, font, inp } from "../utils/theme";
-import { apiFetch } from "../utils/api";
-import Pagination from "../components/Pagination";
-import Badge from "../components/Badge";
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { Building2, Search } from 'lucide-react';
+import { apiFetch } from '../utils/api';
+import Pagination from '../components/Pagination';
+import Badge from '../components/Badge';
+import DeoFilterToolbar from '../components/DeoFilterToolbar';
+import { font } from '../utils/theme';
 
-export default function SchoolsTab({ district }) {
-  const [schools,    setSchools]    = useState([]);
-  const [loading,    setLoading]    = useState(true);
-  const [search,     setSearch]     = useState("");
-  const [page,       setPage]       = useState(1);
-  const [pagination, setPagination] = useState({ total: 0, pages: 1 });
+const PAGE_SIZE = 12;
 
-  const load = useCallback((pg = 1, q = "") => {
-    setLoading(true);
-    const params = new URLSearchParams({ page: pg, limit: 12 });
-    if (district) params.append("district", district);
-    if (q) params.append("search", q);
-    apiFetch(`/district/babyeyi/schools/list?${params}`)
-      .then(r => { setSchools(r.data); setPagination(r.pagination); })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [district]);
-
-  useEffect(() => { load(1, ""); }, [load]);
-
+function SchoolCard({ school }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16, fontFamily: font }}>
-      {/* Hero */}
-      <div style={{
-        background: `linear-gradient(135deg, ${C.dark}, ${C.darkMid})`,
-        borderRadius: 20, padding: "20px 24px", color: "white",
-        boxShadow: "0 8px 24px rgba(26,18,0,0.2)", position: "relative", overflow: "hidden",
-      }}>
-        <div style={{ position: "absolute", inset: 0, opacity: 0.07, backgroundImage: "radial-gradient(circle at 80% 20%,white 0%,transparent 50%)", pointerEvents: "none" }}/>
-        <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
-          <div>
-            <h2 style={{ fontSize: 18, fontWeight: 900, margin: "0 0 4px", color: "white" }}>Schools in {district}</h2>
-            <p style={{ fontSize: 12, color: C.goldLight, margin: 0 }}>{pagination.total} registered schools</p>
-          </div>
-          <span style={{
-            display: "flex", alignItems: "center", gap: 8,
-            padding: "8px 14px", borderRadius: 12,
-            background: "rgba(254,191,16,0.18)", border: `1px solid ${C.gold}44`,
-            fontSize: 12, fontWeight: 700, color: C.goldLight,
-          }}>
-            <Building2 style={{ width: 14, height: 14 }}/> {pagination.total} Schools
-          </span>
+    <article className="group flex flex-col rounded-2xl border border-[#fde68a] bg-white p-4 shadow-[0_2px_12px_rgba(0,4,53,0.06)] transition-all hover:border-amber-300 hover:shadow-md">
+      <div className="mb-3 flex items-start gap-3">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#fde68a] bg-amber-50">
+          <Building2 className="h-5 w-5 text-amber-700" strokeWidth={1.75} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <h3 className="m-0 truncate text-sm font-bold text-[#000435]">{school.school_name}</h3>
+          <p className="m-0 mt-0.5 text-[11px] font-medium text-amber-800/80">{school.school_code || '—'}</p>
         </div>
       </div>
 
+      <div className="mb-3 flex flex-wrap gap-1.5">
+        {school.sector && (
+          <span className="rounded-lg border border-[#fde68a] bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-900">
+            {school.sector}
+          </span>
+        )}
+        {school.school_category && <Badge status={school.school_category?.toLowerCase()} />}
+      </div>
+
+      <div className="mt-auto grid grid-cols-3 gap-2 border-t border-[#fde68a]/80 pt-3">
+        {[
+          { label: 'Total', value: school.total_babyeyi || 0, cls: 'text-[#000435]' },
+          { label: 'Approved', value: school.approved_babyeyi || 0, cls: 'text-[#000435]' },
+          { label: 'Pending', value: school.pending_babyeyi || 0, cls: 'text-amber-800' },
+        ].map(({ label, value, cls }) => (
+          <div key={label} className="text-center">
+            <p className={`m-0 text-base font-black tabular-nums ${cls}`}>{value}</p>
+            <p className="m-0 text-[9px] font-bold uppercase tracking-wide text-[#000435]/45">{label}</p>
+          </div>
+        ))}
+      </div>
+    </article>
+  );
+}
+
+export default function SchoolsTab({ district, portalFilters, filterVersion = 0, filterBar }) {
+  const [schools, setSchools] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({ total: 0, pages: 1 });
+  const searchTimer = useRef(null);
+
+  const load = useCallback((pg = 1, q = '') => {
+    setLoading(true);
+    const params = new URLSearchParams({ page: String(pg), limit: String(PAGE_SIZE) });
+    if (district) params.append('district', district);
+    if (q) params.append('search', q);
+    apiFetch(`/district/babyeyi/schools/list?${params}`)
+      .then((r) => {
+        let rows = Array.isArray(r.data) ? r.data : [];
+        if (portalFilters?.schoolId) {
+          rows = rows.filter((s) => String(s.id) === String(portalFilters.schoolId));
+        }
+        setSchools(rows);
+        setPagination(
+          portalFilters?.schoolId
+            ? { total: rows.length, pages: 1, page: 1 }
+            : r.pagination || { total: 0, pages: 1 },
+        );
+        setPage(pg);
+      })
+      .catch(() => setSchools([]))
+      .finally(() => setLoading(false));
+  }, [district, portalFilters?.schoolId]);
+
+  useEffect(() => {
+    load(1, search);
+    return () => {
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+    };
+  }, [load, filterVersion]);
+
+  const onSearchChange = (value) => {
+    setSearch(value);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => load(1, value), 350);
+  };
+
+  return (
+    <div className="anim space-y-4 pb-4" style={{ fontFamily: font }}>
+      {filterBar && <DeoFilterToolbar {...filterBar} />}
+
+      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#000435] to-[#000c6e] p-5 text-white shadow-[0_8px_24px_rgba(0,4,53,0.25)] sm:p-6">
+        <div
+          className="pointer-events-none absolute inset-0 opacity-[0.07]"
+          style={{ backgroundImage: 'radial-gradient(circle at 80% 20%, white 0%, transparent 50%)' }}
+        />
+        <div className="relative flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="m-0 text-lg font-black tracking-tight sm:text-xl">Schools in {district}</h2>
+            <p className="m-0 mt-1 text-xs text-amber-200/90">
+              {pagination.total} registered schools in your district
+            </p>
+          </div>
+          <span className="inline-flex items-center gap-2 rounded-xl border border-amber-400/30 bg-amber-400/15 px-3 py-2 text-xs font-bold text-amber-200">
+            <Building2 className="h-4 w-4" />
+            {pagination.total} Schools
+          </span>
+        </div>
+      </section>
+
       {/* Search */}
-      <div style={{ position: "relative", maxWidth: 380 }}>
-        <Search style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", width: 16, height: 16, color: C.goldDark }}/>
-        <input value={search} onChange={e => { setSearch(e.target.value); setPage(1); load(1, e.target.value); }}
-          placeholder="Search schools…" style={{ ...inp, paddingLeft: 38 }}/>
+      <div className="relative max-w-md">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-amber-700" />
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => onSearchChange(e.target.value)}
+          placeholder="Search by name or code…"
+          className="w-full rounded-xl border border-[#fde68a] bg-white py-2.5 pl-10 pr-4 text-sm text-[#000435] outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
+        />
       </div>
 
       {loading ? (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 14 }}>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} style={{ height: 144, background: "white", borderRadius: 20, border: `1px solid ${C.goldBorder}`, opacity: 0.5 }}/>
+            <div
+              key={i}
+              className="h-40 animate-pulse rounded-2xl border border-[#fde68a] bg-white"
+            />
           ))}
         </div>
       ) : schools.length === 0 ? (
-        <div style={{
-          background: "white", border: `1px solid ${C.goldBorder}`, borderRadius: 20,
-          padding: "40px 20px", textAlign: "center",
-        }}>
-          <Building2 style={{ width: 40, height: 40, color: C.goldBorder, margin: "0 auto 12px" }}/>
-          <p style={{ color: C.goldDark, fontWeight: 600, fontFamily: font }}>No schools found</p>
+        <div className="rounded-2xl border border-dashed border-[#fde68a] bg-white px-6 py-14 text-center">
+          <Building2 className="mx-auto mb-3 h-10 w-10 text-[#fde68a]" />
+          <p className="m-0 text-sm font-bold text-[#000435]">No schools found</p>
+          <p className="m-0 mt-1 text-xs text-amber-800/70">Try a different search term</p>
         </div>
       ) : (
         <>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 14 }}>
-            {schools.map(s => (
-              <div key={s.id} style={{
-                background: "white", border: `1px solid ${C.goldBorder}`,
-                borderRadius: 20, padding: 16, transition: "all 150ms",
-                boxShadow: "0 2px 8px rgba(0,4,53,0.08)",
-              }}>
-                <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 10 }}>
-                  <div style={{
-                    width: 40, height: 40, borderRadius: 14, flexShrink: 0,
-                    background: C.goldBg, border: `1px solid ${C.goldBorder}`,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                  }}>
-                    <Building2 style={{ width: 18, height: 18, color: C.goldDark }}/>
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontWeight: 900, color: C.dark, fontSize: 13, margin: "0 0 2px",
-                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {s.school_name}
-                    </p>
-                    <p style={{ fontSize: 10, color: C.goldDark, margin: 0 }}>{s.school_code}</p>
-                  </div>
-                </div>
-
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 12 }}>
-                  {s.sector && (
-                    <span style={{ fontSize: 10, background: C.goldBg, color: C.goldDark, border: `1px solid ${C.goldBorder}`, padding: "2px 8px", borderRadius: 8, fontWeight: 600 }}>
-                      {s.sector}
-                    </span>
-                  )}
-                  {s.school_category && <Badge status={s.school_category?.toLowerCase()}/>}
-                </div>
-
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, paddingTop: 10, borderTop: `1px solid ${C.goldBorder}` }}>
-                  {[
-                    { l: "Total",    v: s.total_babyeyi    || 0, color: C.dark         },
-                    { l: "Approved", v: s.approved_babyeyi || 0, color: C.emeraldDark  },
-                    { l: "Pending",  v: s.pending_babyeyi  || 0, color: "#92400e"      },
-                  ].map(({ l, v, color }) => (
-                    <div key={l} style={{ textAlign: "center" }}>
-                      <p style={{ fontSize: 16, fontWeight: 900, color, margin: "0 0 1px" }}>{v}</p>
-                      <p style={{ fontSize: 9, color: C.goldDark, fontWeight: 600, margin: 0 }}>{l}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {schools.map((s) => (
+              <SchoolCard key={s.id} school={s} />
             ))}
           </div>
-          <Pagination current={page} total={pagination.pages} onChange={p => { setPage(p); load(p, search); }}/>
+          {(pagination.pages > 1 || pagination.total > PAGE_SIZE) && (
+            <Pagination
+              current={page}
+              total={pagination.pages || 1}
+              totalItems={pagination.total || 0}
+              pageSize={PAGE_SIZE}
+              loading={loading}
+              onChange={(p) => load(p, search)}
+            />
+          )}
         </>
       )}
     </div>

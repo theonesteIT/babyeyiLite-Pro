@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import BabyeyiList from "./BabyeyiList";
+import { validateAcademicYear } from "../../../utils/babyeyiAcademicPeriod";
 
 // ── API CONFIG ────────────────────────────────────────────────
 const ASSET_BASE = import.meta.env.VITE_API_URL || "https://babyeyi.rw";
@@ -266,7 +267,7 @@ const buildBlankForm = (school = {}) => ({
   level:                "Primary",
   classes:              ["P1"],
   parentMessage:        "Dear Parents and Guardians,\n\nWe are pleased to inform you of the school fees for the upcoming term. Please find the detailed breakdown below.\n\nThank you for your continued support.",
-  academicYear:         "2025-2026",
+  academicYear:         "",
   term:                 "Term 1",
   category:             "Public",
   language:             "en",
@@ -736,6 +737,22 @@ export default function App({ session, lang, setLang }) {
   const overBy   = exceeds ? totalFee - nesaLimit : 0;
   if (!exceeds && form.requestIncrease) up("requestIncrease", false);
 
+  const validateStep1 = () => {
+    const yearCheck = validateAcademicYear(form.academicYear);
+    if (!yearCheck.valid || yearCheck.empty) {
+      showToast(yearCheck.message || "Enter academic year as YYYY-YYYY (e.g. 2027-2028)", "error");
+      return false;
+    }
+    if (!form.category || !form.level || !form.term) {
+      showToast("Category, level, and term are required", "error");
+      return false;
+    }
+    if (yearCheck.normalized !== form.academicYear) {
+      up("academicYear", yearCheck.normalized);
+    }
+    return true;
+  };
+
   const validateStep2 = () => {
     const errs = {};
     if (!form.payments.some(p => p.name && p.amount)) errs.payments = "At least one payment item required";
@@ -750,6 +767,7 @@ export default function App({ session, lang, setLang }) {
   };
 
   const handleNext = () => {
+    if (step === 1 && !validateStep1()) return;
     if (step === 2 && !validateStep2()) { showToast("Please fix the highlighted fields", "error"); return; }
     setErrors({});
     setStep(s => s + 1);
@@ -757,7 +775,14 @@ export default function App({ session, lang, setLang }) {
 
   const handleSave = async () => {
     if (step === 8 && !validateStep2()) { showToast("Validation errors in Step 2.", "error"); return; }
+    if (!validateStep1()) return;
     if (!schoolId) { showToast("School ID missing from session.", "error"); return; }
+
+    const yearCheck = validateAcademicYear(form.academicYear);
+    if (!yearCheck.valid || yearCheck.empty) {
+      showToast(yearCheck.message || "Invalid academic year", "error");
+      return;
+    }
 
     const classesToCreate = form.classes?.length ? form.classes : ["P1"];
     setSaving(true);
@@ -778,7 +803,7 @@ export default function App({ session, lang, setLang }) {
       const primaryClass = classesToCreate[0];
       const fd = new FormData();
       fd.append("school_id",         schoolId);
-      fd.append("academic_year",     form.academicYear);
+      fd.append("academic_year",     yearCheck.normalized);
       fd.append("term",              form.term);
       fd.append("class_name",        primaryClass);
       fd.append("class",             primaryClass);
@@ -1135,8 +1160,29 @@ export default function App({ session, lang, setLang }) {
             )}
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div>
+                <label className="block text-[10px] font-bold uppercase mb-1" style={{ color: C.darkMid }}>Academic Year</label>
+                <input
+                  type="text"
+                  value={form.academicYear}
+                  onChange={e => up("academicYear", e.target.value)}
+                  onBlur={e => {
+                    const check = validateAcademicYear(e.target.value);
+                    if (check.valid && !check.empty && check.normalized !== e.target.value) {
+                      up("academicYear", check.normalized);
+                    }
+                  }}
+                  placeholder="e.g. 2027-2028"
+                  list="school-babyeyi-academic-years"
+                  className={inp}
+                  style={{ borderColor: C.goldBorder }}
+                />
+                <datalist id="school-babyeyi-academic-years" />
+                <p className="mt-1 text-[9px] font-semibold" style={{ color: C.goldDark }}>
+                  YYYY-YYYY — second year = first + 1 (NESA fee limits)
+                </p>
+              </div>
               {[
-                { label:"Academic Year", key:"academicYear", opts:["2025-2026","2024-2025","2026-2027"] },
                 { label:"Term",          key:"term",         opts:["Term 1","Term 2","Term 3"] },
                 { label:"Category",      key:"category",     opts:["Public","Private","Boarding","TVET"] },
                 { label:"Level",         key:"level",        opts:Object.keys(LEVEL_CLASSES),

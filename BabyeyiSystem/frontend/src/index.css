@@ -71,35 +71,50 @@ html body * {
   }
 }
 
-/* District Babyeyi / DEO Portal */
+/* District Babyeyi / DEO Portal — navy + amber only */
 @theme {
   --color-deo-navy: #000435;
-  --color-deo-navy-mid: #081045;
+  --color-deo-navy-mid: #000c6e;
   --color-deo-amber: #f59e0b;
   --color-deo-amber-light: #fbbf24;
   --color-deo-amber-dark: #d97706;
   --color-deo-amber-bg: #fffbeb;
   --color-deo-amber-border: #fde68a;
 
-  --color-deo-emerald: #10B981;
-  --color-deo-emerald-dark: #047857;
-  --color-deo-emerald-bg: #ecfdf5;
-  --color-deo-emerald-border: #a7f3d0;
+  --color-deo-emerald: #f59e0b;
+  --color-deo-emerald-dark: #000435;
+  --color-deo-emerald-bg: #fffbeb;
+  --color-deo-emerald-border: #fde68a;
 
-  --color-deo-red: #EF4444;
-  --color-deo-red-50: #FEF2F2;
-  --color-deo-red-700: #B91C1C;
-  --color-deo-red-800: #991B1B;
-  --color-deo-red-border: #FECACA;
+  --color-deo-red: #000435;
+  --color-deo-red-50: #fffbeb;
+  --color-deo-red-700: #000435;
+  --color-deo-red-800: #000435;
+  --color-deo-red-border: #fde68a;
 
   --color-deo-blue: #000435;
   --color-deo-blue-bg: rgba(0, 4, 53, 0.06);
-  --color-deo-blue-border: rgba(0, 4, 53, 0.15);
+  --color-deo-blue-border: rgba(0, 4, 53, 0.12);
   
   --color-deo-slate-100: #F8FAFC;
   --color-deo-slate-200: #E2E8F0;
   --color-deo-slate-400: #94A3B8;
   --color-deo-slate-500: #64748B;
+}
+
+/* DEO portal dark mode */
+html.deo-dark .deo-main-surface {
+  background: #0f172a !important;
+  color: #e2e8f0;
+}
+html.deo-dark .deo-main-surface header {
+  background: rgba(15, 23, 42, 0.95) !important;
+  border-color: rgba(71, 85, 105, 0.5) !important;
+}
+html.deo-dark .deo-card-surface {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #e2e8f0;
 }
 
 @layer components {

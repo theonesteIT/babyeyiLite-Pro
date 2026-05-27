@@ -45,12 +45,26 @@ const {
   formatStudentUid,
   parseSchoolCodeNumeric,
 } = require('../utils/rwandaDistrictCodes');
+const {
+  ensureStudentYearEnrollmentsTable,
+  backfillSchoolEnrollments,
+  syncEnrollmentFromStudent,
+  enrollmentYearFilter,
+  enrollmentClassSelect,
+} = require('./studentYearEnrollments');
 
 // ── Allowed roles ────────────────────────────────────────────────
 // DOS can also register/import students (same StudentsPage UX as School Manager).
 const SCHOOL_ROLES = ['SCHOOL_ADMIN', 'SCHOOL_MANAGER', 'ACCOUNTANT', 'DOS'];
 /** HOD may list students (read-only discipline workflow); mutations stay SCHOOL_ROLES */
-const STUDENT_LIST_ROLES = [...SCHOOL_ROLES, 'HOD', 'SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER'];
+const STUDENT_LIST_ROLES = [
+  ...SCHOOL_ROLES,
+  'HOD',
+  'DISCIPLINE',
+  'DISCIPLINE_STAFF',
+  'SUPER_ADMIN',
+  'FULL_SYSTEM_CONTROLLER',
+];
 /** RFID / fingerprint partial updates — platform operators may act on behalf of a selected school. */
 const STUDENT_IDENTITY_ROLES = [...SCHOOL_ROLES, 'SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER'];
 
@@ -777,52 +791,63 @@ router.get('/students', requireRole(STUDENT_LIST_ROLES), async (req, res) => {
     const { page, limit, offset } = parsePagination(req);
     const paginationEnabled = String(req.query.paginate || 'true').toLowerCase() !== 'false';
 
+    const classFilter = trimStr(req.query.class_name || req.query.class || '');
+    const yearFilter = trimStr(req.query.academic_year || req.query.year || '');
+
+    if (yearFilter) {
+      await ensureStudentYearEnrollmentsTable();
+      await backfillSchoolEnrollments(schoolId);
+    }
+
+    const yearScope = enrollmentYearFilter(yearFilter, 'ey', 's');
+    const fromClause = yearFilter ? `FROM students s ${yearScope.join}` : 'FROM students s';
+    const schoolWhere = `WHERE s.school_id = ?${yearScope.where}`;
+
     let sql = `
-      SELECT id, student_uid, student_code, school_id, first_name, last_name, gender, birth_year,
-             nationality, province, district, sector, cell, village,
-             class_name, academic_year, sdm_code, discipline_marks,
-             student_photo, rfid_uid, fingerprint_id, identity_remarks,
-             father_full_name, father_phone, father_email, father_national_id,
-             mother_full_name, mother_phone, mother_email, mother_national_id,
-             import_missing_fields, source_row_json, created_at, updated_at
-      FROM students WHERE school_id = ?
+      SELECT s.id, s.student_uid, s.student_code, s.school_id, s.first_name, s.last_name, s.gender, s.birth_year,
+             s.nationality, s.province, s.district, s.sector, s.cell, s.village,
+             ${yearFilter ? `${yearScope.classCol} AS class_name, COALESCE(NULLIF(TRIM(ey.academic_year), ''), s.academic_year) AS academic_year` : 's.class_name, s.academic_year'},
+             ${yearFilter ? enrollmentClassSelect('ey') + ',' : ''}
+             s.sdm_code, s.discipline_marks,
+             s.student_photo, s.rfid_uid, s.fingerprint_id, s.identity_remarks,
+             s.father_full_name, s.father_phone, s.father_email, s.father_national_id,
+             s.mother_full_name, s.mother_phone, s.mother_email, s.mother_national_id,
+             s.import_missing_fields, s.source_row_json, s.created_at, s.updated_at
+      ${fromClause}
+      ${schoolWhere}
     `;
-    let countSql = 'SELECT COUNT(*) AS total FROM students WHERE school_id = ?';
-    const params = [schoolId], countParams = [schoolId];
+    let countSql = `SELECT COUNT(*) AS total ${fromClause} ${schoolWhere}`;
+    const params = [schoolId, ...yearScope.params];
+    const countParams = [schoolId, ...yearScope.params];
 
     if (q) {
-      const whereSearch = ` AND (student_uid LIKE ? OR student_code LIKE ? OR sdm_code LIKE ? OR first_name LIKE ? OR last_name LIKE ? OR CONCAT(first_name,' ',last_name) LIKE ?)`;
-      sql      += whereSearch;
+      const whereSearch = ` AND (s.student_uid LIKE ? OR s.student_code LIKE ? OR s.sdm_code LIKE ? OR s.first_name LIKE ? OR s.last_name LIKE ? OR CONCAT(s.first_name,' ',s.last_name) LIKE ?)`;
+      sql += whereSearch;
       countSql += whereSearch;
       const like = `%${q}%`;
       params.push(like, like, like, like, like, like);
       countParams.push(like, like, like, like, like, like);
     }
 
-    const classFilter = trimStr(req.query.class_name || req.query.class || '');
-    const yearFilter = trimStr(req.query.academic_year || req.query.year || '');
     if (classFilter) {
-      sql += ' AND TRIM(COALESCE(class_name, \'\')) = ?';
-      countSql += ' AND TRIM(COALESCE(class_name, \'\')) = ?';
+      const classCol = yearFilter ? yearScope.classCol : 's.class_name';
+      sql += ` AND TRIM(COALESCE(${classCol}, '')) = ?`;
+      countSql += ` AND TRIM(COALESCE(${classCol}, '')) = ?`;
       params.push(classFilter);
       countParams.push(classFilter);
     }
-    if (yearFilter) {
-      sql += ' AND academic_year = ?';
-      countSql += ' AND academic_year = ?';
-      params.push(yearFilter);
-      countParams.push(yearFilter);
-    }
 
-    sql += ' ORDER BY student_uid ASC, created_at DESC';
+    sql += ' ORDER BY s.student_uid ASC, s.created_at DESC';
     if (paginationEnabled) { sql += ' LIMIT ? OFFSET ?'; params.push(limit, offset); }
 
-    const [rows]        = await promisePool.query(sql, params);
-    const [[countRow]]  = await promisePool.query(countSql, countParams);
-    const total         = Number(countRow?.total || rows.length || 0);
+    const [rows] = await promisePool.query(sql, params);
+    const [[countRow]] = await promisePool.query(countSql, countParams);
+    const total = Number(countRow?.total || rows.length || 0);
 
     const withPhotoUrl = (rows || []).map((r) => ({
       ...r,
+      class_name: r.roster_class_name || r.class_name,
+      academic_year: r.roster_academic_year || r.academic_year,
       student_photo_url: r.student_photo ? toStudentPhotoUrl(r.student_photo) : null,
     }));
 
@@ -857,40 +882,78 @@ router.get('/students/registry-stats', requireRole(STUDENT_LIST_ROLES), async (r
     const yearFilter = trimStr(req.query.academic_year || req.query.year || '');
     const classFilter = trimStr(req.query.class_name || req.query.class || '');
 
-    const params = [schoolId];
-    let where = 'school_id = ?';
+    if (yearFilter) {
+      await ensureStudentYearEnrollmentsTable();
+      await backfillSchoolEnrollments(schoolId);
+    }
+
+    const yearScope = enrollmentYearFilter(yearFilter, 'ey', 's');
+    const fromStudents = yearFilter ? `students s ${yearScope.join}` : 'students s';
+    const params = [schoolId, ...yearScope.params];
+    let where = `s.school_id = ?${yearScope.where}`;
     if (q) {
       where +=
-        ` AND (student_uid LIKE ? OR student_code LIKE ? OR sdm_code LIKE ? OR first_name LIKE ? OR last_name LIKE ? OR CONCAT(first_name,' ',last_name) LIKE ?)`;
+        ` AND (s.student_uid LIKE ? OR s.student_code LIKE ? OR s.sdm_code LIKE ? OR s.first_name LIKE ? OR s.last_name LIKE ? OR CONCAT(s.first_name,' ',s.last_name) LIKE ?)`;
       const like = `%${q}%`;
       params.push(like, like, like, like, like, like);
     }
-    if (yearFilter) {
-      where += ' AND academic_year = ?';
-      params.push(yearFilter);
-    }
 
+    const classCol = yearFilter ? yearScope.classCol : 's.class_name';
     const classListSql =
-      `SELECT TRIM(class_name) AS class_name, COUNT(*) AS cnt FROM students WHERE ${where}` +
-      " AND TRIM(COALESCE(class_name, '')) <> '' GROUP BY TRIM(class_name) ORDER BY TRIM(class_name)";
+      `SELECT TRIM(${classCol}) AS class_name, COUNT(*) AS cnt FROM ${fromStudents} WHERE ${where}` +
+      ` AND TRIM(COALESCE(${classCol}, '')) <> '' GROUP BY TRIM(${classCol}) ORDER BY TRIM(${classCol})`;
 
     let genderWhere = where;
     const genderParams = [...params];
     if (classFilter) {
-      genderWhere += " AND TRIM(COALESCE(class_name, '')) = ?";
+      genderWhere += ` AND TRIM(COALESCE(${classCol}, '')) = ?`;
       genderParams.push(classFilter);
     }
 
     const genderSql =
       `SELECT COUNT(*) AS total,` +
-      ` SUM(CASE WHEN gender = 'Male' THEN 1 ELSE 0 END) AS male,` +
-      ` SUM(CASE WHEN gender = 'Female' THEN 1 ELSE 0 END) AS female,` +
-      ` SUM(CASE WHEN gender IS NULL OR gender NOT IN ('Male','Female') THEN 1 ELSE 0 END) AS unspecified` +
-      ` FROM students WHERE ${genderWhere}`;
+      ` SUM(CASE WHEN s.gender = 'Male' THEN 1 ELSE 0 END) AS male,` +
+      ` SUM(CASE WHEN s.gender = 'Female' THEN 1 ELSE 0 END) AS female,` +
+      ` SUM(CASE WHEN s.gender IS NULL OR s.gender NOT IN ('Male','Female') THEN 1 ELSE 0 END) AS unspecified` +
+      ` FROM ${fromStudents} WHERE ${genderWhere}`;
 
-    const [[wholeRow]] = await promisePool.query(`SELECT COUNT(*) AS t FROM students WHERE ${where}`, params);
+    const [[wholeRow]] = await promisePool.query(
+      `SELECT COUNT(*) AS t FROM ${fromStudents} WHERE ${where}`,
+      params
+    );
     const [classRows] = await promisePool.query(classListSql, params);
     const [[genderRow]] = await promisePool.query(genderSql, genderParams);
+
+    await ensureStudentYearEnrollmentsTable();
+    const [yearRows] = await promisePool.query(
+      `SELECT DISTINCT TRIM(academic_year) AS academic_year
+       FROM (
+         SELECT TRIM(academic_year) AS academic_year FROM student_year_enrollments WHERE school_id = ?
+         UNION
+         SELECT TRIM(academic_year) AS academic_year FROM students WHERE school_id = ?
+       ) yrs
+       WHERE TRIM(COALESCE(academic_year, '')) <> ''
+       ORDER BY academic_year DESC`,
+      [schoolId, schoolId]
+    );
+
+    let currentAcademicYear = yearFilter || '';
+    if (!currentAcademicYear) {
+      const [[settingsRow]] = await promisePool
+        .query(
+          `SELECT current_academic_year FROM school_academic_settings WHERE school_id = ? LIMIT 1`,
+          [schoolId]
+        )
+        .catch(() => [[null]]);
+      currentAcademicYear = trimStr(settingsRow?.current_academic_year) || '';
+    }
+
+    const academicYears = (yearRows || [])
+      .map((r) => trimStr(r.academic_year))
+      .filter(Boolean);
+    if (currentAcademicYear && !academicYears.includes(currentAcademicYear)) {
+      academicYears.unshift(currentAcademicYear);
+    }
 
     return res.json({
       success: true,
@@ -903,6 +966,8 @@ router.get('/students/registry-stats', requireRole(STUDENT_LIST_ROLES), async (r
         class_name: trimStr(r.class_name),
         count: Number(r.cnt ?? 0),
       })),
+      academic_years: academicYears,
+      current_academic_year: currentAcademicYear,
     });
   } catch (err) {
     console.error('GET /api/students/registry-stats error:', err);
@@ -1003,6 +1068,14 @@ router.put('/students/:id', requireRole(SCHOOL_ROLES), async (req, res) => {
         studentId, schoolId,
       ]
     );
+    if (ay) {
+      await syncEnrollmentFromStudent(promisePool, {
+        schoolId,
+        studentId,
+        academicYear: ay,
+        className: cls,
+      }).catch(() => {});
+    }
     return res.json({ success: true, message: 'Student updated' });
   } catch (err) {
     console.error('PUT /api/students/:id error:', err);
@@ -1424,6 +1497,14 @@ router.post('/students', requireRole(SCHOOL_ROLES), async (req, res) => {
         mother_full_name || null, mPhone, mother_email || null, motherNationalIdVal,
       ]
     );
+    if (academicYearVal) {
+      await syncEnrollmentFromStudent(promisePool, {
+        schoolId,
+        studentId: result.insertId,
+        academicYear: academicYearVal,
+        className: classNameVal,
+      }).catch(() => {});
+    }
     return res.status(201).json({
       success: true,
       message: 'Student created',
@@ -2044,6 +2125,8 @@ router.post(
 
         await conn.commit();
         conn.release();
+
+        await backfillSchoolEnrollments(schoolId).catch(() => {});
 
         skippedRows += duplicatesSkipped + replacedSkipped;
         const modeLabel = importMode === 'insert_only' ? 'Insert only' : 'Replace by Student ID';

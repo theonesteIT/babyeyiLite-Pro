@@ -11,8 +11,23 @@
 
 const express = require('express');
 const { promisePool } = require('../config/database');
-const { notifyStudentParentsPush } = require('./parentWebPush');
+const {
+  ensureConductMarksColumns,
+  getConductBoundsForSchool,
+  getConductMaxMarks,
+  saveConductBoundsForSchool,
+} = require('./conductMarksSettings');
+const {
+  notifyStudentParentsDiscipline,
+  notifyStudentParentsChannels,
+} = require('./parentStudentNotifications');
 const { requireRole } = require('../middleware/deoAuth');
+const {
+  ensureStudentYearEnrollmentsTable,
+  backfillSchoolEnrollments,
+  enrollmentYearFilter,
+  enrollmentClassSelect,
+} = require('./studentYearEnrollments');
 
 const router = express.Router();
 const DISCIPLINE_WRITE_ROLES = ['HOD', 'DOS', 'SCHOOL_MANAGER', 'SCHOOL_ADMIN', 'MANAGER', 'DISCIPLINE', 'DISCIPLINE_STAFF'];
@@ -122,49 +137,9 @@ async function ensurePermissionTrackingColumns() {
   permissionColumnsReady = true;
 }
 
-/** School conduct maximum — set by Head of Discipline as default_marks (starting balance for all learners). */
-async function getConductMaxMarks(schoolId) {
-  const { default_marks } = await getDefaultMarksForSchool(schoolId);
-  return default_marks;
-}
-
 /** @deprecated Use getConductMaxMarks — kept as alias for existing callers. */
 async function getTotalMarksForSchool(schoolId) {
   return getConductMaxMarks(schoolId);
-}
-
-async function syncConductMaxMarks(schoolId, maxMarks, userId = null) {
-  await promisePool.query(
-    `INSERT INTO school_discipline_settings (school_id, total_marks, updated_by_user_id)
-     VALUES (?,?,?)
-     ON DUPLICATE KEY UPDATE
-       total_marks = VALUES(total_marks),
-       updated_by_user_id = VALUES(updated_by_user_id)`,
-    [schoolId, maxMarks, userId]
-  );
-}
-
-async function getDefaultMarksForSchool(schoolId) {
-  const [[row]] = await promisePool.query(
-    'SELECT default_marks, last_updated, updated_by FROM school_discipline_default_marks WHERE school_id = ? LIMIT 1',
-    [schoolId]
-  );
-  if (row && row.default_marks != null) {
-    return {
-      default_marks: Number(row.default_marks),
-      last_updated: row.last_updated || null,
-      updated_by: row.updated_by || null,
-    };
-  }
-  const [[legacy]] = await promisePool.query(
-    'SELECT total_marks FROM school_discipline_settings WHERE school_id = ? LIMIT 1',
-    [schoolId]
-  );
-  if (legacy?.total_marks != null) {
-    const legacyMarks = Number(legacy.total_marks);
-    return { default_marks: legacyMarks, last_updated: null, updated_by: null };
-  }
-  return { default_marks: 40, last_updated: null, updated_by: null };
 }
 
 function inferTermFromMonth(terms = [], date = new Date()) {
@@ -226,18 +201,21 @@ async function resolveAcademicContext(schoolId, academicYearRaw, termRaw) {
 router.get('/discipline/settings', requireRole(DISCIPLINE_READ_ROLES), async (req, res) => {
   try {
     await ensureDisciplineTables();
+    await ensureConductMarksColumns();
     const schoolId = resolveSchoolId(req);
     if (!schoolId) {
       return res.status(400).json({ success: false, message: 'School not found in session.' });
     }
-    const defaults = await getDefaultMarksForSchool(schoolId);
-    const maxMarks = defaults.default_marks;
+    const bounds = await getConductBoundsForSchool(schoolId);
+    const maxMarks = bounds.default_marks;
     return res.json({
       success: true,
       data: {
-        ...defaults,
+        ...bounds,
         total_marks: maxMarks,
         max_marks: maxMarks,
+        minimum_marks: bounds.minimum_marks,
+        min_marks: bounds.min_marks,
       },
     });
   } catch (err) {
@@ -260,15 +238,15 @@ router.put('/discipline/settings/default-marks', requireRole(DISCIPLINE_WRITE_RO
     }
 
     const defaultMarks = Number(req.body?.default_marks);
+    const minimumMarks =
+      req.body?.minimum_marks != null
+        ? Number(req.body.minimum_marks)
+        : req.body?.min_marks != null
+          ? Number(req.body.min_marks)
+          : 0;
     const applyTo = trimStr(req.body?.apply_to || 'new').toLowerCase();
     const confirmed = !!req.body?.confirmed_overwrite;
 
-    if (Number.isNaN(defaultMarks) || defaultMarks < 1 || defaultMarks > 10000) {
-      return res.status(400).json({
-        success: false,
-        message: 'default_marks must be a number between 1 and 10000.',
-      });
-    }
     if (!['new', 'all'].includes(applyTo)) {
       return res.status(400).json({ success: false, message: 'apply_to must be "new" or "all".' });
     }
@@ -279,33 +257,38 @@ router.put('/discipline/settings/default-marks', requireRole(DISCIPLINE_WRITE_RO
       });
     }
 
-    await promisePool.query(
-      `INSERT INTO school_discipline_default_marks (school_id, default_marks, updated_by)
-       VALUES (?,?,?)
-       ON DUPLICATE KEY UPDATE
-         default_marks = VALUES(default_marks),
-         updated_by = VALUES(updated_by)`,
-      [schoolId, defaultMarks, userId]
-    );
-    await syncConductMaxMarks(schoolId, defaultMarks, userId);
+    let bounds;
+    try {
+      bounds = await saveConductBoundsForSchool(
+        schoolId,
+        { default_marks: defaultMarks, minimum_marks: minimumMarks },
+        userId
+      );
+    } catch (saveErr) {
+      return res.status(saveErr.status || 400).json({
+        success: false,
+        message: saveErr.message || 'Invalid conduct marks range.',
+      });
+    }
 
     let updateSql = 'UPDATE students SET discipline_marks = ? WHERE school_id = ?';
-    const updateParams = [defaultMarks, schoolId];
+    const updateParams = [bounds.default_marks, schoolId];
     if (applyTo === 'new') {
       updateSql += ' AND discipline_marks IS NULL';
     }
     const [updateResult] = await promisePool.query(updateSql, updateParams);
 
-    const defaults = await getDefaultMarksForSchool(schoolId);
     return res.json({
       success: true,
       message: applyTo === 'all'
-        ? 'Default marks saved and applied to all students.'
-        : 'Default marks saved and applied to new students only.',
+        ? 'Conduct range saved and applied to all students.'
+        : 'Conduct range saved and applied to new students only.',
       data: {
-        ...defaults,
-        total_marks: defaults.default_marks,
-        max_marks: defaults.default_marks,
+        ...bounds,
+        total_marks: bounds.default_marks,
+        max_marks: bounds.max_marks,
+        minimum_marks: bounds.minimum_marks,
+        min_marks: bounds.min_marks,
         updated_students: Number(updateResult?.affectedRows || 0),
         apply_to: applyTo,
       },
@@ -353,7 +336,7 @@ router.get('/discipline/students', requireRole(DISCIPLINE_READ_ROLES), async (re
     );
     const total = Number(countRow?.total || 0);
 
-    const { default_marks: conductMax } = await getDefaultMarksForSchool(schoolId);
+    const { max_marks: conductMax } = await getConductBoundsForSchool(schoolId);
 
     const [rows] = await promisePool.query(
       `SELECT
@@ -479,12 +462,17 @@ router.post('/discipline/students/:studentId/marks', requireRole(DISCIPLINE_WRIT
       return res.status(404).json({ success: false, message: 'Student not found.' });
     }
 
-    const maxMarks = await getConductMaxMarks(schoolId);
+    const bounds = await getConductBoundsForSchool(schoolId);
+    const maxMarks = bounds.max_marks;
+    const minMarks = bounds.minimum_marks;
     const previousMarks = Number(student.discipline_marks ?? maxMarks);
     const nextMarks = action === 'add' ? previousMarks + marks : previousMarks - marks;
-    if (nextMarks < 0) {
+    if (nextMarks < minMarks) {
       await conn.rollback();
-      return res.status(400).json({ success: false, message: 'Resulting marks cannot be negative.' });
+      return res.status(400).json({
+        success: false,
+        message: `Resulting marks cannot be below the school minimum (${minMarks}).`,
+      });
     }
     if (nextMarks > maxMarks) {
       await conn.rollback();
@@ -507,26 +495,33 @@ router.post('/discipline/students/:studentId/marks', requireRole(DISCIPLINE_WRIT
     );
 
     const [[stName]] = await conn.query(
-      'SELECT first_name, last_name FROM students WHERE id = ? LIMIT 1',
+      `SELECT s.first_name, s.last_name, sc.school_name
+       FROM students s
+       LEFT JOIN schools sc ON sc.id = s.school_id
+       WHERE s.id = ?
+       LIMIT 1`,
       [studentId]
     );
     await conn.commit();
 
-    if (action === 'remove') {
+    let parent_notifications = null;
+    if (action === 'remove' && req.body?.notify_parent !== false) {
       const studentName =
         `${trimStr(stName?.first_name)} ${trimStr(stName?.last_name)}`.trim() || 'Your child';
-      setImmediate(() => {
-        notifyStudentParentsPush(
-          studentId,
-          {
-            title: 'Discipline update',
-            body: `${studentName}: ${marks} mark(s) deducted — ${reason.slice(0, 120)}. Remaining: ${nextMarks}.`,
-            tag: `discipline-${studentId}`,
-            url: '/parents/home',
-          },
-          { category: 'discipline' }
-        ).catch((e) => console.warn('[discipline/push]', e.message));
-      });
+      try {
+        parent_notifications = await notifyStudentParentsDiscipline(studentId, {
+          studentName,
+          schoolName: stName?.school_name,
+          schoolId,
+          marks,
+          remaining: nextMarks,
+          maximum: maxMarks,
+          reason,
+          logId: ins.insertId,
+        });
+      } catch (notifyErr) {
+        console.warn('[discipline/parent-notify]', notifyErr.message);
+      }
     }
 
     return res.status(201).json({
@@ -539,7 +534,10 @@ router.post('/discipline/students/:studentId/marks', requireRole(DISCIPLINE_WRIT
         marks,
         previous_marks: previousMarks,
         new_marks: nextMarks,
+        minimum_marks: minMarks,
+        maximum_marks: maxMarks,
       },
+      parent_notifications,
     });
   } catch (err) {
     try { await conn.rollback(); } catch (_) {}
@@ -636,22 +634,206 @@ router.put('/discipline/settings', requireRole(DISCIPLINE_WRITE_ROLES), async (r
         message: 'total_marks must be a number between 1 and 10000.',
       });
     }
-    await syncConductMaxMarks(schoolId, totalMarks, userId);
-    await promisePool.query(
-      `INSERT INTO school_discipline_default_marks (school_id, default_marks, updated_by)
-       VALUES (?,?,?)
-       ON DUPLICATE KEY UPDATE
-         default_marks = VALUES(default_marks),
-         updated_by = VALUES(updated_by)`,
-      [schoolId, totalMarks, userId]
+    const current = await getConductBoundsForSchool(schoolId);
+    const bounds = await saveConductBoundsForSchool(
+      schoolId,
+      { default_marks: totalMarks, minimum_marks: current.minimum_marks },
+      userId
     );
     return res.json({
       success: true,
-      data: { total_marks: totalMarks, default_marks: totalMarks, max_marks: totalMarks },
+      data: {
+        total_marks: bounds.max_marks,
+        default_marks: bounds.default_marks,
+        max_marks: bounds.max_marks,
+        minimum_marks: bounds.minimum_marks,
+      },
     });
   } catch (err) {
     console.error('PUT /discipline/settings:', err);
     return res.status(500).json({ success: false, message: 'Failed to save settings' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+// GET /api/discipline/students-roster
+// School roster for Conduct portal — students + stats + class/year filters
+// query: ?academic_year=&class_name=&q=
+// ════════════════════════════════════════════════════════════════
+router.get('/discipline/students-roster', requireRole(DISCIPLINE_READ_ROLES), async (req, res) => {
+  try {
+    await ensureDisciplineTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) {
+      return res.status(400).json({ success: false, message: 'School not found in session.' });
+    }
+
+    const q = trimStr(req.query.q || req.query.query || '');
+    const className = trimStr(req.query.class_name || req.query.class || '');
+    const yearQ = trimStr(req.query.academic_year || req.query.year || '');
+    const { academicYear: defaultYear } = await resolveAcademicContext(schoolId, yearQ, '');
+    const academicYearFilter = yearQ && yearQ.toUpperCase() !== 'ALL' ? yearQ : '';
+
+    if (academicYearFilter) {
+      await ensureStudentYearEnrollmentsTable();
+      await backfillSchoolEnrollments(schoolId, {
+        currentYear: academicYearFilter || defaultYear,
+      });
+    }
+
+    const yearFilter = enrollmentYearFilter(academicYearFilter, 'ey', 's');
+    const bounds = await getConductBoundsForSchool(schoolId);
+    const conductMax = bounds.max_marks;
+    const conductMin = bounds.minimum_marks;
+    const lookupDate = new Date().toISOString().split('T')[0];
+
+    let sql = `
+      SELECT s.*,
+             ${academicYearFilter ? enrollmentClassSelect('ey') + ',' : ''}
+             (SELECT permission_type FROM student_permissions
+              WHERE student_id = s.id AND status = 'APPROVED'
+              AND (DATE(starts_at) = ? OR DATE(ends_at) = ? OR (? BETWEEN DATE(starts_at) AND DATE(ends_at)))
+              LIMIT 1) AS active_permission,
+             COALESCE(att.pct, 0) AS attendance_pct
+      FROM students s
+      ${yearFilter.join}
+      LEFT JOIN (
+        SELECT ar.student_id,
+               ROUND(100 * SUM(CASE WHEN LOWER(TRIM(ar.status)) IN ('present','late') THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0)) AS pct
+        FROM academic_attendance_records ar
+        INNER JOIN academic_attendance_logs al ON ar.log_id = al.id
+        WHERE al.school_id = ?
+          AND al.record_date >= DATE_SUB(CURDATE(), INTERVAL 120 DAY)
+        GROUP BY ar.student_id
+      ) att ON att.student_id = s.id
+      WHERE s.school_id = ?${yearFilter.where}`;
+    const params = [lookupDate, lookupDate, lookupDate, schoolId, ...yearFilter.params, schoolId];
+
+    if (className) {
+      const classCol = academicYearFilter ? yearFilter.classCol : 's.class_name';
+      sql += ` AND TRIM(COALESCE(${classCol}, '')) = ?`;
+      params.push(className);
+    }
+    if (q) {
+      sql += ` AND (
+        CONCAT(COALESCE(s.first_name,''), ' ', COALESCE(s.last_name,'')) LIKE ?
+        OR COALESCE(s.student_code, '') LIKE ?
+        OR COALESCE(s.student_uid, '') LIKE ?
+      )`;
+      const like = `%${q}%`;
+      params.push(like, like, like);
+    }
+
+    sql += ' ORDER BY s.class_name ASC, s.first_name ASC LIMIT 2000';
+    const [rows] = await promisePool.query(sql, params);
+
+    const mapStatus = (r, marks) => {
+      if (r.active_permission) return 'On leave';
+      if (conductMax > 0) {
+        const pct = (marks / conductMax) * 100;
+        if (pct >= 70) return 'Epic';
+        if (pct >= 40) return 'Advanced';
+      }
+      return 'At risk';
+    };
+
+    const data = (rows || []).map((r) => {
+      const rosterClass = r.roster_class_name || r.class_name;
+      const rosterYear = r.roster_academic_year || r.academic_year;
+      const marks = Number(r.discipline_marks ?? conductMax);
+      const att = r.attendance_pct != null ? Number(r.attendance_pct) : 0;
+      const status = mapStatus(r, marks);
+      return {
+        row_id: r.id,
+        id: r.student_uid || r.student_code || `ST-${r.id}`,
+        student_code: r.student_code || null,
+        student_uid: r.student_uid || null,
+        name: `${trimStr(r.first_name)} ${trimStr(r.last_name)}`.trim() || `Student ${r.id}`,
+        grade: rosterClass || 'Unassigned',
+        stream: '',
+        gpa: conductMax > 0 ? Number(((marks / conductMax) * 4).toFixed(1)) : null,
+        discipline_marks: marks,
+        discipline_max: conductMax,
+        discipline_min: conductMin,
+        attendance: Math.round(att),
+        status,
+        active_permission: r.active_permission || null,
+        gender: r.gender || null,
+        academic_year: rosterYear || null,
+        parent: r.father_full_name || r.mother_full_name || 'Not provided',
+        phone: r.father_phone || r.mother_phone || 'Not provided',
+        email: r.father_email || r.mother_email || 'Not provided',
+        province: r.province || 'N/A',
+        district: r.district || 'N/A',
+        sector: r.sector || 'N/A',
+        cell: r.cell || 'N/A',
+        created_at: r.created_at,
+      };
+    });
+
+    let male = 0;
+    let female = 0;
+    let epic = 0;
+    let attSum = 0;
+    let withLeave = 0;
+    const classSet = new Set();
+    for (const d of data) {
+      if (d.gender === 'Male') male += 1;
+      else if (d.gender === 'Female') female += 1;
+      if (d.status === 'Epic') epic += 1;
+      attSum += Number(d.attendance) || 0;
+      if (d.active_permission) withLeave += 1;
+      if (d.grade && d.grade !== 'Unassigned') classSet.add(d.grade);
+    }
+    const total = data.length;
+    const avgAttendance = total ? (attSum / total).toFixed(1) : '0';
+    const epicPercent = total ? Math.round((epic / total) * 100) : 0;
+    const diversityIndex = classSet.size ? (classSet.size / Math.max(total, 1)).toFixed(2) : '0';
+
+    await ensureStudentYearEnrollmentsTable();
+    const [yearRows] = await promisePool.query(
+      `SELECT DISTINCT TRIM(academic_year) AS academic_year
+       FROM (
+         SELECT TRIM(academic_year) AS academic_year FROM student_year_enrollments WHERE school_id = ?
+         UNION
+         SELECT TRIM(academic_year) AS academic_year FROM students WHERE school_id = ?
+       ) yrs
+       WHERE TRIM(COALESCE(academic_year, '')) <> ''
+       ORDER BY academic_year DESC`,
+      [schoolId, schoolId]
+    );
+    const academicYears = (yearRows || []).map((r) => trimStr(r.academic_year)).filter(Boolean);
+    if (defaultYear && !academicYears.includes(defaultYear)) {
+      academicYears.unshift(defaultYear);
+    }
+
+    const classes = [...classSet].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
+    return res.json({
+      success: true,
+      data,
+      stats: {
+        totalEnrolled: total,
+        epicPercent,
+        avgAttendance,
+        diversityIndex,
+        male,
+        female,
+        activePermissions: withLeave,
+        conductMaximum: conductMax,
+        conductMinimum: conductMin,
+        classCount: classSet.size,
+      },
+      meta: {
+        academic_year: academicYearFilter || 'ALL',
+        current_academic_year: defaultYear,
+        academic_years: academicYears,
+        classes,
+      },
+    });
+  } catch (err) {
+    console.error('GET /discipline/students-roster:', err);
+    return res.status(500).json({ success: false, message: 'Failed to load students roster.' });
   }
 });
 
@@ -812,22 +994,31 @@ router.post('/discipline/cases', requireRole(DISCIPLINE_WRITE_ROLES), async (req
     );
 
     const [[stName]] = await promisePool.query(
-      'SELECT first_name, last_name FROM students WHERE id = ? LIMIT 1',
+      `SELECT s.first_name, s.last_name, sc.school_name
+       FROM students s
+       LEFT JOIN schools sc ON sc.id = s.school_id
+       WHERE s.id = ?
+       LIMIT 1`,
       [studentId]
     );
     const studentName =
       `${trimStr(stName?.first_name)} ${trimStr(stName?.last_name)}`.trim() || 'Your child';
+    const schoolName = trimStr(stName?.school_name) || 'School';
     setImmediate(() => {
-      notifyStudentParentsPush(
-        studentId,
-        {
-          title: 'Discipline case recorded',
-          body: `${studentName}: ${marksDeducted} mark(s) — ${lessonSubject}. Remaining: ${remainAfter}.`,
-          tag: `discipline-case-${ins.insertId}`,
-          url: '/parents/home',
+      notifyStudentParentsChannels(studentId, {
+        type: 'DISCIPLINE_CASE',
+        title: `${schoolName}: Discipline case`,
+        body: `${studentName}: ${marksDeducted} mark(s) deducted — ${lessonSubject}. Remaining: ${remainAfter} of ${totalMarks}.`,
+        payload: {
+          case_id: ins.insertId,
+          student_id: studentId,
+          school_id: schoolId,
+          marks_deducted: marksDeducted,
+          remaining: remainAfter,
         },
-        { category: 'discipline' }
-      ).catch((e) => console.warn('[discipline/case/push]', e.message));
+        pushTag: `discipline-case-${ins.insertId}`,
+        category: 'discipline',
+      }).catch((e) => console.warn('[discipline/case/notify]', e.message));
     });
 
     return res.status(201).json({

@@ -37,9 +37,18 @@ Folder **`Teacher Avance USSD`**: set **`teacherStaffId`** to the **Staff ID / C
 
 Some requests need **Body → form-data** and real files (imports, logos, etc.). Add fields manually in Postman when the request has no sample body.
 
+## Combined tuition + USSD
+
+For implementing **public pay** (student code → year/term → tuition + requirements → MoMo) on **USSD**, read:
+
+**`docs/COMBINED_TUITION_PAY_USSD_GUIDE.md`**
+
+Postman E2E: folder **10c** → **E2E — Combined tuition**.
+
 ## Keeping it updated
 
 When new backend routes are added, update:
 
 1. `docs/API_REFERENCE.md` (if present/maintained)
-2. This Postman collection
+2. `docs/COMBINED_TUITION_PAY_USSD_GUIDE.md` (if USSD flow changes)
+3. This Postman collection

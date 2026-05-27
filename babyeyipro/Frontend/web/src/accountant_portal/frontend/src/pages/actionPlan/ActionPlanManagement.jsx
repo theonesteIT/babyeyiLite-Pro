@@ -1,22 +1,20 @@
-﻿import { useState } from 'react';
+﻿import { useState, useEffect, useCallback } from 'react';
 import { Menu, Bell, TriangleAlert, Info } from 'lucide-react';
 import { ActionPlanDataProvider, useActionPlanData } from '../../context/ActionPlanDataContext';
+import { fetchActionPlanNotifications } from '../../services/actionPlanApi';
 import { useIsMobile } from '../../utils/useIsMobile';
 import ActionPlanSidebar from '../../components/ActionPlanSidebar';
 import { actionPlanPageLabel } from '../../utils/actionPlanNav';
-import CreateActionPlanModal from '../../components/CreateActionPlanModal';
-import {
-  ActionPlanDashboardPage,
-  CreateActionPlanPage,
-  ActivitiesPage,
-  BudgetTrackingPage,
-  ProgressTrackingPage,
-  ApprovalsPage,
-  ReportsPage,
-  AnalyticsPage,
-  CalendarPage,
-  NotificationsPage,
-} from './actionPlanPages';
+import { ActionPlanDashboardPage } from './actionPlanPages';
+import NotificationReminder from './NotificationReminder';
+import ActionPlan from './ActionPlan';
+import ActivityPlanning from './ActivityPlanning';
+import BudgetIntegration from './BudgetIntegration';
+import ActionPlanTracking from './ActionPlanTracking';
+import ApprovalWorkflow from './ApprovalWorkflow';
+import ReportsAnalytics from './ReportsAnalytics';
+import CalendarView from './CalendarView';
+import ActionPlanPageHero from './ActionPlanPageHero';
 
 const COLORS = {
   navy: '#000435',
@@ -62,8 +60,33 @@ function ActionPlanShell() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const sidebarOpen = isMobile ? mobileMenuOpen : desktopSidebarOpen;
   const [showNotif, setShowNotif] = useState(false);
-  const [createOpen, setCreateOpen] = useState(false);
-  const { notifications, activePlan, options, setPlanId, reload } = useActionPlanData();
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [portalNotifs, setPortalNotifs] = useState([]);
+  const [portalUnread, setPortalUnread] = useState(0);
+  const { notifications, activePlan } = useActionPlanData();
+
+  const loadPortalNotifs = useCallback(() => {
+    fetchActionPlanNotifications(15)
+      .then(({ items, unread }) => {
+        setPortalUnread(unread);
+        setPortalNotifs(
+          items.map((n) => ({
+            id: `p-${n.id}`,
+            message: n.body || n.title,
+            type: n.type === 'activity_deadline' ? 'warning' : 'info',
+          }))
+        );
+      })
+      .catch(() => {
+        setPortalNotifs([]);
+        setPortalUnread(0);
+      });
+  }, []);
+
+  useEffect(() => { loadPortalNotifs(); }, [loadPortalNotifs, activePage]);
+
+  const bellNotifications = [...portalNotifs, ...notifications];
+  const bellUnread = portalUnread + (notifications.length ? 1 : 0);
 
   const toggleSidebar = () => {
     if (isMobile) setMobileMenuOpen((open) => !open);
@@ -80,34 +103,39 @@ function ActionPlanShell() {
 
   const goToCreate = () => {
     setActivePage('ap-create');
-    setCreateOpen(true);
+    setCreateModalOpen(true);
     closeSidebar();
   };
 
   const handleNav = (itemId) => {
-    if (itemId === 'ap-create') {
-      goToCreate();
-      return;
-    }
-    setCreateOpen(false);
+    if (itemId !== 'ap-create') setCreateModalOpen(false);
     setActivePage(itemId);
     closeSidebar();
   };
 
   const pages = {
     'ap-dashboard': <ActionPlanDashboardPage fmt={fmt} onOpenCreate={goToCreate} />,
-    'ap-create': <CreateActionPlanPage fmt={fmt} />,
-    'ap-activities': <ActivitiesPage fmt={fmt} />,
-    'ap-budget': <BudgetTrackingPage fmt={fmt} />,
-    'ap-progress': <ProgressTrackingPage fmt={fmt} />,
-    'ap-approvals': <ApprovalsPage fmt={fmt} />,
-    'ap-reports': <ReportsPage fmt={fmt} />,
-    'ap-analytics': <AnalyticsPage fmt={fmt} />,
-    'ap-calendar': <CalendarPage />,
-    'ap-notifications': <NotificationsPage />,
+    'ap-create': (
+      <ActionPlan
+        embedded
+        createModalOpen={createModalOpen}
+        onCreateModalOpenChange={setCreateModalOpen}
+      />
+    ),
+    'ap-activities': <ActivityPlanning embedded />,
+    'ap-budget': <BudgetIntegration embedded />,
+    'ap-progress': <ActionPlanTracking embedded />,
+    'ap-approvals': <ApprovalWorkflow embedded />,
+    'ap-reports': <ReportsAnalytics embedded />,
+    'ap-calendar': <CalendarView embedded />,
+    'ap-notifications': <NotificationReminder embedded />,
   };
 
   const pageTitle = actionPlanPageLabel(activePage);
+  const heroSubtitle = activePlan
+    ? `${activePlan.title} · ${activePlan.term} · ${activePlan.academicYear}`
+    : undefined;
+  const showPageHero = activePage !== 'ap-dashboard';
 
   return (
     <div
@@ -163,12 +191,19 @@ function ActionPlanShell() {
             >
               <Menu size={22} strokeWidth={2} aria-hidden />
             </button>
-            <span
-              className="font-semibold truncate"
-              style={{ color: COLORS.navy, fontSize: isMobile ? 14 : 16, maxWidth: isMobile ? 160 : undefined }}
-            >
-              {pageTitle}
-            </span>
+            {!showPageHero && (
+              <span
+                className="font-semibold truncate"
+                style={{ color: COLORS.navy, fontSize: isMobile ? 14 : 16, maxWidth: isMobile ? 160 : undefined }}
+              >
+                {pageTitle}
+              </span>
+            )}
+            {showPageHero && (
+              <span className="text-xs font-medium uppercase tracking-wider truncate" style={{ color: COLORS.gray400 }}>
+                Action Plan
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <button
@@ -200,11 +235,13 @@ function ActionPlanShell() {
                 aria-label="Notifications"
               >
                 <Bell size={22} strokeWidth={2} aria-hidden />
-                {notifications.length > 0 && (
+                {bellUnread > 0 && (
                   <span
-                    className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full block"
+                    className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full flex items-center justify-center text-[9px] font-bold text-white"
                     style={{ background: COLORS.amber }}
-                  />
+                  >
+                    {bellUnread > 9 ? '9+' : bellUnread}
+                  </span>
                 )}
               </button>
               {showNotif && (
@@ -215,8 +252,8 @@ function ActionPlanShell() {
                   <div className="px-3.5 py-2.5 text-sm font-semibold text-white" style={{ background: COLORS.navy }}>
                     Notifications
                   </div>
-                  {(notifications.length ? notifications : [{ id: 'none', message: 'No alerts for this plan.', type: 'info' }])
-                    .slice(0, 6)
+                  {(bellNotifications.length ? bellNotifications : [{ id: 'none', message: 'No alerts.', type: 'info' }])
+                    .slice(0, 8)
                     .map((n) => (
                       <div
                         key={n.id}
@@ -244,22 +281,15 @@ function ActionPlanShell() {
         </div>
 
         <div
-          className="flex-1 overflow-y-auto overscroll-y-contain"
-          style={{ padding: isMobile ? 12 : 24, WebkitOverflowScrolling: 'touch' }}
+          className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain bg-gray-50 pb-10 lg:pb-12"
+          style={{ WebkitOverflowScrolling: 'touch' }}
         >
+          {showPageHero && (
+            <ActionPlanPageHero pageId={activePage} subtitle={heroSubtitle} compact />
+          )}
           {pages[activePage] || pages['ap-dashboard']}
         </div>
       </div>
-
-      <CreateActionPlanModal
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        options={options}
-        onCreated={(plan) => {
-          if (plan?.id) setPlanId(plan.id);
-          reload();
-        }}
-      />
     </div>
   );
 }

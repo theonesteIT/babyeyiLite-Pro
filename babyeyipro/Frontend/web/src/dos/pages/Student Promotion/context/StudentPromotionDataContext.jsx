@@ -11,6 +11,7 @@ import {
   appendAllYearTerm,
   isAllYearTerm,
   isFinalYearPromotionStudent,
+  inferNextAcademicYear,
 } from '../utils/promotionMappers';
 import {
   applyPromotion,
@@ -93,11 +94,9 @@ export function StudentPromotionDataProvider({ children }) {
     setLoading(true);
     setError(null);
     try {
-      const [{ classRows: rows, classNameOptions: opts }, students, stats, calendar, settings, branding] =
+      const [{ classRows: rows, classNameOptions: opts }, calendar, settings, branding] =
         await Promise.all([
           fetchSchoolClasses(schoolId),
-          fetchSchoolStudents(),
-          fetchRegistryStats().catch(() => null),
           fetchAcademicCalendarSettings().catch(() => ({})),
           fetchPromotionSettings().catch(() => ({})),
           fetchCertificateBranding().catch(() => null),
@@ -105,8 +104,6 @@ export function StudentPromotionDataProvider({ children }) {
       setPromotionSettings(settings);
       setCertificateBranding(branding);
 
-      setClassRows(rows);
-      setApiClassNameOptions(opts);
       const registry = Array.isArray(calendar.academic_years_registry)
         ? calendar.academic_years_registry
         : [];
@@ -115,8 +112,16 @@ export function StudentPromotionDataProvider({ children }) {
       const defaultYear =
         calendar.current_academic_year ||
         registry.find((r) => r.is_current)?.academic_year ||
-        collectAcademicYears(students)[0] ||
         '';
+      const yearForLoad = defaultYear;
+
+      const [students, stats] = await Promise.all([
+          fetchSchoolStudents(yearForLoad ? { academic_year: yearForLoad } : {}),
+          fetchRegistryStats(yearForLoad ? { academic_year: yearForLoad } : {}).catch(() => null),
+        ]);
+
+      setClassRows(rows);
+      setApiClassNameOptions(opts);
       const defaultTerms =
         calendar.active_terms?.length
           ? calendar.active_terms
@@ -151,6 +156,28 @@ export function StudentPromotionDataProvider({ children }) {
   useEffect(() => {
     loadAll();
   }, [loadAll]);
+
+  useEffect(() => {
+    if (!schoolId || !academicYear) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const [students, stats] = await Promise.all([
+          fetchSchoolStudents({ academic_year: academicYear }),
+          fetchRegistryStats({ academic_year: academicYear }).catch(() => null),
+        ]);
+        if (!cancelled) {
+          setRawStudents(students);
+          if (stats) setRegistryStats(stats);
+        }
+      } catch (e) {
+        console.error('Failed to load roster for academic year:', e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [schoolId, academicYear]);
 
   useEffect(() => {
     if (!schoolId || !academicYear) return;
@@ -255,12 +282,15 @@ export function StudentPromotionDataProvider({ children }) {
       year,
       term: termVal,
     }) => {
+      const sourceYear = year || academicYear;
+      const destinationYear = inferNextAcademicYear(sourceYear) || sourceYear;
       const result = await applyPromotion({
         student_ids: promoteIds,
         repeater_ids: repeaterIds,
         destination_class_name: destinationClassName,
         source_class_name: sourceClassName,
-        academic_year: year || academicYear,
+        academic_year: sourceYear,
+        destination_academic_year: destinationYear,
         term: termVal || term,
         promotion_type: promotionType,
       });

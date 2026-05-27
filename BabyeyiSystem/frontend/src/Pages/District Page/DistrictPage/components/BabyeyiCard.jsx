@@ -1,89 +1,106 @@
-import React from "react";
-import { AlertTriangle, Check, Send, Eye, ThumbsUp, ThumbsDown } from "lucide-react";
-import { st } from "../utils/theme";
-import { fmt, fmtDate } from "../utils/helpers";
-import Badge from "./Badge";
+import { AlertTriangle, Check, Send, Eye, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { st } from '../utils/theme';
+import { fmt, fmtDate } from '../utils/helpers';
+import Badge from './Badge';
 
 export default function BabyeyiCard({ item, onAction, onView }) {
-  const s       = st(item.status);
-  const Icon    = s.icon;
+  const s = st(item.status);
+  const Icon = s.icon;
   const exceeds = item.exceeds_limit === 1 || item.exceeds_limit === true;
-  // Normalize: backend may return nesa_status or request_status depending on join
-  const nesaStatus = item.nesa_status || item.request_status || "";
-  const isSentToNesa = nesaStatus === "recommended";
+  const nesaStatus = item.nesa_status || item.request_status || '';
+  const isSentToNesa = nesaStatus === 'recommended';
 
-  const borderClass = exceeds ? "border-deo-amber-border"
-    : item.status === "approved" ? "border-deo-emerald-border"
-    : item.status === "rejected" ? "border-deo-red-border"
-    : "border-deo-amber-border";
+  const borderClass = exceeds
+    ? 'border-amber-400'
+    : item.status === 'approved'
+      ? 'border-[#000435]/20'
+      : item.status === 'rejected'
+        ? 'border-[#000435]/30'
+        : 'border-[#fde68a]';
 
   return (
-    <div className={`bg-white border-2 ${borderClass} rounded-[20px] p-4 transition-all duration-150 shadow-[0_2px_8px_rgba(0,4,53,0.08)]`}>
-      <div className="flex items-start gap-3">
-        <div className={`w-10 h-10 rounded-[14px] shrink-0 flex items-center justify-center border-2 ${s.bgClass} ${s.borderClass}`}>
-          <Icon className={`w-5 h-5 ${s.textClass}`}/>
+    <article
+      className={`rounded-2xl border-2 bg-white p-4 shadow-[0_2px_12px_rgba(0,4,53,0.06)] transition-shadow hover:shadow-md ${borderClass}`}
+    >
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-3">
+        <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-2 ${s.bgClass} ${s.borderClass}`}>
+          <Icon className={`h-5 w-5 ${s.textClass}`} />
         </div>
 
-        <div className="flex-1 min-w-0">
-          {/* Top row */}
-          <div className="flex items-start justify-between gap-2 mb-1.5 flex-wrap">
-            <div className="min-w-0">
-              <p className="font-black text-deo-navy text-sm m-0 mb-0.5 overflow-hidden text-ellipsis whitespace-nowrap">
-                {item.school_name || "Unknown School"}
+        <div className="min-w-0 flex-1">
+          <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <p className="m-0 mb-0.5 truncate text-sm font-bold text-[#000435]">
+                {item.school_name || 'Unknown school'}
               </p>
-              <p className="text-[10px] text-deo-amber-dark m-0">
-                {item.school_sector || "—"} · {item.doc_id || `#${item.id}`}
+              <p className="m-0 text-[11px] font-medium text-amber-800/90">
+                {item.school_sector || '—'} · {item.doc_id || `#${item.id}`}
               </p>
             </div>
-            <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
+            <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
               {exceeds && (
-                <span className="flex items-center gap-1 px-2 py-0.5 bg-deo-amber-bg border border-deo-amber-border rounded-full text-[9px] font-black text-[#92400e] uppercase tracking-wider animate-pulse">
-                  <AlertTriangle className="w-2.5 h-2.5"/> Exceeds
+                <span className="inline-flex animate-pulse items-center gap-1 rounded-full border border-amber-400 bg-amber-50 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-900">
+                  <AlertTriangle className="h-2.5 w-2.5" /> Exceeds
                 </span>
               )}
-              <Badge status={item.status}/>
+              <Badge status={item.status} />
             </div>
           </div>
 
-          {/* Tags */}
-          <div className="flex items-center flex-wrap gap-1 mb-2.5">
-            {[item.class, item.term, item.academic_year, item.level, item.category].filter(Boolean).map((v, i) => (
-              <span key={i} className="text-[10px] font-semibold text-deo-amber-dark bg-white px-2 py-0.5 rounded-lg border border-deo-amber-border">
+          <div className="mb-3 flex flex-wrap items-center gap-1.5">
+            {[item.class, item.term, item.academic_year, item.level, item.category].filter(Boolean).map((v) => (
+              <span
+                key={`${v}`}
+                className="rounded-lg border border-[#fde68a] bg-amber-50/80 px-2 py-0.5 text-[10px] font-semibold text-[#000435]"
+              >
                 {v}
               </span>
             ))}
-            <span className="text-xs font-black text-deo-navy ml-auto">
+            <span className="ml-auto text-sm font-bold tabular-nums text-[#000435]">
               RWF {fmt(item.total_fee)}
             </span>
           </div>
 
-          {/* Actions */}
-          <div className="flex items-center flex-wrap gap-0.5 pt-2.5 border-t border-deo-amber-border">
-            {[
-              { label: "View",    onClick: () => onView(item),             show: true,                         color: "text-deo-amber-dark",    icon: Eye      },
-              { label: "Approve", onClick: () => onAction("approve", item), show: item.status !== "approved",  color: "text-deo-emerald-dark", icon: ThumbsUp },
-              { label: "Reject",  onClick: () => onAction("reject",  item), show: item.status !== "rejected",  color: "text-deo-red-800",      icon: ThumbsDown},
-            ].filter(b => b.show).map(({ label, onClick, color, icon: BIcon }) => (
-              <button key={label} onClick={onClick} className={`flex items-center gap-1.5 text-[11px] font-bold ${color} px-2.5 py-1.5 rounded-lg bg-transparent border-none cursor-pointer transition-colors duration-150 hover:bg-white`}>
-                <BIcon className="w-3.5 h-3.5"/> {label}
-              </button>
-            ))}
+          <div className="flex flex-col gap-2 border-t border-[#fde68a] pt-3 sm:flex-row sm:flex-wrap sm:items-center">
+            <div className="flex flex-wrap gap-1">
+              {[
+                { label: 'View', onClick: () => onView(item), show: true, className: 'text-[#000435] bg-amber-50 border-amber-200', icon: Eye },
+                { label: 'Approve', onClick: () => onAction('approve', item), show: item.status !== 'approved', className: 'text-[#000435] bg-white border-[#000435]/15', icon: ThumbsUp },
+                { label: 'Reject', onClick: () => onAction('reject', item), show: item.status !== 'rejected', className: 'text-[#000435] bg-white border-[#000435]/15', icon: ThumbsDown },
+              ].filter((b) => b.show).map(({ label, onClick, className, icon: BIcon }) => (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={onClick}
+                  className={`inline-flex min-h-[40px] cursor-pointer items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-bold transition-colors hover:bg-amber-100/60 ${className}`}
+                >
+                  <BIcon className="h-3.5 w-3.5" />
+                  {label}
+                </button>
+              ))}
+            </div>
 
             {exceeds && !isSentToNesa && (
-              <button onClick={() => onAction("recommend", item)} className="flex items-center gap-1.5 text-[11px] font-bold text-white px-3 py-1.5 rounded-lg bg-deo-navy border-none cursor-pointer ml-auto shadow-[0_2px_8px_rgba(59,130,246,0.3)]">
-                <Send className="w-3.5 h-3.5"/> → NESA
+              <button
+                type="button"
+                onClick={() => onAction('recommend', item)}
+                className="inline-flex min-h-[40px] w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl border-none bg-[#000435] px-4 py-2 text-xs font-bold text-amber-400 sm:ml-auto sm:w-auto"
+              >
+                <Send className="h-3.5 w-3.5" /> Send to NESA
               </button>
             )}
             {isSentToNesa && (
-              <span className="flex items-center gap-1.5 text-[10px] font-black text-deo-navy ml-auto px-2.5 py-1 rounded-lg bg-deo-blue-bg border border-deo-blue-border">
-                <Check className="w-3.5 h-3.5"/> Sent to NESA
+              <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#fde68a] bg-amber-50 px-3 py-2 text-[10px] font-bold text-[#000435] sm:ml-auto">
+                <Check className="h-3.5 w-3.5" /> Sent to NESA
               </span>
             )}
 
-            <span className="text-[10px] text-deo-amber-border ml-auto">{fmtDate(item.created_at)}</span>
+            <span className="text-[10px] font-medium text-[#000435]/45 sm:ml-auto">
+              {fmtDate(item.created_at)}
+            </span>
           </div>
         </div>
       </div>
-    </div>
+    </article>
   );
 }

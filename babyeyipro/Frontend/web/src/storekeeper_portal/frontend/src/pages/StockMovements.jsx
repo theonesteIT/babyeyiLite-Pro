@@ -23,13 +23,30 @@ const MOVEMENT_LABELS = {
   returned: 'Returned',
 };
 
+function buildMovementPayload(form) {
+  const unitCostRaw = String(form.unit_cost ?? '').trim();
+  return {
+    item_id: Number(form.item_id),
+    type: form.type,
+    quantity: Number(form.quantity),
+    unit_cost: unitCostRaw === '' ? null : Number(unitCostRaw),
+    supplier_id: form.supplier_id ? Number(form.supplier_id) : null,
+    term: form.term || null,
+    academic_year: form.academic_year || null,
+    movement_date: form.movement_date || null,
+    ref: form.ref || null,
+    note: form.note || null,
+  };
+}
+
 // ── Movement form ─────────────────────────────────────────────
-const MovementModal = ({ inventoryItems, onClose, onSave }) => {
+const MovementModal = ({ inventoryItems, suppliers, onClose, onSave }) => {
   const [form, setForm] = useState({
     item_id: '',
     type: 'stock_in',
     quantity: '',
     unit_cost: '',
+    supplier_id: '',
     term: '',
     academic_year: '',
     movement_date: '',
@@ -38,6 +55,7 @@ const MovementModal = ({ inventoryItems, onClose, onSave }) => {
   });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const valid = form.item_id && Number(form.quantity) > 0;
+  const showSupplier = form.type === 'stock_in';
 
   return createPortal(
     <div className="fixed inset-0 z-[220] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-0 sm:p-4">
@@ -72,7 +90,7 @@ const MovementModal = ({ inventoryItems, onClose, onSave }) => {
           </div>
           {[
             { label: 'Quantity *', key: 'quantity', type: 'number', placeholder: '0' },
-            { label: 'Unit cost (RWF)', key: 'unit_cost', type: 'number', placeholder: '0' },
+            { label: 'Unit cost (RWF)', key: 'unit_cost', type: 'number', placeholder: 'Optional' },
             { label: 'Academic year', key: 'academic_year', type: 'text', placeholder: 'e.g. 2025-2026' },
             { label: 'Movement date', key: 'movement_date', type: 'date', placeholder: '' },
             { label: 'Reference / LPO no.', key: 'ref', type: 'text', placeholder: 'e.g. LPO-2025-001' },
@@ -83,6 +101,21 @@ const MovementModal = ({ inventoryItems, onClose, onSave }) => {
                 className="w-full bg-re-bg border border-black/5 rounded-xl px-3 py-2.5 text-[11px] font-bold outline-none focus:ring-2 focus:ring-re-navy/20" />
             </div>
           ))}
+          {showSupplier && (
+            <div>
+              <label className="text-[9px] font-semibold uppercase tracking-widest text-slate-400 block mb-1">Supplier</label>
+              <select
+                value={form.supplier_id}
+                onChange={(e) => set('supplier_id', e.target.value)}
+                className="w-full bg-re-bg border border-black/5 rounded-xl px-3 py-2.5 text-[11px] font-bold outline-none focus:ring-2 focus:ring-re-navy/20"
+              >
+                <option value="">Select supplier (optional)…</option>
+                {suppliers.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <div>
             <label className="text-[9px] font-semibold uppercase tracking-widest text-slate-400 block mb-1">Term</label>
             <select
@@ -102,7 +135,7 @@ const MovementModal = ({ inventoryItems, onClose, onSave }) => {
         </div>
         <div className="px-6 py-4 border-t border-black/5 flex justify-end gap-2 shrink-0">
           <button onClick={onClose} className="px-4 py-2 rounded-xl border border-black/5 text-re-navy font-semibold text-[9px] uppercase tracking-widest hover:bg-re-bg">Cancel</button>
-          <button disabled={!valid} onClick={() => { if (valid) { onSave(form); onClose(); }}}
+          <button disabled={!valid} onClick={() => { if (valid) { onSave(buildMovementPayload(form)); onClose(); }}}
             className="px-6 py-2 rounded-xl text-white font-semibold text-[9px] uppercase tracking-widest disabled:opacity-50 border border-black/10 shadow-sm"
             style={{ background: 'linear-gradient(135deg,#1E3A5F,#0D2644)' }}>
             <Save size={12} className="inline mr-1" />Record
@@ -118,9 +151,12 @@ const MovementModal = ({ inventoryItems, onClose, onSave }) => {
 export default function StockMovements() {
   const [movements, setMovements] = useState([]);
   const [inventory, setInventory] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('All');
+  const [supplierFilter, setSupplierFilter] = useState('All');
   const [termFilter, setTermFilter] = useState('All');
   const [yearFilter, setYearFilter] = useState('All');
   const [dateFilter, setDateFilter] = useState('');
@@ -128,28 +164,54 @@ export default function StockMovements() {
 
   const fetchAll = async () => {
     setLoading(true);
+    setError('');
     try {
-      const [mRes, iRes] = await Promise.allSettled([
+      const [mRes, iRes, sRes] = await Promise.allSettled([
         api.get('/store/movements'),
         api.get('/store/inventory'),
+        api.get('/store/suppliers'),
       ]);
-      if (mRes.status === 'fulfilled' && mRes.value.data?.success) setMovements(mRes.value.data.data || []);
+      if (mRes.status === 'fulfilled' && mRes.value.data?.success) {
+        setMovements(mRes.value.data.data || []);
+      } else {
+        setMovements([]);
+        const msg =
+          mRes.status === 'fulfilled'
+            ? mRes.value?.data?.message
+            : mRes.reason?.response?.data?.message;
+        if (msg) setError(msg);
+      }
       if (iRes.status === 'fulfilled' && iRes.value.data?.success) setInventory(iRes.value.data.data || []);
-    } catch (e) { console.warn(e.message); } finally { setLoading(false); }
+      if (sRes.status === 'fulfilled' && sRes.value.data?.success) setSuppliers(sRes.value.data.data || []);
+    } catch (e) {
+      setError(e.response?.data?.message || 'Could not load stock movements.');
+    } finally { setLoading(false); }
   };
 
   useEffect(() => { fetchAll(); }, []);
 
-  const handleSave = async (form) => {
-    try { await api.post('/store/movements', form); } catch (e) { console.warn(e.message); }
-    fetchAll();
+  const handleSave = async (payload) => {
+    try {
+      const res = await api.post('/store/movements', payload);
+      if (!res.data?.success) throw new Error(res.data?.message || 'Failed to record movement');
+      setError('');
+      await fetchAll();
+    } catch (e) {
+      setError(e.response?.data?.message || e.message || 'Failed to record movement.');
+    }
   };
 
   const totals = useMemo(() => {
-    const stockIn = movements.filter((m) => m.type === 'stock_in').reduce((s, m) => s + Number(m.quantity), 0);
-    const stockOut = movements.filter((m) => m.type === 'stock_out').reduce((s, m) => s + Number(m.quantity), 0);
-    const remaining = inventory.reduce((s, i) => s + Number(i.quantity || 0), 0);
-    return { stockIn, stockOut, remaining, total: movements.length };
+    const sumQty = (types) =>
+      movements.filter((m) => types.includes(m.type)).reduce((s, m) => s + Number(m.quantity), 0);
+    return {
+      stockIn: sumQty(['stock_in']),
+      stockOut: sumQty(['stock_out']),
+      returned: sumQty(['returned']),
+      adjusted: sumQty(['adjusted']),
+      remaining: inventory.reduce((s, i) => s + Number(i.quantity || 0), 0),
+      total: movements.length,
+    };
   }, [movements, inventory]);
 
   const yearOptions = useMemo(() => {
@@ -157,24 +219,37 @@ export default function StockMovements() {
     return ['All', ...Array.from(set)];
   }, [movements]);
 
+  const supplierOptions = useMemo(() => {
+    const fromDb = suppliers.map((s) => ({ id: String(s.id), name: s.name }));
+    const fromMov = movements
+      .filter((m) => m.supplier_id && m.supplier_name)
+      .map((m) => ({ id: String(m.supplier_id), name: m.supplier_name }));
+    const map = new Map();
+    [...fromDb, ...fromMov].forEach((s) => { if (s.id) map.set(s.id, s.name); });
+    return [{ id: 'All', name: 'All suppliers' }, ...Array.from(map.entries()).map(([id, name]) => ({ id, name }))];
+  }, [suppliers, movements]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return movements.filter(m => {
       const typeOk = typeFilter === 'All' || m.type === typeFilter;
+      const supplierOk =
+        supplierFilter === 'All' || String(m.supplier_id || '') === String(supplierFilter);
       const termOk = termFilter === 'All' || String(m.term || '') === termFilter;
       const yearOk = yearFilter === 'All' || String(m.academic_year || '') === yearFilter;
       const rowDate = String(m.movement_date || m.date || '').slice(0, 10);
       const dateOk = !dateFilter || rowDate === dateFilter;
       const qOk = !q
         || m.item_name?.toLowerCase().includes(q)
+        || m.supplier_name?.toLowerCase().includes(q)
         || m.ref?.toLowerCase().includes(q)
         || m.note?.toLowerCase().includes(q)
         || String(MOVEMENT_LABELS[m.type] || m.type || '').toLowerCase().includes(q)
         || String(m.term || '').toLowerCase().includes(q)
         || String(m.academic_year || '').toLowerCase().includes(q);
-      return typeOk && termOk && yearOk && dateOk && qOk;
+      return typeOk && supplierOk && termOk && yearOk && dateOk && qOk;
     });
-  }, [movements, search, typeFilter, termFilter, yearFilter, dateFilter]);
+  }, [movements, search, typeFilter, supplierFilter, termFilter, yearFilter, dateFilter]);
 
   const typeChip = (type) => {
     const cfg = {
@@ -274,7 +349,7 @@ export default function StockMovements() {
           { label: 'Total records', value: totals.total, icon: ArrowDownUp },
           { label: 'Stock in', value: totals.stockIn, icon: ArrowDown },
           { label: 'Stock out', value: totals.stockOut, icon: ArrowUp },
-          { label: 'Remaining stock', value: totals.remaining, icon: ArrowDownUp },
+          { label: 'Returned', value: totals.returned, icon: ArrowDownUp },
         ]}
         rightColumn={(
           <>
@@ -316,6 +391,19 @@ export default function StockMovements() {
         )}
         toolbar={(
           <>
+            <div className="relative w-full sm:w-[11rem] shrink-0">
+              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[8px] font-semibold uppercase text-slate-400 tracking-[0.2em] z-[1] pointer-events-none">Supplier</span>
+              <select
+                value={supplierFilter}
+                onChange={(e) => setSupplierFilter(e.target.value)}
+                className={`w-full ${selectCls} !pl-[4.8rem]`}
+                style={selectChevron}
+              >
+                {supplierOptions.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
             <div className="relative w-full sm:w-[12rem] shrink-0">
               <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[8px] font-semibold uppercase text-slate-400 tracking-[0.2em] z-[1] pointer-events-none">Type</span>
               <select
@@ -373,6 +461,11 @@ export default function StockMovements() {
           </>
         )}
       >
+        {error && !loading ? (
+          <div className="mx-4 sm:mx-6 mt-4 px-4 py-3 rounded-xl bg-red-50 border border-red-100 text-[11px] font-semibold text-red-700">
+            {error}
+          </div>
+        ) : null}
         {loading ? (
           <div className="flex items-center justify-center py-20 gap-3">
             <Loader2 size={22} className="animate-spin text-[#1E3A5F]/30" />
@@ -387,7 +480,7 @@ export default function StockMovements() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-re-bg/20 border-b border-black/5">
-                {['Item', 'Type', 'Term', 'Academic Year', 'Qty', 'Remaining', 'Unit cost', 'Reference', 'Note', 'Date'].map((h, hi) => (
+                {['Item', 'Type', 'Supplier', 'Term', 'Year', 'Qty', 'Balance', 'Unit cost', 'Reference', 'Note', 'Date'].map((h, hi) => (
                   <th
                     key={`mov-th-${hi}`}
                     className="px-4 sm:px-6 py-3 text-[7px] sm:text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.2em] opacity-50 border-r border-black/5 last:border-r-0"
@@ -402,6 +495,7 @@ export default function StockMovements() {
                 <tr key={m.id || i} className="hover:bg-re-bg/60 even:bg-re-bg/20 transition-colors">
                   <td className="px-4 sm:px-6 py-3 border-r border-black/5 font-semibold text-[#1E3A5F] text-[11px]">{m.item_name || '—'}</td>
                   <td className="px-4 sm:px-6 py-3 border-r border-black/5">{typeChip(m.type)}</td>
+                  <td className="px-4 sm:px-6 py-3 border-r border-black/5 text-[10px] font-bold text-slate-600">{m.supplier_name || '—'}</td>
                   <td className="px-4 sm:px-6 py-3 border-r border-black/5 text-[10px] font-bold text-slate-500">{m.term || '—'}</td>
                   <td className="px-4 sm:px-6 py-3 border-r border-black/5 text-[10px] font-bold text-slate-500">{m.academic_year || '—'}</td>
                   <td className="px-4 sm:px-6 py-3 border-r border-black/5 font-semibold text-slate-800 text-[12px]">{m.quantity}</td>
@@ -417,7 +511,14 @@ export default function StockMovements() {
         )}
       </PortalListPageLayout>
 
-      {modalOpen && <MovementModal inventoryItems={inventory} onClose={() => setModalOpen(false)} onSave={handleSave} />}
+      {modalOpen && (
+        <MovementModal
+          inventoryItems={inventory}
+          suppliers={suppliers}
+          onClose={() => setModalOpen(false)}
+          onSave={handleSave}
+        />
+      )}
     </>
   );
 }

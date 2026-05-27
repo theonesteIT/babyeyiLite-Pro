@@ -107,7 +107,8 @@ export default function PromoteByClass() {
       });
       setReviewMeta(meta);
       const schoolMax = meta?.discipline_total ?? meta?.discipline_default;
-      const enriched = list.map((s) => mergeReviewMetrics(s, byStudentId[s.id], schoolMax));
+      const schoolMin = meta?.discipline_minimum ?? 0;
+      const enriched = list.map((s) => mergeReviewMetrics(s, byStudentId[s.id], schoolMax, schoolMin));
       const initial = {};
       enriched.forEach((s) => {
         initial[s.id] = s.status !== "Repeat Recommended";
@@ -394,8 +395,12 @@ export default function PromoteByClass() {
                 </span>
               )}
               <span>
-                Discipline maximum: <strong>{reviewMeta.discipline_total ?? reviewMeta.discipline_default}</strong> marks
-                <span className="text-gray-500 font-normal"> (set by Head of Discipline)</span>
+                Conduct range:{' '}
+                <strong>
+                  {reviewMeta.discipline_minimum ?? 0} – {reviewMeta.discipline_total ?? reviewMeta.discipline_default}
+                </strong>{' '}
+                marks
+                <span className="text-gray-500 font-normal"> (Conduct Hub)</span>
               </span>
               <span>
                 RFID gate ({reviewMeta.date_range?.from} → {reviewMeta.date_range?.to}): morning + evening scans

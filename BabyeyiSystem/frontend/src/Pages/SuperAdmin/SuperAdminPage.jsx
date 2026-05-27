@@ -10,7 +10,7 @@
 // ✅ NESA / DEO → /api/auth/create-nesa-admin, /api/auth/create-deo
 // ================================================================
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
   Users, UserPlus, Search, Mail, Phone, Building, MapPin,
@@ -32,7 +32,8 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import LogoutButton from '../Auth/LogoutButton';
 import { getPostLogoutLoginPath } from '../../utils/postLogoutLoginPath';
-import SuperAdminDashboardSchoolPeek from './SmartAccess/SuperAdminDashboardSchoolPeek';
+import SuperAdminDashboardHome from './components/SuperAdminDashboardHome';
+import { getActiveSuperAdminPage, SUPER_ADMIN_DASHBOARD_PATH } from './components/superAdminNavConfig';
 import { BABYEYI_FONT_STACK, BABYEYI_NAVY, BABYEYI_PAGE_BG } from '../../theme/babyeyiDashboardTheme';
 
 // ── API base (port 5100) ──────────────────────────────────────
@@ -90,11 +91,10 @@ const Spinner = () => (
 );
 
 const PageLoader = () => (
-  <div className="min-h-screen flex items-center justify-center babyeyi-dash-shell"
-    style={{ background: BABYEYI_PAGE_BG, fontFamily: BABYEYI_FONT_STACK }}>
+  <div className="flex items-center justify-center py-24" style={{ fontFamily: BABYEYI_FONT_STACK }}>
     <div className="text-center">
-      <Loader2 className="w-10 h-10 animate-spin mx-auto mb-3" style={{ color: ACCENT }} />
-      <p className="text-amber-800 text-sm font-semibold">Verifying session…</p>
+      <Loader2 className="w-10 h-10 animate-spin mx-auto mb-3 text-[#000435]" />
+      <p className="text-slate-600 text-sm font-semibold">Verifying session…</p>
     </div>
   </div>
 );
@@ -211,222 +211,6 @@ const genPassword = () => {
   const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
   return Array.from({ length: 14 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
 };
-
-// ════════════════════════════════════════════════════════════════
-// NAV CONFIG  — added "add-school" entry
-// ════════════════════════════════════════════════════════════════
-const NAV = [
-  { id: 'dashboard',  icon: Home,       label: 'Dashboard' },
-  { id: 'schools',    icon: School,     label: 'Schools' },
-  { id: 'add-school', icon: PlusCircle, label: 'Add New School', highlight: true },
-  { id: 'add-all-schools', icon: Layers, label: 'Quick add school' },
-  { id: '_section_pricing', label: 'REQUIREMENT PRICING', section: true },
-  { id: '_section_student_services', label: 'STUDENT SERVICES', section: true },
-  { id: 'voucher-services', icon: ShoppingBag, label: 'Voucher Services' },
-  { id: 'shoes-vouchers', icon: ShoppingBag, label: 'Shoes Voucher Mgmt' },
-  { id: 'uniform-vouchers', icon: Shirt, label: 'Uniform Voucher Mgmt' },
-  { id: 'shop-products', icon: ShoppingBag, label: 'Shop Products' },
-  { id: 'standard-kit-requests', icon: Package, label: 'Standard Kit Requests' },
-  { id: 'standard-shule-kits', icon: Package, label: 'Standard ShuleKit' },
-  { id: 'requirements-prices', icon: DollarSign, label: 'Set Prices' },
-  { id: 'prices-list', icon: FileText, label: 'View Prices List' },
-  { id: 'invoices', icon: FileText, label: 'Invoices' },
-  { id: 'admins',     icon: Users,      label: 'School Admins' },
-  { id: '_section_parents_control', label: 'PARENTSCONTROLL', section: true },
-  { id: 'parents-control-accounts', icon: UserCheck, label: 'Parents Account', parentControl: true },
-  { id: 'parents-control-payments', icon: DollarSign, label: 'Payment', parentControl: true },
-  { id: 'nesa',       icon: Flag,       label: 'NESA Admins' },
-  { id: 'deo',        icon: MapPin,     label: 'DEO Officers' },
-  { id: 'register-agents', icon: Radio, label: 'Field Agents' },
-  { id: 'representatives', icon: ShieldCheck, label: 'School Representatives' },
-  { id: 'shule-avance-orgs', icon: Sparkles, label: 'ShuleAvance Orgs' },
-  { id: 'shule-avance-teacher', icon: Percent, label: 'ShuleAvance Teacher' },
-  { id: 'teacher-deal-products', icon: Package, label: 'Teacher Deal Products' },
-  { id: 'ticha-deal-requests', icon: Receipt, label: 'Ticha Deal Requests' },
-  { id: '_section_smart_access', label: 'SMART ACCESS', section: true },
-  { id: 'smart-access-students', icon: GraduationCap, label: 'Student Smart Access' },
-  { id: 'smart-access-staff', icon: Fingerprint, label: 'Staff Smart Access' },
-  { id: 'school-students-card', icon: IdCard, label: 'School Students Card' },
-  { id: 'student-card-template-2', icon: LayoutTemplate, label: 'Student Card Template 2' },
-  { id: 'school-staff-card-template', icon: IdCard, label: 'School Staff Card Template' },
-  // { id: 'activity',   icon: Activity,   label: 'Activity Log' },
-  { id: 'settings',   icon: Settings,   label: 'Settings' },
-];
-
-// ════════════════════════════════════════════════════════════════
-// SIDEBAR — Montserrat, #FEBF10 accent, mobile-friendly
-// ════════════════════════════════════════════════════════════════
-function Sidebar({ page, onChange, online, user, navigate }) {
-  const [parentsOpen, setParentsOpen] = useState(true);
-  useEffect(() => {
-    if (page === 'parents-control-accounts' || page === 'parents-control-payments') {
-      setParentsOpen(true);
-    }
-  }, [page]);
-
-  return (
-    <aside
-      className="hidden lg:flex flex-col w-60 xl:w-64 border-r border-amber-400/20 fixed left-0 top-0 h-full z-30 bg-[#000435] shadow-xl shadow-black/20"
-      style={{ fontFamily: BABYEYI_FONT_STACK }}
-    >
-      <div className="px-5 py-5 border-b border-white/10">
-        <div className="flex items-center gap-2.5 mb-3">
-          <div className="px-2 py-1 rounded-xl bg-[#1F2937] flex items-center justify-center border border-amber-300/50 shadow-lg">
-            <img
-              src="/1BABYEYI LOGO FINAL.png"
-              alt="Babyeyi logo"
-              className="h-7 w-auto object-contain"
-            />
-          </div>
-          <div className="min-w-0">
-            <h1 className="text-sm font-black text-white truncate">Babyeyi</h1>
-            <p className="text-[10px] text-amber-400/90 font-semibold">Super Admin Portal</p>
-          </div>
-        </div>
-        <div
-          className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-[11px] font-bold border ${
-            online
-              ? "bg-amber-400/15 border-amber-400/35 text-amber-300"
-              : "bg-white/8 border-white/15 text-white/70"
-          }`}
-        >
-          {online ? <Wifi className="w-3 h-3 shrink-0" /> : <WifiOff className="w-3 h-3 shrink-0" />}
-          {online ? "Connected" : "Offline"}
-        </div>
-      </div>
-
-      <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-        {NAV.map(item => {
-          if (item.section) {
-            if (item.id === '_section_parents_control') {
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => setParentsOpen((v) => !v)}
-                  className="w-full flex items-center justify-between pt-3 pb-1 px-3 text-left"
-                >
-                  <p className="text-[10px] font-bold text-amber-400/80 uppercase tracking-widest">{item.label}</p>
-                  <ChevronDown className={`w-3.5 h-3.5 text-amber-400/70 transition-transform ${parentsOpen ? '' : '-rotate-90'}`} />
-                </button>
-              );
-            }
-            return (
-              <div key={item.id} className="pt-3 pb-1 px-3">
-                <p className="text-[10px] font-bold text-amber-400/80 uppercase tracking-widest">{item.label}</p>
-              </div>
-            );
-          }
-          if (item.parentControl && !parentsOpen) return null;
-          const isAddSchool = item.id === 'add-school';
-          const isAddAllSchools = item.id === 'add-all-schools';
-          const isRequirementsPrices = item.id === 'requirements-prices';
-          const isPricesList = item.id === 'prices-list';
-          const isInvoices = item.id === 'invoices';
-          const isRegisterAgents = item.id === 'register-agents';
-          const isRepresentatives = item.id === 'representatives';
-          const isVoucherServices = item.id === 'voucher-services';
-          const isShoesVouchers = item.id === 'shoes-vouchers';
-          const isUniformVouchers = item.id === 'uniform-vouchers';
-          const isShopProducts = item.id === 'shop-products';
-          const isStandardKitRequests = item.id === 'standard-kit-requests';
-          const isStandardShuleKits = item.id === 'standard-shule-kits';
-          const isShuleAvanceOrgs = item.id === 'shule-avance-orgs';
-          const isShuleAvanceTeacher = item.id === 'shule-avance-teacher';
-          const isTeacherDealProducts = item.id === 'teacher-deal-products';
-          const isTichaDealRequests = item.id === 'ticha-deal-requests';
-          const isSchoolStudentsCard = item.id === 'school-students-card';
-          const isStudentCardTemplate2 = item.id === 'student-card-template-2';
-          const isSchoolStaffCardTemplate = item.id === 'school-staff-card-template';
-          const isSmartStudents = item.id === 'smart-access-students';
-          const isSmartStaff = item.id === 'smart-access-staff';
-          return (
-            <button key={item.id}
-              onClick={() => {
-                if (isAddSchool) {
-                  navigate('/add-school');
-                } else if (isAddAllSchools) {
-                  navigate('/add-all-schools');
-                } else if (isVoucherServices) {
-                  navigate('/superadmin/voucher-services');
-                } else if (isShoesVouchers) {
-                  navigate('/superadmin/shoes-vouchers');
-                } else if (isUniformVouchers) {
-                  navigate('/superadmin/uniform-vouchers');
-                } else if (isShopProducts) {
-                  navigate('/superadmin/shop-products');
-                } else if (isStandardKitRequests) {
-                  navigate('/superadmin/standard-kit-requests');
-                } else if (isStandardShuleKits) {
-                  navigate('/superadmin/standard-shule-kits');
-                } else if (isShuleAvanceOrgs) {
-                  navigate('/superadmin/shule-avance-organizations');
-                } else if (isShuleAvanceTeacher) {
-                  navigate('/superadmin/shule-avance-teacher');
-                } else if (isTeacherDealProducts) {
-                  navigate('/superadmin/teacher-deal-products');
-                } else if (isTichaDealRequests) {
-                  navigate('/superadmin/ticha-deal-requests');
-                } else if (isSchoolStudentsCard) {
-                  navigate('/superadmin/school-students-card');
-                } else if (isStudentCardTemplate2) {
-                  navigate('/superadmin/student-card-template-2');
-                } else if (isSchoolStaffCardTemplate) {
-                  navigate('/superadmin/school-staff-card-template');
-                } else if (isSmartStudents) {
-                  navigate('/superadmin/smart-access/students');
-                } else if (isSmartStaff) {
-                  navigate('/superadmin/smart-access/staff');
-                } else if (isRequirementsPrices) {
-                  navigate('/manage-requirements-prices');
-                } else if (isPricesList) {
-                  navigate('/requirement-prices-list');
-                } else if (isInvoices) {
-                  navigate('/invoices');
-                } else if (isRegisterAgents) {
-                  navigate('/superadmin/register-agents');
-                } else if (isRepresentatives) {
-                  navigate('/superadmin/representatives');
-                } else {
-                  onChange(item.id);
-                }
-              }}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all text-left
-                ${item.highlight
-                  ? "bg-gradient-to-r from-amber-400 to-amber-500 text-[#000435] shadow-md shadow-amber-900/20 hover:opacity-95"
-                  : page === item.id
-                    ? "bg-amber-400 text-[#000435] shadow-md"
-                    : "text-white/70 hover:text-white hover:bg-white/10"
-                }`}
-              >
-              <item.icon className="w-4 h-4 shrink-0"/>
-              <span className={item.parentControl ? 'pl-2' : ''}>{item.label}</span>
-            </button>
-          );
-        })}
-      </nav>
-
-      {/* User info + logout */}
-      <div className="p-3 border-t border-white/10 space-y-2">
-        <div className="rounded-xl border border-amber-400/25 bg-white/5 p-3">
-          <div className="flex items-center gap-2 mb-1">
-            <div
-              className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-[11px] font-black bg-amber-400 text-[#000435]"
-            >
-              {user?.first_name?.[0]?.toUpperCase() || "S"}
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs font-bold text-white truncate">{user?.full_name || "Super Admin"}</p>
-              <p className="text-[9px] text-amber-400/80 truncate">{user?.email || ""}</p>
-            </div>
-          </div>
-          <p className="text-[9px] text-white/50">Full Access · All Districts</p>
-        </div>
-        <LogoutButton variant="sidebar" />
-      </div>
-    </aside>
-  );
-}
 
 // ════════════════════════════════════════════════════════════════
 // NESA ADMIN MODAL
@@ -802,154 +586,6 @@ function DeleteModal({ user, endpoint, onClose, onDeleted }) {
         </div>
       </div>
     </Modal>
-  );
-}
-
-// ════════════════════════════════════════════════════════════════
-// DASHBOARD HOME PAGE
-// ════════════════════════════════════════════════════════════════
-function DashboardPage({
-  counts,
-  setPage,
-  user,
-  navigate,
-  parentUpgradeStats,
-  webhookAlertRed = 0,
-  unmatchedYellow = 0,
-}) {
-  return (
-    <div className="space-y-5 anim">
-      <div className="rounded-2xl p-5 sm:p-7 text-white shadow-xl relative overflow-hidden" style={{ background: `linear-gradient(135deg, ${ACCENT} 0%, #1F2937 50%, #1F2937 100%)` }}>
-        <div className="absolute inset-0 opacity-10"
-          style={{backgroundImage:'radial-gradient(circle at 80% 20%,white 0%,transparent 50%)'}}/>
-        <div className="relative">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-2 h-2 rounded-full bg-white/80 animate-pulse"/>
-            <span className="text-amber-100 text-xs">
-              {new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})}
-            </span>
-          </div>
-          <h2 className="text-xl sm:text-2xl font-black mb-1">
-             Welcome, {user?.first_name || 'Super Admin'}
-          </h2>
-          <p className="text-amber-100 text-xs">Edupoto Suite · Full System Access · Session-secured</p>
-          <div className="flex flex-wrap gap-2 mt-3">
-            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/20 border border-white/30 text-xs font-semibold">
-              <Users className="w-3.5 h-3.5"/> {counts.total} Total Users
-            </span>
-            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/20 border border-white/30 text-xs font-semibold">
-              <DollarSign className="w-3.5 h-3.5"/> Requirement Pricing
-            </span>
-            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/25 border border-emerald-400/30 text-xs font-semibold">
-              <Flag className="w-3.5 h-3.5 text-emerald-300"/> {counts.nesa} NESA
-            </span>
-            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-violet-500/25 border border-violet-400/30 text-xs font-semibold">
-              <MapPin className="w-3.5 h-3.5 text-violet-300"/> {counts.deo} DEO
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <StatCard icon={School} label="Schools"       value={counts.schools} color="amber"  onClick={()=>setPage('schools')}/>
-        <StatCard icon={Users}  label="School Admins" value={counts.admins}  color="teal"   onClick={()=>setPage('admins')}/>
-        <StatCard icon={Flag}   label="NESA Admins"   value={counts.nesa}    color="indigo" onClick={()=>setPage('nesa')}/>
-        <StatCard icon={MapPin} label="DEO Officers"  value={counts.deo}     color="violet" onClick={()=>setPage('deo')}/>
-        <StatCard
-          icon={AlertTriangle}
-          label="Webhook Errors"
-          value={webhookAlertRed}
-          sub={webhookAlertRed > 0 ? 'Needs reconciliation' : 'Healthy'}
-          color={webhookAlertRed > 0 ? 'red' : 'emerald'}
-          alert={webhookAlertRed > 0}
-          onClick={() => setPage('parents-control-payments')}
-        />
-        <StatCard
-          icon={Bell}
-          label="Unmatched Webhooks"
-          value={unmatchedYellow}
-          sub={unmatchedYellow > 0 ? 'Check references' : 'All matched'}
-          color={unmatchedYellow > 0 ? 'amber' : 'blue'}
-          alert={unmatchedYellow > 0}
-          onClick={() => setPage('parents-control-payments')}
-        />
-      </div>
-
-      <SuperAdminDashboardSchoolPeek navigate={navigate} />
-
-      <div className="bg-white border-2 border-amber-100 rounded-2xl shadow-lg p-5">
-        <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
-          <h3 className="font-bold text-gray-900 text-sm flex items-center gap-2">
-            <UserCheck className="w-4 h-4" style={{ color: ACCENT }}/> Parent portal upgrades
-          </h3>
-          <span className="text-xs font-semibold text-amber-700">
-            {parentUpgradeStats.upgraded_accounts || 0} upgraded / {parentUpgradeStats.total_accounts || 0} total
-          </span>
-        </div>
-        {!parentUpgradeStats.recent?.length ? (
-          <p className="text-xs text-amber-700">No parent portal accounts yet.</p>
-        ) : (
-          <div className="space-y-2">
-            {parentUpgradeStats.recent.slice(0, 6).map((p) => {
-              const name = p.father_full_name || p.mother_full_name || "Parent";
-              return (
-                <div key={p.id} className="flex items-center justify-between gap-2 rounded-xl border border-amber-100 bg-amber-50/60 px-3 py-2">
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold text-gray-900 truncate">{name}</p>
-                    <p className="text-[10px] text-amber-700 font-mono">{p.phone}</p>
-                  </div>
-                  <span
-                    className={`shrink-0 inline-flex items-center px-2 py-1 rounded-lg text-[10px] font-bold border ${
-                      p.created_via_phone_only
-                        ? "bg-emerald-100 text-emerald-700 border-emerald-200"
-                        : "bg-slate-100 text-slate-600 border-slate-200"
-                    }`}
-                    title={p.created_via_phone_only ? "Completed from phone-only login" : "Created directly"}
-                  >
-                    {p.created_via_phone_only ? "Completed" : "Direct"}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      <div className="bg-white border-2 border-amber-100 rounded-2xl shadow-lg p-5">
-        <h3 className="font-bold text-gray-900 mb-3 text-sm flex items-center gap-2">
-          <Star className="w-4 h-4" style={{ color: ACCENT }}/> Quick Actions
-        </h3>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-          {[
-            { icon: PlusCircle, label: 'Register School',      action: ()=>navigate('/add-school'), color: 'green' },
-            { icon: DollarSign, label: 'Set Prices',           action: ()=>navigate('/manage-requirements-prices'), color: 'amber' },
-            { icon: FileText,   label: 'Prices List',          action: ()=>navigate('/requirement-prices-list'), color: 'primary' },
-            { icon: GraduationCap, label: 'Student Smart Access', action: ()=>navigate('/superadmin/smart-access/students'), color: 'emerald' },
-            { icon: Fingerprint, label: 'Staff Smart Access', action: ()=>navigate('/superadmin/smart-access/staff'), color: 'teal' },
-            { icon: Flag,       label: 'Add NESA Admin',       action: ()=>setPage('nesa'),         color: 'indigo' },
-            { icon: MapPin,     label: 'Add DEO Officer',      action: ()=>setPage('deo'),          color: 'violet' },
-            { icon: BarChart3,  label: 'View Activity',        action: ()=>setPage('activity'),     color: 'cyan' },
-          ].map(({ icon: Icon, label, action, color }) => (
-            <button key={label} onClick={action}
-              className={`p-4 bg-gradient-to-br ${GRAD[color]} rounded-2xl text-white text-center transition-all active:scale-95 hover:scale-[1.02] shadow-md`}>
-              <Icon className="mx-auto mb-2 w-5 h-5"/>
-              <p className="text-xs font-bold">{label}</p>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-start gap-3">
-        <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5"/>
-        <div>
-          <p className="text-sm font-bold text-emerald-800">Secure Session Active</p>
-          <p className="text-xs text-emerald-600 mt-0.5">
-            Authenticated as <strong>{user?.email}</strong> via httpOnly cookie.
-            No tokens stored in browser. Session expires after 8 hours of inactivity.
-          </p>
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -2963,6 +2599,7 @@ function SchoolAdminsPage({ navigate, addToast }) {
 export default function SuperAdminDashboard() {
   const auth     = useAuth();
   const navigate = useNavigate();
+  const { pathname, search } = useLocation();
 
   // ── Session guard ────────────────────────────────────────────
   useEffect(() => {
@@ -2971,11 +2608,15 @@ export default function SuperAdminDashboard() {
     if (auth.role !== 'SUPER_ADMIN') navigate('/unauthorized', { replace: true });
   }, [auth.loading, auth.isLoggedIn, auth.role, navigate]);
 
-  // ── UI state ─────────────────────────────────────────────────
-  const [page,       setPage]       = useState('dashboard');
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [mobileParentsOpen, setMobileParentsOpen] = useState(true);
-  const [online,     setOnline]     = useState(navigator.onLine);
+  // ── UI state (tab from URL ?page= on dashboard route) ─────────
+  const page = getActiveSuperAdminPage(pathname, search);
+  const setPage = (id) => {
+    if (id === 'dashboard') {
+      navigate(SUPER_ADMIN_DASHBOARD_PATH);
+      return;
+    }
+    navigate(`${SUPER_ADMIN_DASHBOARD_PATH}?page=${encodeURIComponent(id)}`);
+  };
 
   // ── Data state ───────────────────────────────────────────────
   const [nesaAdmins,  setNesaAdmins]  = useState([]);
@@ -3038,20 +2679,6 @@ export default function SuperAdminDashboard() {
     setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 4500);
   };
   const removeToast = id => setToasts(p => p.filter(t => t.id !== id));
-
-  useEffect(() => {
-    const on  = () => setOnline(true);
-    const off = () => setOnline(false);
-    window.addEventListener('online',  on);
-    window.addEventListener('offline', off);
-    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
-  }, []);
-
-  useEffect(() => {
-    if (page === 'parents-control-accounts' || page === 'parents-control-payments') {
-      setMobileParentsOpen(true);
-    }
-  }, [page]);
 
   // ── Search state ─────────────────────────────────────────────
   const [nesaSearch, setNesaSearch] = useState('');
@@ -3655,208 +3282,10 @@ export default function SuperAdminDashboard() {
 
   if (auth.loading) return <PageLoader/>;
 
-  const currentPage = NAV.find(n => n.id === page);
-
   return (
-    <div
-      className="min-h-screen text-[#000435] flex babyeyi-dash-shell"
-      style={{ background: BABYEYI_PAGE_BG, fontFamily: BABYEYI_FONT_STACK }}
-    >
-      <style>{`
-        @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-        .anim{animation:fadeIn .25s ease-out}
-        ::-webkit-scrollbar{width:6px;height:6px}
-        ::-webkit-scrollbar-thumb{background:#FEBF10;border-radius:99px}
-        ::-webkit-scrollbar-track{background:#fef3c7}
-        option{background:white;color:#1c1917}
-      `}</style>
-
-      {/* ── DESKTOP SIDEBAR ──────────────────────────────────── */}
-      <Sidebar
-        page={page}
-        onChange={p => setPage(p)}
-        online={online}
-        user={auth.user}
-        navigate={navigate}
-      />
-
-      {/* ── MOBILE SIDEBAR OVERLAY ───────────────────────────── */}
-      {mobileOpen && (
-        <div className="lg:hidden fixed inset-0 bg-[#000435]/60 backdrop-blur-sm z-50 flex"
-          onClick={() => setMobileOpen(false)}>
-          <div
-            className="w-72 max-w-[85vw] h-full bg-[#000435] border-r border-amber-400/20 shadow-2xl flex flex-col"
-            onClick={e => e.stopPropagation()}
-            style={{ fontFamily: BABYEYI_FONT_STACK }}
-          >
-            <div className="flex items-center justify-between px-5 py-5 border-b border-white/10">
-            <div className="flex items-center gap-2.5">
-              <div className="px-2 py-1 rounded-xl bg-[#1F2937] flex items-center justify-center border border-amber-300/50 shadow">
-                <img
-                  src="/1BABYEYI LOGO FINAL.png"
-                  alt="Babyeyi logo"
-                  className="h-6 w-auto object-contain"
-                />
-              </div>
-              <h1 className="font-black text-white text-sm">Super Admin</h1>
-            </div>
-              <button onClick={() => setMobileOpen(false)} className="p-1.5 rounded-xl hover:bg-white/10 text-amber-400">
-                <X className="w-5 h-5"/>
-              </button>
-            </div>
-            <nav className="p-3 space-y-1 flex-1 overflow-y-auto">
-              {NAV.map(item => {
-                if (item.section) {
-                  if (item.id === '_section_parents_control') {
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => setMobileParentsOpen((v) => !v)}
-                        className="w-full flex items-center justify-between pt-3 pb-1 px-3 text-left"
-                      >
-                        <p className="text-[10px] font-bold text-amber-400/80 uppercase tracking-widest">{item.label}</p>
-                        <ChevronDown className={`w-3.5 h-3.5 text-amber-400/70 transition-transform ${mobileParentsOpen ? '' : '-rotate-90'}`} />
-                      </button>
-                    );
-                  }
-                  return (
-                    <div key={item.id} className="pt-3 pb-1 px-3">
-                      <p className="text-[10px] font-bold text-amber-400/80 uppercase tracking-widest">{item.label}</p>
-                    </div>
-                  );
-                }
-                if (item.parentControl && !mobileParentsOpen) return null;
-                const isAddSchool = item.id === 'add-school';
-                const isAddAllSchools = item.id === 'add-all-schools';
-                const isRequirementsPrices = item.id === 'requirements-prices';
-                const isPricesList = item.id === 'prices-list';
-                const isInvoices = item.id === 'invoices';
-                const isRegisterAgents = item.id === 'register-agents';
-                const isRepresentatives = item.id === 'representatives';
-                const isVoucherServices = item.id === 'voucher-services';
-                const isShoesVouchers = item.id === 'shoes-vouchers';
-                const isUniformVouchers = item.id === 'uniform-vouchers';
-                const isShopProducts = item.id === 'shop-products';
-                const isStandardKitRequests = item.id === 'standard-kit-requests';
-                const isStandardShuleKits = item.id === 'standard-shule-kits';
-                const isShuleAvanceOrgs = item.id === 'shule-avance-orgs';
-                const isShuleAvanceTeacher = item.id === 'shule-avance-teacher';
-                const isTeacherDealProducts = item.id === 'teacher-deal-products';
-                const isTichaDealRequests = item.id === 'ticha-deal-requests';
-                const isSchoolStudentsCard = item.id === 'school-students-card';
-                const isStudentCardTemplate2 = item.id === 'student-card-template-2';
-                const isSchoolStaffCardTemplate = item.id === 'school-staff-card-template';
-                const isSmartStudents = item.id === 'smart-access-students';
-                const isSmartStaff = item.id === 'smart-access-staff';
-                return (
-                  <button key={item.id}
-                    onClick={() => {
-                      if (isAddSchool) { navigate('/add-school'); }
-                      else if (isAddAllSchools) { navigate('/add-all-schools'); }
-                      else if (isVoucherServices) { navigate('/superadmin/voucher-services'); }
-                      else if (isShoesVouchers) { navigate('/superadmin/shoes-vouchers'); }
-                      else if (isUniformVouchers) { navigate('/superadmin/uniform-vouchers'); }
-                      else if (isShopProducts) { navigate('/superadmin/shop-products'); }
-                      else if (isStandardKitRequests) { navigate('/superadmin/standard-kit-requests'); }
-                      else if (isStandardShuleKits) { navigate('/superadmin/standard-shule-kits'); }
-                      else if (isShuleAvanceOrgs) { navigate('/superadmin/shule-avance-organizations'); }
-                      else if (isShuleAvanceTeacher) { navigate('/superadmin/shule-avance-teacher'); }
-                      else if (isTeacherDealProducts) { navigate('/superadmin/teacher-deal-products'); }
-                      else if (isTichaDealRequests) { navigate('/superadmin/ticha-deal-requests'); }
-                      else if (isSchoolStudentsCard) { navigate('/superadmin/school-students-card'); }
-                      else if (isStudentCardTemplate2) { navigate('/superadmin/student-card-template-2'); }
-                      else if (isSchoolStaffCardTemplate) { navigate('/superadmin/school-staff-card-template'); }
-                      else if (isSmartStudents) { navigate('/superadmin/smart-access/students'); }
-                      else if (isSmartStaff) { navigate('/superadmin/smart-access/staff'); }
-                      else if (isRequirementsPrices) { navigate('/manage-requirements-prices'); }
-                      else if (isPricesList) { navigate('/requirement-prices-list'); }
-                      else if (isInvoices) { navigate('/invoices'); }
-                      else if (isRegisterAgents) { navigate('/superadmin/register-agents'); }
-                      else if (isRepresentatives) { navigate('/superadmin/representatives'); }
-                      else { setPage(item.id); }
-                      setMobileOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all text-left
-                      ${item.highlight
-                        ? "bg-gradient-to-r from-amber-400 to-amber-500 text-[#000435]"
-                        : page === item.id
-                          ? "bg-amber-400 text-[#000435]"
-                          : "text-white/70 hover:bg-white/10 hover:text-white"
-                      }`}
-                    >
-                    <item.icon className="w-4 h-4 shrink-0"/><span className={item.parentControl ? 'pl-2' : ''}>{item.label}</span>
-                  </button>
-                );
-              })}
-            </nav>
-            <div className="p-3 border-t border-white/10">
-              <LogoutButton variant="sidebar" />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── MAIN CONTENT ─────────────────────────────────────── */}
-      <div className="flex-1 lg:ml-60 xl:ml-64 flex flex-col min-h-screen babyeyi-dash-main">
-
-        {/* Header — match School Manager top bar */}
-        <header className="sticky top-0 z-20 border-b-[3px] border-amber-400 px-4 sm:px-6 py-3 bg-[#000435]/97 backdrop-blur-md">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0">
-              <button onClick={() => setMobileOpen(true)}
-                className="lg:hidden p-2 rounded-xl bg-white/8 border border-white/15 text-white/80 hover:bg-white/14 shrink-0"
-                aria-label="Open menu">
-                <Menu className="w-5 h-5"/>
-              </button>
-              <div className="min-w-0">
-                <h2 className="text-base sm:text-lg font-black text-white leading-tight truncate">
-                  {currentPage?.label || 'Dashboard'}
-                </h2>
-                <p className="text-[10px] text-white/40 hidden sm:block font-semibold">
-                  SuperAdmin · Rwanda Education System
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 shrink-0">
-              <div
-                className={`hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-bold border ${
-                  online
-                    ? "bg-amber-400/15 text-amber-300 border-amber-400/35"
-                    : "bg-white/8 text-white/60 border-white/15"
-                }`}
-              >
-                {online ? <Wifi className="w-3 h-3"/> : <WifiOff className="w-3 h-3"/>}
-                {online ? 'Online' : 'Offline'}
-              </div>
-
-              <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-white/8 border border-white/15">
-                <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-[11px] font-black bg-amber-400 text-[#000435]">
-                  {auth.user?.first_name?.[0]?.toUpperCase() || 'S'}
-                </div>
-                <div className="hidden sm:block">
-                  <p className="text-xs font-semibold text-white leading-tight truncate max-w-[120px]">{auth.user?.full_name || 'Super Admin'}</p>
-                  <p className="text-[10px] text-amber-400/90">Full Access</p>
-                </div>
-              </div>
-
-            <div className="hidden sm:flex">
-              <LogoutButton
-                variant="default"
-                size="sm"
-                className="flex items-center gap-1.5 rounded-xl text-xs px-3 py-1.5"
-              />
-            </div>
-            </div>
-          </div>
-        </header>
-
-        {/* Page content */}
-        <main className="flex-1 p-4 sm:p-5 lg:p-6">
-
+    <>
           {page === 'dashboard' && (
-            <DashboardPage
+            <SuperAdminDashboardHome
               counts={counts}
               setPage={setPage}
               user={auth.user}
@@ -4285,11 +3714,11 @@ export default function SuperAdminDashboard() {
                     </div>
                   ))}
                 </div>
-                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-start gap-2">
-                  <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5"/>
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2">
+                  <ShieldCheck className="w-4 h-4 text-[#000435] shrink-0 mt-0.5"/>
                   <div>
-                    <p className="text-xs font-bold text-emerald-800">Session Security</p>
-                    <p className="text-[11px] text-emerald-600 mt-0.5">
+                    <p className="text-xs font-bold text-[#000435]">Session Security</p>
+                    <p className="text-[11px] text-slate-600 mt-0.5">
                       Authenticated via secure httpOnly session cookie. No sensitive data in browser. Auto-expires after 8 hours.
                     </p>
                   </div>
@@ -4302,9 +3731,6 @@ export default function SuperAdminDashboard() {
               </div>
             </div>
           )}
-        </main>
-      </div>
-
       {/* ── MODALS ───────────────────────────────────────────── */}
       {selectedWebhookLogDetail && (
         <div className="fixed inset-0 z-[130] bg-black/45 backdrop-blur-sm flex items-center justify-center p-4">
@@ -4368,6 +3794,6 @@ export default function SuperAdminDashboard() {
       {modal?.type === 'delete'    && <DeleteModal user={modal.user} endpoint={modal.endpoint} onClose={()=>setModal(null)} onDeleted={handleDeleted}/>}
 
       <Toast toasts={toasts} remove={removeToast}/>
-    </div>
+    </>
   );
 }

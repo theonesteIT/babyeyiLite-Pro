@@ -1,85 +1,110 @@
-import React from "react";
-import { Menu, Wifi, WifiOff, RefreshCw, Shield } from "lucide-react";
-import { C, font } from "../utils/theme";
-import { resolveUrl } from "../utils/helpers";
-import LogoutButton from "./LogoutButton";
+import { Menu, Wifi, WifiOff, RefreshCw, SlidersHorizontal } from 'lucide-react';
+import { resolveUrl } from '../utils/helpers';
+import LogoutButton from './LogoutButton';
+import DistrictNotificationBell from './DistrictNotificationBell';
 
-export default function Header({ tab, currentTabConfig, deo, online, statsLoad, listLoad, onRefresh, setMobileOpen }) {
+export default function Header({
+  currentTabConfig,
+  deo,
+  online,
+  statsLoad,
+  listLoad,
+  onRefresh,
+  setMobileOpen,
+  onNavigateTab,
+  showFilterButton = false,
+  activeFilterCount = 0,
+  onOpenFilters,
+}) {
   const spinning = statsLoad || listLoad;
 
   return (
-    <header style={{
-      position: "sticky", top: 0, zIndex: 20,
-      borderBottom: `1px solid ${C.goldBorder}`,
-      padding: "12px 16px",
-      background: "rgba(255,255,255,0.94)", backdropFilter: "blur(12px)",
-      fontFamily: font,
-    }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <button className="lg:hidden" onClick={() => setMobileOpen(true)} style={{
-            color: C.goldDark, background: "transparent", border: "none", cursor: "pointer",
-            padding: 6, borderRadius: 10, display: "flex",
-          }}>
-            <Menu style={{ width: 20, height: 20 }}/>
+    <header
+      className="sticky top-0 z-20 shrink-0 border-b border-[#fde68a]/80 bg-white/95 backdrop-blur-md"
+      style={{ fontFamily: "'Montserrat', sans-serif" }}
+    >
+      <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6">
+        <div className="flex min-w-0 items-center gap-3">
+          <button
+            type="button"
+            className="flex cursor-pointer items-center justify-center rounded-xl border-none bg-transparent p-2 text-[#000435] lg:hidden"
+            onClick={() => setMobileOpen(true)}
+            aria-label="Open menu"
+          >
+            <Menu size={22} strokeWidth={2} />
           </button>
-          <div>
-            <h2 style={{ fontSize: 16, fontWeight: 900, color: C.dark, margin: 0, lineHeight: 1.2 }}>
-              {currentTabConfig?.label || "Dashboard"}
+          <div className="min-w-0">
+            <h2 className="m-0 truncate text-base font-bold text-[#000435] sm:text-lg">
+              {currentTabConfig?.label || 'Dashboard'}
             </h2>
             {deo?.district && (
-              <p className="hidden sm:block" style={{ fontSize: 11, color: C.goldDark, fontWeight: 600, margin: 0 }}>
-                {deo.district} District{deo.province ? ` · ${deo.province}` : ""}
+              <p className="m-0 mt-0.5 truncate text-[11px] font-medium text-amber-600">
+                {deo.district} District
+                {deo.province ? ` · ${deo.province}` : ''}
               </p>
             )}
           </div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div className="hidden sm:flex" style={{
-            display: "flex", alignItems: "center", gap: 6,
-            padding: "5px 10px", borderRadius: 10, fontSize: 11, fontWeight: 700,
-            background: online ? C.emeraldBg : C.amberBg,
-            border: `1px solid ${online ? C.emeraldBord : C.amberBord}`,
-            color: online ? C.emeraldDark : "#92400e",
-          }}>
-            {online ? <Wifi style={{ width: 12, height: 12 }}/> : <WifiOff style={{ width: 12, height: 12 }}/>}
-            {online ? "Online" : "Offline"}
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+          <div
+            className={`hidden items-center gap-1.5 rounded-lg px-2.5 py-1 text-[10px] font-semibold sm:flex ${
+              online
+                ? 'border border-amber-200 bg-amber-50 text-amber-700'
+                : 'border border-[#000435]/10 bg-[#000435]/5 text-[#000435]/60'
+            }`}
+          >
+            {online ? <Wifi size={12} /> : <WifiOff size={12} />}
+            {online ? 'Online' : 'Offline'}
           </div>
 
-          <button onClick={onRefresh} title="Refresh" style={{
-            padding: 8, borderRadius: 10, background: "transparent", border: "none",
-            cursor: "pointer", color: C.goldDark, display: "flex",
-          }}>
-            <RefreshCw style={{ width: 16, height: 16, animation: spinning ? "spin 0.8s linear infinite" : "none" }}/>
+          {showFilterButton && onOpenFilters && (
+            <button
+              type="button"
+              onClick={onOpenFilters}
+              className="relative inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-[#fde68a] bg-white px-2.5 py-2 text-[12px] font-bold text-[#000435] shadow-sm transition-colors hover:border-amber-400 hover:bg-amber-50 sm:px-3"
+              title="Filters"
+            >
+              <SlidersHorizontal size={15} className="text-amber-700" />
+              <span className="hidden sm:inline">Filters</span>
+              {activeFilterCount > 0 && (
+                <span className="flex h-5 min-w-[18px] items-center justify-center rounded-full bg-[#c87800] px-1 text-[10px] font-black text-white">
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
+          )}
+
+          {onNavigateTab && <DistrictNotificationBell onNavigate={onNavigateTab} />}
+
+          <button
+            type="button"
+            onClick={onRefresh}
+            title="Refresh"
+            className="flex cursor-pointer items-center justify-center rounded-xl border border-[#fde68a] bg-amber-50 p-2 text-amber-700 transition-colors hover:bg-amber-100"
+          >
+            <RefreshCw size={16} className={spinning ? 'animate-spin' : ''} />
           </button>
 
           {deo && (
-            <div className="hidden sm:flex" style={{
-              display: "flex", alignItems: "center", gap: 8,
-              padding: "8px 12px", borderRadius: 14,
-              background: C.goldBg, border: `1px solid ${C.goldBorder}`,
-            }}>
-              <div style={{
-                width: 28, height: 28, borderRadius: 9,
-                background: resolveUrl(deo.photo) ? "transparent" : `linear-gradient(135deg, ${C.dark}, ${C.darkMid})`,
-                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-                overflow: "hidden",
-              }}>
+            <div className="hidden items-center gap-2 rounded-xl border border-[#fde68a] bg-amber-50/80 px-2.5 py-1.5 sm:flex">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[#000435]">
                 {resolveUrl(deo.photo) ? (
-                  <img src={resolveUrl(deo.photo)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  <img src={resolveUrl(deo.photo)} alt="" className="h-full w-full object-cover" />
                 ) : (
-                  <Shield style={{ width: 14, height: 14, color: C.gold }}/>
+                  <span className="text-[10px] font-bold text-amber-400">
+                    {(deo.fullName || 'D')[0]}
+                  </span>
                 )}
               </div>
-              <div>
-                <p style={{ fontSize: 12, fontWeight: 700, color: C.dark, margin: 0, lineHeight: 1.2 }}>{deo.fullName}</p>
-                <p style={{ fontSize: 9, color: C.goldDark, margin: 0 }}>District Officer</p>
+              <div className="min-w-0 hidden md:block">
+                <p className="m-0 truncate text-xs font-semibold text-[#000435]">{deo.fullName}</p>
+                <p className="m-0 text-[9px] font-medium text-amber-600">District Officer</p>
               </div>
             </div>
           )}
 
-          <LogoutButton compact/>
+          <LogoutButton compact />
         </div>
       </div>
     </header>

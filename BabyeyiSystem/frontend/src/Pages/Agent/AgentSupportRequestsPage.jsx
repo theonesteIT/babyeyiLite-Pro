@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Loader2, LifeBuoy } from "lucide-react";
 import { axAgent } from "./agentApi";
-import { ACCENT_SLATE, cardBorder, inputClass } from "./agentTheme";
+import { ACCENT_SLATE, pageShell, pageCardPad, inputClass, btnPrimary } from "./agentTheme";
+import AgentPageHeader from "./AgentPageHeader";
 
 const STATUS = ["NEW", "IN_PROGRESS", "RESOLVED"];
 
@@ -65,15 +66,13 @@ export default function AgentSupportRequestsPage() {
   const sectors = [...new Set(rows.map((r) => r.sector).filter(Boolean))];
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-black text-[#111827]">Support requests</h2>
-        <p className="text-sm text-amber-900/80 mt-1 font-medium">
-          Requests submitted by families in your allocated area.
-        </p>
-      </div>
+    <div className={`${pageShell} bg-white`}>
+      <AgentPageHeader
+        title="Support requests"
+        description="Requests submitted by families in your allocated area."
+      />
 
-      <div className={`rounded-3xl ${cardBorder} bg-white p-4 sm:p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3`}>
+      <div className={`${pageCardPad} grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3`}>
         <select className={inputClass} value={filters.status} onChange={(e) => setFilters((p) => ({ ...p, status: e.target.value }))}>
           <option value="">All status</option>
           {STATUS.map((s) => (
@@ -99,11 +98,7 @@ export default function AgentSupportRequestsPage() {
             value={filters.search}
             onChange={(e) => setFilters((p) => ({ ...p, search: e.target.value }))}
           />
-          <button
-            type="button"
-            onClick={load}
-            className="px-4 rounded-xl border-2 border-amber-300 bg-amber-50 text-amber-900 font-bold text-sm"
-          >
+          <button type="button" onClick={load} className={btnPrimary}>
             Filter
           </button>
         </div>
@@ -118,20 +113,20 @@ export default function AgentSupportRequestsPage() {
       ) : (
         <div className="grid gap-3">
           {!rows.length && (
-            <div className={`rounded-3xl ${cardBorder} bg-white p-8 text-center`}>
+            <div className={`${pageCardPad} text-center`}>
               <LifeBuoy className="w-8 h-8 mx-auto text-amber-500 mb-2" />
-              <p className="text-sm font-semibold text-amber-900/80">No support requests found for current filters.</p>
+              <p className="text-sm font-semibold text-slate-600">No support requests found for current filters.</p>
             </div>
           )}
           {rows.map((r) => (
-            <article key={r.id} className={`rounded-3xl ${cardBorder} bg-white p-4 sm:p-5`}>
+            <article key={r.id} className={pageCardPad}>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="text-sm font-black text-[#111827]">{r.requester_name}</p>
-                  <p className="text-xs text-amber-900/70 font-semibold">
+                  <p className="text-sm font-bold text-[#000435]">{r.requester_name}</p>
+                  <p className="text-xs text-slate-600 font-medium">
                     {r.requester_contact} · {r.province} / {r.district} / {r.sector}
                   </p>
-                  <p className="text-xs text-gray-500 mt-1">{new Date(r.created_at).toLocaleString()}</p>
+                  <p className="text-xs text-slate-400 mt-1">{new Date(r.created_at).toLocaleString()}</p>
                 </div>
                 <select
                   className={inputClass}

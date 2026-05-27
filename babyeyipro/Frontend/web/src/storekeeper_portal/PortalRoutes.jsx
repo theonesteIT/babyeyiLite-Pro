@@ -20,7 +20,10 @@ import FeaturePlaceholders from './frontend/src/pages/FeaturePlaceholders'
 import ChatCenter from '../shared/pages/ChatCenter'
 import SchoolCalendarPage from '../shared/pages/SchoolCalendarPage'
 import StorekeeperOchreHero from './frontend/src/components/StorekeeperOchreHero'
+import StorekeeperGateAttendance from './frontend/src/pages/GateAttendance'
+import AllGateLogsReports from './frontend/src/pages/AllGateLogsReports'
 import storekeeperApi from './frontend/src/services/api'
+import { PORTAL } from './frontend/src/config/portal'
 
 function LoadingScreen() {
   return (
@@ -48,6 +51,9 @@ function StorekeeperRoutesInner() {
       <Route path="movements" element={<ProtectedRoute title="Stock Movements"><StockMovements /></ProtectedRoute>} />
       <Route path="requisitions" element={<ProtectedRoute title="Requisitions"><Requisitions /></ProtectedRoute>} />
       <Route path="suppliers" element={<ProtectedRoute title="Suppliers"><Suppliers /></ProtectedRoute>} />
+      <Route path="arrival-reports" element={<ProtectedRoute title="Arrival Reports"><AllGateLogsReports /></ProtectedRoute>} />
+      <Route path="gate-attendance/reports" element={<Navigate to="arrival-reports" replace />} />
+      <Route path="gate-attendance" element={<ProtectedRoute title="Gate Attendance"><StorekeeperGateAttendance /></ProtectedRoute>} />
       <Route path="my-payroll" element={<ProtectedRoute title="My Payroll"><StaffPayroll /></ProtectedRoute>} />
       <Route path="payroll" element={<Navigate to="my-payroll" replace />} />
       <Route path="shule-avance" element={<ProtectedRoute title="Shule Avance"><ShuleAvance /></ProtectedRoute>} />
@@ -58,8 +64,10 @@ function StorekeeperRoutesInner() {
       <Route path="ticha-ai" element={<ProtectedRoute title="TichaAI"><TichaAI /></ProtectedRoute>} />
       <Route path="school-calendar" element={<ProtectedRoute title="School Calendar"><SchoolCalendarPage api={storekeeperApi} HeroComponent={StorekeeperOchreHero} heroProps={{ eyebrow: 'School', titleLine: 'School', titleAccent: 'Calendar', subtitle: 'View school events, holidays, exams, and important dates.' }} /></ProtectedRoute>} />
       <Route path="chat" element={<ProtectedRoute title="Chat center"><ChatCenter /></ProtectedRoute>} />
-      <Route path="settings" element={<ProtectedRoute title="Settings"><FeaturePlaceholders feature="Settings" icon="⚙️" /></ProtectedRoute>} />
-      <Route path="*" element={<Navigate to="/storekeeper" replace />} />
+      <Route path="notifications" element={<ProtectedRoute title="Notifications"><FeaturePlaceholders feature="Notifications" description="Alerts for requisitions, stock levels, and gate activity will appear here." /></ProtectedRoute>} />
+      <Route path="expenses" element={<ProtectedRoute title="Expenses"><FeaturePlaceholders feature="Expenses" description="View school expense summaries shared with the store team — coming soon." /></ProtectedRoute>} />
+      <Route path="settings" element={<ProtectedRoute title="Settings"><FeaturePlaceholders feature="Settings" description="Portal preferences and account options — coming soon." /></ProtectedRoute>} />
+      <Route path="*" element={<Navigate to={PORTAL.basePath} replace />} />
     </Routes>
   )
 }

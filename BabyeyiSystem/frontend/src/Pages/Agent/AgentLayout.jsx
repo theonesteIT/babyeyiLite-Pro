@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { createElement, useEffect, useMemo, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -17,21 +17,126 @@ import {
   Wifi,
   WifiOff,
   Loader2,
+  X,
+  User,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import LogoutButton from "../Auth/LogoutButton";
-import { BABYEYI_FONT_STACK, BABYEYI_NAVY } from "../../theme/babyeyiDashboardTheme";
+import babyeyiIcon from "../../assets/babyeyi-icon.png";
+import { BABYEYI_FONT_STACK, BABYEYI_NAVY, BABYEYI_PAGE_BG } from "../../theme/babyeyiDashboardTheme";
+import { AGENT_PAGE_BG } from "./agentTheme";
 
 const font = BABYEYI_FONT_STACK;
-const BRAND = "/1BABYEYI LOGO FINAL.png";
+const NAVY = "#000435";
 
-function linkClass({ isActive }) {
+const NAV = [
+  { to: "/agent/dashboard", label: "Overview", icon: LayoutDashboard },
+  { to: "/agent/schools", label: "Schools", icon: School },
+  { to: "/agent/support-requests", label: "Support requests", icon: LifeBuoy },
+  { to: "/agent/shop-products", label: "Shop products", icon: Store },
+  { to: "/agent/shop-orders", label: "Shop orders", icon: ShoppingBag },
+  { to: "/agent/standard-kit-requests", label: "Standard kit requests", icon: PackageCheck },
+  { to: "/agent/uniform-voucher-orders", label: "Uniform vouchers", icon: Shirt },
+  { to: "/agent/services", label: "Services revenue", icon: Layers },
+  { to: "/agent/school-fees", label: "School fees", icon: Wallet },
+  { to: "/agent/ticha-deal-requests", label: "Ticha Deal requests", icon: Receipt },
+  { to: "/agent/reports", label: "Reports", icon: FileBarChart },
+];
+
+function navLinkClass({ isActive }) {
   return [
-    "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-bold transition-all min-h-[44px]",
+    "relative flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left text-[13px] font-medium tracking-tight transition-all duration-200 min-h-[44px]",
     isActive
-      ? "bg-amber-400 text-[#000435] shadow-md shadow-black/20"
-      : "text-white/70 hover:text-white hover:bg-white/10",
+      ? "border-white/10 bg-white/[0.12] text-amber-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+      : "border-transparent text-white/72 hover:bg-white/[0.06] hover:text-white",
   ].join(" ");
+}
+
+function NavItem({ to, label, icon, end, onNavigate }) {
+  return (
+    <NavLink to={to} end={end} className={navLinkClass} onClick={onNavigate}>
+      {({ isActive }) => (
+        <>
+          {createElement(icon, {
+            size: 18,
+            strokeWidth: 1.75,
+            className: isActive ? "shrink-0 text-amber-400" : "shrink-0 text-white/45",
+          })}
+          <span className="truncate">{label}</span>
+        </>
+      )}
+    </NavLink>
+  );
+}
+
+function SidebarPanel({ auth, cov, online, onClose }) {
+  const displayName = [auth.user?.first_name, auth.user?.last_name].filter(Boolean).join(" ") || "Agent";
+
+  return (
+    <div
+      className="flex h-full min-h-0 w-full min-w-0 flex-col border-r border-white/[0.06] shadow-sm"
+      style={{ background: NAVY, colorScheme: "dark", fontFamily: font }}
+    >
+      <div className="shrink-0 border-b border-white/[0.06] p-4 pb-3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-sm">
+            <img src={babyeyiIcon} alt="Babyeyi" className="h-10 w-10 object-contain" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <span className="block text-base font-semibold leading-tight tracking-tight text-white">Babyeyi</span>
+            <p className="mt-0.5 text-[10px] font-medium tracking-wide text-amber-400">Field agent portal</p>
+          </div>
+        </div>
+        <div
+          className={`mt-3 flex items-center gap-2 rounded-xl px-3 py-2 text-[11px] font-semibold ${
+            online
+              ? "border border-amber-400/30 bg-amber-400/10 text-amber-300"
+              : "border border-white/10 bg-white/5 text-white/60"
+          }`}
+        >
+          {online ? <Wifi size={12} /> : <WifiOff size={12} />}
+          {online ? "Connected" : "Offline"}
+        </div>
+      </div>
+
+      <nav
+        className="agent-sidebar-scroll min-h-0 flex-1 space-y-0.5 overflow-y-auto overflow-x-hidden overscroll-y-contain px-3 py-3 pr-1"
+        aria-label="Agent navigation"
+      >
+        <p className="px-3 pb-2 pt-1 text-[10px] font-medium uppercase tracking-widest text-white/40">Workspace</p>
+        {NAV.map(({ to, label, icon }) => (
+          <NavItem
+            key={to}
+            to={to}
+            label={label}
+            icon={icon}
+            end={to === "/agent/dashboard"}
+            onNavigate={onClose}
+          />
+        ))}
+      </nav>
+
+      <div className="shrink-0 space-y-2 border-t border-white/[0.06] p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <div className="flex items-start gap-2.5 rounded-xl border border-white/10 bg-white/[0.06] p-2.5">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#000c6e]">
+            <User size={16} className="text-amber-400" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[12px] font-semibold text-white">{displayName}</p>
+            <div className="mt-0.5 flex items-start gap-1 text-[10px] text-white/50">
+              <MapPinned size={10} className="mt-0.5 shrink-0" />
+              <span className="leading-snug">{cov}</span>
+            </div>
+          </div>
+        </div>
+        <LogoutButton variant="sidebar" />
+      </div>
+      <style>{`
+        .agent-sidebar-scroll::-webkit-scrollbar { width: 4px; }
+        .agent-sidebar-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 99px; }
+      `}</style>
+    </div>
+  );
 }
 
 export default function AgentLayout() {
@@ -39,6 +144,11 @@ export default function AgentLayout() {
   const location = useLocation();
   const [open, setOpen] = useState(false);
   const [online, setOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
+
+  const pageTitle = useMemo(() => {
+    const match = NAV.find((item) => location.pathname === item.to || location.pathname.startsWith(`${item.to}/`));
+    return match?.label ?? "Agent workspace";
+  }, [location.pathname]);
 
   useEffect(() => {
     setOpen(false);
@@ -55,14 +165,20 @@ export default function AgentLayout() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!open) return undefined;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
   if (auth.loading) {
     return (
       <div
-        className="min-h-screen flex items-center justify-center babyeyi-dash-shell"
-        style={{
-          background: "linear-gradient(165deg, #fffbeb 0%, #fef3c7 40%, #fff7ed 100%)",
-          fontFamily: font,
-        }}
+        className="min-h-screen flex items-center justify-center babyeyi-dash-shell bg-white"
+        style={{ fontFamily: font }}
       >
         <div className="text-center px-4">
           <Loader2 className="w-10 h-10 animate-spin mx-auto mb-3" style={{ color: BABYEYI_NAVY }} />
@@ -83,103 +199,81 @@ export default function AgentLayout() {
         .join(" · ")
     : "Coverage not loaded";
 
-  const NAV = [
-    { to: "/agent/dashboard", label: "Overview", icon: LayoutDashboard },
-    { to: "/agent/schools", label: "Schools", icon: School },
-    { to: "/agent/support-requests", label: "Support requests", icon: LifeBuoy },
-    { to: "/agent/shop-products", label: "Shop products", icon: Store },
-    { to: "/agent/shop-orders", label: "Shop orders", icon: ShoppingBag },
-    { to: "/agent/standard-kit-requests", label: "Standard kit requests", icon: PackageCheck },
-    { to: "/agent/uniform-voucher-orders", label: "Uniform vouchers", icon: Shirt },
-    { to: "/agent/services", label: "Services revenue", icon: Layers },
-    { to: "/agent/school-fees", label: "School fees", icon: Wallet },
-    { to: "/agent/ticha-deal-requests", label: "Ticha Deal requests", icon: Receipt },
-    { to: "/agent/reports", label: "Reports", icon: FileBarChart },
-  ];
-
-  const Sidebar = ({ mobile } = {}) => (
-    <div
-      className="flex h-full flex-col bg-[#000435] border-r border-amber-400/20 shadow-xl"
-      style={{ fontFamily: font }}
-    >
-      <div className="px-5 py-5 border-b border-white/10">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="rounded-xl shadow-lg bg-[#1F2937] flex items-center justify-center overflow-hidden border border-amber-300/50 px-2 py-1">
-            <img src={BRAND} alt="Babyeyi logo" className="h-8 w-auto object-contain" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-widest text-amber-400/90">Field agent</p>
-            <p className="text-sm font-black text-white truncate">
-              {auth.user?.first_name} {auth.user?.last_name}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-start gap-2 rounded-xl bg-white/6 border border-white/12 px-3 py-2.5 text-[11px] text-amber-100">
-          <MapPinned className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" />
-          <span className="leading-snug font-semibold">{cov}</span>
-        </div>
-        <div
-          className={`mt-2 flex items-center gap-1.5 text-[11px] font-bold px-2 py-1.5 rounded-lg border ${
-            online ? "text-amber-300 bg-amber-400/15 border-amber-400/35" : "text-white/60 bg-white/6 border-white/12"
-          }`}
-        >
-          {online ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
-          {online ? "Online" : "Offline"}
-        </div>
-      </div>
-      <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-        {NAV.map(({ to, label, icon: Icon }) => (
-          <NavLink key={to} to={to} className={linkClass} onClick={() => mobile && setOpen(false)} end={to === "/agent/dashboard"}>
-            <Icon className="w-4 h-4 shrink-0" />
-            {label}
-          </NavLink>
-        ))}
-      </nav>
-      <div className="p-3 border-t border-white/10">
-        <LogoutButton variant="sidebar" />
-      </div>
-    </div>
-  );
+  const closeMenu = () => setOpen(false);
 
   return (
     <div
-      className="min-h-screen flex babyeyi-dash-shell"
-      style={{
-        fontFamily: font,
-        background: "linear-gradient(165deg, #fffbeb 0%, #fef3c7 35%, #fff7ed 100%)",
-      }}
+      className="min-h-screen flex babyeyi-dash-shell bg-white"
+      style={{ fontFamily: font, backgroundColor: AGENT_PAGE_BG || BABYEYI_PAGE_BG }}
     >
-      <aside className="hidden lg:flex w-64 xl:w-72 shrink-0 fixed left-0 top-0 h-full z-40">
-        <Sidebar />
+      <aside className="hidden h-full w-[260px] shrink-0 lg:fixed lg:left-0 lg:top-0 lg:z-40 lg:flex lg:h-screen">
+        <SidebarPanel auth={auth} cov={cov} online={online} />
       </aside>
 
       {open && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <button type="button" className="absolute inset-0 bg-[#000435]/55 backdrop-blur-sm" aria-label="Close menu" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-0 h-full w-[min(100%,320px)] shadow-2xl border-r border-amber-400/20">
-            <Sidebar mobile />
+        <div className="fixed inset-0 z-50 flex lg:hidden" role="dialog" aria-modal="true" aria-label="Navigation menu">
+          <button
+            type="button"
+            className="absolute inset-0 border-none cursor-pointer"
+            style={{ background: "rgba(0,4,53,0.55)" }}
+            aria-label="Close menu"
+            onClick={closeMenu}
+          />
+          <div className="relative flex h-full w-[min(280px,88vw)] flex-col shadow-2xl animate-in slide-in-from-left duration-200">
+            <button
+              type="button"
+              onClick={closeMenu}
+              className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-xl border-none bg-white/10 text-white cursor-pointer hover:bg-white/15"
+              aria-label="Close"
+            >
+              <X size={18} />
+            </button>
+            <SidebarPanel auth={auth} cov={cov} online={online} onClose={closeMenu} />
           </div>
         </div>
       )}
 
-      <div className="flex-1 lg:ml-64 xl:ml-72 flex flex-col min-h-screen w-full min-w-0 babyeyi-dash-main">
-        <header className="sticky top-0 z-30 flex items-center justify-between gap-3 px-4 py-3 border-b-[3px] border-amber-400 bg-[#000435]/97 backdrop-blur-md">
+      <div className="flex min-h-screen w-full min-w-0 flex-1 flex-col bg-white lg:ml-[260px] babyeyi-dash-main">
+        <header
+          className="sticky top-0 z-30 flex items-center gap-2 border-b border-slate-200 bg-white/95 px-3 py-2.5 backdrop-blur-md shadow-sm sm:gap-3 sm:px-4 sm:py-3"
+          style={{ paddingTop: "max(0.625rem, env(safe-area-inset-top))" }}
+        >
           <button
             type="button"
-            className="lg:hidden p-2 rounded-xl bg-white/8 border border-white/15 text-white/85 hover:bg-white/14"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-[#000435] transition hover:bg-slate-50 lg:hidden"
             onClick={() => setOpen(true)}
             aria-label="Open menu"
+            aria-expanded={open}
           >
-            <Menu className="w-5 h-5" />
+            <Menu className="h-5 w-5" />
           </button>
-          <h1 className="text-base sm:text-lg font-black text-white truncate flex-1 text-center lg:text-left flex items-center justify-center lg:justify-start gap-2">
-            <img src={BRAND} alt="Babyeyi logo" className="h-7 w-auto object-contain shrink-0" />
-            <span className="text-white/35 font-bold">·</span>
-            <span>Agent workspace</span>
-          </h1>
-          <div className="w-10 lg:w-0" />
+
+          <div className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-100 bg-white shadow-sm lg:hidden">
+              <img src={babyeyiIcon} alt="" className="h-8 w-8 object-contain" aria-hidden />
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-[10px] font-semibold uppercase tracking-widest text-amber-600 lg:hidden">
+                Field agent
+              </p>
+              <h1 className="truncate text-sm font-bold text-[#000435] sm:text-base lg:text-lg">{pageTitle}</h1>
+            </div>
+          </div>
+
+          <div
+            className={`hidden shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-semibold sm:flex ${
+              online
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : "border-slate-200 bg-slate-50 text-slate-500"
+            }`}
+            title={online ? "Online" : "Offline"}
+          >
+            {online ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
+            <span className="hidden md:inline">{online ? "Online" : "Offline"}</span>
+          </div>
         </header>
-        <main className="flex-1 p-4 sm:p-5 md:p-6 max-w-7xl w-full mx-auto">
+
+        <main className="mx-auto w-full max-w-7xl flex-1 bg-white p-3 sm:p-5 md:p-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
           <Outlet />
         </main>
       </div>

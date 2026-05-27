@@ -1,78 +1,34 @@
 import React, { useState } from "react";
-import { Search, Filter, ChevronDown, X, AlertCircle, FileText, Building2, Clock, AlertTriangle } from "lucide-react";
-import { C, font, inp } from "../utils/theme";
+import { Search, X, AlertCircle, FileText, Building2, Clock, AlertTriangle } from "lucide-react";
+import { C, font } from "../utils/theme";
 import BabyeyiCard from "../components/BabyeyiCard";
 import Pagination from "../components/Pagination";
 import SectorBreakdown from "../components/SectorBreakdown";
+import DeoFilterToolbar from "../components/DeoFilterToolbar";
 
 export default function ListTab({
   items, listLoad, listErr, loadList,
-  filters, filterUpdate, clearFilters, showFilters, setShowFilters,
+  filters, filterUpdate, onClearFilters, filterBar,
   page, setPage, pagination,
   deo, stats, switchTab, handleAction, setDetailId
 }) {
   return (
-    <div className="anim">
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 300px", gap: 20, alignItems: "start" }}
-        className="list-grid">
-        <style>{`.list-grid { grid-template-columns: 1fr; } @media(min-width:1024px){ .list-grid { grid-template-columns: minmax(0,1fr) 300px; } }`}</style>
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          {/* Search + filters */}
-          <div style={{
-            background: "white", border: `1px solid ${C.goldBorder}`,
-            borderRadius: 20, padding: 16, boxShadow: "0 2px 8px rgba(0,4,53,0.08)",
-          }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-              <div style={{ position: "relative", flex: 1, minWidth: 180 }}>
-                <Search style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", width: 16, height: 16, color: C.goldDark }}/>
-                <input value={filters.search} onChange={e => filterUpdate("search", e.target.value)}
-                  placeholder="Search school, class, doc ID…" style={{ ...inp, paddingLeft: 38 }}/>
-              </div>
-              <button onClick={() => setShowFilters(f => !f)} style={{
-                display: "flex", alignItems: "center", gap: 8, padding: "10px 16px",
-                borderRadius: 14, fontSize: 13, fontWeight: 700, fontFamily: font,
-                border: `2px solid ${showFilters ? C.dark : C.goldBorder}`,
-                background: showFilters ? C.dark : "white",
-                color:      showFilters ? C.gold : C.goldDark,
-                cursor: "pointer", transition: "all 150ms",
-                boxShadow: showFilters ? "0 4px 12px rgba(26,18,0,0.2)" : "none",
-              }}>
-                <Filter style={{ width: 15, height: 15 }}/> Filters
-                <ChevronDown style={{ width: 12, height: 12, transform: showFilters ? "rotate(180deg)" : "none", transition: "transform 150ms" }}/>
-              </button>
-            </div>
+    <div className="anim font-[Montserrat,sans-serif]">
+      {filterBar && <DeoFilterToolbar {...filterBar} />}
 
-            {showFilters && (
-              <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${C.goldBorder}`, display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
-                {[
-                  { key: "status",        label: "Status",        options: ["approved","pending","rejected","draft"] },
-                  { key: "year",          label: "Year",          options: ["2026-2027","2025-2026","2024-2025"] },
-                  { key: "term",          label: "Term",          options: ["Term 1","Term 2","Term 3"] },
-                  { key: "category",      label: "Category",      options: ["Government","Private","Government Aided"] },
-                  { key: "level",         label: "Level",         options: ["Nursery","Primary","Secondary"] },
-                  { key: "exceeds_limit", label: "Exceeds Limit", options: ["1"] },
-                ].map(({ key, label, options }) => (
-                  <div key={key}>
-                    <label style={{ display: "block", fontSize: 10, fontWeight: 900, color: C.goldDark, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4, fontFamily: font }}>
-                      {label}
-                    </label>
-                    <select value={filters[key]} onChange={e => filterUpdate(key, e.target.value)} style={inp}>
-                      <option value="">All</option>
-                      {options.map(o => <option key={o} value={o}>{o === "1" ? "Yes" : o}</option>)}
-                    </select>
-                  </div>
-                ))}
-                <div style={{ display: "flex", alignItems: "flex-end" }}>
-                  <button onClick={clearFilters} style={{
-                    padding: "10px 14px", fontSize: 12, fontWeight: 700, color: C.goldDark,
-                    border: `1px solid ${C.goldBorder}`, borderRadius: 12, background: "white",
-                    cursor: "pointer", fontFamily: font,
-                  }}>
-                    Clear All
-                  </button>
-                </div>
-              </div>
-            )}
+      <div className="list-grid grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-6">
+        <div className="flex min-w-0 flex-col gap-3.5">
+          <div className="rounded-2xl border border-[#fde68a] bg-white p-4 shadow-[0_2px_12px_rgba(0,4,53,0.06)]">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-amber-700" />
+              <input
+                value={filters.search}
+                onChange={(e) => filterUpdate('search', e.target.value)}
+                placeholder="Search school, class, doc ID…"
+                className="w-full rounded-xl border border-[#fde68a] bg-white py-2.5 pl-10 pr-3 text-[13px] text-[#000435] outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-400"
+                style={{ fontFamily: font }}
+              />
+            </div>
           </div>
 
           {/* Active filter chips */}
@@ -122,18 +78,20 @@ export default function ListTab({
             </div>
           )}
 
-          {pagination.pages > 1 && (
-            <div>
-              <Pagination current={page} total={pagination.pages} onChange={p => setPage(p)}/>
-              <p style={{ textAlign: "center", fontSize: 11, color: C.goldDark, marginTop: 8, fontFamily: font }}>
-                {pagination.total} total · Page {pagination.page} of {pagination.pages}
-              </p>
-            </div>
+          {(pagination.pages > 1 || pagination.total > 12) && (
+            <Pagination
+              current={page}
+              total={pagination.pages || 1}
+              totalItems={pagination.total || 0}
+              pageSize={12}
+              loading={listLoad}
+              onChange={p => setPage(p)}
+            />
           )}
         </div>
 
         {/* Right sidebar analytics */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <div className="flex flex-col gap-3.5 lg:sticky lg:top-4">
           <SectorBreakdown sectors={stats?.sector_breakdown}/>
 
           {stats?.school_breakdown?.length > 0 && (
@@ -170,7 +128,7 @@ export default function ListTab({
             </p>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
               {[
-                { label: "All Babyeyi",   icon: FileText,      onClick: clearFilters },
+                { label: "All Babyeyi",   icon: FileText,      onClick: onClearFilters },
                 { label: "Pending",        icon: Clock,         onClick: () => filterUpdate("status","pending") },
                 { label: "Exceeds Limit",  icon: AlertTriangle, onClick: () => filterUpdate("exceeds_limit","1") },
                 { label: "View Schools",   icon: Building2,     onClick: () => switchTab("schools") },

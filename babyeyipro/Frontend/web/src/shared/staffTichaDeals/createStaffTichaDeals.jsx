@@ -10,7 +10,7 @@ import TrackingTichaDeals from './TrackingTichaDeals'
  * @param {import('axios').AxiosInstance} opts.api
  * @param {string} opts.basePath
  * @param {string} [opts.shuleAvanceListPath] — SPA subpath after Avance deal submit (default `/shule-avance`; accountants use `/my-shule-avance`).
- * @param {'legacy'|'orange'|'accountant'} [opts.dealsHeroVariant] — `orange` = DOS/teacher welcome hero; `accountant` = ochre band like accountant Dashboard.
+ * @param {'legacy'|'orange'|'accountant'|'storekeeper'} [opts.dealsHeroVariant] — `orange` = DOS/teacher; `accountant` / `storekeeper` = ochre/amber hero band.
  */
 export function createStaffTichaDeals({ api, basePath, useStaffUser, shuleAvanceListPath, dealsHeroVariant }) {
   const avancePath = shuleAvanceListPath || '/shule-avance'

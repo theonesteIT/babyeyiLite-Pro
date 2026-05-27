@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Loader2, Filter } from "lucide-react";
 import { axAgent } from "./agentApi";
-import { ACCENT_SLATE, selectClass, inputClass, cardBorder } from "./agentTheme";
+import { ACCENT_SLATE, selectClass, inputClass, pageShell, pageCardPad, tableShell, tableHeadRow, tableHeadCell, tableBodyRow } from "./agentTheme";
+import AgentPageHeader from "./AgentPageHeader";
 
 const TERMS = ["", "Term 1", "Term 2", "Term 3"];
 
@@ -51,15 +52,15 @@ export default function AgentSchoolFeesPage() {
   }, [filters.sector, filters.cell, filters.school_id, filters.academic_year, filters.term]);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-black text-[#111827]">School fees (Babyeyi)</h2>
-        <p className="text-sm text-amber-900/80 mt-1 font-medium">Payment intents linked to schools in your coverage. Filter as needed.</p>
-      </div>
+    <div className={`${pageShell} bg-white`}>
+      <AgentPageHeader
+        title="School fees (Babyeyi)"
+        description="Payment intents linked to schools in your coverage. Filter as needed."
+      />
 
-      <div className={`rounded-3xl ${cardBorder} bg-white p-4 sm:p-5 shadow-md shadow-amber-900/5 space-y-3`}>
-        <div className="flex items-center gap-2 text-sm font-black text-[#111827]">
-          <Filter className="w-4 h-4 text-amber-600" /> Filters
+      <div className={`${pageCardPad} space-y-3`}>
+        <div className="flex items-center gap-2 text-sm font-bold text-[#000435]">
+          <Filter className="w-4 h-4 text-amber-500" /> Filters
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
           <select
@@ -123,42 +124,42 @@ export default function AgentSchoolFeesPage() {
           <Loader2 className="w-8 h-8 animate-spin" style={{ color: ACCENT_SLATE }} />
         </div>
       ) : (
-        <div className={`rounded-3xl ${cardBorder} bg-white overflow-hidden shadow-md shadow-amber-900/5`}>
+        <div className={tableShell}>
           <div className="overflow-x-auto max-h-[70vh] overflow-y-auto">
             <table className="w-full text-xs sm:text-sm min-w-[720px]">
-              <thead className="sticky top-0 z-10 bg-amber-50 border-b-2 border-amber-100">
-                <tr className="text-left text-[10px] font-black uppercase text-amber-900">
-                  <th className="py-3 px-3">Invoice</th>
-                  <th className="py-3 px-3">School</th>
-                  <th className="py-3 px-3 hidden md:table-cell">Sector / cell</th>
-                  <th className="py-3 px-3 hidden lg:table-cell">Term · Year</th>
-                  <th className="py-3 px-3">Status</th>
-                  <th className="py-3 px-3 text-right">RWF</th>
+              <thead className={`sticky top-0 z-10 ${tableHeadRow}`}>
+                <tr>
+                  <th className={tableHeadCell}>Invoice</th>
+                  <th className={tableHeadCell}>School</th>
+                  <th className={`${tableHeadCell} hidden md:table-cell`}>Sector / cell</th>
+                  <th className={`${tableHeadCell} hidden lg:table-cell`}>Term · Year</th>
+                  <th className={tableHeadCell}>Status</th>
+                  <th className={`${tableHeadCell} text-right`}>RWF</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((r) => (
-                  <tr key={r.id} className="border-b border-amber-100/70 hover:bg-amber-50/40">
-                    <td className="py-2.5 px-3 font-mono text-[11px] text-amber-900/80">{r.invoice_no || `#${r.id}`}</td>
-                    <td className="py-2.5 px-3 font-semibold text-[#111827]">{r.school_name}</td>
-                    <td className="py-2.5 px-3 hidden md:table-cell text-amber-900/70">
+                  <tr key={r.id} className={tableBodyRow}>
+                    <td className="py-2.5 px-3 font-mono text-[11px] text-slate-500">{r.invoice_no || `#${r.id}`}</td>
+                    <td className="py-2.5 px-3 font-semibold text-[#000435]">{r.school_name}</td>
+                    <td className="py-2.5 px-3 hidden md:table-cell text-slate-600">
                       {r.sector} · {r.cell}
                     </td>
-                    <td className="py-2.5 px-3 hidden lg:table-cell text-amber-900/70">
+                    <td className="py-2.5 px-3 hidden lg:table-cell text-slate-600">
                       {r.term || "—"} {r.academic_year ? `· ${r.academic_year}` : ""}
                     </td>
                     <td className="py-2.5 px-3">
-                      <span className="font-bold text-[10px] px-2 py-0.5 rounded-full bg-[#1F2937] text-amber-200 border border-amber-300/30">
+                      <span className="font-semibold text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
                         {r.invoice_status || r.status}
                       </span>
                     </td>
-                    <td className="py-2.5 px-3 text-right font-mono font-bold text-amber-900">{Number(r.total_rwf || 0).toLocaleString()}</td>
+                    <td className="py-2.5 px-3 text-right font-mono font-bold text-[#000435]">{Number(r.total_rwf || 0).toLocaleString()}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          {!rows.length && <p className="text-center py-10 text-amber-800/70 text-sm font-medium">No records for these filters.</p>}
+          {!rows.length && <p className="text-center py-10 text-slate-500 text-sm font-medium">No records for these filters.</p>}
         </div>
       )}
     </div>

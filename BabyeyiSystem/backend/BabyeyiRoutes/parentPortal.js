@@ -33,6 +33,7 @@ const {
   logParentAuditEvent,
   listParentAuditEvents,
 } = require('../utils/parentAuditLog');
+const { logPlatformActivityAsync } = require('../utils/platformActivityLog');
 const {
   upsertParentSubscription,
   mirrorSubscriptionToStudentParentPhones,
@@ -1673,10 +1674,30 @@ router.post('/parent-portal/login', authLimiter, async (req, res) => {
       [phone]
     );
     if (!row) {
+      logPlatformActivityAsync({
+        req,
+        eventCategory: 'auth',
+        eventType: 'parent_login_failed',
+        outcome: 'failed',
+        roleCode: 'PARENT',
+        productTier: 'lite',
+        actionSummary: 'Parent login failed — account not found',
+        details: { phone_last4: phone.slice(-4) },
+      });
       return res.status(401).json({ success: false, message: 'No account for this number — register first' });
     }
     const ok = await bcrypt.compare(String(password), row.password_hash);
     if (!ok) {
+      logPlatformActivityAsync({
+        req,
+        eventCategory: 'auth',
+        eventType: 'parent_login_failed',
+        outcome: 'failed',
+        roleCode: 'PARENT',
+        productTier: 'lite',
+        actionSummary: 'Parent login failed — wrong password',
+        details: { parent_account_id: row.id, phone_last4: phone.slice(-4) },
+      });
       return res.status(401).json({ success: false, message: 'Wrong password' });
     }
 
@@ -1694,6 +1715,25 @@ router.post('/parent-portal/login', authLimiter, async (req, res) => {
           console.error('[parent-portal/login] session.save', saveErr);
           return res.status(500).json({ success: false, message: 'Session save failed' });
         }
+        logPlatformActivityAsync({
+          req,
+          eventCategory: 'auth',
+          eventType: 'parent_login_success',
+          outcome: 'success',
+          roleCode: 'PARENT',
+          productTier: 'lite',
+          actorLabel: `Parent ${phone}`,
+          actionSummary: 'Parent portal password login',
+          details: { parent_account_id: row.id, phone_last4: phone.slice(-4) },
+        });
+        void logParentAuditEvent({
+          parentPortalAccountId: row.id,
+          parentPhone: phone,
+          eventType: 'login_success',
+          channel: 'password',
+          outcome: 'success',
+          ...getRequestMeta(req),
+        }).catch(() => {});
         return res.json({ success: true, message: 'Logged in', redirect: '/parents' });
       });
     });
@@ -1757,6 +1797,24 @@ router.post('/parent-portal/phone-login', authLimiter, async (req, res) => {
           console.error('[parent-portal/phone-login] session.save', saveErr);
           return res.status(500).json({ success: false, message: 'Session save failed' });
         }
+        logPlatformActivityAsync({
+          req,
+          eventCategory: 'auth',
+          eventType: 'parent_login_success',
+          outcome: 'success',
+          roleCode: 'PARENT',
+          productTier: 'lite',
+          actorLabel: `Parent ${phone}`,
+          actionSummary: 'Parent portal phone-only login',
+          details: { phone_last4: phone.slice(-4) },
+        });
+        void logParentAuditEvent({
+          parentPhone: phone,
+          eventType: 'phone_login_success',
+          channel: 'phone_only',
+          outcome: 'success',
+          ...getRequestMeta(req),
+        }).catch(() => {});
         return res.json({ success: true, message: 'Logged in', redirect: '/parents' });
       });
     });

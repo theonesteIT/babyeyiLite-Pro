@@ -20,6 +20,15 @@ const xlsx = require('xlsx');
 const PDFDocument = require('pdfkit');
 const ensureAcademicTables = require('./teacherPortal').ensureAcademicTables;
 const { normalizeGradebookLabel, sqlNormLabelEquals } = require('../utils/gradebookLabels');
+const {
+  ensureStudentYearEnrollmentsTable,
+  backfillSchoolEnrollments,
+  inferNextAcademicYear,
+  recordStudentPromotion,
+  recordStudentRepeat,
+  enrollmentYearFilter,
+  enrollmentClassSelect,
+} = require('./studentYearEnrollments');
 
 const router = express.Router();
 const DOS_ONLY = ['DOS'];
@@ -28,10 +37,13 @@ const REGISTRY_READ_ROLES = ['DOS', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER', 'TEACHER',
 /** Timetables, subjects catalogue, teaching staff — school academic leads */
 const DOS_ACADEMIC_ADMIN = ['DOS', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER'];
 /** Gate logs filters — discipline portal roles need read access too. */
+/** Read-only school year/term settings — used by accountant dashboard, fees, payroll, etc. */
 const DOS_ACADEMIC_CALENDAR_GET = [
   'DOS',
   'SCHOOL_ADMIN',
   'SCHOOL_MANAGER',
+  'ACCOUNTANT',
+  'SCHOOL_REPRESENTATIVE',
   'HOD',
   'DISCIPLINE',
   'DISCIPLINE_STAFF',
@@ -143,6 +155,8 @@ async function ensureDosTables() {
   await promisePool.query(
     `ALTER TABLE school_dos_settings ADD COLUMN IF NOT EXISTS promotion_settings_json JSON NULL`
   ).catch(() => {});
+
+  await ensureStudentYearEnrollmentsTable();
 
   await promisePool.query(`
     CREATE TABLE IF NOT EXISTS dos_student_academic_records (
@@ -320,32 +334,15 @@ async function getTeacherPeriodSettings(schoolId) {
   };
 }
 
+const { getConductBoundsForSchool, getConductMaxMarks } = require('./conductMarksSettings');
+
 /** Conduct maximum — same as Head of Discipline default_marks (not a fixed 100). */
 async function getTotalMarksForSchool(schoolId) {
   try {
-    const [[defaultRow]] = await promisePool.query(
-      'SELECT default_marks FROM school_discipline_default_marks WHERE school_id = ? LIMIT 1',
-      [schoolId]
-    );
-    if (defaultRow?.default_marks != null) return Number(defaultRow.default_marks);
+    return await getConductMaxMarks(schoolId);
   } catch (_) {
-    /* table may not exist yet */
+    return 40;
   }
-  try {
-    const [[discRow]] = await promisePool.query(
-      'SELECT total_marks FROM school_discipline_settings WHERE school_id = ? LIMIT 1',
-      [schoolId]
-    );
-    if (discRow?.total_marks != null) return Number(discRow.total_marks);
-  } catch (_) {
-    /* optional */
-  }
-  const [[dosRow]] = await promisePool.query(
-    'SELECT total_marks FROM school_dos_settings WHERE school_id = ? LIMIT 1',
-    [schoolId]
-  ).catch(() => [[null]]);
-  if (dosRow?.total_marks != null) return Number(dosRow.total_marks);
-  return 40;
 }
 
 const statusLabelForCode = (code, label) => {
@@ -428,9 +425,9 @@ async function listAcademicYearRegistry(schoolId) {
   const [rows] = await promisePool.query(
     `SELECT r.id, r.academic_year, r.active_terms_json, r.term_dates_json, r.is_current,
             r.created_at, r.updated_at,
-            (SELECT COUNT(*) FROM students s
-              WHERE s.school_id = r.school_id
-                AND ${SQL_ACADEMIC_YEAR_EQ('s.academic_year', 'r.academic_year')}) AS student_count
+            (SELECT COUNT(*) FROM student_year_enrollments e
+              WHERE e.school_id = r.school_id
+                AND ${SQL_ACADEMIC_YEAR_EQ('e.academic_year', 'r.academic_year')}) AS student_count
      FROM school_academic_year_registry r
      WHERE r.school_id = ?
      ORDER BY r.academic_year DESC`,
@@ -1117,10 +1114,13 @@ router.get('/dos/progress/students', requireRole(DOS_ONLY), async (req, res) => 
     const { page, limit, offset } = parsePagination(req);
     const totalMarks = await getTotalMarksForSchool(schoolId);
 
-    let where = 'WHERE s.school_id = ? AND s.academic_year = ?';
-    const whereParams = [schoolId, academicYear];
+    await backfillSchoolEnrollments(schoolId);
+
+    const yearScope = enrollmentYearFilter(academicYear, 'ey', 's');
+    let where = `WHERE s.school_id = ?${yearScope.where}`;
+    const whereParams = [schoolId, ...yearScope.params];
     if (className) {
-      where += ' AND s.class_name = ?';
+      where += ` AND TRIM(COALESCE(${yearScope.classCol}, '')) = ?`;
       whereParams.push(className);
     }
 
@@ -1128,6 +1128,7 @@ router.get('/dos/progress/students', requireRole(DOS_ONLY), async (req, res) => 
     const [[countRow]] = await promisePool.query(
       `SELECT COUNT(*) AS total
        FROM students s
+       ${yearScope.join}
        ${where}`,
       whereParams
     );
@@ -1140,8 +1141,9 @@ router.get('/dos/progress/students', requireRole(DOS_ONLY), async (req, res) => 
          s.student_code,
          s.first_name,
          s.last_name,
-         s.class_name,
-         s.academic_year,
+         ${yearScope.classCol} AS class_name,
+         COALESCE(NULLIF(TRIM(ey.academic_year), ''), s.academic_year) AS academic_year,
+         ${enrollmentClassSelect('ey')},
 
          r.status_code,
          r.status_label,
@@ -1149,13 +1151,14 @@ router.get('/dos/progress/students', requireRole(DOS_ONLY), async (req, res) => 
          (? - COALESCE(r.marks_obtained,0)) AS marks_remaining,
          r.notes
        FROM students s
+       ${yearScope.join}
        LEFT JOIN dos_student_academic_records r
          ON r.school_id = s.school_id
         AND r.student_id = s.id
         AND r.academic_year = ?
         AND r.term = ?
        ${where}
-       ORDER BY s.class_name ASC, s.last_name ASC, s.first_name ASC
+       ORDER BY ${yearScope.classCol} ASC, s.last_name ASC, s.first_name ASC
        LIMIT ? OFFSET ?`,
       [totalMarks, academicYear, term, ...whereParams, limit, offset]
     );
@@ -1169,8 +1172,9 @@ router.get('/dos/progress/students', requireRole(DOS_ONLY), async (req, res) => 
         student_code: r.student_code,
         first_name: r.first_name,
         last_name: r.last_name,
-        class_name: r.class_name,
-        academic_year: r.academic_year,
+        class_name: r.roster_class_name || r.class_name,
+        academic_year: r.roster_academic_year || r.academic_year,
+        enrollment_status: r.enrollment_status || null,
 
         status_code: r.status_code || null,
         status_label: label,
@@ -1306,8 +1310,10 @@ router.get('/dos/promotion/class-review-metrics', requireRole(DOS_ONLY), async (
     const allYear = isAllYearTerm(termQ);
     const term = allYear ? 'All Year' : termQ || inferTermFromMonth(terms);
 
-    const disciplineTotal = await getTotalMarksForSchool(schoolId);
+    const conductBounds = await getConductBoundsForSchool(schoolId);
+    const disciplineTotal = conductBounds.max_marks;
     const disciplineDefault = disciplineTotal;
+    const disciplineMinimum = conductBounds.minimum_marks;
 
     const { from, to } = resolveReviewDateRange(calendar, term, allYear);
 
@@ -1469,8 +1475,13 @@ router.get('/dos/promotion/class-review-metrics', requireRole(DOS_ONLY), async (
       byStudentId[sid] = {
         discipline_total: disciplineTotal,
         discipline_default: disciplineDefault,
+        discipline_minimum: disciplineMinimum,
         discipline_deducted: Number(r.discipline_deducted || 0),
         discipline_remaining: Number.isFinite(remaining) ? remaining : disciplineDefault,
+        discipline_below_minimum:
+          Number.isFinite(remaining) && Number.isFinite(disciplineMinimum)
+            ? remaining < disciplineMinimum
+            : false,
         discipline_marks: Number(r.student_discipline_marks ?? r.discipline_remaining ?? disciplineDefault),
         gate_morning_days: morningDays,
         gate_evening_days: eveningDays,
@@ -1490,6 +1501,7 @@ router.get('/dos/promotion/class-review-metrics', requireRole(DOS_ONLY), async (
         student_count: Object.keys(byStudentId).length,
         discipline_total: disciplineTotal,
         discipline_default: disciplineDefault,
+        discipline_minimum: disciplineMinimum,
         date_range: { from, to },
         working_days: workingDays,
         expected_gate_slots: expectedSlots,
@@ -1797,8 +1809,39 @@ router.post('/dos/promotion/apply', requireRole(DOS_ONLY), async (req, res) => {
       body.term || ''
     );
     const sourceClass = trimStr(body.source_class_name || body.sourceClassName || '');
+    const destYear = trimStr(
+      body.destination_academic_year || body.destinationAcademicYear || inferNextAcademicYear(academicYear)
+    ) || academicYear;
     const promotionType = trimStr(body.promotion_type || body.promotionType || 'Normal Promotion');
     const totalMarks = await getTotalMarksForSchool(schoolId);
+    const conductBounds = await getConductBoundsForSchool(schoolId);
+    const promoSettings = await loadPromotionSettings(schoolId);
+
+    if (promoSettings.discipline_block && promoteIds.length) {
+      const floor = Number(conductBounds.minimum_marks ?? 0);
+      const ph = promoteIds.map(() => '?').join(',');
+      const [markRows] = await promisePool.query(
+        `SELECT id, discipline_marks, first_name, last_name
+         FROM students WHERE school_id = ? AND id IN (${ph})`,
+        [schoolId, ...promoteIds]
+      );
+      const blocked = (markRows || []).filter((r) => {
+        const marks = Number(r.discipline_marks ?? totalMarks);
+        return marks < floor;
+      });
+      if (blocked.length) {
+        const names = blocked
+          .slice(0, 5)
+          .map((r) => `${trimStr(r.first_name)} ${trimStr(r.last_name)}`.trim())
+          .filter(Boolean)
+          .join(', ');
+        return res.status(400).json({
+          success: false,
+          message: `Cannot promote ${blocked.length} student(s) below conduct minimum (${floor} marks).${names ? ` e.g. ${names}` : ''}`,
+          data: { blocked_student_ids: blocked.map((r) => r.id), discipline_minimum: floor },
+        });
+      }
+    }
 
     await conn.beginTransaction();
 
@@ -1807,15 +1850,28 @@ router.post('/dos/promotion/apply', requireRole(DOS_ONLY), async (req, res) => {
 
     for (const studentId of promoteIds) {
       const [[row]] = await conn.query(
-        'SELECT id, class_name FROM students WHERE id = ? AND school_id = ? LIMIT 1',
+        'SELECT id, class_name, academic_year FROM students WHERE id = ? AND school_id = ? LIMIT 1',
         [studentId, schoolId]
       );
       if (!row) continue;
 
+      const fromClass = sourceClass || row.class_name || '';
+      const fromYear = academicYear || trimStr(row.academic_year) || destYear;
+
       await conn.query(
-        'UPDATE students SET class_name = ?, academic_year = COALESCE(?, academic_year), updated_at = NOW() WHERE id = ? AND school_id = ?',
-        [destClass, academicYear || null, studentId, schoolId]
+        'UPDATE students SET class_name = ?, academic_year = ?, updated_at = NOW() WHERE id = ? AND school_id = ?',
+        [destClass, destYear, studentId, schoolId]
       );
+
+      await recordStudentPromotion(conn, {
+        schoolId,
+        studentId,
+        sourceYear: fromYear,
+        sourceClass: fromClass,
+        destYear,
+        destClass,
+        userId,
+      });
 
       await conn.query(
         `INSERT INTO dos_student_academic_records (
@@ -1835,12 +1891,12 @@ router.post('/dos/promotion/apply', requireRole(DOS_ONLY), async (req, res) => {
           studentId,
           academicYear,
           term,
-          sourceClass || row.class_name || null,
+          fromClass || null,
           'promoted',
           null,
           0,
           totalMarks,
-          `${promotionType} | ${sourceClass || row.class_name || ''} → ${destClass}`,
+          `${promotionType} | ${fromClass} → ${destClass} (${fromYear} → ${destYear})`,
           userId,
         ]
       );
@@ -1850,10 +1906,18 @@ router.post('/dos/promotion/apply', requireRole(DOS_ONLY), async (req, res) => {
     for (const studentId of repeaterIds) {
       if (promoteIds.includes(studentId)) continue;
       const [[row]] = await conn.query(
-        'SELECT id, class_name FROM students WHERE id = ? AND school_id = ? LIMIT 1',
+        'SELECT id, class_name, academic_year FROM students WHERE id = ? AND school_id = ? LIMIT 1',
         [studentId, schoolId]
       );
       if (!row) continue;
+
+      await recordStudentRepeat(conn, {
+        schoolId,
+        studentId,
+        academicYear: academicYear || trimStr(row.academic_year),
+        className: row.class_name || sourceClass,
+        userId,
+      });
 
       await conn.query(
         `INSERT INTO dos_student_academic_records (

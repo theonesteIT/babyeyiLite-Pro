@@ -6,7 +6,6 @@ import {
   Target,
   BadgeCheck,
   FileText,
-  TrendingUp,
   CalendarDays,
   Bell,
 } from 'lucide-react';
@@ -22,7 +21,6 @@ export const ACTION_PLAN_NAV = [
       { id: 'ap-progress', label: 'Progress Tracking', Icon: Target },
       { id: 'ap-approvals', label: 'Approvals', Icon: BadgeCheck },
       { id: 'ap-reports', label: 'Reports', Icon: FileText },
-      { id: 'ap-analytics', label: 'Analytics', Icon: TrendingUp },
       { id: 'ap-calendar', label: 'Calendar View', Icon: CalendarDays },
       { id: 'ap-notifications', label: 'Notifications', Icon: Bell },
     ],

@@ -7,12 +7,20 @@ import {
 } from 'lucide-react';
 import StudentFeesModal from '../components/StudentFeesModal';
 import RecordPaymentModal from '../components/RecordPaymentModal';
+import PaymentReceiptModal from '../components/PaymentReceiptModal';
+import { useAuth } from '../context/AuthContext';
 import AccountantOchreHero from '../components/AccountantOchreHero';
 import api from '../services/api';
 import * as XLSX from 'xlsx';
+import {
+  parseManagerAcademicSettings,
+  termsForRegistryYear,
+  inferCurrentTerm,
+  yearOptionLabel,
+} from '../utils/academicCalendarFilters';
 
-const TERMS = ['Term 1', 'Term 2', 'Term 3', 'Annual Review'];
-const YEARS = ['2026-2027', '2025-2026', '2024-2025', '2023-2024', '2022-2023'];
+const FALLBACK_TERMS = ['Term 1', 'Term 2', 'Term 3'];
+const FALLBACK_YEARS = ['2025-2026'];
 const PAYMENT_STATUSES = [
     { value: 'All', label: 'All statuses' },
     { value: 'full_pay', label: 'Full paid' },
@@ -20,17 +28,6 @@ const PAYMENT_STATUSES = [
     { value: 'not_paid', label: 'Not paid' },
     { value: 'no_fee_card', label: 'No Babyeyi card' },
 ];
-
-function normalizeUiTerm(v) {
-    const t = String(v || '').trim();
-    const low = t.toLowerCase();
-    if (!t) return '';
-    if (low.includes('annual')) return 'Annual Review';
-    if (/\b1\b/.test(low) || low === 't1') return 'Term 1';
-    if (/\b2\b/.test(low) || low === 't2') return 'Term 2';
-    if (/\b3\b/.test(low) || low === 't3') return 'Term 3';
-    return t;
-}
 
 function formatMoneyRWF(value) {
   const n = Number(value) || 0;
@@ -45,11 +42,13 @@ function formatCompactMoneyRWF(value) {
 }
 
 const Fees = () => {
+    const { staff } = useAuth();
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedTerm, setSelectedTerm] = useState('');
     const [selectedYear, setSelectedYear] = useState('');
-    const [termOptions, setTermOptions] = useState(TERMS);
-    const [yearOptions, setYearOptions] = useState(YEARS);
+    const [termOptions, setTermOptions] = useState(FALLBACK_TERMS);
+    const [yearRegistry, setYearRegistry] = useState([]);
+    const [filtersReady, setFiltersReady] = useState(false);
     const [selectedClass, setSelectedClass] = useState('All Classes');
     const [selectedStatus, setSelectedStatus] = useState('All');
     const [loading, setLoading] = useState(false);
@@ -64,6 +63,7 @@ const Fees = () => {
     const [detailsStudent, setDetailsStudent] = useState(null);
     const [paymentStudent, setPaymentStudent] = useState(null);
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+    const [receiptPayment, setReceiptPayment] = useState(null);
 
     const fetchReport = async () => {
         if (!selectedYear || !selectedTerm) return;
@@ -126,42 +126,51 @@ const Fees = () => {
 
     useEffect(() => {
         const loadFeeFilters = async () => {
+            setFiltersReady(false);
             try {
-                const [settingsRes, cardsRes] = await Promise.all([
-                    api.get('/dos/academic-calendar-settings').catch(() => null),
-                    api.get('/accountant/babyeyi-fees').catch(() => null),
-                ]);
+                const settingsRes = await api.get('/dos/academic-calendar-settings');
+                const parsed = parseManagerAcademicSettings(settingsRes?.data?.data || {});
 
-                const managerYear = String(settingsRes?.data?.data?.current_academic_year || '').trim();
-                const managerTermsRaw = Array.isArray(settingsRes?.data?.data?.active_terms) ? settingsRes.data.data.active_terms : [];
-                const managerTerms = managerTermsRaw.map(normalizeUiTerm).filter(Boolean);
+                setYearRegistry(parsed.registry);
 
-                const cards = Array.isArray(cardsRes?.data?.data) ? cardsRes.data.data : [];
-                const cardTerms = cards.map((r) => normalizeUiTerm(r.term)).filter(Boolean);
-                const cardYears = cards.map((r) => String(r.academic_year || '').trim()).filter(Boolean);
+                const initialYear = parsed.currentYear || FALLBACK_YEARS[0];
+                const initialTerms = termsForRegistryYear(parsed.registry, initialYear);
+                setTermOptions(initialTerms);
 
-                const mergedTerms = Array.from(new Set([...managerTerms, ...cardTerms, ...TERMS]));
-                const mergedYears = Array.from(new Set([managerYear, ...cardYears, ...YEARS].filter(Boolean)));
-
-                setTermOptions(mergedTerms.length ? mergedTerms : TERMS);
-                setYearOptions(mergedYears.length ? mergedYears : YEARS);
-
-                const defaultTerm = managerTerms[0] || cardTerms[0] || TERMS[0];
-                const defaultYear = managerYear || cardYears[0] || YEARS[0];
-                setSelectedTerm((p) => p || defaultTerm);
-                setSelectedYear((p) => p || defaultYear);
+                setSelectedYear((p) => p || initialYear);
+                setSelectedTerm((p) => {
+                    if (p && initialTerms.includes(p)) return p;
+                    return parsed.defaultTerm || initialTerms[0] || FALLBACK_TERMS[0];
+                });
             } catch {
-                setSelectedTerm((p) => p || TERMS[0]);
-                setSelectedYear((p) => p || YEARS[0]);
+                setYearRegistry([]);
+                setTermOptions(FALLBACK_TERMS);
+                setSelectedYear((p) => p || FALLBACK_YEARS[0]);
+                setSelectedTerm((p) => p || FALLBACK_TERMS[0]);
+            } finally {
+                setFiltersReady(true);
             }
         };
         loadFeeFilters();
     }, []);
 
     useEffect(() => {
+        if (!filtersReady || !selectedYear || !yearRegistry.length) return;
+        const terms = termsForRegistryYear(yearRegistry, selectedYear);
+        setTermOptions(terms);
+        setSelectedTerm((prev) => {
+            if (prev && terms.includes(prev)) return prev;
+            const isCurrent = yearRegistry.find((r) => r.academic_year === selectedYear)?.is_current;
+            if (isCurrent) return inferCurrentTerm(terms);
+            return terms[0] || FALLBACK_TERMS[0];
+        });
+    }, [selectedYear, yearRegistry, filtersReady]);
+
+    useEffect(() => {
+        if (!filtersReady || !selectedYear || !selectedTerm) return;
         fetchReport();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedYear, selectedTerm, selectedClass, selectedStatus]);
+    }, [selectedYear, selectedTerm, selectedClass, selectedStatus, filtersReady]);
 
     const filteredLearners = reportRows.filter(l => {
         const classMatch = selectedClass === 'All Classes' || l.class === selectedClass;
@@ -349,7 +358,13 @@ const Fees = () => {
                                         className="w-full h-8 bg-re-bg/80 rounded-lg outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[9px] font-medium uppercase tracking-widest  cursor-pointer appearance-none pl-3 pr-8"
                                         style={{ backgroundImage: `url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%231E3A5F%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.5rem center', backgroundSize: '10px' }}
                                     >
-                                        {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
+                                        {yearRegistry.length > 0
+                                            ? yearRegistry.map((row) => (
+                                                <option key={row.academic_year} value={row.academic_year}>
+                                                    {yearOptionLabel(row)}
+                                                </option>
+                                            ))
+                                            : FALLBACK_YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
                                     </select>
                                 </div>
 
@@ -536,25 +551,50 @@ const Fees = () => {
                 onClose={(result) => {
                     setIsPaymentModalOpen(false);
                     setPaymentStudent(null);
-                    if (result?.saved) fetchReport();
+                    if (result?.saved) {
+                        fetchReport();
+                        if (result.payment) setReceiptPayment(result.payment);
+                    }
                 }}
-                onSave={async ({ amount, method, note }) => {
+                onSave={async ({ amount, method, note, paidAt, bankName, paidBy, transactionRef, momoPhone }) => {
                     const activeStudent = paymentStudent || detailsStudent;
-                    if (!activeStudent?.student_id) return;
+                    if (!activeStudent?.student_id) return null;
                     const totalDue = Number(activeStudent.amountToPay);
-                    await api.post('/accountant/payments', {
+                    const res = await api.post('/accountant/payments', {
                         student_id: activeStudent.student_id,
                         academic_year: selectedYear,
                         term: selectedTerm,
                         class_name: activeStudent.class === '—' ? '' : activeStudent.class,
                         total_due: Number.isFinite(totalDue) && totalDue >= 0 ? totalDue : 0,
                         amount_paid: Number(amount),
-                        notes: [method, note].filter(Boolean).join(' · '),
+                        payment_method: method,
+                        bank_name: bankName || undefined,
+                        paid_by: paidBy || undefined,
+                        transaction_ref: transactionRef || undefined,
+                        momo_phone: momoPhone || undefined,
+                        paid_at_date: paidAt || undefined,
+                        notes: note || undefined,
                     });
+                    return res.data?.data || null;
                 }}
                 student={paymentStudent || detailsStudent}
                 academicYear={selectedYear}
                 term={selectedTerm}
+            />
+
+            <PaymentReceiptModal
+                isOpen={!!receiptPayment}
+                payment={receiptPayment}
+                context={{
+                    studentName: receiptPayment?.student_name,
+                    studentCode: receiptPayment?.student_code || receiptPayment?.student_uid,
+                    className: receiptPayment?.class_name,
+                    academicYear: selectedYear,
+                    term: selectedTerm,
+                    schoolName: receiptPayment?.school_name || staff?.school_name,
+                    recordedBy: staff?.full_name || staff?.name,
+                }}
+                onClose={() => setReceiptPayment(null)}
             />
         </>
     );

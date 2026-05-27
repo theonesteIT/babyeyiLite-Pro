@@ -13,25 +13,7 @@ import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getPostLogoutLoginPath } from '../utils/postLogoutLoginPath';
-
-const Spinner = () => (
-  <div style={{
-    minHeight:'100vh', display:'flex', alignItems:'center',
-    justifyContent:'center', background:'#0B1D3A',
-  }}>
-    <div style={{textAlign:'center'}}>
-      <div style={{
-        width:48, height:48, border:'3px solid rgba(59,130,246,.2)',
-        borderTopColor:'#3b82f6', borderRadius:'50%',
-        animation:'spin .8s linear infinite', margin:'0 auto 16px',
-      }}/>
-      <p style={{color:'rgba(148,163,184,.6)', fontFamily:'sans-serif', fontSize:14}}>
-        Checking session…
-      </p>
-    </div>
-    <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-  </div>
-);
+import BabyeyiPortalLoader from './BabyeyiPortalLoader';
 
 export default function ProtectedRoute({
   children,
@@ -61,7 +43,7 @@ export default function ProtectedRoute({
   const extraAllowed = typeof allowIf === 'function' && allowIf(sessionUser);
 
   // Still fetching session from server
-  if (loading) return <Spinner />;
+  if (loading) return <BabyeyiPortalLoader message="Loading" />;
 
   // Not logged in → sign-in page (default /login), preserving intended destination
   if (!isLoggedIn) {

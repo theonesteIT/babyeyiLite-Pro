@@ -15,6 +15,7 @@ export default function AccountantBudgetHeroShell({
   outerClassName = 'bg-slate-100 min-h-full',
 }) {
   const n = kpiTiles.length;
+  const heroBottomPad = n > 0 ? 'pb-20 sm:pb-24' : 'pb-10 sm:pb-12';
   const defaultGrid =
     n <= 4
       ? 'grid-cols-2 lg:grid-cols-4'
@@ -38,7 +39,7 @@ export default function AccountantBudgetHeroShell({
           aria-hidden
         />
 
-        <div className="relative z-10 max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-12 pt-10 sm:pt-12 pb-20 sm:pb-24 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-5">
+        <div className={`relative z-10 max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-12 pt-10 sm:pt-12 ${heroBottomPad} flex flex-col sm:flex-row sm:items-start sm:justify-between gap-5`}>
           <div className="flex flex-col sm:flex-row gap-5 sm:gap-6 items-start flex-1 min-w-0">
             {HeroIcon ? (
               <div className="hidden sm:flex shrink-0 w-16 h-16 md:w-20 md:h-20 rounded-3xl border border-white/10 bg-white/5 items-center justify-center backdrop-blur-sm">

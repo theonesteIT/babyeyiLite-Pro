@@ -481,10 +481,48 @@ adminRouter.delete('/agents/:id', requireRole(...ELEVATED), async (req, res) => 
 });
 
 // ── Agent dashboard ────────────────────────────────────────────
+function agentSummaryPeriodRange(period) {
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  const fmt = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  if (period === 'last_month') {
+    const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const end = new Date(now.getFullYear(), now.getMonth(), 0);
+    return { from: fmt(start), to: fmt(end), key: 'last_month' };
+  }
+  if (period === 'all_time') {
+    return { from: null, to: null, key: 'all_time' };
+  }
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  return { from: fmt(start), to: fmt(end), key: 'this_month' };
+}
+
+function intentDateSql(range) {
+  if (!range?.from || !range?.to) return { sql: '', params: [] };
+  return { sql: ' AND DATE(i.created_at) >= ? AND DATE(i.created_at) <= ? ', params: [range.from, range.to] };
+}
+
+function collectionRateFromTotals(paid, pending) {
+  const p = Number(paid) || 0;
+  const q = Number(pending) || 0;
+  const denom = p + q;
+  if (!denom) return 0;
+  return Math.round((p / denom) * 100);
+}
+
 agentRouter.get('/summary', requireRole('AGENT'), async (req, res) => {
   try {
     const userId = resolveUserId(req);
     const assign = await getAgentSessionPayload(userId);
+    const period = String(req.query.period || 'all_time').trim().toLowerCase();
+    const range = agentSummaryPeriodRange(
+      ['this_month', 'last_month', 'all_time'].includes(period) ? period : 'all_time'
+    );
+    const prevRange = agentSummaryPeriodRange('last_month');
+    const dateFilter = intentDateSql(range);
+    const prevDateFilter = intentDateSql(prevRange);
+
     if (!assign?.sectors?.length) {
       return res.json({
         success: true,
@@ -494,12 +532,24 @@ agentRouter.get('/summary', requireRole('AGENT'), async (req, res) => {
           paid_transactions: 0,
           pending_amount_rwf: 0,
           pending_transactions: 0,
+          collection_rate: 0,
+          collection_rate_prev: 0,
+          period: range.key,
+          by_sector: [],
+          by_school: [],
+          schools_by_sector: [],
+          shop_orders_daily: [],
           assignment: assign,
           no_coverage: !assign,
         },
       });
     }
     const { clause, params } = await schoolCoverageClause(userId);
+    const paidCond =
+      "(UPPER(COALESCE(i.invoice_status,'')) = 'PAID' OR LOWER(COALESCE(i.status,'')) = 'paid')";
+    const pendingCond =
+      "UPPER(COALESCE(i.invoice_status,'NOT_PAID')) <> 'PAID' AND LOWER(COALESCE(i.status,'')) <> 'paid'";
+
     const [[schools]] = await promisePool.query(
       `SELECT COUNT(*) AS n FROM schools s WHERE s.deleted_at IS NULL ${clause}`,
       params
@@ -508,27 +558,151 @@ agentRouter.get('/summary', requireRole('AGENT'), async (req, res) => {
       `SELECT COALESCE(SUM(i.total_rwf), 0) AS total, COUNT(*) AS cnt
        FROM babyeyi_payment_intents i
        INNER JOIN schools s ON s.id = i.school_id AND s.deleted_at IS NULL
-       WHERE (UPPER(COALESCE(i.invoice_status,'')) = 'PAID' OR LOWER(COALESCE(i.status,'')) = 'paid')
-       ${clause}`,
-      params
+       WHERE ${paidCond} ${clause} ${dateFilter.sql}`,
+      [...params, ...dateFilter.params]
     );
     const [[pending]] = await promisePool.query(
       `SELECT COALESCE(SUM(i.total_rwf), 0) AS total, COUNT(*) AS cnt
        FROM babyeyi_payment_intents i
        INNER JOIN schools s ON s.id = i.school_id AND s.deleted_at IS NULL
-       WHERE UPPER(COALESCE(i.invoice_status,'NOT_PAID')) <> 'PAID'
-         AND LOWER(COALESCE(i.status,'')) <> 'paid'
-       ${clause}`,
-      params
+       WHERE ${pendingCond} ${clause} ${dateFilter.sql}`,
+      [...params, ...dateFilter.params]
     );
+
+    const [[paidPrev]] = await promisePool.query(
+      `SELECT COALESCE(SUM(i.total_rwf), 0) AS total, COUNT(*) AS cnt
+       FROM babyeyi_payment_intents i
+       INNER JOIN schools s ON s.id = i.school_id AND s.deleted_at IS NULL
+       WHERE ${paidCond} ${clause} ${prevDateFilter.sql}`,
+      [...params, ...prevDateFilter.params]
+    );
+    const [[pendingPrev]] = await promisePool.query(
+      `SELECT COALESCE(SUM(i.total_rwf), 0) AS total, COUNT(*) AS cnt
+       FROM babyeyi_payment_intents i
+       INNER JOIN schools s ON s.id = i.school_id AND s.deleted_at IS NULL
+       WHERE ${pendingCond} ${clause} ${prevDateFilter.sql}`,
+      [...params, ...prevDateFilter.params]
+    );
+
+    const [bySectorRows] = await promisePool.query(
+      `SELECT s.sector AS sector,
+              COUNT(DISTINCT s.id) AS schools,
+              COALESCE(SUM(CASE WHEN ${paidCond} THEN i.total_rwf ELSE 0 END), 0) AS collected_rwf,
+              COALESCE(SUM(CASE WHEN ${pendingCond} THEN i.total_rwf ELSE 0 END), 0) AS pending_rwf
+       FROM schools s
+       LEFT JOIN babyeyi_payment_intents i ON i.school_id = s.id
+         ${dateFilter.sql ? `AND DATE(i.created_at) >= ? AND DATE(i.created_at) <= ?` : ''}
+       WHERE s.deleted_at IS NULL ${clause}
+       GROUP BY s.sector
+       ORDER BY s.sector ASC`,
+      dateFilter.params.length ? [...dateFilter.params, ...params] : params
+    );
+
+    const by_sector = bySectorRows.map((r) => {
+      const collected = Number(r.collected_rwf || 0);
+      const pend = Number(r.pending_rwf || 0);
+      return {
+        sector: r.sector,
+        schools: Number(r.schools || 0),
+        collected_rwf: collected,
+        pending_rwf: pend,
+        collection_rate: collectionRateFromTotals(collected, pend),
+      };
+    });
+
+    const [bySchoolRows] = await promisePool.query(
+      `SELECT s.id AS school_id,
+              s.school_name,
+              s.sector,
+              COALESCE(SUM(CASE WHEN ${paidCond} THEN i.total_rwf ELSE 0 END), 0) AS collected_rwf,
+              COALESCE(SUM(CASE WHEN ${pendingCond} THEN i.total_rwf ELSE 0 END), 0) AS pending_rwf
+       FROM schools s
+       LEFT JOIN babyeyi_payment_intents i ON i.school_id = s.id
+         ${dateFilter.sql ? `AND DATE(i.created_at) >= ? AND DATE(i.created_at) <= ?` : ''}
+       WHERE s.deleted_at IS NULL ${clause}
+       GROUP BY s.id, s.school_name, s.sector
+       ORDER BY (
+         COALESCE(SUM(CASE WHEN ${paidCond} THEN i.total_rwf ELSE 0 END), 0) +
+         COALESCE(SUM(CASE WHEN ${pendingCond} THEN i.total_rwf ELSE 0 END), 0)
+       ) DESC, s.school_name ASC
+       LIMIT 25`,
+      dateFilter.params.length ? [...dateFilter.params, ...params] : params
+    );
+
+    const by_school = bySchoolRows.map((r) => {
+      const collected = Number(r.collected_rwf || 0);
+      const pend = Number(r.pending_rwf || 0);
+      return {
+        school_id: r.school_id,
+        school_name: r.school_name,
+        sector: r.sector,
+        collected_rwf: collected,
+        pending_rwf: pend,
+        total_rwf: collected + pend,
+        collection_rate: collectionRateFromTotals(collected, pend),
+      };
+    });
+
+    const totalSchools = Number(schools?.n || 0);
+    const schools_by_sector = by_sector.map((r) => ({
+      label: r.sector,
+      value: r.schools,
+      pct: totalSchools ? Math.round((r.schools / totalSchools) * 1000) / 10 : 0,
+    }));
+
+    let shopFrom;
+    let shopTo;
+    if (range.from && range.to) {
+      shopFrom = range.from;
+      shopTo = range.to;
+    } else {
+      const end = new Date();
+      const start = new Date(end.getFullYear(), end.getMonth() - 11, 1);
+      const pad = (n) => String(n).padStart(2, '0');
+      const fmt = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      shopFrom = fmt(start);
+      shopTo = fmt(end);
+    }
+    const [shopDaily] = await promisePool.query(
+      `SELECT DATE_FORMAT(o.created_at, '%b %d') AS label,
+              DATE(o.created_at) AS sort_day,
+              COUNT(*) AS value
+       FROM service_orders o
+       WHERE o.agent_user_id = ?
+         AND o.source_channel LIKE 'PUBLIC_SHOP%'
+         AND DATE(o.created_at) >= ?
+         AND DATE(o.created_at) <= ?
+       GROUP BY DATE(o.created_at), DATE_FORMAT(o.created_at, '%b %d')
+       ORDER BY sort_day ASC`,
+      [userId, shopFrom, shopTo]
+    );
+
+    const collected = Number(paid?.total || 0);
+    const pendAmt = Number(pending?.total || 0);
+    const collection_rate = collectionRateFromTotals(collected, pendAmt);
+    const collection_rate_prev = collectionRateFromTotals(
+      Number(paidPrev?.total || 0),
+      Number(pendingPrev?.total || 0)
+    );
+
     res.json({
       success: true,
       data: {
-        schools_in_coverage: Number(schools?.n || 0),
-        total_collected_rwf: Number(paid?.total || 0),
+        schools_in_coverage: totalSchools,
+        total_collected_rwf: collected,
         paid_transactions: Number(paid?.cnt || 0),
-        pending_amount_rwf: Number(pending?.total || 0),
+        pending_amount_rwf: pendAmt,
         pending_transactions: Number(pending?.cnt || 0),
+        collection_rate,
+        collection_rate_prev,
+        period: range.key,
+        by_sector,
+        by_school,
+        schools_by_sector,
+        shop_orders_daily: shopDaily.map((r) => ({
+          label: r.label,
+          value: Number(r.value || 0),
+        })),
         assignment: assign,
       },
     });
@@ -789,14 +963,17 @@ publicRouter.post('/support-requests', async (req, res) => {
     const requester_description = String(b.requester_description || '').trim();
     const province = String(b.province || '').trim();
     const district = String(b.district || '').trim();
-    const sector = String(b.sector || '').trim();
+    let sector = String(b.sector || '').trim();
 
-    if (!agentUserId || !requester_name || !requester_contact || !requester_description || !province || !district || !sector) {
-      return res.status(400).json({ success: false, message: 'All fields are required.' });
+    if (!agentUserId || !requester_name || !requester_contact || !requester_description || !province || !district) {
+      return res.status(400).json({
+        success: false,
+        message: 'Agent, your name, contact, message, province and district are required.',
+      });
     }
 
     const rows = await query(
-      `SELECT u.id, u.is_active, u.deleted_at, r.role_code, p.province, p.district, p.sectors_json
+      `SELECT u.id, u.is_active, u.deleted_at, r.role_code, p.province, p.district, p.all_sectors, p.sectors_json
        FROM users u
        INNER JOIN roles r ON r.id = u.role_id
        INNER JOIN field_agent_profiles p ON p.user_id = u.id
@@ -817,7 +994,19 @@ publicRouter.post('/support-requests', async (req, res) => {
     } catch {
       sectors = [];
     }
-    if (!Array.isArray(sectors) || !sectors.includes(sector)) {
+    if (!Array.isArray(sectors)) sectors = [];
+    const allSectors = Number(agent.all_sectors) === 1;
+    if (!sector) {
+      if (sectors.length) sector = String(sectors[0]).trim();
+      else if (allSectors) sector = 'District-wide';
+    }
+    if (!sector) {
+      return res.status(400).json({
+        success: false,
+        message: 'Sector could not be determined. Select a sector in the finder or choose a specific agent.',
+      });
+    }
+    if (!allSectors && sector !== 'District-wide' && !sectors.map((x) => String(x).trim()).includes(sector)) {
       return res.status(400).json({ success: false, message: 'Selected agent is not allocated to this sector.' });
     }
 

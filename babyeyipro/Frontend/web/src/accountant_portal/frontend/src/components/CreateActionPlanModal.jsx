@@ -1,13 +1,14 @@
 ﻿import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, PlusCircle } from 'lucide-react';
+import { X, PlusCircle, Edit2 } from 'lucide-react';
 import { AP_COLORS } from '../utils/actionPlanConstants';
 import ActionPlanCreateForm from './ActionPlanCreateForm';
 
 const NAVY = AP_COLORS.navy;
 const AMBER = AP_COLORS.amber;
 
-export default function CreateActionPlanModal({ open, onClose, options, onCreated }) {
+export default function CreateActionPlanModal({ open, onClose, options, onCreated, plan = null }) {
+  const isEdit = Boolean(plan?.id);
   useEffect(() => {
     if (!open) return;
     const onKey = (e) => { if (e.key === 'Escape') onClose(); };
@@ -81,12 +82,14 @@ export default function CreateActionPlanModal({ open, onClose, options, onCreate
         >
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', opacity: 0.85 }}>
-              <PlusCircle size={16} color={AMBER} />
-              NEW ACTION PLAN
+              {isEdit ? <Edit2 size={16} color={AMBER} /> : <PlusCircle size={16} color={AMBER} />}
+              {isEdit ? 'EDIT ACTION PLAN' : 'NEW ACTION PLAN'}
             </div>
-            <h2 id="ap-create-title" style={{ margin: '6px 0 0', fontSize: 20, fontWeight: 800 }}>Create Action Plan</h2>
+            <h2 id="ap-create-title" style={{ margin: '6px 0 0', fontSize: 20, fontWeight: 800 }}>
+              {isEdit ? 'Edit Action Plan' : 'Create Action Plan'}
+            </h2>
             <p style={{ margin: '4px 0 0', fontSize: 13, opacity: 0.8 }}>
-              Plan school activities for a term or full academic year
+              {isEdit ? 'Update plan details and save your changes' : 'Plan school activities for a term or full academic year'}
             </p>
           </div>
           <button
@@ -102,8 +105,9 @@ export default function CreateActionPlanModal({ open, onClose, options, onCreate
           <ActionPlanCreateForm
             options={options}
             compact
-            onSuccess={(plan) => {
-              onCreated?.(plan);
+            plan={plan}
+            onSuccess={(savedPlan) => {
+              onCreated?.(savedPlan);
               setTimeout(onClose, 500);
             }}
           />

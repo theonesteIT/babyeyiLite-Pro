@@ -4,7 +4,8 @@
  */
 
 import { useState, useEffect } from "react";
-import { buildWordDocHTML } from "./BabyeyiList";
+import { buildWordDocHTML, babyeyiDocHtml2CanvasOptions } from "./BabyeyiList";
+import { renderBabyeyiPdfFromRoot } from "./babyeyiPdfExport";
 import { getLegacyBabyeyiUI, getParentMessageForDisplay, getStatusLabelSafe } from "../../../i18n";
 
 const FONT = `"Montserrat",system-ui,sans-serif`;
@@ -272,25 +273,12 @@ export default function BabyeyiPdf() {
       const root = document.createElement("div"); root.id = "__bp__"; root.innerHTML = html;
       host.appendChild(root); document.body.appendChild(host);
       try {
-        await new Promise(r => setTimeout(r, 500));
-        const canvas = await window.html2canvas(root, { scale:2, useCORS:true, backgroundColor:"#fff", logging:false, windowWidth:794 });
-        const { jsPDF } = window.jspdf;
-        const pdf = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
-        const pW=210, pH=297; const imgH=(canvas.height/canvas.width)*pW;
-        if (imgH<=pH) { pdf.addImage(canvas.toDataURL("image/jpeg",0.95),"JPEG",0,0,pW,imgH); }
-        else {
-          let yPos=0, page=0;
-          while (yPos<imgH) {
-            if (page>0) pdf.addPage();
-            const srcYPx=Math.floor((yPos/imgH)*canvas.height); const sliceHPx=Math.min(Math.ceil((pH/imgH)*canvas.height),canvas.height-srcYPx);
-            if (sliceHPx<=0) break;
-            const sl=document.createElement("canvas"); sl.width=canvas.width; sl.height=sliceHPx;
-            sl.getContext("2d").drawImage(canvas,0,srcYPx,canvas.width,sliceHPx,0,0,canvas.width,sliceHPx);
-            pdf.addImage(sl.toDataURL("image/jpeg",0.95),"JPEG",0,0,pW,(sliceHPx/canvas.height)*imgH);
-            yPos+=pH; page++;
-          }
-        }
-        pdf.save(`Babyeyi-${rec.docId||rec.class}-${rec.term}${lang!=="en"?`-${lang.toUpperCase()}`:"" }.pdf`);
+        await renderBabyeyiPdfFromRoot(
+          root,
+          "__bp__",
+          `Babyeyi-${rec.docId || rec.class}-${rec.term}${lang !== "en" ? `-${lang.toUpperCase()}` : ""}.pdf`,
+          babyeyiDocHtml2CanvasOptions("__bp__"),
+        );
       } finally { document.body.removeChild(host); document.head.removeChild(style); }
     } catch (e) { alert("PDF error: " + e.message); }
     finally { setDownloading(false); }

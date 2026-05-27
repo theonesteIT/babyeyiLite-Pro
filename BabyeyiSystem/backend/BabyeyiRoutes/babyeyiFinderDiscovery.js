@@ -25,8 +25,23 @@ function getBabyeyiFinderDiscoveryPayload() {
     pricing: {
       note: 'Step 2 — school fees + requirement lines',
       method: 'GET',
-      path_template: '/pricing/:babyeyiId?school_id={schoolId}',
-      query: { school_id: 'required' },
+      path_template: '/pricing/:babyeyiId?school_code={directoryCode}',
+      query: {
+        school_code: 'preferred — directory code e.g. 003',
+        school_id: 'optional numeric schools.id (legacy)',
+      },
+    },
+    quote_balance: {
+      method: 'POST',
+      path: '/quote-balance',
+      body: {
+        school_code: 'preferred',
+        school_id: 'optional',
+        babyeyi_id: 'required',
+        selected_fee_ids: [],
+        selected_requirement_ids: [],
+        selected_students: [],
+      },
     },
     payment_intent: {
       note: 'Step 3 — record payer + MoMo/bank/loan metadata',

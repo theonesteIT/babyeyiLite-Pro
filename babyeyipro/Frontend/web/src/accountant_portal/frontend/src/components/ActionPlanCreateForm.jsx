@@ -1,7 +1,7 @@
 ﻿import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { AP_COLORS, PLAN_STATUS_OPTIONS, FUNDING_SOURCES, PRIORITY_LEVELS, ACTION_PLAN_TERMS } from '../utils/actionPlanConstants';
-import { createActionPlan } from '../services/actionPlanApi';
+import { createActionPlan, updateActionPlan } from '../services/actionPlanApi';
 
 const NAVY = AP_COLORS.navy;
 const AMBER = AP_COLORS.amber;
@@ -43,13 +43,46 @@ const EMPTY = {
   status: 'draft',
 };
 
-export default function ActionPlanCreateForm({ options, onSuccess, compact }) {
+function toDateInput(v) {
+  if (!v) return '';
+  const s = String(v);
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
+}
+
+function planToForm(plan) {
+  return {
+    title: plan.title || '',
+    academicYear: plan.academicYear || '',
+    term: plan.term || 'Term 1',
+    department: plan.department || 'Administration',
+    strategicObjective: plan.strategicObjective || '',
+    startDate: toDateInput(plan.startDate),
+    endDate: toDateInput(plan.endDate),
+    responsibleUserId: plan.responsibleUserId ? String(plan.responsibleUserId) : '',
+    responsibleName: plan.responsibleName || '',
+    estimatedBudget: plan.estimatedBudget != null ? String(plan.estimatedBudget) : '',
+    fundingSource: plan.fundingSource || 'Student Fees',
+    priorityLevel: plan.priorityLevel || 'Medium',
+    status: plan.status || 'draft',
+  };
+}
+
+export default function ActionPlanCreateForm({ options, onSuccess, compact, plan = null }) {
+  const isEdit = Boolean(plan?.id);
   const [form, setForm] = useState(EMPTY);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
   const [err, setErr] = useState('');
 
   useEffect(() => {
+    if (plan?.id) {
+      setForm(planToForm(plan));
+      setMsg('');
+      setErr('');
+      return;
+    }
     const year = options?.currentAcademicYear || options?.academicYears?.[0] || '';
     const term = options?.defaultTerm || 'Term 1';
     const termRow = (options?.termDates || []).find((t) => t.name === term);
@@ -63,7 +96,7 @@ export default function ActionPlanCreateForm({ options, onSuccess, compact }) {
     });
     setMsg('');
     setErr('');
-  }, [options?.currentAcademicYear, options?.academicYears, options?.defaultTerm, options?.termDates, options?.departments]);
+  }, [plan?.id, plan, options?.currentAcademicYear, options?.academicYears, options?.defaultTerm, options?.termDates, options?.departments]);
 
   const f = (k, v) => setForm((s) => {
     const next = { ...s, [k]: v };
@@ -93,14 +126,23 @@ export default function ActionPlanCreateForm({ options, onSuccess, compact }) {
     setErr('');
     setMsg('');
     try {
-      const plan = await createActionPlan({
+      const payload = {
         ...form,
         estimatedBudget: Number(String(form.estimatedBudget).replace(/,/g, '')) || 0,
         responsibleUserId: form.responsibleUserId ? Number(form.responsibleUserId) : null,
-        submit: submitForApproval,
-      });
-      setMsg(submitForApproval ? 'Submitted for approval.' : 'Action plan saved.');
-      onSuccess?.(plan);
+      };
+      let saved;
+      if (isEdit) {
+        saved = await updateActionPlan(plan.id, {
+          ...payload,
+          status: submitForApproval ? 'pending_approval' : form.status,
+        });
+        setMsg(submitForApproval ? 'Submitted for approval.' : 'Action plan updated.');
+      } else {
+        saved = await createActionPlan({ ...payload, submit: submitForApproval });
+        setMsg(submitForApproval ? 'Submitted for approval.' : 'Action plan saved.');
+      }
+      onSuccess?.(saved);
     } catch (e) {
       setErr(e.message || 'Failed to save plan');
     } finally {
@@ -222,8 +264,9 @@ export default function ActionPlanCreateForm({ options, onSuccess, compact }) {
           style={{ padding: '11px 18px', borderRadius: 10, border: 'none', background: NAVY, color: '#fff', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}
         >
           {saving ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : null}
-          Save draft
+          {isEdit ? 'Save changes' : 'Save draft'}
         </button>
+        {(!isEdit || form.status === 'draft') && (
         <button
           type="button"
           disabled={saving}
@@ -232,6 +275,7 @@ export default function ActionPlanCreateForm({ options, onSuccess, compact }) {
         >
           Submit for approval
         </button>
+        )}
       </div>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>

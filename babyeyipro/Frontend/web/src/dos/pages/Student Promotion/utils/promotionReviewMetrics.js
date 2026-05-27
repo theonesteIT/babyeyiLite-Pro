@@ -15,8 +15,17 @@ export function resolveDisciplineMax(metrics, schoolMax) {
   return null;
 }
 
-export function mergeReviewMetrics(student, metrics, schoolDisciplineMax = null) {
+export function resolveDisciplineMin(metrics, schoolMin) {
+  const fromMetrics = Number(metrics?.discipline_minimum);
+  if (Number.isFinite(fromMetrics) && fromMetrics >= 0) return fromMetrics;
+  const fromSchool = Number(schoolMin);
+  if (Number.isFinite(fromSchool) && fromSchool >= 0) return fromSchool;
+  return 0;
+}
+
+export function mergeReviewMetrics(student, metrics, schoolDisciplineMax = null, schoolDisciplineMin = null) {
   const conductMax = resolveDisciplineMax(metrics, schoolDisciplineMax);
+  const conductMin = resolveDisciplineMin(metrics, schoolDisciplineMin);
   const rawDiscipline = disciplineFromStudentRow(student);
   if (!metrics) {
     if (rawDiscipline == null) return student;
@@ -39,11 +48,16 @@ export function mergeReviewMetrics(student, metrics, schoolDisciplineMax = null)
     : rawDiscipline != null
       ? rawDiscipline
       : null;
+  const belowMinimum =
+    metrics?.discipline_below_minimum === true ||
+    (Number.isFinite(finalRemaining) && finalRemaining < conductMin);
   return {
     ...student,
     disciplineRemaining: finalRemaining,
     disciplineDeducted: Number.isFinite(deducted) ? deducted : 0,
     disciplineTotal: total,
+    disciplineMinimum: conductMin,
+    disciplineBelowMinimum: belowMinimum,
     discipline: finalRemaining != null ? String(finalRemaining) : student.discipline,
     gateMorning: morning,
     gateEvening: evening,

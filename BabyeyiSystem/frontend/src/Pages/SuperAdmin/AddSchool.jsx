@@ -348,31 +348,25 @@ export default function AddSchool() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col"
-      style={{ background: 'linear-gradient(160deg,#FFFDF3 0%,#FFF6CC 40%,#FFE58A 100%)' }}>
+    <div className="space-y-4 max-w-2xl mx-auto" style={{ fontFamily: '"Montserrat", system-ui, sans-serif' }}>
       <style>{`
-        option { background: white; color: #1F2937; }
+        option { background: white; color: #000435; }
         ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-thumb { background: #FFE58A; border-radius: 99px; }
+        ::-webkit-scrollbar-thumb { background: #fbbf24; border-radius: 99px; }
       `}</style>
 
-      <header className="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-amber-200 px-4 py-3 flex items-center gap-3">
-        <button onClick={() => navigate(-1)} className="p-2 rounded-xl text-amber-600 hover:text-amber-800 hover:bg-amber-50 transition-all">
-          <ArrowLeft className="w-5 h-5"/>
-        </button>
-        <div>
-          <h1 className="text-sm font-black text-[#8A6500]">Register New School</h1>
-          <p className="text-[10px] text-amber-600">Step {step + 1} of {STEPS.length} · {STEPS[step].label}</p>
+      <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 flex items-center gap-3 shadow-sm">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-sm font-bold text-[#000435]">Register New School</h1>
+          <p className="text-[10px] text-slate-500">Step {step + 1} of {STEPS.length} · {STEPS[step].label}</p>
         </div>
-        <div className="ml-auto">
-          <div className="h-1.5 w-32 bg-amber-100 rounded-full overflow-hidden">
-            <div className="h-full bg-[#F5B800] rounded-full transition-all duration-500"
-              style={{ width: `${((step + 1) / STEPS.length) * 100}%` }}/>
-          </div>
+        <div className="h-1.5 w-28 sm:w-32 bg-amber-100 rounded-full overflow-hidden shrink-0">
+          <div className="h-full bg-amber-400 rounded-full transition-all duration-500"
+            style={{ width: `${((step + 1) / STEPS.length) * 100}%` }}/>
         </div>
-      </header>
+      </div>
 
-      <div className="flex-1 flex items-start justify-center p-4 pt-8">
+      <div className="flex items-start justify-center">
         <div className="w-full max-w-2xl">
           <StepIndicator current={step}/>
 

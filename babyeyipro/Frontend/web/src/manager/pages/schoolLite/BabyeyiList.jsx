@@ -13,6 +13,13 @@ import { useBabyeyiUiT } from '../../schoolLiteSupport/hooks/useBabyeyiUiT.js';
 import { translateLongText, translateWithLingvaCached } from '../../schoolLiteSupport/lib/lingvaTranslate.js';
 import { API_BASE, SERVER_BASE as ASSET_BASE, babyeyiVerifyScanUrl } from '../../lib/schoolLiteApi';
 import {
+  addCanvasToPdfAndSave,
+  renderBabyeyiPdfFromRoot,
+  buildBabyeyiAuthBlockHtml,
+} from './babyeyiPdfExport';
+
+export { addCanvasToPdfAndSave, renderBabyeyiPdfFromRoot } from './babyeyiPdfExport';
+import {
   Eye,
   Pencil,
   Lock,
@@ -180,36 +187,6 @@ export function babyeyiDocHtml2CanvasOptions(rootId) {
   };
 }
 
-/** Rasterize long canvas to A4 PDF pages as PNG (no JPEG color cast). */
-export function addCanvasToPdfAndSave(canvas, filename) {
-  const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-  const pW = 210;
-  const pH = 297;
-  const imgH = (canvas.height / canvas.width) * pW;
-  const pngFull = canvas.toDataURL("image/png");
-  if (imgH <= pH) {
-    pdf.addImage(pngFull, "PNG", 0, 0, pW, imgH);
-  } else {
-    let yPos = 0;
-    let page = 0;
-    while (yPos < imgH) {
-      if (page > 0) pdf.addPage();
-      const srcYPx = Math.floor((yPos / imgH) * canvas.height);
-      const sliceHPx = Math.min(Math.ceil((pH / imgH) * canvas.height), canvas.height - srcYPx);
-      if (sliceHPx <= 0) break;
-      const sl = document.createElement("canvas");
-      sl.width = canvas.width;
-      sl.height = sliceHPx;
-      sl.getContext("2d").drawImage(canvas, 0, srcYPx, canvas.width, sliceHPx, 0, 0, canvas.width, sliceHPx);
-      pdf.addImage(sl.toDataURL("image/png"), "PNG", 0, 0, pW, (sliceHPx / canvas.height) * imgH);
-      yPos += pH;
-      page++;
-    }
-  }
-  pdf.save(filename);
-}
-
 function parseBanks(rec) {
   if (rec.banksJson) { try { const raw = typeof rec.banksJson === "string" ? JSON.parse(rec.banksJson) : rec.banksJson; if (Array.isArray(raw) && raw.length) return raw; } catch {} }
   if (rec.bankName) return [{ bankName: rec.bankName, accountNumber: rec.bankAccountNo || "", accountName: rec.bankAccountName || "", isPrimary: true }];
@@ -268,10 +245,10 @@ export function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLog
   const leadersSection = leaders.length > 0 ? `<div style="margin-bottom:22px">${hdg(T.secLeadership)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:36px;text-align:center">#</th><th style="${thS}">Full Name</th><th style="${thS}">Role</th><th style="${thS}">Phone</th><th style="${thS}">Email</th></tr></thead><tbody>${leaderRows}</tbody></table></div>` : "";
   const noteRows = classNotes.map((n,i) => `<tr><td style="${tdS};text-align:center;color:#64748b;width:42px">${i+1}</td><td style="${tdS};font-weight:600">${n.item||""}</td><td style="${tdS}">${n.details||"—"}</td></tr>`).join("");
   const notesSection = classNotes.length > 0 ? `<div style="margin-bottom:22px">${hdg(T.secClassNotes)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:42px;text-align:center">#</th><th style="${thS}">Item</th><th style="${thS}">Details</th></tr></thead><tbody>${noteRows}</tbody></table></div>` : "";
-  const qrBlock = qrB64 ? `<div style="display:flex;flex-direction:column;align-items:center;gap:4px"><div style="background:white;border:1px solid #e2e8f0;padding:6px;border-radius:6px"><img src="${qrB64}" style="width:80px;height:80px;object-fit:contain;display:block"/></div><p style="font-size:10px;color:#1e3a5f;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin:0">${T.sigScanVerify}</p>${rec.docId?`<p style="font-size:10px;color:#64748b;font-family:monospace;margin:0">ID: ${rec.docId}</p>`:""}</div>` : `<div style="width:80px;height:80px;border:1px dashed #e2e8f0;display:flex;align-items:center;justify-content:center"><span style="font-size:20px;opacity:.1">▣</span></div>`;
   const schoolLogoHtml = schoolLogoB64 ? `<img src="${schoolLogoB64}" style="width:92px;height:92px;object-fit:contain;display:block"/>` : `<div style="width:92px;height:92px;display:flex;align-items:center;justify-content:center;border:1px dashed #e2e8f0"><span style="font-size:8px;color:#64748b;text-align:center;font-weight:700">SCHOOL LOGO</span></div>`;
   const otherLogoHtml = otherLogoB64 ? `<img src="${otherLogoB64}" style="width:70px;height:70px;object-fit:contain;display:block"/>` : "";
-  return `<div style="width:794px;background:#fff;font-family:Georgia,'Times New Roman',serif;color:#1e293b"><div style="height:3px;background:#1e3a5f"></div><div style="padding:20px 40px 16px;border-bottom:2px solid #1e3a5f"><div style="display:flex;align-items:center;gap:20px"><div style="flex-shrink:0;width:110px;height:110px;display:flex;align-items:center;justify-content:center">${schoolLogoHtml}</div><div style="flex:1;text-align:center"><p style="font-size:10px;color:#64748b;margin:0 0 2px;letter-spacing:0.08em;text-transform:uppercase;font-weight:600">${T.republic}</p><p style="font-size:9px;color:#64748b;margin:0 0 2px">${T.district}: ${rec.district||"—"}</p><p style="font-size:9px;color:#64748b;margin:0 0 6px">${T.sector}: ${rec.sector||"—"}</p><h1 style="font-size:17px;font-weight:700;color:#1e3a5f;margin:0 0 6px;text-transform:uppercase;letter-spacing:.03em">${rec.schoolName||""}</h1><div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:center">${[[T.academicYear,rec.academicYear],[T.termLabel,rec.term],[T.levelLabel,levelLabel],[T.classLabel,classLabel]].map(([l,v])=>`<span style="font-size:12px;color:#1e293b"><strong style="color:#1e3a5f">${l}:</strong> ${v||"—"}</span>`).join("")}${rec.docId?`<span style="font-size:11px;font-family:monospace;font-weight:700;color:#3730a3;padding:1px 8px">${rec.docId}</span>`:""}</div></div><div style="flex-shrink:0;width:80px;height:80px;display:flex;align-items:center;justify-content:center;overflow:hidden">${otherLogoHtml}</div></div></div><div style="padding:20px 40px 28px">${parentSection}${paySection}${banksSection}${reqSection}${otherSection}${leadersSection}${notesSection}<div style="margin-bottom:22px"><div style="border-bottom:1.5px solid #1e3a5f;padding-bottom:5px;margin-bottom:12px;margin-top:20px"><span style="font-size:14px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.05em">${T.secAuth}</span></div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-top:12px"><div style="border:1px solid #e2e8f0;padding:14px;text-align:center"><p style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;margin:0 0 8px">${T.sigHeadTeacher}</p><div style="height:52px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:4px">${sigB64?`<img src="${sigB64}" style="max-height:48px;max-width:140px;object-fit:contain"/>`:`<div style="width:100%;height:1px;border-bottom:1px solid #cbd5e1"></div>`}</div><p style="font-size:11px;color:#94a3b8;margin:4px 0 0">${sigB64?T.sigSigned:T.sigRequired}</p></div><div style="border:1px solid #e2e8f0;padding:14px;display:flex;flex-direction:column;align-items:center;justify-content:center">${qrBlock}</div><div style="border:1px solid #e2e8f0;padding:14px;text-align:center"><p style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;margin:0 0 8px">${T.sigStamp}</p><div style="width:80px;height:80px;border:1px dashed #e2e8f0;border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden;margin:0 auto 6px">${stampB64?`<img src="${stampB64}" style="width:76px;height:76px;object-fit:contain;border-radius:50%"/>`:`<span style="font-size:22px;opacity:.08">🔏</span>`}</div><p style="font-size:11px;color:#94a3b8;margin:0">${T.sigCachet}</p></div></div></div></div><div style="border-top:1px solid #1e3a5f;padding:8px 40px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:11px;color:#64748b">${rec.schoolName||""} · ${rec.district||""}</span><span style="font-size:11px;color:#1e3a5f;font-weight:700;text-transform:uppercase">${T.docOfficial}</span><span style="font-size:11px;color:#64748b">${T.docFooterLeft} ${rec.docId||"—"} · ${today}</span></div><div style="height:3px;background:#1e3a5f"></div></div>`;
+  const authBlock = buildBabyeyiAuthBlockHtml({ T, rec, today, sigB64, stampB64, qrB64 });
+  return `<div style="width:794px;background:#fff;font-family:Georgia,'Times New Roman',serif;color:#1e293b"><div style="height:3px;background:#1e3a5f"></div><div style="padding:20px 40px 16px;border-bottom:2px solid #1e3a5f"><div style="display:flex;align-items:center;gap:20px"><div style="flex-shrink:0;width:110px;height:110px;display:flex;align-items:center;justify-content:center">${schoolLogoHtml}</div><div style="flex-1;text-align:center"><p style="font-size:10px;color:#64748b;margin:0 0 2px;letter-spacing:0.08em;text-transform:uppercase;font-weight:600">${T.republic}</p><p style="font-size:9px;color:#64748b;margin:0 0 2px">${T.district}: ${rec.district||"—"}</p><p style="font-size:9px;color:#64748b;margin:0 0 6px">${T.sector}: ${rec.sector||"—"}</p><h1 style="font-size:17px;font-weight:700;color:#1e3a5f;margin:0 0 6px;text-transform:uppercase;letter-spacing:.03em">${rec.schoolName||""}</h1><div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:center">${[[T.academicYear,rec.academicYear],[T.termLabel,rec.term],[T.levelLabel,levelLabel],[T.classLabel,classLabel]].map(([l,v])=>`<span style="font-size:12px;color:#1e293b"><strong style="color:#1e3a5f">${l}:</strong> ${v||"—"}</span>`).join("")}${rec.docId?`<span style="font-size:11px;font-family:monospace;font-weight:700;color:#3730a3;padding:1px 8px">${rec.docId}</span>`:""}</div></div><div style="flex-shrink:0;width:80px;height:80px;display:flex;align-items:center;justify-content:center;overflow:hidden">${otherLogoHtml}</div></div></div><div style="padding:20px 40px 28px">${parentSection}${paySection}${banksSection}${reqSection}${otherSection}${leadersSection}${notesSection}${authBlock}</div></div>`;
 }
 
 // ── Capture doc image ─────────────────────────────────────────
@@ -946,9 +923,12 @@ function OfficialDoc({
       const root = document.createElement("div"); root.id = "__by_p__"; root.innerHTML = html;
       host.appendChild(root); document.body.appendChild(host);
       try {
-        await new Promise(r => setTimeout(r, 500));
-        const canvas = await window.html2canvas(root, babyeyiDocHtml2CanvasOptions("__by_p__"));
-        addCanvasToPdfAndSave(canvas, `Babyeyi-${rec.docId || rec.class}-${rec.term}${lang !== "en" ? `-${lang.toUpperCase()}` : ""}.pdf`);
+        await renderBabyeyiPdfFromRoot(
+          root,
+          "__by_p__",
+          `Babyeyi-${rec.docId || rec.class}-${rec.term}${lang !== "en" ? `-${lang.toUpperCase()}` : ""}.pdf`,
+          babyeyiDocHtml2CanvasOptions("__by_p__"),
+        );
       } finally { document.body.removeChild(host); document.head.removeChild(style); }
     } catch (e) { alert("PDF error: " + e.message); }
     finally { setDownloading(false); }
@@ -1231,7 +1211,7 @@ function OfficialDoc({
               </div>
             )}
             {/* Auth */}
-            <div style={DOC.section}>
+            <div id="babyeyi-pdf-auth-block" style={{ ...DOC.section, marginTop: "20px", pageBreakInside: "avoid", breakInside: "avoid" }}>
               <div style={{ borderBottom: "1.5px solid #1e3a5f", paddingBottom: "5px", marginBottom: "12px" }}><span style={DOC.heading}>{T.secAuth}</span></div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "20px", marginTop: "12px" }}>
                 <div style={{ border: "1px solid #e2e8f0", padding: "14px", textAlign: "center" }}>

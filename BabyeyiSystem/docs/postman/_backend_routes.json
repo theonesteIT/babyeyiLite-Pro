@@ -1,0 +1,5763 @@
+[
+  {
+    "mount": "server.js",
+    "file": "server.js",
+    "method": "GET",
+    "path": "/",
+    "routePath": "/"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/accountantFees.js",
+    "method": "GET",
+    "path": "/api/accountant/babyeyi-fee",
+    "routePath": "/accountant/babyeyi-fee"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/accountantFees.js",
+    "method": "GET",
+    "path": "/api/accountant/babyeyi-fees",
+    "routePath": "/accountant/babyeyi-fees"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/accountantFees.js",
+    "method": "DELETE",
+    "path": "/api/accountant/babyeyi-fees/:id",
+    "routePath": "/accountant/babyeyi-fees/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/accountantFees.js",
+    "method": "GET",
+    "path": "/api/accountant/babyeyi-fees/:id",
+    "routePath": "/accountant/babyeyi-fees/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/accountantFees.js",
+    "method": "PUT",
+    "path": "/api/accountant/babyeyi-fees/:id",
+    "routePath": "/accountant/babyeyi-fees/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/accountantFees.js",
+    "method": "GET",
+    "path": "/api/accountant/babyeyi-fees/budget-analysis",
+    "routePath": "/accountant/babyeyi-fees/budget-analysis"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "GET",
+    "path": "/api/accountant/budget-line-usage",
+    "routePath": "/accountant/budget-line-usage"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "POST",
+    "path": "/api/accountant/budget-line-usage",
+    "routePath": "/accountant/budget-line-usage"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "GET",
+    "path": "/api/accountant/budget-lines",
+    "routePath": "/accountant/budget-lines"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "POST",
+    "path": "/api/accountant/budget-lines",
+    "routePath": "/accountant/budget-lines"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "PATCH",
+    "path": "/api/accountant/budget-lines/:id/freeze",
+    "routePath": "/accountant/budget-lines/:id/freeze"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "GET",
+    "path": "/api/accountant/budget-lines/options",
+    "routePath": "/accountant/budget-lines/options"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "GET",
+    "path": "/api/accountant/budget-lines/summary",
+    "routePath": "/accountant/budget-lines/summary"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/accountantFees.js",
+    "method": "GET",
+    "path": "/api/accountant/examination-list",
+    "routePath": "/accountant/examination-list"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/accountantFees.js",
+    "method": "PATCH",
+    "path": "/api/accountant/examination-list/override",
+    "routePath": "/accountant/examination-list/override"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/accountantFees.js",
+    "method": "POST",
+    "path": "/api/accountant/examination-list/publish",
+    "routePath": "/accountant/examination-list/publish"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "GET",
+    "path": "/api/accountant/expenses",
+    "routePath": "/accountant/expenses"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "POST",
+    "path": "/api/accountant/expenses",
+    "routePath": "/accountant/expenses"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "DELETE",
+    "path": "/api/accountant/expenses/:expenseId/payments/:paymentId",
+    "routePath": "/accountant/expenses/:expenseId/payments/:paymentId"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "DELETE",
+    "path": "/api/accountant/expenses/:id",
+    "routePath": "/accountant/expenses/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "POST",
+    "path": "/api/accountant/expenses/:id/payments",
+    "routePath": "/accountant/expenses/:id/payments"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "PATCH",
+    "path": "/api/accountant/expenses/:id/request-approval",
+    "routePath": "/accountant/expenses/:id/request-approval"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "PATCH",
+    "path": "/api/accountant/expenses/:id/status",
+    "routePath": "/accountant/expenses/:id/status"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/accountantFees.js",
+    "method": "GET",
+    "path": "/api/accountant/overview",
+    "routePath": "/accountant/overview"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/accountantFees.js",
+    "method": "GET",
+    "path": "/api/accountant/payments",
+    "routePath": "/accountant/payments"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/accountantFees.js",
+    "method": "POST",
+    "path": "/api/accountant/payments",
+    "routePath": "/accountant/payments"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/accountantFees.js",
+    "method": "DELETE",
+    "path": "/api/accountant/payments/:id",
+    "routePath": "/accountant/payments/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/accountantFees.js",
+    "method": "GET",
+    "path": "/api/accountant/payments/:id",
+    "routePath": "/accountant/payments/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/accountantFees.js",
+    "method": "PATCH",
+    "path": "/api/accountant/payments/:id",
+    "routePath": "/accountant/payments/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "GET",
+    "path": "/api/accountant/payroll",
+    "routePath": "/accountant/payroll"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "POST",
+    "path": "/api/accountant/payroll",
+    "routePath": "/accountant/payroll"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "GET",
+    "path": "/api/accountant/payroll-requests",
+    "routePath": "/accountant/payroll-requests"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "POST",
+    "path": "/api/accountant/payroll-requests",
+    "routePath": "/accountant/payroll-requests"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "GET",
+    "path": "/api/accountant/payroll-requests/:id/details",
+    "routePath": "/accountant/payroll-requests/:id/details"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "POST",
+    "path": "/api/accountant/payroll-requests/finish-payment",
+    "routePath": "/accountant/payroll-requests/finish-payment"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "GET",
+    "path": "/api/accountant/payroll/advance-check/:staffUserId",
+    "routePath": "/accountant/payroll/advance-check/:staffUserId"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "GET",
+    "path": "/api/accountant/payroll/config",
+    "routePath": "/accountant/payroll/config"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "POST",
+    "path": "/api/accountant/payroll/payments",
+    "routePath": "/accountant/payroll/payments"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "GET",
+    "path": "/api/accountant/payroll/payments-tracker",
+    "routePath": "/accountant/payroll/payments-tracker"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "POST",
+    "path": "/api/accountant/payroll/payments/:id/finish",
+    "routePath": "/accountant/payroll/payments/:id/finish"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "PUT",
+    "path": "/api/accountant/payroll/rates",
+    "routePath": "/accountant/payroll/rates"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "DELETE",
+    "path": "/api/accountant/payroll/record/:id",
+    "routePath": "/accountant/payroll/record/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "GET",
+    "path": "/api/accountant/payroll/record/:id",
+    "routePath": "/accountant/payroll/record/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "PUT",
+    "path": "/api/accountant/payroll/record/:id",
+    "routePath": "/accountant/payroll/record/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "GET",
+    "path": "/api/accountant/payroll/runs",
+    "routePath": "/accountant/payroll/runs"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "GET",
+    "path": "/api/accountant/payroll/runs/:id",
+    "routePath": "/accountant/payroll/runs/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "POST",
+    "path": "/api/accountant/payroll/runs/trigger",
+    "routePath": "/accountant/payroll/runs/trigger"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "PATCH",
+    "path": "/api/accountant/payroll/staff/:userId",
+    "routePath": "/accountant/payroll/staff/:userId"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "GET",
+    "path": "/api/accountant/payroll/staff/search",
+    "routePath": "/accountant/payroll/staff/search"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/accountantFees.js",
+    "method": "GET",
+    "path": "/api/accountant/reports/payments",
+    "routePath": "/accountant/reports/payments"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/accountantFees.js",
+    "method": "GET",
+    "path": "/api/accountant/reports/payments/export.pdf",
+    "routePath": "/accountant/reports/payments/export.pdf"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/accountantFees.js",
+    "method": "GET",
+    "path": "/api/accountant/reports/payments/export.xlsx",
+    "routePath": "/accountant/reports/payments/export.xlsx"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "GET",
+    "path": "/api/accountant/requisitions",
+    "routePath": "/accountant/requisitions"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "POST",
+    "path": "/api/accountant/requisitions",
+    "routePath": "/accountant/requisitions"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "DELETE",
+    "path": "/api/accountant/requisitions/:id",
+    "routePath": "/accountant/requisitions/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "PATCH",
+    "path": "/api/accountant/requisitions/:id",
+    "routePath": "/accountant/requisitions/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "PATCH",
+    "path": "/api/accountant/requisitions/:id/status",
+    "routePath": "/accountant/requisitions/:id/status"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "GET",
+    "path": "/api/accountant/school-budgets",
+    "routePath": "/accountant/school-budgets"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "POST",
+    "path": "/api/accountant/school-budgets",
+    "routePath": "/accountant/school-budgets"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "GET",
+    "path": "/api/accountant/school-budgets/:id",
+    "routePath": "/accountant/school-budgets/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "PATCH",
+    "path": "/api/accountant/school-budgets/:id",
+    "routePath": "/accountant/school-budgets/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "PATCH",
+    "path": "/api/accountant/school-budgets/:id/review",
+    "routePath": "/accountant/school-budgets/:id/review"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "GET",
+    "path": "/api/accountant/school-budgets/dashboard",
+    "routePath": "/accountant/school-budgets/dashboard"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "GET",
+    "path": "/api/accountant/school-budgets/manager-overview",
+    "routePath": "/accountant/school-budgets/manager-overview"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "GET",
+    "path": "/api/accountant/school-budgets/options",
+    "routePath": "/accountant/school-budgets/options"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "GET",
+    "path": "/api/admin/portal-audit-logs",
+    "routePath": "/admin/portal-audit-logs"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "GET",
+    "path": "/api/admin/staff-logins",
+    "routePath": "/admin/staff-logins"
+  },
+  {
+    "mount": "/api/admissions",
+    "file": "BabyeyiRoutes/admissionRoutes.js",
+    "method": "GET",
+    "path": "/api/admissions/applications/:appId",
+    "routePath": "/applications/:appId"
+  },
+  {
+    "mount": "/api/admissions",
+    "file": "BabyeyiRoutes/admissionRoutes.js",
+    "method": "PATCH",
+    "path": "/api/admissions/applications/:appId/status",
+    "routePath": "/applications/:appId/status"
+  },
+  {
+    "mount": "/api/admissions",
+    "file": "BabyeyiRoutes/admissionRoutes.js",
+    "method": "DELETE",
+    "path": "/api/admissions/forms/:formId",
+    "routePath": "/forms/:formId"
+  },
+  {
+    "mount": "/api/admissions",
+    "file": "BabyeyiRoutes/admissionRoutes.js",
+    "method": "GET",
+    "path": "/api/admissions/forms/:formId/applications",
+    "routePath": "/forms/:formId/applications"
+  },
+  {
+    "mount": "/api/admissions",
+    "file": "BabyeyiRoutes/admissionRoutes.js",
+    "method": "POST",
+    "path": "/api/admissions/forms/:formId/apply",
+    "routePath": "/forms/:formId/apply"
+  },
+  {
+    "mount": "/api/admissions",
+    "file": "BabyeyiRoutes/admissionRoutes.js",
+    "method": "GET",
+    "path": "/api/admissions/forms/:formId/public",
+    "routePath": "/forms/:formId/public"
+  },
+  {
+    "mount": "/api/admissions",
+    "file": "BabyeyiRoutes/admissionRoutes.js",
+    "method": "GET",
+    "path": "/api/admissions/forms/:formId/stats",
+    "routePath": "/forms/:formId/stats"
+  },
+  {
+    "mount": "/api/admissions",
+    "file": "BabyeyiRoutes/admissionRoutes.js",
+    "method": "PATCH",
+    "path": "/api/admissions/forms/:formId/status",
+    "routePath": "/forms/:formId/status"
+  },
+  {
+    "mount": "/api/admissions",
+    "file": "BabyeyiRoutes/admissionRoutes.js",
+    "method": "GET",
+    "path": "/api/admissions/school/:schoolId",
+    "routePath": "/school/:schoolId"
+  },
+  {
+    "mount": "/api/admissions",
+    "file": "BabyeyiRoutes/admissionRoutes.js",
+    "method": "POST",
+    "path": "/api/admissions/school/:schoolId",
+    "routePath": "/school/:schoolId"
+  },
+  {
+    "mount": "/api/admissions",
+    "file": "BabyeyiRoutes/admissionRoutes.js",
+    "method": "PUT",
+    "path": "/api/admissions/school/:schoolId",
+    "routePath": "/school/:schoolId"
+  },
+  {
+    "mount": "/api/admissions",
+    "file": "BabyeyiRoutes/admissionRoutes.js",
+    "method": "GET",
+    "path": "/api/admissions/slug/:slug",
+    "routePath": "/slug/:slug"
+  },
+  {
+    "mount": "/api/admissions",
+    "file": "BabyeyiRoutes/admissionRoutes.js",
+    "method": "GET",
+    "path": "/api/admissions/track/:referenceNo",
+    "routePath": "/track/:referenceNo"
+  },
+  {
+    "mount": "/api/agent",
+    "file": "BabyeyiRoutes/fieldAgentsRoutes.js#agentRouter",
+    "method": "GET",
+    "path": "/api/agent/my-coverage",
+    "routePath": "/my-coverage"
+  },
+  {
+    "mount": "/api/agent",
+    "file": "BabyeyiRoutes/fieldAgentsRoutes.js#agentRouter",
+    "method": "GET",
+    "path": "/api/agent/reports/summary",
+    "routePath": "/reports/summary"
+  },
+  {
+    "mount": "/api/agent",
+    "file": "BabyeyiRoutes/fieldAgentsRoutes.js#agentRouter",
+    "method": "GET",
+    "path": "/api/agent/rwanda-geo",
+    "routePath": "/rwanda-geo"
+  },
+  {
+    "mount": "/api/agent",
+    "file": "BabyeyiRoutes/fieldAgentsRoutes.js#agentRouter",
+    "method": "GET",
+    "path": "/api/agent/school-fees",
+    "routePath": "/school-fees"
+  },
+  {
+    "mount": "/api/agent",
+    "file": "BabyeyiRoutes/fieldAgentsRoutes.js#agentRouter",
+    "method": "GET",
+    "path": "/api/agent/schools",
+    "routePath": "/schools"
+  },
+  {
+    "mount": "/api/agent",
+    "file": "BabyeyiRoutes/fieldAgentsRoutes.js#agentRouter",
+    "method": "GET",
+    "path": "/api/agent/schools/filters",
+    "routePath": "/schools/filters"
+  },
+  {
+    "mount": "/api/agent",
+    "file": "BabyeyiRoutes/fieldAgentsRoutes.js#agentRouter",
+    "method": "GET",
+    "path": "/api/agent/services/revenue",
+    "routePath": "/services/revenue"
+  },
+  {
+    "mount": "/api/agent",
+    "file": "BabyeyiRoutes/fieldAgentsRoutes.js#agentRouter",
+    "method": "GET",
+    "path": "/api/agent/summary",
+    "routePath": "/summary"
+  },
+  {
+    "mount": "/api/agent",
+    "file": "BabyeyiRoutes/fieldAgentsRoutes.js#agentRouter",
+    "method": "GET",
+    "path": "/api/agent/support-requests",
+    "routePath": "/support-requests"
+  },
+  {
+    "mount": "/api/agent",
+    "file": "BabyeyiRoutes/fieldAgentsRoutes.js#agentRouter",
+    "method": "PATCH",
+    "path": "/api/agent/support-requests/:id/status",
+    "routePath": "/support-requests/:id/status"
+  },
+  {
+    "mount": "/api/auth",
+    "file": "authPages/auth.js",
+    "method": "PUT",
+    "path": "/api/auth/change-password",
+    "routePath": "/change-password"
+  },
+  {
+    "mount": "/api/auth",
+    "file": "authPages/auth.js",
+    "method": "POST",
+    "path": "/api/auth/create-deo",
+    "routePath": "/create-deo"
+  },
+  {
+    "mount": "/api/auth",
+    "file": "authPages/auth.js",
+    "method": "POST",
+    "path": "/api/auth/create-full-system-controller",
+    "routePath": "/create-full-system-controller"
+  },
+  {
+    "mount": "/api/auth",
+    "file": "authPages/auth.js",
+    "method": "POST",
+    "path": "/api/auth/create-nesa-admin",
+    "routePath": "/create-nesa-admin"
+  },
+  {
+    "mount": "/api/auth",
+    "file": "authPages/auth.js",
+    "method": "POST",
+    "path": "/api/auth/create-school",
+    "routePath": "/create-school"
+  },
+  {
+    "mount": "/api/auth",
+    "file": "authPages/auth.js",
+    "method": "POST",
+    "path": "/api/auth/create-shule-avance-organization",
+    "routePath": "/create-shule-avance-organization"
+  },
+  {
+    "mount": "/api/auth",
+    "file": "authPages/auth.js",
+    "method": "POST",
+    "path": "/api/auth/create-super-admin",
+    "routePath": "/create-super-admin"
+  },
+  {
+    "mount": "/api/auth",
+    "file": "authPages/auth.js",
+    "method": "DELETE",
+    "path": "/api/auth/deo-admin/:id",
+    "routePath": "/deo-admin/:id"
+  },
+  {
+    "mount": "/api/auth",
+    "file": "authPages/auth.js",
+    "method": "PUT",
+    "path": "/api/auth/deo-admin/:id",
+    "routePath": "/deo-admin/:id"
+  },
+  {
+    "mount": "/api/auth",
+    "file": "authPages/auth.js",
+    "method": "GET",
+    "path": "/api/auth/deo-admins",
+    "routePath": "/deo-admins"
+  },
+  {
+    "mount": "/api/auth",
+    "file": "authPages/auth.js",
+    "method": "POST",
+    "path": "/api/auth/forgot-password",
+    "routePath": "/forgot-password"
+  },
+  {
+    "mount": "/api/auth",
+    "file": "authPages/auth.js",
+    "method": "POST",
+    "path": "/api/auth/login",
+    "routePath": "/login"
+  },
+  {
+    "mount": "/api/auth",
+    "file": "authPages/auth.js",
+    "method": "DELETE",
+    "path": "/api/auth/nesa-admin/:id",
+    "routePath": "/nesa-admin/:id"
+  },
+  {
+    "mount": "/api/auth",
+    "file": "authPages/auth.js",
+    "method": "PUT",
+    "path": "/api/auth/nesa-admin/:id",
+    "routePath": "/nesa-admin/:id"
+  },
+  {
+    "mount": "/api/auth",
+    "file": "authPages/auth.js",
+    "method": "GET",
+    "path": "/api/auth/nesa-admins",
+    "routePath": "/nesa-admins"
+  },
+  {
+    "mount": "/api/auth",
+    "file": "authPages/auth.js",
+    "method": "GET",
+    "path": "/api/auth/platform-users",
+    "routePath": "/platform-users"
+  },
+  {
+    "mount": "/api/auth",
+    "file": "authPages/auth.js",
+    "method": "PATCH",
+    "path": "/api/auth/platform-users/:id/active",
+    "routePath": "/platform-users/:id/active"
+  },
+  {
+    "mount": "/api/auth",
+    "file": "authPages/auth.js",
+    "method": "POST",
+    "path": "/api/auth/platform-users/bulk-disable-non-controller",
+    "routePath": "/platform-users/bulk-disable-non-controller"
+  },
+  {
+    "mount": "/api/auth",
+    "file": "authPages/auth.js",
+    "method": "POST",
+    "path": "/api/auth/platform-users/bulk-enable-non-controller",
+    "routePath": "/platform-users/bulk-enable-non-controller"
+  },
+  {
+    "mount": "/api/auth",
+    "file": "authPages/auth.js",
+    "method": "POST",
+    "path": "/api/auth/profile/photo",
+    "routePath": "/profile/photo"
+  },
+  {
+    "mount": "/api/auth",
+    "file": "authPages/auth.js",
+    "method": "POST",
+    "path": "/api/auth/reset-password",
+    "routePath": "/reset-password"
+  },
+  {
+    "mount": "/api/auth",
+    "file": "authPages/auth.js",
+    "method": "GET",
+    "path": "/api/auth/schools",
+    "routePath": "/schools"
+  },
+  {
+    "mount": "/api/auth",
+    "file": "authPages/auth.js",
+    "method": "PATCH",
+    "path": "/api/auth/schools/:schoolId/manager-credentials",
+    "routePath": "/schools/:schoolId/manager-credentials"
+  },
+  {
+    "mount": "/api/auth",
+    "file": "authPages/auth.js",
+    "method": "GET",
+    "path": "/api/auth/schools/:schoolId/modules",
+    "routePath": "/schools/:schoolId/modules"
+  },
+  {
+    "mount": "/api/auth",
+    "file": "authPages/auth.js",
+    "method": "PUT",
+    "path": "/api/auth/schools/:schoolId/modules",
+    "routePath": "/schools/:schoolId/modules"
+  },
+  {
+    "mount": "/api/auth",
+    "file": "authPages/auth.js",
+    "method": "PATCH",
+    "path": "/api/auth/schools/:schoolId/subscription",
+    "routePath": "/schools/:schoolId/subscription"
+  },
+  {
+    "mount": "/api/auth",
+    "file": "authPages/auth.js",
+    "method": "DELETE",
+    "path": "/api/auth/shule-avance-organization/:id",
+    "routePath": "/shule-avance-organization/:id"
+  },
+  {
+    "mount": "/api/auth",
+    "file": "authPages/auth.js",
+    "method": "GET",
+    "path": "/api/auth/shule-avance-organization/:id",
+    "routePath": "/shule-avance-organization/:id"
+  },
+  {
+    "mount": "/api/auth",
+    "file": "authPages/auth.js",
+    "method": "PUT",
+    "path": "/api/auth/shule-avance-organization/:id",
+    "routePath": "/shule-avance-organization/:id"
+  },
+  {
+    "mount": "/api/auth",
+    "file": "authPages/auth.js",
+    "method": "GET",
+    "path": "/api/auth/shule-avance-organizations",
+    "routePath": "/shule-avance-organizations"
+  },
+  {
+    "mount": "/api/auth",
+    "file": "authPages/auth.js",
+    "method": "GET",
+    "path": "/api/auth/shule-avance-teacher-catalog",
+    "routePath": "/shule-avance-teacher-catalog"
+  },
+  {
+    "mount": "/api/auth",
+    "file": "authPages/auth.js",
+    "method": "POST",
+    "path": "/api/auth/shule-avance-teacher-catalog",
+    "routePath": "/shule-avance-teacher-catalog"
+  },
+  {
+    "mount": "/api/auth",
+    "file": "authPages/auth.js",
+    "method": "DELETE",
+    "path": "/api/auth/shule-avance-teacher-catalog/:id",
+    "routePath": "/shule-avance-teacher-catalog/:id"
+  },
+  {
+    "mount": "/api/auth",
+    "file": "authPages/auth.js",
+    "method": "PATCH",
+    "path": "/api/auth/shule-avance-teacher-catalog/:id",
+    "routePath": "/shule-avance-teacher-catalog/:id"
+  },
+  {
+    "mount": "/api/auth",
+    "file": "authPages/auth.js",
+    "method": "POST",
+    "path": "/api/auth/signup-full-system-controller",
+    "routePath": "/signup-full-system-controller"
+  },
+  {
+    "mount": "/api/auth",
+    "file": "authPages/auth.js",
+    "method": "POST",
+    "path": "/api/auth/signup-super-admin",
+    "routePath": "/signup-super-admin"
+  },
+  {
+    "mount": "/api/auth",
+    "file": "authPages/auth.js",
+    "method": "POST",
+    "path": "/api/auth/sso-verify",
+    "routePath": "/sso-verify"
+  },
+  {
+    "mount": "/api/auth",
+    "file": "authPages/auth.js",
+    "method": "PATCH",
+    "path": "/api/auth/super-admins/:id/active",
+    "routePath": "/super-admins/:id/active"
+  },
+  {
+    "mount": "/api/auth",
+    "file": "authPages/auth.js",
+    "method": "GET",
+    "path": "/api/auth/super-admins/list",
+    "routePath": "/super-admins/list"
+  },
+  {
+    "mount": "/api/auth",
+    "file": "authPages/auth.js",
+    "method": "GET",
+    "path": "/api/auth/system-config",
+    "routePath": "/system-config"
+  },
+  {
+    "mount": "/api/auth",
+    "file": "authPages/auth.js",
+    "method": "PUT",
+    "path": "/api/auth/system-config",
+    "routePath": "/system-config"
+  },
+  {
+    "mount": "/api/auth",
+    "file": "authPages/auth.js",
+    "method": "GET",
+    "path": "/api/auth/system-config/public",
+    "routePath": "/system-config/public"
+  },
+  {
+    "mount": "/api/auth",
+    "file": "authPages/auth.js",
+    "method": "GET",
+    "path": "/api/auth/verify",
+    "routePath": "/verify"
+  },
+  {
+    "mount": "/api/babyeyi",
+    "file": "BabyeyiRoutes/babyeyi.js",
+    "method": "GET",
+    "path": "/api/babyeyi",
+    "routePath": "/"
+  },
+  {
+    "mount": "/api/babyeyi",
+    "file": "BabyeyiRoutes/babyeyi.js",
+    "method": "POST",
+    "path": "/api/babyeyi",
+    "routePath": "/"
+  },
+  {
+    "mount": "/api/babyeyi",
+    "file": "BabyeyiRoutes/babyeyi.js",
+    "method": "DELETE",
+    "path": "/api/babyeyi/:id",
+    "routePath": "/:id"
+  },
+  {
+    "mount": "/api/babyeyi",
+    "file": "BabyeyiRoutes/babyeyi.js",
+    "method": "GET",
+    "path": "/api/babyeyi/:id",
+    "routePath": "/:id"
+  },
+  {
+    "mount": "/api/babyeyi",
+    "file": "BabyeyiRoutes/babyeyi.js",
+    "method": "PUT",
+    "path": "/api/babyeyi/:id",
+    "routePath": "/:id"
+  },
+  {
+    "mount": "/api/babyeyi",
+    "file": "BabyeyiRoutes/babyeyi.js",
+    "method": "PATCH",
+    "path": "/api/babyeyi/:id/content-i18n/rw",
+    "routePath": "/:id/content-i18n/rw"
+  },
+  {
+    "mount": "/api/babyeyi",
+    "file": "BabyeyiRoutes/babyeyi.js",
+    "method": "PATCH",
+    "path": "/api/babyeyi/:id/district-approve",
+    "routePath": "/:id/district-approve"
+  },
+  {
+    "mount": "/api/babyeyi",
+    "file": "BabyeyiRoutes/babyeyi.js",
+    "method": "PATCH",
+    "path": "/api/babyeyi/:id/district-recommend",
+    "routePath": "/:id/district-recommend"
+  },
+  {
+    "mount": "/api/babyeyi",
+    "file": "BabyeyiRoutes/babyeyi.js",
+    "method": "PATCH",
+    "path": "/api/babyeyi/:id/district-reject",
+    "routePath": "/:id/district-reject"
+  },
+  {
+    "mount": "/api/babyeyi",
+    "file": "BabyeyiRoutes/babyeyi.js",
+    "method": "GET",
+    "path": "/api/babyeyi/:id/leaders",
+    "routePath": "/:id/leaders"
+  },
+  {
+    "mount": "/api/babyeyi",
+    "file": "BabyeyiRoutes/babyeyi.js",
+    "method": "POST",
+    "path": "/api/babyeyi/:id/leaders",
+    "routePath": "/:id/leaders"
+  },
+  {
+    "mount": "/api/babyeyi",
+    "file": "BabyeyiRoutes/babyeyi.js",
+    "method": "DELETE",
+    "path": "/api/babyeyi/:id/leaders/:leaderId",
+    "routePath": "/:id/leaders/:leaderId"
+  },
+  {
+    "mount": "/api/babyeyi",
+    "file": "BabyeyiRoutes/babyeyi.js",
+    "method": "PUT",
+    "path": "/api/babyeyi/:id/leaders/:leaderId",
+    "routePath": "/:id/leaders/:leaderId"
+  },
+  {
+    "mount": "/api/babyeyi",
+    "file": "BabyeyiRoutes/babyeyi.js",
+    "method": "PATCH",
+    "path": "/api/babyeyi/:id/nesa-approve",
+    "routePath": "/:id/nesa-approve"
+  },
+  {
+    "mount": "/api/babyeyi",
+    "file": "BabyeyiRoutes/babyeyi.js",
+    "method": "PATCH",
+    "path": "/api/babyeyi/:id/nesa-reject",
+    "routePath": "/:id/nesa-reject"
+  },
+  {
+    "mount": "/api/babyeyi",
+    "file": "BabyeyiRoutes/babyeyi.js",
+    "method": "GET",
+    "path": "/api/babyeyi/:id/pdf",
+    "routePath": "/:id/pdf"
+  },
+  {
+    "mount": "/api/babyeyi",
+    "file": "BabyeyiRoutes/babyeyi.js",
+    "method": "GET",
+    "path": "/api/babyeyi/:id/qrcode",
+    "routePath": "/:id/qrcode"
+  },
+  {
+    "mount": "/api/babyeyi",
+    "file": "BabyeyiRoutes/babyeyi.js",
+    "method": "POST",
+    "path": "/api/babyeyi/:id/qrcode",
+    "routePath": "/:id/qrcode"
+  },
+  {
+    "mount": "/api/babyeyi",
+    "file": "BabyeyiRoutes/babyeyi.js",
+    "method": "POST",
+    "path": "/api/babyeyi/:id/regenerate-docs",
+    "routePath": "/:id/regenerate-docs"
+  },
+  {
+    "mount": "/api/babyeyi",
+    "file": "BabyeyiRoutes/babyeyi.js",
+    "method": "POST",
+    "path": "/api/babyeyi/:id/submit-request",
+    "routePath": "/:id/submit-request"
+  },
+  {
+    "mount": "/api/babyeyi",
+    "file": "BabyeyiRoutes/babyeyi.js",
+    "method": "GET",
+    "path": "/api/babyeyi/debug-hash/:id",
+    "routePath": "/debug-hash/:id"
+  },
+  {
+    "mount": "/api/babyeyi",
+    "file": "BabyeyiRoutes/babyeyi-deo.js",
+    "method": "GET",
+    "path": "/api/babyeyi/deo/stats",
+    "routePath": "/deo/stats"
+  },
+  {
+    "mount": "/api/babyeyi",
+    "file": "BabyeyiRoutes/babyeyi-deo.js",
+    "method": "GET",
+    "path": "/api/babyeyi/monitoring",
+    "routePath": "/monitoring"
+  },
+  {
+    "mount": "/api/babyeyi",
+    "file": "BabyeyiRoutes/babyeyi.js",
+    "method": "GET",
+    "path": "/api/babyeyi/nesa-limit",
+    "routePath": "/nesa-limit"
+  },
+  {
+    "mount": "/api/babyeyi",
+    "file": "BabyeyiRoutes/babyeyi.js",
+    "method": "GET",
+    "path": "/api/babyeyi/notifications",
+    "routePath": "/notifications"
+  },
+  {
+    "mount": "/api/babyeyi",
+    "file": "BabyeyiRoutes/babyeyi.js",
+    "method": "PATCH",
+    "path": "/api/babyeyi/notifications/:id/read",
+    "routePath": "/notifications/:id/read"
+  },
+  {
+    "mount": "/api/babyeyi",
+    "file": "BabyeyiRoutes/babyeyi.js",
+    "method": "POST",
+    "path": "/api/babyeyi/notifications/read-all",
+    "routePath": "/notifications/read-all"
+  },
+  {
+    "mount": "/api/babyeyi",
+    "file": "BabyeyiRoutes/babyeyi.js",
+    "method": "GET",
+    "path": "/api/babyeyi/pdf/:docId",
+    "routePath": "/pdf/:docId"
+  },
+  {
+    "mount": "/api/babyeyi",
+    "file": "BabyeyiRoutes/babyeyi-deo.js",
+    "method": "GET",
+    "path": "/api/babyeyi/requests",
+    "routePath": "/requests"
+  },
+  {
+    "mount": "/api/babyeyi",
+    "file": "BabyeyiRoutes/babyeyi-deo.js",
+    "method": "PUT",
+    "path": "/api/babyeyi/requests/:id/review",
+    "routePath": "/requests/:id/review"
+  },
+  {
+    "mount": "/api/babyeyi",
+    "file": "BabyeyiRoutes/babyeyi.js",
+    "method": "GET",
+    "path": "/api/babyeyi/school-info",
+    "routePath": "/school-info"
+  },
+  {
+    "mount": "/api/babyeyi",
+    "file": "BabyeyiRoutes/babyeyi-deo.js",
+    "method": "GET",
+    "path": "/api/babyeyi/schools",
+    "routePath": "/schools"
+  },
+  {
+    "mount": "/api/babyeyi",
+    "file": "BabyeyiRoutes/babyeyi.js",
+    "method": "GET",
+    "path": "/api/babyeyi/stats",
+    "routePath": "/stats"
+  },
+  {
+    "mount": "/api/babyeyi",
+    "file": "BabyeyiRoutes/babyeyi.js",
+    "method": "GET",
+    "path": "/api/babyeyi/student-requirements-catalog",
+    "routePath": "/student-requirements-catalog"
+  },
+  {
+    "mount": "/api/babyeyi",
+    "file": "BabyeyiRoutes/babyeyi.js",
+    "method": "POST",
+    "path": "/api/babyeyi/upload-asset",
+    "routePath": "/upload-asset"
+  },
+  {
+    "mount": "/api/babyeyi",
+    "file": "BabyeyiRoutes/babyeyi.js",
+    "method": "GET",
+    "path": "/api/babyeyi/verify/:docId",
+    "routePath": "/verify/:docId"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/library.js",
+    "method": "GET",
+    "path": "/api/books",
+    "routePath": "/books"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/library.js",
+    "method": "POST",
+    "path": "/api/books",
+    "routePath": "/books"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/library.js",
+    "method": "DELETE",
+    "path": "/api/books/:id",
+    "routePath": "/books/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/library.js",
+    "method": "PUT",
+    "path": "/api/books/:id",
+    "routePath": "/books/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/library.js",
+    "method": "GET",
+    "path": "/api/books/:id/qr.png",
+    "routePath": "/books/:id/qr.png"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/library.js",
+    "method": "POST",
+    "path": "/api/books/bulk-csv",
+    "routePath": "/books/bulk-csv"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/library.js",
+    "method": "GET",
+    "path": "/api/borrowings",
+    "routePath": "/borrowings"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/library.js",
+    "method": "POST",
+    "path": "/api/borrowings",
+    "routePath": "/borrowings"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/library.js",
+    "method": "PUT",
+    "path": "/api/borrowings/return/:id",
+    "routePath": "/borrowings/return/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/chatRoutes.js",
+    "method": "POST",
+    "path": "/api/chat/groups",
+    "routePath": "/chat/groups"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/chatRoutes.js",
+    "method": "GET",
+    "path": "/api/chat/groups/options",
+    "routePath": "/chat/groups/options"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/chatRoutes.js",
+    "method": "GET",
+    "path": "/api/chat/schools",
+    "routePath": "/chat/schools"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/chatRoutes.js",
+    "method": "GET",
+    "path": "/api/chat/staff",
+    "routePath": "/chat/staff"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/chatRoutes.js",
+    "method": "GET",
+    "path": "/api/chat/threads",
+    "routePath": "/chat/threads"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/chatRoutes.js",
+    "method": "POST",
+    "path": "/api/chat/threads",
+    "routePath": "/chat/threads"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/chatRoutes.js",
+    "method": "DELETE",
+    "path": "/api/chat/threads/:threadId",
+    "routePath": "/chat/threads/:threadId"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/chatRoutes.js",
+    "method": "GET",
+    "path": "/api/chat/threads/:threadId/messages",
+    "routePath": "/chat/threads/:threadId/messages"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/chatRoutes.js",
+    "method": "POST",
+    "path": "/api/chat/threads/:threadId/messages",
+    "routePath": "/chat/threads/:threadId/messages"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/chatRoutes.js",
+    "method": "POST",
+    "path": "/api/chat/threads/:threadId/read",
+    "routePath": "/chat/threads/:threadId/read"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/chatRoutes.js",
+    "method": "GET",
+    "path": "/api/chat/unread-count",
+    "routePath": "/chat/unread-count"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/chatRoutes.js",
+    "method": "POST",
+    "path": "/api/chat/uploads",
+    "routePath": "/chat/uploads"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/discipline.js",
+    "method": "GET",
+    "path": "/api/discipline/cases",
+    "routePath": "/discipline/cases"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/discipline.js",
+    "method": "POST",
+    "path": "/api/discipline/cases",
+    "routePath": "/discipline/cases"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/discipline.js",
+    "method": "GET",
+    "path": "/api/discipline/permissions/exceeded-report",
+    "routePath": "/discipline/permissions/exceeded-report"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/discipline.js",
+    "method": "GET",
+    "path": "/api/discipline/report-summary",
+    "routePath": "/discipline/report-summary"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/discipline.js",
+    "method": "GET",
+    "path": "/api/discipline/settings",
+    "routePath": "/discipline/settings"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/discipline.js",
+    "method": "PUT",
+    "path": "/api/discipline/settings",
+    "routePath": "/discipline/settings"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/discipline.js",
+    "method": "PUT",
+    "path": "/api/discipline/settings/default-marks",
+    "routePath": "/discipline/settings/default-marks"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/discipline.js",
+    "method": "GET",
+    "path": "/api/discipline/students",
+    "routePath": "/discipline/students"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/discipline.js",
+    "method": "GET",
+    "path": "/api/discipline/students-roster",
+    "routePath": "/discipline/students-roster"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/discipline.js",
+    "method": "GET",
+    "path": "/api/discipline/students-summary",
+    "routePath": "/discipline/students-summary"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/discipline.js",
+    "method": "GET",
+    "path": "/api/discipline/students/:studentId/logs",
+    "routePath": "/discipline/students/:studentId/logs"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/discipline.js",
+    "method": "POST",
+    "path": "/api/discipline/students/:studentId/marks",
+    "routePath": "/discipline/students/:studentId/marks"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/discipline.js",
+    "method": "POST",
+    "path": "/api/discipline/students/:studentId/undo-last-action",
+    "routePath": "/discipline/students/:studentId/undo-last-action"
+  },
+  {
+    "mount": "/api/district/babyeyi",
+    "file": "BabyeyiRoutes/DistrictBabyeyi.js",
+    "method": "GET",
+    "path": "/api/district/babyeyi/:id",
+    "routePath": "/:id"
+  },
+  {
+    "mount": "/api/district/babyeyi",
+    "file": "BabyeyiRoutes/DistrictBabyeyi.js",
+    "method": "PATCH",
+    "path": "/api/district/babyeyi/:id/approve",
+    "routePath": "/:id/approve"
+  },
+  {
+    "mount": "/api/district/babyeyi",
+    "file": "BabyeyiRoutes/DistrictBabyeyi.js",
+    "method": "PATCH",
+    "path": "/api/district/babyeyi/:id/recommend",
+    "routePath": "/:id/recommend"
+  },
+  {
+    "mount": "/api/district/babyeyi",
+    "file": "BabyeyiRoutes/DistrictBabyeyi.js",
+    "method": "PATCH",
+    "path": "/api/district/babyeyi/:id/reject",
+    "routePath": "/:id/reject"
+  },
+  {
+    "mount": "/api/district/babyeyi",
+    "file": "BabyeyiRoutes/DistrictBabyeyi.js",
+    "method": "GET",
+    "path": "/api/district/babyeyi/analytics",
+    "routePath": "/analytics"
+  },
+  {
+    "mount": "/api/district/babyeyi",
+    "file": "BabyeyiRoutes/DistrictBabyeyi.js",
+    "method": "GET",
+    "path": "/api/district/babyeyi/deo-assets",
+    "routePath": "/deo-assets"
+  },
+  {
+    "mount": "/api/district/babyeyi",
+    "file": "BabyeyiRoutes/DistrictBabyeyi.js",
+    "method": "POST",
+    "path": "/api/district/babyeyi/deo-assets",
+    "routePath": "/deo-assets"
+  },
+  {
+    "mount": "/api/district/babyeyi",
+    "file": "BabyeyiRoutes/DistrictBabyeyi.js",
+    "method": "GET",
+    "path": "/api/district/babyeyi/increase-requests",
+    "routePath": "/increase-requests"
+  },
+  {
+    "mount": "/api/district/babyeyi",
+    "file": "BabyeyiRoutes/DistrictBabyeyi.js",
+    "method": "GET",
+    "path": "/api/district/babyeyi/list",
+    "routePath": "/list"
+  },
+  {
+    "mount": "/api/district/babyeyi",
+    "file": "BabyeyiRoutes/DistrictBabyeyi.js",
+    "method": "GET",
+    "path": "/api/district/babyeyi/me",
+    "routePath": "/me"
+  },
+  {
+    "mount": "/api/district/babyeyi",
+    "file": "BabyeyiRoutes/DistrictBabyeyi.js",
+    "method": "GET",
+    "path": "/api/district/babyeyi/notifications",
+    "routePath": "/notifications"
+  },
+  {
+    "mount": "/api/district/babyeyi",
+    "file": "BabyeyiRoutes/DistrictBabyeyi.js",
+    "method": "PATCH",
+    "path": "/api/district/babyeyi/notifications/:id/read",
+    "routePath": "/notifications/:id/read"
+  },
+  {
+    "mount": "/api/district/babyeyi",
+    "file": "BabyeyiRoutes/DistrictBabyeyi.js",
+    "method": "POST",
+    "path": "/api/district/babyeyi/notifications/read-all",
+    "routePath": "/notifications/read-all"
+  },
+  {
+    "mount": "/api/district/babyeyi",
+    "file": "BabyeyiRoutes/DistrictBabyeyi.js",
+    "method": "POST",
+    "path": "/api/district/babyeyi/profile/photo",
+    "routePath": "/profile/photo"
+  },
+  {
+    "mount": "/api/district/babyeyi",
+    "file": "BabyeyiRoutes/DistrictBabyeyi.js",
+    "method": "POST",
+    "path": "/api/district/babyeyi/push/subscribe",
+    "routePath": "/push/subscribe"
+  },
+  {
+    "mount": "/api/district/babyeyi",
+    "file": "BabyeyiRoutes/DistrictBabyeyi.js",
+    "method": "POST",
+    "path": "/api/district/babyeyi/push/unsubscribe",
+    "routePath": "/push/unsubscribe"
+  },
+  {
+    "mount": "/api/district/babyeyi",
+    "file": "BabyeyiRoutes/DistrictBabyeyi.js",
+    "method": "GET",
+    "path": "/api/district/babyeyi/push/vapid-key",
+    "routePath": "/push/vapid-key"
+  },
+  {
+    "mount": "/api/district/babyeyi",
+    "file": "BabyeyiRoutes/DistrictBabyeyi.js",
+    "method": "GET",
+    "path": "/api/district/babyeyi/schools/list",
+    "routePath": "/schools/list"
+  },
+  {
+    "mount": "/api/district/babyeyi",
+    "file": "BabyeyiRoutes/DistrictBabyeyi.js",
+    "method": "GET",
+    "path": "/api/district/babyeyi/settings",
+    "routePath": "/settings"
+  },
+  {
+    "mount": "/api/district/babyeyi",
+    "file": "BabyeyiRoutes/DistrictBabyeyi.js",
+    "method": "PATCH",
+    "path": "/api/district/babyeyi/settings",
+    "routePath": "/settings"
+  },
+  {
+    "mount": "/api/district/babyeyi",
+    "file": "BabyeyiRoutes/DistrictBabyeyi.js",
+    "method": "GET",
+    "path": "/api/district/babyeyi/stats",
+    "routePath": "/stats"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "GET",
+    "path": "/api/dos/academic-calendar-settings",
+    "routePath": "/dos/academic-calendar-settings"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "PUT",
+    "path": "/api/dos/academic-calendar-settings",
+    "routePath": "/dos/academic-calendar-settings"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "POST",
+    "path": "/api/dos/academic-years",
+    "routePath": "/dos/academic-years"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "PUT",
+    "path": "/api/dos/academic-years/:year",
+    "routePath": "/dos/academic-years/:year"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "PATCH",
+    "path": "/api/dos/academic-years/:year/current",
+    "routePath": "/dos/academic-years/:year/current"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "GET",
+    "path": "/api/dos/attendance/morning/staff",
+    "routePath": "/dos/attendance/morning/staff"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "POST",
+    "path": "/api/dos/attendance/morning/staff",
+    "routePath": "/dos/attendance/morning/staff"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "GET",
+    "path": "/api/dos/attendance/morning/students",
+    "routePath": "/dos/attendance/morning/students"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "POST",
+    "path": "/api/dos/attendance/morning/students",
+    "routePath": "/dos/attendance/morning/students"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "GET",
+    "path": "/api/dos/attendance/term-progress",
+    "routePath": "/dos/attendance/term-progress"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "GET",
+    "path": "/api/dos/calendar/periods",
+    "routePath": "/dos/calendar/periods"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "POST",
+    "path": "/api/dos/calendar/periods",
+    "routePath": "/dos/calendar/periods"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "DELETE",
+    "path": "/api/dos/calendar/periods/:id",
+    "routePath": "/dos/calendar/periods/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "GET",
+    "path": "/api/dos/class-enrollment",
+    "routePath": "/dos/class-enrollment"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "GET",
+    "path": "/api/dos/dashboard/stats",
+    "routePath": "/dos/dashboard/stats"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "POST",
+    "path": "/api/dos/progress",
+    "routePath": "/dos/progress"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "GET",
+    "path": "/api/dos/progress/students",
+    "routePath": "/dos/progress/students"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "POST",
+    "path": "/api/dos/promotion/apply",
+    "routePath": "/dos/promotion/apply"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "GET",
+    "path": "/api/dos/promotion/certificate-branding",
+    "routePath": "/dos/promotion/certificate-branding"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "GET",
+    "path": "/api/dos/promotion/class-review-metrics",
+    "routePath": "/dos/promotion/class-review-metrics"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "GET",
+    "path": "/api/dos/promotion/history",
+    "routePath": "/dos/promotion/history"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "GET",
+    "path": "/api/dos/promotion/settings",
+    "routePath": "/dos/promotion/settings"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "PUT",
+    "path": "/api/dos/promotion/settings",
+    "routePath": "/dos/promotion/settings"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "GET",
+    "path": "/api/dos/promotion/summary",
+    "routePath": "/dos/promotion/summary"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "GET",
+    "path": "/api/dos/registry/classes",
+    "routePath": "/dos/registry/classes"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "GET",
+    "path": "/api/dos/reports/attendance/by-class",
+    "routePath": "/dos/reports/attendance/by-class"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "GET",
+    "path": "/api/dos/reports/attendance/by-teacher",
+    "routePath": "/dos/reports/attendance/by-teacher"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "GET",
+    "path": "/api/dos/reports/hr/staff-metrics",
+    "routePath": "/dos/reports/hr/staff-metrics"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "GET",
+    "path": "/api/dos/reports/summary",
+    "routePath": "/dos/reports/summary"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "GET",
+    "path": "/api/dos/reports/summary/export.pdf",
+    "routePath": "/dos/reports/summary/export.pdf"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "GET",
+    "path": "/api/dos/reports/summary/export.xlsx",
+    "routePath": "/dos/reports/summary/export.xlsx"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "GET",
+    "path": "/api/dos/settings",
+    "routePath": "/dos/settings"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "PUT",
+    "path": "/api/dos/settings",
+    "routePath": "/dos/settings"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "GET",
+    "path": "/api/dos/subjects",
+    "routePath": "/dos/subjects"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "POST",
+    "path": "/api/dos/subjects",
+    "routePath": "/dos/subjects"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "PATCH",
+    "path": "/api/dos/subjects/:id",
+    "routePath": "/dos/subjects/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "GET",
+    "path": "/api/dos/subjects/config",
+    "routePath": "/dos/subjects/config"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "GET",
+    "path": "/api/dos/teacher-period/alerts",
+    "routePath": "/dos/teacher-period/alerts"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "DELETE",
+    "path": "/api/dos/teacher-period/alerts/:id",
+    "routePath": "/dos/teacher-period/alerts/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "PATCH",
+    "path": "/api/dos/teacher-period/alerts/:id/read",
+    "routePath": "/dos/teacher-period/alerts/:id/read"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "POST",
+    "path": "/api/dos/teacher-period/alerts/bulk-delete",
+    "routePath": "/dos/teacher-period/alerts/bulk-delete"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "PATCH",
+    "path": "/api/dos/teacher-period/alerts/read-all",
+    "routePath": "/dos/teacher-period/alerts/read-all"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "GET",
+    "path": "/api/dos/teacher-period/logs",
+    "routePath": "/dos/teacher-period/logs"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "DELETE",
+    "path": "/api/dos/teacher-period/logs/:id",
+    "routePath": "/dos/teacher-period/logs/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "POST",
+    "path": "/api/dos/teacher-period/scan",
+    "routePath": "/dos/teacher-period/scan"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "GET",
+    "path": "/api/dos/teacher-period/settings",
+    "routePath": "/dos/teacher-period/settings"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "PUT",
+    "path": "/api/dos/teacher-period/settings",
+    "routePath": "/dos/teacher-period/settings"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "GET",
+    "path": "/api/dos/teacher-period/teachers",
+    "routePath": "/dos/teacher-period/teachers"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "GET",
+    "path": "/api/dos/teacher-period/timetable",
+    "routePath": "/dos/teacher-period/timetable"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "GET",
+    "path": "/api/dos/teaching-staff",
+    "routePath": "/dos/teaching-staff"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "GET",
+    "path": "/api/dos/timetable",
+    "routePath": "/dos/timetable"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "POST",
+    "path": "/api/dos/timetable",
+    "routePath": "/dos/timetable"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "POST",
+    "path": "/api/dos/timetable-system/apply",
+    "routePath": "/dos/timetable-system/apply"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "GET",
+    "path": "/api/dos/timetable-system/assignments",
+    "routePath": "/dos/timetable-system/assignments"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "POST",
+    "path": "/api/dos/timetable-system/assignments",
+    "routePath": "/dos/timetable-system/assignments"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "DELETE",
+    "path": "/api/dos/timetable-system/assignments/:id",
+    "routePath": "/dos/timetable-system/assignments/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "POST",
+    "path": "/api/dos/timetable-system/assignments/bulk",
+    "routePath": "/dos/timetable-system/assignments/bulk"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "POST",
+    "path": "/api/dos/timetable-system/check-conflicts",
+    "routePath": "/dos/timetable-system/check-conflicts"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "GET",
+    "path": "/api/dos/timetable-system/course-config",
+    "routePath": "/dos/timetable-system/course-config"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "PUT",
+    "path": "/api/dos/timetable-system/course-config/:subjectName",
+    "routePath": "/dos/timetable-system/course-config/:subjectName"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "POST",
+    "path": "/api/dos/timetable-system/generate",
+    "routePath": "/dos/timetable-system/generate"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "GET",
+    "path": "/api/dos/timetable-system/schedule",
+    "routePath": "/dos/timetable-system/schedule"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "PUT",
+    "path": "/api/dos/timetable-system/schedule",
+    "routePath": "/dos/timetable-system/schedule"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "GET",
+    "path": "/api/dos/timetable-system/teacher-profiles",
+    "routePath": "/dos/timetable-system/teacher-profiles"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "PUT",
+    "path": "/api/dos/timetable-system/teacher-profiles/:teacherId",
+    "routePath": "/dos/timetable-system/teacher-profiles/:teacherId"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "GET",
+    "path": "/api/dos/timetable-system/workload",
+    "routePath": "/dos/timetable-system/workload"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "DELETE",
+    "path": "/api/dos/timetable/:id",
+    "routePath": "/dos/timetable/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/dosAcademic.js",
+    "method": "PUT",
+    "path": "/api/dos/timetable/:id",
+    "routePath": "/dos/timetable/:id"
+  },
+  {
+    "mount": "/api/fee-limits",
+    "file": "BabyeyiRoutes/Fee_limits.js",
+    "method": "GET",
+    "path": "/api/fee-limits",
+    "routePath": "/"
+  },
+  {
+    "mount": "/api/fee-limits",
+    "file": "BabyeyiRoutes/Fee_limits.js",
+    "method": "POST",
+    "path": "/api/fee-limits",
+    "routePath": "/"
+  },
+  {
+    "mount": "/api/fee-limits",
+    "file": "BabyeyiRoutes/Fee_limits.js",
+    "method": "DELETE",
+    "path": "/api/fee-limits/:id",
+    "routePath": "/:id"
+  },
+  {
+    "mount": "/api/fee-limits",
+    "file": "BabyeyiRoutes/Fee_limits.js",
+    "method": "GET",
+    "path": "/api/fee-limits/:id",
+    "routePath": "/:id"
+  },
+  {
+    "mount": "/api/fee-limits",
+    "file": "BabyeyiRoutes/Fee_limits.js",
+    "method": "PATCH",
+    "path": "/api/fee-limits/:id",
+    "routePath": "/:id"
+  },
+  {
+    "mount": "/api/fee-limits",
+    "file": "BabyeyiRoutes/Fee_limits.js",
+    "method": "PUT",
+    "path": "/api/fee-limits/:id",
+    "routePath": "/:id"
+  },
+  {
+    "mount": "/api/fee-limits",
+    "file": "BabyeyiRoutes/Fee_limits.js",
+    "method": "GET",
+    "path": "/api/fee-limits/audit/:id",
+    "routePath": "/audit/:id"
+  },
+  {
+    "mount": "/api/fee-limits",
+    "file": "BabyeyiRoutes/Fee_limits.js",
+    "method": "GET",
+    "path": "/api/fee-limits/stats",
+    "routePath": "/stats"
+  },
+  {
+    "mount": "/api/field-agents",
+    "file": "BabyeyiRoutes/fieldAgentsRoutes.js#adminRouter",
+    "method": "GET",
+    "path": "/api/field-agents/agents",
+    "routePath": "/agents"
+  },
+  {
+    "mount": "/api/field-agents",
+    "file": "BabyeyiRoutes/fieldAgentsRoutes.js#adminRouter",
+    "method": "POST",
+    "path": "/api/field-agents/agents",
+    "routePath": "/agents"
+  },
+  {
+    "mount": "/api/field-agents",
+    "file": "BabyeyiRoutes/fieldAgentsRoutes.js#adminRouter",
+    "method": "DELETE",
+    "path": "/api/field-agents/agents/:id",
+    "routePath": "/agents/:id"
+  },
+  {
+    "mount": "/api/field-agents",
+    "file": "BabyeyiRoutes/fieldAgentsRoutes.js#adminRouter",
+    "method": "PATCH",
+    "path": "/api/field-agents/agents/:id",
+    "routePath": "/agents/:id"
+  },
+  {
+    "mount": "/api/field-agents",
+    "file": "BabyeyiRoutes/fieldAgentsRoutes.js#adminRouter",
+    "method": "GET",
+    "path": "/api/field-agents/meta/districts",
+    "routePath": "/meta/districts"
+  },
+  {
+    "mount": "/api/field-agents",
+    "file": "BabyeyiRoutes/fieldAgentsRoutes.js#adminRouter",
+    "method": "GET",
+    "path": "/api/field-agents/meta/sectors",
+    "routePath": "/meta/sectors"
+  },
+  {
+    "mount": "/api/field-agents",
+    "file": "BabyeyiRoutes/fieldAgentsRoutes.js#adminRouter",
+    "method": "GET",
+    "path": "/api/field-agents/rwanda-geo",
+    "routePath": "/rwanda-geo"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolRoleOperations.js",
+    "method": "POST",
+    "path": "/api/gate_attendance",
+    "routePath": "/gate_attendance"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolRoleOperations.js",
+    "method": "GET",
+    "path": "/api/gate/attendance/filter-options",
+    "routePath": "/gate/attendance/filter-options"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolRoleOperations.js",
+    "method": "GET",
+    "path": "/api/gate/attendance/latest-event",
+    "routePath": "/gate/attendance/latest-event"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolRoleOperations.js",
+    "method": "GET",
+    "path": "/api/gate/attendance/logs",
+    "routePath": "/gate/attendance/logs"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolRoleOperations.js",
+    "method": "GET",
+    "path": "/api/gate/attendance/settings",
+    "routePath": "/gate/attendance/settings"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolRoleOperations.js",
+    "method": "PUT",
+    "path": "/api/gate/attendance/settings",
+    "routePath": "/gate/attendance/settings"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolRoleOperations.js",
+    "method": "DELETE",
+    "path": "/api/gate/attendance/today",
+    "routePath": "/gate/attendance/today"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolRoleOperations.js",
+    "method": "GET",
+    "path": "/api/gate/attendance/today",
+    "routePath": "/gate/attendance/today"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolRoleOperations.js",
+    "method": "DELETE",
+    "path": "/api/gate/attendance/today/:cardUid",
+    "routePath": "/gate/attendance/today/:cardUid"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolRoleOperations.js",
+    "method": "POST",
+    "path": "/api/gate/attendance/today/delete-selected",
+    "routePath": "/gate/attendance/today/delete-selected"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolRoleOperations.js",
+    "method": "GET",
+    "path": "/api/gate/logs",
+    "routePath": "/gate/logs"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolRoleOperations.js",
+    "method": "POST",
+    "path": "/api/gate/logs",
+    "routePath": "/gate/logs"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolRoleOperations.js",
+    "method": "DELETE",
+    "path": "/api/gate/logs/:id",
+    "routePath": "/gate/logs/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolRoleOperations.js",
+    "method": "PUT",
+    "path": "/api/gate/logs/:id",
+    "routePath": "/gate/logs/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolRoleOperations.js",
+    "method": "GET",
+    "path": "/api/gate/scan/logs",
+    "routePath": "/gate/scan/logs"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolRoleOperations.js",
+    "method": "POST",
+    "path": "/api/gate/scan/verify",
+    "routePath": "/gate/scan/verify"
+  },
+  {
+    "mount": "server.js",
+    "file": "server.js",
+    "method": "GET",
+    "path": "/api/health",
+    "routePath": "/api/health"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolRoleOperations.js",
+    "method": "GET",
+    "path": "/api/iot/events",
+    "routePath": "/iot/events"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolRoleOperations.js",
+    "method": "POST",
+    "path": "/api/iot/events",
+    "routePath": "/iot/events"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolRoleOperations.js",
+    "method": "DELETE",
+    "path": "/api/iot/events/:id",
+    "routePath": "/iot/events/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolRoleOperations.js",
+    "method": "PUT",
+    "path": "/api/iot/events/:id",
+    "routePath": "/iot/events/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolRoleOperations.js",
+    "method": "GET",
+    "path": "/api/library/books",
+    "routePath": "/library/books"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolRoleOperations.js",
+    "method": "POST",
+    "path": "/api/library/books",
+    "routePath": "/library/books"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolRoleOperations.js",
+    "method": "DELETE",
+    "path": "/api/library/books/:id",
+    "routePath": "/library/books/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolRoleOperations.js",
+    "method": "PUT",
+    "path": "/api/library/books/:id",
+    "routePath": "/library/books/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolRoleOperations.js",
+    "method": "GET",
+    "path": "/api/library/checkouts",
+    "routePath": "/library/checkouts"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolRoleOperations.js",
+    "method": "POST",
+    "path": "/api/library/checkouts",
+    "routePath": "/library/checkouts"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolRoleOperations.js",
+    "method": "DELETE",
+    "path": "/api/library/checkouts/:id",
+    "routePath": "/library/checkouts/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolRoleOperations.js",
+    "method": "PUT",
+    "path": "/api/library/checkouts/:id",
+    "routePath": "/library/checkouts/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolRoleOperations.js",
+    "method": "PATCH",
+    "path": "/api/library/checkouts/:id/return",
+    "routePath": "/library/checkouts/:id/return"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/library.js",
+    "method": "GET",
+    "path": "/api/library/dashboard",
+    "routePath": "/library/dashboard"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/library.js",
+    "method": "GET",
+    "path": "/api/library/limits",
+    "routePath": "/library/limits"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/library.js",
+    "method": "GET",
+    "path": "/api/library/notifications",
+    "routePath": "/library/notifications"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/library.js",
+    "method": "GET",
+    "path": "/api/library/reports/book-inventory",
+    "routePath": "/library/reports/book-inventory"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/library.js",
+    "method": "GET",
+    "path": "/api/library/reports/condition",
+    "routePath": "/library/reports/condition"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/library.js",
+    "method": "GET",
+    "path": "/api/library/reports/daily",
+    "routePath": "/library/reports/daily"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/library.js",
+    "method": "GET",
+    "path": "/api/library/reports/monthly",
+    "routePath": "/library/reports/monthly"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/library.js",
+    "method": "GET",
+    "path": "/api/library/reports/overdue",
+    "routePath": "/library/reports/overdue"
+  },
+  {
+    "mount": "/api/locations",
+    "file": "locationsRoutes/locationRoutes.js",
+    "method": "GET",
+    "path": "/api/locations/all",
+    "routePath": "/all"
+  },
+  {
+    "mount": "/api/locations",
+    "file": "locationsRoutes/locationRoutes.js",
+    "method": "GET",
+    "path": "/api/locations/all/cells",
+    "routePath": "/all/cells"
+  },
+  {
+    "mount": "/api/locations",
+    "file": "locationsRoutes/locationRoutes.js",
+    "method": "GET",
+    "path": "/api/locations/all/districts",
+    "routePath": "/all/districts"
+  },
+  {
+    "mount": "/api/locations",
+    "file": "locationsRoutes/locationRoutes.js",
+    "method": "GET",
+    "path": "/api/locations/all/provinces",
+    "routePath": "/all/provinces"
+  },
+  {
+    "mount": "/api/locations",
+    "file": "locationsRoutes/locationRoutes.js",
+    "method": "GET",
+    "path": "/api/locations/all/sectors",
+    "routePath": "/all/sectors"
+  },
+  {
+    "mount": "/api/locations",
+    "file": "locationsRoutes/locationRoutes.js",
+    "method": "GET",
+    "path": "/api/locations/all/villages",
+    "routePath": "/all/villages"
+  },
+  {
+    "mount": "/api/locations",
+    "file": "locationsRoutes/locationRoutes.js",
+    "method": "GET",
+    "path": "/api/locations/cells",
+    "routePath": "/cells"
+  },
+  {
+    "mount": "/api/locations",
+    "file": "locationsRoutes/locationRoutes.js",
+    "method": "GET",
+    "path": "/api/locations/districts",
+    "routePath": "/districts"
+  },
+  {
+    "mount": "/api/locations",
+    "file": "locationsRoutes/locationRoutes.js",
+    "method": "GET",
+    "path": "/api/locations/provinces",
+    "routePath": "/provinces"
+  },
+  {
+    "mount": "/api/locations",
+    "file": "locationsRoutes/locationRoutes.js",
+    "method": "GET",
+    "path": "/api/locations/search",
+    "routePath": "/search"
+  },
+  {
+    "mount": "/api/locations",
+    "file": "locationsRoutes/locationRoutes.js",
+    "method": "GET",
+    "path": "/api/locations/sectors",
+    "routePath": "/sectors"
+  },
+  {
+    "mount": "/api/locations",
+    "file": "locationsRoutes/locationRoutes.js",
+    "method": "GET",
+    "path": "/api/locations/stats",
+    "routePath": "/stats"
+  },
+  {
+    "mount": "/api/locations",
+    "file": "locationsRoutes/locationRoutes.js",
+    "method": "GET",
+    "path": "/api/locations/villages",
+    "routePath": "/villages"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "PATCH",
+    "path": "/api/manager/expenses/:id/decision",
+    "routePath": "/manager/expenses/:id/decision"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/accountantFees.js",
+    "method": "GET",
+    "path": "/api/manager/finance/payments/report",
+    "routePath": "/manager/finance/payments/report"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "GET",
+    "path": "/api/manager/payroll-requests",
+    "routePath": "/manager/payroll-requests"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "PATCH",
+    "path": "/api/manager/payroll-requests/:id/decision",
+    "routePath": "/manager/payroll-requests/:id/decision"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "GET",
+    "path": "/api/manager/payroll/requests",
+    "routePath": "/manager/payroll/requests"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "PATCH",
+    "path": "/api/manager/payroll/requests/:id/decision",
+    "routePath": "/manager/payroll/requests/:id/decision"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "PATCH",
+    "path": "/api/manager/requisitions/:id/decision",
+    "routePath": "/manager/requisitions/:id/decision"
+  },
+  {
+    "mount": "server.js",
+    "file": "server.js",
+    "method": "GET",
+    "path": "/api/metrics",
+    "routePath": "/api/metrics"
+  },
+  {
+    "mount": "/api/mini-websites",
+    "file": "BabyeyiRoutes/miniWebsites.js",
+    "method": "GET",
+    "path": "/api/mini-websites",
+    "routePath": "/"
+  },
+  {
+    "mount": "/api/mini-websites",
+    "file": "BabyeyiRoutes/miniWebsites.js",
+    "method": "POST",
+    "path": "/api/mini-websites",
+    "routePath": "/"
+  },
+  {
+    "mount": "/api/mini-websites",
+    "file": "BabyeyiRoutes/miniWebsites.js",
+    "method": "DELETE",
+    "path": "/api/mini-websites/:miniId",
+    "routePath": "/:miniId"
+  },
+  {
+    "mount": "/api/mini-websites",
+    "file": "BabyeyiRoutes/miniWebsites.js",
+    "method": "GET",
+    "path": "/api/mini-websites/:miniId",
+    "routePath": "/:miniId"
+  },
+  {
+    "mount": "/api/mini-websites",
+    "file": "BabyeyiRoutes/miniWebsites.js",
+    "method": "PUT",
+    "path": "/api/mini-websites/:miniId",
+    "routePath": "/:miniId"
+  },
+  {
+    "mount": "/api/mini-websites",
+    "file": "BabyeyiRoutes/miniWebsites.js",
+    "method": "PATCH",
+    "path": "/api/mini-websites/:miniId/publish",
+    "routePath": "/:miniId/publish"
+  },
+  {
+    "mount": "/api/mini-websites",
+    "file": "BabyeyiRoutes/miniWebsites.js",
+    "method": "PATCH",
+    "path": "/api/mini-websites/:miniId/unpublish",
+    "routePath": "/:miniId/unpublish"
+  },
+  {
+    "mount": "/api/mini-websites",
+    "file": "BabyeyiRoutes/miniWebsites.js",
+    "method": "GET",
+    "path": "/api/mini-websites/babyeyi",
+    "routePath": "/babyeyi"
+  },
+  {
+    "mount": "/api/mini-websites",
+    "file": "BabyeyiRoutes/miniWebsites.js",
+    "method": "GET",
+    "path": "/api/mini-websites/babyeyi/:id",
+    "routePath": "/babyeyi/:id"
+  },
+  {
+    "mount": "/api/mini-websites",
+    "file": "BabyeyiRoutes/miniWebsites.js",
+    "method": "GET",
+    "path": "/api/mini-websites/babyeyi/verify/:docId",
+    "routePath": "/babyeyi/verify/:docId"
+  },
+  {
+    "mount": "/api/mini-websites",
+    "file": "BabyeyiRoutes/miniWebsites.js",
+    "method": "GET",
+    "path": "/api/mini-websites/filter-options",
+    "routePath": "/filter-options"
+  },
+  {
+    "mount": "/api/mini-websites",
+    "file": "BabyeyiRoutes/miniWebsites.js",
+    "method": "POST",
+    "path": "/api/mini-websites/gallery-images",
+    "routePath": "/gallery-images"
+  },
+  {
+    "mount": "/api/mini-websites",
+    "file": "BabyeyiRoutes/miniWebsites.js",
+    "method": "GET",
+    "path": "/api/mini-websites/school/:schoolId",
+    "routePath": "/school/:schoolId"
+  },
+  {
+    "mount": "/api/mini-websites",
+    "file": "BabyeyiRoutes/miniWebsites.js",
+    "method": "GET",
+    "path": "/api/mini-websites/slug/:slug",
+    "routePath": "/slug/:slug"
+  },
+  {
+    "mount": "/api/momo",
+    "file": "BabyeyiRoutes/momoRoutes.js",
+    "method": "POST",
+    "path": "/api/momo/callback",
+    "routePath": "/callback"
+  },
+  {
+    "mount": "/api/momo",
+    "file": "BabyeyiRoutes/momoRoutes.js",
+    "method": "GET",
+    "path": "/api/momo/debug",
+    "routePath": "/debug"
+  },
+  {
+    "mount": "/api/momo",
+    "file": "BabyeyiRoutes/momoRoutes.js",
+    "method": "POST",
+    "path": "/api/momo/request-to-pay",
+    "routePath": "/request-to-pay"
+  },
+  {
+    "mount": "/api/momo",
+    "file": "BabyeyiRoutes/momoRoutes.js",
+    "method": "GET",
+    "path": "/api/momo/status/:referenceId",
+    "routePath": "/status/:referenceId"
+  },
+  {
+    "mount": "/api/momo",
+    "file": "BabyeyiRoutes/momoRoutes.js",
+    "method": "GET",
+    "path": "/api/momo/token",
+    "routePath": "/token"
+  },
+  {
+    "mount": "/api/momo",
+    "file": "BabyeyiRoutes/momoRoutes.js",
+    "method": "GET",
+    "path": "/api/momo/transactions",
+    "routePath": "/transactions"
+  },
+  {
+    "mount": "/api/nesa/babyeyi",
+    "file": "BabyeyiRoutes/nesaBabyeyi.js",
+    "method": "GET",
+    "path": "/api/nesa/babyeyi/analytics",
+    "routePath": "/analytics"
+  },
+  {
+    "mount": "/api/nesa/babyeyi",
+    "file": "BabyeyiRoutes/nesaBabyeyi.js",
+    "method": "GET",
+    "path": "/api/nesa/babyeyi/notifications",
+    "routePath": "/notifications"
+  },
+  {
+    "mount": "/api/nesa/babyeyi",
+    "file": "BabyeyiRoutes/nesaBabyeyi.js",
+    "method": "PATCH",
+    "path": "/api/nesa/babyeyi/notifications/:id/read",
+    "routePath": "/notifications/:id/read"
+  },
+  {
+    "mount": "/api/nesa/babyeyi",
+    "file": "BabyeyiRoutes/nesaBabyeyi.js",
+    "method": "POST",
+    "path": "/api/nesa/babyeyi/notifications/read-all",
+    "routePath": "/notifications/read-all"
+  },
+  {
+    "mount": "/api/nesa/babyeyi",
+    "file": "BabyeyiRoutes/nesaBabyeyi.js",
+    "method": "POST",
+    "path": "/api/nesa/babyeyi/push/subscribe",
+    "routePath": "/push/subscribe"
+  },
+  {
+    "mount": "/api/nesa/babyeyi",
+    "file": "BabyeyiRoutes/nesaBabyeyi.js",
+    "method": "POST",
+    "path": "/api/nesa/babyeyi/push/unsubscribe",
+    "routePath": "/push/unsubscribe"
+  },
+  {
+    "mount": "/api/nesa/babyeyi",
+    "file": "BabyeyiRoutes/nesaBabyeyi.js",
+    "method": "GET",
+    "path": "/api/nesa/babyeyi/push/vapid-key",
+    "routePath": "/push/vapid-key"
+  },
+  {
+    "mount": "/api/nesa/babyeyi",
+    "file": "BabyeyiRoutes/nesaBabyeyi.js",
+    "method": "GET",
+    "path": "/api/nesa/babyeyi/requests",
+    "routePath": "/requests"
+  },
+  {
+    "mount": "/api/nesa/babyeyi",
+    "file": "BabyeyiRoutes/nesaBabyeyi.js",
+    "method": "GET",
+    "path": "/api/nesa/babyeyi/requests/:id",
+    "routePath": "/requests/:id"
+  },
+  {
+    "mount": "/api/nesa/babyeyi",
+    "file": "BabyeyiRoutes/nesaBabyeyi.js",
+    "method": "PATCH",
+    "path": "/api/nesa/babyeyi/requests/:id/approve",
+    "routePath": "/requests/:id/approve"
+  },
+  {
+    "mount": "/api/nesa/babyeyi",
+    "file": "BabyeyiRoutes/nesaBabyeyi.js",
+    "method": "PATCH",
+    "path": "/api/nesa/babyeyi/requests/:id/reject",
+    "routePath": "/requests/:id/reject"
+  },
+  {
+    "mount": "/api/nesa/babyeyi",
+    "file": "BabyeyiRoutes/nesaBabyeyi.js",
+    "method": "GET",
+    "path": "/api/nesa/babyeyi/requests/meta",
+    "routePath": "/requests/meta"
+  },
+  {
+    "mount": "/api/nesa/babyeyi",
+    "file": "BabyeyiRoutes/nesaBabyeyi.js",
+    "method": "GET",
+    "path": "/api/nesa/babyeyi/schools",
+    "routePath": "/schools"
+  },
+  {
+    "mount": "/api/nesa/babyeyi",
+    "file": "BabyeyiRoutes/nesaBabyeyi.js",
+    "method": "GET",
+    "path": "/api/nesa/babyeyi/settings",
+    "routePath": "/settings"
+  },
+  {
+    "mount": "/api/nesa/babyeyi",
+    "file": "BabyeyiRoutes/nesaBabyeyi.js",
+    "method": "PUT",
+    "path": "/api/nesa/babyeyi/settings",
+    "routePath": "/settings"
+  },
+  {
+    "mount": "/api/nesa/babyeyi",
+    "file": "BabyeyiRoutes/nesaBabyeyi.js",
+    "method": "GET",
+    "path": "/api/nesa/babyeyi/stats",
+    "routePath": "/stats"
+  },
+  {
+    "mount": "/api/nesa/babyeyi",
+    "file": "BabyeyiRoutes/nesaBabyeyi.js",
+    "method": "GET",
+    "path": "/api/nesa/babyeyi/violations",
+    "routePath": "/violations"
+  },
+  {
+    "mount": "/api/nesa/babyeyi",
+    "file": "BabyeyiRoutes/nesaBabyeyi.js",
+    "method": "GET",
+    "path": "/api/nesa/babyeyi/violations/:babyeyiId",
+    "routePath": "/violations/:babyeyiId"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/onlineServiceRoutes.js",
+    "method": "PUT",
+    "path": "/api/online-service/change-password",
+    "routePath": "/online-service/change-password"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/onlineServiceRoutes.js",
+    "method": "GET",
+    "path": "/api/online-service/dashboard-data",
+    "routePath": "/online-service/dashboard-data"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/onlineServiceRoutes.js",
+    "method": "POST",
+    "path": "/api/online-service/login",
+    "routePath": "/online-service/login"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "POST",
+    "path": "/api/parent-portal/access-requests",
+    "routePath": "/parent-portal/access-requests"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "GET",
+    "path": "/api/parent-portal/access-requests/mine",
+    "routePath": "/parent-portal/access-requests/mine"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "GET",
+    "path": "/api/parent-portal/admin-accounts",
+    "routePath": "/parent-portal/admin-accounts"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "GET",
+    "path": "/api/parent-portal/admin-accounts/export.csv",
+    "routePath": "/parent-portal/admin-accounts/export.csv"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "GET",
+    "path": "/api/parent-portal/admin-upgrades",
+    "routePath": "/parent-portal/admin-upgrades"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "GET",
+    "path": "/api/parent-portal/admin/access-requests",
+    "routePath": "/parent-portal/admin/access-requests"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "PATCH",
+    "path": "/api/parent-portal/admin/access-requests/:id",
+    "routePath": "/parent-portal/admin/access-requests/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "GET",
+    "path": "/api/parent-portal/audit-log",
+    "routePath": "/parent-portal/audit-log"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "POST",
+    "path": "/api/parent-portal/check-phone",
+    "routePath": "/parent-portal/check-phone"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "GET",
+    "path": "/api/parent-portal/children",
+    "routePath": "/parent-portal/children"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "GET",
+    "path": "/api/parent-portal/classkit-pricing",
+    "routePath": "/parent-portal/classkit-pricing"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "POST",
+    "path": "/api/parent-portal/classkit-share-token",
+    "routePath": "/parent-portal/classkit-share-token"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "POST",
+    "path": "/api/parent-portal/complete-phone-reset",
+    "routePath": "/parent-portal/complete-phone-reset"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "POST",
+    "path": "/api/parent-portal/complete-registration",
+    "routePath": "/parent-portal/complete-registration"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "POST",
+    "path": "/api/parent-portal/limited-actions/log",
+    "routePath": "/parent-portal/limited-actions/log"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "POST",
+    "path": "/api/parent-portal/link-student-by-code",
+    "routePath": "/parent-portal/link-student-by-code"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "GET",
+    "path": "/api/parent-portal/loan-intents/:id/detail",
+    "routePath": "/parent-portal/loan-intents/:id/detail"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "POST",
+    "path": "/api/parent-portal/loan-intents/:id/pay",
+    "routePath": "/parent-portal/loan-intents/:id/pay"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "GET",
+    "path": "/api/parent-portal/loan-repayments/:id/receipt",
+    "routePath": "/parent-portal/loan-repayments/:id/receipt"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "POST",
+    "path": "/api/parent-portal/login",
+    "routePath": "/parent-portal/login"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "GET",
+    "path": "/api/parent-portal/notifications",
+    "routePath": "/parent-portal/notifications"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "GET",
+    "path": "/api/parent-portal/payments-report",
+    "routePath": "/parent-portal/payments-report"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "GET",
+    "path": "/api/parent-portal/payments-report/export.csv",
+    "routePath": "/parent-portal/payments-report/export.csv"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "POST",
+    "path": "/api/parent-portal/phone-login",
+    "routePath": "/parent-portal/phone-login"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "GET",
+    "path": "/api/parent-portal/phone-reset/validate",
+    "routePath": "/parent-portal/phone-reset/validate"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "GET",
+    "path": "/api/parent-portal/public/babyeyi-finder",
+    "routePath": "/parent-portal/public/babyeyi-finder"
+  },
+  {
+    "mount": "/api/parent-portal/public/babyeyi-finder",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "GET",
+    "path": "/api/parent-portal/public/babyeyi-finder/admin-intents",
+    "routePath": "/admin-intents"
+  },
+  {
+    "mount": "/api/parent-portal/public/babyeyi-finder",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "GET",
+    "path": "/api/parent-portal/public/babyeyi-finder/admin-intents/:id/detail",
+    "routePath": "/admin-intents/:id/detail"
+  },
+  {
+    "mount": "/api/parent-portal/public/babyeyi-finder",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "PUT",
+    "path": "/api/parent-portal/public/babyeyi-finder/admin-intents/:id/loan-extension",
+    "routePath": "/admin-intents/:id/loan-extension"
+  },
+  {
+    "mount": "/api/parent-portal/public/babyeyi-finder",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "POST",
+    "path": "/api/parent-portal/public/babyeyi-finder/admin-intents/:id/reconcile-provider",
+    "routePath": "/admin-intents/:id/reconcile-provider"
+  },
+  {
+    "mount": "/api/parent-portal/public/babyeyi-finder",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "POST",
+    "path": "/api/parent-portal/public/babyeyi-finder/admin-intents/:id/retry-collection",
+    "routePath": "/admin-intents/:id/retry-collection"
+  },
+  {
+    "mount": "/api/parent-portal/public/babyeyi-finder",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "PUT",
+    "path": "/api/parent-portal/public/babyeyi-finder/admin-intents/:id/status",
+    "routePath": "/admin-intents/:id/status"
+  },
+  {
+    "mount": "/api/parent-portal/public/babyeyi-finder",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "GET",
+    "path": "/api/parent-portal/public/babyeyi-finder/admin-intents/export.csv",
+    "routePath": "/admin-intents/export.csv"
+  },
+  {
+    "mount": "/api/parent-portal/public/babyeyi-finder",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "GET",
+    "path": "/api/parent-portal/public/babyeyi-finder/admin-intents/filters",
+    "routePath": "/admin-intents/filters"
+  },
+  {
+    "mount": "/api/parent-portal/public/babyeyi-finder",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "POST",
+    "path": "/api/parent-portal/public/babyeyi-finder/admin-invoices/reminders/run",
+    "routePath": "/admin-invoices/reminders/run"
+  },
+  {
+    "mount": "/api/parent-portal/public/babyeyi-finder",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "PUT",
+    "path": "/api/parent-portal/public/babyeyi-finder/admin-loan-repayments/:id/review",
+    "routePath": "/admin-loan-repayments/:id/review"
+  },
+  {
+    "mount": "/api/parent-portal/public/babyeyi-finder",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "GET",
+    "path": "/api/parent-portal/public/babyeyi-finder/admin-webhook-logs",
+    "routePath": "/admin-webhook-logs"
+  },
+  {
+    "mount": "/api/parent-portal/public/babyeyi-finder",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "GET",
+    "path": "/api/parent-portal/public/babyeyi-finder/admin-webhook-logs/:id",
+    "routePath": "/admin-webhook-logs/:id"
+  },
+  {
+    "mount": "/api/parent-portal/public/babyeyi-finder",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "POST",
+    "path": "/api/parent-portal/public/babyeyi-finder/admin-webhook-logs/:id/reconcile",
+    "routePath": "/admin-webhook-logs/:id/reconcile"
+  },
+  {
+    "mount": "/api/parent-portal/public/babyeyi-finder",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "GET",
+    "path": "/api/parent-portal/public/babyeyi-finder/admin-webhook-logs/export.csv",
+    "routePath": "/admin-webhook-logs/export.csv"
+  },
+  {
+    "mount": "/api/parent-portal/public/babyeyi-finder",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "POST",
+    "path": "/api/parent-portal/public/babyeyi-finder/intent",
+    "routePath": "/intent"
+  },
+  {
+    "mount": "/api/parent-portal/public/babyeyi-finder",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "POST",
+    "path": "/api/parent-portal/public/babyeyi-finder/intent/:id/check-provider-status",
+    "routePath": "/intent/:id/check-provider-status"
+  },
+  {
+    "mount": "/api/parent-portal/public/babyeyi-finder",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "GET",
+    "path": "/api/parent-portal/public/babyeyi-finder/invoice/:id.pdf",
+    "routePath": "/invoice/:id.pdf"
+  },
+  {
+    "mount": "/api/parent-portal/public/babyeyi-finder",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "GET",
+    "path": "/api/parent-portal/public/babyeyi-finder/invoices",
+    "routePath": "/invoices"
+  },
+  {
+    "mount": "/api/parent-portal/public/babyeyi-finder",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "POST",
+    "path": "/api/parent-portal/public/babyeyi-finder/invoices",
+    "routePath": "/invoices"
+  },
+  {
+    "mount": "/api/parent-portal/public/babyeyi-finder",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "DELETE",
+    "path": "/api/parent-portal/public/babyeyi-finder/invoices/:id",
+    "routePath": "/invoices/:id"
+  },
+  {
+    "mount": "/api/parent-portal/public/babyeyi-finder",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "PATCH",
+    "path": "/api/parent-portal/public/babyeyi-finder/invoices/:id",
+    "routePath": "/invoices/:id"
+  },
+  {
+    "mount": "/api/parent-portal/public/babyeyi-finder",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "GET",
+    "path": "/api/parent-portal/public/babyeyi-finder/invoices/:id/detail",
+    "routePath": "/invoices/:id/detail"
+  },
+  {
+    "mount": "/api/parent-portal/public/babyeyi-finder",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "GET",
+    "path": "/api/parent-portal/public/babyeyi-finder/invoices/:id/print.pdf",
+    "routePath": "/invoices/:id/print.pdf"
+  },
+  {
+    "mount": "/api/parent-portal/public/babyeyi-finder",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "GET",
+    "path": "/api/parent-portal/public/babyeyi-finder/invoices/export.pdf",
+    "routePath": "/invoices/export.pdf"
+  },
+  {
+    "mount": "/api/parent-portal/public/babyeyi-finder",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "GET",
+    "path": "/api/parent-portal/public/babyeyi-finder/invoices/export.xlsx",
+    "routePath": "/invoices/export.xlsx"
+  },
+  {
+    "mount": "/api/parent-portal/public/babyeyi-finder",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "GET",
+    "path": "/api/parent-portal/public/babyeyi-finder/invoices/verify/:id",
+    "routePath": "/invoices/verify/:id"
+  },
+  {
+    "mount": "/api/parent-portal/public/babyeyi-finder",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "GET",
+    "path": "/api/parent-portal/public/babyeyi-finder/pricing/:babyeyiId",
+    "routePath": "/pricing/:babyeyiId"
+  },
+  {
+    "mount": "/api/parent-portal/public/babyeyi-finder",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "POST",
+    "path": "/api/parent-portal/public/babyeyi-finder/quote-balance",
+    "routePath": "/quote-balance"
+  },
+  {
+    "mount": "/api/parent-portal/public/babyeyi-finder",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "GET",
+    "path": "/api/parent-portal/public/babyeyi-finder/receipt/:id.pdf",
+    "routePath": "/receipt/:id.pdf"
+  },
+  {
+    "mount": "/api/parent-portal/public/babyeyi-finder",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "GET",
+    "path": "/api/parent-portal/public/babyeyi-finder/shule-avance-organizations",
+    "routePath": "/shule-avance-organizations"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "POST",
+    "path": "/api/parent-portal/public/babyeyi-finder/student-lookup",
+    "routePath": "/parent-portal/public/babyeyi-finder/student-lookup"
+  },
+  {
+    "mount": "/api/parent-portal/public/babyeyi-finder",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "POST",
+    "path": "/api/parent-portal/public/babyeyi-finder/webhook/xentripay",
+    "routePath": "/webhook/xentripay"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "PATCH",
+    "path": "/api/parent-portal/push/preferences",
+    "routePath": "/parent-portal/push/preferences"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "GET",
+    "path": "/api/parent-portal/push/status",
+    "routePath": "/parent-portal/push/status"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "POST",
+    "path": "/api/parent-portal/push/subscribe",
+    "routePath": "/parent-portal/push/subscribe"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "POST",
+    "path": "/api/parent-portal/push/unsubscribe",
+    "routePath": "/parent-portal/push/unsubscribe"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "GET",
+    "path": "/api/parent-portal/push/vapid-key",
+    "routePath": "/parent-portal/push/vapid-key"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "PATCH",
+    "path": "/api/parent-portal/recovery-email",
+    "routePath": "/parent-portal/recovery-email"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "POST",
+    "path": "/api/parent-portal/register",
+    "routePath": "/parent-portal/register"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "POST",
+    "path": "/api/parent-portal/request-phone-reset",
+    "routePath": "/parent-portal/request-phone-reset"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "GET",
+    "path": "/api/parent-portal/search-students",
+    "routePath": "/parent-portal/search-students"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "PATCH",
+    "path": "/api/parent-portal/shulecard/daily-limit",
+    "routePath": "/parent-portal/shulecard/daily-limit"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "GET",
+    "path": "/api/parent-portal/shulecard/data",
+    "routePath": "/parent-portal/shulecard/data"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "GET",
+    "path": "/api/parent-portal/shulecard/students",
+    "routePath": "/parent-portal/shulecard/students"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "GET",
+    "path": "/api/parent-portal/shulecard/topups",
+    "routePath": "/parent-portal/shulecard/topups"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "POST",
+    "path": "/api/parent-portal/shulecard/topups",
+    "routePath": "/parent-portal/shulecard/topups"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "GET",
+    "path": "/api/parent-portal/shulecard/topups/:id/pay-status",
+    "routePath": "/parent-portal/shulecard/topups/:id/pay-status"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "GET",
+    "path": "/api/parent-portal/student-attendance",
+    "routePath": "/parent-portal/student-attendance"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "GET",
+    "path": "/api/parent-portal/student-details/academics",
+    "routePath": "/parent-portal/student-details/academics"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "GET",
+    "path": "/api/parent-portal/student-details/attendance-dos-proxy",
+    "routePath": "/parent-portal/student-details/attendance-dos-proxy"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "GET",
+    "path": "/api/parent-portal/student-details/filters",
+    "routePath": "/parent-portal/student-details/filters"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "GET",
+    "path": "/api/parent-portal/student-discipline",
+    "routePath": "/parent-portal/student-discipline"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "GET",
+    "path": "/api/payroll/audit-log",
+    "routePath": "/payroll/audit-log"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/studentPermissions.js",
+    "method": "GET",
+    "path": "/api/permissions",
+    "routePath": "/permissions"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/studentPermissions.js",
+    "method": "POST",
+    "path": "/api/permissions",
+    "routePath": "/permissions"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/studentPermissions.js",
+    "method": "PUT",
+    "path": "/api/permissions/:id",
+    "routePath": "/permissions/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/studentPermissions.js",
+    "method": "PATCH",
+    "path": "/api/permissions/:id/status",
+    "routePath": "/permissions/:id/status"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "POST",
+    "path": "/api/portal/push/subscribe",
+    "routePath": "/portal/push/subscribe"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "POST",
+    "path": "/api/portal/push/unsubscribe",
+    "routePath": "/portal/push/unsubscribe"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "GET",
+    "path": "/api/portal/push/vapid-key",
+    "routePath": "/portal/push/vapid-key"
+  },
+  {
+    "mount": "/api/public/agents",
+    "file": "BabyeyiRoutes/fieldAgentsRoutes.js#publicRouter",
+    "method": "GET",
+    "path": "/api/public/agents/find",
+    "routePath": "/find"
+  },
+  {
+    "mount": "/api/public/agents",
+    "file": "BabyeyiRoutes/fieldAgentsRoutes.js#publicRouter",
+    "method": "POST",
+    "path": "/api/public/agents/support-requests",
+    "routePath": "/support-requests"
+  },
+  {
+    "mount": "/api/public/babyeyi-pay",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "GET",
+    "path": "/api/public/babyeyi-pay",
+    "routePath": "/"
+  },
+  {
+    "mount": "/api/public/babyeyi-pay",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "GET",
+    "path": "/api/public/babyeyi-pay/admin-intents",
+    "routePath": "/admin-intents"
+  },
+  {
+    "mount": "/api/public/babyeyi-pay",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "GET",
+    "path": "/api/public/babyeyi-pay/admin-intents/:id/detail",
+    "routePath": "/admin-intents/:id/detail"
+  },
+  {
+    "mount": "/api/public/babyeyi-pay",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "PUT",
+    "path": "/api/public/babyeyi-pay/admin-intents/:id/loan-extension",
+    "routePath": "/admin-intents/:id/loan-extension"
+  },
+  {
+    "mount": "/api/public/babyeyi-pay",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "POST",
+    "path": "/api/public/babyeyi-pay/admin-intents/:id/reconcile-provider",
+    "routePath": "/admin-intents/:id/reconcile-provider"
+  },
+  {
+    "mount": "/api/public/babyeyi-pay",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "POST",
+    "path": "/api/public/babyeyi-pay/admin-intents/:id/retry-collection",
+    "routePath": "/admin-intents/:id/retry-collection"
+  },
+  {
+    "mount": "/api/public/babyeyi-pay",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "PUT",
+    "path": "/api/public/babyeyi-pay/admin-intents/:id/status",
+    "routePath": "/admin-intents/:id/status"
+  },
+  {
+    "mount": "/api/public/babyeyi-pay",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "GET",
+    "path": "/api/public/babyeyi-pay/admin-intents/export.csv",
+    "routePath": "/admin-intents/export.csv"
+  },
+  {
+    "mount": "/api/public/babyeyi-pay",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "GET",
+    "path": "/api/public/babyeyi-pay/admin-intents/filters",
+    "routePath": "/admin-intents/filters"
+  },
+  {
+    "mount": "/api/public/babyeyi-pay",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "POST",
+    "path": "/api/public/babyeyi-pay/admin-invoices/reminders/run",
+    "routePath": "/admin-invoices/reminders/run"
+  },
+  {
+    "mount": "/api/public/babyeyi-pay",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "PUT",
+    "path": "/api/public/babyeyi-pay/admin-loan-repayments/:id/review",
+    "routePath": "/admin-loan-repayments/:id/review"
+  },
+  {
+    "mount": "/api/public/babyeyi-pay",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "GET",
+    "path": "/api/public/babyeyi-pay/admin-webhook-logs",
+    "routePath": "/admin-webhook-logs"
+  },
+  {
+    "mount": "/api/public/babyeyi-pay",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "GET",
+    "path": "/api/public/babyeyi-pay/admin-webhook-logs/:id",
+    "routePath": "/admin-webhook-logs/:id"
+  },
+  {
+    "mount": "/api/public/babyeyi-pay",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "POST",
+    "path": "/api/public/babyeyi-pay/admin-webhook-logs/:id/reconcile",
+    "routePath": "/admin-webhook-logs/:id/reconcile"
+  },
+  {
+    "mount": "/api/public/babyeyi-pay",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "GET",
+    "path": "/api/public/babyeyi-pay/admin-webhook-logs/export.csv",
+    "routePath": "/admin-webhook-logs/export.csv"
+  },
+  {
+    "mount": "/api/public/babyeyi-pay",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "POST",
+    "path": "/api/public/babyeyi-pay/intent",
+    "routePath": "/intent"
+  },
+  {
+    "mount": "/api/public/babyeyi-pay",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "POST",
+    "path": "/api/public/babyeyi-pay/intent/:id/check-provider-status",
+    "routePath": "/intent/:id/check-provider-status"
+  },
+  {
+    "mount": "/api/public/babyeyi-pay",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "GET",
+    "path": "/api/public/babyeyi-pay/invoice/:id.pdf",
+    "routePath": "/invoice/:id.pdf"
+  },
+  {
+    "mount": "/api/public/babyeyi-pay",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "GET",
+    "path": "/api/public/babyeyi-pay/invoices",
+    "routePath": "/invoices"
+  },
+  {
+    "mount": "/api/public/babyeyi-pay",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "POST",
+    "path": "/api/public/babyeyi-pay/invoices",
+    "routePath": "/invoices"
+  },
+  {
+    "mount": "/api/public/babyeyi-pay",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "DELETE",
+    "path": "/api/public/babyeyi-pay/invoices/:id",
+    "routePath": "/invoices/:id"
+  },
+  {
+    "mount": "/api/public/babyeyi-pay",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "PATCH",
+    "path": "/api/public/babyeyi-pay/invoices/:id",
+    "routePath": "/invoices/:id"
+  },
+  {
+    "mount": "/api/public/babyeyi-pay",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "GET",
+    "path": "/api/public/babyeyi-pay/invoices/:id/detail",
+    "routePath": "/invoices/:id/detail"
+  },
+  {
+    "mount": "/api/public/babyeyi-pay",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "GET",
+    "path": "/api/public/babyeyi-pay/invoices/:id/print.pdf",
+    "routePath": "/invoices/:id/print.pdf"
+  },
+  {
+    "mount": "/api/public/babyeyi-pay",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "GET",
+    "path": "/api/public/babyeyi-pay/invoices/export.pdf",
+    "routePath": "/invoices/export.pdf"
+  },
+  {
+    "mount": "/api/public/babyeyi-pay",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "GET",
+    "path": "/api/public/babyeyi-pay/invoices/export.xlsx",
+    "routePath": "/invoices/export.xlsx"
+  },
+  {
+    "mount": "/api/public/babyeyi-pay",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "GET",
+    "path": "/api/public/babyeyi-pay/invoices/verify/:id",
+    "routePath": "/invoices/verify/:id"
+  },
+  {
+    "mount": "/api/public/babyeyi-pay",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "GET",
+    "path": "/api/public/babyeyi-pay/pricing/:babyeyiId",
+    "routePath": "/pricing/:babyeyiId"
+  },
+  {
+    "mount": "/api/public/babyeyi-pay",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "POST",
+    "path": "/api/public/babyeyi-pay/quote-balance",
+    "routePath": "/quote-balance"
+  },
+  {
+    "mount": "/api/public/babyeyi-pay",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "GET",
+    "path": "/api/public/babyeyi-pay/receipt/:id.pdf",
+    "routePath": "/receipt/:id.pdf"
+  },
+  {
+    "mount": "/api/public/babyeyi-pay",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "GET",
+    "path": "/api/public/babyeyi-pay/shule-avance-organizations",
+    "routePath": "/shule-avance-organizations"
+  },
+  {
+    "mount": "/api/public/babyeyi-pay",
+    "file": "BabyeyiRoutes/publicBabyeyiPay.js",
+    "method": "POST",
+    "path": "/api/public/babyeyi-pay/webhook/xentripay",
+    "routePath": "/webhook/xentripay"
+  },
+  {
+    "mount": "/api/public/classkit-share",
+    "file": "BabyeyiRoutes/classkitShareRoutes.js",
+    "method": "GET",
+    "path": "/api/public/classkit-share/pricing",
+    "routePath": "/pricing"
+  },
+  {
+    "mount": "/api/public/classkit-share",
+    "file": "BabyeyiRoutes/classkitShareRoutes.js",
+    "method": "POST",
+    "path": "/api/public/classkit-share/send-otp",
+    "routePath": "/send-otp"
+  },
+  {
+    "mount": "/api/public/classkit-share",
+    "file": "BabyeyiRoutes/classkitShareRoutes.js",
+    "method": "POST",
+    "path": "/api/public/classkit-share/start",
+    "routePath": "/start"
+  },
+  {
+    "mount": "/api/public/classkit-share",
+    "file": "BabyeyiRoutes/classkitShareRoutes.js",
+    "method": "POST",
+    "path": "/api/public/classkit-share/verify-otp",
+    "routePath": "/verify-otp"
+  },
+  {
+    "mount": "/api/public/public-pay",
+    "file": "BabyeyiRoutes/publicPaySchoolFlow.js",
+    "method": "GET",
+    "path": "/api/public/public-pay",
+    "routePath": "/"
+  },
+  {
+    "mount": "/api/public/public-pay",
+    "file": "BabyeyiRoutes/publicPaySchoolFlow.js",
+    "method": "POST",
+    "path": "/api/public/public-pay/class-pricing",
+    "routePath": "/class-pricing"
+  },
+  {
+    "mount": "/api/public/public-pay",
+    "file": "BabyeyiRoutes/publicPaySchoolFlow.js",
+    "method": "POST",
+    "path": "/api/public/public-pay/school-catalog",
+    "routePath": "/school-catalog"
+  },
+  {
+    "mount": "/api/public/public-pay",
+    "file": "BabyeyiRoutes/publicPaySchoolFlow.js",
+    "method": "POST",
+    "path": "/api/public/public-pay/search-student",
+    "routePath": "/search-student"
+  },
+  {
+    "mount": "/api/public/public-pay",
+    "file": "BabyeyiRoutes/publicPaySchoolFlow.js",
+    "method": "POST",
+    "path": "/api/public/public-pay/student-catalog",
+    "routePath": "/student-catalog"
+  },
+  {
+    "mount": "/api/public/schools",
+    "file": "BabyeyiRoutes/publicSchoolRegistration.js",
+    "method": "GET",
+    "path": "/api/public/schools",
+    "routePath": "/"
+  },
+  {
+    "mount": "/api/public/schools",
+    "file": "BabyeyiRoutes/publicSchoolRegistration.js",
+    "method": "POST",
+    "path": "/api/public/schools/claim",
+    "routePath": "/claim"
+  },
+  {
+    "mount": "/api/public/schools",
+    "file": "BabyeyiRoutes/publicSchoolRegistration.js",
+    "method": "GET",
+    "path": "/api/public/schools/next-school-code",
+    "routePath": "/next-school-code"
+  },
+  {
+    "mount": "/api/public/schools",
+    "file": "BabyeyiRoutes/publicSchoolRegistration.js",
+    "method": "POST",
+    "path": "/api/public/schools/register",
+    "routePath": "/register"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/parentPortal.js",
+    "method": "POST",
+    "path": "/api/public/student-code-lookup",
+    "routePath": "/public/student-code-lookup"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "GET",
+    "path": "/api/reports/requisitions/teacher",
+    "routePath": "/reports/requisitions/teacher"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "PATCH",
+    "path": "/api/reports/requisitions/teacher/:id/action",
+    "routePath": "/reports/requisitions/teacher/:id/action"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "GET",
+    "path": "/api/reports/teacher-permissions",
+    "routePath": "/reports/teacher-permissions"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "PATCH",
+    "path": "/api/reports/teacher-permissions/:id/action",
+    "routePath": "/reports/teacher-permissions/:id/action"
+  },
+  {
+    "mount": "/api/representative",
+    "file": "BabyeyiRoutes/representativesRoutes.js#repRouter",
+    "method": "GET",
+    "path": "/api/representative/budget-expenses",
+    "routePath": "/budget-expenses"
+  },
+  {
+    "mount": "/api/representative",
+    "file": "BabyeyiRoutes/representativesRoutes.js#repRouter",
+    "method": "GET",
+    "path": "/api/representative/discipline/overview",
+    "routePath": "/discipline/overview"
+  },
+  {
+    "mount": "/api/representative",
+    "file": "BabyeyiRoutes/representativesRoutes.js#repRouter",
+    "method": "GET",
+    "path": "/api/representative/discipline/students",
+    "routePath": "/discipline/students"
+  },
+  {
+    "mount": "/api/representative",
+    "file": "BabyeyiRoutes/representativesRoutes.js#repRouter",
+    "method": "GET",
+    "path": "/api/representative/expenses",
+    "routePath": "/expenses"
+  },
+  {
+    "mount": "/api/representative",
+    "file": "BabyeyiRoutes/representativesRoutes.js#repRouter",
+    "method": "PATCH",
+    "path": "/api/representative/expenses/:id/decision",
+    "routePath": "/expenses/:id/decision"
+  },
+  {
+    "mount": "/api/representative",
+    "file": "BabyeyiRoutes/representativesRoutes.js#repRouter",
+    "method": "GET",
+    "path": "/api/representative/fees-management",
+    "routePath": "/fees-management"
+  },
+  {
+    "mount": "/api/representative",
+    "file": "BabyeyiRoutes/representativesRoutes.js#repRouter",
+    "method": "GET",
+    "path": "/api/representative/finance-overview",
+    "routePath": "/finance-overview"
+  },
+  {
+    "mount": "/api/representative",
+    "file": "BabyeyiRoutes/representativesRoutes.js#repRouter",
+    "method": "GET",
+    "path": "/api/representative/financial-analytics",
+    "routePath": "/financial-analytics"
+  },
+  {
+    "mount": "/api/representative",
+    "file": "BabyeyiRoutes/representativesRoutes.js#repRouter",
+    "method": "GET",
+    "path": "/api/representative/my-schools",
+    "routePath": "/my-schools"
+  },
+  {
+    "mount": "/api/representative",
+    "file": "BabyeyiRoutes/representativesRoutes.js#repRouter",
+    "method": "GET",
+    "path": "/api/representative/reports",
+    "routePath": "/reports"
+  },
+  {
+    "mount": "/api/representative",
+    "file": "BabyeyiRoutes/representativesRoutes.js#repRouter",
+    "method": "GET",
+    "path": "/api/representative/requisitions",
+    "routePath": "/requisitions"
+  },
+  {
+    "mount": "/api/representative",
+    "file": "BabyeyiRoutes/representativesRoutes.js#repRouter",
+    "method": "PATCH",
+    "path": "/api/representative/requisitions/:id/decision",
+    "routePath": "/requisitions/:id/decision"
+  },
+  {
+    "mount": "/api/representative",
+    "file": "BabyeyiRoutes/representativesRoutes.js#repRouter",
+    "method": "GET",
+    "path": "/api/representative/staff-payroll",
+    "routePath": "/staff-payroll"
+  },
+  {
+    "mount": "/api/representative",
+    "file": "BabyeyiRoutes/representativesRoutes.js#repRouter",
+    "method": "GET",
+    "path": "/api/representative/store/inventory",
+    "routePath": "/store/inventory"
+  },
+  {
+    "mount": "/api/representative",
+    "file": "BabyeyiRoutes/representativesRoutes.js#repRouter",
+    "method": "GET",
+    "path": "/api/representative/store/movements",
+    "routePath": "/store/movements"
+  },
+  {
+    "mount": "/api/representative",
+    "file": "BabyeyiRoutes/representativesRoutes.js#repRouter",
+    "method": "GET",
+    "path": "/api/representative/store/overview",
+    "routePath": "/store/overview"
+  },
+  {
+    "mount": "/api/representative",
+    "file": "BabyeyiRoutes/representativesRoutes.js#repRouter",
+    "method": "GET",
+    "path": "/api/representative/store/suppliers",
+    "routePath": "/store/suppliers"
+  },
+  {
+    "mount": "/api/representative",
+    "file": "BabyeyiRoutes/representativesRoutes.js#repRouter",
+    "method": "GET",
+    "path": "/api/representative/summary",
+    "routePath": "/summary"
+  },
+  {
+    "mount": "/api/representatives",
+    "file": "BabyeyiRoutes/representativesRoutes.js#adminRouter",
+    "method": "GET",
+    "path": "/api/representatives",
+    "routePath": "/"
+  },
+  {
+    "mount": "/api/representatives",
+    "file": "BabyeyiRoutes/representativesRoutes.js#adminRouter",
+    "method": "POST",
+    "path": "/api/representatives",
+    "routePath": "/"
+  },
+  {
+    "mount": "/api/representatives",
+    "file": "BabyeyiRoutes/representativesRoutes.js#adminRouter",
+    "method": "DELETE",
+    "path": "/api/representatives/:id",
+    "routePath": "/:id"
+  },
+  {
+    "mount": "/api/representatives",
+    "file": "BabyeyiRoutes/representativesRoutes.js#adminRouter",
+    "method": "GET",
+    "path": "/api/representatives/:id",
+    "routePath": "/:id"
+  },
+  {
+    "mount": "/api/representatives",
+    "file": "BabyeyiRoutes/representativesRoutes.js#adminRouter",
+    "method": "PATCH",
+    "path": "/api/representatives/:id",
+    "routePath": "/:id"
+  },
+  {
+    "mount": "/api/representatives",
+    "file": "BabyeyiRoutes/representativesRoutes.js#adminRouter",
+    "method": "GET",
+    "path": "/api/representatives/:id/schools",
+    "routePath": "/:id/schools"
+  },
+  {
+    "mount": "/api/representatives",
+    "file": "BabyeyiRoutes/representativesRoutes.js#adminRouter",
+    "method": "POST",
+    "path": "/api/representatives/:id/schools",
+    "routePath": "/:id/schools"
+  },
+  {
+    "mount": "/api/representatives",
+    "file": "BabyeyiRoutes/representativesRoutes.js#adminRouter",
+    "method": "PUT",
+    "path": "/api/representatives/:id/schools",
+    "routePath": "/:id/schools"
+  },
+  {
+    "mount": "/api/representatives",
+    "file": "BabyeyiRoutes/representativesRoutes.js#adminRouter",
+    "method": "DELETE",
+    "path": "/api/representatives/:id/schools/:schoolId",
+    "routePath": "/:id/schools/:schoolId"
+  },
+  {
+    "mount": "/api/representatives",
+    "file": "BabyeyiRoutes/representativesRoutes.js#adminRouter",
+    "method": "GET",
+    "path": "/api/representatives/search/schools",
+    "routePath": "/search/schools"
+  },
+  {
+    "mount": "/api/requirement-prices",
+    "file": "BabyeyiRoutes/requirementPrice.js",
+    "method": "GET",
+    "path": "/api/requirement-prices",
+    "routePath": "/"
+  },
+  {
+    "mount": "/api/requirement-prices",
+    "file": "BabyeyiRoutes/requirementPrice.js",
+    "method": "POST",
+    "path": "/api/requirement-prices",
+    "routePath": "/"
+  },
+  {
+    "mount": "/api/requirement-prices",
+    "file": "BabyeyiRoutes/requirementPrice.js",
+    "method": "DELETE",
+    "path": "/api/requirement-prices/:id",
+    "routePath": "/:id"
+  },
+  {
+    "mount": "/api/requirement-prices",
+    "file": "BabyeyiRoutes/requirementPrice.js",
+    "method": "GET",
+    "path": "/api/requirement-prices/:id",
+    "routePath": "/:id"
+  },
+  {
+    "mount": "/api/requirement-prices",
+    "file": "BabyeyiRoutes/requirementPrice.js",
+    "method": "PUT",
+    "path": "/api/requirement-prices/:id",
+    "routePath": "/:id"
+  },
+  {
+    "mount": "/api/requirement-prices",
+    "file": "BabyeyiRoutes/requirementPrice.js",
+    "method": "GET",
+    "path": "/api/requirement-prices/browse/babyeyi-detail/:babyeyiId",
+    "routePath": "/browse/babyeyi-detail/:babyeyiId"
+  },
+  {
+    "mount": "/api/requirement-prices",
+    "file": "BabyeyiRoutes/requirementPrice.js",
+    "method": "GET",
+    "path": "/api/requirement-prices/browse/school-babyeyi",
+    "routePath": "/browse/school-babyeyi"
+  },
+  {
+    "mount": "/api/requirement-prices",
+    "file": "BabyeyiRoutes/requirementPrice.js",
+    "method": "GET",
+    "path": "/api/requirement-prices/browse/schools",
+    "routePath": "/browse/schools"
+  },
+  {
+    "mount": "/api/requirement-prices",
+    "file": "BabyeyiRoutes/requirementPrice.js",
+    "method": "DELETE",
+    "path": "/api/requirement-prices/by-class",
+    "routePath": "/by-class"
+  },
+  {
+    "mount": "/api/requirement-prices",
+    "file": "BabyeyiRoutes/requirementPrice.js",
+    "method": "PUT",
+    "path": "/api/requirement-prices/catalog-defaults",
+    "routePath": "/catalog-defaults"
+  },
+  {
+    "mount": "/api/requirement-prices",
+    "file": "BabyeyiRoutes/requirementPrice.js",
+    "method": "GET",
+    "path": "/api/requirement-prices/list",
+    "routePath": "/list"
+  },
+  {
+    "mount": "/api/requirement-prices",
+    "file": "BabyeyiRoutes/requirementPrice.js",
+    "method": "GET",
+    "path": "/api/requirement-prices/options",
+    "routePath": "/options"
+  },
+  {
+    "mount": "/api/requirement-prices",
+    "file": "BabyeyiRoutes/requirementPrice.js",
+    "method": "GET",
+    "path": "/api/requirement-prices/requirements",
+    "routePath": "/requirements"
+  },
+  {
+    "mount": "/api/requirement-prices",
+    "file": "BabyeyiRoutes/requirementPrice.js",
+    "method": "POST",
+    "path": "/api/requirement-prices/requirements",
+    "routePath": "/requirements"
+  },
+  {
+    "mount": "/api/requirement-prices",
+    "file": "BabyeyiRoutes/requirementPrice.js",
+    "method": "DELETE",
+    "path": "/api/requirement-prices/requirements/:id",
+    "routePath": "/requirements/:id"
+  },
+  {
+    "mount": "/api/requirement-prices",
+    "file": "BabyeyiRoutes/requirementPrice.js",
+    "method": "PUT",
+    "path": "/api/requirement-prices/requirements/:id",
+    "routePath": "/requirements/:id"
+  },
+  {
+    "mount": "/api/requirement-prices",
+    "file": "BabyeyiRoutes/requirementPrice.js",
+    "method": "DELETE",
+    "path": "/api/requirement-prices/requirements/:id/image",
+    "routePath": "/requirements/:id/image"
+  },
+  {
+    "mount": "/api/requirement-prices",
+    "file": "BabyeyiRoutes/requirementPrice.js",
+    "method": "POST",
+    "path": "/api/requirement-prices/requirements/:id/image",
+    "routePath": "/requirements/:id/image"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolRoleOperations.js",
+    "method": "GET",
+    "path": "/api/school/calendar-events",
+    "routePath": "/school/calendar-events"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolRoleOperations.js",
+    "method": "POST",
+    "path": "/api/school/calendar-events",
+    "routePath": "/school/calendar-events"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolRoleOperations.js",
+    "method": "DELETE",
+    "path": "/api/school/calendar-events/:id",
+    "routePath": "/school/calendar-events/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolStaff.js",
+    "method": "GET",
+    "path": "/api/school/shule-avance-policy",
+    "routePath": "/school/shule-avance-policy"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolStaff.js",
+    "method": "PATCH",
+    "path": "/api/school/shule-avance-policy",
+    "routePath": "/school/shule-avance-policy"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolStaff.js",
+    "method": "GET",
+    "path": "/api/school/staff",
+    "routePath": "/school/staff"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolStaff.js",
+    "method": "POST",
+    "path": "/api/school/staff",
+    "routePath": "/school/staff"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolStaff.js",
+    "method": "DELETE",
+    "path": "/api/school/staff/:userId",
+    "routePath": "/school/staff/:userId"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolStaff.js",
+    "method": "PATCH",
+    "path": "/api/school/staff/:userId",
+    "routePath": "/school/staff/:userId"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolStaff.js",
+    "method": "PUT",
+    "path": "/api/school/staff/:userId/identity",
+    "routePath": "/school/staff/:userId/identity"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolStaff.js",
+    "method": "POST",
+    "path": "/api/school/staff/:userId/photo",
+    "routePath": "/school/staff/:userId/photo"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/school-add.js",
+    "method": "GET",
+    "path": "/api/schools",
+    "routePath": "/schools"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/school-add.js",
+    "method": "POST",
+    "path": "/api/schools",
+    "routePath": "/schools"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/school-add.js",
+    "method": "DELETE",
+    "path": "/api/schools/:id",
+    "routePath": "/schools/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/school-add.js",
+    "method": "GET",
+    "path": "/api/schools/:id",
+    "routePath": "/schools/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/school-add.js",
+    "method": "PUT",
+    "path": "/api/schools/:id",
+    "routePath": "/schools/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolClasses.js",
+    "method": "GET",
+    "path": "/api/schools/:id/classes",
+    "routePath": "/schools/:id/classes"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolClasses.js",
+    "method": "POST",
+    "path": "/api/schools/:id/classes",
+    "routePath": "/schools/:id/classes"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/school-add.js",
+    "method": "POST",
+    "path": "/api/schools/:id/logo",
+    "routePath": "/schools/:id/logo"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/school-add.js",
+    "method": "POST",
+    "path": "/api/schools/:id/signature",
+    "routePath": "/schools/:id/signature"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/school-add.js",
+    "method": "POST",
+    "path": "/api/schools/:id/stamp",
+    "routePath": "/schools/:id/stamp"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/school-add.js",
+    "method": "PUT",
+    "path": "/api/schools/:id/status",
+    "routePath": "/schools/:id/status"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/school-add.js",
+    "method": "GET",
+    "path": "/api/schools/:id/summary",
+    "routePath": "/schools/:id/summary"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/school-add.js",
+    "method": "POST",
+    "path": "/api/schools/bulk-delete",
+    "routePath": "/schools/bulk-delete"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/school-add.js",
+    "method": "GET",
+    "path": "/api/schools/check-code",
+    "routePath": "/schools/check-code"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/school-add.js",
+    "method": "GET",
+    "path": "/api/schools/check-email",
+    "routePath": "/schools/check-email"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/school-add.js",
+    "method": "GET",
+    "path": "/api/schools/check-username",
+    "routePath": "/schools/check-username"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/school-add.js",
+    "method": "GET",
+    "path": "/api/schools/districts",
+    "routePath": "/schools/districts"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/school-add.js",
+    "method": "GET",
+    "path": "/api/schools/next-school-code",
+    "routePath": "/schools/next-school-code"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/school-add.js",
+    "method": "POST",
+    "path": "/api/schools/skeleton",
+    "routePath": "/schools/skeleton"
+  },
+  {
+    "mount": "/api/services",
+    "file": "BabyeyiRoutes/shuleAvanceServices.js",
+    "method": "GET",
+    "path": "/api/services/shule-avance/admin/teacher-deal-products",
+    "routePath": "/shule-avance/admin/teacher-deal-products"
+  },
+  {
+    "mount": "/api/services",
+    "file": "BabyeyiRoutes/shuleAvanceServices.js",
+    "method": "POST",
+    "path": "/api/services/shule-avance/admin/teacher-deal-products",
+    "routePath": "/shule-avance/admin/teacher-deal-products"
+  },
+  {
+    "mount": "/api/services",
+    "file": "BabyeyiRoutes/shuleAvanceServices.js",
+    "method": "DELETE",
+    "path": "/api/services/shule-avance/admin/teacher-deal-products/:id",
+    "routePath": "/shule-avance/admin/teacher-deal-products/:id"
+  },
+  {
+    "mount": "/api/services",
+    "file": "BabyeyiRoutes/shuleAvanceServices.js",
+    "method": "PUT",
+    "path": "/api/services/shule-avance/admin/teacher-deal-products/:id",
+    "routePath": "/shule-avance/admin/teacher-deal-products/:id"
+  },
+  {
+    "mount": "/api/services",
+    "file": "BabyeyiRoutes/shuleAvanceServices.js",
+    "method": "GET",
+    "path": "/api/services/shule-avance/applicant/eligibility",
+    "routePath": "/shule-avance/applicant/eligibility"
+  },
+  {
+    "mount": "/api/services",
+    "file": "BabyeyiRoutes/shuleAvanceServices.js",
+    "method": "GET",
+    "path": "/api/services/shule-avance/applicant/my-requests",
+    "routePath": "/shule-avance/applicant/my-requests"
+  },
+  {
+    "mount": "/api/services",
+    "file": "BabyeyiRoutes/shuleAvanceServices.js",
+    "method": "POST",
+    "path": "/api/services/shule-avance/applicant/push/subscribe",
+    "routePath": "/shule-avance/applicant/push/subscribe"
+  },
+  {
+    "mount": "/api/services",
+    "file": "BabyeyiRoutes/shuleAvanceServices.js",
+    "method": "POST",
+    "path": "/api/services/shule-avance/applicant/push/unsubscribe",
+    "routePath": "/shule-avance/applicant/push/unsubscribe"
+  },
+  {
+    "mount": "/api/services",
+    "file": "BabyeyiRoutes/shuleAvanceServices.js",
+    "method": "GET",
+    "path": "/api/services/shule-avance/applicant/push/vapid-key",
+    "routePath": "/shule-avance/applicant/push/vapid-key"
+  },
+  {
+    "mount": "/api/services",
+    "file": "BabyeyiRoutes/shuleAvanceServices.js",
+    "method": "POST",
+    "path": "/api/services/shule-avance/applicant/requests",
+    "routePath": "/shule-avance/applicant/requests"
+  },
+  {
+    "mount": "/api/services",
+    "file": "BabyeyiRoutes/shuleAvanceServices.js",
+    "method": "DELETE",
+    "path": "/api/services/shule-avance/applicant/requests/:id",
+    "routePath": "/shule-avance/applicant/requests/:id"
+  },
+  {
+    "mount": "/api/services",
+    "file": "BabyeyiRoutes/shuleAvanceServices.js",
+    "method": "PUT",
+    "path": "/api/services/shule-avance/applicant/requests/:id",
+    "routePath": "/shule-avance/applicant/requests/:id"
+  },
+  {
+    "mount": "/api/services",
+    "file": "BabyeyiRoutes/shuleAvanceServices.js",
+    "method": "POST",
+    "path": "/api/services/shule-avance/applicant/teacher-deal-pay-token",
+    "routePath": "/shule-avance/applicant/teacher-deal-pay-token"
+  },
+  {
+    "mount": "/api/services",
+    "file": "BabyeyiRoutes/shuleAvanceServices.js",
+    "method": "POST",
+    "path": "/api/services/shule-avance/apply",
+    "routePath": "/shule-avance/apply"
+  },
+  {
+    "mount": "/api/services",
+    "file": "BabyeyiRoutes/shuleAvanceServices.js",
+    "method": "DELETE",
+    "path": "/api/services/shule-avance/cancel/:id",
+    "routePath": "/shule-avance/cancel/:id"
+  },
+  {
+    "mount": "/api/services",
+    "file": "BabyeyiRoutes/shuleAvanceServices.js",
+    "method": "GET",
+    "path": "/api/services/shule-avance/catalog",
+    "routePath": "/shule-avance/catalog"
+  },
+  {
+    "mount": "/api/services",
+    "file": "BabyeyiRoutes/shuleAvanceServices.js",
+    "method": "PATCH",
+    "path": "/api/services/shule-avance/finance/invoice-requests/:id/reject",
+    "routePath": "/shule-avance/finance/invoice-requests/:id/reject"
+  },
+  {
+    "mount": "/api/services",
+    "file": "BabyeyiRoutes/shuleAvanceServices.js",
+    "method": "PATCH",
+    "path": "/api/services/shule-avance/finance/invoice-requests/:id/send-to-manager",
+    "routePath": "/shule-avance/finance/invoice-requests/:id/send-to-manager"
+  },
+  {
+    "mount": "/api/services",
+    "file": "BabyeyiRoutes/shuleAvanceServices.js",
+    "method": "GET",
+    "path": "/api/services/shule-avance/finance/pending-invoices",
+    "routePath": "/shule-avance/finance/pending-invoices"
+  },
+  {
+    "mount": "/api/services",
+    "file": "BabyeyiRoutes/shuleAvanceServices.js",
+    "method": "GET",
+    "path": "/api/services/shule-avance/finance/requests",
+    "routePath": "/shule-avance/finance/requests"
+  },
+  {
+    "mount": "/api/services",
+    "file": "BabyeyiRoutes/shuleAvanceServices.js",
+    "method": "PATCH",
+    "path": "/api/services/shule-avance/manager/invoice-requests/:id/decision",
+    "routePath": "/shule-avance/manager/invoice-requests/:id/decision"
+  },
+  {
+    "mount": "/api/services",
+    "file": "BabyeyiRoutes/shuleAvanceServices.js",
+    "method": "GET",
+    "path": "/api/services/shule-avance/manager/pending-requests",
+    "routePath": "/shule-avance/manager/pending-requests"
+  },
+  {
+    "mount": "/api/services",
+    "file": "BabyeyiRoutes/shuleAvanceServices.js",
+    "method": "GET",
+    "path": "/api/services/shule-avance/manager/reports/summary",
+    "routePath": "/shule-avance/manager/reports/summary"
+  },
+  {
+    "mount": "/api/services",
+    "file": "BabyeyiRoutes/shuleAvanceServices.js",
+    "method": "GET",
+    "path": "/api/services/shule-avance/manager/requests",
+    "routePath": "/shule-avance/manager/requests"
+  },
+  {
+    "mount": "/api/services",
+    "file": "BabyeyiRoutes/shuleAvanceServices.js",
+    "method": "GET",
+    "path": "/api/services/shule-avance/portal/teacher-deal-payment-requests",
+    "routePath": "/shule-avance/portal/teacher-deal-payment-requests"
+  },
+  {
+    "mount": "/api/services",
+    "file": "BabyeyiRoutes/shuleAvanceServices.js",
+    "method": "POST",
+    "path": "/api/services/shule-avance/public/teacher-deal-pay-alt-intent",
+    "routePath": "/shule-avance/public/teacher-deal-pay-alt-intent"
+  },
+  {
+    "mount": "/api/services",
+    "file": "BabyeyiRoutes/shuleAvanceServices.js",
+    "method": "POST",
+    "path": "/api/services/shule-avance/public/teacher-deal-pay-momo",
+    "routePath": "/shule-avance/public/teacher-deal-pay-momo"
+  },
+  {
+    "mount": "/api/services",
+    "file": "BabyeyiRoutes/shuleAvanceServices.js",
+    "method": "POST",
+    "path": "/api/services/shule-avance/public/teacher-deal-pay-momo-status",
+    "routePath": "/shule-avance/public/teacher-deal-pay-momo-status"
+  },
+  {
+    "mount": "/api/services",
+    "file": "BabyeyiRoutes/shuleAvanceServices.js",
+    "method": "GET",
+    "path": "/api/services/shule-avance/public/teacher-deal-pay-payload",
+    "routePath": "/shule-avance/public/teacher-deal-pay-payload"
+  },
+  {
+    "mount": "/api/services",
+    "file": "BabyeyiRoutes/shuleAvanceServices.js",
+    "method": "GET",
+    "path": "/api/services/shule-avance/status",
+    "routePath": "/shule-avance/status"
+  },
+  {
+    "mount": "/api/services",
+    "file": "BabyeyiRoutes/shuleAvanceServices.js",
+    "method": "GET",
+    "path": "/api/services/shule-avance/teacher-deal-products",
+    "routePath": "/shule-avance/teacher-deal-products"
+  },
+  {
+    "mount": "/api/services",
+    "file": "BabyeyiRoutes/shuleAvanceServices.js",
+    "method": "GET",
+    "path": "/api/services/shule-avance/teacher/my-requests",
+    "routePath": "/shule-avance/teacher/my-requests"
+  },
+  {
+    "mount": "/api/services",
+    "file": "BabyeyiRoutes/shuleAvanceServices.js",
+    "method": "POST",
+    "path": "/api/services/shule-avance/teacher/requests",
+    "routePath": "/shule-avance/teacher/requests"
+  },
+  {
+    "mount": "/api/services",
+    "file": "BabyeyiRoutes/shuleAvanceServices.js",
+    "method": "DELETE",
+    "path": "/api/services/shule-avance/teacher/requests/:id",
+    "routePath": "/shule-avance/teacher/requests/:id"
+  },
+  {
+    "mount": "/api/services",
+    "file": "BabyeyiRoutes/shuleAvanceServices.js",
+    "method": "PUT",
+    "path": "/api/services/shule-avance/teacher/requests/:id",
+    "routePath": "/shule-avance/teacher/requests/:id"
+  },
+  {
+    "mount": "server.js",
+    "file": "server.js",
+    "method": "POST",
+    "path": "/api/session/logout",
+    "routePath": "/api/session/logout"
+  },
+  {
+    "mount": "server.js",
+    "file": "server.js",
+    "method": "GET",
+    "path": "/api/session/me",
+    "routePath": "/api/session/me"
+  },
+  {
+    "mount": "/api/shule-avance-partner",
+    "file": "BabyeyiRoutes/shuleAvanceOrgPortal.js",
+    "method": "GET",
+    "path": "/api/shule-avance-partner/me",
+    "routePath": "/me"
+  },
+  {
+    "mount": "/api/shule-avance-partner",
+    "file": "BabyeyiRoutes/shuleAvanceOrgPortal.js",
+    "method": "GET",
+    "path": "/api/shule-avance-partner/requests",
+    "routePath": "/requests"
+  },
+  {
+    "mount": "/api/shule-avance-partner",
+    "file": "BabyeyiRoutes/shuleAvanceOrgPortal.js",
+    "method": "GET",
+    "path": "/api/shule-avance-partner/requests/:id",
+    "routePath": "/requests/:id"
+  },
+  {
+    "mount": "/api/shule-avance-partner",
+    "file": "BabyeyiRoutes/shuleAvanceOrgPortal.js",
+    "method": "PATCH",
+    "path": "/api/shule-avance-partner/requests/:id",
+    "routePath": "/requests/:id"
+  },
+  {
+    "mount": "/api/shule-avance-partner",
+    "file": "BabyeyiRoutes/shuleAvanceOrgPortal.js",
+    "method": "GET",
+    "path": "/api/shule-avance-partner/stats",
+    "routePath": "/stats"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolStaff.js",
+    "method": "GET",
+    "path": "/api/staff",
+    "routePath": "/staff"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolStaff.js",
+    "method": "GET",
+    "path": "/api/staff/filters/roles",
+    "routePath": "/staff/filters/roles"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "GET",
+    "path": "/api/staff/payroll/my",
+    "routePath": "/staff/payroll/my"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolStaff.js",
+    "method": "GET",
+    "path": "/api/staff/public/:id",
+    "routePath": "/staff/public/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/library.js",
+    "method": "GET",
+    "path": "/api/staff/search",
+    "routePath": "/staff/search"
+  },
+  {
+    "mount": "/api/standard-shule-kits",
+    "file": "BabyeyiRoutes/standardShuleKitRoutes.js",
+    "method": "GET",
+    "path": "/api/standard-shule-kits/admin/kits",
+    "routePath": "/admin/kits"
+  },
+  {
+    "mount": "/api/standard-shule-kits",
+    "file": "BabyeyiRoutes/standardShuleKitRoutes.js",
+    "method": "POST",
+    "path": "/api/standard-shule-kits/admin/kits",
+    "routePath": "/admin/kits"
+  },
+  {
+    "mount": "/api/standard-shule-kits",
+    "file": "BabyeyiRoutes/standardShuleKitRoutes.js",
+    "method": "DELETE",
+    "path": "/api/standard-shule-kits/admin/kits/:id",
+    "routePath": "/admin/kits/:id"
+  },
+  {
+    "mount": "/api/standard-shule-kits",
+    "file": "BabyeyiRoutes/standardShuleKitRoutes.js",
+    "method": "GET",
+    "path": "/api/standard-shule-kits/admin/kits/:id",
+    "routePath": "/admin/kits/:id"
+  },
+  {
+    "mount": "/api/standard-shule-kits",
+    "file": "BabyeyiRoutes/standardShuleKitRoutes.js",
+    "method": "PUT",
+    "path": "/api/standard-shule-kits/admin/kits/:id",
+    "routePath": "/admin/kits/:id"
+  },
+  {
+    "mount": "/api/standard-shule-kits",
+    "file": "BabyeyiRoutes/standardShuleKitRoutes.js",
+    "method": "GET",
+    "path": "/api/standard-shule-kits/admin/requests",
+    "routePath": "/admin/requests"
+  },
+  {
+    "mount": "/api/standard-shule-kits",
+    "file": "BabyeyiRoutes/standardShuleKitRoutes.js",
+    "method": "GET",
+    "path": "/api/standard-shule-kits/agent/requests",
+    "routePath": "/agent/requests"
+  },
+  {
+    "mount": "/api/standard-shule-kits",
+    "file": "BabyeyiRoutes/standardShuleKitRoutes.js",
+    "method": "GET",
+    "path": "/api/standard-shule-kits/public/kits",
+    "routePath": "/public/kits"
+  },
+  {
+    "mount": "/api/standard-shule-kits",
+    "file": "BabyeyiRoutes/standardShuleKitRoutes.js",
+    "method": "GET",
+    "path": "/api/standard-shule-kits/public/kits/:id",
+    "routePath": "/public/kits/:id"
+  },
+  {
+    "mount": "/api/standard-shule-kits",
+    "file": "BabyeyiRoutes/standardShuleKitRoutes.js",
+    "method": "POST",
+    "path": "/api/standard-shule-kits/public/requests/pay-momo",
+    "routePath": "/public/requests/pay-momo"
+  },
+  {
+    "mount": "/api/standard-shule-kits",
+    "file": "BabyeyiRoutes/standardShuleKitRoutes.js",
+    "method": "GET",
+    "path": "/api/standard-shule-kits/public/requests/pay-status/:requestId",
+    "routePath": "/public/requests/pay-status/:requestId"
+  },
+  {
+    "mount": "/api/standard-shule-kits",
+    "file": "BabyeyiRoutes/standardShuleKitRoutes.js",
+    "method": "POST",
+    "path": "/api/standard-shule-kits/public/requests/prepare",
+    "routePath": "/public/requests/prepare"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolRoleOperations.js",
+    "method": "GET",
+    "path": "/api/stock/items",
+    "routePath": "/stock/items"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolRoleOperations.js",
+    "method": "POST",
+    "path": "/api/stock/items",
+    "routePath": "/stock/items"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolRoleOperations.js",
+    "method": "DELETE",
+    "path": "/api/stock/items/:id",
+    "routePath": "/stock/items/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolRoleOperations.js",
+    "method": "PUT",
+    "path": "/api/stock/items/:id",
+    "routePath": "/stock/items/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolRoleOperations.js",
+    "method": "GET",
+    "path": "/api/stock/movements",
+    "routePath": "/stock/movements"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolRoleOperations.js",
+    "method": "POST",
+    "path": "/api/stock/movements",
+    "routePath": "/stock/movements"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolRoleOperations.js",
+    "method": "DELETE",
+    "path": "/api/stock/movements/:id",
+    "routePath": "/stock/movements/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/schoolRoleOperations.js",
+    "method": "PUT",
+    "path": "/api/stock/movements/:id",
+    "routePath": "/stock/movements/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "GET",
+    "path": "/api/store/inventory",
+    "routePath": "/store/inventory"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "POST",
+    "path": "/api/store/inventory",
+    "routePath": "/store/inventory"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "DELETE",
+    "path": "/api/store/inventory/:id",
+    "routePath": "/store/inventory/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "PATCH",
+    "path": "/api/store/inventory/:id",
+    "routePath": "/store/inventory/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "GET",
+    "path": "/api/store/movements",
+    "routePath": "/store/movements"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "POST",
+    "path": "/api/store/movements",
+    "routePath": "/store/movements"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "GET",
+    "path": "/api/store/requisitions",
+    "routePath": "/store/requisitions"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "PATCH",
+    "path": "/api/store/requisitions/:id/status",
+    "routePath": "/store/requisitions/:id/status"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "GET",
+    "path": "/api/store/suppliers",
+    "routePath": "/store/suppliers"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "POST",
+    "path": "/api/store/suppliers",
+    "routePath": "/store/suppliers"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "DELETE",
+    "path": "/api/store/suppliers/:id",
+    "routePath": "/store/suppliers/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "PATCH",
+    "path": "/api/store/suppliers/:id",
+    "routePath": "/store/suppliers/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/studentCards.js",
+    "method": "GET",
+    "path": "/api/student-cards/:studentId/pdf",
+    "routePath": "/student-cards/:studentId/pdf"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/studentCards.js",
+    "method": "GET",
+    "path": "/api/student-cards/:studentId/template",
+    "routePath": "/student-cards/:studentId/template"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/studentCards.js",
+    "method": "POST",
+    "path": "/api/student-cards/bulk/pdf",
+    "routePath": "/student-cards/bulk/pdf"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/studentCards.js",
+    "method": "POST",
+    "path": "/api/student-cards/cache/refresh/:studentId",
+    "routePath": "/student-cards/cache/refresh/:studentId"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/studentCards.js",
+    "method": "GET",
+    "path": "/api/student-cards/filters/classes",
+    "routePath": "/student-cards/filters/classes"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/studentCards.js",
+    "method": "GET",
+    "path": "/api/student-cards/filters/schools",
+    "routePath": "/student-cards/filters/schools"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/studentCards.js",
+    "method": "GET",
+    "path": "/api/student-cards/students",
+    "routePath": "/student-cards/students"
+  },
+  {
+    "mount": "/api/student-services",
+    "file": "BabyeyiRoutes/studentServicesRoutes.js",
+    "method": "GET",
+    "path": "/api/student-services/admin/services",
+    "routePath": "/admin/services"
+  },
+  {
+    "mount": "/api/student-services",
+    "file": "BabyeyiRoutes/studentServicesRoutes.js",
+    "method": "POST",
+    "path": "/api/student-services/admin/services",
+    "routePath": "/admin/services"
+  },
+  {
+    "mount": "/api/student-services",
+    "file": "BabyeyiRoutes/studentServicesRoutes.js",
+    "method": "DELETE",
+    "path": "/api/student-services/admin/services/:id",
+    "routePath": "/admin/services/:id"
+  },
+  {
+    "mount": "/api/student-services",
+    "file": "BabyeyiRoutes/studentServicesRoutes.js",
+    "method": "GET",
+    "path": "/api/student-services/admin/services/:id",
+    "routePath": "/admin/services/:id"
+  },
+  {
+    "mount": "/api/student-services",
+    "file": "BabyeyiRoutes/studentServicesRoutes.js",
+    "method": "PUT",
+    "path": "/api/student-services/admin/services/:id",
+    "routePath": "/admin/services/:id"
+  },
+  {
+    "mount": "/api/student-services",
+    "file": "BabyeyiRoutes/studentServicesRoutes.js",
+    "method": "PATCH",
+    "path": "/api/student-services/admin/services/:id/status",
+    "routePath": "/admin/services/:id/status"
+  },
+  {
+    "mount": "/api/student-services",
+    "file": "BabyeyiRoutes/studentServicesRoutes.js",
+    "method": "GET",
+    "path": "/api/student-services/admin/shoe-brand-models",
+    "routePath": "/admin/shoe-brand-models"
+  },
+  {
+    "mount": "/api/student-services",
+    "file": "BabyeyiRoutes/studentServicesRoutes.js",
+    "method": "POST",
+    "path": "/api/student-services/admin/shoe-brand-models",
+    "routePath": "/admin/shoe-brand-models"
+  },
+  {
+    "mount": "/api/student-services",
+    "file": "BabyeyiRoutes/studentServicesRoutes.js",
+    "method": "DELETE",
+    "path": "/api/student-services/admin/shoe-brand-models/:id",
+    "routePath": "/admin/shoe-brand-models/:id"
+  },
+  {
+    "mount": "/api/student-services",
+    "file": "BabyeyiRoutes/studentServicesRoutes.js",
+    "method": "PUT",
+    "path": "/api/student-services/admin/shoe-brand-models/:id",
+    "routePath": "/admin/shoe-brand-models/:id"
+  },
+  {
+    "mount": "/api/student-services",
+    "file": "BabyeyiRoutes/studentServicesRoutes.js",
+    "method": "GET",
+    "path": "/api/student-services/admin/shoes/agents",
+    "routePath": "/admin/shoes/agents"
+  },
+  {
+    "mount": "/api/student-services",
+    "file": "BabyeyiRoutes/studentServicesRoutes.js",
+    "method": "GET",
+    "path": "/api/student-services/admin/shoes/orders",
+    "routePath": "/admin/shoes/orders"
+  },
+  {
+    "mount": "/api/student-services",
+    "file": "BabyeyiRoutes/studentServicesRoutes.js",
+    "method": "PATCH",
+    "path": "/api/student-services/admin/shoes/orders/:id/status",
+    "routePath": "/admin/shoes/orders/:id/status"
+  },
+  {
+    "mount": "/api/student-services",
+    "file": "BabyeyiRoutes/studentServicesRoutes.js",
+    "method": "GET",
+    "path": "/api/student-services/admin/shoes/orders/export",
+    "routePath": "/admin/shoes/orders/export"
+  },
+  {
+    "mount": "/api/student-services",
+    "file": "BabyeyiRoutes/studentServicesRoutes.js",
+    "method": "GET",
+    "path": "/api/student-services/admin/shop-products",
+    "routePath": "/admin/shop-products"
+  },
+  {
+    "mount": "/api/student-services",
+    "file": "BabyeyiRoutes/studentServicesRoutes.js",
+    "method": "GET",
+    "path": "/api/student-services/agent/shop-orders",
+    "routePath": "/agent/shop-orders"
+  },
+  {
+    "mount": "/api/student-services",
+    "file": "BabyeyiRoutes/studentServicesRoutes.js",
+    "method": "GET",
+    "path": "/api/student-services/agent/shop-products",
+    "routePath": "/agent/shop-products"
+  },
+  {
+    "mount": "/api/student-services",
+    "file": "BabyeyiRoutes/studentServicesRoutes.js",
+    "method": "POST",
+    "path": "/api/student-services/agent/shop-products",
+    "routePath": "/agent/shop-products"
+  },
+  {
+    "mount": "/api/student-services",
+    "file": "BabyeyiRoutes/studentServicesRoutes.js",
+    "method": "DELETE",
+    "path": "/api/student-services/agent/shop-products/:id",
+    "routePath": "/agent/shop-products/:id"
+  },
+  {
+    "mount": "/api/student-services",
+    "file": "BabyeyiRoutes/studentServicesRoutes.js",
+    "method": "PUT",
+    "path": "/api/student-services/agent/shop-products/:id",
+    "routePath": "/agent/shop-products/:id"
+  },
+  {
+    "mount": "/api/student-services",
+    "file": "BabyeyiRoutes/studentServicesRoutes.js",
+    "method": "POST",
+    "path": "/api/student-services/public/pay-momo",
+    "routePath": "/public/pay-momo"
+  },
+  {
+    "mount": "/api/student-services",
+    "file": "BabyeyiRoutes/studentServicesRoutes.js",
+    "method": "POST",
+    "path": "/api/student-services/public/payment-plan-intent",
+    "routePath": "/public/payment-plan-intent"
+  },
+  {
+    "mount": "/api/student-services",
+    "file": "BabyeyiRoutes/studentServicesRoutes.js",
+    "method": "POST",
+    "path": "/api/student-services/public/quote",
+    "routePath": "/public/quote"
+  },
+  {
+    "mount": "/api/student-services",
+    "file": "BabyeyiRoutes/studentServicesRoutes.js",
+    "method": "GET",
+    "path": "/api/student-services/public/services",
+    "routePath": "/public/services"
+  },
+  {
+    "mount": "/api/student-services",
+    "file": "BabyeyiRoutes/studentServicesRoutes.js",
+    "method": "GET",
+    "path": "/api/student-services/public/services/:idOrCode",
+    "routePath": "/public/services/:idOrCode"
+  },
+  {
+    "mount": "/api/student-services",
+    "file": "BabyeyiRoutes/studentServicesRoutes.js",
+    "method": "POST",
+    "path": "/api/student-services/public/shop/checkout",
+    "routePath": "/public/shop/checkout"
+  },
+  {
+    "mount": "/api/student-services",
+    "file": "BabyeyiRoutes/studentServicesRoutes.js",
+    "method": "POST",
+    "path": "/api/student-services/public/shop/pay-momo",
+    "routePath": "/public/shop/pay-momo"
+  },
+  {
+    "mount": "/api/student-services",
+    "file": "BabyeyiRoutes/studentServicesRoutes.js",
+    "method": "GET",
+    "path": "/api/student-services/public/shop/pay-status/:batchRef",
+    "routePath": "/public/shop/pay-status/:batchRef"
+  },
+  {
+    "mount": "/api/student-services",
+    "file": "BabyeyiRoutes/studentServicesRoutes.js",
+    "method": "GET",
+    "path": "/api/student-services/public/shop/products",
+    "routePath": "/public/shop/products"
+  },
+  {
+    "mount": "/api/student-services",
+    "file": "BabyeyiRoutes/studentServicesRoutes.js",
+    "method": "POST",
+    "path": "/api/student-services/public/shop/quote",
+    "routePath": "/public/shop/quote"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/studentTransfer.js",
+    "method": "PUT",
+    "path": "/api/student-transfers/:id/decision",
+    "routePath": "/student-transfers/:id/decision"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/studentTransfer.js",
+    "method": "GET",
+    "path": "/api/student-transfers/lookup",
+    "routePath": "/student-transfers/lookup"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/studentTransfer.js",
+    "method": "GET",
+    "path": "/api/student-transfers/my",
+    "routePath": "/student-transfers/my"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/studentTransfer.js",
+    "method": "GET",
+    "path": "/api/student-transfers/notifications/unread-count",
+    "routePath": "/student-transfers/notifications/unread-count"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/studentTransfer.js",
+    "method": "POST",
+    "path": "/api/student-transfers/request",
+    "routePath": "/student-transfers/request"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/students.js",
+    "method": "GET",
+    "path": "/api/students",
+    "routePath": "/students"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/students.js",
+    "method": "POST",
+    "path": "/api/students",
+    "routePath": "/students"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/students.js",
+    "method": "DELETE",
+    "path": "/api/students/:id",
+    "routePath": "/students/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/students.js",
+    "method": "PUT",
+    "path": "/api/students/:id",
+    "routePath": "/students/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/students.js",
+    "method": "PUT",
+    "path": "/api/students/:id/identity",
+    "routePath": "/students/:id/identity"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/students.js",
+    "method": "PUT",
+    "path": "/api/students/:id/identity/photo",
+    "routePath": "/students/:id/identity/photo"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/students.js",
+    "method": "POST",
+    "path": "/api/students/bulk-delete",
+    "routePath": "/students/bulk-delete"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/students.js",
+    "method": "POST",
+    "path": "/api/students/delete-all",
+    "routePath": "/students/delete-all"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/students.js",
+    "method": "GET",
+    "path": "/api/students/export.pdf",
+    "routePath": "/students/export.pdf"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/students.js",
+    "method": "GET",
+    "path": "/api/students/export.xlsx",
+    "routePath": "/students/export.xlsx"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/students.js",
+    "method": "POST",
+    "path": "/api/students/import",
+    "routePath": "/students/import"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/studentCards.js",
+    "method": "GET",
+    "path": "/api/students/public/:id",
+    "routePath": "/students/public/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/students.js",
+    "method": "GET",
+    "path": "/api/students/registry-stats",
+    "routePath": "/students/registry-stats"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/library.js",
+    "method": "GET",
+    "path": "/api/students/search",
+    "routePath": "/students/search"
+  },
+  {
+    "mount": "/api/teacher-portal",
+    "file": "BabyeyiRoutes/teacherPortal.js",
+    "method": "POST",
+    "path": "/api/teacher-portal/assessments",
+    "routePath": "/assessments"
+  },
+  {
+    "mount": "/api/teacher-portal",
+    "file": "BabyeyiRoutes/teacherPortal.js",
+    "method": "GET",
+    "path": "/api/teacher-portal/attendance",
+    "routePath": "/attendance"
+  },
+  {
+    "mount": "/api/teacher-portal",
+    "file": "BabyeyiRoutes/teacherPortal.js",
+    "method": "POST",
+    "path": "/api/teacher-portal/attendance",
+    "routePath": "/attendance"
+  },
+  {
+    "mount": "/api/teacher-portal",
+    "file": "BabyeyiRoutes/teacherPortal.js",
+    "method": "GET",
+    "path": "/api/teacher-portal/attendance-module/class-period",
+    "routePath": "/attendance-module/class-period"
+  },
+  {
+    "mount": "/api/teacher-portal",
+    "file": "BabyeyiRoutes/teacherPortal.js",
+    "method": "POST",
+    "path": "/api/teacher-portal/attendance-module/class-period",
+    "routePath": "/attendance-module/class-period"
+  },
+  {
+    "mount": "/api/teacher-portal",
+    "file": "BabyeyiRoutes/teacherPortal.js",
+    "method": "GET",
+    "path": "/api/teacher-portal/attendance-module/meta",
+    "routePath": "/attendance-module/meta"
+  },
+  {
+    "mount": "/api/teacher-portal",
+    "file": "BabyeyiRoutes/teacherPortal.js",
+    "method": "GET",
+    "path": "/api/teacher-portal/attendance-module/parent-notifications",
+    "routePath": "/attendance-module/parent-notifications"
+  },
+  {
+    "mount": "/api/teacher-portal",
+    "file": "BabyeyiRoutes/teacherPortal.js",
+    "method": "POST",
+    "path": "/api/teacher-portal/attendance-module/parent-notifications/enqueue",
+    "routePath": "/attendance-module/parent-notifications/enqueue"
+  },
+  {
+    "mount": "/api/teacher-portal",
+    "file": "BabyeyiRoutes/teacherPortal.js",
+    "method": "GET",
+    "path": "/api/teacher-portal/attendance-module/student-entry-exit",
+    "routePath": "/attendance-module/student-entry-exit"
+  },
+  {
+    "mount": "/api/teacher-portal",
+    "file": "BabyeyiRoutes/teacherPortal.js",
+    "method": "GET",
+    "path": "/api/teacher-portal/attendance-module/student-entry-exit/monthly-grid",
+    "routePath": "/attendance-module/student-entry-exit/monthly-grid"
+  },
+  {
+    "mount": "/api/teacher-portal",
+    "file": "BabyeyiRoutes/teacherPortal.js",
+    "method": "POST",
+    "path": "/api/teacher-portal/attendance-module/student-entry-exit/simulate-scan",
+    "routePath": "/attendance-module/student-entry-exit/simulate-scan"
+  },
+  {
+    "mount": "/api/teacher-portal",
+    "file": "BabyeyiRoutes/teacherPortal.js",
+    "method": "GET",
+    "path": "/api/teacher-portal/attendance-module/teacher",
+    "routePath": "/attendance-module/teacher"
+  },
+  {
+    "mount": "/api/teacher-portal",
+    "file": "BabyeyiRoutes/teacherPortal.js",
+    "method": "GET",
+    "path": "/api/teacher-portal/attendance-module/teacher-class-checkin",
+    "routePath": "/attendance-module/teacher-class-checkin"
+  },
+  {
+    "mount": "/api/teacher-portal",
+    "file": "BabyeyiRoutes/teacherPortal.js",
+    "method": "POST",
+    "path": "/api/teacher-portal/attendance-module/teacher-class-checkin/override",
+    "routePath": "/attendance-module/teacher-class-checkin/override"
+  },
+  {
+    "mount": "/api/teacher-portal",
+    "file": "BabyeyiRoutes/teacherPortal.js",
+    "method": "POST",
+    "path": "/api/teacher-portal/attendance-module/teacher-class-checkin/simulate-scan",
+    "routePath": "/attendance-module/teacher-class-checkin/simulate-scan"
+  },
+  {
+    "mount": "/api/teacher-portal",
+    "file": "BabyeyiRoutes/teacherPortal.js",
+    "method": "POST",
+    "path": "/api/teacher-portal/attendance-module/teacher/manual",
+    "routePath": "/attendance-module/teacher/manual"
+  },
+  {
+    "mount": "/api/teacher-portal",
+    "file": "BabyeyiRoutes/teacherPortal.js",
+    "method": "GET",
+    "path": "/api/teacher-portal/attendance-module/teacher/monthly-grid",
+    "routePath": "/attendance-module/teacher/monthly-grid"
+  },
+  {
+    "mount": "/api/teacher-portal",
+    "file": "BabyeyiRoutes/teacherPortal.js",
+    "method": "POST",
+    "path": "/api/teacher-portal/attendance-module/teacher/simulate-scan",
+    "routePath": "/attendance-module/teacher/simulate-scan"
+  },
+  {
+    "mount": "/api/teacher-portal",
+    "file": "BabyeyiRoutes/teacherPortal.js",
+    "method": "GET",
+    "path": "/api/teacher-portal/attendance-summary/daily",
+    "routePath": "/attendance-summary/daily"
+  },
+  {
+    "mount": "/api/teacher-portal",
+    "file": "BabyeyiRoutes/teacherPortal.js",
+    "method": "GET",
+    "path": "/api/teacher-portal/attendance-summary/weekly",
+    "routePath": "/attendance-summary/weekly"
+  },
+  {
+    "mount": "/api/teacher-portal",
+    "file": "BabyeyiRoutes/teacherPortal.js",
+    "method": "POST",
+    "path": "/api/teacher-portal/avance/ussd/cashout-request",
+    "routePath": "/avance/ussd/cashout-request"
+  },
+  {
+    "mount": "/api/teacher-portal",
+    "file": "BabyeyiRoutes/teacherPortal.js",
+    "method": "POST",
+    "path": "/api/teacher-portal/avance/ussd/login",
+    "routePath": "/avance/ussd/login"
+  },
+  {
+    "mount": "/api/teacher-portal",
+    "file": "BabyeyiRoutes/teacherPortal.js",
+    "method": "GET",
+    "path": "/api/teacher-portal/avance/ussd/requests",
+    "routePath": "/avance/ussd/requests"
+  },
+  {
+    "mount": "/api/teacher-portal",
+    "file": "BabyeyiRoutes/teacherPortal.js",
+    "method": "GET",
+    "path": "/api/teacher-portal/classes",
+    "routePath": "/classes"
+  },
+  {
+    "mount": "/api/teacher-portal",
+    "file": "BabyeyiRoutes/teacherPortal.js",
+    "method": "GET",
+    "path": "/api/teacher-portal/dashboard",
+    "routePath": "/dashboard"
+  },
+  {
+    "mount": "/api/teacher-portal",
+    "file": "BabyeyiRoutes/teacherPortal.js",
+    "method": "GET",
+    "path": "/api/teacher-portal/english-club/resources",
+    "routePath": "/english-club/resources"
+  },
+  {
+    "mount": "/api/teacher-portal",
+    "file": "BabyeyiRoutes/teacherPortal.js",
+    "method": "GET",
+    "path": "/api/teacher-portal/examination-list",
+    "routePath": "/examination-list"
+  },
+  {
+    "mount": "/api/teacher-portal",
+    "file": "BabyeyiRoutes/teacherPortal.js",
+    "method": "GET",
+    "path": "/api/teacher-portal/gradebook-assessments",
+    "routePath": "/gradebook-assessments"
+  },
+  {
+    "mount": "/api/teacher-portal",
+    "file": "BabyeyiRoutes/teacherPortal.js",
+    "method": "GET",
+    "path": "/api/teacher-portal/gradebook-filters",
+    "routePath": "/gradebook-filters"
+  },
+  {
+    "mount": "/api/teacher-portal",
+    "file": "BabyeyiRoutes/teacherPortal.js",
+    "method": "GET",
+    "path": "/api/teacher-portal/gradebook-matrix",
+    "routePath": "/gradebook-matrix"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "GET",
+    "path": "/api/teacher-portal/inventory-equipment",
+    "routePath": "/teacher-portal/inventory-equipment"
+  },
+  {
+    "mount": "/api/teacher-portal",
+    "file": "BabyeyiRoutes/teacherPortal.js",
+    "method": "POST",
+    "path": "/api/teacher-portal/marks",
+    "routePath": "/marks"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "GET",
+    "path": "/api/teacher-portal/permissions",
+    "routePath": "/teacher-portal/permissions"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "POST",
+    "path": "/api/teacher-portal/permissions",
+    "routePath": "/teacher-portal/permissions"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "DELETE",
+    "path": "/api/teacher-portal/permissions/:id",
+    "routePath": "/teacher-portal/permissions/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "GET",
+    "path": "/api/teacher-portal/requisitions",
+    "routePath": "/teacher-portal/requisitions"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "POST",
+    "path": "/api/teacher-portal/requisitions",
+    "routePath": "/teacher-portal/requisitions"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "DELETE",
+    "path": "/api/teacher-portal/requisitions/:id",
+    "routePath": "/teacher-portal/requisitions/:id"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "PATCH",
+    "path": "/api/teacher-portal/requisitions/:id",
+    "routePath": "/teacher-portal/requisitions/:id"
+  },
+  {
+    "mount": "/api/teacher-portal",
+    "file": "BabyeyiRoutes/teacherPortal.js",
+    "method": "GET",
+    "path": "/api/teacher-portal/round-roll-call",
+    "routePath": "/round-roll-call"
+  },
+  {
+    "mount": "/api/teacher-portal",
+    "file": "BabyeyiRoutes/teacherPortal.js",
+    "method": "POST",
+    "path": "/api/teacher-portal/round-roll-call",
+    "routePath": "/round-roll-call"
+  },
+  {
+    "mount": "/api/teacher-portal",
+    "file": "BabyeyiRoutes/teacherPortal.js",
+    "method": "GET",
+    "path": "/api/teacher-portal/round-roll-call/sessions",
+    "routePath": "/round-roll-call/sessions"
+  },
+  {
+    "mount": "/api/teacher-portal",
+    "file": "BabyeyiRoutes/teacherPortal.js",
+    "method": "GET",
+    "path": "/api/teacher-portal/staff/payroll/my",
+    "routePath": "/staff/payroll/my"
+  },
+  {
+    "mount": "/api/teacher-portal",
+    "file": "BabyeyiRoutes/teacherPortal.js",
+    "method": "GET",
+    "path": "/api/teacher-portal/students",
+    "routePath": "/students"
+  },
+  {
+    "mount": "/api/teacher-portal",
+    "file": "BabyeyiRoutes/teacherPortal.js",
+    "method": "GET",
+    "path": "/api/teacher-portal/teacher-attendance",
+    "routePath": "/teacher-attendance"
+  },
+  {
+    "mount": "/api/teacher-portal",
+    "file": "BabyeyiRoutes/teacherPortal.js",
+    "method": "POST",
+    "path": "/api/teacher-portal/teacher-attendance",
+    "routePath": "/teacher-attendance"
+  },
+  {
+    "mount": "/api/teacher-portal",
+    "file": "BabyeyiRoutes/teacherPortal.js",
+    "method": "GET",
+    "path": "/api/teacher-portal/timetable",
+    "routePath": "/timetable"
+  },
+  {
+    "mount": "/api/teacher-portal",
+    "file": "BabyeyiRoutes/teacherPortal.js",
+    "method": "GET",
+    "path": "/api/teacher-portal/timetable-filters",
+    "routePath": "/timetable-filters"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "POST",
+    "path": "/api/tools/ticha-ai/assist",
+    "routePath": "/tools/ticha-ai/assist"
+  },
+  {
+    "mount": "/api",
+    "file": "BabyeyiRoutes/portalOperations.js",
+    "method": "GET",
+    "path": "/api/tools/ticha-ai/history",
+    "routePath": "/tools/ticha-ai/history"
+  },
+  {
+    "mount": "/api/uniform-vouchers",
+    "file": "BabyeyiRoutes/uniformVoucherRoutes.js",
+    "method": "GET",
+    "path": "/api/uniform-vouchers/admin/items",
+    "routePath": "/admin/items"
+  },
+  {
+    "mount": "/api/uniform-vouchers",
+    "file": "BabyeyiRoutes/uniformVoucherRoutes.js",
+    "method": "POST",
+    "path": "/api/uniform-vouchers/admin/items",
+    "routePath": "/admin/items"
+  },
+  {
+    "mount": "/api/uniform-vouchers",
+    "file": "BabyeyiRoutes/uniformVoucherRoutes.js",
+    "method": "DELETE",
+    "path": "/api/uniform-vouchers/admin/items/:id",
+    "routePath": "/admin/items/:id"
+  },
+  {
+    "mount": "/api/uniform-vouchers",
+    "file": "BabyeyiRoutes/uniformVoucherRoutes.js",
+    "method": "PUT",
+    "path": "/api/uniform-vouchers/admin/items/:id",
+    "routePath": "/admin/items/:id"
+  },
+  {
+    "mount": "/api/uniform-vouchers",
+    "file": "BabyeyiRoutes/uniformVoucherRoutes.js",
+    "method": "GET",
+    "path": "/api/uniform-vouchers/admin/orders",
+    "routePath": "/admin/orders"
+  },
+  {
+    "mount": "/api/uniform-vouchers",
+    "file": "BabyeyiRoutes/uniformVoucherRoutes.js",
+    "method": "PATCH",
+    "path": "/api/uniform-vouchers/admin/orders/:id",
+    "routePath": "/admin/orders/:id"
+  },
+  {
+    "mount": "/api/uniform-vouchers",
+    "file": "BabyeyiRoutes/uniformVoucherRoutes.js",
+    "method": "GET",
+    "path": "/api/uniform-vouchers/admin/summary",
+    "routePath": "/admin/summary"
+  },
+  {
+    "mount": "/api/uniform-vouchers",
+    "file": "BabyeyiRoutes/uniformVoucherRoutes.js",
+    "method": "GET",
+    "path": "/api/uniform-vouchers/agent/orders",
+    "routePath": "/agent/orders"
+  },
+  {
+    "mount": "/api/uniform-vouchers",
+    "file": "BabyeyiRoutes/uniformVoucherRoutes.js",
+    "method": "PATCH",
+    "path": "/api/uniform-vouchers/agent/orders/:id",
+    "routePath": "/agent/orders/:id"
+  },
+  {
+    "mount": "/api/uniform-vouchers",
+    "file": "BabyeyiRoutes/uniformVoucherRoutes.js",
+    "method": "GET",
+    "path": "/api/uniform-vouchers/public/items",
+    "routePath": "/public/items"
+  },
+  {
+    "mount": "/api/uniform-vouchers",
+    "file": "BabyeyiRoutes/uniformVoucherRoutes.js",
+    "method": "POST",
+    "path": "/api/uniform-vouchers/public/lookup-student",
+    "routePath": "/public/lookup-student"
+  },
+  {
+    "mount": "/api/uniform-vouchers",
+    "file": "BabyeyiRoutes/uniformVoucherRoutes.js",
+    "method": "POST",
+    "path": "/api/uniform-vouchers/public/orders",
+    "routePath": "/public/orders"
+  },
+  {
+    "mount": "/api/uniform-vouchers",
+    "file": "BabyeyiRoutes/uniformVoucherRoutes.js",
+    "method": "POST",
+    "path": "/api/uniform-vouchers/public/pay-momo",
+    "routePath": "/public/pay-momo"
+  },
+  {
+    "mount": "/api/uniform-vouchers",
+    "file": "BabyeyiRoutes/uniformVoucherRoutes.js",
+    "method": "GET",
+    "path": "/api/uniform-vouchers/public/pay-status/:orderId",
+    "routePath": "/public/pay-status/:orderId"
+  },
+  {
+    "mount": "/api/uniform-vouchers",
+    "file": "BabyeyiRoutes/uniformVoucherRoutes.js",
+    "method": "POST",
+    "path": "/api/uniform-vouchers/public/payment-intent",
+    "routePath": "/public/payment-intent"
+  },
+  {
+    "mount": "/api/uniform-vouchers",
+    "file": "BabyeyiRoutes/uniformVoucherRoutes.js",
+    "method": "GET",
+    "path": "/api/uniform-vouchers/public/track/:voucherNumber",
+    "routePath": "/public/track/:voucherNumber"
+  }
+]

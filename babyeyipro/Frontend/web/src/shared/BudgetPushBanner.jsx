@@ -11,7 +11,12 @@ import {
  * Compact enable/disable control for budget web push alerts.
  * @param {import('axios').AxiosInstance} api
  */
-export default function BudgetPushBanner({ api, className = '' }) {
+export default function BudgetPushBanner({
+  api,
+  className = '',
+  label = 'Budget alerts',
+  enabledMessage = 'You will receive budget alerts on this device',
+}) {
   const [state, setState] = useState({ supported: false, subscribed: false, permission: 'default' });
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
@@ -36,7 +41,7 @@ export default function BudgetPushBanner({ api, className = '' }) {
         setMsg('Notifications turned off');
       } else {
         await subscribePortalPush(api);
-        setMsg('You will receive budget alerts on this device');
+        setMsg(enabledMessage);
       }
       await refresh();
     } catch (e) {
@@ -53,7 +58,7 @@ export default function BudgetPushBanner({ api, className = '' }) {
     >
       <span className="flex items-center gap-2 text-slate-700">
         <Bell size={14} style={{ color: '#F59E0B' }} />
-        Budget alerts
+        {label}
         {state.subscribed && <span className="text-[9px] uppercase text-emerald-700 font-bold">On</span>}
       </span>
       <button

@@ -6,6 +6,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
+import BabyeyiPortalLoader from "../../components/BabyeyiPortalLoader";
 import {
   GraduationCap, Globe, Users, BookOpen, Bell, Search, Star,
   ArrowRight, MapPin, BarChart3, Shield, Smartphone,
@@ -1146,9 +1148,15 @@ function Footer() {
 
 /* ── Root ──────────────────────────────────────────────────────── */
 export default function PublicPage() {
+  const { loading: authLoading } = useAuth();
+
   useEffect(() => {
     document.title = "Babyeyi System";
   }, []);
+
+  if (authLoading) {
+    return <BabyeyiPortalLoader message="Loading" />;
+  }
 
   return (
     <div>

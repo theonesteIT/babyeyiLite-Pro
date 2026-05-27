@@ -20,6 +20,12 @@ const GATE_ATTENDANCE_ADMIN_ROLES = [
   'TEACHER',
   'SCHOOL_REPRESENTATIVE',
 ];
+/** View gate counts / logs (no settings or delete) — store team for stock planning. */
+const GATE_ATTENDANCE_READ_ROLES = [
+  ...GATE_ATTENDANCE_ADMIN_ROLES,
+  'STOREKEEPER',
+  'STORE_MANAGER',
+];
 
 let tablesReady = false;
 let permissionTrackingReady = false;
@@ -1255,7 +1261,7 @@ router.get('/gate/scan/logs', requireRole(GATE_ROLES), async (req, res) => {
   }
 });
 
-router.get('/gate/attendance/settings', requireRole(GATE_ATTENDANCE_ADMIN_ROLES), async (req, res) => {
+router.get('/gate/attendance/settings', requireRole(GATE_ATTENDANCE_READ_ROLES), async (req, res) => {
   try {
     const schoolId = resolveSchoolId(req);
     if (!schoolId) return res.status(400).json({ success: false, message: 'School context missing.' });
@@ -1320,7 +1326,7 @@ router.put('/gate/attendance/settings', requireRole(GATE_ATTENDANCE_ADMIN_ROLES)
   }
 });
 
-router.get('/gate/attendance/latest-event', requireRole(GATE_ATTENDANCE_ADMIN_ROLES), async (req, res) => {
+router.get('/gate/attendance/latest-event', requireRole(GATE_ATTENDANCE_READ_ROLES), async (req, res) => {
   try {
     const schoolId = resolveSchoolId(req);
     if (!schoolId) return res.status(400).json({ success: false, message: 'School context missing.' });
@@ -1341,7 +1347,7 @@ router.get('/gate/attendance/latest-event', requireRole(GATE_ATTENDANCE_ADMIN_RO
   }
 });
 
-router.get('/gate/attendance/today', requireRole(GATE_ATTENDANCE_ADMIN_ROLES), async (req, res) => {
+router.get('/gate/attendance/today', requireRole(GATE_ATTENDANCE_READ_ROLES), async (req, res) => {
   try {
     const schoolId = resolveSchoolId(req);
     if (!schoolId) return res.status(400).json({ success: false, message: 'School context missing.' });
@@ -1362,7 +1368,42 @@ router.get('/gate/attendance/today', requireRole(GATE_ATTENDANCE_ADMIN_ROLES), a
   }
 });
 
-router.get('/gate/attendance/logs', requireRole(GATE_ATTENDANCE_ADMIN_ROLES), async (req, res) => {
+router.get('/gate/attendance/filter-options', requireRole(GATE_ATTENDANCE_READ_ROLES), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School context missing.' });
+    const [yearRows] = await promisePool.query(
+      `SELECT DISTINCT academic_year AS y
+       FROM school_gate_attendance_records
+       WHERE school_id = ? AND academic_year IS NOT NULL AND TRIM(academic_year) <> ''
+       ORDER BY academic_year DESC`,
+      [schoolId]
+    );
+    const [termRows] = await promisePool.query(
+      `SELECT DISTINCT term AS t
+       FROM school_gate_attendance_records
+       WHERE school_id = ? AND term IS NOT NULL AND TRIM(term) <> ''
+       ORDER BY term ASC`,
+      [schoolId]
+    );
+    const contextDate = currentSchoolDateAndMinutes().dateStr;
+    const ctx = await resolveAcademicContext(schoolId, '', '', contextDate);
+    return res.json({
+      success: true,
+      data: {
+        academic_years: (yearRows || []).map((r) => r.y).filter(Boolean),
+        terms: (termRows || []).map((r) => r.t).filter(Boolean),
+        current_academic_year: ctx.academicYear || null,
+        current_term: ctx.term || null,
+      },
+    });
+  } catch (err) {
+    console.error('GET /gate/attendance/filter-options', err);
+    return res.status(500).json({ success: false, message: 'Failed to load gate filter options.' });
+  }
+});
+
+router.get('/gate/attendance/logs', requireRole(GATE_ATTENDANCE_READ_ROLES), async (req, res) => {
   try {
     const schoolId = resolveSchoolId(req);
     if (!schoolId) return res.status(400).json({ success: false, message: 'School context missing.' });
@@ -1379,7 +1420,6 @@ router.get('/gate/attendance/logs', requireRole(GATE_ATTENDANCE_ADMIN_ROLES), as
     const academicYearQ = cleanStr(req.query.academic_year, 40);
     const q = cleanStr(req.query.search, 120).toLowerCase();
     const contextDate = fromDate || toDate || currentSchoolDateAndMinutes().dateStr;
-    const { term, academicYear } = await resolveAcademicContext(schoolId, academicYearQ, termQ, contextDate);
 
     let where = 'WHERE school_id = ?';
     const params = [schoolId];
@@ -1387,8 +1427,20 @@ router.get('/gate/attendance/logs', requireRole(GATE_ATTENDANCE_ADMIN_ROLES), as
     if (fromDate) { where += ' AND attendance_date >= ?'; params.push(fromDate); }
     if (toDate) { where += ' AND attendance_date <= ?'; params.push(toDate); }
     if (role && ['STUDENT', 'STAFF'].includes(role)) { where += ' AND person_type = ?'; params.push(role); }
-    if (term) { where += ' AND term = ?'; params.push(term); }
-    if (academicYear) { where += ' AND academic_year = ?'; params.push(academicYear); }
+    if (academicYearQ) {
+      const ctx = await resolveAcademicContext(schoolId, academicYearQ, '', contextDate);
+      if (ctx.academicYear) {
+        where += ' AND academic_year = ?';
+        params.push(ctx.academicYear);
+      }
+    }
+    if (termQ) {
+      const ctx = await resolveAcademicContext(schoolId, '', termQ, contextDate);
+      if (ctx.term) {
+        where += ' AND term = ?';
+        params.push(ctx.term);
+      }
+    }
     if (session === 'morning_only') where += ' AND morning_check_in IS NOT NULL AND evening_check_out IS NULL';
     if (session === 'evening_only') where += ' AND morning_check_in IS NULL AND evening_check_out IS NOT NULL';
     if (session === 'both') where += ' AND morning_check_in IS NOT NULL AND evening_check_out IS NOT NULL';
@@ -1409,6 +1461,17 @@ router.get('/gate/attendance/logs', requireRole(GATE_ATTENDANCE_ADMIN_ROLES), as
       params
     );
     const total = Number(countRow?.total || 0);
+
+    const [[summaryRow]] = await promisePool.query(
+      `SELECT
+         COUNT(DISTINCT CASE WHEN morning_check_in IS NOT NULL THEN card_uid END) AS students_entered,
+         COUNT(DISTINCT CASE WHEN evening_check_out IS NOT NULL THEN card_uid END) AS students_exited,
+         COUNT(DISTINCT CASE WHEN morning_status = 'Late' THEN card_uid END) AS late_arrivals,
+         COUNT(DISTINCT attendance_date) AS school_days
+       FROM school_gate_attendance_records
+       ${where}`,
+      params
+    );
 
     const [rows] = await promisePool.query(
       `SELECT
@@ -1431,7 +1494,12 @@ router.get('/gate/attendance/logs', requireRole(GATE_ATTENDANCE_ADMIN_ROLES), as
         total,
         total_pages: Math.max(1, Math.ceil(total / limit)),
       },
-      meta: { term, academic_year: academicYear },
+      summary: {
+        students_entered: Number(summaryRow?.students_entered || 0),
+        students_exited: Number(summaryRow?.students_exited || 0),
+        late_arrivals: Number(summaryRow?.late_arrivals || 0),
+        school_days: Number(summaryRow?.school_days || 0),
+      },
     });
   } catch (err) {
     console.error('GET /gate/attendance/logs', err);

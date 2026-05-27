@@ -21,6 +21,13 @@ export function isCoreBabyeyiLang(code) {
   return CORE_BABYEYI_LANG_CODES.has(normalizeBabyeyiLang(code));
 }
 
+/** Hand-maintained locales (JSON bundles) — flags for language picker UI. */
+export const CORE_BABYEYI_LANG_OPTIONS = [
+  { code: "en", flag: "🇬🇧", name: "English" },
+  { code: "rw", flag: "🇷🇼", name: "Kinyarwanda" },
+  { code: "fr", flag: "🇫🇷", name: "Français" },
+];
+
 /**
  * Extra UI languages via Lingva (instant machine translation from English strings).
  * Codes are ISO 639-1 where Lingva supports them.

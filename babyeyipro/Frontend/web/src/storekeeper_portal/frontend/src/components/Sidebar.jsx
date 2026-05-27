@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { createElement } from 'react';
+import { createElement, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard,
@@ -12,14 +12,20 @@ import {
   Wifi,
   WifiOff,
   RefreshCw,
-  Store,
   MessageSquare,
   DollarSign,
   Sparkles,
-  Landmark,
   Headphones,
   CalendarDays,
   ShoppingBag,
+  DoorOpen,
+  Landmark,
+  Receipt,
+  Bell,
+  BarChart3,
+  Settings,
+  Bot,
+  Wallet,
 } from 'lucide-react';
 import { PORTAL } from '../config/portal';
 import useChatUnread from '../../../../shared/hooks/useChatUnread';
@@ -48,13 +54,14 @@ const AppStatusBadge = ({ status = 'online' }) => {
   );
 };
 
-const NavItem = ({ icon, name, path, exact, onClose, badgeCount = 0 }) => (
+const NavItem = ({ icon, name, path, exact, onClose, badgeCount = 0, indent = false }) => (
   <NavLink
     to={path}
     end={exact}
     onClick={onClose}
     className={({ isActive }) =>
-      `relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group text-[13px] font-semibold tracking-tight border border-transparent
+      `relative flex items-center gap-3 rounded-xl transition-all duration-200 group text-[13px] font-semibold tracking-tight border border-transparent
+      ${indent ? 'pl-9 pr-3 py-2' : 'px-3 py-2.5'}
       ${
         isActive
           ? 'bg-white/[0.12] text-re-gold shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] border-white/10'
@@ -65,7 +72,7 @@ const NavItem = ({ icon, name, path, exact, onClose, badgeCount = 0 }) => (
     {({ isActive }) => (
       <>
         {createElement(icon, {
-          size: 18,
+          size: indent ? 16 : 18,
           strokeWidth: 1.75,
           className: isActive
             ? 'text-re-gold shrink-0'
@@ -82,14 +89,72 @@ const NavItem = ({ icon, name, path, exact, onClose, badgeCount = 0 }) => (
   </NavLink>
 );
 
-const SectionLabel = ({ label }) => (
-  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400 px-3 pt-4 pb-2 first:pt-1">{label}</p>
+const SectionLabel = ({ label, icon: Icon }) => (
+  <div className="flex items-center gap-2 px-3 pt-4 pb-1.5 first:pt-1">
+    {Icon ? (
+      <Icon size={14} strokeWidth={1.75} className="text-re-gold/85 shrink-0" aria-hidden />
+    ) : null}
+    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">{label}</p>
+  </div>
 );
 
 const Sidebar = ({ onClose }) => {
   const navigate = useNavigate();
   const { staff, logout } = useAuth();
   const unreadCount = useChatUnread();
+
+  const sections = useMemo(
+    () => [
+      {
+        id: 'dashboard',
+        items: [{ icon: LayoutDashboard, name: 'Dashboard', path: h('/'), exact: true }],
+      },
+      {
+        id: 'store',
+        label: 'Store Management',
+        icon: Package,
+        items: [
+          { icon: Package, name: 'Inventory', path: h('/inventory') },
+          { icon: ArrowDownUp, name: 'Stock Movements', path: h('/movements') },
+          { icon: ClipboardList, name: 'Requisitions', path: h('/requisitions') },
+          { icon: Building2, name: 'Suppliers', path: h('/suppliers') },
+        ],
+      },
+      {
+        id: 'finance',
+        label: 'Finance',
+        icon: Wallet,
+        items: [
+          { icon: DollarSign, name: 'Payroll', path: h('/my-payroll') },
+          { icon: Landmark, name: 'Advances', path: h('/shule-avance') },
+          { icon: ShoppingBag, name: 'Deals', path: h('/ticha-deals') },
+          { icon: Receipt, name: 'Expenses', path: h('/expenses') },
+        ],
+      },
+      {
+        id: 'communication',
+        label: 'Communication',
+        icon: MessageSquare,
+        items: [
+          { icon: MessageSquare, name: 'Chat Center', path: h('/chat'), badgeCount: unreadCount },
+        
+          
+        ],
+      },
+      {
+        id: 'reports',
+        label: 'Reports',
+        icon: BarChart3,
+        items: [
+          { icon: DoorOpen, name: 'Gate Attendance', path: h('/gate-attendance') },
+          { icon: BarChart3, name: 'Arrival Reports', path: h('/arrival-reports') },
+          { icon: CalendarDays, name: 'School Calendar', path: h('/school-calendar') },
+        ],
+      },
+      
+    ],
+    [unreadCount]
+  );
 
   return (
     <div
@@ -115,23 +180,27 @@ const Sidebar = ({ onClose }) => {
         className="storekeeper-sidebar-scroll flex-1 min-h-0 px-3 py-3 overflow-y-auto overflow-x-hidden overscroll-y-contain space-y-0.5 pr-1"
         aria-label="Storekeeper navigation"
       >
-        <SectionLabel label="Main" />
-        <NavItem icon={LayoutDashboard} name="Dashboard" path={h('/')} exact onClose={onClose} />
-
-        <SectionLabel label="Store operations" />
-        <NavItem icon={Package} name="Inventory" path={h('/inventory')} onClose={onClose} />
-        <NavItem icon={ArrowDownUp} name="Stock Movements" path={h('/movements')} onClose={onClose} />
-        <NavItem icon={ClipboardList} name="Requisitions" path={h('/requisitions')} onClose={onClose} />
-        <NavItem icon={Building2} name="Suppliers" path={h('/suppliers')} onClose={onClose} />
-
-        <NavItem icon={CalendarDays} name="School Calendar" path={h('/school-calendar')} onClose={onClose} />
-
-        <SectionLabel label="Services" />
-        <NavItem icon={DollarSign} name="My Payroll" path={h('/my-payroll')} onClose={onClose} />
-        <NavItem icon={Sparkles} name="Shule Avance" path={h('/shule-avance')} onClose={onClose} />
-        <NavItem icon={ShoppingBag} name="Ticha Deals" path={h('/ticha-deals')} onClose={onClose} />
-        <NavItem icon={Store} name="Ticha AI" path={h('/ticha-ai')} onClose={onClose} />
-        <NavItem icon={MessageSquare} name="Chat Center" path={h('/chat')} onClose={onClose} badgeCount={unreadCount} />
+        {sections.map((section) => (
+          <div key={section.id}>
+            {section.label ? (
+              <SectionLabel label={section.label} icon={section.icon} />
+            ) : section.id === 'settings' ? (
+              <SectionLabel label="Settings" icon={Settings} />
+            ) : null}
+            {section.items.map((item) => (
+              <NavItem
+                key={item.path}
+                icon={item.icon}
+                name={item.name}
+                path={item.path}
+                exact={item.exact}
+                onClose={onClose}
+                badgeCount={item.badgeCount || 0}
+                indent={Boolean(section.label) || section.id === 'settings'}
+              />
+            ))}
+          </div>
+        ))}
       </nav>
 
       <div className="p-4 pt-2 shrink-0 border-t border-white/[0.06] space-y-3">

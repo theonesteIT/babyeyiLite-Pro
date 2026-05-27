@@ -21,10 +21,13 @@ import {
   BookOpen,
   CalendarClock,
   CalendarDays,
+  ClipboardList,
+  DoorOpen,
   ExternalLink,
   Globe,
   GraduationCap,
   IdCard,
+  Loader2,
   Lock,
   Mail,
   MapPin,
@@ -34,6 +37,7 @@ import {
   User,
   UserRound,
   VenusAndMars,
+  Wallet,
 } from 'lucide-react';
 
 /* ─── Config ──────────────────────────────────────────────────────── */
@@ -125,11 +129,13 @@ function mapRowToStudent(row) {
 export default function QRStudentsProfile() {
   const { studentId: idFromPath } = useParams();
   const [searchParams] = useSearchParams();
-  const [student,  setStudent]  = useState(null);
-  const [loading,  setLoading]  = useState(true);
-  const [error,    setError]    = useState(null);
-  const [imgError, setImgError] = useState(false);
-  const [entered,  setEntered]  = useState(false);
+  const [student,   setStudent]   = useState(null);
+  const [insights,  setInsights]  = useState(null);
+  const [loading,   setLoading]   = useState(true);
+  const [insightsLoading, setInsightsLoading] = useState(false);
+  const [error,     setError]     = useState(null);
+  const [imgError,  setImgError]  = useState(false);
+  const [entered,   setEntered]   = useState(false);
 
   const resolveStudentId = useCallback(() => {
     const a = idFromPath && String(idFromPath).trim();
@@ -139,12 +145,30 @@ export default function QRStudentsProfile() {
     return getStudentIdFromSearchAndHash();
   }, [idFromPath, searchParams]);
 
+  const fetchInsights = useCallback(async (id) => {
+    setInsightsLoading(true);
+    try {
+      const res = await fetch(`${API}/students/public/${encodeURIComponent(id)}/school-insights`);
+      const json = await res.json().catch(() => ({}));
+      if (res.ok && json.success && json.data) {
+        setInsights(json.data);
+      } else {
+        setInsights(null);
+      }
+    } catch {
+      setInsights(null);
+    } finally {
+      setInsightsLoading(false);
+    }
+  }, []);
+
   const fetchStudent = useCallback(async (id) => {
     setLoading(true);
     setError(null);
+    setInsights(null);
     try {
       /* Public endpoint — no credentials required */
-      const res = await fetch(`${API}/students/public/${id}`);
+      const res = await fetch(`${API}/students/public/${encodeURIComponent(id)}`);
       if (!res.ok) {
         if (res.status === 404) throw new Error('Student not found. This QR code may be invalid or expired.');
         if (res.status === 400) throw new Error('Invalid student link. Ask your school to print a new ID card QR.');
@@ -153,14 +177,16 @@ export default function QRStudentsProfile() {
       const json = await res.json();
       if (!json.success && !json.data && !json.student) throw new Error(json.message || 'Could not load student data.');
       const raw = json.data || json.student || json;
-      setStudent(mapRowToStudent(raw));
+      const mapped = mapRowToStudent(raw);
+      setStudent(mapped);
       setTimeout(() => setEntered(true), 60);
+      fetchInsights(mapped.id || id);
     } catch (e) {
       setError(e.message || 'An unexpected error occurred.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [fetchInsights]);
 
   useEffect(() => {
     const id = resolveStudentId();
@@ -195,7 +221,16 @@ export default function QRStudentsProfile() {
         <main className="qrp-main">
           {loading  && <LoadingState />}
           {error    && !loading && <ErrorState message={error} />}
-          {student  && !loading && <ProfileCard student={student} entered={entered} imgError={imgError} setImgError={setImgError} />}
+          {student  && !loading && (
+            <ProfileCard
+              student={student}
+              insights={insights}
+              insightsLoading={insightsLoading}
+              entered={entered}
+              imgError={imgError}
+              setImgError={setImgError}
+            />
+          )}
         </main>
 
         <footer className="qrp-footer">
@@ -252,8 +287,338 @@ function BabyeyiLogoMark() {
   );
 }
 
+const TABS = [
+  { id: 'profile', label: 'Profile', icon: User },
+  { id: 'discipline', label: 'Discipline', icon: ShieldCheck },
+  { id: 'academic', label: 'Academic', icon: GraduationCap },
+  { id: 'gate', label: 'Gate Today', icon: DoorOpen },
+  { id: 'attendance', label: 'Class', icon: ClipboardList },
+  { id: 'babyeyi', label: 'Babyeyi', icon: Wallet },
+];
+
+function formatDateLabel(v) {
+  if (!v) return '—';
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return String(v).slice(0, 10);
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function formatTimeLabel(v) {
+  if (!v) return '—';
+  const s = String(v);
+  if (/^\d{2}:\d{2}/.test(s)) return s.slice(0, 5);
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return s;
+  return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+}
+
+function statusPillClass(status) {
+  const s = String(status || '').toLowerCase();
+  if (s === 'present' || s === 'on_time' || s === 'checked_in') return 'qrp-status-present';
+  if (s === 'late') return 'qrp-status-late';
+  if (s === 'absent') return 'qrp-status-absent';
+  return 'qrp-status-neutral';
+}
+
+function EmptyInsight({ text }) {
+  return <p className="qrp-empty-insight">{text}</p>;
+}
+
+function DisciplineTab({ data }) {
+  if (!data) return <EmptyInsight text="Discipline records are not available yet." />;
+  const { score, behavior_grade, current_marks, incidents = [], mark_logs = [] } = data;
+  return (
+    <div className="qrp-tab-panel">
+      <div className="qrp-stat-row">
+        <div className="qrp-stat-card">
+          <div className="qrp-stat-val">{score ?? '—'}</div>
+          <div className="qrp-stat-lbl">Conduct score</div>
+        </div>
+        <div className="qrp-stat-card">
+          <div className="qrp-stat-val">{behavior_grade || '—'}</div>
+          <div className="qrp-stat-lbl">Grade</div>
+        </div>
+        <div className="qrp-stat-card">
+          <div className="qrp-stat-val">{current_marks ?? '—'}</div>
+          <div className="qrp-stat-lbl">Current marks</div>
+        </div>
+      </div>
+      {incidents.length > 0 ? (
+        <>
+          <h3 className="qrp-subhead">Recent incidents</h3>
+          <ul className="qrp-list">
+            {incidents.slice(0, 15).map((c, i) => (
+              <li key={`${c.created_at}-${i}`} className="qrp-list-item">
+                <div className="qrp-list-title">{c.lesson_subject || 'General'}</div>
+                <div className="qrp-list-meta">
+                  −{c.marks_deducted} marks · {formatDateLabel(c.created_at)}
+                </div>
+                {c.description ? <div className="qrp-list-desc">{c.description}</div> : null}
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : (
+        <EmptyInsight text="No discipline incidents on record." />
+      )}
+      {mark_logs.length > 0 ? (
+        <>
+          <h3 className="qrp-subhead">Mark adjustments</h3>
+          <ul className="qrp-list">
+            {mark_logs.slice(0, 10).map((l, i) => (
+              <li key={`${l.created_at}-${i}`} className="qrp-list-item">
+                <div className="qrp-list-title">{l.action || 'Update'} · {l.marks} marks</div>
+                <div className="qrp-list-meta">{l.reason || l.notes || '—'} · {formatDateLabel(l.action_date || l.created_at)}</div>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function AcademicTab({ data }) {
+  if (!data) return <EmptyInsight text="Academic marks are not available yet." />;
+  const { average_grade, latest_by_subject = [], assessments = [] } = data;
+  return (
+    <div className="qrp-tab-panel">
+      <div className="qrp-stat-row">
+        <div className="qrp-stat-card qrp-stat-card-wide">
+          <div className="qrp-stat-val">{average_grade != null ? `${average_grade}%` : '—'}</div>
+          <div className="qrp-stat-lbl">Average across assessments</div>
+        </div>
+      </div>
+      {latest_by_subject.length > 0 ? (
+        <>
+          <h3 className="qrp-subhead">Latest by subject</h3>
+          <ul className="qrp-list">
+            {latest_by_subject.map((m) => (
+              <li key={m.subject_name} className="qrp-list-item qrp-list-item-row">
+                <span className="qrp-list-title">{m.subject_name}</span>
+                <span className="qrp-score-pill">{m.percent}%</span>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
+      {assessments.length > 0 ? (
+        <>
+          <h3 className="qrp-subhead">All assessments</h3>
+          <ul className="qrp-list">
+            {assessments.slice(0, 20).map((m, i) => (
+              <li key={`${m.subject_name}-${m.assessment_name}-${i}`} className="qrp-list-item qrp-list-item-row">
+                <div>
+                  <div className="qrp-list-title">{m.assessment_name}</div>
+                  <div className="qrp-list-meta">{m.subject_name} · {formatDateLabel(m.assessment_date)}</div>
+                </div>
+                <span className="qrp-score-pill">{m.score_obtained}/{m.max_score}</span>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : (
+        <EmptyInsight text="No academic marks recorded yet." />
+      )}
+    </div>
+  );
+}
+
+function GateTab({ data, today }) {
+  if (!data) return <EmptyInsight text="Gate attendance is not available yet." />;
+  const gateToday = data.today;
+  return (
+    <div className="qrp-tab-panel">
+      <h3 className="qrp-subhead">Today ({formatDateLabel(today)})</h3>
+      {gateToday ? (
+        <div className="qrp-gate-grid">
+          <div className="qrp-gate-card">
+            <div className="qrp-gate-label">Morning entry</div>
+            <div className="qrp-gate-time">{formatTimeLabel(gateToday.morning_check_in)}</div>
+            <span className={`qrp-status-pill ${statusPillClass(gateToday.morning_status)}`}>
+              {gateToday.morning_status || 'No status'}
+            </span>
+          </div>
+          <div className="qrp-gate-card">
+            <div className="qrp-gate-label">Evening exit</div>
+            <div className="qrp-gate-time">{formatTimeLabel(gateToday.evening_check_out)}</div>
+            <span className={`qrp-status-pill ${statusPillClass(gateToday.evening_status)}`}>
+              {gateToday.evening_status || 'No status'}
+            </span>
+          </div>
+        </div>
+      ) : (
+        <EmptyInsight text="No gate entry or exit recorded for today yet." />
+      )}
+      {(data.recent || []).length > 0 ? (
+        <>
+          <h3 className="qrp-subhead">Recent days</h3>
+          <ul className="qrp-list">
+            {data.recent.map((r) => (
+              <li key={r.attendance_date} className="qrp-list-item qrp-list-item-row">
+                <span className="qrp-list-title">{formatDateLabel(r.attendance_date)}</span>
+                <span className="qrp-list-meta">
+                  In {formatTimeLabel(r.morning_check_in)} · Out {formatTimeLabel(r.evening_check_out)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function AttendanceTab({ data, today }) {
+  if (!data) return <EmptyInsight text="Class attendance is not available yet." />;
+  const { today: periodToday = [], recent = [], timetable = [] } = data;
+  const dayName = new Date().toLocaleDateString('en-GB', { weekday: 'long' });
+  const todayTimetable = timetable.filter(
+    (t) => String(t.day_of_week || '').toLowerCase() === dayName.toLowerCase()
+  );
+  return (
+    <div className="qrp-tab-panel">
+      <h3 className="qrp-subhead">Period attendance today</h3>
+      {periodToday.length > 0 ? (
+        <ul className="qrp-list">
+          {periodToday.map((r, i) => (
+            <li key={`${r.subject_name}-${i}`} className="qrp-list-item qrp-list-item-row">
+              <div>
+                <div className="qrp-list-title">{r.subject_name}</div>
+                <div className="qrp-list-meta">{r.time_range || '—'}</div>
+              </div>
+              <span className={`qrp-status-pill ${statusPillClass(r.status)}`}>{r.status || '—'}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <EmptyInsight text="No period attendance marked for today yet." />
+      )}
+      {todayTimetable.length > 0 ? (
+        <>
+          <h3 className="qrp-subhead">Today&apos;s timetable ({dayName})</h3>
+          <ul className="qrp-list">
+            {todayTimetable.map((t) => (
+              <li key={t.id} className="qrp-list-item">
+                <div className="qrp-list-title">{t.subject_name}</div>
+                <div className="qrp-list-meta">
+                  {t.start_time && t.end_time ? `${t.start_time} – ${t.end_time}` : '—'}
+                  {t.room ? ` · ${t.room}` : ''} · {t.teacher_name}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : timetable.length > 0 ? (
+        <>
+          <h3 className="qrp-subhead">Class timetable</h3>
+          <ul className="qrp-list">
+            {timetable.slice(0, 12).map((t) => (
+              <li key={t.id} className="qrp-list-item">
+                <div className="qrp-list-title">{t.day_of_week} · {t.subject_name}</div>
+                <div className="qrp-list-meta">
+                  {t.start_time && t.end_time ? `${t.start_time} – ${t.end_time}` : '—'}
+                  {t.room ? ` · ${t.room}` : ''}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : (
+        <EmptyInsight text="No class timetable on file for this class." />
+      )}
+      {recent.length > 0 ? (
+        <>
+          <h3 className="qrp-subhead">Recent period records</h3>
+          <ul className="qrp-list">
+            {recent.slice(0, 10).map((r, i) => (
+              <li key={`${r.date}-${r.subject_name}-${i}`} className="qrp-list-item qrp-list-item-row">
+                <div>
+                  <div className="qrp-list-title">{r.subject_name}</div>
+                  <div className="qrp-list-meta">{formatDateLabel(r.date)}</div>
+                </div>
+                <span className={`qrp-status-pill ${statusPillClass(r.status)}`}>{r.status}</span>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function BabyeyiTab({ data, student }) {
+  if (!data?.babyeyi) {
+    return (
+      <div className="qrp-tab-panel">
+        <EmptyInsight
+          text={
+            student?.className && student.className !== '-'
+              ? `No approved Babyeyi fee document found for class ${student.className} yet.`
+              : 'Student class is not set — Babyeyi cannot be loaded.'
+          }
+        />
+      </div>
+    );
+  }
+  const b = data.babyeyi;
+  const meta = b.babyeyi || {};
+  const fees = b.school_fees || [];
+  const reqs = b.requirements || [];
+  return (
+    <div className="qrp-tab-panel">
+      <div className="qrp-stat-row">
+        <div className="qrp-stat-card qrp-stat-card-wide">
+          <div className="qrp-stat-val">
+            {b.combined_total_rwf != null
+              ? `${Number(b.combined_total_rwf).toLocaleString()} RWF`
+              : '—'}
+          </div>
+          <div className="qrp-stat-lbl">
+            Class Babyeyi · {meta.term || b.term || '—'} · {meta.academic_year || b.academic_year || '—'}
+          </div>
+        </div>
+      </div>
+      {fees.length > 0 ? (
+        <>
+          <h3 className="qrp-subhead">School fees</h3>
+          <ul className="qrp-list">
+            {fees.map((f) => (
+              <li key={f.id} className="qrp-list-item qrp-list-item-row">
+                <span className="qrp-list-title">{f.name}</span>
+                <span className="qrp-score-pill">{Number(f.amount || 0).toLocaleString()} RWF</span>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
+      {reqs.length > 0 ? (
+        <>
+          <h3 className="qrp-subhead">Requirements</h3>
+          <ul className="qrp-list">
+            {reqs.map((r) => (
+              <li key={r.babyeyi_requirement_id || r.requirement_name} className="qrp-list-item qrp-list-item-row">
+                <span className="qrp-list-title">{r.requirement_name || r.item}</span>
+                <span className="qrp-score-pill">
+                  {Number(r.line_total_rwf ?? r.price ?? 0).toLocaleString()} RWF
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
+      <a href={buildStudentFeesUrl(student)} className="qrp-action-btn qrp-action-primary" style={{ marginTop: 14 }}>
+        <Wallet size={UNIFORM_ICON_SIZE} strokeWidth={UNIFORM_ICON_STROKE} />
+        Pay school fees online
+        <ExternalLink size={UNIFORM_ICON_SIZE} strokeWidth={UNIFORM_ICON_STROKE} />
+      </a>
+    </div>
+  );
+}
+
 /* ─── Main profile card ───────────────────────────────────────────── */
-function ProfileCard({ student, entered, imgError, setImgError }) {
+function ProfileCard({ student, insights, insightsLoading, entered, imgError, setImgError }) {
+  const [activeTab, setActiveTab] = useState('profile');
   const section = deriveSectionFromClass(student.className);
 
   const infoItems = [
@@ -322,6 +687,40 @@ function ProfileCard({ student, entered, imgError, setImgError }) {
         </div>
       </div>
 
+      {/* ── School insights tabs ── */}
+      <div className="qrp-tabs-wrap">
+        <div className="qrp-tabs" role="tablist">
+          {TABS.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === id}
+              className={`qrp-tab ${activeTab === id ? 'qrp-tab-active' : ''}`}
+              onClick={() => setActiveTab(id)}
+            >
+              <Icon size={14} strokeWidth={UNIFORM_ICON_STROKE} />
+              <span>{label}</span>
+            </button>
+          ))}
+        </div>
+        {insightsLoading && activeTab !== 'profile' ? (
+          <div className="qrp-insights-loading">
+            <Loader2 size={20} className="qrp-spin" strokeWidth={UNIFORM_ICON_STROKE} />
+            Loading school records…
+          </div>
+        ) : null}
+        {activeTab === 'discipline' && <DisciplineTab data={insights?.discipline} />}
+        {activeTab === 'academic' && <AcademicTab data={insights?.marks} />}
+        {activeTab === 'gate' && <GateTab data={insights?.gate} today={insights?.filters?.today} />}
+        {activeTab === 'attendance' && (
+          <AttendanceTab data={insights?.period_attendance} today={insights?.filters?.today} />
+        )}
+        {activeTab === 'babyeyi' && <BabyeyiTab data={insights} student={student} />}
+      </div>
+
+      {activeTab === 'profile' && (
+      <>
       {/* ── Student info grid ── */}
       <div className="qrp-section">
         <div className="qrp-section-header">
@@ -404,9 +803,11 @@ function ProfileCard({ student, entered, imgError, setImgError }) {
       {/* ── Note ── */}
       <div className="qrp-note">
         <span className="qrp-note-icon"><ShieldCheck size={UNIFORM_ICON_SIZE} strokeWidth={UNIFORM_ICON_STROKE} /></span>
-        This profile is publicly accessible via an official QR code issued on the student's ID card.
+        This profile is publicly accessible via an official QR code issued on the student&apos;s ID card.
         The information displayed is verified and managed by the registered school.
       </div>
+      </>
+      )}
 
     </div>
   );
@@ -966,6 +1367,180 @@ const CSS = `
     align-items: flex-start;
   }
   .qrp-note-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+
+  /* ── Tabs ── */
+  .qrp-tabs-wrap {
+    background: var(--card-bg);
+    backdrop-filter: blur(24px);
+    border: 1px solid var(--border);
+    border-top: none;
+    padding: 16px 12px 20px;
+  }
+  .qrp-tabs {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 12px;
+    margin-bottom: 4px;
+    scrollbar-width: none;
+  }
+  .qrp-tabs::-webkit-scrollbar { display: none; }
+  .qrp-tab {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 8px 12px;
+    border-radius: 50px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.04);
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.2s, color 0.2s, border-color 0.2s;
+  }
+  .qrp-tab-active {
+    background: var(--gold-pale);
+    border-color: rgba(200,168,75,0.45);
+    color: var(--gold-light);
+  }
+  .qrp-tab-panel { padding: 4px 4px 0; }
+  .qrp-insights-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 28px 16px;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+  .qrp-spin { animation: spin 1s linear infinite; }
+  .qrp-empty-insight {
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.6;
+    padding: 12px 8px;
+    text-align: center;
+  }
+  .qrp-subhead {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin: 16px 0 10px;
+  }
+  .qrp-stat-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .qrp-stat-card {
+    padding: 12px 10px;
+    border-radius: var(--radius-sm);
+    background: var(--glass);
+    border: 1px solid rgba(255,255,255,0.08);
+    text-align: center;
+  }
+  .qrp-stat-card-wide { grid-column: 1 / -1; }
+  .qrp-stat-val {
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--gold-light);
+    line-height: 1.2;
+  }
+  .qrp-stat-lbl {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin-top: 4px;
+  }
+  .qrp-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .qrp-list-item {
+    padding: 11px 12px;
+    border-radius: var(--radius-sm);
+    background: var(--glass);
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .qrp-list-item-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .qrp-list-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .qrp-list-meta {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 3px;
+  }
+  .qrp-list-desc {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 6px;
+    line-height: 1.45;
+  }
+  .qrp-score-pill {
+    flex-shrink: 0;
+    padding: 4px 10px;
+    border-radius: 50px;
+    background: rgba(200,168,75,0.15);
+    border: 1px solid rgba(200,168,75,0.3);
+    color: var(--gold-light);
+    font-size: 11px;
+    font-weight: 800;
+  }
+  .qrp-status-pill {
+    flex-shrink: 0;
+    padding: 4px 10px;
+    border-radius: 50px;
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: capitalize;
+  }
+  .qrp-status-present { background: rgba(34,197,94,0.15); color: #4ade80; border: 1px solid rgba(34,197,94,0.3); }
+  .qrp-status-late { background: rgba(251,191,36,0.12); color: #fbbf24; border: 1px solid rgba(251,191,36,0.3); }
+  .qrp-status-absent { background: rgba(239,68,68,0.12); color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
+  .qrp-status-neutral { background: rgba(255,255,255,0.06); color: var(--text-muted); border: 1px solid rgba(255,255,255,0.1); }
+  .qrp-gate-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .qrp-gate-card {
+    padding: 14px 12px;
+    border-radius: var(--radius-sm);
+    background: var(--glass);
+    border: 1px solid rgba(255,255,255,0.08);
+    text-align: center;
+  }
+  .qrp-gate-label {
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin-bottom: 6px;
+  }
+  .qrp-gate-time {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--text);
+    margin-bottom: 8px;
+  }
 
   /* ── Footer ── */
   .qrp-footer {

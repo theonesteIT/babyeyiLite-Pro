@@ -3,10 +3,19 @@ import { createPortal } from 'react-dom';
 import { 
     X, CreditCard, User, Calendar, Receipt, Loader2, FileText, 
     ChevronRight, AlertTriangle, ShieldCheck, TrendingUp,
-    Phone, Printer, Users, Home, Banknote, Send, Settings2
+    Phone, Printer, Users, Home, Banknote, Send, Settings2,
+    Download, History,
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import PortalToast from './PortalToast';
+import InvoiceHistoryModal from './InvoiceHistoryModal';
+import api from '../services/api';
+import {
+    buildReceiptViewModel,
+    printFeePaymentReceiptPdf,
+    downloadFeePaymentReceiptPdf,
+    downloadAllStudentPaymentsPdf,
+} from '../utils/feePaymentReceipt';
 
 export default function StudentFeesModal({
     isOpen,
@@ -22,6 +31,7 @@ export default function StudentFeesModal({
     const [history, setHistory] = useState([]);
     const [invoiceMenuOpen, setInvoiceMenuOpen] = useState(false);
     const [invoiceSettingsOpen, setInvoiceSettingsOpen] = useState(false);
+    const [invoiceHistoryOpen, setInvoiceHistoryOpen] = useState(false);
     const [toast, setToast] = useState(null);
     const [busyActionKey, setBusyActionKey] = useState('');
 
@@ -72,14 +82,20 @@ export default function StudentFeesModal({
         if (!isOpen || !student) return;
         setInvoiceMenuOpen(false);
         setInvoiceSettingsOpen(false);
+        setInvoiceHistoryOpen(false);
         setLoading(true);
         const rows = (paymentHistory || []).map((p, idx) => ({
             id: p.id || idx + 1,
-            date: p.created_at ? new Date(p.created_at).toISOString().slice(0, 10) : '—',
+            date: p.paid_at_date || (p.created_at ? new Date(p.created_at).toISOString().slice(0, 10) : '—'),
             amount: Number(p.amount_paid || 0),
-            channel: p.notes || 'Recorded',
+            channel: p.payment_method || p.notes || 'Recorded',
             category: p.term || term || 'Fees',
-            ref: p.id ? `PAY-${p.id}` : '—',
+            ref: p.receipt_no || (p.id ? `PAY-${p.id}` : '—'),
+            transactionRef: p.transaction_ref || '',
+            bankName: p.bank_name || '',
+            paidBy: p.paid_by || '',
+            momoPhone: p.momo_phone || '',
+            raw: p,
             status: 'verified',
         }));
         setHistory(rows);
@@ -239,42 +255,85 @@ export default function StudentFeesModal({
         openPrintWindow(doc);
     };
 
+    const downloadAllPaymentsPdf = async () => {
+        const studentId = student?.student_id;
+        if (!studentId) {
+            setToast({ type: 'error', message: 'Student id missing.' });
+            return;
+        }
+        setBusyActionKey('all-pdf');
+        try {
+            const res = await api.get(`/accountant/students/${studentId}/payment-history`, {
+                params: { academic_year: academicYear, term },
+            });
+            if (!res.data?.success) throw new Error(res.data?.message || 'Failed to load payments');
+            const payload = res.data.data || {};
+            downloadAllStudentPaymentsPdf({
+                student,
+                academicYear,
+                term,
+                items: payload.items || [],
+                schoolName: payload.student?.school_name || invoiceConfig.schoolName,
+            });
+            setToast({ type: 'success', message: 'Payment summary PDF downloaded.' });
+        } catch (e) {
+            setToast({ type: 'error', message: e?.response?.data?.message || e.message || 'Download failed.' });
+        } finally {
+            setBusyActionKey('');
+        }
+    };
+
+    const downloadReceiptPdf = (log) => {
+        const payment = log?.raw || {
+            id: log?.id,
+            receipt_no: log?.ref,
+            amount_paid: log?.amount,
+            payment_method: log?.channel,
+            transaction_ref: log?.transactionRef,
+            bank_name: log?.bankName,
+            paid_by: log?.paidBy,
+            momo_phone: log?.momoPhone,
+            paid_at_date: log?.date,
+            class_name: student?.class,
+            term,
+            academic_year_label: academicYear,
+        };
+        downloadFeePaymentReceiptPdf(
+            buildReceiptViewModel(payment, {
+                studentName: student?.name,
+                studentCode: student?.id,
+                className: student?.class,
+                academicYear,
+                term,
+                schoolName: invoiceConfig.schoolName,
+            })
+        );
+    };
+
     const printReceiptPdf = (log) => {
-        const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
-        const W = doc.internal.pageSize.getWidth();
-        const margin = 40;
-        const NAVY = [30, 58, 95];
-        const YELLOW = [254, 191, 16];
-
-        doc.setFillColor(...NAVY);
-        doc.rect(0, 0, W, 64, 'F');
-        doc.setTextColor(255, 255, 255);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(16);
-        doc.text('Payment Receipt', margin, 40);
-
-        doc.setDrawColor(...YELLOW);
-        doc.setLineWidth(3);
-        doc.line(margin, 76, W - margin, 76);
-
-        doc.setTextColor(30, 41, 59);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-
-        doc.text(`Student: ${student.name || '—'}`, margin, 110);
-        doc.text(`UID: ${student.id || '—'}   Class: ${student.class || '—'}`, margin, 126);
-        doc.text(`Academic year: ${academicYear || '—'}   Term: ${term || '—'}`, margin, 142);
-
-        doc.setFont('helvetica', 'bold');
-        doc.text('Receipt details', margin, 172);
-        doc.setFont('helvetica', 'normal');
-        doc.text(`Date: ${log?.date || '—'}`, margin, 194);
-        doc.text(`Mode: ${log?.channel || '—'}`, margin, 210);
-        doc.text(`Reference: ${log?.ref || '—'}`, margin, 226);
-        doc.setFont('helvetica', 'bold');
-        doc.text(`Amount: ${format(Number(log?.amount) || 0)}`, margin, 250);
-
-        openPrintWindow(doc);
+        const payment = log?.raw || {
+            id: log?.id,
+            receipt_no: log?.ref,
+            amount_paid: log?.amount,
+            payment_method: log?.channel,
+            transaction_ref: log?.transactionRef,
+            bank_name: log?.bankName,
+            paid_by: log?.paidBy,
+            momo_phone: log?.momoPhone,
+            paid_at_date: log?.date,
+            class_name: student?.class,
+            term,
+            academic_year_label: academicYear,
+        };
+        const receipt = buildReceiptViewModel(payment, {
+            studentName: student?.name,
+            studentCode: student?.id,
+            className: student?.class,
+            academicYear,
+            term,
+            schoolName: invoiceConfig.schoolName,
+        });
+        printFeePaymentReceiptPdf(receipt);
     };
 
     const sendInvoiceToParent = () => {
@@ -516,12 +575,22 @@ export default function StudentFeesModal({
                                                         </button>
                                                         <button
                                                             type="button"
+                                                            onClick={() => downloadReceiptPdf(log)}
+                                                            className="h-6 px-2 rounded-lg flex items-center justify-center gap-1 bg-white border border-black/5 text-re-text font-medium text-[7px] uppercase tracking-widest hover:bg-re-bg transition-all"
+                                                            disabled={isBusy}
+                                                            title="Download receipt PDF"
+                                                        >
+                                                            <Download size={11} className="text-emerald-600" />
+                                                            <span>PDF</span>
+                                                        </button>
+                                                        <button
+                                                            type="button"
                                                             onClick={() => printReceiptPdf(log)}
-                                                            className="h-6 px-2.5 rounded-lg flex items-center justify-center gap-1.5 bg-white border border-black/5 text-re-text font-medium text-[7.5px] uppercase tracking-widest  hover:bg-re-bg hover:text-[#000435] transition-all"
+                                                            className="h-6 px-2 rounded-lg flex items-center justify-center gap-1 bg-white border border-black/5 text-re-text font-medium text-[7px] uppercase tracking-widest hover:bg-re-bg transition-all"
                                                             disabled={isBusy}
                                                             title="Print receipt"
                                                         >
-                                                            <Printer size={12} className="text-amber-500" />
+                                                            <Printer size={11} className="text-amber-500" />
                                                             <span>Print</span>
                                                         </button>
                                                     </div>
@@ -564,11 +633,30 @@ export default function StudentFeesModal({
                             {invoiceMenuOpen && (
                                 <>
                                     <div className="fixed inset-0 z-[120]" onClick={() => setInvoiceMenuOpen(false)} />
-                                    <div className="absolute right-0 bottom-11 z-[130] w-56 rounded-2xl border border-black/10 bg-white  overflow-hidden">
+                                    <div className="absolute right-0 bottom-11 z-[130] w-60 rounded-2xl border border-black/10 bg-white overflow-hidden shadow-xl">
+                                        <button
+                                            type="button"
+                                            onClick={() => { setInvoiceMenuOpen(false); setInvoiceHistoryOpen(true); }}
+                                            className="w-full px-4 py-3 flex items-center gap-2 text-left hover:bg-re-bg/30 transition-all"
+                                        >
+                                            <History size={14} className="text-[#000435]" />
+                                            <span className="text-[10px] font-medium uppercase tracking-widest text-[#000435]">Invoice history</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => { setInvoiceMenuOpen(false); downloadAllPaymentsPdf(); }}
+                                            className="w-full px-4 py-3 flex items-center gap-2 text-left hover:bg-re-bg/30 transition-all border-t border-black/5"
+                                            disabled={busyActionKey === 'all-pdf'}
+                                        >
+                                            <Download size={14} className="text-emerald-600" />
+                                            <span className="text-[10px] font-medium uppercase tracking-widest text-[#000435]">
+                                                {busyActionKey === 'all-pdf' ? 'Preparing…' : 'Download all payments PDF'}
+                                            </span>
+                                        </button>
                                         <button
                                             type="button"
                                             onClick={() => { setInvoiceMenuOpen(false); printInvoicePdf(); }}
-                                            className="w-full px-4 py-3 flex items-center gap-2 text-left hover:bg-re-bg/30 transition-all"
+                                            className="w-full px-4 py-3 flex items-center gap-2 text-left hover:bg-re-bg/30 transition-all border-t border-black/5"
                                         >
                                             <Printer size={14} className="text-[#000435]" />
                                             <span className="text-[10px] font-medium uppercase tracking-widest text-[#000435]">Print invoice</span>
@@ -611,6 +699,14 @@ export default function StudentFeesModal({
                 config={invoiceConfig}
                 setConfig={setInvoiceConfig}
                 sentAt={sentMeta}
+            />
+            <InvoiceHistoryModal
+                isOpen={invoiceHistoryOpen}
+                onClose={() => setInvoiceHistoryOpen(false)}
+                student={student}
+                academicYear={academicYear}
+                term={term}
+                schoolName={invoiceConfig.schoolName}
             />
             <PortalToast toast={toast} />
         </>,

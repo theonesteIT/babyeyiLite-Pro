@@ -177,6 +177,14 @@ export function buildClassCatalog(classRows = [], classNameOptions = []) {
   };
 }
 
+/** e.g. 2025-2026 → 2026-2027 */
+export function inferNextAcademicYear(fromYear) {
+  const y = String(fromYear || '').trim();
+  const m = y.match(/^(\d{4})-(\d{4})$/);
+  if (!m) return y;
+  return `${Number(m[1]) + 1}-${Number(m[2]) + 1}`;
+}
+
 export function collectAcademicYears(students = []) {
   const years = new Set();
   for (const s of students) {

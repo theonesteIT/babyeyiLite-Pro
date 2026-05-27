@@ -2073,6 +2073,69 @@ router.get("/stats", async (req, res) => {
 });
 
 // ════════════════════════════════════════════════════════════
+// In-app notifications (school Babyeyi portal)
+// ════════════════════════════════════════════════════════════
+const {
+  listSchoolNotificationsForUser,
+  countSchoolUnread,
+} = require('./babyeyiNesaDecisionNotifications');
+
+router.get('/notifications', async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const schoolId = resolveSchoolId(req);
+    if (!userId || !schoolId) {
+      return res.status(400).json({ success: false, message: 'School context required' });
+    }
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 40));
+    const [items, unread] = await Promise.all([
+      listSchoolNotificationsForUser(userId, schoolId, limit),
+      countSchoolUnread(userId, schoolId),
+    ]);
+    res.json({ success: true, data: items, unread });
+  } catch (err) {
+    console.error('[babyeyi/notifications]', err.message);
+    res.status(500).json({ success: false, message: 'Failed to load notifications' });
+  }
+});
+
+router.patch('/notifications/:id/read', async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ success: false, message: 'Not authenticated' });
+    await query(
+      `UPDATE staff_portal_notifications SET is_read = 1 WHERE id = ? AND user_id = ?`,
+      [req.params.id, userId]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to mark read' });
+  }
+});
+
+router.post('/notifications/read-all', async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const schoolId = resolveSchoolId(req);
+    if (!userId) return res.status(401).json({ success: false, message: 'Not authenticated' });
+    if (schoolId) {
+      await query(
+        `UPDATE staff_portal_notifications SET is_read = 1 WHERE user_id = ? AND school_id = ? AND is_read = 0`,
+        [userId, schoolId]
+      );
+    } else {
+      await query(
+        `UPDATE staff_portal_notifications SET is_read = 1 WHERE user_id = ? AND is_read = 0`,
+        [userId]
+      );
+    }
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to mark all read' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════
 // GET /api/babyeyi — list
 // ════════════════════════════════════════════════════════════
 router.get("/", async (req, res) => {
@@ -2611,6 +2674,25 @@ router.post("/", (req, res) => {
         notifyParentsBabyeyiReady(bid, "created_approved").catch((e) => {
           console.warn("[babyeyi] notifyParentsBabyeyiReady(create):", e.message);
         });
+      }
+
+      if (schoolDistrict) {
+        try {
+          const { notifyDistrictDeosNewBabyeyi } = require("./districtDeoNotifications");
+          notifyDistrictDeosNewBabyeyi({
+            district: schoolDistrict,
+            babyeyiId: bid,
+            schoolName,
+            docId: preDocId,
+            status,
+            exceeds: !!exceeds,
+            className: primaryClass,
+            term: body.term,
+            academicYear: body.academic_year,
+          }).catch((e) => console.warn("[babyeyi] district DEO notify:", e.message));
+        } catch (notifyErr) {
+          console.warn("[babyeyi] district DEO notify load:", notifyErr.message);
+        }
       }
 
       await syncAccountantFeeData(bid);
@@ -3265,6 +3347,22 @@ router.patch("/:id/nesa-approve", async (req, res) => {
     notifyParentsBabyeyiReady(id, "nesa_approved").catch((e) => {
       console.warn("[babyeyi] notifyParentsBabyeyiReady(nesa_approve):", e.message);
     });
+    const { notifyNesaDecision } = require('./babyeyiNesaDecisionNotifications');
+    const reqRows = await query(
+      `SELECT id FROM babyeyi_increase_requests WHERE babyeyi_id = ? ORDER BY id DESC LIMIT 1`,
+      [id]
+    ).catch(() => []);
+    const reqRow = reqRows?.[0];
+    notifyNesaDecision({
+      decision: 'approved',
+      schoolName: b.school_name,
+      district: b.school_district,
+      schoolId: b.school_id,
+      babyeyiId: Number(id),
+      requestId: reqRow?.id || null,
+      notes: req.body?.notes || null,
+      docId: b.doc_id,
+    }).catch((e) => console.warn('[babyeyi] notifyNesaDecision(approve):', e.message));
     res.json({ success: true, message: "NESA approved." });
   } catch (err) { res.status(500).json({ success: false, message: "Failed to approve" }); }
 });
@@ -3280,6 +3378,22 @@ router.patch("/:id/nesa-reject", async (req, res) => {
     await query(`UPDATE babyeyi_increase_requests SET nesa_status='nesa_rejected', nesa_notes=?, reviewed_at=NOW(), reviewed_by=? WHERE babyeyi_id=?`,
                 [req.body?.notes || null, userId, id]).catch(() => {});
     await audit(id, "nesa_rejected", { status: b.status }, { status: "rejected" }, req);
+    const { notifyNesaDecision } = require('./babyeyiNesaDecisionNotifications');
+    const reqRows = await query(
+      `SELECT id FROM babyeyi_increase_requests WHERE babyeyi_id = ? ORDER BY id DESC LIMIT 1`,
+      [id]
+    ).catch(() => []);
+    const reqRow = reqRows?.[0];
+    notifyNesaDecision({
+      decision: 'rejected',
+      schoolName: b.school_name,
+      district: b.school_district,
+      schoolId: b.school_id,
+      babyeyiId: Number(id),
+      requestId: reqRow?.id || null,
+      notes: req.body?.notes || null,
+      docId: b.doc_id,
+    }).catch((e) => console.warn('[babyeyi] notifyNesaDecision(reject):', e.message));
     res.json({ success: true, message: "NESA rejected." });
   } catch (err) { res.status(500).json({ success: false, message: "Failed to reject" }); }
 });

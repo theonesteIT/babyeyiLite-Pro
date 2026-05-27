@@ -54,7 +54,7 @@ const NAV_GROUPS = [
       { name: 'Invoice', path: '/invoices' },
       { name: 'Expenses', path: '/expenses' },
       { name: 'School Budget', path: '/school-budget' },
-      { name: 'Payroll History', path: '/payroll/history' },
+     
       { name: 'Configure Payroll', path: '/payroll/config' },
       { name: 'Salary Payment', path: '/payroll/salary-payment' },
       { name: 'My Payroll', path: '/my-payroll' },

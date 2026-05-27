@@ -35,20 +35,18 @@ export const CARD_PX = { w: 320, h: 695 };
 const QR_CARD_PX = 120;
 const SCALE = 3; /* 3× — print quality */
 
+const NAVY = '#000435';
+const AMBER = '#fbbf24';
 const C = {
-  navy: '#1a3572',
-  navyDark: '#0d1f4a',
-  navyLight: '#2a4a8f',
-  green: '#2e7d32',
-  greenLight: '#43a047',
-  orange: '#e65100',
-  red: '#c62828',
+  navy: NAVY,
+  navyDark: NAVY,
+  navyLight: NAVY,
   white: '#ffffff',
-  gold: '#c8a84b',
-  amber: '#FFBF00',
-  amberLight: '#FFBF00',
-  text: '#1a1a2e',
-  sub: '#4a5568',
+  amber: AMBER,
+  amberLight: AMBER,
+  text: NAVY,
+  sub: 'rgba(0,4,53,0.72)',
+  gold: AMBER,
 };
 const FONT_STACK = "'Montserrat', 'Segoe UI', system-ui, sans-serif";
 
@@ -314,9 +312,9 @@ export async function renderCardToCanvas(student, template, photoImg, logoImg, f
     const dh = ih * ratio;
     ctx.drawImage(photoImg, innerX + (innerSize - dw) / 2 + photoOffsetX, innerY + (innerSize - dh) / 2 + photoOffsetY, dw, dh);
   } else {
-    ctx.fillStyle = '#dde4f0';
+    ctx.fillStyle = 'rgba(0,4,53,0.08)';
     ctx.fillRect(innerX, innerY, innerSize, innerSize);
-    ctx.fillStyle = '#7b92b8';
+    ctx.fillStyle = 'rgba(0,4,53,0.35)';
     ctx.beginPath();
     ctx.arc(photoCX, photoCY - innerSize * 0.18, innerSize * 0.30, 0, Math.PI * 2);
     ctx.fill();
@@ -401,7 +399,7 @@ export async function renderCardToCanvas(student, template, photoImg, logoImg, f
     if (qrImage) {
       ctx.drawImage(qrImage, qrX, qrY, qrPx, qrPx);
     } else {
-      ctx.fillStyle = '#b91c1c';
+      ctx.fillStyle = NAVY;
       ctx.font = `700 ${8.4 * s}px ${FONT_STACK}`;
       ctx.textAlign = 'center';
       ctx.fillText('QR unavailable', W / 2, qrY + qrPx / 2);
@@ -445,12 +443,12 @@ export async function renderCardToCanvas(student, template, photoImg, logoImg, f
 function SchoolLogoSVG({ px = 64 }) {
   return (
     <svg width={px} height={px} viewBox="0 0 100 100">
-      <circle cx="50" cy="50" r="47" fill={C.navy} stroke={C.gold} strokeWidth="2.5" />
+      <circle cx="50" cy="50" r="47" fill={C.navy} stroke={C.amber} strokeWidth="2.5" />
       <circle cx="50" cy="50" r="39" fill="#fff" />
       <rect x="24" y="44" width="24" height="18" rx="2" fill={C.navy} />
-      <rect x="52" y="44" width="24" height="18" rx="2" fill={C.navyLight} />
-      <rect x="47" y="30" width="6" height="14" rx="2" fill={C.gold} />
-      <ellipse cx="50" cy="28" rx="5" ry="7" fill="#f5a623" />
+      <rect x="52" y="44" width="24" height="18" rx="2" fill={C.navy} />
+      <rect x="47" y="30" width="6" height="14" rx="2" fill={C.amber} />
+      <ellipse cx="50" cy="28" rx="5" ry="7" fill={C.amber} />
     </svg>
   );
 }
@@ -925,19 +923,43 @@ export default function SchoolStudentCardTemplate2() {
   };
 
   const S = {
-    page: { minHeight: '100vh', background: 'linear-gradient(165deg,#040d1e 0%,#071635 55%,#040d1e 100%)', color: '#fff', fontFamily: "'Segoe UI',system-ui,sans-serif" },
-    topbar: { background: 'rgba(10,22,56,0.92)', borderBottom: '1px solid rgba(200,168,75,0.22)', padding: '0 22px', height: 58, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 200, backdropFilter: 'blur(12px)' },
-    wrap: { maxWidth: 1280, margin: '0 auto', padding: '22px 16px' },
-    panel: { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: 18 },
-    sel: { height: 38, borderRadius: 10, border: '1px solid rgba(255,255,255,0.14)', background: 'rgba(255,255,255,0.06)', color: '#fff', padding: '0 12px', fontSize: 12, outline: 'none', cursor: 'pointer', minWidth: 150 },
-    btn: (bg, col = '#fff') => ({ height: 38, borderRadius: 10, border: 'none', background: bg, color: col, fontWeight: 700, fontSize: 11, letterSpacing: 0.6, textTransform: 'uppercase', cursor: 'pointer', padding: '0 16px', display: 'inline-flex', alignItems: 'center', gap: 6 }),
-    th: { padding: '10px 14px', fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1.5, color: 'rgba(255,255,255,0.38)', borderBottom: '1px solid rgba(255,255,255,0.07)', whiteSpace: 'nowrap' },
-    td: { padding: '12px 14px', fontSize: 12, borderBottom: '1px solid rgba(255,255,255,0.05)', verticalAlign: 'middle' },
+    page: { minHeight: '100vh', background: '#ffffff', color: NAVY, fontFamily: FONT_STACK },
+    topbar: { background: NAVY, borderBottom: `2px solid ${AMBER}`, padding: '12px 16px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12, position: 'sticky', top: 0, zIndex: 200 },
+    wrap: { maxWidth: 1280, margin: '0 auto', padding: '16px 12px 28px' },
+    panel: { background: '#fff', border: '1px solid rgba(0,4,53,0.12)', borderRadius: 16, padding: 18, boxShadow: '0 1px 4px rgba(0,4,53,0.06)' },
+    sel: { height: 42, borderRadius: 10, border: '1px solid rgba(0,4,53,0.18)', background: '#fff', color: NAVY, padding: '0 12px', fontSize: 13, outline: 'none', cursor: 'pointer', minWidth: 140 },
+    btn: (bg, col = '#fff') => ({ minHeight: 42, borderRadius: 10, border: 'none', background: bg, color: col, fontWeight: 700, fontSize: 12, letterSpacing: 0.3, cursor: 'pointer', padding: '0 16px', display: 'inline-flex', alignItems: 'center', gap: 6, justifyContent: 'center' }),
+    th: { padding: '10px 12px', fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1.2, color: 'rgba(0,4,53,0.55)', borderBottom: '1px solid rgba(0,4,53,0.1)', whiteSpace: 'nowrap' },
+    td: { padding: '12px', fontSize: 13, borderBottom: '1px solid rgba(0,4,53,0.06)', verticalAlign: 'middle', color: NAVY },
   };
 
   return (
-    <div style={S.page}>
-      <style>{`*{box-sizing:border-box}::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:rgba(255,255,255,0.03)}::-webkit-scrollbar-thumb{background:rgba(200,168,75,0.3);border-radius:4px}select option{background:#0d1b38;color:#fff}@keyframes sct2-spin{to{transform:rotate(360deg)}}.sct2-spin{display:inline-block;animation:sct2-spin 1s linear infinite}`}</style>
+    <div className="sct2-page" style={S.page}>
+      <style>{`
+        *{box-sizing:border-box}
+        .sct2-page ::-webkit-scrollbar{width:6px;height:6px}
+        .sct2-page ::-webkit-scrollbar-track{background:#f1f5f9}
+        .sct2-page ::-webkit-scrollbar-thumb{background:${AMBER};border-radius:4px}
+        .sct2-page select option{background:#fff;color:${NAVY}}
+        @keyframes sct2-spin{to{transform:rotate(360deg)}}
+        .sct2-spin{display:inline-block;animation:sct2-spin 1s linear infinite}
+        .sct2-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px}
+        .sct2-filters{display:flex;flex-wrap:wrap;gap:10px}
+        .sct2-filters select{flex:1 1 140px;max-width:100%}
+        .sct2-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px}
+        .sct2-actions .sct2-search-wrap{flex:1 1 220px;min-width:0}
+        .sct2-table-panel{overflow-x:auto;-webkit-overflow-scrolling:touch}
+        .sct2-table-panel table{min-width:720px}
+        .sct2-card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px}
+        @media (max-width:640px){
+          .sct2-topbar-inner{width:100%}
+          .sct2-back{width:100%;justify-content:center}
+          .sct2-filters select{flex:1 1 100%}
+          .sct2-actions .sct2-search-wrap{flex:1 1 100%}
+          .sct2-actions button{flex:1 1 auto}
+          .sct2-card-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+        }
+      `}</style>
 
       {notif && (
         <div style={{ position: 'fixed', top: 14, right: 14, zIndex: 2000, background: notif.type === 'error' ? '#7f1d1d' : '#14532d', border: `1px solid ${notif.type === 'error' ? '#ef4444' : '#22c55e'}`, borderRadius: 12, padding: '12px 20px', color: '#fff', fontSize: 13, fontWeight: 600, maxWidth: 380, boxShadow: '0 8px 32px rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -948,87 +970,83 @@ export default function SchoolStudentCardTemplate2() {
 
       {viewStudent && <CardModal student={viewStudent} onClose={() => setViewStudent(null)} />}
 
-      <div style={S.topbar}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 36, height: 36, borderRadius: 10, background: `linear-gradient(135deg,${C.navy},${C.navyLight})`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+      <div style={S.topbar} className="sct2-topbar">
+        <div className="sct2-topbar-inner" style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+          <div style={{ width: 40, height: 40, borderRadius: 10, background: AMBER, display: 'flex', alignItems: 'center', justifyContent: 'center', color: NAVY, flexShrink: 0 }}>
             <IdCard size={20} strokeWidth={2} />
           </div>
-          <div>
-            <div style={{ fontSize: 8, color: C.gold, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 2 }}>Super Admin</div>
-            <div style={{ fontSize: 14, fontWeight: 900, letterSpacing: -0.3 }}>Student Card · Portrait Template 2</div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 10, color: AMBER, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1.5 }}>Super Admin</div>
+            <div className="sct2-topbar-title" style={{ fontSize: 15, fontWeight: 800, color: '#fff', letterSpacing: -0.2 }}>Student Card · Template 2</div>
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button
-            type="button"
-            onClick={() => navigate('/superadmin/dashboard')}
-            style={{
-              height: 34,
-              borderRadius: 10,
-              border: '1px solid rgba(200,168,75,0.35)',
-              background: 'linear-gradient(135deg, rgba(200,168,75,0.22), rgba(200,168,75,0.1))',
-              color: C.gold,
-              padding: '0 12px',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              fontSize: 10.5,
-              fontWeight: 800,
-              letterSpacing: 0.5,
-              textTransform: 'uppercase',
-              cursor: 'pointer',
-            }}
-          >
-            <ArrowLeft size={14} strokeWidth={2} />
-            Back to dashboard
-          </button>
-          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>Canvas export · QR fixed · ZIP bulk</div>
-        </div>
+        <button
+          type="button"
+          className="sct2-back"
+          onClick={() => navigate('/superadmin/dashboard')}
+          style={{
+            minHeight: 40,
+            borderRadius: 10,
+            border: `1px solid ${AMBER}`,
+            background: 'rgba(251,191,36,0.15)',
+            color: AMBER,
+            padding: '0 14px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            fontSize: 12,
+            fontWeight: 700,
+            cursor: 'pointer',
+          }}
+        >
+          <ArrowLeft size={16} strokeWidth={2} />
+          Back to dashboard
+        </button>
       </div>
 
       <div style={S.wrap}>
         {/* Stats */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 14, marginBottom: 22 }}>
+        <div className="sct2-stats">
           {[
-            { label: 'Students loaded', val: students.length, Icon: Users, a: '#1a3572' },
-            { label: 'With photos', val: students.filter(x => x.photo).length, Icon: Camera, a: '#1e5128' },
-            { label: 'Schools', val: schoolOpts.length, Icon: School, a: '#7c3aed' },
-            { label: 'For ZIP', val: selected.length || students.length, Icon: Download, a: '#c2410c' },
-          ].map(({ label, val, Icon, a }) => (
-            <div key={label} style={{ background: `linear-gradient(135deg,${a}45,${a}18)`, border: `1px solid ${a}55`, borderRadius: 14, padding: '16px 18px' }}>
-              <div style={{ marginBottom: 6, color: 'rgba(255,255,255,0.92)', display: 'flex', alignItems: 'center' }}><Icon size={22} strokeWidth={1.75} /></div>
-              <div style={{ fontSize: 26, fontWeight: 900 }}>{val}</div>
-              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>{label}</div>
+            { label: 'Students loaded', val: students.length, Icon: Users },
+            { label: 'With photos', val: students.filter(x => x.photo).length, Icon: Camera },
+            { label: 'Schools', val: schoolOpts.length, Icon: School },
+            { label: 'For ZIP', val: selected.length || students.length, Icon: Download },
+          ].map(({ label, val, Icon }) => (
+            <div key={label} style={{ background: '#fff', border: `1px solid rgba(0,4,53,0.12)`, borderLeft: `4px solid ${AMBER}`, borderRadius: 12, padding: '14px 16px' }}>
+              <div style={{ marginBottom: 6, color: NAVY, display: 'flex', alignItems: 'center' }}><Icon size={22} strokeWidth={1.75} /></div>
+              <div style={{ fontSize: 26, fontWeight: 900, color: NAVY }}>{val}</div>
+              <div style={{ fontSize: 10, color: 'rgba(0,4,53,0.55)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8 }}>{label}</div>
             </div>
           ))}
         </div>
 
         {/* Filters */}
         <div style={{ ...S.panel, marginBottom: 18 }}>
-          <div style={{ fontSize: 10, color: C.gold, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 12 }}>Location &amp; school filters</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+          <div style={{ fontSize: 11, color: NAVY, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 12 }}>Location &amp; school filters</div>
+          <div className="sct2-filters">
             <select value={filters.province} onChange={setF('province')} style={{ ...S.sel, minWidth: 170 }}><option value="">All provinces</option>{provinces.map(x => <option key={x} value={x}>{x}</option>)}</select>
             <select value={filters.district} onChange={setF('district')} disabled={!filters.province} style={{ ...S.sel, minWidth: 150, opacity: filters.province ? 1 : 0.55 }}><option value="">All districts</option>{districts.map(x => <option key={x} value={x}>{x}</option>)}</select>
             <select value={filters.sector} onChange={setF('sector')} disabled={!filters.district} style={{ ...S.sel, minWidth: 150, opacity: filters.district ? 1 : 0.55 }}><option value="">All sectors</option>{sectors.map(x => <option key={x} value={x}>{x}</option>)}</select>
             <select value={filters.school_id} onChange={setF('school_id')} style={{ ...S.sel, minWidth: 220 }}><option value="">All schools</option>{schoolOpts.map(sc => <option key={sc.id} value={String(sc.id)}>{sc.school_name}</option>)}</select>
             <select value={filters.class_name} onChange={setF('class_name')} disabled={!filters.school_id} style={{ ...S.sel, minWidth: 140, opacity: filters.school_id ? 1 : 0.55 }}><option value="">All classes</option>{classOpts.map(c => <option key={c} value={c}>{c}</option>)}</select>
-            <button type="button" onClick={() => setFilters({ province: '', district: '', sector: '', school_id: '', class_name: '' })} style={S.btn('rgba(255,255,255,0.08)')}>Clear</button>
+            <button type="button" onClick={() => setFilters({ province: '', district: '', sector: '', school_id: '', class_name: '' })} style={S.btn('rgba(0,4,53,0.08)', NAVY)}>Clear</button>
           </div>
         </div>
 
         {/* Search + actions */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', marginBottom: 16 }}>
-          <div style={{ position: 'relative', flex: 1, minWidth: 220 }}>
-            <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', opacity: 0.35, pointerEvents: 'none', display: 'flex' }}>
-              <Search size={16} strokeWidth={2} color="rgba(255,255,255,0.9)" />
+        <div className="sct2-actions">
+          <div className="sct2-search-wrap" style={{ position: 'relative' }}>
+            <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', opacity: 0.45, pointerEvents: 'none', display: 'flex' }}>
+              <Search size={16} strokeWidth={2} color={NAVY} />
             </span>
             <input value={search} onChange={e => setSearch(e.target.value)} onKeyDown={e => e.key === 'Enter' && loadStudents()} placeholder="Search name or student code…" style={{ ...S.sel, width: '100%', paddingLeft: 36, height: 40, boxSizing: 'border-box' }} />
           </div>
-          <button type="button" onClick={loadStudents} disabled={loading} style={S.btn(`linear-gradient(135deg,${C.navy},${C.navyDark})`)}>{loading ? 'Loading…' : 'Apply filters'}</button>
+          <button type="button" onClick={loadStudents} disabled={loading} style={S.btn(NAVY)}>{loading ? 'Loading…' : 'Apply filters'}</button>
 
           {students.length > 0 && (
             <button type="button" onClick={handleBulkZip} disabled={bulkBusy}
-              style={{ ...S.btn(`linear-gradient(135deg,${C.green},${C.greenLight})`), minWidth: 190 }}>
+              style={{ ...S.btn(AMBER, NAVY), minWidth: 160 }}>
               {bulkBusy ? (
                 `${bulkProg.done}/${bulkProg.total} rendering…`
               ) : (
@@ -1041,54 +1059,54 @@ export default function SchoolStudentCardTemplate2() {
           )}
 
           {selected.length > 0 && <>
-            <span style={{ fontSize: 11, color: C.gold, fontWeight: 700 }}>{selected.length} selected</span>
-            <button type="button" onClick={() => setSelected([])} style={S.btn('rgba(255,255,255,0.08)')}>Clear sel.</button>
+            <span style={{ fontSize: 12, color: NAVY, fontWeight: 700 }}>{selected.length} selected</span>
+            <button type="button" onClick={() => setSelected([])} style={S.btn('rgba(0,4,53,0.08)', NAVY)}>Clear sel.</button>
           </>}
         </div>
 
         {/* Progress bar */}
         {bulkBusy && bulkProg.total > 0 && (
           <div style={{ marginBottom: 16 }}>
-            <div style={{ height: 6, borderRadius: 4, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
-              <div style={{ height: '100%', borderRadius: 4, background: `linear-gradient(90deg,${C.green},${C.greenLight})`, width: `${Math.round(bulkProg.done / bulkProg.total * 100)}%`, transition: 'width 0.2s' }} />
+            <div style={{ height: 6, borderRadius: 4, background: 'rgba(0,4,53,0.08)', overflow: 'hidden' }}>
+              <div style={{ height: '100%', borderRadius: 4, background: AMBER, width: `${Math.round(bulkProg.done / bulkProg.total * 100)}%`, transition: 'width 0.2s' }} />
             </div>
-            <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 4 }}>Rendering {bulkProg.done}/{bulkProg.total} cards (4 in parallel)</p>
+            <p style={{ fontSize: 11, color: 'rgba(0,4,53,0.5)', marginTop: 4 }}>Rendering {bulkProg.done}/{bulkProg.total} cards (4 in parallel)</p>
           </div>
         )}
 
         {/* Table */}
-        <div style={{ ...S.panel, overflowX: 'auto' }}>
-          <h2 style={{ fontSize: 18, fontWeight: 900, margin: '0 0 14px' }}>Portrait ID cards <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', fontWeight: 500, marginLeft: 10 }}>({students.length} loaded)</span></h2>
+        <div className="sct2-table-panel" style={S.panel}>
+          <h2 style={{ fontSize: 18, fontWeight: 800, margin: '0 0 14px', color: NAVY }}>Portrait ID cards <span style={{ fontSize: 12, color: 'rgba(0,4,53,0.45)', fontWeight: 500, marginLeft: 10 }}>({students.length} loaded)</span></h2>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
-                <th style={S.th}><input type="checkbox" checked={allSel} onChange={toggleAll} style={{ cursor: 'pointer', accentColor: C.gold }} /></th>
+                <th style={S.th}><input type="checkbox" checked={allSel} onChange={toggleAll} style={{ cursor: 'pointer', accentColor: AMBER }} /></th>
                 <th style={S.th}>Photo</th><th style={S.th}>Student</th><th style={S.th}>Class</th><th style={S.th}>School</th>
                 <th style={{ ...S.th, textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {students.length === 0 ? (
-                <tr><td colSpan={6} style={{ ...S.td, textAlign: 'center', padding: 48, color: 'rgba(255,255,255,0.3)' }}>{loading ? 'Loading…' : 'No students. Adjust filters and click Apply.'}</td></tr>
+                <tr><td colSpan={6} style={{ ...S.td, textAlign: 'center', padding: 48, color: 'rgba(0,4,53,0.45)' }}>{loading ? 'Loading…' : 'No students. Adjust filters and click Apply.'}</td></tr>
               ) : students.map(st => (
-                <tr key={st.id} style={{ background: selected.includes(st.id) ? 'rgba(200,168,75,0.07)' : 'transparent' }}>
-                  <td style={S.td}><input type="checkbox" checked={selected.includes(st.id)} onChange={() => toggleOne(st.id)} style={{ cursor: 'pointer', accentColor: C.gold }} /></td>
+                <tr key={st.id} style={{ background: selected.includes(st.id) ? 'rgba(251,191,36,0.12)' : 'transparent' }}>
+                  <td style={S.td}><input type="checkbox" checked={selected.includes(st.id)} onChange={() => toggleOne(st.id)} style={{ cursor: 'pointer', accentColor: AMBER }} /></td>
                   <td style={S.td}>
-                    <div style={{ width: 40, height: 50, borderRadius: 8, border: `2px solid ${C.navy}`, overflow: 'hidden', background: '#1a2a45', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      {st.photo ? <img src={st.photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ opacity: 0.45, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><UserRound size={22} strokeWidth={1.75} color="#93c5fd" /></span>}
+                    <div style={{ width: 40, height: 50, borderRadius: 8, border: `2px solid ${NAVY}`, overflow: 'hidden', background: 'rgba(0,4,53,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {st.photo ? <img src={st.photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ opacity: 0.45, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><UserRound size={22} strokeWidth={1.75} color={NAVY} /></span>}
                     </div>
                   </td>
                   <td style={S.td}>
-                    <p style={{ fontWeight: 800, color: '#fff', margin: 0 }}>{st.fullName}</p>
-                    <p style={{ fontSize: 10, color: C.gold, margin: '4px 0 0', fontFamily: 'ui-monospace,monospace' }}>{st.studentCode}</p>
+                    <p style={{ fontWeight: 800, color: NAVY, margin: 0 }}>{st.fullName}</p>
+                    <p style={{ fontSize: 10, color: AMBER, margin: '4px 0 0', fontFamily: 'ui-monospace,monospace', fontWeight: 700 }}>{st.studentCode}</p>
                   </td>
-                  <td style={S.td}><span style={{ display: 'inline-block', padding: '4px 10px', borderRadius: 8, background: 'rgba(26,53,114,0.45)', border: `1px solid ${C.navy}`, fontSize: 11, fontWeight: 800, color: '#93c5fd' }}>{st.className}</span></td>
+                  <td style={S.td}><span style={{ display: 'inline-block', padding: '4px 10px', borderRadius: 8, background: 'rgba(251,191,36,0.15)', border: `1px solid ${AMBER}`, fontSize: 11, fontWeight: 800, color: NAVY }}>{st.className}</span></td>
                   <td style={S.td}>
-                    <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)' }}>{st.school}</div>
-                    <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.28)', marginTop: 4, maxWidth: 280 }}>{st.addressSummary}</div>
+                    <div style={{ fontSize: 12, color: 'rgba(0,4,53,0.75)' }}>{st.school}</div>
+                    <div style={{ fontSize: 10, color: 'rgba(0,4,53,0.45)', marginTop: 4, maxWidth: 280 }}>{st.addressSummary}</div>
                   </td>
                   <td style={{ ...S.td, textAlign: 'right' }}>
-                    <button type="button" onClick={() => setViewStudent(st)} style={S.btn(C.navy)}>View card</button>
+                    <button type="button" onClick={() => setViewStudent(st)} style={S.btn(NAVY)}>View card</button>
                   </td>
                 </tr>
               ))}
@@ -1099,22 +1117,22 @@ export default function SchoolStudentCardTemplate2() {
         {/* Preview grid */}
         {students.length > 0 && (
           <div style={{ marginTop: 28 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 900, marginBottom: 14 }}>Preview (first 6)</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', gap: 18 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 14, color: NAVY }}>Preview (first 6)</h3>
+            <div className="sct2-card-grid">
               {students.slice(0, 6).map(st => (
                 <button key={st.id} type="button" onClick={() => setViewStudent(st)}
-                  style={{ cursor: 'pointer', borderRadius: 16, overflow: 'hidden', border: 'none', padding: 0, textAlign: 'left', background: 'transparent', boxShadow: '0 8px 32px rgba(0,0,0,0.35)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'center', height: 362, overflow: 'hidden', background: 'rgba(0,0,0,0.12)', borderRadius: '16px 16px 0 0', pointerEvents: 'none' }}>
+                  style={{ cursor: 'pointer', borderRadius: 16, overflow: 'hidden', border: `1px solid rgba(0,4,53,0.12)`, padding: 0, textAlign: 'left', background: '#fff', boxShadow: '0 4px 16px rgba(0,4,53,0.1)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'center', height: 362, overflow: 'hidden', background: '#f8fafc', borderRadius: '16px 16px 0 0', pointerEvents: 'none' }}>
                     <div style={{ transform: 'scale(0.52)', transformOrigin: 'top center' }}>
                       <IDCardT2 student={st} template={null} scale={1} />
                     </div>
                   </div>
-                  <div style={{ background: 'rgba(26,53,114,0.35)', border: '1px solid rgba(200,168,75,0.12)', borderTop: 'none', borderRadius: '0 0 16px 16px', padding: '10px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ background: '#fff', borderTop: `1px solid rgba(0,4,53,0.08)`, borderRadius: '0 0 16px 16px', padding: '10px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div>
-                      <p style={{ margin: 0, fontSize: 11, fontWeight: 800, color: '#fff' }}>{st.fullName}</p>
-                      <p style={{ margin: 0, fontSize: 9, color: C.gold, fontFamily: 'monospace' }}>{st.studentCode}</p>
+                      <p style={{ margin: 0, fontSize: 12, fontWeight: 800, color: NAVY }}>{st.fullName}</p>
+                      <p style={{ margin: 0, fontSize: 10, color: AMBER, fontFamily: 'monospace', fontWeight: 700 }}>{st.studentCode}</p>
                     </div>
-                    <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ fontSize: 11, color: 'rgba(0,4,53,0.45)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                       Open <ChevronRight size={14} strokeWidth={2} />
                     </span>
                   </div>

@@ -103,6 +103,9 @@ async function ensureTables() {
       await addColumnIfMissing('services', 'shoe_categories', `shoe_categories JSON NULL`);
       await addColumnIfMissing('services', 'delivery_fee', `delivery_fee DECIMAL(12,2) NOT NULL DEFAULT 0`);
       await addColumnIfMissing('services', 'shoe_models', `shoe_models JSON NULL`);
+      await addColumnIfMissing('services', 'product_type', `product_type VARCHAR(120) NULL`);
+      await addColumnIfMissing('services', 'product_color', `product_color VARCHAR(80) NULL`);
+      await addColumnIfMissing('services', 'gallery_images', `gallery_images JSON NULL`);
 
       await promisePool.query(`
         CREATE TABLE IF NOT EXISTS shoe_brand_models (
@@ -286,6 +289,11 @@ const serviceFormUpload = upload.fields([
   { name: 'model_image_crabkids', maxCount: 1 },
 ]);
 
+const agentShopUpload = upload.fields([
+  { name: 'icon', maxCount: 1 },
+  { name: 'images', maxCount: 12 },
+]);
+
 function mapUploadedFiles(req) {
   const out = {};
   if (!req.files) return out;
@@ -366,7 +374,7 @@ function decodeRow(service) {
   } catch {
     service.eligibility_levels = [];
   }
-  for (const key of ['available_sizes', 'shoe_categories', 'shoe_models']) {
+  for (const key of ['available_sizes', 'shoe_categories', 'shoe_models', 'gallery_images']) {
     let v = service[key];
     if (Buffer.isBuffer(v)) v = v.toString('utf8');
     try {
@@ -697,7 +705,85 @@ function bodyFromMultipart(req) {
     delivery_fee: b.delivery_fee,
     status: b.status,
     prices: b.prices,
+    amount: b.amount,
+    global_amount: b.global_amount,
+    product_type: b.product_type,
+    product_color: b.product_color,
+    existing_gallery: b.existing_gallery,
   };
+}
+
+function parseShopMoney(b) {
+  const raw = b?.global_amount ?? b?.amount;
+  if (raw === undefined || raw === null || String(raw).trim() === '') return NaN;
+  const n = Number(raw);
+  return Number.isNaN(n) ? NaN : n;
+}
+
+function parseGalleryKeep(raw) {
+  if (raw == null || raw === '') return [];
+  try {
+    const j = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    return Array.isArray(j) ? j.filter((u) => u && String(u).trim()) : [];
+  } catch {
+    return [];
+  }
+}
+
+function shopUploadUrls(req) {
+  const urls = [];
+  const push = (f) => {
+    if (f?.filename) urls.push(`/${UPLOAD_REL}/${String(f.filename).replace(/\\/g, '/')}`);
+  };
+  if (req.file) push(req.file);
+  if (req.files) {
+    if (req.files.icon) req.files.icon.forEach(push);
+    if (req.files.images) req.files.images.forEach(push);
+  }
+  return urls;
+}
+
+function buildShopGalleryJson(existingGalleryRaw, req, keepRaw) {
+  const keep = parseGalleryKeep(keepRaw);
+  let existing = [];
+  if (existingGalleryRaw) {
+    try {
+      const ex =
+        typeof existingGalleryRaw === 'string' ? JSON.parse(existingGalleryRaw) : existingGalleryRaw;
+      existing = Array.isArray(ex) ? ex : [];
+    } catch {
+      existing = [];
+    }
+  }
+  const base = keep.length ? keep : existing;
+  const merged = [...base, ...shopUploadUrls(req)];
+  const uniq = [...new Set(merged.filter(Boolean))];
+  return uniq.length ? JSON.stringify(uniq) : null;
+}
+
+function firstGalleryUrl(galleryJson) {
+  if (!galleryJson) return null;
+  try {
+    const arr = typeof galleryJson === 'string' ? JSON.parse(galleryJson) : galleryJson;
+    return Array.isArray(arr) && arr[0] ? arr[0] : null;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchAgentShopRow(connOrPool, id, userId) {
+  const db = connOrPool || promisePool;
+  const [[row]] = await db.query(
+    `SELECT s.*,
+            (SELECT MIN(sp.amount) FROM service_prices sp
+             WHERE sp.service_id = s.id AND sp.is_active = 1) AS price_from
+     FROM services s
+     WHERE s.id = ? AND s.deleted_at IS NULL AND s.is_shop_product = 1
+       AND s.created_by_role = 'AGENT' AND s.created_by_user_id = ?
+     LIMIT 1`,
+    [id, userId]
+  );
+  return row ? decodeRow(row) : null;
 }
 
 function parseJsonArray(val) {
@@ -1095,12 +1181,15 @@ router.get('/agent/shop-products', requireAgent, async (req, res) => {
   try {
     const userId = resolveUserId(req);
     const [rows] = await promisePool.query(
-      `SELECT * FROM services
-       WHERE deleted_at IS NULL
-         AND is_shop_product = 1
-         AND created_by_role = 'AGENT'
-         AND created_by_user_id = ?
-       ORDER BY updated_at DESC`,
+      `SELECT s.*,
+              (SELECT MIN(sp.amount) FROM service_prices sp
+               WHERE sp.service_id = s.id AND sp.is_active = 1) AS price_from
+       FROM services s
+       WHERE s.deleted_at IS NULL
+         AND s.is_shop_product = 1
+         AND s.created_by_role = 'AGENT'
+         AND s.created_by_user_id = ?
+       ORDER BY s.updated_at DESC`,
       [userId]
     );
     res.json({ success: true, data: rows.map(decodeRow) });
@@ -1109,33 +1198,44 @@ router.get('/agent/shop-products', requireAgent, async (req, res) => {
   }
 });
 
-router.post('/agent/shop-products', requireAgent, upload.single('icon'), async (req, res) => {
+router.post('/agent/shop-products', requireAgent, agentShopUpload, async (req, res) => {
   const conn = await promisePool.getConnection();
   try {
     const userId = resolveUserId(req);
-    const b = req.file ? bodyFromMultipart(req) : req.body;
+    const hasMultipart = req.file || (req.files && Object.keys(req.files).length);
+    const b = hasMultipart ? bodyFromMultipart(req) : req.body;
     const service_code = String(b.service_code || '').trim();
     const name = String(b.name || '').trim();
     const academic_year = String(b.academic_year || '').trim() || `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`;
-    const amount = Number(b.global_amount ?? b.amount ?? 0);
-    if (!service_code || !name || Number.isNaN(amount) || amount < 0) {
-      return res.status(400).json({ success: false, message: 'service_code, name and amount are required.' });
+    const amount = parseShopMoney(b);
+    if (!service_code || !name) {
+      return res.status(400).json({ success: false, message: 'service_code and name are required.' });
     }
-    const icon_url = req.file ? `/${UPLOAD_REL}/${req.file.filename}`.replace(/\\/g, '/') : null;
+    if (Number.isNaN(amount) || amount < 0) {
+      return res.status(400).json({ success: false, message: 'Valid price (RWF) is required.' });
+    }
+    const gallery_json = buildShopGalleryJson(null, req, null);
+    const icon_url = firstGalleryUrl(gallery_json);
+    const product_type = String(b.product_type || '').trim() || null;
+    const product_color = String(b.product_color || '').trim() || null;
     await conn.beginTransaction();
     const [ins] = await conn.query(
       `INSERT INTO services (
-        service_code, name, category, description, short_tagline, icon_url, academic_year,
+        service_code, name, category, description, short_tagline, icon_url, gallery_images,
+        product_type, product_color, academic_year,
         eligibility_levels, default_pricing_type, stock_quantity, status,
         created_by_role, created_by_user_id, is_shop_product
-      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,1)`,
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)`,
       [
         service_code,
         name,
-        'Agent Shop',
+        String(b.category || 'Agent Shop').trim() || 'Agent Shop',
         b.description || null,
         b.short_tagline || null,
         icon_url,
+        gallery_json,
+        product_type,
+        product_color,
         academic_year,
         JSON.stringify([]),
         'global',
@@ -1151,8 +1251,8 @@ router.post('/agent/shop-products', requireAgent, upload.single('icon'), async (
       [ins.insertId, academic_year, amount]
     );
     await conn.commit();
-    const [[row]] = await promisePool.query(`SELECT * FROM services WHERE id = ? LIMIT 1`, [ins.insertId]);
-    res.status(201).json({ success: true, data: decodeRow(row) });
+    const row = await fetchAgentShopRow(promisePool, ins.insertId, userId);
+    res.status(201).json({ success: true, data: row });
   } catch (e) {
     await conn.rollback();
     res.status(400).json({ success: false, message: e.message || 'Create failed' });
@@ -1161,7 +1261,7 @@ router.post('/agent/shop-products', requireAgent, upload.single('icon'), async (
   }
 });
 
-router.put('/agent/shop-products/:id', requireAgent, upload.single('icon'), async (req, res) => {
+router.put('/agent/shop-products/:id', requireAgent, agentShopUpload, async (req, res) => {
   const conn = await promisePool.getConnection();
   try {
     const userId = resolveUserId(req);
@@ -1171,31 +1271,46 @@ router.put('/agent/shop-products/:id', requireAgent, upload.single('icon'), asyn
       [id, userId]
     );
     if (!existing) return res.status(404).json({ success: false, message: 'Product not found' });
-    const b = req.file ? bodyFromMultipart(req) : req.body;
-    const icon_url = req.file ? `/${UPLOAD_REL}/${req.file.filename}`.replace(/\\/g, '/') : existing.icon_url;
+    const hasMultipart = req.file || (req.files && Object.keys(req.files).length);
+    const b = hasMultipart ? bodyFromMultipart(req) : req.body;
+    const gallery_json = buildShopGalleryJson(existing.gallery_images, req, b.existing_gallery);
+    const icon_url = firstGalleryUrl(gallery_json) || existing.icon_url;
+    const product_type =
+      b.product_type !== undefined ? String(b.product_type || '').trim() || null : existing.product_type;
+    const product_color =
+      b.product_color !== undefined ? String(b.product_color || '').trim() || null : existing.product_color;
     await conn.beginTransaction();
     await conn.query(
       `UPDATE services
        SET name = COALESCE(?, name),
+           category = COALESCE(?, category),
            description = ?,
            short_tagline = ?,
            icon_url = ?,
+           gallery_images = ?,
+           product_type = ?,
+           product_color = ?,
            stock_quantity = ?,
            status = COALESCE(?, status),
            updated_at = NOW()
        WHERE id = ?`,
       [
         b.name ? String(b.name).trim() : null,
+        b.category != null && String(b.category).trim() ? String(b.category).trim() : null,
         b.description !== undefined ? b.description : existing.description,
         b.short_tagline !== undefined ? b.short_tagline : existing.short_tagline,
         icon_url,
+        gallery_json,
+        product_type,
+        product_color,
         b.stock_quantity !== undefined ? (b.stock_quantity === '' ? null : parseInt(b.stock_quantity, 10)) : existing.stock_quantity,
         b.status || null,
         id,
       ]
     );
-    if (b.global_amount !== undefined || b.amount !== undefined) {
-      const amount = Number(b.global_amount ?? b.amount);
+    const amountRaw = b.global_amount ?? b.amount;
+    if (amountRaw !== undefined && amountRaw !== null && String(amountRaw).trim() !== '') {
+      const amount = parseShopMoney(b);
       if (Number.isNaN(amount) || amount < 0) throw new Error('Invalid amount');
       await conn.query(`DELETE FROM service_prices WHERE service_id = ?`, [id]);
       await conn.query(
@@ -1205,7 +1320,8 @@ router.put('/agent/shop-products/:id', requireAgent, upload.single('icon'), asyn
       );
     }
     await conn.commit();
-    res.json({ success: true, message: 'Product updated' });
+    const row = await fetchAgentShopRow(promisePool, id, userId);
+    res.json({ success: true, data: row, message: 'Product updated' });
   } catch (e) {
     await conn.rollback();
     res.status(400).json({ success: false, message: e.message || 'Update failed' });
@@ -1247,28 +1363,78 @@ router.get('/admin/shop-products', requireSuper, async (_req, res) => {
   }
 });
 
-// Public shop catalog by agent
+// Public shop catalog by agent (active products the agent published)
 router.get('/public/shop/products', async (req, res) => {
   try {
     const agentUserId = parseInt(req.query.agent_user_id, 10);
     if (!agentUserId) return res.status(400).json({ success: false, message: 'agent_user_id is required' });
+    const [[agentRow]] = await promisePool.query(
+      `SELECT u.id, u.first_name, u.last_name, u.phone, p.district, p.province, p.sectors_json
+       FROM users u
+       LEFT JOIN field_agent_profiles p ON p.user_id = u.id
+       WHERE u.id = ?
+       LIMIT 1`,
+      [agentUserId]
+    );
     const [rows] = await promisePool.query(
-      `SELECT s.id, s.service_code, s.name, s.description, s.short_tagline, s.icon_url, s.stock_quantity
+      `SELECT s.id, s.service_code, s.name, s.description, s.short_tagline, s.icon_url, s.gallery_images,
+              s.product_type, s.product_color, s.stock_quantity, s.category
        FROM services s
        WHERE s.deleted_at IS NULL
          AND s.is_shop_product = 1
          AND s.status = 'active'
-         AND (
-           (s.created_by_role='AGENT' AND s.created_by_user_id = ?)
-           OR s.created_by_role='SUPER_ADMIN'
-         )
-       ORDER BY s.name ASC`,
+         AND s.created_by_role = 'AGENT'
+         AND s.created_by_user_id = ?
+       ORDER BY s.updated_at DESC, s.name ASC`,
       [agentUserId]
     );
     const ids = rows.map((r) => r.id);
     const prices = await attachPriceSummary(ids);
-    const out = rows.map((r) => ({ ...r, price: prices[r.id]?.price_min ?? 0 }));
-    res.json({ success: true, data: out });
+    const out = rows.map((r) => {
+      const decoded = decodeRow({ ...r });
+      let gallery = decoded.gallery_images;
+      if (!Array.isArray(gallery)) gallery = [];
+      if (!gallery.length && decoded.icon_url) gallery = [decoded.icon_url];
+      return {
+        id: decoded.id,
+        service_code: decoded.service_code,
+        name: decoded.name,
+        description: decoded.description,
+        short_tagline: decoded.short_tagline,
+        icon_url: decoded.icon_url,
+        gallery_images: gallery,
+        product_type: decoded.product_type,
+        product_color: decoded.product_color,
+        stock_quantity: decoded.stock_quantity,
+        category: decoded.category,
+        price: prices[r.id]?.price_min ?? 0,
+      };
+    });
+    const agentName = agentRow
+      ? `${agentRow.first_name || ''} ${agentRow.last_name || ''}`.trim() || 'Field agent'
+      : 'Field agent';
+    let sectorLabel = null;
+    try {
+      const sectors = agentRow?.sectors_json
+        ? typeof agentRow.sectors_json === 'string'
+          ? JSON.parse(agentRow.sectors_json)
+          : agentRow.sectors_json
+        : [];
+      if (Array.isArray(sectors) && sectors.length) sectorLabel = String(sectors[0]);
+    } catch {
+      sectorLabel = null;
+    }
+    res.json({
+      success: true,
+      data: out,
+      agent: {
+        id: agentUserId,
+        name: agentName,
+        sector: sectorLabel,
+        district: agentRow?.district || null,
+        phone: agentRow?.phone || null,
+      },
+    });
   } catch (e) {
     res.status(500).json({ success: false, message: e.message || 'Failed to load shop products' });
   }
@@ -1332,8 +1498,14 @@ router.post('/public/shop/checkout', async (req, res) => {
     const ids = items.map((i) => parseInt(i.service_id, 10)).filter(Boolean);
     const [rows] = await promisePool.query(
       `SELECT id, name, stock_quantity
-       FROM services WHERE id IN (?) AND deleted_at IS NULL AND is_shop_product = 1 AND status='active'`,
-      [ids]
+       FROM services
+       WHERE id IN (?)
+         AND deleted_at IS NULL
+         AND is_shop_product = 1
+         AND status = 'active'
+         AND created_by_role = 'AGENT'
+         AND created_by_user_id = ?`,
+      [ids, agentUserId]
     );
     const map = new Map(rows.map((r) => [r.id, r]));
     const prices = await attachPriceSummary(ids);
@@ -1343,7 +1515,9 @@ router.post('/public/shop/checkout', async (req, res) => {
       const id = parseInt(it.service_id, 10);
       const qty = Math.max(1, parseInt(it.quantity, 10) || 1);
       const svc = map.get(id);
-      if (!svc) continue;
+      if (!svc) {
+        return res.status(400).json({ success: false, message: 'One or more products are invalid for this agent shop.' });
+      }
       if (svc.stock_quantity != null && qty > Number(svc.stock_quantity)) {
         return res.status(400).json({ success: false, message: `${svc.name}: quantity exceeds stock` });
       }
@@ -1458,6 +1632,72 @@ router.post('/public/shop/pay-momo', async (req, res) => {
   }
 });
 
+router.post('/public/shop/pay-offline', async (req, res) => {
+  try {
+    const batchRef = String(req.body?.batch_ref || '').trim();
+    const method = String(req.body?.method || '').trim().toLowerCase();
+    const payerName = String(req.body?.payer_name || '').trim();
+    const payerPhone = String(req.body?.payer_phone || '').trim();
+    if (!batchRef || !['bank', 'visa'].includes(method)) {
+      return res.status(400).json({ success: false, message: 'batch_ref and method (bank|visa) are required.' });
+    }
+    const [orders] = await promisePool.query(
+      `SELECT * FROM service_orders WHERE batch_ref = ? AND payment_status IN ('pending','awaiting_payment')`,
+      [batchRef]
+    );
+    if (!orders.length) return res.status(404).json({ success: false, message: 'No pending shop order found.' });
+    const total = Math.round(orders.reduce((s, o) => s + Number(o.amount || 0), 0));
+    const paymentRef = `shop-${method}-${batchRef}`.slice(0, 64);
+    const providerPayload = {
+      batch_ref: batchRef,
+      method,
+      payer_name: payerName || null,
+      payer_phone: payerPhone || null,
+      bank: method === 'bank' ? req.body?.bank || null : null,
+      visa: method === 'visa' ? req.body?.visa || null : null,
+      submitted_at: new Date().toISOString(),
+      note: 'Awaiting payment confirmation',
+    };
+    await promisePool.query(
+      `INSERT INTO service_payments (order_id, payment_ref, payment_method, amount_paid, transaction_fee, total_amount, payment_date, payment_status, provider_response)
+       VALUES (?, ?, ?, ?, 0, ?, NOW(), 'pending', ?)`,
+      [
+        orders[0].id,
+        paymentRef,
+        method === 'bank' ? 'bank_transfer' : 'visa_card',
+        total,
+        total,
+        JSON.stringify(providerPayload),
+      ]
+    );
+    for (const ord of orders) {
+      let meta = {};
+      try {
+        meta = ord.order_meta_json ? JSON.parse(ord.order_meta_json) : {};
+      } catch {
+        meta = {};
+      }
+      meta.offline_payment = providerPayload;
+      await promisePool.query(
+        `UPDATE service_orders SET order_meta_json = ?, updated_at = NOW() WHERE id = ?`,
+        [JSON.stringify(meta), ord.id]
+      );
+    }
+    res.json({
+      success: true,
+      data: {
+        batch_ref: batchRef,
+        amount_rwf: total,
+        payment_ref: paymentRef,
+        status: 'PENDING_REVIEW',
+        method,
+      },
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message || 'Payment submission failed' });
+  }
+});
+
 router.get('/public/shop/pay-status/:batchRef', async (req, res) => {
   try {
     const batchRef = String(req.params.batchRef || '').trim();
@@ -1497,36 +1737,136 @@ router.get('/public/shop/pay-status/:batchRef', async (req, res) => {
   }
 });
 
+const AGENT_SHOP_FULFILLMENT_STATUSES = [
+  'Pending',
+  'Processing',
+  'Ready for delivery',
+  'Delivered',
+  'Not delivered',
+  'Out of stock',
+  'Cancelled',
+  'Completed',
+];
+
 router.get('/agent/shop-orders', requireAgent, async (req, res) => {
   try {
     const userId = resolveUserId(req);
     const status = String(req.query.status || '').trim().toLowerCase();
+    const paymentStatus = String(req.query.payment_status || '').trim().toLowerCase();
+    const fulfillmentFilter = String(req.query.fulfillment_status || '').trim();
     const deliveryMode = String(req.query.delivery_mode || '').trim().toUpperCase();
     const from = String(req.query.date_from || '').trim();
     const to = String(req.query.date_to || '').trim();
     const search = String(req.query.search || '').trim();
     let sql = `
-      SELECT o.*, s.name AS product_name, st.first_name, st.last_name, st.student_code, sc.school_name
+      SELECT o.*,
+             s.name AS product_name,
+             s.icon_url AS product_icon_url,
+             s.gallery_images AS product_gallery_images,
+             st.first_name,
+             st.last_name,
+             st.student_code,
+             sc.school_name
       FROM service_orders o
       LEFT JOIN services s ON s.id = o.service_id
       LEFT JOIN students st ON st.id = o.student_id
       LEFT JOIN schools sc ON sc.id = o.school_id
       WHERE o.agent_user_id = ? AND o.source_channel LIKE 'PUBLIC_SHOP%'`;
     const params = [userId];
-    if (status) { sql += ' AND o.payment_status = ?'; params.push(status); }
+    const payFilter = paymentStatus || (['awaiting_payment', 'pending', 'paid', 'failed', 'refunded'].includes(status) ? status : '');
+    if (payFilter) {
+      sql += ' AND o.payment_status = ?';
+      params.push(payFilter);
+    }
+    const fulfillFilter =
+      fulfillmentFilter ||
+      (status === 'processing'
+        ? 'Processing'
+        : status === 'delivered'
+          ? '__delivered__'
+          : status === 'fulfillment_pending'
+            ? 'Pending'
+            : '');
+    if (fulfillFilter === '__delivered__') {
+      sql += ` AND LOWER(o.fulfillment_status) IN ('delivered', 'completed')`;
+    } else if (fulfillFilter) {
+      sql += ' AND o.fulfillment_status = ?';
+      params.push(fulfillFilter);
+    }
     if (deliveryMode) { sql += ' AND o.delivery_mode = ?'; params.push(deliveryMode); }
     if (from) { sql += ' AND DATE(o.created_at) >= ?'; params.push(from); }
     if (to) { sql += ' AND DATE(o.created_at) <= ?'; params.push(to); }
     if (search) {
-      sql += ' AND (o.batch_ref LIKE ? OR o.buyer_name LIKE ? OR o.buyer_contact LIKE ? OR st.student_code LIKE ? OR s.name LIKE ?)';
+      sql += ` AND (
+        o.batch_ref LIKE ? OR o.order_number LIKE ? OR o.buyer_name LIKE ? OR o.buyer_contact LIKE ?
+        OR st.student_code LIKE ? OR s.name LIKE ?
+        OR CONCAT(COALESCE(st.first_name,''), ' ', COALESCE(st.last_name,'')) LIKE ?
+      )`;
       const like = `%${search}%`;
-      params.push(like, like, like, like, like);
+      params.push(like, like, like, like, like, like, like);
     }
     sql += ' ORDER BY o.created_at DESC LIMIT 800';
     const [rows] = await promisePool.query(sql, params);
-    res.json({ success: true, data: rows });
+    const data = rows.map((row) => {
+      const decoded = { ...row };
+      if (decoded.product_gallery_images != null) {
+        try {
+          const g =
+            typeof decoded.product_gallery_images === 'string'
+              ? JSON.parse(decoded.product_gallery_images)
+              : decoded.product_gallery_images;
+          decoded.product_gallery_images = Array.isArray(g) ? g : [];
+        } catch {
+          decoded.product_gallery_images = [];
+        }
+      }
+      return decoded;
+    });
+    res.json({ success: true, data });
   } catch (e) {
     res.status(500).json({ success: false, message: e.message || 'Failed to load shop orders' });
+  }
+});
+
+router.patch('/agent/shop-orders/:id/status', requireAgent, async (req, res) => {
+  try {
+    const userId = resolveUserId(req);
+    const id = parseInt(req.params.id, 10);
+    const fulfillmentStatus = String(req.body?.fulfillment_status || '').trim();
+    if (!AGENT_SHOP_FULFILLMENT_STATUSES.includes(fulfillmentStatus)) {
+      return res.status(400).json({ success: false, message: 'Invalid fulfillment_status' });
+    }
+    const [up] = await promisePool.query(
+      `UPDATE service_orders
+       SET fulfillment_status = ?, updated_at = NOW()
+       WHERE id = ?
+         AND agent_user_id = ?
+         AND source_channel LIKE 'PUBLIC_SHOP%'`,
+      [fulfillmentStatus, id, userId]
+    );
+    if (!up.affectedRows) {
+      return res.status(404).json({ success: false, message: 'Order not found' });
+    }
+    const [[row]] = await promisePool.query(
+      `SELECT o.*,
+              s.name AS product_name,
+              s.icon_url AS product_icon_url,
+              s.gallery_images AS product_gallery_images,
+              st.first_name,
+              st.last_name,
+              st.student_code,
+              sc.school_name
+       FROM service_orders o
+       LEFT JOIN services s ON s.id = o.service_id
+       LEFT JOIN students st ON st.id = o.student_id
+       LEFT JOIN schools sc ON sc.id = o.school_id
+       WHERE o.id = ? AND o.agent_user_id = ?
+       LIMIT 1`,
+      [id, userId]
+    );
+    res.json({ success: true, data: row || null, message: 'Order status updated' });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message || 'Failed to update order status' });
   }
 });
 

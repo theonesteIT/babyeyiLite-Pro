@@ -155,10 +155,9 @@ function formatPermissionDateTime(value) {
 }
 
 /**
- * Notify all parents linked to a student (portal access + father/mother phones).
- * @returns {{ email: { sent: number, failed: number }, push: { sent: number, skipped?: string }, in_app: { sent: number } }}
+ * Email + in-app + web push to all parents linked to a student.
  */
-async function notifyStudentParentsPermission(studentId, opts = {}) {
+async function notifyStudentParentsChannels(studentId, opts = {}) {
   const id = Number(studentId);
   const summary = {
     email: { sent: 0, failed: 0, skipped: 0 },
@@ -167,6 +166,72 @@ async function notifyStudentParentsPermission(studentId, opts = {}) {
   };
   if (!id) return summary;
 
+  const title = trimStr(opts.title) || 'Babyeyi';
+  const body = trimStr(opts.body) || '';
+  const type = trimStr(opts.type) || 'SCHOOL_ALERT';
+  const payload = opts.payload && typeof opts.payload === 'object' ? opts.payload : {};
+  const pushTag = trimStr(opts.pushTag) || `babyeyi-${type.toLowerCase()}`;
+  const category = opts.category || 'discipline';
+
+  const phones = await collectParentPhonesForStudent(id);
+  if (!phones.length) {
+    summary.in_app.skipped = 'no_parent_phones';
+    summary.push.skipped = 'no_parent_phones';
+  } else {
+    for (const phone of phones) {
+      try {
+        const ok = await insertParentPortalNotification({
+          targetPhone: phone,
+          studentId: id,
+          type,
+          title,
+          body,
+          payload,
+        });
+        if (ok) summary.in_app.sent += 1;
+      } catch (e) {
+        console.warn('[parent-notify/in-app]', e.message);
+      }
+    }
+
+    try {
+      const pushResult = await sendWebPushToParentPhones(
+        phones,
+        {
+          title,
+          body: body.replace(/\n/g, ' ').slice(0, 240),
+          tag: pushTag,
+          url: opts.url || '/parents/home',
+        },
+        { category }
+      );
+      summary.push.sent = Number(pushResult.sent || 0);
+      if (!summary.push.sent) summary.push.skipped = pushResult.skipped || 'not_delivered';
+    } catch (e) {
+      console.warn('[parent-notify/push]', e.message);
+      summary.push.skipped = e.message;
+    }
+  }
+
+  const emails = await collectParentEmailsForStudent(id);
+  if (!emails.length) {
+    summary.email.skipped = 'no_parent_emails';
+  } else {
+    for (const to of emails) {
+      const mail = await sendParentEmail({ to, subject: title, text: body });
+      if (mail.ok) summary.email.sent += 1;
+      else summary.email.failed += 1;
+    }
+  }
+
+  return summary;
+}
+
+/**
+ * Notify all parents linked to a student (portal access + father/mother phones).
+ * @returns {{ email: { sent: number, failed: number }, push: { sent: number, skipped?: string }, in_app: { sent: number } }}
+ */
+async function notifyStudentParentsPermission(studentId, opts = {}) {
   const studentName = trimStr(opts.studentName) || 'Your child';
   const schoolName = trimStr(opts.schoolName) || 'School';
   const permissionType = PERMISSION_TYPE_LABELS[String(opts.permissionType || '').toUpperCase()] || 'Permission';
@@ -195,70 +260,70 @@ async function notifyStudentParentsPermission(studentId, opts = {}) {
     .filter(Boolean)
     .join('\n');
 
-  const payload = {
-    permission_id: permissionId || null,
-    student_id: id,
-    school_id: opts.schoolId || null,
-    status,
-    permission_type: opts.permissionType || null,
-  };
+  return notifyStudentParentsChannels(studentId, {
+    type: 'STUDENT_PERMISSION',
+    title,
+    body,
+    payload: {
+      permission_id: permissionId || null,
+      student_id: Number(studentId),
+      school_id: opts.schoolId || null,
+      status,
+      permission_type: opts.permissionType || null,
+    },
+    pushTag: `student-permission-${permissionId || studentId}`,
+    category: 'discipline',
+  });
+}
 
-  const phones = await collectParentPhonesForStudent(id);
-  if (!phones.length) {
-    summary.in_app.skipped = 'no_parent_phones';
-    summary.push.skipped = 'no_parent_phones';
-  } else {
-    for (const phone of phones) {
-      try {
-        const ok = await insertParentPortalNotification({
-          targetPhone: phone,
-          studentId: id,
-          type: 'STUDENT_PERMISSION',
-          title,
-          body,
-          payload,
-        });
-        if (ok) summary.in_app.sent += 1;
-      } catch (e) {
-        console.warn('[parent-notify/in-app]', e.message);
-      }
-    }
+/**
+ * Parent alert when conduct marks are deducted (Set Marks — remove).
+ */
+async function notifyStudentParentsDiscipline(studentId, opts = {}) {
+  const studentName = trimStr(opts.studentName) || 'Your child';
+  const schoolName = trimStr(opts.schoolName) || 'School';
+  const marks = Number(opts.marks);
+  const remaining = Number(opts.remaining);
+  const maximum = Number(opts.maximum);
+  const reason = trimStr(opts.reason).slice(0, 280);
 
-    try {
-      const pushResult = await sendWebPushToParentPhones(
-        phones,
-        {
-          title,
-          body: body.replace(/\n/g, ' ').slice(0, 240),
-          tag: `student-permission-${permissionId || id}`,
-          url: '/parents/home',
-        },
-        { category: 'discipline' }
-      );
-      summary.push.sent = Number(pushResult.sent || 0);
-      if (!summary.push.sent) summary.push.skipped = pushResult.skipped || 'not_delivered';
-    } catch (e) {
-      console.warn('[parent-notify/push]', e.message);
-      summary.push.skipped = e.message;
-    }
-  }
+  const title = `${schoolName}: Conduct update`;
+  const body = [
+    `${studentName}: ${Number.isFinite(marks) ? marks : '—'} conduct mark(s) deducted.`,
+    reason ? `Reason: ${reason}` : null,
+    Number.isFinite(remaining) && Number.isFinite(maximum)
+      ? `Remaining: ${remaining} of ${maximum} marks.`
+      : Number.isFinite(remaining)
+        ? `Remaining: ${remaining} marks.`
+        : null,
+    'Open the Parent portal for details.',
+  ]
+    .filter(Boolean)
+    .join('\n');
 
-  const emails = await collectParentEmailsForStudent(id);
-  if (!emails.length) {
-    summary.email.skipped = 'no_parent_emails';
-  } else {
-    for (const to of emails) {
-      const mail = await sendParentEmail({ to, subject: title, text: body });
-      if (mail.ok) summary.email.sent += 1;
-      else summary.email.failed += 1;
-    }
-  }
-
-  return summary;
+  return notifyStudentParentsChannels(studentId, {
+    type: 'DISCIPLINE_MARKS',
+    title,
+    body,
+    payload: {
+      student_id: Number(studentId),
+      school_id: opts.schoolId || null,
+      action: 'remove',
+      marks_deducted: marks,
+      remaining_marks: remaining,
+      maximum_marks: maximum,
+      reason,
+      log_id: opts.logId || null,
+    },
+    pushTag: `discipline-marks-${studentId}`,
+    category: 'discipline',
+  });
 }
 
 module.exports = {
+  notifyStudentParentsChannels,
   notifyStudentParentsPermission,
+  notifyStudentParentsDiscipline,
   collectParentEmailsForStudent,
   insertParentPortalNotification,
 };

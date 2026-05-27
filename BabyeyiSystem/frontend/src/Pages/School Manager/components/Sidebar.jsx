@@ -1,169 +1,341 @@
 /**
- * Sidebar.jsx — School Manager Navigation
- * #000435 navy + amber-400 · MTN font · Tailwind only
+ * Sidebar.jsx — School Manager navigation (District-style)
+ * Thin outline icons · amber active state · grouped sections · mobile drawer
  */
 
-import { BookOpen, X, Sparkles, ChevronRight } from "lucide-react";
-import LogoutButton from "../../Auth/LogoutButton";
-import babyeyiLogo from "../../../assets/1BABYEYI LOGO FINAL.png";
-const FONT = `"Montserrat", system-ui, sans-serif`;
+import { createElement, useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  X,
+  Sparkles,
+  ChevronDown,
+  ChevronsLeft,
+  ChevronsRight,
+  LayoutDashboard,
+} from 'lucide-react';
+import LogoutButton from '../../Auth/LogoutButton';
+import babyeyiIcon from '../../../assets/babyeyi-icon.png';
+import { findNavGroupForTab } from './schoolManagerNavConfig';
+
+const FONT = "'Montserrat', system-ui, sans-serif";
+const COLLAPSE_KEY = 'babyeyi-sm-sidebar-collapsed';
+
+function readCollapsed() {
+  try {
+    return localStorage.getItem(COLLAPSE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function NavButton({ item, active, onClick, badge = 0, collapsed = false, nested = false, title }) {
+  const Icon = item.icon;
+  const iconSize = nested ? 16 : 18;
+  return (
+    <button
+      type="button"
+      title={title || (collapsed ? item.label : undefined)}
+      onClick={onClick}
+      className={`relative flex w-full items-center border text-left font-medium tracking-tight transition-all duration-200 ${
+        nested
+          ? `gap-2.5 rounded-lg py-1.5 text-[12px] ${collapsed ? 'justify-center px-2' : 'pl-8 pr-2.5'}`
+          : `gap-3 rounded-xl px-3 py-2.5 text-[13px] ${collapsed ? 'justify-center px-2' : ''}`
+      } ${
+        active
+          ? 'border-white/10 bg-white/[0.12] text-amber-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]'
+          : 'border-transparent text-white/72 hover:bg-white/[0.06] hover:text-white'
+      }`}
+      style={{ fontFamily: FONT }}
+    >
+      {createElement(Icon, {
+        size: iconSize,
+        strokeWidth: 1.75,
+        className: active ? 'shrink-0 text-amber-400' : 'shrink-0 text-white/45',
+      })}
+      {!collapsed && (
+        <>
+          <span className="flex-1 truncate">{item.label}</span>
+          {badge > 0 && (
+            <span
+              className={`min-w-[18px] rounded-full px-1.5 py-0.5 text-center text-[10px] font-black ${
+                active ? 'bg-amber-400/20 text-amber-300' : 'bg-amber-400 text-[#000435]'
+              }`}
+            >
+              {badge > 9 ? '9+' : badge}
+            </span>
+          )}
+        </>
+      )}
+    </button>
+  );
+}
 
 export default function Sidebar({
-  tab, switchTab, NAV, notifCount,
+  tab,
+  switchTab,
+  navGroups = [],
   transferNotifCount = 0,
-  mobileOpen, setMobileOpen,
-  /** When true and proAppBase is set, show CTA to open babyeyipro School Manager (same session). */
+  mobileOpen,
+  setMobileOpen,
   showProLaunch = false,
-  proAppBase = "",
+  proAppBase = '',
+  session = null,
+  onCollapsedChange,
 }) {
-  const NavItem = ({ item, onClick }) => {
-    const isActive = tab === item.id;
-    const badge = item.id === "student_transfer" ? transferNotifCount : 0;
+  const [collapsed, setCollapsed] = useState(readCollapsed);
+  const [expanded, setExpanded] = useState(() => {
+    const activeGroup = findNavGroupForTab(navGroups, tab);
+    const init = {};
+    navGroups.forEach((g) => {
+      init[g.id] = true;
+    });
+    if (activeGroup) init[activeGroup] = true;
+    return init;
+  });
+
+  const activeGroupId = useMemo(() => findNavGroupForTab(navGroups, tab), [navGroups, tab]);
+  const dashboardItem = useMemo(
+    () => ({ id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard }),
+    [],
+  );
+
+  useEffect(() => {
+    if (!activeGroupId) return;
+    setExpanded((prev) => ({ ...prev, [activeGroupId]: true }));
+  }, [activeGroupId]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(COLLAPSE_KEY, collapsed ? '1' : '0');
+    } catch {
+      /* ignore */
+    }
+    const w = collapsed ? '72px' : '260px';
+    document.documentElement.style.setProperty('--sm-sidebar-w', w);
+    onCollapsedChange?.(collapsed);
+  }, [collapsed, onCollapsedChange]);
+
+  const toggleGroup = useCallback(
+    (groupId) => {
+      if (collapsed) {
+        setCollapsed(false);
+        setExpanded((prev) => ({ ...prev, [groupId]: true }));
+        return;
+      }
+      setExpanded((prev) => ({ ...prev, [groupId]: !prev[groupId] }));
+    },
+    [collapsed],
+  );
+
+  const navigate = (itemId, onItemClick) => {
+    if (itemId === 'invoices') {
+      window.location.assign('/invoices');
+      return;
+    }
+    switchTab(itemId);
+    onItemClick?.();
+  };
+
+  const displayName =
+    session?.userName || [session?.userEmail].filter(Boolean)[0] || 'School Manager';
+  const schoolName = session?.schoolName || '';
+
+  const SidebarInner = ({ onItemClick, forceExpanded = false }) => {
+    const isCollapsed = forceExpanded ? false : collapsed;
 
     return (
-      <button
-        type="button"
-        onClick={() => {
-          if (item.id === "invoices") { window.location.assign("/invoices"); return; }
-          switchTab(item.id);
-          if (onClick) onClick();
-        }}
-        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-bold transition-all duration-150 mb-0.5 text-left ${
-          isActive
-            ? "bg-amber-400 text-[#000435] shadow-md shadow-amber-900/20"
-            : "text-white/65 hover:bg-white/8 hover:text-white"
-        }`}
-        style={{ fontFamily: FONT }}
+      <div
+        className="flex h-full min-h-0 w-full flex-col border-r border-white/[0.06] shadow-sm"
+        style={{ background: '#000435', colorScheme: 'dark', fontFamily: FONT }}
       >
-        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-all ${
-          isActive ? "bg-[#000435]/20" : "bg-white/5"
-        }`}>
-          <item.icon size={16} />
+        {/* Brand */}
+        <div
+          className={`shrink-0 border-b border-white/[0.06] ${isCollapsed ? 'p-3' : 'p-4 pb-3'}`}
+        >
+          <div className={`flex items-center gap-3 ${isCollapsed ? 'flex-col' : ''}`}>
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-sm">
+              <img src={babyeyiIcon} alt="Babyeyi" className="h-10 w-10 object-contain" />
+            </div>
+            {!isCollapsed && (
+              <div className="min-w-0 flex-1">
+                <span className="block text-base font-semibold leading-tight tracking-tight text-white">
+                  Babyeyi
+                </span>
+                <p className="mt-0.5 text-[10px] font-medium tracking-wide text-amber-400">
+                  School Manager
+                </p>
+              </div>
+            )}
+            {!forceExpanded && (
+              <button
+                type="button"
+                onClick={() => setCollapsed((c) => !c)}
+                className={`hidden shrink-0 cursor-pointer items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white/45 transition hover:bg-white/10 hover:text-white lg:flex ${
+                  isCollapsed ? 'h-8 w-8' : 'h-8 w-8 ml-auto'
+                }`}
+                aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              >
+                {isCollapsed ? <ChevronsRight size={15} /> : <ChevronsLeft size={15} />}
+              </button>
+            )}
+          </div>
         </div>
-        <span className="flex-1 truncate">{item.label}</span>
-        {badge > 0 && (
-          <span className={`text-[10px] font-black rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 ${
-            isActive ? "bg-[#000435] text-amber-400" : "bg-amber-400 text-[#000435]"
-          }`}>
-            {badge > 9 ? "9+" : badge}
-          </span>
-        )}
-        {isActive && <ChevronRight size={14} className="text-[#000435]/50 shrink-0" />}
-      </button>
+
+        <nav
+          className="sm-sidebar-scroll min-h-0 flex-1 space-y-0.5 overflow-y-auto overflow-x-hidden overscroll-y-contain px-3 py-3 pr-1"
+          aria-label="School Manager navigation"
+        >
+          {!isCollapsed && (
+            <p className="px-3 pb-2 pt-1 text-[10px] font-medium uppercase tracking-widest text-white/40">
+              Main
+            </p>
+          )}
+          <NavButton
+            item={dashboardItem}
+            active={tab === 'dashboard'}
+            collapsed={isCollapsed}
+            onClick={() => navigate('dashboard', onItemClick)}
+          />
+
+          {navGroups.map((group) => {
+            const isOpen = forceExpanded || expanded[group.id] !== false;
+            const hasActiveChild = group.items.some((i) => i.id === tab);
+
+            return (
+              <div key={group.id} className="pt-1.5">
+                {!isCollapsed ? (
+                  <button
+                    type="button"
+                    onClick={() => toggleGroup(group.id)}
+                    className="mb-0.5 flex w-full min-h-[28px] cursor-pointer items-center justify-between gap-1.5 rounded-md px-3 py-1 text-left transition-colors hover:bg-white/[0.04]"
+                  >
+                    <span
+                      className={`text-[9px] font-semibold uppercase tracking-[0.14em] ${
+                        hasActiveChild ? 'text-amber-400/75' : 'text-white/38'
+                      }`}
+                    >
+                      {group.label}
+                    </span>
+                    <ChevronDown
+                      size={12}
+                      strokeWidth={2}
+                      className={`shrink-0 text-white/30 transition-transform duration-200 ${
+                        isOpen ? 'rotate-0' : '-rotate-90'
+                      }`}
+                    />
+                  </button>
+                ) : (
+                  <div className="mx-auto my-1.5 h-px w-6 bg-white/10" aria-hidden />
+                )}
+
+                {(isOpen || isCollapsed) && (
+                  <div className={`${isCollapsed ? 'space-y-0.5' : 'space-y-px border-l border-white/[0.06] ml-4 pl-0.5'}`}>
+                    {group.items.map((item) => (
+                      <NavButton
+                        key={item.id}
+                        item={item}
+                        active={tab === item.id}
+                        collapsed={isCollapsed}
+                        nested={!isCollapsed}
+                        badge={item.id === 'student_transfer' ? transferNotifCount : 0}
+                        onClick={() => navigate(item.id, onItemClick)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {showProLaunch && proAppBase && !isCollapsed && (
+            <div className="pt-4 px-1">
+              <button
+                type="button"
+                onClick={() => window.location.assign(`${proAppBase}/manager`)}
+                className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-violet-400/25 bg-violet-600/90 px-3 py-2.5 text-[12px] font-bold text-white transition hover:bg-violet-600"
+              >
+                <Sparkles size={16} strokeWidth={1.75} />
+                Open Pro Manager
+              </button>
+            </div>
+          )}
+        </nav>
+
+        <div
+          className={`shrink-0 space-y-2 border-t border-white/[0.06] ${isCollapsed ? 'p-2' : 'p-3'}`}
+        >
+          <div className={isCollapsed ? '[&_button]:!justify-center [&_button]:!px-2 [&_span]:hidden' : ''}>
+            <LogoutButton
+              variant="sidebar"
+              className="!border-transparent !bg-transparent !text-red-400/90 hover:!bg-red-500/10 hover:!text-red-300"
+            />
+          </div>
+
+          <div
+            className={`flex items-start gap-2.5 rounded-xl border border-white/10 bg-white/[0.06] ${
+              isCollapsed ? 'justify-center p-2' : 'p-2.5'
+            }`}
+          >
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[#000c6e]">
+              <span className="text-sm font-black text-amber-400">
+                {(displayName[0] || 'S').toUpperCase()}
+              </span>
+            </div>
+            {!isCollapsed && (
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[12px] font-semibold text-white">{displayName}</p>
+                {schoolName ? (
+                  <p className="mt-0.5 truncate text-[10px] text-white/50">{schoolName}</p>
+                ) : null}
+                <p className="mt-0.5 truncate text-[9px] text-amber-400/80">Babyeyi System · v2.0</p>
+              </div>
+            )}
+          </div>
+          {!isCollapsed && (
+            <p className="px-3 pb-0 text-center text-[10px] font-medium text-white/35">
+              NESA Rwanda · v2.0
+            </p>
+          )}
+        </div>
+
+        <style>{`
+          .sm-sidebar-scroll::-webkit-scrollbar { width: 4px; }
+          .sm-sidebar-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 99px; }
+        `}</style>
+      </div>
     );
   };
 
-  const SidebarInner = ({ onItemClick }) => (
-    <div className="flex flex-col h-full" style={{ fontFamily: FONT }}>
-      {/* Brand header */}
-      <div className="px-4 pt-4 pb-4 border-b border-white/10">
-        <div className="flex flex-col items-center justify-center gap-1.5">
-          <img
-            src={babyeyiLogo}
-            alt="Babyeyi"
-            className="h-9 w-auto max-w-[150px] object-contain"
-          />
-          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-400/95">
-            School Manager
-          </p>
-        </div>
-      </div>
-
-      {/* Navigation */}
-      <nav className="flex-1 px-3 py-3 overflow-y-auto flex flex-col min-h-0">
-        <div className="space-y-0.5 flex-1">
-          {NAV.filter((item) => !item.footer).map((item) => (
-            <NavItem key={item.id} item={item} onClick={onItemClick} />
-          ))}
-        </div>
-        {NAV.filter((item) => item.footer).length > 0 && (
-          <div className="pt-3 mt-2 border-t border-white/10 space-y-0.5 shrink-0">
-            {NAV.filter((item) => item.footer).map((item) => (
-              <NavItem key={item.id} item={item} onClick={onItemClick} />
-            ))}
-          </div>
-        )}
-      </nav>
-
-      {showProLaunch && proAppBase && (
-        <div className="px-3 pt-1 pb-2 shrink-0">
-          <button
-            type="button"
-            onClick={() => {
-              window.location.assign(`${proAppBase}/manager`);
-            }}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-[12px] font-black shadow-lg shadow-violet-900/30 border border-violet-400/30 active:scale-[0.98] transition-transform"
-            style={{ fontFamily: FONT }}
-          >
-            <Sparkles size={16} className="shrink-0" />
-            Open Pro School Manager
-          </button>
-          <p className="mt-1.5 text-[10px] text-white/35 text-center font-semibold leading-snug px-1">
-            Pro workspace (academic & staff)
-          </p>
-        </div>
-      )}
-
-      {/* Footer */}
-      <div className="px-3 pb-4 pt-3 border-t border-white/10 space-y-3">
-        {/* Branding tag */}
-        <div className="rounded-xl border border-amber-400/20 bg-amber-400/5 p-3 text-center">
-          <div className="flex items-center justify-center gap-2 mb-1">
-            <div className="w-5 h-5 rounded-md bg-amber-400 flex items-center justify-center">
-              <span className="text-[10px] font-black text-[#000435]">E</span>
-            </div>
-            <p className="text-[11px] font-black text-amber-400">Edupoto360</p>
-          </div>
-          <p className="text-[10px] text-white/30">Babyeyi System · v2.0</p>
-        </div>
-        <LogoutButton variant="sidebar" />
-      </div>
-    </div>
-  );
+  const asideWidth = collapsed ? 'w-[72px]' : 'w-[260px]';
 
   return (
     <>
-      {/* Desktop sidebar */}
       <aside
-        className="hidden lg:flex flex-col fixed left-0 top-0 h-full z-30 w-[240px] xl:w-[256px] border-r border-amber-400/15 bg-[#000435]"
-        style={{ fontFamily: FONT }}
+        className={`fixed left-0 top-0 z-30 hidden h-full shrink-0 transition-[width] duration-200 lg:flex lg:flex-col ${asideWidth}`}
+        aria-label="School Manager navigation"
       >
         <SidebarInner />
       </aside>
 
-      {/* Mobile drawer */}
       {mobileOpen && (
-        <div className="lg:hidden fixed inset-0 z-50 flex">
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0 bg-[#000435]/70 backdrop-blur-sm"
+        <div className="fixed inset-0 z-50 flex lg:hidden">
+          <button
+            type="button"
+            aria-label="Close menu"
+            className="absolute inset-0 cursor-pointer border-none"
+            style={{ background: 'rgba(0,4,53,0.5)' }}
             onClick={() => setMobileOpen(false)}
           />
-          {/* Drawer panel */}
-          <div
-            className="relative w-[280px] max-w-[88vw] h-full bg-[#000435] border-r border-amber-400/20 flex flex-col shadow-2xl"
-            style={{ animation: "slideInLeft .22s cubic-bezier(.22,1,.36,1)" }}
-          >
-            {/* Drawer close header */}
-            <div className="flex items-center justify-between px-4 py-3.5 border-b border-white/10">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-amber-400 flex items-center justify-center">
-                  <BookOpen size={15} className="text-[#000435]" />
-                </div>
-                <span className="font-black text-[14px] text-white" style={{ fontFamily: FONT }}>Menu</span>
-              </div>
-              <button
-                onClick={() => setMobileOpen(false)}
-                className="w-8 h-8 rounded-xl bg-white/8 border border-white/15 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/14"
-              >
-                <X size={16} />
-              </button>
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <SidebarInner onItemClick={() => setMobileOpen(false)} />
-            </div>
+          <div className="relative flex h-full w-[min(280px,88vw)] flex-col shadow-2xl">
+            <button
+              type="button"
+              onClick={() => setMobileOpen(false)}
+              className="absolute right-3 top-3 z-10 flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl border-none bg-white/10 text-white"
+              aria-label="Close"
+            >
+              <X size={18} strokeWidth={1.75} />
+            </button>
+            <SidebarInner onItemClick={() => setMobileOpen(false)} forceExpanded />
           </div>
-          <style>{`@keyframes slideInLeft{from{transform:translateX(-100%)}to{transform:translateX(0)}}`}</style>
         </div>
       )}
     </>

@@ -210,6 +210,7 @@ const Sidebar = ({ onClose }) => {
           subItems={[
             { name: 'Financial Overview',   path: '/finance',          icon: PieChart },
             { name: 'School Budget Management', path: '/finance/budgets', icon: ClipboardList },
+            { name: 'Action Plan Approvals', path: '/finance/action-plans', icon: ClipboardCheck },
             { name: 'Student Fee Payment',  path: '/finance/payments', icon: Users },
             { name: 'Payroll',              path: '/payroll',          icon: ClipboardCheck },
             { name: 'Stock Reports',        path: '/reports/stock',    icon: Package },

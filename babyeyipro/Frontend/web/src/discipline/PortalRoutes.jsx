@@ -25,6 +25,7 @@ import Permission from './pages/Permission'
 import Requisitions from './pages/Requisitions'
 import ChatCenter from '../shared/pages/ChatCenter'
 import { PORTAL } from './config/portal'
+import { h } from './utils/href'
 
 const LoadingScreen = () => (
   <div className="min-h-screen bg-re-bg flex flex-col items-center justify-center gap-4 font-sans">
@@ -63,7 +64,7 @@ function DisciplineRoutesInner() {
       <Route path="permission" element={<ProtectedRoute title="Permission"><Permission /></ProtectedRoute>} />
       <Route path="requisitions" element={<ProtectedRoute title="Requisitions"><Requisitions /></ProtectedRoute>} />
       <Route path="my-payroll" element={<ProtectedRoute title="My Payroll"><StaffPayroll /></ProtectedRoute>} />
-      <Route path="payroll" element={<Navigate to="my-payroll" replace />} />
+      <Route path="payroll" element={<Navigate to={h('/my-payroll')} replace />} />
       <Route path="marks/view" element={<ProtectedRoute title="View Student Marks"><ViewMarks /></ProtectedRoute>} />
       <Route path="marks/record" element={<ProtectedRoute title="Record Marks"><RecordMarks /></ProtectedRoute>} />
       <Route path="conduct" element={<ProtectedRoute title="Conduct overview"><ConductOverview /></ProtectedRoute>} />

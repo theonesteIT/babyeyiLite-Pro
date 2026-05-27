@@ -29,16 +29,94 @@ const path    = require('path');
 const fs      = require('fs');
 const { promisePool } = require('../config/database');
 const { deoAuth }     = require('../middleware/deoAuth');
+const {
+  getDeoPrefs,
+  saveDeoPrefs,
+  listNotificationsForUser,
+  countUnread,
+} = require('./districtDeoNotifications');
+const {
+  upsertSubscription,
+  removeSubscription,
+  getVapidPublicKey,
+  isWebPushConfigured,
+} = require('./webPushSubscriptions');
 
-const DEO_ASSET_DIR = 'uploads/deo_assets/';
+const DEO_ASSET_DIR = path.join(__dirname, '..', 'uploads', 'deo_assets');
 if (!fs.existsSync(DEO_ASSET_DIR)) fs.mkdirSync(DEO_ASSET_DIR, { recursive: true });
+
+const DEO_ASSET_URL_PREFIX = '/uploads/deo_assets/';
+
+function isDuplicateColumnError(err) {
+  return err?.code === 'ER_DUP_FIELD' || err?.code === 'ER_DUP_FIELDNAME';
+}
+
+/** Ensure users.signature_url + users.stamp_url exist (once per process). */
+let deoAssetColumnsReady = null;
+async function ensureDeoUserAssetColumns() {
+  if (!deoAssetColumnsReady) {
+    deoAssetColumnsReady = (async () => {
+      for (const sql of [
+        'ALTER TABLE users ADD COLUMN signature_url VARCHAR(500) NULL',
+        'ALTER TABLE users ADD COLUMN stamp_url VARCHAR(500) NULL',
+      ]) {
+        try {
+          await query(sql, []);
+        } catch (e) {
+          if (!isDuplicateColumnError(e)) throw e;
+        }
+      }
+    })();
+  }
+  return deoAssetColumnsReady;
+}
+
+function deoAssetPublicUrl(filename) {
+  return `${DEO_ASSET_URL_PREFIX}${filename}`;
+}
+
+const PROFILE_PHOTO_DIR = path.join(__dirname, '..', 'uploads', 'profile-photos');
+if (!fs.existsSync(PROFILE_PHOTO_DIR)) fs.mkdirSync(PROFILE_PHOTO_DIR, { recursive: true });
+
+const profilePhotoStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, PROFILE_PHOTO_DIR),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname) || '.jpg';
+    const uid = req.deoUser?.id || req.session?.userId || 'user';
+    cb(null, `deo-profile-${uid}-${Date.now()}${ext}`);
+  },
+});
+const _uploadProfilePhotoMulter = multer({
+  storage: profilePhotoStorage,
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const ok = /^image\/(jpeg|jpg|png|webp)$/i.test(file.mimetype || '');
+    ok ? cb(null, true) : cb(new Error('Only JPEG, PNG or WebP images allowed'));
+  },
+});
+
+/** Skip global multipart parser — parse only on this route (avoids "Unexpected end of form"). */
+const profilePhotoUpload = (req, res, next) => {
+  const ct = String(req.headers['content-type'] || '').toLowerCase();
+  if (!ct.includes('multipart/form-data')) {
+    return res.status(400).json({ success: false, message: 'Expected multipart form upload' });
+  }
+  _uploadProfilePhotoMulter.single('photo')(req, res, (err) => {
+    if (err) {
+      const msg = String(err.message || 'Upload failed');
+      const code = /unexpected end of form/i.test(msg) ? 400 : (err.status || 400);
+      return res.status(code).json({ success: false, message: msg });
+    }
+    next();
+  });
+};
 
 const deoAssetStorage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, DEO_ASSET_DIR),
   filename: (req, file, cb) => {
-    const ext  = path.extname(file.originalname);
-    const type = file.fieldname;
-    const id   = req.params?.id || 'unknown';
+    const ext  = path.extname(file.originalname) || '.png';
+    const type = file.fieldname === 'deo_stamp' ? 'stamp' : 'signature';
+    const id   = req.deoUser?.id || req.session?.userId || req.params?.id || 'unknown';
     cb(null, `deo_${type}_${id}_${Date.now()}${ext}`);
   },
 });
@@ -93,6 +171,53 @@ const normalise = (r) => {
 // ── District comparison with collation fix (avoids "Illegal mix of collations") ──
 const districtMatch = (col) =>
   `CONVERT(${col} USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(? USING utf8mb4) COLLATE utf8mb4_unicode_ci`;
+
+/** Shared query filters from portal drawer (?academic_year, ?term, ?status, …). */
+function appendBabyeyiListFilters(where, params, query, alias = 'b') {
+  const year = query.academic_year || query.year;
+  if (year) {
+    where.push(`${alias}.academic_year = ?`);
+    params.push(year);
+  }
+  if (query.term) {
+    where.push(`${alias}.term = ?`);
+    params.push(query.term);
+  }
+  if (query.status) {
+    const statuses = String(query.status)
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (statuses.length === 1) {
+      where.push(`${alias}.status = ?`);
+      params.push(statuses[0]);
+    } else if (statuses.length > 1) {
+      where.push(`${alias}.status IN (${statuses.map(() => '?').join(',')})`);
+      params.push(...statuses);
+    }
+  }
+  if (query.category) {
+    where.push(`${alias}.school_category = ?`);
+    params.push(query.category);
+  }
+  if (query.level) {
+    where.push(`${alias}.education_level = ?`);
+    params.push(query.level);
+  }
+  if (query.sector) {
+    where.push(`${alias}.school_sector = ?`);
+    params.push(query.sector);
+  }
+  if (query.school_id) {
+    where.push(`${alias}.school_id = ?`);
+    params.push(query.school_id);
+  }
+  if (query.exceeds_limit === '1' || query.exceeds_limit === 'yes') {
+    where.push(`${alias}.exceeds_limit = 1`);
+  } else if (query.exceeds_limit === '0' || query.exceeds_limit === 'no') {
+    where.push(`(${alias}.exceeds_limit = 0 OR ${alias}.exceeds_limit IS NULL)`);
+  }
+}
 
 // ════════════════════════════════════════════════════════════════
 // Helper: resolve DEO stored sig/stamp (users.signature_url, users.stamp_url or school)
@@ -199,6 +324,10 @@ router.get('/me', (req, res) => {
 router.get('/stats', async (req, res) => {
   try {
     const district = req.deoDistrict;
+    const bWhere = [districtMatch('b.school_district'), 'b.is_active = 1'];
+    const bParams = [district];
+    appendBabyeyiListFilters(bWhere, bParams, req.query);
+    const bWhereSQL = `WHERE ${bWhere.join(' AND ')}`;
 
     const [[totals]] = await query(
       `SELECT
@@ -213,9 +342,21 @@ router.get('/stats', async (req, res) => {
          COALESCE(AVG(b.total_fee),  0)                  AS avg_fee,
          COALESCE(SUM(b.total_fee),  0)                  AS total_fees_collected
        FROM school_babyeyi b
-       WHERE b.school_district = ? AND b.is_active = 1`,
-      [district]
+       ${bWhereSQL}`,
+      bParams
     );
+
+    const reqWhere = [
+      `CONVERT(COALESCE(ir.district, b.school_district) USING utf8mb4) COLLATE utf8mb4_unicode_ci
+       = CONVERT(? USING utf8mb4) COLLATE utf8mb4_unicode_ci`,
+    ];
+    const reqParams = [district];
+    appendBabyeyiListFilters(reqWhere, reqParams, req.query);
+    if (req.query.request_status) {
+      reqWhere.push('ir.nesa_status = ?');
+      reqParams.push(req.query.request_status);
+    }
+    const reqWhereSQL = `WHERE ${reqWhere.join(' AND ')}`;
 
     const [[reqStat]] = await query(
       `SELECT
@@ -225,10 +366,9 @@ router.get('/stats', async (req, res) => {
          COALESCE(SUM(ir.nesa_status = 'rejected'),    0) AS rejected_requests,
          COALESCE(SUM(ir.nesa_status = 'recommended'), 0) AS recommended_requests
        FROM babyeyi_increase_requests ir
-       WHERE COALESCE(ir.district, '') = ? OR ir.babyeyi_id IN (
-         SELECT id FROM school_babyeyi WHERE school_district = ? AND is_active = 1
-       )`,
-      [district, district]
+       INNER JOIN school_babyeyi b ON b.id = ir.babyeyi_id AND b.is_active = 1
+       ${reqWhereSQL}`,
+      reqParams
     );
 
     const [sectorBreakdown] = await query(
@@ -239,10 +379,10 @@ router.get('/stats', async (req, res) => {
          COALESCE(SUM(b.status='pending'),  0)  AS pending,
          COALESCE(SUM(b.total_fee), 0)          AS total_fees
        FROM school_babyeyi b
-       WHERE b.school_district = ? AND b.is_active = 1
+       ${bWhereSQL}
        GROUP BY b.school_sector
        ORDER BY total DESC`,
-      [district]
+      bParams
     );
 
     const [schoolBreakdown] = await query(
@@ -256,11 +396,11 @@ router.get('/stats', async (req, res) => {
          COALESCE(SUM(b.total_fee), 0)                     AS total_fees
        FROM school_babyeyi b
        LEFT JOIN schools s ON s.id = b.school_id
-       WHERE b.school_district = ? AND b.is_active = 1
+       ${bWhereSQL}
        GROUP BY b.school_id, b.school_name, s.school_name, b.school_sector
        ORDER BY total DESC
        LIMIT 20`,
-      [district]
+      bParams
     );
 
     res.json({
@@ -291,9 +431,7 @@ router.get('/analytics', async (req, res) => {
 
     const baseWhere = [districtMatch('b.school_district'), 'b.is_active = 1'];
     const baseParams = [district];
-    if (term) { baseWhere.push('b.term = ?'); baseParams.push(term); }
-    if (academic_year) { baseWhere.push('b.academic_year = ?'); baseParams.push(academic_year); }
-    if (sector) { baseWhere.push('b.school_sector = ?'); baseParams.push(sector); }
+    appendBabyeyiListFilters(baseWhere, baseParams, { term, academic_year, sector, ...req.query });
     const whereSQL = `WHERE ${baseWhere.join(' AND ')}`;
 
     const [sectorBreakdown] = await query(
@@ -339,6 +477,22 @@ router.get('/analytics', async (req, res) => {
       baseParams
     );
 
+    const tablePage  = Math.max(1, Number(req.query.page) || 1);
+    const tableLimit = Math.min(50, Math.max(5, Number(req.query.limit) || 12));
+    const tableOffset = (tablePage - 1) * tableLimit;
+
+    const groupFrom = `
+       FROM school_babyeyi b
+       LEFT JOIN schools s ON s.id = b.school_id
+       ${whereSQL}
+       GROUP BY b.school_id, b.school_name, s.school_name, b.school_sector, b.academic_year, b.term`;
+
+    const [[{ tableTotal }]] = await query(
+      `SELECT COUNT(*) AS tableTotal FROM (SELECT 1 AS x ${groupFrom}) AS grouped`,
+      baseParams
+    );
+    const totalTableRows = Number(tableTotal) || 0;
+
     const [schoolRequests] = await query(
       `SELECT
          b.school_id,
@@ -350,13 +504,10 @@ router.get('/analytics', async (req, res) => {
          COALESCE(SUM(b.status='approved'), 0) AS approved,
          COALESCE(SUM(b.status='pending'), 0) AS pending,
          COALESCE(SUM(b.exceeds_limit = 1), 0) AS increase_requests
-       FROM school_babyeyi b
-       LEFT JOIN schools s ON s.id = b.school_id
-       ${whereSQL}
-       GROUP BY b.school_id, b.school_name, s.school_name, b.school_sector, b.academic_year, b.term
+       ${groupFrom}
        ORDER BY increase_requests DESC, total_babyeyi DESC
-       LIMIT 100`,
-      baseParams
+       LIMIT ? OFFSET ?`,
+      [...baseParams, tableLimit, tableOffset]
     );
 
     res.json({
@@ -368,6 +519,12 @@ router.get('/analytics', async (req, res) => {
         term_breakdown: termBreakdown,
         year_breakdown: yearBreakdown,
         school_requests: schoolRequests,
+        school_requests_pagination: {
+          total: totalTableRows,
+          page: tablePage,
+          limit: tableLimit,
+          pages: Math.max(1, Math.ceil(totalTableRows / tableLimit) || 1),
+        },
       },
     });
   } catch (err) {
@@ -394,15 +551,18 @@ router.get('/list', async (req, res) => {
     const where  = [districtMatch('b.school_district'), 'b.is_active = 1'];
     const params = [district];
 
-    if (status)        { where.push('b.status = ?');          params.push(status); }
-    if (year)          { where.push('b.academic_year = ?');   params.push(year); }
-    if (term)          { where.push('b.term = ?');            params.push(term); }
-    if (category)      { where.push('b.school_category = ?'); params.push(category); }
-    if (level)         { where.push('b.education_level = ?'); params.push(level); }
-    if (sector)        { where.push('b.school_sector = ?');   params.push(sector); }
-    if (school_id)     { where.push('b.school_id = ?');       params.push(school_id); }
-    if (exceeds_limit) { where.push('b.exceeds_limit = 1'); }
-    if (request_status){ where.push('ir.nesa_status = ?');    params.push(request_status); }
+    appendBabyeyiListFilters(where, params, {
+      academic_year: year,
+      year,
+      term,
+      status,
+      category,
+      level,
+      sector,
+      school_id,
+      exceeds_limit,
+    });
+    if (request_status) { where.push('ir.nesa_status = ?'); params.push(request_status); }
 
     if (search) {
       where.push('(b.class_name LIKE ? OR b.academic_year LIKE ? OR b.doc_id LIKE ? OR b.school_name LIKE ?)');
@@ -471,7 +631,8 @@ router.get('/list', async (req, res) => {
 router.get('/increase-requests', async (req, res) => {
   try {
     const district = req.deoDistrict;
-    const { status, page = 1, limit = 20 } = req.query;
+    const { status, academic_year, term, year, page = 1, limit = 20 } = req.query;
+    const yearFilter = academic_year || year;
 
     // ── FIX A: cast both sides to a common collation ──────────
     const where  = [
@@ -480,6 +641,7 @@ router.get('/increase-requests', async (req, res) => {
     ];
     const params = [district];
     if (status) { where.push('ir.nesa_status = ?'); params.push(status); }
+    appendBabyeyiListFilters(where, params, { ...req.query, academic_year: yearFilter, year: yearFilter, term });
 
     const whereSQL = `WHERE ${where.join(' AND ')}`;
     const offset   = (Number(page) - 1) * Number(limit);
@@ -551,15 +713,37 @@ router.get('/increase-requests', async (req, res) => {
       };
     });
 
+    const districtWhere = `CONVERT(COALESCE(ir.district, b.school_district) USING utf8mb4) COLLATE utf8mb4_unicode_ci
+       = CONVERT(? USING utf8mb4) COLLATE utf8mb4_unicode_ci`;
+    const [summaryRows] = await query(
+      `SELECT ir.nesa_status AS status, COUNT(*) AS c
+       FROM babyeyi_increase_requests ir
+       LEFT JOIN school_babyeyi b ON b.id = ir.babyeyi_id
+       WHERE ${districtWhere}
+       GROUP BY ir.nesa_status`,
+      [district]
+    );
+    const summary = { total: 0, pending: 0, recommended: 0, approved: 0, rejected: 0 };
+    for (const row of summaryRows || []) {
+      const st = String(row.status || '').toLowerCase();
+      const c = Number(row.c || 0);
+      summary.total += c;
+      if (st === 'pending') summary.pending = c;
+      else if (st === 'recommended') summary.recommended = c;
+      else if (st === 'approved') summary.approved = c;
+      else if (st === 'rejected') summary.rejected = c;
+    }
+
     res.json({
       success:  true,
       district: req.deoDistrict,
       data:     merged.map(normalise),
+      summary,
       pagination: {
         total,
         page:  Number(page),
         limit: Number(limit),
-        pages: Math.ceil(total / Number(limit)),
+        pages: Math.max(1, Math.ceil(total / Number(limit)) || 1),
       },
     });
   } catch (err) {
@@ -626,37 +810,28 @@ router.get('/schools/list', async (req, res) => {
 // ════════════════════════════════════════════════════════════════
 router.get('/deo-assets', async (req, res) => {
   try {
-    const deoId = req.deoUser.id;
-    let row;
+    await ensureDeoUserAssetColumns();
+    const stored = await resolveDeoAssets(req.deoUser.id);
+    let logo_url = null;
     try {
       const [[r]] = await query(
-        `SELECT u.signature_url, u.stamp_url AS deo_stamp_url, s.school_stamp_url AS school_stamp, s.logo_url
-         FROM users u LEFT JOIN schools s ON s.id = u.school_id WHERE u.id = ? LIMIT 1`,
-        [deoId]
+        `SELECT s.logo_url FROM users u LEFT JOIN schools s ON s.id = u.school_id WHERE u.id = ? LIMIT 1`,
+        [req.deoUser.id]
       );
-      row = r;
+      logo_url = r?.logo_url || null;
     } catch (e) {
-      if (e.code === 'ER_BAD_FIELD_ERROR') {
-        const [[r]] = await query(
-          `SELECT u.signature_url, s.school_stamp_url AS school_stamp, s.logo_url
-           FROM users u LEFT JOIN schools s ON s.id = u.school_id WHERE u.id = ? LIMIT 1`,
-          [deoId]
-        );
-        row = r;
-        if (row) row.deo_stamp_url = null;
-      } else throw e;
+      if (e.code !== 'ER_BAD_FIELD_ERROR') throw e;
     }
-    const stampUrl = row?.deo_stamp_url || row?.school_stamp || null;
     res.json({
       success: true,
       data: {
-        signature_url: row?.signature_url || null,
-        stamp_url:     stampUrl,
-        logo_url:      row?.logo_url      || null,
+        signature_url: stored.sig || null,
+        stamp_url:     stored.stamp || null,
+        logo_url,
       },
     });
   } catch (err) {
-    console.error('[districtBabyeyi/deo-assets]', err.message);
+    console.error('[districtBabyeyi/deo-assets GET]', err.code, err.message);
     res.status(500).json({ success: false, message: 'Failed to load DEO assets' });
   }
 });
@@ -666,20 +841,14 @@ router.get('/deo-assets', async (req, res) => {
 // ════════════════════════════════════════════════════════════════
 router.post('/deo-assets', deoUpload, async (req, res) => {
   try {
+    await ensureDeoUserAssetColumns();
     const deoId = req.deoUser.id;
     const files = req.files || {};
     const sigFile   = files.deo_signature?.[0];
     const stampFile = files.deo_stamp?.[0];
-    const sigPath   = sigFile   ? `/${DEO_ASSET_DIR}${sigFile.filename}`   : null;
-    const stampPath = stampFile ? `/${DEO_ASSET_DIR}${stampFile.filename}` : null;
+    const sigPath   = sigFile   ? deoAssetPublicUrl(sigFile.filename)   : null;
+    const stampPath = stampFile ? deoAssetPublicUrl(stampFile.filename) : null;
 
-    try {
-      await query('ALTER TABLE users ADD COLUMN stamp_url VARCHAR(500) NULL', []);
-    } catch (e) {
-      if (e.code !== 'ER_DUP_FIELD') throw e;
-    }
-
-    // If no new files were uploaded, just acknowledge and keep existing assets.
     if (!sigPath && !stampPath) {
       const stored = await resolveDeoAssets(deoId);
       return res.json({
@@ -700,22 +869,188 @@ router.post('/deo-assets', deoUpload, async (req, res) => {
       await query('UPDATE users SET stamp_url = ? WHERE id = ?', [stampPath, deoId]);
     }
 
+    const stored = await resolveDeoAssets(deoId);
     res.json({
       success: true,
       message: 'DEO authorization assets saved. They will be used when you approve/reject or send to NESA.',
-      data: { signature_url: sigPath || null, stamp_url: stampPath || null },
+      data: {
+        signature_url: stored.sig || sigPath || null,
+        stamp_url:     stored.stamp || stampPath || null,
+      },
     });
   } catch (err) {
-    console.error('[districtBabyeyi/POST deo-assets]', err.message);
+    console.error('[districtBabyeyi/POST deo-assets]', err.code, err.message);
     res.status(500).json({ success: false, message: err.message || 'Failed to save assets' });
   }
 });
 
 // ════════════════════════════════════════════════════════════════
-// GET /api/district/babyeyi/:id
+// Settings, notifications, web push & profile (MUST be before /:id)
+// ════════════════════════════════════════════════════════════════
+router.get('/settings', async (req, res) => {
+  try {
+    const prefs = await getDeoPrefs(req.deoUser.id);
+    res.json({
+      success: true,
+      data: {
+        email: req.deoUser.email,
+        fullName: req.deoUser.fullName,
+        photo: req.deoUser.photo || null,
+        district: req.deoDistrict,
+        province: req.deoProvince || null,
+        ...prefs,
+      },
+    });
+  } catch (err) {
+    console.error('[districtBabyeyi/settings GET]', err.message);
+    res.status(500).json({ success: false, message: 'Failed to load settings' });
+  }
+});
+
+router.patch('/settings', async (req, res) => {
+  try {
+    const userId = req.deoUser.id;
+    const body = req.body || {};
+
+    if (body.email != null) {
+      const email = String(body.email).trim().toLowerCase();
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return res.status(400).json({ success: false, message: 'Valid email is required' });
+      }
+      const [dupRows] = await query(
+        `SELECT id FROM users WHERE email = ? AND id != ? AND deleted_at IS NULL LIMIT 1`,
+        [email, userId]
+      );
+      if (dupRows?.[0]) {
+        return res.status(409).json({ success: false, message: 'Email is already in use' });
+      }
+      await query(`UPDATE users SET email = ? WHERE id = ?`, [email, userId]);
+      req.deoUser.email = email;
+    }
+
+    const prefs = await getDeoPrefs(userId);
+    await saveDeoPrefs(userId, {
+      emailNotifications: body.emailNotifications != null ? !!body.emailNotifications : prefs.emailNotifications,
+      pushNotifications: body.pushNotifications != null ? !!body.pushNotifications : prefs.pushNotifications,
+      inAppNotifications: body.inAppNotifications != null ? !!body.inAppNotifications : prefs.inAppNotifications,
+      darkMode: body.darkMode != null ? !!body.darkMode : prefs.darkMode,
+      defaultAcademicYear: body.defaultAcademicYear ?? body.default_academic_year ?? prefs.defaultAcademicYear ?? '',
+      defaultTerm: body.defaultTerm ?? body.default_term ?? prefs.defaultTerm ?? '',
+    });
+
+    const updated = await getDeoPrefs(userId);
+    res.json({
+      success: true,
+      message: 'Settings saved',
+      data: {
+        email: req.deoUser.email,
+        fullName: req.deoUser.fullName,
+        photo: req.deoUser.photo || null,
+        district: req.deoDistrict,
+        ...updated,
+      },
+    });
+  } catch (err) {
+    console.error('[districtBabyeyi/settings PATCH]', err.message);
+    res.status(500).json({ success: false, message: 'Failed to save settings' });
+  }
+});
+
+router.post('/profile/photo', profilePhotoUpload, async (req, res) => {
+  try {
+    if (!req.file?.filename) {
+      return res.status(400).json({ success: false, message: 'No image file uploaded' });
+    }
+    const photoPath = '/uploads/profile-photos/' + req.file.filename;
+    await promisePool.query('UPDATE users SET photo = ? WHERE id = ?', [photoPath, req.deoUser.id]);
+    req.deoUser.photo = photoPath;
+    if (req.session?.user) req.session.user.photo = photoPath;
+    res.json({
+      success: true,
+      message: 'Profile photo updated',
+      data: { photo: photoPath },
+    });
+  } catch (err) {
+    console.error('[districtBabyeyi/profile/photo]', err.message);
+    res.status(500).json({ success: false, message: err.message || 'Failed to upload photo' });
+  }
+});
+
+router.get('/notifications', async (req, res) => {
+  try {
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 40));
+    const [items, unread] = await Promise.all([
+      listNotificationsForUser(req.deoUser.id, limit),
+      countUnread(req.deoUser.id),
+    ]);
+    res.json({ success: true, data: items, unread });
+  } catch (err) {
+    console.error('[districtBabyeyi/notifications]', err.message);
+    res.status(500).json({ success: false, message: 'Failed to load notifications' });
+  }
+});
+
+router.patch('/notifications/:id/read', async (req, res) => {
+  try {
+    await query(
+      `UPDATE staff_portal_notifications SET is_read = 1 WHERE id = ? AND user_id = ?`,
+      [req.params.id, req.deoUser.id]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to mark read' });
+  }
+});
+
+router.post('/notifications/read-all', async (req, res) => {
+  try {
+    await query(
+      `UPDATE staff_portal_notifications SET is_read = 1 WHERE user_id = ? AND is_read = 0`,
+      [req.deoUser.id]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to mark all read' });
+  }
+});
+
+router.get('/push/vapid-key', (_req, res) => {
+  if (!isWebPushConfigured()) {
+    return res.json({ success: true, publicKey: null, configured: false });
+  }
+  res.json({ success: true, publicKey: getVapidPublicKey(), configured: true });
+});
+
+router.post('/push/subscribe', async (req, res) => {
+  try {
+    const sub = req.body?.subscription;
+    if (!sub?.endpoint) {
+      return res.status(400).json({ success: false, message: 'Invalid subscription' });
+    }
+    await upsertSubscription(req.deoUser.id, sub);
+    res.json({ success: true, message: 'Push subscription saved' });
+  } catch (err) {
+    res.status(err.status || 500).json({ success: false, message: err.message || 'Subscribe failed' });
+  }
+});
+
+router.post('/push/unsubscribe', async (req, res) => {
+  try {
+    await removeSubscription(req.deoUser.id, req.body?.endpoint);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Unsubscribe failed' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+// GET /api/district/babyeyi/:id  (numeric babyeyi id only)
 // ════════════════════════════════════════════════════════════════
 router.get('/:id', async (req, res) => {
   try {
+    if (!/^\d+$/.test(String(req.params.id || ''))) {
+      return res.status(404).json({ success: false, message: 'Not found' });
+    }
     const district = req.deoDistrict;
 
     const [rows] = await query(
@@ -790,14 +1125,25 @@ router.patch('/:id/approve', deoUpload, async (req, res) => {
 
     const sigFile   = files.deo_signature?.[0];
     const stampFile = files.deo_stamp?.[0];
-    const sigPath   = sigFile   ? `/${DEO_ASSET_DIR}${sigFile.filename}`   : null;
-    const stampPath = stampFile ? `/${DEO_ASSET_DIR}${stampFile.filename}` : null;
+    const sigPath   = sigFile   ? deoAssetPublicUrl(sigFile.filename)   : null;
+    const stampPath = stampFile ? deoAssetPublicUrl(stampFile.filename) : null;
 
     let resolvedSigPath = sigPath, resolvedStampPath = stampPath;
     if (!resolvedSigPath || !resolvedStampPath) {
       const stored = await resolveDeoAssets(deoId);
       if (!resolvedSigPath)   resolvedSigPath   = stored.sig;
       if (!resolvedStampPath) resolvedStampPath = stored.stamp;
+    }
+
+    if (sigPath || stampPath) {
+      await ensureDeoUserAssetColumns();
+      if (sigPath && stampPath) {
+        await query('UPDATE users SET signature_url = ?, stamp_url = ? WHERE id = ?', [sigPath, stampPath, deoId]);
+      } else if (sigPath) {
+        await query('UPDATE users SET signature_url = ? WHERE id = ?', [sigPath, deoId]);
+      } else if (stampPath) {
+        await query('UPDATE users SET stamp_url = ? WHERE id = ?', [stampPath, deoId]);
+      }
     }
 
     await query('UPDATE school_babyeyi SET status = ? WHERE id = ?', ['approved', req.params.id]);
@@ -865,14 +1211,25 @@ router.patch('/:id/reject', deoUpload, async (req, res) => {
 
     const sigFile   = files.deo_signature?.[0];
     const stampFile = files.deo_stamp?.[0];
-    const sigPath   = sigFile   ? `/${DEO_ASSET_DIR}${sigFile.filename}`   : null;
-    const stampPath = stampFile ? `/${DEO_ASSET_DIR}${stampFile.filename}` : null;
+    const sigPath   = sigFile   ? deoAssetPublicUrl(sigFile.filename)   : null;
+    const stampPath = stampFile ? deoAssetPublicUrl(stampFile.filename) : null;
 
     let resolvedSigPath = sigPath, resolvedStampPath = stampPath;
     if (!resolvedSigPath || !resolvedStampPath) {
       const stored = await resolveDeoAssets(deoId);
       if (!resolvedSigPath)   resolvedSigPath   = stored.sig;
       if (!resolvedStampPath) resolvedStampPath = stored.stamp;
+    }
+
+    if (sigPath || stampPath) {
+      await ensureDeoUserAssetColumns();
+      if (sigPath && stampPath) {
+        await query('UPDATE users SET signature_url = ?, stamp_url = ? WHERE id = ?', [sigPath, stampPath, deoId]);
+      } else if (sigPath) {
+        await query('UPDATE users SET signature_url = ? WHERE id = ?', [sigPath, deoId]);
+      } else if (stampPath) {
+        await query('UPDATE users SET stamp_url = ? WHERE id = ?', [stampPath, deoId]);
+      }
     }
 
     await query('UPDATE school_babyeyi SET status = ? WHERE id = ?', ['rejected', req.params.id]);
@@ -949,14 +1306,25 @@ router.patch('/:id/recommend', deoUpload, async (req, res) => {
 
     const sigFile   = files.deo_signature?.[0];
     const stampFile = files.deo_stamp?.[0];
-    const sigPath   = sigFile   ? `/${DEO_ASSET_DIR}${sigFile.filename}`   : null;
-    const stampPath = stampFile ? `/${DEO_ASSET_DIR}${stampFile.filename}` : null;
+    const sigPath   = sigFile   ? deoAssetPublicUrl(sigFile.filename)   : null;
+    const stampPath = stampFile ? deoAssetPublicUrl(stampFile.filename) : null;
 
     let resolvedSigPath = sigPath, resolvedStampPath = stampPath;
     if (!resolvedSigPath || !resolvedStampPath) {
       const stored = await resolveDeoAssets(deoId);
       if (!resolvedSigPath)   resolvedSigPath   = stored.sig;
       if (!resolvedStampPath) resolvedStampPath = stored.stamp;
+    }
+
+    if (sigPath || stampPath) {
+      await ensureDeoUserAssetColumns();
+      if (sigPath && stampPath) {
+        await query('UPDATE users SET signature_url = ?, stamp_url = ? WHERE id = ?', [sigPath, stampPath, deoId]);
+      } else if (sigPath) {
+        await query('UPDATE users SET signature_url = ? WHERE id = ?', [sigPath, deoId]);
+      } else if (stampPath) {
+        await query('UPDATE users SET stamp_url = ? WHERE id = ?', [stampPath, deoId]);
+      }
     }
 
     const [updateResult] = await query(
@@ -985,6 +1353,19 @@ router.patch('/:id/recommend', deoUpload, async (req, res) => {
     );
 
     console.log(`[districtBabyeyi] DEO ${deoId} (${district}) RECOMMENDED babyeyi ${req.params.id} to NESA (affected: ${updateResult.affectedRows})`);
+
+    const [[schoolRow]] = await query(
+      `SELECT COALESCE(school_name, 'School') AS school_name FROM school_babyeyi WHERE id = ? LIMIT 1`,
+      [req.params.id]
+    );
+
+    const { notifyNesaDeoRecommended } = require('./nesaNotifications');
+    notifyNesaDeoRecommended({
+      schoolName: schoolRow?.school_name || 'School',
+      district,
+      babyeyiId: Number(req.params.id),
+      requestId: reqRowId,
+    }).catch((e) => console.warn('[districtBabyeyi] NESA notify:', e.message));
 
     res.json({
       success:  true,

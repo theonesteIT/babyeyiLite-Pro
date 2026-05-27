@@ -525,8 +525,15 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
         if (step === 2 && formData.role_code === 'CUSTOM' && !String(formData.custom_role_name || '').trim()) return 'Custom role name is required.';
         if (step === 4 && formData.account_enabled) {
             if (!formData.username) return 'Username is required when account is enabled.';
-            if (!isEditMode && String(formData.password || '').length < 8) return 'Password must be at least 8 characters.';
-            if (!isEditMode && formData.password !== formData.confirm_password) return 'Passwords do not match.';
+            const pwd = String(formData.password || '');
+            const confirmPwd = String(formData.confirm_password || '');
+            if (!isEditMode) {
+                if (pwd.length < 8) return 'Password must be at least 8 characters.';
+                if (pwd !== confirmPwd) return 'Passwords do not match.';
+            } else if (pwd || confirmPwd) {
+                if (pwd.length < 8) return 'New password must be at least 8 characters.';
+                if (pwd !== confirmPwd) return 'New passwords do not match.';
+            }
         }
         return '';
     };
@@ -583,7 +590,14 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
             rfid_uid: formData.rfid_uid || null, fingerprint_id: formData.fingerprint_id || null,
             identity_remarks: formData.identity_remarks || null
         };
-        if (!isEditMode && formData.account_enabled) payload.password = formData.password;
+        if (formData.account_enabled) {
+            const pwd = String(formData.password || '').trim();
+            if (!isEditMode) {
+                payload.password = pwd;
+            } else if (pwd) {
+                payload.password = pwd;
+            }
+        }
         return payload;
     };
 
@@ -1042,8 +1056,14 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
                             className="w-4 h-4 accent-[#1E3A5F]"
                         />
                         <div>
-                            <p className="text-[12px] font-semibold text-slate-700">Create Login Account</p>
-                            <p className="text-[11px] text-slate-400 font-medium mt-0.5">This staff member will be able to log in to the system.</p>
+                            <p className="text-[12px] font-semibold text-slate-700">
+                                {isEditMode ? 'Login account enabled' : 'Create Login Account'}
+                            </p>
+                            <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+                                {isEditMode
+                                    ? 'Uncheck to disable sign-in for this staff member.'
+                                    : 'This staff member will be able to log in to the system.'}
+                            </p>
                         </div>
                     </label>
                 </div>
@@ -1058,32 +1078,36 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
                     />
                 </Field>
 
-                {!isEditMode && (
-                    <Field label="Password" required={formData.account_enabled} hint="(min. 8 characters)">
-                        <input
-                            type="password"
-                            className={`${inp} ${!formData.account_enabled ? 'opacity-50' : ''}`}
-                            placeholder="••••••••"
-                            value={formData.password}
-                            onChange={(e) => setField('password', e.target.value)}
-                            disabled={!formData.account_enabled}
-                        />
-                    </Field>
-                )}
+                <Field
+                    label={isEditMode ? 'New password' : 'Password'}
+                    required={!isEditMode && formData.account_enabled}
+                    hint={isEditMode ? '(optional — leave blank to keep current password)' : '(min. 8 characters)'}
+                >
+                    <input
+                        type="password"
+                        autoComplete={isEditMode ? 'new-password' : 'new-password'}
+                        className={`${inp} ${!formData.account_enabled ? 'opacity-50' : ''}`}
+                        placeholder={isEditMode ? 'Set a new password' : '••••••••'}
+                        value={formData.password}
+                        onChange={(e) => setField('password', e.target.value)}
+                        disabled={!formData.account_enabled}
+                    />
+                </Field>
 
-                {!isEditMode && (
-                    <Field label="Confirm Password" required={formData.account_enabled}>
-                        <input
-                            type="password"
-                            className={`${inp} ${!formData.account_enabled ? 'opacity-50' : ''}`}
-                            placeholder="••••••••"
-                            value={formData.confirm_password}
-                            onChange={(e) => setField('confirm_password', e.target.value)}
-                            disabled={!formData.account_enabled}
-                        />
-                    </Field>
-                )}
-
+                <Field
+                    label={isEditMode ? 'Confirm new password' : 'Confirm Password'}
+                    required={!isEditMode && formData.account_enabled}
+                >
+                    <input
+                        type="password"
+                        autoComplete={isEditMode ? 'new-password' : 'new-password'}
+                        className={`${inp} ${!formData.account_enabled ? 'opacity-50' : ''}`}
+                        placeholder={isEditMode ? 'Repeat new password' : '••••••••'}
+                        value={formData.confirm_password}
+                        onChange={(e) => setField('confirm_password', e.target.value)}
+                        disabled={!formData.account_enabled}
+                    />
+                </Field>
 
                 
             </div>
@@ -1098,7 +1122,17 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
                     { label: 'Employment', value: `${formData.staff_id} · ${formData.employment_type} · ${formData.job_title}` },
                     { label: 'Role', value: `${formData.department} / ${formData.role_code === 'CUSTOM' ? formData.custom_role_name : formData.role_code}` },
                     { label: 'Payroll', value: `Basic: ${formatRwf(basicSalaryValue)} RWF · Net: ${formatRwf(netSalary)} RWF · ${formData.payroll_payment_method}` },
-                    { label: 'Account', value: formData.account_enabled ? `Enabled · Username: ${formData.username || 'auto-assigned'}` : 'No login account' },
+                    {
+                        label: 'Account',
+                        value: (() => {
+                            if (!formData.account_enabled) return 'No login account';
+                            const base = `Enabled · Username: ${formData.username || 'auto-assigned'}`;
+                            if (isEditMode && String(formData.password || '').trim()) {
+                                return `${base} · New password set`;
+                            }
+                            return base;
+                        })(),
+                    },
                 ].map((row) => (
                     <div key={row.label} className="flex gap-4 p-3.5 rounded-xl bg-slate-50 border border-slate-100">
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider w-24 shrink-0 pt-0.5">{row.label}</span>

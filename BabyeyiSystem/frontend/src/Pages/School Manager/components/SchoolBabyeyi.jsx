@@ -1,11 +1,9 @@
 // SchoolBabyeyiDashboard.jsx — Montserrat + #FEBF10 Gold Theme
 // ================================================================
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
-  Home, FileText, Send, FolderOpen, BarChart3, Settings,
-  AlertCircle, Globe, Lock, Eye, EyeOff, Loader2, CheckCircle2, Users,
-  UserCog, Receipt, Wallet, Briefcase, DoorOpen,
+  AlertCircle, Lock, Eye, EyeOff, Loader2, CheckCircle2,
 } from "lucide-react";
 
 import { useAuth } from "../../../context/AuthContext";
@@ -14,6 +12,10 @@ import { getProEntryUrl, shouldUseProApp } from "../../../utils/proAppEntry";
 
 import Header        from "./Header";
 import Sidebar       from "./Sidebar";
+import {
+  getSchoolManagerNavGroups,
+  flattenSchoolManagerNav,
+} from "./schoolManagerNavConfig";
 import { Toast }     from "./UI";
 import DashboardPage from "./Dashboard";
 import BabyeyiPage   from "./Babyeyi";
@@ -24,6 +26,7 @@ import HRCenter from "./HRCenter";
 import GateAttendancePage from "./GateAttendancePage";
 import LogoutButton  from "../../Auth/LogoutButton";
 import { BABYEYI_FONT_STACK, BABYEYI_PAGE_BG } from "../../../theme/babyeyiDashboardTheme";
+import BabyeyiPortalLoader from "../../../components/BabyeyiPortalLoader";
 
 import SchoolMiniWebsitePage from "./SchoolMiniWebsitePage";
 import StudentTransferPage from "./StudentTransferPage";
@@ -39,25 +42,6 @@ const API = import.meta.env.VITE_API_URL || "http://localhost:5100";
 
 /** Full URL of the Pro frontend (babyeyipro Vite app), e.g. http://localhost:5174 — same API / session cookie as this app */
 const PRO_APP_BASE = (import.meta.env.VITE_PRO_APP_URL || "").replace(/\/$/, "");
-
-// ── NAV ──────────────────────────────────────────────────────
-const NAV = [
-  { id: "dashboard",           label: "Dashboard",         icon: Home },
-  { id: "babyeyi",             label: "Babyeyi Wizard",    icon: FileText },
-  { id: "babyeyi_list",        label: "Babyeyi List",      icon: FolderOpen },
-  { id: "students",            label: "Students",          icon: Users },
-  { id: "student_transfer",   label: "Student Transfer", icon: Users },
-  { id: "school_team",         label: "School team",       icon: UserCog },
-  { id: "hr_center",           label: "HRCenter",          icon: Briefcase },
-  { id: "gate_attendance",     label: "Gate Attendance",   icon: DoorOpen },
-  { id: "school_mini_website", label: "School Website",    icon: Globe },
-  { id: "requests",            label: "Increase Requests", icon: Send },
-  { id: "documents",           label: "Documents",         icon: FolderOpen },
-  { id: "invoices",            label: "Invoices",          icon: Receipt },
-  { id: "shule_avance",        label: "Shule Avance",      icon: Wallet },
-  { id: "analytics",           label: "Analytics",         icon: BarChart3 },
-  { id: "settings",            label: "Settings",          icon: Settings, footer: true },
-];
 
 const DEFAULT_PROFILE = {
   name:          "School Name",
@@ -241,9 +225,11 @@ export default function SchoolBabyeyiDashboard() {
   const isProSchool =
     !!u?.school &&
     (u.school.pro_access_effective === true || u.school.pro_access_effective === 1);
-  const navItems = isProSchool
-    ? NAV
-    : NAV.filter((item) => item.id !== "school_team");
+  const navGroups = useMemo(
+    () => getSchoolManagerNavGroups({ includeSchoolTeam: isProSchool }),
+    [isProSchool],
+  );
+  const navItems = useMemo(() => flattenSchoolManagerNav(navGroups), [navGroups]);
   /** Pro tenant but Lite build has no babyeyipro origin — cannot redirect. */
   const showProEnvMissing = isProSchool && !PRO_APP_BASE;
   const mustChangePassword = !!u?.force_password_change;
@@ -342,26 +328,8 @@ export default function SchoolBabyeyiDashboard() {
 
   const commonProps = { toast, t, setTab: switchTab, session, lang, setLang };
 
-  // ── Loading spinner ───────────────────────────────────────
   if (auth.loading) {
-    return (
-      <div
-        className="babyeyi-dash-shell min-h-screen flex items-center justify-center px-4"
-        style={{
-          background: BABYEYI_PAGE_BG,
-          fontFamily: BABYEYI_FONT_STACK,
-        }}
-      >
-        <div style={{ textAlign: "center" }}>
-          <div
-            className="mx-auto mb-3 h-10 w-10 rounded-full border-4 border-amber-200"
-            style={{ borderTopColor: "#fbbf24", animation: "spin 0.8s linear infinite" }}
-          />
-          <p className="text-sm font-semibold text-[#000435]">Loading your dashboard…</p>
-          <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-        </div>
-      </div>
-    );
+    return <BabyeyiPortalLoader message="Loading" />;
   }
 
   const isMiniWebsite = tab === "school_mini_website";
@@ -398,13 +366,13 @@ export default function SchoolBabyeyiDashboard() {
       <Sidebar
         tab={tab}
         switchTab={switchTab}
-        NAV={navItems}
-        notifCount={notifCount}
+        navGroups={navGroups}
         transferNotifCount={transferNotifCount}
         mobileOpen={mobileOpen}
         setMobileOpen={setMobileOpen}
         showProLaunch={false}
         proAppBase={PRO_APP_BASE}
+        session={session}
       />
 
       <ForcePasswordChangeModal
@@ -418,7 +386,9 @@ export default function SchoolBabyeyiDashboard() {
       />
 
       {/* Main content */}
-      <div className={`flex-1 min-w-0 lg:ml-60 xl:ml-64 flex flex-col min-h-screen ${!session.schoolId && !auth.loading ? "pt-8" : ""}`}>
+      <div
+        className={`flex-1 min-w-0 flex flex-col min-h-screen transition-[margin] duration-200 lg:ml-[var(--sm-sidebar-w,260px)] ${!session.schoolId && !auth.loading ? "pt-8" : ""}`}
+      >
 
         {!isMiniWebsite && (
           <Header

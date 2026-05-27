@@ -432,10 +432,11 @@ const Login = ({
 
         /* Navy header — logo bar flush above white form (matches card top-left radius via parent overflow) */
         .lx-left-header {
-          background: #000435;
-          padding: 1.25rem 1.75rem 1.35rem;
+          background: linear-gradient(135deg, #000435 0%, #0a1a4a 100%);
+          padding: 1.15rem 1.75rem 1.2rem;
           flex-shrink: 0;
           border-radius: 24px 0 0 0;
+          border-bottom: 1px solid rgba(251, 191, 36, 0.12);
         }
         .lx-header-logo {
           width: 100%;
@@ -728,11 +729,14 @@ const Login = ({
         /* ══ RIGHT — amber panel ══ */
         .lx-right {
           flex: 1;
-          background: #f59e0b;
+          background: linear-gradient(165deg, #fbbf24 0%, #f59e0b 55%, #ea580c 100%);
           position: relative;
           display: flex;
           flex-direction: column;
+          justify-content: flex-start;
+          align-items: center;
           overflow: hidden;
+          padding: 1.35rem 1.5rem 1.25rem;
         }
 
         /* Dot grids */
@@ -762,89 +766,114 @@ const Login = ({
         /* Arch circle */
         .lx-arch {
           position: absolute;
-          top: 50%;
+          top: 32%;
           left: 50%;
-          transform: translate(-50%, -50%);
-          width: 500px;
-          height: 500px;
+          transform: translateX(-50%);
+          width: 560px;
+          height: 560px;
           border-radius: 50%;
           background: rgba(255,255,255,0.08);
           pointer-events: none;
-          z-index: 1;
+          z-index: 0;
         }
         .lx-arch-sm {
           position: absolute;
-          top: 50%;
+          top: 38%;
           left: 50%;
-          transform: translate(-50%, -50%);
-          width: 340px;
-          height: 340px;
+          transform: translateX(-50%);
+          width: 400px;
+          height: 400px;
           border-radius: 50%;
           background: rgba(255,255,255,0.06);
           pointer-events: none;
-          z-index: 1;
+          z-index: 0;
         }
 
-        /* Right text content */
+        /* Right text + image — text high, compact type, large hero below */
         .lx-rc {
           position: relative;
           z-index: 2;
-          padding: 2.75rem 2.5rem 0 2.75rem;
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          width: 100%;
+          max-width: 100%;
+          margin: 0;
         }
         .lx-headline {
-          font-size: 2.5rem;
+          font-size: 1.55rem;
           font-weight: 900;
           color: #000435;
-          line-height: 1.05;
-          letter-spacing: -0.03em;
-          max-width: 320px;
-          margin-bottom: 0.65rem;
+          line-height: 1.12;
+          letter-spacing: -0.02em;
+          max-width: 100%;
+          margin: 0 0 0.4rem;
         }
         .lx-line {
-          width: 44px;
-          height: 4px;
+          width: 36px;
+          height: 3px;
           background: #000435;
           border-radius: 2px;
-          margin-bottom: 1rem;
+          margin-bottom: 0.55rem;
         }
-        .lx-tagline {
-          font-size: 1rem;
+        .lx-tagline-lead {
+          font-size: 0.82rem;
+          font-weight: 700;
+          color: rgba(0, 4, 53, 0.88);
+          line-height: 1.4;
+          margin: 0 0 0.35rem;
+        }
+        .lx-tagline-sub {
+          font-size: 0.74rem;
           font-weight: 500;
-          color: rgba(0,0,0,0.6);
+          color: rgba(0, 4, 53, 0.62);
+          line-height: 1.45;
+          margin: 0;
           max-width: 280px;
-          line-height: 1.55;
         }
 
-        /* Hero image — centered on amber panel */
+        .lx-hero-wrap {
+          width: 100%;
+          display: flex;
+          justify-content: center;
+          align-items: flex-start;
+          margin-top: -0.65rem;
+          flex: 0 0 auto;
+        }
         .lx-hero {
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          width: 88%;
-          max-width: 560px;
+          width: 100%;
+          max-width: 520px;
+          min-width: 280px;
+          height: auto;
           object-fit: contain;
-          filter: drop-shadow(0 16px 48px rgba(0,0,0,0.22));
+          object-position: center top;
+          transform: translateY(-10px);
+          filter: drop-shadow(0 18px 44px rgba(0, 4, 53, 0.24));
           user-select: none;
           pointer-events: none;
-          z-index: 2;
         }
 
-        /* Responsive */
+        /* Responsive — mobile: form only, hide hero panel */
         @media (max-width: 860px) {
-          .lx-card { flex-direction: column; max-width: 480px; border-radius: 20px; }
+          .lx-page { padding: 1rem; }
+          .lx-card {
+            flex-direction: column;
+            max-width: 440px;
+            min-height: auto;
+            border-radius: 20px;
+          }
           .lx-left { width: 100%; }
           .lx-left-header { border-radius: 20px 20px 0 0; }
-          .lx-left-body { padding: 2rem 1.75rem; }
-          .lx-right { min-height: 380px; }
-          .lx-hero { width: 72%; }
-          .lx-headline { font-size: 1.8rem; }
+          .lx-left-body { padding: 2rem 1.5rem 1.75rem; }
+          .lx-right { display: none !important; }
         }
         @media (min-width: 1280px) {
           .lx-left-body { padding: 3rem 3.25rem 2.25rem; }
-          .lx-rc { padding: 3rem 2.5rem 0 3rem; }
-          .lx-headline { font-size: 2.75rem; max-width: 360px; }
-          .lx-hero { max-width: 620px; }
+          .lx-right { padding: 1.5rem 2rem 1rem; }
+          .lx-headline { font-size: 1.72rem; }
+          .lx-tagline-lead { font-size: 0.88rem; }
+          .lx-tagline-sub { font-size: 0.8rem; }
+          .lx-hero { max-width: 580px; }
         }
       `}</style>
 
@@ -1011,22 +1040,19 @@ const Login = ({
           </div>
 
           {/* ════ RIGHT ════ */}
-          <div className="lx-right">
-            <div className="lx-dots-tr"/>
-            <div className="lx-dots-bl"/>
+          <div className="lx-right" aria-hidden="false">
             <div className="lx-arch"/>
             <div className="lx-arch-sm"/>
 
             <div className="lx-rc">
               <h2 className="lx-headline">SMART SCHOOL MANAGEMENT</h2>
               <div className="lx-line"/>
-              <p className="lx-tagline">
-                Manage. Monitor. Empower.<br/>
-                All in one platform for smarter education.
-              </p>
+              <p className="lx-tagline-lead">Manage. Monitor. Empower.</p>
+              <p className="lx-tagline-sub">All in one platform for smarter education.</p>
+              <div className="lx-hero-wrap">
+                <img src={loginDecor} alt="" className="lx-hero" />
+              </div>
             </div>
-
-            <img src={loginDecor} alt="" className="lx-hero"/>
           </div>
 
         </div>

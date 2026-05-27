@@ -22,6 +22,17 @@
 const express = require('express');
 const router  = express.Router();
 const { promisePool } = require('../config/database');
+const {
+  ensureNotificationTables,
+  getNesaPrefs,
+  saveNesaPrefs,
+} = require('./nesaNotifications');
+const {
+  upsertSubscription,
+  removeSubscription,
+  getVapidPublicKey,
+  isWebPushConfigured,
+} = require('./webPushSubscriptions');
 
 // ── DB helper ─────────────────────────────────────────────────
 const query = (sql, params = []) => promisePool.query(sql, params);
@@ -92,10 +103,10 @@ const normaliseRequest = (r) => {
   deo_notes:            r.deo_notes         || null,
   deo_reviewed_at:      r.deo_reviewed_at   || null,
 
-  // NESA review
+  // NESA review (DB columns: reviewed_at / reviewed_by)
   nesa_notes:           r.nesa_notes        || null,
-  nesa_reviewed_at:     r.nesa_reviewed_at  || null,
-  nesa_reviewed_by:     r.nesa_reviewed_by  || null,
+  nesa_reviewed_at:     r.nesa_reviewed_at  || r.reviewed_at  || null,
+  nesa_reviewed_by:     r.nesa_reviewed_by  || r.reviewed_by  || null,
 
   // Documents
   parent_rep_doc_path:  r.parent_rep_doc_path  || null,
@@ -122,11 +133,76 @@ const normaliseRequest = (r) => {
 // GET /api/nesa/babyeyi/stats
 // National aggregate overview
 // ════════════════════════════════════════════════════════════════
+function buildNesaStatsFilterClauses(queryParams = {}) {
+  const {
+    academic_year: academicYear,
+    term,
+    school_id: schoolId,
+    status: statusRaw,
+    fee_limit_exceeded: feeLimitExceeded,
+    violations: violationsFilter,
+  } = queryParams;
+
+  const reqWhere = [];
+  const reqParams = [];
+  const bWhere = ['b.is_active = 1'];
+  const bParams = [];
+  const join = 'LEFT JOIN school_babyeyi b ON b.id = ir.babyeyi_id';
+
+  if (academicYear) {
+    reqWhere.push('b.academic_year = ?');
+    reqParams.push(academicYear);
+    bWhere.push('b.academic_year = ?');
+    bParams.push(academicYear);
+  }
+  if (term) {
+    reqWhere.push('b.term = ?');
+    reqParams.push(term);
+    bWhere.push('b.term = ?');
+    bParams.push(term);
+  }
+  if (schoolId) {
+    reqWhere.push('b.school_id = ?');
+    reqParams.push(schoolId);
+    bWhere.push('b.school_id = ?');
+    bParams.push(schoolId);
+  }
+
+  const statuses = String(statusRaw || 'all')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (statuses.length && !statuses.includes('all')) {
+    const parts = [];
+    if (statuses.includes('needs_action')) {
+      parts.push("ir.nesa_status IN ('pending','recommended')");
+    }
+    if (statuses.includes('approved')) parts.push("ir.nesa_status = 'approved'");
+    if (statuses.includes('rejected')) {
+      parts.push("ir.nesa_status IN ('rejected','nesa_rejected')");
+    }
+    if (statuses.includes('reconciled')) parts.push("ir.nesa_status = 'approved'");
+    if (statuses.includes('violations')) parts.push('b.exceeds_limit = 1');
+    if (parts.length) reqWhere.push(`(${parts.join(' OR ')})`);
+  }
+
+  if (feeLimitExceeded === 'yes') bWhere.push('b.exceeds_limit = 1');
+  if (feeLimitExceeded === 'no') bWhere.push('(b.exceeds_limit = 0 OR b.exceeds_limit IS NULL)');
+  if (violationsFilter === 'yes') bWhere.push('b.exceeds_limit = 1');
+  if (violationsFilter === 'no') bWhere.push('(b.exceeds_limit = 0 OR b.exceeds_limit IS NULL)');
+
+  const reqWhereSQL = reqWhere.length ? `WHERE ${reqWhere.join(' AND ')}` : '';
+  const bWhereSQL = `WHERE ${bWhere.join(' AND ')}`;
+
+  return { reqWhere, reqParams, bWhere, bParams, reqWhereSQL, bWhereSQL, join };
+}
+
 router.get('/stats', async (req, res) => {
   try {
-    // ── Request-level stats ───────────────────────────────────
-    const [[reqStats]] = await query(`
-      SELECT
+    const { reqWhereSQL, reqParams, bWhere, bWhereSQL, bParams, join } = buildNesaStatsFilterClauses(req.query);
+
+    const [[reqStats]] = await query(
+      `SELECT
         COUNT(*)                                              AS total_requests,
         COALESCE(SUM(ir.nesa_status = 'pending'),         0) AS pending,
         COALESCE(SUM(ir.nesa_status = 'recommended'),     0) AS recommended,
@@ -135,23 +211,25 @@ router.get('/stats', async (req, res) => {
         COALESCE(SUM(ir.nesa_status = 'nesa_rejected'),   0) AS nesa_rejected,
         COUNT(DISTINCT ir.district)                           AS districts_count
       FROM babyeyi_increase_requests ir
-    `);
+      ${join}
+      ${reqWhereSQL}`,
+      reqParams
+    );
 
-    // ── Babyeyi-level violation stats (schools exceeding limit) ─
-    const [[violStats]] = await query(`
-      SELECT
+    const [[violStats]] = await query(
+      `SELECT
         COUNT(*)                                              AS total_babyeyi,
         COALESCE(SUM(b.exceeds_limit = 1),                0) AS exceeds_count,
         COALESCE(SUM(b.is_active = 1),                    0) AS active_count,
         COUNT(DISTINCT b.school_id)                           AS schools_count,
         COUNT(DISTINCT b.school_district)                     AS districts_with_babyeyi
       FROM school_babyeyi b
-      WHERE b.is_active = 1
-    `);
+      ${bWhereSQL}`,
+      bParams
+    );
 
-    // ── Per-district breakdown for requests ───────────────────
-    const [districtBreakdown] = await query(`
-      SELECT
+    const [districtBreakdown] = await query(
+      `SELECT
         COALESCE(ir.district, 'Unknown')              AS district,
         COUNT(*)                                       AS total,
         COALESCE(SUM(ir.nesa_status='recommended'), 0) AS recommended,
@@ -159,46 +237,62 @@ router.get('/stats', async (req, res) => {
         COALESCE(SUM(ir.nesa_status='pending'),     0) AS pending,
         COALESCE(SUM(ir.nesa_status='rejected'),    0) AS rejected
       FROM babyeyi_increase_requests ir
+      ${join}
+      ${reqWhereSQL}
       GROUP BY ir.district
       ORDER BY total DESC
-      LIMIT 30
-    `);
+      LIMIT 30`,
+      reqParams
+    );
 
-    // ── Monthly trend (last 12 months of submissions) ─────────
-  const [monthlyTrend] = await query(`
-      SELECT
+    const monthlyWhere = reqWhereSQL
+      ? `${reqWhereSQL} AND ir.submitted_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)`
+      : 'WHERE ir.submitted_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)';
+    const [monthlyTrend] = await query(
+      `SELECT
         DATE_FORMAT(ir.submitted_at, '%b %Y') AS label,
         DATE_FORMAT(ir.submitted_at, '%Y-%m') AS month_key,
         COUNT(*)                               AS total,
         COALESCE(SUM(ir.nesa_status='approved'), 0) AS approved
       FROM babyeyi_increase_requests ir
-      WHERE ir.submitted_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+      ${join}
+      ${monthlyWhere}
       GROUP BY month_key, label
-      ORDER BY month_key ASC
-    `);
+      ORDER BY month_key ASC`,
+      reqParams
+    );
 
-    // ── Violations by district (from school_babyeyi) ──────────
-    const [districtViolations] = await query(`
-      SELECT
+    const violBWhere = [...bWhere, 'b.exceeds_limit = 1'];
+    const violBWhereSQL = `WHERE ${violBWhere.join(' AND ')}`;
+    const [districtViolations] = await query(
+      `SELECT
         COALESCE(b.school_district, 'Unknown')  AS label,
         COUNT(*)                                 AS value
       FROM school_babyeyi b
-      WHERE b.exceeds_limit = 1 AND b.is_active = 1
+      ${violBWhereSQL}
       GROUP BY b.school_district
       ORDER BY value DESC
-      LIMIT 10
-    `);
+      LIMIT 10`,
+      bParams
+    );
 
     res.json({
       success: true,
+      filters: {
+        academic_year: req.query.academic_year || null,
+        term: req.query.term || null,
+        school_id: req.query.school_id || null,
+        status: req.query.status || null,
+        fee_limit_exceeded: req.query.fee_limit_exceeded || null,
+        violations: req.query.violations || null,
+      },
       data: {
         ...reqStats,
         ...violStats,
-        // combined pending for "needs action" count
         needs_action: Number(reqStats.pending || 0) + Number(reqStats.recommended || 0),
-        district_breakdown:   districtBreakdown,
-        monthly_trend:        monthlyTrend,
-        district_violations:  districtViolations,
+        district_breakdown: districtBreakdown,
+        monthly_trend: monthlyTrend,
+        district_violations: districtViolations,
       },
     });
   } catch (err) {
@@ -214,7 +308,7 @@ router.get('/stats', async (req, res) => {
 // ════════════════════════════════════════════════════════════════
 router.get('/analytics', async (req, res) => {
   try {
-    const { district, sector, academic_year, term } = req.query;
+    const { district, sector, academic_year, term, school_id } = req.query;
 
     const reqWhere = [];
     const reqParams = [];
@@ -244,6 +338,12 @@ router.get('/analytics', async (req, res) => {
       reqParams.push(term);
       bWhere.push('b.term = ?');
       bParams.push(term);
+    }
+    if (school_id) {
+      reqWhere.push('b.school_id = ?');
+      reqParams.push(school_id);
+      bWhere.push('b.school_id = ?');
+      bParams.push(school_id);
     }
 
     const reqWhereSQL = reqWhere.length ? `WHERE ${reqWhere.join(' AND ')}` : '';
@@ -373,6 +473,9 @@ router.get('/requests', async (req, res) => {
       status,
       district,
       search,
+      academic_year,
+      term,
+      school_id,
       page  = 1,
       limit = 20,
     } = req.query;
@@ -406,6 +509,21 @@ router.get('/requests', async (req, res) => {
       )`);
       const like = `%${search}%`;
       params.push(like, like, like, like);
+    }
+
+    if (academic_year) {
+      where.push('b.academic_year = ?');
+      params.push(academic_year);
+    }
+
+    if (term) {
+      where.push('b.term = ?');
+      params.push(term);
+    }
+
+    if (school_id) {
+      where.push('b.school_id = ?');
+      params.push(school_id);
     }
 
     const whereSQL = where.length ? `WHERE ${where.join(' AND ')}` : '';
@@ -465,6 +583,222 @@ router.get('/requests', async (req, res) => {
   }
 });
 
+// ── Academic year registry (NESA Tuition Manager + portal filters) ──
+function validateAcademicYearValue(raw) {
+  const year = String(raw || '').trim();
+  if (!year) return { ok: false, message: 'Academic year is required' };
+  if (!/^\d{4}-\d{4}$/.test(year)) {
+    return { ok: false, message: 'Academic year must be YYYY-YYYY (e.g. 2027-2028)' };
+  }
+  const start = Number(year.slice(0, 4));
+  const end = Number(year.slice(5, 9));
+  if (end !== start + 1) {
+    return { ok: false, message: `Second year must be ${start + 1} (use ${start}-${start + 1})` };
+  }
+  return { ok: true, normalized: year };
+}
+
+async function ensureNesaAcademicYearsTable() {
+  await query(`
+    CREATE TABLE IF NOT EXISTS nesa_academic_years (
+      academic_year VARCHAR(9) NOT NULL PRIMARY KEY,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      created_by INT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+}
+
+async function loadNesaAcademicPeriodMeta() {
+  await ensureNesaAcademicYearsTable();
+  const [feeYears] = await query(
+    `SELECT DISTINCT TRIM(academic_year) AS v
+     FROM fee_limits
+     WHERE academic_year IS NOT NULL AND TRIM(academic_year) <> ''
+     ORDER BY v DESC`
+  );
+  const [reqYears] = await query(
+    `SELECT DISTINCT TRIM(b.academic_year) AS v
+     FROM babyeyi_increase_requests ir
+     INNER JOIN school_babyeyi b ON b.id = ir.babyeyi_id
+     WHERE b.academic_year IS NOT NULL AND TRIM(b.academic_year) <> ''
+     ORDER BY v DESC`
+  );
+  const [regYears] = await query(
+    `SELECT academic_year AS v FROM nesa_academic_years ORDER BY academic_year DESC`
+  );
+  const [feeTerms] = await query(
+    `SELECT DISTINCT TRIM(term) AS v
+     FROM fee_limits
+     WHERE term IS NOT NULL AND TRIM(term) <> ''
+     ORDER BY v ASC`
+  );
+  const years = [...new Set([
+    ...feeYears.map((r) => r.v),
+    ...reqYears.map((r) => r.v),
+    ...regYears.map((r) => r.v),
+  ].filter(Boolean))].sort((a, b) => String(b).localeCompare(String(a)));
+  const terms = feeTerms.length
+    ? [...new Set(feeTerms.map((r) => r.v).filter(Boolean))]
+    : ['Term 1', 'Term 2', 'Term 3'];
+  return { academic_years: years, terms };
+}
+
+// ════════════════════════════════════════════════════════════════
+// GET /api/nesa/babyeyi/academic-period/meta
+// Years from fee_limits + manual NESA registry (no hardcoded list)
+// ════════════════════════════════════════════════════════════════
+router.get('/academic-period/meta', async (req, res) => {
+  try {
+    const data = await loadNesaAcademicPeriodMeta();
+    res.json({ success: true, data });
+  } catch (err) {
+    console.error('[nesaBabyeyi/academic-period/meta]', err.message);
+    res.status(500).json({ success: false, message: 'Failed to load academic period options' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+// POST /api/nesa/babyeyi/academic-period/years
+// Register an academic year manually (YYYY-YYYY, end = start + 1)
+// ════════════════════════════════════════════════════════════════
+router.post('/academic-period/years', async (req, res) => {
+  try {
+    const check = validateAcademicYearValue(req.body?.academic_year);
+    if (!check.ok) {
+      return res.status(400).json({ success: false, message: check.message });
+    }
+    await ensureNesaAcademicYearsTable();
+    const userId = req.nesaUser?.id ?? req.nesaUser?.user_id ?? null;
+    await query(
+      `INSERT INTO nesa_academic_years (academic_year, created_by)
+       VALUES (?, ?)
+       ON DUPLICATE KEY UPDATE academic_year = academic_year`,
+      [check.normalized, userId]
+    );
+    const data = await loadNesaAcademicPeriodMeta();
+    res.json({ success: true, message: 'Academic year registered', data });
+  } catch (err) {
+    console.error('[nesaBabyeyi/academic-period/years]', err.message);
+    res.status(500).json({ success: false, message: 'Failed to register academic year' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+// GET /api/nesa/babyeyi/requests/meta
+// Filter options for approvals (academic years & terms from babyeyi)
+// ════════════════════════════════════════════════════════════════
+router.get('/requests/meta', async (req, res) => {
+  try {
+    const periodMeta = await loadNesaAcademicPeriodMeta();
+
+    const districtSet = new Set();
+    try {
+      const [fromBabyeyi] = await query(
+        `SELECT DISTINCT b.school_district AS v
+         FROM school_babyeyi b
+         WHERE b.is_active = 1
+           AND b.school_district IS NOT NULL
+           AND TRIM(b.school_district) <> ''
+         ORDER BY v ASC
+         LIMIT 100`
+      );
+      fromBabyeyi.forEach((r) => districtSet.add(r.v));
+    } catch (e) {
+      console.warn('[nesaBabyeyi/requests/meta] school_district:', e.message);
+    }
+    try {
+      const [fromRequests] = await query(
+        `SELECT DISTINCT ir.district AS v
+         FROM babyeyi_increase_requests ir
+         WHERE ir.district IS NOT NULL AND TRIM(ir.district) <> ''
+         ORDER BY v ASC
+         LIMIT 100`
+      );
+      fromRequests.forEach((r) => districtSet.add(r.v));
+    } catch (e) {
+      console.warn('[nesaBabyeyi/requests/meta] ir.district:', e.message);
+    }
+
+    res.json({
+      success: true,
+      data: {
+        academic_years: periodMeta.academic_years,
+        terms: periodMeta.terms,
+        districts: [...districtSet].filter(Boolean).sort((a, b) => String(a).localeCompare(String(b))),
+      },
+    });
+  } catch (err) {
+    console.error('[nesaBabyeyi/requests/meta]', err.message);
+    res.status(500).json({ success: false, message: 'Failed to load filter options' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+// GET /api/nesa/babyeyi/schools
+// Registered public / government schools (national registry)
+// ════════════════════════════════════════════════════════════════
+router.get('/schools', async (req, res) => {
+  try {
+    const { district, province, search, school_id, page = 1, limit = 12 } = req.query;
+    const where = [
+      's.deleted_at IS NULL',
+      `(s.ownership_type IN ('Government', 'Government-Aided')
+        OR s.school_category IN ('Public', 'Government'))`,
+    ];
+    const params = [];
+
+    if (province) { where.push('s.province = ?'); params.push(province); }
+    if (district) { where.push('s.district = ?'); params.push(district); }
+    if (school_id) { where.push('s.id = ?'); params.push(school_id); }
+    if (search) {
+      where.push('(s.school_name LIKE ? OR s.school_code LIKE ? OR s.district LIKE ?)');
+      const like = `%${search}%`;
+      params.push(like, like, like);
+    }
+
+    const whereSQL = `WHERE ${where.join(' AND ')}`;
+    const offset = (Number(page) - 1) * Number(limit);
+
+    const [[rows], [[{ total }]]] = await Promise.all([
+      query(
+        `SELECT s.id, s.school_name, s.school_code, s.province, s.district, s.sector,
+                s.ownership_type, s.school_category, s.education_levels, s.status,
+                s.phone, s.email, s.head_teacher_name, s.created_at
+         FROM schools s
+         ${whereSQL}
+         ORDER BY s.school_name ASC
+         LIMIT ? OFFSET ?`,
+        [...params, Number(limit), offset]
+      ),
+      query(`SELECT COUNT(*) AS total FROM schools s ${whereSQL}`, params),
+    ]);
+
+    const data = rows.map((r) => {
+      let levels = r.education_levels;
+      try {
+        if (typeof levels === 'string') levels = JSON.parse(levels);
+      } catch {
+        /* keep raw */
+      }
+      return { ...r, education_levels: levels };
+    });
+
+    res.json({
+      success: true,
+      data,
+      pagination: {
+        total,
+        page: Number(page),
+        limit: Number(limit),
+        pages: Math.max(1, Math.ceil(total / Number(limit))),
+      },
+    });
+  } catch (err) {
+    console.error('[nesaBabyeyi/schools]', err.message);
+    res.status(500).json({ success: false, message: 'Failed to load schools' });
+  }
+});
+
 // ════════════════════════════════════════════════════════════════
 // GET /api/nesa/babyeyi/requests/:id
 // Single request — full detail including all document paths
@@ -513,12 +847,15 @@ router.get('/requests/:id', async (req, res) => {
 // ════════════════════════════════════════════════════════════════
 router.get('/violations', async (req, res) => {
   try {
-    const { district, search, page = 1, limit = 50 } = req.query;
+    const { district, search, academic_year, term, school_id, page = 1, limit = 50 } = req.query;
 
     const where  = ['b.exceeds_limit = 1', 'b.is_active = 1'];
     const params = [];
 
     if (district) { where.push('b.school_district = ?'); params.push(district); }
+    if (school_id) { where.push('b.school_id = ?'); params.push(school_id); }
+    if (academic_year) { where.push('b.academic_year = ?'); params.push(academic_year); }
+    if (term) { where.push('b.term = ?'); params.push(term); }
     if (search) {
       where.push('(b.school_name LIKE ? OR b.school_district LIKE ? OR b.doc_id LIKE ?)');
       const like = `%${search}%`;
@@ -587,6 +924,101 @@ router.get('/violations', async (req, res) => {
 });
 
 // ════════════════════════════════════════════════════════════════
+// GET /api/nesa/babyeyi/violations/:babyeyiId
+// Full monitoring detail — violation + linked increase request & documents
+// ════════════════════════════════════════════════════════════════
+router.get('/violations/:babyeyiId', async (req, res) => {
+  try {
+    const babyeyiId = Number(req.params.babyeyiId);
+    if (!Number.isFinite(babyeyiId) || babyeyiId < 1) {
+      return res.status(400).json({ success: false, message: 'Invalid violation id' });
+    }
+
+    const [[row]] = await query(
+      `SELECT
+         b.id AS babyeyi_id,
+         b.school_id,
+         COALESCE(b.school_name, s.school_name, 'Unknown') AS school_name,
+         b.school_district  AS district,
+         b.school_sector    AS sector,
+         b.school_province  AS province,
+         b.school_category  AS category,
+         b.education_level  AS level,
+         b.class_name,
+         b.classes_json,
+         b.term,
+         b.academic_year,
+         b.total_fee,
+         b.nesa_limit,
+         b.exceeds_limit,
+         b.status           AS babyeyi_status,
+         b.doc_id,
+         b.pdf_path,
+         b.created_at,
+         ir.*,
+         b.school_name      AS b_school_name,
+         b.school_id        AS b_school_id,
+         b.school_district  AS b_district,
+         b.school_sector    AS b_sector,
+         b.school_province  AS b_province,
+         b.school_category  AS b_category,
+         b.education_level  AS b_level,
+         b.class_name       AS b_class_name,
+         b.classes_json     AS b_classes_json,
+         b.term             AS b_term,
+         b.academic_year    AS b_academic_year,
+         b.total_fee        AS b_total_fee,
+         b.nesa_limit       AS b_nesa_limit,
+         b.doc_id           AS b_doc_id,
+         b.pdf_path         AS b_pdf_path,
+         b.exceeds_limit    AS b_exceeds_limit,
+         b.status           AS b_status
+       FROM school_babyeyi b
+       LEFT JOIN schools s ON s.id = b.school_id
+       LEFT JOIN babyeyi_increase_requests ir ON ir.babyeyi_id = b.id
+       WHERE b.id = ? AND b.exceeds_limit = 1 AND b.is_active = 1
+       ORDER BY ir.submitted_at DESC
+       LIMIT 1`,
+      [babyeyiId]
+    );
+
+    if (!row) {
+      return res.status(404).json({ success: false, message: 'Violation not found' });
+    }
+
+    const classesArr = parseClassesJson(row.classes_json);
+    const violation = {
+      id: row.babyeyi_id,
+      school_id: row.school_id,
+      school_name: row.school_name,
+      district: row.district || '—',
+      sector: row.sector || '—',
+      province: row.province || '—',
+      category: row.category || '—',
+      level: row.level || '—',
+      class_name: row.class_name || (classesArr[0]) || '—',
+      classes: classesArr.length ? classesArr : (row.class_name ? [row.class_name] : []),
+      term: row.term || '—',
+      academic_year: row.academic_year || '—',
+      total_fee: Number(row.total_fee || 0),
+      nesa_limit: Number(row.nesa_limit || 0),
+      exceeds_limit: !!row.exceeds_limit,
+      babyeyi_status: row.babyeyi_status,
+      doc_id: row.doc_id,
+      pdf_path: row.pdf_path,
+      created_at: row.created_at,
+    };
+
+    const request = row.id ? normaliseRequest(row) : null;
+
+    res.json({ success: true, data: { violation, request } });
+  } catch (err) {
+    console.error('[nesaBabyeyi/violations/:babyeyiId]', err.message);
+    res.status(500).json({ success: false, message: 'Failed to load violation detail' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
 // PATCH /api/nesa/babyeyi/requests/:id/approve
 // NESA final approval of a fee increase request
 // Body: { notes?: string }
@@ -598,7 +1030,8 @@ router.patch('/requests/:id/approve', async (req, res) => {
 
     // Verify the request exists
     const [[ir]] = await query(
-      `SELECT ir.id, ir.babyeyi_id, ir.nesa_status, b.school_name, b.school_district
+      `SELECT ir.id, ir.babyeyi_id, ir.nesa_status,
+              b.school_name, b.school_district, b.school_id, b.doc_id
        FROM babyeyi_increase_requests ir
        LEFT JOIN school_babyeyi b ON b.id = ir.babyeyi_id
        WHERE ir.id = ?
@@ -640,6 +1073,18 @@ router.patch('/requests/:id/approve', async (req, res) => {
 
     console.log(`[nesaBabyeyi] NESA user ${nesaUserId} APPROVED request ${req.params.id} (babyeyi: ${ir.babyeyi_id})`);
 
+    const { notifyNesaDecision } = require('./babyeyiNesaDecisionNotifications');
+    notifyNesaDecision({
+      decision: 'approved',
+      schoolName: ir.school_name,
+      district: ir.school_district,
+      schoolId: ir.school_id,
+      babyeyiId: ir.babyeyi_id,
+      requestId: ir.id,
+      notes,
+      docId: ir.doc_id,
+    }).catch((e) => console.warn('[nesaBabyeyi] notify approve:', e.message));
+
     res.json({
       success:    true,
       message:    `Fee increase request approved by NESA for ${ir.school_name || 'school'}.`,
@@ -671,7 +1116,8 @@ router.patch('/requests/:id/reject', async (req, res) => {
 
     // Verify the request exists
     const [[ir]] = await query(
-      `SELECT ir.id, ir.babyeyi_id, ir.nesa_status, b.school_name, b.school_district
+      `SELECT ir.id, ir.babyeyi_id, ir.nesa_status,
+              b.school_name, b.school_district, b.school_id, b.doc_id
        FROM babyeyi_increase_requests ir
        LEFT JOIN school_babyeyi b ON b.id = ir.babyeyi_id
        WHERE ir.id = ?
@@ -711,6 +1157,18 @@ router.patch('/requests/:id/reject', async (req, res) => {
 
     console.log(`[nesaBabyeyi] NESA user ${nesaUserId} REJECTED request ${req.params.id} (babyeyi: ${ir.babyeyi_id})`);
 
+    const { notifyNesaDecision } = require('./babyeyiNesaDecisionNotifications');
+    notifyNesaDecision({
+      decision: 'rejected',
+      schoolName: ir.school_name,
+      district: ir.school_district,
+      schoolId: ir.school_id,
+      babyeyiId: ir.babyeyi_id,
+      requestId: ir.id,
+      notes,
+      docId: ir.doc_id,
+    }).catch((e) => console.warn('[nesaBabyeyi] notify reject:', e.message));
+
     res.json({
       success:    true,
       message:    `Fee increase request rejected by NESA for ${ir.school_name || 'school'}.`,
@@ -724,15 +1182,126 @@ router.patch('/requests/:id/reject', async (req, res) => {
 });
 
 // ════════════════════════════════════════════════════════════════
+// Web Push (NESA portal)
+// ════════════════════════════════════════════════════════════════
+router.get('/push/vapid-key', (_req, res) => {
+  if (!isWebPushConfigured()) {
+    return res.json({ success: true, publicKey: null, configured: false });
+  }
+  res.json({ success: true, publicKey: getVapidPublicKey(), configured: true });
+});
+
+router.post('/push/subscribe', async (req, res) => {
+  try {
+    const sub = req.body?.subscription;
+    if (!sub?.endpoint) {
+      return res.status(400).json({ success: false, message: 'Invalid subscription' });
+    }
+    await upsertSubscription(req.nesaUser.id, sub);
+    res.json({ success: true, message: 'Push subscription saved' });
+  } catch (err) {
+    res.status(err.status || 500).json({ success: false, message: err.message || 'Subscribe failed' });
+  }
+});
+
+router.post('/push/unsubscribe', async (req, res) => {
+  try {
+    await removeSubscription(req.nesaUser.id, req.body?.endpoint);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Unsubscribe failed' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+// GET/PUT /api/nesa/babyeyi/settings — notification preferences
+// ════════════════════════════════════════════════════════════════
+router.get('/settings', async (req, res) => {
+  try {
+    const prefs = await getNesaPrefs(req.nesaUser.id);
+    res.json({ success: true, data: prefs });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to load settings' });
+  }
+});
+
+router.put('/settings', async (req, res) => {
+  try {
+    const body = req.body || {};
+    await saveNesaPrefs(req.nesaUser.id, {
+      emailNotifications: body.emailNotifications !== false,
+      pushNotifications: body.pushNotifications !== false,
+      inAppNotifications: body.inAppNotifications !== false,
+      defaultAcademicYear: body.defaultAcademicYear ?? body.default_academic_year ?? '',
+      defaultTerm: body.defaultTerm ?? body.default_term ?? '',
+    });
+    res.json({ success: true, message: 'Settings saved' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to save settings' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
 // GET /api/nesa/babyeyi/notifications
-// Real notifications from DB — recent requests + violations
+// In-app notifications from staff_portal_notifications + recent activity
 // ════════════════════════════════════════════════════════════════
 router.get('/notifications', async (req, res) => {
   try {
-    const { limit = 20 } = req.query;
+    const { limit = 50, page = 1 } = req.query;
+    const userId = req.nesaUser.id;
+    const offset = (Number(page) - 1) * Number(limit);
+
+    await ensureNotificationTables();
+
+    const [[dbRows], [[{ dbTotal }]]] = await Promise.all([
+      query(
+        `SELECT id, type, title, body, url, entity_type, entity_id, tag, is_read, created_at
+         FROM staff_portal_notifications
+         WHERE user_id = ? AND school_id = 0
+         ORDER BY created_at DESC
+         LIMIT ? OFFSET ?`,
+        [userId, Number(limit), offset]
+      ),
+      query(
+        `SELECT COUNT(*) AS total FROM staff_portal_notifications
+         WHERE user_id = ? AND school_id = 0`,
+        [userId]
+      ),
+    ]);
+
+    if (dbRows.length) {
+      const notifications = dbRows.map((r) => ({
+        id: `db_${r.id}`,
+        db_id: r.id,
+        type: r.type || 'system',
+        title: r.title,
+        body: r.body,
+        url: r.url,
+        is_read: !!r.is_read,
+        time: getTimeAgo(r.created_at),
+        created_at: r.created_at,
+      }));
+      const [[{ unread }]] = await query(
+        `SELECT COUNT(*) AS unread FROM staff_portal_notifications
+         WHERE user_id = ? AND school_id = 0 AND is_read = 0`,
+        [userId]
+      );
+      return res.json({
+        success: true,
+        data: notifications,
+        unread_count: unread,
+        pagination: {
+          total: dbTotal,
+          page: Number(page),
+          limit: Number(limit),
+          pages: Math.max(1, Math.ceil(dbTotal / Number(limit))),
+        },
+      });
+    }
+
     const notifications = [];
 
-    // Recent pending/recommended increase requests
+    // Fallback: synthetic feed when no DB rows yet
     const [recentRequests] = await query(
       `SELECT
          ir.id, ir.nesa_status, ir.submitted_at, ir.deo_reviewed_at,
@@ -824,10 +1393,49 @@ router.get('/notifications', async (req, res) => {
       success: true,
       data: notifications.slice(0, Number(limit)),
       unread_count: notifications.filter(n => !n.is_read).length,
+      pagination: {
+        total: notifications.length,
+        page: 1,
+        limit: Number(limit),
+        pages: 1,
+      },
     });
   } catch (err) {
     console.error('[nesaBabyeyi/notifications]', err.message);
     res.status(500).json({ success: false, message: 'Failed to load notifications' });
+  }
+});
+
+router.patch('/notifications/:id/read', async (req, res) => {
+  try {
+    const raw = String(req.params.id || '').replace(/^db_/, '');
+    const id = Number(raw);
+    if (!Number.isFinite(id)) {
+      return res.status(400).json({ success: false, message: 'Invalid notification id' });
+    }
+    await ensureNotificationTables();
+    await query(
+      `UPDATE staff_portal_notifications SET is_read = 1
+       WHERE id = ? AND user_id = ? AND school_id = 0`,
+      [id, req.nesaUser.id]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to mark read' });
+  }
+});
+
+router.post('/notifications/read-all', async (req, res) => {
+  try {
+    await ensureNotificationTables();
+    await query(
+      `UPDATE staff_portal_notifications SET is_read = 1
+       WHERE user_id = ? AND school_id = 0 AND is_read = 0`,
+      [req.nesaUser.id]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to mark all read' });
   }
 });
 

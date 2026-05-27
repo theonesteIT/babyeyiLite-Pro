@@ -13,19 +13,23 @@ import {
   School, ChevronLeft, ChevronRight,
   History, DollarSign
 } from "lucide-react";
-import { getApiBase } from "../../../utils/apiBase";
+import { C as themeC, font as themeFont, inp as themeInp } from "../NesaPage/utils/theme";
+import { FEE_API, apiFetch, apiFetchForm } from "../NesaPage/utils/api";
+import Pagination from "../NesaPage/components/Pagination";
+import { validateAcademicYear } from "../../../utils/babyeyiAcademicPeriod";
 
-// ── Gold Palette ──────────────────────────────────────────────
+// ── Navy + amber (aligned with NESA / District portal) ────────
 const C = {
-  gold:        "#FEBF10",
-  goldLight:   "#FED44A",
-  goldDark:    "#B88A00",
-  goldDeep:    "#7A5C00",
-  goldBg:      "#FFFBE8",
-  goldBgMid:   "#FFF3CC",
-  goldBorder:  "#FDEAA0",
-  dark:        "#1A1200",
-  darkMid:     "#3D2C00",
+  ...themeC,
+  gold:        themeC.amberLight,
+  goldLight:   "#FDE68A",
+  goldDark:    themeC.amberDark,
+  goldDeep:    themeC.navy,
+  goldBg:      themeC.amberBg,
+  goldBgMid:   themeC.amberBgMid,
+  goldBorder:  themeC.amberBorder,
+  dark:        themeC.navy,
+  darkMid:     themeC.navyMid,
   emerald:     "#10b981",
   emeraldDark: "#047857",
   emeraldBg:   "#d1fae5",
@@ -50,44 +54,21 @@ const C = {
   tealBord:    "#99f6e4",
 };
 
-const font = "'Montserrat', sans-serif";
+const font = themeFont;
+const inp = { ...themeInp, width: "100%" };
 
 const globalStyles = `
   @keyframes spin    { to { transform: rotate(360deg); } }
   @keyframes fadeIn  { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
 `;
 
-const inp = {
-  width: "100%", padding: "10px 14px",
-  background: C.goldBg, border: `1px solid ${C.goldBorder}`,
-  borderRadius: 12, fontSize: 13, color: C.dark,
-  outline: "none", fontFamily: font, boxSizing: "border-box",
-};
-
-// ── API (must match AuthContext VITE_API_URL so session cookie is sent) ──
-const API_BASE = `${getApiBase()}/fee-limits`;
-
-async function apiFetch(url, options = {}) {
-  const res = await fetch(url, {
-    credentials: "include",
-    headers: { "Content-Type": "application/json", ...options.headers },
-    ...options,
-  });
-  const json = await res.json();
-  if (!res.ok) throw new Error(json.message || `HTTP ${res.status}`);
-  return json;
-}
-
-async function apiFetchForm(url, method, formData) {
-  const res = await fetch(url, { method, credentials: "include", body: formData });
-  const json = await res.json();
-  if (!res.ok) throw new Error(json.message || `HTTP ${res.status}`);
-  return json;
-}
+const API_BASE = FEE_API;
+const NAVY = themeC.navy;
+const NAVY_MID = themeC.navyMid;
 
 const BLANK = {
   category: "Public", level: "Primary", term: "Term 1",
-  academic_year: "2024-2025", max_amount: "",
+  academic_year: "", max_amount: "",
   regulation_ref: "", effective_date: "", notes: "",
 };
 
@@ -96,12 +77,12 @@ const BLANK = {
 // ════════════════════════════════════════════════════════════════
 const StatCard = ({ icon: Icon, label, value, sub, color = "gold" }) => {
   const bg = {
-    gold:    `linear-gradient(135deg, ${C.dark}, ${C.darkMid})`,
-    emerald: "linear-gradient(135deg,#059669,#10b981)",
-    violet:  "linear-gradient(135deg,#7c3aed,#8b5cf6)",
-    teal:    "linear-gradient(135deg,#0f766e,#14b8a6)",
-    blue:    "linear-gradient(135deg,#2563eb,#3b82f6)",
-  }[color] || `linear-gradient(135deg, ${C.dark}, ${C.darkMid})`;
+    gold:    `linear-gradient(135deg, ${NAVY}, ${NAVY_MID})`,
+    emerald: `linear-gradient(135deg, ${NAVY_MID}, ${NAVY})`,
+    violet:  `linear-gradient(135deg, #d97706, #fbbf24)`,
+    teal:    `linear-gradient(135deg, ${NAVY_MID}, #1e3a5f)`,
+    blue:    `linear-gradient(135deg, ${NAVY}, #1e3a5f)`,
+  }[color] || `linear-gradient(135deg, ${NAVY}, ${NAVY_MID})`;
 
   return (
     <div style={{ background: bg, borderRadius: 20, padding: "14px 16px", boxShadow: "0 4px 16px rgba(26,18,0,0.18)", position: "relative", overflow: "hidden", fontFamily: font }}>
@@ -139,9 +120,9 @@ const Badge = ({ status }) => {
 
 const THead = ({ cols }) => (
   <thead>
-    <tr style={{ borderBottom: `1px solid ${C.goldBorder}`, background: C.goldBg }}>
+    <tr style={{ borderBottom: `1px solid ${C.goldBorder}`, background: '#f59e0b' }}>
       {cols.map(h => (
-        <th key={h} style={{ textAlign: "left", padding: "12px 16px", fontSize: 10, fontWeight: 900, color: C.goldDark, textTransform: "uppercase", letterSpacing: "0.08em", whiteSpace: "nowrap", fontFamily: font }}>{h}</th>
+        <th key={h} style={{ textAlign: "left", padding: "12px 16px", fontSize: 10, fontWeight: 900, color: NAVY, textTransform: "uppercase", letterSpacing: "0.08em", whiteSpace: "nowrap", fontFamily: font }}>{h}</th>
       ))}
     </tr>
   </thead>
@@ -164,7 +145,17 @@ const Modal = ({ title, onClose, children, wide }) => (
 // ════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ════════════════════════════════════════════════════════════════
-export default function FeeLimitsView({ toast }) {
+export default function FeeLimitsView({
+  toast,
+  embedded = false,
+  onStatsChange,
+  onHeroActions,
+  portalFilters,
+  filterVersion = 0,
+  yearOptions = [],
+  onAcademicMetaRefresh,
+  onAcademicPeriodChange,
+}) {
   const [limits,        setLimits]       = useState([]);
   const [stats,         setStats]        = useState(null);
   const [loading,       setLoading]      = useState(true);
@@ -184,10 +175,12 @@ export default function FeeLimitsView({ toast }) {
   const [search,      setSearch]      = useState("");
   const [filterCat,   setFilterCat]   = useState("");
   const [filterLevel, setFilterLevel] = useState("");
-  const [filterYear,  setFilterYear]  = useState("");
   const [page,        setPage]        = useState(1);
   const [pagination,  setPagination]  = useState({ total: 0, pages: 1 });
   const LIMIT = 10;
+
+  const filterYear = portalFilters?.academicYear || "";
+  const filterTerm = portalFilters?.term || "";
 
   // ── Fetch ──────────────────────────────────────────────────
   const fetchLimits = useCallback(async () => {
@@ -198,48 +191,66 @@ export default function FeeLimitsView({ toast }) {
       if (filterCat)   params.set("category",      filterCat);
       if (filterLevel) params.set("level",         filterLevel);
       if (filterYear)  params.set("academic_year", filterYear);
+      if (filterTerm)  params.set("term", filterTerm);
       const data = await apiFetch(`${API_BASE}?${params}`);
       setLimits(data.data ?? []);
       setPagination(data.pagination ?? { total: data.data?.length ?? 0, pages: 1 });
     } catch (err) {
       toast(err.message, "error");
-      setLimits([
-        { id:1, category:"Public",   level:"Nursery",   term:"Term 1", academic_year:"2024-2025", max_amount:15000,  regulation_ref:"MoE/2024/001", effective_date:"2024-01-15" },
-        { id:2, category:"Public",   level:"Primary",   term:"Term 1", academic_year:"2024-2025", max_amount:30000,  regulation_ref:"MoE/2024/002", effective_date:"2024-01-15" },
-        { id:3, category:"Public",   level:"Secondary", term:"Term 1", academic_year:"2024-2025", max_amount:75000,  regulation_ref:"MoE/2024/003", effective_date:"2024-01-15" },
-        { id:4, category:"Private",  level:"Nursery",   term:"Term 1", academic_year:"2024-2025", max_amount:80000,  regulation_ref:"MoE/2024/004", effective_date:"2024-01-15" },
-        { id:5, category:"Private",  level:"Primary",   term:"Term 1", academic_year:"2024-2025", max_amount:120000, regulation_ref:"MoE/2024/005", effective_date:"2024-01-15" },
-        { id:6, category:"Private",  level:"Secondary", term:"Term 1", academic_year:"2024-2025", max_amount:250000, regulation_ref:"MoE/2024/006", effective_date:"2024-01-15" },
-        { id:7, category:"Boarding", level:"Secondary", term:"Term 1", academic_year:"2024-2025", max_amount:400000, regulation_ref:"MoE/2024/007", effective_date:"2024-01-15" },
-        { id:8, category:"TVET",     level:"Secondary", term:"Term 1", academic_year:"2024-2025", max_amount:200000, regulation_ref:"MoE/2024/008", effective_date:"2024-01-15" },
-      ]);
-      setPagination({ total: 8, pages: 1 });
+      setLimits([]);
+      setPagination({ total: 0, pages: 1 });
     } finally {
       setLoading(false);
     }
-  }, [page, search, filterCat, filterLevel, filterYear, toast]);
+  }, [page, search, filterCat, filterLevel, filterYear, filterTerm, toast]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [filterVersion]);
 
   const fetchStats = useCallback(async () => {
     try {
       const data = await apiFetch(`${API_BASE}/stats`);
       setStats(data.data);
     } catch {
-      setStats({ total: 8, public_count: 3, private_count: 3, boarding_count: 1, tvet_count: 1 });
+      setStats(null);
     }
   }, []);
 
   useEffect(() => { fetchLimits(); }, [fetchLimits]);
   useEffect(() => { fetchStats();  }, [fetchStats]);
 
+  useEffect(() => {
+    if (stats) onStatsChange?.(stats);
+  }, [stats, onStatsChange]);
+
   // ── Form helpers ───────────────────────────────────────────
-  const openCreate = () => { setEditItem(null); setForm({ ...BLANK }); setPdfFile(null); setShowForm(true); };
+  const openCreate = useCallback(() => {
+    setEditItem(null);
+    setForm({
+      ...BLANK,
+      academic_year: portalFilters?.academicYear || "",
+      term: portalFilters?.term || BLANK.term,
+    });
+    setPdfFile(null);
+    setShowForm(true);
+  }, [portalFilters?.academicYear, portalFilters?.term]);
+
+  useEffect(() => {
+    if (!embedded || !onHeroActions) return;
+    onHeroActions({
+      refresh: () => { fetchLimits(); fetchStats(); },
+      openCreate,
+    });
+    return () => onHeroActions(null);
+  }, [embedded, onHeroActions, fetchLimits, fetchStats, openCreate]);
   const openEdit   = (item) => {
     setEditItem(item);
     setForm({
       category:       item.category       || "Public",
       level:          item.level          || "Primary",
       term:           item.term           || "Term 1",
-      academic_year:  item.academic_year  || "2024-2025",
+      academic_year:  item.academic_year  || portalFilters?.academicYear || "",
       max_amount:     item.max_amount     || "",
       regulation_ref: item.regulation_ref || "",
       effective_date: item.effective_date ? item.effective_date.substring(0, 10) : "",
@@ -255,8 +266,9 @@ export default function FeeLimitsView({ toast }) {
       toast("Please fill in Category, Level and Maximum Amount", "error");
       return;
     }
-    if (!String(form.academic_year || "").trim()) {
-      toast("Academic year is required (e.g. 2025-2026)", "error");
+    const yearCheck = validateAcademicYear(form.academic_year);
+    if (!yearCheck.valid || yearCheck.empty) {
+      toast(yearCheck.message || "Academic year is required (e.g. 2027-2028)", "error");
       return;
     }
     setSaving(true);
@@ -264,7 +276,7 @@ export default function FeeLimitsView({ toast }) {
       const fd = new FormData();
       Object.entries(form).forEach(([k, v]) => {
         if (v === "" || v == null) return;
-        fd.append(k, k === "academic_year" ? String(v).trim() : v);
+        fd.append(k, k === "academic_year" ? yearCheck.normalized : v);
       });
       if (pdfFile) fd.append("regulation_pdf", pdfFile);
       if (editItem) {
@@ -274,7 +286,17 @@ export default function FeeLimitsView({ toast }) {
         await apiFetchForm(API_BASE, "POST", fd);
         toast("Fee limit created successfully!", "success");
       }
-      closeForm(); fetchLimits(); fetchStats();
+      const savedYear = yearCheck.normalized;
+      closeForm();
+      await fetchLimits();
+      await fetchStats();
+      await onAcademicMetaRefresh?.();
+      if (savedYear && onAcademicPeriodChange) {
+        await onAcademicPeriodChange(
+          { academicYear: savedYear, term: portalFilters?.term || "" },
+          { skipRegister: true },
+        );
+      }
     } catch (err) {
       toast(err.message || "Save failed", "error");
     } finally {
@@ -319,31 +341,37 @@ export default function FeeLimitsView({ toast }) {
     <div style={{ display: "flex", flexDirection: "column", gap: 20, fontFamily: font, animation: "fadeIn .25s ease-out" }}>
       <style>{globalStyles}</style>
 
-      {/* ── Header ── */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
-        <div>
-          <h3 style={{ fontWeight: 900, color: C.dark, fontSize: 18, margin: "0 0 4px" }}>Tuition Management</h3>
-          <p style={{ fontSize: 12, color: C.goldDark, margin: 0 }}>Set maximum allowed school fees · Full CRUD with audit trail</p>
-        </div>
-        <div style={{ display: "flex", gap: 10 }}>
-          <button onClick={fetchLimits}
-            style={{ display: "flex", alignItems: "center", padding: "10px 14px", background: "white", border: `1px solid ${C.goldBorder}`, borderRadius: 12, cursor: "pointer", color: C.goldDark }}>
-            <RefreshCw style={{ width: 14, height: 14 }}/>
-          </button>
-          <button onClick={openCreate}
-            style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 18px", background: `linear-gradient(135deg, ${C.dark}, ${C.darkMid})`, color: C.gold, border: "none", borderRadius: 14, fontWeight: 900, fontSize: 13, cursor: "pointer", fontFamily: font, boxShadow: "0 4px 12px rgba(26,18,0,0.25)" }}>
-            <Plus style={{ width: 15, height: 15 }}/> Set New Limit
-          </button>
-        </div>
-      </div>
+      {!embedded && (
+        <>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+            <div>
+              <h3 style={{ fontWeight: 900, color: C.dark, fontSize: 18, margin: "0 0 4px" }}>Tuition Management</h3>
+             
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              
+              <button type="button" onClick={openCreate}
+                style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 18px", background: `linear-gradient(135deg, ${NAVY}, ${NAVY_MID})`, color: "#FBBF24", border: "none", borderRadius: 14, fontWeight: 900, fontSize: 13, cursor: "pointer", fontFamily: font, boxShadow: "0 4px 12px rgba(0,4,53,0.2)" }}>
+                <Plus style={{ width: 15, height: 15 }}/> Set New Limit
+              </button>
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(140px,1fr))", gap: 10 }}>
+            <StatCard icon={School} label="Public Schools"  value={stats?.public_count   ?? "—"} sub="Limits set" color="gold"   />
+            <StatCard icon={School} label="Private Schools" value={stats?.private_count  ?? "—"} sub="Limits set" color="violet" />
+            <StatCard icon={School} label="Boarding"        value={stats?.boarding_count ?? "—"} sub="Limits set" color="violet" />
+            <StatCard icon={School} label="TVET"            value={stats?.tvet_count     ?? "—"} sub="Limits set" color="teal"   />
+          </div>
+        </>
+      )}
 
-      {/* ── Stats ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(140px,1fr))", gap: 10 }}>
-        <StatCard icon={School} label="Public Schools"  value={stats?.public_count   ?? "—"} sub="Limits set" color="gold"   />
-        <StatCard icon={School} label="Private Schools" value={stats?.private_count  ?? "—"} sub="Limits set" color="violet" />
-        <StatCard icon={School} label="Boarding"        value={stats?.boarding_count ?? "—"} sub="Limits set" color="violet" />
-        <StatCard icon={School} label="TVET"            value={stats?.tvet_count     ?? "—"} sub="Limits set" color="teal"   />
-      </div>
+      {embedded && (filterYear || filterTerm) && (
+        <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: C.goldDark, fontFamily: font }}>
+          Portal filter: {filterYear || 'all years'}
+          {filterTerm ? ` · ${filterTerm}` : ''}.
+          {filterYear ? ' Open Filters in the header to change year or clear it.' : ''}
+        </p>
+      )}
 
       {/* ── Filters ── */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
@@ -356,7 +384,6 @@ export default function FeeLimitsView({ toast }) {
         {[
           { val: filterCat,   set: v => { setFilterCat(v);   setPage(1); }, opts: ["Public","Private","Boarding","TVET"],         ph: "All Categories" },
           { val: filterLevel, set: v => { setFilterLevel(v); setPage(1); }, opts: ["Nursery","Primary","Secondary","University"], ph: "All Levels"     },
-          { val: filterYear,  set: v => { setFilterYear(v);  setPage(1); }, opts: ["2024-2025","2025-2026","2026-2027"],          ph: "All Years"      },
         ].map(({ val, set, opts, ph }, i) => (
           <select key={i} value={val} onChange={e => set(e.target.value)} style={{ ...inp, width: 160 }}>
             <option value="">{ph}</option>
@@ -452,25 +479,15 @@ export default function FeeLimitsView({ toast }) {
             })}
           </div>
 
-          {/* Pagination */}
-          {pagination.pages > 1 && (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <p style={{ fontSize: 12, color: C.goldDark, fontWeight: 700, fontFamily: font }}>
-                Showing {limits.length} of {pagination.total} limits
-              </p>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                  style={{ width: 36, height: 36, borderRadius: 12, border: `1px solid ${C.goldBorder}`, background: "white", cursor: page===1?"not-allowed":"pointer", display: "flex", alignItems: "center", justifyContent: "center", opacity: page===1?0.4:1 }}>
-                  <ChevronLeft style={{ width: 16, height: 16, color: C.goldDark }}/>
-                </button>
-                <span style={{ fontSize: 13, fontWeight: 700, color: C.dark, fontFamily: font }}>Page {page} / {pagination.pages}</span>
-                <button onClick={() => setPage(p => Math.min(pagination.pages, p + 1))} disabled={page === pagination.pages}
-                  style={{ width: 36, height: 36, borderRadius: 12, border: `1px solid ${C.goldBorder}`, background: "white", cursor: page===pagination.pages?"not-allowed":"pointer", display: "flex", alignItems: "center", justifyContent: "center", opacity: page===pagination.pages?0.4:1 }}>
-                  <ChevronRight style={{ width: 16, height: 16, color: C.goldDark }}/>
-                </button>
-              </div>
-            </div>
-          )}
+          <Pagination
+            current={page}
+            total={pagination.pages || 1}
+            totalItems={pagination.total || 0}
+            pageSize={LIMIT}
+            loading={loading}
+            onChange={setPage}
+            className="mt-2"
+          />
         </>
       )}
 
@@ -514,13 +531,12 @@ export default function FeeLimitsView({ toast }) {
                 style={inp}
               />
               <datalist id="nesa-fee-limit-years">
-                <option value="2024-2025" />
-                <option value="2025-2026" />
-                <option value="2026-2027" />
-                <option value="2027-2028" />
+                {(yearOptions || []).map((y) => (
+                  <option key={y} value={y} />
+                ))}
               </datalist>
               <p style={{ fontSize: 10, color: C.goldDark, marginTop: 6, lineHeight: 1.45, fontFamily: font }}>
-                Type the academic year you want (not limited to a fixed list).
+                YYYY-YYYY — second year must be first + 1 (e.g. 2027-2028). Years you create appear in the filter bar.
               </p>
             </div>
 

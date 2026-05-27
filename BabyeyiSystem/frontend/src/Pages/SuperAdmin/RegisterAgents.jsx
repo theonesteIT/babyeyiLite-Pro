@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import {
-  ArrowLeft,
   UserPlus,
   Loader2,
   MapPin,
@@ -17,9 +16,10 @@ import {
   X,
   Users,
   AlertCircle,
+  Radio,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
-import LogoutButton from "../Auth/LogoutButton";
+import SuperAdminPageHeader from "./components/SuperAdminPageHeader";
 
 const API = `${import.meta.env.VITE_API_URL || "http://localhost:5100"}/api`;
 const axCfg = { withCredentials: true, headers: { "Content-Type": "application/json" } };
@@ -250,62 +250,34 @@ export default function RegisterAgents() {
 
   if (auth.loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#FFFBF0]">
-        <Loader2 className="w-10 h-10 animate-spin text-amber-600" />
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="w-10 h-10 animate-spin text-amber-500" />
       </div>
     );
   }
 
-  const platformRole = String(auth?.user?.role?.code || "").toUpperCase();
-  const adminDashboardPath =
-    platformRole === "FULL_SYSTEM_CONTROLLER" ? "/superadmin/control" : "/superadmin/dashboard";
-  const adminDashboardLabel =
-    platformRole === "FULL_SYSTEM_CONTROLLER" ? "System control" : "Super Admin dashboard";
-
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#FFFBF0] via-white to-[#FFF8E8]">
-      <header className="sticky top-0 z-30 border-b border-amber-200/80 bg-white/95 backdrop-blur-md px-4 py-3 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          <button
-            type="button"
-            onClick={() => navigate(adminDashboardPath)}
-            className="p-2 rounded-xl hover:bg-amber-50 text-amber-800 shrink-0"
-            aria-label={`Back to ${adminDashboardLabel}`}
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <Link
-            to={adminDashboardPath}
-            title={adminDashboardLabel}
-            className="inline-flex items-center gap-1 text-xs sm:text-sm font-black text-amber-900 hover:bg-amber-50 rounded-xl px-2 py-1 border border-transparent hover:border-amber-200"
-          >
-            <span className="hidden sm:inline">Back to {adminDashboardLabel}</span>
-            <span className="sm:hidden">{platformRole === "FULL_SYSTEM_CONTROLLER" ? "Control" : "Dashboard"}</span>
-          </Link>
-          <div className="min-w-0 border-l border-amber-200 pl-2 sm:pl-3 ml-0.5">
-            <h1 className="text-lg font-black text-gray-900 truncate">Field agents</h1>
-            <p className="text-[10px] text-amber-700 font-semibold uppercase tracking-wider">Register &amp; manage coverage</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <LogoutButton />
-        </div>
-      </header>
-
-      <main className="max-w-6xl mx-auto px-4 py-6 sm:py-8">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-          <p className="text-sm text-gray-600 max-w-xl">
-            Create accounts for field staff. Each agent sees schools and Babyeyi payments only in their assigned district
-            and sectors.
-          </p>
+    <div className="space-y-4 max-w-6xl mx-auto">
+      <SuperAdminPageHeader
+        title="Field agents"
+        subtitle="Register and manage agent coverage"
+        icon={Radio}
+        actions={
           <button
             type="button"
             onClick={openCreate}
-            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#1A1200] to-[#3D2C00] px-5 py-3 text-sm font-black text-[#FEBF10] shadow-lg min-h-[44px]"
+            className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold text-amber-400 bg-[#000435] hover:bg-[#000a50] transition"
           >
             <UserPlus className="w-4 h-4" /> Register agent
           </button>
-        </div>
+        }
+      />
+
+      <div>
+        <p className="text-sm text-slate-600 max-w-xl mb-4">
+          Create accounts for field staff. Each agent sees schools and Babyeyi payments only in their assigned district
+          and sectors.
+        </p>
 
         {toast && (
           <div
@@ -395,7 +367,7 @@ export default function RegisterAgents() {
             </div>
           )}
         </div>
-      </main>
+      </div>
 
       {modal && (
         <div className="fixed inset-0 z-[200] bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">

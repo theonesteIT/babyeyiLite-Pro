@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { useActionPlanData } from '../../context/ActionPlanDataContext';
 import ActionPlanSelector from '../../components/ActionPlanSelector';
-import AccountantBudgetHeroShell from '../../components/AccountantBudgetHeroShell';
+import ActionPlanPageHero from './ActionPlanPageHero';
 import { useIsMobile } from '../../utils/useIsMobile';
 import { AP_COLORS } from '../../utils/actionPlanConstants';
 import {
@@ -27,8 +27,8 @@ function TabFrame({ title, subtitle, fmt, children, requirePlan = true }) {
   const isMobile = useIsMobile();
   return (
     <div style={{ fontFamily: "'Montserrat', sans-serif" }}>
-      <h2 style={{ margin: '0 0 4px', fontSize: isMobile ? 18 : 20, fontWeight: 600, color: NAVY }}>{title}</h2>
-      {subtitle && <p style={{ margin: '0 0 16px', fontSize: 13, color: AP_COLORS.gray400 }}>{subtitle}</p>}
+      {title ? <h2 style={{ margin: '0 0 4px', fontSize: isMobile ? 18 : 20, fontWeight: 600, color: NAVY }}>{title}</h2> : null}
+      {subtitle ? <p style={{ margin: '0 0 16px', fontSize: 13, color: AP_COLORS.gray400 }}>{subtitle}</p> : null}
       <ActionPlanSelector planId={planId} onPlanIdChange={setPlanId} fmt={fmt} fallbackPlans={recentPlans} />
       {error && (
         <div style={{ background: '#FEE2E2', color: '#991B1B', padding: 12, borderRadius: 8, marginBottom: 12, display: 'flex', justifyContent: 'space-between' }}>
@@ -82,16 +82,15 @@ export function ActionPlanDashboardPage({ fmt, onOpenCreate }) {
     </>
   );
   return (
-    <div>
-      <AccountantBudgetHeroShell
-        eyebrow="School Action Plan"
-        title="Action Plan Dashboard"
-        subtitle={activePlan ? `${activePlan.title} · ${activePlan.term}` : 'Plan, monitor, and track school activities'}
+    <div className="min-h-full pb-10 lg:pb-12">
+      <ActionPlanPageHero
+        pageId="ap-dashboard"
+        subtitle={activePlan ? `${activePlan.title} · ${activePlan.term}` : undefined}
         headerRight={heroActions}
         kpiTiles={kpiTiles}
         kpiGridClassName="grid-cols-2 sm:grid-cols-4 xl:grid-cols-8"
-        pageBody={(
-          <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pb-8">
+      />
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pb-8">
       <ActionPlanSelector planId={planId} onPlanIdChange={setPlanId} fmt={fmt} fallbackPlans={recentPlans} />
       <div className="ap-grid-2" style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16, marginTop: 8 }}>
         <div style={{ background: '#fff', borderRadius: 12, padding: 18, border: `1px solid ${AP_COLORS.gray200}` }}>
@@ -138,9 +137,7 @@ export function ActionPlanDashboardPage({ fmt, onOpenCreate }) {
           </div>
         </div>
       )}
-          </div>
-        )}
-      />
+      </div>
     </div>
   );
 }
@@ -400,11 +397,13 @@ export function ReportsPage({ fmt }) {
   );
 }
 
-export function AnalyticsPage({ fmt }) {
+export function AnalyticsPage({ fmt, embedded = false }) {
   const { departmentUsage, activities } = useActionPlanData();
   const pie = departmentUsage.filter((d) => d.used > 0).map((d) => ({ name: d.department, value: d.used }));
   return (
-    <TabFrame title="Analytics" fmt={fmt} requirePlan={false}>
+    <div className={embedded ? 'p-4 md:p-6 pb-12' : undefined}>
+      {!embedded && <ActionPlanPageHero pageId="ap-analytics" />}
+      <TabFrame title={embedded ? '' : 'Analytics'} fmt={fmt} requirePlan={false}>
       <div className="ap-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
         <div style={{ background: '#fff', padding: 18, borderRadius: 12, border: `1px solid ${AP_COLORS.gray200}` }}>
           {pie.length ? (
@@ -424,6 +423,7 @@ export function AnalyticsPage({ fmt }) {
         </div>
       </div>
     </TabFrame>
+    </div>
   );
 }
 

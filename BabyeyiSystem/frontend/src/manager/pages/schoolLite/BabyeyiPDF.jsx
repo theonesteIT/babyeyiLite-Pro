@@ -4,7 +4,8 @@
  */
 
 import { useState, useEffect } from "react";
-import { buildWordDocHTML, babyeyiDocHtml2CanvasOptions, addCanvasToPdfAndSave, ensureQRCode, applyQrToState } from "./BabyeyiList";
+import { buildWordDocHTML, babyeyiDocHtml2CanvasOptions, ensureQRCode, applyQrToState } from "./BabyeyiList";
+import { renderBabyeyiPdfFromRoot } from "./babyeyiPdfExport";
 import { getLegacyBabyeyiUI, getParentMessageForDisplay, getStatusLabelSafe } from '../../schoolLiteSupport/i18n/index.js';
 import { API_BASE, SERVER_BASE as ASSET_BASE, babyeyiVerifyScanUrl } from '../../lib/schoolLiteApi';
 
@@ -266,9 +267,12 @@ export default function BabyeyiPdf() {
       const root = document.createElement("div"); root.id = "__bp__"; root.innerHTML = html;
       host.appendChild(root); document.body.appendChild(host);
       try {
-        await new Promise(r => setTimeout(r, 500));
-        const canvas = await window.html2canvas(root, babyeyiDocHtml2CanvasOptions("__bp__"));
-        addCanvasToPdfAndSave(canvas, `Babyeyi-${rec.docId||rec.class}-${rec.term}${lang!=="en"?`-${lang.toUpperCase()}`:"" }.pdf`);
+        await renderBabyeyiPdfFromRoot(
+          root,
+          "__bp__",
+          `Babyeyi-${rec.docId || rec.class}-${rec.term}${lang !== "en" ? `-${lang.toUpperCase()}` : ""}.pdf`,
+          babyeyiDocHtml2CanvasOptions("__bp__"),
+        );
       } finally { document.body.removeChild(host); document.head.removeChild(style); }
     } catch (e) { alert("PDF error: " + e.message); }
     finally { setDownloading(false); }

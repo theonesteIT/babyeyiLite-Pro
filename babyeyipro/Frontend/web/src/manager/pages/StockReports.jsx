@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import {
   Package, TrendingUp, TrendingDown, AlertTriangle, XCircle, Clock,
-  Wrench, ShoppingCart, BarChart2, ArrowDownCircle, ArrowUpCircle,
+  Wrench, ShoppingCart, BarChart2,   ArrowDownCircle, ArrowUpCircle, ArrowDownUp,
   RefreshCw, Building2, DollarSign, ShieldCheck, CheckCircle2,
   Download, Printer, FileSpreadsheet, Search, Filter, Loader2,
 } from "lucide-react";
@@ -13,10 +13,20 @@ const GOLD   = "#FEBF10";
 
 const CATEGORY_COLORS = ["#1E3A5F","#d97706","#059669","#dc2626","#7c3aed","#0891b2","#db2777","#0f172a"];
 
+const MOVEMENT_TYPE_LABELS = {
+  stock_in: 'Stock In',
+  stock_out: 'Stock Out',
+  returned: 'Returned',
+  adjusted: 'Adjusted',
+};
+
 const NAV_TABS = [
   { id: "dashboard",   label: "Dashboard",     Icon: BarChart2 },
   { id: "stockin",     label: "Stock In",       Icon: ArrowDownCircle },
   { id: "stockout",    label: "Stock Out",      Icon: ArrowUpCircle },
+  { id: "returned",    label: "Returned",       Icon: RefreshCw },
+  { id: "adjusted",    label: "Adjusted",       Icon: Wrench },
+  { id: "allmove",     label: "All Movements",  Icon: ArrowDownUp },
   { id: "lowstock",    label: "Low Stock",      Icon: AlertTriangle },
   { id: "inventory",   label: "All Items",      Icon: Package },
 ];
@@ -64,14 +74,19 @@ function mapStoreMovementRow(m) {
   const reason = parts.length ? parts.join(' · ') : '';
   return {
     ...m,
+    raw_type: t,
+    type_label: MOVEMENT_TYPE_LABELS[t] || t,
     movement_type,
     quantity_change,
     reason,
     movement_date: m.movement_date,
     created_at: m.created_at,
     item_name: m.item_name,
-    category: '—',
+    category: m.item_category || '—',
     unit: '—',
+    supplier_name: m.supplier_name || '',
+    supplier_id: m.supplier_id || null,
+    unit_cost: m.unit_cost,
   };
 }
 
@@ -81,6 +96,7 @@ export default function StockReports() {
   const [movements, setMovements] = useState([]);
   const [loading, setLoading]   = useState(true);
   const [search, setSearch]     = useState("");
+  const [supplierFilter, setSupplierFilter] = useState("All");
   const [refreshKey, setRefreshKey] = useState(0);
   const [storeMeta, setStoreMeta] = useState(null);
 
@@ -118,8 +134,23 @@ export default function StockReports() {
   }, [refreshKey]);
 
   // ── derived stats ──────────────────────────────────────────
-  const stockIn  = useMemo(() => movements.filter(m => m.movement_type === 'IN'),  [movements]);
-  const stockOut = useMemo(() => movements.filter(m => m.movement_type === 'OUT'), [movements]);
+  const stockIn  = useMemo(() => movements.filter(m => m.raw_type === 'stock_in'),  [movements]);
+  const stockOut = useMemo(() => movements.filter(m => m.raw_type === 'stock_out'), [movements]);
+  const returned = useMemo(() => movements.filter(m => m.raw_type === 'returned'), [movements]);
+  const adjusted = useMemo(() => movements.filter(m => m.raw_type === 'adjusted'), [movements]);
+
+  const supplierOptions = useMemo(() => {
+    const map = new Map();
+    movements.forEach((m) => {
+      if (m.supplier_id && m.supplier_name) map.set(String(m.supplier_id), m.supplier_name);
+    });
+    return [{ id: 'All', name: 'All suppliers' }, ...Array.from(map.entries()).map(([id, name]) => ({ id, name }))];
+  }, [movements]);
+
+  const filterBySupplier = (list) => {
+    if (supplierFilter === 'All') return list;
+    return list.filter((m) => String(m.supplier_id || '') === String(supplierFilter));
+  };
   const lowStock = useMemo(() =>
     items.filter(i => Number(i.reorder_level) > 0 && Number(i.current_qty) <= Number(i.reorder_level)),
     [items]);
@@ -146,9 +177,9 @@ export default function StockReports() {
       if (isNaN(d)) return;
       const key = d.toLocaleString('en', { month:'short', year:'2-digit' });
       if (!buckets[key]) buckets[key] = { m: d.toLocaleString('en',{month:'short'}), in: 0, out: 0, ts: d.getTime() };
-      const qty = Math.abs(Number(m.quantity_change) || 0);
-      if (m.movement_type === 'IN')  buckets[key].in  += qty;
-      if (m.movement_type === 'OUT') buckets[key].out += qty;
+      const qty = Math.abs(Number(m.quantity) || Math.abs(m.quantity_change) || 0);
+      if (m.raw_type === 'stock_in' || m.raw_type === 'returned') buckets[key].in += qty;
+      if (m.raw_type === 'stock_out') buckets[key].out += qty;
     });
     return Object.values(buckets).sort((a,b) => a.ts - b.ts).slice(-6);
   }, [movements]);
@@ -166,15 +197,37 @@ export default function StockReports() {
       String(i.academic_year||'').toLowerCase().includes(q));
   }, [items, search]);
 
+  const matchMovementSearch = (m, q) =>
+    !q
+    || (m.item_name || '').toLowerCase().includes(q)
+    || (m.reason || '').toLowerCase().includes(q)
+    || (m.supplier_name || '').toLowerCase().includes(q)
+    || (m.type_label || '').toLowerCase().includes(q);
+
   const filteredIn  = useMemo(() => {
     const q = search.toLowerCase();
-    return stockIn.filter(m => !q || (m.item_name||'').toLowerCase().includes(q) || (m.reason||'').toLowerCase().includes(q));
-  }, [stockIn, search]);
+    return filterBySupplier(stockIn).filter((m) => matchMovementSearch(m, q));
+  }, [stockIn, search, supplierFilter]);
 
   const filteredOut = useMemo(() => {
     const q = search.toLowerCase();
-    return stockOut.filter(m => !q || (m.item_name||'').toLowerCase().includes(q) || (m.reason||'').toLowerCase().includes(q));
-  }, [stockOut, search]);
+    return filterBySupplier(stockOut).filter((m) => matchMovementSearch(m, q));
+  }, [stockOut, search, supplierFilter]);
+
+  const filteredReturned = useMemo(() => {
+    const q = search.toLowerCase();
+    return filterBySupplier(returned).filter((m) => matchMovementSearch(m, q));
+  }, [returned, search, supplierFilter]);
+
+  const filteredAdjusted = useMemo(() => {
+    const q = search.toLowerCase();
+    return filterBySupplier(adjusted).filter((m) => matchMovementSearch(m, q));
+  }, [adjusted, search, supplierFilter]);
+
+  const filteredAllMovements = useMemo(() => {
+    const q = search.toLowerCase();
+    return filterBySupplier(movements).filter((m) => matchMovementSearch(m, q));
+  }, [movements, search, supplierFilter]);
 
   const summaryCards = [
     { label:"Total Items",      value: fmtQty(items.length),   Icon: Package,       accent: ACCENT },
@@ -183,7 +236,63 @@ export default function StockReports() {
     { label:"Out of Stock",     value: fmtQty(outOfStock.length),Icon: XCircle,     accent: "#dc2626" },
     { label:"Stock-In Events",  value: fmtQty(stockIn.length), Icon: ArrowDownCircle, accent: "#0891b2" },
     { label:"Stock-Out Events", value: fmtQty(stockOut.length),Icon: ArrowUpCircle, accent: "#7c3aed" },
+    { label:"Returned",         value: fmtQty(returned.length), Icon: RefreshCw, accent: "#6366f1" },
+    { label:"Adjusted",         value: fmtQty(adjusted.length), Icon: Wrench, accent: "#d97706" },
   ];
+
+  const MovementTable = ({ rows, emptyLabel, qtyColumn = 'Qty', qtyColor = ACCENT }) => (
+    <div style={{ overflowX: 'auto' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+        <thead>
+          <tr style={{ background: '#f8fafc', borderBottom: '2px solid #f1f5f9' }}>
+            {['Date', 'Item', 'Type', 'Supplier', 'Category', qtyColumn, 'Unit cost', 'Reference / note'].map((h) => (
+              <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 9.5, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '.6px', whiteSpace: 'nowrap' }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.length === 0 ? (
+            <tr><td colSpan={8} style={{ padding: '40px 14px', textAlign: 'center', color: '#94a3b8', fontSize: 12, fontWeight: 600 }}>{emptyLabel}</td></tr>
+          ) : rows.map((m, i) => (
+            <tr key={m.id || i} style={{ borderBottom: '1px solid #f8fafc' }}>
+              <td style={{ padding: '12px 14px', color: '#94a3b8', fontSize: 11 }}>{fmtDate(m.movement_date || m.created_at)}</td>
+              <td style={{ padding: '12px 14px', fontWeight: 700 }}>{m.item_name || `Item #${m.item_id}`}</td>
+              <td style={{ padding: '12px 14px' }}><Badge label={m.type_label || '—'} color={ACCENT} /></td>
+              <td style={{ padding: '12px 14px', color: '#64748b' }}>{m.supplier_name || '—'}</td>
+              <td style={{ padding: '12px 14px' }}><Badge label={m.category || '—'} color={ACCENT} /></td>
+              <td style={{ padding: '12px 14px', color: qtyColor, fontWeight: 800 }}>{fmtQty(Math.abs(m.quantity_change))}</td>
+              <td style={{ padding: '12px 14px', color: '#64748b' }}>{m.unit_cost != null && m.unit_cost !== '' ? `${Number(m.unit_cost).toLocaleString()} RWF` : '—'}</td>
+              <td style={{ padding: '12px 14px', color: '#64748b', maxWidth: 220 }}>{m.reason || '—'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+
+  const SupplierFilterBar = ({ count }) => (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 800, color: ACCENT }}>
+        <Filter size={14} /> {count} record{count === 1 ? '' : 's'}
+      </div>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <select
+          value={supplierFilter}
+          onChange={(e) => setSupplierFilter(e.target.value)}
+          style={{ padding: '8px 12px', border: '1.5px solid #dde3ef', borderRadius: 8, fontFamily: "'Montserrat',sans-serif", fontSize: 11.5, fontWeight: 600, outline: 'none' }}
+        >
+          {supplierOptions.map((s) => (
+            <option key={s.id} value={s.id}>{s.name}</option>
+          ))}
+        </select>
+        <div style={{ position: 'relative' }}>
+          <Search size={12} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#cbd5e1' }} />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search item, supplier…"
+            style={{ paddingLeft: 30, paddingRight: 12, paddingTop: 8, paddingBottom: 8, border: '1.5px solid #dde3ef', borderRadius: 8, fontFamily: "'Montserrat',sans-serif", fontSize: 11.5, fontWeight: 500, outline: 'none', width: 200 }} />
+        </div>
+      </div>
+    </div>
+  );
 
   const stockHeroSubtitle =
     storeMeta?.term || storeMeta?.academic_year
@@ -347,82 +456,55 @@ export default function StockReports() {
         {/* ── STOCK IN ── */}
         {!loading && tab === "stockin" && (
           <div style={{ background:"#fff", borderRadius:16, padding:22, border:"1.5px solid #e8edf5", boxShadow:"0 1px 4px rgba(0,4,53,.04)" }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:10, marginBottom:20 }}>
-              <div style={{ display:"flex", alignItems:"center", gap:8, fontSize:13, fontWeight:800, color:ACCENT }}>
-                <ArrowDownCircle size={14} /> Stock In Movements <span style={{ fontSize:11, fontWeight:600, color:"#94a3b8" }}>({filteredIn.length})</span>
-              </div>
-              <div style={{ position:"relative" }}>
-                <Search size={12} style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", color:"#cbd5e1" }} />
-                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search item…"
-                  style={{ paddingLeft:30, paddingRight:12, paddingTop:8, paddingBottom:8, border:"1.5px solid #dde3ef", borderRadius:8, fontFamily:"'Montserrat',sans-serif", fontSize:11.5, fontWeight:500, outline:"none", width:200 }} />
-              </div>
+            <div style={{ display:"flex", alignItems:"center", gap:8, fontSize:13, fontWeight:800, color:ACCENT, marginBottom:8 }}>
+              <ArrowDownCircle size={14} /> Stock In Movements
             </div>
-            <div style={{ overflowX:"auto" }}>
-              <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12.5 }}>
-                <thead>
-                  <tr style={{ background:"#f8fafc", borderBottom:"2px solid #f1f5f9" }}>
-                    {["Date","Item","Category","Qty Added","Reason","Unit"].map(h => (
-                      <th key={h} style={{ padding:"10px 14px", textAlign:"left", fontSize:9.5, fontWeight:800, color:"#94a3b8", textTransform:"uppercase", letterSpacing:".6px", whiteSpace:"nowrap" }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredIn.length === 0 ? (
-                    <tr><td colSpan={6} style={{ padding:"40px 14px", textAlign:"center", color:"#94a3b8", fontSize:12, fontWeight:600 }}>No stock-in movements found</td></tr>
-                  ) : filteredIn.map((m, i) => (
-                    <tr key={i} style={{ borderBottom:"1px solid #f8fafc" }}>
-                      <td style={{ padding:"12px 14px", color:"#94a3b8", fontSize:11 }}>{fmtDate(m.movement_date || m.created_at)}</td>
-                      <td style={{ padding:"12px 14px", fontWeight:700 }}>{m.item_name || `Item #${m.item_id}`}</td>
-                      <td style={{ padding:"12px 14px" }}><Badge label={m.category || '—'} color={ACCENT} /></td>
-                      <td style={{ padding:"12px 14px", color:"#059669", fontWeight:800 }}>+{fmtQty(m.quantity_change)}</td>
-                      <td style={{ padding:"12px 14px", color:"#64748b", maxWidth:200 }}>{m.reason || '—'}</td>
-                      <td style={{ padding:"12px 14px", color:"#94a3b8" }}>{m.unit || '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <SupplierFilterBar count={filteredIn.length} />
+            <MovementTable rows={filteredIn} emptyLabel="No stock-in movements found" qtyColumn="Qty in" qtyColor="#059669" />
           </div>
         )}
 
         {/* ── STOCK OUT ── */}
         {!loading && tab === "stockout" && (
           <div style={{ background:"#fff", borderRadius:16, padding:22, border:"1.5px solid #e8edf5", boxShadow:"0 1px 4px rgba(0,4,53,.04)" }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:10, marginBottom:20 }}>
-              <div style={{ display:"flex", alignItems:"center", gap:8, fontSize:13, fontWeight:800, color:ACCENT }}>
-                <ArrowUpCircle size={14} /> Stock Out Movements <span style={{ fontSize:11, fontWeight:600, color:"#94a3b8" }}>({filteredOut.length})</span>
-              </div>
-              <div style={{ position:"relative" }}>
-                <Search size={12} style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", color:"#cbd5e1" }} />
-                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search item…"
-                  style={{ paddingLeft:30, paddingRight:12, paddingTop:8, paddingBottom:8, border:"1.5px solid #dde3ef", borderRadius:8, fontFamily:"'Montserrat',sans-serif", fontSize:11.5, fontWeight:500, outline:"none", width:200 }} />
-              </div>
+            <div style={{ display:"flex", alignItems:"center", gap:8, fontSize:13, fontWeight:800, color:ACCENT, marginBottom:8 }}>
+              <ArrowUpCircle size={14} /> Stock Out Movements
             </div>
-            <div style={{ overflowX:"auto" }}>
-              <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12.5 }}>
-                <thead>
-                  <tr style={{ background:"#f8fafc", borderBottom:"2px solid #f1f5f9" }}>
-                    {["Date","Item","Category","Qty Used","Reason","Unit"].map(h => (
-                      <th key={h} style={{ padding:"10px 14px", textAlign:"left", fontSize:9.5, fontWeight:800, color:"#94a3b8", textTransform:"uppercase", letterSpacing:".6px", whiteSpace:"nowrap" }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredOut.length === 0 ? (
-                    <tr><td colSpan={6} style={{ padding:"40px 14px", textAlign:"center", color:"#94a3b8", fontSize:12, fontWeight:600 }}>No stock-out movements found</td></tr>
-                  ) : filteredOut.map((m, i) => (
-                    <tr key={i} style={{ borderBottom:"1px solid #f8fafc" }}>
-                      <td style={{ padding:"12px 14px", color:"#94a3b8", fontSize:11 }}>{fmtDate(m.movement_date || m.created_at)}</td>
-                      <td style={{ padding:"12px 14px", fontWeight:700 }}>{m.item_name || `Item #${m.item_id}`}</td>
-                      <td style={{ padding:"12px 14px" }}><Badge label={m.category || '—'} color={ACCENT} /></td>
-                      <td style={{ padding:"12px 14px", color:"#dc2626", fontWeight:800 }}>{fmtQty(Math.abs(m.quantity_change))}</td>
-                      <td style={{ padding:"12px 14px", color:"#64748b", maxWidth:200 }}>{m.reason || '—'}</td>
-                      <td style={{ padding:"12px 14px", color:"#94a3b8" }}>{m.unit || '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <SupplierFilterBar count={filteredOut.length} />
+            <MovementTable rows={filteredOut} emptyLabel="No stock-out movements found" qtyColumn="Qty out" qtyColor="#dc2626" />
+          </div>
+        )}
+
+        {/* ── RETURNED ── */}
+        {!loading && tab === "returned" && (
+          <div style={{ background:"#fff", borderRadius:16, padding:22, border:"1.5px solid #e8edf5", boxShadow:"0 1px 4px rgba(0,4,53,.04)" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:8, fontSize:13, fontWeight:800, color:ACCENT, marginBottom:8 }}>
+              <RefreshCw size={14} /> Returned to Stock
             </div>
+            <SupplierFilterBar count={filteredReturned.length} />
+            <MovementTable rows={filteredReturned} emptyLabel="No returned movements found" qtyColumn="Qty returned" qtyColor="#6366f1" />
+          </div>
+        )}
+
+        {/* ── ADJUSTED ── */}
+        {!loading && tab === "adjusted" && (
+          <div style={{ background:"#fff", borderRadius:16, padding:22, border:"1.5px solid #e8edf5", boxShadow:"0 1px 4px rgba(0,4,53,.04)" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:8, fontSize:13, fontWeight:800, color:ACCENT, marginBottom:8 }}>
+              <Wrench size={14} /> Stock Adjustments
+            </div>
+            <SupplierFilterBar count={filteredAdjusted.length} />
+            <MovementTable rows={filteredAdjusted} emptyLabel="No adjustment movements found" qtyColumn="New qty set" qtyColor="#d97706" />
+          </div>
+        )}
+
+        {/* ── ALL MOVEMENTS ── */}
+        {!loading && tab === "allmove" && (
+          <div style={{ background:"#fff", borderRadius:16, padding:22, border:"1.5px solid #e8edf5", boxShadow:"0 1px 4px rgba(0,4,53,.04)" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:8, fontSize:13, fontWeight:800, color:ACCENT, marginBottom:8 }}>
+              <ArrowDownUp size={14} /> All Stock Movements
+            </div>
+            <SupplierFilterBar count={filteredAllMovements.length} />
+            <MovementTable rows={filteredAllMovements} emptyLabel="No movements recorded yet" qtyColumn="Quantity" qtyColor={ACCENT} />
           </div>
         )}
 

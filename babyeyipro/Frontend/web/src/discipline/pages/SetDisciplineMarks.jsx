@@ -3,6 +3,15 @@ import { CheckCircle2, ChevronLeft, ChevronRight, History, Loader2, RotateCcw, S
 import disciplineService from '../services/disciplineService';
 import DisciplineOchreHero from '../components/DisciplineOchreHero';
 
+const formatParentNotifySummary = (summary) => {
+  if (!summary || summary.error) return null;
+  const parts = [];
+  if (Number(summary.in_app?.sent) > 0) parts.push(`${summary.in_app.sent} in-app`);
+  if (Number(summary.push?.sent) > 0) parts.push(`${summary.push.sent} push`);
+  if (Number(summary.email?.sent) > 0) parts.push(`${summary.email.sent} email`);
+  return parts.length ? parts.join(', ') : null;
+};
+
 const REASON_PRESETS = [
   'Late to class',
   'Absence',
@@ -37,6 +46,7 @@ export default function SetDisciplineMarks() {
   const [meta, setMeta] = useState({ page: 1, limit: 15, total: 0, total_pages: 1 });
   const [toast, setToast] = useState({ type: '', message: '' });
   const [maxMarks, setMaxMarks] = useState(40);
+  const [minMarks, setMinMarks] = useState(0);
 
   const [form, setForm] = useState({
     action: 'remove',
@@ -78,8 +88,11 @@ export default function SetDisciplineMarks() {
     disciplineService
       .getSettings()
       .then((res) => {
-        const m = res.data?.data?.default_marks ?? res.data?.data?.max_marks;
+        const d = res.data?.data;
+        const m = d?.default_marks ?? d?.max_marks;
+        const min = d?.minimum_marks ?? d?.min_marks;
         if (m != null && Number.isFinite(Number(m))) setMaxMarks(Number(m));
+        if (min != null && Number.isFinite(Number(min))) setMinMarks(Number(min));
       })
       .catch(() => {});
   }, []);
@@ -125,31 +138,43 @@ export default function SetDisciplineMarks() {
   const nextMarks = form.action === 'add' ? currentMarks + marksValue : currentMarks - marksValue;
   const validMarks = Number.isFinite(marksValue) && marksValue > 0;
   const validReason = reasonValue.length > 0;
-  const withinLimits = Number.isFinite(nextMarks) && nextMarks >= 0 && nextMarks <= maxMarks;
+  const withinLimits =
+    Number.isFinite(nextMarks) && nextMarks >= minMarks && nextMarks <= maxMarks;
   const canSubmit = validMarks && validReason && withinLimits;
 
   const saveAction = async () => {
     if (!selectedStudent) return;
     if (!canSubmit) {
-      if (!withinLimits) notify('error', `Resulting marks must remain between 0 and ${maxMarks}.`);
+      if (!withinLimits) {
+        notify('error', `Resulting marks must stay between ${minMarks} and ${maxMarks}.`);
+      }
       else notify('error', 'Please complete required fields before saving.');
       return;
     }
 
     setSaving(true);
     try {
-      await disciplineService.applyStudentMarks(selectedStudent.id, {
+      const res = await disciplineService.applyStudentMarks(selectedStudent.id, {
         action: form.action,
         marks: marksValue,
         reason: reasonValue,
         date: form.date,
         notes: form.notes?.trim() || null,
+        notify_parent: form.action === 'remove',
       });
 
       const updated = students.map((s) => (s.id === selectedStudent.id ? { ...s, discipline_marks: nextMarks } : s));
       setStudents(updated);
       setSelectedStudent((prev) => (prev ? { ...prev, discipline_marks: nextMarks } : prev));
-      notify('success', 'Marks updated successfully.');
+
+      const notifySummary = formatParentNotifySummary(res?.data?.parent_notifications);
+      if (form.action === 'remove' && notifySummary) {
+        notify('success', `Marks updated. Parent notified (${notifySummary}).`);
+      } else if (form.action === 'remove') {
+        notify('success', 'Marks updated. Parent notification sent (email / push / in-app where configured).');
+      } else {
+        notify('success', 'Marks updated successfully.');
+      }
       fetchHistory(selectedStudent.id);
     } catch (e) {
       notify('error', e.response?.data?.message || 'Failed to update marks.');
@@ -308,7 +333,7 @@ export default function SetDisciplineMarks() {
                 </div>
 
                 {!withinLimits && (
-                  <p className="text-xs font-bold text-red-600">Result must stay between 0 and {maxMarks}.</p>
+                  <p className="text-xs font-bold text-red-600">Result must stay between {minMarks} and {maxMarks}.</p>
                 )}
 
                 <div className="flex flex-wrap gap-2">

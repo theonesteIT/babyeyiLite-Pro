@@ -2,6 +2,21 @@
 
 const express = require('express');
 const { promisePool } = require('../config/database');
+const {
+  ensureNotificationTables,
+  notifyActionPlanSubmitted,
+  notifyActionPlanReviewed,
+  processActivityEndReminders,
+  startActivityReminderScheduler,
+  listNotificationsForUser,
+  markNotificationRead,
+  markAllNotificationsRead,
+} = require('./actionPlanNotifications');
+const {
+  ensureActivityTimelineColumns,
+  syncSchoolActivityTimeline,
+  processAllSchoolsActivityTimeline,
+} = require('./actionPlanTimeline');
 
 const router = express.Router();
 
@@ -228,6 +243,7 @@ async function ensureActionPlanTables() {
     'ALTER TABLE school_action_plan_activities ADD COLUMN progress_pct TINYINT UNSIGNED NOT NULL DEFAULT 0',
     'ALTER TABLE school_action_plan_activities ADD COLUMN is_frozen TINYINT(1) NOT NULL DEFAULT 0',
     'ALTER TABLE school_action_plan_activities ADD COLUMN budget_line_id INT UNSIGNED NULL',
+    'ALTER TABLE school_action_plan_activities ADD COLUMN status_manual_override TINYINT(1) NOT NULL DEFAULT 0',
   ];
   for (const sql of migrations) {
     await promisePool.query(sql).catch(() => {});
@@ -252,9 +268,19 @@ function normalizePlanStatus(raw, submit) {
   return PLAN_STATUSES.includes(normalized) ? normalized : 'draft';
 }
 
+async function bootActionPlanServices() {
+  await ensureNotificationTables();
+  await ensureActivityTimelineColumns();
+  startActivityReminderScheduler();
+  processAllSchoolsActivityTimeline().catch((e) => {
+    console.warn('[action-plan-timeline boot]:', e.message);
+  });
+}
+
 function mapPlanRow(r, activityStats = {}) {
   return {
     id: r.id,
+    createdByUserId: r.created_by_user_id,
     planCode: r.plan_code,
     title: r.title,
     academicYear: r.academic_year,
@@ -305,6 +331,8 @@ function mapActivityRow(r) {
     statusLabel: statusLabel(r.status),
     budgetLineId: r.budget_line_id,
     isFrozen: Boolean(r.is_frozen),
+    statusManualOverride: Boolean(r.status_manual_override),
+    timelineDriven: Boolean(!r.status_manual_override && r.planned_start && r.planned_end && String(r.status || '').toLowerCase() !== 'cancelled'),
     usagePct: est > 0 ? Math.round((used / est) * 100) : 0,
   };
 }
@@ -362,6 +390,7 @@ router.use(async (_req, res, next) => {
 
 router.get('/accountant/action-plans/options', requireRole(ACCOUNTANT_READ), async (req, res) => {
   try {
+    await bootActionPlanServices();
     const { schoolId } = req.ctx;
     let budgetLines = [];
     try {
@@ -433,6 +462,7 @@ router.get('/accountant/action-plans/dashboard', requireRole(ACCOUNTANT_READ), a
   try {
     const { schoolId } = req.ctx;
     const planId = Number(req.query?.action_plan_id) || null;
+    await syncSchoolActivityTimeline(schoolId, planId ? { planId } : {});
 
     const [[schoolStats]] = await promisePool.query(
       `SELECT COUNT(*) AS total_plans FROM school_action_plans WHERE school_id = ? AND deleted_at IS NULL`,
@@ -459,6 +489,7 @@ router.get('/accountant/action-plans/dashboard', requireRole(ACCOUNTANT_READ), a
         [planId, schoolId]
       );
       if (plan) {
+        await syncSchoolActivityTimeline(schoolId, { planId });
         activePlan = await mapPlanRowSafe(plan, schoolId);
         const [actRows] = await promisePool.query(
           `SELECT * FROM school_action_plan_activities WHERE action_plan_id = ? AND school_id = ? AND deleted_at IS NULL ORDER BY planned_start ASC`,
@@ -589,6 +620,9 @@ router.post('/accountant/action-plans', requireRole(ACCOUNTANT_WRITE), async (re
       ]
     );
     const [[row]] = await promisePool.query(`SELECT * FROM school_action_plans WHERE id = ?`, [ins.insertId]);
+    if (status === 'pending_approval') {
+      notifyActionPlanSubmitted(schoolId, row).catch(() => {});
+    }
     res.status(201).json({ success: true, data: mapPlanRow(row, {}) });
   } catch (e) {
     console.error('[action-plans POST]:', e.message, e.stack);
@@ -601,11 +635,17 @@ router.patch('/accountant/action-plans/:id', requireRole(ACCOUNTANT_WRITE), asyn
     const { schoolId } = req.ctx;
     const id = Number(req.params.id);
     const p = req.body || {};
+    const [[before]] = await promisePool.query(
+      `SELECT status FROM school_action_plans WHERE id = ? AND school_id = ? AND deleted_at IS NULL`,
+      [id, schoolId]
+    );
     const fields = [];
     const params = [];
     const map = {
       title: 'title', department: 'department', strategic_objective: 'strategicObjective',
-      start_date: 'startDate', end_date: 'endDate', responsible_name: 'responsibleName',
+      academic_year: 'academicYear', term: 'term',
+      start_date: 'startDate', end_date: 'endDate',
+      responsible_user_id: 'responsibleUserId', responsible_name: 'responsibleName',
       estimated_budget_rwf: 'estimatedBudget', funding_source: 'fundingSource',
       priority_level: 'priorityLevel', status: 'status', budget_line_id: 'budgetLineId',
     };
@@ -613,16 +653,58 @@ router.patch('/accountant/action-plans/:id', requireRole(ACCOUNTANT_WRITE), asyn
       if (p[key] !== undefined || p[col] !== undefined) {
         fields.push(`${col} = ?`);
         const v = p[key] !== undefined ? p[key] : p[col];
-        params.push(col.includes('date') ? parseDate(v) : col.includes('rwf') || col.includes('line_id') ? (col.includes('rwf') ? toMoney(v) : Number(v) || null) : String(v || '').trim());
+        if (col.includes('date')) params.push(parseDate(v));
+        else if (col.includes('rwf')) params.push(toMoney(v));
+        else if (col.includes('user_id') || col.includes('line_id')) params.push(Number(v) || null);
+        else params.push(String(v || '').trim());
       }
     });
+    if (p.submit) {
+      fields.push('status = ?', 'submitted_at = COALESCE(submitted_at, NOW())');
+      params.push('pending_approval');
+    }
     if (!fields.length) return res.status(400).json({ success: false, message: 'No fields to update' });
     params.push(id, schoolId);
     await promisePool.query(`UPDATE school_action_plans SET ${fields.join(', ')} WHERE id = ? AND school_id = ?`, params);
     const [[row]] = await promisePool.query(`SELECT * FROM school_action_plans WHERE id = ? AND school_id = ?`, [id, schoolId]);
+    const becamePending = row?.status === 'pending_approval' && before?.status !== 'pending_approval';
+    if (becamePending) notifyActionPlanSubmitted(schoolId, row).catch(() => {});
     res.json({ success: true, data: await mapPlanRowSafe(row, schoolId) });
   } catch (e) {
     res.status(500).json({ success: false, message: 'Failed to update action plan' });
+  }
+});
+
+router.get('/accountant/action-plans/notifications', requireRole(ACCOUNTANT_READ), async (req, res) => {
+  try {
+    const { schoolId, userId } = req.ctx;
+    await processActivityEndReminders(schoolId);
+    const limit = Number(req.query?.limit) || 40;
+    const data = await listNotificationsForUser(userId, schoolId, limit);
+    const unread = data.filter((n) => !n.isRead).length;
+    res.json({ success: true, data, unread });
+  } catch (e) {
+    res.status(500).json({ success: false, message: 'Failed to load notifications' });
+  }
+});
+
+router.patch('/accountant/action-plans/notifications/read-all', requireRole(ACCOUNTANT_READ), async (req, res) => {
+  try {
+    const { schoolId, userId } = req.ctx;
+    await markAllNotificationsRead(userId, schoolId);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ success: false, message: 'Failed to mark notifications read' });
+  }
+});
+
+router.patch('/accountant/action-plans/notifications/:id/read', requireRole(ACCOUNTANT_READ), async (req, res) => {
+  try {
+    const { schoolId, userId } = req.ctx;
+    await markNotificationRead(userId, schoolId, Number(req.params.id));
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ success: false, message: 'Failed to mark notification read' });
   }
 });
 
@@ -669,17 +751,77 @@ router.patch('/accountant/action-plan-activities/:id', requireRole(ACCOUNTANT_WR
     const p = req.body || {};
     const fields = [];
     const params = [];
+    if (p.resetTimeline === true || p.timelineAuto === true) {
+      fields.push('status_manual_override = 0');
+    }
     if (p.progressPct !== undefined) { fields.push('progress_pct = ?'); params.push(Math.min(100, Math.max(0, Number(p.progressPct)))); }
     if (p.status !== undefined) { fields.push('status = ?'); params.push(String(p.status)); }
     if (p.estimatedCost !== undefined) { fields.push('estimated_cost_rwf = ?'); params.push(toMoney(p.estimatedCost)); }
     if (p.usedAmount !== undefined) { fields.push('used_amount_rwf = ?'); params.push(toMoney(p.usedAmount)); }
+    if ((p.status !== undefined || p.progressPct !== undefined) && !p.resetTimeline && p.timelineAuto !== true) {
+      fields.push('status_manual_override = 1');
+    }
     if (!fields.length) return res.status(400).json({ success: false, message: 'No updates' });
     params.push(id, schoolId);
+    const manualStatusEdit = (p.status !== undefined || p.progressPct !== undefined)
+      && !p.resetTimeline && p.timelineAuto !== true;
     await promisePool.query(`UPDATE school_action_plan_activities SET ${fields.join(', ')} WHERE id = ? AND school_id = ?`, params);
+    if (!manualStatusEdit || p.resetTimeline === true || p.timelineAuto === true) {
+      await syncSchoolActivityTimeline(schoolId, { activityId: id });
+    }
     const [[row]] = await promisePool.query(`SELECT * FROM school_action_plan_activities WHERE id = ?`, [id]);
     res.json({ success: true, data: mapActivityRow(row) });
   } catch (e) {
     res.status(500).json({ success: false, message: 'Failed to update activity' });
+  }
+});
+
+router.get('/accountant/action-plan-activities', requireRole(ACCOUNTANT_READ), async (req, res) => {
+  try {
+    const { schoolId } = req.ctx;
+    const planId = Number(req.query?.action_plan_id) || null;
+    await syncSchoolActivityTimeline(schoolId, planId ? { planId } : {});
+    let sql = `
+      SELECT a.*, p.title AS plan_title, p.term AS plan_term, p.academic_year AS plan_academic_year
+      FROM school_action_plan_activities a
+      INNER JOIN school_action_plans p ON p.id = a.action_plan_id AND p.school_id = a.school_id
+      WHERE a.school_id = ? AND a.deleted_at IS NULL AND p.deleted_at IS NULL`;
+    const params = [schoolId];
+    if (planId) {
+      sql += ' AND a.action_plan_id = ?';
+      params.push(planId);
+    }
+    sql += ' ORDER BY a.planned_start ASC, a.updated_at DESC';
+    const [rows] = await promisePool.query(sql, params);
+    const data = rows.map((r) => ({
+      ...mapActivityRow(r),
+      planTitle: r.plan_title,
+      planTerm: r.plan_term,
+      planAcademicYear: r.plan_academic_year,
+    }));
+    res.json({ success: true, data });
+  } catch (e) {
+    console.error('[action-plan-activities GET]:', e.message, e.stack);
+    res.status(500).json({ success: false, message: e.message || 'Failed to load activities' });
+  }
+});
+
+router.delete('/accountant/action-plan-activities/:id', requireRole(ACCOUNTANT_WRITE), async (req, res) => {
+  try {
+    const { schoolId } = req.ctx;
+    const id = Number(req.params.id);
+    const [[row]] = await promisePool.query(
+      `SELECT id FROM school_action_plan_activities WHERE id = ? AND school_id = ? AND deleted_at IS NULL`,
+      [id, schoolId]
+    );
+    if (!row) return res.status(404).json({ success: false, message: 'Activity not found' });
+    await promisePool.query(
+      `UPDATE school_action_plan_activities SET deleted_at = NOW() WHERE id = ? AND school_id = ?`,
+      [id, schoolId]
+    );
+    res.json({ success: true, message: 'Activity deleted' });
+  } catch (e) {
+    res.status(500).json({ success: false, message: 'Failed to delete activity' });
   }
 });
 
@@ -767,20 +909,50 @@ router.get('/accountant/action-plan-activities/:id/expenses', requireRole(ACCOUN
   }
 });
 
+router.delete('/accountant/action-plans/:id', requireRole(ACCOUNTANT_WRITE), async (req, res) => {
+  try {
+    const { schoolId } = req.ctx;
+    const id = Number(req.params.id);
+    const [[row]] = await promisePool.query(
+      `SELECT id FROM school_action_plans WHERE id = ? AND school_id = ? AND deleted_at IS NULL LIMIT 1`,
+      [id, schoolId]
+    );
+    if (!row) return res.status(404).json({ success: false, message: 'Action plan not found' });
+    await promisePool.query(
+      `UPDATE school_action_plans SET deleted_at = NOW() WHERE id = ? AND school_id = ?`,
+      [id, schoolId]
+    );
+    await promisePool.query(
+      `UPDATE school_action_plan_activities SET deleted_at = NOW() WHERE action_plan_id = ? AND school_id = ? AND deleted_at IS NULL`,
+      [id, schoolId]
+    );
+    res.json({ success: true, message: 'Action plan deleted' });
+  } catch (e) {
+    console.error('[action-plans DELETE]:', e.message, e.stack);
+    res.status(500).json({ success: false, message: e.message || 'Failed to delete action plan' });
+  }
+});
+
 router.patch('/accountant/action-plans/:id/review', requireRole(MANAGER_REVIEW), async (req, res) => {
   try {
-    const { schoolId, userId } = req.ctx;
+    const { schoolId } = req.ctx;
     const id = Number(req.params.id);
     const decision = String(req.body?.decision || '').toLowerCase();
     const notes = String(req.body?.notes || '').trim();
     const map = { approve: 'approved', approved: 'approved', reject: 'cancelled', rejected: 'cancelled', ongoing: 'ongoing' };
     const status = map[decision];
     if (!status) return res.status(400).json({ success: false, message: 'Invalid decision' });
+    const [[existing]] = await promisePool.query(
+      `SELECT * FROM school_action_plans WHERE id = ? AND school_id = ? AND deleted_at IS NULL`,
+      [id, schoolId]
+    );
+    if (!existing) return res.status(404).json({ success: false, message: 'Action plan not found' });
     await promisePool.query(
       `UPDATE school_action_plans SET status = ?, manager_review_notes = ?, manager_reviewed_at = NOW() WHERE id = ? AND school_id = ?`,
       [status, notes || null, id, schoolId]
     );
     const [[row]] = await promisePool.query(`SELECT * FROM school_action_plans WHERE id = ?`, [id]);
+    notifyActionPlanReviewed(schoolId, existing, status, notes).catch(() => {});
     res.json({ success: true, data: await mapPlanRowSafe(row, schoolId) });
   } catch (e) {
     res.status(500).json({ success: false, message: 'Failed to review plan' });

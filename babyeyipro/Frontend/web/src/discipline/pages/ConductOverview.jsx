@@ -3,15 +3,16 @@ import api from '../services/api';
 import { Shield, RefreshCw, AlertCircle, Settings2, Save, Loader2, CheckCircle2, X } from 'lucide-react';
 import DisciplineOchreHero from '../components/DisciplineOchreHero';
 
-const MARKS_MIN = 1;
+const MARKS_MIN = 0;
 const MARKS_MAX = 10000;
 
 /**
- * Head of discipline — conduct maximum (default marks) for all learners.
+ * Head of discipline — conduct minimum & maximum for all learners.
  * Backend: GET /api/discipline/settings, PUT /api/discipline/settings/default-marks
  */
 export default function ConductOverview() {
   const [maxMarks, setMaxMarks] = useState(null);
+  const [minMarks, setMinMarks] = useState(0);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -20,6 +21,7 @@ export default function ConductOverview() {
   const [saveSuccess, setSaveSuccess] = useState('');
   const [form, setForm] = useState({
     defaultMarks: '40',
+    minimumMarks: '0',
     applyTo: 'new',
   });
 
@@ -29,21 +31,34 @@ export default function ConductOverview() {
     try {
       const setRes = await api.get('/discipline/settings');
       const data = setRes.data?.success ? setRes.data.data : null;
-      const marks =
+      const max =
         data?.default_marks != null
           ? Number(data.default_marks)
           : data?.max_marks != null
             ? Number(data.max_marks)
             : null;
-      if (marks != null && Number.isFinite(marks)) {
-        setMaxMarks(marks);
-        setForm((prev) => ({ ...prev, defaultMarks: String(marks) }));
+      const min =
+        data?.minimum_marks != null
+          ? Number(data.minimum_marks)
+          : data?.min_marks != null
+            ? Number(data.min_marks)
+            : 0;
+      if (max != null && Number.isFinite(max)) {
+        setMaxMarks(max);
+        setMinMarks(Number.isFinite(min) ? min : 0);
+        setForm((prev) => ({
+          ...prev,
+          defaultMarks: String(max),
+          minimumMarks: String(Number.isFinite(min) ? min : 0),
+        }));
       } else {
         setMaxMarks(null);
+        setMinMarks(0);
         setError('Could not read conduct settings for your school.');
       }
     } catch (e) {
       setMaxMarks(null);
+      setMinMarks(0);
       setError(
         e.response?.data?.message ||
           'Could not load conduct settings. Your account needs Head of Discipline (or school manager) access.'
@@ -57,27 +72,32 @@ export default function ConductOverview() {
     load();
   }, []);
 
-  const parsedDefault = Number(form.defaultMarks);
-  const defaultMarksValid =
-    Number.isFinite(parsedDefault) && parsedDefault >= MARKS_MIN && parsedDefault <= MARKS_MAX;
+  const parsedMax = Number(form.defaultMarks);
+  const parsedMin = Number(form.minimumMarks);
+  const maxValid = Number.isFinite(parsedMax) && parsedMax >= 1 && parsedMax <= MARKS_MAX;
+  const minValid = Number.isFinite(parsedMin) && parsedMin >= MARKS_MIN && parsedMin <= MARKS_MAX;
+  const rangeValid = maxValid && minValid && parsedMin <= parsedMax;
 
   const saveDefaultMarks = async () => {
     setSaveError('');
     setSaveSuccess('');
-    if (!defaultMarksValid) {
-      setSaveError(`Maximum marks must be a number between ${MARKS_MIN} and ${MARKS_MAX}.`);
+    if (!rangeValid) {
+      if (!maxValid) setSaveError(`Maximum marks must be between 1 and ${MARKS_MAX}.`);
+      else if (!minValid) setSaveError(`Minimum marks must be between ${MARKS_MIN} and ${MARKS_MAX}.`);
+      else setSaveError('Minimum marks cannot be greater than maximum marks.');
       return;
     }
 
     setSavingDefaults(true);
     try {
       const res = await api.put('/discipline/settings/default-marks', {
-        default_marks: parsedDefault,
+        default_marks: parsedMax,
+        minimum_marks: parsedMin,
         apply_to: form.applyTo,
         confirmed_overwrite: form.applyTo === 'all',
       });
       const updated = res.data?.data?.updated_students;
-      const message = res.data?.message || 'Conduct maximum marks saved.';
+      const message = res.data?.message || 'Conduct range saved.';
       setSaveSuccess(
         Number.isFinite(updated)
           ? `${message} Updated ${updated} student${updated === 1 ? '' : 's'}.`
@@ -97,7 +117,7 @@ export default function ConductOverview() {
         eyebrow="Conduct & discipline"
         titleLine="Overview"
         titleAccent="hub"
-        subtitle="Set the maximum conduct marks for your school. Every learner starts at this value; deductions reduce marks down to zero."
+        subtitle="Set the minimum and maximum conduct marks for your school. Learners start at the maximum; deductions cannot go below the minimum. Student promotion uses this range."
         icon={Shield}
       />
 
@@ -116,7 +136,7 @@ export default function ConductOverview() {
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#000435] text-white text-xs font-semibold uppercase tracking-wide hover:opacity-95"
               >
                 <Settings2 size={14} />
-                Set maximum marks
+                Set min & max marks
               </button>
               <button
                 type="button"
@@ -136,19 +156,35 @@ export default function ConductOverview() {
             </div>
           )}
 
-          <div className="rounded-xl border border-black/10 bg-re-bg/40 p-5 md:p-6 shadow-inner max-w-xl">
-            <p className="text-[9px] font-medium uppercase tracking-wide text-re-text-muted mb-1">
-              Maximum conduct marks (school)
-            </p>
-            <p className="text-3xl font-semibold text-re-text">
-              {loading ? '…' : maxMarks != null ? `${maxMarks} marks` : '—'}
-            </p>
-            <p className="text-[10px] font-medium text-re-text-muted mt-3 leading-snug">
-              This is the starting balance for every learner and the highest marks they can hold. Use{' '}
-              <strong className="text-re-text">Set maximum marks</strong> to change it and apply to new or all students.
-              Per-term case deductions use this value as the school cap.
-            </p>
+          <div className="grid sm:grid-cols-2 gap-4 max-w-3xl">
+            <div className="rounded-xl border border-black/10 bg-re-bg/40 p-5 md:p-6 shadow-inner">
+              <p className="text-[9px] font-medium uppercase tracking-wide text-re-text-muted mb-1">
+                Maximum conduct marks
+              </p>
+              <p className="text-3xl font-semibold text-re-text">
+                {loading ? '…' : maxMarks != null ? `${maxMarks} marks` : '—'}
+              </p>
+              <p className="text-[10px] font-medium text-re-text-muted mt-3 leading-snug">
+                Starting balance for every learner and the conduct ceiling for deductions and promotion review.
+              </p>
+            </div>
+            <div className="rounded-xl border border-black/10 bg-re-bg/40 p-5 md:p-6 shadow-inner">
+              <p className="text-[9px] font-medium uppercase tracking-wide text-re-text-muted mb-1">
+                Minimum conduct marks
+              </p>
+              <p className="text-3xl font-semibold text-re-text">
+                {loading ? '…' : `${minMarks} marks`}
+              </p>
+              <p className="text-[10px] font-medium text-re-text-muted mt-3 leading-snug">
+                Floor for conduct deductions. Student promotion can block learners below this when discipline block is enabled.
+              </p>
+            </div>
           </div>
+
+          <p className="text-[10px] font-medium text-re-text-muted max-w-2xl leading-snug">
+            Use <strong className="text-re-text">Set min & max marks</strong> to update the school range and apply the maximum to new or all students.
+            Set Marks and DOS promotion read these values from the database.
+          </p>
         </div>
       </div>
 
@@ -162,9 +198,9 @@ export default function ConductOverview() {
                   <Settings2 size={18} />
                 </div>
                 <div>
-                  <h3 className="text-base font-semibold text-re-text">Set maximum conduct marks</h3>
+                  <h3 className="text-base font-semibold text-re-text">Set conduct range</h3>
                   <p className="text-xs text-re-text-muted mt-1">
-                    Saved to your school database. All learners use this as their starting marks and conduct ceiling.
+                    Minimum and maximum saved to your school. Used by Set Marks, promotion review, and parent alerts.
                   </p>
                 </div>
               </div>
@@ -181,38 +217,53 @@ export default function ConductOverview() {
               <div className="grid sm:grid-cols-2 gap-3">
                 <label className="space-y-1.5 block">
                   <span className="text-[11px] font-semibold uppercase tracking-widest text-re-text-muted">
-                    Maximum marks
+                    Minimum marks
                   </span>
                   <input
                     type="number"
                     min={MARKS_MIN}
+                    max={MARKS_MAX}
+                    value={form.minimumMarks}
+                    onChange={(e) => setForm((prev) => ({ ...prev, minimumMarks: e.target.value }))}
+                    className="w-full h-11 rounded-xl border border-black/10 bg-re-bg/20 px-4 text-sm font-semibold"
+                  />
+                </label>
+                <label className="space-y-1.5 block">
+                  <span className="text-[11px] font-semibold uppercase tracking-widest text-re-text-muted">
+                    Maximum marks
+                  </span>
+                  <input
+                    type="number"
+                    min={1}
                     max={MARKS_MAX}
                     value={form.defaultMarks}
                     onChange={(e) => setForm((prev) => ({ ...prev, defaultMarks: e.target.value }))}
                     className="w-full h-11 rounded-xl border border-black/10 bg-re-bg/20 px-4 text-sm font-semibold"
                   />
                 </label>
-                <label className="space-y-1.5 block">
-                  <span className="text-[11px] font-semibold uppercase tracking-widest text-re-text-muted">Apply to</span>
-                  <select
-                    value={form.applyTo}
-                    onChange={(e) => setForm((prev) => ({ ...prev, applyTo: e.target.value }))}
-                    className="w-full h-11 rounded-xl border border-black/10 bg-re-bg/20 px-4 text-sm font-semibold"
-                  >
-                    <option value="new">New students only (unset marks)</option>
-                    <option value="all">All students (overwrite existing)</option>
-                  </select>
-                </label>
               </div>
+              <label className="space-y-1.5 block">
+                <span className="text-[11px] font-semibold uppercase tracking-widest text-re-text-muted">
+                  Apply maximum to
+                </span>
+                <select
+                  value={form.applyTo}
+                  onChange={(e) => setForm((prev) => ({ ...prev, applyTo: e.target.value }))}
+                  className="w-full h-11 rounded-xl border border-black/10 bg-re-bg/20 px-4 text-sm font-semibold"
+                >
+                  <option value="new">New students only (unset marks)</option>
+                  <option value="all">All students (overwrite existing)</option>
+                </select>
+              </label>
 
               {form.applyTo === 'all' && (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">
-                  This will set every learner&apos;s discipline marks to {parsedDefault || '—'}.
+                  This will set every learner&apos;s discipline marks to {parsedMax || '—'} (maximum).
                 </div>
               )}
-              {!defaultMarksValid && (
+              {!rangeValid && (
                 <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
-                  Maximum marks must be between {MARKS_MIN} and {MARKS_MAX}.
+                  Enter a valid range: minimum 0–{MARKS_MAX}, maximum 1–{MARKS_MAX}, and minimum ≤ maximum.
                 </div>
               )}
               {saveError && (
@@ -239,7 +290,7 @@ export default function ConductOverview() {
               <button
                 type="button"
                 onClick={saveDefaultMarks}
-                disabled={savingDefaults || !defaultMarksValid}
+                disabled={savingDefaults || !rangeValid}
                 className="h-10 px-4 rounded-xl bg-emerald-600 text-white text-xs font-semibold uppercase tracking-widest inline-flex items-center gap-2 disabled:opacity-60"
               >
                 {savingDefaults ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}

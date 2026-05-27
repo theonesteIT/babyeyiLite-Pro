@@ -5,6 +5,7 @@ import { createHref } from '../../lib/hrefFactory'
 import TeacherOrangeHero from '../components/TeacherOrangeHero'
 import DosOrangePageHero from '../../dos/components/DosOrangePageHero'
 import AccountantOchreHero from '../../accountant_portal/frontend/src/components/AccountantOchreHero'
+import StorekeeperOchreHero from '../../storekeeper_portal/frontend/src/components/StorekeeperOchreHero'
 
 const UPLOADS_BASE = (import.meta.env.VITE_UPLOADS_BASE || import.meta.env.VITE_API_URL || 'http://localhost:5100').replace(/\/$/, '')
 
@@ -65,6 +66,8 @@ export default function TichaDeals({ api, basePath, dealsHeroVariant = 'legacy',
     'Teacher'
 
   const isAccountantHero = dealsHeroVariant === 'accountant'
+  const isStorekeeperHero = dealsHeroVariant === 'storekeeper'
+  const isOchreHero = isAccountantHero || isStorekeeperHero
 
   const catalogContent = (
     <>
@@ -170,10 +173,40 @@ export default function TichaDeals({ api, basePath, dealsHeroVariant = 'legacy',
 
   return (
     <div
-      className={`min-h-screen pb-28 font-sans animate-in fade-in duration-500 ${isAccountantHero ? 'bg-re-bg' : 'bg-[#f0f2f9]'}`}
-      style={isAccountantHero ? { fontFamily: "'Montserrat', sans-serif" } : undefined}
+      className={`min-h-screen pb-28 font-sans animate-in fade-in duration-500 ${isOchreHero ? 'bg-re-bg' : 'bg-[#f0f2f9]'}`}
+      style={isOchreHero ? { fontFamily: "'Montserrat', sans-serif" } : undefined}
     >
-      {dealsHeroVariant === 'accountant' ? (
+      {isStorekeeperHero ? (
+        <StorekeeperOchreHero
+          eyebrow="Staff benefits"
+          titleLine="Ticha"
+          titleAccent="Deals"
+          subtitle="Exclusive products — pay monthly from your payroll."
+          icon={ShoppingBag}
+          rightSlot={
+            <>
+              <button
+                type="button"
+                onClick={() => loadData()}
+                disabled={loading}
+                className="inline-flex items-center gap-2 rounded-xl border border-[#FEBF10]/35 bg-[#FEBF10]/15 px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-white transition-all hover:bg-[#FEBF10]/25 active:scale-95 disabled:opacity-60"
+                title="Refresh catalog"
+              >
+                <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+                Refresh
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate(h('/ticha-deals/tracking'))}
+                className="inline-flex items-center gap-2 rounded-xl border border-white/25 bg-white/10 px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-white transition-all hover:bg-white/20 active:scale-95"
+              >
+                <ArrowRight size={14} />
+                Track my requests
+              </button>
+            </>
+          }
+        />
+      ) : dealsHeroVariant === 'accountant' ? (
         <AccountantOchreHero
           eyebrow="Staff benefits"
           titleLine="Ticha"
@@ -253,8 +286,8 @@ export default function TichaDeals({ api, basePath, dealsHeroVariant = 'legacy',
 
       <div
         className={
-          isAccountantHero
-            ? 'acct-shell-standard relative z-20 -mt-10 pb-20 max-w-[1000px] mx-auto'
+          isOchreHero
+            ? 'acct-shell-standard relative z-20 -mt-10 pb-20 max-w-[1000px] mx-auto px-4 sm:px-6'
             : 'max-w-[1000px] mx-auto px-4 sm:px-6 -mt-8 relative z-20'
         }
       >

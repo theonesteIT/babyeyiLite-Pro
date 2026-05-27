@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  AlertTriangle, Archive, Download, Filter,
+  Archive, Download, Filter,
   Loader2, Package, Plus, RefreshCw, Search, Tag, Trash2, X, Edit2, Save,
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
@@ -13,26 +13,59 @@ function fmtMoney(v) {
   return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'RWF', maximumFractionDigits: 0 }).format(Number(v) || 0);
 }
 
-const CATEGORIES = ['All', 'Stationery', 'Furniture', 'Electronics', 'Cleaning', 'Sports', 'Lab', 'Kitchen', 'Other'];
+const CATEGORY_OPTIONS = ['Stationery', 'Furniture', 'Electronics', 'Cleaning', 'Sports', 'Lab', 'Kitchen', 'Other'];
+const CATEGORIES = ['All', ...CATEGORY_OPTIONS];
 const TERM_OPTIONS = ['Term 1', 'Term 2', 'Term 3'];
+
+function resolveCategoryFields(item) {
+  const cat = String(item?.category || '').trim();
+  if (!cat) return { category: 'Stationery', custom_category: '' };
+  if (CATEGORY_OPTIONS.includes(cat)) return { category: cat, custom_category: '' };
+  return { category: 'Other', custom_category: cat };
+}
+
+function buildItemPayload(form, existingItem) {
+  const category =
+    form.category === 'Other'
+      ? String(form.custom_category || '').trim() || 'Other'
+      : form.category;
+  const unitCostRaw = String(form.unit_cost ?? '').trim();
+  const payload = {
+    name: form.name.trim(),
+    category,
+    term: form.term || null,
+    academic_year: form.academic_year.trim() || null,
+    unit: form.unit.trim() || 'pcs',
+    quantity: Number(form.quantity) || 0,
+    unit_cost: unitCostRaw === '' ? null : Number(unitCostRaw),
+    location: form.location.trim() || null,
+    note: form.note.trim() || null,
+  };
+  if (existingItem?.id) payload.id = existingItem.id;
+  return payload;
+}
 
 // ── Item form modal ───────────────────────────────────────────
 const ItemModal = ({ item, onClose, onSave }) => {
   const isEdit = !!item?.id;
+  const initialCat = resolveCategoryFields(item);
   const [form, setForm] = useState({
     name: item?.name || '',
-    category: item?.category || 'Stationery',
+    category: initialCat.category,
+    custom_category: initialCat.custom_category,
     term: item?.term || '',
     academic_year: item?.academic_year || '',
     unit: item?.unit || 'pcs',
     quantity: item?.quantity ?? '',
-    reorder_level: item?.reorder_level ?? '',
-    unit_cost: item?.unit_cost ?? '',
+    unit_cost: item?.unit_cost != null && item?.unit_cost !== '' ? String(item.unit_cost) : '',
     location: item?.location || '',
     note: item?.note || '',
   });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
-  const valid = form.name.trim() && Number(form.quantity) >= 0 && Number(form.unit_cost) >= 0;
+  const unitCostOk =
+    String(form.unit_cost ?? '').trim() === '' || Number(form.unit_cost) >= 0;
+  const valid = form.name.trim() && Number(form.quantity) >= 0 && unitCostOk;
+  const showCustomCategory = form.category === 'Other';
 
   return createPortal(
     <div className="fixed inset-0 z-[220] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-0 sm:p-4">
@@ -49,8 +82,7 @@ const ItemModal = ({ item, onClose, onSave }) => {
             { label: 'Item name *', key: 'name', type: 'text', placeholder: 'e.g. A4 Paper Ream' },
             { label: 'Unit (pcs, kg, L, box…)', key: 'unit', type: 'text', placeholder: 'pcs' },
             { label: 'Quantity in stock *', key: 'quantity', type: 'number', placeholder: '0' },
-            { label: 'Reorder level', key: 'reorder_level', type: 'number', placeholder: '10' },
-            { label: 'Unit cost (RWF) *', key: 'unit_cost', type: 'number', placeholder: '0' },
+            { label: 'Unit cost (RWF)', key: 'unit_cost', type: 'number', placeholder: 'Optional' },
             { label: 'Storage location', key: 'location', type: 'text', placeholder: 'e.g. Shelf A3' },
           ].map(f => (
             <div key={f.key}>
@@ -63,9 +95,21 @@ const ItemModal = ({ item, onClose, onSave }) => {
             <label className="text-[9px] font-semibold uppercase tracking-widest text-slate-400 block mb-1">Category</label>
             <select value={form.category} onChange={e => set('category', e.target.value)}
               className="w-full bg-re-bg border border-black/5 rounded-xl px-3 py-2.5 text-[11px] font-bold outline-none focus:ring-2 focus:ring-re-navy/20 transition-all">
-              {CATEGORIES.filter(c => c !== 'All').map(c => <option key={c}>{c}</option>)}
+              {CATEGORY_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
+          {showCustomCategory && (
+            <div>
+              <label className="text-[9px] font-semibold uppercase tracking-widest text-slate-400 block mb-1">Specify category *</label>
+              <input
+                type="text"
+                value={form.custom_category}
+                onChange={e => set('custom_category', e.target.value)}
+                placeholder="e.g. Medical supplies"
+                className="w-full bg-re-bg border border-black/5 rounded-xl px-3 py-2.5 text-[11px] font-bold outline-none focus:ring-2 focus:ring-re-navy/20 transition-all"
+              />
+            </div>
+          )}
           <div>
             <label className="text-[9px] font-semibold uppercase tracking-widest text-slate-400 block mb-1">Term</label>
             <select
@@ -95,8 +139,14 @@ const ItemModal = ({ item, onClose, onSave }) => {
         </div>
         <div className="px-6 py-4 border-t border-black/5 flex justify-end gap-2 shrink-0">
           <button onClick={onClose} className="px-4 py-2 rounded-xl border border-black/5 text-re-navy font-semibold text-[9px] uppercase tracking-widest hover:bg-re-bg transition-all">Cancel</button>
-          <button onClick={() => { if (valid) { onSave({ ...item, ...form, quantity: Number(form.quantity), reorder_level: Number(form.reorder_level), unit_cost: Number(form.unit_cost) }); onClose(); }}}
-            disabled={!valid}
+          <button
+            onClick={() => {
+              if (!valid) return;
+              if (form.category === 'Other' && !String(form.custom_category || '').trim()) return;
+              onSave(buildItemPayload(form, item));
+              onClose();
+            }}
+            disabled={!valid || (form.category === 'Other' && !String(form.custom_category || '').trim())}
             className="px-6 py-2 rounded-xl text-white font-semibold text-[9px] uppercase tracking-widest disabled:opacity-50 transition-all border border-black/10 shadow-sm"
             style={{ background: 'linear-gradient(135deg,#1E3A5F,#0D2644)' }}>
             <Save size={12} className="inline mr-1" />{isEdit ? 'Update' : 'Add item'}
@@ -117,30 +167,45 @@ export default function Inventory() {
   const [termFilter, setTermFilter] = useState('All');
   const [yearFilter, setYearFilter] = useState('All');
   const [stockFilter, setStockFilter] = useState('All');
-  const [modal, setModal] = useState(null); // null | { item?: object }
+  const [modal, setModal] = useState(null); // null | item object for edit, {} for create
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [error, setError] = useState('');
 
   const fetchItems = async () => {
     setLoading(true);
+    setError('');
     try {
       const res = await api.get('/store/inventory');
-      if (res.data?.success) setItems(Array.isArray(res.data.data) ? res.data.data : []);
+      if (res.data?.success) {
+        setItems(Array.isArray(res.data.data) ? res.data.data : []);
+      } else {
+        setItems([]);
+        setError(res.data?.message || 'Could not load inventory.');
+      }
     } catch (e) {
       console.warn('[Inventory] fetch failed:', e.message);
+      setItems([]);
+      setError(e.response?.data?.message || 'Failed to load inventory from server.');
     } finally { setLoading(false); }
   };
 
   useEffect(() => { fetchItems(); }, []);
 
-  const handleSave = async (item) => {
+  const handleSave = async (payload) => {
     try {
-      if (item.id) {
-        await api.patch(`/store/inventory/${item.id}`, item);
+      if (payload.id) {
+        const { id, ...body } = payload;
+        await api.patch(`/store/inventory/${id}`, body);
       } else {
-        await api.post('/store/inventory', item);
+        await api.post('/store/inventory', payload);
       }
-      fetchItems();
-    } catch (e) { console.warn('[Inventory] save failed:', e.message); fetchItems(); }
+      setError('');
+      await fetchItems();
+    } catch (e) {
+      const msg = e.response?.data?.message || e.message || 'Failed to save item.';
+      setError(msg);
+      console.warn('[Inventory] save failed:', msg);
+    }
   };
 
   const handleDelete = async (id) => {
@@ -150,10 +215,12 @@ export default function Inventory() {
   };
 
   const derived = useMemo(() => {
-    const lowStock = items.filter(i => i.reorder_level > 0 && Number(i.quantity) <= Number(i.reorder_level));
     const outOfStock = items.filter(i => Number(i.quantity) === 0);
-    const totalValue = items.reduce((s, i) => s + Number(i.quantity) * Number(i.unit_cost), 0);
-    return { lowStock: lowStock.length, outOfStock: outOfStock.length, totalValue, totalItems: items.length };
+    const totalValue = items.reduce(
+      (s, i) => s + Number(i.quantity) * (Number(i.unit_cost) || 0),
+      0
+    );
+    return { outOfStock: outOfStock.length, totalValue, totalItems: items.length };
   }, [items]);
 
   const filtered = useMemo(() => {
@@ -163,9 +230,8 @@ export default function Inventory() {
       const termOk = termFilter === 'All' || String(i.term || '') === termFilter;
       const yearOk = yearFilter === 'All' || String(i.academic_year || '') === yearFilter;
       const stockOk = stockFilter === 'All'
-        || (stockFilter === 'Low' && i.reorder_level > 0 && Number(i.quantity) <= Number(i.reorder_level) && Number(i.quantity) > 0)
         || (stockFilter === 'Out' && Number(i.quantity) === 0)
-        || (stockFilter === 'OK' && (i.reorder_level <= 0 || Number(i.quantity) > Number(i.reorder_level)));
+        || (stockFilter === 'OK' && Number(i.quantity) > 0);
       const qOk = !q
         || i.name?.toLowerCase().includes(q)
         || i.category?.toLowerCase().includes(q)
@@ -199,7 +265,6 @@ export default function Inventory() {
       { k: 'category', label: 'Category', w: 80 },
       { k: 'unit', label: 'Unit', w: 50 },
       { k: 'quantity', label: 'Qty', w: 50 },
-      { k: 'reorder_level', label: 'Reorder', w: 60 },
       { k: 'unit_cost', label: 'Unit Cost', w: 80 },
       { k: 'location', label: 'Location', w: 80 },
     ];
@@ -216,7 +281,7 @@ export default function Inventory() {
       x = 40;
       cols.forEach(c => {
         let val = row[c.k] ?? '';
-        if (c.k === 'unit_cost') val = fmtMoney(val);
+        if (c.k === 'unit_cost') val = val != null && val !== '' ? fmtMoney(val) : '—';
         doc.text(String(val).substring(0, 22), x, y);
         x += c.w;
       });
@@ -228,8 +293,7 @@ export default function Inventory() {
   const stockBadge = (item) => {
     const qty = Number(item.quantity);
     if (qty === 0) return <span className="text-[8px] font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-600 uppercase">Out</span>;
-    if (item.reorder_level > 0 && qty <= Number(item.reorder_level)) return <span className="text-[8px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-600 uppercase">Low</span>;
-    return <span className="text-[8px] font-semibold px-2 py-0.5 rounded-full bg-re-navy/10 text-re-navy uppercase">OK</span>;
+    return <span className="text-[8px] font-semibold px-2 py-0.5 rounded-full bg-re-navy/10 text-re-navy uppercase">In stock</span>;
   };
 
   const selectCls =
@@ -247,12 +311,11 @@ export default function Inventory() {
         eyebrow={PORTAL.brandLine}
         title="School Inventory"
         titleHighlight="Inventory"
-        subtitle="Items, quantities, reorder levels, and storage locations"
+        subtitle="Items, quantities, unit costs, and storage locations"
         heroIcon={Package}
         stats={[
           { label: 'Total items', value: derived.totalItems, icon: Package },
           { label: 'Total value', value: fmtMoney(derived.totalValue), icon: Tag },
-          { label: 'Low stock', value: derived.lowStock, icon: AlertTriangle },
           { label: 'Out of stock', value: derived.outOfStock, icon: Archive },
         ]}
         rightColumn={(
@@ -309,7 +372,7 @@ export default function Inventory() {
                 className={`w-full ${selectCls} !pl-14`}
                 style={selectChevron}
               >
-                {['All', 'OK', 'Low', 'Out'].map((s) => (
+                {['All', 'OK', 'Out'].map((s) => (
                   <option key={s} value={s}>{s}</option>
                 ))}
               </select>
@@ -352,6 +415,11 @@ export default function Inventory() {
           </>
         )}
       >
+        {error && !loading ? (
+          <div className="mx-4 sm:mx-6 mt-4 px-4 py-3 rounded-xl bg-red-50 border border-red-100 text-[11px] font-semibold text-red-700">
+            {error}
+          </div>
+        ) : null}
         {loading ? (
           <div className="flex items-center justify-center py-20 gap-3">
             <Loader2 size={22} className="animate-spin text-[#1E3A5F]/30" />
@@ -369,7 +437,7 @@ export default function Inventory() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-re-bg/20 border-b border-black/5">
-                {['Item', 'Category', 'Term', 'Academic year', 'Qty', 'Unit', 'Reorder', 'Unit cost', 'Location', 'Status', ''].map((h, hi) => (
+                {['Item', 'Category', 'Term', 'Academic year', 'Qty', 'Unit', 'Unit cost', 'Location', 'Status', ''].map((h, hi) => (
                   <th
                     key={`inv-th-${hi}`}
                     className="px-4 sm:px-6 py-3 text-[7px] sm:text-[8px] font-semibold text-re-text-muted uppercase tracking-[0.2em] opacity-50 border-r border-black/5 last:border-r-0"
@@ -395,8 +463,9 @@ export default function Inventory() {
                   <td className="px-4 sm:px-6 py-3 border-r border-black/5 text-[10px] font-bold text-slate-500">{item.academic_year || '—'}</td>
                   <td className="px-4 sm:px-6 py-3 border-r border-black/5 font-semibold text-slate-800 text-[12px]">{item.quantity}</td>
                   <td className="px-4 sm:px-6 py-3 border-r border-black/5 text-[10px] font-bold text-slate-500">{item.unit}</td>
-                  <td className="px-4 sm:px-6 py-3 border-r border-black/5 text-[10px] font-bold text-slate-500">{item.reorder_level || '—'}</td>
-                  <td className="px-4 sm:px-6 py-3 border-r border-black/5 text-[10px] font-bold text-slate-700">{fmtMoney(item.unit_cost)}</td>
+                  <td className="px-4 sm:px-6 py-3 border-r border-black/5 text-[10px] font-bold text-slate-700">
+                    {item.unit_cost != null && item.unit_cost !== '' ? fmtMoney(item.unit_cost) : '—'}
+                  </td>
                   <td className="px-4 sm:px-6 py-3 border-r border-black/5 text-[10px] font-bold text-slate-500">{item.location || '—'}</td>
                   <td className="px-4 sm:px-6 py-3 border-r border-black/5">{stockBadge(item)}</td>
                   <td className="px-4 sm:px-6 py-3 text-right">

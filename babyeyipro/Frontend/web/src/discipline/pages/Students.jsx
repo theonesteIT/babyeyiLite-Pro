@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import {
     Users, Search, Plus, MoreVertical, GraduationCap,
@@ -6,7 +6,7 @@ import {
     UserCheck, Award, Filter, Activity, UserPlus, X, User,
     Phone, Clock, Home, Tag, Edit3, Printer, Eye, CheckCircle, RefreshCw
 } from 'lucide-react';
-import api from '../services/api';
+import disciplineService from '../services/disciplineService';
 import ConductMarksModal from '../components/ConductMarksModal';
 import DisciplineOchreHero from '../components/DisciplineOchreHero';
 
@@ -179,57 +179,72 @@ const Students = () => {
         setIsConductModalOpen(true);
     };
 
-    const [mockStudents, setMockStudents] = useState([]);
+    const [students, setStudents] = useState([]);
     const [classes, setClasses] = useState([]);
+    const [academicYears, setAcademicYears] = useState([]);
+    const [academicYear, setAcademicYear] = useState('');
     const [stats, setStats] = useState({
         totalEnrolled: '0',
         epicPercent: '0%',
         avgAttendance: '0%',
-        diversityIndex: '1.0'
+        diversityIndex: '0',
     });
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState('');
+
+    const loadRoster = useCallback(async () => {
+        setLoading(true);
+        setLoadError('');
+        try {
+            const params = {};
+            if (academicYear && academicYear !== 'ALL') params.academic_year = academicYear;
+            if (selectedClass && selectedClass !== 'View All') params.class_name = selectedClass;
+            if (searchTerm.trim()) params.q = searchTerm.trim();
+
+            const res = await disciplineService.getStudentsRoster(params);
+            if (!res?.data?.success) {
+                setStudents([]);
+                setLoadError(res?.data?.message || 'Failed to load students.');
+                return;
+            }
+
+            const list = Array.isArray(res.data.data) ? res.data.data : [];
+            setStudents(list);
+
+            const s = res.data.stats || {};
+            setStats({
+                totalEnrolled: Number(s.totalEnrolled || 0).toLocaleString(),
+                epicPercent: `${Number(s.epicPercent || 0)}%`,
+                avgAttendance: `${s.avgAttendance ?? 0}%`,
+                diversityIndex: String(s.diversityIndex ?? s.classCount ?? 0),
+            });
+
+            const meta = res.data.meta || {};
+            const years = Array.isArray(meta.academic_years) ? meta.academic_years : [];
+            setAcademicYears(years);
+            const classList = Array.isArray(meta.classes) ? meta.classes : [];
+            setClasses(
+                classList.length
+                    ? classList
+                    : [...new Set(list.map((st) => st.grade).filter(Boolean))].sort()
+            );
+        } catch (e) {
+            console.error(e);
+            setStudents([]);
+            setLoadError(e.response?.data?.message || 'Could not load students for your school.');
+        } finally {
+            setLoading(false);
+        }
+    }, [academicYear, selectedClass, searchTerm]);
 
     useEffect(() => {
-        const fetchStudents = async () => {
-             try {
-                 const res = await api.get('/teacher-portal/students');
-                 if (res.data.success) {
-                     setMockStudents(res.data.data || []);
-                     if (res.data.stats) {
-                         setStats({
-                             totalEnrolled: res.data.stats.totalEnrolled?.toLocaleString(),
-                             epicPercent: res.data.stats.epicPercent + '%',
-                             avgAttendance: res.data.stats.avgAttendance + '%',
-                             diversityIndex: res.data.stats.diversityIndex
-                         });
-                     }
-                 }
-             } catch (e) {
-                 console.error(e);
-             } finally {
-                 setLoading(false);
-             }
-        };
-        const fetchClasses = async () => {
-             try {
-                 const res = await api.get('/teacher-portal/classes');
-                 if (res.data.success) {
-                     setClasses(res.data.data || []);
-                 }
-             } catch (e) {
-                 console.error('Failed to fetch classes:', e);
-             }
-         };
+        const t = setTimeout(() => {
+            loadRoster();
+        }, 300);
+        return () => clearTimeout(t);
+    }, [loadRoster]);
 
-         fetchStudents();
-         fetchClasses();
-    }, []);
-
-    const filteredStudents = mockStudents.filter(s =>
-        (s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            s.id.toLowerCase().includes(searchTerm.toLowerCase())) &&
-        (selectedClass === 'View All' || s.grade === selectedClass)
-    );
+    const filteredStudents = students;
 
     return (
         <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen">
@@ -245,7 +260,7 @@ const Students = () => {
                 isOpen={isConductModalOpen}
                 onClose={() => setIsConductModalOpen(false)}
                 initialStudent={conductStudent}
-                students={mockStudents}
+                students={students}
             />
 
             {/* Mobile "More Classes" Modal */}
@@ -288,7 +303,7 @@ const Students = () => {
                 eyebrow="Institutional repository"
                 titleLine="Students"
                 titleAccent="list"
-                subtitle="Professional academic and behavioral analytics view in a cleaner manager-style shell."
+                subtitle="Live school roster with conduct marks, attendance, and filters by academic year and class."
                 icon={Users}
             />
 
@@ -299,12 +314,11 @@ const Students = () => {
                     {/* Top Layer: Stats Grid + Actions (Dashboard Style) */}
                     <div className={`${!isClassSelected ? 'hidden md:grid' : 'grid'} grid-cols-1 lg:grid-cols-4 border-b border-black/5`}>
                         {/* Stats (3 columns on lg) */}
-                        <div className="lg:col-span-3 grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-black/5">
+                        <div className="lg:col-span-3 grid grid-cols-2 md:grid-cols-2 divide-x divide-y md:divide-y-0 divide-black/5">
                             {[
                                 { label: 'Total Enrolled', value: stats.totalEnrolled, icon: <Users size={14} className="text-re-orange opacity-40 mb-2" /> },
-                                { label: 'Epic Status', value: stats.epicPercent, icon: <Award size={14} className="text-re-orange opacity-40 mb-2" /> },
                                 { label: 'Attendance Avg', value: stats.avgAttendance, icon: <Activity size={14} className="text-re-orange opacity-40 mb-2" /> },
-                                { label: 'Diversity Index', value: stats.diversityIndex, icon: <TrendingUp size={14} className="text-re-orange opacity-40 mb-2" /> }
+                               
                             ].map((stat, i) => (
                                 <div key={i} className="p-4 sm:p-8 flex flex-col items-center justify-center text-center group hover:bg-re-bg/20 transition-all cursor-default">
                                     {stat.icon && React.cloneElement(stat.icon, { size: 12, className: "text-re-orange opacity-40 mb-1.5 sm:mb-2" })}
@@ -333,7 +347,7 @@ const Students = () => {
 
                     {/* Middle Layer: Management Control (Integrated Search & Filter) */}
                     <div className={`${!isClassSelected ? 'hidden md:flex' : 'flex'} p-6 md:px-8 border-b border-black/5 flex-col md:flex-row items-center gap-4 bg-white/50`}>
-                        <div className="relative flex-1 w-full group">
+                        <div className="relative flex-1 w-full group min-w-[140px]">
                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-re-text-muted/40 group-focus-within:text-re-orange transition-colors" size={16} />
                             <input
                                 type="text"
@@ -343,7 +357,26 @@ const Students = () => {
                                 className="w-full h-10 sm:h-11 bg-re-bg rounded-xl pl-11 pr-4 font-extrabold outline-none border border-transparent focus:border-re-orange/20 focus:bg-white transition-all text-re-text text-sm sm:text-xs tracking-tight shadow-inner"
                             />
                         </div>
+                        <select
+                            value={academicYear || 'ALL'}
+                            onChange={(e) => setAcademicYear(e.target.value === 'ALL' ? '' : e.target.value)}
+                            className="h-10 sm:h-11 px-3 bg-white border border-black/5 rounded-xl text-[9px] font-black uppercase tracking-widest text-re-text min-w-[130px]"
+                            title="Academic year"
+                        >
+                            <option value="ALL">All years</option>
+                            {academicYears.map((y) => (
+                                <option key={y} value={y}>{y}</option>
+                            ))}
+                        </select>
                         <div className="flex items-center gap-2 w-full md:w-auto">
+                            <button
+                                type="button"
+                                onClick={() => loadRoster()}
+                                className="h-10 sm:h-11 px-3 bg-white border border-black/5 rounded-xl flex items-center gap-1.5 text-re-text-muted font-black text-[8px] sm:text-[9px] uppercase tracking-widest hover:bg-re-bg transition-all shadow-sm"
+                                title="Refresh"
+                            >
+                                <RefreshCw size={14} className={`text-re-orange ${loading ? 'animate-spin' : ''}`} />
+                            </button>
                             <button
                                 onClick={() => setShowClassFilter(!showClassFilter)}
                                 className="h-10 sm:h-11 px-3 sm:px-5 bg-white border border-black/5 rounded-xl flex items-center gap-1.5 sm:gap-2 text-re-text-muted font-black text-[8px] sm:text-[9px] uppercase tracking-widest hover:bg-re-bg transition-all shadow-sm whitespace-nowrap"
@@ -361,6 +394,12 @@ const Students = () => {
                             </button>
                         </div>
                     </div>
+
+                    {loadError && (
+                        <div className="mx-6 md:mx-8 mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-900">
+                            {loadError}
+                        </div>
+                    )}
 
                     {/* Conditional Class Filter Section */}
                     {showClassFilter && (
@@ -505,7 +544,9 @@ const Students = () => {
                                                         <div className="flex flex-col gap-0.5">
                                                             <p className="text-[10px] font-black text-re-text uppercase tracking-tight">{s.grade}</p>
                                                             <div className="flex items-center gap-2">
-                                                                <p className="text-[9px] font-bold text-re-text-muted opacity-30 uppercase tracking-widest">GPA {s.gpa}</p>
+                                                                <p className="text-[9px] font-bold text-re-text-muted opacity-30 uppercase tracking-widest">
+                                                                    Conduct {s.discipline_marks ?? '—'}/{s.discipline_max ?? '—'}
+                                                                </p>
                                                                 <div className="w-1 h-3 bg-black/5 rounded-full shrink-0"></div>
                                                                 <p className="text-[9px] font-black text-re-orange uppercase italic">{s.stream}</p>
                                                             </div>
@@ -524,6 +565,7 @@ const Students = () => {
                                                     <td className="hidden md:table-cell px-8 py-5">
                                                         <div className={`inline-flex px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest ring-1 ring-inset ${s.status === 'Epic' ? 'bg-emerald-50 text-emerald-600 ring-emerald-500/20' :
                                                             s.status === 'Advanced' ? 'bg-blue-50 text-blue-600 ring-blue-500/20' :
+                                                            s.status === 'On leave' ? 'bg-violet-50 text-violet-700 ring-violet-500/20' :
                                                                 'bg-re-orange/5 text-re-orange ring-re-orange/20'
                                                             }`}>
                                                             {s.status}

@@ -4,10 +4,9 @@
 // Branding: amber + slate (matches SuperAdminPage)
 // ================================================================
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
-  ArrowLeft,
   Plus,
   Pencil,
   Loader2,
@@ -20,19 +19,18 @@ import {
   Building2,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import LogoutButton from '../Auth/LogoutButton';
+import SuperAdminPageHeader from './components/SuperAdminPageHeader';
+import { saCardClass, saInputClass, saPageStyle, SA_NAVY } from './components/superAdminTheme';
 
 const API = `${import.meta.env.VITE_API_URL || 'http://localhost:5100'}/api`;
 const UPLOADS_BASE = import.meta.env.VITE_UPLOADS_BASE || 'http://localhost:5100';
 const axCfg = { headers: { 'Content-Type': 'application/json' }, withCredentials: true };
 
-const ACCENT = '#1F2937';
+const ACCENT = SA_NAVY;
 /** Must match backend inferLevelFromClass() + public quote pricing */
 const LEVEL_OPTIONS = ['Nursery', 'Pre-primary', 'Upper-Primary', 'O-Level', 'A-Level'];
 
-const inp =
-  'w-full bg-amber-50/80 border-2 border-amber-200 text-gray-900 rounded-xl px-4 py-3 text-sm font-medium ' +
-  'focus:outline-none focus:border-[#FEBF10] focus:ring-2 focus:ring-amber-100 placeholder-amber-400 transition-all';
+const inp = saInputClass;
 
 function toAssetUrl(p) {
   if (!p || typeof p !== 'string') return null;
@@ -330,36 +328,26 @@ export default function SuperAdminVoucherServices() {
 
   if (auth.loading) {
     return (
-      <div
-        className="min-h-screen flex items-center justify-center"
-        style={{
-          background: 'linear-gradient(160deg,#fffbeb 0%,#fef3c7 40%,#fde68a 100%)',
-        }}
-      >
-        <Loader2 className="w-10 h-10 animate-spin text-amber-600" />
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="w-10 h-10 animate-spin text-amber-500" />
       </div>
     );
   }
 
   return (
-    <div
-      className="min-h-screen text-gray-900"
-      style={{
-        background: 'linear-gradient(160deg,#fffbeb 0%,#fef3c7 40%,#fde68a 100%)',
-      }}
-    >
+    <div className="space-y-4 max-w-6xl mx-auto" style={saPageStyle}>
       {toast ? (
         <div
           className={`fixed bottom-4 left-4 right-4 z-[300] sm:left-auto sm:right-4 sm:max-w-sm flex items-start gap-3 px-4 py-3 rounded-2xl shadow-2xl border pointer-events-auto ${
             toast.type === 'success'
-              ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+              ? 'bg-amber-50 border-amber-300 text-[#000435]'
               : toast.type === 'error'
-                ? 'bg-red-50 border-red-300 text-red-800'
-                : 'bg-amber-50 border-amber-300 text-amber-900'
+                ? 'bg-white border-red-300 text-red-700'
+                : 'bg-amber-50 border-amber-300 text-[#000435]'
           }`}
         >
           {toast.type === 'success' ? (
-            <CheckCircle className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
+            <CheckCircle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
           ) : (
             <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
           )}
@@ -367,41 +355,22 @@ export default function SuperAdminVoucherServices() {
         </div>
       ) : null}
 
-      <header className="sticky top-0 z-20 border-b-2 border-amber-100 px-4 sm:px-6 py-3 bg-white/95 backdrop-blur-md">
-        <div className="max-w-6xl mx-auto flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3 min-w-0">
-            <button
-              type="button"
-              onClick={() => navigate('/superadmin/dashboard')}
-              className="flex items-center gap-2 rounded-xl px-3 py-2 text-amber-800 hover:bg-amber-50 border border-amber-200 shrink-0"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span className="text-xs font-bold hidden sm:inline">Dashboard</span>
-            </button>
-            <div className="min-w-0">
-              <h1 className="text-base sm:text-lg font-black text-gray-900 truncate flex items-center gap-2">
-                <Package className="w-5 h-5 text-amber-600 shrink-0 hidden sm:block" />
-                Voucher Services
-              </h1>
-              <p className="text-[10px] text-amber-700">Configure ShuleShoes, Uniform, ShuleKit, and future student support</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap justify-end">
-            <LogoutButton variant="default" size="sm" className="hidden sm:flex text-xs rounded-xl" />
-            <button
-              type="button"
-              onClick={openCreate}
-              className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-black text-[#FEBF10] shadow-lg active:scale-[0.98] transition"
-              style={{ background: `linear-gradient(135deg, ${ACCENT} 0%, #111827 100%)` }}
-            >
-              <Plus className="w-4 h-4" /> Add service
-            </button>
-          </div>
-        </div>
-      </header>
+      <SuperAdminPageHeader
+        title="Voucher Services"
+        subtitle="Configure ShuleShoes, Uniform, ShuleKit, and future student support"
+        icon={Package}
+        actions={
+          <button
+            type="button"
+            onClick={openCreate}
+            className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold text-amber-400 bg-[#000435] shadow-md hover:bg-[#000a50] active:scale-[0.98] transition"
+          >
+            <Plus className="w-4 h-4" /> Add service
+          </button>
+        }
+      />
 
-      <main className="max-w-6xl mx-auto p-4 sm:p-6 space-y-4">
-        <div className="rounded-2xl border-2 border-amber-100 bg-white/90 shadow-lg p-4 sm:p-5">
+        <div className={`${saCardClass} p-4 sm:p-5`}>
           <div className="flex flex-col sm:flex-row sm:items-end gap-3 sm:justify-between mb-4">
             <div>
               <h2 className="text-sm font-black text-gray-900">Service catalog</h2>
@@ -498,13 +467,6 @@ export default function SuperAdminVoucherServices() {
             Tip: set status to <strong>Active</strong> when pricing and dates are final. Parents will see active catalog entries on public flows.
           </p>
         </div>
-
-        <p className="text-center text-[11px] text-amber-800/80">
-          <Link to="/superadmin/dashboard" className="font-bold underline underline-offset-2 hover:text-gray-900">
-            Back to Super Admin
-          </Link>
-        </p>
-      </main>
 
       {modal ? (
         <div className="fixed inset-0 z-[200] bg-gray-900/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">

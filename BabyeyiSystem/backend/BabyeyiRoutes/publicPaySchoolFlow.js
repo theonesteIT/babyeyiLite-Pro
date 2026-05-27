@@ -10,6 +10,11 @@ const express = require('express');
 const rateLimit = require('express-rate-limit');
 const db = require('../config/database');
 const { loadApprovedBabyeyiPricing } = require('./babyeyiPublicPricingCore');
+const {
+  trimStr,
+  resolveSchoolById,
+  resolveSchoolByCode,
+} = require('./schoolResolvePublic');
 
 const router = express.Router();
 
@@ -20,11 +25,6 @@ const flowLimiter = rateLimit({
   legacyHeaders: false,
   message: { success: false, message: 'Too many requests — try again later' },
 });
-
-function trimStr(v) {
-  if (v === undefined || v === null) return '';
-  return String(v).trim();
-}
 
 function yearMatchesRow(rowYear, inputLabel) {
   const a = rowYear === null || rowYear === undefined ? '' : String(rowYear);
@@ -61,24 +61,6 @@ function classMatchesBabyeyi(row, className) {
   return false;
 }
 
-async function resolveSchoolById(schoolId) {
-  const id = parseInt(schoolId, 10);
-  if (!Number.isFinite(id) || id <= 0) return null;
-  const [rows] = await db.promisePool.query(
-    `SELECT s.id, s.school_name, s.school_code, s.status,
-            s.province, s.district, s.sector, s.phone, s.email,
-            s.education_levels, s.school_category,
-            (SELECT m.slug FROM school_mini_websites m
-             WHERE m.school_id = s.id AND m.status = 'published'
-             ORDER BY m.id DESC LIMIT 1) AS mini_website_slug
-     FROM schools s
-     WHERE s.deleted_at IS NULL AND s.id = ?
-     LIMIT 1`,
-    [id]
-  );
-  return rows[0] || null;
-}
-
 /** Global learner lookup (same rules as parent portal / student-code-lookup). */
 async function findStudentByCodeGlobal(raw) {
   const code = String(raw || '').trim();
@@ -96,24 +78,6 @@ async function findStudentByCodeGlobal(raw) {
      ORDER BY s.id ASC
      LIMIT 1`,
     [upper, code, code, upper]
-  );
-  return rows[0] || null;
-}
-
-async function resolveSchoolByCode(raw) {
-  const code = trimStr(raw).toUpperCase();
-  if (!code) return null;
-  const [rows] = await db.promisePool.query(
-    `SELECT s.id, s.school_name, s.school_code, s.status,
-            s.province, s.district, s.sector, s.phone, s.email,
-            s.education_levels, s.school_category,
-            (SELECT m.slug FROM school_mini_websites m
-             WHERE m.school_id = s.id AND m.status = 'published'
-             ORDER BY m.id DESC LIMIT 1) AS mini_website_slug
-     FROM schools s
-     WHERE s.deleted_at IS NULL AND TRIM(UPPER(s.school_code)) = ?
-     LIMIT 1`,
-    [code]
   );
   return rows[0] || null;
 }

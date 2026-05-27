@@ -14,6 +14,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { CreateBabyeyiModal } from "./Babyeyi";
+import { CORE_BABYEYI_LANG_OPTIONS } from '../schoolLiteSupport/babyeyiTranslateLangs.js';
 
 const ASSET_BASE = import.meta.env.VITE_API_URL || "https://babyeyi.rw";
 const API_BASE   = `${ASSET_BASE}/api`;
@@ -21,11 +22,9 @@ const FRONTEND_ORIGIN = typeof window !== "undefined" ? window.location.origin :
 const verifyUrl       = (docId) => docId ? `${FRONTEND_ORIGIN}/babyeyi/verify/${docId}` : "";
 
 // â”€â”€â”€ TRANSLATION DICTIONARIES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-const LANGS = {
-  en: { flag: "ðŸ‡¬ðŸ‡§", name: "English",    code: "en" },
-  rw: { flag: "ðŸ‡·ðŸ‡¼", name: "Kinyarwanda", code: "rw" },
-  fr: { flag: "ðŸ‡«ðŸ‡·", name: "FranÃ§ais",   code: "fr" },
-};
+const LANGS = Object.fromEntries(
+  CORE_BABYEYI_LANG_OPTIONS.map((o) => [o.code, { flag: o.flag, name: o.name, code: o.code }])
+);
 
 // Static UI label translations
 const UI = {

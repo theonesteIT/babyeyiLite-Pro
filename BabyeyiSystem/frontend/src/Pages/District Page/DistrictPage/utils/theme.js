@@ -1,118 +1,138 @@
-import { CheckCircle, Clock, XCircle, FileText } from "lucide-react";
+import { CheckCircle, Clock, XCircle, FileText } from 'lucide-react';
+
+/** DEO portal — navy (#000435) + amber only */
+export const NAVY = '#000435';
+export const AMBER = '#f59e0b';
+export const AMBER_LIGHT = '#fbbf24';
+export const AMBER_DARK = '#d97706';
 
 export const C = {
-  gold: "#FEBF10",
-  goldLight: "#FFD84D",
-  goldDark: "#d97706",
-  goldDeep: "#8A6500",
-  goldBg: "#FFFDF3",
-  goldBgMid: "#FFF6CC",
-  goldBorder: "#FFE58A",
-  dark: "#000435",
-  darkMid: "#1a1f5c",
-  emerald: "#10b981",
-  emeraldDark: "#047857",
-  emeraldBg: "#ecfdf5",
-  emeraldBord: "#a7f3d0",
-  red: "#ef4444",
-  red50: "#FEF2F2",
-  red700: "#b91c1c",
-  red800: "#991B1B",
-  redBorder: "#FECACA",
-  amberBg: "#fffbeb",
-  amberBord: "#fde68a",
-  blue: "#3b82f6",
-  blue700: "#1d4ed8",
-  blueBg: "#eff6ff",
-  blueBord: "#bfdbfe",
-  violet: "#7c3aed",
-  violetBg: "#f5f3ff",
-  violetBord: "#ddd6fe",
-  slate100: "#F8FAFC",
-  slate200: "#E2E8F0",
-  slate400: "#94a3b8",
-  slate500: "#64748B",
+  navy: NAVY,
+  navyMid: '#000c6e',
+  amber: AMBER,
+  amberLight: AMBER_LIGHT,
+  amberDark: AMBER_DARK,
+  amberBg: '#fffbeb',
+  amberBgMid: '#fef3c7',
+  amberBorder: '#fde68a',
+  white: '#ffffff',
+  /** Legacy aliases used across district components */
+  gold: AMBER,
+  goldLight: AMBER_LIGHT,
+  goldDark: AMBER_DARK,
+  goldDeep: AMBER_DARK,
+  goldBg: '#fffbeb',
+  goldBgMid: '#fef3c7',
+  goldBorder: '#fde68a',
+  dark: NAVY,
+  darkMid: '#000c6e',
+  emerald: AMBER,
+  emeraldDark: NAVY,
+  emeraldBg: '#fffbeb',
+  emeraldBord: '#fde68a',
+  red: NAVY,
+  red50: '#fffbeb',
+  red700: NAVY,
+  red800: NAVY,
+  redBorder: '#fde68a',
+  amberBord: '#fde68a',
+  blue: NAVY,
+  blue700: NAVY,
+  blueBg: 'rgba(0,4,53,0.06)',
+  blueBord: 'rgba(0,4,53,0.12)',
+  violet: AMBER_DARK,
+  violetBg: '#fffbeb',
+  violetBord: '#fde68a',
+  slate100: '#F8FAFC',
+  slate200: '#E5E7EB',
+  slate400: '#94a3b8',
+  slate500: '#64748B',
 };
 
-export const font = '"MTN Brighter Sans", "Nunito", "Varela Round", sans-serif';
+export const font = "'Montserrat', sans-serif";
 
-/** Shared inline styles for inputs / selects in district DEO UI */
 export const inp = {
-  padding: "10px 12px",
+  padding: '10px 12px',
   fontSize: 13,
   fontFamily: font,
-  border: `1.5px solid ${C.goldBorder}`,
+  border: `1.5px solid ${C.amberBorder}`,
   borderRadius: 12,
-  background: "white",
-  color: C.dark,
-  outline: "none",
-  boxSizing: "border-box",
+  background: 'white',
+  color: C.navy,
+  outline: 'none',
+  boxSizing: 'border-box',
 };
 
-// ════════════════════════════════════════════════════════════════
-// STATUS CONFIG (Migrated to Tailwind Classes)
-// ════════════════════════════════════════════════════════════════
 export const STATUS_CFG = {
   approved: {
-    label: "Approved",
-    textClass: "text-deo-emerald-dark",
-    bgClass: "bg-deo-emerald-bg",
-    borderClass: "border-deo-emerald-border",
+    label: 'Approved',
+    textClass: 'text-deo-navy',
+    bgClass: 'bg-deo-amber-bg',
+    borderClass: 'border-deo-amber-border',
     icon: CheckCircle,
-    textColor: C.emeraldDark,
-    bg: C.emeraldBg,
-    border: C.emeraldBord,
+    textColor: C.navy,
+    bg: C.amberBg,
+    border: C.amberBorder,
   },
   pending: {
-    label: "Pending",
-    textClass: "text-[#92400e]",
-    bgClass: "bg-deo-amber-bg",
-    borderClass: "border-deo-amber-border",
+    label: 'Pending',
+    textClass: 'text-deo-amber-dark',
+    bgClass: 'bg-deo-amber-bg',
+    borderClass: 'border-deo-amber-border',
     icon: Clock,
-    textColor: "#92400e",
+    textColor: C.amberDark,
     bg: C.amberBg,
-    border: C.amberBord,
+    border: C.amberBorder,
   },
   rejected: {
-    label: "Rejected",
-    textClass: "text-deo-red-800",
-    bgClass: "bg-deo-red-50",
-    borderClass: "border-deo-red-border",
+    label: 'Rejected',
+    textClass: 'text-deo-navy',
+    bgClass: 'bg-white',
+    borderClass: 'border-deo-amber-border',
     icon: XCircle,
-    textColor: C.red800,
-    bg: C.red50,
-    border: C.redBorder,
+    textColor: C.navy,
+    bg: '#fff',
+    border: C.amberBorder,
   },
   draft: {
-    label: "Draft",
-    textClass: "text-deo-slate-500",
-    bgClass: "bg-deo-slate-100",
-    borderClass: "border-deo-slate-200",
+    label: 'Draft',
+    textClass: 'text-deo-navy/60',
+    bgClass: 'bg-deo-slate-100',
+    borderClass: 'border-deo-slate-200',
     icon: FileText,
     textColor: C.slate500,
     bg: C.slate100,
     border: C.slate200,
   },
   recommended: {
-    label: "Sent to NESA",
-    textClass: "text-[#1d4ed8]",
-    bgClass: "bg-deo-blue-bg",
-    borderClass: "border-deo-blue-border",
+    label: 'Sent to NESA',
+    textClass: 'text-deo-navy',
+    bgClass: 'bg-deo-amber-bg',
+    borderClass: 'border-deo-amber-border',
     icon: CheckCircle,
-    textColor: "#1d4ed8",
-    bg: C.blueBg,
-    border: C.blueBord,
+    textColor: C.navy,
+    bg: C.amberBg,
+    border: C.amberBorder,
   },
 };
 
 export const st = (s) => STATUS_CFG[s] || STATUS_CFG.draft;
 
 export const globalStyles = `
+  @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap');
   @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
   @keyframes spin   { to { transform: rotate(360deg); } }
   @keyframes pulse  { 0%,100%{opacity:1} 50%{opacity:.5} }
   .anim { animation: fadeIn .25s ease-out; }
-  ::-webkit-scrollbar { width:4px; height:4px; }
-  ::-webkit-scrollbar-thumb { background:${C.goldBorder}; border-radius:99px; }
-  option { background:white; color:${C.dark}; }
+  .deo-sidebar-scroll::-webkit-scrollbar { width: 4px; }
+  .deo-sidebar-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 99px; }
+  .deo-main-scroll::-webkit-scrollbar { width: 6px; }
+  .deo-main-scroll::-webkit-scrollbar-thumb { background: ${C.amberBorder}; border-radius: 99px; }
+  @media (max-width: 1023px) {
+    .deo-stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
+  }
+  @media (max-width: 639px) {
+    .deo-stats-grid { grid-template-columns: 1fr 1fr !important; }
+    .deo-hero-pills { flex-direction: column; align-items: flex-start !important; }
+  }
 `;

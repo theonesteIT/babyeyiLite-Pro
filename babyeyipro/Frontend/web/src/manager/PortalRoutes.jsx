@@ -18,6 +18,7 @@ import ViewMarks from './pages/ViewMarks'
 import Registry from './pages/Registry'
 import FinanceCenter from './pages/FinanceCenter'
 import SchoolBudgetManagement from './pages/budget/SchoolBudgetManagement'
+import ManagerActionPlanApprovals from './pages/actionPlan/ManagerActionPlanApprovals'
 import FeePayments from './pages/FeePayments'
 import BabyeyiWizard from './pages/BabyeyiWizard'
 import Payroll from './pages/Payroll'
@@ -132,6 +133,7 @@ function ManagerRoutesInner() {
       <Route path="my-payroll" element={<ProtectedRoute title="My Payroll"><StaffPayroll /></ProtectedRoute>} />
       <Route path="finance/payments" element={<ProtectedRoute title="Student Fee Payments"><FeePayments /></ProtectedRoute>} />
       <Route path="finance/budgets" element={<ProtectedRoute title="School Budget Management"><SchoolBudgetManagement /></ProtectedRoute>} />
+      <Route path="finance/action-plans" element={<ProtectedRoute title="Action Plan Approvals"><ManagerActionPlanApprovals /></ProtectedRoute>} />
       <Route path="finance/wizard" element={<ProtectedRoute title="Babyeyi Wizard"><BabyeyiWizard /></ProtectedRoute>} />
 
       <Route path="reports/academic" element={<ProtectedRoute title="Academic Reports"><AcademicReports /></ProtectedRoute>} />

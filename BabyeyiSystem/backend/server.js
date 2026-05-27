@@ -32,6 +32,9 @@ const { ensureFullSystemControllerRole } = require('./utils/ensureRoles');
 const shuleAvanceOrgPortalRoutes = require('./BabyeyiRoutes/shuleAvanceOrgPortal');
 const { getAgentSessionPayload } = require('./BabyeyiRoutes/fieldAgentsRoutes');
 const chatModule = require('./BabyeyiRoutes/chatRoutes');
+const { platformActivityMiddleware } = require('./middleware/platformActivityMiddleware');
+const { logPlatformActivityAsync, resolveUserId, resolveRoleCode, resolveSchoolId, actorLabelFromReq, resolveProductTier } = require('./utils/platformActivityLog');
+const { closeUserSessions } = require('./utils/schoolMonitoringHelpers');
 
 /** SUPER_ADMIN and FULL_SYSTEM_CONTROLLER — exempt from maintenance session kill & write lock */
 function isElevatedPlatformRole(roleCode) {
@@ -229,7 +232,9 @@ const apiLimiter = rateLimit({
       p.endsWith('/teacher-portal/timetable') ||
       p.endsWith('/teacher-portal/timetable-filters') ||
       p.endsWith('/teacher-portal/attendance-summary/daily') ||
-      p.endsWith('/teacher-portal/attendance-summary/weekly')
+      p.endsWith('/teacher-portal/attendance-summary/weekly') ||
+      p.startsWith('/api/superadmin/audit') ||
+      p.startsWith('/api/superadmin/school-monitor')
     );
   },
 });
@@ -331,6 +336,8 @@ app.use(async (req, _res, next) => {
   }
   next();
 });
+
+app.use(platformActivityMiddleware);
 
 app.use(async (req, res, next) => {
   const url = (req.originalUrl || req.url || '').split('?')[0];
@@ -559,6 +566,7 @@ const globalUpload = multer({
 
 const MULTER_SELF_MANAGED = [
   '/api/babyeyi',
+  '/api/district/babyeyi',
   '/api/fee-limits',
   '/api/schools',
   '/api/mini-websites',
@@ -736,6 +744,26 @@ app.get('/api/session/me', async (req, res) => {
 });
 
 app.post('/api/session/logout', (req, res) => {
+  const userId = resolveUserId(req);
+  const parentId = req.session?.parentPortalAccountId || null;
+  if (userId) {
+    closeUserSessions(userId, false).catch(() => {});
+  }
+  if (userId || parentId) {
+    logPlatformActivityAsync({
+      req,
+      eventCategory: 'auth',
+      eventType: 'logout',
+      outcome: 'success',
+      userId: userId || null,
+      roleCode: resolveRoleCode(req) || (parentId ? 'PARENT' : null),
+      schoolId: resolveSchoolId(req),
+      productTier: resolveProductTier(req),
+      actorLabel: actorLabelFromReq(req) || (parentId ? 'Parent' : null),
+      actionSummary: userId ? 'User signed out' : 'Parent signed out',
+      details: { parent_portal_account_id: parentId || null },
+    });
+  }
   req.session.destroy(err => {
     if (err) return res.status(500).json({ success: false, message: 'Logout failed' });
     res.clearCookie('babyeyi_sid');
@@ -865,6 +893,14 @@ app.use('/api/admissions', admissionRoutes);
 console.log('  ✅  /api/admissions/*');
 app.use('/api/requirement-prices', requirementPriceRoutes);
 console.log('  ✅  /api/requirement-prices/*');
+
+const superAdminAuditRoutes = require('./BabyeyiRoutes/superAdminAudit');
+app.use('/api/superadmin/audit', superAdminAuditRoutes);
+console.log('  ✅  /api/superadmin/audit/*');
+
+const schoolMonitoringRoutes = require('./BabyeyiRoutes/schoolMonitoring');
+app.use('/api/superadmin/school-monitor', schoolMonitoringRoutes);
+console.log('  ✅  /api/superadmin/school-monitor/*');
 
 const studentServicesRoutes = require('./BabyeyiRoutes/studentServicesRoutes');
 app.use('/api/student-services', studentServicesRoutes);

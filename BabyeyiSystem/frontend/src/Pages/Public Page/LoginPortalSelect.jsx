@@ -559,10 +559,10 @@ export default function LoginPortalSelect() {
               <Sparkles size={11} /> Choose your portal
             </div>
             <h1 className="lps-title">
-              Sign in to <span>ShuleManager</span>
+              Sign in to ShuleManager
             </h1>
             <p className="lps-sub">
-              Select the platform that matches your school — both run on Babyeyi&apos;s trusted infrastructure.
+              Select the platform that matches your school  both run on Babyeyi&apos;s trusted infrastructure.
             </p>
           </div>
 
@@ -600,7 +600,7 @@ export default function LoginPortalSelect() {
                 </p>
                 <Link to="/login/lite" className="lps-cta lps-cta-lite">
                   <LogIn size={16} strokeWidth={2.5} />
-                  Sign in — Lite Portal
+                  Sign in  Lite Portal
                   <ArrowRight size={15} />
                 </Link>
               </div>
@@ -640,7 +640,7 @@ export default function LoginPortalSelect() {
                 </p>
                 <Link to="/login/pro" className="lps-cta lps-cta-pro">
                   <Crown size={16} strokeWidth={2.5} />
-                  Sign in — Pro Portal
+                  Sign in  Pro Portal
                   <ArrowRight size={15} />
                 </Link>
               </div>
@@ -648,7 +648,7 @@ export default function LoginPortalSelect() {
           </div>
 
           {/* Feature comparison */}
-          <div className="lps-compare au3">
+          {/* <div className="lps-compare au3">
             <div className="lps-compare-head">
               <BarChart3 size={14} className="text-amber-500" strokeWidth={2.5} />
               <p className="lps-compare-title">Feature comparison</p>
@@ -682,7 +682,7 @@ export default function LoginPortalSelect() {
                 </div>
               ))}
             </div>
-          </div>
+          </div> */}
 
           <footer className="lps-footer au4">
             <div className="lps-footer-left">

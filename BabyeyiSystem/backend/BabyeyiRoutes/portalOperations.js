@@ -736,6 +736,7 @@ async function ensureTables() {
   await promisePool.query(`ALTER TABLE store_movements ADD COLUMN academic_year VARCHAR(64) NULL`).catch(() => {});
   await promisePool.query(`ALTER TABLE store_movements ADD COLUMN movement_date DATE NULL`).catch(() => {});
   await promisePool.query(`ALTER TABLE store_movements ADD COLUMN stock_after DECIMAL(14,2) NOT NULL DEFAULT 0`).catch(() => {});
+  await promisePool.query(`ALTER TABLE store_movements ADD COLUMN supplier_id INT UNSIGNED NULL`).catch(() => {});
 
   await promisePool.query(`
     CREATE TABLE IF NOT EXISTS school_budgets (
@@ -4242,17 +4243,16 @@ router.get('/store/inventory', requireRole(STORE_READ_ROLES), async (req, res) =
   try {
     const { schoolId } = req.ctx;
     const termQ = String(req.query?.term || '').trim();
-    const academicYearQ = String(req.query?.academic_year || '').trim();
-    const { term, academicYear } = await resolveAcademicContext(schoolId, academicYearQ, termQ);
+    const academicYearQ = String(req.query?.academic_year || req.query?.year || '').trim();
     const where = ['school_id = ?', 'deleted_at IS NULL'];
     const params = [schoolId];
-    if (term) {
+    if (termQ) {
       where.push('term = ?');
-      params.push(term);
+      params.push(termQ);
     }
-    if (academicYear) {
+    if (academicYearQ) {
       where.push('academic_year = ?');
-      params.push(academicYear);
+      params.push(academicYearQ);
     }
     const [rows] = await promisePool.query(
       `SELECT id, name, category, term, academic_year, unit, quantity, reorder_level, unit_cost, location, note, updated_at
@@ -4263,14 +4263,32 @@ router.get('/store/inventory', requireRole(STORE_READ_ROLES), async (req, res) =
     );
     res.json({
       success: true,
-      meta: { term, academic_year: academicYear },
-      data: rows.map((r) => ({ ...r, quantity: Number(r.quantity), reorder_level: Number(r.reorder_level), unit_cost: Number(r.unit_cost) })),
+      meta: { term: termQ || null, academic_year: academicYearQ || null },
+      data: rows.map((r) => ({
+        ...r,
+        quantity: Number(r.quantity),
+        reorder_level: Number(r.reorder_level),
+        unit_cost: r.unit_cost != null ? Number(r.unit_cost) : null,
+      })),
     });
   } catch (e) {
     console.error('[store/inventory GET]:', e.message);
     res.status(500).json({ success: false, message: 'Failed to load inventory' });
   }
 });
+
+function resolveInventoryCategory(payload) {
+  const raw = String(payload.category || '').trim();
+  const custom = String(payload.custom_category || payload.customCategory || '').trim();
+  if (raw.toLowerCase() === 'other' && custom) return custom;
+  return raw || custom || 'Other';
+}
+
+function toOptionalMoney(v) {
+  if (v === '' || v === null || v === undefined) return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
 
 router.post('/store/inventory', requireRole(STORE_WRITE_ROLES), async (req, res) => {
   try {
@@ -4286,13 +4304,13 @@ router.post('/store/inventory', requireRole(STORE_WRITE_ROLES), async (req, res)
       [
         schoolId,
         name,
-        String(payload.category || '').trim() || 'Other',
+        resolveInventoryCategory(payload),
         String(payload.term || '').trim() || null,
         String(payload.academic_year || '').trim() || null,
         String(payload.unit || '').trim() || 'pcs',
         toMoney(payload.quantity),
         toMoney(payload.reorder_level),
-        toMoney(payload.unit_cost),
+        toOptionalMoney(payload.unit_cost),
         String(payload.location || '').trim() || null,
         String(payload.note || '').trim() || null,
       ]
@@ -4326,13 +4344,13 @@ router.patch('/store/inventory/:id', requireRole(STORE_WRITE_ROLES), async (req,
        WHERE id = ? AND school_id = ? AND deleted_at IS NULL`,
       [
         String(payload.name || '').trim(),
-        String(payload.category || '').trim() || 'Other',
+        resolveInventoryCategory(payload),
         String(payload.term || '').trim() || null,
         String(payload.academic_year || '').trim() || null,
         String(payload.unit || '').trim() || 'pcs',
         toMoney(payload.quantity),
         toMoney(payload.reorder_level),
-        toMoney(payload.unit_cost),
+        toOptionalMoney(payload.unit_cost),
         String(payload.location || '').trim() || null,
         String(payload.note || '').trim() || null,
         id,
@@ -4512,20 +4530,33 @@ router.get('/store/movements', requireRole(STORE_READ_ROLES), async (req, res) =
   try {
     const { schoolId } = req.ctx;
     const termQ = String(req.query?.term || '').trim();
-    const academicYearQ = String(req.query?.academic_year || '').trim();
-    const { term, academicYear } = await resolveAcademicContext(schoolId, academicYearQ, termQ);
+    const academicYearQ = String(req.query?.academic_year || req.query?.year || '').trim();
+    const typeQ = String(req.query?.type || '').trim().toLowerCase();
+    const supplierIdQ = Number(req.query?.supplier_id);
     const specificDate = String(req.query?.date || '').trim();
     const fromDate = String(req.query?.from || '').trim();
     const toDate = String(req.query?.to || '').trim();
     const where = ['m.school_id = ?', 'm.deleted_at IS NULL'];
     const params = [schoolId];
-    if (term) {
+    if (termQ) {
       where.push('m.term = ?');
-      params.push(term);
+      params.push(termQ);
     }
-    if (academicYear) {
+    if (academicYearQ) {
       where.push('m.academic_year = ?');
-      params.push(academicYear);
+      params.push(academicYearQ);
+    }
+    if (typeQ && typeQ !== 'all') {
+      const normType =
+        typeQ === 'received' ? 'stock_in'
+          : typeQ === 'issued' ? 'stock_out'
+            : typeQ;
+      where.push('m.type = ?');
+      params.push(normType);
+    }
+    if (Number.isFinite(supplierIdQ) && supplierIdQ > 0) {
+      where.push('m.supplier_id = ?');
+      params.push(supplierIdQ);
     }
     if (specificDate) {
       where.push('DATE(COALESCE(m.movement_date, m.created_at)) = ?');
@@ -4541,11 +4572,13 @@ router.get('/store/movements', requireRole(STORE_READ_ROLES), async (req, res) =
       }
     }
     const [rows] = await promisePool.query(
-      `SELECT m.id, m.item_id, i.name AS item_name, m.type, m.term, m.academic_year, m.movement_date,
-              m.quantity, m.stock_after, m.unit_cost, m.ref, m.note, m.created_at,
+      `SELECT m.id, m.item_id, i.name AS item_name, i.category AS item_category, m.type, m.term, m.academic_year, m.movement_date,
+              m.quantity, m.stock_after, m.unit_cost, m.ref, m.note, m.created_at, m.supplier_id,
+              s.name AS supplier_name,
               i.quantity AS current_item_stock
        FROM store_movements m
        LEFT JOIN store_inventory_items i ON i.id = m.item_id AND i.deleted_at IS NULL
+       LEFT JOIN store_suppliers s ON s.id = m.supplier_id AND s.school_id = m.school_id AND s.deleted_at IS NULL
        WHERE ${where.join(' AND ')}
        ORDER BY m.id DESC
        LIMIT 500`,
@@ -4560,11 +4593,12 @@ router.get('/store/movements', requireRole(STORE_READ_ROLES), async (req, res) =
     };
     res.json({
       success: true,
-      meta: { term, academic_year: academicYear },
+      meta: { term: termQ || null, academic_year: academicYearQ || null },
       data: rows.map((r) => ({
         id: r.id,
         item_id: r.item_id,
         item_name: r.item_name || 'Unknown item',
+        item_category: r.item_category || '',
         type: normalizeType(r.type),
         term: r.term || '',
         academic_year: r.academic_year || '',
@@ -4572,9 +4606,11 @@ router.get('/store/movements', requireRole(STORE_READ_ROLES), async (req, res) =
         quantity: Number(r.quantity || 0),
         stock_after: Number(r.stock_after || r.current_item_stock || 0),
         current_item_stock: Number(r.current_item_stock || 0),
-        unit_cost: Number(r.unit_cost || 0),
+        unit_cost: r.unit_cost != null ? Number(r.unit_cost) : null,
         ref: r.ref || '',
         note: r.note || '',
+        supplier_id: r.supplier_id || null,
+        supplier_name: r.supplier_name || '',
         date: r.movement_date || r.created_at,
         created_at: r.created_at,
       })),
@@ -4602,7 +4638,12 @@ router.post('/store/movements', requireRole(STORE_WRITE_ROLES), async (req, res)
             ? 'adjusted'
             : '';
     const quantity = toMoney(payload.quantity);
-    const unitCost = toMoney(payload.unit_cost);
+    const unitCostRaw = payload.unit_cost;
+    const unitCost =
+      unitCostRaw === '' || unitCostRaw === null || unitCostRaw === undefined
+        ? null
+        : toMoney(unitCostRaw);
+    const supplierId = Number(payload.supplier_id);
     const term = String(payload.term || '').trim() || null;
     const academicYear = String(payload.academic_year || '').trim() || null;
     const movementDate = String(payload.movement_date || payload.date || '').trim() || null;
@@ -4641,11 +4682,38 @@ router.post('/store/movements', requireRole(STORE_WRITE_ROLES), async (req, res)
     const resolvedTerm = term || String(item.term || '').trim() || null;
     const resolvedAcademicYear = academicYear || String(item.academic_year || '').trim() || null;
 
+    let resolvedSupplierId = null;
+    if (Number.isFinite(supplierId) && supplierId > 0) {
+      const [[sup]] = await conn.query(
+        `SELECT id FROM store_suppliers WHERE id = ? AND school_id = ? AND deleted_at IS NULL LIMIT 1`,
+        [supplierId, schoolId]
+      );
+      if (!sup) {
+        await conn.rollback();
+        return res.status(400).json({ success: false, message: 'Supplier not found' });
+      }
+      resolvedSupplierId = supplierId;
+    }
+
     const [movementInsert] = await conn.query(
       `INSERT INTO store_movements
-       (school_id, item_id, type, term, academic_year, movement_date, quantity, stock_after, unit_cost, ref, note, created_by_user_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [schoolId, itemId, type, resolvedTerm, resolvedAcademicYear, movementDate, quantity, nextQty, unitCost || null, ref, note, userId]
+       (school_id, item_id, supplier_id, type, term, academic_year, movement_date, quantity, stock_after, unit_cost, ref, note, created_by_user_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        schoolId,
+        itemId,
+        resolvedSupplierId,
+        type,
+        resolvedTerm,
+        resolvedAcademicYear,
+        movementDate,
+        quantity,
+        nextQty,
+        unitCost,
+        ref,
+        note,
+        userId,
+      ]
     );
     await conn.query(
       `UPDATE store_inventory_items

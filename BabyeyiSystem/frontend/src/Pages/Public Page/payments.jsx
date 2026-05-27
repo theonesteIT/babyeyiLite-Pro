@@ -1712,43 +1712,92 @@ export default function PaymentsPage() {
       return;
     }
     if (draft?.agentShopCheckout) {
-      if (payMethod !== 'momo') { setSubmitError('Agent shop payments currently use MTN Mobile Money.'); return; }
-      if (!isValidMomoPhone(momoPhoneRaw)) {
-        setMomoPhoneError(`"${momoPhoneRaw || '(empty)'}" is not a valid MTN Rwanda number.`); return;
+      if (payMethod === 'momo') {
+        if (!isValidMomoPhone(momoPhoneRaw)) {
+          setMomoPhoneError(`"${momoPhoneRaw || '(empty)'}" is not a valid MTN Rwanda number.`); return;
+        }
+        setMomoPhoneError('');
+        setSubmitting(true);
+        setSubmitError('');
+        try {
+          const res = await fetch(`${API}/student-services/public/shop/pay-momo`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              batch_ref: draft.batchRef,
+              payer_phone: momoPhoneRaw,
+            }),
+          });
+          const j = await res.json().catch(() => ({}));
+          if (!res.ok || !j.success) throw new Error(j.message || 'Payment failed');
+          const data = j.data || {};
+          const st = String(data.mtn_status || 'PENDING').toUpperCase();
+          setMomoStatus(st);
+          setMomoReferenceId(data.batch_ref || draft.batchRef || '');
+          if (st === 'SUCCESSFUL') {
+            setDoneId(data.batch_ref || draft.batchRef || 'SHOP');
+            setInvoiceStatus('PAID');
+            setDoneMode('momo');
+            setShowDoneModal(true);
+            setSubmitting(false);
+            return;
+          }
+          setMomoPollCount(0);
+          pollTimerRef.current = setTimeout(() => pollShopMomoStatus(draft.batchRef, 0), MOMO_POLL_INTERVAL_MS);
+        } catch (e) {
+          setSubmitError(e.message || 'Payment failed');
+          setMomoStatus('FAILED');
+        } finally {
+          if (!pollTimerRef.current) setSubmitting(false);
+        }
+        return;
       }
-      setMomoPhoneError('');
+      if (payMethod === 'bank') {
+        if (!validateBankTransferDetails()) return;
+      } else if (payMethod === 'visa') {
+        const visaErr = validateVisaDetails();
+        if (visaErr) { setSubmitError(visaErr); return; }
+      } else {
+        setSubmitError('Choose a payment method.');
+        return;
+      }
       setSubmitting(true);
       setSubmitError('');
       try {
-        const res = await fetch(`${API}/student-services/public/shop/pay-momo`, {
+        const res = await fetch(`${API}/student-services/public/shop/pay-offline`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             batch_ref: draft.batchRef,
-            payer_phone: momoPhoneRaw,
+            method: payMethod,
+            payer_name: String(draft.payer?.name || bankAccountHolder || '').trim(),
+            payer_phone: String(draft.payer?.phone || momoPhoneRaw || '').trim(),
+            bank: payMethod === 'bank' ? {
+              bankCode,
+              bankName: BANK_TRANSFER_OPTIONS.find((b) => b.code === bankCode)?.name,
+              accountHolder: bankAccountHolder.trim(),
+              accountNumber: bankAccountNumber.trim(),
+              paymentReference: bankPaymentRef.trim(),
+            } : null,
+            visa: payMethod === 'visa' ? {
+              cardHolder: visaCardHolder.trim(),
+              cardLast4: visaDigits.slice(-4),
+              expiry: visaExpiry.trim(),
+            } : null,
           }),
         });
         const j = await res.json().catch(() => ({}));
-        if (!res.ok || !j.success) throw new Error(j.message || 'Payment failed');
+        if (!res.ok || !j.success) throw new Error(j.message || 'Payment could not be recorded');
         const data = j.data || {};
-        const st = String(data.mtn_status || 'PENDING').toUpperCase();
-        setMomoStatus(st);
-        setMomoReferenceId(data.batch_ref || draft.batchRef || '');
-        if (st === 'SUCCESSFUL') {
-          setDoneId(data.batch_ref || draft.batchRef || 'SHOP');
-          setInvoiceStatus('PAID');
-          setDoneMode('momo');
-          setShowDoneModal(true);
-          setSubmitting(false);
-          return;
-        }
-        setMomoPollCount(0);
-        pollTimerRef.current = setTimeout(() => pollShopMomoStatus(draft.batchRef, 0), MOMO_POLL_INTERVAL_MS);
+        setDoneId(data.payment_ref || data.batch_ref || draft.batchRef);
+        setInvoiceNo(data.payment_ref || data.batch_ref || '');
+        setInvoiceStatus('PENDING');
+        setDoneMode(payMethod === 'bank' ? 'bank' : 'visa');
+        setShowDoneModal(true);
       } catch (e) {
-        setSubmitError(e.message || 'Payment failed');
-        setMomoStatus('FAILED');
+        setSubmitError(e.message || 'Payment submission failed');
       } finally {
-        if (!pollTimerRef.current) setSubmitting(false);
+        setSubmitting(false);
       }
       return;
     }
@@ -1972,7 +2021,17 @@ export default function PaymentsPage() {
                     ? shuleStep === 'review' && !!shuleOrg && shulePersonalInfoReady && isValidMomoPhone(shuleNotifyPhone)
                     : false)
             : payMethod === 'momo' && (!momoStatus || momoStatus === 'FAILED' || momoStatus === 'TIMEOUT'))
-    : draft?.agentShopCheckout || draft?.standardKitCheckout || draft?.shulecardTopupCheckout
+    : draft?.agentShopCheckout
+      ? !submitting && !doneId && principal >= 100 && (
+          payMethod === 'momo'
+            ? (!momoStatus || momoStatus === 'FAILED' || momoStatus === 'TIMEOUT')
+            : payMethod === 'visa'
+              ? visaCardHolder.trim() && visaDigits.length === 16 && /^((0[1-9])|(1[0-2]))\/\d{2}$/.test(visaExpiry.trim()) && /^\d{3,4}$/.test(visaCvv.trim())
+              : payMethod === 'bank'
+                ? bankAccountHolder.trim() && bankAccountNumber.trim() && bankPaymentRef.trim()
+                : false
+        )
+      : draft?.standardKitCheckout || draft?.shulecardTopupCheckout
       ? !submitting && !doneId && payMethod === 'momo' && (!momoStatus || momoStatus === 'FAILED' || momoStatus === 'TIMEOUT') && principal >= 100
     : !submitting && !doneId && !awaitingBalance &&
       (payMethod === 'momo'
@@ -2289,7 +2348,7 @@ export default function PaymentsPage() {
               { id: 'visa', label: 'Visa Card',     Icon: CreditCard },
             ].map(({ id, label: l, Icon }) => {
               const svcOnly = !!(draft?.studentServiceCheckout && !draft?.extendedPaymentTabs && id !== 'momo');
-              const shopOnly = !!(draft?.agentShopCheckout && id !== 'momo');
+              const shopOnly = false;
               const kitOnly = !!(draft?.standardKitCheckout && id !== 'momo');
               const uniformOnly = !!(draft?.uniformVoucherCheckout && id !== 'momo' && !(feeLikeTabs && pageTab === 'direct'));
               const loanLock = payMethod === 'loan' && id !== 'loan';

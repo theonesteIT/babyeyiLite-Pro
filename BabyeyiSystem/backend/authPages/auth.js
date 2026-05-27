@@ -30,6 +30,11 @@ const nodePath  = require('path');
 const fs        = require('fs');
 const multer    = require('multer');
 const rateLimit = require('express-rate-limit');
+const { logPlatformActivityAsync, getClientIp, resolveProductTier } = require('../utils/platformActivityLog');
+const {
+  upsertUserSession,
+  recordLoginAttempt,
+} = require('../utils/schoolMonitoringHelpers');
 
 // ── Profile photo upload (must be under backend/uploads so express.static serves it) ──
 const PROFILE_PHOTO_DIR = nodePath.join(__dirname, '..', 'uploads', 'profile-photos');
@@ -198,6 +203,11 @@ function requireElevatedPlatform(req, res) {
   return requireRole(req, res, ...ELEVATED_PLATFORM_ROLES);
 }
 
+/** Super Admin, FSC, or NESA Admin — district officer (DEO) management */
+function requireDeoManagement(req, res) {
+  return requireRole(req, res, 'SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER', 'NESA_ADMIN');
+}
+
 /** Full System Controller only — platform / system control APIs */
 function requireFullSystemController(req, res) {
   return requireRole(req, res, 'FULL_SYSTEM_CONTROLLER');
@@ -321,6 +331,22 @@ router.post('/login', loginLimiter, async (req, res) => {
 
     const [users] = await promisePool.query(sql, params);
     if (!users.length) {
+      logPlatformActivityAsync({
+        req,
+        eventCategory: 'auth',
+        eventType: 'login_failed',
+        outcome: 'failed',
+        actionSummary: 'Staff login failed — account not found',
+        ipAddress: getClientIp(req),
+        details: { identifier_hint: idRaw.slice(0, 4) + '***', school_code: scNorm || null },
+      });
+      recordLoginAttempt({
+        outcome: 'failed',
+        ip: getClientIp(req),
+        userAgent: req.headers['user-agent'],
+        identifierHint: idRaw.slice(0, 4) + '***',
+        failureReason: 'account_not_found',
+      }).catch(() => {});
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
@@ -439,11 +465,54 @@ router.post('/login', loginLimiter, async (req, res) => {
           `UPDATE users SET is_locked=1, locked_until=DATE_ADD(NOW(), INTERVAL 30 MINUTE) WHERE id=?`,
           [user.id]
         );
+        logPlatformActivityAsync({
+          req,
+          eventCategory: 'auth',
+          eventType: 'account_locked',
+          outcome: 'blocked',
+          userId: user.id,
+          roleCode,
+          schoolId: user.school_id,
+          productTier: resolveProductTier(req, {
+            subscription_plan: user.subscription_plan,
+            pro_enabled: user.pro_enabled,
+          }),
+          actorLabel: `${user.first_name} ${user.last_name}`.trim(),
+          actionSummary: 'Account locked after too many failed login attempts',
+          ipAddress: getClientIp(req),
+        });
         return res.status(403).json({
           success: false, locked: true,
           message: 'Account locked for 30 minutes — too many failed attempts',
         });
       }
+
+      logPlatformActivityAsync({
+        req,
+        eventCategory: 'auth',
+        eventType: 'login_failed',
+        outcome: 'failed',
+        userId: user.id,
+        roleCode,
+        schoolId: user.school_id,
+        productTier: resolveProductTier(req, {
+          subscription_plan: user.subscription_plan,
+          pro_enabled: user.pro_enabled,
+        }),
+        actorLabel: `${user.first_name} ${user.last_name}`.trim(),
+        actionSummary: `Failed password (attempt ${attempts}/${maxAttempts})`,
+        ipAddress: getClientIp(req),
+      });
+      recordLoginAttempt({
+        userId: user.id,
+        schoolId: user.school_id,
+        roleCode,
+        outcome: 'failed',
+        ip: getClientIp(req),
+        userAgent: req.headers['user-agent'],
+        productTier: resolveProductTier(req, { subscription_plan: user.subscription_plan, pro_enabled: user.pro_enabled }),
+        failureReason: 'invalid_password',
+      }).catch(() => {});
 
       return res.status(401).json({
         success: false,
@@ -469,7 +538,7 @@ router.post('/login', loginLimiter, async (req, res) => {
     // Reset failed attempts + update last login
     await promisePool.query(
       'UPDATE users SET failed_login_attempts=0, last_login=NOW(), last_login_ip=? WHERE id=?',
-      [req.ip, user.id]
+      [getClientIp(req) || req.ip, user.id]
     );
 
     // For SCHOOL_ADMIN / SCHOOL_MANAGER: if JOIN didn't return a school, resolve from schools table
@@ -639,6 +708,44 @@ router.post('/login', loginLimiter, async (req, res) => {
           return res.status(500).json({ success: false, message: 'Session save error' });
         }
         console.log(`✅  Login: ${user.email} | Role: ${user.role_code} | Session: ${req.session.id}`);
+        logPlatformActivityAsync({
+          req,
+          eventCategory: 'auth',
+          eventType: 'login_success',
+          outcome: 'success',
+          userId: user.id,
+          roleCode: user.role_code,
+          schoolId: user.school_id,
+          productTier: proAccess ? 'pro' : (user.school_id ? 'lite' : 'platform'),
+          actorLabel: `${user.first_name} ${user.last_name}`.trim(),
+          actionSummary: `Signed in — ${user.role_code}${user.school_name ? ` @ ${user.school_name}` : ''}`,
+          ipAddress: getClientIp(req),
+          details: {
+            school_code: user.school_code || null,
+            school_name: user.school_name || null,
+            staff_id: user.staff_id || null,
+            product: proAccess ? 'pro' : 'lite',
+          },
+        });
+        const tier = proAccess ? 'pro' : (user.school_id ? 'lite' : 'platform');
+        recordLoginAttempt({
+          userId: user.id,
+          schoolId: user.school_id,
+          roleCode: user.role_code,
+          outcome: 'success',
+          ip: getClientIp(req),
+          userAgent: req.headers['user-agent'],
+          productTier: tier,
+        }).catch(() => {});
+        upsertUserSession({
+          sessionKey: req.sessionID,
+          userId: user.id,
+          schoolId: user.school_id,
+          roleCode: user.role_code,
+          productTier: tier,
+          ip: getClientIp(req),
+          userAgent: req.headers['user-agent'],
+        }).catch(() => {});
         return res.json({
           success:  true,
           message:  'Login successful',
@@ -1413,7 +1520,7 @@ router.delete('/nesa-admin/:id', async (req, res) => {
 // POST /api/auth/create-deo  (Super Admin only)
 // ============================================================
 router.post('/create-deo', async (req, res) => {
-  if (!requireElevatedPlatform(req, res)) return;
+  if (!requireDeoManagement(req, res)) return;
   try {
     const { first_name, last_name, email, phone, password, district, province, sector } = req.body;
 
@@ -1475,7 +1582,7 @@ router.post('/create-deo', async (req, res) => {
 // GET /api/auth/deo-admins
 // ============================================================
 router.get('/deo-admins', async (req, res) => {
-  if (!requireElevatedPlatform(req, res)) return;
+  if (!requireDeoManagement(req, res)) return;
   try {
     const [rows] = await promisePool.query(
       `SELECT u.id, u.user_uid, u.email, u.phone, u.first_name, u.last_name,
@@ -1496,7 +1603,7 @@ router.get('/deo-admins', async (req, res) => {
 // PUT /api/auth/deo-admin/:id
 // ============================================================
 router.put('/deo-admin/:id', async (req, res) => {
-  if (!requireElevatedPlatform(req, res)) return;
+  if (!requireDeoManagement(req, res)) return;
   try {
     const { first_name, last_name, email, phone, district, province, sector, password, is_active } = req.body;
     const fields = ['first_name=?','last_name=?','email=?','phone=?','district=?','province=?','sector=?'];
@@ -1515,7 +1622,7 @@ router.put('/deo-admin/:id', async (req, res) => {
 // DELETE /api/auth/deo-admin/:id
 // ============================================================
 router.delete('/deo-admin/:id', async (req, res) => {
-  if (!requireElevatedPlatform(req, res)) return;
+  if (!requireDeoManagement(req, res)) return;
   try {
     await promisePool.query(
       'UPDATE users SET deleted_at=NOW(), is_active=0 WHERE id=?', [req.params.id]

@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Loader2, CalendarRange } from "lucide-react";
 import { axAgent } from "./agentApi";
-import { ACCENT_SLATE, inputClass, cardBorder } from "./agentTheme";
+import { ACCENT_SLATE, inputClass, pageShell, tableShell, tableHeadRow, tableHeadCell, tableBodyRow, pageCardPad } from "./agentTheme";
+import AgentPageHeader from "./AgentPageHeader";
 
 export default function AgentReportsPage() {
   const [rows, setRows] = useState([]);
@@ -26,18 +27,18 @@ export default function AgentReportsPage() {
   }, [from, to]);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-black text-[#111827]">Reports</h2>
-        <p className="text-sm text-amber-900/80 mt-1 font-medium">Babyeyi payment intents by month (paid amounts only in the paid column).</p>
-      </div>
+    <div className={`${pageShell} bg-white`}>
+      <AgentPageHeader
+        title="Reports"
+        description="Babyeyi payment intents by month (paid amounts in the paid column)."
+      />
 
-      <div className="flex flex-col sm:flex-row flex-wrap gap-3 items-stretch sm:items-end">
-        <label className="text-xs font-bold text-amber-900 flex flex-col gap-1">
+      <div className={`${pageCardPad} flex flex-col sm:flex-row flex-wrap gap-3 items-stretch sm:items-end`}>
+        <label className="text-xs font-semibold text-slate-600 flex flex-col gap-1 flex-1 min-w-[140px]">
           From
           <input type="date" className={inputClass} value={from} onChange={(e) => setFrom(e.target.value)} />
         </label>
-        <label className="text-xs font-bold text-amber-900 flex flex-col gap-1">
+        <label className="text-xs font-semibold text-slate-600 flex flex-col gap-1 flex-1 min-w-[140px]">
           To
           <input type="date" className={inputClass} value={to} onChange={(e) => setTo(e.target.value)} />
         </label>
@@ -48,34 +49,34 @@ export default function AgentReportsPage() {
           <Loader2 className="w-8 h-8 animate-spin" style={{ color: ACCENT_SLATE }} />
         </div>
       ) : (
-        <div className={`rounded-3xl ${cardBorder} bg-white overflow-hidden shadow-md shadow-amber-900/5`}>
-          <div className="px-4 py-3 border-b-2 border-amber-100 flex items-center gap-2 bg-gradient-to-r from-amber-50 to-amber-100/50">
-            <CalendarRange className="w-4 h-4 text-amber-700" />
-            <span className="text-sm font-black text-[#111827]">Monthly totals</span>
+        <div className={tableShell}>
+          <div className="px-4 py-3 border-b border-slate-200 flex items-center gap-2 bg-slate-50">
+            <CalendarRange className="w-4 h-4 text-amber-500" />
+            <span className="text-sm font-bold text-[#000435]">Monthly totals</span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-[10px] font-black uppercase text-amber-900 border-b-2 border-amber-100 bg-amber-50/50">
-                  <th className="py-3 px-4">Month</th>
-                  <th className="py-3 px-4 text-right">Paid RWF</th>
-                  <th className="py-3 px-4 text-right">Intents</th>
+                <tr className={tableHeadRow}>
+                  <th className={tableHeadCell}>Month</th>
+                  <th className={`${tableHeadCell} text-right`}>Paid RWF</th>
+                  <th className={`${tableHeadCell} text-right`}>Intents</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((r) => (
-                  <tr key={r.period} className="border-b border-amber-100/60 hover:bg-amber-50/40">
-                    <td className="py-3 px-4 font-semibold text-[#111827]">{r.period}</td>
-                    <td className="py-3 px-4 text-right font-mono font-bold text-amber-800">
+                  <tr key={r.period} className={tableBodyRow}>
+                    <td className="py-3 px-4 font-semibold text-[#000435]">{r.period}</td>
+                    <td className="py-3 px-4 text-right font-mono font-bold text-emerald-700">
                       {Number(r.paid_rwf || 0).toLocaleString()}
                     </td>
-                    <td className="py-3 px-4 text-right text-amber-900/70">{r.intents}</td>
+                    <td className="py-3 px-4 text-right text-slate-600">{r.intents}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          {!rows.length && <p className="text-center py-10 text-amber-800/70 text-sm font-medium">No data in this range.</p>}
+          {!rows.length && <p className="text-center py-10 text-slate-500 text-sm font-medium">No data in this range.</p>}
         </div>
       )}
     </div>

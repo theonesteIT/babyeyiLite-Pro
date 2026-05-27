@@ -109,13 +109,97 @@ async function ensureCollectionsTable() {
       balance_remaining DECIMAL(14,2) NOT NULL DEFAULT 0,
       recorded_by_user_id INT UNSIGNED NOT NULL,
       notes TEXT NULL,
+      payment_method VARCHAR(40) NULL,
+      bank_name VARCHAR(120) NULL,
+      paid_by VARCHAR(160) NULL,
+      transaction_ref VARCHAR(120) NULL,
+      momo_phone VARCHAR(32) NULL,
+      receipt_no VARCHAR(64) NULL,
+      paid_at_date DATE NULL,
       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       KEY idx_sfc_school (school_id),
       KEY idx_sfc_student (student_id),
-      KEY idx_sfc_created (created_at)
+      KEY idx_sfc_created (created_at),
+      KEY idx_sfc_receipt (receipt_no)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
+  const alters = [
+    'ALTER TABLE school_fee_collections ADD COLUMN payment_method VARCHAR(40) NULL',
+    'ALTER TABLE school_fee_collections ADD COLUMN bank_name VARCHAR(120) NULL',
+    'ALTER TABLE school_fee_collections ADD COLUMN paid_by VARCHAR(160) NULL',
+    'ALTER TABLE school_fee_collections ADD COLUMN transaction_ref VARCHAR(120) NULL',
+    'ALTER TABLE school_fee_collections ADD COLUMN momo_phone VARCHAR(32) NULL',
+    'ALTER TABLE school_fee_collections ADD COLUMN receipt_no VARCHAR(64) NULL',
+    'ALTER TABLE school_fee_collections ADD COLUMN paid_at_date DATE NULL',
+  ];
+  for (const sql of alters) {
+    await promisePool.query(sql).catch(() => {});
+  }
   collectionsTableReady = true;
+}
+
+function buildReceiptNo(schoolId, paymentId) {
+  const year = new Date().getFullYear();
+  return `RCP-${year}-${String(schoolId).padStart(4, '0')}-${String(paymentId).padStart(6, '0')}`;
+}
+
+function mapPaymentRow(r) {
+  if (!r) return null;
+  const first = r.first_name || '';
+  const last = r.last_name || '';
+  return {
+    id: r.id,
+    student_id: r.student_id,
+    academic_year_label: r.academic_year_label,
+    term: r.term,
+    class_name: r.class_name,
+    total_due: Number(r.total_due || 0),
+    amount_paid: Number(r.amount_paid || 0),
+    balance_remaining: Number(r.balance_remaining || 0),
+    notes: r.notes || null,
+    payment_method: r.payment_method || null,
+    bank_name: r.bank_name || null,
+    paid_by: r.paid_by || null,
+    transaction_ref: r.transaction_ref || null,
+    momo_phone: r.momo_phone || null,
+    receipt_no: r.receipt_no || null,
+    paid_at_date: r.paid_at_date || null,
+    created_at: r.created_at || null,
+    first_name: first,
+    last_name: last,
+    student_name: `${first} ${last}`.trim() || 'Student',
+    student_uid: r.student_uid || null,
+    student_code: r.student_code || null,
+    school_name: r.school_name || null,
+    recorded_by_name: r.recorded_by_name || null,
+  };
+}
+
+function validatePaymentMethodFields(body) {
+  const method = trimStr(body.payment_method || body.method) || 'Cash';
+  const bankName = trimStr(body.bank_name);
+  const paidBy = trimStr(body.paid_by);
+  const transactionRef = trimStr(body.transaction_ref || body.receipt_number || body.transaction_number);
+  const momoPhone = trimStr(body.momo_phone || body.momo_number);
+  const low = method.toLowerCase();
+
+  if (low.includes('bank')) {
+    if (!bankName) return { ok: false, message: 'Bank name is required for bank transfer.' };
+    if (!paidBy) return { ok: false, message: 'Paid by (payer name) is required for bank transfer.' };
+    if (!transactionRef) return { ok: false, message: 'Transaction or receipt number is required for bank transfer.' };
+  }
+  if (low.includes('mobile') || low.includes('momo')) {
+    if (!transactionRef) return { ok: false, message: 'MoMo transaction ID or receipt number is required.' };
+  }
+
+  return {
+    ok: true,
+    payment_method: method,
+    bank_name: bankName || null,
+    paid_by: paidBy || null,
+    transaction_ref: transactionRef || null,
+    momo_phone: momoPhone || null,
+  };
 }
 
 let examinationListTablesReady = false;
@@ -1118,20 +1202,29 @@ router.get('/accountant/payments', requireRole(ACCOUNTANT_ONLY), async (req, res
          fc.amount_paid,
          fc.balance_remaining,
          fc.notes,
+         fc.payment_method,
+         fc.bank_name,
+         fc.paid_by,
+         fc.transaction_ref,
+         fc.momo_phone,
+         fc.receipt_no,
+         fc.paid_at_date,
          fc.created_at,
          s.first_name,
          s.last_name,
          s.student_uid,
-         s.student_code
+         s.student_code,
+         sc.school_name
        FROM school_fee_collections fc
        INNER JOIN students s ON s.id = fc.student_id AND s.school_id = fc.school_id
+       LEFT JOIN schools sc ON sc.id = fc.school_id
        WHERE fc.school_id = ?
        ORDER BY fc.created_at DESC
        LIMIT ?`,
       [schoolId, limit]
     );
 
-    return res.json({ success: true, data: rows });
+    return res.json({ success: true, data: rows.map(mapPaymentRow) });
   } catch (err) {
     console.error('GET /accountant/payments:', err);
     return res.status(500).json({ success: false, message: 'Failed to list payments' });
@@ -1162,19 +1255,30 @@ router.get('/accountant/payments/:id', requireRole(ACCOUNTANT_ONLY), async (req,
          fc.amount_paid,
          fc.balance_remaining,
          fc.notes,
+         fc.payment_method,
+         fc.bank_name,
+         fc.paid_by,
+         fc.transaction_ref,
+         fc.momo_phone,
+         fc.receipt_no,
+         fc.paid_at_date,
          fc.created_at,
          s.first_name,
          s.last_name,
          s.student_uid,
-         s.student_code
+         s.student_code,
+         sc.school_name,
+         TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))) AS recorded_by_name
        FROM school_fee_collections fc
        INNER JOIN students s ON s.id = fc.student_id AND s.school_id = fc.school_id
+       LEFT JOIN schools sc ON sc.id = fc.school_id
+       LEFT JOIN users u ON u.id = fc.recorded_by_user_id
        WHERE fc.school_id = ? AND fc.id = ?
        LIMIT 1`,
       [schoolId, id]
     );
     if (!row) return res.status(404).json({ success: false, message: 'Payment not found' });
-    return res.json({ success: true, data: row });
+    return res.json({ success: true, data: mapPaymentRow(row) });
   } catch (err) {
     console.error('GET /accountant/payments/:id:', err);
     return res.status(500).json({ success: false, message: 'Failed to load payment detail' });
@@ -1292,6 +1396,12 @@ router.post('/accountant/payments', requireRole(ACCOUNTANT_ONLY), async (req, re
     let className = trimStr(body.class_name);
     const amountPaid = Number(body.amount_paid);
     const notes = trimStr(body.notes) || null;
+    const paidAtDateRaw = trimStr(body.paid_at_date || body.paid_at);
+    const paidAtDate = paidAtDateRaw && /^\d{4}-\d{2}-\d{2}$/.test(paidAtDateRaw) ? paidAtDateRaw : null;
+    const methodFields = validatePaymentMethodFields(body);
+    if (!methodFields.ok) {
+      return res.status(400).json({ success: false, message: methodFields.message });
+    }
     let totalDueIn = body.total_due != null && body.total_due !== '' ? Number(body.total_due) : null;
 
     if (!studentId || Number.isNaN(studentId)) {
@@ -1346,8 +1456,9 @@ router.post('/accountant/payments', requireRole(ACCOUNTANT_ONLY), async (req, re
     const [ins] = await promisePool.query(
       `INSERT INTO school_fee_collections (
          school_id, student_id, babyeyi_id, academic_year_label, term, class_name,
-         total_due, amount_paid, balance_remaining, recorded_by_user_id, notes
-       ) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+         total_due, amount_paid, balance_remaining, recorded_by_user_id, notes,
+         payment_method, bank_name, paid_by, transaction_ref, momo_phone, paid_at_date
+       ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [
         schoolId,
         studentId,
@@ -1360,13 +1471,65 @@ router.post('/accountant/payments', requireRole(ACCOUNTANT_ONLY), async (req, re
         balance,
         userId,
         notes,
+        methodFields.payment_method,
+        methodFields.bank_name,
+        methodFields.paid_by,
+        methodFields.transaction_ref,
+        methodFields.momo_phone,
+        paidAtDate,
       ]
+    );
+
+    const paymentId = ins.insertId;
+    const receiptNo = buildReceiptNo(schoolId, paymentId);
+    await promisePool.query(
+      `UPDATE school_fee_collections SET receipt_no = ? WHERE school_id = ? AND id = ?`,
+      [receiptNo, schoolId, paymentId]
+    );
+
+    const [[fullRow]] = await promisePool.query(
+      `SELECT
+         fc.id,
+         fc.student_id,
+         fc.academic_year_label,
+         fc.term,
+         fc.class_name,
+         fc.total_due,
+         fc.amount_paid,
+         fc.balance_remaining,
+         fc.notes,
+         fc.payment_method,
+         fc.bank_name,
+         fc.paid_by,
+         fc.transaction_ref,
+         fc.momo_phone,
+         fc.receipt_no,
+         fc.paid_at_date,
+         fc.created_at,
+         s.first_name,
+         s.last_name,
+         s.student_uid,
+         s.student_code,
+         sc.school_name,
+         TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))) AS recorded_by_name
+       FROM school_fee_collections fc
+       INNER JOIN students s ON s.id = fc.student_id AND s.school_id = fc.school_id
+       LEFT JOIN schools sc ON sc.id = fc.school_id
+       LEFT JOIN users u ON u.id = fc.recorded_by_user_id
+       WHERE fc.school_id = ? AND fc.id = ?
+       LIMIT 1`,
+      [schoolId, paymentId]
     );
 
     return res.status(201).json({
       success: true,
       message: 'Payment recorded.',
-      data: { id: ins.insertId, balance_remaining: balance },
+      data: {
+        id: paymentId,
+        receipt_no: receiptNo,
+        balance_remaining: balance,
+        payment: mapPaymentRow(fullRow),
+      },
     });
   } catch (err) {
     console.error('POST /accountant/payments:', err);
@@ -1756,6 +1919,285 @@ router.resolveAcademicContext = resolveAcademicContext;
 router.yearMatchesRow = yearMatchesRow;
 router.termMatchesRow = termMatchesRow;
 router.trimStr = trimStr;
+function parseIntentPayload(raw) {
+  try {
+    return typeof raw === 'string' ? JSON.parse(raw || '{}') : raw || {};
+  } catch {
+    return {};
+  }
+}
+
+function intentMatchesStudent(payload, studentRow) {
+  const studentId = Number(studentRow.id);
+  const uid = trimStr(studentRow.student_uid).toUpperCase();
+  const code = trimStr(studentRow.student_code).toUpperCase();
+  const list = [];
+  if (payload?.selected_student) list.push(payload.selected_student);
+  if (Array.isArray(payload?.selected_students)) list.push(...payload.selected_students);
+  for (const s of list) {
+    if (Number(s?.student_id) === studentId) return true;
+    const probes = [
+      trimStr(s?.student_uid).toUpperCase(),
+      trimStr(s?.student_code).toUpperCase(),
+      trimStr(s?.sdm_code).toUpperCase(),
+    ].filter(Boolean);
+    if (probes.some((p) => p === uid || p === code)) return true;
+  }
+  return false;
+}
+
+function mapOnlineInvoiceStatus(invoiceStatus) {
+  const s = String(invoiceStatus || 'NOT_PAID').toUpperCase();
+  if (s === 'PAID') return { status: 'paid', status_label: 'Paid' };
+  if (s === 'PARTIAL' || s === 'PARTIALLY_PAID') return { status: 'partial', status_label: 'Partially paid' };
+  return { status: 'waiting', status_label: 'Waiting to pay' };
+}
+
+function describeOnlineChannel(intent, payload) {
+  const provider = trimStr(intent.provider);
+  if (provider) return `Online · ${provider}`;
+  const payMethod = trimStr(payload?.payment_method || payload?.pay_method);
+  if (payMethod) return `Online · ${payMethod}`;
+  return 'Online · Public pay fees';
+}
+
+// GET /api/accountant/students/:studentId/payment-history?academic_year=&term=
+router.get('/accountant/students/:studentId/payment-history', requireRole(ACCOUNTANT_ONLY), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) {
+      return res.status(400).json({ success: false, message: 'School not found in session.' });
+    }
+    const studentId = Number(req.params.studentId || 0);
+    if (!studentId) {
+      return res.status(400).json({ success: false, message: 'Invalid student id.' });
+    }
+
+    const { academicYear, term } = await resolveAcademicContext(
+      schoolId,
+      req.query.academic_year || req.query.year || '',
+      req.query.term || ''
+    );
+
+    await ensureCollectionsTable();
+
+    const [[student]] = await promisePool.query(
+      `SELECT s.id, s.student_uid, s.student_code, s.first_name, s.last_name, s.class_name,
+              sc.school_name
+       FROM students s
+       LEFT JOIN schools sc ON sc.id = s.school_id
+       WHERE s.id = ? AND s.school_id = ?
+       LIMIT 1`,
+      [studentId, schoolId]
+    );
+    if (!student) {
+      return res.status(404).json({ success: false, message: 'Student not found.' });
+    }
+
+    const [manualRows] = await promisePool.query(
+      `SELECT
+         fc.id,
+         fc.student_id,
+         fc.academic_year_label,
+         fc.term,
+         fc.class_name,
+         fc.total_due,
+         fc.amount_paid,
+         fc.balance_remaining,
+         fc.notes,
+         fc.payment_method,
+         fc.bank_name,
+         fc.paid_by,
+         fc.transaction_ref,
+         fc.momo_phone,
+         fc.receipt_no,
+         fc.paid_at_date,
+         fc.created_at,
+         sc.school_name,
+         TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))) AS recorded_by_name
+       FROM school_fee_collections fc
+       LEFT JOIN schools sc ON sc.id = fc.school_id
+       LEFT JOIN users u ON u.id = fc.recorded_by_user_id
+       WHERE fc.school_id = ? AND fc.student_id = ?
+       ORDER BY COALESCE(fc.paid_at_date, fc.created_at) DESC, fc.id DESC`,
+      [schoolId, studentId]
+    );
+
+    const manualItems = (manualRows || [])
+      .filter(
+        (r) =>
+          termMatchesRow(r.term, term)
+          && collectionYearMatchesFilter(r.academic_year_label, academicYear)
+      )
+      .map((r) => {
+        const mapped = mapPaymentRow(r);
+        return {
+          key: `manual-${mapped.id}`,
+          source: 'manual',
+          source_label: 'Recorded at school',
+          payment_id: mapped.id,
+          intent_id: null,
+          invoice_no: mapped.receipt_no,
+          amount: mapped.amount_paid,
+          status: 'paid',
+          status_label: 'Paid',
+          payment_method: mapped.payment_method || 'Cash',
+          channel: mapped.payment_method || 'Recorded at school',
+          date: mapped.paid_at_date || mapped.created_at,
+          reference: mapped.receipt_no || `PAY-${mapped.id}`,
+          transaction_ref: mapped.transaction_ref,
+          bank_name: mapped.bank_name,
+          paid_by: mapped.paid_by,
+          momo_phone: mapped.momo_phone,
+          notes: mapped.notes,
+          view_url: null,
+          invoice_pdf_url: null,
+          receipt_pdf_url: null,
+          can_view: true,
+          can_download: true,
+          raw: mapped,
+        };
+      });
+
+    let onlineItems = [];
+    try {
+      const [intentRows] = await promisePool.query(
+        `SELECT
+           i.id,
+           i.school_id,
+           i.babyeyi_id,
+           i.total_rwf,
+           i.payload_json,
+           i.payer_name,
+           i.payer_phone,
+           i.payer_email,
+           i.provider,
+           i.provider_reference,
+           i.invoice_no,
+           i.invoice_status,
+           i.invoice_paid_at,
+           i.created_at,
+           t.term,
+           t.academic_year,
+           t.class_name AS fee_class_name
+         FROM babyeyi_payment_intents i
+         LEFT JOIN accountant_babyeyi_fees t ON t.babyeyi_id = i.babyeyi_id AND t.school_id = i.school_id
+         WHERE i.school_id = ?
+         ORDER BY i.created_at DESC
+         LIMIT 500`,
+        [schoolId]
+      );
+
+      onlineItems = (intentRows || [])
+        .filter((row) => {
+          const payload = parseIntentPayload(row.payload_json);
+          if (!intentMatchesStudent(payload, student)) return false;
+          const intentTerm = trimStr(
+            row.term || payload?.term || payload?.babyeyi_term || payload?.babyeyi?.term || ''
+          );
+          const intentYear = trimStr(
+            row.academic_year
+            || payload?.academic_year
+            || payload?.year
+            || payload?.babyeyi_academic_year
+            || payload?.babyeyi?.academic_year
+            || ''
+          );
+          if (!termMatchesRow(intentTerm, term)) return false;
+          if (!yearMatchesRow(intentYear, academicYear)) return false;
+          return true;
+        })
+        .map((row) => {
+          const payload = parseIntentPayload(row.payload_json);
+          const st = mapOnlineInvoiceStatus(row.invoice_status);
+          const invoiceNo = trimStr(row.invoice_no);
+          const intentId = Number(row.id);
+          const base = '/api/public/babyeyi-pay';
+          const invoicePdf = invoiceNo
+            ? `${base}/invoice/${intentId}.pdf?invoice_no=${encodeURIComponent(invoiceNo)}`
+            : `${base}/invoices/${intentId}/print.pdf`;
+          const receiptPdf =
+            st.status === 'paid' && invoiceNo
+              ? `${base}/receipt/${intentId}.pdf?invoice_no=${encodeURIComponent(invoiceNo)}`
+              : null;
+          return {
+            key: `online-${intentId}`,
+            source: 'online',
+            source_label: 'Parent · Public pay',
+            payment_id: null,
+            intent_id: intentId,
+            invoice_no: invoiceNo || null,
+            amount: Number(row.total_rwf || 0),
+            status: st.status,
+            status_label: st.status_label,
+            payment_method: describeOnlineChannel(row, payload),
+            channel: describeOnlineChannel(row, payload),
+            date: row.invoice_paid_at || row.created_at,
+            reference: invoiceNo || `INV-${intentId}`,
+            transaction_ref: trimStr(row.provider_reference) || invoiceNo || null,
+            bank_name: null,
+            paid_by: trimStr(row.payer_name) || null,
+            momo_phone: trimStr(row.payer_phone) || null,
+            notes: trimStr(payload?.notes) || null,
+            payer_email: trimStr(row.payer_email) || trimStr(payload?.payer_email) || null,
+            view_url: invoicePdf,
+            invoice_pdf_url: invoicePdf,
+            receipt_pdf_url: receiptPdf,
+            can_view: true,
+            can_download: true,
+            raw: {
+              id: intentId,
+              invoice_status: row.invoice_status,
+              provider: row.provider,
+              payload,
+            },
+          };
+        });
+    } catch (e) {
+      console.warn('[payment-history] online intents skipped:', e.message);
+    }
+
+    const items = [...manualItems, ...onlineItems].sort((a, b) => {
+      const da = new Date(a.date || 0).getTime();
+      const db = new Date(b.date || 0).getTime();
+      return db - da;
+    });
+
+    const summary = {
+      total_items: items.length,
+      manual_count: manualItems.length,
+      online_count: onlineItems.length,
+      online_paid: onlineItems.filter((x) => x.status === 'paid').length,
+      online_waiting: onlineItems.filter((x) => x.status === 'waiting').length,
+      total_amount: items.reduce((s, x) => s + Number(x.amount || 0), 0),
+      total_paid_amount: items
+        .filter((x) => x.status === 'paid' || x.source === 'manual')
+        .reduce((s, x) => s + Number(x.amount || 0), 0),
+    };
+
+    return res.json({
+      success: true,
+      data: {
+        student: {
+          id: student.id,
+          student_uid: student.student_uid,
+          student_code: student.student_code,
+          full_name: `${student.first_name || ''} ${student.last_name || ''}`.trim(),
+          class_name: student.class_name,
+          school_name: student.school_name,
+        },
+        academic_year: academicYear,
+        term,
+        items,
+        summary,
+      },
+    });
+  } catch (err) {
+    console.error('GET /accountant/students/:studentId/payment-history', err);
+    return res.status(500).json({ success: false, message: 'Failed to load payment history' });
+  }
+});
+
 router.collectionYearMatchesFilter = collectionYearMatchesFilter;
 router.examinationListPayload = examinationListPayload;
 

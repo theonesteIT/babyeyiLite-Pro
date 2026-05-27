@@ -1,19 +1,22 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { LogOut, Loader } from "lucide-react";
-import { useAuth } from "../../../../context/AuthContext";
-import { C, font } from "../utils/theme";
-import { getPostLogoutLoginPath } from "../../../../utils/postLogoutLoginPath";
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { LogOut, Loader } from 'lucide-react';
+import { useAuth } from '../../../../context/AuthContext';
+import { font } from '../utils/theme';
+import { getPostLogoutLoginPath } from '../../../../utils/postLogoutLoginPath';
 
 export default function LogoutButton({ compact = false, style: extStyle = {} }) {
-  const { logout }  = useAuth();
-  const navigate    = useNavigate();
-  const [loading,      setLoading]      = useState(false);
-  const [showConfirm,  setShowConfirm]  = useState(false);
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const handleLogout = async () => {
-    setLoading(true); setShowConfirm(false);
-    try { await logout(); } finally {
+    setLoading(true);
+    setShowConfirm(false);
+    try {
+      await logout();
+    } finally {
       setLoading(false);
       navigate(getPostLogoutLoginPath(), { replace: true });
     }
@@ -22,38 +25,32 @@ export default function LogoutButton({ compact = false, style: extStyle = {} }) 
   return (
     <>
       {showConfirm && (
-        <div style={{
-          position: "fixed", inset: 0, zIndex: 400,
-          background: "rgba(26,18,0,0.3)", backdropFilter: "blur(4px)",
-          display: "flex", alignItems: "center", justifyContent: "center", padding: 16,
-        }}>
-          <div style={{
-            background: "white", borderRadius: 24, border: `1px solid ${C.goldBorder}`,
-            boxShadow: "0 20px 60px rgba(26,18,0,0.2)",
-            width: "100%", maxWidth: 360, padding: 24, textAlign: "center",
-            fontFamily: font,
-          }}>
-            <div style={{
-              width: 52, height: 52, background: C.red50, borderRadius: 16,
-              display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px",
-            }}>
-              <LogOut style={{ width: 26, height: 26, color: C.red }}/>
+        <div
+          className="fixed inset-0 z-[400] flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,4,53,0.45)', backdropFilter: 'blur(4px)', fontFamily: font }}
+        >
+          <div className="w-full max-w-sm rounded-2xl border border-[#fde68a] bg-white p-6 text-center shadow-2xl">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50">
+              <LogOut className="h-6 w-6 text-[#000435]" />
             </div>
-            <h3 style={{ fontWeight: 900, color: C.dark, fontSize: 17, margin: "0 0 6px" }}>Sign Out?</h3>
-            <p style={{ color: C.goldDark, fontSize: 13, margin: "0 0 20px" }}>You'll be redirected to the login page.</p>
-            <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => setShowConfirm(false)} style={{
-                flex: 1, padding: 12, border: `2px solid ${C.goldBorder}`, borderRadius: 14,
-                fontSize: 13, fontWeight: 700, color: C.darkMid, background: "white",
-                cursor: "pointer", fontFamily: font,
-              }}>Cancel</button>
-              <button onClick={handleLogout} disabled={loading} style={{
-                flex: 1, padding: 12, background: C.red, color: "white", borderRadius: 14,
-                fontSize: 13, fontWeight: 700, border: "none", cursor: "pointer",
-                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                opacity: loading ? 0.6 : 1, fontFamily: font,
-              }}>
-                {loading ? <Loader style={{ width: 16, height: 16, animation: "spin 0.8s linear infinite" }}/> : <><LogOut style={{ width: 16, height: 16 }}/> Sign Out</>}
+            <h3 className="m-0 mb-1.5 text-lg font-bold text-[#000435]">Sign out?</h3>
+            <p className="m-0 mb-5 text-sm text-amber-700">You will be redirected to the login page.</p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowConfirm(false)}
+                className="flex-1 cursor-pointer rounded-xl border border-[#fde68a] bg-white py-3 text-sm font-semibold text-[#000435]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleLogout}
+                disabled={loading}
+                className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl border-none bg-[#000435] py-3 text-sm font-semibold text-amber-400 disabled:opacity-60"
+              >
+                {loading ? <Loader className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
+                Sign out
               </button>
             </div>
           </div>
@@ -61,30 +58,34 @@ export default function LogoutButton({ compact = false, style: extStyle = {} }) 
       )}
 
       {compact ? (
-        <button onClick={() => setShowConfirm(true)} disabled={loading} title="Sign Out" style={{
-          padding: 8, borderRadius: 10, background: "transparent", border: "none",
-          cursor: "pointer", color: C.goldDark, display: "flex", opacity: loading ? 0.5 : 1,
-          ...extStyle,
-        }}>
-          {loading
-            ? <Loader style={{ width: 16, height: 16, animation: "spin 0.8s linear infinite" }}/>
-            : <LogOut style={{ width: 16, height: 16 }}/>}
+        <button
+          type="button"
+          onClick={() => setShowConfirm(true)}
+          disabled={loading}
+          title="Sign out"
+          className="flex cursor-pointer items-center justify-center rounded-xl border-none bg-transparent p-2 text-[#000435] disabled:opacity-50"
+          style={extStyle}
+        >
+          {loading ? (
+            <Loader className="h-4 w-4 animate-spin" />
+          ) : (
+            <LogOut className="h-4 w-4" />
+          )}
         </button>
       ) : (
-        <button onClick={() => setShowConfirm(true)} disabled={loading} style={{
-          width: "100%", display: "flex", alignItems: "center", gap: 10,
-          padding: "10px 12px", borderRadius: 12, fontSize: 13, fontWeight: 700,
-          color: C.red, background: "transparent", border: `1px solid transparent`,
-          cursor: "pointer", fontFamily: font, transition: "all 150ms",
-          opacity: loading ? 0.5 : 1, ...extStyle,
-        }}
-        onMouseEnter={e => { e.currentTarget.style.background = C.red50; e.currentTarget.style.borderColor = C.redBorder; }}
-        onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "transparent"; }}
+        <button
+          type="button"
+          onClick={() => setShowConfirm(true)}
+          disabled={loading}
+          className="flex w-full cursor-pointer items-center gap-2.5 rounded-xl border border-transparent px-3 py-2.5 text-[13px] font-semibold text-white/70 transition-all hover:border-white/10 hover:bg-white/[0.06] hover:text-white disabled:opacity-50"
+          style={{ fontFamily: font, ...extStyle }}
         >
-          {loading
-            ? <Loader style={{ width: 16, height: 16, animation: "spin 0.8s linear infinite", flexShrink: 0 }}/>
-            : <LogOut style={{ width: 16, height: 16, flexShrink: 0 }}/>}
-          <span>{loading ? "Signing out…" : "Sign Out"}</span>
+          {loading ? (
+            <Loader className="h-4 w-4 shrink-0 animate-spin" />
+          ) : (
+            <LogOut className="h-4 w-4 shrink-0" />
+          )}
+          <span>{loading ? 'Signing out…' : 'Sign out'}</span>
         </button>
       )}
     </>

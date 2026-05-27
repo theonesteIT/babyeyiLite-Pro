@@ -7,4 +7,5 @@ export const { TichaDeals, TichaDealDetails, TichaDealPayments, TrackingTichaDea
   api: storekeeperApi,
   basePath: PORTAL.basePath,
   useStaffUser: () => useAuth().staff,
+  dealsHeroVariant: 'storekeeper',
 })

@@ -124,7 +124,12 @@ function from24HourParts(hour, minute) {
 // ─────────────────────────────────────────────
 //  GATE ATTENDANCE PAGE
 // ─────────────────────────────────────────────
-export default function GateAttendance() {
+export default function GateAttendance({
+  hideSettings = false,
+  readOnly = false,
+  studentStatsOnly = false,
+  defaultRoleFilter = 'ALL',
+} = {}) {
   const [page, setPage] = useState('gate'); // 'gate' | 'settings' | 'log'
   const now = useNow();
 
@@ -329,10 +334,24 @@ export default function GateAttendance() {
     uid, ...rec,
   }));
 
+  const statsLog = studentStatsOnly
+    ? todayLog.filter((r) => r.person?.role === 'Student')
+    : todayLog;
+
   // ── Stats
-  const totalIn    = todayLog.filter(r => r.morning).length;
-  const totalOut   = todayLog.filter(r => r.evening).length;
-  const lateCount  = todayLog.filter(r => r.morning?.status === 'Late').length;
+  const totalIn    = statsLog.filter(r => r.morning).length;
+  const totalOut   = statsLog.filter(r => r.evening).length;
+  const lateCount  = statsLog.filter(r => r.morning?.status === 'Late').length;
+
+  const pageTabs = [
+    { id: 'gate', label: 'Gate', icon: DoorOpen },
+    { id: 'log', label: 'Today Log', icon: ClipboardList },
+    ...(hideSettings ? [] : [{ id: 'settings', label: 'Settings', icon: Settings }]),
+  ];
+
+  useEffect(() => {
+    if (hideSettings && page === 'settings') setPage('gate');
+  }, [hideSettings, page]);
 
   return (
     <div className="min-h-screen bg-[#f8fafc] font-sans text-slate-900">
@@ -367,14 +386,15 @@ export default function GateAttendance() {
             <div>
               <h1 className="text-sm font-black tracking-tight text-slate-900">Gate Attendance</h1>
               <p className="font-mono text-[10px] font-medium text-amber-600">{fmtDate(now)}</p>
+              {studentStatsOnly && (
+                <p className="mt-0.5 text-[10px] font-semibold text-slate-500">
+                  Live counts show students only — for meal and stock planning.
+                </p>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-1 overflow-x-auto">
-            {[
-              { id: 'gate', label: 'Gate', icon: DoorOpen },
-              { id: 'log', label: 'Today Log', icon: ClipboardList },
-              { id: 'settings', label: 'Settings', icon: Settings },
-            ].map(tab => (
+            {pageTabs.map(tab => (
               <button
                 key={tab.id}
                 onClick={() => setPage(tab.id)}
@@ -416,8 +436,8 @@ export default function GateAttendance() {
                 </div>
               </div>
               {[
-                { label: 'Entered Today', value: totalIn, color: 'text-emerald-300', bg: 'from-emerald-900/30 to-emerald-900/5', border: 'border-emerald-800/40', icon: UserCheck },
-                { label: 'Exited Today', value: totalOut, color: 'text-sky-300', bg: 'from-sky-900/30 to-sky-900/5', border: 'border-sky-800/40', icon: UserMinus },
+                { label: studentStatsOnly ? 'Students Entered' : 'Entered Today', value: totalIn, color: 'text-emerald-300', bg: 'from-emerald-900/30 to-emerald-900/5', border: 'border-emerald-800/40', icon: UserCheck },
+                { label: studentStatsOnly ? 'Students Exited' : 'Exited Today', value: totalOut, color: 'text-sky-300', bg: 'from-sky-900/30 to-sky-900/5', border: 'border-sky-800/40', icon: UserMinus },
                 { label: 'Late Arrivals', value: lateCount, color: 'text-amber-300', bg: 'from-amber-900/30 to-amber-900/5', border: 'border-amber-800/40', icon: Clock3 },
               ].map(s => (
                 <div key={s.label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -449,21 +469,22 @@ export default function GateAttendance() {
               </div>
             )}
 
-            {/* ── Manual / Test Input (for demo & fallback) ── */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-              <p className="mb-3 text-xs font-black uppercase tracking-widest text-slate-700">Manual / Test — Enter Card UID</p>
-              <form onSubmit={handleManualTap} className="flex flex-col gap-3 sm:flex-row">
-                <input
-                  value={inputUID}
-                  onChange={e => setInputUID(e.target.value.toUpperCase())}
-                  placeholder="e.g. A1B2C3D4"
-                  className="font-mono flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-900 placeholder-slate-400 outline-none transition focus:border-amber-500/50"
-                />
-                <button type="submit" className="rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 px-5 py-3 text-sm font-black text-[#0b1220] shadow-lg shadow-amber-900/30 transition hover:opacity-90 active:scale-95">
-                  Simulate Tap
-                </button>
-              </form>
-            </div>
+            {!readOnly && (
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <p className="mb-3 text-xs font-black uppercase tracking-widest text-slate-700">Manual / Test — Enter Card UID</p>
+                <form onSubmit={handleManualTap} className="flex flex-col gap-3 sm:flex-row">
+                  <input
+                    value={inputUID}
+                    onChange={e => setInputUID(e.target.value.toUpperCase())}
+                    placeholder="e.g. A1B2C3D4"
+                    className="font-mono flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-900 placeholder-slate-400 outline-none transition focus:border-amber-500/50"
+                  />
+                  <button type="submit" className="rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 px-5 py-3 text-sm font-black text-[#0b1220] shadow-lg shadow-amber-900/30 transition hover:opacity-90 active:scale-95">
+                    Simulate Tap
+                  </button>
+                </form>
+              </div>
+            )}
 
             {/* ── Recent taps log snippet ── */}
             {todayLog.length > 0 && (
@@ -486,7 +507,13 @@ export default function GateAttendance() {
             TODAY LOG PAGE
         ════════════════════════════════════ */}
         {page === 'log' && (
-          <TodayLogPage records={records} todayLog={todayLog} onReload={loadGateData} />
+          <TodayLogPage
+            records={records}
+            todayLog={todayLog}
+            onReload={loadGateData}
+            readOnly={readOnly}
+            defaultRoleFilter={defaultRoleFilter}
+          />
         )}
 
         {/* ════════════════════════════════════
@@ -669,9 +696,9 @@ function MiniLogRow({ rec }) {
 // ─────────────────────────────────────────────
 //  TODAY LOG PAGE
 // ─────────────────────────────────────────────
-function TodayLogPage({ records, todayLog, onReload }) {
+function TodayLogPage({ records, todayLog, onReload, readOnly = false, defaultRoleFilter = 'ALL' }) {
   const [search, setSearch] = useState('');
-  const [roleFilter, setRoleFilter] = useState('ALL');
+  const [roleFilter, setRoleFilter] = useState(defaultRoleFilter);
   const [sessionFilter, setSessionFilter] = useState('ALL');
   const [selected, setSelected] = useState([]);
   const [deleting, setDeleting] = useState(false);
@@ -789,26 +816,28 @@ function TodayLogPage({ records, todayLog, onReload }) {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          disabled={deleting || !selected.length}
-          onClick={deleteSelected}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[11px] font-black text-red-700 disabled:opacity-50"
-        >
-          <Trash2 size={12} />
-          Delete Selected ({selected.length})
-        </button>
-        <button
-          type="button"
-          disabled={deleting || !todayLog.length}
-          onClick={deleteAll}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-2 text-[11px] font-black text-red-700 disabled:opacity-50"
-        >
-          <Trash2 size={12} />
-          Delete All
-        </button>
-      </div>
+      {!readOnly && (
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            disabled={deleting || !selected.length}
+            onClick={deleteSelected}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[11px] font-black text-red-700 disabled:opacity-50"
+          >
+            <Trash2 size={12} />
+            Delete Selected ({selected.length})
+          </button>
+          <button
+            type="button"
+            disabled={deleting || !todayLog.length}
+            onClick={deleteAll}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-2 text-[11px] font-black text-red-700 disabled:opacity-50"
+          >
+            <Trash2 size={12} />
+            Delete All
+          </button>
+        </div>
+      )}
 
       {/* Table */}
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -816,15 +845,20 @@ function TodayLogPage({ records, todayLog, onReload }) {
           <table className="w-full min-w-[640px]">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50">
-                <th className="px-4 py-3">
-                  <input
-                    type="checkbox"
-                    checked={allFilteredSelected}
-                    onChange={toggleAllFiltered}
-                    className="h-4 w-4 rounded border-slate-300 text-amber-500 focus:ring-amber-500"
-                  />
-                </th>
-                {['#','Name','ID','Role','Card UID','Morning Entry','Evening Exit','Status','Actions'].map((h) => (
+                {!readOnly && (
+                  <th className="px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={allFilteredSelected}
+                      onChange={toggleAllFiltered}
+                      className="h-4 w-4 rounded border-slate-300 text-amber-500 focus:ring-amber-500"
+                    />
+                  </th>
+                )}
+                {(readOnly
+                  ? ['#', 'Name', 'ID', 'Role', 'Card UID', 'Morning Entry', 'Evening Exit', 'Status']
+                  : ['#', 'Name', 'ID', 'Role', 'Card UID', 'Morning Entry', 'Evening Exit', 'Status', 'Actions']
+                ).map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-[10px] font-black uppercase tracking-widest text-slate-600">{h}</th>
                 ))}
               </tr>
@@ -832,7 +866,7 @@ function TodayLogPage({ records, todayLog, onReload }) {
             <tbody>
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="px-4 py-16 text-center text-sm font-semibold text-slate-500">
+                  <td colSpan={readOnly ? 8 : 10} className="px-4 py-16 text-center text-sm font-semibold text-slate-500">
                     No records yet for today. Tap a card to begin.
                   </td>
                 </tr>
@@ -848,14 +882,16 @@ function TodayLogPage({ records, todayLog, onReload }) {
                     : 'bg-slate-100 text-slate-500';
                 return (
                   <tr key={rec.uid} className="border-b border-slate-100 transition hover:bg-slate-50">
-                    <td className="px-4 py-3">
-                      <input
-                        type="checkbox"
-                        checked={selected.includes(rec.uid)}
-                        onChange={() => toggleOne(rec.uid)}
-                        className="h-4 w-4 rounded border-slate-300 text-amber-500 focus:ring-amber-500"
-                      />
-                    </td>
+                    {!readOnly && (
+                      <td className="px-4 py-3">
+                        <input
+                          type="checkbox"
+                          checked={selected.includes(rec.uid)}
+                          onChange={() => toggleOne(rec.uid)}
+                          className="h-4 w-4 rounded border-slate-300 text-amber-500 focus:ring-amber-500"
+                        />
+                      </td>
+                    )}
                     <td className="px-4 py-3 text-xs font-bold text-slate-500">{i + 1}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
@@ -894,17 +930,19 @@ function TodayLogPage({ records, todayLog, onReload }) {
                         {statusLabel}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        disabled={deleting}
-                        onClick={() => deleteOne(rec.uid)}
-                        className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-[10px] font-black text-red-700 disabled:opacity-50"
-                      >
-                        <Trash2 size={11} />
-                        Delete
-                      </button>
-                    </td>
+                    {!readOnly && (
+                      <td className="px-4 py-3">
+                        <button
+                          type="button"
+                          disabled={deleting}
+                          onClick={() => deleteOne(rec.uid)}
+                          className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-[10px] font-black text-red-700 disabled:opacity-50"
+                        >
+                          <Trash2 size={11} />
+                          Delete
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 );
               })}

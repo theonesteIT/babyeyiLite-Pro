@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "c9a91f04-4e28-4f47-b8f8-c001b9c7a111",
     "name": "BabyeyiSystem API",
-    "description": "Organized Postman collection for Babyeyi backend APIs. Uses session-cookie authentication (babyeyi_sid). **Parent portal:** use `10 - Parent Portal & Payments` → `POST .../parent-portal/login` (or register / phone-login) first; Postman stores the cookie for later requests. **Guest Babyeyi Finder pay (no login):** use `10b` — student code lookup + pricing + intent. **Public pay by school code + class (no auth):** use `10c` — `POST /api/public/public-pay/class-pricing` and `search-student`, then `POST /api/public/babyeyi-pay/intent`. **Invoices & receipts:** `12` — list/detail/print PDF (school session), public verify + paid receipt PDF, quote-balance, MoMo poll. **MTN direct (optional):** `13` — `/api/momo/*` and student-services pay. **Parent phone reset:** `14`. **Field agents:** `15`. **Super Admin only:** `admin-upgrades`, `admin-accounts`, and `/api/public/babyeyi-pay/admin-*` require `01 - Auth & Session` as SUPER_ADMIN. **School staff:** `POST /api/auth/login` with `email`, `password`, `schoolCode`. **Teacher Avance (USSD):** folder **`Teacher Avance USSD`** — login body uses collection var **`{{teacherStaffId}}`** (Manager → HR Central **Staff ID / Code**, same as `staff.staff_id` in DB, e.g. `TR-007`) as JSON field `identifier`; `ussdAccessToken` is set after login. **Shule Avance (HTTP):** see **`16`** → *Tools, services...* and **`18`** → *shuleAvanceServices.js* / *auth.js* / *shuleAvanceOrgPortal.js*.",
+    "description": "Organized Postman collection for Babyeyi backend APIs. Uses session-cookie authentication (babyeyi_sid). **Parent portal:** use `10 - Parent Portal & Payments` → `POST .../parent-portal/login` (or register / phone-login) first; Postman stores the cookie for later requests. **Guest Babyeyi Finder pay (no login):** use `10b` — student code lookup + pricing + intent. **Public pay by school code + class (no auth):** use `10c` — `POST /api/public/public-pay/class-pricing` and `search-student`, then `POST /api/public/babyeyi-pay/intent`. **Invoices & receipts:** `12` — list/detail/print PDF (school session), public verify + paid receipt PDF, quote-balance, MoMo poll. **MTN direct (optional):** `13` — `/api/momo/*` and student-services pay. **Parent phone reset:** `14`. **Field agents:** `15`. **Super Admin only:** `admin-upgrades`, `admin-accounts`, and `/api/public/babyeyi-pay/admin-*` require `01 - Auth & Session` as SUPER_ADMIN. **School staff:** `POST /api/auth/login` with `email`, `password`, `schoolCode`. **Teacher Avance (USSD):** folder **`Teacher Avance USSD`** — login body uses collection var **`{{teacherStaffId}}`** (Manager → HR Central **Staff ID / Code**, same as `staff.staff_id` in DB, e.g. `TR-007`) as JSON field `identifier`; `ussdAccessToken` is set after login. **Shule Avance (HTTP):** see **`16`** → *Tools, services...* and **`18`** → *shuleAvanceServices.js* / *auth.js* / *shuleAvanceOrgPortal.js*.\n\n**10c E2E:** Run `E2E — Combined tuition` in order. **19 - Backend sync:** auto-added missing routes from backend scan.\n\n**10c E2E:** Run `E2E — Combined tuition` in order. **19 - Backend sync:** auto-added missing routes from backend scan.\n\n**10c E2E:** Run `E2E — Combined tuition` in order. **19 - Backend sync:** auto-added missing routes from backend scan.\n\n**10c E2E:** Run `E2E — Combined tuition` in order. **19 - Backend sync:** auto-added missing routes from backend scan.\n\n**10c E2E:** Run `E2E — Combined tuition` in order. **19 - Backend sync:** auto-added missing routes from backend scan.\n\n**10c E2E:** Run `E2E — Combined tuition` in order. **19 - Backend sync:** auto-added missing routes from backend scan.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -97,6 +97,31 @@
     {
       "key": "ussdAccessToken",
       "value": ""
+    },
+    {
+      "key": "remainingRwf",
+      "value": "0",
+      "type": "string"
+    },
+    {
+      "key": "selectedFeeIdsJson",
+      "value": "[]",
+      "type": "string"
+    },
+    {
+      "key": "selectedReqIdsJson",
+      "value": "[]",
+      "type": "string"
+    },
+    {
+      "key": "selectedStudentsJson",
+      "value": "[]",
+      "type": "string"
+    },
+    {
+      "key": "selectedStudentSingleJson",
+      "value": "null",
+      "type": "string"
     }
   ],
   "item": [
@@ -1507,7 +1532,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"school_id\": {{schoolId}},\n  \"babyeyi_id\": {{babyeyiId}},\n  \"total_rwf\": 1000,\n  \"status\": \"submitted\",\n  \"selected_fee_ids\": [],\n  \"selected_requirement_ids\": [],\n  \"selected_student\": null,\n  \"payer\": { \"name\": \"Test Parent\", \"phone\": \"0780000000\", \"email\": null },\n  \"payment_plan\": { \"method\": \"momo\", \"payMode\": \"full\" }\n}"
+              "raw": "{\n  \"school_code\": \"{{schoolCode}}\",\n  \"babyeyi_id\": \"{{babyeyiId}}\",\n  \"total_rwf\": 1000,\n  \"status\": \"submitted\",\n  \"selected_fee_ids\": [],\n  \"selected_requirement_ids\": [],\n  \"selected_student\": null,\n  \"payer\": { \"name\": \"Test Parent\", \"phone\": \"0780000000\", \"email\": null },\n  \"payment_plan\": { \"method\": \"momo\", \"payMode\": \"full\" }\n}"
             },
             "url": "{{baseUrl}}/api/parent-portal/public/babyeyi-finder/intent"
           }
@@ -1524,7 +1549,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"school_id\": {{schoolId}},\n  \"babyeyi_id\": {{babyeyiId}},\n  \"total_rwf\": 1000,\n  \"status\": \"submitted\",\n  \"selected_fee_ids\": [],\n  \"selected_requirement_ids\": [],\n  \"selected_student\": null,\n  \"payer\": { \"name\": \"Test Parent\", \"phone\": \"0780000000\", \"email\": null },\n  \"payment_plan\": { \"method\": \"momo\", \"payMode\": \"full\" }\n}"
+              "raw": "{\n  \"school_code\": \"{{schoolCode}}\",\n  \"babyeyi_id\": \"{{babyeyiId}}\",\n  \"total_rwf\": 1000,\n  \"status\": \"submitted\",\n  \"selected_fee_ids\": [],\n  \"selected_requirement_ids\": [],\n  \"selected_student\": null,\n  \"payer\": { \"name\": \"Test Parent\", \"phone\": \"0780000000\", \"email\": null },\n  \"payment_plan\": { \"method\": \"momo\", \"payMode\": \"full\" }\n}"
             },
             "url": "{{baseUrl}}/api/public/babyeyi-pay/intent"
           }
@@ -1533,7 +1558,7 @@
     },
     {
       "name": "10c - Public pay by school code (no auth)",
-      "description": "No login. Use **school directory code** + **class** to load tuition + requirements + total, or **search-student** (scoped to that school) then continue with **POST /api/public/babyeyi-pay/intent** using `next_step.example_body` from the response.",
+      "description": "No login. **Student-code flow (Pay Fees / PublicPage):** use **E2E** subfolder or `POST student-catalog` → `GET babyeyi-pay/pricing` → `POST quote-balance` → `POST intent` (folder 10b/12). **School-code flow:** `school-catalog` or `class-pricing` + `search-student`.",
       "item": [
         {
           "name": "GET /api/public/public-pay (discovery)",
@@ -1577,11 +1602,280 @@
           }
         },
         {
-          "name": "GET /api/public/babyeyi-pay/pricing/:serviceId (class + school_code)",
+          "name": "GET /api/public/babyeyi-pay/pricing/:babyeyiId (school_code)",
           "request": {
             "method": "GET",
-            "url": "{{baseUrl}}/api/public/babyeyi-pay/pricing/{{serviceId}}?class_name={{className}}&school_code={{schoolCode}}"
+            "url": "{{baseUrl}}/api/public/babyeyi-pay/pricing/{{babyeyiId}}?school_code={{schoolCode}}"
           }
+        },
+        {
+          "name": "POST /api/public/public-pay/school-catalog",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/public/public-pay/school-catalog",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"school_code\": \"{{schoolCode}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "POST /api/public/public-pay/student-catalog",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/public/public-pay/student-catalog",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{studentLookupCode}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "GET /api/public/babyeyi-pay/pricing/:babyeyiId (school_id)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/public/babyeyi-pay/pricing/{{babyeyiId}}?school_id={{schoolId}}"
+          }
+        },
+        {
+          "name": "POST /api/public/babyeyi-pay/quote-balance",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/public/babyeyi-pay/quote-balance",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"school_code\": \"{{schoolCode}}\",\n  \"babyeyi_id\": \"{{babyeyiId}}\",\n  \"selected_fee_ids\": {{selectedFeeIdsJson}},\n  \"selected_requirement_ids\": {{selectedReqIdsJson}},\n  \"selected_students\": {{selectedStudentsJson}},\n  \"school_counter_credits_rwf\": {}\n}"
+            }
+          }
+        },
+        {
+          "name": "GET /api/public/babyeyi-pay/pricing/:babyeyiId (school_code)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/public/babyeyi-pay/pricing/{{babyeyiId}}?school_code={{schoolCode}}"
+          }
+        },
+        {
+          "name": "E2E — Combined tuition (student code → pricing → balance)",
+          "description": "**Run steps 1 → 2 → 3 → 6 in order.** Set `studentLookupCode`. Step 1 sets `schoolCode` (directory code e.g. `003`) — use that in pricing query and pay bodies (not numeric `schoolId`).",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "['selectedFeeIdsJson','selectedReqIdsJson','selectedStudentsJson','selectedStudentSingleJson'].forEach((k) => {",
+                  "  if (!pm.collectionVariables.get(k)) {",
+                  "    pm.collectionVariables.set(k, k.includes('StudentSingle') ? 'null' : '[]');",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "item": [
+            {
+              "name": "1 — POST student-catalog",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/public/public-pay/student-catalog",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"code\": \"{{studentLookupCode}}\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                      "const j = pm.response.json();",
+                      "pm.test('success', () => pm.expect(j.success).to.eql(true));",
+                      "if (j.data?.school?.school_code) pm.collectionVariables.set('schoolCode', String(j.data.school.school_code));",
+                      "if (j.data?.school?.id) pm.collectionVariables.set('schoolId', String(j.data.school.id));",
+                      "const combo = (j.data?.combinations || [])[0];",
+                      "if (combo?.babyeyi_id) pm.collectionVariables.set('babyeyiId', String(combo.babyeyi_id));",
+                      "if (j.data?.student?.student_uid) pm.collectionVariables.set('studentLookupCode', String(j.data.student.student_uid));",
+                      "const st = j.data?.student;",
+                      "if (st?.id) {",
+                      "  const row = { student_id: st.id, student_uid: st.student_uid, student_code: st.student_code, student_name: [st.first_name, st.last_name].filter(Boolean).join(' '), first_name: st.first_name, last_name: st.last_name, class_name: st.class_name, academic_year: st.academic_year, school_name: j.data?.school?.school_name };",
+                      "  pm.collectionVariables.set('selectedStudentsJson', JSON.stringify([row]));",
+                      "  pm.collectionVariables.set('selectedStudentSingleJson', JSON.stringify(row));",
+                      "  pm.collectionVariables.set('studentId', String(st.id));",
+                      "}",
+                      "pm.test('schoolCode set from catalog', () => {",
+                      "  pm.expect(pm.collectionVariables.get('schoolCode')).to.be.a('string').and.not.empty;",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "2 — GET babyeyi-pay pricing",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/public/babyeyi-pay/pricing/{{babyeyiId}}?school_code={{schoolCode}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                      "const j = pm.response.json();",
+                      "pm.test('success', () => pm.expect(j.success).to.eql(true));",
+                      "pm.test('combined_total_rwf present', () => pm.expect(j.data).to.have.property('combined_total_rwf'));",
+                      "if (j.data?.babyeyi?.id) pm.collectionVariables.set('babyeyiId', String(j.data.babyeyi.id));",
+                      "const feeIds = (j.data?.school_fees || []).map((f) => f.id);",
+                      "const reqIds = (j.data?.requirements || []).map((r) => r.babyeyi_requirement_id).filter(Boolean);",
+                      "pm.collectionVariables.set('selectedFeeIdsJson', JSON.stringify(feeIds));",
+                      "pm.collectionVariables.set('selectedReqIdsJson', JSON.stringify(reqIds));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "3 — POST quote-balance",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/public/babyeyi-pay/quote-balance",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"school_code\": \"{{schoolCode}}\",\n  \"babyeyi_id\": \"{{babyeyiId}}\",\n  \"selected_fee_ids\": {{selectedFeeIdsJson}},\n  \"selected_requirement_ids\": {{selectedReqIdsJson}},\n  \"selected_students\": {{selectedStudentsJson}},\n  \"school_counter_credits_rwf\": {}\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                      "const j = pm.response.json();",
+                      "pm.test('success', () => pm.expect(j.success).to.eql(true));",
+                      "if (j.data?.remaining_rwf != null) pm.collectionVariables.set('remainingRwf', String(j.data.remaining_rwf));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "6 — POST intent (checkout / MoMo)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/public/babyeyi-pay/intent",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"school_code\": \"{{schoolCode}}\",\n  \"babyeyi_id\": \"{{babyeyiId}}\",\n  \"total_rwf\": 1000,\n  \"status\": \"submitted\",\n  \"selected_fee_ids\": {{selectedFeeIdsJson}},\n  \"selected_requirement_ids\": {{selectedReqIdsJson}},\n  \"selected_student\": {{selectedStudentSingleJson}},\n  \"selected_students\": {{selectedStudentsJson}},\n  \"payer\": { \"name\": \"Test Parent\", \"phone\": \"{{parentPhone}}\", \"email\": null },\n  \"payment_plan\": { \"method\": \"momo\", \"payMode\": \"full\" },\n  \"public_pay_no_login\": true\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('HTTP 200 or 201', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                      "const j = pm.response.json();",
+                      "if (j.data?.id) pm.collectionVariables.set('paymentIntentId', String(j.data.id));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "4 — POST student-code-lookup (PublicPage search)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/public/student-code-lookup",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"code\": \"{{studentLookupCode}}\"\n}"
+                }
+              }
+            },
+            {
+              "name": "5 — POST school-catalog (PublicPage school fallback)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/public/public-pay/school-catalog",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"school_code\": \"{{schoolCode}}\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                      "const j = pm.response.json();",
+                      "pm.test('success', () => pm.expect(j.success).to.eql(true));",
+                      "if (j.data?.school?.id) pm.collectionVariables.set('schoolId', String(j.data.school.id));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
         }
       ]
     },
@@ -1806,7 +2100,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"school_id\": {{schoolId}},\n  \"babyeyi_id\": {{babyeyiId}},\n  \"total_rwf\": 1000,\n  \"status\": \"draft\",\n  \"selected_fee_ids\": [],\n  \"selected_requirement_ids\": [],\n  \"selected_student\": { \"student_id\": {{studentId}}, \"student_name\": \"Test Student\" },\n  \"payment_plan\": { \"payMode\": \"full\", \"method\": \"cash\" },\n  \"payer\": { \"name\": \"Parent Name\", \"phone\": \"{{parentPhone}}\", \"email\": \"parent@example.com\" }\n}"
+              "raw": "{\n  \"school_code\": \"{{schoolCode}}\",\n  \"babyeyi_id\": \"{{babyeyiId}}\",\n  \"total_rwf\": 1000,\n  \"status\": \"draft\",\n  \"selected_fee_ids\": [],\n  \"selected_requirement_ids\": [],\n  \"selected_student\": { \"student_id\": \"{{studentId}}\", \"student_name\": \"Test Student\" },\n  \"payment_plan\": { \"payMode\": \"full\", \"method\": \"cash\" },\n  \"payer\": { \"name\": \"Parent Name\", \"phone\": \"{{parentPhone}}\", \"email\": \"parent@example.com\" }\n}"
             },
             "url": "{{baseUrl}}/api/public/babyeyi-pay/intent"
           }
@@ -2135,7 +2429,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"school_id\": {{schoolId}},\n  \"babyeyi_id\": {{babyeyiId}},\n  \"selected_fee_ids\": [],\n  \"selected_requirement_ids\": [],\n  \"selected_students\": []\n}"
+              "raw": "{\n  \"school_code\": \"{{schoolCode}}\",\n  \"babyeyi_id\": \"{{babyeyiId}}\",\n  \"selected_fee_ids\": [],\n  \"selected_requirement_ids\": [],\n  \"selected_students\": []\n}"
             },
             "url": "{{baseUrl}}/api/public/babyeyi-pay/quote-balance"
           }
@@ -2209,7 +2503,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"school_id\": {{schoolId}}\n}"
+              "raw": "{\n  \"school_code\": \"{{schoolCode}}\"\n}"
             },
             "url": "{{baseUrl}}/api/public/babyeyi-pay/admin-invoices/reminders/run"
           }
@@ -2277,7 +2571,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"phone\": \"0781234567\",\n  \"amount\": 500,\n  \"external_id\": \"postman-test-001\",\n  \"payer_message\": \"School fees test\",\n  \"payee_note\": \"Babyeyi\",\n  \"school_id\": {{schoolId}},\n  \"babyeyi_id\": {{babyeyiId}}\n}"
+              "raw": "{\n  \"phone\": \"0781234567\",\n  \"amount\": 500,\n  \"external_id\": \"postman-test-001\",\n  \"payer_message\": \"School fees test\",\n  \"payee_note\": \"Babyeyi\",\n  \"school_code\": \"{{schoolCode}}\",\n  \"babyeyi_id\": \"{{babyeyiId}}\"\n}"
             },
             "url": "{{baseUrl}}/api/momo/request-to-pay"
           }
@@ -4530,6 +4824,2935 @@
               "request": {
                 "method": "PATCH",
                 "url": "{{baseUrl}}/api/services/shule-avance/manager/invoice-requests/1/decision"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "19 - Backend sync (missing routes)",
+      "description": "Auto-generated 2026-05-25 from `sync-postman.mjs`. **168** endpoints not found in folders 00–18. Set auth via `01 - Auth & Session` first for protected routes. Re-run `node extract-routes.mjs` + `node sync-postman.mjs` after backend changes.",
+      "item": [
+        {
+          "name": "BabyeyiRoutes/DistrictBabyeyi.js",
+          "description": "Auto-synced from backend (5 requests). Session may be required.",
+          "item": [
+            {
+              "name": "GET /api/district/babyeyi/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/district/babyeyi//1"
+              }
+            },
+            {
+              "name": "PATCH /api/district/babyeyi/:id/approve",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/district/babyeyi//1/approve",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "PATCH /api/district/babyeyi/:id/recommend",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/district/babyeyi//1/recommend",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "PATCH /api/district/babyeyi/:id/reject",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/district/babyeyi//1/reject",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "PATCH /api/district/babyeyi/notifications/:id/read",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/district/babyeyi/notifications//1/read",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "BabyeyiRoutes/admissionRoutes.js",
+          "description": "Auto-synced from backend (13 requests). Session may be required.",
+          "item": [
+            {
+              "name": "GET /api/admissions/applications/:appId",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/admissions/applications//{{appId}}"
+              }
+            },
+            {
+              "name": "PATCH /api/admissions/applications/:appId/status",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/admissions/applications//{{appId}}/status",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "DELETE /api/admissions/forms/:formId",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/admissions/forms//{{formId}}"
+              }
+            },
+            {
+              "name": "GET /api/admissions/forms/:formId/applications",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/admissions/forms//{{formId}}/applications"
+              }
+            },
+            {
+              "name": "POST /api/admissions/forms/:formId/apply",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/admissions/forms//{{formId}}/apply",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "GET /api/admissions/forms/:formId/public",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/admissions/forms//{{formId}}/public"
+              }
+            },
+            {
+              "name": "GET /api/admissions/forms/:formId/stats",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/admissions/forms//{{formId}}/stats"
+              }
+            },
+            {
+              "name": "PATCH /api/admissions/forms/:formId/status",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/admissions/forms//{{formId}}/status",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "GET /api/admissions/school/:schoolId",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/admissions/school//{{schoolId}}"
+              }
+            },
+            {
+              "name": "POST /api/admissions/school/:schoolId",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/admissions/school//{{schoolId}}",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "PUT /api/admissions/school/:schoolId",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/admissions/school//{{schoolId}}",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "GET /api/admissions/slug/:slug",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/admissions/slug//school-slug"
+              }
+            },
+            {
+              "name": "GET /api/admissions/track/:referenceNo",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/admissions/track//REF-001"
+              }
+            }
+          ]
+        },
+        {
+          "name": "BabyeyiRoutes/babyeyi-deo.js",
+          "description": "Auto-synced from backend (1 requests). Session may be required.",
+          "item": [
+            {
+              "name": "PUT /api/babyeyi/requests/:id/review",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/babyeyi/requests//1/review",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "BabyeyiRoutes/babyeyi.js",
+          "description": "Auto-synced from backend (22 requests). Session may be required.",
+          "item": [
+            {
+              "name": "DELETE /api/babyeyi/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/babyeyi//1"
+              }
+            },
+            {
+              "name": "GET /api/babyeyi/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/babyeyi//1"
+              }
+            },
+            {
+              "name": "PUT /api/babyeyi/:id",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/babyeyi//1",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "PATCH /api/babyeyi/:id/content-i18n/rw",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/babyeyi//1/content-i18n/rw",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "PATCH /api/babyeyi/:id/district-approve",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/babyeyi//1/district-approve",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "PATCH /api/babyeyi/:id/district-recommend",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/babyeyi//1/district-recommend",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "PATCH /api/babyeyi/:id/district-reject",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/babyeyi//1/district-reject",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "GET /api/babyeyi/:id/leaders",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/babyeyi//1/leaders"
+              }
+            },
+            {
+              "name": "POST /api/babyeyi/:id/leaders",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/babyeyi//1/leaders",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "DELETE /api/babyeyi/:id/leaders/:leaderId",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/babyeyi//1/leaders//1"
+              }
+            },
+            {
+              "name": "PUT /api/babyeyi/:id/leaders/:leaderId",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/babyeyi//1/leaders//1",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "PATCH /api/babyeyi/:id/nesa-approve",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/babyeyi//1/nesa-approve",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "PATCH /api/babyeyi/:id/nesa-reject",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/babyeyi//1/nesa-reject",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "GET /api/babyeyi/:id/pdf",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/babyeyi//1/pdf"
+              }
+            },
+            {
+              "name": "GET /api/babyeyi/:id/qrcode",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/babyeyi//1/qrcode"
+              }
+            },
+            {
+              "name": "POST /api/babyeyi/:id/qrcode",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/babyeyi//1/qrcode",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "POST /api/babyeyi/:id/regenerate-docs",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/babyeyi//1/regenerate-docs",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "POST /api/babyeyi/:id/submit-request",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/babyeyi//1/submit-request",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "GET /api/babyeyi/debug-hash/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/babyeyi/debug-hash//1"
+              }
+            },
+            {
+              "name": "PATCH /api/babyeyi/notifications/:id/read",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/babyeyi/notifications//1/read",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "GET /api/babyeyi/pdf/:docId",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/babyeyi/pdf//DOC-1"
+              }
+            },
+            {
+              "name": "GET /api/babyeyi/verify/:docId",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/babyeyi/verify//DOC-1"
+              }
+            }
+          ]
+        },
+        {
+          "name": "BabyeyiRoutes/chatRoutes.js",
+          "description": "Auto-synced from backend (4 requests). Session may be required.",
+          "item": [
+            {
+              "name": "DELETE /api/chat/threads/:threadId",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/chat/threads//1"
+              }
+            },
+            {
+              "name": "GET /api/chat/threads/:threadId/messages",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/chat/threads//1/messages"
+              }
+            },
+            {
+              "name": "POST /api/chat/threads/:threadId/messages",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/chat/threads//1/messages",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "POST /api/chat/threads/:threadId/read",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/chat/threads//1/read",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "BabyeyiRoutes/discipline.js",
+          "description": "Auto-synced from backend (3 requests). Session may be required.",
+          "item": [
+            {
+              "name": "GET /api/discipline/students/:studentId/logs",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/discipline/students//{{studentId}}/logs"
+              }
+            },
+            {
+              "name": "POST /api/discipline/students/:studentId/marks",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/discipline/students//{{studentId}}/marks",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "POST /api/discipline/students/:studentId/undo-last-action",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/discipline/students//{{studentId}}/undo-last-action",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "BabyeyiRoutes/dosAcademic.js",
+          "description": "Auto-synced from backend (9 requests). Session may be required.",
+          "item": [
+            {
+              "name": "PUT /api/dos/academic-years/:year",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/dos/academic-years//1",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "PATCH /api/dos/academic-years/:year/current",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/dos/academic-years//1/current",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "DELETE /api/dos/calendar/periods/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/dos/calendar/periods//1"
+              }
+            },
+            {
+              "name": "DELETE /api/dos/teacher-period/alerts/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/dos/teacher-period/alerts//1"
+              }
+            },
+            {
+              "name": "PATCH /api/dos/teacher-period/alerts/:id/read",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/dos/teacher-period/alerts//1/read",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "DELETE /api/dos/teacher-period/logs/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/dos/teacher-period/logs//1"
+              }
+            },
+            {
+              "name": "DELETE /api/dos/timetable-system/assignments/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/dos/timetable-system/assignments//1"
+              }
+            },
+            {
+              "name": "PUT /api/dos/timetable-system/course-config/:subjectName",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/dos/timetable-system/course-config//1",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "PUT /api/dos/timetable-system/teacher-profiles/:teacherId",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/dos/timetable-system/teacher-profiles//1",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "BabyeyiRoutes/library.js",
+          "description": "Auto-synced from backend (4 requests). Session may be required.",
+          "item": [
+            {
+              "name": "DELETE /api/books/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/books//1"
+              }
+            },
+            {
+              "name": "PUT /api/books/:id",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/books//1",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "GET /api/books/:id/qr.png",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/books//1/qr.png"
+              }
+            },
+            {
+              "name": "PUT /api/borrowings/return/:id",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/borrowings/return//1",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "BabyeyiRoutes/miniWebsites.js",
+          "description": "Auto-synced from backend (9 requests). Session may be required.",
+          "item": [
+            {
+              "name": "DELETE /api/mini-websites/:miniId",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/mini-websites//1"
+              }
+            },
+            {
+              "name": "GET /api/mini-websites/:miniId",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/mini-websites//1"
+              }
+            },
+            {
+              "name": "PUT /api/mini-websites/:miniId",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/mini-websites//1",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "PATCH /api/mini-websites/:miniId/publish",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/mini-websites//1/publish",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "PATCH /api/mini-websites/:miniId/unpublish",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/mini-websites//1/unpublish",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "GET /api/mini-websites/babyeyi/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/mini-websites/babyeyi//1"
+              }
+            },
+            {
+              "name": "GET /api/mini-websites/babyeyi/verify/:docId",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/mini-websites/babyeyi/verify//DOC-1"
+              }
+            },
+            {
+              "name": "GET /api/mini-websites/school/:schoolId",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/mini-websites/school//{{schoolId}}"
+              }
+            },
+            {
+              "name": "GET /api/mini-websites/slug/:slug",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/mini-websites/slug//school-slug"
+              }
+            }
+          ]
+        },
+        {
+          "name": "BabyeyiRoutes/momoRoutes.js",
+          "description": "Auto-synced from backend (1 requests). Session may be required.",
+          "item": [
+            {
+              "name": "GET /api/momo/status/:referenceId",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/momo/status//1"
+              }
+            }
+          ]
+        },
+        {
+          "name": "BabyeyiRoutes/nesaBabyeyi.js",
+          "description": "Auto-synced from backend (5 requests). Session may be required.",
+          "item": [
+            {
+              "name": "PATCH /api/nesa/babyeyi/notifications/:id/read",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/nesa/babyeyi/notifications//1/read",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "GET /api/nesa/babyeyi/requests/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/nesa/babyeyi/requests//1"
+              }
+            },
+            {
+              "name": "PATCH /api/nesa/babyeyi/requests/:id/approve",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/nesa/babyeyi/requests//1/approve",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "PATCH /api/nesa/babyeyi/requests/:id/reject",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/nesa/babyeyi/requests//1/reject",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "GET /api/nesa/babyeyi/violations/:babyeyiId",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/nesa/babyeyi/violations//{{babyeyiId}}"
+              }
+            }
+          ]
+        },
+        {
+          "name": "BabyeyiRoutes/parentPortal.js",
+          "description": "Auto-synced from backend (3 requests). Session may be required.",
+          "item": [
+            {
+              "name": "GET /api/parent-portal/loan-intents/:id/detail",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/parent-portal/loan-intents//1/detail"
+              }
+            },
+            {
+              "name": "POST /api/parent-portal/loan-intents/:id/pay",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/parent-portal/loan-intents//1/pay",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "GET /api/parent-portal/shulecard/topups/:id/pay-status",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/parent-portal/shulecard/topups//1/pay-status"
+              }
+            }
+          ]
+        },
+        {
+          "name": "BabyeyiRoutes/portalOperations.js",
+          "description": "Auto-synced from backend (14 requests). Session may be required.",
+          "item": [
+            {
+              "name": "PATCH /api/accountant/budget-lines/:id/freeze",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/accountant/budget-lines//1/freeze",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "DELETE /api/accountant/expenses/:expenseId/payments/:paymentId",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/accountant/expenses//1/payments//1"
+              }
+            },
+            {
+              "name": "GET /api/accountant/payroll-requests/:id/details",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/accountant/payroll-requests//1/details"
+              }
+            },
+            {
+              "name": "GET /api/accountant/payroll/advance-check/:staffUserId",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/accountant/payroll/advance-check//1"
+              }
+            },
+            {
+              "name": "POST /api/accountant/payroll/payments/:id/finish",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/accountant/payroll/payments//1/finish",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "PATCH /api/accountant/payroll/staff/:userId",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/accountant/payroll/staff//1",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "GET /api/accountant/school-budgets/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/accountant/school-budgets//1"
+              }
+            },
+            {
+              "name": "PATCH /api/accountant/school-budgets/:id",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/accountant/school-budgets//1",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "PATCH /api/accountant/school-budgets/:id/review",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/accountant/school-budgets//1/review",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "PATCH /api/manager/payroll-requests/:id/decision",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/manager/payroll-requests//1/decision",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "PATCH /api/manager/payroll/requests/:id/decision",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/manager/payroll/requests//1/decision",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "PATCH /api/reports/requisitions/teacher/:id/action",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/reports/requisitions/teacher//1/action",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "PATCH /api/reports/teacher-permissions/:id/action",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/reports/teacher-permissions//1/action",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "DELETE /api/teacher-portal/permissions/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/teacher-portal/permissions//1"
+              }
+            }
+          ]
+        },
+        {
+          "name": "BabyeyiRoutes/publicBabyeyiPay.js",
+          "description": "Auto-synced from backend (26 requests). Session may be required.",
+          "item": [
+            {
+              "name": "GET /api/parent-portal/public/babyeyi-finder/admin-intents/:id/detail",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/parent-portal/public/babyeyi-finder/admin-intents//1/detail"
+              }
+            },
+            {
+              "name": "PUT /api/parent-portal/public/babyeyi-finder/admin-intents/:id/loan-extension",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/parent-portal/public/babyeyi-finder/admin-intents//1/loan-extension",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "POST /api/parent-portal/public/babyeyi-finder/admin-intents/:id/reconcile-provider",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/parent-portal/public/babyeyi-finder/admin-intents//1/reconcile-provider",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "POST /api/parent-portal/public/babyeyi-finder/admin-intents/:id/retry-collection",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/parent-portal/public/babyeyi-finder/admin-intents//1/retry-collection",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "PUT /api/parent-portal/public/babyeyi-finder/admin-intents/:id/status",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/parent-portal/public/babyeyi-finder/admin-intents//1/status",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "PUT /api/parent-portal/public/babyeyi-finder/admin-loan-repayments/:id/review",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/parent-portal/public/babyeyi-finder/admin-loan-repayments//1/review",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "GET /api/parent-portal/public/babyeyi-finder/admin-webhook-logs/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/parent-portal/public/babyeyi-finder/admin-webhook-logs//1"
+              }
+            },
+            {
+              "name": "POST /api/parent-portal/public/babyeyi-finder/admin-webhook-logs/:id/reconcile",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/parent-portal/public/babyeyi-finder/admin-webhook-logs//1/reconcile",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "POST /api/parent-portal/public/babyeyi-finder/intent/:id/check-provider-status",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/parent-portal/public/babyeyi-finder/intent//1/check-provider-status",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "GET /api/parent-portal/public/babyeyi-finder/invoice/:id.pdf",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/parent-portal/public/babyeyi-finder/invoice//1.pdf"
+              }
+            },
+            {
+              "name": "DELETE /api/parent-portal/public/babyeyi-finder/invoices/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/parent-portal/public/babyeyi-finder/invoices//1"
+              }
+            },
+            {
+              "name": "PATCH /api/parent-portal/public/babyeyi-finder/invoices/:id",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/parent-portal/public/babyeyi-finder/invoices//1",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "GET /api/parent-portal/public/babyeyi-finder/invoices/:id/detail",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/parent-portal/public/babyeyi-finder/invoices//1/detail"
+              }
+            },
+            {
+              "name": "GET /api/parent-portal/public/babyeyi-finder/invoices/:id/print.pdf",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/parent-portal/public/babyeyi-finder/invoices//1/print.pdf"
+              }
+            },
+            {
+              "name": "GET /api/parent-portal/public/babyeyi-finder/invoices/verify/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/parent-portal/public/babyeyi-finder/invoices/verify//1"
+              }
+            },
+            {
+              "name": "GET /api/parent-portal/public/babyeyi-finder/pricing/:babyeyiId",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/parent-portal/public/babyeyi-finder/pricing//{{babyeyiId}}"
+              }
+            },
+            {
+              "name": "GET /api/parent-portal/public/babyeyi-finder/receipt/:id.pdf",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/parent-portal/public/babyeyi-finder/receipt//1.pdf"
+              }
+            },
+            {
+              "name": "POST /api/public/babyeyi-pay/admin-intents/:id/reconcile-provider",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/public/babyeyi-pay/admin-intents//1/reconcile-provider",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "POST /api/public/babyeyi-pay/admin-intents/:id/retry-collection",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/public/babyeyi-pay/admin-intents//1/retry-collection",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "POST /api/public/babyeyi-pay/intent/:id/check-provider-status",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/public/babyeyi-pay/intent//1/check-provider-status",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "GET /api/public/babyeyi-pay/invoice/:id.pdf",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/public/babyeyi-pay/invoice//1.pdf"
+              }
+            },
+            {
+              "name": "GET /api/public/babyeyi-pay/invoices/:id/detail",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/public/babyeyi-pay/invoices//1/detail"
+              }
+            },
+            {
+              "name": "GET /api/public/babyeyi-pay/invoices/:id/print.pdf",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/public/babyeyi-pay/invoices//1/print.pdf"
+              }
+            },
+            {
+              "name": "GET /api/public/babyeyi-pay/invoices/verify/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/public/babyeyi-pay/invoices/verify//1"
+              }
+            },
+            {
+              "name": "GET /api/public/babyeyi-pay/pricing/:babyeyiId",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/public/babyeyi-pay/pricing//{{babyeyiId}}"
+              }
+            },
+            {
+              "name": "GET /api/public/babyeyi-pay/receipt/:id.pdf",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/public/babyeyi-pay/receipt//1.pdf"
+              }
+            }
+          ]
+        },
+        {
+          "name": "BabyeyiRoutes/representativesRoutes.js#adminRouter",
+          "description": "Auto-synced from backend (7 requests). Session may be required.",
+          "item": [
+            {
+              "name": "DELETE /api/representatives/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/representatives//1"
+              }
+            },
+            {
+              "name": "GET /api/representatives/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/representatives//1"
+              }
+            },
+            {
+              "name": "PATCH /api/representatives/:id",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/representatives//1",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "GET /api/representatives/:id/schools",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/representatives//1/schools"
+              }
+            },
+            {
+              "name": "POST /api/representatives/:id/schools",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/representatives//1/schools",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "PUT /api/representatives/:id/schools",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/representatives//1/schools",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "DELETE /api/representatives/:id/schools/:schoolId",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/representatives//1/schools//{{schoolId}}"
+              }
+            }
+          ]
+        },
+        {
+          "name": "BabyeyiRoutes/representativesRoutes.js#repRouter",
+          "description": "Auto-synced from backend (2 requests). Session may be required.",
+          "item": [
+            {
+              "name": "PATCH /api/representative/expenses/:id/decision",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/representative/expenses//1/decision",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "PATCH /api/representative/requisitions/:id/decision",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/representative/requisitions//1/decision",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "BabyeyiRoutes/requirementPrice.js",
+          "description": "Auto-synced from backend (1 requests). Session may be required.",
+          "item": [
+            {
+              "name": "GET /api/requirement-prices/browse/babyeyi-detail/:babyeyiId",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/requirement-prices/browse/babyeyi-detail//{{babyeyiId}}"
+              }
+            }
+          ]
+        },
+        {
+          "name": "BabyeyiRoutes/school-add.js",
+          "description": "Auto-synced from backend (8 requests). Session may be required.",
+          "item": [
+            {
+              "name": "DELETE /api/schools/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/schools//1"
+              }
+            },
+            {
+              "name": "GET /api/schools/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/schools//1"
+              }
+            },
+            {
+              "name": "PUT /api/schools/:id",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/schools//1",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "POST /api/schools/:id/logo",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/schools//1/logo",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "POST /api/schools/:id/signature",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/schools//1/signature",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "POST /api/schools/:id/stamp",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/schools//1/stamp",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "PUT /api/schools/:id/status",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/schools//1/status",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "GET /api/schools/:id/summary",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/schools//1/summary"
+              }
+            }
+          ]
+        },
+        {
+          "name": "BabyeyiRoutes/schoolClasses.js",
+          "description": "Auto-synced from backend (2 requests). Session may be required.",
+          "item": [
+            {
+              "name": "GET /api/schools/:id/classes",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/schools//1/classes"
+              }
+            },
+            {
+              "name": "POST /api/schools/:id/classes",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/schools//1/classes",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "BabyeyiRoutes/schoolRoleOperations.js",
+          "description": "Auto-synced from backend (4 requests). Session may be required.",
+          "item": [
+            {
+              "name": "DELETE /api/gate/attendance/today/:cardUid",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/gate/attendance/today//1"
+              }
+            },
+            {
+              "name": "DELETE /api/iot/events/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/iot/events//1"
+              }
+            },
+            {
+              "name": "PUT /api/iot/events/:id",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/iot/events//1",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "DELETE /api/school/calendar-events/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/school/calendar-events//1"
+              }
+            }
+          ]
+        },
+        {
+          "name": "BabyeyiRoutes/schoolStaff.js",
+          "description": "Auto-synced from backend (5 requests). Session may be required.",
+          "item": [
+            {
+              "name": "DELETE /api/school/staff/:userId",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/school/staff//1"
+              }
+            },
+            {
+              "name": "PATCH /api/school/staff/:userId",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/school/staff//1",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "PUT /api/school/staff/:userId/identity",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/school/staff//1/identity",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "POST /api/school/staff/:userId/photo",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/school/staff//1/photo",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "GET /api/staff/public/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/staff/public//1"
+              }
+            }
+          ]
+        },
+        {
+          "name": "BabyeyiRoutes/standardShuleKitRoutes.js",
+          "description": "Auto-synced from backend (1 requests). Session may be required.",
+          "item": [
+            {
+              "name": "GET /api/standard-shule-kits/public/requests/pay-status/:requestId",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/standard-shule-kits/public/requests/pay-status//1"
+              }
+            }
+          ]
+        },
+        {
+          "name": "BabyeyiRoutes/studentCards.js",
+          "description": "Auto-synced from backend (4 requests). Session may be required.",
+          "item": [
+            {
+              "name": "GET /api/student-cards/:studentId/pdf",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/student-cards//{{studentId}}/pdf"
+              }
+            },
+            {
+              "name": "GET /api/student-cards/:studentId/template",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/student-cards//{{studentId}}/template"
+              }
+            },
+            {
+              "name": "POST /api/student-cards/cache/refresh/:studentId",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/student-cards/cache/refresh//{{studentId}}",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "GET /api/students/public/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/students/public//1"
+              }
+            }
+          ]
+        },
+        {
+          "name": "BabyeyiRoutes/studentPermissions.js",
+          "description": "Auto-synced from backend (1 requests). Session may be required.",
+          "item": [
+            {
+              "name": "PUT /api/permissions/:id",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/permissions//1",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "BabyeyiRoutes/studentServicesRoutes.js",
+          "description": "Auto-synced from backend (2 requests). Session may be required.",
+          "item": [
+            {
+              "name": "GET /api/student-services/public/services/:idOrCode",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/student-services/public/services//1"
+              }
+            },
+            {
+              "name": "GET /api/student-services/public/shop/pay-status/:batchRef",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/student-services/public/shop/pay-status//1"
+              }
+            }
+          ]
+        },
+        {
+          "name": "BabyeyiRoutes/students.js",
+          "description": "Auto-synced from backend (4 requests). Session may be required.",
+          "item": [
+            {
+              "name": "DELETE /api/students/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/students//1"
+              }
+            },
+            {
+              "name": "PUT /api/students/:id",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/students//1",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "PUT /api/students/:id/identity",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/students//1/identity",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "PUT /api/students/:id/identity/photo",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/students//1/identity/photo",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "BabyeyiRoutes/uniformVoucherRoutes.js",
+          "description": "Auto-synced from backend (2 requests). Session may be required.",
+          "item": [
+            {
+              "name": "GET /api/uniform-vouchers/public/pay-status/:orderId",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/uniform-vouchers/public/pay-status//1"
+              }
+            },
+            {
+              "name": "GET /api/uniform-vouchers/public/track/:voucherNumber",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/uniform-vouchers/public/track//1"
+              }
+            }
+          ]
+        },
+        {
+          "name": "authPages/auth.js",
+          "description": "Auto-synced from backend (6 requests). Session may be required.",
+          "item": [
+            {
+              "name": "PATCH /api/auth/platform-users/:id/active",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/auth/platform-users//1/active",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "PATCH /api/auth/schools/:schoolId/manager-credentials",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/auth/schools//{{schoolId}}/manager-credentials",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "GET /api/auth/schools/:schoolId/modules",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/auth/schools//{{schoolId}}/modules"
+              }
+            },
+            {
+              "name": "PUT /api/auth/schools/:schoolId/modules",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/auth/schools//{{schoolId}}/modules",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "PATCH /api/auth/schools/:schoolId/subscription",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/auth/schools//{{schoolId}}/subscription",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "PATCH /api/auth/super-admins/:id/active",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/auth/super-admins//1/active",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "20 - Notifications (Web Push, Email, In-App)",
+      "description": "**Web Push:** subscribe after login (parent / DEO / NESA / school staff). **Email:** accountant fee-reminder campaigns (session). **In-App:** bell feeds per portal. Auth via `01` or parent login unless noted.",
+      "item": [
+        {
+          "name": "Web Push",
+          "item": [
+            {
+              "name": "Parent portal",
+              "item": [
+                {
+                  "name": "GET /api/parent-portal/push/vapid-key",
+                  "request": {
+                    "method": "GET",
+                    "header": [],
+                    "url": "{{baseUrl}}/api/parent-portal/push/vapid-key"
+                  }
+                },
+                {
+                  "name": "GET /api/parent-portal/push/status",
+                  "request": {
+                    "method": "GET",
+                    "header": [],
+                    "url": "{{baseUrl}}/api/parent-portal/push/status"
+                  }
+                },
+                {
+                  "name": "POST /api/parent-portal/push/subscribe",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": "{{baseUrl}}/api/parent-portal/push/subscribe",
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"subscription\": {\n    \"endpoint\": \"https://fcm.googleapis.com/fcm/send/example-endpoint\",\n    \"keys\": { \"p256dh\": \"BASE64_P256DH\", \"auth\": \"BASE64_AUTH\" }\n  }\n,\n  \"preferences\": { \"notify_fee_reminders\": true, \"notify_discipline\": true, \"notify_school_activity\": true }\n}"
+                    }
+                  }
+                },
+                {
+                  "name": "POST /api/parent-portal/push/unsubscribe",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": "{{baseUrl}}/api/parent-portal/push/unsubscribe",
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{ \"endpoint\": \"https://fcm.googleapis.com/fcm/send/example-endpoint\" }"
+                    }
+                  }
+                },
+                {
+                  "name": "PATCH /api/parent-portal/push/preferences",
+                  "request": {
+                    "method": "PATCH",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": "{{baseUrl}}/api/parent-portal/push/preferences",
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{ \"notify_fee_reminders\": true, \"notify_discipline\": true, \"notify_school_activity\": true }"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "name": "District DEO",
+              "item": [
+                {
+                  "name": "GET /api/district/babyeyi/push/vapid-key",
+                  "request": {
+                    "method": "GET",
+                    "header": [],
+                    "url": "{{baseUrl}}/api/district/babyeyi/push/vapid-key"
+                  }
+                },
+                {
+                  "name": "POST /api/district/babyeyi/push/subscribe",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": "{{baseUrl}}/api/district/babyeyi/push/subscribe",
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"subscription\": {\n    \"endpoint\": \"https://fcm.googleapis.com/fcm/send/example-endpoint\",\n    \"keys\": { \"p256dh\": \"BASE64_P256DH\", \"auth\": \"BASE64_AUTH\" }\n  }\n}"
+                    }
+                  }
+                },
+                {
+                  "name": "POST /api/district/babyeyi/push/unsubscribe",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": "{{baseUrl}}/api/district/babyeyi/push/unsubscribe",
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{ \"endpoint\": \"https://fcm.googleapis.com/fcm/send/example-endpoint\" }"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "name": "NESA",
+              "item": [
+                {
+                  "name": "GET /api/nesa/babyeyi/push/vapid-key",
+                  "request": {
+                    "method": "GET",
+                    "header": [],
+                    "url": "{{baseUrl}}/api/nesa/babyeyi/push/vapid-key"
+                  }
+                },
+                {
+                  "name": "POST /api/nesa/babyeyi/push/subscribe",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": "{{baseUrl}}/api/nesa/babyeyi/push/subscribe",
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"subscription\": {\n    \"endpoint\": \"https://fcm.googleapis.com/fcm/send/example-endpoint\",\n    \"keys\": { \"p256dh\": \"BASE64_P256DH\", \"auth\": \"BASE64_AUTH\" }\n  }\n}"
+                    }
+                  }
+                },
+                {
+                  "name": "POST /api/nesa/babyeyi/push/unsubscribe",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": "{{baseUrl}}/api/nesa/babyeyi/push/unsubscribe",
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{ \"endpoint\": \"https://fcm.googleapis.com/fcm/send/example-endpoint\" }"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "name": "School staff portal",
+              "item": [
+                {
+                  "name": "GET /api/portal/push/vapid-key",
+                  "request": {
+                    "method": "GET",
+                    "header": [],
+                    "url": "{{baseUrl}}/api/portal/push/vapid-key"
+                  }
+                },
+                {
+                  "name": "POST /api/portal/push/subscribe",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": "{{baseUrl}}/api/portal/push/subscribe",
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"subscription\": {\n    \"endpoint\": \"https://fcm.googleapis.com/fcm/send/example-endpoint\",\n    \"keys\": { \"p256dh\": \"BASE64_P256DH\", \"auth\": \"BASE64_AUTH\" }\n  }\n}"
+                    }
+                  }
+                },
+                {
+                  "name": "POST /api/portal/push/unsubscribe",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": "{{baseUrl}}/api/portal/push/unsubscribe",
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{ \"endpoint\": \"https://fcm.googleapis.com/fcm/send/example-endpoint\" }"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Shule Avance applicant",
+              "item": [
+                {
+                  "name": "GET /api/services/shule-avance/applicant/push/vapid-key",
+                  "request": {
+                    "method": "GET",
+                    "header": [],
+                    "url": "{{baseUrl}}/api/services/shule-avance/applicant/push/vapid-key"
+                  }
+                },
+                {
+                  "name": "POST /api/services/shule-avance/applicant/push/subscribe",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": "{{baseUrl}}/api/services/shule-avance/applicant/push/subscribe",
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"subscription\": {\n    \"endpoint\": \"https://fcm.googleapis.com/fcm/send/example-endpoint\",\n    \"keys\": { \"p256dh\": \"BASE64_P256DH\", \"auth\": \"BASE64_AUTH\" }\n  }\n}"
+                    }
+                  }
+                },
+                {
+                  "name": "POST /api/services/shule-avance/applicant/push/unsubscribe",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": "{{baseUrl}}/api/services/shule-avance/applicant/push/unsubscribe",
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{ \"endpoint\": \"https://fcm.googleapis.com/fcm/send/example-endpoint\" }"
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Email",
+          "item": [
+            {
+              "name": "GET /api/accountant/fee-reminders/options",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/accountant/fee-reminders/options"
+              }
+            },
+            {
+              "name": "GET /api/accountant/fee-reminders/students",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/accountant/fee-reminders/students?academic_year={{academicYear}}&term=1"
+              }
+            },
+            {
+              "name": "POST /api/accountant/fee-reminders/campaigns",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/accountant/fee-reminders/campaigns",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"academic_year\": \"{{academicYear}}\",\n  \"term\": \"1\",\n  \"template_key\": \"gentle\",\n  \"subject\": \"School fees reminder\",\n  \"body\": \"Please pay outstanding fees.\",\n  \"channels\": [\"email\", \"push\", \"in_system\"],\n  \"schedule_mode\": \"now\"\n}"
+                }
+              }
+            },
+            {
+              "name": "POST /api/public/babyeyi-pay/admin-invoices/reminders/run",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/public/babyeyi-pay/admin-invoices/reminders/run",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{ \"school_code\": \"{{schoolCode}}\" }"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "In-App",
+          "item": [
+            {
+              "name": "GET /api/parent-portal/notifications",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/parent-portal/notifications"
+              }
+            },
+            {
+              "name": "GET /api/district/babyeyi/notifications",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/district/babyeyi/notifications"
+              }
+            },
+            {
+              "name": "PATCH /api/district/babyeyi/notifications/1/read",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/district/babyeyi/notifications/1/read"
+              }
+            },
+            {
+              "name": "POST /api/district/babyeyi/notifications/read-all",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/district/babyeyi/notifications/read-all",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}"
+                }
+              }
+            },
+            {
+              "name": "GET /api/nesa/babyeyi/notifications",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/nesa/babyeyi/notifications"
+              }
+            },
+            {
+              "name": "PATCH /api/nesa/babyeyi/notifications/1/read",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/nesa/babyeyi/notifications/1/read"
+              }
+            },
+            {
+              "name": "POST /api/nesa/babyeyi/notifications/read-all",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/nesa/babyeyi/notifications/read-all",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}"
+                }
+              }
+            },
+            {
+              "name": "GET /api/babyeyi/notifications",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/babyeyi/notifications"
+              }
+            },
+            {
+              "name": "PATCH /api/babyeyi/notifications/1/read",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/babyeyi/notifications/1/read"
+              }
+            },
+            {
+              "name": "POST /api/babyeyi/notifications/read-all",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/babyeyi/notifications/read-all",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}"
+                }
+              }
+            },
+            {
+              "name": "GET /api/accountant/action-plans/notifications",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/accountant/action-plans/notifications"
+              }
+            },
+            {
+              "name": "PATCH /api/accountant/action-plans/notifications/1/read",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/accountant/action-plans/notifications/1/read"
+              }
+            },
+            {
+              "name": "PATCH /api/accountant/action-plans/notifications/read-all",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/accountant/action-plans/notifications/read-all",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}"
+                }
+              }
+            },
+            {
+              "name": "GET /api/library/notifications",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/library/notifications"
+              }
+            },
+            {
+              "name": "GET /api/student-transfers/notifications/unread-count",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/student-transfers/notifications/unread-count"
+              }
+            },
+            {
+              "name": "GET /api/teacher-portal/attendance-module/parent-notifications",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/teacher-portal/attendance-module/parent-notifications"
+              }
+            },
+            {
+              "name": "POST /api/teacher-portal/attendance-module/parent-notifications/enqueue",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/teacher-portal/attendance-module/parent-notifications/enqueue",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"class_name\": \"{{className}}\",\n  \"message\": \"Attendance notice\"\n}"
+                }
               }
             }
           ]

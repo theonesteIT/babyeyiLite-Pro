@@ -15,7 +15,7 @@ const BottomNav = () => {
         { icon: Users, name: 'Students', path: '/students' },
         { icon: Calendar, name: 'Timetable', path: '/timetable' },
         { icon: ClipboardCheck, name: 'Attendance', path: '/attendance' },
-        { icon: DollarSign, name: 'Payroll', path: '/payroll' },
+        { icon: DollarSign, name: 'Payroll', path: '/my-payroll' },
         { icon: MessageSquare, name: 'Chat', path: '/chat', badgeCount: unreadCount },
     ];
 

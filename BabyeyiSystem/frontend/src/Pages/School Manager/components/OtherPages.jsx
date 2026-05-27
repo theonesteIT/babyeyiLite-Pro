@@ -907,37 +907,52 @@ export function NotificationsPage({ toast, setNotifCount }) {
     regulation: { bg: C.violetBg,  border: C.violetBord,  icon: <FileText      style={{ width: 16, height: 16, color: C.violet }}/> },
   };
 
-  const markRead = (id) => {
-    setNotifs(p => p.map(n => n.id === id ? { ...n, read: true } : n));
-    setNotifCount(prev => Math.max(0, prev - 1));
-  };
-  const markAll = () => { setNotifs(p => p.map(n => ({ ...n, read: true }))); setNotifCount(0); };
-
   useEffect(() => {
-    const fetchStats = async () => {
+    const fetchNotifs = async () => {
       setLoading(true);
       try {
-        const res  = await fetch(`${API_BASE}/notifications/statistics`, { credentials: "include" });
+        const res = await fetch(`${API_BASE}/babyeyi/notifications?limit=40`, { credentials: "include" });
         const json = await res.json().catch(() => ({}));
         if (!res.ok || json.success === false) throw new Error(json.message || "Failed");
-        const d = json.data || {};
-        const generated = [
-          { id: 1, type: "system",     title: "Notification summary", read: false, time: "Just now",
-            body: `Total: ${d.total_notifications??0}. Sent: ${d.sent_count??0}, Failed: ${d.failed_count??0}.` },
-          { id: 2, type: "request",    title: "Pending notifications", time: "Just now",
-            read: (d.pending_count??0) === 0, body: `Pending in queue: ${d.pending_count??0}.` },
-          { id: 3, type: "regulation", title: "Channel usage", time: "Just now", read: true,
-            body: `Email: ${d.email_count??0}, SMS: ${d.sms_count??0}, Both: ${d.both_count??0}.` },
-        ];
-        setNotifs(generated);
-        setNotifCount(generated.filter(n => !n.read).length);
+        const items = (json.data || []).map((n) => ({
+          id: n.id,
+          type: n.type === "nesa_approved" ? "approved" : n.type === "nesa_rejected" ? "violation" : (n.type || "system"),
+          title: n.title,
+          body: n.body,
+          read: Boolean(n.isRead),
+          time: n.createdAt ? new Date(n.createdAt).toLocaleString() : "Just now",
+        }));
+        setNotifs(items);
+        setNotifCount(items.filter((n) => !n.read).length);
       } catch (e) {
         if (toast) toast(e.message || "Failed", "error");
-        setNotifs([]); setNotifCount(0);
-      } finally { setLoading(false); }
+        setNotifs([]);
+        setNotifCount(0);
+      } finally {
+        setLoading(false);
+      }
     };
-    fetchStats();
+    fetchNotifs();
   }, [toast, setNotifCount]);
+
+  const markRead = async (id) => {
+    setNotifs((p) => p.map((n) => (n.id === id ? { ...n, read: true } : n)));
+    setNotifCount((prev) => Math.max(0, prev - 1));
+    try {
+      await fetch(`${API_BASE}/babyeyi/notifications/${id}/read`, { method: "PATCH", credentials: "include" });
+    } catch {
+      /* ignore */
+    }
+  };
+  const markAll = async () => {
+    setNotifs((p) => p.map((n) => ({ ...n, read: true })));
+    setNotifCount(0);
+    try {
+      await fetch(`${API_BASE}/babyeyi/notifications/read-all`, { method: "POST", credentials: "include" });
+    } catch {
+      /* ignore */
+    }
+  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, fontFamily: font }} className="anim">

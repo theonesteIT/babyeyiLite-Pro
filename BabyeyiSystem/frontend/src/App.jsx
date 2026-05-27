@@ -97,7 +97,7 @@ import FullSystemControllerDashboard from './Pages/FullSystemController/FullSyst
 
 // ── Role-gated dashboards ───────────────────────────────────────
 import SuperAdminDashboard      from './Pages/SuperAdmin/SuperAdminPage';
-import NESABABYEYIDashboard     from './Pages/Nesa Page/NESAPages/BabyeyiDashboard';
+import NESABABYEYIDashboard     from './Pages/Nesa Page/NesaPage/NesaBabyeyiDashboard';
 import DistrictBABYEYIDashboard from './Pages/District Page/DistrictPage/DistrictBabyeyiDashboard';
 import SchoolBabyeyiDashboard   from './Pages/School Manager/components/SchoolBabyeyi';
 import HodLayout              from './Pages/HeadOfDiscipline/HodLayout';
@@ -134,7 +134,9 @@ import AgentStandardKitRequestsPage from './Pages/Agent/AgentStandardKitRequests
 import AgentUniformVoucherOrdersPage from './Pages/Agent/AgentUniformVoucherOrdersPage';
 import SuperAdminStandardKitRequestsPage from './Pages/SuperAdmin/SuperAdminStandardKitRequestsPage';
 import SuperAdminShuleAvanceOrgs from './Pages/SuperAdmin/SuperAdminShuleAvanceOrgs';
-import SuperAdminSmartAccessLayout from './Pages/SuperAdmin/SmartAccess/SuperAdminSmartAccessLayout';
+import SuperAdminRouteLayout from './Pages/SuperAdmin/components/SuperAdminRouteLayout';
+import AuditPage from './Pages/SuperAdmin/AuditPage';
+import SchoolMonitor from './Pages/SuperAdmin/SchoolMonitor';
 import SuperAdminStudentSmartAccess from './Pages/SuperAdmin/SmartAccess/SuperAdminStudentSmartAccess';
 import SuperAdminStaffSmartAccess from './Pages/SuperAdmin/SmartAccess/SuperAdminStaffSmartAccess';
 import SchoolStudentsCard from './Pages/SuperAdmin/SchoolStudentsCard';
@@ -318,22 +320,19 @@ export default function App() {
           <Route path="/superadmin/signup" element={<SuperAdministratorSignup />} />
           <Route path="/signup/super-controller" element={<SuperControllerSignup />} />
 
-          {/* ── Super Admin portal vs Full System Controller control dashboard ─ */}
-          <Route path="/superadmin/dashboard" element={
-            <ProtectedRoute role="SUPER_ADMIN">
-              <SuperAdminDashboard />
+          <Route path="/superadmin/smart-access" element={<Navigate to="/superadmin/smart-access/students" replace />} />
+
+          <Route path="/superadmin/audit" element={
+            <ProtectedRoute role={['SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER']}>
+              <AuditPage />
             </ProtectedRoute>
           } />
 
-          <Route path="/superadmin/smart-access" element={
+          <Route path="/superadmin/school-monitor" element={
             <ProtectedRoute role={['SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER']}>
-              <SuperAdminSmartAccessLayout />
+              <SchoolMonitor />
             </ProtectedRoute>
-          }>
-            <Route index element={<Navigate to="students" replace />} />
-            <Route path="students" element={<SuperAdminStudentSmartAccess />} />
-            <Route path="staff" element={<SuperAdminStaffSmartAccess />} />
-          </Route>
+          } />
 
           <Route path="/system-controller/dashboard" element={<FullSystemControllerDashboard />} />
 
@@ -343,110 +342,34 @@ export default function App() {
             </ProtectedRoute>
           } />
 
-          <Route path="/add-school" element={
+          <Route element={
             <ProtectedRoute role={['SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER']}>
-              <AddSchool />
+              <SuperAdminRouteLayout />
             </ProtectedRoute>
-          } />
-
-          <Route path="/add-all-schools" element={
-            <ProtectedRoute role={['SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER']}>
-              <AddAllSchools />
-            </ProtectedRoute>
-          } />
-
-          <Route path="/manage-requirements-prices" element={
-            <ProtectedRoute role={['SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER']}>
-              <ManageRequirementsPrices />
-            </ProtectedRoute>
-          } />
-
-          <Route path="/requirement-prices-list" element={
-            <ProtectedRoute role={['SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER']}>
-              <RequirementPricesList />
-            </ProtectedRoute>
-          } />
-
-          <Route path="/superadmin/register-agents" element={
-            <ProtectedRoute role={['SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER']}>
-              <RegisterAgents />
-            </ProtectedRoute>
-          } />
-
-          <Route path="/superadmin/representatives" element={
-            <ProtectedRoute role={['SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER']}>
-              <RegisterRepresentatives />
-            </ProtectedRoute>
-          } />
-
-          <Route path="/superadmin/voucher-services" element={
-            <ProtectedRoute role={['SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER']}>
-              <SuperAdminVoucherServices />
-            </ProtectedRoute>
-          } />
-          <Route path="/superadmin/shoes-vouchers" element={
-            <ProtectedRoute role={['SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER']}>
-              <SuperAdminShoesVoucherManagement />
-            </ProtectedRoute>
-          } />
-          <Route path="/superadmin/uniform-vouchers" element={
-            <ProtectedRoute role={['SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER']}>
-              <SuperAdminUniformVoucherManagement />
-            </ProtectedRoute>
-          } />
-
-          <Route path="/superadmin/standard-shule-kits" element={
-            <ProtectedRoute role={['SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER']}>
-              <SuperAdminStandardShuleKits />
-            </ProtectedRoute>
-          } />
-          <Route path="/superadmin/shop-products" element={
-            <ProtectedRoute role={['SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER']}>
-              <SuperAdminShopProducts />
-            </ProtectedRoute>
-          } />
-          <Route path="/superadmin/standard-kit-requests" element={
-            <ProtectedRoute role={['SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER']}>
-              <SuperAdminStandardKitRequestsPage />
-            </ProtectedRoute>
-          } />
-
-          <Route path="/superadmin/shule-avance-organizations" element={
-            <ProtectedRoute role={['SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER']}>
-              <SuperAdminShuleAvanceOrgs />
-            </ProtectedRoute>
-          } />
-
-          <Route path="/superadmin/shule-avance-teacher" element={
-            <ProtectedRoute role={['SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER']}>
-              <ShuleAvanceTeacher />
-            </ProtectedRoute>
-          } />
-          <Route path="/superadmin/teacher-deal-products" element={
-            <ProtectedRoute role="SUPER_ADMIN">
-              <TeacherDealProducts />
-            </ProtectedRoute>
-          } />
-          <Route path="/superadmin/ticha-deal-requests" element={
-            <ProtectedRoute role={['SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER']}>
-              <TichaDealRequest />
-            </ProtectedRoute>
-          } />
-          <Route path="/superadmin/school-students-card" element={
-            <ProtectedRoute role={['SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER']}>
-              <SchoolStudentsCard />
-            </ProtectedRoute>
-          } />
-          <Route path="/superadmin/student-card-template-2" element={
-            <ProtectedRoute role={['SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER']}>
-              <SchoolStudentCardTemplate2 />
-            </ProtectedRoute>
-          } />
-          <Route path="/superadmin/school-staff-card-template" element={
-            <ProtectedRoute role={['SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER']}>
-              <SchoolStaffCardTemplate />
-            </ProtectedRoute>
-          } />
+          }>
+            <Route path="/superadmin/dashboard" element={<SuperAdminDashboard />} />
+            <Route path="/add-school" element={<AddSchool />} />
+            <Route path="/add-all-schools" element={<AddAllSchools />} />
+            <Route path="/manage-requirements-prices" element={<ManageRequirementsPrices />} />
+            <Route path="/requirement-prices-list" element={<RequirementPricesList />} />
+            <Route path="/superadmin/register-agents" element={<RegisterAgents />} />
+            <Route path="/superadmin/representatives" element={<RegisterRepresentatives />} />
+            <Route path="/superadmin/voucher-services" element={<SuperAdminVoucherServices />} />
+            <Route path="/superadmin/shoes-vouchers" element={<SuperAdminShoesVoucherManagement />} />
+            <Route path="/superadmin/uniform-vouchers" element={<SuperAdminUniformVoucherManagement />} />
+            <Route path="/superadmin/standard-shule-kits" element={<SuperAdminStandardShuleKits />} />
+            <Route path="/superadmin/shop-products" element={<SuperAdminShopProducts />} />
+            <Route path="/superadmin/standard-kit-requests" element={<SuperAdminStandardKitRequestsPage />} />
+            <Route path="/superadmin/shule-avance-organizations" element={<SuperAdminShuleAvanceOrgs />} />
+            <Route path="/superadmin/shule-avance-teacher" element={<ShuleAvanceTeacher />} />
+            <Route path="/superadmin/teacher-deal-products" element={<TeacherDealProducts />} />
+            <Route path="/superadmin/ticha-deal-requests" element={<TichaDealRequest />} />
+            <Route path="/superadmin/smart-access/students" element={<SuperAdminStudentSmartAccess />} />
+            <Route path="/superadmin/smart-access/staff" element={<SuperAdminStaffSmartAccess />} />
+            <Route path="/superadmin/school-students-card" element={<SchoolStudentsCard />} />
+            <Route path="/superadmin/student-card-template-2" element={<SchoolStudentCardTemplate2 />} />
+            <Route path="/superadmin/school-staff-card-template" element={<SchoolStaffCardTemplate />} />
+          </Route>
 
           <Route path="/shule-avance/dashboard" element={
             <ProtectedRoute role="SHULE_AVANCE_PARTNER">

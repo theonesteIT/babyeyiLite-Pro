@@ -3,6 +3,7 @@
 
 const db = require('../config/database');
 const { loadApprovedBabyeyiPricing } = require('./babyeyiPublicPricingCore');
+const { resolveSchoolIdFromInput } = require('./schoolResolvePublic');
 
 function studentRowKey(s) {
   if (!s || typeof s !== 'object') return '';
@@ -315,7 +316,11 @@ function schoolCounterCreditsMap(opts) {
 }
 
 async function quoteBabyeyiPayBalance(opts) {
-  const schoolId = parseInt(opts.schoolId, 10);
+  let schoolId = parseInt(opts.schoolId, 10);
+  if (!schoolId && (opts.school_code || opts.schoolCode)) {
+    const resolved = await resolveSchoolIdFromInput(opts);
+    schoolId = resolved.schoolId;
+  }
   const babyeyiId = parseInt(opts.babyeyiId, 10);
   const selectedFeeIds = Array.isArray(opts.selectedFeeIds) ? opts.selectedFeeIds : [];
   const selectedReqIds = Array.isArray(opts.selectedReqIds) ? opts.selectedReqIds : [];
@@ -486,7 +491,8 @@ async function validateBabyeyiPaymentAgainstBalance(body) {
     return { ok: true };
   }
 
-  const schoolId = parseInt(body.school_id, 10);
+  const resolved = await resolveSchoolIdFromInput(body);
+  const schoolId = resolved.schoolId;
   const babyeyiId = parseInt(body.babyeyi_id, 10);
   const selectedFeeIds = body.selected_fee_ids || [];
   const selectedReqIds = body.selected_requirement_ids || [];

@@ -285,9 +285,15 @@ const globalUpload = multer({
 });
 
 const MULTER_SELF_MANAGED = [
-  '/api/babyeyi', '/api/fee-limits', '/api/schools',
-  '/api/mini-websites', '/api/admissions', '/api/public/schools',
-  '/api/auth', '/api/students',
+  '/api/babyeyi',
+  '/api/district/babyeyi',
+  '/api/fee-limits',
+  '/api/schools',
+  '/api/mini-websites',
+  '/api/admissions',
+  '/api/public/schools',
+  '/api/auth',
+  '/api/students',
 ];
 
 app.use((req, res, next) => {

@@ -22,19 +22,23 @@ This document catalogs HTTP endpoints exposed by the Express backend. It is gene
 10. [Requirement prices (`/api/requirement-prices`)](#requirement-prices-apirequirement-prices)
 11. [Public school registration (`/api/public/schools`)](#public-school-registration-apipublicschools)
 12. [Public Babyeyi pay (`/api/public/babyeyi-pay`)](#public-babyeyi-pay-apipublicbabyeyi-pay)
-13. [Locations (`/api/locations`)](#locations-apilocations)
-14. [Schools admin (`/api/schools`, `/api/locations/...`)](#schools-admin-apischools-apilocations)
-15. [Students (`/api/students`)](#students-apistudents)
-16. [School staff (`/api/school/staff`)](#school-staff-apischoolstaff)
-17. [Accountant (`/api/accountant`)](#accountant-apiaccountant)
-18. [Discipline (`/api/discipline`)](#discipline-apidiscipline)
-19. [DOS academic (`/api/dos`)](#dos-academic-apidos)
-20. [Student transfers (`/api/student-transfers`)](#student-transfers-apistudent-transfers)
-21. [Parent portal & public parent APIs](#parent-portal--public-parent-apis)
-22. [Mini websites (`/api/mini-websites`)](#mini-websites-apimini-websites)
-23. [Admissions (`/api/admissions`)](#admissions-apiadmissions)
-24. [Static uploads](#static-uploads)
-25. [Rate limiting (selected paths)](#rate-limiting-selected-paths)
+13. [Public pay by student/school code (`/api/public/public-pay`)](#public-pay-by-studentschool-code-apipublicpublic-pay)
+14. [Locations (`/api/locations`)](#locations-apilocations)
+15. [Schools admin (`/api/schools`, `/api/locations/...`)](#schools-admin-apischools-apilocations)
+16. [Students (`/api/students`)](#students-apistudents)
+17. [School staff (`/api/school/staff`)](#school-staff-apischoolstaff)
+18. [Accountant (`/api/accountant`)](#accountant-apiaccountant)
+19. [Discipline (`/api/discipline`)](#discipline-apidiscipline)
+20. [DOS academic (`/api/dos`)](#dos-academic-apidos)
+21. [Student transfers (`/api/student-transfers`)](#student-transfers-apistudent-transfers)
+22. [Parent portal & public parent APIs](#parent-portal--public-parent-apis)
+23. [Mini websites (`/api/mini-websites`)](#mini-websites-apimini-websites)
+24. [Admissions (`/api/admissions`)](#admissions-apiadmissions)
+25. [Static uploads](#static-uploads)
+26. [Rate limiting (selected paths)](#rate-limiting-selected-paths)
+27. [Notifications (Web Push, Email, In-App)](#notifications-web-push-email-in-app)
+28. [Postman collection & sync](#postman-collection--sync)
+29. [Combined tuition pay — USSD guide](#combined-tuition-pay--ussd-guide)
 
 ---
 
@@ -69,6 +73,7 @@ Unauthenticated calls to protected routes typically receive `401` or `403` with 
 |--------|------|------|-------------|
 | GET | `/` | No | Service metadata and high-level route map. |
 | GET | `/api/health` | No | Liveness; uptime and environment warnings. |
+| GET | `/api/metrics` | No | Prometheus-style metrics (if enabled). |
 
 ---
 
@@ -257,10 +262,37 @@ NESA fee-limit CRUD. Routes use `req.user` for audit fields where present; enfor
 
 ## Public Babyeyi pay (`/api/public/babyeyi-pay`)
 
+Also mounted at `/api/parent-portal/public/babyeyi-finder/*` (same handlers).
+
+**Guest pay flow (PublicPage → `/combined-tution-requrement`):**
+
+1. `POST /api/public/public-pay/student-catalog` — resolve student + school + Babyeyi combinations  
+2. `GET /api/public/babyeyi-pay/pricing/:babyeyiId?school_id=` — fees, requirements, **`combined_total_rwf`**  
+3. `POST /api/public/babyeyi-pay/quote-balance` — remaining balance for selection  
+4. `POST /api/public/babyeyi-pay/intent` — create payment (MoMo, bank, loan, etc.)  
+5. `POST /api/public/babyeyi-pay/intent/:id/check-provider-status` — poll provider  
+
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/api/public/babyeyi-pay/pricing/:babyeyiId` | No | Public pricing. |
-| POST | `/api/public/babyeyi-pay/intent` | No | Payment / loan intent. |
+| GET | `/api/public/babyeyi-pay/` | No | Discovery JSON (steps + aliases). |
+| GET | `/api/public/babyeyi-pay/pricing/:babyeyiId` | No | Pricing; query **`school_code`** (preferred, e.g. `003`) or `school_id` (numeric). |
+| POST | `/api/public/babyeyi-pay/quote-balance` | No | Remaining RWF; body **`school_code`** or `school_id`, plus `babyeyi_id`, fee/requirement selections. |
+| POST | `/api/public/babyeyi-pay/intent` | No | Payment intent; body accepts **`school_code`** or `school_id`. |
+| GET | `/api/public/babyeyi-pay/shule-avance-organizations` | No | Active Shule Avance partners for checkout. |
+| POST | `/api/public/babyeyi-pay/intent` | No | Payment / loan intent (creates invoice). |
+| POST | `/api/public/babyeyi-pay/intent/:id/check-provider-status` | No | Poll MoMo / XentriPay status. |
+| POST | `/api/public/babyeyi-pay/webhook/xentripay` | Token | XentriPay callback. |
+| GET | `/api/public/babyeyi-pay/invoices/verify/:id` | No | Public invoice authenticity (`?invoice_no=`). |
+| GET | `/api/public/babyeyi-pay/receipt/:id.pdf` | No | Paid receipt PDF (`?invoice_no=`). |
+| GET | `/api/public/babyeyi-pay/invoice/:id.pdf` | No | Invoice PDF. |
+| GET | `/api/public/babyeyi-pay/invoices` | School session | List invoices. |
+| GET | `/api/public/babyeyi-pay/invoices/:id/detail` | School session | Intent + lines JSON. |
+| GET | `/api/public/babyeyi-pay/invoices/:id/print.pdf` | School session | Printable invoice. |
+| GET | `/api/public/babyeyi-pay/invoices/export.xlsx` | School session | Export. |
+| GET | `/api/public/babyeyi-pay/invoices/export.pdf` | School session | Export PDF. |
+| POST | `/api/public/babyeyi-pay/invoices` | School session | Manual invoice create. |
+| PATCH | `/api/public/babyeyi-pay/invoices/:id` | School session | Update invoice. |
+| DELETE | `/api/public/babyeyi-pay/invoices/:id` | School session | Delete invoice. |
 | GET | `/api/public/babyeyi-pay/admin-intents` | `SUPER_ADMIN` | Admin list. |
 | GET | `/api/public/babyeyi-pay/admin-intents/filters` | `SUPER_ADMIN` | Filter options. |
 | GET | `/api/public/babyeyi-pay/admin-intents/export.csv` | `SUPER_ADMIN` | CSV export. |
@@ -268,6 +300,28 @@ NESA fee-limit CRUD. Routes use `req.user` for audit fields where present; enfor
 | PUT | `/api/public/babyeyi-pay/admin-intents/:id/status` | `SUPER_ADMIN` | Status update. |
 | PUT | `/api/public/babyeyi-pay/admin-loan-repayments/:id/review` | `SUPER_ADMIN` | Repayment review. |
 | PUT | `/api/public/babyeyi-pay/admin-intents/:id/loan-extension` | `SUPER_ADMIN` | Loan extension. |
+| POST | `/api/public/babyeyi-pay/admin-invoices/reminders/run` | School admin | Unpaid reminders job. |
+
+---
+
+## Public pay by student/school code (`/api/public/public-pay`)
+
+Used by **PublicPage** (school fallback), **PaidAtSchool** / **combined-tution-requrement**, and pay-by-class flows.
+
+| Method | Path | Auth | Body | Description |
+|--------|------|------|------|-------------|
+| GET | `/api/public/public-pay` | No | — | Discovery: lists `student-catalog`, `school-catalog`, `class-pricing`, `search-student`, `intent`. |
+| POST | `/api/public/public-pay/student-catalog` | No | `{ "code": "UID \| student_code \| sdm_code" }` | School + student + Babyeyi rows for student's class; sets default term/year. |
+| POST | `/api/public/public-pay/school-catalog` | No | `{ "school_code": "directory code" }` | School + all class/term/year combinations (no student). |
+| POST | `/api/public/public-pay/class-pricing` | No | `school_code`, `class_name`, optional `academic_year`, `term` | Tuition + requirements + **`combined_total_rwf`**. |
+| POST | `/api/public/public-pay/search-student` | No | `school_code`, optional `babyeyi_id`, `code` / `student_uid` / `sdm_code` | Student at school + pricing + `next_step` hints for intent. |
+
+**Related (parent portal, no login):**
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/public/student-code-lookup` | PublicPage AI search; returns `{ found, data }` (no pricing). |
+| POST | `/api/parent-portal/public/babyeyi-finder/student-lookup` | Same handler as `student-code-lookup`. |
 
 ---
 
@@ -503,15 +557,89 @@ Mounted on `/api` from `parentPortal.js`. Selected routes use rate limiting (`ch
 
 ---
 
+## Notifications (Web Push, Email, In-App)
+
+Postman folder: **`20 - Notifications (Web Push, Email, In-App)`**.
+
+### Web Push (browser subscriptions)
+
+| Portal | VAPID key | Subscribe | Unsubscribe |
+|--------|-----------|-----------|-------------|
+| Parent | `GET /api/parent-portal/push/vapid-key` | `POST .../push/subscribe` | `POST .../push/unsubscribe` |
+| District DEO | `GET /api/district/babyeyi/push/vapid-key` | `POST .../push/subscribe` | `POST .../push/unsubscribe` |
+| NESA | `GET /api/nesa/babyeyi/push/vapid-key` | `POST .../push/subscribe` | `POST .../push/unsubscribe` |
+| School staff | `GET /api/portal/push/vapid-key` | `POST .../push/subscribe` | `POST .../push/unsubscribe` |
+
+Parent also: `GET .../push/status`, `PATCH .../push/preferences`.
+
+### Email
+
+| Method | Path | Auth | Notes |
+|--------|------|------|-------|
+| POST | `/api/accountant/fee-reminders/campaigns` | Accountant session | Channels: `email`, `sms`, `push`, `in_system` |
+| POST | `/api/public/babyeyi-pay/admin-invoices/reminders/run` | School admin | Unpaid invoice email job |
+
+### In-App (database notification feeds)
+
+| Method | Path | Audience |
+|--------|------|----------|
+| GET | `/api/parent-portal/notifications` | Parent session |
+| GET | `/api/district/babyeyi/notifications` | DEO session |
+| GET | `/api/nesa/babyeyi/notifications` | NESA session |
+| GET | `/api/babyeyi/notifications` | School staff |
+| GET | `/api/accountant/action-plans/notifications` | Accountant |
+| GET | `/api/library/notifications` | Librarian roles |
+| GET | `/api/student-transfers/notifications/unread-count` | School manager |
+
+Mark read: `PATCH .../notifications/:id/read`, `POST .../notifications/read-all` (where implemented).
+
+---
+
+## Postman collection & sync
+
+| Asset | Path |
+|-------|------|
+| Collection | `docs/postman/BabyeyiSystem.postman_collection.json` |
+| Local env | `docs/postman/BabyeyiSystem.local.postman_environment.json` |
+| Production env | `docs/postman/BabyeyiSystem.production.postman_environment.json` |
+
+**Folders**
+
+| Folder | Use |
+|--------|-----|
+| `10b` | Guest Babyeyi Finder (lookup, pricing, intent aliases) |
+| `10c` | Public pay — includes **`school-catalog`**, **`student-catalog`**, and **E2E — Combined tuition** (test scripts chain `schoolId` / `babyeyiId`) |
+| `12` | Invoices, quote-balance, receipts, webhooks |
+| `19 - Backend sync (missing routes)` | Auto-added endpoints not present in folders `00`–`18` |
+| `20 - Notifications` | Web Push, Email campaigns, In-App feeds |
+
+**Regenerate after backend changes** (from `docs/postman/`):
+
+```bash
+node extract-routes.mjs   # writes _backend_routes.json, _missing_routes.json
+node sync-postman.mjs     # updates collection (10c + folder 19)
+```
+
+**Collection Runner (guest pay):** Select environment **BabyeyiSystem Local**, set `studentLookupCode`, run folder `10c` → `E2E — Combined tuition` in order.
+
+---
+
 ## Maintaining this document
 
 When you add or change routes:
 
 1. Update the relevant router file under `backend/BabyeyiRoutes/` (or `authPages/`, `locationsRoutes/`).
-2. If you add a new `app.use` mount, document the prefix here.
-3. Regenerate or edit the tables above so paths stay aligned with `server.js`.
+2. If you add a new `app.use` mount, document the prefix here and add the mount to `docs/postman/extract-routes.mjs` → `MOUNTS`.
+3. Run `node extract-routes.mjs` and `node sync-postman.mjs` to refresh Postman folder `19`.
+4. Edit the tables above for high-traffic or public flows; rely on Postman `19` for exhaustive coverage.
 
-For machine-readable collections (Postman, Insomnia, OpenAPI), consider exporting from this list or generating OpenAPI 3 from route metadata in a future tooling pass.
+---
+
+## Combined tuition pay — USSD guide
+
+Full step-by-step for telco/USSD integrators (menus, session state, exact HTTP order, payloads):
+
+**[COMBINED_TUITION_PAY_USSD_GUIDE.md](./COMBINED_TUITION_PAY_USSD_GUIDE.md)**
 
 ---
 

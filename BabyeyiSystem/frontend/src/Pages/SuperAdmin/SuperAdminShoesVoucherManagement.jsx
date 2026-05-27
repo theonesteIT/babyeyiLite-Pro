@@ -354,15 +354,13 @@ export default function SuperAdminShoesVoucherManagement() {
   };
 
   return (
-    <div className="min-h-screen bg-amber-50/40">
-      <header className="sticky top-0 z-20 bg-white border-b border-amber-200">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-          <button onClick={() => navigate('/superadmin/dashboard')} className="inline-flex items-center gap-2 text-amber-800 font-bold text-sm"><ArrowLeft size={16} /> Dashboard</button>
-          <h1 className="font-black text-[#000435]">Shoes Voucher Management</h1>
-        </div>
-      </header>
+    <div className="space-y-4 max-w-6xl mx-auto">
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <h1 className="font-bold text-[#000435] text-lg">Shoes Voucher Management</h1>
+        <p className="text-xs text-slate-600 mt-0.5">Packages, models, and approval queue</p>
+      </div>
 
-      <main className="max-w-6xl mx-auto px-4 py-5 space-y-4">
+      <div className="space-y-4">
         {toast && (
           <div
             className={`rounded-xl border px-4 py-2 text-sm font-semibold ${
@@ -645,7 +643,7 @@ export default function SuperAdminShoesVoucherManagement() {
         <p className="text-xs text-slate-600 inline-flex items-center gap-2"><CheckCircle2 size={14} /> Queue shows payer, student, school, parent-selected agent, delivery, shoes requested, paid vs not paid, and fulfillment (Pending → Processing → Delivered / Not delivered / Out of stock).</p>
         <p className="text-xs text-slate-600 inline-flex items-center gap-2"><Truck size={14} /> New MoMo checkouts store agent and delivery on the order automatically; use status buttons to update each row (agent saves with the status tap).</p>
         <p className="text-xs"><Link to="/superadmin/voucher-services" className="text-amber-700 underline">Open general voucher services page</Link></p>
-      </main>
+      </div>
 
       {modalOpen && (
         <div className="fixed inset-0 z-40 bg-black/40 flex items-end sm:items-center justify-center p-0 sm:p-4">
