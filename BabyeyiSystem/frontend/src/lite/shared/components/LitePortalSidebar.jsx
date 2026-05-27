@@ -1,7 +1,7 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { createElement, useState } from 'react';
 import { Wifi, WifiOff, RefreshCw, Headphones, ChevronDown } from 'lucide-react';
-import babyeyiIcon from '../assets/babyeyi-icon.png';
+// import babyeyiIcon from '../../../assets/babyeyi-icon.png';
 import '../litePortalChrome.css';
 
 const GOLD = '#FEBF10';
@@ -159,7 +159,7 @@ export default function LitePortalSidebar({
       <div className="p-4 pb-3 shrink-0 border-b border-white/[0.06]">
         <div className="flex items-center gap-3">
           <div className="lite-portal-sidebar-brand-icon flex h-11 w-11 items-center justify-center rounded-xl ring-1 ring-white/20">
-            <img src={babyeyiIcon} alt="Babyeyi" className="h-7 w-7 object-contain drop-shadow-sm" />
+            {/* <img src={babyeyiIcon} alt="Babyeyi" className="h-7 w-7 object-contain drop-shadow-sm" /> */}
           </div>
           <div className="min-w-0">
             <span className="text-lg font-bold tracking-tight text-white block leading-tight">Babyeyi</span>
