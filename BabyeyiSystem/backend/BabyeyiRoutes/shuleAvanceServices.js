@@ -22,7 +22,8 @@ const { computeProAccessEffective } = require('../utils/schoolSubscription');
 const router = express.Router();
 
 const ROLE_ACCOUNTANT = 'ACCOUNTANT';
-const MANAGER_ROLES = ['SCHOOL_ADMIN', 'SCHOOL_MANAGER'];
+/** School leadership that can approve Shule Avance after finance (manager queue). */
+const MANAGER_ROLES = ['SCHOOL_ADMIN', 'SCHOOL_MANAGER', 'MANAGER', 'DOS'];
 const DEAL_PRODUCT_ADMIN_ROLES = ['SUPER_ADMIN'];
 /** Teachers, school staff (HOD/DOS), accountants, and other staff portals using applicant UI */
 const APPLICANT_ROLES = [

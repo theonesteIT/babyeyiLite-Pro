@@ -220,7 +220,8 @@ const Sidebar = ({ onClose }) => {
             { name: 'Student Promotion', path: '/student-promotion/dashboard', icon: ArrowUpCircle },
           ]}
         />
-     
+        <NavItem icon={UserCheck} name="Class Teachers" path="/class-teachers" onClose={onClose} />
+
         <ExpandableNavItem
           icon={ClipboardCheck}
           name="Attendance"

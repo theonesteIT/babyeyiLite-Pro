@@ -19,7 +19,10 @@ const { requireRole } = require('../middleware/deoAuth');
 const xlsx = require('xlsx');
 const PDFDocument = require('pdfkit');
 const ensureAcademicTables = require('./teacherPortal').ensureAcademicTables;
-const { normalizeGradebookLabel, sqlNormLabelEquals } = require('../utils/gradebookLabels');
+const { normalizeGradebookLabel, sqlNormLabelEquals, sqlNormColumnsEqual } = require('../utils/gradebookLabels');
+
+/** Timetable assignment row used only to link homeroom teachers (teacher portal students list). */
+const CLASS_TEACHER_SUBJECT = 'Class Teacher';
 const {
   ensureStudentYearEnrollmentsTable,
   backfillSchoolEnrollments,
@@ -4654,6 +4657,211 @@ router.post('/dos/timetable-system/check-conflicts', requireRole(DOS_ACADEMIC_AD
   } catch (err) {
     console.error('POST /dos/timetable-system/check-conflicts:', err);
     return res.status(500).json({ success: false, message: 'Failed to check conflicts' });
+  }
+});
+
+// ── Class teacher (homeroom) assignments ─────────────────────────
+let classTeacherTablesReady = false;
+
+async function ensureClassTeacherTables() {
+  if (classTeacherTablesReady) return;
+  await ensureSmartTimetableTables();
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS class_teacher_assignments (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      school_id INT UNSIGNED NOT NULL,
+      class_name VARCHAR(120) NOT NULL,
+      teacher_user_id INT UNSIGNED NOT NULL,
+      academic_year VARCHAR(64) NULL,
+      assigned_by_user_id INT UNSIGNED NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_cta_school_class (school_id, class_name),
+      KEY idx_cta_teacher (school_id, teacher_user_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+  classTeacherTablesReady = true;
+}
+
+async function syncClassTeacherTimetableRow(schoolId, className, teacherUserId) {
+  const label = normalizeGradebookLabel(className);
+  await promisePool.query(
+    `DELETE FROM timetable_assignments
+     WHERE school_id = ? AND (${sqlNormLabelEquals('class_name')}) AND subject_name = ?`,
+    [schoolId, label, CLASS_TEACHER_SUBJECT]
+  );
+  if (teacherUserId) {
+    await promisePool.query(
+      `INSERT INTO timetable_assignments (school_id, class_name, subject_name, teacher_user_id, periods_per_week, room)
+       VALUES (?,?,?,?,0,NULL)
+       ON DUPLICATE KEY UPDATE periods_per_week = VALUES(periods_per_week)`,
+      [schoolId, label, CLASS_TEACHER_SUBJECT, Number(teacherUserId)]
+    );
+  }
+}
+
+function resolveDosUserId(req) {
+  return req.session?.userId || req.session?.user?.id || null;
+}
+
+router.get('/dos/class-teachers', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureClassTeacherTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School not found in session.' });
+
+    const [enrollmentRows] = await promisePool.query(
+      `SELECT
+         COALESCE(NULLIF(TRIM(class_name), ''), 'Unknown') AS class_name,
+         COUNT(*) AS student_count
+       FROM students
+       WHERE school_id = ?
+       GROUP BY COALESCE(NULLIF(TRIM(class_name), ''), 'Unknown')
+       ORDER BY class_name ASC`,
+      [schoolId]
+    );
+
+    const [assignmentRows] = await promisePool.query(
+      `SELECT cta.id, cta.class_name, cta.teacher_user_id, cta.academic_year, cta.created_at, cta.updated_at,
+              TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) AS teacher_name,
+              u.email AS teacher_email
+       FROM class_teacher_assignments cta
+       INNER JOIN users u ON u.id = cta.teacher_user_id AND u.deleted_at IS NULL
+       WHERE cta.school_id = ?
+       ORDER BY cta.class_name ASC`,
+      [schoolId]
+    );
+
+    const assignmentByClass = new Map(
+      assignmentRows.map((r) => [normalizeGradebookLabel(r.class_name).toLowerCase(), r])
+    );
+
+    const seen = new Set();
+    const rows = [];
+    for (const e of enrollmentRows) {
+      const className = normalizeGradebookLabel(e.class_name);
+      if (!className || className === 'Unknown') continue;
+      const key = className.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const a = assignmentByClass.get(key);
+      rows.push({
+        class_name: className,
+        student_count: Number(e.student_count || 0),
+        assignment_id: a?.id || null,
+        teacher_user_id: a?.teacher_user_id || null,
+        teacher_name: a?.teacher_name || null,
+        teacher_email: a?.teacher_email || null,
+        academic_year: a?.academic_year || null,
+        assigned_at: a?.created_at || null,
+      });
+      assignmentByClass.delete(key);
+    }
+
+    for (const a of assignmentByClass.values()) {
+      const className = normalizeGradebookLabel(a.class_name);
+      rows.push({
+        class_name: className,
+        student_count: 0,
+        assignment_id: a.id,
+        teacher_user_id: a.teacher_user_id,
+        teacher_name: a.teacher_name,
+        teacher_email: a.teacher_email,
+        academic_year: a.academic_year,
+        assigned_at: a.created_at,
+      });
+    }
+
+    rows.sort((a, b) => String(a.class_name).localeCompare(String(b.class_name)));
+
+    const assigned_count = rows.filter((r) => r.teacher_user_id).length;
+    return res.json({
+      success: true,
+      data: {
+        rows,
+        assigned_count,
+        unassigned_count: rows.length - assigned_count,
+      },
+    });
+  } catch (err) {
+    console.error('GET /dos/class-teachers:', err);
+    return res.status(500).json({ success: false, message: 'Failed to load class teachers' });
+  }
+});
+
+router.post('/dos/class-teachers', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  const conn = await promisePool.getConnection();
+  try {
+    await ensureClassTeacherTables();
+    const schoolId = resolveSchoolId(req);
+    const userId = resolveDosUserId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School not found in session.' });
+
+    const className = normalizeGradebookLabel(req.body?.class_name);
+    const teacherUserId = Number(req.body?.teacher_user_id);
+    const academicYear = trimStr(req.body?.academic_year) || null;
+
+    if (!className) {
+      return res.status(400).json({ success: false, message: 'class_name is required' });
+    }
+    if (!teacherUserId) {
+      return res.status(400).json({ success: false, message: 'teacher_user_id is required' });
+    }
+    if (!(await assertTeachingStaffForSchool(schoolId, teacherUserId))) {
+      return res.status(400).json({ success: false, message: 'Selected user is not registered teaching staff.' });
+    }
+
+    await conn.beginTransaction();
+    await conn.query(
+      `DELETE FROM class_teacher_assignments
+       WHERE school_id = ? AND (${sqlNormLabelEquals('class_name')})`,
+      [schoolId, className]
+    );
+    const [ins] = await conn.query(
+      `INSERT INTO class_teacher_assignments (school_id, class_name, teacher_user_id, academic_year, assigned_by_user_id)
+       VALUES (?,?,?,?,?)`,
+      [schoolId, className, teacherUserId, academicYear, userId]
+    );
+    await conn.commit();
+
+    await syncClassTeacherTimetableRow(schoolId, className, teacherUserId);
+
+    return res.json({
+      success: true,
+      message: 'Class teacher assigned successfully.',
+      data: { id: ins.insertId, class_name: className, teacher_user_id: teacherUserId },
+    });
+  } catch (err) {
+    try { await conn.rollback(); } catch (_) {}
+    console.error('POST /dos/class-teachers:', err);
+    return res.status(500).json({ success: false, message: 'Failed to assign class teacher' });
+  } finally {
+    conn.release();
+  }
+});
+
+router.delete('/dos/class-teachers/:id', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureClassTeacherTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School not found in session.' });
+
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid assignment id' });
+
+    const [[row]] = await promisePool.query(
+      'SELECT class_name FROM class_teacher_assignments WHERE id = ? AND school_id = ? LIMIT 1',
+      [id, schoolId]
+    );
+    if (!row) return res.status(404).json({ success: false, message: 'Assignment not found' });
+
+    await promisePool.query('DELETE FROM class_teacher_assignments WHERE id = ? AND school_id = ?', [id, schoolId]);
+    await syncClassTeacherTimetableRow(schoolId, row.class_name, null);
+
+    return res.json({ success: true, message: 'Class teacher assignment removed.' });
+  } catch (err) {
+    console.error('DELETE /dos/class-teachers/:id:', err);
+    return res.status(500).json({ success: false, message: 'Failed to remove class teacher' });
   }
 });
 

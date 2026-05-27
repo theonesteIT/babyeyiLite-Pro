@@ -68,6 +68,26 @@ function parseJsonList(raw) {
     }
 }
 
+let classTeacherAssignmentsReady = false;
+async function ensureClassTeacherAssignmentsTable() {
+    if (classTeacherAssignmentsReady) return;
+    await promisePool.query(`
+      CREATE TABLE IF NOT EXISTS class_teacher_assignments (
+        id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        school_id INT UNSIGNED NOT NULL,
+        class_name VARCHAR(120) NOT NULL,
+        teacher_user_id INT UNSIGNED NOT NULL,
+        academic_year VARCHAR(64) NULL,
+        assigned_by_user_id INT UNSIGNED NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_cta_school_class (school_id, class_name),
+        KEY idx_cta_teacher (school_id, teacher_user_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+    classTeacherAssignmentsReady = true;
+}
+
 let avanceUssdTablesReady = false;
 async function ensureTeacherAvanceUssdTables() {
     if (avanceUssdTablesReady) return;
@@ -1553,6 +1573,7 @@ router.get('/dashboard', requireTeacherRole, async (req, res) => {
 // ============================================================
 router.get('/students', requireTeacherRole, async (req, res) => {
     try {
+        await ensureClassTeacherAssignmentsTable();
         const schoolId = resolveSchoolId(req);
         if (!schoolId) return res.status(400).json({ success: false, message: 'No school linked' });
 
@@ -1621,10 +1642,10 @@ router.get('/students', requireTeacherRole, async (req, res) => {
                 query += `
               AND EXISTS (
                 SELECT 1
-                FROM timetable_assignments ta
-                WHERE ta.school_id = ?
-                  AND ta.teacher_user_id = ?
-                  AND (${sqlNormColumnsEqual('ta.class_name', 's.class_name')})
+                FROM class_teacher_assignments cta
+                WHERE cta.school_id = ?
+                  AND cta.teacher_user_id = ?
+                  AND (${sqlNormColumnsEqual('cta.class_name', 's.class_name')})
               )`;
                 params.push(schoolId, teacherUserId);
             }
@@ -1755,6 +1776,7 @@ router.get('/english-club/resources', requireTeacherRole, (req, res) => {
 // ============================================================
 router.get('/classes', requireTeacherRole, async (req, res) => {
     try {
+        await ensureClassTeacherAssignmentsTable();
         const schoolId = resolveSchoolId(req);
         if (!schoolId) return res.status(400).json({ success: false, message: 'No school linked' });
 
@@ -1765,13 +1787,13 @@ router.get('/classes', requireTeacherRole, async (req, res) => {
 
         const [rows] = restrictToAssignedClasses
             ? await promisePool.query(
-                `SELECT DISTINCT ta.class_name
-                 FROM timetable_assignments ta
-                 WHERE ta.school_id = ?
-                   AND ta.teacher_user_id = ?
-                   AND ta.class_name IS NOT NULL
-                   AND TRIM(ta.class_name) <> ''
-                 ORDER BY ta.class_name ASC`,
+                `SELECT DISTINCT cta.class_name
+                 FROM class_teacher_assignments cta
+                 WHERE cta.school_id = ?
+                   AND cta.teacher_user_id = ?
+                   AND cta.class_name IS NOT NULL
+                   AND TRIM(cta.class_name) <> ''
+                 ORDER BY cta.class_name ASC`,
                 [schoolId, teacherUserId]
               )
             : await promisePool.query(

@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import staffService from '../services/staffService';
 import api from '../services/api';
+import { toDateInputValue } from '../../shared/dateInput';
 import { useAuth } from '../context/AuthContext';
 import { useAcademic } from '../context/AcademicContext';
 import { buildHrStaffExportRows, exportHrStaffPdf, exportHrStaffExcel } from '../utils/hrStaffExport';
@@ -410,16 +411,16 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
             const resolvedCustomRole = !isKnownRole ? String(editingStaff.role_name || editingStaff.role || editingStaff.jobTitle || resolvedRoleCode).replace(/_/g, ' ').trim() : '';
             setFormData({
                 full_name: editingStaff.name || '', gender: editingStaff.gender || '',
-                date_of_birth: editingStaff.date_of_birth || '', national_id: editingStaff.nationalId || '',
+                date_of_birth: toDateInputValue(editingStaff.date_of_birth), national_id: editingStaff.nationalId || '',
                 passport_number: editingStaff.passportNumber || '',
                 phone: editingStaff.phone !== 'N/A' ? editingStaff.phone : '',
                 email: editingStaff.email || '', address: editingStaff.address || '',
                 staff_id: String(editingStaff.staffId || editingStaff.id || ''),
                 employment_type: editingStaff.employmentType || 'Full-time',
                 job_title: editingStaff.jobTitle || editingStaff.role || '',
-                date_of_employment: editingStaff.date_of_employment || '',
-                contract_start_date: editingStaff.contract_start_date || '',
-                contract_end_date: editingStaff.contract_end_date || '',
+                date_of_employment: toDateInputValue(editingStaff.date_of_employment),
+                contract_start_date: toDateInputValue(editingStaff.contract_start_date),
+                contract_end_date: toDateInputValue(editingStaff.contract_end_date),
                 full_contract: !!(editingStaff.employmentType === 'Contract' && !editingStaff.contract_end_date),
                 employment_status: editingStaff.employmentStatus || (editingStaff.status === 'Inactive' ? 'Suspended' : 'Active'),
                 department: normalizedDepartment, sub_department: editingStaff.subDepartment || '',
@@ -693,7 +694,7 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
                 </Field>
 
                 <Field label="Date of Birth">
-                    <input type="date" className={inp} value={formData.date_of_birth} onChange={(e) => setField('date_of_birth', e.target.value)} />
+                    <input type="date" className={inp} value={toDateInputValue(formData.date_of_birth)} onChange={(e) => setField('date_of_birth', e.target.value)} />
                 </Field>
 
                 <Field label="National ID / Passport" hint="(optional)" error={fieldErrors.national_id}>
@@ -738,12 +739,12 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
                 </Field>
 
                 <Field label="Date of Employment" required>
-                    <input type="date" className={inp} value={formData.date_of_employment} onChange={(e) => setField('date_of_employment', e.target.value)} />
+                    <input type="date" className={inp} value={toDateInputValue(formData.date_of_employment)} onChange={(e) => setField('date_of_employment', e.target.value)} />
                 </Field>
 
                 {formData.employment_type === 'Contract' && (
                     <Field label="Contract Start Date" required>
-                        <input type="date" className={inp} value={formData.contract_start_date} onChange={(e) => setField('contract_start_date', e.target.value)} />
+                        <input type="date" className={inp} value={toDateInputValue(formData.contract_start_date)} onChange={(e) => setField('contract_start_date', e.target.value)} />
                     </Field>
                 )}
 
@@ -769,7 +770,7 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
 
                 {formData.employment_type === 'Contract' && !formData.full_contract && (
                     <Field label="Contract End Date" required>
-                        <input type="date" className={inp} value={formData.contract_end_date} onChange={(e) => setField('contract_end_date', e.target.value)} />
+                        <input type="date" className={inp} value={toDateInputValue(formData.contract_end_date)} onChange={(e) => setField('contract_end_date', e.target.value)} />
                     </Field>
                 )}
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
+import { toDateInputValue } from '../../shared/dateInput';
 import {
     Settings, Calendar, Globe, Bell, Smartphone, Moon,
     Save, HardDrive, Plus, ShieldCheck, RefreshCw, X, Watch, Loader2,
@@ -466,7 +467,14 @@ const Preferences = () => {
                 setAcademicYear(year);
                 setActiveTerms(terms);
                 const saved = current?.term_dates || d.term_dates || [];
-                setTermDates(terms.map((n) => saved.find((x) => x.name === n) || { name: n, start: '', end: '' }));
+                setTermDates(
+                    terms.map((n) => {
+                        const row = saved.find((x) => x.name === n);
+                        return row
+                            ? { name: n, start: toDateInputValue(row.start), end: toDateInputValue(row.end) }
+                            : { name: n, start: '', end: '' };
+                    })
+                );
             }
         } catch (_) {
             /* ignore */
@@ -497,7 +505,12 @@ const Preferences = () => {
         setAcademicYear(row.academic_year);
         setActiveTerms(row.active_terms?.length ? row.active_terms : TERM_OPTIONS);
         setTermDates(
-            row.active_terms.map((n) => row.term_dates?.find((x) => x.name === n) || { name: n, start: '', end: '' })
+            row.active_terms.map((n) => {
+                const td = row.term_dates?.find((x) => x.name === n);
+                return td
+                    ? { name: n, start: toDateInputValue(td.start), end: toDateInputValue(td.end) }
+                    : { name: n, start: '', end: '' };
+            })
         );
     };
 
@@ -748,14 +761,14 @@ const Preferences = () => {
                                     <span className="text-[10px] font-semibold text-[#1E3A5F] uppercase w-16 shrink-0">{term}</span>
                                     <input
                                         type="date"
-                                        value={cfg.start}
+                                        value={toDateInputValue(cfg.start)}
                                         onChange={(e) => setTermDate(term, 'start', e.target.value)}
                                         className="flex-1 h-9 px-3 rounded-xl border border-black/10 text-[11px] font-bold text-[#1E3A5F] outline-none focus:ring-2 ring-[#FEBF10]/40"
                                     />
                                     <span className="text-slate-400 font-semibold text-xs shrink-0">→</span>
                                     <input
                                         type="date"
-                                        value={cfg.end}
+                                        value={toDateInputValue(cfg.end)}
                                         onChange={(e) => setTermDate(term, 'end', e.target.value)}
                                         className="flex-1 h-9 px-3 rounded-xl border border-black/10 text-[11px] font-bold text-[#1E3A5F] outline-none focus:ring-2 ring-[#FEBF10]/40"
                                     />

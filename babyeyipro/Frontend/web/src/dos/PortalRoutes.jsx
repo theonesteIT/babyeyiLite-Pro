@@ -33,6 +33,7 @@ import SchoolCalendarPage from '../shared/pages/SchoolCalendarPage'
 import DosOchreHero from './components/DosOchreHero'
 import dosApi from './services/api'
 import DosStudentRecordsPage from './pages/DosStudentRecordsPage'
+import ClassTeachers from './pages/ClassTeachers'
 import StaffPayroll from './pages/StaffPayroll'
 import ChatCenter from '../shared/pages/ChatCenter'
 import StudentPromotionRoutes from './pages/Student Promotion/StudentPromotionRoutes'
@@ -103,6 +104,14 @@ function DosRoutesInner() {
         }
       />
       <Route path="timetable" element={<ProtectedRoute title="Timetable"><Timetable /></ProtectedRoute>} />
+      <Route
+        path="class-teachers"
+        element={
+          <ProtectedRoute title="Class Teachers">
+            <ClassTeachers />
+          </ProtectedRoute>
+        }
+      />
       <Route path="attendance" element={<ProtectedRoute title="Attendance"><Attendance /></ProtectedRoute>} />
       <Route
         path="teacher-period-attendance"
