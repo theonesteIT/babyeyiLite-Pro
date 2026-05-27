@@ -9,6 +9,7 @@ const {
 const {
     normalizeGradebookLabel,
     sqlNormLabelEquals,
+    sqlNormColumnsEqual,
     resolveTimetableClassLabels,
 } = require('../utils/gradebookLabels');
 
@@ -1555,12 +1556,24 @@ router.get('/students', requireTeacherRole, async (req, res) => {
         const schoolId = resolveSchoolId(req);
         if (!schoolId) return res.status(400).json({ success: false, message: 'No school linked' });
 
-        const { class_name, date } = req.query;
+        const { class_name, date, class_labels: classLabelsRaw, scope } = req.query;
         const lookupDate = date || new Date().toISOString().split('T')[0];
         const teacherUserId = resolveUserId(req);
         if (!teacherUserId) return res.status(403).json({ success: false, message: 'Teacher not resolved' });
         const roleCode = String(req.session?.user?.role_code || req.user?.role_code || '').toUpperCase();
         const restrictToAssignedClasses = roleCode === 'TEACHER';
+        const forAttendance = String(scope || '').trim().toLowerCase() === 'attendance';
+        if (restrictToAssignedClasses && forAttendance && !class_name && !classLabelsRaw) {
+            return res.status(400).json({ success: false, message: 'class_name is required for attendance roster' });
+        }
+        const classLabelList = classLabelsRaw
+            ? String(classLabelsRaw)
+                  .split(',')
+                  .map((x) => normalizeGradebookLabel(x))
+                  .filter(Boolean)
+            : class_name
+              ? [normalizeGradebookLabel(class_name)]
+              : [];
 
         let query = `
             SELECT s.*,
@@ -1583,20 +1596,47 @@ router.get('/students', requireTeacherRole, async (req, res) => {
         const params = [lookupDate, lookupDate, lookupDate, schoolId, schoolId];
 
         if (restrictToAssignedClasses) {
-            query += `
+            if (forAttendance && classLabelList.length) {
+                const ttMatch = classLabelList.map(() => sqlNormLabelEquals('tt.class_name')).join(' OR ');
+                const taMatch = classLabelList.map(() => sqlNormLabelEquals('ta.class_name')).join(' OR ');
+                query += `
+              AND (
+                EXISTS (
+                  SELECT 1
+                  FROM academic_timetables tt
+                  WHERE tt.school_id = ?
+                    AND tt.staff_id = ?
+                    AND (${ttMatch})
+                )
+                OR EXISTS (
+                  SELECT 1
+                  FROM timetable_assignments ta
+                  WHERE ta.school_id = ?
+                    AND ta.teacher_user_id = ?
+                    AND (${taMatch})
+                )
+              )`;
+                params.push(schoolId, teacherUserId, ...classLabelList, schoolId, teacherUserId, ...classLabelList);
+            } else if (!forAttendance) {
+                query += `
               AND EXISTS (
                 SELECT 1
                 FROM timetable_assignments ta
                 WHERE ta.school_id = ?
                   AND ta.teacher_user_id = ?
-                  AND ta.class_name = s.class_name
+                  AND (${sqlNormColumnsEqual('ta.class_name', 's.class_name')})
               )`;
-            params.push(schoolId, teacherUserId);
+                params.push(schoolId, teacherUserId);
+            }
         }
 
-        if (class_name) {
+        if (classLabelList.length === 1) {
             query += ` AND (${sqlNormLabelEquals('s.class_name')})`;
-            params.push(normalizeGradebookLabel(class_name));
+            params.push(classLabelList[0]);
+        } else if (classLabelList.length > 1) {
+            const classOr = classLabelList.map(() => sqlNormLabelEquals('s.class_name')).join(' OR ');
+            query += ` AND (${classOr})`;
+            params.push(...classLabelList);
         }
 
         query += ' ORDER BY s.first_name ASC LIMIT 500';

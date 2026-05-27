@@ -16,6 +16,13 @@ function sqlNormLabelEquals(columnSql) {
     );
 }
 
+/** Compare two columns with the same normalization as sqlNormLabelEquals. */
+function sqlNormColumnsEqual(columnA, columnB) {
+    const norm = (col) =>
+        `LOWER(REGEXP_REPLACE(TRIM(IFNULL(${col}, '')), '[[:space:]]+', ' '))`;
+    return `${norm(columnA)} = ${norm(columnB)}`;
+}
+
 function normKeyClass(s) {
     return normalizeGradebookLabel(s).toLowerCase();
 }
@@ -82,5 +89,6 @@ function resolveTimetableClassLabels(ttClassRaw, studentClassNames, registryRows
 module.exports = {
     normalizeGradebookLabel,
     sqlNormLabelEquals,
+    sqlNormColumnsEqual,
     resolveTimetableClassLabels,
 };

@@ -6,6 +6,7 @@ const QRCode = require('qrcode');
 const { promisePool } = require('../config/database');
 const { requireRole } = require('../middleware/deoAuth');
 const { loadApprovedBabyeyiPricing } = require('./babyeyiPublicPricingCore');
+const { getConductBoundsForSchool } = require('./conductMarksSettings');
 
 const router = express.Router();
 
@@ -319,31 +320,51 @@ router.get('/students/public/:id/school-insights', async (req, res) => {
     const today = todayDateStr();
     const className = normStr(row.class_name);
 
+    const conductBounds = await getConductBoundsForSchool(schoolId);
+    const defaultMarks = Number(conductBounds.default_marks ?? 40);
+    const maxMarks = Number(conductBounds.max_marks ?? defaultMarks);
+    const minimumMarks = Number(conductBounds.minimum_marks ?? 0);
+
     const profileRows = await safeInsightQuery(
       `SELECT discipline_marks FROM students WHERE id = ? AND school_id = ? LIMIT 1`,
       [studentId, schoolId]
     );
-    const disciplineMarksStored = Number(profileRows[0]?.discipline_marks ?? 0);
+    const storedRaw = profileRows[0]?.discipline_marks;
+    const hasStoredMarks = storedRaw !== null && storedRaw !== undefined && String(storedRaw).trim() !== '';
+    const currentMarks = hasStoredMarks
+      ? Math.max(minimumMarks, Number(storedRaw))
+      : defaultMarks;
 
-    const disciplineRows = await safeInsightQuery(
-      `SELECT lesson_subject, description, marks_deducted, marks_remaining_after, created_at
-       FROM discipline_cases
-       WHERE school_id = ? AND student_id = ?
-       ORDER BY created_at DESC
-       LIMIT 80`,
-      [schoolId, studentId]
-    );
+    const disciplineCaseParams = [schoolId, studentId];
+    let disciplineCaseSql = `
+      SELECT lesson_subject, description, marks_deducted, marks_remaining_after,
+             academic_year, term, class_name, created_at
+      FROM discipline_cases
+      WHERE school_id = ? AND student_id = ?`;
+    if (selectedAcademicYear) {
+      disciplineCaseSql += " AND TRIM(COALESCE(academic_year, '')) = ?";
+      disciplineCaseParams.push(selectedAcademicYear);
+    }
+    if (selectedTerm) {
+      disciplineCaseSql += " AND TRIM(COALESCE(term, '')) = ?";
+      disciplineCaseParams.push(selectedTerm);
+    }
+    disciplineCaseSql += ' ORDER BY created_at DESC LIMIT 80';
+
+    const disciplineRows = await safeInsightQuery(disciplineCaseSql, disciplineCaseParams);
     const disciplineCases = disciplineRows.map((r) => ({
       lesson_subject: r.lesson_subject || 'General',
       description: r.description || '',
       marks_deducted: Number(r.marks_deducted || 0),
       marks_remaining_after: Number(r.marks_remaining_after || 0),
+      academic_year: r.academic_year || null,
+      term: r.term || null,
+      class_name: r.class_name || null,
       created_at: r.created_at || null,
     }));
     const disciplineDeducted = disciplineCases.reduce((sum, c) => sum + Number(c.marks_deducted || 0), 0);
-    const disciplineScore = Number.isFinite(disciplineMarksStored) && disciplineMarksStored > 0
-      ? disciplineMarksStored
-      : Math.max(0, 100 - disciplineDeducted);
+    const conductPct = maxMarks > 0 ? Math.round((currentMarks / maxMarks) * 100) : 0;
+    const disciplineScore = currentMarks;
 
     const logYearStart = parseAcademicYearStart(selectedAcademicYear);
     const disciplineLogRows = await safeInsightQuery(
@@ -529,12 +550,19 @@ router.get('/students/public/:id/school-insights', async (req, res) => {
           today,
         },
         discipline: {
+          default_marks: defaultMarks,
+          max_marks: maxMarks,
+          minimum_marks: minimumMarks,
+          current_marks: currentMarks,
           score: disciplineScore,
-          behavior_grade: disciplineScore >= 85 ? 'A' : disciplineScore >= 70 ? 'B' : disciplineScore >= 50 ? 'C' : 'D',
-          current_marks: disciplineMarksStored,
+          conduct_percent: conductPct,
+          behavior_grade:
+            conductPct >= 85 ? 'A' : conductPct >= 70 ? 'B' : conductPct >= 50 ? 'C' : 'D',
+          total_deducted_in_period: disciplineDeducted,
           incidents: disciplineCases,
           mark_logs: disciplineLogs,
           negative_events: disciplineCases.length,
+          uses_school_default: !hasStoredMarks,
         },
         marks: {
           average_grade: averageGrade,

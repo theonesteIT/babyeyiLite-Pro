@@ -145,10 +145,17 @@ export default function QRStudentsProfile() {
     return getStudentIdFromSearchAndHash();
   }, [idFromPath, searchParams]);
 
-  const fetchInsights = useCallback(async (id) => {
+  const fetchInsights = useCallback(async (id, academicYear) => {
     setInsightsLoading(true);
     try {
-      const res = await fetch(`${API}/students/public/${encodeURIComponent(id)}/school-insights`);
+      const params = new URLSearchParams();
+      if (academicYear && academicYear !== '-') {
+        params.set('academic_year', String(academicYear));
+      }
+      const qs = params.toString();
+      const res = await fetch(
+        `${API}/students/public/${encodeURIComponent(id)}/school-insights${qs ? `?${qs}` : ''}`
+      );
       const json = await res.json().catch(() => ({}));
       if (res.ok && json.success && json.data) {
         setInsights(json.data);
@@ -180,7 +187,7 @@ export default function QRStudentsProfile() {
       const mapped = mapRowToStudent(raw);
       setStudent(mapped);
       setTimeout(() => setEntered(true), 60);
-      fetchInsights(mapped.id || id);
+      fetchInsights(mapped.id || id, mapped.academicYear);
     } catch (e) {
       setError(e.message || 'An unexpected error occurred.');
     } finally {
@@ -326,32 +333,79 @@ function EmptyInsight({ text }) {
 
 function DisciplineTab({ data }) {
   if (!data) return <EmptyInsight text="Discipline records are not available yet." />;
-  const { score, behavior_grade, current_marks, incidents = [], mark_logs = [] } = data;
+  const {
+    current_marks,
+    max_marks,
+    default_marks,
+    minimum_marks,
+    conduct_percent,
+    behavior_grade,
+    uses_school_default,
+    total_deducted_in_period,
+    incidents = [],
+    mark_logs = [],
+  } = data;
+  const max = Number(max_marks ?? default_marks ?? 0);
+  const current = Number(current_marks ?? 0);
+  const pct = conduct_percent != null ? conduct_percent : (max > 0 ? Math.round((current / max) * 100) : 0);
+
   return (
     <div className="qrp-tab-panel">
-      <div className="qrp-stat-row">
-        <div className="qrp-stat-card">
-          <div className="qrp-stat-val">{score ?? '—'}</div>
-          <div className="qrp-stat-lbl">Conduct score</div>
+      <div className="qrp-conduct-summary">
+        <div className="qrp-conduct-head">
+          <div>
+            <div className="qrp-conduct-score">
+              {current}
+              <span className="qrp-conduct-score-of"> / {max || '—'}</span>
+            </div>
+            <div className="qrp-conduct-caption">Conduct marks remaining</div>
+          </div>
+          <div className="qrp-conduct-grade-wrap">
+            <div className="qrp-conduct-grade">{behavior_grade || '—'}</div>
+            <div className="qrp-conduct-caption">{pct}% of maximum</div>
+          </div>
         </div>
-        <div className="qrp-stat-card">
-          <div className="qrp-stat-val">{behavior_grade || '—'}</div>
-          <div className="qrp-stat-lbl">Grade</div>
-        </div>
-        <div className="qrp-stat-card">
-          <div className="qrp-stat-val">{current_marks ?? '—'}</div>
-          <div className="qrp-stat-lbl">Current marks</div>
+        <div className="qrp-conduct-bar" aria-hidden="true">
+          <div className="qrp-conduct-bar-fill" style={{ width: `${Math.min(100, Math.max(0, pct))}%` }} />
         </div>
       </div>
+
+      <div className="qrp-stat-row">
+        <div className="qrp-stat-card">
+          <div className="qrp-stat-val">{default_marks ?? max ?? '—'}</div>
+          <div className="qrp-stat-lbl">School default (all)</div>
+        </div>
+        <div className="qrp-stat-card">
+          <div className="qrp-stat-val">{minimum_marks ?? 0}</div>
+          <div className="qrp-stat-lbl">Minimum floor</div>
+        </div>
+        <div className="qrp-stat-card">
+          <div className="qrp-stat-val">{total_deducted_in_period ?? 0}</div>
+          <div className="qrp-stat-lbl">Deducted (period)</div>
+        </div>
+      </div>
+
+      {uses_school_default ? (
+        <p className="qrp-conduct-note">
+          This student is on the school-wide starting balance ({default_marks ?? max} marks) set by discipline staff.
+        </p>
+      ) : null}
+
       {incidents.length > 0 ? (
         <>
-          <h3 className="qrp-subhead">Recent incidents</h3>
+          <h3 className="qrp-subhead">Discipline cases</h3>
           <ul className="qrp-list">
-            {incidents.slice(0, 15).map((c, i) => (
+            {incidents.slice(0, 20).map((c, i) => (
               <li key={`${c.created_at}-${i}`} className="qrp-list-item">
-                <div className="qrp-list-title">{c.lesson_subject || 'General'}</div>
+                <div className="qrp-list-item-row">
+                  <div className="qrp-list-title">{c.lesson_subject || 'General'}</div>
+                  <span className="qrp-score-pill qrp-score-pill-warn">−{c.marks_deducted}</span>
+                </div>
                 <div className="qrp-list-meta">
-                  −{c.marks_deducted} marks · {formatDateLabel(c.created_at)}
+                  Remaining: {c.marks_remaining_after ?? '—'} marks · {formatDateLabel(c.created_at)}
+                  {(c.term || c.academic_year) ? (
+                    <> · {[c.term, c.academic_year].filter(Boolean).join(' · ')}</>
+                  ) : null}
                 </div>
                 {c.description ? <div className="qrp-list-desc">{c.description}</div> : null}
               </li>
@@ -359,16 +413,24 @@ function DisciplineTab({ data }) {
           </ul>
         </>
       ) : (
-        <EmptyInsight text="No discipline incidents on record." />
+        <EmptyInsight text="No discipline cases recorded for this student in the selected period." />
       )}
+
       {mark_logs.length > 0 ? (
         <>
           <h3 className="qrp-subhead">Mark adjustments</h3>
           <ul className="qrp-list">
-            {mark_logs.slice(0, 10).map((l, i) => (
+            {mark_logs.slice(0, 15).map((l, i) => (
               <li key={`${l.created_at}-${i}`} className="qrp-list-item">
-                <div className="qrp-list-title">{l.action || 'Update'} · {l.marks} marks</div>
-                <div className="qrp-list-meta">{l.reason || l.notes || '—'} · {formatDateLabel(l.action_date || l.created_at)}</div>
+                <div className="qrp-list-title">
+                  {l.action === 'add' ? 'Added' : l.action === 'remove' ? 'Removed' : 'Update'} · {l.marks} marks
+                </div>
+                <div className="qrp-list-meta">
+                  {l.previous_marks != null && l.new_marks != null
+                    ? `${l.previous_marks} → ${l.new_marks} · `
+                    : ''}
+                  {l.reason || l.notes || '—'} · {formatDateLabel(l.action_date || l.created_at)}
+                </div>
               </li>
             ))}
           </ul>
@@ -684,6 +746,16 @@ function ProfileCard({ student, insights, insightsLoading, entered, imgError, se
           {section && section !== '-' && <span className="qrp-pill qrp-pill-blue">{section}</span>}
           {student.className && student.className !== '-' && <span className="qrp-pill qrp-pill-gold">{student.className}</span>}
           {student.gender && student.gender !== '-' && <span className="qrp-pill qrp-pill-slate">{student.gender}</span>}
+          {insights?.discipline && (
+            <button
+              type="button"
+              className="qrp-pill qrp-pill-conduct"
+              onClick={() => setActiveTab('discipline')}
+            >
+              <ShieldCheck size={12} strokeWidth={UNIFORM_ICON_STROKE} />
+              Conduct {insights.discipline.current_marks}/{insights.discipline.max_marks}
+            </button>
+          )}
         </div>
       </div>
 
@@ -1180,6 +1252,30 @@ const CSS = `
   .qrp-pill-blue  { background: rgba(26,53,114,0.6); border: 1px solid rgba(99,143,255,0.3); color: #93c5fd; }
   .qrp-pill-gold  { background: rgba(200,168,75,0.15); border: 1px solid rgba(200,168,75,0.35); color: var(--gold-light); }
   .qrp-pill-slate { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14); color: rgba(255,255,255,0.7); }
+  .qrp-pill-conduct {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: rgba(16,185,129,0.14); border: 1px solid rgba(16,185,129,0.35);
+    color: #6ee7b7; cursor: pointer; font: inherit;
+  }
+  .qrp-pill-conduct:hover { background: rgba(16,185,129,0.22); }
+
+  .qrp-conduct-summary {
+    padding: 14px 16px; border-radius: 14px;
+    background: linear-gradient(135deg, rgba(15,32,68,0.9), rgba(10,22,40,0.95));
+    border: 1px solid rgba(200,168,75,0.2); margin-bottom: 14px;
+  }
+  .qrp-conduct-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; margin-bottom: 10px; }
+  .qrp-conduct-score { font-size: 2rem; font-weight: 900; color: var(--gold-light); line-height: 1; }
+  .qrp-conduct-score-of { font-size: 1rem; font-weight: 600; color: rgba(255,255,255,0.45); }
+  .qrp-conduct-caption { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.45); margin-top: 4px; }
+  .qrp-conduct-grade { font-size: 1.75rem; font-weight: 900; color: #fff; text-align: right; }
+  .qrp-conduct-bar { height: 6px; border-radius: 99px; background: rgba(255,255,255,0.08); overflow: hidden; }
+  .qrp-conduct-bar-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, #c8a84b, #10b981); transition: width 0.4s ease; }
+  .qrp-conduct-note {
+    font-size: 0.78rem; color: rgba(255,255,255,0.55); margin: 0 0 14px;
+    padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+  }
 
   /* ── Sections ── */
   .qrp-section {
@@ -1502,6 +1598,11 @@ const CSS = `
     color: var(--gold-light);
     font-size: 11px;
     font-weight: 800;
+  }
+  .qrp-score-pill-warn {
+    background: rgba(239,68,68,0.12);
+    border-color: rgba(239,68,68,0.35);
+    color: #fca5a5;
   }
   .qrp-status-pill {
     flex-shrink: 0;

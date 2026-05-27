@@ -119,13 +119,34 @@ export default function Attendance() {
     };
 
 
+    const rosterLabelsForLesson = (lesson) => {
+        if (!lesson) return [];
+        const labels = [];
+        if (lesson.roster_class_name) labels.push(normalizeGradebookLabel(lesson.roster_class_name));
+        if (Array.isArray(lesson.class_alternatives)) {
+            lesson.class_alternatives.forEach((c) => {
+                const n = normalizeGradebookLabel(c);
+                if (n && !labels.includes(n)) labels.push(n);
+            });
+        }
+        const group = normalizeGradebookLabel(lesson.group);
+        if (group && !labels.includes(group)) labels.push(group);
+        return labels;
+    };
+
     const fetchRosterAndSaved = async () => {
         if (!selectedClass || !selectedLesson) return;
         setLoading(true);
         try {
-            const className = normalizeGradebookLabel(selectedClass);
+            const classLabels = rosterLabelsForLesson(selectedLesson);
+            const className = classLabels[0] || normalizeGradebookLabel(selectedClass);
             const res = await api.get('/teacher-portal/students', {
-                params: { class_name: className, date: selectedDate },
+                params: {
+                    class_name: className,
+                    scope: 'attendance',
+                    date: selectedDate,
+                    ...(classLabels.length > 1 ? { class_labels: classLabels.join(',') } : {}),
+                },
             });
             if (!res.data.success) {
                 setRoster([]);

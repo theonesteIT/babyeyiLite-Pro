@@ -8,10 +8,9 @@ import {
   Building2, LogOut, WifiOff, GraduationCap, ChevronDown, DollarSign, Shield,
   ListChecks, UserCircle,
 } from 'lucide-react';
+import babyeyiIcon from '../assets/babyeyi-icon.png';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5100';
-// Public-root logo used by other portals (e.g. accountant portal)
-const babyeyiIcon = `${import.meta.env.BASE_URL || '/'}babyeyi-icon.png`;
 const toPhotoUrl = (photo) => {
   if (!photo) return null;
   if (photo.startsWith('http://') || photo.startsWith('https://')) return photo;
