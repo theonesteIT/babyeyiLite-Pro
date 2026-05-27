@@ -8,9 +8,12 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 import ConductMarksModal from '../components/ConductMarksModal';
+import StudentIdentityRegistrationModal from '../components/StudentIdentityRegistrationModal';
 import TeacherOrangeHero from '../../shared/components/TeacherOrangeHero';
 import { PORTAL } from '../config/portal';
 import { useAuth } from '../context/AuthContext';
+
+const ASSET_BASE = api.defaults.baseURL.replace('/api', '');
 
 // ── Student Detail Modal (Drawer Style) ──────────────────────────────────────
 const StudentModal = ({ student, onClose }) => {
@@ -31,8 +34,14 @@ const StudentModal = ({ student, onClose }) => {
                 <div className="flex items-center justify-between px-8 py-6 border-b border-black/5 bg-white shrink-0">
                     <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-2xl bg-re-bg border border-black/5 flex items-center justify-center text-re-text font-black text-lg shadow-inner relative overflow-hidden">
-                            <span className="relative z-10">{student.name.charAt(0)}</span>
-                            <div className="absolute inset-0 bg-re-grad-orange opacity-5"></div>
+                            {student.student_photo_url ? (
+                                <img src={`${ASSET_BASE}${student.student_photo_url}`} className="w-full h-full object-cover relative z-10" alt="Student" />
+                            ) : (
+                                <>
+                                    <span className="relative z-10">{student.name.charAt(0)}</span>
+                                    <div className="absolute inset-0 bg-re-grad-orange opacity-5"></div>
+                                </>
+                            )}
                         </div>
                         <div>
                             <h3 className="font-black text-re-text text-base leading-tight uppercase tracking-tight">{student.name}</h3>
@@ -172,6 +181,7 @@ const Students = () => {
     const [selectedClass, setSelectedClass] = useState('View All');
     const [showAllClassesModal, setShowAllClassesModal] = useState(false);
     const [isClassSelected, setIsClassSelected] = useState(window.innerWidth >= 768);
+    const [showIdentityModal, setShowIdentityModal] = useState(false);
 
     // Conduct Modal State
     const [isConductModalOpen, setIsConductModalOpen] = useState(false);
@@ -249,6 +259,20 @@ const Students = () => {
                 onClose={() => setIsConductModalOpen(false)}
                 initialStudent={conductStudent}
                 students={mockStudents}
+            />
+            <StudentIdentityRegistrationModal
+                open={showIdentityModal}
+                onClose={() => setShowIdentityModal(false)}
+                session={{ schoolName: teacher?.school?.name || teacher?.school_name || 'School' }}
+                toast={() => {}}
+                onSaved={async () => {
+                    try {
+                        const res = await api.get('/teacher-portal/students');
+                        if (res.data?.success) {
+                            setMockStudents(res.data.data || []);
+                        }
+                    } catch (_) { /* noop */ }
+                }}
             />
 
             {/* Mobile "More Classes" Modal */}
@@ -488,8 +512,12 @@ const Students = () => {
                                                 >
                                                     <td className="px-4 sm:px-8 py-3 sm:py-5 border-r border-black/5 last:border-r-0">
                                                         <div className="flex items-center gap-3 sm:gap-4">
-                                                            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-re-bg border border-black/5 flex-shrink-0 flex items-center justify-center text-re-text-muted transition-colors relative shadow-inner overflow-hidden group-hover:bg-white">
-                                                                <User size={12} className="sm:w-3.5 sm:h-3.5 opacity-40 text-re-text-muted" />
+                                                            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-re-bg border border-black/5 flex-shrink-0 flex items-center justify-center text-re-text-muted transition-colors relative shadow-inner overflow-hidden group-hover:bg-white">
+                                                                {s.student_photo_url ? (
+                                                                    <img src={`${ASSET_BASE}${s.student_photo_url}`} className="w-full h-full object-cover relative z-10" alt="Student" />
+                                                                ) : (
+                                                                    <User size={12} className="sm:w-3.5 sm:h-3.5 opacity-40 text-re-text-muted" />
+                                                                )}
                                                                 <div className="absolute -bottom-1 -right-1 w-2.5 h-2.5 sm:w-3 h-3 bg-white border border-black/5 rounded-full flex items-center justify-center">
                                                                     <div className="w-1 h-1 sm:w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>
                                                                 </div>
@@ -566,21 +594,12 @@ const Students = () => {
                                                                             </button>
                                                                             <button
                                                                                 className="w-full text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-re-orange hover:bg-re-orange/5 transition-colors flex items-center gap-2.5 border-t border-black/5"
-                                                                                onClick={() => { setOpenDropdownId(null); openConductModal(s); }}
+                                                                                onClick={() => {
+                                                                                    setOpenDropdownId(null);
+                                                                                    setShowIdentityModal(true);
+                                                                                }}
                                                                             >
-                                                                                <Activity size={13} /> <span className="tracking-tighter">+/-</span> Conduct Marks
-                                                                            </button>
-                                                                            <button
-                                                                                className="w-full text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-re-text hover:bg-re-bg transition-colors flex items-center gap-2.5"
-                                                                                onClick={() => setOpenDropdownId(null)}
-                                                                            >
-                                                                                <Phone size={13} className="text-re-text-muted" /> Contact Parent
-                                                                            </button>
-                                                                            <button
-                                                                                className="w-full text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-re-text hover:bg-re-bg transition-colors flex items-center gap-2.5 border-t border-black/5"
-                                                                                onClick={() => setOpenDropdownId(null)}
-                                                                            >
-                                                                                <Printer size={13} className="text-re-text-muted" /> Export Report
+                                                                                <Edit3 size={13} /> Edit Identity / Photo
                                                                             </button>
                                                                         </div>
                                                                     </>

@@ -746,6 +746,10 @@ router.get('/discipline/students-roster', requireRole(DISCIPLINE_READ_ROLES), as
       return {
         row_id: r.id,
         id: r.student_uid || r.student_code || `ST-${r.id}`,
+        // Optional portrait (used on discipline roster + student drawer)
+        student_photo_url: r.student_photo ? `/uploads/student-profile-photos/${r.student_photo}` : null,
+        // Back-compat alias (some templates prefer `photo_url`)
+        photo_url: r.student_photo ? `/uploads/student-profile-photos/${r.student_photo}` : null,
         student_code: r.student_code || null,
         student_uid: r.student_uid || null,
         name: `${trimStr(r.first_name)} ${trimStr(r.last_name)}`.trim() || `Student ${r.id}`,

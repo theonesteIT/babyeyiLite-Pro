@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
    getTeacherPortalPushState,
    subscribeTeacherPortalPush,
@@ -196,6 +197,7 @@ function computeStatusTransitionAlerts(prevMap, rows) {
 
 export default function ShuleAvance() {
    const { teacher } = useAuth();
+   const location = useLocation();
    const [rows, setRows] = useState([]);
    const [loading, setLoading] = useState(true);
    const [refreshing, setRefreshing] = useState(false);
@@ -219,6 +221,7 @@ export default function ShuleAvance() {
    /** From HR / staff payroll (manager-configured); drives Payroll Balance card */
    const [payrollSalary, setPayrollSalary] = useState(null);
    const [payrollLoading, setPayrollLoading] = useState(true);
+   const [eligibility, setEligibility] = useState(null);
 
    // Form State
    const [amount, setAmount] = useState('');
@@ -266,6 +269,11 @@ export default function ShuleAvance() {
       [selectedDealProducts]
    );
 
+   const advanceMaxPercent = Number(eligibility?.max_percent) > 0 ? Number(eligibility.max_percent) : 20;
+   const monthlyCapRwf = Number(eligibility?.monthly_cap_rwf) || 0;
+   const remainingCapRwf = Number(eligibility?.remaining_cap_rwf) || 0;
+   const autoApprovalRemainingRwf = Number(eligibility?.auto_approval_remaining_rwf) || 0;
+
    const loadCatalog = useCallback(async () => {
       try {
          const res = await api.get('/services/shule-avance/catalog');
@@ -297,9 +305,10 @@ export default function ShuleAvance() {
       setError(null);
       setPayrollLoading(true);
       try {
-         const [reqRes, payrollRes] = await Promise.all([
+         const [reqRes, payrollRes, eligibilityRes] = await Promise.all([
             api.get('/services/shule-avance/applicant/my-requests'),
             api.get('/teacher-portal/staff/payroll/my').catch(() => ({ data: { success: false } })),
+            api.get('/services/shule-avance/applicant/eligibility').catch(() => ({ data: { success: false } })),
             loadCatalog(),
             loadTeacherDealProducts(),
          ]);
@@ -341,6 +350,12 @@ export default function ShuleAvance() {
          } else {
             setPayrollSalary(null);
          }
+
+         if (eligibilityRes?.data?.success) {
+            setEligibility(eligibilityRes.data.data || null);
+         } else {
+            setEligibility(null);
+         }
       } catch (e) {
          setError(e.response?.data?.message || 'Could not load ShuleAvance requests.');
          setRows([]);
@@ -355,6 +370,22 @@ export default function ShuleAvance() {
    useEffect(() => {
       load(false);
    }, [load]);
+
+   useEffect(() => {
+      const notice = location.state?.avanceNotice;
+      if (!notice) return;
+      setStatusAlerts((prev) => {
+         const key = `nav-notice-${Date.now()}`;
+         if (prev.some((a) => a.message === notice)) return prev;
+         return [{
+            key,
+            variant: 'info',
+            title: 'Request submitted',
+            message: notice,
+         }, ...prev].slice(0, 8);
+      });
+      window.history.replaceState({}, document.title);
+   }, [location.state?.avanceNotice]);
 
    useEffect(() => {
       const hasWorkflow =
@@ -453,7 +484,17 @@ export default function ShuleAvance() {
                      key,
                      variant: 'success',
                      title: 'Cashout auto-approved!',
-                     message: `Your cashout of ${formatMoney(amt)} was instantly approved (≤ 40 % of your net salary) and will be deducted from your next payroll.`,
+                     message: `Your cashout of ${formatMoney(amt)} was instantly approved (≤ ${advanceMaxPercent}% of your net salary) and will be deducted from your next payroll.`,
+                  }, ...prev].slice(0, 8);
+               });
+            } else if (res.data.exceeds_monthly_cap || res.data.message) {
+               setStatusAlerts((prev) => {
+                  const key = `submitted-${Date.now()}`;
+                  return [{
+                     key,
+                     variant: res.data.exceeds_monthly_cap ? 'info' : 'success',
+                     title: res.data.exceeds_monthly_cap ? 'Over-limit request submitted' : 'Request submitted',
+                     message: res.data.message || 'Your request was submitted successfully.',
                   }, ...prev].slice(0, 8);
                });
             }
@@ -631,9 +672,9 @@ export default function ShuleAvance() {
                   <div className="text-left">
                      <p className="text-sm font-black text-re-text uppercase tracking-tight">Request Cashout</p>
                      <p className="text-[10px] font-bold text-re-text-muted opacity-60 uppercase">
-                        {payrollSalary?.net
-                           ? `≤ ${formatMoney(Math.floor(payrollSalary.net * 0.4))} auto-approved instantly`
-                           : 'Instant approval available for ≤ 40% of net salary'}
+                        {autoApprovalRemainingRwf > 0
+                           ? `≤ ${formatMoney(autoApprovalRemainingRwf)} auto-approved instantly`
+                           : `Instant approval available for ≤ ${advanceMaxPercent}% of net salary`}
                      </p>
                   </div>
                </div>
@@ -1115,20 +1156,22 @@ export default function ShuleAvance() {
                                  <div className="space-y-2">
                                     <label className="text-[10px] font-bold text-re-text-muted uppercase tracking-widest opacity-40 ml-1">Amount Requested (RWF)</label>
                                     <input type="number" value={amount} onChange={e => { setAmount(e.target.value); }} placeholder="Enter amount..." className="w-full h-16 bg-re-bg rounded-2xl px-6 font-black text-2xl outline-none border border-transparent focus:border-re-orange/20 shadow-inner" />
-                                    {/* 40% threshold badge */}
+                                    {/* Monthly cap threshold badge */}
                                     {(() => {
-                                       const netSal = payrollSalary?.net || 0;
-                                       const threshold = Math.floor(netSal * 0.4);
                                        const enteredAmt = Number(amount) || 0;
-                                       if (!netSal || !enteredAmt) return null;
-                                       const isAuto = enteredAmt <= threshold;
+                                       if (!enteredAmt) return null;
+                                       const exceedsCap = remainingCapRwf > 0
+                                          ? enteredAmt > remainingCapRwf
+                                          : monthlyCapRwf > 0 && enteredAmt > monthlyCapRwf;
+                                       const canAutoApprove = !exceedsCap && autoApprovalRemainingRwf > 0 && enteredAmt <= autoApprovalRemainingRwf;
                                        return (
-                                          <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-[10px] font-bold mt-1 ${isAuto ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
-                                             {isAuto ? <CheckCircle size={13} className="shrink-0 text-emerald-600" /> : <AlertCircle size={13} className="shrink-0 text-amber-600" />}
-                                             {isAuto
-                                                ? `Auto-approved — within 40% of your net salary (${formatMoney(threshold)} limit)`
-                                                : `Requires review — exceeds 40% limit (${formatMoney(threshold)}). Will go to accountant → manager.`
-                                             }
+                                          <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-[10px] font-bold mt-1 ${canAutoApprove ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
+                                             {canAutoApprove ? <CheckCircle size={13} className="shrink-0 text-emerald-600" /> : <AlertCircle size={13} className="shrink-0 text-amber-600" />}
+                                             {canAutoApprove
+                                                ? `Auto-approved — within ${advanceMaxPercent}% monthly limit (${formatMoney(remainingCapRwf || monthlyCapRwf)} remaining)`
+                                                : exceedsCap
+                                                   ? `Over monthly limit (${advanceMaxPercent}% cap — ${formatMoney(remainingCapRwf || monthlyCapRwf)} remaining). Will go to accountant → school manager.`
+                                                   : `Requires review — will go to accountant → school manager.`}
                                           </div>
                                        );
                                     })()}
@@ -1146,17 +1189,20 @@ export default function ShuleAvance() {
                               <div className="space-y-4 py-2">
                                  {/* Approval path indicator */}
                                  {(() => {
-                                    const netSal = payrollSalary?.net || 0;
-                                    const threshold = Math.floor(netSal * 0.4);
                                     const enteredAmt = Number(amount) || 0;
-                                    const isAuto = netSal > 0 && enteredAmt > 0 && enteredAmt <= threshold;
+                                    const exceedsCap = remainingCapRwf > 0
+                                       ? enteredAmt > remainingCapRwf
+                                       : monthlyCapRwf > 0 && enteredAmt > monthlyCapRwf;
+                                    const canAutoApprove = enteredAmt > 0 && !exceedsCap && autoApprovalRemainingRwf > 0 && enteredAmt <= autoApprovalRemainingRwf;
                                     return (
-                                       <div className={`flex items-center gap-2 px-4 py-3 rounded-2xl border text-[10px] font-bold ${isAuto ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
-                                          {isAuto ? <CheckCircle size={14} className="shrink-0 text-emerald-600" /> : <Send size={14} className="shrink-0 text-amber-600" />}
+                                       <div className={`flex items-center gap-2 px-4 py-3 rounded-2xl border text-[10px] font-bold ${canAutoApprove ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
+                                          {canAutoApprove ? <CheckCircle size={14} className="shrink-0 text-emerald-600" /> : <Send size={14} className="shrink-0 text-amber-600" />}
                                           <span>
-                                             {isAuto
+                                             {canAutoApprove
                                                 ? 'Instant approval — money will be available immediately, deducted from next payroll.'
-                                                : 'This request will be sent to your accountant, then to your school manager for approval.'}
+                                                : exceedsCap
+                                                   ? `Over ${advanceMaxPercent}% monthly limit — sent to accountant, then school manager for approval.`
+                                                   : 'This request will be sent to your accountant, then to your school manager for approval.'}
                                           </span>
                                        </div>
                                     );

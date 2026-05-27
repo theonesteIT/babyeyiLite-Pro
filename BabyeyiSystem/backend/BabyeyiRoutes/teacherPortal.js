@@ -1557,6 +1557,10 @@ router.get('/students', requireTeacherRole, async (req, res) => {
 
         const { class_name, date } = req.query;
         const lookupDate = date || new Date().toISOString().split('T')[0];
+        const teacherUserId = resolveUserId(req);
+        if (!teacherUserId) return res.status(403).json({ success: false, message: 'Teacher not resolved' });
+        const roleCode = String(req.session?.user?.role_code || req.user?.role_code || '').toUpperCase();
+        const restrictToAssignedClasses = roleCode === 'TEACHER';
 
         let query = `
             SELECT s.*,
@@ -1577,6 +1581,18 @@ router.get('/students', requireTeacherRole, async (req, res) => {
             ) att ON att.student_id = s.id
             WHERE s.school_id = ?`;
         const params = [lookupDate, lookupDate, lookupDate, schoolId, schoolId];
+
+        if (restrictToAssignedClasses) {
+            query += `
+              AND EXISTS (
+                SELECT 1
+                FROM timetable_assignments ta
+                WHERE ta.school_id = ?
+                  AND ta.teacher_user_id = ?
+                  AND ta.class_name = s.class_name
+              )`;
+            params.push(schoolId, teacherUserId);
+        }
 
         if (class_name) {
             query += ` AND (${sqlNormLabelEquals('s.class_name')})`;
@@ -1608,6 +1624,9 @@ router.get('/students', requireTeacherRole, async (req, res) => {
                 sector: r.sector || 'N/A',
                 cell: r.cell || 'N/A',
                 created_at: r.created_at,
+                // Used by DOS/teacher UIs as an optional portrait.
+                student_photo_url: r.student_photo ? `/uploads/student-profile-photos/${r.student_photo}` : null,
+                photo_url: r.student_photo ? `/uploads/student-profile-photos/${r.student_photo}` : null,
             };
         });
 
@@ -1699,10 +1718,31 @@ router.get('/classes', requireTeacherRole, async (req, res) => {
         const schoolId = resolveSchoolId(req);
         if (!schoolId) return res.status(400).json({ success: false, message: 'No school linked' });
 
-        const [rows] = await promisePool.query(
-            'SELECT DISTINCT class_name FROM students WHERE school_id = ? AND class_name IS NOT NULL AND class_name != "" ORDER BY class_name ASC', 
-            [schoolId]
-        );
+        const teacherUserId = resolveUserId(req);
+        if (!teacherUserId) return res.status(403).json({ success: false, message: 'Teacher not resolved' });
+        const roleCode = String(req.session?.user?.role_code || req.user?.role_code || '').toUpperCase();
+        const restrictToAssignedClasses = roleCode === 'TEACHER';
+
+        const [rows] = restrictToAssignedClasses
+            ? await promisePool.query(
+                `SELECT DISTINCT ta.class_name
+                 FROM timetable_assignments ta
+                 WHERE ta.school_id = ?
+                   AND ta.teacher_user_id = ?
+                   AND ta.class_name IS NOT NULL
+                   AND TRIM(ta.class_name) <> ''
+                 ORDER BY ta.class_name ASC`,
+                [schoolId, teacherUserId]
+              )
+            : await promisePool.query(
+                `SELECT DISTINCT s.class_name
+                 FROM students s
+                 WHERE s.school_id = ?
+                   AND s.class_name IS NOT NULL
+                   AND TRIM(s.class_name) <> ''
+                 ORDER BY s.class_name ASC`,
+                [schoolId]
+              );
 
         const classes = rows.map(r => r.class_name);
         res.json({ success: true, data: classes });

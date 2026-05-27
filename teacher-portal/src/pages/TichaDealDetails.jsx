@@ -1108,6 +1108,7 @@ function AvanceModal({ open, onClose, product, quantity, monthlyRatePercent = 3.
   const [repayment, setRepayment] = useState(6);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [eligibility, setEligibility] = useState(null);
   const navigate = useNavigate();
 
   const TOTAL_STEPS = 3;
@@ -1116,6 +1117,28 @@ function AvanceModal({ open, onClose, product, quantity, monthlyRatePercent = 3.
   const totalInterest = principal * rate * repayment;
   const totalRepay = principal + totalInterest;
   const monthlyPayment = totalRepay / repayment;
+
+  const exceedsMonthlyCap = useMemo(() => {
+    if (!eligibility?.allowed) return false;
+    const remaining = Number(eligibility.remaining_cap_rwf) || 0;
+    return remaining > 0 ? principal > remaining : principal > Number(eligibility.monthly_cap_rwf || 0);
+  }, [eligibility, principal]);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api.get('/services/shule-avance/applicant/eligibility');
+        if (!cancelled && res.data?.success) {
+          setEligibility(res.data.data || null);
+        }
+      } catch {
+        if (!cancelled) setEligibility(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [open]);
 
   const handleClose = () => {
     setStep(1); setRepayment(6); setError('');
@@ -1152,7 +1175,14 @@ function AvanceModal({ open, onClose, product, quantity, monthlyRatePercent = 3.
       const res = await api.post('/services/shule-avance/applicant/requests', body);
       if (res.data?.success) {
         handleClose();
-        navigate('/shule-avance');
+        navigate('/shule-avance', {
+          state: {
+            avanceNotice: res.data.message
+              || (res.data.exceeds_monthly_cap
+                ? 'Your request exceeds the monthly limit and was sent to finance, then to your school manager.'
+                : 'Ticha Avance request submitted.'),
+          },
+        });
       } else {
         setError(res.data?.message || 'Submission failed. Please try again.');
       }
@@ -1386,9 +1416,19 @@ function AvanceModal({ open, onClose, product, quantity, monthlyRatePercent = 3.
             <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 flex gap-2.5">
               <Shield size={15} className="text-emerald-600 flex-shrink-0 mt-0.5" />
               <p className="text-xs text-emerald-800 font-semibold leading-relaxed">
-                By submitting, you agree to the monthly payroll deduction schedule. School finance will approve and process your request.
+                {exceedsMonthlyCap
+                  ? `This amount exceeds your ${eligibility?.max_percent ?? 20}% monthly limit (${formatMoney(eligibility?.remaining_cap_rwf ?? 0)} remaining). Your request will go to the accountant, then to your school manager for approval.`
+                  : 'By submitting, you agree to the monthly payroll deduction schedule. School finance will approve and process your request.'}
               </p>
             </div>
+            {exceedsMonthlyCap && (
+              <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 flex gap-2.5">
+                <AlertCircle size={15} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-amber-900 font-semibold leading-relaxed">
+                  Over-limit requests are not blocked — they require finance review before the school manager decides.
+                </p>
+              </div>
+            )}
           </div>
         )}
 

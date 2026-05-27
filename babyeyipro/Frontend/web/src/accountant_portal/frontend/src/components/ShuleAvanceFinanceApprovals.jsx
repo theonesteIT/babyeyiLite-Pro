@@ -335,13 +335,20 @@ export default function ShuleAvanceFinanceApprovals() {
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        <span
-                          className={`inline-flex rounded-full border px-2 py-0.5 text-[9px] font-medium uppercase ${
-                            STATUS_LABEL[r.status]?.cls || 'bg-slate-100 text-slate-700'
-                          }`}
-                        >
-                          {STATUS_LABEL[r.status]?.label || r.status}
-                        </span>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span
+                            className={`inline-flex rounded-full border px-2 py-0.5 text-[9px] font-medium uppercase ${
+                              STATUS_LABEL[r.status]?.cls || 'bg-slate-100 text-slate-700'
+                            }`}
+                          >
+                            {STATUS_LABEL[r.status]?.label || r.status}
+                          </span>
+                          {r.exceeds_monthly_cap ? (
+                            <span className="inline-flex rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[9px] font-medium uppercase text-red-700">
+                              Over limit
+                            </span>
+                          ) : null}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-right whitespace-nowrap">
                         {r.status === 'pending_accountant' ? (
@@ -396,6 +403,13 @@ export default function ShuleAvanceFinanceApprovals() {
                       {STATUS_LABEL[r.status]?.label || r.status}
                     </span>
                   </div>
+                  {r.exceeds_monthly_cap ? (
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex rounded-full border border-red-200 bg-red-50 px-2 py-1 text-[9px] font-medium uppercase text-red-700">
+                        Over limit
+                      </span>
+                    </div>
+                  ) : null}
                   <p className="text-lg font-medium text-[#000435]">{fmtMoney(r.amount_rwf)}</p>
                   <p className="text-[11px] text-slate-600 line-clamp-3">{r.purpose}</p>
                   {isTeacherDealRequest(r) ? (

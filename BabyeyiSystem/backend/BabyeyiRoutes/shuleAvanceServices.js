@@ -679,16 +679,8 @@ async function handleApplicantCreate(req, res) {
     const isPro = await isSchoolProEnabled(schoolId);
     const isLite = !isPro;
 
-    // Pro schools: hard block over monthly cap. Lite: allow submit → school manager decides.
-    if (exceedsMonthlyCap && isPro) {
-      return res.status(400).json({
-        success: false,
-        code: 'EXCEEDS_MONTHLY_CAP',
-        message: `This request exceeds your monthly limit (${maxPercent}% of net salary — max ${monthlyCap.toLocaleString()} RWF). You have ${eligibility.remaining_cap_rwf.toLocaleString()} RWF remaining.`,
-      });
-    }
-
     // ── Monthly cap + optional auto-approval for cashouts within school % ─────
+    // Pro: over-limit requests go accountant → school manager (Babyeyi Pro). Lite: straight to manager.
     let initialStatus = isPro ? STATUS.PENDING_ACCOUNTANT : STATUS.SENT_TO_MANAGER;
     let autoApproved = false;
     let cashoutPolicy = null;
@@ -705,12 +697,12 @@ async function handleApplicantCreate(req, res) {
         initialStatus = STATUS.APPROVED;
         autoApproved = true;
       } else {
-        initialStatus = STATUS.SENT_TO_MANAGER;
+        initialStatus = isPro ? STATUS.PENDING_ACCOUNTANT : STATUS.SENT_TO_MANAGER;
         autoApproved = false;
       }
       requestedTotalAfter = Math.round(cashoutPolicy.monthly_requested_total + v.amount);
       remainingAfter = Math.max(0, Math.round(cashoutPolicy.baseline_net_salary - requestedTotalAfter));
-    } else if (isLite || exceedsMonthlyCap) {
+    } else if (isLite) {
       initialStatus = STATUS.SENT_TO_MANAGER;
       autoApproved = false;
     }
@@ -755,13 +747,15 @@ async function handleApplicantCreate(req, res) {
     const reqId = result.insertId;
     const responseMsg = autoApproved
       ? 'Cashout auto-approved — will be deducted from your next payroll'
-      : exceedsMonthlyCap && isLite
-        ? `This request exceeds your ${maxPercent}% monthly limit and was sent to your school manager for approval.`
-        : (v.requestType === 'cashout'
-          ? (isPro
-            ? `Cashout sent for finance review (within ${maxPercent}% monthly cap).`
-            : `Cashout sent to your school manager for approval.`)
-          : (isPro ? 'Request submitted to accountant' : 'Request sent to your school manager'));
+      : exceedsMonthlyCap && isPro
+        ? `This request exceeds your ${maxPercent}% monthly limit (${monthlyCap.toLocaleString()} RWF cap). It was sent to finance for review, then to your school manager for approval.`
+        : exceedsMonthlyCap && isLite
+          ? `This request exceeds your ${maxPercent}% monthly limit and was sent to your school manager for approval.`
+          : (v.requestType === 'cashout'
+            ? (isPro
+              ? `Cashout sent for finance review (within ${maxPercent}% monthly cap).`
+              : `Cashout sent to your school manager for approval.`)
+            : (isPro ? 'Request submitted to accountant' : 'Request sent to your school manager'));
     res.status(201).json({
       success: true,
       message: responseMsg,
@@ -803,10 +797,12 @@ async function handleApplicantCreate(req, res) {
     } else {
       setImmediate(() => {
         sendWebPushToSchoolRoles(schoolId, [ROLE_ACCOUNTANT], {
-          title: 'Ticha Avance — New Request',
-          body: `A new ${v.requestType === 'cashout' ? 'cashout' : 'advance'} request of ${Math.round(v.amount).toLocaleString()} RWF needs your review.`,
+          title: exceedsMonthlyCap ? 'Ticha Avance — Over monthly limit' : 'Ticha Avance — New Request',
+          body: exceedsMonthlyCap
+            ? `Staff request of ${Math.round(v.amount).toLocaleString()} RWF exceeds the ${maxPercent}% monthly cap. Review and forward to the school manager if approved.`
+            : `A new ${v.requestType === 'cashout' ? 'cashout' : 'advance'} request of ${Math.round(v.amount).toLocaleString()} RWF needs your review.`,
           tag: `sa-${reqId}-new`,
-          url: '/shule-avance/finance',
+          url: '/shule-avance',
         });
       });
     }
@@ -2097,7 +2093,7 @@ router.patch('/shule-avance/finance/invoice-requests/:id/send-to-manager', requi
         title: 'Ticha Avance — Approval Required',
         body: `Finance forwarded request #${id} to you for final approval.`,
         tag: `sa-${id}-manager-action`,
-        url: '/shule-avance/manager',
+        url: '/avance',
       });
     });
   } catch (error) {
