@@ -21,6 +21,7 @@ import {
   Globe,
   Send,
   Search,
+  MapPin,
   LogOut,
   LifeBuoy,
   ClipboardList,
@@ -45,6 +46,7 @@ const navItemsDesktop = [
   { to: "/parents/orders", label: "Orders", Icon: ClipboardList },
   { to: "/parents/payments-report", label: "Payments", Icon: FileText },
   { to: "/parents/shop", label: "Shop", Icon: ShoppingBag },
+  { to: "/parents/find-agent", label: "Find Agent", Icon: MapPin },
   { to: "/parents/shulecard", label: "Shulecard", Icon: CreditCard },
   { to: "/parents/audit-log", label: "Audit", Icon: ShieldCheck },
   { to: "/parents/account", label: "Account", Icon: Wallet },
@@ -57,6 +59,7 @@ const navItemsMobile = [
   { to: "/parents/chat", label: "Chat", Icon: MessageSquare },
   { to: "/parents/services", label: "Services", Icon: LayoutGrid },
   { to: "/parents/shop", label: "Shop", Icon: ShoppingBag },
+  { to: "/parents/find-agent", label: "Agent", Icon: MapPin },
   { to: "/parents/shulecard", label: "Shulecard", Icon: CreditCard },
   // { to: "/parents/account", label: "Account", Icon: Wallet },
 ];

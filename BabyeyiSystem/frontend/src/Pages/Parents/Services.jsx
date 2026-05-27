@@ -12,6 +12,7 @@ import {
   ShoppingCart,
   CreditCard,
   ChevronRight,
+  MapPin,
 } from "lucide-react";
 
 const services = [
@@ -44,6 +45,12 @@ const services = [
     title: "Papeterie",
     desc: "Stationery and supplies shop",
     href: "/parents/shop",
+  },
+  {
+    icon: MapPin,
+    title: "Find Agent",
+    desc: "Locate the closest public shop agent for your child",
+    href: "/parents/find-agent",
   },
 ];
 

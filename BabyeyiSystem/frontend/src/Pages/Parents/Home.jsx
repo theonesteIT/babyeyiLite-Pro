@@ -45,18 +45,40 @@ function greetingForTime() {
   return "Good evening";
 }
 
-function SectionHeading({ title, subtitle, action }) {
+function SectionHeading({ title, subtitle, action, onClick }) {
+  const clickable = Boolean(onClick);
   return (
-    <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-4">
+    <div
+      className={
+        "flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-4" +
+        (clickable ? " cursor-pointer" : "")
+      }
+      onClick={onClick}
+      role={clickable ? "button" : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      onKeyDown={clickable ? (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onClick();
+        }
+      } : undefined}
+    >
       <div className="min-w-0">
         <div className="flex items-center gap-2.5">
           <span
             className="h-1 w-10 shrink-0 rounded-full bg-gradient-to-r from-orange-500 to-amber-400 shadow-sm shadow-orange-500/30"
             aria-hidden
           />
-          <h2 className="text-lg font-extrabold text-slate-900 tracking-tight">
-            {title}
-          </h2>
+          <div>
+            <h2 className="text-lg font-extrabold text-slate-900 tracking-tight">
+              {title}
+            </h2>
+            {subtitle ? (
+              <p className="mt-1 text-sm text-slate-500 max-w-3xl">
+                {subtitle}
+              </p>
+            ) : null}
+          </div>
         </div>
       </div>
       {action ? <div className="shrink-0 sm:ml-4">{action}</div> : null}
@@ -150,8 +172,11 @@ export default function Home() {
 
   useEffect(() => {
     if (searchParams.get("addStudent") !== "1") return;
-    setAddOpen(true);
-    navigate("/parents/home", { replace: true });
+    const openAndRedirect = () => {
+      setAddOpen(true);
+      navigate("/parents/home", { replace: true });
+    };
+    openAndRedirect();
   }, [searchParams, navigate]);
 
   const displayName =
@@ -173,29 +198,21 @@ export default function Home() {
     });
   }, [children, q]);
 
-  const dateLabel = new Date().toLocaleDateString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
-
-  const handleRefreshChildren = () => {
-    refreshApi();
-    refreshLocal();
-  };
-
   useEffect(() => {
-    try {
-      const raw = sessionStorage.getItem("babyeyi_public_pay_draft");
-      if (!raw) {
+    const loadDraftFlag = () => {
+      try {
+        const raw = sessionStorage.getItem("babyeyi_public_pay_draft");
+        if (!raw) {
+          setHasPublicDraft(false);
+          return;
+        }
+        const parsed = JSON.parse(raw);
+        setHasPublicDraft(!!parsed?.fromPublicFinder);
+      } catch {
         setHasPublicDraft(false);
-        return;
       }
-      const parsed = JSON.parse(raw);
-      setHasPublicDraft(!!parsed?.fromPublicFinder);
-    } catch {
-      setHasPublicDraft(false);
-    }
+    };
+    loadDraftFlag();
   }, []);
 
   return (
@@ -277,10 +294,12 @@ export default function Home() {
         <SectionHeading
           title="Personal assistants"
           subtitle="Optional AI and human support — more skills coming soon."
+          onClick={() => navigate("/parents/find-agent")}
         />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <button
             type="button"
+            onClick={() => navigate("/parents/find-agent")}
             className="group flex items-center gap-4 rounded-[1.75rem] border border-slate-900/10 bg-slate-950 p-4 shadow-[0_20px_80px_-40px_rgba(15,23,42,0.45)] text-left text-white transition hover:shadow-[0_25px_100px_-50px_rgba(15,23,42,0.5)]"
           >
             <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-amber-400 text-slate-950 shadow-lg shadow-amber-500/20">
@@ -296,6 +315,7 @@ export default function Home() {
           </button>
           <button
             type="button"
+            onClick={() => navigate("/parents/services")}
             className="group flex items-center gap-4 rounded-[1.75rem] border border-slate-900/10 bg-slate-950 p-4 shadow-[0_20px_80px_-40px_rgba(15,23,42,0.45)] text-left text-white transition hover:shadow-[0_25px_100px_-50px_rgba(15,23,42,0.5)]"
           >
             <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-amber-400 text-slate-950 shadow-lg shadow-amber-500/20">

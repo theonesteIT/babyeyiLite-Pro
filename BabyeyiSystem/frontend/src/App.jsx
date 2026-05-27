@@ -240,6 +240,7 @@ export default function App() {
             <Route index element={<Navigate to="home" replace />} />
             <Route path="home" element={<ParentHome />} />
             <Route path="shop" element={<ParentShop />} />
+            <Route path="find-agent" element={<Navigate to="/find-agent" replace />} />
             <Route path="shulecard" element={<ParentShulecard />} />
             <Route path="account" element={<ParentAccount />} />
             <Route path="profile" element={<ParentProfile />} />
