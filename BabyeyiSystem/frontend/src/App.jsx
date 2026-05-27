@@ -66,7 +66,9 @@ import ServicePage from './Pages/Public Page/Service';
 import FindAgent from './Pages/Public Page/FindAgent';
 import ParentFindAgent from './Pages/Parents/ParentFindAgent';
 import AgentShop from './Pages/Public Page/AgentShop';
+import ParentAgentShop from './Pages/Parents/ParentAgentShop';
 import AgentShopCheckout from './Pages/Public Page/AgentShopCheckout';
+import ParentAgentShopCheckout from './Pages/Parents/ParentAgentShopCheckout';
 import PublicStandardShuleKit from './Pages/Public Page/PublicStandardShuleKit';
 import PublicShulePapeterie from './Pages/Public Page/PublicShulePapeterie';
 import StandardKitRequestFlow from './Pages/Public Page/StandardKitRequestFlow';
@@ -242,6 +244,8 @@ export default function App() {
             <Route path="home" element={<ParentHome />} />
             <Route path="shop" element={<ParentShop />} />
             <Route path="find-agent" element={<ParentFindAgent />} />
+            <Route path="agent-shop" element={<ParentAgentShop />} />
+            <Route path="agent-shop/checkout" element={<ParentAgentShopCheckout />} />
             <Route path="shulecard" element={<ParentShulecard />} />
             <Route path="account" element={<ParentAccount />} />
             <Route path="profile" element={<ParentProfile />} />

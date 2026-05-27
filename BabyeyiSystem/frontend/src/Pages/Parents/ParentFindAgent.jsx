@@ -622,7 +622,7 @@ function AgentCard({ agent, sector, onRequestSupport }) {
             Request Support
           </button>
           <Link
-            to={`/agent-shop?agent_user_id=${encodeURIComponent(agent.id)}&agent_name=${encodeURIComponent(name)}&sector=${encodeURIComponent(agent.sector || sector)}`}
+            to={`/parents/agent-shop?agent_user_id=${encodeURIComponent(agent.id)}&agent_name=${encodeURIComponent(name)}&sector=${encodeURIComponent(agent.sector || sector)}`}
             style={{
               display: "flex",
               alignItems: "center",
