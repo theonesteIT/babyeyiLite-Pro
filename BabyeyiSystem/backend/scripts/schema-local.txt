@@ -1,0 +1,2270 @@
+# database=babyeyi tables=180 exported=2026-05-27T04:29:46.032Z
+academic_assessments.id|int(10) unsigned|NO|null|auto_increment|PRI
+academic_assessments.school_id|int(10) unsigned|NO|null||MUL
+academic_assessments.class_name|varchar(120)|NO|null||
+academic_assessments.subject_name|varchar(120)|NO|null||
+academic_assessments.assessment_name|varchar(120)|NO|null||
+academic_assessments.max_score|decimal(8,2)|NO|100.00||
+academic_assessments.assessment_type|varchar(32)|YES|'TEACHER_CUSTOM'||
+academic_assessments.column_slug|varchar(40)|YES|NULL||
+academic_assessments.created_by_user_id|int(10) unsigned|NO|null||
+academic_assessments.created_at|datetime|YES|current_timestamp()||
+academic_attendance_logs.id|int(10) unsigned|NO|null|auto_increment|PRI
+academic_attendance_logs.school_id|int(10) unsigned|NO|null||MUL
+academic_attendance_logs.timetable_id|int(10) unsigned|NO|null||
+academic_attendance_logs.record_date|date|NO|null||
+academic_attendance_logs.session_status|varchar(32)|YES|'Completed'||
+academic_attendance_logs.recorded_by_user_id|int(10) unsigned|NO|null||
+academic_attendance_logs.created_at|datetime|YES|current_timestamp()||
+academic_attendance_records.id|int(10) unsigned|NO|null|auto_increment|PRI
+academic_attendance_records.log_id|int(10) unsigned|NO|null||MUL
+academic_attendance_records.student_id|int(10) unsigned|NO|null||
+academic_attendance_records.status|varchar(32)|NO|null||
+academic_attendance_records.created_at|datetime|YES|current_timestamp()||
+academic_attendance_records.remarks|varchar(255)|YES|NULL||
+academic_marks.id|int(10) unsigned|NO|null|auto_increment|PRI
+academic_marks.school_id|int(10) unsigned|NO|null||
+academic_marks.assessment_id|int(10) unsigned|NO|null||MUL
+academic_marks.student_id|int(10) unsigned|NO|null||
+academic_marks.score_obtained|decimal(8,2)|NO|null||
+academic_marks.recorded_by_user_id|int(10) unsigned|NO|null||
+academic_marks.created_at|datetime|YES|current_timestamp()||
+academic_timetables.id|int(10) unsigned|NO|null|auto_increment|PRI
+academic_timetables.school_id|int(10) unsigned|NO|null||MUL
+academic_timetables.class_name|varchar(120)|NO|null||
+academic_timetables.subject_name|varchar(120)|NO|null||
+academic_timetables.staff_id|int(10) unsigned|NO|null||
+academic_timetables.day_of_week|varchar(20)|NO|null||
+academic_timetables.start_time|varchar(20)|NO|null||
+academic_timetables.end_time|varchar(20)|NO|null||
+academic_timetables.room|varchar(64)|YES|NULL||
+academic_timetables.created_at|datetime|YES|current_timestamp()||
+academic_timetables.term|varchar(32)|YES|NULL||
+academic_timetables.academic_year|varchar(32)|YES|NULL||
+accountant_babyeyi_fee_archive.id|bigint(20) unsigned|NO|null|auto_increment|PRI
+accountant_babyeyi_fee_archive.school_id|int(10) unsigned|NO|null||MUL
+accountant_babyeyi_fee_archive.babyeyi_id|int(10) unsigned|NO|null||UNI
+accountant_babyeyi_fee_archive.academic_year|varchar(64)|NO|''||
+accountant_babyeyi_fee_archive.term|varchar(64)|NO|''||
+accountant_babyeyi_fee_archive.class_name|varchar(255)|YES|NULL||
+accountant_babyeyi_fee_archive.classes_json|longtext|YES|NULL||
+accountant_babyeyi_fee_archive.snapshot_json|longtext|NO|null||
+accountant_babyeyi_fee_archive.babyeyi_is_active|tinyint(1)|NO|1||
+accountant_babyeyi_fee_archive.source_updated_at|datetime|YES|NULL||
+accountant_babyeyi_fee_archive.created_at|datetime|NO|current_timestamp()||
+accountant_babyeyi_fee_archive.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+accountant_babyeyi_fees.id|bigint(20) unsigned|NO|null|auto_increment|PRI
+accountant_babyeyi_fees.school_id|int(10) unsigned|NO|null||MUL
+accountant_babyeyi_fees.babyeyi_id|int(10) unsigned|NO|null||UNI
+accountant_babyeyi_fees.academic_year|varchar(64)|NO|''||
+accountant_babyeyi_fees.term|varchar(64)|NO|''||
+accountant_babyeyi_fees.class_name|varchar(255)|YES|NULL||
+accountant_babyeyi_fees.classes_json|longtext|YES|NULL||
+accountant_babyeyi_fees.tuition_total|decimal(14,2)|NO|0.00||
+accountant_babyeyi_fees.paid_at_school_total|decimal(14,2)|NO|0.00||
+accountant_babyeyi_fees.total_due|decimal(14,2)|NO|0.00||
+accountant_babyeyi_fees.babyeyi_is_active|tinyint(1)|NO|1||
+accountant_babyeyi_fees.babyeyi_status|varchar(32)|YES|NULL||
+accountant_babyeyi_fees.source_updated_at|datetime|YES|NULL||
+accountant_babyeyi_fees.created_at|datetime|NO|current_timestamp()||
+accountant_babyeyi_fees.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+accountant_expense_payments.id|int(10) unsigned|NO|null|auto_increment|PRI
+accountant_expense_payments.school_id|int(10) unsigned|NO|null||MUL
+accountant_expense_payments.expense_id|int(10) unsigned|NO|null||MUL
+accountant_expense_payments.recorded_by_user_id|int(10) unsigned|NO|null||
+accountant_expense_payments.amount_rwf|decimal(14,2)|NO|0.00||
+accountant_expense_payments.method|varchar(80)|YES|NULL||
+accountant_expense_payments.reference|varchar(180)|YES|NULL||
+accountant_expense_payments.note|text|YES|NULL||
+accountant_expense_payments.paid_at|datetime|NO|current_timestamp()||
+accountant_expense_payments.deleted_at|datetime|YES|NULL||
+accountant_expenses.id|int(10) unsigned|NO|null|auto_increment|PRI
+accountant_expenses.school_id|int(10) unsigned|NO|null||MUL
+accountant_expenses.created_by_user_id|int(10) unsigned|NO|null||
+accountant_expenses.category|varchar(120)|YES|NULL||
+accountant_expenses.title|varchar(220)|YES|NULL||
+accountant_expenses.vendor|varchar(220)|YES|NULL||
+accountant_expenses.amount_rwf|decimal(14,2)|NO|0.00||
+accountant_expenses.due_date|date|YES|NULL||
+accountant_expenses.status|varchar(32)|NO|'pending'||MUL
+accountant_expenses.note|text|YES|NULL||
+accountant_expenses.created_at|datetime|NO|current_timestamp()||
+accountant_expenses.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+accountant_expenses.deleted_at|datetime|YES|NULL||
+accountant_payroll_payments.id|int(10) unsigned|NO|null|auto_increment|PRI
+accountant_payroll_payments.school_id|int(10) unsigned|NO|null||MUL
+accountant_payroll_payments.staff_user_id|int(10) unsigned|NO|null||MUL
+accountant_payroll_payments.staff_code|varchar(64)|YES|NULL||
+accountant_payroll_payments.staff_name|varchar(180)|NO|null||
+accountant_payroll_payments.role_code|varchar(64)|YES|NULL||
+accountant_payroll_payments.department|varchar(120)|YES|NULL||
+accountant_payroll_payments.basic_salary_rwf|decimal(14,2)|NO|0.00||
+accountant_payroll_payments.bonus_rwf|decimal(14,2)|NO|0.00||
+accountant_payroll_payments.deduction_rwf|decimal(14,2)|NO|0.00||
+accountant_payroll_payments.net_salary_rwf|decimal(14,2)|NO|0.00||
+accountant_payroll_payments.pay_month|tinyint(3) unsigned|NO|null||
+accountant_payroll_payments.pay_year|smallint(5) unsigned|NO|null||MUL
+accountant_payroll_payments.payment_date|date|NO|null||
+accountant_payroll_payments.payment_status|varchar(32)|NO|'paid'||MUL
+accountant_payroll_payments.payment_method|varchar(80)|YES|NULL||
+accountant_payroll_payments.note|text|YES|NULL||
+accountant_payroll_payments.created_by_user_id|int(10) unsigned|NO|null||
+accountant_payroll_payments.deleted_at|datetime|YES|NULL||
+accountant_payroll_payments.created_at|datetime|NO|current_timestamp()||
+accountant_payroll_payments.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+accountant_payroll_payments.pay_term|varchar(32)|YES|NULL||
+accountant_payroll_payments.academic_year_label|varchar(64)|YES|NULL||
+accountant_payroll_payments.requested_amount_rwf|decimal(14,2)|NO|0.00||
+accountant_payroll_payments.approved_by_user_id|int(10) unsigned|YES|NULL||
+accountant_payroll_payments.approved_at|datetime|YES|NULL||
+accountant_payroll_payments.manager_note|text|YES|NULL||
+accountant_payroll_payments.final_payable_rwf|decimal(14,2)|NO|0.00||
+accountant_payroll_payments.paid_amount_rwf|decimal(14,2)|NO|0.00||
+accountant_payroll_payments.remaining_amount_rwf|decimal(14,2)|NO|0.00||
+accountant_payroll_payments.payment_completion_status|varchar(32)|NO|'fully_paid'||
+accountant_payroll_payments.last_payment_at|datetime|YES|NULL||
+accountant_payroll_rates.id|int(10) unsigned|NO|null|auto_increment|PRI
+accountant_payroll_rates.school_id|int(10) unsigned|NO|null||MUL
+accountant_payroll_rates.role_code|varchar(64)|NO|null||
+accountant_payroll_rates.base_rwf|decimal(14,2)|NO|0.00||
+accountant_payroll_rates.allowance_rwf|decimal(14,2)|NO|0.00||
+accountant_payroll_rates.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+accountant_payroll_run_lines.id|int(10) unsigned|NO|null|auto_increment|PRI
+accountant_payroll_run_lines.run_id|int(10) unsigned|NO|null||MUL
+accountant_payroll_run_lines.school_id|int(10) unsigned|NO|null||MUL
+accountant_payroll_run_lines.user_id|int(10) unsigned|YES|NULL||
+accountant_payroll_run_lines.staff_name|varchar(180)|NO|null||
+accountant_payroll_run_lines.dept|varchar(120)|YES|NULL||
+accountant_payroll_run_lines.role_code|varchar(64)|YES|NULL||
+accountant_payroll_run_lines.gross_rwf|decimal(14,2)|NO|0.00||
+accountant_payroll_run_lines.created_at|datetime|NO|current_timestamp()||
+accountant_payroll_runs.id|int(10) unsigned|NO|null|auto_increment|PRI
+accountant_payroll_runs.school_id|int(10) unsigned|NO|null||MUL
+accountant_payroll_runs.triggered_by_user_id|int(10) unsigned|NO|null||
+accountant_payroll_runs.run_period|varchar(32)|NO|null||
+accountant_payroll_runs.status|varchar(24)|NO|'processed'||
+accountant_payroll_runs.gross_total_rwf|decimal(14,2)|NO|0.00||
+accountant_payroll_runs.staff_count|int(10) unsigned|NO|0||
+accountant_payroll_runs.created_at|datetime|NO|current_timestamp()||MUL
+accountant_payroll_staff_overrides.id|int(10) unsigned|NO|null|auto_increment|PRI
+accountant_payroll_staff_overrides.school_id|int(10) unsigned|NO|null||MUL
+accountant_payroll_staff_overrides.user_id|int(10) unsigned|NO|null||
+accountant_payroll_staff_overrides.rate_role_code|varchar(64)|YES|NULL||
+accountant_payroll_staff_overrides.is_active|tinyint(1)|NO|1||
+accountant_payroll_staff_overrides.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+activity_logs.id|bigint(20) unsigned|NO|null|auto_increment|PRI
+activity_logs.user_id|int(10) unsigned|YES|NULL||MUL
+activity_logs.school_id|int(10) unsigned|YES|NULL||MUL
+activity_logs.role_code|varchar(64)|YES|NULL||
+activity_logs.module|varchar(64)|YES|NULL||MUL
+activity_logs.action_type|varchar(80)|NO|null||
+activity_logs.action_summary|varchar(500)|YES|NULL||
+activity_logs.entity_type|varchar(64)|YES|NULL||
+activity_logs.entity_id|varchar(80)|YES|NULL||
+activity_logs.before_value|text|YES|NULL||
+activity_logs.after_value|text|YES|NULL||
+activity_logs.risk_level|varchar(24)|YES|NULL||
+activity_logs.ip_address|varchar(64)|YES|NULL||
+activity_logs.user_agent|varchar(255)|YES|NULL||
+activity_logs.product_tier|varchar(16)|YES|NULL||
+activity_logs.source_table|varchar(64)|YES|NULL||
+activity_logs.source_id|bigint(20) unsigned|YES|NULL||
+activity_logs.created_at|datetime|NO|current_timestamp()||MUL
+admission_app_answers.id|int(10) unsigned|NO|null|auto_increment|PRI
+admission_app_answers.application_id|int(10) unsigned|NO|null||MUL
+admission_app_answers.question_id|int(10) unsigned|NO|null||MUL
+admission_app_answers.answer_text|text|YES|NULL||
+admission_app_answers.answer_json|longtext|YES|NULL||
+admission_app_answers.files_json|longtext|YES|NULL||
+admission_app_answers.created_at|timestamp|NO|current_timestamp()||
+admission_applications.id|int(10) unsigned|NO|null|auto_increment|PRI
+admission_applications.form_id|int(10) unsigned|NO|null||MUL
+admission_applications.school_id|int(10) unsigned|NO|null||MUL
+admission_applications.reference_no|varchar(30)|NO|null||UNI
+admission_applications.applicant_name|varchar(255)|NO|null||
+admission_applications.applicant_email|varchar(255)|YES|NULL||
+admission_applications.applicant_phone|varchar(50)|YES|NULL||
+admission_applications.status|enum('pending','reviewed','accepted','rejected','waitlisted')|NO|'pending'||MUL
+admission_applications.notes|text|YES|NULL||
+admission_applications.submitted_at|timestamp|NO|current_timestamp()||
+admission_applications.reviewed_at|timestamp|YES|NULL||
+admission_applications.updated_at|timestamp|NO|current_timestamp()|on update current_timestamp()|
+admission_form_questions.id|int(10) unsigned|NO|null|auto_increment|PRI
+admission_form_questions.form_id|int(10) unsigned|NO|null||MUL
+admission_form_questions.sort_order|tinyint(3) unsigned|NO|0||
+admission_form_questions.label|varchar(500)|NO|null||
+admission_form_questions.question_type|enum('text','textarea','yesno','select','multiselect','file','multifile')|NO|'text'||
+admission_form_questions.placeholder|varchar(255)|YES|NULL||
+admission_form_questions.options_json|longtext|YES|NULL||
+admission_form_questions.is_required|tinyint(1)|NO|1||
+admission_form_questions.allow_multiple|tinyint(1)|NO|0||
+admission_form_questions.max_files|tinyint(3) unsigned|YES|5||
+admission_form_questions.created_at|timestamp|NO|current_timestamp()||
+admission_form_questions.updated_at|timestamp|NO|current_timestamp()|on update current_timestamp()|
+admission_forms.id|int(10) unsigned|NO|null|auto_increment|PRI
+admission_forms.school_id|int(10) unsigned|NO|null||MUL
+admission_forms.mini_website_id|int(10) unsigned|YES|NULL||MUL
+admission_forms.title|varchar(255)|NO|'Online Admission Application'||
+admission_forms.description|text|YES|NULL||
+admission_forms.academic_year|varchar(20)|YES|NULL||
+admission_forms.application_start|date|YES|NULL||
+admission_forms.application_deadline|date|YES|NULL||
+admission_forms.max_applicants|int(10) unsigned|YES|NULL||
+admission_forms.status|enum('draft','open','closed','paused')|NO|'draft'||MUL
+admission_forms.created_at|timestamp|NO|current_timestamp()||
+admission_forms.updated_at|timestamp|NO|current_timestamp()|on update current_timestamp()|
+admission_forms.deleted_at|timestamp|YES|NULL||
+admissions.id|int(10) unsigned|NO|null|auto_increment|PRI
+admissions.school_id|int(10) unsigned|NO|null||UNI
+admissions.academic_year|varchar(20)|YES|NULL||
+admissions.open_date|date|YES|NULL||
+admissions.close_date|date|YES|NULL||
+admissions.contact_phone|varchar(30)|YES|NULL||
+admissions.process_steps|longtext|YES|NULL||
+admissions.requirements|longtext|YES|NULL||
+admissions.documents|longtext|YES|NULL||
+admissions.notes|text|YES|NULL||
+admissions.created_at|datetime|NO|current_timestamp()||
+admissions.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+announcements.id|int(10) unsigned|NO|null|auto_increment|PRI
+announcements.school_id|int(10) unsigned|NO|null||MUL
+announcements.title|varchar(300)|NO|null||
+announcements.body|text|YES|NULL||
+announcements.publish_at|datetime|YES|current_timestamp()||
+announcements.is_active|tinyint(1)|YES|1||MUL
+announcements.created_at|datetime|NO|current_timestamp()||
+announcements.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+app_sessions.session_id|varchar(128)|NO|null||PRI
+app_sessions.expires|int(11) unsigned|NO|null||
+app_sessions.data|mediumtext|YES|NULL||
+attendance_class.id|int(10) unsigned|NO|null|auto_increment|PRI
+attendance_class.school_id|int(10) unsigned|NO|null||MUL
+attendance_class.class_id|varchar(120)|NO|null||
+attendance_class.attendance_date|date|NO|null||
+attendance_class.term|varchar(32)|NO|null||
+attendance_class.academic_year|varchar(32)|NO|null||
+attendance_class.created_by_user_id|int(10) unsigned|NO|null||
+attendance_class.created_at|datetime|YES|current_timestamp()||
+attendance_class.updated_at|datetime|YES|current_timestamp()|on update current_timestamp()|
+attendance_class_details.id|int(10) unsigned|NO|null|auto_increment|PRI
+attendance_class_details.attendance_id|int(10) unsigned|NO|null||MUL
+attendance_class_details.student_id|int(10) unsigned|NO|null||MUL
+attendance_class_details.period|varchar(24)|NO|null||
+attendance_class_details.status|enum('Present','Absent','Late','Excused')|NO|'Present'||
+attendance_class_details.remarks|varchar(255)|YES|NULL||
+attendance_class_details.created_at|datetime|YES|current_timestamp()||
+attendance_class_details.updated_at|datetime|YES|current_timestamp()|on update current_timestamp()|
+attendance_student.id|int(10) unsigned|NO|null|auto_increment|PRI
+attendance_student.school_id|int(10) unsigned|NO|null||MUL
+attendance_student.student_id|int(10) unsigned|NO|null||
+attendance_student.attendance_date|date|NO|null||
+attendance_student.check_in|datetime|YES|NULL||
+attendance_student.check_out|datetime|YES|NULL||
+attendance_student.status_in|enum('On time','Late','Absent')|YES|'Absent'||
+attendance_student.status_out|enum('Checked out','Missing')|YES|'Missing'||
+attendance_student.source_in|enum('MANUAL','RFID')|YES|'MANUAL'||
+attendance_student.source_out|enum('MANUAL','RFID')|YES|'MANUAL'||
+attendance_student.notes|varchar(255)|YES|NULL||
+attendance_student.created_at|datetime|YES|current_timestamp()||
+attendance_student.updated_at|datetime|YES|current_timestamp()|on update current_timestamp()|
+attendance_teacher.id|int(10) unsigned|NO|null|auto_increment|PRI
+attendance_teacher.school_id|int(10) unsigned|NO|null||MUL
+attendance_teacher.teacher_id|int(10) unsigned|NO|null||
+attendance_teacher.attendance_date|date|NO|null||
+attendance_teacher.check_in|datetime|YES|NULL||
+attendance_teacher.check_out|datetime|YES|NULL||
+attendance_teacher.status_in|enum('Present','Late','Absent','Excused')|YES|'Absent'||
+attendance_teacher.status_out|enum('Checked out','Missing')|YES|'Missing'||
+attendance_teacher.source_in|enum('MANUAL','RFID')|YES|'MANUAL'||
+attendance_teacher.source_out|enum('MANUAL','RFID')|YES|'MANUAL'||
+attendance_teacher.remarks|varchar(255)|YES|NULL||
+attendance_teacher.created_at|datetime|YES|current_timestamp()||
+attendance_teacher.updated_at|datetime|YES|current_timestamp()|on update current_timestamp()|
+attendance_teacher_class.id|int(10) unsigned|NO|null|auto_increment|PRI
+attendance_teacher_class.school_id|int(10) unsigned|NO|null||MUL
+attendance_teacher_class.teacher_id|int(10) unsigned|NO|null||
+attendance_teacher_class.class_id|varchar(120)|NO|null||
+attendance_teacher_class.period|varchar(24)|NO|null||
+attendance_teacher_class.course|varchar(120)|YES|NULL||
+attendance_teacher_class.attendance_date|date|NO|null||
+attendance_teacher_class.check_time|datetime|YES|NULL||
+attendance_teacher_class.status|enum('Present','Missed','Late')|YES|'Missed'||
+attendance_teacher_class.source|enum('MANUAL','RFID','AUTO')|YES|'AUTO'||
+attendance_teacher_class.created_at|datetime|YES|current_timestamp()||
+attendance_teacher_class.updated_at|datetime|YES|current_timestamp()|on update current_timestamp()|
+audit_log.id|int(10) unsigned|NO|null|auto_increment|PRI
+audit_log.school_id|int(10) unsigned|YES|NULL||MUL
+audit_log.action|varchar(100)|NO|null||MUL
+audit_log.table_name|varchar(100)|YES|NULL||
+audit_log.record_id|int(10) unsigned|YES|NULL||
+audit_log.payload|longtext|YES|NULL||
+audit_log.ip_address|varchar(45)|YES|NULL||
+audit_log.created_at|datetime|NO|current_timestamp()||MUL
+audit_trails.id|bigint(20) unsigned|NO|null|auto_increment|PRI
+audit_trails.user_id|int(10) unsigned|YES|NULL||MUL
+audit_trails.school_id|int(10) unsigned|YES|NULL||
+audit_trails.trail_type|varchar(64)|NO|null||
+audit_trails.description|varchar(500)|YES|NULL||
+audit_trails.meta_json|longtext|YES|NULL||
+audit_trails.ip_address|varchar(64)|YES|NULL||
+audit_trails.created_at|datetime|NO|current_timestamp()||MUL
+babyeyi_audit_log.id|int(10) unsigned|NO|null|auto_increment|PRI
+babyeyi_audit_log.babyeyi_id|int(10) unsigned|NO|null||MUL
+babyeyi_audit_log.doc_id|varchar(30)|NO|null||MUL
+babyeyi_audit_log.action|varchar(100)|NO|null||MUL
+babyeyi_audit_log.changed_by|int(11)|YES|NULL||
+babyeyi_audit_log.actor_id|int(10) unsigned|YES|NULL||MUL
+babyeyi_audit_log.actor_name|varchar(255)|YES|NULL||
+babyeyi_audit_log.actor_role|varchar(100)|YES|NULL||
+babyeyi_audit_log.old_status|varchar(50)|YES|NULL||
+babyeyi_audit_log.new_status|varchar(50)|YES|NULL||
+babyeyi_audit_log.changes|longtext|YES|NULL||
+babyeyi_audit_log.ip_address|varchar(45)|YES|NULL||
+babyeyi_audit_log.user_agent|varchar(500)|YES|NULL||
+babyeyi_audit_log.notes|text|YES|NULL||
+babyeyi_audit_log.created_at|datetime|NO|current_timestamp()||MUL
+babyeyi_class_requirements.id|int(11)|NO|null|auto_increment|PRI
+babyeyi_class_requirements.babyeyi_id|int(11)|NO|null||MUL
+babyeyi_class_requirements.information|text|NO|null||
+babyeyi_class_requirements.item|varchar(300)|YES|NULL||
+babyeyi_class_requirements.details|text|YES|NULL||
+babyeyi_class_requirements.sort_order|int(11)|YES|0||
+babyeyi_doc_ids.id|int(11)|NO|null|auto_increment|PRI
+babyeyi_doc_ids.doc_id|varchar(30)|NO|null||UNI
+babyeyi_doc_ids.babyeyi_id|int(11)|NO|null||MUL
+babyeyi_doc_ids.created_at|datetime|YES|current_timestamp()||
+babyeyi_increase_requests.id|int(11)|NO|null|auto_increment|PRI
+babyeyi_increase_requests.babyeyi_id|int(11)|NO|null||MUL
+babyeyi_increase_requests.school_id|int(11)|YES|NULL||MUL
+babyeyi_increase_requests.school_name|varchar(255)|YES|NULL||
+babyeyi_increase_requests.sector|varchar(100)|YES|NULL||MUL
+babyeyi_increase_requests.district|varchar(100)|YES|NULL||MUL
+babyeyi_increase_requests.category|varchar(100)|YES|NULL||
+babyeyi_increase_requests.level|varchar(100)|YES|NULL||
+babyeyi_increase_requests.academic_year|varchar(20)|YES|NULL||
+babyeyi_increase_requests.term|varchar(50)|YES|NULL||
+babyeyi_increase_requests.class|varchar(20)|YES|NULL||
+babyeyi_increase_requests.reason|varchar(200)|NO|null||
+babyeyi_increase_requests.request_reasons_json|text|YES|NULL||
+babyeyi_increase_requests.other_reason|varchar(255)|YES|NULL||
+babyeyi_increase_requests.description|text|YES|NULL||
+babyeyi_increase_requests.current_limit|decimal(12,2)|NO|null||
+babyeyi_increase_requests.requested_amount|decimal(12,2)|NO|null||
+babyeyi_increase_requests.excess_amount|decimal(12,2)|NO|null||
+babyeyi_increase_requests.parent_rep_doc_path|varchar(500)|YES|NULL||
+babyeyi_increase_requests.parent_rep_doc_name|varchar(200)|YES|NULL||
+babyeyi_increase_requests.budget_doc_path|varchar(500)|YES|NULL||
+babyeyi_increase_requests.budget_doc_name|varchar(200)|YES|NULL||
+babyeyi_increase_requests.nesa_status|enum('pending','approved','rejected','revision','recommended','nesa_rejected')|YES|'pending'||MUL
+babyeyi_increase_requests.nesa_notes|text|YES|NULL||
+babyeyi_increase_requests.submitted_at|datetime|YES|current_timestamp()||
+babyeyi_increase_requests.reviewed_at|datetime|YES|NULL||
+babyeyi_increase_requests.reviewed_by|int(11)|YES|NULL||
+babyeyi_increase_requests.approval_letter_path|varchar(500)|YES|NULL||
+babyeyi_increase_requests.approval_letter_name|varchar(255)|YES|NULL||
+babyeyi_increase_requests.deo_signature_path|varchar(500)|YES|NULL||
+babyeyi_increase_requests.deo_signature_name|varchar(255)|YES|NULL||
+babyeyi_increase_requests.deo_stamp_path|varchar(500)|YES|NULL||
+babyeyi_increase_requests.deo_stamp_name|varchar(255)|YES|NULL||
+babyeyi_increase_requests.rejection_letter_path|varchar(500)|YES|NULL||
+babyeyi_increase_requests.rejection_letter_name|varchar(255)|YES|NULL||
+babyeyi_increase_requests.rejection_signature_path|varchar(500)|YES|NULL||
+babyeyi_increase_requests.rejection_signature_name|varchar(255)|YES|NULL||
+babyeyi_increase_requests.rejection_stamp_path|varchar(500)|YES|NULL||
+babyeyi_increase_requests.rejection_stamp_name|varchar(255)|YES|NULL||
+babyeyi_increase_requests.deo_notes|text|YES|NULL||
+babyeyi_increase_requests.deo_reviewed_at|datetime|YES|NULL||
+babyeyi_increase_requests.deo_id|int(11)|YES|NULL||MUL
+babyeyi_increase_requests.created_at|timestamp|NO|current_timestamp()||
+babyeyi_increase_requests.updated_at|timestamp|NO|current_timestamp()|on update current_timestamp()|
+babyeyi_leaders.id|int(10) unsigned|NO|null|auto_increment|PRI
+babyeyi_leaders.babyeyi_id|int(10) unsigned|NO|null||MUL
+babyeyi_leaders.school_id|int(10) unsigned|YES|NULL||MUL
+babyeyi_leaders.leader_name|varchar(200)|NO|null||
+babyeyi_leaders.leader_role|varchar(200)|NO|null||
+babyeyi_leaders.phone|varchar(30)|YES|NULL||
+babyeyi_leaders.email|varchar(200)|YES|NULL||
+babyeyi_leaders.sort_order|int(11)|NO|0||
+babyeyi_leaders.is_active|tinyint(1)|NO|1||
+babyeyi_leaders.created_at|timestamp|NO|current_timestamp()||
+babyeyi_leaders.updated_at|timestamp|NO|current_timestamp()|on update current_timestamp()|
+babyeyi_loan_repayments.id|int(10) unsigned|NO|null|auto_increment|PRI
+babyeyi_loan_repayments.intent_id|int(10) unsigned|NO|null||MUL
+babyeyi_loan_repayments.amount_rwf|decimal(12,2)|NO|null||
+babyeyi_loan_repayments.paid_by_phone|varchar(30)|YES|NULL||MUL
+babyeyi_loan_repayments.note|varchar(255)|YES|NULL||
+babyeyi_loan_repayments.created_at|datetime|NO|current_timestamp()||
+babyeyi_loan_repayments.receipt_no|varchar(80)|YES|NULL||UNI
+babyeyi_loan_repayments.status|varchar(20)|NO|'pending'||MUL
+babyeyi_loan_repayments.reviewed_by|varchar(120)|YES|NULL||
+babyeyi_loan_repayments.reviewed_at|datetime|YES|NULL||
+babyeyi_payment_intents.id|bigint(20) unsigned|NO|null|auto_increment|PRI
+babyeyi_payment_intents.school_id|int(10) unsigned|NO|null||MUL
+babyeyi_payment_intents.babyeyi_id|int(10) unsigned|NO|null||MUL
+babyeyi_payment_intents.payload_json|longtext|NO|null||
+babyeyi_payment_intents.total_rwf|decimal(14,2)|NO|0.00||
+babyeyi_payment_intents.status|varchar(40)|YES|'draft'||
+babyeyi_payment_intents.created_at|timestamp|NO|current_timestamp()||
+babyeyi_payment_intents.payer_name|varchar(180)|YES|NULL||
+babyeyi_payment_intents.payer_phone|varchar(40)|YES|NULL||MUL
+babyeyi_payment_intents.payer_email|varchar(180)|YES|NULL||
+babyeyi_payment_intents.provider|varchar(40)|YES|NULL||
+babyeyi_payment_intents.provider_status|varchar(40)|YES|NULL||
+babyeyi_payment_intents.provider_reference|varchar(120)|YES|NULL||
+babyeyi_payment_intents.provider_tid|varchar(80)|YES|NULL||
+babyeyi_payment_intents.provider_authkey|varchar(180)|YES|NULL||
+babyeyi_payment_intents.provider_payload_json|longtext|YES|NULL||
+babyeyi_payment_intents.last_provider_check_at|datetime|YES|NULL||
+babyeyi_payment_intents.retry_count|int(10) unsigned|NO|0||
+babyeyi_payment_intents.last_retry_at|datetime|YES|NULL||
+babyeyi_payment_intents.invoice_no|varchar(40)|YES|NULL||UNI
+babyeyi_payment_intents.invoice_status|varchar(20)|NO|'NOT_PAID'||MUL
+babyeyi_payment_intents.invoice_paid_at|datetime|YES|NULL||
+babyeyi_payment_intents.invoice_sent_at|datetime|YES|NULL||
+babyeyi_payment_intents.invoice_notified_not_paid_at|datetime|YES|NULL||
+babyeyi_payment_intents.invoice_notified_paid_at|datetime|YES|NULL||
+babyeyi_payment_intents.invoice_due_at|datetime|YES|NULL||
+babyeyi_payments.id|int(11)|NO|null|auto_increment|PRI
+babyeyi_payments.babyeyi_id|int(11)|NO|null||MUL
+babyeyi_payments.name|varchar(200)|NO|null||
+babyeyi_payments.amount|decimal(12,2)|NO|0.00||
+babyeyi_payments.sort_order|int(11)|YES|0||
+babyeyi_payments.pay_channel|varchar(16)|NO|'babyeyi'||
+babyeyi_signatures.id|int(11)|NO|null|auto_increment|PRI
+babyeyi_signatures.babyeyi_id|int(11)|NO|null||UNI
+babyeyi_signatures.director_sig_path|varchar(500)|YES|NULL||
+babyeyi_signatures.director_sig_name|varchar(200)|YES|NULL||
+babyeyi_signatures.accountant_sig_path|varchar(500)|YES|NULL||
+babyeyi_signatures.accountant_sig_name|varchar(200)|YES|NULL||
+babyeyi_signatures.stamp_path|varchar(500)|YES|NULL||
+babyeyi_signatures.stamp_name|varchar(200)|YES|NULL||
+babyeyi_signatures.school_logo_path|varchar(255)|YES|NULL||
+babyeyi_signatures.school_logo_name|varchar(255)|YES|NULL||
+babyeyi_signatures.gov_logo_path|varchar(255)|YES|NULL||
+babyeyi_signatures.gov_logo_name|varchar(255)|YES|NULL||
+babyeyi_signatures.other_logo_path|varchar(255)|YES|NULL||
+babyeyi_signatures.other_logo_name|varchar(255)|YES|NULL||
+babyeyi_signatures.qr_code_path|varchar(500)|YES|NULL||
+babyeyi_signatures.qr_code_name|varchar(255)|YES|NULL||
+babyeyi_signatures.qr_view_url|varchar(1000)|YES|NULL||
+babyeyi_student_requirements.id|int(11)|NO|null|auto_increment|PRI
+babyeyi_student_requirements.babyeyi_id|int(11)|NO|null||MUL
+babyeyi_student_requirements.item|varchar(300)|NO|null||
+babyeyi_student_requirements.description|text|YES|NULL||
+babyeyi_student_requirements.quantity|varchar(50)|YES|NULL||
+babyeyi_student_requirements.cost|decimal(12,2)|YES|NULL||
+babyeyi_student_requirements.sort_order|int(11)|YES|0||
+babyeyi_student_requirements.pay_channel|varchar(24)|NO|'babyeyi'||
+deo_reviewers.id|int(10) unsigned|NO|null|auto_increment|PRI
+deo_reviewers.user_id|int(10) unsigned|NO|null||UNI
+deo_reviewers.full_name|varchar(255)|NO|null||
+deo_reviewers.title|varchar(255)|YES|NULL||
+deo_reviewers.district|varchar(100)|NO|null||MUL
+deo_reviewers.sector|varchar(100)|YES|NULL||MUL
+deo_reviewers.phone|varchar(30)|YES|NULL||
+deo_reviewers.email|varchar(255)|YES|NULL||
+deo_reviewers.signature_url|varchar(500)|YES|NULL||
+deo_reviewers.stamp_url|varchar(500)|YES|NULL||
+deo_reviewers.is_active|tinyint(1)|NO|1||MUL
+deo_reviewers.created_at|datetime|NO|current_timestamp()||
+deo_reviewers.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+deo_user_settings.user_id|int(10) unsigned|NO|null||PRI
+deo_user_settings.email_notifications|tinyint(1)|NO|1||
+deo_user_settings.push_notifications|tinyint(1)|NO|1||
+deo_user_settings.in_app_notifications|tinyint(1)|NO|1||
+deo_user_settings.dark_mode|tinyint(1)|NO|0||
+deo_user_settings.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+deo_user_settings.default_academic_year|varchar(32)|YES|NULL||
+deo_user_settings.default_term|varchar(32)|YES|NULL||
+discipline_cases.id|int(10) unsigned|NO|null|auto_increment|PRI
+discipline_cases.school_id|int(10) unsigned|NO|null||MUL
+discipline_cases.student_id|int(10) unsigned|NO|null||
+discipline_cases.academic_year|varchar(64)|NO|null||
+discipline_cases.term|varchar(32)|NO|null||
+discipline_cases.class_name|varchar(120)|YES|NULL||
+discipline_cases.lesson_subject|varchar(255)|NO|null||
+discipline_cases.description|text|YES|NULL||
+discipline_cases.marks_deducted|decimal(8,2)|NO|null||
+discipline_cases.marks_remaining_after|decimal(8,2)|NO|null||
+discipline_cases.recorded_by_user_id|int(10) unsigned|NO|null||
+discipline_cases.created_at|datetime|YES|current_timestamp()||
+discipline_mark_logs.id|int(10) unsigned|NO|null|auto_increment|PRI
+discipline_mark_logs.school_id|int(10) unsigned|NO|null||MUL
+discipline_mark_logs.student_id|int(10) unsigned|NO|null||
+discipline_mark_logs.action|enum('add','remove')|NO|null||
+discipline_mark_logs.marks|decimal(8,2)|NO|null||
+discipline_mark_logs.reason|varchar(255)|NO|null||
+discipline_mark_logs.notes|text|YES|NULL||
+discipline_mark_logs.action_date|date|YES|NULL||
+discipline_mark_logs.previous_marks|decimal(8,2)|NO|null||
+discipline_mark_logs.new_marks|decimal(8,2)|NO|null||
+discipline_mark_logs.created_by_user_id|int(10) unsigned|YES|NULL||
+discipline_mark_logs.created_at|datetime|YES|current_timestamp()||
+discipline_mark_logs.undone_at|datetime|YES|NULL||
+discipline_mark_logs.undone_by_user_id|int(10) unsigned|YES|NULL||
+dos_student_academic_records.id|int(10) unsigned|NO|null|auto_increment|PRI
+dos_student_academic_records.school_id|int(10) unsigned|NO|null||MUL
+dos_student_academic_records.student_id|int(10) unsigned|NO|null||
+dos_student_academic_records.academic_year|varchar(32)|NO|null||
+dos_student_academic_records.term|varchar(32)|NO|null||
+dos_student_academic_records.class_name|varchar(120)|YES|NULL||
+dos_student_academic_records.status_code|varchar(32)|NO|null||
+dos_student_academic_records.status_label|varchar(64)|YES|NULL||
+dos_student_academic_records.marks_obtained|decimal(8,2)|NO|0.00||
+dos_student_academic_records.marks_remaining|decimal(8,2)|NO|0.00||
+dos_student_academic_records.notes|text|YES|NULL||
+dos_student_academic_records.recorded_by_user_id|int(10) unsigned|NO|null||
+dos_student_academic_records.created_at|datetime|YES|current_timestamp()||
+dos_student_academic_records.updated_at|datetime|YES|current_timestamp()|on update current_timestamp()|
+dos_teacher_period_alerts.id|bigint(20) unsigned|NO|null|auto_increment|PRI
+dos_teacher_period_alerts.school_id|int(10) unsigned|NO|null||MUL
+dos_teacher_period_alerts.alert_type|varchar(32)|NO|'missed'||
+dos_teacher_period_alerts.title|varchar(255)|NO|null||
+dos_teacher_period_alerts.message|text|NO|null||
+dos_teacher_period_alerts.teacher_id|int(10) unsigned|YES|NULL||
+dos_teacher_period_alerts.teacher_name|varchar(255)|YES|NULL||
+dos_teacher_period_alerts.class_name|varchar(120)|YES|NULL||
+dos_teacher_period_alerts.subject_name|varchar(255)|YES|NULL||
+dos_teacher_period_alerts.period_date|date|YES|NULL||
+dos_teacher_period_alerts.is_read|tinyint(1)|NO|0||
+dos_teacher_period_alerts.created_at|datetime|YES|current_timestamp()||
+dos_teacher_period_alerts.deleted_at|datetime|YES|NULL||
+fee_items.id|int(10) unsigned|NO|null|auto_increment|PRI
+fee_items.fee_level_id|int(10) unsigned|NO|null||MUL
+fee_items.school_id|int(10) unsigned|NO|null||MUL
+fee_items.fee_type|varchar(100)|NO|null||
+fee_items.amount|decimal(12,2)|NO|0.00||
+fee_items.payment_period|enum('Per Term','Per Month','Per Year','One-Time')|NO|'Per Term'||
+fee_items.sort_order|tinyint(3) unsigned|YES|0||
+fee_levels.id|int(10) unsigned|NO|null|auto_increment|PRI
+fee_levels.school_id|int(10) unsigned|NO|null||MUL
+fee_levels.level_key|enum('nursery','primary','olevel','alevel','tvet')|NO|null||
+fee_levels.currency|char(3)|YES|'RWF'||
+fee_levels.notes|text|YES|NULL||
+fee_levels.created_at|datetime|NO|current_timestamp()||
+fee_levels.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+fee_limits.id|int(10) unsigned|NO|null|auto_increment|PRI
+fee_limits.category|enum('Public','Private','Boarding','TVET')|NO|null||MUL
+fee_limits.level|enum('Nursery','Primary','Secondary','University')|NO|null||MUL
+fee_limits.term|enum('Term 1','Term 2','Term 3','Full Year')|NO|'Term 1'||
+fee_limits.academic_year|varchar(20)|NO|'2024-2025'||MUL
+fee_limits.max_amount|decimal(12,2)|NO|null||
+fee_limits.regulation_ref|varchar(100)|YES|NULL||
+fee_limits.effective_date|date|YES|NULL||
+fee_limits.notes|text|YES|NULL||
+fee_limits.document_path|varchar(500)|YES|NULL||
+fee_limits.document_name|varchar(255)|YES|NULL||
+fee_limits.created_by|int(10) unsigned|YES|NULL||
+fee_limits.updated_by|int(10) unsigned|YES|NULL||
+fee_limits.is_active|tinyint(1)|NO|1||MUL
+fee_limits.created_at|datetime|NO|current_timestamp()||
+fee_limits.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+field_agent_profiles.id|int(10) unsigned|NO|null|auto_increment|PRI
+field_agent_profiles.user_id|int(10) unsigned|NO|null||UNI
+field_agent_profiles.province|varchar(120)|NO|null||MUL
+field_agent_profiles.district|varchar(120)|NO|null||MUL
+field_agent_profiles.all_sectors|tinyint(1)|NO|0||
+field_agent_profiles.sectors_json|longtext|NO|null||
+field_agent_profiles.national_id|varchar(64)|YES|NULL||
+field_agent_profiles.gender|varchar(20)|YES|NULL||
+field_agent_profiles.date_of_birth|date|YES|NULL||
+field_agent_profiles.created_at|timestamp|NO|current_timestamp()||
+field_agent_profiles.updated_at|timestamp|NO|current_timestamp()|on update current_timestamp()|
+field_agent_support_requests.id|int(10) unsigned|NO|null|auto_increment|PRI
+field_agent_support_requests.agent_user_id|int(10) unsigned|NO|null||MUL
+field_agent_support_requests.requester_name|varchar(160)|NO|null||
+field_agent_support_requests.requester_contact|varchar(80)|NO|null||
+field_agent_support_requests.requester_description|text|NO|null||
+field_agent_support_requests.province|varchar(120)|NO|null||MUL
+field_agent_support_requests.district|varchar(120)|NO|null||
+field_agent_support_requests.sector|varchar(120)|NO|null||
+field_agent_support_requests.status|varchar(24)|NO|'NEW'||MUL
+field_agent_support_requests.created_at|timestamp|NO|current_timestamp()||
+field_agent_support_requests.updated_at|timestamp|NO|current_timestamp()|on update current_timestamp()|
+gallery_albums.id|int(10) unsigned|NO|null|auto_increment|PRI
+gallery_albums.school_id|int(10) unsigned|NO|null||MUL
+gallery_albums.title|varchar(200)|NO|null||
+gallery_albums.category|enum('Event','Academic','Sports','Cultural','Graduation','Field Trip','Other')|YES|'Event'||
+gallery_albums.event_date|date|YES|NULL||
+gallery_albums.description|text|YES|NULL||
+gallery_albums.sort_order|smallint(5) unsigned|YES|0||
+gallery_albums.created_at|datetime|NO|current_timestamp()||
+gallery_images.id|int(10) unsigned|NO|null|auto_increment|PRI
+gallery_images.album_id|int(10) unsigned|NO|null||MUL
+gallery_images.school_id|int(10) unsigned|NO|null||MUL
+gallery_images.image_url|varchar(500)|NO|null||
+gallery_images.caption|varchar(300)|YES|NULL||
+gallery_images.sort_order|smallint(5) unsigned|YES|0||
+gallery_images.created_at|datetime|NO|current_timestamp()||
+library_books.id|int(10) unsigned|NO|null|auto_increment|PRI
+library_books.school_id|int(10) unsigned|NO|null||MUL
+library_books.title|varchar(255)|NO|null||
+library_books.isbn|varchar(100)|NO|null||
+library_books.author|varchar(255)|NO|null||
+library_books.category|varchar(100)|NO|null||
+library_books.quantity|int(11)|NO|0||
+library_books.available_quantity|int(11)|NO|0||
+library_books.shelf_location|varchar(50)|NO|null||
+library_books.condition|enum('New','Good','Old','Damaged')|NO|'Good'||
+library_books.publisher|varchar(255)|YES|NULL||
+library_books.year|int(11)|YES|NULL||
+library_books.edition|varchar(50)|YES|NULL||
+library_books.language|varchar(50)|YES|NULL||
+library_books.description|text|YES|NULL||
+library_books.cover_image|varchar(255)|YES|NULL||
+library_books.created_at|timestamp|NO|current_timestamp()||
+library_books.updated_at|timestamp|YES|NULL|on update current_timestamp()|
+library_borrowings.id|int(10) unsigned|NO|null|auto_increment|PRI
+library_borrowings.school_id|int(10) unsigned|NO|null||MUL
+library_borrowings.user_type|enum('student','teacher')|NO|null||
+library_borrowings.user_id|int(10) unsigned|NO|null||
+library_borrowings.book_id|int(10) unsigned|NO|null||MUL
+library_borrowings.quantity|int(11)|NO|1||
+library_borrowings.borrow_date|date|NO|null||
+library_borrowings.return_date|date|NO|null||
+library_borrowings.status|enum('borrowed','returned','late')|NO|'borrowed'||
+library_borrowings.notes|text|YES|NULL||
+library_borrowings.returned_at|date|YES|NULL||
+library_borrowings.created_at|timestamp|NO|current_timestamp()||
+login_attempts.id|bigint(20) unsigned|NO|null|auto_increment|PRI
+login_attempts.user_id|int(10) unsigned|YES|NULL||MUL
+login_attempts.school_id|int(10) unsigned|YES|NULL||MUL
+login_attempts.role_code|varchar(64)|YES|NULL||
+login_attempts.identifier_hint|varchar(120)|YES|NULL||
+login_attempts.outcome|varchar(24)|NO|'failed'||
+login_attempts.ip_address|varchar(64)|YES|NULL||
+login_attempts.user_agent|varchar(255)|YES|NULL||
+login_attempts.product_tier|varchar(16)|YES|NULL||
+login_attempts.failure_reason|varchar(255)|YES|NULL||
+login_attempts.created_at|datetime|NO|current_timestamp()||MUL
+momo_transactions.id|int(10) unsigned|NO|null|auto_increment|PRI
+momo_transactions.reference_id|char(36)|NO|null||UNI
+momo_transactions.external_id|varchar(100)|NO|null||MUL
+momo_transactions.phone|varchar(20)|NO|null||
+momo_transactions.amount|decimal(14,2)|NO|null||
+momo_transactions.currency|varchar(10)|NO|'RWF'||
+momo_transactions.status|varchar(30)|NO|'PENDING'||MUL
+momo_transactions.momo_status|varchar(30)|YES|NULL||
+momo_transactions.financial_tx_id|varchar(100)|YES|NULL||
+momo_transactions.payer_message|varchar(255)|YES|NULL||
+momo_transactions.payee_note|varchar(255)|YES|NULL||
+momo_transactions.school_id|int(10) unsigned|YES|NULL||MUL
+momo_transactions.babyeyi_id|int(10) unsigned|YES|NULL||
+momo_transactions.intent_id|int(10) unsigned|YES|NULL||MUL
+momo_transactions.raw_callback|longtext|YES|NULL||
+momo_transactions.created_at|timestamp|NO|current_timestamp()||
+momo_transactions.updated_at|timestamp|NO|current_timestamp()|on update current_timestamp()|
+momo_transactions.mtn_error|text|YES|NULL||
+nesa_academic_years.academic_year|varchar(9)|NO|null||PRI
+nesa_academic_years.created_at|timestamp|NO|current_timestamp()||
+nesa_academic_years.created_by|int(11)|YES|NULL||
+nesa_fee_limits.id|int(10) unsigned|NO|null|auto_increment|PRI
+nesa_fee_limits.academic_year|year(4)|NO|null||MUL
+nesa_fee_limits.education_level|varchar(50)|NO|null||MUL
+nesa_fee_limits.school_category|varchar(50)|NO|null||
+nesa_fee_limits.max_total_fees|decimal(12,2)|NO|null||
+nesa_fee_limits.max_tuition|decimal(12,2)|YES|NULL||
+nesa_fee_limits.max_boarding|decimal(12,2)|YES|NULL||
+nesa_fee_limits.max_lunch|decimal(12,2)|YES|NULL||
+nesa_fee_limits.other_limits|longtext|YES|NULL||
+nesa_fee_limits.effective_date|date|YES|NULL||
+nesa_fee_limits.notes|text|YES|NULL||
+nesa_fee_limits.document_url|varchar(500)|YES|NULL||
+nesa_fee_limits.is_active|tinyint(1)|NO|1||MUL
+nesa_fee_limits.created_by|int(10) unsigned|YES|NULL||
+nesa_fee_limits.created_at|datetime|NO|current_timestamp()||
+nesa_fee_limits.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+nesa_user_settings.user_id|int(10) unsigned|NO|null||PRI
+nesa_user_settings.email_notifications|tinyint(1)|NO|1||
+nesa_user_settings.push_notifications|tinyint(1)|NO|1||
+nesa_user_settings.in_app_notifications|tinyint(1)|NO|1||
+nesa_user_settings.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+nesa_user_settings.default_academic_year|varchar(32)|YES|NULL||
+nesa_user_settings.default_term|varchar(32)|YES|NULL||
+parent_classkit_share_tokens.id|bigint(20) unsigned|NO|null|auto_increment|PRI
+parent_classkit_share_tokens.token_hash|char(64)|NO|null||UNI
+parent_classkit_share_tokens.parent_portal_account_id|int(10) unsigned|NO|null||MUL
+parent_classkit_share_tokens.owner_phone|varchar(36)|NO|null||
+parent_classkit_share_tokens.snapshot_json|longtext|NO|null||
+parent_classkit_share_tokens.student_id|int(10) unsigned|NO|null||MUL
+parent_classkit_share_tokens.access_type|enum('FULL','LIMITED')|NO|'LIMITED'||
+parent_classkit_share_tokens.expires_at|datetime|NO|null||MUL
+parent_classkit_share_tokens.otp_code_hash|char(64)|YES|NULL||
+parent_classkit_share_tokens.otp_expires_at|datetime|YES|NULL||
+parent_classkit_share_tokens.otp_attempts|smallint(5) unsigned|NO|0||
+parent_classkit_share_tokens.otp_send_count|smallint(5) unsigned|NO|0||
+parent_classkit_share_tokens.otp_window_started_at|datetime|YES|NULL||
+parent_classkit_share_tokens.verified_at|datetime|YES|NULL||
+parent_classkit_share_tokens.guest_secret_hash|char(64)|YES|NULL||
+parent_classkit_share_tokens.guest_expires_at|datetime|YES|NULL||
+parent_classkit_share_tokens.created_at|datetime|NO|current_timestamp()||
+parent_classkit_share_tokens.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+parent_notification_queue.id|bigint(20) unsigned|NO|null|auto_increment|PRI
+parent_notification_queue.school_id|int(10) unsigned|NO|null||MUL
+parent_notification_queue.student_id|int(10) unsigned|NO|null||
+parent_notification_queue.attendance_date|date|NO|null||
+parent_notification_queue.channel|enum('IN_APP','WEB')|NO|'IN_APP'||
+parent_notification_queue.category|enum('ABSENT','LATE','MISSING_CHECKOUT','MANUAL')|NO|'MANUAL'||
+parent_notification_queue.title|varchar(180)|NO|null||
+parent_notification_queue.body|text|NO|null||
+parent_notification_queue.status|enum('PENDING','SENT','FAILED')|NO|'PENDING'||MUL
+parent_notification_queue.metadata_json|longtext|YES|NULL||
+parent_notification_queue.created_at|datetime|YES|current_timestamp()||
+parent_notification_queue.sent_at|datetime|YES|NULL||
+parent_portal_accounts.id|int(10) unsigned|NO|null|auto_increment|PRI
+parent_portal_accounts.phone|varchar(30)|NO|null||UNI
+parent_portal_accounts.password_hash|varchar(255)|NO|null||
+parent_portal_accounts.father_full_name|varchar(150)|YES|NULL||
+parent_portal_accounts.mother_full_name|varchar(150)|YES|NULL||
+parent_portal_accounts.father_email|varchar(150)|YES|NULL||
+parent_portal_accounts.mother_email|varchar(150)|YES|NULL||
+parent_portal_accounts.created_at|datetime|NO|current_timestamp()||
+parent_portal_accounts.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+parent_portal_accounts.created_via_phone_only|tinyint(1)|NO|0||
+parent_portal_accounts.completed_registration_at|datetime|YES|NULL||
+parent_portal_accounts.recovery_email|varchar(150)|YES|NULL||MUL
+parent_portal_accounts.phone_reset_token_hash|char(64)|YES|NULL||
+parent_portal_accounts.phone_reset_expires_at|datetime|YES|NULL||
+parent_portal_accounts.push_notifications_enabled|tinyint(1)|NO|0||
+parent_portal_audit_logs.id|bigint(20) unsigned|NO|null|auto_increment|PRI
+parent_portal_audit_logs.parent_portal_account_id|int(10) unsigned|YES|NULL||MUL
+parent_portal_audit_logs.parent_phone|varchar(32)|YES|NULL||MUL
+parent_portal_audit_logs.actor_type|varchar(32)|NO|'parent'||
+parent_portal_audit_logs.event_type|varchar(80)|NO|null||MUL
+parent_portal_audit_logs.entity_type|varchar(40)|YES|NULL||
+parent_portal_audit_logs.entity_id|varchar(64)|YES|NULL||
+parent_portal_audit_logs.channel|varchar(32)|YES|NULL||
+parent_portal_audit_logs.outcome|varchar(24)|NO|'success'||
+parent_portal_audit_logs.ip_address|varchar(64)|YES|NULL||
+parent_portal_audit_logs.user_agent|varchar(255)|YES|NULL||
+parent_portal_audit_logs.details_json|longtext|YES|NULL||
+parent_portal_audit_logs.created_at|datetime|NO|current_timestamp()||
+parent_portal_notifications.id|int(10) unsigned|NO|null|auto_increment|PRI
+parent_portal_notifications.target_parent_phone|varchar(30)|NO|null||MUL
+parent_portal_notifications.source_parent_phone|varchar(30)|YES|NULL||
+parent_portal_notifications.student_id|int(10) unsigned|YES|NULL||MUL
+parent_portal_notifications.type|varchar(80)|NO|null||MUL
+parent_portal_notifications.title|varchar(200)|NO|null||
+parent_portal_notifications.body|text|YES|NULL||
+parent_portal_notifications.payload_json|longtext|YES|NULL||
+parent_portal_notifications.read_at|datetime|YES|NULL||
+parent_portal_notifications.created_at|datetime|NO|current_timestamp()||MUL
+parent_shulecard_spending_events.id|int(10) unsigned|NO|null|auto_increment|PRI
+parent_shulecard_spending_events.student_id|int(10) unsigned|NO|null||MUL
+parent_shulecard_spending_events.spender_phone|varchar(30)|YES|NULL||
+parent_shulecard_spending_events.merchant_name|varchar(120)|YES|NULL||
+parent_shulecard_spending_events.amount_rwf|decimal(14,2)|NO|null||
+parent_shulecard_spending_events.note|varchar(255)|YES|NULL||
+parent_shulecard_spending_events.spent_at|datetime|NO|current_timestamp()||MUL
+parent_shulecard_spending_events.created_at|datetime|NO|current_timestamp()||
+parent_shulecard_topups.id|int(10) unsigned|NO|null|auto_increment|PRI
+parent_shulecard_topups.parent_portal_account_id|int(10) unsigned|YES|NULL||
+parent_shulecard_topups.parent_phone|varchar(30)|NO|null||MUL
+parent_shulecard_topups.student_id|int(10) unsigned|NO|null||MUL
+parent_shulecard_topups.amount_rwf|decimal(14,2)|NO|null||
+parent_shulecard_topups.payment_method|varchar(40)|NO|'momo'||
+parent_shulecard_topups.note|varchar(255)|YES|NULL||
+parent_shulecard_topups.status|varchar(20)|NO|'completed'||
+parent_shulecard_topups.reference_no|varchar(80)|YES|NULL||
+parent_shulecard_topups.created_at|datetime|NO|current_timestamp()||MUL
+parent_shulecard_topups.payment_ref|varchar(80)|YES|NULL||
+parent_shulecard_topups.provider_response|longtext|YES|NULL||
+parent_shulecard_topups.paid_at|datetime|YES|NULL||
+parent_shulecard_wallets.id|int(10) unsigned|NO|null|auto_increment|PRI
+parent_shulecard_wallets.parent_portal_account_id|int(10) unsigned|YES|NULL||
+parent_shulecard_wallets.parent_phone|varchar(30)|NO|null||MUL
+parent_shulecard_wallets.student_id|int(10) unsigned|NO|null||MUL
+parent_shulecard_wallets.balance_rwf|decimal(14,2)|NO|0.00||
+parent_shulecard_wallets.daily_limit_rwf|decimal(14,2)|NO|5000.00||
+parent_shulecard_wallets.created_at|datetime|NO|current_timestamp()||
+parent_shulecard_wallets.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+parent_student_access_requests.id|int(10) unsigned|NO|null|auto_increment|PRI
+parent_student_access_requests.parent_portal_account_id|int(10) unsigned|YES|NULL||
+parent_student_access_requests.parent_phone|varchar(30)|NO|null||MUL
+parent_student_access_requests.student_id|int(10) unsigned|NO|null||MUL
+parent_student_access_requests.school_id|int(10) unsigned|YES|NULL||MUL
+parent_student_access_requests.status|enum('PENDING','APPROVED','REJECTED','CANCELLED')|NO|'PENDING'||MUL
+parent_student_access_requests.purpose|varchar(120)|YES|NULL||
+parent_student_access_requests.message|text|YES|NULL||
+parent_student_access_requests.reviewed_by|varchar(120)|YES|NULL||
+parent_student_access_requests.reviewed_at|datetime|YES|NULL||
+parent_student_access_requests.created_at|datetime|NO|current_timestamp()||
+parent_student_access_requests.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+parent_student_activity_logs.id|int(10) unsigned|NO|null|auto_increment|PRI
+parent_student_activity_logs.parent_portal_account_id|int(10) unsigned|YES|NULL||
+parent_student_activity_logs.parent_phone|varchar(30)|NO|null||MUL
+parent_student_activity_logs.student_id|int(10) unsigned|NO|null||MUL
+parent_student_activity_logs.access_type|enum('FULL','LIMITED')|NO|'LIMITED'||MUL
+parent_student_activity_logs.action_type|varchar(80)|NO|null||MUL
+parent_student_activity_logs.endpoint|varchar(160)|YES|NULL||
+parent_student_activity_logs.payload_json|longtext|YES|NULL||
+parent_student_activity_logs.created_at|datetime|NO|current_timestamp()||
+parent_web_push_subscriptions.id|int(10) unsigned|NO|null|auto_increment|PRI
+parent_web_push_subscriptions.parent_phone|varchar(30)|NO|null||MUL
+parent_web_push_subscriptions.endpoint|varchar(2048)|NO|null||UNI
+parent_web_push_subscriptions.p256dh|varchar(255)|NO|null||
+parent_web_push_subscriptions.auth|varchar(255)|NO|null||
+parent_web_push_subscriptions.notify_fee_reminders|tinyint(1)|NO|1||
+parent_web_push_subscriptions.notify_discipline|tinyint(1)|NO|1||
+parent_web_push_subscriptions.notify_school_activity|tinyint(1)|NO|1||
+parent_web_push_subscriptions.created_at|datetime|NO|current_timestamp()||
+parent_web_push_subscriptions.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+payroll_details.id|int(10) unsigned|NO|null|auto_increment|PRI
+payroll_details.request_id|int(10) unsigned|NO|null||UNI
+payroll_details.school_id|int(10) unsigned|NO|null||MUL
+payroll_details.basic|decimal(14,2)|NO|0.00||
+payroll_details.allowances|decimal(14,2)|NO|0.00||
+payroll_details.deductions|decimal(14,2)|NO|0.00||
+payroll_details.net_salary|decimal(14,2)|NO|0.00||
+payroll_details.advance|decimal(14,2)|NO|0.00||
+payroll_details.final_payable|decimal(14,2)|NO|0.00||
+payroll_details.created_at|datetime|NO|current_timestamp()||
+payroll_details.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+payroll_notifications.id|int(10) unsigned|NO|null|auto_increment|PRI
+payroll_notifications.school_id|int(10) unsigned|NO|null||MUL
+payroll_notifications.request_id|int(10) unsigned|NO|null||MUL
+payroll_notifications.actor_user_id|int(10) unsigned|YES|NULL||
+payroll_notifications.actor_role_code|varchar(64)|YES|NULL||
+payroll_notifications.event_type|varchar(64)|NO|null||MUL
+payroll_notifications.recipient_role_code|varchar(64)|YES|NULL||
+payroll_notifications.message|varchar(500)|YES|NULL||
+payroll_notifications.created_at|datetime|NO|current_timestamp()||
+payroll_requests.id|int(10) unsigned|NO|null|auto_increment|PRI
+payroll_requests.school_id|int(10) unsigned|NO|null||MUL
+payroll_requests.staff_user_id|int(10) unsigned|NO|null||
+payroll_requests.staff_code|varchar(64)|YES|NULL||
+payroll_requests.staff_name|varchar(180)|NO|null||
+payroll_requests.role_code|varchar(64)|YES|NULL||
+payroll_requests.department|varchar(120)|YES|NULL||
+payroll_requests.month|tinyint(3) unsigned|NO|null||
+payroll_requests.term|varchar(32)|NO|null||
+payroll_requests.year|smallint(5) unsigned|NO|null||
+payroll_requests.amount|decimal(14,2)|NO|0.00||
+payroll_requests.status|enum('Pending','Approved','Rejected','Paid')|NO|'Pending'||MUL
+payroll_requests.created_by_user_id|int(10) unsigned|NO|null||
+payroll_requests.approved_by_user_id|int(10) unsigned|YES|NULL||
+payroll_requests.rejected_reason|text|YES|NULL||
+payroll_requests.manager_note|text|YES|NULL||
+payroll_requests.approved_at|datetime|YES|NULL||
+payroll_requests.paid_at|datetime|YES|NULL||
+payroll_requests.locked_at|datetime|YES|NULL||
+payroll_requests.created_at|datetime|NO|current_timestamp()||
+payroll_requests.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+payroll_requests.deleted_at|datetime|YES|NULL||
+payroll_requests.paid_by_user_id|int(10) unsigned|YES|NULL||
+permissions.id|int(10) unsigned|NO|null|auto_increment|PRI
+permissions.permission_key|varchar(100)|NO|null||UNI
+permissions.description|varchar(255)|YES|NULL||
+platform_activity_logs.id|bigint(20) unsigned|NO|null|auto_increment|PRI
+platform_activity_logs.event_category|varchar(32)|NO|'system'||MUL
+platform_activity_logs.event_type|varchar(80)|NO|null||
+platform_activity_logs.outcome|varchar(24)|NO|'success'||
+platform_activity_logs.user_id|int(10) unsigned|YES|NULL||MUL
+platform_activity_logs.role_code|varchar(64)|YES|NULL||
+platform_activity_logs.school_id|int(10) unsigned|YES|NULL||MUL
+platform_activity_logs.product_tier|varchar(16)|YES|NULL||
+platform_activity_logs.actor_label|varchar(200)|YES|NULL||
+platform_activity_logs.action_summary|varchar(500)|YES|NULL||
+platform_activity_logs.http_method|varchar(10)|YES|NULL||
+platform_activity_logs.endpoint|varchar(255)|YES|NULL||
+platform_activity_logs.entity_type|varchar(64)|YES|NULL||
+platform_activity_logs.entity_id|varchar(80)|YES|NULL||
+platform_activity_logs.ip_address|varchar(64)|YES|NULL||MUL
+platform_activity_logs.user_agent|varchar(255)|YES|NULL||
+platform_activity_logs.request_id|varchar(64)|YES|NULL||
+platform_activity_logs.details_json|longtext|YES|NULL||
+platform_activity_logs.created_at|datetime|NO|current_timestamp()||MUL
+portal_operation_audit_logs.id|bigint(20) unsigned|NO|null|auto_increment|PRI
+portal_operation_audit_logs.school_id|int(10) unsigned|YES|NULL||MUL
+portal_operation_audit_logs.user_id|int(10) unsigned|YES|NULL||
+portal_operation_audit_logs.role_code|varchar(64)|YES|NULL||
+portal_operation_audit_logs.endpoint|varchar(180)|YES|NULL||
+portal_operation_audit_logs.entity_type|varchar(64)|YES|NULL||MUL
+portal_operation_audit_logs.entity_id|varchar(80)|YES|NULL||
+portal_operation_audit_logs.action_name|varchar(80)|YES|NULL||
+portal_operation_audit_logs.after_state_json|longtext|YES|NULL||
+portal_operation_audit_logs.created_at|datetime|NO|current_timestamp()||MUL
+portal_requisitions.id|int(10) unsigned|NO|null|auto_increment|PRI
+portal_requisitions.school_id|int(10) unsigned|NO|null||MUL
+portal_requisitions.created_by_user_id|int(10) unsigned|NO|null||
+portal_requisitions.dept|varchar(120)|YES|NULL||
+portal_requisitions.requester|varchar(180)|YES|NULL||
+portal_requisitions.items|text|NO|null||
+portal_requisitions.amount_rwf|decimal(14,2)|NO|0.00||
+portal_requisitions.submitted_at|datetime|NO|current_timestamp()||
+portal_requisitions.attachment_name|varchar(255)|YES|NULL||
+portal_requisitions.note|text|YES|NULL||
+portal_requisitions.status|varchar(32)|NO|'pending'||MUL
+portal_requisitions.source_portal|varchar(32)|NO|'teacher'||MUL
+portal_requisitions.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+portal_requisitions.deleted_at|datetime|YES|NULL||
+portal_requisitions.item_id|int(10) unsigned|YES|NULL||
+portal_requisitions.quantity_requested|decimal(14,2)|NO|0.00||
+portal_requisitions.purpose|text|YES|NULL||
+portal_requisitions.priority_level|varchar(16)|YES|NULL||
+portal_requisitions.expected_return_date|date|YES|NULL||
+portal_requisitions.approved_at|datetime|YES|NULL||
+portal_requisitions.issued_at|datetime|YES|NULL||
+portal_requisitions.returned_at|datetime|YES|NULL||
+portal_requisitions.status_note|text|YES|NULL||
+portal_requisitions.destination|varchar(32)|NO|'accountant'||
+portal_requisitions.forwarded_to|varchar(32)|YES|NULL||
+portal_ticha_ai_history.id|int(10) unsigned|NO|null|auto_increment|PRI
+portal_ticha_ai_history.school_id|int(10) unsigned|NO|null||MUL
+portal_ticha_ai_history.user_id|int(10) unsigned|NO|null||
+portal_ticha_ai_history.prompt|text|NO|null||
+portal_ticha_ai_history.response|text|NO|null||
+portal_ticha_ai_history.created_at|datetime|NO|current_timestamp()||MUL
+pro_shule_avance_applications.id|int(10) unsigned|NO|null|auto_increment|PRI
+pro_shule_avance_applications.user_id|int(10) unsigned|NO|null||MUL
+pro_shule_avance_applications.school_id|int(10) unsigned|NO|null||MUL
+pro_shule_avance_applications.amount_requested|decimal(14,2)|NO|null||
+pro_shule_avance_applications.purpose|text|YES|NULL||
+pro_shule_avance_applications.repayment_term_months|int(11)|NO|6||
+pro_shule_avance_applications.status|enum('pending','reviewed','disbursed','completed','cancelled')|NO|'pending'||MUL
+pro_shule_avance_applications.created_at|datetime|NO|current_timestamp()||
+pro_shule_avance_applications.updated_at|datetime|YES|current_timestamp()|on update current_timestamp()|
+pro_shule_avance_organizations.id|int(10) unsigned|NO|null|auto_increment|PRI
+pro_shule_avance_organizations.user_id|int(10) unsigned|NO|null||UNI
+pro_shule_avance_organizations.org_name|varchar(200)|NO|null||
+pro_shule_avance_organizations.org_type|varchar(32)|NO|'INTERNAL_PARTNER'||
+pro_shule_avance_organizations.login_username|varchar(120)|NO|null||UNI
+pro_shule_avance_organizations.contact_person|varchar(180)|YES|NULL||
+pro_shule_avance_organizations.contact_email|varchar(180)|NO|null||UNI
+pro_shule_avance_organizations.contact_phone|varchar(40)|YES|NULL||
+pro_shule_avance_organizations.address|text|YES|NULL||
+pro_shule_avance_organizations.logo_url|varchar(500)|YES|NULL||
+pro_shule_avance_organizations.description|text|YES|NULL||
+pro_shule_avance_organizations.notes|text|YES|NULL||
+pro_shule_avance_organizations.is_active|tinyint(1)|NO|1||MUL
+pro_shule_avance_organizations.created_at|datetime|NO|current_timestamp()||
+pro_shule_avance_organizations.updated_at|datetime|YES|NULL|on update current_timestamp()|
+pro_shule_avance_organizations.applicant_categories_json|longtext|YES|NULL||
+pro_shule_avance_organizations.rate_percent|decimal(7,3)|YES|NULL||
+pro_shule_avance_organizations.rate_is_monthly|tinyint(1)|NO|0||
+pro_shule_avance_organizations.disbursement_account_type|varchar(24)|NO|'SCHOOL_ACCOUNT'||
+requirement_prices.id|int(10) unsigned|NO|null|auto_increment|PRI
+requirement_prices.requirement_id|int(10) unsigned|YES|NULL||MUL
+requirement_prices.school_id|int(10) unsigned|NO|null||MUL
+requirement_prices.class_id|varchar(20)|NO|null||
+requirement_prices.babyeyi_id|int(10) unsigned|YES|NULL||MUL
+requirement_prices.term|varchar(50)|NO|null||
+requirement_prices.academic_year|varchar(20)|NO|null||
+requirement_prices.price|decimal(12,2)|NO|0.00||
+requirement_prices.created_at|timestamp|NO|current_timestamp()||
+requirement_prices.updated_at|timestamp|NO|current_timestamp()|on update current_timestamp()|
+requirement_prices.babyeyi_requirement_id|int(10) unsigned|YES|NULL||
+role_permissions.id|int(10) unsigned|NO|null|auto_increment|PRI
+role_permissions.role_id|int(10) unsigned|NO|null||MUL
+role_permissions.permission_key|varchar(100)|NO|null||MUL
+roles.id|int(10) unsigned|NO|null|auto_increment|PRI
+roles.role_name|varchar(100)|NO|null||
+roles.role_code|varchar(50)|NO|null||UNI
+roles.description|varchar(255)|YES|NULL||
+roles.permissions|longtext|YES|NULL||
+roles.is_active|tinyint(1)|NO|1||
+roles.is_system_role|tinyint(1)|NO|0||
+roles.created_at|datetime|NO|current_timestamp()||
+roles.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+school_academic_settings.school_id|int(10) unsigned|NO|null||PRI
+school_academic_settings.current_academic_year|varchar(32)|NO|'2025-2026'||
+school_academic_settings.active_terms_json|longtext|YES|NULL||
+school_academic_settings.updated_at|datetime|YES|current_timestamp()|on update current_timestamp()|
+school_academic_settings.updated_by_user_id|int(10) unsigned|YES|NULL||
+school_academic_settings.term_dates_json|longtext|YES|NULL||
+school_academic_year_registry.id|int(10) unsigned|NO|null|auto_increment|PRI
+school_academic_year_registry.school_id|int(10) unsigned|NO|null||MUL
+school_academic_year_registry.academic_year|varchar(32)|NO|null||
+school_academic_year_registry.active_terms_json|longtext|YES|NULL||
+school_academic_year_registry.term_dates_json|longtext|YES|NULL||
+school_academic_year_registry.is_current|tinyint(1)|NO|0||
+school_academic_year_registry.created_at|datetime|YES|current_timestamp()||
+school_academic_year_registry.updated_at|datetime|YES|current_timestamp()|on update current_timestamp()|
+school_academic_year_registry.updated_by_user_id|int(10) unsigned|YES|NULL||
+school_action_plan_activities.id|int(10) unsigned|NO|null|auto_increment|PRI
+school_action_plan_activities.school_id|int(10) unsigned|NO|null||MUL
+school_action_plan_activities.action_plan_id|int(10) unsigned|NO|null||MUL
+school_action_plan_activities.activity_name|varchar(220)|NO|null||
+school_action_plan_activities.category|varchar(120)|YES|NULL||
+school_action_plan_activities.description|text|YES|NULL||
+school_action_plan_activities.department|varchar(64)|YES|NULL||
+school_action_plan_activities.responsible_user_id|int(10) unsigned|YES|NULL||
+school_action_plan_activities.responsible_name|varchar(200)|YES|NULL||
+school_action_plan_activities.planned_start|date|YES|NULL||
+school_action_plan_activities.planned_end|date|YES|NULL||
+school_action_plan_activities.estimated_cost_rwf|decimal(16,2)|NO|0.00||
+school_action_plan_activities.used_amount_rwf|decimal(16,2)|NO|0.00||
+school_action_plan_activities.expected_outcome|text|YES|NULL||
+school_action_plan_activities.performance_indicator|varchar(255)|YES|NULL||
+school_action_plan_activities.progress_pct|tinyint(3) unsigned|NO|0||
+school_action_plan_activities.status|varchar(32)|NO|'not_started'||
+school_action_plan_activities.budget_line_id|int(10) unsigned|YES|NULL||
+school_action_plan_activities.is_frozen|tinyint(1)|NO|0||
+school_action_plan_activities.deleted_at|datetime|YES|NULL||
+school_action_plan_activities.created_at|datetime|NO|current_timestamp()||
+school_action_plan_activities.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+school_action_plan_activities.reminded_7d_end|tinyint(1)|NO|0||
+school_action_plan_activities.reminded_3d_end|tinyint(1)|NO|0||
+school_action_plan_activities.reminded_1d_end|tinyint(1)|NO|0||
+school_action_plan_activities.status_manual_override|tinyint(1)|NO|0||
+school_action_plan_expenses.id|int(10) unsigned|NO|null|auto_increment|PRI
+school_action_plan_expenses.school_id|int(10) unsigned|NO|null||
+school_action_plan_expenses.activity_id|int(10) unsigned|NO|null||MUL
+school_action_plan_expenses.created_by_user_id|int(10) unsigned|NO|null||
+school_action_plan_expenses.amount_rwf|decimal(16,2)|NO|null||
+school_action_plan_expenses.expense_date|date|NO|null||
+school_action_plan_expenses.description|text|YES|NULL||
+school_action_plan_expenses.payment_method|varchar(32)|YES|NULL||
+school_action_plan_expenses.reference_no|varchar(64)|YES|NULL||
+school_action_plan_expenses.created_at|datetime|NO|current_timestamp()||
+school_action_plans.id|int(10) unsigned|NO|null|auto_increment|PRI
+school_action_plans.school_id|int(10) unsigned|NO|null||MUL
+school_action_plans.created_by_user_id|int(10) unsigned|NO|null||
+school_action_plans.plan_code|varchar(32)|NO|null||
+school_action_plans.title|varchar(220)|NO|null||
+school_action_plans.academic_year|varchar(64)|NO|null||
+school_action_plans.term|varchar(64)|NO|null||
+school_action_plans.department|varchar(64)|NO|null||
+school_action_plans.strategic_objective|text|YES|NULL||
+school_action_plans.start_date|date|YES|NULL||
+school_action_plans.end_date|date|YES|NULL||
+school_action_plans.responsible_user_id|int(10) unsigned|YES|NULL||
+school_action_plans.responsible_name|varchar(200)|YES|NULL||
+school_action_plans.estimated_budget_rwf|decimal(16,2)|NO|0.00||
+school_action_plans.funding_source|varchar(64)|YES|NULL||
+school_action_plans.priority_level|varchar(32)|NO|'Medium'||
+school_action_plans.status|varchar(32)|NO|'draft'||
+school_action_plans.budget_line_id|int(10) unsigned|YES|NULL||
+school_action_plans.manager_review_notes|text|YES|NULL||
+school_action_plans.manager_reviewed_at|datetime|YES|NULL||
+school_action_plans.submitted_at|datetime|YES|NULL||
+school_action_plans.deleted_at|datetime|YES|NULL||
+school_action_plans.created_at|datetime|NO|current_timestamp()||
+school_action_plans.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+school_babyeyi.id|int(10) unsigned|NO|null|auto_increment|PRI
+school_babyeyi.doc_id|varchar(30)|NO|null||UNI
+school_babyeyi.school_id|int(10) unsigned|NO|null||MUL
+school_babyeyi.school_name|varchar(255)|NO|null||
+school_babyeyi.school_code|varchar(50)|NO|null||
+school_babyeyi.school_sector|varchar(100)|NO|null||MUL
+school_babyeyi.school_district|varchar(100)|NO|null||MUL
+school_babyeyi.school_province|varchar(100)|NO|null||
+school_babyeyi.class_name|varchar(100)|NO|null||
+school_babyeyi.classes_json|longtext|YES|NULL||
+school_babyeyi.term|enum('Term 1','Term 2','Term 3')|NO|null||MUL
+school_babyeyi.academic_year|varchar(9)|NO|null||MUL
+school_babyeyi.education_level|varchar(50)|NO|null||
+school_babyeyi.school_category|varchar(50)|NO|null||
+school_babyeyi.ownership_type|varchar(50)|YES|NULL||
+school_babyeyi.payments|longtext|NO|null||
+school_babyeyi.parent_message|text|YES|NULL||
+school_babyeyi.total_amount|decimal(12,2)|NO|0.00||
+school_babyeyi.bank_name|varchar(255)|NO|null||
+school_babyeyi.bank_account_no|varchar(100)|NO|null||
+school_babyeyi.bank_branch|varchar(255)|YES|NULL||
+school_babyeyi.head_teacher_name|varchar(255)|YES|NULL||
+school_babyeyi.integrity_hash|varchar(64)|YES|NULL||
+school_babyeyi.qr_payload|varchar(255)|YES|NULL||
+school_babyeyi.qr_code_url|varchar(500)|YES|NULL||
+school_babyeyi.pdf_url|varchar(500)|YES|NULL||
+school_babyeyi.school_logo_url|varchar(500)|YES|NULL||
+school_babyeyi.supporting_doc_url|varchar(500)|YES|NULL||
+school_babyeyi.status|enum('draft','submitted','approved','rejected')|NO|'draft'||MUL
+school_babyeyi.submitted_at|datetime|YES|NULL||MUL
+school_babyeyi.deo_status|enum('pending','approved','rejected')|NO|'pending'||MUL
+school_babyeyi.deo_name|varchar(255)|YES|NULL||
+school_babyeyi.deo_title|varchar(255)|YES|NULL||
+school_babyeyi.deo_notes|text|YES|NULL||
+school_babyeyi.deo_reviewed_at|datetime|YES|NULL||
+school_babyeyi.approval_document_url|varchar(500)|YES|NULL||
+school_babyeyi.rejection_document_url|varchar(500)|YES|NULL||
+school_babyeyi.deo_signature_url|varchar(500)|YES|NULL||
+school_babyeyi.deo_stamp_url|varchar(500)|YES|NULL||
+school_babyeyi.created_at|datetime|NO|current_timestamp()||
+school_babyeyi.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+school_babyeyi.deleted_at|datetime|YES|NULL||MUL
+school_babyeyi.is_active|tinyint(1)|NO|1||
+school_babyeyi.exceeds_limit|tinyint(1)|NO|0||
+school_babyeyi.total_fee|decimal(12,2)|YES|0.00||
+school_babyeyi.nesa_limit|decimal(12,2)|YES|NULL||
+school_babyeyi.qr_code_path|varchar(500)|YES|NULL||
+school_babyeyi.qr_view_url|varchar(1000)|YES|NULL||
+school_babyeyi.pdf_path|varchar(500)|YES|NULL||
+school_babyeyi.pdf_name|varchar(255)|YES|NULL||
+school_babyeyi.banks_json|longtext|YES|NULL||
+school_babyeyi.translations_json|longtext|YES|NULL||
+school_babyeyi.content_i18n|longtext|YES|NULL||
+school_babyeyi.translation_status|varchar(32)|YES|NULL||
+school_budget_income_sources.id|int(10) unsigned|NO|null|auto_increment|PRI
+school_budget_income_sources.budget_id|int(10) unsigned|NO|null||MUL
+school_budget_income_sources.school_id|int(10) unsigned|NO|null||MUL
+school_budget_income_sources.income_source_key|varchar(120)|NO|null||
+school_budget_income_sources.custom_source_name|varchar(220)|YES|NULL||
+school_budget_income_sources.income_category|varchar(120)|YES|NULL||
+school_budget_income_sources.expected_amount_rwf|decimal(16,2)|NO|0.00||
+school_budget_income_sources.collection_frequency|varchar(32)|YES|NULL||
+school_budget_income_sources.description|text|YES|NULL||
+school_budget_income_sources.sort_order|int(10) unsigned|NO|0||
+school_budget_line_usage.id|int(10) unsigned|NO|null|auto_increment|PRI
+school_budget_line_usage.school_id|int(10) unsigned|NO|null||MUL
+school_budget_line_usage.budget_line_id|int(10) unsigned|NO|null||MUL
+school_budget_line_usage.created_by_user_id|int(10) unsigned|NO|null||
+school_budget_line_usage.usage_amount_rwf|decimal(16,2)|NO|0.00||
+school_budget_line_usage.usage_date|date|NO|null||
+school_budget_line_usage.expense_category|varchar(64)|YES|NULL||
+school_budget_line_usage.payment_method|varchar(32)|YES|NULL||
+school_budget_line_usage.description|text|YES|NULL||
+school_budget_line_usage.receipt_name|varchar(255)|YES|NULL||
+school_budget_line_usage.created_at|datetime|NO|current_timestamp()||
+school_budget_lines.id|int(10) unsigned|NO|null|auto_increment|PRI
+school_budget_lines.school_id|int(10) unsigned|NO|null||MUL
+school_budget_lines.budget_id|int(10) unsigned|NO|null||MUL
+school_budget_lines.created_by_user_id|int(10) unsigned|NO|null||
+school_budget_lines.line_name_key|varchar(120)|NO|null||
+school_budget_lines.custom_line_name|varchar(220)|YES|NULL||
+school_budget_lines.budget_category|varchar(64)|NO|null||
+school_budget_lines.department|varchar(64)|NO|null||
+school_budget_lines.priority_level|varchar(32)|NO|'Medium'||
+school_budget_lines.planned_amount_rwf|decimal(16,2)|NO|0.00||
+school_budget_lines.used_amount_rwf|decimal(16,2)|NO|0.00||
+school_budget_lines.allocation_date|date|YES|NULL||
+school_budget_lines.description|text|YES|NULL||
+school_budget_lines.notes|text|YES|NULL||
+school_budget_lines.reference_number|varchar(64)|YES|NULL||
+school_budget_lines.attachments_json|longtext|YES|NULL||
+school_budget_lines.prepared_by_name|varchar(200)|YES|NULL||
+school_budget_lines.reviewed_by_name|varchar(200)|YES|NULL||
+school_budget_lines.approval_status|varchar(32)|NO|'Pending'||
+school_budget_lines.approval_notes|text|YES|NULL||
+school_budget_lines.deleted_at|datetime|YES|NULL||
+school_budget_lines.created_at|datetime|NO|current_timestamp()||
+school_budget_lines.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+school_budget_lines.is_frozen|tinyint(1)|NO|0||
+school_budgets.id|int(10) unsigned|NO|null|auto_increment|PRI
+school_budgets.school_id|int(10) unsigned|NO|null||MUL
+school_budgets.created_by_user_id|int(10) unsigned|NO|null||
+school_budgets.budget_code|varchar(32)|NO|null||
+school_budgets.title|varchar(220)|NO|null||
+school_budgets.academic_year|varchar(64)|NO|null||
+school_budgets.term|varchar(64)|NO|null||
+school_budgets.budget_type|varchar(64)|NO|'Term Budget'||
+school_budgets.status|varchar(32)|NO|'draft'||
+school_budgets.start_date|date|YES|NULL||
+school_budgets.end_date|date|YES|NULL||
+school_budgets.description|text|YES|NULL||
+school_budgets.approval_notes|text|YES|NULL||
+school_budgets.total_expected_income_rwf|decimal(16,2)|NO|0.00||
+school_budgets.total_allocated_rwf|decimal(16,2)|NO|0.00||
+school_budgets.prepared_by_name|varchar(200)|YES|NULL||
+school_budgets.submitted_at|datetime|YES|NULL||
+school_budgets.deleted_at|datetime|YES|NULL||
+school_budgets.created_at|datetime|NO|current_timestamp()||
+school_budgets.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+school_budgets.manager_reviewed_at|datetime|YES|NULL||
+school_budgets.manager_reviewed_by_user_id|int(10) unsigned|YES|NULL||
+school_budgets.manager_review_notes|text|YES|NULL||
+school_calendar_events.id|int(11)|NO|null|auto_increment|PRI
+school_calendar_events.school_id|int(11)|NO|null||MUL
+school_calendar_events.title|varchar(255)|NO|null||
+school_calendar_events.event_date|date|NO|null||
+school_calendar_events.end_date|date|YES|NULL||
+school_calendar_events.event_type|enum('HOLIDAY','EXAM','SPORT','CEREMONY','MEETING','TERM','OTHER')|NO|'OTHER'||
+school_calendar_events.description|text|YES|NULL||
+school_calendar_events.color|varchar(20)|YES|'#1E3A5F'||
+school_calendar_events.created_at|timestamp|NO|current_timestamp()||
+school_chat_messages.id|int(10) unsigned|NO|null|auto_increment|PRI
+school_chat_messages.thread_id|int(10) unsigned|NO|null||MUL
+school_chat_messages.school_id|int(10) unsigned|NO|null||MUL
+school_chat_messages.sender_type|enum('USER','PARENT')|NO|null||
+school_chat_messages.sender_user_id|int(10) unsigned|YES|NULL||
+school_chat_messages.sender_parent_phone|varchar(30)|YES|NULL||
+school_chat_messages.body|text|NO|null||
+school_chat_messages.attachment_url|varchar(500)|YES|NULL||
+school_chat_messages.created_at|datetime|NO|current_timestamp()||
+school_chat_messages.reply_to_message_id|int(10) unsigned|YES|NULL||
+school_chat_notifications.id|int(10) unsigned|NO|null|auto_increment|PRI
+school_chat_notifications.school_id|int(10) unsigned|NO|null||MUL
+school_chat_notifications.thread_id|int(10) unsigned|NO|null||MUL
+school_chat_notifications.message_id|int(10) unsigned|NO|null||MUL
+school_chat_notifications.channel|enum('EMAIL','SMS','PUSH')|NO|null||
+school_chat_notifications.recipient|varchar(255)|NO|null||
+school_chat_notifications.status|enum('SENT','FAILED','SKIPPED')|NO|'SKIPPED'||
+school_chat_notifications.provider_response|text|YES|NULL||
+school_chat_notifications.created_at|datetime|NO|current_timestamp()||
+school_chat_participants.id|int(10) unsigned|NO|null|auto_increment|PRI
+school_chat_participants.thread_id|int(10) unsigned|NO|null||MUL
+school_chat_participants.school_id|int(10) unsigned|NO|null||MUL
+school_chat_participants.participant_type|enum('USER','PARENT')|NO|null||
+school_chat_participants.user_id|int(10) unsigned|YES|NULL||MUL
+school_chat_participants.parent_phone|varchar(30)|YES|NULL||MUL
+school_chat_participants.role_code|varchar(64)|YES|NULL||
+school_chat_participants.last_read_message_id|int(10) unsigned|YES|NULL||
+school_chat_participants.joined_at|datetime|NO|current_timestamp()||
+school_chat_threads.id|int(10) unsigned|NO|null|auto_increment|PRI
+school_chat_threads.school_id|int(10) unsigned|NO|null||MUL
+school_chat_threads.thread_type|enum('DIRECT','GROUP','BROADCAST')|NO|'DIRECT'||
+school_chat_threads.created_by_user_id|int(10) unsigned|YES|NULL||
+school_chat_threads.created_by_parent_phone|varchar(30)|YES|NULL||
+school_chat_threads.last_message_at|datetime|YES|NULL||
+school_chat_threads.last_message_preview|varchar(255)|YES|NULL||
+school_chat_threads.created_at|datetime|NO|current_timestamp()||
+school_chat_threads.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+school_chat_threads.thread_name|varchar(160)|YES|NULL||
+school_chat_threads.thread_scope|varchar(64)|YES|NULL||
+school_classes.id|int(11)|NO|null|auto_increment|PRI
+school_classes.school_id|int(10) unsigned|NO|null||MUL
+school_classes.group_name|varchar(100)|NO|null||
+school_classes.stream_name|varchar(100)|YES|NULL||
+school_classes.category|varchar(50)|YES|NULL||
+school_classes.combination|longtext|YES|NULL||
+school_classes.created_at|datetime|YES|current_timestamp()||
+school_discipline_default_marks.school_id|int(10) unsigned|NO|null||PRI
+school_discipline_default_marks.default_marks|decimal(8,2)|NO|40.00||
+school_discipline_default_marks.last_updated|datetime|YES|current_timestamp()|on update current_timestamp()|
+school_discipline_default_marks.updated_by|int(10) unsigned|YES|NULL||
+school_discipline_default_marks.minimum_marks|decimal(8,2)|NO|0.00||
+school_discipline_settings.school_id|int(10) unsigned|NO|null||PRI
+school_discipline_settings.total_marks|decimal(8,2)|NO|100.00||
+school_discipline_settings.updated_at|datetime|YES|current_timestamp()|on update current_timestamp()|
+school_discipline_settings.updated_by_user_id|int(10) unsigned|YES|NULL||
+school_dos_settings.school_id|int(10) unsigned|NO|null||PRI
+school_dos_settings.total_marks|decimal(8,2)|NO|100.00||
+school_dos_settings.updated_at|datetime|YES|current_timestamp()|on update current_timestamp()|
+school_dos_settings.updated_by_user_id|int(10) unsigned|YES|NULL||
+school_dos_settings.promotion_settings_json|longtext|YES|NULL||
+school_examination_list_overrides.id|int(10) unsigned|NO|null|auto_increment|PRI
+school_examination_list_overrides.list_id|int(10) unsigned|NO|null||MUL
+school_examination_list_overrides.student_id|int(10) unsigned|NO|null||MUL
+school_examination_list_overrides.override_mode|enum('auto','allow','deny')|NO|'auto'||
+school_examination_list_overrides.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+school_examination_lists.id|int(10) unsigned|NO|null|auto_increment|PRI
+school_examination_lists.school_id|int(10) unsigned|NO|null||MUL
+school_examination_lists.academic_year|varchar(64)|NO|null||
+school_examination_lists.term|varchar(64)|NO|null||
+school_examination_lists.class_name|varchar(160)|NO|null||
+school_examination_lists.published_at|datetime|YES|NULL||
+school_examination_lists.published_by_user_id|int(10) unsigned|YES|NULL||
+school_examination_lists.created_at|datetime|NO|current_timestamp()||
+school_examination_lists.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+school_fee_collections.id|int(10) unsigned|NO|null|auto_increment|PRI
+school_fee_collections.school_id|int(10) unsigned|NO|null||MUL
+school_fee_collections.student_id|int(10) unsigned|NO|null||MUL
+school_fee_collections.babyeyi_id|int(10) unsigned|YES|NULL||
+school_fee_collections.academic_year_label|varchar(64)|NO|null||
+school_fee_collections.term|varchar(32)|NO|null||
+school_fee_collections.class_name|varchar(120)|YES|NULL||
+school_fee_collections.total_due|decimal(14,2)|NO|0.00||
+school_fee_collections.amount_paid|decimal(14,2)|NO|0.00||
+school_fee_collections.balance_remaining|decimal(14,2)|NO|0.00||
+school_fee_collections.recorded_by_user_id|int(10) unsigned|NO|null||
+school_fee_collections.notes|text|YES|NULL||
+school_fee_collections.created_at|datetime|NO|current_timestamp()||MUL
+school_fee_collections.payment_method|varchar(40)|YES|NULL||
+school_fee_collections.bank_name|varchar(120)|YES|NULL||
+school_fee_collections.paid_by|varchar(160)|YES|NULL||
+school_fee_collections.transaction_ref|varchar(120)|YES|NULL||
+school_fee_collections.momo_phone|varchar(32)|YES|NULL||
+school_fee_collections.receipt_no|varchar(64)|YES|NULL||
+school_fee_collections.paid_at_date|date|YES|NULL||
+school_fee_reminder_campaigns.id|int(10) unsigned|NO|null|auto_increment|PRI
+school_fee_reminder_campaigns.school_id|int(10) unsigned|NO|null||MUL
+school_fee_reminder_campaigns.created_by_user_id|int(10) unsigned|NO|null||
+school_fee_reminder_campaigns.campaign_code|varchar(32)|NO|null||
+school_fee_reminder_campaigns.title|varchar(160)|NO|null||
+school_fee_reminder_campaigns.template_key|varchar(32)|NO|null||
+school_fee_reminder_campaigns.academic_year|varchar(64)|NO|null||
+school_fee_reminder_campaigns.term|varchar(64)|NO|null||
+school_fee_reminder_campaigns.subject_line|varchar(255)|YES|NULL||
+school_fee_reminder_campaigns.message_body|text|YES|NULL||
+school_fee_reminder_campaigns.channels_json|longtext|YES|NULL||
+school_fee_reminder_campaigns.filters_json|longtext|YES|NULL||
+school_fee_reminder_campaigns.schedule_mode|varchar(16)|NO|'now'||
+school_fee_reminder_campaigns.scheduled_at|datetime|YES|NULL||
+school_fee_reminder_campaigns.sent_at|datetime|YES|NULL||
+school_fee_reminder_campaigns.recipient_count|int(10) unsigned|NO|0||
+school_fee_reminder_campaigns.delivered_count|int(10) unsigned|NO|0||
+school_fee_reminder_campaigns.failed_count|int(10) unsigned|NO|0||
+school_fee_reminder_campaigns.status|varchar(24)|NO|'delivered'||
+school_fee_reminder_campaigns.created_at|datetime|NO|current_timestamp()||
+school_fee_reminder_campaigns.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+school_fee_reminder_campaigns.trigger_rule_id|int(10) unsigned|YES|NULL||
+school_fee_reminder_logs.id|int(10) unsigned|NO|null|auto_increment|PRI
+school_fee_reminder_logs.school_id|int(10) unsigned|NO|null||MUL
+school_fee_reminder_logs.campaign_id|int(10) unsigned|NO|null||MUL
+school_fee_reminder_logs.student_id|int(10) unsigned|NO|null||
+school_fee_reminder_logs.channel|varchar(24)|NO|null||
+school_fee_reminder_logs.delivery_status|varchar(24)|NO|'sent'||
+school_fee_reminder_logs.parent_name|varchar(200)|YES|NULL||
+school_fee_reminder_logs.parent_email|varchar(255)|YES|NULL||
+school_fee_reminder_logs.parent_phone|varchar(64)|YES|NULL||
+school_fee_reminder_logs.balance_rwf|decimal(14,2)|YES|NULL||
+school_fee_reminder_logs.error_message|varchar(255)|YES|NULL||
+school_fee_reminder_logs.sent_at|datetime|YES|NULL||
+school_fee_reminder_logs.created_at|datetime|NO|current_timestamp()||
+school_fee_reminder_rule_runs.id|int(10) unsigned|NO|null|auto_increment|PRI
+school_fee_reminder_rule_runs.school_id|int(10) unsigned|NO|null||MUL
+school_fee_reminder_rule_runs.rule_id|int(10) unsigned|NO|null||MUL
+school_fee_reminder_rule_runs.campaign_id|int(10) unsigned|YES|NULL||
+school_fee_reminder_rule_runs.students_matched|int(10) unsigned|NO|0||
+school_fee_reminder_rule_runs.reached_count|int(10) unsigned|NO|0||
+school_fee_reminder_rule_runs.delivered_count|int(10) unsigned|NO|0||
+school_fee_reminder_rule_runs.failed_count|int(10) unsigned|NO|0||
+school_fee_reminder_rule_runs.status|varchar(24)|NO|'sent'||
+school_fee_reminder_rule_runs.error_message|varchar(255)|YES|NULL||
+school_fee_reminder_rule_runs.ran_at|datetime|NO|current_timestamp()||
+school_fee_reminder_rules.id|int(10) unsigned|NO|null|auto_increment|PRI
+school_fee_reminder_rules.school_id|int(10) unsigned|NO|null||MUL
+school_fee_reminder_rules.created_by_user_id|int(10) unsigned|NO|null||
+school_fee_reminder_rules.name|varchar(160)|NO|null||
+school_fee_reminder_rules.is_active|tinyint(1)|NO|1||
+school_fee_reminder_rules.condition_text|varchar(255)|NO|null||
+school_fee_reminder_rules.extra_condition|varchar(255)|YES|NULL||
+school_fee_reminder_rules.action_text|varchar(160)|NO|null||
+school_fee_reminder_rules.channels_json|longtext|YES|NULL||
+school_fee_reminder_rules.frequency|varchar(64)|NO|'Once'||
+school_fee_reminder_rules.next_run_label|varchar(64)|YES|NULL||
+school_fee_reminder_rules.deleted_at|datetime|YES|NULL||
+school_fee_reminder_rules.created_at|datetime|NO|current_timestamp()||
+school_fee_reminder_rules.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+school_fee_reminder_rules.send_time|varchar(8)|YES|NULL||
+school_fee_reminder_rules.last_sent_at|datetime|YES|NULL||
+school_fee_reminder_rules.last_reached_count|int(10) unsigned|NO|0||
+school_fee_reminder_rules.academic_year|varchar(64)|YES|NULL||
+school_fee_reminder_rules.term|varchar(64)|YES|NULL||
+school_fee_reminder_rules.class_name|varchar(120)|YES|NULL||
+school_fee_reminder_rules.require_fee_card|tinyint(1)|NO|1||
+school_gate_attendance_events.id|bigint(20) unsigned|NO|null|auto_increment|PRI
+school_gate_attendance_events.school_id|int(10) unsigned|YES|NULL||MUL
+school_gate_attendance_events.device_id|varchar(80)|YES|NULL||
+school_gate_attendance_events.card_uid|varchar(64)|YES|NULL||
+school_gate_attendance_events.result_code|varchar(64)|NO|null||MUL
+school_gate_attendance_events.http_status|int(11)|NO|null||
+school_gate_attendance_events.message|varchar(255)|YES|NULL||
+school_gate_attendance_events.session_type|varchar(16)|YES|NULL||
+school_gate_attendance_events.person_type|varchar(16)|YES|NULL||
+school_gate_attendance_events.person_id|int(10) unsigned|YES|NULL||
+school_gate_attendance_events.attendance_date|date|YES|NULL||
+school_gate_attendance_events.created_at|datetime|NO|current_timestamp()||
+school_gate_attendance_records.id|bigint(20) unsigned|NO|null|auto_increment|PRI
+school_gate_attendance_records.school_id|int(10) unsigned|NO|null||MUL
+school_gate_attendance_records.attendance_date|date|NO|null||
+school_gate_attendance_records.card_uid|varchar(64)|NO|null||
+school_gate_attendance_records.person_type|enum('STUDENT','STAFF')|NO|null||
+school_gate_attendance_records.person_id|int(10) unsigned|NO|null||
+school_gate_attendance_records.person_name|varchar(180)|NO|null||
+school_gate_attendance_records.person_ref|varchar(120)|YES|NULL||
+school_gate_attendance_records.morning_check_in|datetime|YES|NULL||
+school_gate_attendance_records.morning_status|enum('OnTime','Late')|YES|NULL||
+school_gate_attendance_records.morning_device_id|varchar(80)|YES|NULL||
+school_gate_attendance_records.evening_check_out|datetime|YES|NULL||
+school_gate_attendance_records.evening_status|enum('Exit')|YES|NULL||
+school_gate_attendance_records.evening_device_id|varchar(80)|YES|NULL||
+school_gate_attendance_records.created_at|datetime|NO|current_timestamp()||
+school_gate_attendance_records.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+school_gate_attendance_records.academic_year|varchar(32)|YES|NULL||
+school_gate_attendance_records.term|varchar(32)|YES|NULL||
+school_gate_attendance_settings.school_id|int(10) unsigned|NO|null||PRI
+school_gate_attendance_settings.morning_deadline|varchar(5)|NO|'08:00'||
+school_gate_attendance_settings.morning_cutoff|varchar(5)|NO|'10:00'||
+school_gate_attendance_settings.evening_start|varchar(5)|NO|'16:00'||
+school_gate_attendance_settings.evening_cutoff|varchar(5)|NO|'19:00'||
+school_gate_attendance_settings.updated_by_user_id|int(10) unsigned|YES|NULL||
+school_gate_attendance_settings.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+school_gate_logs.id|int(10) unsigned|NO|null|auto_increment|PRI
+school_gate_logs.school_id|int(10) unsigned|NO|null||MUL
+school_gate_logs.person_name|varchar(180)|NO|null||
+school_gate_logs.person_type|enum('STUDENT','STAFF','VISITOR')|NO|'STUDENT'||MUL
+school_gate_logs.person_ref|varchar(120)|YES|NULL||
+school_gate_logs.action_type|enum('IN','OUT')|NO|null||
+school_gate_logs.logged_at|datetime|NO|current_timestamp()||MUL
+school_gate_logs.notes|text|YES|NULL||
+school_gate_logs.created_by_user_id|int(10) unsigned|YES|NULL||
+school_gate_logs.created_at|datetime|NO|current_timestamp()||
+school_gate_logs.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+school_gradebook_columns.id|int(10) unsigned|NO|null|auto_increment|PRI
+school_gradebook_columns.school_id|int(10) unsigned|NO|null||MUL
+school_gradebook_columns.slug|varchar(40)|NO|null||
+school_gradebook_columns.label|varchar(120)|NO|null||
+school_gradebook_columns.sort_order|int(11)|NO|0||
+school_gradebook_columns.default_max_score|decimal(8,2)|YES|NULL||
+school_gradebook_columns.created_at|datetime|YES|current_timestamp()||
+school_iot_events.id|int(11)|NO|null|auto_increment|PRI
+school_iot_events.school_id|int(11)|NO|null||MUL
+school_iot_events.event_name|varchar(255)|NO|null||
+school_iot_events.start_time|varchar(10)|NO|'07:00'||
+school_iot_events.end_time|varchar(10)|NO|'08:00'||
+school_iot_events.late_threshold|varchar(10)|YES|NULL||
+school_iot_events.target_group|enum('STUDENTS','STAFF','BOTH')|NO|'STUDENTS'||
+school_iot_events.residency_filter|enum('ALL','BOARDING','DAY')|NO|'ALL'||
+school_iot_events.created_at|timestamp|NO|current_timestamp()||
+school_leaders.id|int(10) unsigned|NO|null|auto_increment|PRI
+school_leaders.school_id|int(10) unsigned|NO|null||MUL
+school_leaders.role_type|enum('head','deputy','other')|NO|'other'||MUL
+school_leaders.full_name|varchar(200)|NO|null||
+school_leaders.role_title|varchar(150)|YES|NULL||
+school_leaders.phone|varchar(30)|YES|NULL||
+school_leaders.email|varchar(200)|YES|NULL||
+school_leaders.photo_url|varchar(500)|YES|NULL||
+school_leaders.signature_url|varchar(500)|YES|NULL||
+school_leaders.stamp_url|varchar(500)|YES|NULL||
+school_leaders.sort_order|tinyint(3) unsigned|YES|0||
+school_leaders.created_at|datetime|NO|current_timestamp()||
+school_leaders.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+school_library_books.id|int(10) unsigned|NO|null|auto_increment|PRI
+school_library_books.school_id|int(10) unsigned|NO|null||MUL
+school_library_books.title|varchar(220)|NO|null||
+school_library_books.author|varchar(180)|YES|NULL||
+school_library_books.isbn|varchar(80)|YES|NULL||
+school_library_books.category|varchar(120)|YES|NULL||
+school_library_books.quantity_total|int(11)|NO|1||
+school_library_books.quantity_available|int(11)|NO|1||
+school_library_books.shelf_location|varchar(120)|YES|NULL||
+school_library_books.status|enum('ACTIVE','INACTIVE')|NO|'ACTIVE'||MUL
+school_library_books.created_by_user_id|int(10) unsigned|YES|NULL||
+school_library_books.created_at|datetime|NO|current_timestamp()||
+school_library_books.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+school_library_checkouts.id|int(10) unsigned|NO|null|auto_increment|PRI
+school_library_checkouts.school_id|int(10) unsigned|NO|null||MUL
+school_library_checkouts.book_id|int(10) unsigned|NO|null||MUL
+school_library_checkouts.borrower_name|varchar(180)|NO|null||
+school_library_checkouts.borrower_type|enum('STUDENT','STAFF','VISITOR')|NO|'STUDENT'||
+school_library_checkouts.borrower_ref|varchar(120)|YES|NULL||
+school_library_checkouts.issued_at|datetime|NO|current_timestamp()||
+school_library_checkouts.due_date|date|YES|NULL||
+school_library_checkouts.returned_at|datetime|YES|NULL||
+school_library_checkouts.status|enum('ISSUED','RETURNED')|NO|'ISSUED'||MUL
+school_library_checkouts.notes|text|YES|NULL||
+school_library_checkouts.created_by_user_id|int(10) unsigned|YES|NULL||
+school_library_checkouts.created_at|datetime|NO|current_timestamp()||
+school_library_checkouts.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+school_mini_websites.id|int(10) unsigned|NO|null|auto_increment|PRI
+school_mini_websites.school_id|int(10) unsigned|NO|null||UNI
+school_mini_websites.slug|varchar(160)|NO|null||UNI
+school_mini_websites.status|enum('draft','published','suspended')|NO|'draft'||MUL
+school_mini_websites.published_at|datetime|YES|NULL||
+school_mini_websites.cover_url|varchar(500)|YES|NULL||
+school_mini_websites.about_image_url|varchar(500)|YES|NULL||
+school_mini_websites.mission_image_url|varchar(500)|YES|NULL||
+school_mini_websites.background|text|YES|NULL||
+school_mini_websites.mission|text|YES|NULL||
+school_mini_websites.vision|text|YES|NULL||
+school_mini_websites.core_values|longtext|YES|NULL||
+school_mini_websites.facebook|varchar(400)|YES|NULL||
+school_mini_websites.twitter|varchar(400)|YES|NULL||
+school_mini_websites.instagram|varchar(400)|YES|NULL||
+school_mini_websites.template|varchar(60)|NO|'modern'||
+school_mini_websites.color_theme|varchar(60)|NO|'blue'||
+school_mini_websites.custom_colors|longtext|YES|NULL||
+school_mini_websites.sections|longtext|YES|NULL||
+school_mini_websites.a_level_combinations|longtext|YES|NULL||
+school_mini_websites.tvet_trades|longtext|YES|NULL||
+school_mini_websites.admission|longtext|YES|NULL||
+school_mini_websites.admission_form_id|int(10) unsigned|YES|NULL||MUL
+school_mini_websites.fees|longtext|YES|NULL||
+school_mini_websites.albums|longtext|YES|NULL||
+school_mini_websites.created_at|datetime|NO|current_timestamp()||
+school_mini_websites.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+school_mini_websites.international_primary_programs|text|YES|NULL||
+school_mini_websites.international_other_programs|text|YES|NULL||
+school_mini_websites.news_items|text|YES|NULL||
+school_module_access.id|int(10) unsigned|NO|null|auto_increment|PRI
+school_module_access.school_id|int(10) unsigned|NO|null||MUL
+school_module_access.module_key|varchar(100)|NO|null||
+school_module_access.is_enabled|tinyint(1)|NO|1||
+school_module_access.created_at|timestamp|NO|current_timestamp()||
+school_module_access.updated_at|timestamp|NO|current_timestamp()|on update current_timestamp()|
+school_monitoring_logs.id|bigint(20) unsigned|NO|null|auto_increment|PRI
+school_monitoring_logs.school_id|int(10) unsigned|NO|null||MUL
+school_monitoring_logs.log_date|date|NO|null||MUL
+school_monitoring_logs.online_peak|int(10) unsigned|NO|0||
+school_monitoring_logs.activities_count|int(10) unsigned|NO|0||
+school_monitoring_logs.login_success|int(10) unsigned|NO|0||
+school_monitoring_logs.login_failed|int(10) unsigned|NO|0||
+school_monitoring_logs.suspicious_count|int(10) unsigned|NO|0||
+school_monitoring_logs.meta_json|longtext|YES|NULL||
+school_monitoring_logs.created_at|datetime|NO|current_timestamp()||
+school_periods.id|int(10) unsigned|NO|null|auto_increment|PRI
+school_periods.school_id|int(10) unsigned|NO|null||MUL
+school_periods.period_name|varchar(120)|NO|null||
+school_periods.start_time|varchar(10)|NO|null||
+school_periods.end_time|varchar(10)|NO|null||
+school_periods.is_break|tinyint(1)|NO|0||
+school_periods.sort_order|int(11)|NO|0||
+school_periods.created_at|datetime|YES|current_timestamp()||
+school_representative_assignments.id|int(10) unsigned|NO|null|auto_increment|PRI
+school_representative_assignments.representative_user_id|int(10) unsigned|NO|null||MUL
+school_representative_assignments.school_id|int(10) unsigned|NO|null||MUL
+school_representative_assignments.assigned_by_user_id|int(10) unsigned|YES|NULL||
+school_representative_assignments.is_primary|tinyint(1)|NO|0||
+school_representative_assignments.created_at|timestamp|NO|current_timestamp()||
+school_representative_profiles.id|int(10) unsigned|NO|null|auto_increment|PRI
+school_representative_profiles.user_id|int(10) unsigned|NO|null||UNI
+school_representative_profiles.organization_name|varchar(255)|YES|NULL||
+school_representative_profiles.organization_type|varchar(80)|YES|NULL||
+school_representative_profiles.national_id|varchar(64)|YES|NULL||
+school_representative_profiles.gender|varchar(20)|YES|NULL||
+school_representative_profiles.date_of_birth|date|YES|NULL||
+school_representative_profiles.address|varchar(255)|YES|NULL||
+school_representative_profiles.notes|text|YES|NULL||
+school_representative_profiles.created_at|timestamp|NO|current_timestamp()||
+school_representative_profiles.updated_at|timestamp|NO|current_timestamp()|on update current_timestamp()|
+school_stock_items.id|int(10) unsigned|NO|null|auto_increment|PRI
+school_stock_items.school_id|int(10) unsigned|NO|null||MUL
+school_stock_items.item_name|varchar(200)|NO|null||
+school_stock_items.sku|varchar(80)|YES|NULL||
+school_stock_items.category|varchar(120)|YES|NULL||
+school_stock_items.unit|varchar(40)|NO|'pcs'||
+school_stock_items.reorder_level|decimal(10,2)|NO|0.00||
+school_stock_items.opening_qty|decimal(10,2)|NO|0.00||
+school_stock_items.current_qty|decimal(10,2)|NO|0.00||
+school_stock_items.status|enum('ACTIVE','INACTIVE')|NO|'ACTIVE'||
+school_stock_items.created_by_user_id|int(10) unsigned|YES|NULL||
+school_stock_items.created_at|datetime|NO|current_timestamp()||
+school_stock_items.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+school_stock_movements.id|int(10) unsigned|NO|null|auto_increment|PRI
+school_stock_movements.school_id|int(10) unsigned|NO|null||MUL
+school_stock_movements.item_id|int(10) unsigned|NO|null||MUL
+school_stock_movements.movement_type|enum('IN','OUT','ADJUSTMENT')|NO|null||
+school_stock_movements.quantity_change|decimal(10,2)|NO|null||
+school_stock_movements.reason|varchar(220)|YES|NULL||
+school_stock_movements.movement_date|datetime|NO|current_timestamp()||
+school_stock_movements.created_by_user_id|int(10) unsigned|YES|NULL||
+school_stock_movements.created_at|datetime|NO|current_timestamp()||
+school_stock_movements.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+school_subjects.id|int(10) unsigned|NO|null|auto_increment|PRI
+school_subjects.school_id|int(10) unsigned|NO|null||MUL
+school_subjects.name|varchar(120)|NO|null||
+school_subjects.category|varchar(64)|YES|NULL||
+school_subjects.subject_code|varchar(32)|YES|NULL||
+school_subjects.is_active|tinyint(1)|NO|1||
+school_subjects.created_at|datetime|YES|current_timestamp()||
+school_teacher_period_settings.school_id|int(10) unsigned|NO|null||PRI
+school_teacher_period_settings.academic_year|varchar(32)|NO|null||
+school_teacher_period_settings.term|varchar(32)|NO|null||
+school_teacher_period_settings.late_threshold_minutes|int(10) unsigned|NO|10||
+school_teacher_period_settings.updated_at|datetime|YES|current_timestamp()|on update current_timestamp()|
+school_teacher_period_settings.updated_by_user_id|int(10) unsigned|YES|NULL||
+schools.id|int(10) unsigned|NO|null|auto_increment|PRI
+schools.school_name|varchar(255)|NO|null||
+schools.school_code|varchar(50)|NO|null||UNI
+schools.education_levels|longtext|NO|null||
+schools.school_category|enum('Day','Boarding','Day & Boarding','Other','PRIMARY','NINE_TWELVE_YBE_GS')|NO|null||
+schools.school_status|varchar(100)|YES|NULL||
+schools.ownership_type|enum('Government','Government-Aided','Private')|NO|null||
+schools.year_established|int(11)|YES|NULL||
+schools.province|varchar(100)|NO|null||MUL
+schools.district|varchar(100)|NO|null||MUL
+schools.sector|varchar(100)|NO|null||MUL
+schools.cell|varchar(100)|NO|null||
+schools.village|varchar(100)|NO|null||
+schools.full_address|text|NO|null||
+schools.map_url|varchar(500)|YES|NULL||
+schools.phone|varchar(30)|NO|null||
+schools.email|varchar(255)|NO|null||UNI
+schools.postal_address|varchar(255)|YES|NULL||
+schools.website|varchar(500)|YES|NULL||
+schools.head_teacher_name|varchar(255)|NO|null||
+schools.head_teacher_phone|varchar(30)|NO|null||
+schools.head_teacher_email|varchar(255)|YES|NULL||
+schools.deputy_head_name|varchar(255)|YES|NULL||
+schools.logo_url|varchar(500)|YES|NULL||
+schools.head_signature_url|varchar(500)|YES|NULL||
+schools.school_stamp_url|varchar(500)|YES|NULL||
+schools.manager_user_id|int(10) unsigned|YES|NULL||
+schools.admin_id|int(10) unsigned|YES|NULL||MUL
+schools.status|enum('active','inactive','suspended','deleted','pending')|NO|'pending'||MUL
+schools.is_active|tinyint(1)|NO|1||
+schools.created_at|datetime|NO|current_timestamp()||
+schools.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+schools.deleted_at|datetime|YES|NULL||MUL
+schools.district_code|varchar(2)|YES|NULL||
+schools.a_level_combinations|longtext|YES|NULL||
+schools.is_skeleton|tinyint(1)|NO|0||
+schools.tvet_trades|longtext|YES|NULL||
+schools.subscription_plan|enum('lite','pro')|NO|'lite'||
+schools.pro_enabled|tinyint(1)|NO|0||
+schools.pro_start_date|datetime|YES|NULL||
+schools.pro_end_date|datetime|YES|NULL||
+schools.boarding_type|varchar(50)|YES|NULL||
+schools.vision|text|YES|NULL||
+schools.shule_avance_max_percent|decimal(5,2)|NO|25.00||
+service_orders.id|int(10) unsigned|NO|null|auto_increment|PRI
+service_orders.order_number|varchar(40)|NO|null||UNI
+service_orders.service_id|int(10) unsigned|NO|null||MUL
+service_orders.student_id|int(10) unsigned|YES|NULL||
+service_orders.parent_id|int(10) unsigned|YES|NULL||
+service_orders.school_id|int(10) unsigned|YES|NULL||
+service_orders.academic_year|varchar(32)|NO|null||
+service_orders.amount|decimal(12,2)|NO|0.00||
+service_orders.currency|varchar(10)|NO|'FRW'||
+service_orders.payment_status|enum('pending','awaiting_payment','paid','failed','refunded')|NO|'pending'||
+service_orders.order_status|enum('pending','awaiting_payment','paid','voucher_issued','redeemed','cancelled','expired')|NO|'pending'||
+service_orders.created_at|datetime|NO|current_timestamp()||
+service_orders.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+service_orders.quantity|int(10) unsigned|NO|1||
+service_orders.unit_amount|decimal(12,2)|NO|0.00||
+service_orders.batch_ref|varchar(64)|YES|NULL||
+service_orders.delivery_mode|enum('AT_SCHOOL','AT_HOME')|YES|NULL||
+service_orders.delivery_address|varchar(500)|YES|NULL||
+service_orders.buyer_name|varchar(160)|YES|NULL||
+service_orders.buyer_contact|varchar(120)|YES|NULL||
+service_orders.agent_user_id|int(10) unsigned|YES|NULL||
+service_orders.source_channel|varchar(50)|NO|'PUBLIC'||
+service_orders.fulfillment_status|varchar(40)|NO|'Pending'||
+service_orders.order_meta_json|longtext|YES|NULL||
+service_payments.id|int(10) unsigned|NO|null|auto_increment|PRI
+service_payments.order_id|int(10) unsigned|NO|null||MUL
+service_payments.payment_ref|varchar(128)|YES|NULL||
+service_payments.payment_method|varchar(64)|YES|NULL||
+service_payments.amount_paid|decimal(12,2)|NO|0.00||
+service_payments.transaction_fee|decimal(12,2)|NO|0.00||
+service_payments.total_amount|decimal(12,2)|NO|0.00||
+service_payments.payment_date|datetime|YES|NULL||
+service_payments.payment_status|enum('pending','paid','failed','refunded')|NO|'pending'||
+service_payments.provider_response|longtext|YES|NULL||
+service_payments.created_at|datetime|NO|current_timestamp()||
+service_payments.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+service_prices.id|int(10) unsigned|NO|null|auto_increment|PRI
+service_prices.service_id|int(10) unsigned|NO|null||MUL
+service_prices.pricing_type|enum('global','level','school')|NO|null||
+service_prices.school_id|int(10) unsigned|YES|NULL||MUL
+service_prices.level|varchar(64)|YES|NULL||
+service_prices.academic_year|varchar(32)|NO|null||
+service_prices.amount|decimal(12,2)|NO|0.00||
+service_prices.currency|varchar(10)|NO|'FRW'||
+service_prices.is_active|tinyint(1)|NO|1||
+service_prices.created_at|datetime|NO|current_timestamp()||
+service_prices.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+services.id|int(10) unsigned|NO|null|auto_increment|PRI
+services.service_code|varchar(64)|NO|null||UNI
+services.name|varchar(255)|NO|null||
+services.category|varchar(100)|NO|'Voucher'||
+services.description|text|YES|NULL||
+services.short_tagline|varchar(500)|YES|NULL||
+services.icon_url|varchar(512)|YES|NULL||
+services.academic_year|varchar(32)|NO|null||
+services.eligibility_levels|longtext|YES|NULL||
+services.default_pricing_type|enum('global','by_level','by_school')|NO|'global'||
+services.validity_start|date|YES|NULL||
+services.validity_end|date|YES|NULL||
+services.redemption_method|varchar(255)|YES|NULL||
+services.delivery_method|varchar(255)|YES|NULL||
+services.stock_quantity|int(11)|YES|NULL||
+services.payment_rules|text|YES|NULL||
+services.terms_conditions|text|YES|NULL||
+services.status|enum('draft','active','inactive','archived')|NO|'draft'||MUL
+services.created_at|datetime|NO|current_timestamp()||
+services.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+services.created_by_role|varchar(40)|NO|'SUPER_ADMIN'||
+services.created_by_user_id|int(10) unsigned|YES|NULL||
+services.is_shop_product|tinyint(1)|NO|0||
+services.deleted_at|datetime|YES|NULL||
+services.available_sizes|longtext|YES|NULL||
+services.shoe_categories|longtext|YES|NULL||
+services.delivery_fee|decimal(12,2)|NO|0.00||
+services.shoe_models|longtext|YES|NULL||
+services.shoe_brand_model_id|int(10) unsigned|YES|NULL||MUL
+services.product_type|varchar(120)|YES|NULL||
+services.product_color|varchar(80)|YES|NULL||
+services.gallery_images|longtext|YES|NULL||
+shoe_brand_models.id|int(10) unsigned|NO|null|auto_increment|PRI
+shoe_brand_models.slug|varchar(64)|NO|null||UNI
+shoe_brand_models.name|varchar(255)|NO|null||
+shoe_brand_models.image_url|varchar(512)|YES|NULL||
+shoe_brand_models.sort_order|int(11)|NO|0||
+shoe_brand_models.created_at|datetime|NO|current_timestamp()||
+shoe_brand_models.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+shule_avance_requests.id|int(10) unsigned|NO|null|auto_increment|PRI
+shule_avance_requests.school_id|int(10) unsigned|NO|null||MUL
+shule_avance_requests.teacher_user_id|int(10) unsigned|NO|null||MUL
+shule_avance_requests.amount_rwf|decimal(14,2)|NO|null||
+shule_avance_requests.purpose|text|NO|null||
+shule_avance_requests.repayment_term_months|int(10) unsigned|NO|null||
+shule_avance_requests.vendor_label|varchar(160)|YES|NULL||
+shule_avance_requests.details|text|YES|NULL||
+shule_avance_requests.invoice_file_name|varchar(255)|YES|NULL||
+shule_avance_requests.status|varchar(40)|NO|'pending_accountant'||MUL
+shule_avance_requests.accountant_note|text|YES|NULL||
+shule_avance_requests.manager_feedback|text|YES|NULL||
+shule_avance_requests.submitted_at|datetime|NO|current_timestamp()||MUL
+shule_avance_requests.accountant_reviewed_at|datetime|YES|NULL||
+shule_avance_requests.accountant_reviewed_by|int(10) unsigned|YES|NULL||
+shule_avance_requests.manager_reviewed_at|datetime|YES|NULL||
+shule_avance_requests.manager_reviewed_by|int(10) unsigned|YES|NULL||
+shule_avance_requests.created_at|datetime|NO|current_timestamp()||
+shule_avance_requests.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+shule_avance_requests.request_type|varchar(20)|NO|'service'||
+shule_avance_requests.service_category|varchar(64)|YES|NULL||
+shule_avance_requests.cashout_reason|text|YES|NULL||
+shule_avance_requests.cashout_category_slug|varchar(64)|YES|NULL||
+shule_avance_requests.deal_product_ids_json|text|YES|NULL||
+shule_avance_requests.deal_products_snapshot_json|longtext|YES|NULL||
+shule_avance_requests.deal_products_total_rwf|decimal(14,2)|YES|NULL||
+shule_avance_requests.cashout_month_key|varchar(7)|YES|NULL||
+shule_avance_requests.net_salary_baseline_rwf|decimal(14,2)|YES|NULL||
+shule_avance_requests.auto_approval_limit_rwf|decimal(14,2)|YES|NULL||
+shule_avance_requests.monthly_requested_total_rwf|decimal(14,2)|YES|NULL||
+shule_avance_requests.monthly_remaining_net_rwf|decimal(14,2)|YES|NULL||
+shule_avance_requests.auto_approved|tinyint(1)|NO|0||
+shule_avance_requests.auto_approved_at|datetime|YES|NULL||
+shule_avance_requests.exceeds_monthly_cap|tinyint(1)|NO|0||
+shule_avance_teacher_catalog.id|int(10) unsigned|NO|null|auto_increment|PRI
+shule_avance_teacher_catalog.item_kind|enum('service','cashout')|NO|null||MUL
+shule_avance_teacher_catalog.slug|varchar(64)|NO|null||
+shule_avance_teacher_catalog.label|varchar(160)|NO|null||
+shule_avance_teacher_catalog.description|varchar(500)|YES|NULL||
+shule_avance_teacher_catalog.income_rate_percent|decimal(8,4)|NO|0.0000||
+shule_avance_teacher_catalog.sort_order|int(11)|NO|0||
+shule_avance_teacher_catalog.is_active|tinyint(1)|NO|1||
+shule_avance_teacher_catalog.created_at|datetime|NO|current_timestamp()||
+shule_avance_teacher_catalog.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+shule_avance_teacher_deal_pay_alt_intents.id|int(10) unsigned|NO|null|auto_increment|PRI
+shule_avance_teacher_deal_pay_alt_intents.token|varchar(64)|NO|null||MUL
+shule_avance_teacher_deal_pay_alt_intents.channel|varchar(32)|NO|null||
+shule_avance_teacher_deal_pay_alt_intents.payload_json|longtext|NO|null||
+shule_avance_teacher_deal_pay_alt_intents.created_at|datetime|NO|current_timestamp()||MUL
+shule_avance_teacher_deal_pay_tokens.token|varchar(64)|NO|null||PRI
+shule_avance_teacher_deal_pay_tokens.payload_json|longtext|NO|null||
+shule_avance_teacher_deal_pay_tokens.teacher_user_id|int(10) unsigned|NO|null||MUL
+shule_avance_teacher_deal_pay_tokens.consumed|tinyint(1)|NO|0||
+shule_avance_teacher_deal_pay_tokens.expires_at|datetime|NO|null||MUL
+shule_avance_teacher_deal_pay_tokens.created_at|datetime|NO|current_timestamp()||
+shule_avance_teacher_deal_products.id|int(10) unsigned|NO|null|auto_increment|PRI
+shule_avance_teacher_deal_products.name|varchar(180)|NO|null||
+shule_avance_teacher_deal_products.price_rwf|decimal(14,2)|NO|0.00||
+shule_avance_teacher_deal_products.image_url|varchar(500)|YES|NULL||
+shule_avance_teacher_deal_products.description|longtext|YES|NULL||
+shule_avance_teacher_deal_products.is_active|tinyint(1)|NO|1||MUL
+shule_avance_teacher_deal_products.created_by_user_id|int(10) unsigned|YES|NULL||
+shule_avance_teacher_deal_products.created_at|datetime|NO|current_timestamp()||
+shule_avance_teacher_deal_products.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+shule_avance_teacher_deal_products.deleted_at|datetime|YES|NULL||MUL
+shule_avance_teacher_deal_products.partner_org_id|int(10) unsigned|YES|NULL||
+shule_avance_teacher_deal_products.media_json|longtext|YES|NULL||
+shule_avance_teacher_deal_products.product_code|varchar(120)|YES|NULL||
+shule_avance_teacher_deal_products.category|varchar(180)|YES|NULL||
+shule_avance_teacher_deal_products.short_description|varchar(280)|YES|NULL||
+shule_avance_teacher_deal_products.max_quantity|int(10) unsigned|YES|NULL||
+staff.id|int(10) unsigned|NO|null|auto_increment|PRI
+staff.user_id|int(10) unsigned|NO|null||MUL
+staff.school_id|int(10) unsigned|NO|null||MUL
+staff.staff_id|varchar(50)|YES|NULL||UNI
+staff.username|varchar(100)|YES|NULL||UNI
+staff.created_at|datetime|NO|current_timestamp()||
+staff.full_name|varchar(180)|YES|NULL||
+staff.gender|varchar(24)|YES|NULL||
+staff.date_of_birth|date|YES|NULL||
+staff.national_id|varchar(64)|YES|NULL||
+staff.passport_number|varchar(64)|YES|NULL||
+staff.address|text|YES|NULL||
+staff.employment_type|varchar(32)|YES|NULL||
+staff.job_title|varchar(120)|YES|NULL||
+staff.date_of_employment|date|YES|NULL||
+staff.contract_start_date|date|YES|NULL||
+staff.contract_end_date|date|YES|NULL||
+staff.employment_status|varchar(32)|YES|NULL||
+staff.department|varchar(80)|YES|NULL||
+staff.sub_department|varchar(80)|YES|NULL||
+staff.payroll_basic_salary|decimal(14,2)|YES|NULL||
+staff.payroll_transport_allowance|decimal(14,2)|YES|NULL||
+staff.payroll_housing_allowance|decimal(14,2)|YES|NULL||
+staff.payroll_meal_allowance|decimal(14,2)|YES|NULL||
+staff.payroll_other_allowances|longtext|YES|NULL||
+staff.payroll_tax_percent|decimal(8,2)|YES|NULL||
+staff.payroll_pension_amount|decimal(14,2)|YES|NULL||
+staff.payroll_other_deductions|longtext|YES|NULL||
+staff.payroll_payment_frequency|varchar(24)|YES|NULL||
+staff.payroll_payment_method|varchar(24)|YES|NULL||
+staff.payroll_bank_name|varchar(120)|YES|NULL||
+staff.payroll_account_number|varchar(120)|YES|NULL||
+staff.payroll_mobile_money_phone|varchar(30)|YES|NULL||
+staff.payroll_part_time_rate|decimal(14,2)|YES|NULL||
+staff.payroll_part_time_unit|varchar(30)|YES|NULL||
+staff.allow_advance|tinyint(1)|YES|0||
+staff.max_advance_limit|decimal(14,2)|YES|NULL||
+staff.advance_deduction_type|varchar(16)|YES|NULL||
+staff.advance_deduction_value|decimal(14,2)|YES|NULL||
+staff.account_enabled|tinyint(1)|YES|1||
+staff_portal_notifications.id|int(10) unsigned|NO|null|auto_increment|PRI
+staff_portal_notifications.school_id|int(10) unsigned|NO|null||MUL
+staff_portal_notifications.user_id|int(10) unsigned|NO|null||MUL
+staff_portal_notifications.type|varchar(64)|NO|'info'||
+staff_portal_notifications.title|varchar(255)|NO|null||
+staff_portal_notifications.body|text|YES|NULL||
+staff_portal_notifications.url|varchar(512)|YES|NULL||
+staff_portal_notifications.entity_type|varchar(64)|YES|NULL||
+staff_portal_notifications.entity_id|int(10) unsigned|YES|NULL||
+staff_portal_notifications.tag|varchar(191)|YES|NULL||
+staff_portal_notifications.is_read|tinyint(1)|NO|0||
+staff_portal_notifications.created_at|datetime|NO|current_timestamp()||
+standard_shule_kit_request_payments.id|int(10) unsigned|NO|null|auto_increment|PRI
+standard_shule_kit_request_payments.request_id|int(10) unsigned|NO|null||MUL
+standard_shule_kit_request_payments.payment_ref|varchar(128)|YES|NULL||
+standard_shule_kit_request_payments.payment_method|varchar(64)|YES|NULL||
+standard_shule_kit_request_payments.amount_paid|decimal(12,2)|NO|0.00||
+standard_shule_kit_request_payments.payment_status|enum('pending','paid','failed')|NO|'pending'||
+standard_shule_kit_request_payments.provider_response|longtext|YES|NULL||
+standard_shule_kit_request_payments.created_at|datetime|NO|current_timestamp()||
+standard_shule_kit_request_payments.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+standard_shule_kit_requests.id|int(10) unsigned|NO|null|auto_increment|PRI
+standard_shule_kit_requests.request_no|varchar(40)|NO|null||UNI
+standard_shule_kit_requests.kit_id|int(10) unsigned|NO|null||MUL
+standard_shule_kit_requests.student_id|int(10) unsigned|NO|null||
+standard_shule_kit_requests.school_id|int(10) unsigned|NO|null||MUL
+standard_shule_kit_requests.agent_user_id|int(10) unsigned|YES|NULL||MUL
+standard_shule_kit_requests.requester_name|varchar(160)|NO|null||
+standard_shule_kit_requests.requester_contact|varchar(120)|NO|null||
+standard_shule_kit_requests.delivery_option|enum('AT_SCHOOL','AT_HOME')|NO|'AT_SCHOOL'||
+standard_shule_kit_requests.delivery_address|varchar(500)|YES|NULL||
+standard_shule_kit_requests.province|varchar(120)|YES|NULL||
+standard_shule_kit_requests.district|varchar(120)|YES|NULL||
+standard_shule_kit_requests.sector|varchar(120)|YES|NULL||
+standard_shule_kit_requests.total_frw|decimal(12,2)|NO|0.00||
+standard_shule_kit_requests.payment_status|enum('awaiting_payment','paid','failed')|NO|'awaiting_payment'||
+standard_shule_kit_requests.status|enum('submitted','paid','processing','completed','cancelled')|NO|'submitted'||MUL
+standard_shule_kit_requests.created_at|datetime|NO|current_timestamp()||
+standard_shule_kit_requests.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+standard_shule_kit_requirements.id|int(10) unsigned|NO|null|auto_increment|PRI
+standard_shule_kit_requirements.kit_id|int(10) unsigned|NO|null||MUL
+standard_shule_kit_requirements.title|varchar(500)|NO|null||
+standard_shule_kit_requirements.amount_frw|decimal(12,2)|NO|0.00||
+standard_shule_kit_requirements.quantity|int(10) unsigned|NO|1||
+standard_shule_kit_requirements.image_url|varchar(512)|YES|NULL||
+standard_shule_kit_requirements.sort_order|int(11)|NO|0||
+standard_shule_kit_requirements.created_at|datetime|NO|current_timestamp()||
+standard_shule_kits.id|int(10) unsigned|NO|null|auto_increment|PRI
+standard_shule_kits.grade_level|varchar(64)|NO|null||UNI
+standard_shule_kits.description|text|YES|NULL||
+standard_shule_kits.image_url|varchar(512)|YES|NULL||
+standard_shule_kits.status|enum('draft','active','inactive')|NO|'draft'||MUL
+standard_shule_kits.sort_order|int(11)|NO|0||MUL
+standard_shule_kits.created_at|datetime|NO|current_timestamp()||
+standard_shule_kits.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+store_inventory_items.id|int(10) unsigned|NO|null|auto_increment|PRI
+store_inventory_items.school_id|int(10) unsigned|NO|null||MUL
+store_inventory_items.name|varchar(220)|NO|null||
+store_inventory_items.category|varchar(120)|YES|NULL||
+store_inventory_items.unit|varchar(40)|YES|NULL||
+store_inventory_items.quantity|decimal(14,2)|NO|0.00||
+store_inventory_items.reorder_level|decimal(14,2)|NO|0.00||
+store_inventory_items.unit_cost|decimal(14,2)|NO|0.00||
+store_inventory_items.location|varchar(180)|YES|NULL||
+store_inventory_items.note|text|YES|NULL||
+store_inventory_items.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+store_inventory_items.deleted_at|datetime|YES|NULL||
+store_inventory_items.term|varchar(32)|YES|NULL||
+store_inventory_items.academic_year|varchar(64)|YES|NULL||
+store_movements.id|int(10) unsigned|NO|null|auto_increment|PRI
+store_movements.school_id|int(10) unsigned|NO|null||MUL
+store_movements.item_id|int(10) unsigned|YES|NULL||MUL
+store_movements.type|varchar(32)|NO|null||
+store_movements.quantity|decimal(14,2)|NO|0.00||
+store_movements.unit_cost|decimal(14,2)|YES|NULL||
+store_movements.ref|varchar(160)|YES|NULL||
+store_movements.note|text|YES|NULL||
+store_movements.created_by_user_id|int(10) unsigned|NO|null||
+store_movements.created_at|datetime|NO|current_timestamp()||
+store_movements.deleted_at|datetime|YES|NULL||
+store_movements.term|varchar(32)|YES|NULL||
+store_movements.academic_year|varchar(64)|YES|NULL||
+store_movements.movement_date|date|YES|NULL||
+store_movements.stock_after|decimal(14,2)|NO|0.00||
+store_movements.supplier_id|int(10) unsigned|YES|NULL||
+store_suppliers.id|int(10) unsigned|NO|null|auto_increment|PRI
+store_suppliers.school_id|int(10) unsigned|NO|null||MUL
+store_suppliers.name|varchar(220)|NO|null||
+store_suppliers.contact_person|varchar(180)|YES|NULL||
+store_suppliers.phone|varchar(40)|YES|NULL||
+store_suppliers.email|varchar(180)|YES|NULL||
+store_suppliers.address|text|YES|NULL||
+store_suppliers.categories|varchar(255)|YES|NULL||
+store_suppliers.note|text|YES|NULL||
+store_suppliers.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+store_suppliers.deleted_at|datetime|YES|NULL||
+student_access.id|int(10) unsigned|NO|null|auto_increment|PRI
+student_access.parent_portal_account_id|int(10) unsigned|YES|NULL||MUL
+student_access.parent_phone|varchar(30)|NO|null||MUL
+student_access.student_id|int(10) unsigned|NO|null||MUL
+student_access.access_type|enum('FULL','LIMITED')|NO|'LIMITED'||MUL
+student_access.created_at|datetime|NO|current_timestamp()||
+student_access.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+student_card_cache.student_id|int(10) unsigned|NO|null||PRI
+student_card_cache.payload_json|longtext|NO|null||
+student_card_cache.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+student_permissions.id|int(10) unsigned|NO|null|auto_increment|PRI
+student_permissions.school_id|int(10) unsigned|NO|null||MUL
+student_permissions.student_id|int(10) unsigned|NO|null||MUL
+student_permissions.starts_at|datetime|NO|null||MUL
+student_permissions.ends_at|datetime|NO|null||
+student_permissions.reason|text|YES|NULL||
+student_permissions.permission_type|enum('MEDICAL','FAMILY','OFFICIAL','OTHER')|YES|'OTHER'||
+student_permissions.status|enum('PENDING','APPROVED','REJECTED','CANCELLED')|YES|'PENDING'||MUL
+student_permissions.requested_by_user_id|int(10) unsigned|NO|null||
+student_permissions.approved_by_user_id|int(10) unsigned|YES|NULL||
+student_permissions.created_at|datetime|YES|current_timestamp()||
+student_permissions.updated_at|datetime|YES|current_timestamp()|on update current_timestamp()|
+student_permissions.actual_out_at|datetime|YES|NULL||
+student_permissions.actual_return_at|datetime|YES|NULL||
+student_permissions.gate_scan_state|enum('NOT_USED','OUT','BACK','EXCEEDED')|NO|'NOT_USED'||
+student_permissions.exceeded_minutes|int(10) unsigned|NO|0||
+student_permissions.last_gate_action_at|datetime|YES|NULL||
+student_requirements.id|int(10) unsigned|NO|null|auto_increment|PRI
+student_requirements.name|varchar(300)|NO|null||UNI
+student_requirements.default_price|decimal(12,2)|YES|NULL||
+student_requirements.image_url|varchar(512)|YES|NULL||
+student_requirements.created_at|timestamp|NO|current_timestamp()||
+student_requirements.updated_at|timestamp|NO|current_timestamp()|on update current_timestamp()|
+student_requirements.description|text|YES|NULL||
+student_requirements.quantity|varchar(50)|YES|NULL||
+student_transfer_logs.id|int(10) unsigned|NO|null|auto_increment|PRI
+student_transfer_logs.request_id|int(10) unsigned|NO|null||MUL
+student_transfer_logs.school_id|int(10) unsigned|YES|NULL||
+student_transfer_logs.action|varchar(32)|NO|null||
+student_transfer_logs.note|text|YES|NULL||
+student_transfer_logs.created_by_user_id|int(10) unsigned|YES|NULL||
+student_transfer_logs.created_at|datetime|NO|current_timestamp()||
+student_transfer_notifications.id|int(10) unsigned|NO|null|auto_increment|PRI
+student_transfer_notifications.school_id|int(10) unsigned|NO|null||MUL
+student_transfer_notifications.request_id|int(10) unsigned|NO|null||MUL
+student_transfer_notifications.notification_type|varchar(32)|NO|null||
+student_transfer_notifications.message|varchar(255)|NO|null||
+student_transfer_notifications.is_read|tinyint(1)|NO|0||
+student_transfer_notifications.created_at|datetime|NO|current_timestamp()||
+student_transfer_requests.id|int(10) unsigned|NO|null|auto_increment|PRI
+student_transfer_requests.school_id_from|int(10) unsigned|NO|null||MUL
+student_transfer_requests.school_id_to|int(10) unsigned|NO|null||MUL
+student_transfer_requests.student_id|int(10) unsigned|NO|null||MUL
+student_transfer_requests.student_uid|varchar(50)|NO|null||
+student_transfer_requests.student_code|varchar(15)|YES|NULL||
+student_transfer_requests.requested_by_user_id|int(10) unsigned|NO|null||
+student_transfer_requests.reason|text|YES|NULL||
+student_transfer_requests.notes_from_to_school|text|YES|NULL||
+student_transfer_requests.status|varchar(32)|NO|'pending'||
+student_transfer_requests.responded_by_user_id|int(10) unsigned|YES|NULL||
+student_transfer_requests.notes_from_from_school|text|YES|NULL||
+student_transfer_requests.approved_at|datetime|YES|NULL||
+student_transfer_requests.rejected_at|datetime|YES|NULL||
+student_transfer_requests.created_at|datetime|NO|current_timestamp()||MUL
+student_transfer_requests.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+student_year_enrollments.id|int(10) unsigned|NO|null|auto_increment|PRI
+student_year_enrollments.school_id|int(10) unsigned|NO|null||MUL
+student_year_enrollments.student_id|int(10) unsigned|NO|null||
+student_year_enrollments.academic_year|varchar(32)|NO|null||
+student_year_enrollments.class_name|varchar(120)|YES|NULL||
+student_year_enrollments.status|varchar(32)|NO|'active'||
+student_year_enrollments.is_current|tinyint(1)|NO|0||
+student_year_enrollments.promoted_to_class|varchar(120)|YES|NULL||
+student_year_enrollments.promoted_to_year|varchar(32)|YES|NULL||
+student_year_enrollments.recorded_by_user_id|int(10) unsigned|YES|NULL||
+student_year_enrollments.created_at|datetime|YES|current_timestamp()||
+student_year_enrollments.updated_at|datetime|YES|current_timestamp()|on update current_timestamp()|
+students.id|int(10) unsigned|NO|null|auto_increment|PRI
+students.student_uid|varchar(50)|NO|null||MUL
+students.school_id|int(10) unsigned|NO|null||MUL
+students.first_name|varchar(100)|NO|null||
+students.last_name|varchar(100)|NO|null||
+students.gender|enum('Male','Female')|YES|NULL||
+students.birth_year|int(11)|YES|NULL||
+students.nationality|varchar(100)|YES|NULL||
+students.province|varchar(100)|YES|NULL||
+students.district|varchar(100)|YES|NULL||
+students.sector|varchar(100)|YES|NULL||
+students.cell|varchar(100)|YES|NULL||
+students.village|varchar(100)|YES|NULL||
+students.father_full_name|varchar(150)|YES|NULL||
+students.father_phone|varchar(160)|YES|NULL||
+students.father_email|varchar(255)|YES|NULL||
+students.mother_full_name|varchar(150)|YES|NULL||
+students.mother_phone|varchar(160)|YES|NULL||
+students.mother_email|varchar(255)|YES|NULL||
+students.created_at|datetime|NO|current_timestamp()||
+students.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+students.import_missing_fields|text|YES|NULL||
+students.source_row_json|longtext|YES|NULL||
+students.class_name|varchar(120)|YES|NULL||
+students.academic_year|varchar(32)|YES|NULL||
+students.student_code|varchar(15)|YES|NULL||
+students.sdm_code|varchar(64)|YES|NULL||
+students.student_photo|varchar(255)|YES|NULL||
+students.rfid_uid|varchar(64)|YES|NULL||
+students.fingerprint_id|varchar(128)|YES|NULL||
+students.identity_remarks|text|YES|NULL||
+students.student_password_hash|varchar(255)|YES|NULL||
+students.student_force_password_change|tinyint(1)|NO|1||
+students.discipline_marks|decimal(8,2)|YES|NULL||
+students.father_national_id|varchar(64)|YES|NULL||
+students.mother_national_id|varchar(64)|YES|NULL||
+suspicious_activities.id|bigint(20) unsigned|NO|null|auto_increment|PRI
+suspicious_activities.user_id|int(10) unsigned|YES|NULL||MUL
+suspicious_activities.school_id|int(10) unsigned|YES|NULL||MUL
+suspicious_activities.threat_type|varchar(80)|NO|null||
+suspicious_activities.detail|text|YES|NULL||
+suspicious_activities.risk_level|varchar(24)|NO|'High'||
+suspicious_activities.status|varchar(24)|NO|'Pending'||
+suspicious_activities.ip_address|varchar(64)|YES|NULL||
+suspicious_activities.activity_log_id|bigint(20) unsigned|YES|NULL||
+suspicious_activities.created_at|datetime|NO|current_timestamp()||
+suspicious_activities.resolved_at|datetime|YES|NULL||
+system_settings.key|varchar(64)|NO|null||PRI
+system_settings.value|varchar(255)|NO|'0'||
+system_settings.updated_at|timestamp|NO|current_timestamp()|on update current_timestamp()|
+teacher_attendance_logs.id|int(10) unsigned|NO|null|auto_increment|PRI
+teacher_attendance_logs.school_id|int(10) unsigned|NO|null||MUL
+teacher_attendance_logs.teacher_user_id|int(10) unsigned|NO|null||
+teacher_attendance_logs.record_date|date|NO|null||
+teacher_attendance_logs.status|enum('Present','Absent','Late','Excused')|NO|'Present'||
+teacher_attendance_logs.remarks|varchar(255)|YES|NULL||
+teacher_attendance_logs.created_at|datetime|YES|current_timestamp()||
+teacher_attendance_logs.updated_at|datetime|YES|current_timestamp()|on update current_timestamp()|
+teacher_avance_ussd_sessions.id|int(10) unsigned|NO|null|auto_increment|PRI
+teacher_avance_ussd_sessions.token_hash|char(64)|NO|null||UNI
+teacher_avance_ussd_sessions.teacher_user_id|int(10) unsigned|NO|null||MUL
+teacher_avance_ussd_sessions.school_id|int(10) unsigned|NO|null||
+teacher_avance_ussd_sessions.created_at|datetime|NO|current_timestamp()||
+teacher_avance_ussd_sessions.last_used_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+teacher_avance_ussd_sessions.expires_at|datetime|NO|null||MUL
+teacher_avance_ussd_sessions.revoked_at|datetime|YES|NULL||
+teacher_deal_partners.id|int(10) unsigned|NO|null|auto_increment|PRI
+teacher_deal_partners.org_name|varchar(200)|NO|null||
+teacher_deal_partners.partner_code|varchar(120)|YES|NULL||UNI
+teacher_deal_partners.login_username|varchar(120)|YES|NULL||UNI
+teacher_deal_partners.contact_email|varchar(180)|YES|NULL||
+teacher_deal_partners.contact_phone|varchar(40)|YES|NULL||
+teacher_deal_partners.logo_url|varchar(500)|YES|NULL||
+teacher_deal_partners.description|text|YES|NULL||
+teacher_deal_partners.is_active|tinyint(1)|NO|1||MUL
+teacher_deal_partners.created_by_user_id|int(10) unsigned|YES|NULL||
+teacher_deal_partners.created_at|datetime|NO|current_timestamp()||
+teacher_deal_partners.updated_at|datetime|YES|NULL|on update current_timestamp()|
+teacher_deal_partners.deleted_at|datetime|YES|NULL||
+teacher_period_attendance.id|bigint(20) unsigned|NO|null|auto_increment|PRI
+teacher_period_attendance.school_id|int(10) unsigned|NO|null||MUL
+teacher_period_attendance.teacher_id|int(10) unsigned|NO|null||
+teacher_period_attendance.class_name|varchar(120)|NO|null||
+teacher_period_attendance.subject_name|varchar(255)|NO|null||
+teacher_period_attendance.day_of_week|enum('Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday')|NO|null||
+teacher_period_attendance.period_date|date|NO|null||
+teacher_period_attendance.start_time|varchar(10)|NO|null||
+teacher_period_attendance.end_time|varchar(10)|NO|null||
+teacher_period_attendance.entry_time|datetime|YES|NULL||
+teacher_period_attendance.exit_time|datetime|YES|NULL||
+teacher_period_attendance.status|enum('ON_TIME','LATE','BEFORE')|YES|NULL||
+teacher_period_attendance.late_minutes|int(10) unsigned|NO|0||
+teacher_period_attendance.scan_source|varchar(64)|YES|NULL||
+teacher_period_attendance.created_at|datetime|YES|current_timestamp()||
+teacher_period_attendance.updated_at|datetime|YES|current_timestamp()|on update current_timestamp()|
+teacher_period_attendance.exit_status|enum('ON_TIME','BEFORE')|YES|NULL||
+teacher_permissions.id|int(10) unsigned|NO|null|auto_increment|PRI
+teacher_permissions.school_id|int(10) unsigned|NO|null||MUL
+teacher_permissions.teacher_user_id|int(10) unsigned|NO|null||
+teacher_permissions.teacher_name|varchar(200)|NO|null||
+teacher_permissions.permission_type|enum('SICK_LEAVE','PERSONAL','FAMILY','OFFICIAL','LATE_ARRIVAL','EARLY_DEPARTURE','OTHER')|NO|'PERSONAL'||
+teacher_permissions.start_date|date|NO|null||
+teacher_permissions.end_date|date|NO|null||
+teacher_permissions.reason|text|YES|NULL||
+teacher_permissions.status|enum('pending','approved','rejected','cancelled')|NO|'pending'||
+teacher_permissions.decided_by_user_id|int(10) unsigned|YES|NULL||
+teacher_permissions.decided_at|datetime|YES|NULL||
+teacher_permissions.decision_note|text|YES|NULL||
+teacher_permissions.created_at|datetime|NO|current_timestamp()||
+teacher_permissions.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+teacher_permissions.deleted_at|datetime|YES|NULL||
+teacher_round_roll_call_logs.id|int(10) unsigned|NO|null|auto_increment|PRI
+teacher_round_roll_call_logs.school_id|int(10) unsigned|NO|null||MUL
+teacher_round_roll_call_logs.class_name|varchar(160)|NO|null||
+teacher_round_roll_call_logs.record_date|date|NO|null||
+teacher_round_roll_call_logs.recorded_by_user_id|int(10) unsigned|NO|null||
+teacher_round_roll_call_logs.created_at|datetime|YES|current_timestamp()||
+teacher_round_roll_call_logs.roll_label|varchar(160)|NO|''||
+teacher_round_roll_call_records.id|int(10) unsigned|NO|null|auto_increment|PRI
+teacher_round_roll_call_records.log_id|int(10) unsigned|NO|null||MUL
+teacher_round_roll_call_records.student_id|int(10) unsigned|NO|null||MUL
+teacher_round_roll_call_records.status|varchar(32)|NO|null||
+teacher_round_roll_call_records.remarks|varchar(255)|YES|NULL||
+timetable_assignments.id|int(10) unsigned|NO|null|auto_increment|PRI
+timetable_assignments.school_id|int(10) unsigned|NO|null||MUL
+timetable_assignments.class_name|varchar(120)|NO|null||
+timetable_assignments.subject_name|varchar(200)|NO|null||
+timetable_assignments.teacher_user_id|int(10) unsigned|NO|null||
+timetable_assignments.periods_per_week|int(10) unsigned|NO|3||
+timetable_assignments.room|varchar(64)|YES|NULL||
+timetable_assignments.created_at|datetime|YES|current_timestamp()||
+timetable_course_config.id|int(10) unsigned|NO|null|auto_increment|PRI
+timetable_course_config.school_id|int(10) unsigned|NO|null||MUL
+timetable_course_config.subject_name|varchar(200)|NO|null||
+timetable_course_config.default_duration_mins|int(10) unsigned|NO|40||
+timetable_course_config.requires_lab|tinyint(1)|NO|0||
+timetable_course_config.is_double_period|tinyint(1)|NO|0||
+timetable_course_config.priority_level|enum('low','medium','high','critical')|NO|'medium'||
+timetable_course_config.department|varchar(120)|YES|NULL||
+timetable_course_config.periods_per_week|int(10) unsigned|NO|3||
+timetable_course_config.created_at|datetime|YES|current_timestamp()||
+timetable_course_config.updated_at|datetime|YES|current_timestamp()|on update current_timestamp()|
+timetable_school_schedule.id|int(10) unsigned|NO|null|auto_increment|PRI
+timetable_school_schedule.school_id|int(10) unsigned|NO|null||UNI
+timetable_school_schedule.day_start_time|varchar(10)|NO|'08:00'||
+timetable_school_schedule.day_end_time|varchar(10)|NO|'17:00'||
+timetable_school_schedule.period_duration_mins|int(10) unsigned|NO|40||
+timetable_school_schedule.active_days_json|longtext|NO|null||
+timetable_school_schedule.breaks_json|longtext|NO|null||
+timetable_school_schedule.created_at|datetime|YES|current_timestamp()||
+timetable_school_schedule.updated_at|datetime|YES|current_timestamp()|on update current_timestamp()|
+timetable_teacher_profiles.id|int(10) unsigned|NO|null|auto_increment|PRI
+timetable_teacher_profiles.school_id|int(10) unsigned|NO|null||MUL
+timetable_teacher_profiles.teacher_user_id|int(10) unsigned|NO|null||
+timetable_teacher_profiles.subjects_json|longtext|YES|NULL||
+timetable_teacher_profiles.max_periods_per_day|int(10) unsigned|NO|6||
+timetable_teacher_profiles.available_days_json|longtext|YES|NULL||
+timetable_teacher_profiles.preferred_slots_json|longtext|YES|NULL||
+timetable_teacher_profiles.department|varchar(120)|YES|NULL||
+timetable_teacher_profiles.created_at|datetime|YES|current_timestamp()||
+timetable_teacher_profiles.updated_at|datetime|YES|current_timestamp()|on update current_timestamp()|
+uniform_voucher_items.id|int(10) unsigned|NO|null|auto_increment|PRI
+uniform_voucher_items.uniform_type|enum('school','sports')|NO|null||MUL
+uniform_voucher_items.name|varchar(200)|NO|null||
+uniform_voucher_items.description|text|YES|NULL||
+uniform_voucher_items.image_url|varchar(512)|YES|NULL||
+uniform_voucher_items.sizes_json|longtext|NO|null||
+uniform_voucher_items.colors_json|longtext|YES|NULL||
+uniform_voucher_items.price_rwf|int(10) unsigned|NO|0||
+uniform_voucher_items.stock_qty|int(11)|YES|NULL||
+uniform_voucher_items.gender_scope|enum('any','male','female')|NO|'any'||
+uniform_voucher_items.is_active|tinyint(1)|NO|1||
+uniform_voucher_items.sort_order|int(11)|NO|0||
+uniform_voucher_items.created_at|datetime|NO|current_timestamp()||
+uniform_voucher_items.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+uniform_voucher_orders.id|int(10) unsigned|NO|null|auto_increment|PRI
+uniform_voucher_orders.order_number|varchar(40)|NO|null||UNI
+uniform_voucher_orders.voucher_number|varchar(40)|NO|null||UNI
+uniform_voucher_orders.student_id|int(10) unsigned|NO|null||MUL
+uniform_voucher_orders.school_id|int(10) unsigned|YES|NULL||MUL
+uniform_voucher_orders.uniform_type|enum('school','sports')|NO|null||
+uniform_voucher_orders.order_district|varchar(120)|YES|NULL||MUL
+uniform_voucher_orders.order_sector|varchar(120)|YES|NULL||
+uniform_voucher_orders.student_detail_json|longtext|NO|null||
+uniform_voucher_orders.school_detail_json|longtext|YES|NULL||
+uniform_voucher_orders.lines_json|longtext|NO|null||
+uniform_voucher_orders.delivery_method|enum('school','home')|NO|null||
+uniform_voucher_orders.delivery_detail_json|longtext|YES|NULL||
+uniform_voucher_orders.subtotal_rwf|int(10) unsigned|NO|null||
+uniform_voucher_orders.delivery_fee_rwf|int(10) unsigned|NO|0||
+uniform_voucher_orders.total_rwf|int(10) unsigned|NO|null||
+uniform_voucher_orders.booking_status|varchar(32)|NO|'Booked'||
+uniform_voucher_orders.payment_status|varchar(24)|NO|'Unpaid'||MUL
+uniform_voucher_orders.delivery_status|varchar(48)|NO|'Waiting'||
+uniform_voucher_orders.payer_name|varchar(160)|YES|NULL||
+uniform_voucher_orders.payer_phone|varchar(64)|YES|NULL||
+uniform_voucher_orders.payment_method|varchar(32)|YES|NULL||
+uniform_voucher_orders.payment_reference|varchar(160)|YES|NULL||
+uniform_voucher_orders.payment_provider_json|longtext|YES|NULL||
+uniform_voucher_orders.assigned_agent_user_id|int(10) unsigned|YES|NULL||MUL
+uniform_voucher_orders.notes|text|YES|NULL||
+uniform_voucher_orders.created_at|datetime|NO|current_timestamp()||
+uniform_voucher_orders.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+user_devices.id|bigint(20) unsigned|NO|null|auto_increment|PRI
+user_devices.user_id|int(10) unsigned|NO|null||MUL
+user_devices.device_fingerprint|varchar(64)|NO|null||
+user_devices.device_label|varchar(120)|YES|NULL||
+user_devices.user_agent|varchar(255)|YES|NULL||
+user_devices.first_seen_at|datetime|NO|current_timestamp()||
+user_devices.last_seen_at|datetime|NO|current_timestamp()||
+user_devices.last_ip|varchar(64)|YES|NULL||
+user_devices.is_trusted|tinyint(1)|NO|0||
+user_sessions.id|bigint(20) unsigned|NO|null|auto_increment|PRI
+user_sessions.session_key|varchar(128)|NO|null||UNI
+user_sessions.user_id|int(10) unsigned|YES|NULL||MUL
+user_sessions.school_id|int(10) unsigned|YES|NULL||MUL
+user_sessions.role_code|varchar(64)|YES|NULL||
+user_sessions.product_tier|varchar(16)|YES|NULL||
+user_sessions.ip_address|varchar(64)|YES|NULL||
+user_sessions.user_agent|varchar(255)|YES|NULL||
+user_sessions.device_label|varchar(120)|YES|NULL||
+user_sessions.status|varchar(24)|NO|'online'||
+user_sessions.login_at|datetime|NO|current_timestamp()||
+user_sessions.last_activity_at|datetime|NO|current_timestamp()||
+user_sessions.logout_at|datetime|YES|NULL||
+user_sessions.is_forced_logout|tinyint(1)|NO|0||
+user_sessions.created_at|datetime|NO|current_timestamp()||
+user_sessions.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+user_status_tracking.user_id|int(10) unsigned|NO|null||PRI
+user_status_tracking.school_id|int(10) unsigned|YES|NULL||MUL
+user_status_tracking.status|varchar(24)|NO|'offline'||
+user_status_tracking.last_seen_at|datetime|YES|NULL||
+user_status_tracking.last_ip|varchar(64)|YES|NULL||
+user_status_tracking.session_id|bigint(20) unsigned|YES|NULL||
+user_status_tracking.is_disabled|tinyint(1)|NO|0||
+user_status_tracking.is_locked|tinyint(1)|NO|0||
+user_status_tracking.is_suspicious|tinyint(1)|NO|0||
+user_status_tracking.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+users.id|int(10) unsigned|NO|null|auto_increment|PRI
+users.user_uid|varchar(50)|NO|null||UNI
+users.email|varchar(191)|NO|null||UNI
+users.username|varchar(200)|YES|NULL||
+users.phone|varchar(30)|YES|NULL||
+users.password_hash|varchar(255)|NO|null||
+users.first_name|varchar(100)|NO|null||
+users.last_name|varchar(100)|NO|null||
+users.photo|varchar(500)|YES|NULL||
+users.signature_url|varchar(500)|YES|NULL||
+users.role_id|int(10) unsigned|NO|null||MUL
+users.school_id|int(10) unsigned|YES|NULL||MUL
+users.district|varchar(100)|YES|NULL||
+users.province|varchar(100)|YES|NULL||
+users.sector|varchar(100)|YES|NULL||
+users.is_active|tinyint(1)|NO|1||
+users.is_verified|tinyint(1)|NO|0||
+users.is_locked|tinyint(1)|NO|0||
+users.locked_until|datetime|YES|NULL||
+users.failed_login_attempts|int(11)|NO|0||
+users.force_password_change|tinyint(1)|NO|0||
+users.last_login|datetime|YES|NULL||
+users.last_login_ip|varchar(45)|YES|NULL||
+users.password_reset_token|varchar(100)|YES|NULL||
+users.password_reset_expires|datetime|YES|NULL||
+users.deleted_at|datetime|YES|NULL||
+users.created_at|datetime|NO|current_timestamp()||
+users.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+users.district_assigned|varchar(100)|YES|NULL||
+users.stamp_url|varchar(500)|YES|NULL||
+users.rfid_uid|varchar(64)|YES|NULL||
+users.fingerprint_id|varchar(128)|YES|NULL||
+users.identity_remarks|varchar(512)|YES|NULL||
+voucher_redemptions.id|int(10) unsigned|NO|null|auto_increment|PRI
+voucher_redemptions.voucher_id|int(10) unsigned|NO|null||MUL
+voucher_redemptions.school_id|int(10) unsigned|NO|null||
+voucher_redemptions.redeemed_by_user_id|int(10) unsigned|YES|NULL||
+voucher_redemptions.redeemed_at|datetime|NO|current_timestamp()||
+voucher_redemptions.notes|text|YES|NULL||
+voucher_redemptions.created_at|datetime|NO|current_timestamp()||
+vouchers.id|int(10) unsigned|NO|null|auto_increment|PRI
+vouchers.voucher_code|varchar(48)|NO|null||UNI
+vouchers.order_id|int(10) unsigned|NO|null||MUL
+vouchers.student_id|int(10) unsigned|YES|NULL||
+vouchers.service_id|int(10) unsigned|NO|null||MUL
+vouchers.issue_date|date|YES|NULL||
+vouchers.expiry_date|date|YES|NULL||
+vouchers.status|enum('pending','paid','redeemed','expired','cancelled')|NO|'pending'||
+vouchers.qr_code_path|varchar(512)|YES|NULL||
+vouchers.redeemed_at|datetime|YES|NULL||
+vouchers.redeemed_by|int(10) unsigned|YES|NULL||
+vouchers.created_at|datetime|NO|current_timestamp()||
+vouchers.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+web_push_subscriptions.id|int(10) unsigned|NO|null|auto_increment|PRI
+web_push_subscriptions.user_id|int(10) unsigned|NO|null||MUL
+web_push_subscriptions.endpoint|varchar(2048)|NO|null||UNI
+web_push_subscriptions.p256dh|varchar(255)|NO|null||
+web_push_subscriptions.auth|varchar(255)|NO|null||
+web_push_subscriptions.created_at|datetime|NO|current_timestamp()||
+web_push_subscriptions.updated_at|datetime|NO|current_timestamp()|on update current_timestamp()|
+xentripay_webhook_logs.id|bigint(20) unsigned|NO|null|auto_increment|PRI
+xentripay_webhook_logs.event_type|varchar(120)|YES|NULL||
+xentripay_webhook_logs.provider_status|varchar(60)|YES|NULL||
+xentripay_webhook_logs.reference_value|varchar(160)|YES|NULL||MUL
+xentripay_webhook_logs.intent_id|bigint(20) unsigned|YES|NULL||MUL
+xentripay_webhook_logs.matched_intent|tinyint(1)|NO|0||
+xentripay_webhook_logs.processing_status|varchar(40)|NO|'received'||MUL
+xentripay_webhook_logs.error_message|varchar(255)|YES|NULL||
+xentripay_webhook_logs.payload_json|longtext|YES|NULL||
+xentripay_webhook_logs.headers_json|longtext|YES|NULL||
+xentripay_webhook_logs.created_at|datetime|NO|current_timestamp()||MUL
+xentripay_webhook_logs.processed_at|datetime|YES|NULL||
