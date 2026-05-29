@@ -111,13 +111,13 @@ const quickActions = [
   {
     to: "/parents/orders",
     title: "Order history",
-    desc: "Classkit and demo orders on this device",
+    desc: "Track Orders",
     icon: ClipboardList,
   },
   {
     to: "/parents/services",
     title: "Services",
-    desc: "Classkit, shoes, paid at school & more",
+    desc: "Services provided ",
     icon: LayoutGrid,
   },
   {
@@ -217,7 +217,7 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="space-y-8 pb-4 text-slate-900 dark:text-slate-100">
+    <div className="space-y-2 pb-4 text-slate-900 dark:text-slate-100">
       <AddChildModal
         open={addOpen}
         onClose={() => setAddOpen(false)}
@@ -226,7 +226,7 @@ export default function Home() {
       />
 
       {auth.user?.phone_only_registration_required && (
-        <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 sm:p-5 shadow-sm">
+        <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 sm:p-0 shadow-sm">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-sm font-extrabold text-amber-900">
@@ -270,7 +270,7 @@ export default function Home() {
         </section>
       )}
 
-      <ParentPushNotificationsCard />
+      <ParentPushNotificationsCard showOnlyIfDisabled={true} />
 
       {/* Welcome */}
       <section className="relative overflow-hidden rounded-3xl p-4 ">
@@ -296,7 +296,7 @@ export default function Home() {
       <section>
         <SectionHeading
           title="Personal assistants"
-          subtitle="Optional AI and human support — more skills coming soon."
+          subtitle=""
           onClick={() => navigate("/parents/find-agent")}
         />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -311,7 +311,7 @@ export default function Home() {
             <div className="min-w-0 flex-1">
               <p className="font-semibold text-lg">Agent Assistance</p>
               <p className="mt-1 text-sm text-slate-300">
-                Get quick help from a Babyeyi agent.
+                Babyeyi's agent help.
               </p>
             </div>
             <ChevronRight className="h-5 w-5 text-slate-400" />
@@ -327,7 +327,7 @@ export default function Home() {
             <div className="min-w-0 flex-1">
               <p className="font-semibold text-lg">Tools & Services</p>
               <p className="mt-1 text-sm text-slate-300">
-                School support services & more.
+                School support services.
               </p>
             </div>
             <ChevronRight className="h-5 w-5 text-slate-400" />
@@ -339,7 +339,7 @@ export default function Home() {
       <section>
         <SectionHeading
           title="My children"
-          subtitle="All learners linked to your phone on school records, plus students you add with limited financial access and local profiles."
+          subtitle=""
           action={
             <div className="flex items-center gap-2">
               <button
@@ -478,7 +478,7 @@ export default function Home() {
       <section>
         <SectionHeading
           title="Quick actions"
-          subtitle="Chat with school staff, payments, Classkit, and discovery."
+          subtitle=""
         />
         <div className="space-y-3">
           {quickActions.map((action) => {

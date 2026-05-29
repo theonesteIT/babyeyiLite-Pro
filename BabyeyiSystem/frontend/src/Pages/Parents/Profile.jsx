@@ -15,6 +15,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import ParentPushNotificationsCard from "../../components/Parents/ParentPushNotificationsCard";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:5100";
 
@@ -284,10 +285,6 @@ export default function Profile() {
             <p className="text-sm font-extrabold text-slate-900 mb-1">
               Recovery email
             </p>
-            <p className="text-sm text-slate-600 mb-4">
-              Used only to send you a secure link if you change or lose your
-              phone. You can update it anytime.
-            </p>
             {recoveryErr && (
               <div className="mb-3 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                 <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
@@ -302,9 +299,6 @@ export default function Profile() {
             )}
             <form onSubmit={submitRecoveryEmail} className="space-y-3">
               <label className="block">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">
-                  Email
-                </span>
                 <input
                   type="email"
                   autoComplete="email"
@@ -320,12 +314,14 @@ export default function Profile() {
                 disabled={recoverySaving || !recoveryEmailEdit.trim()}
                 className="inline-flex items-center justify-center w-full sm:w-auto rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-amber-700 disabled:opacity-60"
               >
-                {recoverySaving ? "Saving…" : "Save recovery email"}
+                {recoverySaving ? "Saving…" : "Save"}
               </button>
             </form>
           </section>
         )}
       </div>
+
+      <ParentPushNotificationsCard />
 
       <button
         type="button"

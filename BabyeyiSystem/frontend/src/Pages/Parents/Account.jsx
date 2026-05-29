@@ -70,11 +70,11 @@ export default function Account() {
   const securityRows = useMemo(() => auditRows.slice(0, 8), [auditRows]);
 
   return (
-    <div className="space-y-6 pb-4">
-      <div className="rounded-2xl px-4 py-4 flex items-center justify-between gap-3">
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 w-full">
           <div className="w-full">
-            <h1 className="font-extrabold text-2xl sm:text-4xl text-center sm:text-left leading-tight text-slate-700">
+            <h1 className="font-bold text-xl sm:text-2xl text-center sm:text-left leading-tight text-slate-700">
               My Babyeyi Account
             </h1>
           </div>
@@ -92,13 +92,13 @@ export default function Account() {
         <div className="flex flex-wrap gap-3 justify-center sm:justify-start mt-8">
           <button
             type="button"
-            className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 font-bold text-sm border border-amber-500 transition-colors"
+            className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 font-semibold text-sm border border-amber-500 transition-colors"
           >
             + Add funds
           </button>
           <button
             type="button"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 font-bold text-sm border border-amber-500 transition-colors"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 font-semibold text-sm border border-amber-500 transition-colors"
           >
             <CalendarDays size={18} />
             All history

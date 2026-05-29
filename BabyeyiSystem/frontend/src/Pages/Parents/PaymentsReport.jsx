@@ -185,10 +185,10 @@ export default function PaymentsReport() {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-2">
       <div className="flex items-center gap-3">
         <div>
-          <h1 className="text-xl font-extrabold text-slate-900 tracking-tight text-2xl sm:text-4xl">Payments & Loans Report</h1>
+          <h1 className="text-xl font-extrabold text-slate-900 tracking-tight text-2xl sm:text-2xl">Payments & Loans Report</h1>
         </div>
       </div>
 
@@ -229,6 +229,7 @@ export default function PaymentsReport() {
             <option value="">All Years</option>
             {(filters.academic_years || []).map((y) => <option key={y} value={y}>{y}</option>)}
           </select>
+          
           <select value={status} onChange={(e) => setStatus(e.target.value)} className="rounded-xl border border-slate-200 px-3 py-2 text-sm">
             <option value="all">All Statuses</option>
             <option value="submitted">Submitted</option>

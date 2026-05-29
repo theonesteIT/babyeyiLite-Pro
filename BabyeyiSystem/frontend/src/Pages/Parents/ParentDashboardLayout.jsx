@@ -152,7 +152,7 @@ export default function ParentDashboardLayout() {
           className={[
             mobile
               ? "flex flex-col items-center justify-center gap-0.5 w-full py-2 px-0.5 rounded-xl transition-colors"
-              : "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all border-l-4",
+              : "flex items-center gap-3 px-4 py-[7.2px] rounded-xl rounded-l-none text-sm font-bold transition-all border-l-2",
             mobile
               ? isActive
                 ? "text-orange-500 dark:text-orange-400"
@@ -179,10 +179,10 @@ export default function ParentDashboardLayout() {
 
   return (
     <div className={resolvedTheme === "dark" ? "dark" : ""}>
-      <div className="min-h-screen flex flex-col lg:flex-row bg-white scroll-smooth antialiased">
+      <div className="h-screen flex flex-col lg:flex-row bg-white scroll-smooth antialiased">
         {/* ── Desktop sidebar ── */}
         <aside className="hidden lg:flex lg:flex-col lg:w-60 xl:w-64 shrink-0 bg-white border-r border-slate-200/80 z-20 dark:bg-slate-900 dark:border-slate-700">
-          <div className="p-6 border-b border-slate-100 dark:border-slate-700">
+          <div className="p-4 border-b border-slate-100 dark:border-slate-700">
             <div className="flex w-full items-center gap-2">
               <div className="rounded-xl w-full flex justify-center items-center px-2 py-1.5">
                 <img
@@ -197,7 +197,7 @@ export default function ParentDashboardLayout() {
               </div> */}
             </div>
           </div>
-          <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+          <nav className="flex-1 p-1 space-y-1 overflow-y-auto">
             {navItemsDesktop.map((item) => (
               <NavButton key={item.to} {...item} mobile={false} />
             ))}
@@ -218,9 +218,9 @@ export default function ParentDashboardLayout() {
         <div className="flex-1 flex flex-col min-w-0 h-screen">
           {!hideGlobalHero && (
             <>
-              <header className="relative overflow-visible bg-slate-900 text-white/90 dark:bg-slate-800 dark:text-white/80 border-b border-slate-700/80 px-1 sm:px-16 py-3">
+              <header className="relative overflow-visible bg-slate-900 text-white/90 dark:bg-slate-800 dark:text-white/80 border-b border-slate-700/80 px-1 sm:px-8 py-1">
               <div className="absolute inset-0 opacity-10 pointer-events-none" />
-              <div className="relative max-w-full px-4 mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="relative px-1 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex flex-col sm:flex-row w-full items-center gap-3 min-w-0">
                   <div className="rounded-3xl flex sm:hidden w-full items-center justify-center shrink-0 px-3 py-2 overflow-visible">
                     <div className="w-full flex justify-between">
@@ -323,7 +323,7 @@ export default function ParentDashboardLayout() {
                     </div>
                   </div>
                   <div className="min-w-0 sm:flex hidden">
-                    <p className="text-white font-extrabold text-2xl sm:text-3xl tracking-tight truncate">
+                    <p className="text-white font-bold text-2xl sm:text-3xl tracking-tight truncate">
                       Parent portal
                     </p>
                   </div>
@@ -431,7 +431,7 @@ export default function ParentDashboardLayout() {
                   value={studentCode}
                   onChange={(e) => setStudentCode(e.target.value)}
                   placeholder="Student code or SDM ID…"
-                  className="flex-1 min-w-0 py-3 text-sm text-slate-100 pl-4 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none "
+                  className="flex-1 min-w-0 py-3 text-sm text-slate-100 pl-4 placeholder:text-slate-400 dark:placeholder:text-slate-300 outline-none "
                   aria-label="Search by student code or SDM ID"
                 />
                 <button
@@ -446,7 +446,7 @@ export default function ParentDashboardLayout() {
             </>
           )}
 
-          <main className="p-6 pb-20 overflow-y-auto h-screen">
+          <main className="px-6 pt-3 pb-20 sm:pb-0 overflow-y-auto h-screen">
             <Outlet />
           </main>
 {/* 

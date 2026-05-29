@@ -350,11 +350,11 @@ export default function Shulecard() {
   return (
     <div className="min-h-screen text-slate-950">
       <div className="relative overflow-hidden">
-        <div className="container mx-auto px-4">
-          <div className="mb-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+        <div className="container">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-4">
               <div className="w-full">
-                <h1 className="mt-2 text-3xl font-extrabold text-slate-700 sm:text-4xl text-center sm:text-left">ShuleCard</h1>
+                <h1 className="text-xl sm:text-2xl font-bold text-slate-700 text-center sm:text-left">ShuleCard</h1>
               </div>
             </div>
           </div>
@@ -378,7 +378,7 @@ export default function Shulecard() {
         <div className="grid gap-8 lg:grid-cols-[360px_1fr]">
           <section>
             <div className="mb-6 flex items-center justify-between gap-4">
-              <h2 className="text-lg font-extrabold text-slate-950">Your Children</h2>
+              <h2 className="text-lg font-semibold text-slate-950">Your Children</h2>
               <button
                 type="button"
                 onClick={() => setAddOpen(true)}

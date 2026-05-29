@@ -155,15 +155,15 @@ export default function Orders() {
   }, []);
 
   return (
-    <div className="space-y-6 pb-6">
+    <div className="space-y-2 pb-6">
       <div className="flex items-center gap-3">
         <div>
-          <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Order history</h1>
+          <h1 className="text-xl font-bold text-slate-900 tracking-tight">Order history</h1>
         </div>
       </div>
 
       {orders.length === 0 ? (
-        <div className="rounded-3xl border border-slate-200 bg-white/80 px-6 py-16 text-center dark:border-slate-600">
+        <div className="rounded-3xl border border-slate-200 bg-white/80 px-6 py-16 text-center dark:border-slate-300">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 dark:bg-slate-700">
             <ClipboardList className="h-7 w-7 text-slate-400" />
           </div>
@@ -188,7 +188,7 @@ export default function Orders() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-extrabold text-slate-900 dark:text-slate-100">{o.kitTitle || "ClassKit order"}</p>
+                      <p className="font-bold text-slate-900 dark:text-slate-100">{o.kitTitle || "ClassKit order"}</p>
                       <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${st.className}`}>
                         {st.label}
                       </span>

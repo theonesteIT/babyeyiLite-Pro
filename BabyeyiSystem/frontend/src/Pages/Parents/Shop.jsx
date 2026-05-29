@@ -25,10 +25,9 @@ export default function Shop() {
   }, [cat]);
 
   return (
-    <div className="space-y-6 pb-4">
+    <div className="space-y-1 pb-4">
       <div>
-        <h1 className="text-2xl font-extrabold text-slate-900">School shop</h1>
-        <p className="text-slate-500 text-sm mt-1">Stationery and supplies — demo catalogue</p>
+        <h1 className="text-xl font-extrabold text-slate-900">School shop</h1>
       </div>
 
       <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 [scrollbar-width:thin]">
@@ -38,7 +37,7 @@ export default function Shop() {
             type="button"
             onClick={() => setCat(c)}
             className={[
-              "shrink-0 px-4 py-2 rounded-full text-sm font-bold transition-all border",
+              "shrink-0 px-4 py-1 rounded-full text-xs font-semibold transition-all border",
               cat === c
                 ? "bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-500/25"
                 : "bg-white text-slate-700 border-slate-200 hover:border-slate-300",
@@ -57,19 +56,17 @@ export default function Shop() {
         {list.map((p) => (
           <li
             key={p.id}
-            className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm flex flex-col sm:flex-row gap-4"
+            className="rounded-2xl border border-slate-100 bg-white p-1 shadow-sm flex flex-col sm:flex-row gap-4"
           >
             <div className="w-full sm:w-24 h-24 rounded-xl bg-slate-100 flex items-center justify-center text-4xl shrink-0">
               {p.img}
             </div>
             <div className="flex-1 min-w-0 flex flex-col">
-              <span className="text-xs font-bold text-blue-600">{p.cat}</span>
-              <h2 className="font-bold text-slate-900 text-lg leading-snug mt-0.5">{p.name}</h2>
-              <p className="text-lg font-extrabold text-blue-600 mt-1">RWF {p.price.toLocaleString()}</p>
-              <p className="text-xs text-slate-400 mt-1">{p.stock} in stock</p>
+              <p className="font-semibold text-slate-900 text-lg leading-snug mt-0.5">{p.name}</p>
+              <p className="text-lg font-extrabold text-blue-600">RWF {p.price.toLocaleString()}</p>
               <button
                 type="button"
-                className="mt-3 sm:mt-auto sm:self-start inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 text-white font-bold text-sm px-4 py-2.5 hover:bg-blue-700 transition-colors w-full sm:w-auto"
+                className="sm:self-start inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 text-white font-bold text-sm px-4 py-2.5 hover:bg-blue-700 transition-colors w-full sm:w-auto"
               >
                 <Plus size={18} strokeWidth={2.5} />
                 Add to cart

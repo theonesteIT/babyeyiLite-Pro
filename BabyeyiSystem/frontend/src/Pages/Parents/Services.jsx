@@ -57,24 +57,24 @@ const services = [
 export default function Services() {
   return (
     <div className="pb-6 px-0">
-      <div className="px-0 sm:px-6 pt-4 pb-5 text-slate-900">
+      <div className="px-0 sm:px-3 pb-5 text-slate-900">
         <div className="mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="min-w-0">
-            <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-slate-900">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
               Tools & Services
             </h1>
           </div>
         </div>
       </div>
 
-      <div className="mx-auto px-0 sm:px-6 pb-6 space-y-4">
+      <div className="px-0 sm:px-3 pb-6 space-y-2">
         {services.map((s) => {
           const Icon = s.icon;
           return (
             <Link
               key={s.title}
               to={s.href}
-              className="group block rounded-[28px] border border-slate-800/20 bg-slate-950/95 px-5 py-4 shadow-[0_18px_45px_-25px_rgba(15,23,42,0.8)] transition hover:border-amber-300/40 hover:bg-slate-900"
+              className="group block rounded-[28px] border border-slate-800/20 bg-slate-950/95 px-2 py-2 shadow-[0_18px_45px_-25px_rgba(15,23,42,0.8)] transition hover:border-amber-300/40 hover:bg-slate-900"
             >
               <div className="flex items-center gap-4">
                 <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-amber-400 text-slate-950 shadow-lg shadow-amber-500/20">

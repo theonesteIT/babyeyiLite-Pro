@@ -52,12 +52,11 @@ export default function AuditLog() {
   }, []);
 
   return (
-    <div className="space-y-6">
-      <div className="px-4 py-4 flex items-center justify-between gap-3 text-slate-700">
+    <div className="space-y-2">
+      <div className="py-0 flex items-center justify-between gap-3 text-slate-700">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="min-w-0">
-            <h1 className="font-extrabold text-xl sm:text-2xl leading-tight">Audit Log</h1>
-            <p className="text-slate-500 text-xs sm:text-sm">Security activity on your parent account</p>
+          <div className="">
+            <h1 className="font-bold text-xl sm:text-2xl leading-tight">Audit Log</h1>
           </div>
         </div>
       </div>

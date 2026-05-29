@@ -1052,32 +1052,15 @@ export default function FindAgent() {
       {/* <Navbar /> */}
       <div>
         <div
-          className="mx-auto max-w-[1100px] px-5 pt-0"
+          className="mx-auto max-w-[1100px] px-0 pt-0"
         >
           {/* Heading */}
-          <h1
-            style={{
-              margin: "0 0 14px",
-              color: NAVY,
-              fontWeight: 800,
-              lineHeight: 1.08,
-              fontSize: "clamp(2rem,5vw,3rem)",
-            }}
-          >
+          <h1 className="text-3xl font-bold text-center mt-4 mb-2" >
             Find Babyeyi Agent
           </h1>
 
           {/* ── Filter Card ── */}
-          <div
-            style={{
-              background: "#fff",
-              border: `1px solid ${LINE}`,
-              borderRadius: 18,
-              boxShadow: "0 4px 24px rgba(0,4,53,0.08)",
-              padding: "24px 24px 20px",
-              marginBottom: 0,
-            }}
-          >
+          <div className="fa-filter-card border border-slate-200 bg-white p-4 shadow-sm p-1 rounded-lg">
             {/* Card title */}
             <div
               style={{
@@ -1244,7 +1227,7 @@ export default function FindAgent() {
 
       {/* ── Results ── */}
       <main>
-        <div className="mx-auto max-w-[1100px] px-5">
+        <div className="mx-auto max-w-[1100px] px-0">
           {/* Results */}
           <section>
             <div
