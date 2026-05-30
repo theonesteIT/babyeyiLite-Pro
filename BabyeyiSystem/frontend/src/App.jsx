@@ -86,6 +86,7 @@ import PublicUniformVoucherRequestFlow from './Pages/Public Page/PublicUniformVo
 import PublicUniformVoucherTrack from './Pages/Public Page/PublicUniformVoucherTrack';
 import OnlineService from './Pages/Public Page/OnlineService';
 import PublicShuleCard from './Pages/Public Page/PublicShuleCard';
+import PublicLanguageFab from './components/PublicLanguageFab';
 
 // ── Auth pages ──────────────────────────────────────────────────
 import Login           from './Pages/Auth/Login';
@@ -173,6 +174,13 @@ import StudentDashboard from './Pages/Student/student_dashboard';
 import { getPostLogoutLoginPath } from './utils/postLogoutLoginPath';
 
 export default function App() {
+  const withPublicLanguage = (element) => (
+    <>
+      {element}
+      <PublicLanguageFab />
+    </>
+  );
+
   return (
     <BrowserRouter>
       <AuthProvider>
@@ -182,7 +190,7 @@ export default function App() {
           {/* ── Landing / Home ────────────────────────────────── */}
           <Route path="/"       element={<PublicPage />} />
           <Route path="/home"   element={<PublicPage />} />
-          <Route path="/features" element={<FeaturesPage />} />
+          <Route path="/features" element={withPublicLanguage(<FeaturesPage />)} />
           {/* Legacy redirect — kept for backward-compat */}
           <Route path="/public" element={<Navigate to="/" replace />} />
 
@@ -191,31 +199,31 @@ export default function App() {
             AllSchools: fetches /api/mini-websites?status=published
             Cards link to /school/:slug
           */}
-          <Route path="/schools"      element={<AllSchools />} />
-          <Route path="/school/:slug" element={<SchoolPublicRoute />} />
-          <Route path="/babyeyi-finder" element={<PublicBabyeyiFinder />} />
-          <Route path="/public-pay/search-student" element={<SearchStudent />} />
-          <Route path="/payments" element={<PaymentsPage />} />
-          <Route path="/paid-at-school" element={<PaidAtSchool />} />
-          <Route path="/combined-tution-requrement" element={<CombinedTutionRequrement />} />
+          <Route path="/schools"      element={withPublicLanguage(<AllSchools />)} />
+          <Route path="/school/:slug" element={withPublicLanguage(<SchoolPublicRoute />)} />
+          <Route path="/babyeyi-finder" element={withPublicLanguage(<PublicBabyeyiFinder />)} />
+          <Route path="/public-pay/search-student" element={withPublicLanguage(<SearchStudent />)} />
+          <Route path="/payments" element={withPublicLanguage(<PaymentsPage />)} />
+          <Route path="/paid-at-school" element={withPublicLanguage(<PaidAtSchool />)} />
+          <Route path="/combined-tution-requrement" element={withPublicLanguage(<CombinedTutionRequrement />)} />
           <Route path="/pay-by-school" element={<Navigate to="/combined-tution-requrement" replace />} />
-          <Route path="/invoice-verify/:id" element={<InvoiceVerify />} />
-          <Route path="/services" element={<ServicePage />} />
-          <Route path="/find-agent" element={<FindAgent />} />
-          <Route path="/agent-shop" element={<AgentShop />} />
-          <Route path="/agent-shop/checkout" element={<AgentShopCheckout />} />
-          <Route path="/services/standard-shulekit" element={<PublicStandardShuleKit />} />
-          <Route path="/services/shulekit-pay" element={<ShuleKitPay />} />
-          <Route path="/services/shule-papeterie" element={<PublicShulePapeterie />} />
-          <Route path="/services/shoes-voucher" element={<PublicShoesVoucherFlow />} />
+          <Route path="/invoice-verify/:id" element={withPublicLanguage(<InvoiceVerify />)} />
+          <Route path="/services" element={withPublicLanguage(<ServicePage />)} />
+          <Route path="/find-agent" element={withPublicLanguage(<FindAgent />)} />
+          <Route path="/agent-shop" element={withPublicLanguage(<AgentShop />)} />
+          <Route path="/agent-shop/checkout" element={withPublicLanguage(<AgentShopCheckout />)} />
+          <Route path="/services/standard-shulekit" element={withPublicLanguage(<PublicStandardShuleKit />)} />
+          <Route path="/services/shulekit-pay" element={withPublicLanguage(<ShuleKitPay />)} />
+          <Route path="/services/shule-papeterie" element={withPublicLanguage(<PublicShulePapeterie />)} />
+          <Route path="/services/shoes-voucher" element={withPublicLanguage(<PublicShoesVoucherFlow />)} />
           <Route path="/services/uniform-voucher" element={<Navigate to="/services/uniform-voucher/request" replace />} />
-          <Route path="/services/uniform-voucher/request" element={<PublicUniformVoucherRequestFlow />} />
-          <Route path="/services/uniform-voucher/track" element={<PublicUniformVoucherTrack />} />
-          <Route path="/standard-kit/request/:kitId" element={<StandardKitRequestFlow />} />
-          <Route path="/services/item/:idOrCode" element={<PublicServiceDetail />} />
-          <Route path="/services/checkout" element={<StudentServiceCheckout />} />
-          <Route path="/services/shulecard" element={<PublicShuleCard />} />
-          <Route path="/online-service" element={<OnlineService />} />
+          <Route path="/services/uniform-voucher/request" element={withPublicLanguage(<PublicUniformVoucherRequestFlow />)} />
+          <Route path="/services/uniform-voucher/track" element={withPublicLanguage(<PublicUniformVoucherTrack />)} />
+          <Route path="/standard-kit/request/:kitId" element={withPublicLanguage(<StandardKitRequestFlow />)} />
+          <Route path="/services/item/:idOrCode" element={withPublicLanguage(<PublicServiceDetail />)} />
+          <Route path="/services/checkout" element={withPublicLanguage(<StudentServiceCheckout />)} />
+          <Route path="/services/shulecard" element={withPublicLanguage(<PublicShuleCard />)} />
+          <Route path="/online-service" element={withPublicLanguage(<OnlineService />)} />
           {/* Student QR profile — short URL `/v/:id` encodes reliably in QR images */}
           <Route path="/v/:studentId" element={<QRStudentsProfile />} />
           {/* Path-based ID works reliably when QR scanners strip ?query= from URLs */}
@@ -224,7 +232,7 @@ export default function App() {
           <Route path="/staff/:staffId" element={<QRStaffProfile />} />
           <Route path="/qr-staff-profile/:staffId" element={<QRStaffProfile />} />
           <Route path="/qr-staff-profile" element={<QRStaffProfile />} />
-          <Route path="/track" element={<ApplicationStatusTracker />} />
+          <Route path="/track" element={withPublicLanguage(<ApplicationStatusTracker />)} />
 
           {/* ── Auth ──────────────────────────────────────────── */}
           <Route path="/login-portal-select" element={<LoginPortalSelect />} />
@@ -315,7 +323,7 @@ export default function App() {
             <Route path="chat" element={<ParentSchoolChat />} />
           </Route>
           {/* Public school registration (no auth required) */}
-          <Route path="/register"           element={<SchoolRegistration />} />
+          <Route path="/register"           element={withPublicLanguage(<SchoolRegistration />)} />
           <Route path="/signup/super-admin" element={<SuperAdminSignup />} />
           <Route path="/superadmin/signup" element={<SuperAdministratorSignup />} />
           <Route path="/signup/super-controller" element={<SuperControllerSignup />} />

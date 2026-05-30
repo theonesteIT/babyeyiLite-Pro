@@ -10,6 +10,12 @@ import {
   ShoppingBag, X, ZoomIn,
 } from "lucide-react";
 import { getApiBase, getApiOrigin } from "../../utils/apiBase";
+import { useAuth } from "../../context/AuthContext";
+import {
+  buildShoesVoucherUrls,
+  getOrCreateVoucherResumeToken,
+  persistParentVoucherIncompleteOrder,
+} from "../../utils/parentVoucherIncompleteOrder";
 import { STUDENT_SERVICE_CHECKOUT_KEY } from "./StudentServiceCheckout";
 import mentorImg from "../../assets/shoe-models/mentor.png";
 import bataToughesImg from "../../assets/shoe-models/bata-toughes.png";
@@ -434,9 +440,11 @@ function normalizeMethod(m) {
 
 export default function PublicShoesVoucherFlow() {
   const navigate = useNavigate();
+  const auth = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const shoesResumeAgentPickRef = useRef(null);
   const shoesResumeAppliedRef = useRef(false);
+  const shoesResumeTokenRef = useRef(getOrCreateVoucherResumeToken("shoes_voucher"));
   const [step, setStep] = useState(1);
   const [stepKey, setStepKey] = useState(0);
   const goStep = useCallback((n) => {
@@ -754,6 +762,61 @@ export default function PublicShoesVoucherFlow() {
 
   const total = Math.max(0, baseAmount + deliveryFee);
 
+  useEffect(() => {
+    if (step < 2 || !quote?.student) return undefined;
+    const resumeStep = step >= 6 ? 6 : step;
+    const { resumeUrl, shareUrl } = buildShoesVoucherUrls(resumeStep);
+    const stu = quote.student || {};
+    const childName = `${stu.first_name || ""} ${stu.last_name || ""}`.trim();
+    const snapshot = {
+      flow: "shoes-voucher",
+      step,
+      studentCode: studentCode.trim(),
+      shoe,
+      delivery,
+      selectedPackageIds,
+      selectedShoesModelSlug,
+      selectedAgent,
+      locProvince,
+      locDistrict,
+      locSector,
+      total,
+    };
+    const t = window.setTimeout(() => {
+      void persistParentVoucherIncompleteOrder({
+        auth,
+        serviceType: "shoes_voucher",
+        status: step >= 6 ? "pending_payment" : "incomplete",
+        resumeToken: shoesResumeTokenRef.current,
+        resumeUrl,
+        shareUrl,
+        kitTitle: primaryPackage?.name || "Shoes voucher",
+        childName,
+        studentId: stu.id || stu.student_id || null,
+        totalRwf: total,
+        delivery: delivery.method === "home_delivery" ? "home" : "school",
+        paymentMethod: "momo",
+        snapshot,
+      });
+    }, 420);
+    return () => window.clearTimeout(t);
+  }, [
+    step,
+    quote?.student,
+    studentCode,
+    shoe,
+    delivery,
+    selectedPackageIds,
+    selectedShoesModelSlug,
+    selectedAgent,
+    locProvince,
+    locDistrict,
+    locSector,
+    total,
+    primaryPackage?.name,
+    auth,
+  ]);
+
   const modelOptionsForSelected = useMemo(
     () => (primaryPackage ? buildPublicModelOptions(primaryPackage) : []),
     [primaryPackage]
@@ -946,10 +1009,30 @@ export default function PublicShoesVoucherFlow() {
     } catch {
       /* non-fatal */
     }
+    const { resumeUrl, shareUrl } = buildShoesVoucherUrls(6);
+    const stu = quote?.student || {};
+    const childName = `${stu.first_name || ""} ${stu.last_name || ""}`.trim();
+    void persistParentVoucherIncompleteOrder({
+      auth,
+      serviceType: "shoes_voucher",
+      status: "pending_payment",
+      resumeToken: shoesResumeTokenRef.current,
+      resumeUrl,
+      shareUrl,
+      kitTitle: selectedPackages[0]?.name || "Shoes voucher",
+      childName,
+      studentId: stu.id || stu.student_id || null,
+      totalRwf: total,
+      delivery: delivery.method === "home_delivery" ? "home" : "school",
+      paymentMethod: "momo",
+      snapshot: meta,
+    });
+
     navigate("/payments", {
       state: {
         studentServicePay: { payerName: "", payerPhone: "" },
         shoesVoucherExtendedPay: true,
+        voucherResumeToken: shoesResumeTokenRef.current,
       },
     });
   };

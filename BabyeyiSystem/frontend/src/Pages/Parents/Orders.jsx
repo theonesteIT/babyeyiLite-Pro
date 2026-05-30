@@ -6,7 +6,14 @@ import { useReducer, useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Package, ChevronRight, ClipboardList, ArrowLeft, MoreVertical } from "lucide-react";
 import { getParentOrders, deleteParentOrder } from "../../utils/parentOrderHistory";
-import { kitOrderResumeShareUrl, whatsappShareHref } from "../../utils/parentKitOrderClipboard";
+import { whatsappShareHref } from "../../utils/parentKitOrderClipboard";
+import {
+  deleteIncompleteOrderOnServer,
+  fetchIncompleteOrdersFromServer,
+  incompleteOrderToLocalOrder,
+} from "../../utils/parentIncompleteOrderApi";
+import { orderResumePaths } from "../../utils/parentVoucherIncompleteOrder";
+import { kitOrderResumeShareUrl } from "../../utils/parentKitOrderClipboard";
 
 const STATUS_LABEL = {
   incomplete: {
@@ -54,20 +61,15 @@ function OrderActionsMenu({ order, onDelete }) {
   if (!canResume) return null;
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
-  const isShule = order.type === "shulekit" || resumePayload?.kitLabel === "shulekit";
-  const qs = new URLSearchParams();
-  if (resumeToken) qs.set("resume", resumeToken);
-  if (isShule) qs.set("kit", "shule");
-  const continuePath = `/parents/classkit${qs.toString() ? `?${qs.toString()}` : ""}`;
-
-  const pathForShare = `/parents/classkit${isShule ? "?kit=shule" : ""}`;
-  const portable =
-    resumePayload && origin
-      ? kitOrderResumeShareUrl(origin, pathForShare, resumePayload)
-      : `${origin}${continuePath}`;
+  const paths = orderResumePaths(order, origin);
+  const continuePath = paths.continuePath;
+  let portable = paths.portable;
+  if (paths.isClasskit && resumePayload && origin && paths.pathForShare) {
+    portable = kitOrderResumeShareUrl(origin, paths.pathForShare, resumePayload);
+  }
 
   const wa = whatsappShareHref(
-    `Babyeyi — resume ${order.kitTitle || "ClassKit / ShuleKit"} for ${order.childName || "your child"}`,
+    `Babyeyi — resume ${order.kitTitle || "your order"} for ${order.childName || "your child"}`,
     portable,
   );
 
@@ -124,7 +126,7 @@ function OrderActionsMenu({ order, onDelete }) {
             className="flex w-full px-3 py-2.5 text-left text-sm font-bold text-red-700 hover:bg-red-50 dark:text-red-300 dark:hover:bg-slate-800"
             onClick={() => {
               const ok = window.confirm("Delete this order from history?");
-              if (ok) onDelete?.(order.id);
+              if (ok) onDelete?.(order);
               setOpen(false);
             }}
           >
@@ -136,13 +138,50 @@ function OrderActionsMenu({ order, onDelete }) {
   );
 }
 
+function mergeOrders(local, serverRows) {
+  const byToken = new Map();
+  for (const o of local) {
+    const key = o.resumeToken ? String(o.resumeToken) : String(o.id);
+    byToken.set(key, o);
+  }
+  for (const row of serverRows) {
+    const mapped = incompleteOrderToLocalOrder(row);
+    const key = mapped.resumeToken ? String(mapped.resumeToken) : String(mapped.id);
+    const prev = byToken.get(key);
+    if (!prev || new Date(mapped.updatedAt || 0) >= new Date(prev.updatedAt || 0)) {
+      byToken.set(key, { ...prev, ...mapped, fromServer: true });
+    } else {
+      byToken.set(key, prev);
+    }
+  }
+  return [...byToken.values()].sort(
+    (a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0),
+  );
+}
+
 export default function Orders() {
   const [, rerenderOrders] = useReducer((n) => n + 1, 0);
-  const orders = getParentOrders();
-  const handleDelete = (id) => {
+  const [serverOrders, setServerOrders] = useState([]);
+  const orders = mergeOrders(getParentOrders(), serverOrders);
+
+  const handleDelete = (order) => {
+    const id = typeof order === "object" ? order.id : order;
     deleteParentOrder(id);
+    const token = typeof order === "object" ? order.resumeToken : null;
+    if (token) void deleteIncompleteOrderOnServer(token);
     rerenderOrders();
   };
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const rows = await fetchIncompleteOrdersFromServer();
+      if (!cancelled) setServerOrders(rows);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const bump = () => rerenderOrders();
@@ -160,7 +199,7 @@ export default function Orders() {
         <div>
           <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Order history</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            ClassKit / ShuleKit — resumes and shop orders on this device
+            ClassKit, shoes & uniform vouchers — synced to your account; resume on any device
           </p>
         </div>
       </div>
@@ -210,7 +249,7 @@ export default function Orders() {
                       </span>
                     </div>
                   </div>
-                  <OrderActionsMenu order={o} onDelete={handleDelete} />
+                  <OrderActionsMenu order={o} onDelete={() => handleDelete(o)} />
                 </div>
               </li>
             );

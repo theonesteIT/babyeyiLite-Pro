@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import babyeyiLogo from "../../assets/1BABYEYI LOGO FINAL.png";
 import {
   GraduationCap,
@@ -31,6 +32,7 @@ import {
 } from "lucide-react";
 
 function Navbar() {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
@@ -41,11 +43,11 @@ function Navbar() {
   }, []);
 
   const links = [
-    { label: "Home page", href: "/" },
-    { label: "Pay Fees", href: "/paid-at-school" },
-    { label: "Services", href: "/services" },
-    { label: "Features", href: "/features" },
-    { label: "Schools", href: "/schools" },
+    { label: t("featuresPage.homePage"), href: "/" },
+    { label: t("featuresPage.payFees"), href: "/paid-at-school" },
+    { label: t("featuresPage.services"), href: "/services" },
+    { label: t("featuresPage.features"), href: "/features" },
+    { label: t("featuresPage.schools"), href: "/schools" },
   ];
 
   return (
@@ -64,15 +66,15 @@ function Navbar() {
         </div>
 
         <div className="hidden lg:flex items-center gap-3">
-          <Link to="/register" className="px-4 py-2.5 rounded-xl text-sm font-bold text-white/80 border border-white/15 hover:border-amber-400/50 hover:text-amber-400 transition-all">Register School</Link>
+          <Link to="/register" className="px-4 py-2.5 rounded-xl text-sm font-bold text-white/80 border border-white/15 hover:border-amber-400/50 hover:text-amber-400 transition-all">{t("featuresPage.registerSchool")}</Link>
           <a href="/login" className="inline-flex items-center gap-2 min-h-[40px] xl:min-h-[44px] px-5 xl:px-6 rounded-xl bg-amber-400 text-[#000435] text-sm xl:text-[15px] font-black hover:bg-amber-300 transition-all">
-            <LogIn size={15} strokeWidth={2.5} /> Login
+            <LogIn size={15} strokeWidth={2.5} /> {t("featuresPage.login")}
           </a>
         </div>
 
         <div className="flex lg:hidden items-center gap-2">
           <a href="/login" className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-amber-400 text-[#000435] text-[12px] font-black">
-            <LogIn size={13} strokeWidth={2.5} /> Login
+            <LogIn size={13} strokeWidth={2.5} /> {t("featuresPage.login")}
           </a>
           <button type="button" onClick={() => setOpen(!open)} className="w-9 h-9 rounded-lg bg-white/8 border border-white/15 flex items-center justify-center">
             {open ? <X size={17} className="text-white" /> : <Menu size={17} className="text-white" />}
@@ -87,7 +89,7 @@ function Navbar() {
               {l.label}
             </Link>
           ))}
-          <Link to="/register" onClick={() => setOpen(false)} className="flex items-center justify-center gap-2 w-full mt-1 px-4 py-3 rounded-xl border border-amber-400/40 text-amber-400 text-[14px] font-bold">Register School</Link>
+          <Link to="/register" onClick={() => setOpen(false)} className="flex items-center justify-center gap-2 w-full mt-1 px-4 py-3 rounded-xl border border-amber-400/40 text-amber-400 text-[14px] font-bold">{t("featuresPage.registerSchool")}</Link>
         </div>
       )}
     </nav>
@@ -111,19 +113,20 @@ function SH({ eyebrow, title, sub, light = false }) {
 }
 
 function FeaturesHero() {
+  const { t } = useTranslation();
   return (
     <section className="pt-24 sm:pt-28 xl:pt-32 pb-12 sm:pb-16 bg-[#000435]">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 xl:px-10 2xl:px-16 text-center">
-        <SH eyebrow="Platform Features" title="Everything Schools Need" sub="A complete digital platform built for speed, trust, and accessibility across Rwanda." light />
+        <SH eyebrow={t("featuresPage.heroEyebrow")} title={t("featuresPage.heroTitle")} sub={t("featuresPage.heroSub")} light />
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <Link to="/register" className="inline-flex w-[220px] sm:w-auto justify-center items-center gap-2 rounded-xl bg-amber-400 px-5 py-3 text-[13px] font-black text-[#000435] hover:bg-amber-300 transition-colors">
-            <Building2 size={15} /> Register School
+            <Building2 size={15} /> {t("featuresPage.registerSchool")}
           </Link>
           <Link to="/paid-at-school" className="inline-flex w-[220px] sm:w-auto justify-center items-center gap-2 rounded-xl border border-white/20 bg-white/5 px-5 py-3 text-[13px] font-black text-white hover:bg-white/10 transition-colors">
-            <CreditCard size={15} className="text-amber-300" /> Pay Fees
+            <CreditCard size={15} className="text-amber-300" /> {t("featuresPage.payFees")}
           </Link>
           <Link to="/online-service" className="inline-flex w-[220px] sm:w-auto justify-center items-center gap-2 rounded-xl border border-white/20 bg-white/5 px-5 py-3 text-[13px] font-black text-white hover:bg-white/10 transition-colors">
-            <UserCheck size={15} className="text-amber-300" /> OnlineService
+            <UserCheck size={15} className="text-amber-300" /> {t("featuresPage.onlineService")}
           </Link>
         </div>
       </div>
@@ -132,20 +135,21 @@ function FeaturesHero() {
 }
 
 function FeaturesGridSection() {
+  const { t } = useTranslation();
   const ff = [
-    { Icon: Globe, title: "School Mini-Websites", desc: "Every school gets a professional website with branding, domain slug, and full content management.", color: "#3B82F6" },
-    { Icon: Users, title: "Parent Engagement", desc: "Parents follow school updates, view announcements, track programs, and stay connected daily.", color: "#10B981" },
-    { Icon: BookOpen, title: "Academic Programs", desc: "A-Level combos, TVET trades, education levels, and detailed curriculum, fully searchable.", color: "#8B5CF6" },
-    { Icon: Bell, title: "Events & Announcements", desc: "Schools post important dates and events that reach parents and community instantly.", color: "#F59E0B" },
-    { Icon: Search, title: "Advanced School Search", desc: "Find any school in Rwanda by name, district, sector, education level, or TVET trade.", color: "#EC4899" },
-    { Icon: GraduationCap, title: "Online Admissions", desc: "Custom admission forms. Students apply online and receive reference numbers instantly.", color: "#F97316" },
-    { Icon: BarChart3, title: "Transparent Info", desc: "Fee structures, leadership teams, and school details are public and always up to date.", color: "#06B6D4" },
-    { Icon: Shield, title: "Secure & Reliable", desc: "Secure data handling, reliable uptime, and a mobile-first design built for Rwanda.", color: "#84CC16" },
-    { Icon: Smartphone, title: "Mobile Friendly", desc: "Every school website is fully responsive for phones, tablets, and desktop users.", color: "#A855F7" },
-    { Icon: CreditCard, title: "Fee Payments", desc: "Parents pay school fees by school code, no account required, mobile-money powered.", color: "#FBBF24" },
-    { Icon: UserCheck, title: "OnlineService", desc: "Students access their online service dashboard to view profile details and school-linked information.", color: "#1D4ED8" },
-    { Icon: Package, title: "ShuleKit", desc: "Educational tools and stationery, standard or school-custom, delivered to families.", color: "#14B8A6" },
-    { Icon: Bot, title: "Agent Assistant", desc: "In-platform assistant guiding parents and schools through payments, admissions, and support.", color: "#0EA5E9" },
+    { Icon: Globe, title: t("featuresPage.grid1Title"), desc: t("featuresPage.grid1Desc"), color: "#3B82F6" },
+    { Icon: Users, title: t("featuresPage.grid2Title"), desc: t("featuresPage.grid2Desc"), color: "#10B981" },
+    { Icon: BookOpen, title: t("featuresPage.grid3Title"), desc: t("featuresPage.grid3Desc"), color: "#8B5CF6" },
+    { Icon: Bell, title: t("featuresPage.grid4Title"), desc: t("featuresPage.grid4Desc"), color: "#F59E0B" },
+    { Icon: Search, title: t("featuresPage.grid5Title"), desc: t("featuresPage.grid5Desc"), color: "#EC4899" },
+    { Icon: GraduationCap, title: t("featuresPage.grid6Title"), desc: t("featuresPage.grid6Desc"), color: "#F97316" },
+    { Icon: BarChart3, title: t("featuresPage.grid7Title"), desc: t("featuresPage.grid7Desc"), color: "#06B6D4" },
+    { Icon: Shield, title: t("featuresPage.grid8Title"), desc: t("featuresPage.grid8Desc"), color: "#84CC16" },
+    { Icon: Smartphone, title: t("featuresPage.grid9Title"), desc: t("featuresPage.grid9Desc"), color: "#A855F7" },
+    { Icon: CreditCard, title: t("featuresPage.grid10Title"), desc: t("featuresPage.grid10Desc"), color: "#FBBF24" },
+    { Icon: UserCheck, title: t("featuresPage.grid11Title"), desc: t("featuresPage.grid11Desc"), color: "#1D4ED8" },
+    { Icon: Package, title: t("featuresPage.grid12Title"), desc: t("featuresPage.grid12Desc"), color: "#14B8A6" },
+    { Icon: Bot, title: t("featuresPage.grid13Title"), desc: t("featuresPage.grid13Desc"), color: "#0EA5E9" },
   ];
 
   return (
@@ -168,25 +172,26 @@ function FeaturesGridSection() {
 }
 
 function CTASection() {
+  const { t } = useTranslation();
   return (
     <section className="py-14 sm:py-20 bg-white">
       <div className="max-w-[1100px] mx-auto px-4 sm:px-6 xl:px-10">
         <div className="rounded-3xl border border-amber-300/40 bg-gradient-to-r from-[#000435] to-[#00145a] p-6 sm:p-8 xl:p-10 text-center">
           <div className="inline-flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.18em] text-amber-400 mb-4">
-            <Sparkles size={13} /> Ready to get started?
+            <Sparkles size={13} /> {t("featuresPage.ctaReady")}
           </div>
           <h3 className="font-black text-white tracking-tight mb-3" style={{ fontSize: "clamp(1.4rem,3vw,2.2rem)" }}>
-            Launch your school with Babyeyi
+            {t("featuresPage.ctaTitle")}
           </h3>
           <p className="text-white/60 text-[14px] sm:text-[15px] max-w-2xl mx-auto mb-6">
-            Create your school profile, publish your mini-website, and open payments and admissions in one place.
+            {t("featuresPage.ctaSub")}
           </p>
           <div className="flex flex-wrap justify-center gap-3">
             <Link to="/register" className="inline-flex items-center gap-2 rounded-xl bg-amber-400 px-5 py-3 text-[13px] font-black text-[#000435] hover:bg-amber-300 transition-colors">
-              Register School <ArrowRight size={14} />
+              {t("featuresPage.registerSchool")} <ArrowRight size={14} />
             </Link>
             <Link to="/schools" className="inline-flex items-center gap-2 rounded-xl border border-white/25 bg-white/10 px-5 py-3 text-[13px] font-black text-white hover:bg-white/15 transition-colors">
-              Explore Schools
+              {t("featuresPage.exploreSchools")}
             </Link>
           </div>
         </div>
@@ -196,11 +201,12 @@ function CTASection() {
 }
 
 function Footer() {
+  const { t } = useTranslation();
   const cols = [
-    { title: "Platform", links: [{ l: "About Babyeyi", h: "#about" }, { l: "Features", h: "/features", i: true }, { l: "Home page", h: "/", i: true }, { l: "Pricing", h: "#pricing" }] },
-    { title: "Schools", links: [{ l: "Search Schools", h: "/schools", i: true }, { l: "Pay by School Code", h: "/paid-at-school", i: true }, { l: "Register School", h: "/register", i: true }, { l: "TVET Trades", h: "/schools", i: true }] },
-    { title: "Accounts", links: [{ l: "School Manager Login", h: "/school-manager/login", i: true }, { l: "Parent Login", h: "/parents/login", i: true }, { l: "Staff Login", h: "/login", i: true }, { l: "Services", h: "/services", i: true }] },
-    { title: "Support", links: [{ l: "Help Center", h: "#" }, { l: "Contact Us", h: "#contact" }, { l: "Privacy Policy", h: "#" }, { l: "Terms of Service", h: "#" }] },
+    { title: t("featuresPage.footerPlatform"), links: [{ l: t("featuresPage.footerAbout"), h: "#about" }, { l: t("featuresPage.features"), h: "/features", i: true }, { l: t("featuresPage.homePage"), h: "/", i: true }, { l: t("featuresPage.footerPricing"), h: "#pricing" }] },
+    { title: t("featuresPage.footerSchools"), links: [{ l: t("featuresPage.footerSearchSchools"), h: "/schools", i: true }, { l: t("featuresPage.footerPayBySchoolCode"), h: "/paid-at-school", i: true }, { l: t("featuresPage.registerSchool"), h: "/register", i: true }, { l: t("featuresPage.footerTvetTrades"), h: "/schools", i: true }] },
+    { title: t("featuresPage.footerAccounts"), links: [{ l: t("featuresPage.footerSchoolManagerLogin"), h: "/school-manager/login", i: true }, { l: t("featuresPage.footerParentLogin"), h: "/parents/login", i: true }, { l: t("featuresPage.footerStaffLogin"), h: "/login", i: true }, { l: t("featuresPage.services"), h: "/services", i: true }] },
+    { title: t("featuresPage.footerSupport"), links: [{ l: t("featuresPage.footerHelpCenter"), h: "#" }, { l: t("featuresPage.footerContactUs"), h: "#contact" }, { l: t("featuresPage.footerPrivacyPolicy"), h: "#" }, { l: t("featuresPage.footerTerms"), h: "#" }] },
   ];
 
   return (
@@ -212,7 +218,7 @@ function Footer() {
               <div className="w-9 h-9 rounded-lg bg-amber-400 flex items-center justify-center"><GraduationCap size={17} className="text-[#000435]" /></div>
               <span className="font-black text-[17px] text-white">baby<span className="text-amber-400">eyi</span><span className="text-amber-400/60">.rw</span></span>
             </Link>
-            <p className="text-slate-500 text-[13px] leading-relaxed mb-5">Connecting schools, parents, and communities.</p>
+            <p className="text-slate-500 text-[13px] leading-relaxed mb-5">{t("featuresPage.footerTagline")}</p>
             <div className="flex gap-2">
               {[{ Icon: Facebook, bg: "#1877F2" }, { Icon: Twitter, bg: "#1DA1F2" }, { Icon: Instagram, bg: "#E4405F" }, { Icon: Youtube, bg: "#FF0000" }].map(({ Icon, bg }, i) => (
                 <a key={i} href="#" className="w-9 h-9 rounded-xl flex items-center justify-center text-white hover:scale-110 transition-transform" style={{ background: bg }}><Icon size={14} /></a>
@@ -236,8 +242,8 @@ function Footer() {
           ))}
         </div>
         <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p className="text-slate-600 text-[12px]">© {new Date().getFullYear()} Babyeyi Rwanda. All rights reserved.</p>
-          <p className="text-slate-700 text-[12px]">Made with ❤️ for Rwanda's schools</p>
+          <p className="text-slate-600 text-[12px]">© {new Date().getFullYear()} Babyeyi Rwanda. {t("featuresPage.footerAllRightsReserved")}</p>
+          <p className="text-slate-700 text-[12px]">{t("featuresPage.footerMadeWithLove")}</p>
         </div>
       </div>
     </footer>
@@ -245,9 +251,10 @@ function Footer() {
 }
 
 export default function FeaturesPage() {
+  const { t } = useTranslation();
   useEffect(() => {
-    document.title = "Babyeyi.rw — Platform Features";
-  }, []);
+    document.title = t("featuresPage.documentTitle");
+  }, [t]);
 
   return (
     <div>

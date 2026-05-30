@@ -1071,6 +1071,14 @@ const startServer = async () => {
     } catch (schedErr) {
       console.warn('⚠️  Fee reminder scheduler not started:', schedErr.message);
     }
+
+    try {
+      const incompleteOrderScheduler = require('./BabyeyiRoutes/parentIncompleteOrderScheduler');
+      incompleteOrderScheduler.startParentIncompleteOrderScheduler(3600_000);
+      console.log('⏰  Parent incomplete-order scheduler active (hourly — reminders at 7/14/21d, delete at 25d)');
+    } catch (schedErr) {
+      console.warn('⚠️  Incomplete-order scheduler not started:', schedErr.message);
+    }
   } catch (err) {
     console.error('❌  Failed to start:', err.message);
     process.exit(1);

@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
   ArrowRight, CheckCircle2, Clock, MapPin, Package, Shield, Sparkles, Shirt, Truck,
   GraduationCap, Star, Heart,
@@ -10,23 +11,22 @@ const FONT = `"MTN Brighter Sans", "Nunito", "Varela Round", sans-serif`;
 const NAVY = "#000435";
 const AMBER = "#FBBF24";
 
-const highlights = [
-  { Icon: Shirt, title: "School uniform", text: "Shirts, skirts, trousers, sweaters, and more." },
-  { Icon: Package, title: "Sports uniform", text: "PE kits, tracksuits, and sports shoes." },
-  { Icon: Sparkles, title: "Student code lookup", text: "We load student, school, and location for you." },
-  { Icon: Truck, title: "Flexible delivery", text: "Deliver to school or to your home address." },
-  { Icon: Shield, title: "Secure payment", text: "Mobile money and tracked Babyeyi orders." },
-  { Icon: Clock, title: "Track every step", text: "Order number, voucher, and status updates." },
-];
-
-const benefits = [
-  "Saves busy parents time at the start of term",
-  "Reduces mistakes when choosing uniform pieces",
-  "Supports school-organised delivery where available",
-  "Clear pricing per item — totals update automatically",
-];
-
 export default function PublicUniformVoucherLanding() {
+  const { t } = useTranslation();
+  const highlights = [
+    { Icon: Shirt, title: t("uniformVoucher.highlights1Title"), text: t("uniformVoucher.highlights1Text") },
+    { Icon: Package, title: t("uniformVoucher.highlights2Title"), text: t("uniformVoucher.highlights2Text") },
+    { Icon: Sparkles, title: t("uniformVoucher.highlights3Title"), text: t("uniformVoucher.highlights3Text") },
+    { Icon: Truck, title: t("uniformVoucher.highlights4Title"), text: t("uniformVoucher.highlights4Text") },
+    { Icon: Shield, title: t("uniformVoucher.highlights5Title"), text: t("uniformVoucher.highlights5Text") },
+    { Icon: Clock, title: t("uniformVoucher.highlights6Title"), text: t("uniformVoucher.highlights6Text") },
+  ];
+  const benefits = [
+    t("uniformVoucher.benefit1"),
+    t("uniformVoucher.benefit2"),
+    t("uniformVoucher.benefit3"),
+    t("uniformVoucher.benefit4"),
+  ];
   return (
     <div style={{ minHeight: "100vh", background: "#F8FAFC", fontFamily: FONT }}>
       <header
@@ -58,7 +58,7 @@ export default function PublicUniformVoucherLanding() {
               textDecoration: "none",
             }}
           >
-            ← Services
+            ← {t("uniformVoucher.services")}
           </Link>
           <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
             <Link
@@ -71,7 +71,7 @@ export default function PublicUniformVoucherLanding() {
                 borderBottom: "1px solid rgba(251,191,36,0.45)",
               }}
             >
-              Track order
+              {t("uniformVoucher.trackOrder")}
             </Link>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <Shirt size={18} color={AMBER} />
@@ -84,7 +84,7 @@ export default function PublicUniformVoucherLanding() {
                   textTransform: "uppercase",
                 }}
               >
-                Uniform Voucher
+                {t("uniformVoucher.uniformVoucher")}
               </span>
             </div>
           </div>
@@ -123,7 +123,7 @@ export default function PublicUniformVoucherLanding() {
             >
               <GraduationCap size={16} color={AMBER} />
               <span style={{ fontSize: 11, fontWeight: 800, color: AMBER, letterSpacing: "0.08em" }}>
-                Trusted school service
+                {t("uniformVoucher.trustedSchoolService")}
               </span>
             </div>
             <h1
@@ -135,8 +135,8 @@ export default function PublicUniformVoucherLanding() {
                 letterSpacing: "-0.02em",
               }}
             >
-              Uniform Voucher{" "}
-              <span style={{ color: AMBER }}>Service</span>
+              {t("uniformVoucher.title")}{" "}
+              <span style={{ color: AMBER }}>{t("uniformVoucher.titleAccent")}</span>
             </h1>
             <p
               style={{
@@ -147,7 +147,7 @@ export default function PublicUniformVoucherLanding() {
                 margin: "0 0 1.75rem",
               }}
             >
-              Order school uniforms easily for your child — from lookup to delivery, in one calm flow.
+              {t("uniformVoucher.heroSub")}
             </p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
               <Link
@@ -167,7 +167,7 @@ export default function PublicUniformVoucherLanding() {
                   boxShadow: "0 12px 40px rgba(251,191,36,0.25)",
                 }}
               >
-                Continue to Request <ArrowRight size={18} />
+                {t("uniformVoucher.continueToRequest")} <ArrowRight size={18} />
               </Link>
               <div
                 style={{
@@ -180,11 +180,11 @@ export default function PublicUniformVoucherLanding() {
                 }}
               >
                 <MapPin size={16} color={AMBER} />
-                Rwanda-wide · school-linked
+                {t("uniformVoucher.rwandaWideSchoolLinked")}
               </div>
             </div>
             <p style={{ marginTop: "1.25rem", fontSize: 12, color: "rgba(255,255,255,0.45)" }}>
-              Prices may vary depending on selected items and sizes.
+              {t("uniformVoucher.priceNote")}
             </p>
           </div>
           <div style={{ position: "relative" }}>
@@ -198,7 +198,7 @@ export default function PublicUniformVoucherLanding() {
             >
               <img
                 src={uniformVoucherImage}
-                alt="School uniforms"
+                alt={t("uniformVoucher.schoolUniformsAlt")}
                 style={{ width: "100%", height: 300, objectFit: "cover", display: "block" }}
               />
               <div
@@ -231,8 +231,8 @@ export default function PublicUniformVoucherLanding() {
                   padding: "10px 12px",
                 }}
               >
-                <p style={{ margin: 0, fontSize: 11, fontWeight: 800, color: AMBER }}>School kit</p>
-                <p style={{ margin: "4px 0 0", fontSize: 12, color: "rgba(255,255,255,0.85)" }}>Full looks</p>
+                <p style={{ margin: 0, fontSize: 11, fontWeight: 800, color: AMBER }}>{t("uniformVoucher.schoolKit")}</p>
+                <p style={{ margin: "4px 0 0", fontSize: 12, color: "rgba(255,255,255,0.85)" }}>{t("uniformVoucher.fullLooks")}</p>
               </div>
               <div
                 style={{
@@ -244,8 +244,8 @@ export default function PublicUniformVoucherLanding() {
                   padding: "10px 12px",
                 }}
               >
-                <p style={{ margin: 0, fontSize: 11, fontWeight: 800, color: AMBER }}>Sports</p>
-                <p style={{ margin: "4px 0 0", fontSize: 12, color: "rgba(255,255,255,0.85)" }}>PE ready</p>
+                <p style={{ margin: 0, fontSize: 11, fontWeight: 800, color: AMBER }}>{t("uniformVoucher.sports")}</p>
+                <p style={{ margin: "4px 0 0", fontSize: 12, color: "rgba(255,255,255,0.85)" }}>{t("uniformVoucher.peReady")}</p>
               </div>
             </div>
             <img
@@ -277,10 +277,10 @@ export default function PublicUniformVoucherLanding() {
       <section style={{ maxWidth: 1120, margin: "0 auto", padding: "2.75rem 1rem" }}>
         <div style={{ textAlign: "center", marginBottom: "2rem" }}>
           <h2 style={{ fontSize: "1.35rem", fontWeight: 900, color: NAVY, margin: "0 0 0.5rem" }}>
-            What you can order
+            {t("uniformVoucher.whatYouCanOrder")}
           </h2>
           <p style={{ margin: 0, color: "#64748b", fontSize: 15, maxWidth: 520, marginInline: "auto" }}>
-            Clear categories, real line items, and sizes — built for parents who want speed without guesswork.
+            {t("uniformVoucher.whatYouCanOrderSub")}
           </p>
         </div>
         <div
@@ -338,7 +338,7 @@ export default function PublicUniformVoucherLanding() {
         >
           <div>
             <h2 style={{ fontSize: "1.35rem", fontWeight: 900, color: NAVY, margin: "0 0 1rem" }}>
-              Why families use this service
+            {t("uniformVoucher.whyFamiliesUse")}
             </h2>
             <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
               {benefits.map((t) => (
@@ -374,20 +374,19 @@ export default function PublicUniformVoucherLanding() {
               <Heart size={18} color={AMBER} />
             </div>
             <p style={{ margin: 0, fontSize: 15, fontWeight: 700, lineHeight: 1.6, color: "rgba(255,255,255,0.92)" }}>
-              “We want every parent to feel confident that the right uniform reaches the right student — with Babyeyi
-              tracking from payment to delivery.”
+              "{t("uniformVoucher.quote")}"
             </p>
             <p style={{ margin: "1rem 0 0", fontSize: 12, color: "rgba(255,255,255,0.45)" }}>
-              Babyeyi voucher programme · {new Date().getFullYear()}
+              {t("uniformVoucher.programme")} · {new Date().getFullYear()}
             </p>
           </div>
         </div>
       </section>
 
       <section style={{ maxWidth: 1120, margin: "0 auto", padding: "2.75rem 1rem 3.5rem", textAlign: "center" }}>
-        <h2 style={{ fontSize: "1.5rem", fontWeight: 900, color: NAVY, margin: "0 0 0.75rem" }}>Ready to start?</h2>
+        <h2 style={{ fontSize: "1.5rem", fontWeight: 900, color: NAVY, margin: "0 0 0.75rem" }}>{t("uniformVoucher.readyToStart")}</h2>
         <p style={{ color: "#64748b", margin: "0 0 1.5rem", fontSize: 15 }}>
-          Enter your student code, pick items, choose delivery, then pay securely.
+          {t("uniformVoucher.readyToStartSub")}
         </p>
         <Link
           to="/services/uniform-voucher/request"
@@ -405,7 +404,7 @@ export default function PublicUniformVoucherLanding() {
             minHeight: 52,
           }}
         >
-          Continue to Request <ArrowRight size={18} />
+          {t("uniformVoucher.continueToRequest")} <ArrowRight size={18} />
         </Link>
       </section>
     </div>

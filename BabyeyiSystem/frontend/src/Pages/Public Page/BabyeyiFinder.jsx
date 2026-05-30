@@ -19,6 +19,7 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Search, FileText, Download, Loader2, AlertCircle,
   ChevronDown, X, Eye, Shield, ZoomIn, Calendar,
@@ -1266,7 +1267,8 @@ function ViewAndPayModal({ open, onClose, rec, schoolId, schoolName, theme, onCo
 // ═══════════════════════════════════════════════════════════════════════════════
 //  MAIN BABYEYI FINDER SECTION
 // ═══════════════════════════════════════════════════════════════════════════════
-export default function BabyeyiFinder({ school, theme, schoolSlug, openModal = false, onCloseModal, lookupPrefill = null, autoOpenSingleResult = false, modernBackground = true, publicPayNoLogin = false, publicPayFromSchoolSite = false, finderLightSurface = false }) {
+export default function BabyeyiFinder({ school, theme, schoolSlug, siteLang, openModal = false, onCloseModal, lookupPrefill = null, autoOpenSingleResult = false, modernBackground = true, publicPayNoLogin = false, publicPayFromSchoolSite = false, finderLightSurface = false }) {
+  const { i18n } = useTranslation();
   const { p, a, s } = theme;
   const navigate = useNavigate();
 
@@ -1284,14 +1286,24 @@ export default function BabyeyiFinder({ school, theme, schoolSlug, openModal = f
   const [finderModalOpen, setFinderModalOpen] = useState(false);
 
   const FINDER_LANG_STORAGE = 'babyeyi_finder_lang';
+  const syncedSiteLang = normalizeBabyeyiLang(siteLang || i18n.language);
   const [viewerLang, setViewerLang] = useState(() => {
+    if (siteLang) return syncedSiteLang;
     try {
       const raw = localStorage.getItem(FINDER_LANG_STORAGE);
       if (raw) return normalizeBabyeyiLang(raw);
     } catch {}
-    return 'en';
+    return syncedSiteLang;
   });
   const lastViewSumRef = useRef(null);
+
+  useEffect(() => {
+    if (siteLang) {
+      setViewerLang(normalizeBabyeyiLang(siteLang));
+      return;
+    }
+    setViewerLang(normalizeBabyeyiLang(i18n.language));
+  }, [siteLang, i18n.language]);
 
   const { T: finderT } = useBabyeyiUiT(viewerLang);
   const finderInfoResolved = useMemo(() => {

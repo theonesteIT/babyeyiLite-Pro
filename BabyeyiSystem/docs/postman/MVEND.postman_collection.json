@@ -1,0 +1,811 @@
+{
+  "info": {
+    "_postman_id": "2881c920-eea7-4d65-87cc-aaf3bf264ba7",
+    "name": "MVEND",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "28415169"
+  },
+  "item": [
+    {
+      "name": "Token",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code is 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "const json = pm.response.json();",
+              "const token = json.access_token || json.token;",
+              "",
+              "pm.test('Access token is present', function () {",
+              "    pm.expect(token, 'access_token or token field').to.be.a('string').and.not.empty;",
+              "});",
+              "",
+              "if (token) {",
+              "    pm.environment.set('jwt-token', token);",
+              "    console.log('jwt-token saved to environment');",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"grant_type\": \"{{grant_type}}\",\r\n  \"client_id\": \"{{client_id}}\",\r\n  \"client_secret\": \"{{client_secret}}\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{api-url}}/auth/oauth2/token",
+          "host": [
+            "{{api-url}}"
+          ],
+          "path": [
+            "auth",
+            "oauth2",
+            "token"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Session key",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{jwt-token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"session_id\": \"{{session_id}}\",\r\n  \"session_key\": \"{{session_key}}\",\r\n  \"expires_at\": \"{{expires_at}}\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{api-url}}/auth/oauth2/sessionkey",
+          "host": [
+            "{{api-url}}"
+          ],
+          "path": [
+            "auth",
+            "oauth2",
+            "sessionkey"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Transaction",
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      },
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{jwt-token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-Country",
+            "value": "{{country}}",
+            "type": "text"
+          },
+          {
+            "key": "X-Currency",
+            "value": "{{currency}}",
+            "type": "text"
+          },
+          {
+            "key": "X-Phonenumber",
+            "value": "{{phone}}",
+            "type": "text"
+          },
+          {
+            "key": "X-PIN",
+            "value": "{{x-pin}}",
+            "type": "text"
+          },
+          {
+            "key": "X-Nounce",
+            "value": "{{x-nounce}}",
+            "type": "text"
+          },
+          {
+            "key": "X-SessionID",
+            "value": "{{x-sessionid}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": ""
+        },
+        "url": {
+          "raw": "{{api-url}}/wallet/history/{{wallet_id}}?page=1&limit=20",
+          "host": [
+            "{{api-url}}"
+          ],
+          "path": [
+            "wallet",
+            "history",
+            "{{wallet_id}}"
+          ],
+          "query": [
+            {
+              "key": "page",
+              "value": "1"
+            },
+            {
+              "key": "limit",
+              "value": "20"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Balance",
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      },
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{jwt-token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-Country",
+            "value": "{{country}}",
+            "type": "text"
+          },
+          {
+            "key": "X-Currency",
+            "value": "{{currency}}",
+            "type": "text"
+          },
+          {
+            "key": "X-Phonenumber",
+            "value": "{{phone}}",
+            "type": "text"
+          },
+          {
+            "key": "X-PIN",
+            "value": "{{x-pin}}",
+            "type": "text"
+          },
+          {
+            "key": "X-Nounce",
+            "value": "{{x-nounce}}",
+            "type": "text"
+          },
+          {
+            "key": "X-SessionID",
+            "value": "{{x-sessionid}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": ""
+        },
+        "url": {
+          "raw": "{{api-url}}/wallet/balance/{{wallet_id}}",
+          "host": [
+            "{{api-url}}"
+          ],
+          "path": [
+            "wallet",
+            "balance",
+            "{{wallet_id}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "By Member Type",
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      },
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{jwt-token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-Country",
+            "value": "{{country}}",
+            "type": "text"
+          },
+          {
+            "key": "X-Currency",
+            "value": "{{currency}}",
+            "type": "text"
+          },
+          {
+            "key": "X-Phonenumber",
+            "value": "{{phone}}",
+            "type": "text"
+          },
+          {
+            "key": "X-PIN",
+            "value": "{{x-pin}}",
+            "type": "text"
+          },
+          {
+            "key": "X-Nounce",
+            "value": "{{x-nounce}}",
+            "type": "text"
+          },
+          {
+            "key": "X-SessionID",
+            "value": "{{x-sessionid}}",
+            "type": "text"
+          },
+          {
+            "key": "wallet_id",
+            "value": "{{wallet_id}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": ""
+        },
+        "url": {
+          "raw": "{{api-url}}/wallet/bymemtype/{{wallet_type}}/{{member_id}}",
+          "host": [
+            "{{api-url}}"
+          ],
+          "path": [
+            "wallet",
+            "bymemtype",
+            "{{wallet_type}}",
+            "{{member_id}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Wallet Profile",
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      },
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{jwt-token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-Country",
+            "value": "{{country}}",
+            "type": "text"
+          },
+          {
+            "key": "X-Currency",
+            "value": "{{currency}}",
+            "type": "text"
+          },
+          {
+            "key": "X-Phonenumber",
+            "value": "{{phone}}",
+            "type": "text"
+          },
+          {
+            "key": "X-PIN",
+            "value": "{{x-pin}}",
+            "type": "text"
+          },
+          {
+            "key": "X-Nounce",
+            "value": "{{x-nounce}}",
+            "type": "text"
+          },
+          {
+            "key": "X-SessionID",
+            "value": "{{x-sessionid}}",
+            "type": "text"
+          },
+          {
+            "key": "wallet_id",
+            "value": "{{wallet_id}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": ""
+        },
+        "url": {
+          "raw": "{{api-url}}/wallet/{{wallet_id}}",
+          "host": [
+            "{{api-url}}"
+          ],
+          "path": [
+            "wallet",
+            "{{wallet_id}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Topup",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{jwt-token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-Country",
+            "value": "{{country}}",
+            "type": "text"
+          },
+          {
+            "key": "X-Currency",
+            "value": "{{currency}}",
+            "type": "text"
+          },
+          {
+            "key": "X-Phonenumber",
+            "value": "{{phone}}",
+            "type": "text"
+          },
+          {
+            "key": "X-PIN",
+            "value": "{{x-pin}}",
+            "type": "text"
+          },
+          {
+            "key": "X-Nounce",
+            "value": "{{x-nounce}}",
+            "type": "text"
+          },
+          {
+            "key": "X-SessionID",
+            "value": "{{x-sessionid}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"channel\": \"mobile\",\r\n  \"ttype\": \"topup\",\r\n  \"member_id\": 1,\r\n  \"wallet_id\": 10,\r\n  \"amount\": 5000,\r\n  \"linked_msisdn\": \"{{phone}}\",\r\n  \"pay_account_number\": \"0788318046\",\r\n  \"sender_wallet_id\": 210,\r\n  \"transaction_fee\": 50\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{api-url}}/transfer/topup",
+          "host": [
+            "{{api-url}}"
+          ],
+          "path": [
+            "transfer",
+            "topup"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Transfer",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{jwt-token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-Country",
+            "value": "{{country}}",
+            "type": "text"
+          },
+          {
+            "key": "X-Currency",
+            "value": "{{currency}}",
+            "type": "text"
+          },
+          {
+            "key": "X-Phonenumber",
+            "value": "{{phone}}",
+            "type": "text"
+          },
+          {
+            "key": "X-PIN",
+            "value": "{{x-pin}}",
+            "type": "text"
+          },
+          {
+            "key": "X-Nounce",
+            "value": "{{x-nounce}}",
+            "type": "text"
+          },
+          {
+            "key": "X-SessionID",
+            "value": "{{x-sessionid}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"channel\": \"mobile\",\r\n  \"ttype\": \"p2poffline\",\r\n  \"member_id\": 1001569,\r\n  \"linked_msisdn\": \"{{phone}}\",\r\n  \"recipient_account_no\": \"250788319999\",\r\n  \"recipient_institution_id\": \"BK001\",\r\n  \"wallet_type\": \"merchant\",\r\n  \"recipient_account_name\": \"John Doe\",\r\n  \"recipient_pay_provider_id\": \"1\",\r\n  \"transaction_amount\": 1000,\r\n  \"narration\": \"Payment for goods\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{api-url}}/transfer/",
+          "host": [
+            "{{api-url}}"
+          ],
+          "path": [
+            "transfer",
+            ""
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Validatesend",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{jwt-token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-Country",
+            "value": "{{country}}",
+            "type": "text"
+          },
+          {
+            "key": "X-Currency",
+            "value": "{{currency}}",
+            "type": "text"
+          },
+          {
+            "key": "X-Phonenumber",
+            "value": "{{phone}}",
+            "type": "text"
+          },
+          {
+            "key": "X-PIN",
+            "value": "{{x-pin}}",
+            "type": "text"
+          },
+          {
+            "key": "X-Nounce",
+            "value": "{{x-nounce}}",
+            "type": "text"
+          },
+          {
+            "key": "X-SessionID",
+            "value": "{{x-sessionid}}",
+            "type": "text"
+          },
+          {
+            "key": "wallet_id",
+            "value": "{{wallet_id}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"channel\": \"mobile\",\r\n  \"ttype\": \"p2poffline\",\r\n  \"member_id\": 1001569,\r\n  \"linked_msisdn\": \"{{phone}}\",\r\n  \"recipient_account_no\": \"250788319999\",\r\n  \"recipient_institution_id\": \"BK001\",\r\n  \"wallet_type\": \"merchant\",\r\n  \"recipient_account_name\": \"John Doe\",\r\n  \"recipient_pay_provider_id\": \"1\",\r\n  \"transaction_amount\": 1000,\r\n  \"narration\": \"Payment for goods\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{api-url}}/transfer/validatesend",
+          "host": [
+            "{{api-url}}"
+          ],
+          "path": [
+            "transfer",
+            "validatesend"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Collection",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{jwt-token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-Country",
+            "value": "{{country}}",
+            "type": "text"
+          },
+          {
+            "key": "X-Currency",
+            "value": "{{currency}}",
+            "type": "text"
+          },
+          {
+            "key": "X-Phonenumber",
+            "value": "{{phone}}",
+            "type": "text"
+          },
+          {
+            "key": "X-PIN",
+            "value": "{{x-pin}}",
+            "type": "text"
+          },
+          {
+            "key": "X-Nounce",
+            "value": "{{x-nounce}}",
+            "type": "text"
+          },
+          {
+            "key": "X-SessionID",
+            "value": "{{x-sessionid}}",
+            "type": "text"
+          },
+          {
+            "key": "wallet_id",
+            "value": "{{wallet_id}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"channel\": \"mobile\",\r\n  \"ttype\": \"p2poffline\",\r\n  \"member_id\": 1001569,\r\n  \"linked_msisdn\": \"{{phone}}\",\r\n  \"recipient_account_no\": \"250788319999\",\r\n  \"recipient_institution_id\": \"BK001\",\r\n  \"wallet_type\": \"merchant\",\r\n  \"recipient_account_name\": \"John Doe\",\r\n  \"recipient_pay_provider_id\": \"1\",\r\n  \"transaction_amount\": 1000,\r\n  \"narration\": \"Payment for goods\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{api-url}}/transfer/collection",
+          "host": [
+            "{{api-url}}"
+          ],
+          "path": [
+            "transfer",
+            "collection"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Transaction Status",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{jwt-token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-Country",
+            "value": "{{country}}",
+            "type": "text"
+          },
+          {
+            "key": "X-Currency",
+            "value": "{{currency}}",
+            "type": "text"
+          },
+          {
+            "key": "X-Phonenumber",
+            "value": "{{phone}}",
+            "type": "text"
+          },
+          {
+            "key": "X-PIN",
+            "value": "{{x-pin}}",
+            "type": "text"
+          },
+          {
+            "key": "X-Nounce",
+            "value": "{{x-nounce}}",
+            "type": "text"
+          },
+          {
+            "key": "X-SessionID",
+            "value": "{{x-sessionid}}",
+            "type": "text"
+          },
+          {
+            "key": "transaction_id",
+            "value": "{{transaction_id}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{api-url}}/transfer/status/{{transaction_id}}",
+          "host": [
+            "{{api-url}}"
+          ],
+          "path": [
+            "transfer",
+            "status",
+            "{{transaction_id}}"
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "grant_type",
+      "value": ""
+    },
+    {
+      "key": "client_id",
+      "value": ""
+    },
+    {
+      "key": "session_id",
+      "value": ""
+    },
+    {
+      "key": "session_key",
+      "value": ""
+    },
+    {
+      "key": "expires_at",
+      "value": ""
+    },
+    {
+      "key": "wallet_id",
+      "value": ""
+    },
+    {
+      "key": "country",
+      "value": ""
+    },
+    {
+      "key": "currency",
+      "value": ""
+    },
+    {
+      "key": "phone",
+      "value": ""
+    },
+    {
+      "key": "client_secret",
+      "value": ""
+    },
+    {
+      "key": "x-pin",
+      "value": ""
+    },
+    {
+      "key": "x-nounce",
+      "value": ""
+    },
+    {
+      "key": "x-sessionid",
+      "value": ""
+    },
+    {
+      "key": "member_id",
+      "value": ""
+    },
+    {
+      "key": "wallet_type",
+      "value": ""
+    },
+    {
+      "key": "transaction_id",
+      "value": ""
+    }
+  ]
+}

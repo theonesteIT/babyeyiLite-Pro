@@ -6,6 +6,9 @@ Ready-to-import Postman setup for the `BabyeyiSystem/backend` API.
 
 - `BabyeyiSystem.postman_collection.json` — organized collection (Postman v2.1)
 - `BabyeyiSystem.local.postman_environment.json` — local environment variables (`baseUrl`, `password`, etc.)
+- `MVEND.postman_collection.json` — MVEND wallet/transfer API (see **`MVEND.md`**)
+- `MVEND.postman_environment.json` — MVEND environment template
+- `generate-mvend-credentials.mjs` — generates MVEND `X-PIN`, `X-NOUNCE`, and `session_key`
 
 If import ever fails, ensure the collection file is **single JSON** (one top-level object). Backup copies from repair merges may appear as `*.broken-backup`, `*.pre-ussd-merge`, etc.
 

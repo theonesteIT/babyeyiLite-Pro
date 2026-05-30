@@ -25,6 +25,7 @@ import { useMergedParentChildren } from "../../hooks/useMergedParentChildren";
 import { normalizeChildForUi } from "../../utils/parentLocalChildren";
 import { useParentShell } from "../../context/ParentShellContext";
 import { upsertParentKitOrder } from "../../utils/parentOrderHistory";
+import { syncIncompleteOrderToServer } from "../../utils/parentIncompleteOrderApi";
 import {
   buildPaymentsStateFromResumePayload,
   encodeKitResumePayload,
@@ -580,6 +581,22 @@ export default function ClasskitOrderFlow() {
         payment,
         resumePayload: minimal,
       });
+      if (!guestShareCheckout) {
+        void syncIncompleteOrderToServer({
+          student_id: sid,
+          service_type: effectiveKitUi ? "shulekit" : "classkit",
+          status: "incomplete",
+          resume_token: token,
+          resume_url: resumeUrlSameDevice,
+          share_url: shareUrlPortable,
+          kit_title: kitTitle,
+          child_name: `${childUi?.first_name || ""} ${childUi?.last_name || ""}`.trim(),
+          total_rwf: grandTotal,
+          delivery,
+          payment_method: payment,
+          snapshot: minimal,
+        });
+      }
       upsertNotification({
         id: `incomplete-kit-${token}`,
         kind: "incomplete_kit_order",
@@ -690,6 +707,23 @@ export default function ClasskitOrderFlow() {
       resumePayload: minimalPay,
     });
 
+    if (!guestShareCheckout) {
+      void syncIncompleteOrderToServer({
+        student_id: Number(selectedChild.id),
+        service_type: effectiveKitUi ? "shulekit" : "classkit",
+        status: "pending_payment",
+        resume_token: token,
+        resume_url: resumeUrlSameDevice,
+        share_url: shareUrlPortable,
+        kit_title: kitTitle,
+        child_name: childName,
+        total_rwf: grandTotal,
+        delivery,
+        payment_method: payment,
+        snapshot: minimalPay,
+      });
+    }
+
     upsertNotification({
       id: `incomplete-kit-${token}`,
       kind: "incomplete_kit_order",
@@ -703,6 +737,7 @@ export default function ClasskitOrderFlow() {
 
     navigate("/payments", {
       state: {
+        classkitResumeToken: token,
         schoolId: pricingData.babyeyi.school_id,
         babyeyiId: pricingData.babyeyi.id,
         schoolName: childUi.school_name || pricingData?.student?.school_name || "",

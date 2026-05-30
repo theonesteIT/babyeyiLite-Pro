@@ -51,6 +51,14 @@
       "value": "0780000000"
     },
     {
+      "key": "incompleteOrderResumeToken",
+      "value": "classkit-demo-resume-token"
+    },
+    {
+      "key": "frontendUrl",
+      "value": "http://localhost:5173"
+    },
+    {
       "key": "loanIntentId",
       "value": "1"
     },
@@ -2186,8 +2194,102 @@
           "name": "GET /api/parent-portal/notifications",
           "request": {
             "method": "GET",
-            "url": "{{baseUrl}}/api/parent-portal/notifications"
+            "url": {
+              "raw": "{{baseUrl}}/api/parent-portal/notifications?limit=40",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "parent-portal",
+                "notifications"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "40"
+                }
+              ]
+            }
           }
+        },
+        {
+          "name": "Incomplete orders (drafts until payment)",
+          "description": "Persist unfinished ClassKit, ShuleKit, shoes voucher, or uniform voucher orders for logged-in parents (session cookie). Scheduler sends reminders at 7, 14, and 21 days; deletes row at 25 days. Run `POST .../parent-portal/login` first.",
+          "item": [
+            {
+              "name": "POST /api/parent-portal/incomplete-orders",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"student_id\": {{studentId}},\n  \"service_type\": \"classkit\",\n  \"status\": \"incomplete\",\n  \"resume_token\": \"{{incompleteOrderResumeToken}}\",\n  \"resume_url\": \"{{frontendUrl}}/parents/classkit?resume={{incompleteOrderResumeToken}}\",\n  \"share_url\": \"{{frontendUrl}}/parents/classkit#d=eyJkZW1vIjp0cnVlfQ\",\n  \"kit_title\": \"ClassKit — P5\",\n  \"child_name\": \"Jean Uwimana\",\n  \"total_rwf\": 570000,\n  \"delivery\": \"school\",\n  \"payment_method\": \"momo\",\n  \"snapshot\": {\n    \"phase\": \"kit\",\n    \"step\": 3,\n    \"studentId\": {{studentId}},\n    \"feeIds\": [1, 2],\n    \"delivery\": \"school\",\n    \"payment\": \"momo\"\n  }\n}"
+                },
+                "url": "{{baseUrl}}/api/parent-portal/incomplete-orders"
+              }
+            },
+            {
+              "name": "POST /api/parent-portal/incomplete-orders (shoes voucher)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"student_id\": {{studentId}},\n  \"service_type\": \"shoes_voucher\",\n  \"status\": \"pending_payment\",\n  \"resume_token\": \"sv-{{incompleteOrderResumeToken}}\",\n  \"resume_url\": \"{{frontendUrl}}/services/shoes-voucher?resumeStep=6\",\n  \"share_url\": \"{{frontendUrl}}/services/shoes-voucher?resumeStep=6\",\n  \"kit_title\": \"Shoes voucher\",\n  \"child_name\": \"Jean Uwimana\",\n  \"total_rwf\": 25000,\n  \"delivery\": \"school\",\n  \"payment_method\": \"momo\",\n  \"snapshot\": { \"flow\": \"shoes-voucher\", \"step\": 6 }\n}"
+                },
+                "url": "{{baseUrl}}/api/parent-portal/incomplete-orders"
+              }
+            },
+            {
+              "name": "POST /api/parent-portal/incomplete-orders (uniform voucher)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"student_id\": {{studentId}},\n  \"service_type\": \"uniform_voucher\",\n  \"status\": \"pending_payment\",\n  \"resume_token\": \"uv-DEMO-VOUCHER-001\",\n  \"resume_url\": \"{{frontendUrl}}/services/uniform-voucher/request?resumeStep=6\",\n  \"share_url\": \"{{frontendUrl}}/services/uniform-voucher/request?resumeStep=6\",\n  \"kit_title\": \"Primary uniform voucher\",\n  \"child_name\": \"Jean Uwimana\",\n  \"total_rwf\": 45000,\n  \"delivery\": \"school\",\n  \"payment_method\": \"momo\",\n  \"snapshot\": { \"flow\": \"uniform-voucher\", \"orderId\": 1 }\n}"
+                },
+                "url": "{{baseUrl}}/api/parent-portal/incomplete-orders"
+              }
+            },
+            {
+              "name": "GET /api/parent-portal/incomplete-orders",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/parent-portal/incomplete-orders"
+              }
+            },
+            {
+              "name": "POST /api/parent-portal/incomplete-orders/:resumeToken/complete",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/parent-portal/incomplete-orders/{{incompleteOrderResumeToken}}/complete"
+              }
+            },
+            {
+              "name": "DELETE /api/parent-portal/incomplete-orders/:resumeToken",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/parent-portal/incomplete-orders/{{incompleteOrderResumeToken}}"
+              }
+            }
+          ]
         },
         {
           "name": "GET /api/parent-portal/admin/access-requests",
@@ -7559,7 +7661,64 @@
               "request": {
                 "method": "GET",
                 "header": [],
-                "url": "{{baseUrl}}/api/parent-portal/notifications"
+                "url": {
+                  "raw": "{{baseUrl}}/api/parent-portal/notifications?limit=40",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "parent-portal",
+                    "notifications"
+                  ],
+                  "query": [
+                    {
+                      "key": "limit",
+                      "value": "40"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "POST /api/parent-portal/incomplete-orders",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"student_id\": {{studentId}},\n  \"service_type\": \"classkit\",\n  \"status\": \"incomplete\",\n  \"resume_token\": \"{{incompleteOrderResumeToken}}\",\n  \"resume_url\": \"{{frontendUrl}}/parents/classkit?resume={{incompleteOrderResumeToken}}\",\n  \"share_url\": \"{{frontendUrl}}/parents/classkit#d=eyJkZW1vIjp0cnVlfQ\",\n  \"kit_title\": \"ClassKit — P5\",\n  \"child_name\": \"Jean Uwimana\",\n  \"total_rwf\": 570000,\n  \"delivery\": \"school\",\n  \"payment_method\": \"momo\",\n  \"snapshot\": { \"step\": 3, \"phase\": \"kit\" }\n}"
+                },
+                "url": "{{baseUrl}}/api/parent-portal/incomplete-orders"
+              }
+            },
+            {
+              "name": "GET /api/parent-portal/incomplete-orders",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/parent-portal/incomplete-orders"
+              }
+            },
+            {
+              "name": "POST /api/parent-portal/incomplete-orders/:resumeToken/complete",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": "{{baseUrl}}/api/parent-portal/incomplete-orders/{{incompleteOrderResumeToken}}/complete"
+              }
+            },
+            {
+              "name": "DELETE /api/parent-portal/incomplete-orders/:resumeToken",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": "{{baseUrl}}/api/parent-portal/incomplete-orders/{{incompleteOrderResumeToken}}"
               }
             },
             {

@@ -4,12 +4,10 @@
  */
 
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
   GraduationCap, Zap, Crown, ArrowRight, Check,
-  Sparkles, Shield, Globe, BarChart3,
-  Users, Calendar, CreditCard,
-  Headphones, ClipboardCheck, X, LogIn,
-  Building2, ArrowLeft, UserCog,
+  Sparkles, LogIn, Building2, ArrowLeft, Globe, ChevronDown,
 } from "lucide-react";
 import BabyeyiLogo from "../../assets/1BABYEYI LOGO FINAL.png";
 
@@ -80,6 +78,34 @@ const Styles = () => (
       background: rgba(251,191,36,0.1);
       border-color: rgba(251,191,36,0.35);
       color: var(--amber);
+    }
+    .lps-nav-actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .lps-lang {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.9);
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.05);
+      min-height: 34px;
+      padding: 8px 12px;
+    }
+    .lps-lang .globe { color: var(--amber); }
+    .lps-lang select {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
     }
 
     .lps-main {
@@ -493,45 +519,35 @@ const Styles = () => (
   `}</style>
 );
 
-const LITE_FEATURES = [
-  "Babyeyi Wizard Setup",
-  "Student & Staff Register",
-  "Attendance Tracking",
-  "School Mini Website",
-  "TichaAvance",
-  "TichaDeals",
-  "Mobile-Friendly Interface",
-];
-
-const PRO_FEATURES = [
-  "Everything in Babyeyi Lite",
-  "Babyeyi Wizard",
-  "Tuition & Paid-at-School Payments",
-  "Advanced Analytics & Reports",
-  "Attendance Management",
-  "Multi-Role Staff Permissions",
-  "Discipline & Marks System",
-  "ShuleAvance Payroll & HR",
-  "TichaDeals",
-  "Multi-Branch School Support",
-  "Priority Support & SLA",
-];
-
-const COMPARE_ROWS = [
-  { label: "Student & Staff Register", icon: GraduationCap, lite: true, pro: true },
-  { label: "School Mini Website", icon: Globe, lite: true, pro: true },
-  { label: "Basic Attendance Tracking", icon: Calendar, lite: true, pro: true },
-  { label: "TichaAvance & TichaDeals", icon: Sparkles, lite: true, pro: true },
-  { label: "Tuition & Paid-at-School Pay", icon: CreditCard, lite: false, pro: true },
-  { label: "Attendance Management", icon: ClipboardCheck, lite: false, pro: true },
-  { label: "Advanced Analytics & Reports", icon: BarChart3, lite: false, pro: true },
-  { label: "Discipline & Marks System", icon: Shield, lite: false, pro: true },
-  { label: "Multi-Role Permissions", icon: Users, lite: false, pro: true },
-  { label: "Payroll & HR (ShuleAvance)", icon: UserCog, lite: false, pro: true },
-  { label: "Priority Support & SLA", icon: Headphones, lite: false, pro: true },
-];
-
 export default function LoginPortalSelect() {
+  const { t, i18n } = useTranslation();
+  const currentLang = ["rw", "en", "fr"].includes(String(i18n.language || "en").slice(0, 2).toLowerCase())
+    ? String(i18n.language || "en").slice(0, 2).toLowerCase()
+    : "en";
+  const LITE_FEATURES = [
+    t("auth.liteFeature1"),
+    t("auth.liteFeature2"),
+    t("auth.liteFeature3"),
+    t("auth.liteFeature4"),
+    t("auth.liteFeature5"),
+    t("auth.liteFeature6"),
+    t("auth.liteFeature7"),
+  ];
+
+  const PRO_FEATURES = [
+    t("auth.proFeature1"),
+    t("auth.proFeature2"),
+    t("auth.proFeature3"),
+    t("auth.proFeature4"),
+    t("auth.proFeature5"),
+    t("auth.proFeature6"),
+    t("auth.proFeature7"),
+    t("auth.proFeature8"),
+    t("auth.proFeature9"),
+    t("auth.proFeature10"),
+    t("auth.proFeature11"),
+  ];
+
   return (
     <>
       <Styles />
@@ -547,22 +563,38 @@ export default function LoginPortalSelect() {
               onError={(e) => { e.currentTarget.src = "/1BABYEYI LOGO FINAL.png"; }}
             />
           </Link>
-          <Link to="/" className="lps-nav-back">
-            <ArrowLeft size={14} strokeWidth={2.5} />
-            Back to Home
-          </Link>
+          <div className="lps-nav-actions">
+            <label className="lps-lang">
+              <Globe size={13} className="globe" />
+              <span>{t("language.label")}</span>
+              <ChevronDown size={13} />
+              <select
+                aria-label={t("language.switcherLabel")}
+                value={currentLang}
+                onChange={(e) => i18n.changeLanguage(e.target.value)}
+              >
+                <option value="rw">🇷🇼 {t("language.rw")}</option>
+                <option value="en">🇬🇧 {t("language.en")}</option>
+                <option value="fr">🇫🇷 {t("language.fr")}</option>
+              </select>
+            </label>
+            <Link to="/" className="lps-nav-back">
+              <ArrowLeft size={14} strokeWidth={2.5} />
+              {t("auth.backToHome")}
+            </Link>
+          </div>
         </nav>
 
         <main className="lps-main">
           <div className="lps-hero au1">
             <div className="lps-eyebrow">
-              <Sparkles size={11} /> Choose your portal
+              <Sparkles size={11} /> {t("auth.choosePortal")}
             </div>
             <h1 className="lps-title">
-              Sign in to ShuleManager
+              {t("auth.signInToShuleManager")}
             </h1>
             <p className="lps-sub">
-              Select the platform that matches your school  both run on Babyeyi&apos;s trusted infrastructure.
+              {t("auth.selectPlatformSubtitle")}
             </p>
           </div>
 
@@ -571,20 +603,20 @@ export default function LoginPortalSelect() {
             <div className="lps-card lps-card-lite">
               <div className="lps-card-inner">
                 <div className="lps-badge lps-badge-lite">
-                  <Zap size={10} /> Babyeyi Lite
+                  <Zap size={10} /> {t("auth.babyeyiLite")}
                 </div>
                 <div className="lps-icon-wrap lps-icon-lite">
                   <GraduationCap size={26} color="#000435" strokeWidth={2} />
                 </div>
-                <div className="lps-card-name lps-card-name-lite">Babyeyi Lite</div>
+                <div className="lps-card-name lps-card-name-lite">{t("auth.babyeyiLite")}</div>
                 <p className="lps-card-headline">
-                  Smart, simple, and affordable school management
+                  {t("auth.liteHeadline")}
                 </p>
                 <p className="lps-card-tag">
-                  Perfect for small and growing schools that need essential daily management tools.
+                  {t("auth.liteTag")}
                 </p>
                 <div className="lps-divider" />
-                <p className="lps-features-label">Features</p>
+                <p className="lps-features-label">{t("auth.features")}</p>
                 <div className="lps-features">
                   {LITE_FEATURES.map((text) => (
                     <div className="lps-feature" key={text}>
@@ -596,11 +628,11 @@ export default function LoginPortalSelect() {
                   ))}
                 </div>
                 <p className="lps-card-desc">
-                  Simple tools to manage students, staff, attendance, and communication from anywhere.
+                  {t("auth.liteDesc")}
                 </p>
                 <Link to="/login/lite" className="lps-cta lps-cta-lite">
                   <LogIn size={16} strokeWidth={2.5} />
-                  Sign in  Lite Portal
+                  {t("auth.signInLitePortal")}
                   <ArrowRight size={15} />
                 </Link>
               </div>
@@ -608,23 +640,23 @@ export default function LoginPortalSelect() {
 
             {/* PRO */}
             <div className="lps-card lps-card-pro">
-              <div className="lps-ribbon">Most Popular</div>
+              <div className="lps-ribbon">{t("auth.mostPopular")}</div>
               <div className="lps-card-inner">
                 <div className="lps-badge lps-badge-pro">
-                  <Crown size={10} /> Babyeyi Pro
+                  <Crown size={10} /> {t("auth.babyeyiPro")}
                 </div>
                 <div className="lps-icon-wrap lps-icon-pro">
                   <Crown size={26} color="#000435" strokeWidth={2} />
                 </div>
-                <div className="lps-card-name lps-card-name-pro">Babyeyi Pro</div>
+                <div className="lps-card-name lps-card-name-pro">{t("auth.babyeyiPro")}</div>
                 <p className="lps-card-headline">
-                  Complete digital transformation for modern schools
+                  {t("auth.proHeadline")}
                 </p>
                 <p className="lps-card-tag">
-                  Designed for advanced schools needing finance, HR, analytics, and multi-role management.
+                  {t("auth.proTag")}
                 </p>
                 <div className="lps-divider" />
-                <p className="lps-features-label">Features</p>
+                <p className="lps-features-label">{t("auth.features")}</p>
                 <div className="lps-features">
                   {PRO_FEATURES.map((text) => (
                     <div className="lps-feature" key={text}>
@@ -636,11 +668,11 @@ export default function LoginPortalSelect() {
                   ))}
                 </div>
                 <p className="lps-card-desc">
-                  Full power for finance, staff, discipline, payroll, reporting, and large school operations.
+                  {t("auth.proDesc")}
                 </p>
                 <Link to="/login/pro" className="lps-cta lps-cta-pro">
                   <Crown size={16} strokeWidth={2.5} />
-                  Sign in  Pro Portal
+                  {t("auth.signInProPortal")}
                   <ArrowRight size={15} />
                 </Link>
               </div>
@@ -688,14 +720,14 @@ export default function LoginPortalSelect() {
             <div className="lps-footer-left">
               <Building2 size={18} className="text-amber-500 shrink-0" strokeWidth={2} />
               <span>
-                Not sure which to choose?{" "}
+                {t("auth.notSureWhich")}{" "}
                 <Link to="/schools">
-                  Browse schools
+                  {t("auth.browseSchools")}
                   <ArrowRight size={14} strokeWidth={2.5} />
                 </Link>
               </span>
             </div>
-            <p className="lps-footer-copy">© {new Date().getFullYear()} Babyeyi Rwanda</p>
+            <p className="lps-footer-copy">© {new Date().getFullYear()} {t("auth.babyeyiRwanda")}</p>
           </footer>
         </main>
       </div>

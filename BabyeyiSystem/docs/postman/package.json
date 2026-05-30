@@ -1,0 +1,12 @@
+{
+  "name": "babyeyi-mvend-postman-tools",
+  "private": true,
+  "type": "module",
+  "description": "Helpers for MVEND Postman collection (PIN/session key generation)",
+  "scripts": {
+    "generate-credentials": "node generate-mvend-credentials.mjs"
+  },
+  "dependencies": {
+    "@noble/ciphers": "^1.3.0"
+  }
+}

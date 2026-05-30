@@ -7,6 +7,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Loader2, X, Menu, ChevronLeft, ChevronRight, MapPin, Phone, Mail,
   Facebook, Twitter, Instagram, Globe, Check, FileText, ArrowRight,
@@ -20,6 +21,8 @@ import {
 } from 'lucide-react';
 import ApplicationStatusTracker from "./ApplicationStatusTracker";
 import BabyeyiFinder from './BabyeyiFinder';
+import { translateAdmissionForm } from '../../babyeyiPublic/schoolSiteContentTranslate';
+import { normalizeBabyeyiLang } from '../../manager/schoolLiteSupport/babyeyiTranslateLangs';
 
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
 const SERVER  = import.meta.env.VITE_API_URL || 'http://localhost:5100';
@@ -85,18 +88,69 @@ function isDarkTemplate(t) {
 
 // ─── NAV ITEMS ───────────────────────────────────────────────────────────────
 const BASE_NAV_ITEMS = [
-  { id: 'programs',   label: 'Programs',        icon: <Layers size={14} /> },
-  { id: 'fees',       label: 'Fees',            icon: <CreditCard size={14} /> },
-  { id: 'gallery',    label: 'Gallery',         icon: <Image size={14} /> },
-  { id: 'leadership', label: 'Leadership',      icon: <Users size={14} /> },
-  { id: 'news',       label: 'News',            icon: <Newspaper size={14} /> },
-  { id: 'admissions', label: 'Admissions',      icon: <UserCheck size={14} /> },
-  { id: 'babyeyi',    label: 'School Fees Doc', icon: <FileText size={14} /> },
+  { id: 'programs',   labelKey: 'schoolPublic.navPrograms',   labelKeyNav: 'schoolPublic.navProgramsShort',   defaultLabel: 'Programs',        defaultLabelNav: 'Programs',   icon: <Layers size={14} /> },
+  { id: 'fees',       labelKey: 'schoolPublic.navFees',       labelKeyNav: 'schoolPublic.navFeesShort',       defaultLabel: 'Fees',            defaultLabelNav: 'Fees',       icon: <CreditCard size={14} /> },
+  { id: 'gallery',    labelKey: 'schoolPublic.navGallery',    labelKeyNav: 'schoolPublic.navGalleryShort',    defaultLabel: 'Gallery',         defaultLabelNav: 'Gallery',    icon: <Image size={14} /> },
+  { id: 'leadership', labelKey: 'schoolPublic.navLeadership', labelKeyNav: 'schoolPublic.navLeadershipShort', defaultLabel: 'Leadership',      defaultLabelNav: 'Team',       icon: <Users size={14} /> },
+  { id: 'news',       labelKey: 'schoolPublic.navNews',       labelKeyNav: 'schoolPublic.navNewsShort',       defaultLabel: 'News',            defaultLabelNav: 'News',       icon: <Newspaper size={14} /> },
+  { id: 'admissions', labelKey: 'schoolPublic.navAdmissions', labelKeyNav: 'schoolPublic.navAdmissionsShort', defaultLabel: 'Admissions',      defaultLabelNav: 'Apply',      icon: <UserCheck size={14} /> },
+  { id: 'babyeyi',    labelKey: 'schoolPublic.navFeesDoc',    labelKeyNav: 'schoolPublic.navFeesDocShort',    defaultLabel: 'School Fees Doc', defaultLabelNav: 'Fees Doc',   icon: <FileText size={14} /> },
 ];
 
 function navItemsVisible(sections) {
   const show = (id) => !sections || !Array.isArray(sections) || sections.length === 0 || sections.includes(id);
   return BASE_NAV_ITEMS.filter((item) => show(item.id));
+}
+
+const STANDARD_LEVEL_I18N = {
+  'Nursery / Pre-Primary': 'levelNursery',
+  'Primary School': 'levelPrimary',
+  'Secondary School (O-Level)': 'levelOlevel',
+  'Secondary School (A-Level)': 'levelAlevel',
+  TVET: 'levelTvet',
+  nursery: 'levelNursery',
+  primary: 'levelPrimary',
+  olevel: 'levelOlevel',
+  o_level: 'levelOlevel',
+  'o level': 'levelOlevel',
+  alevel: 'levelAlevel',
+  a_level: 'levelAlevel',
+  'a level': 'levelAlevel',
+  tvet: 'levelTvet',
+};
+
+const CANONICAL_LEVEL_KEYS = {
+  nursery: 'Nursery / Pre-Primary',
+  primary: 'Primary School',
+  olevel: 'Secondary School (O-Level)',
+  o_level: 'Secondary School (O-Level)',
+  'o level': 'Secondary School (O-Level)',
+  alevel: 'Secondary School (A-Level)',
+  a_level: 'Secondary School (A-Level)',
+  'a level': 'Secondary School (A-Level)',
+  tvet: 'TVET',
+  'nursery / pre-primary': 'Nursery / Pre-Primary',
+  'primary school': 'Primary School',
+  'secondary school (o-level)': 'Secondary School (O-Level)',
+  'secondary school (a-level)': 'Secondary School (A-Level)',
+};
+
+function normalizeEducationLevelKey(raw) {
+  const s = String(raw || '').trim();
+  if (!s) return s;
+  const stripped = s.replace(/^custom:/i, '').trim();
+  const lower = stripped.toLowerCase().replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim();
+  if (CANONICAL_LEVEL_KEYS[lower]) return CANONICAL_LEVEL_KEYS[lower];
+  if (STANDARD_LEVEL_I18N[stripped]) return stripped;
+  return stripped;
+}
+
+function resolveEducationLevelLabel(level, t) {
+  const canonical = normalizeEducationLevelKey(level);
+  const lookup = canonical.toLowerCase().replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const key = STANDARD_LEVEL_I18N[canonical] || STANDARD_LEVEL_I18N[lookup];
+  if (key) return t(`schoolPublic.${key}`, { defaultValue: canonical });
+  return formatProgramLabel(level);
 }
 
 // ─── SECTION HEAD ────────────────────────────────────────────────────────────
@@ -131,10 +185,16 @@ function SectionHead({ eyebrow, title, sub, accentColor, center = true }) {
 //  NAVBAR
 // ═══════════════════════════════════════════════════════════════════════════════
 function NavBar({ school, theme, active, onNav, menuOpen, setMenuOpen, onApply, onBabyeyi, template = 'modern', navItems = BASE_NAV_ITEMS }) {
+  const { t, i18n } = useTranslation();
   const { p, a } = theme;
   const minimal = isMinimalTemplate(template);
   const [scrolled, setScrolled] = useState(false);
   const logoSrc = imgUrl(school.logoPreview);
+  const logoAlt = t('schoolPublic.logoAlt', { defaultValue: 'School logo' });
+  const navLabel = (item) => t(item.labelKeyNav || item.labelKey, { defaultValue: item.defaultLabelNav || item.defaultLabel });
+  const LANGS = ['rw', 'en', 'fr'];
+  const currentLang = String(i18n.language || 'en').slice(0, 2).toLowerCase();
+  const langValue = LANGS.includes(currentLang) ? currentLang : 'en';
 
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 50);
@@ -151,7 +211,7 @@ function NavBar({ school, theme, active, onNav, menuOpen, setMenuOpen, onApply, 
     <>
       {/* ── DESKTOP (fixed: parent overflow-x-hidden breaks sticky) ── */}
       <header
-        className="hidden lg:flex items-center fixed top-0 left-0 right-0 z-50 w-full h-16 px-6 xl:px-10 transition-all duration-300"
+        className="hidden lg:flex items-center fixed top-0 left-0 right-0 z-50 w-full min-h-[60px] h-auto py-1.5 px-4 xl:px-8 transition-all duration-300 gap-2"
         style={{
           background: minimal
             ? (scrolled ? 'rgba(255,255,255,0.98)' : '#ffffff')
@@ -163,16 +223,17 @@ function NavBar({ school, theme, active, onNav, menuOpen, setMenuOpen, onApply, 
           borderBottom: minimal ? '1px solid rgba(0,0,0,0.06)' : undefined,
         }}
       >
-        {/* Logo + name */}
-        <div className="flex items-center gap-3 mr-6 flex-shrink-0 w-full max-w-max">
+        {/* Logo only — school name shown in hero, not header */}
+        <div className="flex items-center shrink-0">
           <div
-            className="w-9  h-9 rounded-xl overflow-hidden flex-shrink-0 ring-2 flex items-center justify-center bg-white/10"
+            className="w-9 h-9 rounded-xl overflow-hidden flex-shrink-0 ring-2 flex items-center justify-center bg-white/10"
             style={{ ringColor: minimal ? `${p}33` : `${a}44` }}
+            title={school.name || undefined}
           >
             {logoSrc
-              ? <img src={logoSrc} alt="logo" className="w-full h-full object-contain p-0.5" />
+              ? <img src={logoSrc} alt={logoAlt} className="w-full h-full object-contain p-0.5" />
               : (
-                <div 
+                <div
                   className="w-full h-full flex items-center justify-center font-black"
                   style={{ background: `${a}33`, color: minimal ? p : a, ...syne, fontSize: 12 }}
                 >
@@ -181,61 +242,83 @@ function NavBar({ school, theme, active, onNav, menuOpen, setMenuOpen, onApply, 
               )
             }
           </div>
-          <span
-            className={`font-black text-sm leading-tight max-w-[200px] truncate ${minimal ? 'text-[#1F2937]' : 'text-white'}`}
-            style={syne}
-          >
-            {school.name}
-          </span>
         </div>
 
-        <div className={`w-px h-6 mr-5 flex-shrink-0 ${minimal ? 'bg-black/10' : 'bg-white/15'}`} />
-
-        {/* Nav links */}
-        <nav className="flex items-center gap-0.5 flex-1 overflow-x-auto min-w-0">
-          {navItems.map(item => {
+        {/* Nav links — wrap so every item stays visible */}
+        <nav className="flex flex-1 min-w-0 flex-wrap items-center justify-center gap-1 px-1">
+          {navItems.map((item) => {
             const isActive = active === item.id;
+            const label = navLabel(item);
             return (
               <button
                 key={item.id}
+                type="button"
                 onClick={() => onNav(item.id, item.path)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all duration-200 flex-shrink-0"
+                title={label}
+                className="flex items-center gap-1 px-2 xl:px-2.5 py-1.5 rounded-lg text-[10px] xl:text-[11px] font-bold whitespace-nowrap transition-all duration-200 shrink-0"
                 style={{
                   background: isActive ? a : 'transparent',
                   color: minimal
-                    ? (isActive ? '#1F2937' : 'rgba(31,41,55,0.55)')
-                    : (isActive ? '#1F2937' : 'rgba(255,255,255,0.72)'),
+                    ? (isActive ? '#1F2937' : 'rgba(31,41,55,0.62)')
+                    : (isActive ? '#1F2937' : 'rgba(255,255,255,0.88)'),
                   ...syne,
                 }}
               >
-                <span style={{ color: isActive ? '#1F2937' : (minimal ? `${p}99` : `${a}bb`) }}>{item.icon}</span>
-                {item.label}
+                <span className="shrink-0" style={{ color: isActive ? '#1F2937' : (minimal ? `${p}99` : `${a}dd`) }}>{item.icon}</span>
+                <span className="leading-none">{label}</span>
               </button>
             );
           })}
         </nav>
 
-        <Link
-          to="/"
-          className={`ml-3 flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-black text-xs transition flex-shrink-0 border ${
-            minimal
-              ? 'border-slate-200 bg-white text-[#1F2937] hover:bg-slate-50 shadow-sm'
-              : 'border-white/25 bg-white/10 text-white hover:bg-white/18'
-          }`}
-          style={syne}
-          title="Babyeyi platform landing page"
-        >
-          <Home size={13} strokeWidth={2.5} /> Landing
-        </Link>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <div
+            className="relative inline-flex items-center rounded-lg px-1.5 py-1 text-[10px] font-semibold"
+            style={{
+              background: minimal ? 'rgba(0,4,53,0.06)' : 'rgba(255,255,255,0.1)',
+              border: minimal ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.2)',
+              color: minimal ? '#1F2937' : 'rgba(255,255,255,0.9)',
+            }}
+          >
+            <Globe size={11} className="mr-1 shrink-0 text-amber-400" />
+            <select
+              aria-label={t('language.switcherLabel', { defaultValue: 'Language' })}
+              value={langValue}
+              onChange={(e) => i18n.changeLanguage(e.target.value)}
+              className="bg-transparent border-0 outline-none cursor-pointer text-[10px] font-bold pr-4 appearance-none"
+              style={syne}
+            >
+              <option value="rw">RW</option>
+              <option value="en">EN</option>
+              <option value="fr">FR</option>
+            </select>
+            <ChevronDown size={10} className="absolute right-1 pointer-events-none opacity-70" />
+          </div>
 
-        {/* CTA */}
-        <button
-          onClick={onApply}
-          className="ml-3 flex items-center gap-2 px-4 py-2 rounded-xl font-black text-xs hover:scale-105 active:scale-95 transition-transform flex-shrink-0"
-          style={{ background: a, color: '#1F2937', boxShadow: `0 4px 14px ${a}55`, ...syne }}
-        >
-          <Send size={12} /> Get Admission
-        </button>
+          <Link
+            to="/"
+            className={`flex items-center gap-1 px-2 xl:px-3 py-1.5 rounded-lg font-black text-[10px] xl:text-[11px] transition shrink-0 border ${
+              minimal
+                ? 'border-slate-200 bg-white text-[#1F2937] hover:bg-slate-50'
+                : 'border-white/25 bg-white/10 text-white hover:bg-white/18'
+            }`}
+            style={syne}
+            title={t('schoolPublic.backToLandingTitle', { defaultValue: 'Babyeyi platform landing page' })}
+          >
+            <Home size={12} strokeWidth={2.5} />
+            <span className="hidden xl:inline">{t('schoolPublic.landing', { defaultValue: 'Landing' })}</span>
+          </Link>
+
+          <button
+            type="button"
+            onClick={onApply}
+            className="flex items-center gap-1 px-2.5 xl:px-3 py-1.5 rounded-lg font-black text-[10px] xl:text-[11px] hover:scale-[1.02] active:scale-95 transition-transform shrink-0"
+            style={{ background: a, color: '#1F2937', boxShadow: `0 4px 14px ${a}55`, ...syne }}
+          >
+            <Send size={11} />
+            <span>{t('schoolPublic.getAdmissionShort', { defaultValue: 'Apply' })}</span>
+          </button>
+        </div>
       </header>
 
       {/* ── MOBILE topbar ── */}
@@ -246,30 +329,32 @@ function NavBar({ school, theme, active, onNav, menuOpen, setMenuOpen, onApply, 
           boxShadow: scrolled ? (minimal ? '0 4px 16px rgba(0,0,0,0.06)' : `0 4px 20px rgba(0,0,0,0.24)`) : (minimal ? '0 1px 0 rgba(0,0,0,0.06)' : 'none'),
         }}
       >
-        <div className="h-14 flex items-center justify-between px-4 gap-2">
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            <Link
-              to="/"
-              className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${
-                minimal ? 'bg-gray-100 text-amber-700 hover:bg-amber-50' : 'bg-white/10 text-white hover:bg-white/20'
-              }`}
-              title="Back to Babyeyi landing page"
-              aria-label="Back to Babyeyi landing page"
-            >
-              <Home size={18} strokeWidth={2.25} />
-            </Link>
+        <div className="h-14 flex items-center justify-between px-3 gap-2">
+          <div className="flex items-center gap-1 shrink-0">
             <button
               type="button"
               onClick={() => setMenuOpen(true)}
-              className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors flex-shrink-0 ${minimal ? 'bg-gray-100 text-gray-800 hover:bg-gray-200' : 'bg-white/10 text-white hover:bg-white/20'}`}
+              className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors shrink-0 ${minimal ? 'bg-gray-100 text-gray-800 hover:bg-gray-200' : 'bg-white/10 text-white hover:bg-white/20'}`}
+              aria-label={t('schoolPublic.openMenu', { defaultValue: 'Open menu' })}
             >
               <Menu size={18} />
             </button>
+            <Link
+              to="/"
+              className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors shrink-0 ${
+                minimal ? 'bg-gray-100 text-amber-700 hover:bg-amber-50' : 'bg-white/10 text-white hover:bg-white/20'
+              }`}
+              title={t('schoolPublic.backToLandingAria', { defaultValue: 'Back to Babyeyi landing page' })}
+              aria-label={t('schoolPublic.backToLandingAria', { defaultValue: 'Back to Babyeyi landing page' })}
+            >
+              <Home size={17} strokeWidth={2.25} />
+            </Link>
           </div>
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <div className={`w-8 h-8 rounded-xl overflow-hidden ring-2 flex-shrink-0 flex items-center justify-center ${minimal ? 'ring-black/10 bg-white' : 'ring-white/20'}`}>
+
+          <div className="flex items-center justify-center shrink-0">
+            <div className={`w-9 h-9 rounded-xl overflow-hidden ring-2 flex items-center justify-center ${minimal ? 'ring-black/10 bg-white' : 'ring-white/20'}`}>
               {logoSrc
-                ? <img src={logoSrc} alt="logo" className="w-full h-full object-contain p-0.5" />
+                ? <img src={logoSrc} alt={logoAlt} className="w-full h-full object-contain p-0.5" />
                 : (
                   <div className="w-full h-full flex items-center justify-center font-black text-xs" style={{ background: `${a}33`, color: minimal ? p : '#fff' }}>
                     {(school.name || 'S')[0]}
@@ -277,20 +362,44 @@ function NavBar({ school, theme, active, onNav, menuOpen, setMenuOpen, onApply, 
                 )
               }
             </div>
-            <span className={`font-black text-sm truncate ${minimal ? 'text-[#1F2937]' : 'text-white'}`} style={syne}>{school.name}</span>
           </div>
-          <button
-            onClick={onApply}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl font-black text-xs shadow-lg hover:scale-105 active:scale-95 transition-transform flex-shrink-0"
-            style={{ background: a, color: '#1F2937', ...syne }}
-          >
-            <Send size={11} /> Admission
-          </button>
+
+          <div className="flex items-center gap-1 shrink-0">
+            <div
+              className="relative inline-flex items-center rounded-lg px-1 py-0.5"
+              style={{
+                background: minimal ? 'rgba(0,4,53,0.06)' : 'rgba(255,255,255,0.1)',
+                border: minimal ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.2)',
+              }}
+            >
+              <Globe size={11} className="shrink-0 text-amber-400 mx-0.5" />
+              <select
+                aria-label={t('language.switcherLabel', { defaultValue: 'Language' })}
+                value={langValue}
+                onChange={(e) => i18n.changeLanguage(e.target.value)}
+                className="bg-transparent border-0 outline-none cursor-pointer text-[10px] font-bold w-9 appearance-none"
+                style={{ ...syne, color: minimal ? '#1F2937' : '#fff' }}
+              >
+                <option value="rw">RW</option>
+                <option value="en">EN</option>
+                <option value="fr">FR</option>
+              </select>
+            </div>
+            <button
+              type="button"
+              onClick={onApply}
+              className="flex items-center gap-1 px-2.5 py-2 rounded-xl font-black text-[10px] shadow-lg hover:scale-105 active:scale-95 transition-transform shrink-0"
+              style={{ background: a, color: '#1F2937', ...syne }}
+            >
+              <Send size={11} />
+              <span className="max-w-[72px] truncate">{t('schoolPublic.getAdmissionShort', { defaultValue: 'Apply' })}</span>
+            </button>
+          </div>
         </div>
       </header>
 
       {/* Reserve space so content is not hidden under fixed headers (h-14 mobile / h-16 desktop) */}
-      <div className="h-14 lg:h-16 shrink-0" aria-hidden="true" />
+      <div className="h-14 lg:h-[68px] shrink-0" aria-hidden="true" />
 
       {/* ── MOBILE backdrop ── */}
       <div
@@ -320,10 +429,10 @@ function NavBar({ school, theme, active, onNav, menuOpen, setMenuOpen, onApply, 
           className="flex items-center justify-between px-5 pt-6 pb-5 flex-shrink-0"
           style={{ borderBottom: '1px solid rgba(251,191,36,0.15)' }}
         >
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <div className="w-11 h-11 rounded-2xl overflow-hidden ring-2 ring-white/15 flex-shrink-0">
               {logoSrc
-                ? <img src={logoSrc} alt="logo" className="w-full h-full object-cover" />
+                ? <img src={logoSrc} alt={logoAlt} className="w-full h-full object-cover" />
                 : (
                   <div
                     className="w-full h-full flex items-center justify-center font-black text-white text-lg"
@@ -334,14 +443,12 @@ function NavBar({ school, theme, active, onNav, menuOpen, setMenuOpen, onApply, 
                 )
               }
             </div>
-            <div>
-              <div className="font-black text-white text-sm leading-tight max-w-[150px]" style={syne}>{school.name}</div>
-              {school.district && (
-                <div className="text-white/40 text-[10px] font-semibold flex items-center gap-1 mt-0.5" style={syne}>
-                  <MapPin size={8} /> {school.district}
-                </div>
-              )}
-            </div>
+            {school.district && (
+              <div className="text-white/70 text-xs font-semibold flex items-center gap-1 min-w-0" style={syne}>
+                <MapPin size={10} className="shrink-0" />
+                <span className="truncate">{school.district}</span>
+              </div>
+            )}
           </div>
           <button
             onClick={() => setMenuOpen(false)}
@@ -378,7 +485,7 @@ function NavBar({ school, theme, active, onNav, menuOpen, setMenuOpen, onApply, 
                 >
                   {item.icon}
                 </span>
-                <span className="flex-1 text-left">{item.label}</span>
+                <span className="flex-1 text-left">{navLabel(item)}</span>
                 {isActive && (
                   <span className="w-1.5 h-6 rounded-full flex-shrink-0" style={{ background: 'rgba(31,41,55,0.2)' }} />
                 )}
@@ -394,7 +501,7 @@ function NavBar({ school, theme, active, onNav, menuOpen, setMenuOpen, onApply, 
             className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl font-black text-sm border border-white/15 bg-white/5 text-white/90 hover:bg-white/10 transition-colors"
             style={syne}
           >
-            <Home size={16} /> Back to landing page
+            <Home size={16} /> {t('schoolPublic.backToLanding', { defaultValue: 'Back to landing page' })}
           </Link>
         </div>
 
@@ -405,10 +512,10 @@ function NavBar({ school, theme, active, onNav, menuOpen, setMenuOpen, onApply, 
             className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-black text-sm hover:opacity-90 active:scale-95 transition-all shadow-2xl"
             style={{ background: '#FBBF24', color: '#1F2937', boxShadow: '0 6px 20px rgba(251,191,36,0.4)', ...syne }}
           >
-            <Send size={14} /> Get Admission
+            <Send size={14} /> {t('schoolPublic.getAdmission', { defaultValue: 'Get Admission' })}
           </button>
           <p className="text-center text-white/25 text-[10px] mt-2.5 font-medium" style={syne}>
-            Powered by <span style={{ color: '#FBBF24' }}>babyeyi.rw</span>
+            {t('schoolPublic.poweredBy', { defaultValue: 'Powered by' })} <span style={{ color: '#FBBF24' }}>babyeyi.rw</span>
           </p>
         </div>
       </div>
@@ -418,6 +525,7 @@ function NavBar({ school, theme, active, onNav, menuOpen, setMenuOpen, onApply, 
 
 // ─── HERO ────────────────────────────────────────────────────────────────────
 function HeroSection({ school, theme, onApply, onBabyeyi, template, onStudentLookup }) {
+  const { t } = useTranslation();
   const { p, a, dark } = theme;
   const minimal = isMinimalTemplate(template);
   const coverSrc = imgUrl(school.coverPreview || school.cover_url);
@@ -428,12 +536,12 @@ function HeroSection({ school, theme, onApply, onBabyeyi, template, onStudentLoo
   const heroTagline = (school.tagline && String(school.tagline).trim())
     || (school.vision && String(school.vision).trim())
     || (school.mission && String(school.mission).trim())
-    || 'Excellence in education, shaping the future leaders of Rwanda.';
+    || t('schoolPublic.heroTaglineFallback', { defaultValue: 'Excellence in education, shaping the future leaders of Rwanda.' });
 
   const doStudentLookup = async () => {
     const code = studentCode.trim();
     if (!code) {
-      setLookupError('Enter a student code or SDM ID first.');
+      setLookupError(t('schoolPublic.lookupEnterCode', { defaultValue: 'Enter a student code or SDM ID first.' }));
       return;
     }
     setLookupLoading(true);
@@ -446,14 +554,14 @@ function HeroSection({ school, theme, onApply, onBabyeyi, template, onStudentLoo
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || json.success === false || !json.found || !json.data) {
-        setLookupError(json.message || 'No student matches this code or SDM ID.');
+        setLookupError(json.message || t('schoolPublic.lookupNotFound', { defaultValue: 'No student matches this code or SDM ID.' }));
         return;
       }
       const lookupData = json.data;
       const currentSchoolId = String(school.schoolId || school.id || school.school_id || '').trim();
       const lookupSchoolId = String(lookupData.school_id || lookupData.schoolId || '').trim();
       if (currentSchoolId && lookupSchoolId && currentSchoolId !== lookupSchoolId) {
-        setLookupError('This student belongs to another school.');
+        setLookupError(t('schoolPublic.lookupAnotherSchool', { defaultValue: 'This student belongs to another school.' }));
         return;
       }
       onStudentLookup?.({
@@ -465,7 +573,7 @@ function HeroSection({ school, theme, onApply, onBabyeyi, template, onStudentLoo
         student: lookupData,
       });
     } catch {
-      setLookupError('Network error. Please try again.');
+      setLookupError(t('schoolPublic.lookupNetworkError', { defaultValue: 'Network error. Please try again.' }));
     } finally {
       setLookupLoading(false);
     }
@@ -518,7 +626,7 @@ function HeroSection({ school, theme, onApply, onBabyeyi, template, onStudentLoo
               style={{ background: `rgba(251,191,36,0.12)`, color: '#FBBF24', border: '1px solid rgba(251,191,36,0.3)', ...syne }}
             >
               <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#FBBF24' }} />
-              {school.ownership || 'Public School'} · {school.district}
+              {(school.ownership || t('schoolPublic.publicSchool', { defaultValue: 'Public School' }))} · {school.district}
             </div>
 
             {/* Logo + Name */}
@@ -544,10 +652,10 @@ function HeroSection({ school, theme, onApply, onBabyeyi, template, onStudentLoo
             {/* Info pills */}
             <div className="flex flex-wrap gap-2.5 mb-9">
               {[
-                { icon: <MapPin size={12} />, val: `${school.district || 'Rwanda'}${school.province ? `, ${school.province}` : ''}` },
-                { icon: <Building2 size={12} />, val: school.category || 'Secondary School' },
-                { icon: <Calendar size={12} />, val: school.founded ? `Est. ${school.founded}` : null },
-                { icon: <GraduationCap size={12} />, val: (school.educationLevels || []).length > 0 ? `${school.educationLevels.length} Level${school.educationLevels.length > 1 ? 's' : ''}` : null },
+                { icon: <MapPin size={12} />, val: `${school.district || t('schoolPublic.rwanda', { defaultValue: 'Rwanda' })}${school.province ? `, ${school.province}` : ''}` },
+                { icon: <Building2 size={12} />, val: school.category || t('schoolPublic.secondarySchool', { defaultValue: 'Secondary School' }) },
+                { icon: <Calendar size={12} />, val: school.founded ? `${t('schoolPublic.estShort', { defaultValue: 'Est.' })} ${school.founded}` : null },
+                { icon: <GraduationCap size={12} />, val: (school.educationLevels || []).length > 0 ? t('schoolPublic.levelCount', { count: school.educationLevels.length, defaultValue: `${school.educationLevels.length} Level${school.educationLevels.length > 1 ? 's' : ''}` }) : null },
               ].filter(s => s.val).map((s, i) => (
                 <div
                   key={i}
@@ -567,14 +675,14 @@ function HeroSection({ school, theme, onApply, onBabyeyi, template, onStudentLoo
                 className="flex items-center gap-2 px-6 py-3.5 rounded-2xl font-black text-sm hover:scale-105 active:scale-95 transition-transform shadow-2xl"
                 style={{ background: '#FBBF24', color: '#1F2937', boxShadow: '0 8px 30px rgba(251,191,36,0.45)', ...syne }}
               >
-                <Send size={15} /> Get Babyeyi
+                <Send size={15} /> {t('schoolPublic.getBabyeyi', { defaultValue: 'Get Babyeyi' })}
               </button>
               <button
                 onClick={() => document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' })}
                 className="flex items-center gap-2 px-6 py-3.5 rounded-2xl font-black text-sm border-2 hover:bg-white/8 transition-colors text-white"
                 style={{ borderColor: 'rgba(255,255,255,0.25)', ...syne }}
               >
-                <Phone size={15} /> Contact School
+                <Phone size={15} /> {t('schoolPublic.contactSchool', { defaultValue: 'Contact School' })}
               </button>
             </div>
 
@@ -591,7 +699,7 @@ function HeroSection({ school, theme, onApply, onBabyeyi, template, onStudentLoo
                   value={studentCode}
                   onChange={(e) => { setStudentCode(e.target.value); if (lookupError) setLookupError(''); }}
                   onKeyDown={(e) => { if (e.key === 'Enter') doStudentLookup(); }}
-                  placeholder="Student code or SDM ID"
+                  placeholder={t('schoolPublic.lookupPlaceholder', { defaultValue: 'Student code or SDM ID' })}
                   className="flex-1 min-w-0 w-full bg-transparent outline-none text-sm text-white placeholder:text-white/45"
                   style={syne}
                 />
@@ -602,7 +710,9 @@ function HeroSection({ school, theme, onApply, onBabyeyi, template, onStudentLoo
                   className="w-full sm:w-auto shrink-0 px-3 py-2.5 sm:py-2 rounded-xl text-[11px] sm:text-xs font-black text-[#1F2937] disabled:opacity-60 whitespace-normal text-center leading-tight"
                   style={{ background: '#FBBF24', ...syne }}
                 >
-                  {lookupLoading ? 'Searching…' : 'Confirm details before continuing'}
+                  {lookupLoading
+                    ? t('schoolPublic.searching', { defaultValue: 'Searching...' })
+                    : t('schoolPublic.confirmBeforeContinue', { defaultValue: 'Confirm details before continuing' })}
                 </button>
               </div>
               {lookupError && (
@@ -625,6 +735,7 @@ function HeroSection({ school, theme, onApply, onBabyeyi, template, onStudentLoo
 
 // ─── ABOUT ───────────────────────────────────────────────────────────────────
 function AboutSection({ school, theme }) {
+  const { t } = useTranslation();
   const { p, a, s } = theme;
   const aboutSrc = imgUrl(school.aboutPreview);
 
@@ -638,22 +749,22 @@ function AboutSection({ school, theme }) {
               style={{ color: '#FBBF24', ...syne }}
             >
               <span className="w-6 h-px bg-amber-400 block" />
-              Who We Are
+              {t('schoolPublic.whoWeAre', { defaultValue: 'Who We Are' })}
             </div>
             <h2
               className="text-3xl sm:text-4xl lg:text-5xl font-black text-[#1F2937] mb-6 leading-[1.1]"
               style={{ ...serif, letterSpacing: '-0.02em' }}
             >
-              Shaping Rwanda's{' '}
-              <em style={{ color: '#FBBF24' }}>Future Leaders</em>
+              {t('schoolPublic.shapingRwanda', { defaultValue: "Shaping Rwanda's" })}{' '}
+              <em style={{ color: '#FBBF24' }}>{t('schoolPublic.futureLeaders', { defaultValue: 'Future Leaders' })}</em>
             </h2>
             <p className="text-gray-500 text-sm sm:text-base leading-relaxed mb-7" style={syne}>
-              {school.mission || 'We are dedicated to nurturing the next generation of leaders through excellence in education, integrity, and innovation.'}
+              {school.mission || t('schoolPublic.aboutMissionFallback', { defaultValue: 'We are dedicated to nurturing the next generation of leaders through excellence in education, integrity, and innovation.' })}
             </p>
 
             {/* Tags */}
             <div className="flex flex-wrap gap-2 mb-7">
-              {[school.ownership, school.category, school.founded && `Est. ${school.founded}`]
+              {[school.ownership, school.category, school.founded && `${t('schoolPublic.estShort', { defaultValue: 'Est.' })} ${school.founded}`]
                 .filter(Boolean).map((tag, i) => (
                   <span
                     key={i}
@@ -672,7 +783,7 @@ function AboutSection({ school, theme }) {
                   className="text-xs font-black uppercase tracking-widest mb-3 flex items-center gap-2"
                   style={{ color: '#1F2937', ...syne }}
                 >
-                  <Star size={12} style={{ color: '#FBBF24' }} /> Core Values
+                  <Star size={12} style={{ color: '#FBBF24' }} /> {t('schoolPublic.coreValues', { defaultValue: 'Core Values' })}
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {school.coreValues.map((v, i) => (
@@ -714,10 +825,10 @@ function AboutSection({ school, theme }) {
             ) : (
               <div className="grid grid-cols-2 gap-4">
                 {[
-                  { icon: <GraduationCap size={28} />, label: 'Academic Excellence' },
-                  { icon: <Users size={28} />, label: 'Student Community' },
-                  { icon: <BookOpen size={28} />, label: 'Quality Learning' },
-                  { icon: <Award size={28} />, label: 'Achievements' },
+                  { icon: <GraduationCap size={28} />, label: t('schoolPublic.academicExcellence', { defaultValue: 'Academic Excellence' }) },
+                  { icon: <Users size={28} />, label: t('schoolPublic.studentCommunity', { defaultValue: 'Student Community' }) },
+                  { icon: <BookOpen size={28} />, label: t('schoolPublic.qualityLearning', { defaultValue: 'Quality Learning' }) },
+                  { icon: <Award size={28} />, label: t('schoolPublic.achievements', { defaultValue: 'Achievements' }) },
                 ].map((e, i) => (
                   <div
                     key={i}
@@ -747,12 +858,13 @@ function AboutSection({ school, theme }) {
 
 // ─── MISSION ─────────────────────────────────────────────────────────────────
 function MissionSection({ school, theme }) {
+  const { t } = useTranslation();
   const { p, s } = theme;
   const missionSrc = imgUrl(school.missionPreview);
   return (
     <section id="mission" className="py-20 sm:py-28" style={{ background: '#F8F7F4' }}>
       <div className="max-w-7xl mx-auto px-5 sm:px-8">
-        <SectionHead eyebrow="Our Purpose" title="Mission & Vision" accentColor="#FBBF24" />
+        <SectionHead eyebrow={t('schoolPublic.ourPurpose', { defaultValue: 'Our Purpose' })} title={t('schoolPublic.missionVision', { defaultValue: 'Mission & Vision' })} accentColor="#FBBF24" />
         <div className="grid md:grid-cols-2 gap-5 sm:gap-6 mb-8">
           {/* Mission */}
           <div
@@ -761,9 +873,9 @@ function MissionSection({ school, theme }) {
           >
             <div className="absolute top-0 right-0 w-48 h-48 rounded-full opacity-[0.06] -translate-y-1/2 translate-x-1/2" style={{ background: '#FBBF24' }} />
             <Target size={28} className="mb-5 relative z-10" style={{ color: '#FBBF24' }} />
-            <h3 className="font-black text-2xl mb-4 relative z-10 text-white" style={serif}>Our Mission</h3>
+            <h3 className="font-black text-2xl mb-4 relative z-10 text-white" style={serif}>{t('schoolPublic.ourMission', { defaultValue: 'Our Mission' })}</h3>
             <p className="text-white/60 text-sm sm:text-base leading-relaxed relative z-10" style={syne}>
-              {school.mission || 'To provide quality, holistic education that nurtures every learner.'}
+              {school.mission || t('schoolPublic.ourMissionFallback', { defaultValue: 'To provide quality, holistic education that nurtures every learner.' })}
             </p>
           </div>
           {/* Vision */}
@@ -773,9 +885,9 @@ function MissionSection({ school, theme }) {
           >
             <div className="absolute top-0 right-0 w-32 h-32 rounded-full opacity-[0.07] -translate-y-1/2 translate-x-1/2" style={{ background: '#1F2937' }} />
             <Lightbulb size={28} className="mb-5 relative z-10" style={{ color: '#FBBF24' }} />
-            <h3 className="font-black text-2xl mb-4 relative z-10 text-[#1F2937]" style={serif}>Our Vision</h3>
+            <h3 className="font-black text-2xl mb-4 relative z-10 text-[#1F2937]" style={serif}>{t('schoolPublic.ourVision', { defaultValue: 'Our Vision' })}</h3>
             <p className="text-gray-500 text-sm sm:text-base leading-relaxed relative z-10" style={syne}>
-              {school.vision || "To be Rwanda's leading institution for holistic education."}
+              {school.vision || t('schoolPublic.ourVisionFallback', { defaultValue: "To be Rwanda's leading institution for holistic education." })}
             </p>
           </div>
         </div>
@@ -791,11 +903,12 @@ function MissionSection({ school, theme }) {
 
 // ─── BACKGROUND ──────────────────────────────────────────────────────────────
 function BackgroundSection({ school }) {
+  const { t } = useTranslation();
   if (!school.background) return null;
   return (
     <section id="background" className="py-16 sm:py-20 bg-white">
       <div className="max-w-4xl mx-auto px-5 sm:px-8">
-        <SectionHead eyebrow="Overview" title="School Background" accentColor="#FBBF24" />
+        <SectionHead eyebrow={t('schoolPublic.overview', { defaultValue: 'Overview' })} title={t('schoolPublic.schoolBackground', { defaultValue: 'School Background' })} accentColor="#FBBF24" />
         <div
           className="rounded-3xl p-6 sm:p-8 text-sm sm:text-base leading-relaxed text-gray-600"
           style={{ background: '#F8F7F4', border: '1px solid #EDE8DC', ...syne }}
@@ -809,6 +922,7 @@ function BackgroundSection({ school }) {
 
 // ─── PROGRAMS ────────────────────────────────────────────────────────────────
 function ProgramsSection({ school, theme }) {
+  const { t } = useTranslation();
   const { p, a } = theme;
   const levels       = school.educationLevels || [];
   const aLevelCombos = school.aLevelCombos || school.aLevelCombinations || [];
@@ -816,11 +930,11 @@ function ProgramsSection({ school, theme }) {
   const [activeLevel, setActiveLevel] = useState(null);
 
   const levelMeta = {
-    'Nursery / Pre-Primary':      { icon: <Sparkles size={26} />, desc: 'Ages 2–6 · Play-based learning', bg: 'rgba(251,191,36,0.08)', accent: '#FBBF24' },
-    'Primary School':              { icon: <BookOpen size={26} />, desc: 'P1–P6 · Ages 6–12',              bg: '#F8F7F4',              accent: '#1F2937' },
-    'Secondary School (O-Level)':  { icon: <GraduationCap size={26} />, desc: 'S1–S3 · Ages 13–16',        bg: 'rgba(251,191,36,0.12)', accent: '#92620a' },
-    'Secondary School (A-Level)':  { icon: <Award size={26} />, desc: 'S4–S6 · Ages 17–19',               bg: '#1F2937',              accent: '#FBBF24' },
-    'TVET':                        { icon: <Wrench size={26} />, desc: 'Vocational Training',              bg: 'rgba(31,41,55,0.07)',  accent: '#1F2937' },
+    'Nursery / Pre-Primary':      { icon: <Sparkles size={26} />, desc: t('schoolPublic.metaNurseryDesc', { defaultValue: 'Ages 2-6 · Play-based learning' }), bg: 'rgba(251,191,36,0.08)', accent: '#FBBF24' },
+    'Primary School':              { icon: <BookOpen size={26} />, desc: t('schoolPublic.metaPrimaryDesc', { defaultValue: 'P1-P6 · Ages 6-12' }),              bg: '#F8F7F4',              accent: '#1F2937' },
+    'Secondary School (O-Level)':  { icon: <GraduationCap size={26} />, desc: t('schoolPublic.metaOlevelDesc', { defaultValue: 'S1-S3 · Ages 13-16' }),        bg: 'rgba(251,191,36,0.12)', accent: '#92620a' },
+    'Secondary School (A-Level)':  { icon: <Award size={26} />, desc: t('schoolPublic.metaAlevelDesc', { defaultValue: 'S4-S6 · Ages 17-19' }),               bg: '#1F2937',              accent: '#FBBF24' },
+    'TVET':                        { icon: <Wrench size={26} />, desc: t('schoolPublic.metaTvetDesc', { defaultValue: 'Vocational Training' }),              bg: 'rgba(31,41,55,0.07)',  accent: '#1F2937' },
   };
   const levelDetails = {
     'Nursery / Pre-Primary': ['Baby class', 'Middle class', 'Top class'],
@@ -829,18 +943,20 @@ function ProgramsSection({ school, theme }) {
     'Secondary School (A-Level)': aLevelCombos.map(c => c?.code || c).filter(Boolean),
     TVET: tvetTrades,
   };
-  const activeItems = activeLevel ? (levelDetails[activeLevel] || []) : [];
+  const activeItems = activeLevel ? (levelDetails[normalizeEducationLevelKey(activeLevel)] || []) : [];
 
   return (
     <section id="programs" className="py-20 sm:py-28 bg-white">
       <div className="max-w-7xl mx-auto px-5 sm:px-8">
-        <SectionHead eyebrow="Academics" title="Our Programs" sub="Comprehensive education pathways for every learner" accentColor="#FBBF24" />
+        <SectionHead eyebrow={t('schoolPublic.academics', { defaultValue: 'Academics' })} title={t('schoolPublic.ourPrograms', { defaultValue: 'Our Programs' })} sub={t('schoolPublic.programsSub', { defaultValue: 'Comprehensive education pathways for every learner' })} accentColor="#FBBF24" />
 
         {levels.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4 mb-10">
             {levels.map(l => {
-              const m = levelMeta[l] || { icon: <BookOpen size={26} />, desc: '', bg: '#F8F7F4', accent: '#1F2937' };
-              const short = l.replace('Secondary School (', '').replace(')', '').replace(' / Pre-Primary', '');
+              const canonical = normalizeEducationLevelKey(l);
+              const m = levelMeta[canonical] || { icon: <BookOpen size={26} />, desc: '', bg: '#F8F7F4', accent: '#1F2937' };
+              const short = resolveEducationLevelLabel(l, t)
+                .replace('Secondary School (', '').replace(')', '').replace(' / Pre-Primary', '');
               return (
                 <button
                   type="button"
@@ -873,7 +989,7 @@ function ProgramsSection({ school, theme }) {
                     {m.desc}
                   </p>
                   <p className="mt-2 text-[10px] font-bold uppercase tracking-wider" style={{ color: '#92620a', ...syne }}>
-                    {activeLevel === l ? 'Hide levels' : 'Get levels'}
+                    {activeLevel === l ? t('schoolPublic.hideLevels', { defaultValue: 'Hide levels' }) : t('schoolPublic.getLevels', { defaultValue: 'Get levels' })}
                   </p>
                 </button>
               );
@@ -887,7 +1003,7 @@ function ProgramsSection({ school, theme }) {
             style={{ background: '#F8F7F4', borderColor: 'rgba(251,191,36,0.35)' }}
           >
             <h4 className="font-black text-[#1F2937] text-base sm:text-lg mb-3" style={serif}>
-              {activeLevel} Levels
+              {resolveEducationLevelLabel(activeLevel, t)} {t('schoolPublic.levels', { defaultValue: 'Levels' })}
             </h4>
             {activeItems.length > 0 ? (
               <div className="flex flex-wrap gap-2.5">
@@ -902,7 +1018,7 @@ function ProgramsSection({ school, theme }) {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-gray-500" style={syne}>No levels configured for this program yet.</p>
+              <p className="text-sm text-gray-500" style={syne}>{t('schoolPublic.noLevelsYet', { defaultValue: 'No levels configured for this program yet.' })}</p>
             )}
           </div>
         )}
@@ -914,9 +1030,9 @@ function ProgramsSection({ school, theme }) {
           >
             <div className="flex items-center gap-3 mb-2">
               <Award size={20} style={{ color: '#FBBF24' }} />
-              <h3 className="font-black text-white text-lg sm:text-xl" style={serif}>A-Level Combinations</h3>
+              <h3 className="font-black text-white text-lg sm:text-xl" style={serif}>{t('schoolPublic.aLevelCombinations', { defaultValue: 'A-Level Combinations' })}</h3>
             </div>
-            <p className="text-white/40 text-xs sm:text-sm mb-6" style={syne}>Available subject combinations for Senior 4–6</p>
+            <p className="text-white/40 text-xs sm:text-sm mb-6" style={syne}>{t('schoolPublic.aLevelSub', { defaultValue: 'Available subject combinations for Senior 4-6' })}</p>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
               {aLevelCombos.map(c => (
                 <div
@@ -939,7 +1055,7 @@ function ProgramsSection({ school, theme }) {
           >
             <div className="flex items-center gap-3 mb-5">
               <Wrench size={20} style={{ color: '#FBBF24' }} />
-              <h3 className="font-black text-[#1F2937] text-lg sm:text-xl" style={serif}>TVET Trades Offered</h3>
+              <h3 className="font-black text-[#1F2937] text-lg sm:text-xl" style={serif}>{t('schoolPublic.tvetTradesOffered', { defaultValue: 'TVET Trades Offered' })}</h3>
             </div>
             <div className="flex flex-wrap gap-2.5">
               {tvetTrades.map(t => (
@@ -958,7 +1074,7 @@ function ProgramsSection({ school, theme }) {
         {levels.length === 0 && aLevelCombos.length === 0 && tvetTrades.length === 0 && (
           <div className="text-center py-16 border-2 border-dashed border-gray-200 rounded-3xl">
             <GraduationCap size={36} className="mx-auto text-gray-300 mb-3" />
-            <p className="text-gray-400 font-semibold" style={syne}>Programs information coming soon</p>
+            <p className="text-gray-400 font-semibold" style={syne}>{t('schoolPublic.programsComingSoon', { defaultValue: 'Programs information coming soon' })}</p>
           </div>
         )}
       </div>
@@ -968,6 +1084,7 @@ function ProgramsSection({ school, theme }) {
 
 // ─── FEES ────────────────────────────────────────────────────────────────────
 function FeesSection({ school, theme }) {
+  const { t } = useTranslation();
   const { p } = theme;
   const fees = school.fees || {};
   const hasFees = Object.values(fees).some(f => f?.items?.length > 0);
@@ -975,12 +1092,12 @@ function FeesSection({ school, theme }) {
   return (
     <section id="fees" className="py-20 sm:py-28" style={{ background: '#F8F7F4' }}>
       <div className="max-w-7xl mx-auto px-5 sm:px-8">
-        <SectionHead eyebrow="Fees & Tuition" title="Fee Structure" sub="Transparent fee information for all levels" accentColor="#FBBF24" />
+        <SectionHead eyebrow={t('schoolPublic.feesTuition', { defaultValue: 'Fees & Tuition' })} title={t('schoolPublic.feeStructure', { defaultValue: 'Fee Structure' })} sub={t('schoolPublic.feeStructureSub', { defaultValue: 'Transparent fee information for all levels' })} accentColor="#FBBF24" />
         <div className="grid sm:grid-cols-2 gap-5 sm:gap-6">
           {Object.entries(fees).filter(([, v]) => v?.items?.length > 0).map(([lvl, data]) => {
             const fl = FEE_LEVELS.find(f => f.id === lvl) || {
               id: lvl,
-              label: formatProgramLabel(data?.label || lvl) || 'Program',
+              label: formatProgramLabel(data?.label || lvl) || t('schoolPublic.program', { defaultValue: 'Program' }),
               icon: <Banknote size={16} />,
             };
             const total = data.items.reduce((sum, i) => sum + (parseFloat(i.amount) || 0), 0);
@@ -1003,14 +1120,14 @@ function FeesSection({ school, theme }) {
                     </div>
                     <div>
                       <h4 className="font-black text-sm sm:text-base text-white" style={syne}>{fl.label}</h4>
-                      <p className="text-xs text-white/40" style={syne}>{data.currency || 'RWF'} · {data.items.length} fee type{data.items.length !== 1 ? 's' : ''}</p>
+                      <p className="text-xs text-white/40" style={syne}>{data.currency || 'RWF'} · {t('schoolPublic.feeTypeCount', { count: data.items.length, defaultValue: `${data.items.length} fee type${data.items.length !== 1 ? 's' : ''}` })}</p>
                     </div>
                   </div>
                   <div className="text-right">
                     <div className="font-black text-base sm:text-lg" style={{ color: '#FBBF24', ...syne }}>
                       {data.currency || 'RWF'} {total.toLocaleString()}
                     </div>
-                    <div className="text-xs text-white/35" style={syne}>/term est.</div>
+                    <div className="text-xs text-white/35" style={syne}>{t('schoolPublic.termEstimate', { defaultValue: '/term est.' })}</div>
                   </div>
                 </div>
                 <div className="p-5 sm:p-6 space-y-3">
@@ -1036,6 +1153,7 @@ function FeesSection({ school, theme }) {
 
 // ─── GALLERY ─────────────────────────────────────────────────────────────────
 function GallerySection({ school, theme }) {
+  const { t } = useTranslation();
   const { p } = theme;
   const albums = school.albums || [];
   const [activeAlbum, setActiveAlbum] = useState(0);
@@ -1046,7 +1164,7 @@ function GallerySection({ school, theme }) {
   return (
     <section id="gallery" className="py-20 sm:py-28 bg-white">
       <div className="max-w-7xl mx-auto px-5 sm:px-8">
-        <SectionHead eyebrow="Memories" title="Photo Gallery" sub="A glimpse into our school life" accentColor="#FBBF24" />
+        <SectionHead eyebrow={t('schoolPublic.memories', { defaultValue: 'Memories' })} title={t('schoolPublic.photoGallery', { defaultValue: 'Photo Gallery' })} sub={t('schoolPublic.photoGallerySub', { defaultValue: 'A glimpse into our school life' })} accentColor="#FBBF24" />
 
         {/* Album tabs */}
         <div className="flex gap-2 overflow-x-auto pb-3 mb-7">
@@ -1062,7 +1180,7 @@ function GallerySection({ school, theme }) {
                 ...syne,
               }}
             >
-              <Image size={12} /> {al.title || `Album ${i + 1}`}
+              <Image size={12} /> {al.title || t('schoolPublic.albumN', { defaultValue: `Album ${i + 1}`, index: i + 1 })}
               <span
                 className="rounded-full px-1.5 py-0.5 text-[9px] font-black"
                 style={{
@@ -1112,7 +1230,7 @@ function GallerySection({ school, theme }) {
                       }
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3">
                         {img.caption && <p className="text-white text-xs font-semibold" style={syne}>{img.caption}</p>}
-                        <div className="flex items-center gap-1 mt-1 text-white/60" style={syne}><ZoomIn size={11} /><span className="text-xs">View</span></div>
+                        <div className="flex items-center gap-1 mt-1 text-white/60" style={syne}><ZoomIn size={11} /><span className="text-xs">{t('schoolPublic.view', { defaultValue: 'View' })}</span></div>
                       </div>
                     </div>
                   );
@@ -1121,7 +1239,7 @@ function GallerySection({ school, theme }) {
             ) : (
               <div className="text-center py-16 border-2 border-dashed border-gray-200 rounded-3xl">
                 <Camera size={40} className="mx-auto text-gray-200 mb-3" />
-                <p className="text-gray-500 font-bold" style={syne}>No photos yet</p>
+                <p className="text-gray-500 font-bold" style={syne}>{t('schoolPublic.noPhotosYet', { defaultValue: 'No photos yet' })}</p>
               </div>
             )}
           </>
@@ -1178,6 +1296,7 @@ function GallerySection({ school, theme }) {
 
 // ─── LEADERSHIP ──────────────────────────────────────────────────────────────
 function LeadershipSection({ school, theme }) {
+  const { t } = useTranslation();
   const { p, a, s } = theme;
   const leaders = Array.isArray(school.leaders) ? school.leaders : [];
   if (!leaders.length) return null;
@@ -1185,7 +1304,7 @@ function LeadershipSection({ school, theme }) {
   return (
     <section id="leadership" className="py-20 sm:py-28" style={{ background: '#F8F7F4' }}>
       <div className="max-w-7xl mx-auto px-5 sm:px-8">
-        <SectionHead eyebrow="Our Team" title="Leadership Team" sub="Dedicated professionals committed to academic excellence" accentColor="#FBBF24" />
+        <SectionHead eyebrow={t('schoolPublic.ourTeam', { defaultValue: 'Our Team' })} title={t('schoolPublic.leadershipTeam', { defaultValue: 'Leadership Team' })} sub={t('schoolPublic.leadershipSub', { defaultValue: 'Dedicated professionals committed to academic excellence' })} accentColor="#FBBF24" />
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
           {leaders.map((l, i) => {
             const photoSrc = imgUrl(l.photoPreview || l.photoUrl);
@@ -1277,6 +1396,7 @@ function LeadershipSection({ school, theme }) {
 
 // ─── NEWS (school stories + modal, links to social) ──────────────────────────
 function NewsSection({ school, theme, enabled }) {
+  const { t } = useTranslation();
   const { p, a } = theme;
   const items = Array.isArray(school.newsItems)
     ? school.newsItems.filter(n => n && String(n.title || '').trim())
@@ -1300,7 +1420,7 @@ function NewsSection({ school, theme, enabled }) {
   return (
     <section id="news" className="py-16 sm:py-24 bg-white scroll-mt-20 w-full max-w-[100vw] overflow-x-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-8 min-w-0">
-        <SectionHead eyebrow="Updates" title="News & announcements" sub="Stay informed about events and stories from our school community" accentColor={p} />
+        <SectionHead eyebrow={t('schoolPublic.updates', { defaultValue: 'Updates' })} title={t('schoolPublic.newsAnnouncements', { defaultValue: 'News & announcements' })} sub={t('schoolPublic.newsSub', { defaultValue: 'Stay informed about events and stories from our school community' })} accentColor={p} />
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
           {items.map((post, i) => (
             <button
@@ -1319,7 +1439,7 @@ function NewsSection({ school, theme, enabled }) {
                 <p className="text-gray-500 text-xs sm:text-sm line-clamp-3 leading-relaxed" style={syne}>{post.excerpt}</p>
               ) : null}
               <span className="inline-flex items-center gap-1 mt-3 text-xs font-black" style={{ color: p }}>
-                Read more <ChevronRight size={12} />
+                {t('schoolPublic.readMore', { defaultValue: 'Read more' })} <ChevronRight size={12} />
               </span>
             </button>
           ))}
@@ -1328,17 +1448,17 @@ function NewsSection({ school, theme, enabled }) {
 
       {open && (
         <div className="fixed inset-0 z-[300] flex items-end sm:items-center justify-center p-0 sm:p-6" role="dialog" aria-modal="true">
-          <button type="button" className="absolute inset-0 bg-black/60 backdrop-blur-sm" aria-label="Close" onClick={() => setOpen(null)} />
+          <button type="button" className="absolute inset-0 bg-black/60 backdrop-blur-sm" aria-label={t('schoolPublic.close', { defaultValue: 'Close' })} onClick={() => setOpen(null)} />
           <div
             className="relative z-10 w-full sm:max-w-lg max-h-[min(90dvh,720px)] flex flex-col rounded-t-3xl sm:rounded-3xl border border-white/10 shadow-2xl overflow-hidden mx-0 sm:mx-auto"
             style={{ background: 'linear-gradient(165deg, #1F2937 0%, #111827 100%)' }}
           >
             <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-white/10 shrink-0">
               <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase tracking-widest mb-1" style={{ color: a }}>{open.date || 'News'}</p>
+                <p className="text-[10px] font-black uppercase tracking-widest mb-1" style={{ color: a }}>{open.date || t('schoolPublic.news', { defaultValue: 'News' })}</p>
                 <h4 className="font-black text-white text-base leading-snug pr-2" style={syne}>{open.title}</h4>
               </div>
-              <button type="button" onClick={() => setOpen(null)} className="shrink-0 p-2 rounded-xl text-white/80 hover:bg-white/10" aria-label="Close">
+              <button type="button" onClick={() => setOpen(null)} className="shrink-0 p-2 rounded-xl text-white/80 hover:bg-white/10" aria-label={t('schoolPublic.close', { defaultValue: 'Close' })}>
                 <X size={20} />
               </button>
             </div>
@@ -1348,7 +1468,7 @@ function NewsSection({ school, theme, enabled }) {
               </p>
               {(open.socialUrl || school.facebook || school.twitter || school.instagram) && (
                 <div className="mt-6 pt-4 border-t border-white/10 space-y-3">
-                  <p className="text-[10px] font-black uppercase tracking-wider text-white/45" style={syne}>Connect</p>
+                  <p className="text-[10px] font-black uppercase tracking-wider text-white/45" style={syne}>{t('schoolPublic.connect', { defaultValue: 'Connect' })}</p>
                   {open.socialUrl ? (
                     <a
                       href={open.socialUrl}
@@ -1357,7 +1477,7 @@ function NewsSection({ school, theme, enabled }) {
                       className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-xs text-[#1F2937]"
                       style={{ background: a }}
                     >
-                      <ExternalLink size={14} /> {open.socialLabel || 'Open linked post'}
+                      <ExternalLink size={14} /> {open.socialLabel || t('schoolPublic.openLinkedPost', { defaultValue: 'Open linked post' })}
                     </a>
                   ) : null}
                   <div className="flex flex-wrap gap-2">
@@ -1387,7 +1507,7 @@ function NewsSection({ school, theme, enabled }) {
                 className="w-full py-3 rounded-2xl font-black text-sm text-[#1F2937]"
                 style={{ background: a }}
               >
-                Close
+                {t('schoolPublic.close', { defaultValue: 'Close' })}
               </button>
             </div>
           </div>
@@ -1399,6 +1519,7 @@ function NewsSection({ school, theme, enabled }) {
 
 // ─── QField (Admission form questions) ───────────────────────────────────────
 function QField({ q, answers, setAnswers }) {
+  const { t } = useTranslation();
   const val = answers[q.id];
   const set = useCallback(v => setAnswers(prev => ({ ...prev, [q.id]: v })), [q.id, setAnswers]);
 
@@ -1413,7 +1534,7 @@ function QField({ q, answers, setAnswers }) {
   if (q.questionType === 'yesno')
     return (
       <div className="flex gap-3">
-        {['Yes', 'No'].map(o => (
+        {[t('common.yes', { defaultValue: 'Yes' }), t('common.no', { defaultValue: 'No' })].map(o => (
           <button key={o} type="button" onClick={() => set(o)}
             className="flex-1 py-3 rounded-xl text-sm font-black border-2 transition-all flex items-center justify-center gap-2"
             style={val === o ? { background: '#1F2937', borderColor: '#1F2937', color: '#FBBF24', ...syne } : { background: 'white', borderColor: '#E5E0D0', color: '#374151', ...syne }}>
@@ -1426,7 +1547,7 @@ function QField({ q, answers, setAnswers }) {
   if (q.questionType === 'select')
     return (
       <select className={base} value={val || ''} onChange={e => set(e.target.value)} style={{ ...syne, appearance: 'none' }}>
-        <option value="">— Select an option —</option>
+        <option value="">{t('schoolPublic.selectOption', { defaultValue: '— Select an option —' })}</option>
         {(q.options || []).map((o, i) => <option key={i} value={o}>{o}</option>)}
       </select>
     );
@@ -1458,7 +1579,7 @@ function QField({ q, answers, setAnswers }) {
         style={{ borderColor: 'rgba(251,191,36,0.4)', color: '#9CA3AF', ...syne }}
       >
         <Upload size={15} style={{ color: '#FBBF24' }} />
-        Upload {q.questionType === 'multifile' ? `up to ${q.maxFiles || 5} files` : 'a file'}
+        {t('schoolPublic.upload', { defaultValue: 'Upload' })} {q.questionType === 'multifile' ? t('schoolPublic.uploadUpToFiles', { count: q.maxFiles || 5, defaultValue: `up to ${q.maxFiles || 5} files` }) : t('schoolPublic.uploadAFile', { defaultValue: 'a file' })}
         <input type="file" className="hidden" multiple={q.questionType === 'multifile'} accept="image/*,application/pdf"
           onChange={e => {
             const picked = Array.from(e.target.files || []);
@@ -1483,7 +1604,10 @@ function QField({ q, answers, setAnswers }) {
 
 // ─── ADMISSION APPLY MODAL ───────────────────────────────────────────────────
 function AdmissionApplyModal({ formId, onClose }) {
+  const { t, i18n } = useTranslation();
   const [form,       setForm]      = useState(null);
+  const [rawForm,    setRawForm]   = useState(null);
+  const [formBusy,   setFormBusy]  = useState(false);
   const [loading,    setLoading]   = useState(true);
   const [submitting, setSubmitting]= useState(false);
   const [submitted,  setSubmitted] = useState(null);
@@ -1497,21 +1621,43 @@ function AdmissionApplyModal({ formId, onClose }) {
   useEffect(() => {
     fetch(`${ADM_API}/forms/${formId}/public`)
       .then(r => r.json())
-      .then(d => { if (d.success) setForm(d.data); else setError(d.message); })
+      .then(d => {
+        if (d.success) {
+          setRawForm(d.data);
+          setForm(d.data);
+        } else setError(d.message);
+      })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
   }, [formId]);
 
+  useEffect(() => {
+    if (!rawForm) return;
+    const lang = normalizeBabyeyiLang(i18n.language);
+    if (lang === 'en') {
+      setForm(rawForm);
+      setFormBusy(false);
+      return;
+    }
+    let cancelled = false;
+    setForm(rawForm);
+    setFormBusy(true);
+    translateAdmissionForm(rawForm, lang)
+      .then((tr) => { if (!cancelled) { setForm(tr); setFormBusy(false); } })
+      .catch(() => { if (!cancelled) { setForm(rawForm); setFormBusy(false); } });
+    return () => { cancelled = true; };
+  }, [rawForm, i18n.language]);
+
   const validate = () => {
     const errs = {};
-    if (!name.trim()) errs._name = 'Full name is required';
+    if (!name.trim()) errs._name = t('schoolPublic.fullNameRequired', { defaultValue: 'Full name is required' });
     for (const q of form?.questions || []) {
       if (!q.isRequired) continue;
       const val = answers[q.id];
       const isFile = q.questionType === 'file' || q.questionType === 'multifile';
-      if (isFile && (!Array.isArray(val) || !val.length)) errs[q.id] = 'File required';
-      else if (!isFile && q.questionType === 'multiselect' && (!Array.isArray(val) || !val.length)) errs[q.id] = 'Select at least one';
-      else if (!isFile && q.questionType !== 'multiselect' && !val?.toString().trim()) errs[q.id] = 'This field is required';
+      if (isFile && (!Array.isArray(val) || !val.length)) errs[q.id] = t('schoolPublic.fileRequired', { defaultValue: 'File required' });
+      else if (!isFile && q.questionType === 'multiselect' && (!Array.isArray(val) || !val.length)) errs[q.id] = t('schoolPublic.selectAtLeastOne', { defaultValue: 'Select at least one' });
+      else if (!isFile && q.questionType !== 'multiselect' && !val?.toString().trim()) errs[q.id] = t('schoolPublic.fieldRequired', { defaultValue: 'This field is required' });
     }
     setFieldErrs(errs);
     return !Object.keys(errs).length;
@@ -1538,7 +1684,7 @@ function AdmissionApplyModal({ formId, onClose }) {
       const r = await fetch(`${ADM_API}/forms/${formId}/apply`, { method: 'POST', body: fd });
       const d = await r.json();
       if (d.success) setSubmitted(d.data);
-      else setError(d.message || 'Submission failed. Please try again.');
+      else setError(d.message || t('schoolPublic.submissionFailed', { defaultValue: 'Submission failed. Please try again.' }));
     } catch (e) { setError(e.message); }
     finally { setSubmitting(false); }
   };
@@ -1560,8 +1706,8 @@ function AdmissionApplyModal({ formId, onClose }) {
               <Send size={17} style={{ color: '#FBBF24' }} />
             </div>
             <div>
-              <h3 className="font-black text-white text-sm sm:text-base" style={syne}>Apply for Admission</h3>
-              {form && <p className="text-white/40 text-xs" style={syne}>{form.title || 'Application Form'}</p>}
+              <h3 className="font-black text-white text-sm sm:text-base" style={syne}>{t('schoolPublic.applyForAdmission', { defaultValue: 'Apply for Admission' })}</h3>
+              {form && <p className="text-white/40 text-xs" style={syne}>{form.title || t('schoolPublic.applicationForm', { defaultValue: 'Application Form' })}</p>}
             </div>
           </div>
           <button onClick={onClose} className="w-9 h-9 rounded-xl bg-white/8 flex items-center justify-center text-white hover:bg-white/15 transition-colors">
@@ -1570,10 +1716,14 @@ function AdmissionApplyModal({ formId, onClose }) {
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 sm:px-6 py-5">
-          {loading && (
+          {(loading || formBusy) && (
             <div className="flex flex-col items-center py-16 gap-4">
               <Loader2 size={26} className="animate-spin" style={{ color: '#FBBF24' }} />
-              <p className="text-gray-500 text-sm font-semibold" style={syne}>Loading form…</p>
+              <p className="text-gray-500 text-sm font-semibold" style={syne}>
+                {loading
+                  ? t('schoolPublic.loadingForm', { defaultValue: 'Loading form...' })
+                  : t('schoolPublic.translatingContent', { defaultValue: 'Translating content…' })}
+              </p>
             </div>
           )}
 
@@ -1583,55 +1733,55 @@ function AdmissionApplyModal({ formId, onClose }) {
                 <CheckCircle2 size={34} style={{ color: '#FBBF24' }} />
               </div>
               <div>
-                <h4 className="font-black text-[#1F2937] text-xl mb-2" style={serif}>Application Submitted! 🎉</h4>
-                <p className="text-gray-500 text-sm mb-1" style={syne}>Thank you, <strong>{submitted.applicantName || name}</strong>!</p>
+                <h4 className="font-black text-[#1F2937] text-xl mb-2" style={serif}>{t('schoolPublic.applicationSubmitted', { defaultValue: 'Application Submitted! 🎉' })}</h4>
+                <p className="text-gray-500 text-sm mb-1" style={syne}>{t('schoolPublic.thankYouApplicant', { defaultValue: 'Thank you' })}, <strong>{submitted.applicantName || name}</strong>!</p>
               </div>
               <div
                 className="rounded-2xl px-7 py-5 border-2 w-full"
                 style={{ background: '#F8F7F4', borderColor: 'rgba(251,191,36,0.3)' }}
               >
-                <div className="text-xs font-black uppercase tracking-wider text-gray-400 mb-2" style={syne}>Reference Number</div>
+                <div className="text-xs font-black uppercase tracking-wider text-gray-400 mb-2" style={syne}>{t('schoolPublic.referenceNumber', { defaultValue: 'Reference Number' })}</div>
                 <div className="font-black text-2xl tracking-wider font-mono" style={{ color: '#1F2937' }}>{submitted.referenceNo}</div>
-                <p className="text-gray-400 text-xs mt-2" style={syne}>Save this to track your application status.</p>
+                <p className="text-gray-400 text-xs mt-2" style={syne}>{t('schoolPublic.saveReferenceHint', { defaultValue: 'Save this to track your application status.' })}</p>
               </div>
-              <button onClick={onClose} className="px-8 py-3 rounded-2xl font-black text-sm hover:opacity-90 transition-opacity" style={{ background: '#FBBF24', color: '#1F2937', ...syne }}>Done ✓</button>
+              <button onClick={onClose} className="px-8 py-3 rounded-2xl font-black text-sm hover:opacity-90 transition-opacity" style={{ background: '#FBBF24', color: '#1F2937', ...syne }}>{t('schoolPublic.done', { defaultValue: 'Done' })} ✓</button>
             </div>
           )}
 
-          {!loading && form && form.status === 'open' && !submitted && (
+          {!loading && !formBusy && form && form.status === 'open' && !submitted && (
             <div className="space-y-5">
               {/* Form meta */}
               {(form.academicYear || form.applicationDeadline || form.maxApplicants) && (
                 <div className="flex flex-wrap gap-3 p-4 rounded-2xl" style={{ background: 'rgba(251,191,36,0.07)', border: '1px solid rgba(251,191,36,0.2)' }}>
-                  {form.academicYear && <div className="flex items-center gap-1.5 text-xs font-bold text-[#1F2937]" style={syne}><GraduationCap size={12} style={{ color: '#FBBF24' }} /> Year: {form.academicYear}</div>}
-                  {form.applicationDeadline && <div className="flex items-center gap-1.5 text-xs font-bold text-gray-600" style={syne}><Clock size={12} /> Deadline: {new Date(form.applicationDeadline).toLocaleDateString('en-RW', { day: 'numeric', month: 'short', year: 'numeric' })}</div>}
-                  {form.maxApplicants && <div className="flex items-center gap-1.5 text-xs font-bold text-amber-700" style={syne}><Users size={12} /> {form.spotsRemaining ?? form.maxApplicants} spots</div>}
+                  {form.academicYear && <div className="flex items-center gap-1.5 text-xs font-bold text-[#1F2937]" style={syne}><GraduationCap size={12} style={{ color: '#FBBF24' }} /> {t('schoolPublic.year', { defaultValue: 'Year' })}: {form.academicYear}</div>}
+                  {form.applicationDeadline && <div className="flex items-center gap-1.5 text-xs font-bold text-gray-600" style={syne}><Clock size={12} /> {t('schoolPublic.deadline', { defaultValue: 'Deadline' })}: {new Date(form.applicationDeadline).toLocaleDateString('en-RW', { day: 'numeric', month: 'short', year: 'numeric' })}</div>}
+                  {form.maxApplicants && <div className="flex items-center gap-1.5 text-xs font-bold text-amber-700" style={syne}><Users size={12} /> {t('schoolPublic.spotsCount', { count: form.spotsRemaining ?? form.maxApplicants, defaultValue: `${form.spotsRemaining ?? form.maxApplicants} spots` })}</div>}
                 </div>
               )}
 
               {/* Personal info */}
               <div>
                 <h4 className="text-xs sm:text-sm font-black text-[#1F2937] mb-3 flex items-center gap-2" style={syne}>
-                  <UserCheck size={13} style={{ color: '#FBBF24' }} /> Personal Information
+                  <UserCheck size={13} style={{ color: '#FBBF24' }} /> {t('schoolPublic.personalInformation', { defaultValue: 'Personal Information' })}
                 </h4>
                 <div className="space-y-3">
                   <div>
-                    <label className="text-[10px] font-black uppercase tracking-widest text-[#92620a] block mb-1.5" style={syne}>Full Name <span className="text-red-400">*</span></label>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-[#92620a] block mb-1.5" style={syne}>{t('schoolPublic.fullName', { defaultValue: 'Full Name' })} <span className="text-red-400">*</span></label>
                     <input
                       className="w-full px-4 py-3 rounded-xl border-2 border-[#E5E0D0] bg-[#F9F8F5] text-sm font-medium focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100 transition-all"
-                      value={name} onChange={e => setName(e.target.value)} placeholder="Enter your full name"
+                      value={name} onChange={e => setName(e.target.value)} placeholder={t('schoolPublic.enterFullName', { defaultValue: 'Enter your full name' })}
                       style={syne}
                     />
                     {fieldErrs._name && <p className="text-xs text-red-500 mt-1 flex items-center gap-1" style={syne}><AlertCircle size={10} /> {fieldErrs._name}</p>}
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="text-[10px] font-black uppercase tracking-widest text-[#92620a] block mb-1.5" style={syne}>Email</label>
-                      <input type="email" className="w-full px-4 py-3 rounded-xl border-2 border-[#E5E0D0] bg-[#F9F8F5] text-sm font-medium focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100 transition-all" value={email} onChange={e => setEmail(e.target.value)} placeholder="your@email.com" style={syne} />
+                      <label className="text-[10px] font-black uppercase tracking-widest text-[#92620a] block mb-1.5" style={syne}>{t('schoolPublic.email', { defaultValue: 'Email' })}</label>
+                      <input type="email" className="w-full px-4 py-3 rounded-xl border-2 border-[#E5E0D0] bg-[#F9F8F5] text-sm font-medium focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100 transition-all" value={email} onChange={e => setEmail(e.target.value)} placeholder={t('schoolPublic.emailPlaceholder', { defaultValue: 'your@email.com' })} style={syne} />
                     </div>
                     <div>
-                      <label className="text-[10px] font-black uppercase tracking-widest text-[#92620a] block mb-1.5" style={syne}>Phone</label>
-                      <input type="tel" className="w-full px-4 py-3 rounded-xl border-2 border-[#E5E0D0] bg-[#F9F8F5] text-sm font-medium focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100 transition-all" value={phone} onChange={e => setPhone(e.target.value)} placeholder="078…" style={syne} />
+                      <label className="text-[10px] font-black uppercase tracking-widest text-[#92620a] block mb-1.5" style={syne}>{t('schoolPublic.phone', { defaultValue: 'Phone' })}</label>
+                      <input type="tel" className="w-full px-4 py-3 rounded-xl border-2 border-[#E5E0D0] bg-[#F9F8F5] text-sm font-medium focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100 transition-all" value={phone} onChange={e => setPhone(e.target.value)} placeholder={t('schoolPublic.phonePlaceholder', { defaultValue: '078...' })} style={syne} />
                     </div>
                   </div>
                 </div>
@@ -1641,7 +1791,7 @@ function AdmissionApplyModal({ formId, onClose }) {
               {(form.questions || []).length > 0 && (
                 <div>
                   <h4 className="text-xs sm:text-sm font-black text-[#1F2937] mb-3 flex items-center gap-2" style={syne}>
-                    <FileText size={13} style={{ color: '#FBBF24' }} /> Application Questions
+                    <FileText size={13} style={{ color: '#FBBF24' }} /> {t('schoolPublic.applicationQuestions', { defaultValue: 'Application Questions' })}
                   </h4>
                   <div className="space-y-4">
                     {form.questions.map((q, idx) => (
@@ -1675,16 +1825,18 @@ function AdmissionApplyModal({ formId, onClose }) {
           {!loading && form && form.status !== 'open' && !submitted && (
             <div className="flex flex-col items-center py-12 gap-4 text-center">
               <div className="text-5xl">🔒</div>
-              <h4 className="font-black text-[#1F2937] text-lg" style={serif}>Applications {form.status === 'closed' ? 'Closed' : 'Paused'}</h4>
+              <h4 className="font-black text-[#1F2937] text-lg" style={serif}>{t('schoolPublic.applicationsStatus', { defaultValue: 'Applications' })} {form.status === 'closed' ? t('schoolPublic.closed', { defaultValue: 'Closed' }) : t('schoolPublic.paused', { defaultValue: 'Paused' })}</h4>
               <p className="text-gray-500 text-sm max-w-xs" style={syne}>
-                {form.status === 'closed' ? 'This admission cycle has ended.' : 'Applications are temporarily paused.'}
+                {form.status === 'closed'
+                  ? t('schoolPublic.admissionCycleEnded', { defaultValue: 'This admission cycle has ended.' })
+                  : t('schoolPublic.applicationsPaused', { defaultValue: 'Applications are temporarily paused.' })}
               </p>
-              <button onClick={onClose} className="px-6 py-3 rounded-2xl font-black text-sm" style={{ background: '#1F2937', color: '#FBBF24', ...syne }}>Close</button>
+              <button onClick={onClose} className="px-6 py-3 rounded-2xl font-black text-sm" style={{ background: '#1F2937', color: '#FBBF24', ...syne }}>{t('schoolPublic.close', { defaultValue: 'Close' })}</button>
             </div>
           )}
         </div>
 
-        {!loading && form && form.status === 'open' && !submitted && (
+        {!loading && !formBusy && form && form.status === 'open' && !submitted && (
           <div className="px-5 sm:px-6 py-4 border-t border-gray-100 flex-shrink-0 bg-[#F8F7F4] rounded-b-3xl">
             <button
               onClick={submit}
@@ -1692,9 +1844,9 @@ function AdmissionApplyModal({ formId, onClose }) {
               className="w-full py-3.5 rounded-2xl font-black text-sm flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
               style={{ background: '#FBBF24', color: '#1F2937', boxShadow: '0 4px 16px rgba(251,191,36,0.35)', ...syne }}
             >
-              {submitting ? <><Loader2 size={14} className="animate-spin" /> Submitting…</> : <><Send size={14} /> Submit Application</>}
+              {submitting ? <><Loader2 size={14} className="animate-spin" /> {t('schoolPublic.submitting', { defaultValue: 'Submitting...' })}</> : <><Send size={14} /> {t('schoolPublic.submitApplication', { defaultValue: 'Submit Application' })}</>}
             </button>
-            <p className="text-center text-xs text-gray-400 mt-2" style={syne}>Your information is kept confidential</p>
+            <p className="text-center text-xs text-gray-400 mt-2" style={syne}>{t('schoolPublic.confidentialInfo', { defaultValue: 'Your information is kept confidential' })}</p>
           </div>
         )}
       </div>
@@ -1704,6 +1856,7 @@ function AdmissionApplyModal({ formId, onClose }) {
 
 // ─── ADMISSIONS SECTION ───────────────────────────────────────────────────────
 function AdmissionsSection({ school, theme, schoolSlug, onApply }) {
+  const { t } = useTranslation();
   const { p } = theme;
   const [adm, setAdm]         = useState(null);
   const [loading, setLoading] = useState(true);
@@ -1729,7 +1882,7 @@ function AdmissionsSection({ school, theme, schoolSlug, onApply }) {
   return (
     <section id="admissions" className="py-20 sm:py-28 bg-white">
       <div className="max-w-7xl mx-auto px-5 sm:px-8">
-        <SectionHead eyebrow="Admissions" title="Join Our School" sub="Everything you need to know about applying" accentColor="#FBBF24" />
+        <SectionHead eyebrow={t('schoolPublic.admissions', { defaultValue: 'Admissions' })} title={t('schoolPublic.joinOurSchool', { defaultValue: 'Join Our School' })} sub={t('schoolPublic.admissionsSub', { defaultValue: 'Everything you need to know about applying' })} accentColor="#FBBF24" />
 
         {adm && (
           <div
@@ -1743,18 +1896,18 @@ function AdmissionsSection({ school, theme, schoolSlug, onApply }) {
                   top: <div className="flex items-center gap-2 justify-center">
                     {isOpen && <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />}
                     <span style={{ color: isOpen ? '#059669' : '#EF4444', ...syne }} className="text-xs font-black uppercase tracking-wider">
-                      {adm.status === 'open' ? 'Open' : adm.status === 'closed' ? 'Closed' : 'Paused'}
+                      {adm.status === 'open' ? t('schoolPublic.open', { defaultValue: 'Open' }) : adm.status === 'closed' ? t('schoolPublic.closed', { defaultValue: 'Closed' }) : t('schoolPublic.paused', { defaultValue: 'Paused' })}
                     </span>
                   </div>,
-                  bot: 'Status',
+                  bot: t('schoolPublic.status', { defaultValue: 'Status' }),
                 },
-                { top: <div className="font-black text-2xl text-[#1F2937]" style={syne}>{adm.applicantsCount ?? '—'}</div>, bot: 'Applied' },
-                { top: <div className="font-black text-2xl text-[#1F2937]" style={syne}>{adm.maxApplicants ? adm.maxApplicants.toLocaleString() : '—'}</div>, bot: 'Spots' },
+                { top: <div className="font-black text-2xl text-[#1F2937]" style={syne}>{adm.applicantsCount ?? '—'}</div>, bot: t('schoolPublic.applied', { defaultValue: 'Applied' }) },
+                { top: <div className="font-black text-2xl text-[#1F2937]" style={syne}>{adm.maxApplicants ? adm.maxApplicants.toLocaleString() : '—'}</div>, bot: t('schoolPublic.spots', { defaultValue: 'Spots' }) },
                 {
                   top: <div className="font-black text-2xl" style={{ color: daysLeft === 0 ? '#EF4444' : '#1F2937', ...syne }}>
                     {daysLeft !== null ? `${daysLeft}d` : '—'}
                   </div>,
-                  bot: 'Days Left',
+                  bot: t('schoolPublic.daysLeft', { defaultValue: 'Days Left' }),
                 },
               ].map((s, i) => (
                 <div key={i} className="flex flex-col items-center text-center p-4 rounded-2xl bg-white border border-gray-100">
@@ -1769,14 +1922,14 @@ function AdmissionsSection({ school, theme, schoolSlug, onApply }) {
               {adm.applicationStart && (
                 <div className="flex items-center gap-2 text-xs text-gray-500" style={syne}>
                   <Calendar size={13} style={{ color: '#FBBF24' }} />
-                  <span className="font-medium">Opens:</span>
+                  <span className="font-medium">{t('schoolPublic.opens', { defaultValue: 'Opens' })}:</span>
                   <span className="font-black text-[#1F2937]">{new Date(adm.applicationStart).toLocaleDateString('en-RW', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                 </div>
               )}
               {adm.applicationDeadline && (
                 <div className="flex items-center gap-2 text-xs text-gray-500" style={syne}>
                   <Clock size={13} style={{ color: '#FBBF24' }} />
-                  <span className="font-medium">Deadline:</span>
+                  <span className="font-medium">{t('schoolPublic.deadline', { defaultValue: 'Deadline' })}:</span>
                   <span className="font-black text-[#1F2937]">{new Date(adm.applicationDeadline).toLocaleDateString('en-RW', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                 </div>
               )}
@@ -1789,7 +1942,7 @@ function AdmissionsSection({ school, theme, schoolSlug, onApply }) {
                   className="inline-flex items-center gap-2 px-7 sm:px-8 py-3.5 rounded-2xl font-black text-sm hover:scale-105 active:scale-95 transition-transform shadow-xl"
                   style={{ background: '#FBBF24', color: '#1F2937', boxShadow: '0 8px 24px rgba(251,191,36,0.4)', ...syne }}
                 >
-                  <Send size={14} /> Apply Online Now
+                  <Send size={14} /> {t('schoolPublic.applyOnlineNow', { defaultValue: 'Apply Online Now' })}
                 </button>
               </div>
             )}
@@ -1802,14 +1955,14 @@ function AdmissionsSection({ school, theme, schoolSlug, onApply }) {
             style={{ borderColor: 'rgba(251,191,36,0.3)', background: 'rgba(251,191,36,0.04)' }}
           >
             <UserCheck size={32} className="mx-auto mb-3" style={{ color: '#FBBF24' }} />
-            <h3 className="font-black text-[#1F2937] text-lg mb-2" style={serif}>Online Applications Coming Soon</h3>
-            <p className="text-gray-500 text-sm mb-5" style={syne}>Contact the school directly to enquire about admissions.</p>
+            <h3 className="font-black text-[#1F2937] text-lg mb-2" style={serif}>{t('schoolPublic.onlineAppsComingSoon', { defaultValue: 'Online Applications Coming Soon' })}</h3>
+            <p className="text-gray-500 text-sm mb-5" style={syne}>{t('schoolPublic.contactSchoolForAdmissions', { defaultValue: 'Contact the school directly to enquire about admissions.' })}</p>
             <button
               onClick={() => document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' })}
               className="inline-flex items-center gap-2 px-7 py-3 rounded-2xl font-black text-sm"
               style={{ background: '#1F2937', color: '#FBBF24', ...syne }}
             >
-              <Phone size={13} /> Contact School
+              <Phone size={13} /> {t('schoolPublic.contactSchool', { defaultValue: 'Contact School' })}
             </button>
           </div>
         )}
@@ -1817,18 +1970,18 @@ function AdmissionsSection({ school, theme, schoolSlug, onApply }) {
         {(steps.length > 0 || reqs.length > 0 || docs.length > 0) && (
           <div className="grid md:grid-cols-3 gap-5 sm:gap-6">
             {[
-              { title: 'Application Steps',     icon: <CheckCircle2 size={14} />, items: steps, renderItem: (s, i) => (
+              { title: t('schoolPublic.applicationSteps', { defaultValue: 'Application Steps' }),     icon: <CheckCircle2 size={14} />, items: steps, renderItem: (s, i) => (
                 <li key={i} className="flex items-start gap-3">
                   <span className="w-6 h-6 rounded-full font-black text-xs flex items-center justify-center flex-shrink-0 mt-0.5 text-[#1F2937]" style={{ background: '#FBBF24' }}>{i + 1}</span>
                   <span className="text-xs sm:text-sm text-gray-600 font-medium leading-snug" style={syne}>{s}</span>
                 </li>
               )},
-              { title: 'Requirements',          icon: <Shield size={14} />,       items: reqs, renderItem: (r, i) => (
+              { title: t('schoolPublic.requirements', { defaultValue: 'Requirements' }),          icon: <Shield size={14} />,       items: reqs, renderItem: (r, i) => (
                 <li key={i} className="flex items-start gap-3 text-xs sm:text-sm text-gray-600 font-medium" style={syne}>
                   <Check size={13} className="flex-shrink-0 mt-0.5" style={{ color: '#FBBF24' }} /> {r}
                 </li>
               )},
-              { title: 'Required Documents',    icon: <FileText size={14} />,     items: docs, renderItem: (d, i) => (
+              { title: t('schoolPublic.requiredDocuments', { defaultValue: 'Required Documents' }),    icon: <FileText size={14} />,     items: docs, renderItem: (d, i) => (
                 <li key={i} className="flex items-start gap-3 text-xs sm:text-sm text-gray-600 font-medium" style={syne}>
                   <FileText size={12} className="flex-shrink-0 mt-0.5" style={{ color: '#FBBF24' }} /> {d}
                 </li>
@@ -1855,18 +2008,19 @@ function AdmissionsSection({ school, theme, schoolSlug, onApply }) {
 
 // ─── CONTACT ─────────────────────────────────────────────────────────────────
 function ContactSection({ school }) {
+  const { t } = useTranslation();
   const contactItems = [
-    { icon: MapPin,   label: 'Address',        val: school.address },
-    { icon: Phone,    label: 'Phone',          val: school.phone },
-    { icon: Mail,     label: 'Email',          val: school.email },
-    { icon: FileText, label: 'Postal Address', val: school.postalAddress },
-    { icon: Globe,    label: 'Website',        val: school.website },
+    { icon: MapPin,   label: t('schoolPublic.address', { defaultValue: 'Address' }),        val: school.address },
+    { icon: Phone,    label: t('schoolPublic.phone', { defaultValue: 'Phone' }),          val: school.phone },
+    { icon: Mail,     label: t('schoolPublic.email', { defaultValue: 'Email' }),          val: school.email },
+    { icon: FileText, label: t('schoolPublic.postalAddress', { defaultValue: 'Postal Address' }), val: school.postalAddress },
+    { icon: Globe,    label: t('schoolPublic.website', { defaultValue: 'Website' }),        val: school.website },
   ].filter(c => c.val);
 
   return (
     <section id="contact" className="py-20 sm:py-28" style={{ background: '#F8F7F4' }}>
       <div className="max-w-7xl mx-auto px-5 sm:px-8">
-        <SectionHead eyebrow="Get In Touch" title="Contact Us" sub="We'd love to hear from you" accentColor="#FBBF24" />
+        <SectionHead eyebrow={t('schoolPublic.getInTouch', { defaultValue: 'Get In Touch' })} title={t('schoolPublic.contactUs', { defaultValue: 'Contact Us' })} sub={t('schoolPublic.contactSub', { defaultValue: "We'd love to hear from you" })} accentColor="#FBBF24" />
         <div className="grid lg:grid-cols-2 gap-7 sm:gap-8">
           <div className="space-y-3">
             {contactItems.map(c => (
@@ -1915,7 +2069,7 @@ function ContactSection({ school }) {
                   className="inline-flex items-center gap-2 mt-5 px-6 py-3 rounded-2xl text-sm font-black hover:opacity-90 transition-opacity shadow-xl"
                   style={{ background: '#FBBF24', color: '#1F2937', ...syne }}
                 >
-                  <Navigation size={13} /> Open in Maps
+                  <Navigation size={13} /> {t('schoolPublic.openInMaps', { defaultValue: 'Open in Maps' })}
                 </a>
               )}
             </div>
@@ -1928,6 +2082,7 @@ function ContactSection({ school }) {
 
 // ─── FOOTER ──────────────────────────────────────────────────────────────────
 function SiteFooter({ school, theme }) {
+  const { t } = useTranslation();
   const { p } = theme;
   const logoSrc = imgUrl(school.logoPreview);
   return (
@@ -1969,13 +2124,13 @@ function SiteFooter({ school, theme }) {
             )}
             <div className="text-white/25 text-xs flex items-center gap-1.5" style={syne}>
               <Globe size={9} />
-              Powered by <span style={{ color: '#FBBF24' }} className="font-black">babyeyi.rw</span>
+              {t('schoolPublic.poweredBy', { defaultValue: 'Powered by' })} <span style={{ color: '#FBBF24' }} className="font-black">babyeyi.rw</span>
             </div>
           </div>
         </div>
 
         <div className="border-t border-white/8 pt-5 text-center">
-          <p className="text-white/20 text-xs" style={syne}>© {new Date().getFullYear()} {school.name}. All rights reserved.</p>
+          <p className="text-white/20 text-xs" style={syne}>© {new Date().getFullYear()} {school.name}. {t('schoolPublic.allRightsReserved', { defaultValue: 'All rights reserved.' })}</p>
         </div>
       </div>
     </footer>
@@ -1985,7 +2140,8 @@ function SiteFooter({ school, theme }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 //  MAIN SCHOOL SITE
 // ═══════════════════════════════════════════════════════════════════════════════
-function SchoolSite({ data, slug, initialLookupSeed = null }) {
+function SchoolSite({ data, slug, initialLookupSeed = null, contentTranslating = false, siteLang = 'en' }) {
+  const { t } = useTranslation();
   const navigate   = useNavigate();
   const [active,   setActive]   = useState('about');
   const [menuOpen, setMenuOpen] = useState(false);
@@ -2093,6 +2249,7 @@ function SchoolSite({ data, slug, initialLookupSeed = null }) {
         school={data}
         theme={theme}
         schoolSlug={slug}
+        siteLang={siteLang}
         openModal={babyeyiModalOpen}
         onCloseModal={() => setBabyeyiModalOpen(false)}
         lookupPrefill={babyeyiLookupSeed}
@@ -2101,6 +2258,17 @@ function SchoolSite({ data, slug, initialLookupSeed = null }) {
       />
       <ContactSection    school={data} />
       <SiteFooter        school={data} theme={theme} />
+
+      {contentTranslating && (
+        <div
+          className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[120] flex items-center gap-2 px-4 py-2.5 rounded-2xl shadow-lg text-xs font-bold text-white"
+          style={{ background: '#1F2937', border: '1px solid rgba(251,191,36,0.35)', ...syne }}
+          role="status"
+        >
+          <Loader2 size={14} className="animate-spin" style={{ color: '#FBBF24' }} />
+          {t('schoolPublic.translatingContent', { defaultValue: 'Translating content…' })}
+        </div>
+      )}
 
       {applyOpen && adm?.id && (
         <AdmissionApplyModal formId={adm.id} onClose={() => setApplyOpen(false)} />
@@ -2111,12 +2279,15 @@ function SchoolSite({ data, slug, initialLookupSeed = null }) {
 
 // ─── EXPORT ──────────────────────────────────────────────────────────────────
 export default function SchoolPublicRoute() {
+  const { t, i18n } = useTranslation();
   const { slug }    = useParams();
   const location    = useLocation();
   const navigate    = useNavigate();
   const [data,    setData]    = useState(null);
   const [loading, setLoading] = useState(true);
+  const [contentLoading, setContentLoading] = useState(false);
   const [error,   setError]   = useState(null);
+  const siteLang = normalizeBabyeyiLang(i18n.language);
 
   const lookupFromUrl = (() => {
     const q = new URLSearchParams(location.search || '');
@@ -2131,15 +2302,25 @@ export default function SchoolPublicRoute() {
   })();
 
   useEffect(() => {
-    if (!slug) { setError('No school specified'); setLoading(false); return; }
-    fetch(`${API}/slug/${slug}`)
-      .then(r => { if (!r.ok) throw new Error('School website not found or not yet published'); return r.json(); })
-      .then(r => setData(r.data))
-      .catch(e => setError(e.message))
-      .finally(() => setLoading(false));
-  }, [slug]);
+    if (!slug) { setError(t('schoolPublic.noSchoolSpecified', { defaultValue: 'No school specified' })); setLoading(false); return; }
+    let cancelled = false;
+    if (data) setContentLoading(true);
+    else setLoading(true);
+    setError(null);
+    fetch(`${API}/slug/${slug}?lang=${encodeURIComponent(siteLang)}`)
+      .then(r => { if (!r.ok) throw new Error(t('schoolPublic.notPublishedOrFound', { defaultValue: 'School website not found or not yet published' })); return r.json(); })
+      .then(r => { if (!cancelled) setData(r.data); })
+      .catch(e => { if (!cancelled) setError(e.message); })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+          setContentLoading(false);
+        }
+      });
+    return () => { cancelled = true; };
+  }, [slug, siteLang, t]);
 
-  if (loading) return (
+  if (loading && !data) return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-5" style={{ background: '#1F2937', ...montserrat }}>
       <div
         className="w-20 h-20 rounded-3xl flex items-center justify-center shadow-2xl animate-pulse"
@@ -2148,7 +2329,7 @@ export default function SchoolPublicRoute() {
         <GraduationCap size={36} color="#1F2937" />
       </div>
       <div className="text-center">
-        <p className="text-white font-black text-base mb-1" style={syne}>Loading School Website</p>
+        <p className="text-white font-black text-base mb-1" style={syne}>{t('schoolPublic.loadingSite', { defaultValue: 'Loading School Website' })}</p>
         <p className="font-mono text-xs" style={{ color: 'rgba(251,191,36,0.5)' }}>{slug}</p>
       </div>
       <Loader2 size={20} className="animate-spin" style={{ color: '#FBBF24' }} />
@@ -2164,9 +2345,9 @@ export default function SchoolPublicRoute() {
         🏫
       </div>
       <div className="text-center max-w-sm">
-        <h1 className="text-white font-black text-2xl sm:text-3xl mb-3" style={serif}>School Not Found</h1>
+        <h1 className="text-white font-black text-2xl sm:text-3xl mb-3" style={serif}>{t('schoolPublic.notFoundTitle', { defaultValue: 'School Not Found' })}</h1>
         <p className="text-gray-400 text-sm leading-relaxed mb-8" style={syne}>
-          {error || "This school's website is not available. It may not be published yet."}
+          {error || t('schoolPublic.notFoundSub', { defaultValue: "This school's website is not available. It may not be published yet." })}
         </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <button
@@ -2174,14 +2355,14 @@ export default function SchoolPublicRoute() {
             className="px-7 py-3.5 rounded-2xl font-black text-sm hover:scale-105 active:scale-95 transition-all shadow-lg"
             style={{ background: '#FBBF24', color: '#1F2937', ...syne }}
           >
-            Browse All Schools
+            {t('schoolPublic.browseAllSchools', { defaultValue: 'Browse All Schools' })}
           </button>
           <button
             onClick={() => navigate(-1)}
             className="px-7 py-3.5 rounded-2xl font-black text-sm hover:bg-white/10 transition-colors border text-white"
             style={{ borderColor: 'rgba(255,255,255,0.15)', ...syne }}
           >
-            ← Go Back
+            ← {t('schoolPublic.goBack', { defaultValue: 'Go Back' })}
           </button>
         </div>
       </div>
@@ -2189,5 +2370,13 @@ export default function SchoolPublicRoute() {
     </div>
   );
 
-  return <SchoolSite data={data} slug={slug} initialLookupSeed={lookupFromUrl} />;
+  return (
+    <SchoolSite
+      data={data}
+      slug={slug}
+      initialLookupSeed={lookupFromUrl}
+      contentTranslating={contentLoading}
+      siteLang={siteLang}
+    />
+  );
 }

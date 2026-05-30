@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useMemo } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
   MapPin, Phone, Mail, UserRound, Search, ShoppingBag,
   ChevronDown, X, Send, CheckCircle2, AlertCircle, Loader2,
@@ -410,7 +411,7 @@ function agentDisplaySector(agent, filterSector) {
 }
 
 // ── Support Modal ────────────────────────────────────────────────
-function SupportModal({ agents, initialAgentId, initialAgent, province, district, sector, onClose }) {
+function SupportModal({ agents, initialAgentId, initialAgent, province, district, sector, onClose, t }) {
   const [agentId,     setAgentId]     = useState(initialAgentId || (agents[0]?.id ? String(agents[0].id) : ""));
   const [name,        setName]        = useState("");
   const [contact,     setContact]     = useState("");
@@ -440,15 +441,15 @@ function SupportModal({ agents, initialAgentId, initialAgent, province, district
     e.preventDefault();
     setErr("");
     if (!agentId || !name.trim() || !contact.trim() || !description.trim()) {
-      setErr("Please fill in all required fields.");
+      setErr(t("findAgent.errFillRequired", { defaultValue: "Please fill in all required fields." }));
       return;
     }
     if (!province?.trim() || !district?.trim()) {
-      setErr("Province and district are required. Search for agents first.");
+      setErr(t("findAgent.errProvinceDistrictRequired", { defaultValue: "Province and district are required. Search for agents first." }));
       return;
     }
     if (!sectorForSubmit) {
-      setErr("Select a sector in the finder, or pick an agent assigned to a specific sector.");
+      setErr(t("findAgent.errSelectSector", { defaultValue: "Select a sector in the finder, or pick an agent assigned to a specific sector." }));
       return;
     }
     setSubmitting(true);
@@ -467,9 +468,9 @@ function SupportModal({ agents, initialAgentId, initialAgent, province, district
         }),
       });
       const json = await res.json();
-      if (!res.ok || json.success === false) throw new Error(json.message || "Failed to submit.");
+      if (!res.ok || json.success === false) throw new Error(json.message || t("findAgent.errFailedSubmit", { defaultValue: "Failed to submit." }));
       setSuccess(true);
-    } catch (e) { setErr(e.message || "Failed to send request."); }
+    } catch (e) { setErr(e.message || t("findAgent.errFailedSend", { defaultValue: "Failed to send request." })); }
     finally { setSubmitting(false); }
   };
 
@@ -482,13 +483,13 @@ function SupportModal({ agents, initialAgentId, initialAgent, province, district
               <MessageSquarePlus size={17} color={AMBER} />
             </div>
             <div>
-              <div className="fa-modal-head-title">Request Agent Support</div>
+              <div className="fa-modal-head-title">{t("findAgent.requestAgentSupport", { defaultValue: "Request Agent Support" })}</div>
               <div className="fa-modal-head-sub">
                 {[district, sectorForSubmit || sector].filter(Boolean).join(" · ") || province}
               </div>
             </div>
           </div>
-          <button className="fa-modal-close" onClick={onClose} aria-label="Close">
+          <button className="fa-modal-close" onClick={onClose} aria-label={t("findAgent.close", { defaultValue: "Close" })}>
             <X size={16} />
           </button>
         </div>
@@ -498,14 +499,14 @@ function SupportModal({ agents, initialAgentId, initialAgent, province, district
               <div className="fa-modal-success-icon">
                 <CheckCircle2 size={30} color="#16a34a" />
               </div>
-              <div className="fa-modal-success-title">Request Sent!</div>
-              <div className="fa-modal-success-sub">Your support request has been received. The agent will review it and get back to you shortly.</div>
-              <button className="fa-close-btn" onClick={onClose}>Close</button>
+              <div className="fa-modal-success-title">{t("findAgent.requestSent", { defaultValue: "Request Sent!" })}</div>
+              <div className="fa-modal-success-sub">{t("findAgent.requestSentSub", { defaultValue: "Your support request has been received. The agent will review it and get back to you shortly." })}</div>
+              <button className="fa-close-btn" onClick={onClose}>{t("findAgent.close", { defaultValue: "Close" })}</button>
             </div>
           ) : (
             <form className="fa-form" onSubmit={handleSubmit}>
               {agents.length > 1 && (
-                <SelectField label="Select Agent" value={agentId} onChange={(e) => setAgentId(e.target.value)}>
+                <SelectField label={t("findAgent.selectAgent", { defaultValue: "Select Agent" })} value={agentId} onChange={(e) => setAgentId(e.target.value)}>
                   {agents.map((a) => (
                     <option key={a.id} value={String(a.id)}>
                       {a.full_name || `${a.first_name || ""} ${a.last_name || ""}`.trim()}
@@ -513,9 +514,9 @@ function SupportModal({ agents, initialAgentId, initialAgent, province, district
                   ))}
                 </SelectField>
               )}
-              <InputField label="Your Full Name *" value={name} onChange={(e) => setName(e.target.value)} placeholder="Enter your full name" />
-              <InputField label="Phone or Email *" value={contact} onChange={(e) => setContact(e.target.value)} placeholder="+250 7XX XXX XXX or email@example.com" />
-              <InputField label="How can we help you? *" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Describe the support you need…" as="textarea" rows={4} />
+              <InputField label={t("findAgent.yourFullName", { defaultValue: "Your Full Name *" })} value={name} onChange={(e) => setName(e.target.value)} placeholder={t("findAgent.enterFullName", { defaultValue: "Enter your full name" })} />
+              <InputField label={t("findAgent.phoneOrEmail", { defaultValue: "Phone or Email *" })} value={contact} onChange={(e) => setContact(e.target.value)} placeholder="+250 7XX XXX XXX or email@example.com" />
+              <InputField label={t("findAgent.howCanWeHelp", { defaultValue: "How can we help you? *" })} value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t("findAgent.describeSupport", { defaultValue: "Describe the support you need…" })} as="textarea" rows={4} />
               {err && (
                 <div className="fa-form-error">
                   <AlertCircle size={15} color="#c2410c" style={{ flexShrink: 0, marginTop: 1 }} />
@@ -524,8 +525,8 @@ function SupportModal({ agents, initialAgentId, initialAgent, province, district
               )}
               <button type="submit" className="fa-submit-btn" disabled={submitting}>
                 {submitting
-                  ? <><Loader2 size={16} className="fa-spin" /> Sending…</>
-                  : <><Send size={15} /> Send Request</>
+                  ? <><Loader2 size={16} className="fa-spin" /> {t("findAgent.sending", { defaultValue: "Sending…" })}</>
+                  : <><Send size={15} /> {t("findAgent.sendRequest", { defaultValue: "Send Request" })}</>
                 }
               </button>
             </form>
@@ -537,7 +538,7 @@ function SupportModal({ agents, initialAgentId, initialAgent, province, district
 }
 
 // ── Agent Card ───────────────────────────────────────────────────
-function AgentCard({ agent, sector, onRequestSupport, style }) {
+function AgentCard({ agent, sector, onRequestSupport, style, t }) {
   const name     = agent.full_name || `${agent.first_name || ""} ${agent.last_name || ""}`.trim();
   const initials = name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
 
@@ -556,7 +557,7 @@ function AgentCard({ agent, sector, onRequestSupport, style }) {
               </span>
             </div>
           </div>
-          <div className="fa-agent-badge-active">Active</div>
+          <div className="fa-agent-badge-active">{t("findAgent.active", { defaultValue: "Active" })}</div>
         </div>
 
         {(agent.phone || agent.email) && (
@@ -576,13 +577,13 @@ function AgentCard({ agent, sector, onRequestSupport, style }) {
 
         <div className="fa-agent-actions">
           <button type="button" onClick={() => onRequestSupport(agent)} className="fa-agent-btn-support">
-            <MessageSquarePlus size={14} /> Request Support
+            <MessageSquarePlus size={14} /> {t("findAgent.requestSupport", { defaultValue: "Request Support" })}
           </button>
           <Link
             to={`/agent-shop?agent_user_id=${encodeURIComponent(agent.id)}&agent_name=${encodeURIComponent(name)}&sector=${encodeURIComponent(agentDisplaySector(agent, sector))}`}
             className="fa-agent-btn-shop"
           >
-            <ShoppingBag size={14} /> Agent Shop
+            <ShoppingBag size={14} /> {t("findAgent.agentShop", { defaultValue: "Agent Shop" })}
           </Link>
         </div>
       </div>
@@ -591,7 +592,7 @@ function AgentCard({ agent, sector, onRequestSupport, style }) {
 }
 
 // ── Navbar ───────────────────────────────────────────────────────
-function Navbar() {
+function Navbar({ t }) {
   const [open,     setOpen]     = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
@@ -602,12 +603,12 @@ function Navbar() {
   }, []);
 
   const links = [
-    { label: "Home",        href: "/" },
-    { label: "Pay Fees",    href: "/combined-tution-requrement" },
-    { label: "Services",    href: "/services" },
-    { label: "Features",    href: "/features" },
-    { label: "Schools",     href: "/schools" },
-    { label: "Find Agent",  href: "/find-agent", active: true },
+    { label: t("findAgent.navHome", { defaultValue: "Home" }),        href: "/" },
+    { label: t("findAgent.navPayFees", { defaultValue: "Pay Fees" }),    href: "/combined-tution-requrement" },
+    { label: t("findAgent.navServices", { defaultValue: "Services" }),    href: "/services" },
+    { label: t("findAgent.navFeatures", { defaultValue: "Features" }),    href: "/features" },
+    { label: t("findAgent.navSchools", { defaultValue: "Schools" }),     href: "/schools" },
+    { label: t("findAgent.navFindAgent", { defaultValue: "Find Agent" }),  href: "/find-agent", active: true },
   ];
 
   return (
@@ -640,10 +641,10 @@ function Navbar() {
 
         {/* Desktop CTAs */}
         <div className="fa-nav-cta">
-          <Link to="/register" className="fa-nav-register">Register School</Link>
+          <Link to="/register" className="fa-nav-register">{t("findAgent.navRegisterSchool", { defaultValue: "Register School" })}</Link>
         </div>
 
-        <button type="button" className="fa-hamburger" onClick={() => setOpen((v) => !v)} aria-label="Menu">
+        <button type="button" className="fa-hamburger" onClick={() => setOpen((v) => !v)} aria-label={t("findAgent.menu", { defaultValue: "Menu" })}>
           {open ? <X size={17} /> : <Menu size={17} />}
         </button>
       </div>
@@ -657,7 +658,7 @@ function Navbar() {
           ))}
           <div style={{ paddingTop: 12, display: "grid", gap: 8 }}>
             <Link to="/register" onClick={() => setOpen(false)} style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "13px", borderRadius: 12, fontSize: 14, fontWeight: 700, color: AMBER, border: `1px solid rgba(251,191,36,0.3)`, textDecoration: "none" }}>
-              Register School
+              {t("findAgent.navRegisterSchool", { defaultValue: "Register School" })}
             </Link>
           </div>
         </div>
@@ -667,8 +668,13 @@ function Navbar() {
 }
 
 // ── Steps indicator ──────────────────────────────────────────────
-function Steps({ step }) {
-  const items = ["Province", "District", "Sector", "View Agents"];
+function Steps({ step, t }) {
+  const items = [
+    t("findAgent.stepProvince", { defaultValue: "Province" }),
+    t("findAgent.stepDistrict", { defaultValue: "District" }),
+    t("findAgent.stepSector", { defaultValue: "Sector" }),
+    t("findAgent.stepViewAgents", { defaultValue: "View Agents" }),
+  ];
   return (
     <div className="fa-steps">
       {items.map((label, i) => {
@@ -696,6 +702,7 @@ function Steps({ step }) {
 
 // ── Main FindAgent page ──────────────────────────────────────────
 export default function FindAgent() {
+  const { t } = useTranslation();
   const [provinces,     setProvinces]     = useState([]);
   const [districts,     setDistricts]     = useState([]);
   const [sectors,       setSectors]       = useState([]);
@@ -763,16 +770,16 @@ export default function FindAgent() {
   const step = !province ? 1 : !district ? 2 : !sector ? 3 : 4;
 
   const STATS = [
-    { Icon: Map,        value: "5",    label: "Provinces covered" },
-    { Icon: Building2,  value: "30+",  label: "Districts served"  },
-    { Icon: Users,      value: "100+", label: "Active agents"     },
-    { Icon: Headphones, value: "24/7", label: "Support available" },
+    { Icon: Map,        value: "5",    label: t("findAgent.statsProvinces", { defaultValue: "Provinces covered" }) },
+    { Icon: Building2,  value: "30+",  label: t("findAgent.statsDistricts", { defaultValue: "Districts served" })  },
+    { Icon: Users,      value: "100+", label: t("findAgent.statsActiveAgents", { defaultValue: "Active agents" })     },
+    { Icon: Headphones, value: "24/7", label: t("findAgent.statsSupport", { defaultValue: "Support available" }) },
   ];
 
   return (
     <div style={{ minHeight: "100vh" }}>
       <style>{GLOBAL_CSS}</style>
-      <Navbar />
+      <Navbar t={t} />
 
       {/* ── Hero ── */}
       <section className="fa-hero">
@@ -782,16 +789,16 @@ export default function FindAgent() {
           {/* Badge */}
           <div className="fa-hero-badge">
             <Shield size={12} color={AMBER} />
-            <span>Official Agent Finder</span>
+            <span>{t("findAgent.officialAgentFinder", { defaultValue: "Official Agent Finder" })}</span>
           </div>
 
           {/* Heading */}
           <h1 className="fa-hero-title fa-display">
-            Find your<br />
-            <span className="">Babyeyi Agent</span>
+            {t("findAgent.findYour", { defaultValue: "Find your" })}<br />
+            <span className="">{t("findAgent.babyeyiAgent", { defaultValue: "Babyeyi Agent" })}</span>
           </h1>
           <p className="fa-hero-sub">
-            Select your province, district, and sector to instantly discover the certified Babyeyi agent allocated to your exact location.
+            {t("findAgent.heroSub", { defaultValue: "Select your province, district, and sector to instantly discover the certified Babyeyi agent allocated to your exact location." })}
           </p>
 
           {/* ── Filter Card ── */}
@@ -801,24 +808,24 @@ export default function FindAgent() {
                 <MapPin size={18} color={AMBER600} />
               </div>
               <div>
-                <div style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 700, fontSize: 15, color: NAVY }}>Location Search</div>
-                <div style={{ fontSize: 12, color: NAVY50, marginTop: 2 }}>Find certified agents near you</div>
+                <div style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 700, fontSize: 15, color: NAVY }}>{t("findAgent.locationSearch", { defaultValue: "Location Search" })}</div>
+                <div style={{ fontSize: 12, color: NAVY50, marginTop: 2 }}>{t("findAgent.findCertifiedNearYou", { defaultValue: "Find certified agents near you" })}</div>
               </div>
             </div>
 
             <div className="fa-filter-grid">
-              <SelectField label="Province" value={province} onChange={e => setProvince(e.target.value)}>
-                <option value="">Select province…</option>
+              <SelectField label={t("findAgent.province", { defaultValue: "Province" })} value={province} onChange={e => setProvince(e.target.value)}>
+                <option value="">{t("findAgent.selectProvince", { defaultValue: "Select province…" })}</option>
                 {provinces.map(p => <option key={p} value={p}>{p}</option>)}
               </SelectField>
 
-              <SelectField label="District" value={district} onChange={e => setDistrict(e.target.value)} disabled={!province}>
-                <option value="">Select district…</option>
+              <SelectField label={t("findAgent.district", { defaultValue: "District" })} value={district} onChange={e => setDistrict(e.target.value)} disabled={!province}>
+                <option value="">{t("findAgent.selectDistrict", { defaultValue: "Select district…" })}</option>
                 {districts.map(d => <option key={d} value={d}>{d}</option>)}
               </SelectField>
 
-              <SelectField label="Sector (optional)" value={sector} onChange={e => setSector(e.target.value)} disabled={!district}>
-                <option value="">All sectors</option>
+              <SelectField label={t("findAgent.sectorOptional", { defaultValue: "Sector (optional)" })} value={sector} onChange={e => setSector(e.target.value)} disabled={!district}>
+                <option value="">{t("findAgent.allSectors", { defaultValue: "All sectors" })}</option>
                 {sectors.map(s => <option key={s} value={s}>{s}</option>)}
               </SelectField>
 
@@ -830,10 +837,10 @@ export default function FindAgent() {
                   disabled={!filtersComplete || loadingAgents}
                 >
                   {loadingAgents
-                    ? <><Loader2 size={15} className="fa-spin" /> Searching…</>
+                    ? <><Loader2 size={15} className="fa-spin" /> {t("findAgent.searching", { defaultValue: "Searching…" })}</>
                     : filtersComplete
-                    ? <><Search size={15} /> {agents.length > 0 ? `${agents.length} Found` : "Search"}</>
-                    : <><Search size={15} /> Search</>
+                    ? <><Search size={15} /> {agents.length > 0 ? t("findAgent.foundCount", { defaultValue: "{{count}} Found", count: agents.length }) : t("findAgent.search", { defaultValue: "Search" })}</>
+                    : <><Search size={15} /> {t("findAgent.search", { defaultValue: "Search" })}</>
                   }
                 </button>
               </div>
@@ -846,7 +853,7 @@ export default function FindAgent() {
               </div>
             )}
 
-            <Steps step={step} />
+            <Steps step={step} t={t} />
           </div>
         </div>
 
@@ -878,41 +885,41 @@ export default function FindAgent() {
                   <MapPin size={15} color={AMBER} />
                 </div>
                 <div>
-                  <div className="fa-sidebar-head-title">Refine Location</div>
-                  <div className="fa-sidebar-head-sub">Narrow to find your agent</div>
+                  <div className="fa-sidebar-head-title">{t("findAgent.refineLocation", { defaultValue: "Refine Location" })}</div>
+                  <div className="fa-sidebar-head-sub">{t("findAgent.narrowToFindAgent", { defaultValue: "Narrow to find your agent" })}</div>
                 </div>
               </div>
               <div className="fa-sidebar-body">
-                <SelectField label="Province" value={province} onChange={e => setProvince(e.target.value)}>
-                  <option value="">Select province…</option>
+                <SelectField label={t("findAgent.province", { defaultValue: "Province" })} value={province} onChange={e => setProvince(e.target.value)}>
+                  <option value="">{t("findAgent.selectProvince", { defaultValue: "Select province…" })}</option>
                   {provinces.map(p => <option key={p} value={p}>{p}</option>)}
                 </SelectField>
-                <SelectField label="District" value={district} onChange={e => setDistrict(e.target.value)} disabled={!province}>
-                  <option value="">Select district…</option>
+                <SelectField label={t("findAgent.district", { defaultValue: "District" })} value={district} onChange={e => setDistrict(e.target.value)} disabled={!province}>
+                  <option value="">{t("findAgent.selectDistrict", { defaultValue: "Select district…" })}</option>
                   {districts.map(d => <option key={d} value={d}>{d}</option>)}
                 </SelectField>
-                <SelectField label="Sector (optional)" value={sector} onChange={e => setSector(e.target.value)} disabled={!district}>
-                  <option value="">All sectors</option>
+                <SelectField label={t("findAgent.sectorOptional", { defaultValue: "Sector (optional)" })} value={sector} onChange={e => setSector(e.target.value)} disabled={!district}>
+                  <option value="">{t("findAgent.allSectors", { defaultValue: "All sectors" })}</option>
                   {sectors.map(s => <option key={s} value={s}>{s}</option>)}
                 </SelectField>
 
                 {!filtersComplete ? (
                   <div className="fa-tip">
                     <Zap size={14} color={AMBER600} style={{ flexShrink: 0, marginTop: 1 }} />
-                    Select a province and district to discover agents in your area.
+                    {t("findAgent.selectProvinceDistrictTip", { defaultValue: "Select a province and district to discover agents in your area." })}
                   </div>
                 ) : agents.length > 0 ? (
                   <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 12, padding: "12px 14px", fontSize: 12.5, color: "#15803d", fontWeight: 600, display: "flex", gap: 8, alignItems: "center" }}>
-                    <CheckCircle2 size={14} /> {agents.length} agent{agents.length !== 1 ? "s" : ""} found
+                    <CheckCircle2 size={14} /> {t("findAgent.agentsFoundCount", { defaultValue: "{{count}} agent", count: agents.length })}{agents.length !== 1 ? "s" : ""} {t("findAgent.found", { defaultValue: "found" })}
                   </div>
                 ) : null}
 
                 {/* Feature highlights */}
                 <div style={{ paddingTop: 6, borderTop: `1px solid ${NAVY08}`, display: "grid", gap: 10 }}>
                   {[
-                    { icon: <Shield size={13} color={AMBER600} />, text: "All agents are verified by Babyeyi" },
-                    { icon: <Star   size={13} color={AMBER600} />, text: "Rated and reviewed by community" },
-                    { icon: <Zap    size={13} color={AMBER600} />, text: "Instant support request system" },
+                    { icon: <Shield size={13} color={AMBER600} />, text: t("findAgent.featureVerified", { defaultValue: "All agents are verified by Babyeyi" }) },
+                    { icon: <Star   size={13} color={AMBER600} />, text: t("findAgent.featureRated", { defaultValue: "Rated and reviewed by community" }) },
+                    { icon: <Zap    size={13} color={AMBER600} />, text: t("findAgent.featureInstantSupport", { defaultValue: "Instant support request system" }) },
                   ].map((f, i) => (
                     <div key={i} style={{ display: "flex", gap: 9, alignItems: "flex-start" }}>
                       <div style={{ width: 26, height: 26, borderRadius: 7, background: AMBER50, border: `1px solid rgba(251,191,36,0.25)`, display: "grid", placeItems: "center", flexShrink: 0 }}>
@@ -932,10 +939,10 @@ export default function FindAgent() {
               <div>
                 <div className="fa-results-title">
                   {loadingAgents
-                    ? "Searching agents…"
+                    ? t("findAgent.searchingAgents", { defaultValue: "Searching agents…" })
                     : agents.length > 0
-                    ? `${agents.length} Agent${agents.length !== 1 ? "s" : ""} Found`
-                    : "Agents in Your Area"
+                    ? `${agents.length} ${t("findAgent.agentWord", { defaultValue: "Agent" })}${agents.length !== 1 ? "s" : ""} ${t("findAgent.found", { defaultValue: "Found" })}`
+                    : t("findAgent.agentsInArea", { defaultValue: "Agents in Your Area" })
                   }
                 </div>
                 {filtersComplete && (
@@ -948,7 +955,7 @@ export default function FindAgent() {
               {agents.length > 0 && (
                 <button type="button" onClick={() => openModal(null)} className="fa-request-area-btn">
                   <MessageSquarePlus size={14} />
-                  Area Support
+                  {t("findAgent.areaSupport", { defaultValue: "Area Support" })}
                 </button>
               )}
             </div>
@@ -959,8 +966,8 @@ export default function FindAgent() {
                 <div className="fa-empty-icon" style={{ background: AMBER50, border: `1px solid rgba(251,191,36,0.28)` }}>
                   <Search size={28} color={AMBER600} />
                 </div>
-                <div className="fa-empty-title">Start your search</div>
-                <div className="fa-empty-sub">Use the location filter above to find certified Babyeyi agents near you.</div>
+                <div className="fa-empty-title">{t("findAgent.startYourSearch", { defaultValue: "Start your search" })}</div>
+                <div className="fa-empty-sub">{t("findAgent.startSearchSub", { defaultValue: "Use the location filter above to find certified Babyeyi agents near you." })}</div>
                 <div style={{ marginTop: 20, display: "flex", justifyContent: "center", gap: 10, flexWrap: "wrap" }}>
                   {["Kigali City", "Eastern Province", "Northern Province"].map(hint => (
                     <button
@@ -981,8 +988,8 @@ export default function FindAgent() {
             {loadingAgents && (
               <div className="fa-empty">
                 <Loader2 size={32} color={AMBER600} className="fa-spin" style={{ margin: "0 auto 16px" }} />
-                <div className="fa-empty-title">Finding agents…</div>
-                <div className="fa-empty-sub">Searching for certified agents in your selected area.</div>
+                <div className="fa-empty-title">{t("findAgent.findingAgents", { defaultValue: "Finding agents…" })}</div>
+                <div className="fa-empty-sub">{t("findAgent.findingAgentsSub", { defaultValue: "Searching for certified agents in your selected area." })}</div>
               </div>
             )}
 
@@ -992,15 +999,15 @@ export default function FindAgent() {
                 <div className="fa-empty-icon" style={{ background: "#f8fafc", border: `1px solid ${NAVY08}` }}>
                   <UserRound size={28} color={NAVY50} />
                 </div>
-                <div className="fa-empty-title">No agents found</div>
+                <div className="fa-empty-title">{t("findAgent.noAgentsFound", { defaultValue: "No agents found" })}</div>
                 <div className="fa-empty-sub">
-                  No agent is currently allocated to this location. Try selecting a different district or leave the sector empty.
+                  {t("findAgent.noAgentsFoundSub", { defaultValue: "No agent is currently allocated to this location. Try selecting a different district or leave the sector empty." })}
                 </div>
                 <button
                   onClick={() => { setSector(""); }}
                   style={{ marginTop: 18, display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 18px", borderRadius: 10, border: `1.5px solid ${AMBER}`, background: AMBER50, color: AMBER700, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}
                 >
-                  <ArrowRight size={14} /> Try all sectors
+                  <ArrowRight size={14} /> {t("findAgent.tryAllSectors", { defaultValue: "Try all sectors" })}
                 </button>
               </div>
             )}
@@ -1014,6 +1021,7 @@ export default function FindAgent() {
                     agent={a}
                     sector={sector}
                     onRequestSupport={openModal}
+                    t={t}
                     style={{ animationDelay: `${idx * 0.07}s` }}
                   />
                 ))}
@@ -1032,6 +1040,7 @@ export default function FindAgent() {
           province={province}
           district={district}
           sector={sector}
+          t={t}
           onClose={closeModal}
         />
       )}

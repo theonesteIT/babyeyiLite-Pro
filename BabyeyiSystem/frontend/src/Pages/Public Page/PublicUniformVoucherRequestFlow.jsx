@@ -18,8 +18,15 @@ import {
   Truck,
 } from "lucide-react";
 import { getApiBase, getApiOrigin } from "../../utils/apiBase";
+import { useAuth } from "../../context/AuthContext";
 import babyeyiLogo from "../../assets/1BABYEYI LOGO FINAL.png";
 import { UNIFORM_VOUCHER_CHECKOUT_KEY } from "./UniformVoucherCheckout";
+import {
+  buildUniformVoucherUrls,
+  getOrCreateVoucherResumeToken,
+  persistParentVoucherIncompleteOrder,
+  setVoucherResumeToken,
+} from "../../utils/parentVoucherIncompleteOrder";
 
 const FONT = `"MTN Brighter Sans","Nunito","Varela Round",sans-serif`;
 const API = getApiBase();
@@ -162,9 +169,11 @@ const headerBtnBase =
 
 export default function PublicUniformVoucherRequestFlow() {
   const navigate = useNavigate();
+  const auth = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const resumeAgentPickRef = useRef(null);
   const uniformResumeAppliedRef = useRef(false);
+  const uniformResumeTokenRef = useRef(getOrCreateVoucherResumeToken("uniform_voucher"));
   const [step, setStep] = useState(0);
   const [studentCode, setStudentCode] = useState("");
   useEffect(() => {
@@ -485,6 +494,61 @@ export default function PublicUniformVoucherRequestFlow() {
   const deliveryFee = deliveryMethod === "home" ? 2500 : 0;
   const total = subtotal + deliveryFee;
 
+  useEffect(() => {
+    if (step < 1 || !student) return undefined;
+    const resumeStep = step >= 5 ? 6 : step + 1;
+    const { resumeUrl, shareUrl } = buildUniformVoucherUrls(resumeStep);
+    const childName = `${student.first_name || ""} ${student.last_name || ""}`.trim();
+    const snapshot = {
+      flow: "uniform-voucher",
+      step,
+      studentCode: studentCode.trim(),
+      uniformType,
+      cart,
+      deliveryMethod,
+      deliveryDetail,
+      selectedAgent,
+      locProvince,
+      locDistrict,
+      locSector,
+      total,
+      subtotal,
+    };
+    const t = window.setTimeout(() => {
+      void persistParentVoucherIncompleteOrder({
+        auth,
+        serviceType: "uniform_voucher",
+        status: step >= 6 ? "pending_payment" : "incomplete",
+        resumeToken: uniformResumeTokenRef.current,
+        resumeUrl,
+        shareUrl,
+        kitTitle: uniformType ? `${uniformType} uniform voucher` : "Uniform voucher",
+        childName,
+        studentId: student.id || student.student_id || null,
+        totalRwf: total,
+        delivery: deliveryMethod === "home" ? "home" : "school",
+        paymentMethod: "momo",
+        snapshot,
+      });
+    }, 420);
+    return () => window.clearTimeout(t);
+  }, [
+    step,
+    student,
+    studentCode,
+    uniformType,
+    cart,
+    deliveryMethod,
+    deliveryDetail,
+    selectedAgent,
+    locProvince,
+    locDistrict,
+    locSector,
+    total,
+    subtotal,
+    auth,
+  ]);
+
   const goPay = async () => {
     setSubmitErr("");
     if (!payerName.trim() || !payerPhone.trim()) {
@@ -510,9 +574,30 @@ export default function PublicUniformVoucherRequestFlow() {
         setSubmitErr("Could not save checkout session.");
         return;
       }
+      const { resumeUrl, shareUrl } = buildUniformVoucherUrls(6);
+      void persistParentVoucherIncompleteOrder({
+        auth,
+        serviceType: "uniform_voucher",
+        status: "pending_payment",
+        resumeToken: uniformResumeTokenRef.current,
+        resumeUrl,
+        shareUrl,
+        kitTitle: existingCheckout.prepared?.uniform_type
+          ? `${existingCheckout.prepared.uniform_type} uniform voucher`
+          : "Uniform voucher",
+        childName: existingCheckout.prepared?.student
+          ? `${existingCheckout.prepared.student.first_name || ""} ${existingCheckout.prepared.student.last_name || ""}`.trim()
+          : "",
+        studentId: existingCheckout.prepared?.student?.id || null,
+        totalRwf: existingCheckout.grandTotal ?? total,
+        delivery: existingCheckout.prepared?.delivery_method === "home" ? "home" : "school",
+        paymentMethod: "momo",
+        snapshot: existingCheckout,
+      });
       navigate("/payments", {
         state: {
           uniformVoucherPay: { payerName: payerName.trim(), payerPhone: payerPhone.trim() },
+          voucherResumeToken: uniformResumeTokenRef.current,
         },
       });
       return;
@@ -591,9 +676,32 @@ export default function PublicUniformVoucherRequestFlow() {
         setSubmitErr("Could not save checkout session.");
         return;
       }
+      const orderTok = d.voucher_number
+        ? `uv-${String(d.voucher_number).replace(/\s+/g, "")}`
+        : `uv-order-${d.order_id}`;
+      setVoucherResumeToken("uniform_voucher", orderTok);
+      uniformResumeTokenRef.current = orderTok;
+      const { resumeUrl, shareUrl } = buildUniformVoucherUrls(6);
+      const childName = `${student.first_name || ""} ${student.last_name || ""}`.trim();
+      void persistParentVoucherIncompleteOrder({
+        auth,
+        serviceType: "uniform_voucher",
+        status: "pending_payment",
+        resumeToken: orderTok,
+        resumeUrl,
+        shareUrl,
+        kitTitle: uniformType ? `${uniformType} uniform voucher` : "Uniform voucher",
+        childName,
+        studentId: student.id || null,
+        totalRwf: grandTotal,
+        delivery: deliveryMethod === "home" ? "home" : "school",
+        paymentMethod: "momo",
+        snapshot: payload,
+      });
       navigate("/payments", {
         state: {
           uniformVoucherPay: { payerName: payerName.trim(), payerPhone: payerPhone.trim() },
+          voucherResumeToken: orderTok,
         },
       });
     } catch (e) {

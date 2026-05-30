@@ -5,7 +5,8 @@
  */
 
 import { useState, useEffect, useRef } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../../context/AuthContext";
 import BabyeyiPortalLoader from "../../components/BabyeyiPortalLoader";
 import {
@@ -14,7 +15,7 @@ import {
   Menu, X, Building2, Layers, Heart, Sparkles,
   LogIn, Facebook, Twitter, Instagram, Mail, Phone,
   Youtube, CreditCard, Send, Bot, Loader2, Package,
-  ExternalLink,
+  ExternalLink, ChevronDown,
 } from "lucide-react";
 
 import Heroimage from "../../assets/logo-bg2.png";
@@ -26,6 +27,7 @@ import MTNLogo from "../../assets/PartnersLogo/mtn.png";
 import UmwarimuLogo from "../../assets/PartnersLogo/umwarimu sacco.jpg";
 import XentriLogo from "../../assets/PartnersLogo/xentriPay.png";
 import AitelLogo from "../../assets/PartnersLogo/Aitel.png";
+import mobileHero from "../../assets/mobile.png";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5100";
 const TEACHER_PORTAL_URL =
@@ -33,6 +35,7 @@ const TEACHER_PORTAL_URL =
 
 /** Full checkout: tuition + requirement items + paid-at-school lines (`PaidAtSchool` with `includeRequirements`). Not the narrow `/paid-at-school` wizard. */
 const PUBLIC_COMBINED_PAY_PATH = "/combined-tution-requrement";
+const PUBLIC_LANGS = ["rw", "en", "fr"];
 
 /** Logos in `src/assets/partner/` */
 function partnersFromAssetsFolder() {
@@ -220,8 +223,38 @@ function useVisible(ref) {
   return v;
 }
 
+function LanguageSwitcher({ compact = false }) {
+  const { t, i18n } = useTranslation();
+  const baseLanguage = String(i18n.language || "en").slice(0, 2).toLowerCase();
+  const current = PUBLIC_LANGS.includes(baseLanguage) ? baseLanguage : "en";
+
+  return (
+    <div
+      className={`relative inline-flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-white/90 ${
+        compact ? "text-[11px]" : "text-[12px]"
+      }`}
+      style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.16)" }}
+    >
+      <Globe size={compact ? 12 : 13} className="text-amber-300" />
+      <span className="font-semibold whitespace-nowrap">{t("language.label")}</span>
+      <ChevronDown size={compact ? 12 : 13} className="text-white/70" />
+      <select
+        aria-label={t("language.switcherLabel")}
+        value={current}
+        onChange={(e) => i18n.changeLanguage(e.target.value)}
+        className="absolute inset-0 opacity-0 cursor-pointer"
+      >
+        <option value="rw" className="text-[#000435]">🇷🇼 {t("language.rw")}</option>
+        <option value="en" className="text-[#000435]">🇬🇧 {t("language.en")}</option>
+        <option value="fr" className="text-[#000435]">🇫🇷 {t("language.fr")}</option>
+      </select>
+    </div>
+  );
+}
+
 /* ── Navbar ────────────────────────────────────────────────────── */
 function Navbar() {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
@@ -232,21 +265,24 @@ function Navbar() {
   }, []);
 
   const links = [
-    { label: "Home page", href: "/" },
-    { label: "Pay Fees",  href: PUBLIC_COMBINED_PAY_PATH },
-    { label: "Services",  href: "/services" },
-    { label: "Features",  href: "/features" },
-    { label: "Schools",   href: "/schools" },
+    { label: t("public.homePage"), href: "/" },
+    { label: t("public.payFees"), href: PUBLIC_COMBINED_PAY_PATH },
+    { label: t("public.services"), href: "/services" },
+    { label: t("public.features"), href: "/features" },
+    { label: t("public.schools"), href: "/schools" },
   ];
 
   return (
     <nav
       className={`fixed inset-x-0 top-0 z-50 transition-all duration-500 ${
-        scrolled ? "bg-[#000435] shadow-[0_4px_32px_rgba(0,0,0,.5)]" : "bg-[#000435]/90 backdrop-blur-xl"
+        scrolled ? "bg-[#000435] shadow-[0_14px_48px_rgba(0,0,0,.5)]" : "bg-[#000435]"
       }`}
-      style={{ borderBottom: "1px solid rgba(251,191,36,0.18)" }}
+      style={{
+        borderBottom: "1px solid rgba(251,191,36,0.22)",
+        boxShadow: scrolled ? "0 10px 32px rgba(0, 4, 53, 0.4)" : "inset 0 -1px 0 rgba(255,255,255,0.06)",
+      }}
     >
-      <div className="max-w-[1400px] mx-auto px-3 sm:px-6 xl:px-10 2xl:px-16 flex items-center justify-between gap-2 h-12 sm:h-[62px] lg:h-14 xl:h-[70px]">
+      <div className="max-w-[1400px] mx-auto px-3 sm:px-6 xl:px-10 2xl:px-16 flex items-center justify-between gap-1.5 xl:gap-2 h-12 sm:h-[62px] lg:h-14 xl:h-[70px]">
         <Link to="/" className="flex items-center shrink min-w-0 group">
           <img
             src={BabyeyiLogo}
@@ -255,13 +291,14 @@ function Navbar() {
               e.currentTarget.onerror = null;
               e.currentTarget.src = "/1BABYEYI LOGO FINAL.png";
             }}
-            className="h-6 max-h-6 w-auto max-w-[88px] object-contain object-left transition-all duration-300 group-hover:brightness-110 sm:max-w-none sm:h-9 sm:max-h-none lg:h-10 xl:h-[42px]" />
+            className="h-5 max-h-5 w-auto max-w-[74px] object-contain object-left transition-all duration-300 group-hover:brightness-110 sm:h-7 sm:max-h-none sm:max-w-[110px] lg:h-8 xl:h-9" />
         </Link>
 
-        <div className="hidden lg:flex items-center">
+        <div className="hidden lg:flex items-center rounded-2xl px-1.5 xl:px-2 py-1"
+          style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
           {links.map((l) => (
             <Link key={l.label} to={l.href}
-              className="relative px-3.5 xl:px-4 py-2 text-[13.5px] xl:text-[14px] font-semibold text-white hover:text-amber-400 transition-colors duration-200 group">
+              className="relative px-2.5 xl:px-3 py-2 text-[13px] xl:text-[13.5px] font-semibold text-white hover:text-amber-300 transition-colors duration-200 group">
               {l.label}
               <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 h-[1.5px] w-0 bg-amber-400 rounded-full transition-all duration-300 group-hover:w-3/4" />
             </Link>
@@ -269,11 +306,12 @@ function Navbar() {
         </div>
 
         <div className="hidden lg:flex items-center gap-3">
+          <LanguageSwitcher />
           <a
             href={TEACHER_PORTAL_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="group relative inline-flex items-center gap-2 min-h-[40px] xl:min-h-[42px] px-4 xl:px-5 rounded-xl text-[13px] xl:text-[14px] font-bold text-white overflow-hidden transition-all duration-300 hover:shadow-[0_6px_28px_rgba(56,189,248,0.35)] active:scale-[.97]"
+            className="group relative inline-flex items-center gap-2 min-h-[40px] xl:min-h-[42px] px-3.5 xl:px-4.5 rounded-xl text-[12px] xl:text-[13px] font-bold text-white overflow-hidden whitespace-nowrap transition-all duration-300 hover:shadow-[0_6px_28px_rgba(56,189,248,0.35)] active:scale-[.97]"
             style={{
               background:
                 "linear-gradient(135deg, rgba(14,165,233,0.22) 0%, rgba(99,102,241,0.18) 100%)",
@@ -293,7 +331,7 @@ function Navbar() {
               strokeWidth={2.5}
               className="relative z-[1] text-sky-200 group-hover:text-white transition-colors"
             />
-            <span className="relative z-[1] tracking-tight">Teacher Portal</span>
+            <span className="relative z-[1] tracking-tight whitespace-nowrap">{t("public.teacherPortal")}</span>
             <ExternalLink
               size={12}
               strokeWidth={2.5}
@@ -301,9 +339,9 @@ function Navbar() {
             />
           </a>
           <Link to="/login-portal-select"
-            className="btn-shine inline-flex items-center gap-2 min-h-[40px] xl:min-h-[42px] px-5 xl:px-6 rounded-xl font-black text-[13px] xl:text-[14px] text-[#000435] transition-all duration-200 hover:shadow-[0_4px_20px_rgba(251,191,36,.4)] active:scale-[.97]"
+            className="btn-shine inline-flex items-center gap-2 min-h-[40px] xl:min-h-[42px] px-4 xl:px-5 rounded-xl font-black text-[12px] xl:text-[13px] text-[#000435] whitespace-nowrap transition-all duration-200 hover:shadow-[0_4px_20px_rgba(251,191,36,.4)] active:scale-[.97]"
             style={{ background: "linear-gradient(135deg,#FBBF24 0%,#F59E0B 100%)" }}>
-            <LogIn size={14} strokeWidth={2.5} />ShuleManager
+            <LogIn size={14} strokeWidth={2.5} />{t("public.shuleManager")}
           </Link>
         </div>
 
@@ -311,7 +349,7 @@ function Navbar() {
           <Link to="/login-portal-select"
             className="btn-shine inline-flex items-center gap-1 h-7 px-2.5 rounded-lg text-[#000435] text-[10px] font-bold whitespace-nowrap"
             style={{ background: "linear-gradient(135deg,#FBBF24,#F59E0B)" }}>
-            <LogIn size={11} strokeWidth={2.5} /> ShuleManager
+            <LogIn size={11} strokeWidth={2.5} /> {t("public.shuleManager")}
           </Link>
           <button type="button" onClick={() => setOpen(!open)}
             className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors"
@@ -324,6 +362,9 @@ function Navbar() {
       {open && (
         <div className="lg:hidden bg-[#000120] border-t px-4 pb-5 pt-2 space-y-1"
           style={{ borderColor: "rgba(251,191,36,0.12)" }}>
+          <div className="px-1 py-2">
+            <LanguageSwitcher compact />
+          </div>
           {links.map((l) => (
             <Link key={l.label} to={l.href} onClick={() => setOpen(false)}
               className="flex px-4 py-3 rounded-xl text-[14px] font-semibold text-white hover:bg-white/6 hover:text-amber-400 transition-all">
@@ -344,13 +385,13 @@ function Navbar() {
               }}
             >
               <GraduationCap size={16} strokeWidth={2.5} className="text-sky-200" />
-              Teacher Portal
+              {t("public.teacherPortal")}
               <ExternalLink size={13} strokeWidth={2.5} className="opacity-70" />
             </a>
             <Link to="/login-portal-select" onClick={() => setOpen(false)}
               className="btn-shine flex items-center justify-center gap-2 w-full px-4 py-3.5 rounded-xl text-[#000435] text-[14px] font-black"
               style={{ background: "linear-gradient(135deg,#FBBF24,#F59E0B)" }}>
-              <LogIn size={16} strokeWidth={2.5} /> ShuleManager
+              <LogIn size={16} strokeWidth={2.5} /> {t("public.shuleManager")}
             </Link>
           </div>
         </div>
@@ -361,6 +402,7 @@ function Navbar() {
 
 /* ── AI Search Box ─────────────────────────────────────────────── */
 function AISearchBox() {
+  const { t } = useTranslation();
   const [val, setVal] = useState("");
   const [ph, setPh] = useState("");
   const [loading, setLoading] = useState(false);
@@ -370,10 +412,10 @@ function AISearchBox() {
   const pi = useRef(0); const ci = useRef(0);
 
   const prompts = [
-    "Enter student code or SDMS ID (e.g. 010010001)…",
-    "See Babyeyi and Pay Fees for your child  ",
-    "Look up my child's Babyeyi student UID…",
-    "Get all the Trades for TVET in the country",
+    t("public.searchInputHint"),
+    t("public.searchPromptPayFees"),
+    t("public.searchPromptUid"),
+    t("public.searchPromptTrades"),
   ];
 
   useEffect(() => {
@@ -394,22 +436,22 @@ function AISearchBox() {
     };
     timer.current = setTimeout(type, 800);
     return () => clearTimeout(timer.current);
-  }, []);
+  }, [t]);
 
   const lookup = async () => {
     const q = val.trim(); setErr(null); setResult(null);
-    if (!q) { setErr("Enter a student UID, code, or school directory code."); return; }
+    if (!q) { setErr(t("public.searchErrEnterCode")); return; }
     setLoading(true);
     try {
       const r = await fetch(`${API_BASE}/api/public/student-code-lookup`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: q }) });
       const j = await r.json().catch(() => ({}));
-      if (!r.ok || j.success === false) { setErr(j.message || "Lookup failed."); return; }
+      if (!r.ok || j.success === false) { setErr(j.message || t("public.searchErrLookupFailed")); return; }
       if (j.found) { setResult({ data: j.data, lookupCode: q }); return; }
       const sr = await fetch(`${API_BASE}/api/public/public-pay/school-catalog`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ school_code: q }) });
       const sj = await sr.json().catch(() => ({}));
       if (sr.ok && sj.success && sj.data?.school) { setResult({ school: sj.data, lookupCode: q }); return; }
       setResult({ notFound: true });
-    } catch { setErr("Network error  check your connection."); }
+    } catch { setErr(t("public.searchErrNetwork")); }
     finally { setLoading(false); }
   };
 
@@ -420,7 +462,7 @@ function AISearchBox() {
           <span key={d} className="w-1.5 h-1.5 rounded-full bg-[#000435] animate-pulse" style={{ animationDelay: `${d}ms` }} />
         ))}
         <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.14em] sm:tracking-[0.18em] text-[#000435]">
-          SDMS Code / ShuleCard ID
+          {t("public.searchBanner")}
         </span>
       </div>
 
@@ -443,7 +485,7 @@ function AISearchBox() {
           type="text" value={val}
           onChange={(e) => { setVal(e.target.value); setErr(null); setResult(null); }}
           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); lookup(); } }}
-          placeholder={ph || "Student code or question…"}
+          placeholder={ph || t("public.searchPlaceholder")}
           className="flex-1 min-w-0 rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-[13px] sm:text-[14px] text-[#000435] placeholder:text-slate-400 outline-none"
           style={{
             background: "rgba(255,255,255,0.95)",
@@ -470,7 +512,7 @@ function AISearchBox() {
 
       {result && (
         <div className="fixed inset-0 z-[300] flex items-end sm:items-center justify-center p-0 sm:p-6">
-          <button type="button" aria-label="Close" className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setResult(null)} />
+          <button type="button" aria-label={t("public.close")} className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setResult(null)} />
           <div className="relative z-10 w-full sm:max-w-lg max-h-[88dvh] flex flex-col rounded-t-3xl sm:rounded-3xl overflow-hidden"
             style={{ background: "#000435", border: "2px solid rgba(251,191,36,0.3)", boxShadow: "0 32px 80px rgba(0,0,0,.8)" }}>
             <div className="flex items-center justify-between gap-2 px-5 py-4 shrink-0"
@@ -478,7 +520,7 @@ function AISearchBox() {
               <div className="flex items-center gap-2">
                 <GraduationCap size={17} className="text-amber-400" />
                 <span className="text-[14px] font-black text-white">
-                  {result.data ? "Learner Profile" : result.school ? "School Details" : "No Match Found"}
+                  {result.data ? t("public.modalLearnerProfile") : result.school ? t("public.modalSchoolDetails") : t("public.modalNoMatchFound")}
                 </span>
               </div>
               <button type="button" onClick={() => setResult(null)} className="p-1.5 rounded-lg hover:bg-white/10 transition-colors">
@@ -488,12 +530,12 @@ function AISearchBox() {
             <div className="overflow-y-auto px-5 py-5 flex-1 space-y-3">
               {result.notFound && (
                 <div>
-                  <p className="text-[15px] font-bold text-white mb-2">No Learner or School Found</p>
-                  <p className="text-[13px] text-white/55 leading-relaxed mb-4">Check the student UID, official code, or school directory code.</p>
+                  <p className="text-[15px] font-bold text-white mb-2">{t("public.modalNoLearnerOrSchoolFound")}</p>
+                  <p className="text-[13px] text-white/55 leading-relaxed mb-4">{t("public.modalCheckStudentCode")}</p>
                   <Link to="/schools" onClick={() => setResult(null)}
                     className="btn-shine inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-[13px] font-black text-[#000435]"
                     style={{ background: "linear-gradient(135deg,#FBBF24,#F59E0B)" }}>
-                    Find a School
+                    {t("public.getStartedCard3Title")}
                   </Link>
                 </div>
               )}
@@ -501,9 +543,9 @@ function AISearchBox() {
                 <div className="rounded-xl p-4 space-y-3"
                   style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
                   {(result.data
-                    ? [["Student", `${result.data.first_name || ""} ${result.data.last_name || ""}`.trim()], ["UID", result.data.student_uid || "—"], ["Class", result.data.class_name || "—"], ["School", result.data.school_name || "—"]]
+                    ? [[t("public.modalFieldStudent"), `${result.data.first_name || ""} ${result.data.last_name || ""}`.trim()], [t("public.modalFieldUid"), result.data.student_uid || "—"], [t("public.modalFieldClass"), result.data.class_name || "—"], [t("public.modalFieldSchool"), result.data.school_name || "—"]]
                     : result.school
-                    ? [["School", result.school.school?.school_name || "—"], ["Code", result.school.school?.school_code || "—"], ["Location", [result.school.school?.district, result.school.school?.province].filter(Boolean).join(", ") || "—"]]
+                    ? [[t("public.modalFieldSchool"), result.school.school?.school_name || "—"], [t("public.modalFieldCode"), result.school.school?.school_code || "—"], [t("public.modalFieldLocation"), [result.school.school?.district, result.school.school?.province].filter(Boolean).join(", ") || "—"]]
                     : []
                   ).map(([k, v]) => (
                     <div key={k} className="flex justify-between gap-3 pb-2 last:pb-0"
@@ -527,18 +569,18 @@ function AISearchBox() {
                     <Link to={payHref} onClick={() => setResult(null)}
                       className="btn-shine inline-flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-3 text-[13px] font-black text-[#000435] transition-colors"
                       style={{ background: "linear-gradient(135deg,#FBBF24,#F59E0B)" }}>
-                      <CreditCard size={15} strokeWidth={2.5} /> Pay fees for this student
+                      <CreditCard size={15} strokeWidth={2.5} /> {t("public.modalPayFeesForStudent")}
                     </Link>
                     {slug ? (
                       <Link to={`/school/${encodeURIComponent(slug)}`} onClick={() => setResult(null)}
                         className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-3 text-[13px] font-black text-white transition-colors hover:bg-white/15"
                         style={{ border: "1.5px solid rgba(251,191,36,0.4)", background: "rgba(255,255,255,0.07)" }}>
-                        <Globe size={15} strokeWidth={2.2} /> School mini-website <ExternalLink size={13} className="opacity-60" />
+                        <Globe size={15} strokeWidth={2.2} /> {t("public.modalSchoolMiniWebsite")} <ExternalLink size={13} className="opacity-60" />
                       </Link>
                     ) : (
                       <div className="flex flex-1 items-center justify-center rounded-xl px-3 py-2.5 text-[11px] font-medium text-white/40 text-center"
                         style={{ border: "1px dashed rgba(255,255,255,0.15)" }}>
-                        Mini-website not published yet
+                        {t("public.modalMiniWebsiteNotPublished")}
                       </div>
                     )}
                   </div>
@@ -554,10 +596,10 @@ function AISearchBox() {
                     <Link to={payHref} onClick={() => setResult(null)}
                       className="btn-shine inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-[13px] font-black text-[#000435] transition-colors"
                       style={{ background: "linear-gradient(135deg,#FBBF24,#F59E0B)" }}>
-                      <CreditCard size={15} strokeWidth={2.5} /> Pay fees (full checkout)
+                      <CreditCard size={15} strokeWidth={2.5} /> {t("public.modalPayFeesFullCheckout")}
                     </Link>
                     <p className="text-[11px] text-white/45 text-center leading-snug px-1">
-                      Tuition, school requirements, and paid-at-school items use your student code when asked.
+                      {t("public.modalTuitionHint")}
                     </p>
                   </div>
                 );
@@ -565,7 +607,7 @@ function AISearchBox() {
               <button type="button" onClick={() => setResult(null)}
                 className="w-full py-3 rounded-xl text-white text-[13px] font-bold transition-colors hover:bg-white/12"
                 style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.1)" }}>
-                Close
+                {t("public.close")}
               </button>
             </div>
           </div>
@@ -577,6 +619,7 @@ function AISearchBox() {
 
 /* ── Hero ──────────────────────────────────────────────────────── */
 function HeroSection() {
+  const { t } = useTranslation();
   return (
     <section className="relative w-full overflow-hidden pt-14 sm:pt-[62px] xl:pt-[70px]" style={{ minHeight: "100svh" }}>
 
@@ -644,10 +687,10 @@ function HeroSection() {
               
             }}
           >
-            An Integrated{" "}
-            <span className="text-white">Digital Platform for Equitable</span>
+            {t("public.heroTitle1")}{" "}
+            <span className="text-white">{t("public.heroTitle2")}</span>
             <br className="hidden sm:block" />
-            {"School Readiness "} {" "}
+            {t("public.heroTitle3")}{" "}
             <span className="text-white"></span>
           </h1>
 
@@ -657,24 +700,24 @@ function HeroSection() {
               <Link to={PUBLIC_COMBINED_PAY_PATH}
                 className="btn-shine inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-2xl font-black text-amber-400 transition-all active:scale-[.97] hover:shadow-[0_8px_28px_rgba(251,191,36,.4)]"
                 style={{ minHeight: "clamp(44px,5.5vw,56px)", fontSize: "clamp(11px,2.8vw,15px)", background: "#000435" }}>
-                <CreditCard size={14} strokeWidth={2.5} className="shrink-0" /> Pay Fees
+                <CreditCard size={14} strokeWidth={2.5} className="shrink-0" /> {t("public.payFees")}
               </Link>
               <a href="/parents/login"
                 className="inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-2xl font-black text-white transition-all hover:bg-white/8"
                 style={{ minHeight: "clamp(44px,5.5vw,56px)", fontSize: "clamp(11px,2.8vw,15px)", background: "#000435" }}>
-                <LogIn size={14} className="text-amber-300 shrink-0" /> Parent Login
+                <LogIn size={14} className="text-amber-300 shrink-0" /> {t("public.parentLogin")}
               </a>
             </div>
             <div className="grid grid-cols-2 gap-2 sm:gap-3">
               <Link to="/register"
                 className="inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-2xl font-semibold text-white transition-all hover:bg-amber-400/14"
                 style={{ minHeight: "clamp(42px,5vw,52px)", fontSize: "clamp(10.5px,2.6vw,14px)",background: "#000435" }}>
-                <Building2 size={14} className="text-amber-400 shrink-0" /> Register School
+                <Building2 size={14} className="text-amber-400 shrink-0" /> {t("public.registerSchool")}
               </Link>
               <Link to="/services"
                 className="inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-2xl font-semibold text-white transition-all hover:bg-white/10"
                 style={{ minHeight: "clamp(42px,5vw,52px)", fontSize: "clamp(10.5px,2.6vw,14px)", background: "#000435" }}>
-                <Sparkles size={14} className="text-amber-200/80 shrink-0" /> Tools & Services
+                <Sparkles size={14} className="text-amber-200/80 shrink-0" /> {t("public.toolsServices")}
               </Link>
             </div>
           </div>
@@ -752,10 +795,11 @@ function HowItWorksSection() {
 
 /* ── Demo Video ────────────────────────────────────────────────── */
 function DemoSection() {
+  const { t } = useTranslation();
   return (
     <section className="py-16 sm:py-24 xl:py-32 bg-[#000120]">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 xl:px-10 2xl:px-16">
-        <SH eyebrow="Platform Demo" title="See Babyeyi in Action" light sub="Demo video is coming soon." />
+        <SH eyebrow={t("public.demoEyebrow")} title={t("public.demoTitle")} light sub={t("public.demoSub")} />
         <div className="relative rounded-3xl overflow-hidden shadow-2xl" style={{ paddingBottom: "56.25%", border: "1px solid rgba(251,191,36,0.15)" }}>
           <div className="absolute inset-0 flex flex-col items-center justify-center"
             style={{ background: "linear-gradient(135deg,#000435 0%,#000c6b 100%)" }}>
@@ -767,9 +811,9 @@ function DemoSection() {
               </div>
               <span className="px-5 py-1.5 rounded-full text-[11px] font-black uppercase tracking-[0.18em] text-amber-400"
                 style={{ border: "1px solid rgba(251,191,36,0.3)", background: "rgba(251,191,36,0.08)" }}>
-                Coming Soon
+                {t("public.comingSoon")}
               </span>
-              <p className="text-[13px] font-medium text-white/40">Demo video will be available here.</p>
+              <p className="text-[13px] font-medium text-white/40">{t("public.demoAvailableHere")}</p>
             </div>
           </div>
         </div>
@@ -820,15 +864,16 @@ function StatsSection() {
 
 /* ── Testimonials ──────────────────────────────────────────────── */
 function TestimonialsSection() {
+  const { t } = useTranslation();
   const tt = [
-    { quote: "Babyeyi has transformed how we communicate with parents. All school information at their fingertips.", author: "Jean Pierre Nkurunziza", role: "Headmaster, GS Gahini", initials: "JN" },
-    { quote: "As a parent, I love checking programs, fee structure, and applying for my child's admission online.", author: "Ange Uwimana", role: "Parent, Kigali", initials: "AU" },
-    { quote: "The admission system saves so much time. Everything is digital, organised, and instant.", author: "Marie Claire Ingabire", role: "School Secretary, GS Kayonza", initials: "MI" },
+    { quote: t("public.testimonial1Quote"), author: "Jean Pierre Nkurunziza", role: t("public.testimonial1Role"), initials: "JN" },
+    { quote: t("public.testimonial2Quote"), author: "Ange Uwimana", role: t("public.testimonial2Role"), initials: "AU" },
+    { quote: t("public.testimonial3Quote"), author: "Marie Claire Ingabire", role: t("public.testimonial3Role"), initials: "MI" },
   ];
   return (
     <section className="py-16 sm:py-24 xl:py-32 bg-slate-50">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 xl:px-10 2xl:px-16">
-        <SH eyebrow="Testimonials" title="Trusted Across Rwanda" sub="Hear from schools and parents already using Babyeyi." />
+        <SH eyebrow={t("public.testimonialsEyebrow")} title={t("public.testimonialsTitle")} sub={t("public.testimonialsSub")} />
         <div className="grid md:grid-cols-3 gap-4 xl:gap-6">
           {tt.map((t, i) => (
             <div key={i}
@@ -861,16 +906,17 @@ function TestimonialsSection() {
 
 /* ── Get Started ───────────────────────────────────────────────── */
 function GetStartedSection() {
+  const { t } = useTranslation();
   const aa = [
-    { Icon: CreditCard,    title: "Pay School Fees",     desc: "Tuition, requirements, and paid-at-school lines one checkout. MTN MoMo. No account needed.", cta: "Pay Now",           href: PUBLIC_COMBINED_PAY_PATH },
-    { Icon: Package,       title: "Order a ShuleKit",    desc: "Get your child's school kit   uniforms, shoes, stationery  delivered or collected at school.",    cta: "Shop Services",    href: "/services"      },
-    { Icon: Search,        title: "Find a School",       desc: "Search 500+ schools by district, level, or TVET trade. Compare programs, fees, and facilities.",    cta: "Explore Schools",  href: "/schools"       },
-    { Icon: GraduationCap, title: "Apply for Admission", desc: "Submit your child's admission application online. Get a reference number instantly.",               cta: "Start Application",href: "/schools"       },
+    { Icon: CreditCard, title: t("public.getStartedCard1Title"), desc: t("public.getStartedCard1Desc"), cta: t("public.getStartedCard1Cta"), href: PUBLIC_COMBINED_PAY_PATH },
+    { Icon: Package, title: t("public.getStartedCard2Title"), desc: t("public.getStartedCard2Desc"), cta: t("public.getStartedCard2Cta"), href: "/services" },
+    { Icon: Search, title: t("public.getStartedCard3Title"), desc: t("public.getStartedCard3Desc"), cta: t("public.getStartedCard3Cta"), href: "/schools" },
+    { Icon: GraduationCap, title: t("public.getStartedCard4Title"), desc: t("public.getStartedCard4Desc"), cta: t("public.getStartedCard4Cta"), href: "/schools" },
   ];
   return (
     <section className="py-16 sm:py-24 xl:py-32 bg-slate-50">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 xl:px-10 2xl:px-16">
-        <SH eyebrow="Get Started" title="What Would You Like to Do?" sub="Modern shortcuts designed for speed, clarity, and mobile-first access." />
+        <SH eyebrow={t("public.getStartedEyebrow")} title={t("public.getStartedTitle")} sub={t("public.getStartedSub")} />
         <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4 xl:gap-5">
           {aa.map((a, i) => (
             <div key={i}
@@ -910,6 +956,7 @@ const TRUSTED_PARTNERS = [
 ];
 
 function PartnersSection() {
+  const { t } = useTranslation();
   const fromPartnerDir = partnersFromAssetsFolder();
   const seen = new Set(TRUSTED_PARTNERS.map((p) => p.name.toLowerCase()));
   const extra = fromPartnerDir.filter((p) => p?.name && !seen.has(String(p.name).toLowerCase()));
@@ -931,8 +978,8 @@ function PartnersSection() {
         {/* Headline */}
         <p className="text-center font-semibold text-[#000435] max-w-2xl mx-auto leading-snug mb-12 sm:mb-14 xl:mb-16"
           style={{ fontSize: "clamp(15px, 1.75vw, 19px)" }}>
-          <span style={{ color: "#F59E0B" }}>Trusted</span>
-          {" "}by schools, families, and partners across Rwanda aligned with national education institutions and industry leaders.
+          <span style={{ color: "#F59E0B" }}>{t("public.partnersTrustedWord")}</span>
+          {" "}{t("public.partnersSentence")}
         </p>
 
         {/* ── Partner cards: 3 per row (sm+), 2 per row on narrow phones — modern cards, mobile-first ── */}
@@ -1019,68 +1066,186 @@ function PartnersSection() {
 
 /* ── CTA ───────────────────────────────────────────────────────── */
 function CTASection() {
-  const navigate = useNavigate();
+  const { t } = useTranslation();
   return (
-    <section className="py-16 sm:py-24 xl:py-32 bg-[#000435] relative overflow-hidden noise">
-      <div className="absolute inset-0 pointer-events-none"
-        style={{ background: "radial-gradient(ellipse 70% 60% at 50% 50%, rgba(251,191,36,0.07) 0%, transparent 70%)" }} />
-      <div className="dot-grid absolute inset-0 pointer-events-none opacity-50" />
+    <section
+      className="public-premium-cta-shell"
+      style={{
+        margin: "32px auto 16px",
+        maxWidth: "min(1400px, calc(100% - 1.5rem))",
+        borderRadius: 26,
+        border: "1px solid rgba(251,191,36,0.42)",
+        background: "linear-gradient(132deg,#000435 0%, #00084B 58%, #FBBF24 58%, #F59E0B 100%)",
+        boxShadow: "0 22px 50px rgba(0,4,53,0.34)",
+        overflow: "hidden",
+      }}
+    >
+      <div style={{ padding: "1.15rem 1rem 1.05rem" }}>
+        <div className="cta-grid-hero" style={{ display: "grid", gap: 16, gridTemplateColumns: "1fr" }}>
+          <div style={{ position: "relative", zIndex: 2 }}>
+            <div className="public-premium-cta-badge" style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 10, padding: "6px 10px", borderRadius: 999, background: "rgba(255,255,255,0.09)", border: "1px solid rgba(251,191,36,0.38)" }}>
+              <Sparkles size={13} color="#FBBF24" />
+              <span style={{ color: "#fff", fontSize: 11, fontWeight: 900 }}>
+                {t("public.getStartedToday")}
+              </span>
+            </div>
 
-      <div className="relative z-10 max-w-3xl xl:max-w-4xl mx-auto px-4 sm:px-6 text-center">
-        <div className="inline-flex items-center gap-2 text-[10.5px] font-black uppercase tracking-[0.2em] text-amber-400 mb-5">
-          <span className="w-8 h-px bg-amber-400" /> Get Started Today <span className="w-8 h-px bg-amber-400" />
-        </div>
-        <h2 className="font-black text-white tracking-tight mb-4" style={{ fontSize: "clamp(1.7rem,4.5vw,3.4rem)", letterSpacing: "-0.025em" }}>
-          Bring Your School<br />
-          <span className="shimmer">Online Today</span>
-        </h2>
-        <p className="text-white/45 mb-10 max-w-lg mx-auto leading-relaxed" style={{ fontSize: "clamp(14px,1.4vw,16px)" }}>
-          Join hundreds of Rwandan schools already using Babyeyi to connect with parents and communities.
-        </p>
-        <div className="max-w-xl mx-auto space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <button type="button" onClick={() => navigate("/schools")}
-              className="btn-shine inline-flex items-center justify-center gap-2 rounded-2xl font-black text-[#000435] transition-all active:scale-[.97] hover:shadow-[0_8px_28px_rgba(251,191,36,.4)]"
-              style={{ minHeight: "clamp(48px,5.5vw,56px)", fontSize: "clamp(12px,1.2vw,15px)", background: "linear-gradient(135deg,#FBBF24,#F59E0B)" }}>
-              <Search size={16} strokeWidth={2.5} /> Explore Schools
-            </button>
-            <Link to="/register"
-              className="inline-flex items-center justify-center gap-2 rounded-2xl font-black text-white transition-all hover:bg-white/8"
-              style={{ minHeight: "clamp(48px,5.5vw,56px)", fontSize: "clamp(12px,1.2vw,15px)" }}>
-              <Building2 size={16} className="text-amber-300" /> Register School
-            </Link>
+            <h3 className="public-premium-cta-title" style={{ margin: "0 0 8px", color: "#fff", fontWeight: 900, fontSize: "clamp(28px, 4.7vw, 48px)", lineHeight: 1.02 }}>
+              {t("servicePage.premiumCtaTitle", { defaultValue: "Fata serivisi, ishyura cyangwa ubisabe babyeyi" })}
+            </h3>
+            <p style={{ margin: "0 0 14px", color: "rgba(255,255,255,0.78)", fontSize: 14, lineHeight: 1.55, maxWidth: 620 }}>
+              {t("servicePage.premiumCtaSub", { defaultValue: "Babyeyi app iguha uburenganzira bwo kubona serivisi z'uburezi, kwishyura amafaranga, kuganira na agent no gukurikirana byose aho uri hose." })}
+            </p>
+
+            <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit,minmax(255px,1fr))", marginBottom: 12 }}>
+              <Link className="public-premium-cta-btn-main" to="/schools" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, minHeight: 45, borderRadius: 12, textDecoration: "none", fontWeight: 900, fontSize: 13, color: "#000435", background: "linear-gradient(135deg,#FBBF24,#F59E0B)" }}>
+                <Search size={14} />
+                {t("public.exploreSchools")}
+              </Link>
+              <Link className="public-premium-cta-btn-alt" to="/register" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, minHeight: 45, borderRadius: 12, textDecoration: "none", fontWeight: 800, fontSize: 13, color: "#fff", border: "1px solid rgba(251,191,36,0.5)", background: "rgba(255,255,255,0.06)" }}>
+                <Building2 size={14} color="#FBBF24" />
+                {t("public.registerSchool")}
+              </Link>
+              <Link className="public-premium-cta-btn-alt" to="/find-agent" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, minHeight: 45, borderRadius: 12, textDecoration: "none", fontWeight: 800, fontSize: 13, color: "#fff", border: "1px solid rgba(255,255,255,0.24)",
+                 background: "rgba(255,255,255,0.04)", width: "100%" }}>
+                <Users size={14} />
+                {t("servicePage.premiumCtaSecondary", { defaultValue: "Ganira na Agent" })}
+              </Link>
+            </div>
+
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Link to="/login-portal-select"
-              className="inline-flex items-center justify-center gap-2 rounded-2xl font-semibold text-white transition-all hover:bg-amber-400/14"
-              style={{ minHeight: "clamp(44px,5vw,52px)", fontSize: "clamp(12px,1.1vw,14px)", background: "rgba(251,191,36,0.07)" }}>
-              <GraduationCap size={16} className="text-amber-400" /> School Manager
-            </Link>
-            <Link to="/parents/login"
-              className="inline-flex items-center justify-center gap-2 rounded-2xl font-semibold text-white transition-all hover:bg-white/10"
-              style={{ minHeight: "clamp(44px,5vw,52px)", fontSize: "clamp(12px,1.1vw,14px)", background: "rgba(255,255,255,0.05)" }}>
-              <Users size={16} className="text-amber-200/80" /> Parent Login
-            </Link>
+
+          <div className="cta-visual-wrap public-premium-cta-visual" style={{ position: "relative", minHeight: 290 }}>
+            <div style={{ position: "absolute", right: 6, top: 8, bottom: 8, left: "22%", borderRadius: 18, background: "rgba(0,4,53,0.12)", border: "1px solid rgba(255,255,255,0.25)" }} />
+            <div
+              className="public-premium-cta-card"
+              style={{
+                position: "absolute",
+                left: "2%",
+                top: "8%",
+                width: "42%",
+                maxWidth: 220,
+                minWidth: 150,
+                borderRadius: 24,
+                background: "#fff",
+                border: "6px solid #111",
+                boxShadow: "0 20px 36px rgba(0,0,0,.24)",
+                transform: "rotate(-4deg)",
+                padding: 10,
+              }}
+            >
+              <div style={{ height: 14, borderRadius: 99, background: "#E2E8F0", marginBottom: 10 }} />
+              <div style={{ height: 18, borderRadius: 8, background: "#FFF4D6", marginBottom: 8 }} />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 8 }}>
+                <div style={{ height: 34, borderRadius: 8, background: "#F8FAFC", border: "1px solid #E2E8F0" }} />
+                <div style={{ height: 34, borderRadius: 8, background: "#F8FAFC", border: "1px solid #E2E8F0" }} />
+              </div>
+              <div style={{ height: 42, borderRadius: 10, background: "#000435", color: "#FBBF24", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800 }}>
+                babyeyi
+              </div>
+            </div>
+            <img
+              src={mobileHero}
+              alt={t("servicePage.shulekitImageAlt")}
+              style={{
+                position: "absolute",
+                right: 0,
+                bottom: 0,
+                width: "72%",
+                maxWidth: 380,
+                height: "auto",
+                objectFit: "contain",
+                filter: "drop-shadow(0 16px 26px rgba(0,4,53,.34))",
+              }}
+            />
           </div>
         </div>
-        <p className="text-white/20 mt-6" style={{ fontSize: "clamp(10px,0.85vw,11px)" }}>
-          No credit card needed · Free for all Rwandan schools
-        </p>
       </div>
+      <style>{`
+        .public-premium-cta-shell {
+          position: relative;
+          isolation: isolate;
+        }
+        .public-premium-cta-shell::before {
+          content: "";
+          position: absolute;
+          inset: -25% auto auto -20%;
+          width: 52%;
+          aspect-ratio: 1;
+          border-radius: 999px;
+          pointer-events: none;
+          background: radial-gradient(circle, rgba(251,191,36,0.22) 0%, rgba(251,191,36,0) 72%);
+          animation: publicPremiumGlow 5.2s ease-in-out infinite;
+        }
+        .public-premium-cta-shell::after {
+          content: "";
+          position: absolute;
+          inset: auto -18% -30% auto;
+          width: 48%;
+          aspect-ratio: 1;
+          border-radius: 999px;
+          pointer-events: none;
+          background: radial-gradient(circle, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0) 74%);
+          animation: publicPremiumGlow 6.4s ease-in-out infinite reverse;
+        }
+        .public-premium-cta-badge { animation: publicPremiumBadgeFloat 3.8s ease-in-out infinite; }
+        .public-premium-cta-title { animation: publicPremiumTitleIn .72s ease-out both; }
+        .public-premium-cta-visual { animation: publicPremiumVisualFloat 4.4s ease-in-out infinite; }
+        .public-premium-cta-card { animation: publicPremiumCardTilt 6s ease-in-out infinite; transform-origin: center; }
+        .public-premium-cta-btn-main, .public-premium-cta-btn-alt {
+          transition: transform .22s ease, box-shadow .22s ease, background .22s ease;
+        }
+        .public-premium-cta-btn-main:hover, .public-premium-cta-btn-alt:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 12px 24px rgba(0,4,53,.22);
+        }
+        @keyframes publicPremiumGlow {
+          0%, 100% { transform: scale(1); opacity: .6; }
+          50% { transform: scale(1.08); opacity: 1; }
+        }
+        @keyframes publicPremiumBadgeFloat {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-3px); }
+        }
+        @keyframes publicPremiumVisualFloat {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-8px); }
+        }
+        @keyframes publicPremiumCardTilt {
+          0%, 100% { transform: rotate(-4deg); }
+          50% { transform: rotate(-1deg); }
+        }
+        @keyframes publicPremiumTitleIn {
+          0% { opacity: 0; transform: translateY(12px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+        @media (min-width: 980px) {
+          .cta-grid-hero { grid-template-columns: 56% 44% !important; align-items: center; min-height: 430px; }
+        }
+        @media (max-width: 640px) {
+          .cta-visual-wrap { min-height: 220px !important; }
+        }
+      `}</style>
     </section>
   );
 }
 
 /* ── Footer ────────────────────────────────────────────────────── */
 function Footer() {
+  const { t, i18n } = useTranslation();
+  const localizedDate = new Intl.DateTimeFormat(i18n.language || "en", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(new Date());
   const cols = [
-    { title: "Platform", links: [{ l: "About Babyeyi", h: "#about" }, { l: "Features", h: "/features", i: true }, { l: "Home page", h: "/", i: true }, { l: "Pricing", h: "#pricing" }] },
-    { title: "Schools",  links: [{ l: "Search Schools", h: "/schools", i: true }, { l: "Pay by School Code", h: PUBLIC_COMBINED_PAY_PATH, i: true }, { l: "Register School", h: "/register", i: true }, { l: "TVET Trades", h: "/schools", i: true }] },
-    { title: "Accounts", links: [{ l: "School Manager Login", h: "/login-portal-select", i: true }, { l: "Parent Login", h: "/parents/login", i: true }, { l: "Staff Login", h: "/login/lite", i: true }, { l: "Services", h: "/services", i: true }] },
-    { title: "Support",  links: [{ l: "Help Center", h: "#" }, { l: "Contact Us", h: "#contact" }, { l: "Privacy Policy", h: "#" }, { l: "Terms of Service", h: "#" }] },
+    { title: t("public.footerPlatform"), links: [{ l: t("public.footerAbout"), h: "#about" }, { l: t("public.features"), h: "/features", i: true }, { l: t("public.homePage"), h: "/", i: true }, { l: t("public.footerPricing"), h: "#pricing" }] },
+    { title: t("public.footerSchools"),  links: [{ l: t("public.footerSearchSchools"), h: "/schools", i: true }, { l: t("public.footerPayByCode"), h: PUBLIC_COMBINED_PAY_PATH, i: true }, { l: t("public.registerSchool"), h: "/register", i: true }, { l: t("public.footerTvetTrades"), h: "/schools", i: true }] },
+    { title: t("public.footerAccounts"), links: [{ l: t("public.footerSchoolManagerLogin"), h: "/login-portal-select", i: true }, { l: t("public.parentLogin"), h: "/parents/login", i: true }, { l: t("public.footerStaffLogin"), h: "/login/lite", i: true }, { l: t("public.services"), h: "/services", i: true }] },
+    { title: t("public.footerSupport"),  links: [{ l: t("public.footerHelpCenter"), h: "#" }, { l: t("public.contactUs"), h: "#contact" }, { l: t("public.privacyPolicy"), h: "#" }, { l: t("public.terms"), h: "#" }] },
   ];
   return (
-    <footer style={{ background: "#000018" }}>
+    <footer style={{ background: "#000435" }}>
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 xl:px-10 2xl:px-16 pt-12 xl:pt-16 pb-8">
         <div className="grid grid-cols-2 md:grid-cols-5 gap-8 xl:gap-12 mb-10 xl:mb-14">
           <div className="col-span-2 md:col-span-1">
@@ -1094,8 +1259,11 @@ function Footer() {
               </span>
             </Link>
             <p className="text-slate-600 leading-relaxed mb-5" style={{ fontSize: "clamp(12px,1vw,13px)" }}>
-              Connecting schools, parents, and communities.
+              {t("public.brandTagline")}
             </p>
+            <div className="mb-4">
+              <LanguageSwitcher compact />
+            </div>
             <div className="flex gap-2">
               {[{ Icon: Facebook, bg: "#1877F2" }, { Icon: Twitter, bg: "#1DA1F2" }, { Icon: Instagram, bg: "#E4405F" }, { Icon: Youtube, bg: "#FF0000" }].map(({ Icon, bg }, i) => (
                 <a key={i} href="#"
@@ -1134,12 +1302,15 @@ function Footer() {
         </div>
 
         <div className="sep mb-6" />
+        <p className="text-slate-700 mb-5" style={{ fontSize: "clamp(10px,0.85vw,12px)" }}>
+          {t("public.today", { date: localizedDate })}
+        </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-slate-700" style={{ fontSize: "clamp(10px,0.85vw,12px)" }}>
-            © {new Date().getFullYear()} Babyeyi Rwanda. All rights reserved.
+            © {new Date().getFullYear()} Babyeyi Rwanda. {t("public.allRightsReserved")}
           </p>
-          <p className="text-slate-800" style={{ fontSize: "clamp(10px,0.85vw,12px)" }}>Made with Edupoto</p>
+          <p className="text-slate-800" style={{ fontSize: "clamp(10px,0.85vw,12px)" }}>{t("public.madeWith")}</p>
         </div>
       </div>
     </footer>
@@ -1148,18 +1319,29 @@ function Footer() {
 
 /* ── Root ──────────────────────────────────────────────────────── */
 export default function PublicPage() {
+  const { t, i18n } = useTranslation();
   const { loading: authLoading } = useAuth();
+  const [langPulse, setLangPulse] = useState(0);
 
   useEffect(() => {
     document.title = "Babyeyi System";
   }, []);
+
+  useEffect(() => {
+    const onLanguageChanged = () => {
+      setLangPulse((v) => v + 1);
+      document.title = `Babyeyi System · ${t("language.label")}: ${i18n.language?.toUpperCase?.() || "EN"}`;
+    };
+    i18n.on("languageChanged", onLanguageChanged);
+    return () => i18n.off("languageChanged", onLanguageChanged);
+  }, [i18n, t]);
 
   if (authLoading) {
     return <BabyeyiPortalLoader message="Loading" />;
   }
 
   return (
-    <div>
+    <div key={langPulse} className="animate-[fade-in_.35s_ease]">
       <FontLoader />
       <Navbar />
       <HeroSection />

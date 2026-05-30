@@ -43,6 +43,12 @@ const {
   isWebPushConfigured,
   getVapidPublicKey,
 } = require('./parentWebPush');
+const {
+  upsertIncompleteOrder,
+  markIncompleteOrderComplete,
+  deleteIncompleteOrder,
+  listIncompleteOrdersForParent,
+} = require('./parentIncompleteOrderService');
 const teacherPortalRouter = require('./teacherPortal');
 const { normalizeGradebookLabel } = require('../utils/gradebookLabels');
 
@@ -69,6 +75,24 @@ const authLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: 'Too many attempts — try again later' },
+});
+
+/** Logged-in parent reads (notifications, incomplete orders list) — separate from login limiter */
+const parentSessionReadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many requests — try again later' },
+});
+
+/** Autosave drafts while ordering (ClassKit / voucher wizards) */
+const parentDraftWriteLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many save requests — try again in a minute' },
 });
 
 const phoneResetRequestLimiter = rateLimit({
@@ -193,6 +217,16 @@ function normalizePhone(raw) {
   if (/^079\d{7}$/.test(v)) return v;
   if (/^025\d{7}$/.test(v)) return v;
   return null;
+}
+
+function requireParentSession(req, res, next) {
+  const role = (req.session?.user?.role?.code || req.session?.roleCode || '').toUpperCase();
+  const parentPhone = normalizePhone(req.session?.user?.parent_phone || '');
+  if (role !== 'PARENT' || !parentPhone) {
+    return res.status(401).json({ success: false, message: 'Not authenticated as parent' });
+  }
+  req.parentPhone = parentPhone;
+  next();
 }
 
 function toMsisdn250(raw) {
@@ -1544,14 +1578,10 @@ router.get('/parent-portal/access-requests/mine', authLimiter, async (req, res) 
 });
 
 // ── GET /api/parent-portal/notifications ──────────────────────────
-router.get('/parent-portal/notifications', authLimiter, async (req, res) => {
+router.get('/parent-portal/notifications', parentSessionReadLimiter, requireParentSession, async (req, res) => {
   try {
     await ensureParentNotificationTable();
-    const role = (req.session?.user?.role?.code || req.session?.roleCode || '').toUpperCase();
-    const parentPhone = normalizePhone(req.session?.user?.parent_phone || '');
-    if (role !== 'PARENT' || !parentPhone) {
-      return res.status(401).json({ success: false, message: 'Not authenticated as parent' });
-    }
+    const parentPhone = req.parentPhone;
     const limit = Math.min(Math.max(Number(req.query?.limit || 30), 1), 100);
     const [rows] = await promisePool.query(
       `SELECT id, target_parent_phone, source_parent_phone, student_id, type, title, body, payload_json, read_at, created_at
@@ -4203,16 +4233,6 @@ router.get('/parent-portal/student-discipline', async (req, res) => {
   }
 });
 
-function requireParentSession(req, res, next) {
-  const role = (req.session?.user?.role?.code || req.session?.roleCode || '').toUpperCase();
-  const parentPhone = normalizePhone(req.session?.user?.parent_phone || '');
-  if (role !== 'PARENT' || !parentPhone) {
-    return res.status(401).json({ success: false, message: 'Not authenticated as parent' });
-  }
-  req.parentPhone = parentPhone;
-  next();
-}
-
 // ── Web Push (fee reminders, discipline, school alerts) ─────────────
 router.get('/parent-portal/push/vapid-key', authLimiter, requireParentSession, (req, res) => {
   const ok = isWebPushConfigured();
@@ -4279,5 +4299,76 @@ router.patch('/parent-portal/push/preferences', authLimiter, requireParentSessio
     res.status(500).json({ success: false, message: 'Failed to update preferences' });
   }
 });
+
+// ── Incomplete orders (ClassKit / services until payment) ─────
+router.post('/parent-portal/incomplete-orders', parentDraftWriteLimiter, requireParentSession, async (req, res) => {
+  try {
+    const b = req.body || {};
+    const result = await upsertIncompleteOrder({
+      parentPhone: req.parentPhone,
+      studentId: b.student_id,
+      serviceType: b.service_type,
+      status: b.status,
+      resumeToken: b.resume_token,
+      resumeUrl: b.resume_url,
+      shareUrl: b.share_url,
+      kitTitle: b.kit_title,
+      childName: b.child_name,
+      totalRwf: b.total_rwf,
+      delivery: b.delivery,
+      paymentMethod: b.payment_method,
+      snapshot: b.snapshot,
+    });
+    if (!result.ok) {
+      return res.status(400).json({ success: false, message: result.error || 'Could not save order' });
+    }
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('[parent-portal/incomplete-orders POST]', err);
+    return res.status(500).json({ success: false, message: 'Could not save incomplete order' });
+  }
+});
+
+router.get('/parent-portal/incomplete-orders', parentSessionReadLimiter, requireParentSession, async (req, res) => {
+  try {
+    const data = await listIncompleteOrdersForParent(req.parentPhone);
+    return res.json({ success: true, data });
+  } catch (err) {
+    console.error('[parent-portal/incomplete-orders GET]', err);
+    return res.status(500).json({ success: false, message: 'Could not load incomplete orders' });
+  }
+});
+
+router.post(
+  '/parent-portal/incomplete-orders/:resumeToken/complete',
+  parentDraftWriteLimiter,
+  requireParentSession,
+  async (req, res) => {
+    try {
+      const token = trimStr(req.params.resumeToken);
+      const result = await markIncompleteOrderComplete(req.parentPhone, token);
+      return res.json({ success: true, updated: !!result.updated });
+    } catch (err) {
+      console.error('[parent-portal/incomplete-orders/complete]', err);
+      return res.status(500).json({ success: false, message: 'Could not complete order record' });
+    }
+  }
+);
+
+router.delete(
+  '/parent-portal/incomplete-orders/:resumeToken',
+  parentDraftWriteLimiter,
+  requireParentSession,
+  async (req, res) => {
+    try {
+      const token = trimStr(req.params.resumeToken);
+      await deleteIncompleteOrder(req.parentPhone, token);
+      return res.json({ success: true });
+    } catch (err) {
+      console.error('[parent-portal/incomplete-orders DELETE]', err);
+      return res.status(500).json({ success: false, message: 'Could not delete incomplete order' });
+    }
+  }
+);
 
 module.exports = router;

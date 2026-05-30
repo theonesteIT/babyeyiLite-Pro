@@ -6,11 +6,13 @@
 // ================================================================
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useTranslation } from "react-i18next";
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import QRCodeStyling from 'qr-code-styling';
 import babyeyiLogo from '../../assets/1BABYEYI LOGO FINAL.png';
 import { useLocation, useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { completeIncompleteOrderOnServer } from '../../utils/parentIncompleteOrderApi';
 import { STUDENT_SERVICE_CHECKOUT_KEY } from './StudentServiceCheckout';
 import { UNIFORM_VOUCHER_CHECKOUT_KEY } from './UniformVoucherCheckout';
 import {
@@ -21,6 +23,11 @@ import {
 } from 'lucide-react';
 
 const SERVER = import.meta.env.VITE_API_URL || 'http://localhost:5100';
+
+function completeParentIncompleteResume(draft) {
+  const tok = draft?.voucherResumeToken || draft?.classkitResumeToken;
+  if (tok) void completeIncompleteOrderOnServer(tok);
+}
 const API    = `${SERVER}/api`;
 const FONT_FAMILY = '"Montserrat", sans-serif';
 
@@ -338,6 +345,7 @@ function MethodBtn({ id, label, Icon, selected, disabled, onClick }) {
 
 // ── Main component ────────────────────────────────────────────────
 export default function PaymentsPage() {
+  const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -506,6 +514,7 @@ export default function PaymentsPage() {
             phone: String(st.uniformVoucherPay.payerPhone || "").trim(),
           },
           uniformVoucherPayload: p,
+          voucherResumeToken: st.voucherResumeToken || null,
         });
       } catch { setDraft(null); }
       return;
@@ -527,12 +536,16 @@ export default function PaymentsPage() {
             phone: String(st.studentServicePay.payerPhone || '').trim(),
           },
           studentServicePayload: p,
+          voucherResumeToken: st.voucherResumeToken || null,
         });
       } catch { setDraft(null); }
       return;
     }
     if (st?.schoolId && st?.babyeyiId) {
-      setDraft(st);
+      setDraft({
+        ...st,
+        voucherResumeToken: st.voucherResumeToken || st.classkitResumeToken || null,
+      });
       try { sessionStorage.setItem('babyeyi_pay_draft', JSON.stringify(st)); } catch (_) {}
       return;
     }
@@ -853,13 +866,13 @@ export default function PaymentsPage() {
       const q = new URLSearchParams();
       if (code) q.set('code', code);
       q.set('resumeStep', '5');
-      return { to: `/pay-by-school?${q.toString()}`, label: 'Back to school checkout' };
+      return { to: `/pay-by-school?${q.toString()}`, label: t("payments.backToSchoolCheckout", { defaultValue: "Back to school checkout" }) };
     }
     if (draft.uniformVoucherCheckout) {
-      return { to: '/services/uniform-voucher/request?resumeStep=6', label: 'Back to uniform voucher' };
+      return { to: '/services/uniform-voucher/request?resumeStep=6', label: t("payments.backToUniformVoucher", { defaultValue: "Back to uniform voucher" }) };
     }
     if (draft.studentServiceCheckout && draft.extendedPaymentTabs) {
-      return { to: '/services/shoes-voucher?resumeStep=6', label: 'Back to shoes voucher' };
+      return { to: '/services/shoes-voucher?resumeStep=6', label: t("payments.backToShoesVoucher", { defaultValue: "Back to shoes voucher" }) };
     }
     return null;
   }, [draft, doneId, showDoneModal]);
@@ -1026,6 +1039,7 @@ export default function PaymentsPage() {
           providerStatus: String(json.provider_status || 'SUCCESSFUL').toUpperCase(),
           invoiceStatus: String(json.invoice_status || 'PAID').toUpperCase(),
         });
+        completeParentIncompleteResume(draft);
         setDoneId(intentId); setSubmitting(false); setDoneMode('momo'); setShowDoneModal(true); return;
       }
       if (status === 'FAILED') {
@@ -1042,7 +1056,7 @@ export default function PaymentsPage() {
       setMomoPollCount(count + 1);
       pollTimerRef.current = setTimeout(() => pollMomoStatus(intentId, count + 1), MOMO_POLL_INTERVAL_MS * 2);
     }
-  }, []);
+  }, [draft?.voucherResumeToken, draft?.classkitResumeToken]);
 
   const pollTeacherDealMomoStatus = useCallback(async (referenceId, count) => {
     const tdt = draft?.teacherDealToken;
@@ -1172,6 +1186,7 @@ export default function PaymentsPage() {
         setDoneMode('momo');
         setShowDoneModal(true);
         setSubmitting(false);
+        completeParentIncompleteResume(draft);
         try { sessionStorage.removeItem(UNIFORM_VOUCHER_CHECKOUT_KEY); } catch (_) {}
         return;
       }
@@ -1186,7 +1201,7 @@ export default function PaymentsPage() {
       setMomoPollCount(count + 1);
       pollTimerRef.current = setTimeout(() => pollUniformVoucherMomoStatus(orderId, count + 1), MOMO_POLL_INTERVAL_MS * 2);
     }
-  }, []);
+  }, [draft?.voucherResumeToken, draft?.classkitResumeToken]);
 
   const pollShulecardTopupMomoStatus = useCallback(async (topupId, count) => {
     if (count >= MOMO_MAX_POLLS) { setMomoStatus('TIMEOUT'); setSubmitting(false); return; }
@@ -1254,6 +1269,7 @@ export default function PaymentsPage() {
         setDoneMode('momo');
         setShowDoneModal(true);
         setSubmitting(false);
+        completeParentIncompleteResume(draft);
         try { sessionStorage.removeItem(UNIFORM_VOUCHER_CHECKOUT_KEY); } catch (_) {}
         return;
       }
@@ -1400,6 +1416,7 @@ export default function PaymentsPage() {
         setDoneId(data.order_id || data.order_number);
         setInvoiceNo(data.order_number || '');
         setInvoiceStatus('PAID'); setDoneMode('momo'); setShowDoneModal(true);
+        completeParentIncompleteResume(draft);
         try { sessionStorage.removeItem(STUDENT_SERVICE_CHECKOUT_KEY); } catch (_) {}
       }
       setSubmitting(false);
@@ -2298,9 +2315,9 @@ export default function PaymentsPage() {
         {feeLikeTabs && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 16, background: "#fff", borderRadius: 12, padding: "6px", boxShadow: "0 1px 6px rgba(0,4,53,0.07)", border: `1px solid rgba(0,4,53,0.08)` }}>
             {[
-              { id: 'direct', label: 'Direct Pay' },
+              { id: 'direct', label: t("payments.directPay", { defaultValue: 'Direct Pay' }) },
               { id: 'shuleavance', label: 'ShuleAvance' },
-              { id: 'loan', label: 'Get Loan' },
+              { id: 'loan', label: t("payments.getLoan", { defaultValue: 'Get Loan' }) },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -2334,18 +2351,18 @@ export default function PaymentsPage() {
         {/* ── Payment method card ─────────────────────────────── */}
         <div style={card}>
           <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: C.am600, marginBottom: 14 }}>
-            {feeLikeTabs && pageTab === 'direct' ? 'Direct payment methods'
-              : feeLikeTabs && pageTab === 'loan' ? 'Get Loan application'
-              : feeLikeTabs && pageTab === 'shuleavance' ? 'Access ShuleAvance'
-              : 'Choose payment method'}
+            {feeLikeTabs && pageTab === 'direct' ? t("payments.directPaymentMethods", { defaultValue: 'Direct payment methods' })
+              : feeLikeTabs && pageTab === 'loan' ? t("payments.getLoanApplication", { defaultValue: 'Get Loan application' })
+              : feeLikeTabs && pageTab === 'shuleavance' ? t("payments.accessShuleAvance", { defaultValue: 'Access ShuleAvance' })
+              : t("payments.choosePaymentMethod", { defaultValue: 'Choose payment method' })}
           </div>
 
           {(!feeLikeTabs || pageTab === 'direct') && (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 18 }}>
             {[
               { id: 'momo', label: 'MTN / Airtel', Icon: Smartphone },
-              { id: 'bank', label: 'Bank Transfer', Icon: Building2 },
-              { id: 'visa', label: 'Visa Card',     Icon: CreditCard },
+              { id: 'bank', label: t("payments.bankTransfer", { defaultValue: 'Bank Transfer' }), Icon: Building2 },
+              { id: 'visa', label: t("payments.visaCard", { defaultValue: 'Visa Card' }),     Icon: CreditCard },
             ].map(({ id, label: l, Icon }) => {
               const svcOnly = !!(draft?.studentServiceCheckout && !draft?.extendedPaymentTabs && id !== 'momo');
               const shopOnly = false;
@@ -2376,10 +2393,10 @@ export default function PaymentsPage() {
                 <InfoBox variant="amber">
                   <div style={{ display: "flex", gap: 8 }}>
                     <Info size={14} color={C.am600} style={{ flexShrink: 0, marginTop: 1 }} />
-                    <span>Enter the Phone Number to charge. The customer will receive a USSD prompt to approve by entering your PIN.</span>
+                    <span>{t("payments.momoInfo", { defaultValue: "Enter the Phone Number to charge. The customer will receive a USSD prompt to approve by entering your PIN." })}</span>
                   </div>
                 </InfoBox>
-                <label style={labelStyle}>MTN or Airtel phone number</label>
+                <label style={labelStyle}>{t("payments.mtnOrAirtelPhone", { defaultValue: "MTN or Airtel phone number" })}</label>
                 <div style={{ position: "relative", marginBottom: 12 }}>
                   <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 13, fontWeight: 700, color: C.db600 }}>+250</span>
                   <input
@@ -3222,7 +3239,7 @@ export default function PaymentsPage() {
                     background: C.db900, color: C.am200, fontWeight: 700, fontSize: 13,
                     textDecoration: "none",
                   }}>
-                    <Download size={15} /> Download receipt (PDF)
+                    <Download size={15} /> {t("payments.downloadReceipt", { defaultValue: "Download receipt (PDF)" })}
                   </a>
                 )}
               </div>
@@ -3233,10 +3250,10 @@ export default function PaymentsPage() {
               background: C.am200, color: C.db900,
               fontWeight: 800, fontSize: 14, border: "none", cursor: "pointer",
             }}>
-              {draft?.studentServiceCheckout ? 'Back to services'
-                : draft?.uniformVoucherCheckout ? 'Back to uniform voucher'
-                : publicGuestPay ? 'Back to Babyeyi Finder'
-                : 'Back to dashboard'}
+              {draft?.studentServiceCheckout ? t("payments.backToServices", { defaultValue: "Back to services" })
+                : draft?.uniformVoucherCheckout ? t("payments.backToUniformVoucher", { defaultValue: "Back to uniform voucher" })
+                : publicGuestPay ? t("payments.backToBabyeyiFinder", { defaultValue: "Back to Babyeyi Finder" })
+                : t("payments.backToDashboard", { defaultValue: "Back to dashboard" })}
             </button>
           </div>
         </div>

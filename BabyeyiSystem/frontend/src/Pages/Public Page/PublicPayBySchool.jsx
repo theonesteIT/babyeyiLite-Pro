@@ -6,6 +6,7 @@
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
   ArrowLeft, Building2, ChevronRight, CircleDollarSign,
   CreditCard, GraduationCap, Loader2, Search, ShieldCheck,
@@ -177,6 +178,7 @@ function NavBtns({ onBack, onNext, nextLabel = "Continue", nextDisabled = false,
    MAIN COMPONENT
 ═══════════════════════════════════════════════════════════════ */
 export default function PublicPayBySchool() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const classkitIntent = searchParams.get("intent") === "classkit" || String(searchParams.get("service") || "").toLowerCase() === "shulekit";
@@ -606,7 +608,7 @@ export default function PublicPayBySchool() {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center gap-3">
           <button onClick={() => navigate(-1)}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-600 font-bold text-[12px] hover:bg-gray-50 hover:text-[#000435] transition-all">
-            <ArrowLeft size={14}/> Back
+            <ArrowLeft size={14}/> {t("publicPay.back", { defaultValue: "Back" })}
           </button>
           <div className="flex items-center gap-2 ml-1">
             <div className="w-8 h-8 rounded-xl bg-amber-400 flex items-center justify-center shadow-sm shadow-amber-200">
@@ -615,7 +617,7 @@ export default function PublicPayBySchool() {
           </div>
           <div className="flex items-center gap-1.5 ml-auto text-[12px] font-bold text-[#000435]">
             <ShieldCheck size={15} className="text-amber-500"/>
-            <span className="hidden sm:inline">Secure Checkout</span>
+            <span className="hidden sm:inline">{t("publicPay.secureCheckout", { defaultValue: "Secure Checkout" })}</span>
           </div>
         </div>
         <div className="h-[3px] bg-amber-400"/>
@@ -629,14 +631,14 @@ export default function PublicPayBySchool() {
           <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200 px-3.5 py-1.5 mb-4">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-400"/>
             <span className="text-[10px] font-black uppercase tracking-[.12em] text-amber-600">
-              {classkitIntent ? "ClassKit & ShuleKit" : "Parents & Guardians"}
+            {classkitIntent ? t("publicPay.classKitShuleKit", { defaultValue: "ClassKit & ShuleKit" }) : t("publicPay.parentsGuardians", { defaultValue: "Parents & Guardians" })}
             </span>
           </div>
           <h1 className="font-black text-[#000435] text-[26px] sm:text-[30px] xl:text-[34px] tracking-tight leading-tight mb-2">
-            {classkitIntent ? "Pay for SchoolKit" : "Pay school fees by"}&nbsp;
-            <span className="text-amber-500">Student code</span>
+            {classkitIntent ? t("publicPay.payForSchoolKit", { defaultValue: "Pay for SchoolKit" }) : t("publicPay.paySchoolFeesBy", { defaultValue: "Pay school fees by" })}&nbsp;
+            <span className="text-amber-500">{t("publicPay.studentCode", { defaultValue: "Student code" })}</span>
           </h1>
-          <p className="text-gray-400 text-[13px] font-semibold">Quick, secure &amp; easy way to manage school payments</p>
+          <p className="text-gray-400 text-[13px] font-semibold">{t("publicPay.heroSub", { defaultValue: "Quick, secure & easy way to manage school payments" })}</p>
         </div>
 
         {/* Main card */}
@@ -654,7 +656,7 @@ export default function PublicPayBySchool() {
             {step === 1 && (
               <div key={stepKey} className="step-in">
                 <div className="mb-6">
-                  <h2 className="font-black text-[#000435] text-[18px] sm:text-[20px] mb-1">Enter student code</h2>
+                  <h2 className="font-black text-[#000435] text-[18px] sm:text-[20px] mb-1">{t("publicPay.enterStudentCode", { defaultValue: "Enter student code" })}</h2>
                 </div>
 
                 <Field label="Student Code / UID / SDMS ID" required error={catalogErr}>
@@ -767,7 +769,7 @@ export default function PublicPayBySchool() {
             {step === 3 && school && (
               <div key={stepKey} className="step-in">
                 <div className="mb-5">
-                  <h2 className="font-black text-[#000435] text-[18px] sm:text-[20px] mb-1">Select what to pay</h2>
+                  <h2 className="font-black text-[#000435] text-[18px] sm:text-[20px] mb-1">{t("publicPay.selectWhatToPay", { defaultValue: "Select what to pay" })}</h2>
                   <p className="text-gray-400 text-[13px]">Choose one or more fee and requirement items. Total updates instantly.</p>
                 </div>
 
@@ -788,7 +790,7 @@ export default function PublicPayBySchool() {
                     <div className="w-10 h-10 rounded-xl border border-amber-200 flex items-center justify-center">
                       <Loader2 size={20} className="text-amber-500 spin-anim"/>
                     </div>
-                    <p className="text-gray-400 text-[13px] font-semibold">Loading fees…</p>
+                    <p className="text-gray-400 text-[13px] font-semibold">{t("publicPay.loadingFees", { defaultValue: "Loading fees…" })}</p>
                   </div>
                 )}
 
@@ -1020,14 +1022,14 @@ export default function PublicPayBySchool() {
             {step === 5 && pricingData && amountValid && student && !classMismatch && (
               <div key={stepKey} className="step-in">
                 <div className="mb-6">
-                  <h2 className="font-black text-[#000435] text-[18px] sm:text-[20px] mb-1.5">Confirm and continue</h2>
+                  <h2 className="font-black text-[#000435] text-[18px] sm:text-[20px] mb-1.5">{t("publicPay.confirmAndContinue", { defaultValue: "Confirm and continue" })}</h2>
                   <p className="text-gray-400 text-[13px]">Review this payment and continue to choose your payment method.</p>
                 </div>
 
                 {/* Payment summary */}
                 <div className="p-4 rounded-xl border border-amber-200 bg-amber-50 mb-6">
                   <div className="flex items-center justify-between mb-3">
-                    <p className="text-[11px] font-black uppercase tracking-[.1em] text-amber-600">Payment Summary</p>
+                    <p className="text-[11px] font-black uppercase tracking-[.1em] text-amber-600">{t("publicPay.paymentSummary", { defaultValue: "Payment Summary" })}</p>
                     <button type="button" onClick={() => goStep(3)} className="text-[11px] text-amber-500 hover:text-amber-600 font-bold transition-colors">Edit</button>
                   </div>
                   <div className="space-y-1.5 text-[13px]">
@@ -1104,7 +1106,7 @@ export default function PublicPayBySchool() {
                       : "bg-[#000435] text-white hover:bg-[#000630] shadow-lg active:scale-[.98]"
                   }`}>
                   {balanceLoading ? <Loader2 size={18} className="spin-anim"/> : <CreditCard size={18} strokeWidth={2.5}/>}
-                  Continue to Payment
+                  {t("publicPay.continueToPayment", { defaultValue: "Continue to Payment" })}
                   {!balanceLoading && <ArrowRight size={16}/>}
                 </button>
 
@@ -1114,7 +1116,7 @@ export default function PublicPayBySchool() {
 
                 <div className="mt-4 pt-4 border-t border-gray-100">
                   <button type="button" onClick={() => goStep(4)} className="text-[12px] text-gray-400 hover:text-[#000435] font-bold transition-colors flex items-center gap-1.5">
-                    <ArrowLeft size={13}/> Back to amount
+                    <ArrowLeft size={13}/> {t("publicPay.backToAmount", { defaultValue: "Back to amount" })}
                   </button>
                 </div>
               </div>
@@ -1125,13 +1127,13 @@ export default function PublicPayBySchool() {
 
         {/* Footer link */}
         <div className="text-center mt-6 text-[12px] text-gray-400 font-semibold">
-          Need a different learner?{" "}
+          {t("publicPay.needDifferentLearner", { defaultValue: "Need a different learner?" })}{" "}
           <button type="button" onClick={() => {
             setCatalog(null); setStudent(null); setTermPick(""); setYearPick(""); setPricingData(null);
             setAmountInput(""); setCatalogErr(""); setComboIndex(0); goStep(1);
-          }} className="text-amber-500 hover:text-amber-600 transition-colors font-bold">Start over</button>
+          }} className="text-amber-500 hover:text-amber-600 transition-colors font-bold">{t("publicPay.startOver", { defaultValue: "Start over" })}</button>
           {" · "}
-          <Link to="/schools" className="text-amber-500 hover:text-amber-600 transition-colors font-bold">Browse schools</Link>
+          <Link to="/schools" className="text-amber-500 hover:text-amber-600 transition-colors font-bold">{t("publicPay.browseSchools", { defaultValue: "Browse schools" })}</Link>
         </div>
       </div>
 

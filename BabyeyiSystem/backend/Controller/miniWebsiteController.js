@@ -10,6 +10,7 @@
 
 const { promisePool: db } = require('../config/database');
 const path = require('path');
+const { normalizeLang, translateSchoolSiteContent } = require('../utils/schoolSiteContentTranslator');
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 
@@ -567,6 +568,7 @@ exports.getBySchool = async (req, res, next) => {
   } catch (e) { next(e); }
 };
 
+
 // GET /mini-websites/slug/:slug  (public — published only)
 exports.getBySlug = async (req, res, next) => {
   try {
@@ -611,7 +613,13 @@ exports.getBySlug = async (req, res, next) => {
     const miniForm = miniToForm(mini);
     if (galleryAlbums.length) miniForm.albums = galleryAlbums;
 
-    res.json({ success: true, data: { ...form, ...miniForm } });
+    const lang = normalizeLang(req.query.lang);
+    let payload = { ...form, ...miniForm };
+    if (lang !== 'en') {
+      payload = await translateSchoolSiteContent(payload, lang);
+    }
+
+    res.json({ success: true, data: payload, lang });
   } catch (e) { next(e); }
 };
 

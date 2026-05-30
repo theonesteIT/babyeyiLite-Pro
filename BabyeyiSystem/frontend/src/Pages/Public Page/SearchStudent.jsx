@@ -5,6 +5,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
   ArrowLeft,
   Building2,
@@ -46,6 +47,7 @@ function normalizeEmail(raw) {
 }
 
 export default function SearchStudent() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [draft, setDraft] = useState(null);
   const [badDraft, setBadDraft] = useState(false);
@@ -370,15 +372,15 @@ export default function SearchStudent() {
         <img src={Heroimage} alt="" className="absolute inset-0 w-full h-full object-cover opacity-25" />
         <div className="absolute inset-0 bg-gradient-to-b from-[#0B1220]/95 via-[#111827]/88 to-[#0B1220]/96" />
         <div className="relative z-10 w-full max-w-lg border border-amber-300/25 rounded-3xl p-6 text-center shadow-2xl bg-white/[0.06] backdrop-blur-xl">
-          <h1 className="text-xl font-black text-white mb-2">Pay session expired</h1>
+          <h1 className="text-xl font-black text-white mb-2">{t("searchStudent.paySessionExpired", { defaultValue: "Pay session expired" })}</h1>
           <p className="text-sm text-white/75 mb-5">
-            Start again from Babyeyi Finder: choose a document and tap View &amp; pay.
+            {t("searchStudent.paySessionExpiredSub", { defaultValue: "Start again from Babyeyi Finder: choose a document and tap View & pay." })}
           </p>
           <Link
             to="/babyeyi-finder"
             className="inline-flex items-center justify-center rounded-xl bg-amber-500 px-5 py-3 text-sm font-black text-slate-900 hover:bg-amber-400"
           >
-            Back to Babyeyi Finder
+            {t("searchStudent.backToBabyeyiFinder", { defaultValue: "Back to Babyeyi Finder" })}
           </Link>
         </div>
       </div>
@@ -405,9 +407,9 @@ export default function SearchStudent() {
             onClick={() => navigate(-1)}
             className="inline-flex items-center gap-1.5 rounded-xl bg-white/10 px-3 py-2 text-xs sm:text-sm font-black text-white hover:bg-white/15"
           >
-            <ArrowLeft size={16} /> Back
+            <ArrowLeft size={16} /> {t("searchStudent.back", { defaultValue: "Back" })}
           </button>
-          <span className="text-[11px] font-black uppercase tracking-widest text-amber-200/90">Public pay</span>
+          <span className="text-[11px] font-black uppercase tracking-widest text-amber-200/90">{t("searchStudent.publicPay", { defaultValue: "Public pay" })}</span>
         </div>
 
         <div className="rounded-3xl border border-white/10 bg-white/[0.06] backdrop-blur-xl shadow-2xl p-5 sm:p-7">
@@ -416,7 +418,7 @@ export default function SearchStudent() {
               <CreditCard className="w-5 h-5" />
             </div>
             <div className="min-w-0">
-              <h1 className="text-lg sm:text-xl font-black text-white">Find student &amp; pay</h1>
+              <h1 className="text-lg sm:text-xl font-black text-white">{t("searchStudent.findStudentPay", { defaultValue: "Find student & pay" })}</h1>
               <p className="text-xs sm:text-sm text-white/65 mt-1">
                 Document: {draft.docLabel || "—"} · {draft.schoolName || "School"}
               </p>
@@ -433,7 +435,7 @@ export default function SearchStudent() {
                 onClick={addAnotherStudent}
                 className="rounded-xl border border-[#CFE2FF] bg-[#EAF2FF] px-3 py-2 text-xs font-black text-[#123A86] hover:bg-[#DCEBFF]"
               >
-                + Add another student
+                + {t("searchStudent.addAnotherStudent", { defaultValue: "Add another student" })}
               </button>
               <span className="text-[11px] text-white/60">Added: {selectedStudents.length}</span>
             </div>
@@ -457,7 +459,7 @@ export default function SearchStudent() {
                 disabled={lookupLoading}
                 className="rounded-xl bg-amber-500 px-5 py-3 text-sm font-black text-slate-900 hover:bg-amber-400 disabled:opacity-50"
               >
-                {lookupLoading ? <Loader2 className="w-4 h-4 animate-spin inline" /> : "Confirm details before continuing"}
+                {lookupLoading ? <Loader2 className="w-4 h-4 animate-spin inline" /> : t("searchStudent.confirmDetails", { defaultValue: "Confirm details before continuing" })}
               </button>
             </div>
             {lookupErr ? (
@@ -524,7 +526,7 @@ export default function SearchStudent() {
             {!pricingLoading && !pricingErr && data && (
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-[10px] font-black uppercase text-amber-100/80 mb-2">School fee items</h3>
+                  <h3 className="text-[10px] font-black uppercase text-amber-100/80 mb-2">{t("searchStudent.schoolFeeItems", { defaultValue: "School fee items" })}</h3>
                   <p className="text-[11px] text-white/50 mb-2">Uncheck anything you are not paying in this transaction.</p>
                   {(data.school_fees || []).length === 0 ? (
                     <p className="text-sm text-white/45">No separate fee lines — total may be on the document only.</p>
@@ -552,7 +554,7 @@ export default function SearchStudent() {
                 </div>
 
                 <div>
-                  <h3 className="text-[10px] font-black uppercase text-amber-100/80 mb-2">Student requirements</h3>
+                  <h3 className="text-[10px] font-black uppercase text-amber-100/80 mb-2">{t("searchStudent.studentRequirements", { defaultValue: "Student requirements" })}</h3>
                   <p className="text-[11px] text-white/50 mb-2">Unit price × quantity from the Babyeyi list.</p>
                   {(data.requirements || []).length === 0 ? (
                     <p className="text-sm text-white/45">No requirement lines for this document.</p>
@@ -625,7 +627,7 @@ export default function SearchStudent() {
 
                 <div className="rounded-2xl border-2 border-amber-400/35 bg-amber-500/10 p-4 space-y-2">
                   <div className="flex justify-between items-center">
-                    <span className="font-black text-white">Per student total</span>
+                    <span className="font-black text-white">{t("searchStudent.perStudentTotal", { defaultValue: "Per student total" })}</span>
                     <span className="text-lg font-black text-amber-200">{perStudentTotal.toLocaleString()} RWF</span>
                   </div>
                   <div className="flex justify-between items-center text-sm text-amber-100">
@@ -634,7 +636,7 @@ export default function SearchStudent() {
                   </div>
                   <div className="h-px bg-amber-200/30" />
                   <div className="flex justify-between items-center">
-                    <span className="font-black text-white">Invoice total</span>
+                    <span className="font-black text-white">{t("searchStudent.invoiceTotal", { defaultValue: "Invoice total" })}</span>
                     <span className="text-2xl font-black text-amber-200">{grand.toLocaleString()} RWF</span>
                   </div>
                   {selectedStudents.length > 0 && (balanceLoading || balanceErr || balanceQuote) && (
@@ -701,7 +703,7 @@ export default function SearchStudent() {
                   );
                 })}
                 {selectedStudents.length === 0 && (
-                  <p className="text-xs text-white/45">No students added yet.</p>
+                  <p className="text-xs text-white/45">{t("searchStudent.noStudentsAdded", { defaultValue: "No students added yet." })}</p>
                 )}
               </div>
             </div>
@@ -713,7 +715,7 @@ export default function SearchStudent() {
             </h2>
             <div className="space-y-3">
               <div>
-                <label className="text-[10px] font-bold text-white/50 uppercase">Full name</label>
+                <label className="text-[10px] font-bold text-white/50 uppercase">{t("searchStudent.fullName", { defaultValue: "Full name" })}</label>
                 <input
                   value={payerName}
                   onChange={(e) => setPayerName(e.target.value)}
@@ -722,7 +724,7 @@ export default function SearchStudent() {
                 />
               </div>
               <div>
-                <label className="text-[10px] font-bold text-white/50 uppercase">Telephone number</label>
+                <label className="text-[10px] font-bold text-white/50 uppercase">{t("searchStudent.telephoneNumber", { defaultValue: "Telephone number" })}</label>
                 <input
                   value={payerPhone}
                   onChange={(e) => setPayerPhone(e.target.value)}
@@ -753,7 +755,7 @@ export default function SearchStudent() {
             onClick={continueToPayment}
             className="w-full py-3.5 rounded-2xl font-black text-slate-900 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            Continue to payment
+            {t("searchStudent.continueToPayment", { defaultValue: "Continue to payment" })}
           </button>
         </div>
       </div>

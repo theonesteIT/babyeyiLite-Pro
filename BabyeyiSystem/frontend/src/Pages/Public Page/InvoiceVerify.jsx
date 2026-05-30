@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { CheckCircle2, XCircle, Loader2, ShieldCheck, School, UserRound, ReceiptText, Copy, ExternalLink, Download } from 'lucide-react';
+import { useTranslation } from "react-i18next";
 
 const SERVER = import.meta.env.VITE_API_URL || 'http://localhost:5100';
 const API = `${SERVER}/api`;
 
 export default function InvoiceVerify() {
+  const { t } = useTranslation();
   const { id } = useParams();
   const [sp] = useSearchParams();
   const [loading, setLoading] = useState(true);
@@ -25,17 +27,17 @@ export default function InvoiceVerify() {
       setError('');
       setData(null);
       try {
-        if (!id || !invoiceNo) throw new Error('Missing invoice verification parameters.');
+        if (!id || !invoiceNo) throw new Error(t("invoiceVerify.errMissingParams", { defaultValue: "Missing invoice verification parameters." }));
         const res = await fetch(
           `${API}/public/babyeyi-pay/invoices/verify/${encodeURIComponent(id)}?invoice_no=${encodeURIComponent(invoiceNo)}`
         );
         const json = await res.json().catch(() => ({}));
         if (!res.ok || json.success === false || !json.valid) {
-          throw new Error(json.message || 'Invoice could not be verified.');
+          throw new Error(json.message || t("invoiceVerify.errCouldNotVerify", { defaultValue: "Invoice could not be verified." }));
         }
         if (!cancelled) setData(json.data || null);
       } catch (e) {
-        if (!cancelled) setError(e.message || 'Verification failed.');
+        if (!cancelled) setError(e.message || t("invoiceVerify.errVerificationFailed", { defaultValue: "Verification failed." }));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -47,10 +49,10 @@ export default function InvoiceVerify() {
   const copyVerificationLink = async () => {
     try {
       await navigator.clipboard.writeText(verifyPageUrl);
-      setCopyMsg('Verification link copied.');
+      setCopyMsg(t("invoiceVerify.copySuccess", { defaultValue: "Verification link copied." }));
       setTimeout(() => setCopyMsg(''), 2200);
     } catch {
-      setCopyMsg('Copy failed. Please copy from address bar.');
+      setCopyMsg(t("invoiceVerify.copyFailed", { defaultValue: "Copy failed. Please copy from address bar." }));
       setTimeout(() => setCopyMsg(''), 2600);
     }
   };
@@ -64,8 +66,8 @@ export default function InvoiceVerify() {
               <ShieldCheck className="w-5 h-5 text-[#FEBF10]" />
             </div>
             <div>
-              <h1 className="text-lg font-black text-white">Babyeyi Invoice Verification</h1>
-              <p className="text-xs text-[#EAF2FF]">Scan result from invoice QR code</p>
+              <h1 className="text-lg font-black text-white">{t("invoiceVerify.title", { defaultValue: "Babyeyi Invoice Verification" })}</h1>
+              <p className="text-xs text-[#EAF2FF]">{t("invoiceVerify.subtitle", { defaultValue: "Scan result from invoice QR code" })}</p>
             </div>
           </div>
         </div>
@@ -78,7 +80,7 @@ export default function InvoiceVerify() {
           ) : error ? (
             <div className="rounded-2xl border border-red-300/40 bg-red-500/10 p-4">
               <div className="flex items-center gap-2 text-red-200 font-black">
-                <XCircle className="w-5 h-5" /> Not Verified
+                <XCircle className="w-5 h-5" /> {t("invoiceVerify.notVerified", { defaultValue: "Not Verified" })}
               </div>
               <p className="text-sm text-red-100 mt-2">{error}</p>
             </div>
@@ -86,18 +88,18 @@ export default function InvoiceVerify() {
             <div className="space-y-4">
               <div className={`rounded-2xl border p-4 ${validPaid ? 'border-[#CFE2FF] bg-[#EAF2FF]/20' : 'border-[#FDEAA0]/40 bg-[#FFFBE8]/10'}`}>
                 <div className={`flex items-center gap-2 font-black ${validPaid ? 'text-[#CFE2FF]' : 'text-[#FDEAA0]'}`}>
-                  <CheckCircle2 className="w-5 h-5" /> Verified Authentic
+                  <CheckCircle2 className="w-5 h-5" /> {t("invoiceVerify.verifiedAuthentic", { defaultValue: "Verified Authentic" })}
                 </div>
-                <p className="text-xs text-white/75 mt-1">This invoice exists in Babyeyi records.</p>
+                <p className="text-xs text-white/75 mt-1">{t("invoiceVerify.existsInRecords", { defaultValue: "This invoice exists in Babyeyi records." })}</p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                <InfoCard icon={ReceiptText} label="Invoice No" value={data?.invoice_no || '—'} />
-                <InfoCard label="Status" value={String(data?.invoice_status || 'NOT_PAID').toUpperCase()} />
-                <InfoCard icon={School} label="School" value={data?.school_name || '—'} />
-                <InfoCard icon={UserRound} label="Student" value={data?.student_name || '—'} />
-                <InfoCard label="Amount" value={`${Number(data?.amount_rwf || 0).toLocaleString()} RWF`} />
-                <InfoCard label="Paid At" value={data?.invoice_paid_at ? new Date(data.invoice_paid_at).toLocaleString() : '—'} />
+                <InfoCard icon={ReceiptText} label={t("invoiceVerify.invoiceNo", { defaultValue: "Invoice No" })} value={data?.invoice_no || '—'} />
+                <InfoCard label={t("invoiceVerify.status", { defaultValue: "Status" })} value={String(data?.invoice_status || 'NOT_PAID').toUpperCase()} />
+                <InfoCard icon={School} label={t("invoiceVerify.school", { defaultValue: "School" })} value={data?.school_name || '—'} />
+                <InfoCard icon={UserRound} label={t("invoiceVerify.student", { defaultValue: "Student" })} value={data?.student_name || '—'} />
+                <InfoCard label={t("invoiceVerify.amount", { defaultValue: "Amount" })} value={`${Number(data?.amount_rwf || 0).toLocaleString()} RWF`} />
+                <InfoCard label={t("invoiceVerify.paidAt", { defaultValue: "Paid At" })} value={data?.invoice_paid_at ? new Date(data.invoice_paid_at).toLocaleString() : '—'} />
               </div>
               {validPaid && data?.invoice_id && invoiceNo ? (
                 <a
@@ -106,7 +108,7 @@ export default function InvoiceVerify() {
                   rel="noreferrer"
                   className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-[#A7F3D0] bg-[#064E3B]/40 px-4 py-3 text-sm font-black text-[#D1FAE5] hover:bg-[#065F46]/50"
                 >
-                  <Download className="w-4 h-4" /> Download payment receipt (PDF)
+                  <Download className="w-4 h-4" /> {t("invoiceVerify.downloadReceipt", { defaultValue: "Download payment receipt (PDF)" })}
                 </a>
               ) : null}
             </div>
@@ -119,7 +121,7 @@ export default function InvoiceVerify() {
                 onClick={copyVerificationLink}
                 className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#FDEAA0]/60 bg-white/[0.08] px-3 py-2 text-xs font-black text-[#FDEAA0] hover:bg-white/[0.14]"
               >
-                <Copy className="w-3.5 h-3.5" /> Copy verification link
+                <Copy className="w-3.5 h-3.5" /> {t("invoiceVerify.copyLink", { defaultValue: "Copy verification link" })}
               </button>
               <a
                 href={verifyApiUrl}
@@ -127,13 +129,13 @@ export default function InvoiceVerify() {
                 rel="noreferrer"
                 className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#CFE2FF]/70 bg-[#EAF2FF]/15 px-3 py-2 text-xs font-black text-[#CFE2FF] hover:bg-[#EAF2FF]/25"
               >
-                <ExternalLink className="w-3.5 h-3.5" /> Open raw API result
+                <ExternalLink className="w-3.5 h-3.5" /> {t("invoiceVerify.openRawApi", { defaultValue: "Open raw API result" })}
               </a>
               <Link
                 to="/"
                 className="inline-flex items-center justify-center rounded-xl bg-[#FEBF10] px-4 py-2.5 text-sm font-black text-[#1A1200] hover:bg-[#FED44A]"
               >
-                Back to Babyeyi
+                {t("invoiceVerify.backToBabyeyi", { defaultValue: "Back to Babyeyi" })}
               </Link>
             </div>
             {copyMsg ? <p className="text-xs text-[#FDEAA0] mt-2">{copyMsg}</p> : null}

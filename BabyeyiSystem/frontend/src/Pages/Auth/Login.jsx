@@ -6,9 +6,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from "react-i18next";
 import {
   Mail, Lock, Eye, EyeOff, LogIn, Building,
-  AlertCircle, CheckCircle, Loader, ArrowLeft,
+  AlertCircle, CheckCircle, Loader, ArrowLeft, Globe, ChevronDown,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getProEntryUrl, shouldUseProApp } from '../../utils/proAppEntry';
@@ -95,6 +96,7 @@ const DASHBOARD = {
 };
 
 const GOOGLE_AUTH_URL = `${API}/api/auth/google`;
+const LOGIN_LANGS = ["rw", "en", "fr"];
 
 /**
  * @param {{
@@ -112,6 +114,7 @@ const Login = ({
   portalBrand = null,
   portalNav = null,
 } = {}) => {
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const auth = useAuth();
   const isSchoolManager = variant === 'schoolManager';
@@ -204,6 +207,10 @@ const Login = ({
   const [locked, setLocked]       = useState(false);
   const [lockUntil, setLockUntil] = useState(null);
   const [sysPublic, setSysPublic] = useState(null);
+  const langCode = LOGIN_LANGS.includes(String(i18n.language || "en").slice(0, 2).toLowerCase())
+    ? String(i18n.language || "en").slice(0, 2).toLowerCase()
+    : "en";
+  const tr = (key, opts) => t(`authLogin.${key}`, opts);
 
   const notify = (msg, type = 'error') => {
     setUi(p => ({ ...p, error: type === 'error' ? msg : null, success: type === 'success' ? msg : null }));
@@ -214,21 +221,21 @@ const Login = ({
     e.preventDefault();
     if (locked) {
       const mins = Math.ceil((new Date(lockUntil) - new Date()) / 60000);
-      notify(`Account locked. Try again in ${mins} minute${mins !== 1 ? 's' : ''}.`);
+      notify(tr("accountLockedTryIn", { mins, count: mins }));
       return;
     }
     const schoolCodeTrim = form.schoolCode.trim().toUpperCase();
     if (isSchoolManager) {
       if (!form.identifier.trim()) {
-        notify(isProPortal ? 'Enter your work email' : 'Enter your school manager email');
+        notify(isProPortal ? tr("enterWorkEmail") : tr("enterManagerEmail"));
         return;
       }
-      if (!schoolCodeTrim) { notify('Enter your school code (e.g. 04001 — same as in the directory).'); return; }
+      if (!schoolCodeTrim) { notify(tr("enterSchoolCodeExample")); return; }
     } else if (!form.identifier.trim()) {
-      notify('Enter your email or username');
+      notify(tr("enterEmailOrUsername"));
       return;
     }
-    if (!form.password.trim()) { notify('Enter your password'); return; }
+    if (!form.password.trim()) { notify(tr("enterPassword")); return; }
 
     setUi(p => ({ ...p, loading: true, error: null }));
     try {
@@ -249,23 +256,23 @@ const Login = ({
         if (json.locked) {
           setLocked(true);
           setLockUntil(new Date(Date.now() + 30 * 60 * 1000));
-          notify(json.message || 'Account locked.');
+          notify(json.message || tr("accountLocked"));
           return;
         }
         const codeMessages = {
-          SCHOOL_PENDING_APPROVAL: 'Your school registration is pending approval. Please wait for the Super Admin to activate your school.',
-          SCHOOL_INACTIVE:         'Your school is inactive. Please contact the Super Admin to activate it.',
-          SCHOOL_NOT_LINKED:       'Your school account is not linked yet. Please contact the Super Admin.',
-          SCHOOL_CODE_REQUIRED:    json.message || 'Enter your school code to sign in as School Manager.',
-          SYSTEM_MAINTENANCE:      json.message || 'System maintenance — only Super Administrator can sign in.',
+          SCHOOL_PENDING_APPROVAL: tr("schoolPendingApproval"),
+          SCHOOL_INACTIVE:         tr("schoolInactive"),
+          SCHOOL_NOT_LINKED:       tr("schoolNotLinked"),
+          SCHOOL_CODE_REQUIRED:    json.message || tr("schoolCodeRequired"),
+          SYSTEM_MAINTENANCE:      json.message || tr("systemMaintenanceOnlySuper"),
         };
         if (codeMessages[json.code]) { setAttempts(0); notify(codeMessages[json.code]); return; }
         const next = attempts + 1;
         setAttempts(next);
         notify(
           json.remainingAttempts != null
-            ? `${json.message} — ${json.remainingAttempts} attempt${json.remainingAttempts !== 1 ? 's' : ''} left.`
-            : json.message || 'Invalid credentials.'
+            ? tr("attemptsLeft", { message: json.message, count: json.remainingAttempts })
+            : json.message || tr("invalidCredentials")
         );
         return;
       }
@@ -299,13 +306,13 @@ const Login = ({
 
       if (forceLitePortal && sessionUser && shouldUseProApp(sessionUser) && roleCode) {
         await auth.logout();
-        notify('Your school uses ShuleManager Pro. Sign in from the Pro portal.');
+        notify(tr("schoolUsesPro"));
         return;
       }
 
       if (isProPortal && sessionUser && !shouldUseProApp(sessionUser)) {
         await auth.logout();
-        notify('Your school is on ShuleManager Lite. Use the Lite portal to sign in.');
+        notify(tr("schoolUsesLite"));
         return;
       }
 
@@ -317,7 +324,7 @@ const Login = ({
         setPostLogoutLoginPath('/login');
       }
 
-      notify('Welcome! Redirecting…', 'success');
+      notify(tr("welcomeRedirecting"), 'success');
 
       if (isProPortal && sessionUser && shouldUseProApp(sessionUser) && roleCode) {
         const proUrl = getProEntryUrl(roleCode);
@@ -326,7 +333,7 @@ const Login = ({
           return;
         }
         await auth.logout();
-        notify('This account cannot sign in through ShuleManager Pro.');
+        notify(tr("cannotSignInPro"));
         return;
       }
 
@@ -384,7 +391,7 @@ const Login = ({
 
     } catch (err) {
       console.error('Login error:', err);
-      notify('Cannot connect to server. Is it running on port 5100?');
+      notify(tr("cannotConnectServer"));
     } finally {
       setUi(p => ({ ...p, loading: false }));
     }
@@ -480,6 +487,13 @@ const Login = ({
           background: #000435;
           border-bottom: 1px solid rgba(251,191,36,0.2);
         }
+        .lx-portal-nav-actions {
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          flex-wrap: wrap;
+          justify-content: flex-end;
+        }
         .lx-portal-nav-back {
           display: inline-flex;
           align-items: center;
@@ -505,6 +519,29 @@ const Login = ({
           letter-spacing: 0.05em;
         }
         .lx-portal-nav-secondary:hover { color: #fff; }
+        .lx-lang-switch {
+          position: relative;
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+          padding: 8px 12px;
+          border-radius: 10px;
+          border: 1px solid rgba(255,255,255,0.14);
+          background: rgba(255,255,255,0.05);
+          color: rgba(255,255,255,0.9);
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          min-height: 34px;
+        }
+        .lx-lang-switch .globe { color: #fbbf24; }
+        .lx-lang-select {
+          position: absolute;
+          inset: 0;
+          opacity: 0;
+          cursor: pointer;
+        }
         .lx-reg-note {
           margin-top: 1.1rem;
           font-size: 0.72rem;
@@ -882,9 +919,26 @@ const Login = ({
           <Link to={portalNav.backHref} className="lx-portal-nav-back">
             <ArrowLeft size={16} strokeWidth={2.5} /> {portalNav.backLabel}
           </Link>
-          {portalNav.secondaryHref && portalNav.secondaryLabel ? (
-            <Link to={portalNav.secondaryHref} className="lx-portal-nav-secondary">{portalNav.secondaryLabel}</Link>
-          ) : <span aria-hidden="true" />}
+          <div className="lx-portal-nav-actions">
+            {portalNav.secondaryHref && portalNav.secondaryLabel ? (
+              <Link to={portalNav.secondaryHref} className="lx-portal-nav-secondary">{portalNav.secondaryLabel}</Link>
+            ) : null}
+            <label className="lx-lang-switch">
+              <Globe size={13} className="globe" />
+              <span>{t("language.label")}</span>
+              <ChevronDown size={13} />
+              <select
+                className="lx-lang-select"
+                aria-label={t("language.switcherLabel")}
+                value={langCode}
+                onChange={(e) => i18n.changeLanguage(e.target.value)}
+              >
+                <option value="rw">🇷🇼 {t("language.rw")}</option>
+                <option value="en">🇬🇧 {t("language.en")}</option>
+                <option value="fr">🇫🇷 {t("language.fr")}</option>
+              </select>
+            </label>
+          </div>
         </nav>
       )}
 
@@ -905,27 +959,27 @@ const Login = ({
             <div className="lx-left-body">
             <h1 className="lx-h1">
               {portalBrand ? (
-                <>ShuleManager <span className="lx-h1-grad">{portalBrand === 'lite' ? 'Lite' : 'Pro'}</span></>
+                <>ShuleManager <span className="lx-h1-grad">{portalBrand === 'lite' ? tr("lite") : tr("pro")}</span></>
               ) : (
-                'Welcome Back'
+                tr("welcomeBack")
               )}
             </h1>
             <p className="lx-sub">
               {portalBrand === 'lite' && ''}
               {portalBrand === 'pro' && ''}
-              {!portalBrand && 'Sign in to continue to your portal'}
+              {!portalBrand && tr("signInToContinue")}
             </p>
 
             {sysPublic?.maintenance_mode && (
               <div className="lx-alert warn">
                 <AlertCircle size={15}/>
-                <span>Maintenance mode: only Super Administrator or Full System Controller accounts can sign in.</span>
+                <span>{tr("maintenanceModeBanner")}</span>
               </div>
             )}
             {sysPublic?.block_non_super_writes && !sysPublic?.maintenance_mode && (
               <div className="lx-alert warn">
                 <AlertCircle size={15}/>
-                <span>System changes are restricted. You can still sign in and browse.</span>
+                <span>{tr("systemChangesRestrictedBanner")}</span>
               </div>
             )}
             {ui.error   && <div className="lx-alert err"><AlertCircle size={15}/><span>{ui.error}</span></div>}
@@ -935,7 +989,7 @@ const Login = ({
 
               <div className="lx-field">
                 <label className="lx-label" htmlFor="identifier">
-                  {isProPortal ? 'Work email' : isSchoolManager ? 'Manager email' : 'Email / Username / Staff ID'}
+                  {isProPortal ? tr("workEmail") : isSchoolManager ? tr("managerEmail") : tr("emailUsernameStaffId")}
                 </label>
                 <div className="lx-iw">
                   <span className="lx-icon"><Mail size={15}/></span>
@@ -943,7 +997,7 @@ const Login = ({
                     id="identifier" name="identifier" className="lx-input" type={isSchoolManager ? 'email' : 'text'}
                     value={form.identifier} disabled={ui.loading}
                     onChange={e => setForm(p => ({...p, identifier: e.target.value}))}
-                    placeholder={isProPortal ? 'staff@school.rw' : isSchoolManager ? 'manager@school.rw' : 'admin@school.rw'}
+                    placeholder={isProPortal ? tr("placeholderStaffEmail") : isSchoolManager ? tr("placeholderManagerEmail") : tr("placeholderAdminEmail")}
                     autoComplete={isSchoolManager ? 'email' : 'username'}
                   />
                 </div>
@@ -951,12 +1005,12 @@ const Login = ({
 
               <div className="lx-field">
                 <label className="lx-label" htmlFor="schoolCode">
-                  School code
+                  {tr("schoolCode")}
                   {!isSchoolManager && (
-                    <span className="lx-label-note">Required for school staff; leave blank for Super Admin / NESA / DEO</span>
+                    <span className="lx-label-note">{tr("schoolCodeNoteStaff")}</span>
                   )}
                   {isSchoolManager && (
-                    <span className="lx-label-note">Required — same code as in the school directory</span>
+                    <span className="lx-label-note">{tr("schoolCodeNoteManager")}</span>
                   )}
                 </label>
                 <div className="lx-iw">
@@ -965,13 +1019,13 @@ const Login = ({
                     id="schoolCode" name="schoolCode" className="lx-input mono" type="text"
                     value={form.schoolCode} disabled={ui.loading}
                     onChange={e => setForm(p => ({...p, schoolCode: e.target.value.toUpperCase()}))}
-                    placeholder="04001"
+                    placeholder={tr("placeholderSchoolCode")}
                   />
                 </div>
               </div>
 
               <div className="lx-field">
-                <label className="lx-label" htmlFor="password">Password</label>
+                <label className="lx-label" htmlFor="password">{tr("password")}</label>
                 <div className="lx-iw">
                   <span className="lx-icon"><Lock size={15}/></span>
                   <input
@@ -979,12 +1033,12 @@ const Login = ({
                     type={ui.showPassword ? 'text' : 'password'}
                     value={form.password} disabled={ui.loading}
                     onChange={e => setForm(p => ({...p, password: e.target.value}))}
-                    placeholder="Your password" autoComplete="current-password"
+                    placeholder={tr("placeholderPassword")} autoComplete="current-password"
                     style={{ paddingRight: '42px' }}
                   />
                   <button type="button" className="lx-eye"
                     onClick={() => setUi(p => ({...p, showPassword: !p.showPassword}))}
-                    aria-label={ui.showPassword ? 'Hide password' : 'Show password'}
+                    aria-label={ui.showPassword ? tr("hidePassword") : tr("showPassword")}
                   >
                     {ui.showPassword ? <EyeOff size={15}/> : <Eye size={15}/>}
                   </button>
@@ -995,25 +1049,25 @@ const Login = ({
                 <label className="lx-remember">
                   <input type="checkbox" checked={rememberMe} disabled={ui.loading}
                     onChange={e => setRememberMe(e.target.checked)} />
-                  Remember me on this device
+                  {tr("rememberMe")}
                 </label>
                 {!isSchoolManager && (
-                  <a href="/forgot-password" className="lx-forgot">Forgot password?</a>
+                  <a href="/forgot-password" className="lx-forgot">{tr("forgotPassword")}</a>
                 )}
               </div>
 
               <button type="submit" className="lx-btn" disabled={ui.loading || locked}>
                 {ui.loading
-                  ? <><span className="spin"><Loader size={18}/></span> Signing in…</>
-                  : <><LogIn size={18}/> Sign In</>
+                  ? <><span className="spin"><Loader size={18}/></span> {tr("signingIn")}</>
+                  : <><LogIn size={18}/> {tr("signIn")}</>
                 }
               </button>
 
               {attempts > 0 && attempts < 5 && !locked && (
-                <div className="lx-warn caution">⚠️ {5 - attempts} attempt{5 - attempts !== 1 ? 's' : ''} remaining</div>
+                <div className="lx-warn caution">⚠️ {tr("attemptsRemaining", { count: 5 - attempts })}</div>
               )}
               {locked && (
-                <div className="lx-warn locked">🔒 Account temporarily locked. Try again in 30 minutes.</div>
+                <div className="lx-warn locked">🔒 {tr("accountTemporarilyLocked")}</div>
               )}
             </form>
 
@@ -1029,11 +1083,11 @@ const Login = ({
               Sign in with Google
             </a> */}
 
-            <p className="lx-footer">© 2026 Edupoto · All rights reserved</p>
+            <p className="lx-footer">© 2026 Edupoto · {tr("allRightsReserved")}</p>
             {isSchoolManager && (
               <p className="lx-reg-note">
-                Need to register your school?{' '}
-                <Link to="/register">Register your school</Link>
+                {tr("needRegisterSchool")}{" "}
+                <Link to="/register">{tr("registerYourSchool")}</Link>
               </p>
             )}
             </div>
@@ -1045,10 +1099,10 @@ const Login = ({
             <div className="lx-arch-sm"/>
 
             <div className="lx-rc">
-              <h2 className="lx-headline">SMART SCHOOL MANAGEMENT</h2>
+              <h2 className="lx-headline">{tr("smartSchoolManagement")}</h2>
               <div className="lx-line"/>
-              <p className="lx-tagline-lead">Manage. Monitor. Empower.</p>
-              <p className="lx-tagline-sub">All in one platform for smarter education.</p>
+              <p className="lx-tagline-lead">{tr("manageMonitorEmpower")}</p>
+              <p className="lx-tagline-sub">{tr("allInOnePlatform")}</p>
               <div className="lx-hero-wrap">
                 <img src={loginDecor} alt="" className="lx-hero" />
               </div>

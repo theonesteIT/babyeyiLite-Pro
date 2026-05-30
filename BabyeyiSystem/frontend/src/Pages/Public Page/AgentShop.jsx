@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
   ArrowLeft,
   ArrowRight,
@@ -611,6 +612,7 @@ function ShopHeader({ back, agentSubtitle, pageTitle, actions }) {
 
 // ─── IMAGE ZOOM MODAL ──────────────────────────────────────────────
 function ZoomModal({ product, cart, onAdd, onInc, onDec, onClose }) {
+  const { t } = useTranslation();
   const [activeImg, setActiveImg] = useState(0);
   const [zoomed, setZoomed] = useState(false);
   const imgs = product.images?.length ? product.images : [product.icon_url].filter(Boolean);
@@ -625,7 +627,7 @@ function ZoomModal({ product, cart, onAdd, onInc, onDec, onClose }) {
   return (
     <div className="zoom-modal-bg" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="zoom-modal">
-        <button type="button" className="zoom-close" onClick={onClose} aria-label="Close">
+        <button type="button" className="zoom-close" onClick={onClose} aria-label={t("agentShop.close", { defaultValue: "Close" })}>
           <X size={18} />
         </button>
         <div className="zoom-layout">
@@ -645,47 +647,50 @@ function ZoomModal({ product, cart, onAdd, onInc, onDec, onClose }) {
                     key={i}
                     className={`zoom-thumb${activeImg === i ? " active" : ""}`}
                     src={toImage(img)}
-                    alt={`View ${i + 1}`}
+                    alt={t("agentShop.viewImage", { defaultValue: "View {{index}}", index: i + 1 })}
                     onClick={() => { setActiveImg(i); setZoomed(false); }}
                   />
                 ))}
               </div>
             )}
             <p style={{ fontSize: "0.72rem", color: "#94A3B8", marginTop: 8, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-              <ZoomIn size={12} /> Click image to zoom · {imgs.length} photo{imgs.length > 1 ? "s" : ""}
+              <ZoomIn size={12} /> {t("agentShop.clickToZoomPhotos", { defaultValue: "Click image to zoom · {{count}} photo", count: imgs.length, count_formatted: imgs.length })}
+              {imgs.length > 1 ? "s" : ""}
             </p>
           </div>
           <div className="zoom-details">
-            <p style={{ fontSize: "0.72rem", fontWeight: 600, color: AMBER_DARK, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 6 }}>Product Detail</p>
+            <p style={{ fontSize: "0.72rem", fontWeight: 600, color: AMBER_DARK, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 6 }}>
+              {t("agentShop.productDetail", { defaultValue: "Product Detail" })}
+            </p>
             <h2 className="zoom-product-name">{product.name}</h2>
             <p className="zoom-product-price">{Number(product.price || 0).toLocaleString()} <span style={{ fontSize: "0.7rem", fontWeight: 400, color: "#94A3B8" }}>RWF</span></p>
             <ProductMetaChips product={product} />
-            <p className="zoom-desc">{product.description || product.short_tagline || "No description."}</p>
+            <p className="zoom-desc">{product.description || product.short_tagline || t("agentShop.noDescription", { defaultValue: "No description." })}</p>
             {(product.product_type || product.product_color) && (
               <div className="zoom-attrs">
                 {product.product_type && (
                   <div>
-                    <strong>Type:</strong> {product.product_type}
+                    <strong>{t("agentShop.type", { defaultValue: "Type" })}:</strong> {product.product_type}
                   </div>
                 )}
                 {product.product_color && (
                   <div style={{ marginTop: product.product_type ? 6 : 0 }}>
-                    <strong>Color:</strong> {product.product_color}
+                    <strong>{t("agentShop.color", { defaultValue: "Color" })}:</strong> {product.product_color}
                   </div>
                 )}
               </div>
             )}
             {!inCart ? (
               <button type="button" className="zoom-add-btn" onClick={() => onAdd(product)}>
-                <ShoppingCart size={16} /> Add to Cart
+                <ShoppingCart size={16} /> {t("agentShop.addToCart", { defaultValue: "Add to Cart" })}
               </button>
             ) : (
               <div className="zoom-qty-control">
-                <button type="button" className="zoom-qty-btn" onClick={() => onDec(product.id)} aria-label="Decrease">
+                <button type="button" className="zoom-qty-btn" onClick={() => onDec(product.id)} aria-label={t("agentShop.decrease", { defaultValue: "Decrease" })}>
                   <Minus size={16} />
                 </button>
-                <span className="zoom-qty-num">{inCart.quantity} in cart</span>
-                <button type="button" className="zoom-qty-btn" onClick={() => onInc(product.id)} aria-label="Increase">
+                <span className="zoom-qty-num">{t("agentShop.inCartCount", { defaultValue: "{{count}} in cart", count: inCart.quantity })}</span>
+                <button type="button" className="zoom-qty-btn" onClick={() => onInc(product.id)} aria-label={t("agentShop.increase", { defaultValue: "Increase" })}>
                   <Plus size={16} />
                 </button>
               </div>
@@ -711,6 +716,7 @@ function ShopPage({
   error,
   onRetry,
 }) {
+  const { t } = useTranslation();
   const [zoomProduct, setZoomProduct] = useState(null);
   const [search, setSearch] = useState("");
   const total = useMemo(() => cart.reduce((s, x) => s + x.price * x.quantity, 0), [cart]);
@@ -733,14 +739,14 @@ function ShopPage({
       <ShopHeader
         back={
           <Link to="/find-agent" className="back-btn">
-            <ArrowLeft size={14} /> Agents
+            <ArrowLeft size={14} /> {t("agentShop.agents", { defaultValue: "Agents" })}
           </Link>
         }
         agentSubtitle={agentSubtitle}
         actions={
           <button type="button" className="cart-btn" onClick={onGoCart}>
             <ShoppingCart size={16} strokeWidth={2.25} />
-            <span className="hide-mobile">Cart</span>
+            <span className="hide-mobile">{t("agentShop.cart", { defaultValue: "Cart" })}</span>
             {itemsCount > 0 && <span className="cart-badge">{itemsCount}</span>}
           </button>
         }
@@ -748,8 +754,8 @@ function ShopPage({
 
       <main className="products-section">
         <div className="shop-hero">
-          <h1>{agentName}&apos;s shop</h1>
-          <p>Active products from your field agent — pay securely with Mobile Money after checkout.</p>
+          <h1>{t("agentShop.agentShopTitle", { defaultValue: "{{name}}'s shop", name: agentName })}</h1>
+          <p>{t("agentShop.agentShopSub", { defaultValue: "Active products from your field agent — pay securely with Mobile Money after checkout." })}</p>
           <div className="shop-hero-meta">
             {sector && (
               <span className="hero-chip">
@@ -757,7 +763,7 @@ function ShopPage({
                 {sector}
               </span>
             )}
-            <span className="hero-chip">{products.length} product{products.length !== 1 ? "s" : ""}</span>
+            <span className="hero-chip">{t("agentShop.productsCount", { defaultValue: "{{count}} product", count: products.length })}{products.length !== 1 ? "s" : ""}</span>
           </div>
         </div>
 
@@ -765,7 +771,7 @@ function ShopPage({
           <div style={{ marginBottom: "1rem" }}>
             <input
               className="form-input"
-              placeholder="Search products..."
+              placeholder={t("agentShop.searchProducts", { defaultValue: "Search products..." })}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={{ maxWidth: 420 }}
@@ -776,35 +782,35 @@ function ShopPage({
         {loading && (
           <div className="shop-state">
             <div className="spinner" />
-            <h3>Loading shop</h3>
-            <p>Fetching products from {agentName}…</p>
+            <h3>{t("agentShop.loadingShop", { defaultValue: "Loading shop" })}</h3>
+            <p>{t("agentShop.fetchingProducts", { defaultValue: "Fetching products from {{name}}…", name: agentName })}</p>
           </div>
         )}
 
         {!loading && error && (
           <div className="shop-state">
-            <h3>Could not load shop</h3>
+            <h3>{t("agentShop.couldNotLoadShop", { defaultValue: "Could not load shop" })}</h3>
             <p>{error}</p>
             <button type="button" className="retry-btn" onClick={onRetry}>
-              Try again
+              {t("agentShop.tryAgain", { defaultValue: "Try again" })}
             </button>
           </div>
         )}
 
         {!loading && !error && products.length === 0 && (
           <div className="shop-state">
-            <h3>No products yet</h3>
-            <p>This agent has not published any active products. Check back later or choose another agent.</p>
+            <h3>{t("agentShop.noProductsYet", { defaultValue: "No products yet" })}</h3>
+            <p>{t("agentShop.noProductsYetSub", { defaultValue: "This agent has not published any active products. Check back later or choose another agent." })}</p>
             <Link to="/find-agent" className="find-agent-btn">
-              Find another agent
+              {t("agentShop.findAnotherAgent", { defaultValue: "Find another agent" })}
             </Link>
           </div>
         )}
 
         {!loading && !error && products.length > 0 && filtered.length === 0 && (
           <div className="shop-state">
-            <h3>No matches</h3>
-            <p>Try a different search term.</p>
+            <h3>{t("agentShop.noMatches", { defaultValue: "No matches" })}</h3>
+            <p>{t("agentShop.tryDifferentSearch", { defaultValue: "Try a different search term." })}</p>
           </div>
         )}
 
@@ -817,12 +823,12 @@ function ShopPage({
               return (
                 <article key={p.id} className="product-card">
                   <div className="product-img-wrap" onClick={() => setZoomProduct(p)}>
-                    {outOfStock && <span className="out-of-stock">Out of stock</span>}
+                    {outOfStock && <span className="out-of-stock">{t("agentShop.outOfStock", { defaultValue: "Out of stock" })}</span>}
                     <img src={imgSrc || undefined} alt={p.name} loading="lazy" />
                     <div className="product-hover-overlay">
                       <p className="overlay-desc">{(p.short_tagline || p.description || "").slice(0, 100)}…</p>
                       <span className="overlay-zoom-hint">
-                        <ZoomIn size={13} strokeWidth={2.5} /> View details
+                        <ZoomIn size={13} strokeWidth={2.5} /> {t("agentShop.viewDetails", { defaultValue: "View details" })}
                       </span>
                     </div>
                   </div>
@@ -833,10 +839,10 @@ function ShopPage({
                     <div className="product-footer">
                       <div className="product-price">
                         {Number(p.price || 0).toLocaleString()}
-                        <small>RWF</small>
+                        <small>{t("agentShop.rwf", { defaultValue: "RWF" })}</small>
                       </div>
                       {outOfStock ? (
-                        <span style={{ fontSize: "0.72rem", color: "#94A3B8", fontWeight: 600 }}>Unavailable</span>
+                        <span style={{ fontSize: "0.72rem", color: "#94A3B8", fontWeight: 600 }}>{t("agentShop.unavailable", { defaultValue: "Unavailable" })}</span>
                       ) : !inCart ? (
                         <button
                           type="button"
@@ -846,15 +852,15 @@ function ShopPage({
                             onAdd(p);
                           }}
                         >
-                          <Plus size={14} strokeWidth={2.5} /> Add
+                          <Plus size={14} strokeWidth={2.5} /> {t("agentShop.add", { defaultValue: "Add" })}
                         </button>
                       ) : (
                         <div className="qty-control" onClick={(e) => e.stopPropagation()}>
-                          <button type="button" className="qty-btn" onClick={() => onDec(p.id)} aria-label="Decrease">
+                          <button type="button" className="qty-btn" onClick={() => onDec(p.id)} aria-label={t("agentShop.decrease", { defaultValue: "Decrease" })}>
                             <Minus size={14} />
                           </button>
                           <span className="qty-num">{inCart.quantity}</span>
-                          <button type="button" className="qty-btn" onClick={() => onInc(p.id)} aria-label="Increase">
+                          <button type="button" className="qty-btn" onClick={() => onInc(p.id)} aria-label={t("agentShop.increase", { defaultValue: "Increase" })}>
                             <Plus size={14} />
                           </button>
                         </div>
@@ -884,6 +890,7 @@ function ShopPage({
 
 // ─── CART PAGE ─────────────────────────────────────────────────────
 function CartPage({ cart, onInc, onDec, onRemove, onBack, onCheckout }) {
+  const { t } = useTranslation();
   const total = useMemo(() => cart.reduce((s, x) => s + x.price * x.quantity, 0), [cart]);
   const itemsCount = useMemo(() => cart.reduce((s, x) => s + x.quantity, 0), [cart]);
 
@@ -893,18 +900,18 @@ function CartPage({ cart, onInc, onDec, onRemove, onBack, onCheckout }) {
       <ShopHeader
         back={
           <button type="button" className="back-btn" onClick={onBack}>
-            <ArrowLeft size={14} /> Back to Shop
+            <ArrowLeft size={14} /> {t("agentShop.backToShop", { defaultValue: "Back to Shop" })}
           </button>
         }
-        pageTitle="Your Cart"
+        pageTitle={t("agentShop.yourCart", { defaultValue: "Your Cart" })}
         actions={null}
       />
 
       <main className="cart-page">
         <h1 className="cart-title">
-          Shopping Cart{" "}
+          {t("agentShop.shoppingCart", { defaultValue: "Shopping Cart" })}{" "}
           <span style={{ fontSize: "1rem", fontWeight: 400, color: "#94A3B8" }}>
-            ({itemsCount} item{itemsCount !== 1 ? "s" : ""})
+            ({t("agentShop.itemsCount", { defaultValue: "{{count}} item", count: itemsCount })}{itemsCount !== 1 ? "s" : ""})
           </span>
         </h1>
 
@@ -913,10 +920,10 @@ function CartPage({ cart, onInc, onDec, onRemove, onBack, onCheckout }) {
             <div className="empty-cart-icon">
               <ShoppingCart size={40} strokeWidth={1.5} color={AMBER_DARK} />
             </div>
-            <h3>Your cart is empty</h3>
-            <p>Looks like you haven&apos;t added anything yet.</p>
+            <h3>{t("agentShop.cartEmpty", { defaultValue: "Your cart is empty" })}</h3>
+            <p>{t("agentShop.cartEmptySub", { defaultValue: "Looks like you haven't added anything yet." })}</p>
             <button type="button" className="proceed-btn" style={{ width: "auto", padding: "12px 28px", display: "inline-flex" }} onClick={onBack}>
-              Start Shopping <ArrowRight size={16} />
+              {t("agentShop.startShopping", { defaultValue: "Start Shopping" })} <ArrowRight size={16} />
             </button>
           </div>
         ) : (
@@ -931,21 +938,21 @@ function CartPage({ cart, onInc, onDec, onRemove, onBack, onCheckout }) {
                   />
                   <div className="cart-item-info">
                     <div className="cart-item-name">{item.name}</div>
-                    <div className="cart-item-price">{item.price.toLocaleString()} RWF each</div>
+                    <div className="cart-item-price">{item.price.toLocaleString()} {t("agentShop.rwf", { defaultValue: "RWF" })} {t("agentShop.each", { defaultValue: "each" })}</div>
                     <div style={{ marginTop: 8 }}>
                       <div className="qty-control" style={{ display: "inline-flex" }}>
-                        <button type="button" className="qty-btn" onClick={() => onDec(item.service_id)} aria-label="Decrease">
+                        <button type="button" className="qty-btn" onClick={() => onDec(item.service_id)} aria-label={t("agentShop.decrease", { defaultValue: "Decrease" })}>
                           <Minus size={14} />
                         </button>
                         <span className="qty-num">{item.quantity}</span>
-                        <button type="button" className="qty-btn" onClick={() => onInc(item.service_id)} aria-label="Increase">
+                        <button type="button" className="qty-btn" onClick={() => onInc(item.service_id)} aria-label={t("agentShop.increase", { defaultValue: "Increase" })}>
                           <Plus size={14} />
                         </button>
                       </div>
                     </div>
                   </div>
                   <div className="cart-item-subtotal">{(item.price * item.quantity).toLocaleString()}</div>
-                  <button type="button" className="cart-remove-btn" onClick={() => onRemove(item.service_id)} title="Remove" aria-label="Remove">
+                  <button type="button" className="cart-remove-btn" onClick={() => onRemove(item.service_id)} title={t("agentShop.remove", { defaultValue: "Remove" })} aria-label={t("agentShop.remove", { defaultValue: "Remove" })}>
                     <Trash2 size={16} />
                   </button>
                 </div>
@@ -953,24 +960,24 @@ function CartPage({ cart, onInc, onDec, onRemove, onBack, onCheckout }) {
             </div>
 
             <div className="cart-summary">
-              <div className="cart-summary-title">Order Summary</div>
+              <div className="cart-summary-title">{t("agentShop.orderSummary", { defaultValue: "Order Summary" })}</div>
               <div className="summary-row">
-                <span className="summary-label">Subtotal ({itemsCount} items)</span>
+                <span className="summary-label">{t("agentShop.subtotalItems", { defaultValue: "Subtotal ({{count}} items)", count: itemsCount })}</span>
                 <span className="summary-value">{total.toLocaleString()} RWF</span>
               </div>
               <p style={{ fontSize: "0.72rem", opacity: 0.55, marginBottom: 12, lineHeight: 1.45 }}>
-                Home delivery (+2,500 RWF) is added at checkout if you choose delivery at home.
+                {t("agentShop.deliveryNote", { defaultValue: "Home delivery (+2,500 RWF) is added at checkout if you choose delivery at home." })}
               </p>
               <hr className="summary-divider" />
               <div className="summary-row">
-                <span className="summary-label summary-total-label">Subtotal</span>
+                <span className="summary-label summary-total-label">{t("agentShop.subtotal", { defaultValue: "Subtotal" })}</span>
                 <span className="summary-value summary-total-value">{total.toLocaleString()} RWF</span>
               </div>
               <button type="button" className="proceed-btn" onClick={onCheckout}>
-                Proceed to Checkout <ArrowRight size={16} />
+                {t("agentShop.proceedToCheckout", { defaultValue: "Proceed to Checkout" })} <ArrowRight size={16} />
               </button>
               <button onClick={onBack} style={{ width: "100%", marginTop: 10, background: "none", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 12, padding: "10px", color: "rgba(255,255,255,0.6)", cursor: "pointer", fontSize: "0.82rem", fontFamily: "'DM Sans', sans-serif" }}>
-                Continue Shopping
+                {t("agentShop.continueShopping", { defaultValue: "Continue Shopping" })}
               </button>
             </div>
           </div>
@@ -982,6 +989,7 @@ function CartPage({ cart, onInc, onDec, onRemove, onBack, onCheckout }) {
 
 // ─── CHECKOUT PAGE ─────────────────────────────────────────────────
 function CheckoutPage({ cart, agentMeta, onBack, onCheckoutDone }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [form, setForm] = useState({
     studentCode: "",
@@ -1002,15 +1010,15 @@ function CheckoutPage({ cart, agentMeta, onBack, onCheckoutDone }) {
   const handleSubmit = async () => {
     setErr("");
     if (!form.studentCode.trim() || !form.buyerName.trim() || !form.buyerContact.trim()) {
-      setErr("Student code, your name and phone are required.");
+      setErr(t("agentShop.errStudentNamePhone", { defaultValue: "Student code, your name and phone are required." }));
       return;
     }
     if (form.deliveryMode === "AT_HOME" && !form.deliveryAddress.trim()) {
-      setErr("Home delivery address is required.");
+      setErr(t("agentShop.errHomeAddressRequired", { defaultValue: "Home delivery address is required." }));
       return;
     }
     if (!agentMeta?.agent_user_id) {
-      setErr("Agent information is missing. Go back and open the shop from Find Agent.");
+      setErr(t("agentShop.errAgentMissing", { defaultValue: "Agent information is missing. Go back and open the shop from Find Agent." }));
       return;
     }
     setSubmitting(true);
@@ -1029,7 +1037,7 @@ function CheckoutPage({ cart, agentMeta, onBack, onCheckoutDone }) {
         }),
       });
       const json = await res.json();
-      if (!res.ok || json.success === false) throw new Error(json.message || "Checkout failed");
+      if (!res.ok || json.success === false) throw new Error(json.message || t("agentShop.errCheckoutFailed", { defaultValue: "Checkout failed" }));
       const d = json.data;
       onCheckoutDone();
       navigate("/payments", {
@@ -1048,7 +1056,7 @@ function CheckoutPage({ cart, agentMeta, onBack, onCheckoutDone }) {
         },
       });
     } catch (e) {
-      setErr(e.message || "Checkout failed");
+      setErr(e.message || t("agentShop.errCheckoutFailed", { defaultValue: "Checkout failed" }));
     } finally {
       setSubmitting(false);
     }
@@ -1060,10 +1068,10 @@ function CheckoutPage({ cart, agentMeta, onBack, onCheckoutDone }) {
       <ShopHeader
         back={
           <button type="button" className="back-btn" onClick={onBack}>
-            <ArrowLeft size={14} /> Back to Cart
+            <ArrowLeft size={14} /> {t("agentShop.backToCart", { defaultValue: "Back to Cart" })}
           </button>
         }
-        pageTitle="Checkout"
+        pageTitle={t("agentShop.checkout", { defaultValue: "Checkout" })}
         actions={null}
       />
 
@@ -1077,34 +1085,34 @@ function CheckoutPage({ cart, agentMeta, onBack, onCheckoutDone }) {
                 </div>
               )}
               <div className="form-section-title">
-                <Package size={16} /> Order details
+                <Package size={16} /> {t("agentShop.orderDetails", { defaultValue: "Order details" })}
               </div>
               <div className="form-group">
-                <label className="form-label">Student code / SDM code *</label>
-                <input className="form-input" placeholder="e.g. STU-2024-001" value={form.studentCode} onChange={(e) => handleField("studentCode", e.target.value)} />
+                <label className="form-label">{t("agentShop.studentCodeLabel", { defaultValue: "Student code / SDM code *" })}</label>
+                <input className="form-input" placeholder={t("agentShop.studentCodeExample", { defaultValue: "e.g. STU-2024-001" })} value={form.studentCode} onChange={(e) => handleField("studentCode", e.target.value)} />
               </div>
               <div className="form-group">
-                <label className="form-label">Your full name *</label>
-                <input className="form-input" placeholder="Parent or buyer name" value={form.buyerName} onChange={(e) => handleField("buyerName", e.target.value)} />
+                <label className="form-label">{t("agentShop.yourFullNameLabel", { defaultValue: "Your full name *" })}</label>
+                <input className="form-input" placeholder={t("agentShop.parentOrBuyer", { defaultValue: "Parent or buyer name" })} value={form.buyerName} onChange={(e) => handleField("buyerName", e.target.value)} />
               </div>
               <div className="form-group">
-                <label className="form-label">Phone (MoMo) *</label>
+                <label className="form-label">{t("agentShop.phoneMomo", { defaultValue: "Phone (MoMo) *" })}</label>
                 <input className="form-input" placeholder="+250 7XX XXX XXX" value={form.buyerContact} onChange={(e) => handleField("buyerContact", e.target.value)} />
               </div>
               <div className="form-group">
-                <label className="form-label">Delivery *</label>
+                <label className="form-label">{t("agentShop.delivery", { defaultValue: "Delivery *" })}</label>
                 <select className="form-input" value={form.deliveryMode} onChange={(e) => handleField("deliveryMode", e.target.value)}>
-                  <option value="AT_SCHOOL">At school (no extra fee)</option>
-                  <option value="AT_HOME">At home (+2,500 RWF)</option>
+                  <option value="AT_SCHOOL">{t("agentShop.atSchoolNoFee", { defaultValue: "At school (no extra fee)" })}</option>
+                  <option value="AT_HOME">{t("agentShop.atHomeFee", { defaultValue: "At home (+2,500 RWF)" })}</option>
                 </select>
               </div>
               {form.deliveryMode === "AT_HOME" && (
                 <div className="form-group">
-                  <label className="form-label">Home address *</label>
+                  <label className="form-label">{t("agentShop.homeAddress", { defaultValue: "Home address *" })}</label>
                   <textarea
                     className="form-input"
                     rows={2}
-                    placeholder="District, sector, street, phone…"
+                    placeholder={t("agentShop.addressPlaceholder", { defaultValue: "District, sector, street, phone…" })}
                     value={form.deliveryAddress}
                     onChange={(e) => handleField("deliveryAddress", e.target.value)}
                     style={{ resize: "vertical", minHeight: 60 }}
@@ -1114,7 +1122,7 @@ function CheckoutPage({ cart, agentMeta, onBack, onCheckoutDone }) {
 
               <div className="checkout-actions">
                 <button type="button" className="cancel-btn" onClick={onBack} disabled={submitting}>
-                  Cancel
+                  {t("agentShop.cancel", { defaultValue: "Cancel" })}
                 </button>
                 <button
                   type="button"
@@ -1125,47 +1133,47 @@ function CheckoutPage({ cart, agentMeta, onBack, onCheckoutDone }) {
                 >
                   {submitting ? (
                     <>
-                      <Loader2 size={16} className="icon-spin" /> Processing…
+                      <Loader2 size={16} className="icon-spin" /> {t("agentShop.processing", { defaultValue: "Processing…" })}
                     </>
                   ) : (
                     <>
-                      Continue to pay · {grandTotal.toLocaleString()} RWF <ArrowRight size={16} />
+                      {t("agentShop.continueToPay", { defaultValue: "Continue to pay" })} · {grandTotal.toLocaleString()} {t("agentShop.rwf", { defaultValue: "RWF" })} <ArrowRight size={16} />
                     </>
                   )}
                 </button>
               </div>
 
               <p style={{ fontSize: "0.75rem", color: "#94A3B8", textAlign: "center", marginTop: 12 }}>
-                Choose MoMo, bank transfer, or Visa card on the next screen
+                {t("agentShop.choosePaymentNext", { defaultValue: "Choose MoMo, bank transfer, or Visa card on the next screen" })}
               </p>
             </div>
           </div>
 
           <div className="checkout-order-summary">
-            <div className="order-summary-title">Order ({cart.length} item{cart.length !== 1 ? "s" : ""})</div>
+            <div className="order-summary-title">{t("agentShop.orderItems", { defaultValue: "Order ({{count}} item)", count: cart.length })}{cart.length !== 1 ? "s" : ""}</div>
             {cart.map(item => (
               <div key={item.service_id} className="order-item-row">
                 <img className="order-item-img" src={toImage(item.image) || "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=100&q=80"} alt={item.name} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="order-item-name" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</div>
-                  <div className="order-item-qty">Qty: {item.quantity}</div>
+                  <div className="order-item-qty">{t("agentShop.qty", { defaultValue: "Qty" })}: {item.quantity}</div>
                 </div>
                 <div className="order-item-price">{(item.price * item.quantity).toLocaleString()}</div>
               </div>
             ))}
             <hr style={{ border: "none", borderTop: "1px solid #E8EDF5", margin: "14px 0" }} />
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-              <span style={{ fontSize: "0.82rem", color: "#64748B" }}>Subtotal</span>
+              <span style={{ fontSize: "0.82rem", color: "#64748B" }}>{t("agentShop.subtotal", { defaultValue: "Subtotal" })}</span>
               <span style={{ fontSize: "0.82rem", fontWeight: 600 }}>{subtotal.toLocaleString()} RWF</span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 14 }}>
-              <span style={{ fontSize: "0.82rem", color: "#64748B" }}>Delivery</span>
+              <span style={{ fontSize: "0.82rem", color: "#64748B" }}>{t("agentShop.delivery", { defaultValue: "Delivery" })}</span>
               <span style={{ fontSize: "0.82rem", fontWeight: 600, color: deliveryFee === 0 ? "#16A34A" : AMBER_DARK }}>
-                {deliveryFee === 0 ? "At school" : `+${deliveryFee.toLocaleString()} RWF`}
+                {deliveryFee === 0 ? t("agentShop.atSchool", { defaultValue: "At school" }) : `+${deliveryFee.toLocaleString()} ${t("agentShop.rwf", { defaultValue: "RWF" })}`}
               </span>
             </div>
             <div style={{ background: AMBER_LIGHT, borderRadius: 12, padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: "0.9rem", color: NAVY }}>Total</span>
+              <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: "0.9rem", color: NAVY }}>{t("agentShop.total", { defaultValue: "Total" })}</span>
               <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "1.1rem", color: AMBER_DARK }}>{grandTotal.toLocaleString()} RWF</span>
             </div>
           </div>
@@ -1177,26 +1185,27 @@ function CheckoutPage({ cart, agentMeta, onBack, onCheckoutDone }) {
 
 // ─── SUCCESS PAGE ──────────────────────────────────────────────────
 function SuccessPage({ order, onShopAgain }) {
+  const { t } = useTranslation();
   return (
     <>
       <style>{css}</style>
-      <ShopHeader pageTitle="Order placed" actions={null} back={null} />
+      <ShopHeader pageTitle={t("agentShop.orderPlaced", { defaultValue: "Order placed" })} actions={null} back={null} />
       <div className="success-page">
         <div className="success-icon-wrap">
           <CheckCircle2 size={40} color={AMBER_DARK} strokeWidth={2} />
         </div>
-        <h1 className="success-title">Order Confirmed!</h1>
-        <p className="success-sub">Thank you, <strong>{order.firstName}</strong>! Your order has been placed successfully. You'll receive a confirmation shortly.</p>
+        <h1 className="success-title">{t("agentShop.orderConfirmed", { defaultValue: "Order Confirmed!" })}</h1>
+        <p className="success-sub">{t("agentShop.thankYouOrderPlaced", { defaultValue: "Thank you, {{name}}! Your order has been placed successfully. You'll receive a confirmation shortly.", name: order.firstName })}</p>
         <div className="success-order-card">
-          <div className="order-number">Order Number</div>
+          <div className="order-number">{t("agentShop.orderNumber", { defaultValue: "Order Number" })}</div>
           <div className="order-number-val">{order.orderNo}</div>
           <div style={{ marginTop: 12, fontSize: "0.82rem", opacity: 0.7 }}>
-            Total paid: <strong style={{ color: AMBER }}>{order.total.toLocaleString()} RWF</strong>
+            {t("agentShop.totalPaid", { defaultValue: "Total paid" })}: <strong style={{ color: AMBER }}>{order.total.toLocaleString()} {t("agentShop.rwf", { defaultValue: "RWF" })}</strong>
           </div>
-          {order.phone && <div style={{ marginTop: 6, fontSize: "0.8rem", opacity: 0.6 }}>Confirmation to: {order.phone}</div>}
+          {order.phone && <div style={{ marginTop: 6, fontSize: "0.8rem", opacity: 0.6 }}>{t("agentShop.confirmationTo", { defaultValue: "Confirmation to" })}: {order.phone}</div>}
         </div>
         <button type="button" className="proceed-btn" style={{ margin: "0 auto", display: "flex", width: "auto", padding: "12px 28px" }} onClick={onShopAgain}>
-          Continue Shopping <ArrowRight size={16} />
+          {t("agentShop.continueShopping", { defaultValue: "Continue Shopping" })} <ArrowRight size={16} />
         </button>
       </div>
     </>
@@ -1205,6 +1214,7 @@ function SuccessPage({ order, onShopAgain }) {
 
 // ─── MAIN APP ──────────────────────────────────────────────────────
 export default function AgentShop() {
+  const { t } = useTranslation();
   const [params] = useSearchParams();
   const agentUserId = params.get("agent_user_id") || "";
   const agentNameFromUrl = params.get("agent_name") || "";
@@ -1217,7 +1227,7 @@ export default function AgentShop() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
-  const agentName = agentNameFromUrl || agentInfo?.name || "Field agent";
+  const agentName = agentNameFromUrl || agentInfo?.name || t("agentShop.fieldAgent", { defaultValue: "Field agent" });
   const sector = sectorFromUrl || agentInfo?.sector || "";
 
   const agentMeta = useMemo(
@@ -1231,7 +1241,7 @@ export default function AgentShop() {
 
   const loadProducts = useCallback(async () => {
     if (!agentUserId) {
-      setLoadError("No agent selected. Please find an agent first.");
+      setLoadError(t("agentShop.noAgentSelected", { defaultValue: "No agent selected. Please find an agent first." }));
       setLoading(false);
       setProducts([]);
       return;
@@ -1243,12 +1253,12 @@ export default function AgentShop() {
       setProducts(list);
       setAgentInfo(agent);
     } catch (e) {
-      setLoadError(e.message || "Failed to load shop");
+      setLoadError(e.message || t("agentShop.failedToLoadShop", { defaultValue: "Failed to load shop" }));
       setProducts([]);
     } finally {
       setLoading(false);
     }
-  }, [agentUserId]);
+  }, [agentUserId, t]);
 
   useEffect(() => {
     loadProducts();
@@ -1355,10 +1365,10 @@ export default function AgentShop() {
         />
         <main className="products-section">
           <div className="shop-state">
-            <h3>Select an agent</h3>
-            <p>Open a shop from Find Agent so we can show that agent&apos;s products.</p>
+            <h3>{t("agentShop.selectAgent", { defaultValue: "Select an agent" })}</h3>
+            <p>{t("agentShop.openShopFromFindAgent", { defaultValue: "Open a shop from Find Agent so we can show that agent's products." })}</p>
             <Link to="/find-agent" className="retry-btn">
-              Find an agent
+              {t("agentShop.findAnAgent", { defaultValue: "Find an agent" })}
             </Link>
           </div>
         </main>

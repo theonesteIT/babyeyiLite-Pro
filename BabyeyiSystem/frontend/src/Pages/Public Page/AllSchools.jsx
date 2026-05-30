@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
   Search, MapPin, GraduationCap, Building2, Award, Wrench,
   ChevronRight, X, SlidersHorizontal, BookOpen, Users,
@@ -94,7 +95,7 @@ function CheckItem({ label, checked, onChange, count }) {
 }
 
 /* ── School card (grid) ──────────────────────────────────────── */
-function SchoolCard({ school, onClick, index }) {
+function SchoolCard({ school, onClick, index, t }) {
   const logoSrc = imgUrl(school.logoPreview||school.logo_url);
   const coverSrc = imgUrl(school.coverPreview||school.cover_url);
   const levels = school.educationLevels||[];
@@ -136,8 +137,8 @@ function SchoolCard({ school, onClick, index }) {
           </div>
         )}
         <div className="mt-auto pt-3 flex items-center justify-between border-t border-slate-100">
-          <span className="text-[11px] text-slate-400">{school.category||"School"}</span>
-          <div className="flex items-center gap-1 text-[12px] font-bold text-amber-500 group-hover:gap-1.5 transition-all">View <ChevronRight size={12}/></div>
+          <span className="text-[11px] text-slate-400">{school.category||t("allSchools.school", { defaultValue: "School" })}</span>
+          <div className="flex items-center gap-1 text-[12px] font-bold text-amber-500 group-hover:gap-1.5 transition-all">{t("allSchools.view", { defaultValue: "View" })} <ChevronRight size={12}/></div>
         </div>
       </div>
     </div>
@@ -168,6 +169,7 @@ function ListCard({ school, onClick }) {
 
 /* ── Main ────────────────────────────────────────────────────── */
 export default function AllSchools() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [schools, setSchools] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -241,32 +243,32 @@ export default function AllSchools() {
 
   const SidebarContent = () => (
     <div>
-      <FilterSection title="District" icon={<MapPin size={13} className="text-amber-400"/>}>
+      <FilterSection title={t("allSchools.district", { defaultValue: "District" })} icon={<MapPin size={13} className="text-amber-400"/>}>
         <div className="relative">
           <select value={selDistrict} onChange={e=>setSelDistrict(e.target.value)} className="w-full px-3 py-2.5 text-[13px] rounded-xl border-2 border-slate-200 appearance-none focus:outline-none focus:border-amber-400 bg-white font-semibold text-[#000435]">
-            <option value="">All Districts</option>
+            <option value="">{t("allSchools.allDistricts", { defaultValue: "All Districts" })}</option>
             {districts.map(d=><option key={d} value={d}>{d}</option>)}
           </select>
           <ChevronDown size={13} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-amber-400"/>
         </div>
       </FilterSection>
-      <FilterSection title="School Type" icon={<Building2 size={13} className="text-amber-400"/>}>
+      <FilterSection title={t("allSchools.schoolType", { defaultValue: "School Type" })} icon={<Building2 size={13} className="text-amber-400"/>}>
         {SCHOOL_TYPES.map(t=><CheckItem key={t} label={t} checked={selTypes.includes(t)} onChange={()=>toggle(selTypes,setSelTypes,t)} count={schools.filter(s=>s.ownership===t).length}/>)}
       </FilterSection>
-      <FilterSection title="Education Level" icon={<GraduationCap size={13} className="text-amber-400"/>}>
+      <FilterSection title={t("allSchools.educationLevel", { defaultValue: "Education Level" })} icon={<GraduationCap size={13} className="text-amber-400"/>}>
         {EDUCATION_LEVELS.map(l=><CheckItem key={l} label={LEVEL_STYLE[l]?.label||l} checked={selLevels.includes(l)} onChange={()=>toggle(selLevels,setSelLevels,l)} count={schools.filter(s=>(s.educationLevels||[]).includes(l)).length}/>)}
       </FilterSection>
-      <FilterSection title="A-Level Combinations" icon={<Award size={13} className="text-amber-400"/>} defaultOpen={derivedFilterOpts.aLevelCombos.length>0}>
+      <FilterSection title={t("allSchools.aLevelCombinations", { defaultValue: "A-Level Combinations" })} icon={<Award size={13} className="text-amber-400"/>} defaultOpen={derivedFilterOpts.aLevelCombos.length>0}>
         {derivedFilterOpts.aLevelCombos.length===0
-          ?<p className="text-[12px] text-slate-400 px-2 py-2">No combinations yet</p>
+          ?<p className="text-[12px] text-slate-400 px-2 py-2">{t("allSchools.noCombinationsYet", { defaultValue: "No combinations yet" })}</p>
           :<div className="max-h-48 overflow-y-auto space-y-0.5 pr-1">
             {derivedFilterOpts.aLevelCombos.map(c=>{const code=normalizeComboCode(c);return <CheckItem key={code} label={<span><span className="font-black text-amber-700">{code}</span>{c.full?<span className="text-slate-400 text-[10px]"> — {c.full}</span>:null}</span>} checked={selALevel.includes(code)} onChange={()=>toggle(selALevel,setSelALevel,code)} count={schools.filter(s=>(s.aLevelCombos||[]).some(x=>normalizeComboCode(x)===code)).length}/>;})}
           </div>
         }
       </FilterSection>
-      <FilterSection title="TVET Trades" icon={<Wrench size={13} className="text-amber-400"/>} defaultOpen={derivedFilterOpts.tvetTrades.length>0}>
+      <FilterSection title={t("allSchools.tvetTrades", { defaultValue: "TVET Trades" })} icon={<Wrench size={13} className="text-amber-400"/>} defaultOpen={derivedFilterOpts.tvetTrades.length>0}>
         {derivedFilterOpts.tvetTrades.length===0
-          ?<p className="text-[12px] text-slate-400 px-2 py-2">No trades yet</p>
+          ?<p className="text-[12px] text-slate-400 px-2 py-2">{t("allSchools.noTradesYet", { defaultValue: "No trades yet" })}</p>
           :<div className="max-h-48 overflow-y-auto space-y-0.5 pr-1">
             {derivedFilterOpts.tvetTrades.map(t=><CheckItem key={t} label={t} checked={selTVET.includes(t)} onChange={()=>toggle(selTVET,setSelTVET,t)} count={schools.filter(s=>(s.tvetTrades||[]).includes(t)).length}/>)}
           </div>
@@ -281,7 +283,7 @@ export default function AllSchools() {
       <header className="sticky top-0 z-30 bg-[#000435] border-b-[3px] border-amber-400 h-14 sm:h-16">
         <div className="max-w-[1400px] mx-auto h-full px-4 sm:px-6 xl:px-10 flex items-center gap-3">
           <button onClick={()=>navigate("/")} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/8 border border-white/12 text-white/70 font-semibold text-[13px] hover:bg-white/14 transition-all shrink-0">
-            <ArrowLeft size={15}/><span className="hidden sm:inline">Back</span>
+            <ArrowLeft size={15}/><span className="hidden sm:inline">{t("allSchools.back", { defaultValue: "Back" })}</span>
           </button>
           <div className="hidden sm:flex items-center gap-2 shrink-0 pr-3 border-r border-white/10">
             <div className="w-7 h-7 rounded-lg bg-amber-400 flex items-center justify-center"><GraduationCap size={14} className="text-[#000435]"/></div>
@@ -290,7 +292,7 @@ export default function AllSchools() {
           {/* Search */}
           <div className="flex-1 relative">
             <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-amber-400/60"/>
-            <input type="text" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search schools, districts…"
+            <input type="text" value={search} onChange={e=>setSearch(e.target.value)} placeholder={t("allSchools.searchPlaceholder", { defaultValue: "Search schools, districts…" })}
               className="w-full pl-10 pr-10 py-2.5 rounded-xl text-[13px] sm:text-[14px] bg-white/6 border border-amber-400/18 text-white placeholder:text-white/35 focus:outline-none focus:border-amber-400/50 focus:bg-white/10 transition-all"/>
             {search&&<button onClick={()=>setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70"><X size={13}/></button>}
           </div>
@@ -299,7 +301,7 @@ export default function AllSchools() {
           <button onClick={()=>setMobileFilter(true)}
             className={`lg:hidden relative flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-[12px] font-black transition-all border shrink-0 ${activeFilters>0?"bg-amber-400 text-[#000435] border-amber-400":"bg-white/8 text-white/70 border-amber-400/20"}`}>
             <SlidersHorizontal size={14}/>
-            <span className="hidden xs:inline">Filters</span>
+            <span className="hidden xs:inline">{t("allSchools.filters", { defaultValue: "Filters" })}</span>
             {activeFilters>0&&<span className="w-5 h-5 rounded-full bg-[#000435] text-amber-400 text-[10px] font-black flex items-center justify-center">{activeFilters}</span>}
           </button>
 
@@ -320,13 +322,13 @@ export default function AllSchools() {
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 xl:px-10 flex flex-col sm:flex-row sm:items-end justify-between gap-3">
           <div>
             <h1 className="text-2xl sm:text-3xl xl:text-4xl font-black text-white tracking-tight">
-              Explore <span className="text-amber-400">Schools</span>
+              {t("allSchools.explore", { defaultValue: "Explore" })} <span className="text-amber-400">{t("allSchools.schools", { defaultValue: "Schools" })}</span>
             </h1>
-            <p className="mt-1 text-[13px] text-white/45">{loading?"Loading…":<>{filtered.length} of {schools.length} schools across Rwanda</>}</p>
+            <p className="mt-1 text-[13px] text-white/45">{loading?t("allSchools.loading", { defaultValue: "Loading…" }):t("allSchools.resultsAcrossRwanda", { defaultValue: "{{filtered}} of {{total}} schools across Rwanda", filtered: filtered.length, total: schools.length })}</p>
           </div>
           {activeFilters>0&&(
             <button onClick={clearAll} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold text-amber-400 border border-amber-400/30 bg-amber-400/10 hover:bg-amber-400/20 transition-all">
-              <X size={12}/> Clear {activeFilters} filter{activeFilters>1?"s":""}
+              <X size={12}/> {t("allSchools.clearNFilters", { defaultValue: "Clear {{count}} filter", count: activeFilters })}{activeFilters>1?"s":""}
             </button>
           )}
         </div>
@@ -353,10 +355,10 @@ export default function AllSchools() {
             <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-lg bg-amber-400 flex items-center justify-center"><SlidersHorizontal size={13} className="text-[#000435]"/></div>
-                <span className="font-black text-[#000435] text-[13px]">Filters</span>
+                <span className="font-black text-[#000435] text-[13px]">{t("allSchools.filters", { defaultValue: "Filters" })}</span>
                 {activeFilters>0&&<span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-400 text-[#000435]">{activeFilters}</span>}
               </div>
-              {activeFilters>0&&<button onClick={clearAll} className="text-[12px] font-bold text-amber-600 hover:text-amber-700">Clear all</button>}
+              {activeFilters>0&&<button onClick={clearAll} className="text-[12px] font-bold text-amber-600 hover:text-amber-700">{t("allSchools.clearAll", { defaultValue: "Clear all" })}</button>}
             </div>
             <SidebarContent/>
           </div>
@@ -367,28 +369,28 @@ export default function AllSchools() {
           {loading&&(
             <div className="flex flex-col items-center justify-center py-32 gap-4">
               <div className="w-14 h-14 rounded-2xl border-2 border-amber-400/30 flex items-center justify-center"><Loader2 size={24} className="animate-spin text-amber-500"/></div>
-              <p className="font-semibold text-slate-400">Loading schools…</p>
+              <p className="font-semibold text-slate-400">{t("allSchools.loadingSchools", { defaultValue: "Loading schools…" })}</p>
             </div>
           )}
           {!loading&&error&&(
             <div className="flex flex-col items-center justify-center py-32 gap-4 text-center">
               <AlertCircle size={36} className="text-red-400"/>
-              <p className="font-black text-[#000435] text-lg">Failed to load schools</p>
+              <p className="font-black text-[#000435] text-lg">{t("allSchools.failedToLoad", { defaultValue: "Failed to load schools" })}</p>
               <p className="text-[13px] text-slate-400">{error}</p>
             </div>
           )}
           {!loading&&!error&&filtered.length===0&&(
             <div className="flex flex-col items-center justify-center py-32 gap-4 text-center">
               <div className="w-16 h-16 rounded-2xl border-2 border-dashed border-amber-300 flex items-center justify-center text-3xl">🏫</div>
-              <p className="font-black text-[#000435] text-lg">No schools match your filters</p>
-              <p className="text-[13px] text-slate-400 max-w-xs">Try removing some filters or changing your search</p>
-              <button onClick={clearAll} className="px-6 py-3 rounded-xl font-bold text-[13px] bg-amber-400 text-[#000435] hover:bg-amber-300 transition-all">Clear all filters</button>
+              <p className="font-black text-[#000435] text-lg">{t("allSchools.noMatchFilters", { defaultValue: "No schools match your filters" })}</p>
+              <p className="text-[13px] text-slate-400 max-w-xs">{t("allSchools.tryRemovingFilters", { defaultValue: "Try removing some filters or changing your search" })}</p>
+              <button onClick={clearAll} className="px-6 py-3 rounded-xl font-bold text-[13px] bg-amber-400 text-[#000435] hover:bg-amber-300 transition-all">{t("allSchools.clearAllFilters", { defaultValue: "Clear all filters" })}</button>
             </div>
           )}
           {!loading&&!error&&filtered.length>0&&(
             <>
               <div className="flex items-center justify-between mb-4">
-                <p className="text-[12px] font-bold text-slate-400">{filtered.length} result{filtered.length!==1?"s":""}{search&&<span className="text-amber-500"> for "{search}"</span>}</p>
+                <p className="text-[12px] font-bold text-slate-400">{t("allSchools.resultCount", { defaultValue: "{{count}} result", count: filtered.length })}{filtered.length!==1?"s":""}{search&&<span className="text-amber-500"> {t("allSchools.forQuery", { defaultValue: 'for "{{query}}"', query: search })}</span>}</p>
                 <div className="flex sm:hidden items-center p-0.5 rounded-lg bg-white border border-slate-200">
                   <button onClick={()=>setView("grid")} className="p-1.5 rounded-md transition-all" style={{background:view==="grid"?"#000435":"transparent",color:view==="grid"?"#FBBF24":"#94A3B8"}}><LayoutGrid size={13}/></button>
                   <button onClick={()=>setView("list")} className="p-1.5 rounded-md transition-all" style={{background:view==="list"?"#000435":"transparent",color:view==="list"?"#FBBF24":"#94A3B8"}}><List size={13}/></button>
@@ -396,7 +398,7 @@ export default function AllSchools() {
               </div>
               {view==="list"
                 ?<div className="space-y-2.5">{filtered.map(s=><ListCard key={s.id} school={s} onClick={()=>navigate(`/school/${s.slug}`)}/>)}</div>
-                :<div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">{filtered.map((s,i)=><SchoolCard key={s.id} school={s} index={i} onClick={()=>navigate(`/school/${s.slug}`)}/>)}</div>
+                :<div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">{filtered.map((s,i)=><SchoolCard key={s.id} school={s} index={i} onClick={()=>navigate(`/school/${s.slug}`)} t={t} />)}</div>
               }
             </>
           )}
@@ -412,7 +414,7 @@ export default function AllSchools() {
             <div className="px-5 py-4 flex items-center justify-between shrink-0 bg-[#000435] border-b-[3px] border-amber-400">
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-lg bg-amber-400 flex items-center justify-center"><SlidersHorizontal size={13} className="text-[#000435]"/></div>
-                <span className="font-black text-white text-[13px]">Filters</span>
+                <span className="font-black text-white text-[13px]">{t("allSchools.filters", { defaultValue: "Filters" })}</span>
                 {activeFilters>0&&<span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-400 text-[#000435]">{activeFilters}</span>}
               </div>
               <button onClick={()=>setMobileFilter(false)} className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center">
@@ -421,8 +423,8 @@ export default function AllSchools() {
             </div>
             <div className="flex-1 overflow-y-auto"><SidebarContent/></div>
             <div className="p-4 flex gap-3 shrink-0 border-t border-slate-100">
-              <button onClick={clearAll} className="flex-1 py-3 rounded-xl font-bold text-[13px] border-2 border-slate-200 text-slate-600 hover:border-slate-300">Clear all</button>
-              <button onClick={()=>setMobileFilter(false)} className="flex-1 py-3 rounded-xl font-black text-[13px] bg-amber-400 text-[#000435] hover:bg-amber-300 transition-all">Show {filtered.length} results</button>
+              <button onClick={clearAll} className="flex-1 py-3 rounded-xl font-bold text-[13px] border-2 border-slate-200 text-slate-600 hover:border-slate-300">{t("allSchools.clearAll", { defaultValue: "Clear all" })}</button>
+              <button onClick={()=>setMobileFilter(false)} className="flex-1 py-3 rounded-xl font-black text-[13px] bg-amber-400 text-[#000435] hover:bg-amber-300 transition-all">{t("allSchools.showResults", { defaultValue: "Show {{count}} results", count: filtered.length })}</button>
             </div>
           </div>
         </div>
