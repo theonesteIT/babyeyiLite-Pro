@@ -124,6 +124,18 @@ export function emptyPopupTranslations() {
   return { en: { title: '', description: '', cta_text: '' }, rw: { title: '', description: '', cta_text: '' }, fr: { title: '', description: '', cta_text: '' } };
 }
 
+/** Format DB / ISO datetime for `<input type="datetime-local">`. */
+export function formatDateTimeLocal(value) {
+  if (!value) return '';
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) {
+    const raw = String(value).trim().replace(' ', 'T').slice(0, 16);
+    return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(raw) ? raw : '';
+  }
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 export function categoryLabel(id) {
   return NEWS_CATEGORIES.find((c) => c.id === id)?.label || id;
 }

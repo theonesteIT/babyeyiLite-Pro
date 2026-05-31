@@ -679,13 +679,18 @@ function NewsSection() {
   const { t, i18n } = useTranslation();
   const [cards, setCards] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadErr, setLoadErr] = useState('');
 
   const loadNews = useCallback(() => {
     setLoading(true);
+    setLoadErr('');
     platformContentApi
       .getNews(i18n.language, { limit: 3 })
       .then((data) => setCards((data || []).slice(0, 3)))
-      .catch(() => setCards([]))
+      .catch((e) => {
+        setCards([]);
+        setLoadErr(e?.message || 'Failed to load news');
+      })
       .finally(() => setLoading(false));
   }, [i18n.language]);
 
@@ -733,6 +738,17 @@ function NewsSection() {
         {loading ? (
           <div className="py-16 flex justify-center">
             <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+          </div>
+        ) : loadErr ? (
+          <div className="text-center py-12 rounded-2xl border border-dashed border-red-200 bg-red-50/80">
+            <p className="text-red-600 font-medium mb-4">{loadErr}</p>
+            <button
+              type="button"
+              onClick={loadNews}
+              className="inline-flex items-center gap-2 text-sm font-black text-[#000435] hover:text-amber-600"
+            >
+              Try again <ArrowRight size={14} />
+            </button>
           </div>
         ) : !cards.length ? (
           <div className="text-center py-12 rounded-2xl border border-dashed border-slate-200 bg-slate-50/80">

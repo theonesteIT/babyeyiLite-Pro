@@ -52,6 +52,46 @@ function resolveUserId(req) {
   return req.session?.userId || req.session?.user?.id || req.user?.id || null;
 }
 
+/** Normalize `<input type="datetime-local">` or ISO strings for MySQL DATETIME. */
+function toMySqlDateTime(value) {
+  if (value == null || value === '') return null;
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return null;
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())} ${pad(value.getHours())}:${pad(value.getMinutes())}:${pad(value.getSeconds())}`;
+  }
+  const raw = String(value).trim();
+  if (!raw) return null;
+  const normalized = raw.replace('T', ' ').replace(/\.\d{3}Z?$/, '').slice(0, 19);
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(normalized)) return `${normalized}:00`;
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(normalized)) return normalized;
+  return null;
+}
+
+/** NULL publish_at = visible immediately on the public site. */
+function resolvePublishAt(status, rawPublishAt) {
+  const normalized = toMySqlDateTime(rawPublishAt);
+  if (status === 'published' && !normalized) return null;
+  return normalized;
+}
+
+async function repairPublishedNewsVisibility() {
+  try {
+    const [result] = await promisePool.query(`
+      UPDATE platform_news
+      SET publish_at = NOW()
+      WHERE status = 'published'
+        AND publish_at IS NOT NULL
+        AND publish_at > NOW()
+    `);
+    if (result?.affectedRows > 0) {
+      console.log(`[platformContent] repaired ${result.affectedRows} published news row(s) with future publish_at`);
+    }
+  } catch (e) {
+    console.warn('[platformContent] repairPublishedNewsVisibility', e.message);
+  }
+}
+
 function pickLang(translations, lang, field) {
   const t = parseJson(translations, {}) || {};
   const order = [lang, 'en', 'rw', 'fr'];
@@ -216,6 +256,7 @@ async function ensureTables() {
   tablesReady = true;
   await ensureNewsColumns();
   await seedDefaultsIfEmpty();
+  await repairPublishedNewsVisibility();
 }
 
 async function ensureNewsColumns() {
@@ -276,6 +317,86 @@ async function seedDefaultsIfEmpty() {
         `INSERT INTO platform_top_banners (translations_json, cta_link, bg_color, text_color, priority, is_active, sort_order)
          VALUES (?, ?, '#000435', '#ffffff', ?, 1, ?)`,
         [b.translations_json, b.cta_link, b.priority, b.sort_order]
+      );
+    }
+  }
+
+  const [[{ c: newsCount }]] = await promisePool.query('SELECT COUNT(*) AS c FROM platform_news');
+  if (Number(newsCount) === 0) {
+    const defaultNews = [
+      {
+        slug: 'new-instant-school-fee-payments',
+        category: 'announcements',
+        is_featured: 1,
+        translations_json: JSON.stringify({
+          en: {
+            title: 'New: Instant School Fee Payments',
+            excerpt: 'Schools can now receive tuition and other school fee payments instantly through Babyeyi using mobile money and bank channels.',
+            body: 'Schools can now receive tuition and other school fee payments instantly through Babyeyi using mobile money and bank channels.',
+          },
+          rw: {
+            title: 'Bishya: Kwishyura amafaranga y\'ishuri ako kanya',
+            excerpt: 'Amashuri ashobora kwakira amafaranga y\'ishuri ako kanya binyuze muri Babyeyi.',
+            body: 'Amashuri ashobora kwakira amafaranga y\'ishuri ako kanya binyuze muri Babyeyi.',
+          },
+          fr: {
+            title: 'Nouveau : paiements instantanés des frais scolaires',
+            excerpt: 'Les écoles peuvent recevoir les frais de scolarité instantanément via Babyeyi.',
+            body: 'Les écoles peuvent recevoir les frais de scolarité instantanément via Babyeyi.',
+          },
+        }),
+      },
+      {
+        slug: 'shulekit-order-school-supplies-online',
+        category: 'new_features',
+        is_featured: 1,
+        translations_json: JSON.stringify({
+          en: {
+            title: 'ShuleKit — Order School Supplies Online',
+            excerpt: 'Parents can conveniently order school supplies online and receive them through schools or authorized agents.',
+            body: 'Parents can conveniently order school supplies online and receive them through schools or authorized agents.',
+          },
+          rw: {
+            title: 'ShuleKit — Gura ibikoresho by\'ishuri kuri interineti',
+            excerpt: 'Ababyeyi bashobora gura ibikoresho by\'ishuri kuri interineti.',
+            body: 'Ababyeyi bashobora gura ibikoresho by\'ishuri kuri interineti.',
+          },
+          fr: {
+            title: 'ShuleKit — Commander les fournitures scolaires en ligne',
+            excerpt: 'Les parents peuvent commander les fournitures scolaires en ligne.',
+            body: 'Les parents peuvent commander les fournitures scolaires en ligne.',
+          },
+        }),
+      },
+      {
+        slug: 'babyeyi-agent-network-expanding-across-rwanda',
+        category: 'new_features',
+        is_featured: 0,
+        translations_json: JSON.stringify({
+          en: {
+            title: 'Babyeyi Agent Network Expanding Across Rwanda',
+            excerpt: 'Babyeyi is expanding its agent network to provide better support and services in more districts.',
+            body: 'Babyeyi is expanding its agent network to provide better support and services in more districts.',
+          },
+          rw: {
+            title: 'Urusobe rwa Babyeyi Agent ruraguka mu Rwanda',
+            excerpt: 'Babyeyi iragura urusobe rwa Agent kugira ngo itange serivisi nziza mu turere twinshi.',
+            body: 'Babyeyi iragura urusobe rwa Agent kugira ngo itange serivisi nziza mu turere twinshi.',
+          },
+          fr: {
+            title: 'Le réseau d\'agents Babyeyi s\'étend au Rwanda',
+            excerpt: 'Babyeyi étend son réseau d\'agents pour mieux servir les familles.',
+            body: 'Babyeyi étend son réseau d\'agents pour mieux servir les familles.',
+          },
+        }),
+      },
+    ];
+    for (const item of defaultNews) {
+      await promisePool.query(
+        `INSERT INTO platform_news
+          (slug, category, translations_json, status, is_featured, publish_at, author_name)
+         VALUES (?, ?, ?, 'published', ?, NULL, 'Babyeyi Team')`,
+        [item.slug, item.category, item.translations_json, item.is_featured ? 1 : 0]
       );
     }
   }
@@ -390,12 +511,11 @@ router.get('/public/news', async (req, res) => {
       : `is_featured DESC, is_breaking DESC, publish_at ${sort}, id ${sort}`;
     const limit = Math.min(parseInt(req.query.limit, 10) || 12, 50);
     const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
-    const now = new Date();
 
     let sql = `SELECT * FROM platform_news WHERE status = 'published'
-      AND (publish_at IS NULL OR publish_at <= ?)
-      AND (expiry_at IS NULL OR expiry_at >= ?)`;
-    const params = [now, now];
+      AND (publish_at IS NULL OR publish_at <= NOW())
+      AND (expiry_at IS NULL OR expiry_at >= NOW())`;
+    const params = [];
 
     if (category) { sql += ' AND category = ?'; params.push(category); }
     if (featured) { sql += ' AND is_featured = 1'; }
@@ -421,11 +541,17 @@ router.get('/public/news/:slug', async (req, res) => {
     if (!row || row.status !== 'published') {
       return res.status(404).json({ success: false, message: 'News not found' });
     }
-    const now = new Date();
-    if (row.publish_at && new Date(row.publish_at) > now) {
+    const [[schedule]] = await promisePool.query(
+      `SELECT
+         (publish_at IS NOT NULL AND publish_at > NOW()) AS not_yet,
+         (expiry_at IS NOT NULL AND expiry_at < NOW()) AS expired
+       FROM platform_news WHERE id = ? LIMIT 1`,
+      [row.id]
+    );
+    if (schedule?.not_yet) {
       return res.status(404).json({ success: false, message: 'News not published yet' });
     }
-    if (row.expiry_at && new Date(row.expiry_at) < now) {
+    if (schedule?.expired) {
       return res.status(404).json({ success: false, message: 'News expired' });
     }
     res.json({ success: true, data: localizeNews(row, lang) });
@@ -544,10 +670,7 @@ router.post('/admin/news', requireSuper, handleMulterErrors(newsUploadFields), a
     const image = newsFeaturedPath(body, req.files, null);
     const gallery = mergeNewsGallery(body, req.files, null);
     const status = body.status || 'draft';
-    let publishAt = body.publish_at || null;
-    if (status === 'published' && !publishAt) {
-      publishAt = new Date();
-    }
+    const publishAt = resolvePublishAt(status, body.publish_at);
 
     const [existing] = await promisePool.query('SELECT id FROM platform_news WHERE slug = ?', [slug]);
     const finalSlug = existing?.length ? `${slug}-${Date.now()}` : slug;
@@ -567,7 +690,7 @@ router.post('/admin/news', requireSuper, handleMulterErrors(newsUploadFields), a
         body.author_name || req.user?.full_name || req.user?.name || 'Babyeyi Team',
         resolveUserId(req),
         publishAt,
-        body.expiry_at || null,
+        toMySqlDateTime(body.expiry_at),
         status,
         body.is_featured === '1' || body.is_featured === true ? 1 : 0,
         body.is_breaking === '1' || body.is_breaking === true ? 1 : 0,
@@ -580,6 +703,7 @@ router.post('/admin/news', requireSuper, handleMulterErrors(newsUploadFields), a
         result.insertId,
       ]);
     }
+    await repairPublishedNewsVisibility();
     res.json({ success: true, id: result.insertId, slug: finalSlug });
   } catch (e) {
     console.error('[platformContent] POST admin/news', e);
@@ -599,8 +723,7 @@ router.put('/admin/news/:id', requireSuper, handleMulterErrors(newsUploadFields)
     const image = newsFeaturedPath(body, req.files, row);
     const gallery = mergeNewsGallery(body, req.files, row);
     const status = body.status || row.status;
-    let publishAt = body.publish_at !== undefined ? body.publish_at || null : row.publish_at;
-    if (status === 'published' && !publishAt) publishAt = new Date();
+    const publishAt = resolvePublishAt(status, body.publish_at);
 
     await promisePool.query(
       `UPDATE platform_news SET slug=?, category=?, translations_json=?, tags_json=?, featured_image=?, gallery_json=?,
@@ -615,7 +738,7 @@ router.put('/admin/news/:id', requireSuper, handleMulterErrors(newsUploadFields)
         JSON.stringify(gallery),
         body.author_name || row.author_name,
         publishAt,
-        body.expiry_at !== undefined ? body.expiry_at || null : row.expiry_at,
+        body.expiry_at !== undefined ? toMySqlDateTime(body.expiry_at) : toMySqlDateTime(row.expiry_at),
         status,
         body.is_featured === '1' || body.is_featured === true ? 1 : body.is_featured === '0' || body.is_featured === false ? 0 : row.is_featured,
         body.is_breaking === '1' || body.is_breaking === true ? 1 : body.is_breaking === '0' || body.is_breaking === false ? 0 : row.is_breaking,
@@ -623,6 +746,7 @@ router.put('/admin/news/:id', requireSuper, handleMulterErrors(newsUploadFields)
         id,
       ]
     );
+    await repairPublishedNewsVisibility();
     res.json({ success: true });
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });

@@ -11,6 +11,7 @@ import {
   emptyTranslations,
   emptyBannerTranslations,
   emptyPopupTranslations,
+  formatDateTimeLocal,
   mediaUrl,
   MAX_NEWS_GALLERY_EXTRA,
 } from '../../utils/platformContentApi';
@@ -357,7 +358,7 @@ function NewsModal({ row, onClose, onSave, saving }) {
   const [category, setCategory] = useState(row?.category || 'announcements');
   const [status, setStatus] = useState(row?.status || 'draft');
   const [slug, setSlug] = useState(row?.slug || '');
-  const [publishAt, setPublishAt] = useState(row?.publish_at?.slice?.(0, 16) || '');
+  const [publishAt, setPublishAt] = useState(formatDateTimeLocal(row?.publish_at));
   const [featured, setFeatured] = useState(!!row?.is_featured);
   const [breaking, setBreaking] = useState(!!row?.is_breaking);
   const [imageFile, setImageFile] = useState(null);
@@ -412,8 +413,7 @@ function NewsModal({ row, onClose, onSave, saving }) {
     fd.append('category', category);
     fd.append('status', status);
     if (slug) fd.append('slug', slug);
-    const pub = publishAt || (status === 'published' ? new Date().toISOString().slice(0, 16) : '');
-    if (pub) fd.append('publish_at', pub);
+    fd.append('publish_at', publishAt);
     fd.append('is_featured', featured ? '1' : '0');
     fd.append('is_breaking', breaking ? '1' : '0');
     if (imageFile) fd.append('featured_image', imageFile);

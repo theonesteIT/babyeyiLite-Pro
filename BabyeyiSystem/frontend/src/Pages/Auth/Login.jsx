@@ -22,7 +22,7 @@ import {
   LITE_ROLE_HOME,
   LITE_SHULE_AVANCE_ONLY,
 } from '../../utils/liteStaffEntry';
-import { isOtherPortalRole, OTHER_PORTAL_ROLE_CHIPS } from '../../utils/otherPortalEntry';
+import { isOtherPortalRole } from '../../utils/otherPortalEntry';
 import loginShulemanagerLogo from '../../assets/login-logo.png';
 import loginDecor from '../../assets/login-bg-removebg.png';
 
@@ -618,24 +618,6 @@ const Login = ({
           margin-bottom: 1.5rem;
           line-height: 1.5;
         }
-        .lx-role-chips {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 6px;
-          margin: -0.75rem 0 1.25rem;
-        }
-        .lx-role-chip {
-          font-size: 10px;
-          font-weight: 800;
-          letter-spacing: 0.04em;
-          text-transform: uppercase;
-          color: #000435;
-          background: rgba(251,191,36,0.12);
-          border: 1px solid rgba(251,191,36,0.35);
-          border-radius: 999px;
-          padding: 4px 10px;
-        }
-
         /* Alerts */
         .lx-alert {
           display: flex;
@@ -1051,14 +1033,6 @@ const Login = ({
               {!portalBrand && tr('signInToContinue')}
             </p>
 
-            {portalBrand === 'other' && (
-              <div className="lx-role-chips" aria-hidden="false">
-                {OTHER_PORTAL_ROLE_CHIPS.map((chip) => (
-                  <span key={chip.key} className="lx-role-chip">{chip.label}</span>
-                ))}
-              </div>
-            )}
-
             {sysPublic?.maintenance_mode && (
               <div className="lx-alert warn">
                 <AlertCircle size={15}/>
@@ -1096,9 +1070,6 @@ const Login = ({
               <div className="lx-field">
                 <label className="lx-label" htmlFor="schoolCode">
                   {tr("schoolCode")}
-                  {!isSchoolManager && (
-                    <span className="lx-label-note">{tr("schoolCodeNoteStaff")}</span>
-                  )}
                   {isSchoolManager && (
                     <span className="lx-label-note">{tr("schoolCodeNoteManager")}</span>
                   )}
